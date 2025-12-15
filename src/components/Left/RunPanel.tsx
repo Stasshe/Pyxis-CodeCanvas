@@ -1,134 +1,134 @@
-import clsx from 'clsx';
-import { Play, Square, Code, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import clsx from 'clsx'
+import { Play, Square, Code, Trash2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 
-import OperationWindow from '@/components/OperationWindow';
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
-import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
-import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry';
+import OperationWindow from '@/components/OperationWindow'
+import { LOCALSTORAGE_KEY } from '@/context/config'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore'
+import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime'
+import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry'
 
 interface RunPanelProps {
-  currentProject: { id: string; name: string } | null;
-  files: any[];
+  currentProject: { id: string; name: string } | null
+  files: any[]
 }
 
 interface OutputEntry {
-  id: string;
-  content: string;
-  type: 'log' | 'error' | 'input';
-  timestamp: Date;
+  id: string
+  content: string
+  type: 'log' | 'error' | 'input'
+  timestamp: Date
 }
 
 export default function RunPanel({ currentProject, files }: RunPanelProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const [isRunning, setIsRunning] = useState(false);
-  const [output, setOutput] = useState<OutputEntry[]>([]);
-  const [inputCode, setInputCode] = useState('');
-  const [selectedFile, setSelectedFile] = useState<string>('');
-  const [isPyodideReady, setIsPyodideReady] = useState(false);
-  const outputRef = useRef<HTMLDivElement>(null);
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const [isRunning, setIsRunning] = useState(false)
+  const [output, setOutput] = useState<OutputEntry[]>([])
+  const [inputCode, setInputCode] = useState('')
+  const [selectedFile, setSelectedFile] = useState<string>('')
+  const [isPyodideReady, setIsPyodideReady] = useState(false)
+  const outputRef = useRef<HTMLDivElement>(null)
 
   // Pyodideプロジェクト設定
   useEffect(() => {
     if (currentProject) {
       setCurrentProject(currentProject.id, currentProject.name).then(() => {
-        setIsPyodideReady(true);
-      });
+        setIsPyodideReady(true)
+      })
     }
-  }, [currentProject]);
+  }, [currentProject])
 
   // 出力エリアの自動スクロール
   useEffect(() => {
     if (outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+      outputRef.current.scrollTop = outputRef.current.scrollHeight
     }
-  }, [output]);
+  }, [output])
 
   // 拡張子で自動判別: 登録されているすべてのランタイムの実行可能ファイルを取得
   const getExecutableFiles = () => {
     // RuntimeRegistryから動的に対応拡張子を取得
-    const allRuntimes = runtimeRegistry.getAllRuntimes();
-    const supportedExtensions: string[] = [];
-    const extensionToLang: Map<string, string> = new Map();
-    
+    const allRuntimes = runtimeRegistry.getAllRuntimes()
+    const supportedExtensions: string[] = []
+    const extensionToLang: Map<string, string> = new Map()
+
     // Node.jsは特別扱い（ビルトイン）
-    const nodeExts = ['.js', '.ts', '.mjs', '.cjs'];
+    const nodeExts = ['.js', '.ts', '.mjs', '.cjs']
     nodeExts.forEach(ext => {
-      supportedExtensions.push(ext);
-      extensionToLang.set(ext, 'node');
-    });
-    
+      supportedExtensions.push(ext)
+      extensionToLang.set(ext, 'node')
+    })
+
     // 登録済みランタイムの拡張子を追加
     allRuntimes.forEach(runtime => {
       runtime.supportedExtensions.forEach(ext => {
         if (!supportedExtensions.includes(ext)) {
-          supportedExtensions.push(ext);
-          extensionToLang.set(ext, runtime.id);
+          supportedExtensions.push(ext)
+          extensionToLang.set(ext, runtime.id)
         }
-      });
-    });
+      })
+    })
 
     const flattenFiles = (items: any[], parentPath = ''): any[] => {
       return items.reduce((acc, item) => {
-        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name
         if (item.type === 'file') {
           // Check if file has supported extension
-          const matchedExt = supportedExtensions.find(ext => item.name.endsWith(ext));
+          const matchedExt = supportedExtensions.find(ext => item.name.endsWith(ext))
           if (matchedExt) {
-            const lang = extensionToLang.get(matchedExt) || 'unknown';
+            const lang = extensionToLang.get(matchedExt) || 'unknown'
             acc.push({
               ...item,
               path: fullPath,
               uniqueKey: `${fullPath}-${item.id || Math.random().toString(36).substr(2, 9)}`,
               lang,
-            });
+            })
           }
         }
         if (item.children) {
-          acc.push(...flattenFiles(item.children, fullPath));
+          acc.push(...flattenFiles(item.children, fullPath))
         }
-        return acc;
-      }, []);
-    };
+        return acc
+      }, [])
+    }
 
     // .gitignore をプロジェクトツリーから探してパースする
     const findGitignoreContent = (items: any[], parentPath = ''): string | null => {
       for (const item of items) {
-        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name
         if (item.type === 'file' && item.name === '.gitignore') {
-          return item.content ?? null;
+          return item.content ?? null
         }
         if (item.children) {
-          const found = findGitignoreContent(item.children, fullPath);
-          if (found) return found;
+          const found = findGitignoreContent(item.children, fullPath)
+          if (found) return found
         }
       }
-      return null;
-    };
+      return null
+    }
 
-    const gitignoreContent = findGitignoreContent(files);
-    const gitignoreRules = gitignoreContent ? parseGitignore(gitignoreContent) : null;
+    const gitignoreContent = findGitignoreContent(files)
+    const gitignoreRules = gitignoreContent ? parseGitignore(gitignoreContent) : null
 
-    const all = flattenFiles(files);
-    if (!gitignoreRules) return all;
+    const all = flattenFiles(files)
+    if (!gitignoreRules) return all
 
     // ルールに従って除外
     return all.filter(f => {
       try {
-        return !isPathIgnored(gitignoreRules, f.path, false);
+        return !isPathIgnored(gitignoreRules, f.path, false)
       } catch (e) {
-        return true;
+        return true
       }
-    });
-  };
+    })
+  }
 
   // OperationWindowによるファイル選択モーダル
-  const [isOperationOpen, setIsOperationOpen] = useState(false);
-  const executableFiles = getExecutableFiles();
+  const [isOperationOpen, setIsOperationOpen] = useState(false)
+  const executableFiles = getExecutableFiles()
 
   // OperationWindow に渡すための木構造ではないフラットなfile items
   const projectFilesForOperation = executableFiles.map(f => ({
@@ -137,15 +137,15 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     path: f.path,
     content: f.content,
     type: 'file' as const,
-  }));
+  }))
 
   // 初期化時にlocalStorageから復元
   useEffect(() => {
-    const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
+    const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE)
     if (last && executableFiles.some(f => f.path === last)) {
-      setSelectedFile(last);
+      setSelectedFile(last)
     }
-  }, [currentProject, files.length]);
+  }, [currentProject, files.length])
 
   // 出力を追加
   const addOutput = (content: string, type: 'log' | 'error' | 'input') => {
@@ -157,120 +157,120 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         type,
         timestamp: new Date(),
       },
-    ]);
-  };
+    ])
+  }
 
   // デバッグコンソールを作成
   const createDebugConsole = () => ({
     log: (...args: unknown[]) => {
       const content = args
         .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-        .join(' ');
-      addOutput(content, 'log');
+        .join(' ')
+      addOutput(content, 'log')
     },
     error: (...args: unknown[]) => {
       const content = args
         .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-        .join(' ');
-      addOutput(content, 'error');
+        .join(' ')
+      addOutput(content, 'error')
     },
     warn: (...args: unknown[]) => {
       const content = args
         .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-        .join(' ');
-      addOutput(content, 'log');
+        .join(' ')
+      addOutput(content, 'log')
     },
     clear: () => {
-      setOutput([]);
+      setOutput([])
     },
-  });
+  })
 
   // 入力コールバックを作成（readline用 - DebugConsoleAPI使用）
   const createOnInput = () => {
     return (prompt: string, callback: (input: string) => void) => {
       // DebugConsoleAPIを使って入力を受け取る
-      const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI');
+      const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI')
 
       // プロンプトを表示
-      addOutput(prompt, 'log');
-      DebugConsoleAPI.write(prompt);
+      addOutput(prompt, 'log')
+      DebugConsoleAPI.write(prompt)
 
       // DebugConsoleからの入力を待つ
       const unsubscribe = DebugConsoleAPI.onInput((input: string) => {
-        unsubscribe();
-        addOutput(input, 'input');
-        callback(input);
-      });
-    };
-  };
+        unsubscribe()
+        addOutput(input, 'input')
+        callback(input)
+      })
+    }
+  }
 
   // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
-    if (!inputCode.trim() || !currentProject) return;
-    setIsRunning(true);
-    addOutput(`> ${inputCode}`, 'input');
+    if (!inputCode.trim() || !currentProject) return
+    setIsRunning(true)
+    addOutput(`> ${inputCode}`, 'input')
     try {
       // 入力欄の先頭行に#!pythonがあればPython、それ以外はNode.js
       const isPython =
         inputCode.trimStart().startsWith('#!python') ||
         inputCode.trimStart().startsWith('import ') ||
-        inputCode.trimStart().startsWith('print(');
+        inputCode.trimStart().startsWith('print(')
 
       if (isPython) {
         if (!isPyodideReady) {
-          addOutput(t('run.runtimeNotReady'), 'error');
-          return;
+          addOutput(t('run.runtimeNotReady'), 'error')
+          return
         }
-        const pyodide = await initPyodide();
-        const cleanCode = inputCode.replace(/^#!python\s*/, '');
-        const pythonResult = await pyodide.runPythonAsync(cleanCode);
-        addOutput(String(pythonResult), 'log');
+        const pyodide = await initPyodide()
+        const cleanCode = inputCode.replace(/^#!python\s*/, '')
+        const pythonResult = await pyodide.runPythonAsync(cleanCode)
+        addOutput(String(pythonResult), 'log')
       } else {
         // Node.js実行 - RuntimeRegistryを使用
-        const runtime = runtimeRegistry.getRuntime('nodejs');
+        const runtime = runtimeRegistry.getRuntime('nodejs')
         if (!runtime) {
-          addOutput('Node.js runtime not available', 'error');
-          return;
+          addOutput('Node.js runtime not available', 'error')
+          return
         }
-        
+
         const result = await runtime.executeCode?.(inputCode, {
           projectId: currentProject.id,
           projectName: currentProject.name,
           filePath: '/temp-code.js',
           debugConsole: createDebugConsole(),
           onInput: createOnInput(),
-        });
+        })
 
         if (result?.stderr) {
-          addOutput(result.stderr, 'error');
+          addOutput(result.stderr, 'error')
         }
       }
     } catch (error) {
-      addOutput(`Error: ${(error as Error).message}`, 'error');
+      addOutput(`Error: ${(error as Error).message}`, 'error')
     } finally {
-      setIsRunning(false);
-      setInputCode('');
+      setIsRunning(false)
+      setInputCode('')
     }
-  };
+  }
 
   // ファイルを実行（拡張子で自動判別）
   const executeFile = async () => {
-    if (!selectedFile || !currentProject) return;
-    setIsRunning(true);
-    const filePath = `/${selectedFile}`;
-    
+    if (!selectedFile || !currentProject) return
+    setIsRunning(true)
+    const filePath = `/${selectedFile}`
+
     // RuntimeRegistryからランタイムを取得
-    const runtime = runtimeRegistry.getRuntimeForFile(filePath);
-    
+    const runtime = runtimeRegistry.getRuntimeForFile(filePath)
+
     if (!runtime) {
-      addOutput(`No runtime found for ${selectedFile}`, 'error');
-      setIsRunning(false);
-      return;
+      addOutput(`No runtime found for ${selectedFile}`, 'error')
+      setIsRunning(false)
+      return
     }
 
-    addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
-    localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
-    
+    addOutput(`> ${runtime.name} ${selectedFile}`, 'input')
+    localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile)
+
     try {
       const result = await runtime.execute({
         projectId: currentProject.id,
@@ -278,69 +278,51 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         filePath,
         debugConsole: createDebugConsole(),
         onInput: createOnInput(),
-      });
+      })
 
       if (result.stderr) {
-        addOutput(result.stderr, 'error');
+        addOutput(result.stderr, 'error')
       } else if (result.stdout) {
-        addOutput(result.stdout, 'log');
+        addOutput(result.stdout, 'log')
       }
       // Don't show "no output" message - if there's no output, show nothing
     } catch (error) {
-      addOutput(`Error: ${(error as Error).message}`, 'error');
+      addOutput(`Error: ${(error as Error).message}`, 'error')
     } finally {
-      setIsRunning(false);
+      setIsRunning(false)
     }
-  };
+  }
 
   // 実行を停止
   const stopExecution = () => {
-    setIsRunning(false);
-    addOutput(t('run.executionStopped'), 'log');
-  };
+    setIsRunning(false)
+    addOutput(t('run.executionStopped'), 'log')
+  }
 
   // 出力をクリア
   const clearOutput = () => {
-    setOutput([]);
-  };
+    setOutput([])
+  }
 
   if (!currentProject) {
     return (
-      <div
-        className="h-full flex items-center justify-center"
-        style={{ color: colors.mutedFg }}
-      >
+      <div className="h-full flex items-center justify-center" style={{ color: colors.mutedFg }}>
         <div className="text-center">
-          <Code
-            size={48}
-            style={{ margin: '0 auto 1rem', color: colors.mutedFg }}
-          />
+          <Code size={48} style={{ margin: '0 auto 1rem', color: colors.mutedFg }} />
           <p>{t('run.noProject')}</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div
-      className="h-full flex flex-col"
-      style={{ background: colors.background }}
-    >
+    <div className="h-full flex flex-col" style={{ background: colors.background }}>
       {/* ヘッダー */}
-      <div
-        className="border-b p-3"
-        style={{ borderBottom: `1px solid ${colors.border}` }}
-      >
+      <div className="border-b p-3" style={{ borderBottom: `1px solid ${colors.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Code
-              size={16}
-              style={{ color: colors.primary }}
-            />
-            <span
-              className="font-semibold"
-              style={{ color: colors.foreground }}
-            >
+            <Code size={16} style={{ color: colors.primary }} />
+            <span className="font-semibold" style={{ color: colors.foreground }}>
               {t('run.title')}
             </span>
           </div>
@@ -422,10 +404,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         </div>
 
         {/* 入力エリア */}
-        <div
-          className="border-t p-3"
-          style={{ borderTop: `1px solid ${colors.border}` }}
-        >
+        <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>
           <div className="flex gap-2">
             <textarea
               value={inputCode}
@@ -440,8 +419,8 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
               rows={3}
               onKeyDown={e => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  executeCode();
+                  e.preventDefault()
+                  executeCode()
                 }
               }}
             />
@@ -471,10 +450,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
               )}
             </div>
           </div>
-          <div
-            className="text-xs mt-2"
-            style={{ color: colors.mutedFg }}
-          >
+          <div className="text-xs mt-2" style={{ color: colors.mutedFg }}>
             {t('run.executeHint')}
           </div>
         </div>
@@ -485,16 +461,16 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           onClose={() => setIsOperationOpen(false)}
           projectFiles={projectFilesForOperation}
           onFileSelect={(file: any, preview?: boolean) => {
-            const path = file?.path ?? file?.name;
+            const path = file?.path ?? file?.name
             if (path) {
-              setSelectedFile(path);
-              localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, path);
+              setSelectedFile(path)
+              localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, path)
             }
-            setIsOperationOpen(false);
+            setIsOperationOpen(false)
           }}
           initialView="files"
         />
       )}
     </div>
-  );
+  )
 }

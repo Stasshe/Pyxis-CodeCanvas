@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Farkı görüntüle (salt okunur)"
   },
   "gitHistory": {
-        "allFilesFiles": "Tüm {count} dosya",
+    "allFilesFiles": "Tüm {count} dosya",
     "allFilesScrollable": "Tüm {count} dosya (kaydırılabilir)",
     "changedFiles": "Değişen dosyalar:",
     "daysAgo": "{days} gün önce",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Mermaid diyagramı oluşturuluyor...",
     "imageNotFound": "Resim bulunamadı: {src}",
     "loadingImage": "Resim yükleniyor...",
+    "mermaidPlaceholder": "Mermaid diyagramını görmek için kaydırın",
     "preview": "Önizleme",
     "reset": "Sıfırla",
     "zoomIn": "Yakınlaştır",
-    "zoomOut": "Uzaklaştır",
-    "mermaidPlaceholder": "Mermaid diyagramını görmek için kaydırın"
+    "zoomOut": "Uzaklaştır"
   },
   "menu": {
     "extensions": "Extensions",

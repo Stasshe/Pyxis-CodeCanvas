@@ -1,8 +1,8 @@
-import { jsPDF } from 'jspdf';
-import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf'
+import { toPng } from 'html-to-image'
 
 // High quality export setting for retina displays
-const HIGH_QUALITY_PIXEL_RATIO = 2;
+const HIGH_QUALITY_PIXEL_RATIO = 2
 
 /**
  * Export HTML content as PDF using browser's print dialog
@@ -10,14 +10,17 @@ const HIGH_QUALITY_PIXEL_RATIO = 2;
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.pdf')
  */
-export async function exportPdfFromHtml(html: string, fileName: string = 'export.pdf'): Promise<void> {
-  if (typeof window === 'undefined') return;
+export async function exportPdfFromHtml(
+  html: string,
+  fileName: string = 'export.pdf'
+): Promise<void> {
+  if (typeof window === 'undefined') return
 
   // Create a temporary container with the content
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open('', '_blank')
   if (!printWindow) {
-    console.error('Failed to open print window. Please allow popups for this site.');
-    return;
+    console.error('Failed to open print window. Please allow popups for this site.')
+    return
   }
 
   // Create a complete HTML document with styles
@@ -160,10 +163,10 @@ export async function exportPdfFromHtml(html: string, fileName: string = 'export
         </script>
       </body>
     </html>
-  `;
+  `
 
-  printWindow.document.write(fullHtml);
-  printWindow.document.close();
+  printWindow.document.write(fullHtml)
+  printWindow.document.close()
 }
 
 /**
@@ -171,8 +174,11 @@ export async function exportPdfFromHtml(html: string, fileName: string = 'export
  * @param element - HTML element to export
  * @param fileName - Output filename (optional, default: 'export.png')
  */
-export async function exportPngFromElement(element: HTMLElement, fileName: string = 'export.png'): Promise<void> {
-  if (typeof window === 'undefined') return;
+export async function exportPngFromElement(
+  element: HTMLElement,
+  fileName: string = 'export.png'
+): Promise<void> {
+  if (typeof window === 'undefined') return
 
   try {
     // Generate PNG from the element
@@ -181,16 +187,16 @@ export async function exportPngFromElement(element: HTMLElement, fileName: strin
       pixelRatio: HIGH_QUALITY_PIXEL_RATIO,
       backgroundColor: '#ffffff',
       cacheBust: true,
-    });
+    })
 
     // Create download link
-    const link = document.createElement('a');
-    link.download = fileName;
-    link.href = dataUrl;
-    link.click();
+    const link = document.createElement('a')
+    link.download = fileName
+    link.href = dataUrl
+    link.click()
   } catch (error) {
-    console.error('Failed to export PNG:', error);
-    throw error;
+    console.error('Failed to export PNG:', error)
+    throw error
   }
 }
 
@@ -199,24 +205,27 @@ export async function exportPngFromElement(element: HTMLElement, fileName: strin
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.png')
  */
-export async function exportPngFromHtml(html: string, fileName: string = 'export.png'): Promise<void> {
-  if (typeof window === 'undefined') return;
+export async function exportPngFromHtml(
+  html: string,
+  fileName: string = 'export.png'
+): Promise<void> {
+  if (typeof window === 'undefined') return
 
-  const element = document.createElement('div');
-  element.innerHTML = html;
-  element.style.padding = '20px';
-  element.style.backgroundColor = '#ffffff';
-  element.style.color = '#000000';
-  element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  element.style.maxWidth = '900px';
-  element.style.margin = '0 auto';
-  
-  document.body.appendChild(element);
+  const element = document.createElement('div')
+  element.innerHTML = html
+  element.style.padding = '20px'
+  element.style.backgroundColor = '#ffffff'
+  element.style.color = '#000000'
+  element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  element.style.maxWidth = '900px'
+  element.style.margin = '0 auto'
+
+  document.body.appendChild(element)
 
   try {
-    await exportPngFromElement(element, fileName);
+    await exportPngFromElement(element, fileName)
   } finally {
-    document.body.removeChild(element);
+    document.body.removeChild(element)
   }
 }
 
@@ -227,18 +236,21 @@ export async function exportPngFromHtml(html: string, fileName: string = 'export
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.pdf')
  */
-export async function exportPdfFromHtmlCanvas(html: string, fileName: string = 'export.pdf'): Promise<void> {
-  if (typeof window === 'undefined') return;
+export async function exportPdfFromHtmlCanvas(
+  html: string,
+  fileName: string = 'export.pdf'
+): Promise<void> {
+  if (typeof window === 'undefined') return
 
-  const element = document.createElement('div');
-  element.innerHTML = html;
-  element.style.padding = '20px';
-  element.style.backgroundColor = '#ffffff';
-  element.style.color = '#000000';
-  element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  element.style.maxWidth = '900px';
-  
-  document.body.appendChild(element);
+  const element = document.createElement('div')
+  element.innerHTML = html
+  element.style.padding = '20px'
+  element.style.backgroundColor = '#ffffff'
+  element.style.color = '#000000'
+  element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  element.style.maxWidth = '900px'
+
+  document.body.appendChild(element)
 
   try {
     // Convert to PNG first
@@ -247,39 +259,39 @@ export async function exportPdfFromHtmlCanvas(html: string, fileName: string = '
       pixelRatio: HIGH_QUALITY_PIXEL_RATIO,
       backgroundColor: '#ffffff',
       cacheBust: true,
-    });
+    })
 
     // Create PDF from image
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
-    });
+    })
 
-    const imgProps = pdf.getImageProperties(dataUrl);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    let heightLeft = pdfHeight;
-    let position = 0;
+    const imgProps = pdf.getImageProperties(dataUrl)
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+
+    let heightLeft = pdfHeight
+    let position = 0
 
     // Add first page
-    pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
-    heightLeft -= pdf.internal.pageSize.getHeight();
+    pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight)
+    heightLeft -= pdf.internal.pageSize.getHeight()
 
     // Add additional pages if content is longer than one page
     while (heightLeft > 0) {
-      position = heightLeft - pdfHeight;
-      pdf.addPage();
-      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pdf.internal.pageSize.getHeight();
+      position = heightLeft - pdfHeight
+      pdf.addPage()
+      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, pdfHeight)
+      heightLeft -= pdf.internal.pageSize.getHeight()
     }
 
-    pdf.save(fileName);
+    pdf.save(fileName)
   } catch (error) {
-    console.error('Failed to export PDF:', error);
-    throw error;
+    console.error('Failed to export PDF:', error)
+    throw error
   } finally {
-    document.body.removeChild(element);
+    document.body.removeChild(element)
   }
 }

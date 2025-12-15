@@ -1,47 +1,47 @@
-'use client';
+'use client'
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 
 export type ThemeColors = {
-  background: string;
-  foreground: string;
-  accent: string;
-  primary: string;
-  mermaidBg: string;
-  editorBg: string;
-  editorFg: string;
-  editorLineHighlight: string;
-  editorSelection: string;
-  editorCursor: string;
-  cardBg: string;
-  border: string;
-  mutedBg: string;
-  mutedFg: string;
-  accentBg: string;
-  accentFg: string;
-  red: string;
-  green: string;
-  sidebarTitleFg: string;
-  sidebarIconFg: string;
-  sidebarResizerBg: string;
-  gitBranchColors?: string[];
-  gitCommitStroke?: string;
-  gitMergeDot?: string;
-  gitCommitChevron?: string;
-  gitCommitMsg?: string;
-  gitCommitMeta?: string;
-  gitCommitExpandedBg?: string;
-  gitCommitExpandedBorder?: string;
-  gitCommitFile?: string;
-  gitMergeIcon?: string;
-  gitBranchCurrentBg?: string;
-  gitBranchCurrentFg?: string;
-  gitBranchCurrentBorder?: string;
-  gitBranchOtherBg?: string;
-  gitBranchOtherFg?: string;
-  gitBranchOtherBorder?: string;
-  [key: string]: any;
-};
+  background: string
+  foreground: string
+  accent: string
+  primary: string
+  mermaidBg: string
+  editorBg: string
+  editorFg: string
+  editorLineHighlight: string
+  editorSelection: string
+  editorCursor: string
+  cardBg: string
+  border: string
+  mutedBg: string
+  mutedFg: string
+  accentBg: string
+  accentFg: string
+  red: string
+  green: string
+  sidebarTitleFg: string
+  sidebarIconFg: string
+  sidebarResizerBg: string
+  gitBranchColors?: string[]
+  gitCommitStroke?: string
+  gitMergeDot?: string
+  gitCommitChevron?: string
+  gitCommitMsg?: string
+  gitCommitMeta?: string
+  gitCommitExpandedBg?: string
+  gitCommitExpandedBorder?: string
+  gitCommitFile?: string
+  gitMergeIcon?: string
+  gitBranchCurrentBg?: string
+  gitBranchCurrentFg?: string
+  gitBranchCurrentBorder?: string
+  gitBranchOtherBg?: string
+  gitBranchOtherFg?: string
+  gitBranchOtherBorder?: string
+  [key: string]: any
+}
 
 const themes: { [key: string]: ThemeColors } = {
   pastelSoft: {
@@ -486,54 +486,54 @@ const themes: { [key: string]: ThemeColors } = {
     gitBranchOtherFg: '#dc322f',
     gitBranchOtherBorder: 'rgba(220,50,47,0.2)',
   },
-};
-
-interface ThemeContextProps {
-  colors: ThemeColors;
-  setColor: (key: string, value: string) => void;
-  setColors: (colors: ThemeColors) => void;
-  themeName: string;
-  setTheme: (name: string) => void;
-  themeList: string[];
 }
 
-export const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
+interface ThemeContextProps {
+  colors: ThemeColors
+  setColor: (key: string, value: string) => void
+  setColors: (colors: ThemeColors) => void
+  themeName: string
+  setTheme: (name: string) => void
+  themeList: string[]
+}
+
+export const ThemeContext = createContext<ThemeContextProps | undefined>(undefined)
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   // SSR/クライアントで初期値を必ず一致させる
-  const [themeName, setThemeName] = useState<string>('dark');
-  const [colors, setColorsState] = useState<ThemeColors>(themes['dark']);
+  const [themeName, setThemeName] = useState<string>('dark')
+  const [colors, setColorsState] = useState<ThemeColors>(themes['dark'])
   // highlightTheme (shiki) removed
 
   // クライアントマウント後にlocalStorageのテーマを反映
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('themeName');
+      const saved = localStorage.getItem('themeName')
       if (saved && themes[saved]) {
-        setThemeName(saved);
-        setColorsState(themes[saved]);
+        setThemeName(saved)
+        setColorsState(themes[saved])
       }
       // highlightTheme removed
     }
-  }, []);
+  }, [])
 
   const setColor = (key: string, value: string) => {
-    setColorsState(prev => ({ ...prev, [key]: value }));
-  };
+    setColorsState(prev => ({ ...prev, [key]: value }))
+  }
 
   const setColors = (newColors: ThemeColors) => {
-    setColorsState(newColors);
-  };
+    setColorsState(newColors)
+  }
 
   const setTheme = (name: string) => {
     if (themes[name]) {
-      setThemeName(name);
-      setColorsState(themes[name]);
+      setThemeName(name)
+      setColorsState(themes[name])
       if (typeof window !== 'undefined') {
-        localStorage.setItem('themeName', name);
+        localStorage.setItem('themeName', name)
       }
     }
-  };
+  }
 
   // highlightTheme removed
 
@@ -551,11 +551,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     >
       {children}
     </ThemeContext.Provider>
-  );
-};
+  )
+}
 
 export const useTheme = () => {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
-};
+  const ctx = useContext(ThemeContext)
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider')
+  return ctx
+}

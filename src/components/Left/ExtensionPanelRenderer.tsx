@@ -3,15 +3,15 @@
  * 拡張機能が作成したサイドバーパネルを描画
  */
 
-import React from 'react';
+import React from 'react'
 
-import { useTheme } from '@/context/ThemeContext';
-import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
+import { useTheme } from '@/context/ThemeContext'
+import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI'
 
 interface ExtensionPanelRendererProps {
-  extensionId: string;
-  panelId: string;
-  isActive: boolean;
+  extensionId: string
+  panelId: string
+  isActive: boolean
 }
 
 export default function ExtensionPanelRenderer({
@@ -19,10 +19,10 @@ export default function ExtensionPanelRenderer({
   panelId,
   isActive,
 }: ExtensionPanelRendererProps) {
-  const { colors } = useTheme();
+  const { colors } = useTheme()
 
   // パネル定義を取得
-  const panel = sidebarRegistry.getPanel(extensionId, panelId);
+  const panel = sidebarRegistry.getPanel(extensionId, panelId)
 
   if (!panel) {
     return (
@@ -37,10 +37,10 @@ export default function ExtensionPanelRenderer({
           </p>
         </div>
       </div>
-    );
+    )
   }
 
-  const PanelComponent = panel.definition.component;
+  const PanelComponent = panel.definition.component
 
   return (
     <React.Suspense
@@ -60,5 +60,5 @@ export default function ExtensionPanelRenderer({
         state={panel.state}
       />
     </React.Suspense>
-  );
+  )
 }

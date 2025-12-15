@@ -1,4 +1,4 @@
-import type { Monaco } from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react'
 
 /**
  * Configure Monaco language defaults for diagnostics and validation
@@ -6,16 +6,16 @@ import type { Monaco } from '@monaco-editor/react';
  */
 export function configureMonacoLanguageDefaults(mon: Monaco): void {
   // TypeScript/JavaScript設定
-  configureTypeScriptDefaults(mon);
-  
+  configureTypeScriptDefaults(mon)
+
   // CSS/SCSS/LESS設定
-  configureCSSDefaults(mon);
-  
+  configureCSSDefaults(mon)
+
   // JSON設定
-  configureJSONDefaults(mon);
-  
+  configureJSONDefaults(mon)
+
   // HTML設定
-  configureHTMLDefaults(mon);
+  configureHTMLDefaults(mon)
 }
 
 function configureTypeScriptDefaults(mon: Monaco): void {
@@ -23,10 +23,10 @@ function configureTypeScriptDefaults(mon: Monaco): void {
     noSemanticValidation: false,
     noSyntaxValidation: false,
     noSuggestionDiagnostics: false,
-  };
+  }
 
-  mon.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  mon.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+  mon.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
+  mon.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions)
 
   const compilerOptions = {
     target: mon.languages.typescript.ScriptTarget.ES2020,
@@ -39,10 +39,10 @@ function configureTypeScriptDefaults(mon: Monaco): void {
     reactNamespace: 'React',
     allowJs: true,
     typeRoots: ['node_modules/@types'],
-  };
+  }
 
-  mon.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
-  mon.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
+  mon.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions)
+  mon.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions)
 }
 
 function configureCSSDefaults(mon: Monaco): void {
@@ -65,14 +65,14 @@ function configureCSSDefaults(mon: Monaco): void {
     important: 'ignore' as const,
     float: 'ignore' as const,
     idSelector: 'ignore' as const,
-  };
+  }
 
   const cssOptions = {
     validate: true,
     lint: cssLintOptions,
-  };
+  }
 
-  mon.languages.css.cssDefaults.setOptions(cssOptions);
+  mon.languages.css.cssDefaults.setOptions(cssOptions)
 }
 
 function configureJSONDefaults(mon: Monaco): void {
@@ -83,7 +83,7 @@ function configureJSONDefaults(mon: Monaco): void {
     schemaValidation: 'warning',
     schemaRequest: 'warning',
     comments: 'warning',
-  });
+  })
 
   // Common JSON schemas
   mon.languages.json.jsonDefaults.setModeConfiguration({
@@ -97,7 +97,7 @@ function configureJSONDefaults(mon: Monaco): void {
     foldingRanges: true,
     diagnostics: true,
     selectionRanges: true,
-  });
+  })
 }
 
 function configureHTMLDefaults(mon: Monaco): void {
@@ -119,7 +119,7 @@ function configureHTMLDefaults(mon: Monaco): void {
     suggest: {
       html5: true,
     },
-  });
+  })
 
   // // Also configure handlebars if available
   // try {

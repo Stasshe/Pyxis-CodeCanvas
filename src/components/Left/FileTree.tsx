@@ -1,66 +1,67 @@
-import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
-import { useDrag, useDrop, useDragLayer } from 'react-dnd';
-import { getEmptyImage } from 'react-dnd-html5-backend';
-import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
+import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
+import { useDrag, useDrop, useDragLayer } from 'react-dnd'
+import { getEmptyImage } from 'react-dnd-html5-backend'
+import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js'
 
-import { DND_FILE_TREE_ITEM, FileTreeDragItem } from '@/constants/dndTypes';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/gitignore';
-import { exportFolderZip } from '@/engine/export/exportFolderZip';
-import { exportSingleFile } from '@/engine/export/exportSingleFile';
-import { importSingleFile } from '@/engine/import/importSingleFile';
-import { useTabStore } from '@/stores/tabStore';
-import { FileItem } from '@/types';
+import { DND_FILE_TREE_ITEM, FileTreeDragItem } from '@/constants/dndTypes'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
+import { fileRepository } from '@/engine/core/fileRepository'
+import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/gitignore'
+import { exportFolderZip } from '@/engine/export/exportFolderZip'
+import { exportSingleFile } from '@/engine/export/exportSingleFile'
+import { importSingleFile } from '@/engine/import/importSingleFile'
+import { useTabStore } from '@/stores/tabStore'
+import { FileItem } from '@/types'
 
 // ドラッグアイテムの型定義（FileTreeDragItemと互換性を持たせる）
 interface DragItem {
-  type: string;
-  item: FileItem;
+  type: string
+  item: FileItem
 }
 
 interface FileTreeProps {
-  items: FileItem[];
-  level?: number;
-  currentProjectName: string;
-  currentProjectId?: string;
-  onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
-  isFileSelectModal?: boolean;
+  items: FileItem[]
+  level?: number
+  currentProjectName: string
+  currentProjectId?: string
+  onRefresh?: () => void // [NEW ARCHITECTURE] ファイルツリー再読み込み用
+  isFileSelectModal?: boolean
   // 内部移動用のコールバック（親から渡される）
-  onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
+  onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void
 }
 
 // カスタムドラッグレイヤー - ドラッグ中にファイル/フォルダ名を表示する長方形
 // パフォーマンス最適化のためmemoを使用
 const CustomDragLayer = memo(function CustomDragLayer() {
-  const { colors } = useTheme();
-  const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
+  const { colors } = useTheme()
+  const { isDragging, item, currentOffset } = useDragLayer(monitor => ({
     item: monitor.getItem() as DragItem | null,
     currentOffset: monitor.getSourceClientOffset(),
     isDragging: monitor.isDragging(),
-  }));
+  }))
 
   // アイテム情報をメモ化して再計算を防ぐ
   const { iconSrc, name, isFolder } = useMemo(() => {
     if (!item?.item) {
-      return { iconSrc: '', name: '', isFolder: false };
+      return { iconSrc: '', name: '', isFolder: false }
     }
-    const fileItem = item.item;
-    const isFolder = fileItem.type === 'folder';
+    const fileItem = item.item
+    const isFolder = fileItem.type === 'folder'
     const iconPath = isFolder
       ? getIconForFolder(fileItem.name) || getIconForFolder('')
-      : getIconForFile(fileItem.name) || getIconForFile('');
-    const iconSrc = iconPath && iconPath.endsWith('.svg')
-      ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-      : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
-    return { iconSrc, name: fileItem.name, isFolder };
-  }, [item?.item?.name, item?.item?.type]);
+      : getIconForFile(fileItem.name) || getIconForFile('')
+    const iconSrc =
+      iconPath && iconPath.endsWith('.svg')
+        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`
+    return { iconSrc, name: fileItem.name, isFolder }
+  }, [item?.item?.name, item?.item?.type])
 
   if (!isDragging || !item || !currentOffset) {
-    return null;
+    return null
   }
 
   return (
@@ -90,37 +91,33 @@ const CustomDragLayer = memo(function CustomDragLayer() {
           whiteSpace: 'nowrap',
         }}
       >
-        <img
-          src={iconSrc}
-          alt={isFolder ? 'folder' : 'file'}
-          style={{ width: 16, height: 16 }}
-        />
+        <img src={iconSrc} alt={isFolder ? 'folder' : 'file'} style={{ width: 16, height: 16 }} />
         <span>{name}</span>
       </div>
     </div>
-  );
-});
+  )
+})
 
 // 個別のファイルツリーアイテムコンポーネント（react-dnd対応）
 interface FileTreeItemProps {
-  item: FileItem;
-  level: number;
-  isExpanded: boolean;
-  isIgnored: boolean;
-  hoveredItemId: string | null;
-  colors: any;
-  currentProjectName: string;
-  currentProjectId?: string;
-  onRefresh?: () => void;
-  onItemClick: (item: FileItem) => void;
-  onContextMenu: (e: React.MouseEvent, item: FileItem) => void;
-  onTouchStart: (e: React.TouchEvent, item: FileItem) => void;
-  onTouchEnd: () => void;
-  onTouchMove: () => void;
-  setHoveredItemId: (id: string | null) => void;
-  handleNativeFileDrop: (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => void;
-  handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-  onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
+  item: FileItem
+  level: number
+  isExpanded: boolean
+  isIgnored: boolean
+  hoveredItemId: string | null
+  colors: any
+  currentProjectName: string
+  currentProjectId?: string
+  onRefresh?: () => void
+  onItemClick: (item: FileItem) => void
+  onContextMenu: (e: React.MouseEvent, item: FileItem) => void
+  onTouchStart: (e: React.TouchEvent, item: FileItem) => void
+  onTouchEnd: () => void
+  onTouchMove: () => void
+  setHoveredItemId: (id: string | null) => void
+  handleNativeFileDrop: (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => void
+  handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void
+  onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void
 }
 
 function FileTreeItem({
@@ -143,28 +140,28 @@ function FileTreeItem({
   handleDragOver,
   onInternalFileDrop,
 }: FileTreeItemProps) {
-  const [dropIndicator, setDropIndicator] = useState<boolean>(false);
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  const [dropIndicator, setDropIndicator] = useState<boolean>(false)
+  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false)
 
   // Check if it's a touch device
   useEffect(() => {
     const checkTouchDevice = () => {
       setIsTouchDevice(
         'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
-      );
-    };
-    checkTouchDevice();
-    window.addEventListener('resize', checkTouchDevice);
-    return () => window.removeEventListener('resize', checkTouchDevice);
-  }, []);
+          navigator.maxTouchPoints > 0 ||
+          ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
+      )
+    }
+    checkTouchDevice()
+    window.addEventListener('resize', checkTouchDevice)
+    return () => window.removeEventListener('resize', checkTouchDevice)
+  }, [])
 
   // 開発環境かどうかを判断
-  const isDev = process.env.NEXT_PUBLIC_IS_DEV_SERVER === 'true';
+  const isDev = process.env.NEXT_PUBLIC_IS_DEV_SERVER === 'true'
 
   // カスタムドラッグプレビュー用のref
-  const dragPreviewRef = useRef<HTMLDivElement>(null);
+  const dragPreviewRef = useRef<HTMLDivElement>(null)
 
   // ドラッグソース - with proper item structure
   const [{ isDragging }, drag, preview] = useDrag(
@@ -172,29 +169,29 @@ function FileTreeItem({
       type: DND_FILE_TREE_ITEM,
       item: () => {
         if (isDev) {
-          console.log('[FileTreeItem] DRAG START', { item: item.name, path: item.path });
+          console.log('[FileTreeItem] DRAG START', { item: item.name, path: item.path })
         }
-        return { type: DND_FILE_TREE_ITEM, item };
+        return { type: DND_FILE_TREE_ITEM, item }
       },
-      collect: (monitor) => ({
+      collect: monitor => ({
         isDragging: monitor.isDragging(),
       }),
       end: (draggedItem, monitor) => {
         if (isDev) {
-          console.log('[FileTreeItem] DRAG END', { 
+          console.log('[FileTreeItem] DRAG END', {
             didDrop: monitor.didDrop(),
-            dropResult: monitor.getDropResult()
-          });
+            dropResult: monitor.getDropResult(),
+          })
         }
       },
     }),
     [item, isDev]
-  );
+  )
 
   // カスタムドラッグプレビューを設定（デフォルトの空の画像を使用して、カスタムレイヤーで表示）
   useEffect(() => {
-    preview(getEmptyImage(), { captureDraggingState: true });
-  }, [preview]);
+    preview(getEmptyImage(), { captureDraggingState: true })
+  }, [preview])
 
   // ドロップターゲット（フォルダのみ）
   const [{ isOver, canDrop }, drop] = useDrop(
@@ -202,72 +199,73 @@ function FileTreeItem({
       accept: DND_FILE_TREE_ITEM,
       canDrop: (dragItem: DragItem, monitor) => {
         // フォルダでない場合はドロップ不可
-        if (item.type !== 'folder') return false;
+        if (item.type !== 'folder') return false
         // 自分自身へのドロップは不可
-        if (dragItem.item.id === item.id) return false;
+        if (dragItem.item.id === item.id) return false
         // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
-        if (item.path.startsWith(dragItem.item.path + '/')) return false;
+        if (item.path.startsWith(dragItem.item.path + '/')) return false
         // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可
-        const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
-        if (draggedParent === item.path) return false;
-        return true;
+        const draggedParent =
+          dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/'
+        if (draggedParent === item.path) return false
+        return true
       },
       hover: (dragItem: DragItem, monitor) => {
         // Hover feedback is handled by dropIndicator state
       },
       drop: (dragItem: DragItem, monitor) => {
         if (isDev) {
-          console.log('[FileTreeItem] DROP EVENT', { 
+          console.log('[FileTreeItem] DROP EVENT', {
             target: item.path,
             dragged: dragItem.item.path,
             didDrop: monitor.didDrop(),
-            isOver: monitor.isOver({ shallow: true })
-          });
+            isOver: monitor.isOver({ shallow: true }),
+          })
         }
-        
+
         // 子要素が既にドロップを処理した場合はスキップ
         if (monitor.didDrop()) {
-          return;
+          return
         }
-        
+
         if (onInternalFileDrop && item.type === 'folder') {
           if (isDev) {
-            console.log('[FileTreeItem] Calling onInternalFileDrop');
+            console.log('[FileTreeItem] Calling onInternalFileDrop')
           }
-          onInternalFileDrop(dragItem.item, item.path);
-          return { handled: true };
+          onInternalFileDrop(dragItem.item, item.path)
+          return { handled: true }
         }
-        return undefined;
+        return undefined
       },
-      collect: (monitor) => ({
+      collect: monitor => ({
         isOver: monitor.isOver({ shallow: true }),
         canDrop: monitor.canDrop(),
       }),
     }),
     [item, onInternalFileDrop, isDev]
-  );
+  )
 
   // Combine drag and drop refs using callback ref pattern
   const attachRef = (el: HTMLDivElement | null) => {
     // Always attach drop to the row
-    drop(el);
+    drop(el)
     // On desktop, entire row is draggable
     if (!isTouchDevice) {
-      drag(el);
+      drag(el)
     }
-  };
+  }
 
   // Ref for grab handle on touch devices
   const grabHandleRef = (el: HTMLDivElement | null) => {
     if (isTouchDevice && el) {
-      drag(el);
+      drag(el)
     }
-  };
+  }
 
   // ドロップインジケーターの更新
   useEffect(() => {
-    setDropIndicator(isOver && canDrop);
-  }, [isOver, canDrop]);
+    setDropIndicator(isOver && canDrop)
+  }, [isOver, canDrop])
 
   return (
     <div>
@@ -278,7 +276,7 @@ function FileTreeItem({
           alignItems: 'center',
           gap: '0.25rem',
           padding: '0.15rem 0.2rem',
-          cursor: isTouchDevice ? 'pointer' : (isDragging ? 'grabbing' : 'grab'),
+          cursor: isTouchDevice ? 'pointer' : isDragging ? 'grabbing' : 'grab',
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
@@ -293,7 +291,9 @@ function FileTreeItem({
           marginLeft: `${level * 12}px`,
           touchAction: isTouchDevice ? 'auto' : 'manipulation',
           opacity: isDragging ? 0.5 : 1,
-          border: dropIndicator ? `1px dashed ${colors.primary || '#007acc'}` : '1px solid transparent',
+          border: dropIndicator
+            ? `1px dashed ${colors.primary || '#007acc'}`
+            : '1px solid transparent',
         }}
         onClick={() => onItemClick(item)}
         onContextMenu={e => onContextMenu(e, item)}
@@ -301,37 +301,31 @@ function FileTreeItem({
         onMouseLeave={() => setHoveredItemId(null)}
         onTouchStart={e => {
           // On touch devices, only start context menu long press if not on grab handle
-          const target = e.target as HTMLElement;
+          const target = e.target as HTMLElement
           if (!target.closest('[data-grab-handle]')) {
-            onTouchStart(e, item);
+            onTouchStart(e, item)
           }
-          setHoveredItemId(item.id);
+          setHoveredItemId(item.id)
         }}
         onTouchEnd={() => {
-          onTouchEnd();
-          setHoveredItemId(null);
+          onTouchEnd()
+          setHoveredItemId(null)
         }}
         onTouchMove={() => {
-          onTouchMove();
-          setHoveredItemId(null);
+          onTouchMove()
+          setHoveredItemId(null)
         }}
         onTouchCancel={() => {
-          onTouchEnd();
-          setHoveredItemId(null);
+          onTouchEnd()
+          setHoveredItemId(null)
         }}
       >
         {item.type === 'folder' ? (
           <>
             {isExpanded ? (
-              <ChevronDown
-                size={14}
-                color={colors.mutedFg}
-              />
+              <ChevronDown size={14} color={colors.mutedFg} />
             ) : (
-              <ChevronRight
-                size={14}
-                color={colors.mutedFg}
-              />
+              <ChevronRight size={14} color={colors.mutedFg} />
             )}
             <img
               src={(() => {
@@ -339,13 +333,13 @@ function FileTreeItem({
                   ? getIconForOpenFolder(item.name) ||
                     getIconForFolder(item.name) ||
                     getIconForFolder('')
-                  : getIconForFolder(item.name) || getIconForFolder('');
+                  : getIconForFolder(item.name) || getIconForFolder('')
                 if (iconPath && iconPath.endsWith('.svg')) {
                   return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
                     .split('/')
-                    .pop()}`;
+                    .pop()}`
                 }
-                return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
+                return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`
               })()}
               alt="folder"
               style={{
@@ -361,13 +355,13 @@ function FileTreeItem({
             <div className="w-3.5"></div>
             <img
               src={(() => {
-                const iconPath = getIconForFile(item.name) || getIconForFile('');
+                const iconPath = getIconForFile(item.name) || getIconForFile('')
                 if (iconPath && iconPath.endsWith('.svg')) {
                   return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
                     .split('/')
-                    .pop()}`;
+                    .pop()}`
                 }
-                return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+                return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`
               })()}
               alt="file"
               style={{
@@ -392,7 +386,7 @@ function FileTreeItem({
         >
           {item.name}
         </span>
-        
+
         {/* Grab handle for touch devices - only visible on touch devices */}
         {isTouchDevice && (
           <div
@@ -410,7 +404,7 @@ function FileTreeItem({
             }}
             onTouchStart={e => {
               // Prevent context menu trigger when starting drag from handle
-              e.stopPropagation();
+              e.stopPropagation()
             }}
           >
             <GripVertical size={14} color={colors.mutedFg} />
@@ -428,7 +422,7 @@ function FileTreeItem({
         />
       )}
     </div>
-  );
+  )
 }
 
 export default function FileTree({
@@ -440,356 +434,354 @@ export default function FileTree({
   isFileSelectModal,
   onInternalFileDrop,
 }: FileTreeProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const { openTab } = useTabStore();
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const { openTab } = useTabStore()
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
+  const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false)
   const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    item: FileItem | null;
-  } | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-  const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
+    x: number
+    y: number
+    item: FileItem | null
+  } | null>(null)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+  const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null)
 
   // ドラッグ&ドロップ用(フォルダ対応) - ネイティブファイルドロップのみ処理
   // react-dnd のドロップはこのハンドラでは処理しない
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => {
     // Check if this is a react-dnd drop (has no files) - let react-dnd handle it
-    const hasFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0;
-    const hasItems = e.dataTransfer.items && e.dataTransfer.items.length > 0;
-    const hasNativeFiles = hasItems && Array.from(e.dataTransfer.items).some(
-      item => item.kind === 'file'
-    );
-    
+    const hasFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0
+    const hasItems = e.dataTransfer.items && e.dataTransfer.items.length > 0
+    const hasNativeFiles =
+      hasItems && Array.from(e.dataTransfer.items).some(item => item.kind === 'file')
+
     // If no native files, this is likely a react-dnd internal drop - don't interfere
     if (!hasFiles && !hasNativeFiles) {
-      return;
+      return
     }
-    
-    e.preventDefault();
-    e.stopPropagation();
-    const items = e.dataTransfer.items;
+
+    e.preventDefault()
+    e.stopPropagation()
+    const items = e.dataTransfer.items
 
     if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
       // フォルダD&D対応: FileSystem API を使って再帰的に処理
       const ensureFoldersExist = async (projectId: string | undefined, folderPath: string) => {
-        if (!projectId) return;
-        const parts = folderPath.split('/').filter(Boolean);
-        let acc = '';
+        if (!projectId) return
+        const parts = folderPath.split('/').filter(Boolean)
+        let acc = ''
         for (const part of parts) {
-          acc += '/' + part;
+          acc += '/' + part
           try {
             // ignore errors (already existsなど)
             // createFile は folder を作るために利用
-            await fileRepository.createFile(projectId, acc, '', 'folder');
+            await fileRepository.createFile(projectId, acc, '', 'folder')
           } catch (err) {
             // noop
           }
         }
-      };
+      }
 
       const traverseFileTree = async (entry: any, basePath: string) => {
         if (entry.isFile) {
           await new Promise<void>((res, rej) => {
             entry.file(async (file: File) => {
               try {
-                const importPath = `${basePath}${file.name}`.replace(/\\/g, '/');
-                const absolutePath = `/projects/${currentProjectName}${importPath}`;
-                const lastSlash = importPath.lastIndexOf('/');
+                const importPath = `${basePath}${file.name}`.replace(/\\/g, '/')
+                const absolutePath = `/projects/${currentProjectName}${importPath}`
+                const lastSlash = importPath.lastIndexOf('/')
                 if (lastSlash > 0) {
-                  const folderPath = importPath.substring(0, lastSlash);
-                  await ensureFoldersExist(currentProjectId, folderPath);
+                  const folderPath = importPath.substring(0, lastSlash)
+                  await ensureFoldersExist(currentProjectId, folderPath)
                 }
-                await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
-                res();
+                await importSingleFile(file, absolutePath, currentProjectName, currentProjectId)
+                res()
               } catch (err) {
-                rej(err);
+                rej(err)
               }
-            });
-          });
+            })
+          })
         } else if (entry.isDirectory) {
-          const dirPath = `${basePath}${entry.name}/`;
-          await ensureFoldersExist(currentProjectId, dirPath);
-          const dirReader = entry.createReader();
+          const dirPath = `${basePath}${entry.name}/`
+          await ensureFoldersExist(currentProjectId, dirPath)
+          const dirReader = entry.createReader()
 
           // readEntries は配列を返すが、ブラウザによっては複数回呼ぶ必要があるためループで取得
-          let entries: any[] = await new Promise<any[]>(res => dirReader.readEntries(res));
+          let entries: any[] = await new Promise<any[]>(res => dirReader.readEntries(res))
           while (entries && entries.length > 0) {
             for (const e of entries) {
-              await traverseFileTree(e, dirPath);
+              await traverseFileTree(e, dirPath)
             }
-            entries = await new Promise<any[]>(res => dirReader.readEntries(res));
+            entries = await new Promise<any[]>(res => dirReader.readEntries(res))
           }
         }
-      };
+      }
 
       const traverseAll = async () => {
         for (let i = 0; i < items.length; i++) {
-          const entry = items[i].webkitGetAsEntry();
+          const entry = items[i].webkitGetAsEntry()
           if (entry) {
-            const startPath = targetPath ? `${targetPath}/` : '/';
-            await traverseFileTree(entry, startPath);
+            const startPath = targetPath ? `${targetPath}/` : '/'
+            await traverseFileTree(entry, startPath)
           }
         }
-      };
+      }
 
-      await traverseAll();
+      await traverseAll()
       // [NEW ARCHITECTURE] ファイルツリー再読み込み
       if (onRefresh) {
-        setTimeout(onRefresh, 100);
+        setTimeout(onRefresh, 100)
       }
     } else {
       // 通常のファイルD&D
-      const files = e.dataTransfer.files;
-      if (!files || files.length === 0) return;
+      const files = e.dataTransfer.files
+      if (!files || files.length === 0) return
 
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
-        const absolutePath = `/projects/${currentProjectName}${importPath}`;
-        await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
+        const file = files[i]
+        const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`
+        const absolutePath = `/projects/${currentProjectName}${importPath}`
+        await importSingleFile(file, absolutePath, currentProjectName, currentProjectId)
       }
 
       // [NEW ARCHITECTURE] ファイルツリー再読み込み
       if (onRefresh) {
-        setTimeout(onRefresh, 100);
+        setTimeout(onRefresh, 100)
       }
     }
-  };
+  }
 
   // handleDragOver - ネイティブファイルドロップ用
   // react-dnd 内部のドラッグには干渉しない
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     // Only prevent default for native file drops
-    const hasNativeFiles = e.dataTransfer.types.includes('Files');
+    const hasNativeFiles = e.dataTransfer.types.includes('Files')
     if (hasNativeFiles) {
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault()
+      e.stopPropagation()
     }
-  };
+  }
 
   // expandedFoldersをlocalStorageに保存(初回復元後のみ)
   useEffect(() => {
     if (level === 0 && isExpandedFoldersRestored) {
-      const arr = Array.from(expandedFolders);
+      const arr = Array.from(expandedFolders)
       window.localStorage.setItem(
         `pyxis-expandedFolders-${currentProjectName}`,
         JSON.stringify(arr)
-      );
+      )
     }
-  }, [expandedFolders, level, currentProjectName, isExpandedFoldersRestored]);
+  }, [expandedFolders, level, currentProjectName, isExpandedFoldersRestored])
 
   // .gitignore を読み込んでルールを解析する
   // NOTE: FileTree は UI コンポーネントなのでコマンドキャッシュを使わず、
   // 単一ファイル取得 API (getFileByPath) を使って効率的に読み込む。
   useEffect(() => {
-    let mounted = true;
+    let mounted = true
     const loadGitignore = async () => {
       if (!currentProjectId) {
-        setGitignoreRules(null);
-        return;
+        setGitignoreRules(null)
+        return
       }
       try {
         // 単一ファイル取得を使って .gitignore を読み込む（全件取得は避ける）
-        const gitignoreFile = await fileRepository.getFileByPath(currentProjectId, '/.gitignore');
+        const gitignoreFile = await fileRepository.getFileByPath(currentProjectId, '/.gitignore')
         if (gitignoreFile && gitignoreFile.content) {
-          const parsed = parseGitignore(gitignoreFile.content);
-          if (mounted) setGitignoreRules(parsed);
+          const parsed = parseGitignore(gitignoreFile.content)
+          if (mounted) setGitignoreRules(parsed)
         } else {
-          if (mounted) setGitignoreRules([]);
+          if (mounted) setGitignoreRules([])
         }
       } catch (e) {
-        if (mounted) setGitignoreRules([]);
+        if (mounted) setGitignoreRules([])
       }
-    };
+    }
 
     // only reload when project changes; avoid reloading on every items change to reduce overhead
-    loadGitignore();
+    loadGitignore()
 
     return () => {
-      mounted = false;
-    };
-  }, [currentProjectId]);
+      mounted = false
+    }
+  }, [currentProjectId])
 
   // 初回読み込み時にlocalStorageからexpandedFoldersを復元(itemsが空の場合はスキップ)
   useEffect(() => {
     if (level === 0 && items && items.length > 0 && !isExpandedFoldersRestored) {
-      const saved = window.localStorage.getItem(`pyxis-expandedFolders-${currentProjectName}`);
+      const saved = window.localStorage.getItem(`pyxis-expandedFolders-${currentProjectName}`)
       if (saved) {
         try {
-          const arr = JSON.parse(saved);
+          const arr = JSON.parse(saved)
           if (Array.isArray(arr)) {
-            const validIds = arr.filter((id: string) => items.some(item => item.id === id));
-            setExpandedFolders(new Set(validIds));
-            setIsExpandedFoldersRestored(true);
-            return;
+            const validIds = arr.filter((id: string) => items.some(item => item.id === id))
+            setExpandedFolders(new Set(validIds))
+            setIsExpandedFoldersRestored(true)
+            return
           }
         } catch {}
       }
       // なければ従来通りルートフォルダ展開
-      const rootFolders = items.filter((item: FileItem) => item.type === 'folder');
-      const expandedIds = new Set<string>(rootFolders.map((folder: FileItem) => folder.id));
-      setExpandedFolders(expandedIds);
-      setIsExpandedFoldersRestored(true);
+      const rootFolders = items.filter((item: FileItem) => item.type === 'folder')
+      const expandedIds = new Set<string>(rootFolders.map((folder: FileItem) => folder.id))
+      setExpandedFolders(expandedIds)
+      setIsExpandedFoldersRestored(true)
     }
-  }, [items, level, currentProjectName, isExpandedFoldersRestored]);
+  }, [items, level, currentProjectName, isExpandedFoldersRestored])
 
   // コンテキストメニュー外クリックで閉じる
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
+        setContextMenu(null)
       }
-    };
+    }
     if (contextMenu) {
-      document.addEventListener('mousedown', handleClick);
+      document.addEventListener('mousedown', handleClick)
     }
     return () => {
-      document.removeEventListener('mousedown', handleClick);
-    };
-  }, [contextMenu]);
+      document.removeEventListener('mousedown', handleClick)
+    }
+  }, [contextMenu])
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
-      const newSet = new Set(prev);
+      const newSet = new Set(prev)
       if (newSet.has(folderId)) {
-        newSet.delete(folderId);
+        newSet.delete(folderId)
       } else {
-        newSet.add(folderId);
+        newSet.add(folderId)
       }
-      return newSet;
-    });
-  };
+      return newSet
+    })
+  }
 
   const handleItemClick = (item: FileItem) => {
     if (item.type === 'folder') {
-      toggleFolder(item.id);
+      toggleFolder(item.id)
     } else {
       const defaultEditor =
-        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco'
       // バイナリファイルは binary タブで開く
-      const kind = item.isBufferArray ? 'binary' : 'editor';
-      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+      const kind = item.isBufferArray ? 'binary' : 'editor'
+      openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind })
     }
-  };
+  }
 
   const handleContextMenu = (e: React.MouseEvent, item: FileItem) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, item });
-  };
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, item })
+  }
 
   const handlePreview = (item: FileItem) => {
-    setContextMenu(null);
+    setContextMenu(null)
     if (item.type === 'file' && item.name.endsWith('.md')) {
-      openTab(item, { kind: 'preview' });
+      openTab(item, { kind: 'preview' })
     }
-  };
+  }
 
   const handleWebPreview = (item: FileItem) => {
-    setContextMenu(null);
+    setContextMenu(null)
     if (item.type === 'file' || item.type === 'folder') {
       console.log('[FileTree] Opening webPreview for item:', {
         name: item.name,
         path: item.path,
         type: item.type,
         projectName: currentProjectName,
-      });
-      openTab(item, { kind: 'webPreview', projectName: currentProjectName });
+      })
+      openTab(item, { kind: 'webPreview', projectName: currentProjectName })
     }
-  };
+  }
 
   // タッチ長押し用のタイマー管理
-  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
-  const touchPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const longPressTimeout = useRef<NodeJS.Timeout | null>(null)
+  const touchPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const handleTouchStart = (e: React.TouchEvent, item: FileItem) => {
     if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      touchPosition.current = { x: touch.clientX, y: touch.clientY };
+      const touch = e.touches[0]
+      touchPosition.current = { x: touch.clientX, y: touch.clientY }
       longPressTimeout.current = setTimeout(() => {
-        setContextMenu({ x: touch.clientX, y: touch.clientY, item });
-      }, 500);
+        setContextMenu({ x: touch.clientX, y: touch.clientY, item })
+      }, 500)
     }
-  };
+  }
 
   const handleTouchEnd = () => {
     if (longPressTimeout.current) {
-      clearTimeout(longPressTimeout.current);
-      longPressTimeout.current = null;
+      clearTimeout(longPressTimeout.current)
+      longPressTimeout.current = null
     }
-  };
+  }
 
   const handleTouchMove = () => {
     if (longPressTimeout.current) {
-      clearTimeout(longPressTimeout.current);
-      longPressTimeout.current = null;
+      clearTimeout(longPressTimeout.current)
+      longPressTimeout.current = null
     }
-  };
+  }
 
   // react-dnd: ファイル/フォルダをドロップターゲットに移動する
   // propsから渡されている場合はそれを使用、そうでなければ自前のハンドラーを使用
-  const internalDropHandler = onInternalFileDrop ?? (async (draggedItem: FileItem, targetFolderPath: string) => {
-    console.log('[FileTree] ============================================');
-    console.log('[FileTree] internalDropHandler called');
-    console.log('[FileTree] draggedItem:', JSON.stringify(draggedItem, null, 2));
-    console.log('[FileTree] targetFolderPath:', targetFolderPath);
-    console.log('[FileTree] currentProjectId:', currentProjectId);
-    console.log('[FileTree] currentProjectName:', currentProjectName);
-    console.log('[FileTree] ============================================');
-    
-    if (!currentProjectId) {
-      console.error('[FileTree] ERROR: No currentProjectId, cannot move file');
-      return;
-    }
-    
-    if (!currentProjectName) {
-      console.error('[FileTree] ERROR: No currentProjectName, cannot move file');
-      return;
-    }
-    
-    // 自分自身への移動は無視
-    if (draggedItem.path === targetFolderPath) {
-      console.log('[FileTree] Same path, ignoring move');
-      return;
-    }
-    
-    // ドラッグしたアイテムを自分の子フォルダに移動しようとしている場合は無視
-    if (targetFolderPath.startsWith(draggedItem.path + '/')) {
-      console.log('[FileTree] Cannot move to child folder');
-      return;
-    }
-    
-    try {
-      console.log('[FileTree] Getting unix commands...');
-      const unix = terminalCommandRegistry.getUnixCommands(
-        currentProjectName,
-        currentProjectId
-      );
-      console.log('[FileTree] Got unix commands:', !!unix);
-      
-      const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
-      const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
-      
-      console.log('[FileTree] Moving file/folder:');
-      console.log('[FileTree]   oldPath:', oldPath);
-      console.log('[FileTree]   newPath:', newPath);
-      
-      // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
-      const result = await unix.mv(oldPath, newPath);
-      console.log('[FileTree] Move result:', result);
-      
-      if (onRefresh) {
-        console.log('[FileTree] Refreshing file tree');
-        setTimeout(onRefresh, 100);
+  const internalDropHandler =
+    onInternalFileDrop ??
+    (async (draggedItem: FileItem, targetFolderPath: string) => {
+      console.log('[FileTree] ============================================')
+      console.log('[FileTree] internalDropHandler called')
+      console.log('[FileTree] draggedItem:', JSON.stringify(draggedItem, null, 2))
+      console.log('[FileTree] targetFolderPath:', targetFolderPath)
+      console.log('[FileTree] currentProjectId:', currentProjectId)
+      console.log('[FileTree] currentProjectName:', currentProjectName)
+      console.log('[FileTree] ============================================')
+
+      if (!currentProjectId) {
+        console.error('[FileTree] ERROR: No currentProjectId, cannot move file')
+        return
       }
-    } catch (error: any) {
-      console.error('[FileTree] Failed to move file:', error);
-    }
-  });
+
+      if (!currentProjectName) {
+        console.error('[FileTree] ERROR: No currentProjectName, cannot move file')
+        return
+      }
+
+      // 自分自身への移動は無視
+      if (draggedItem.path === targetFolderPath) {
+        console.log('[FileTree] Same path, ignoring move')
+        return
+      }
+
+      // ドラッグしたアイテムを自分の子フォルダに移動しようとしている場合は無視
+      if (targetFolderPath.startsWith(draggedItem.path + '/')) {
+        console.log('[FileTree] Cannot move to child folder')
+        return
+      }
+
+      try {
+        console.log('[FileTree] Getting unix commands...')
+        const unix = terminalCommandRegistry.getUnixCommands(currentProjectName, currentProjectId)
+        console.log('[FileTree] Got unix commands:', !!unix)
+
+        const oldPath = `/projects/${currentProjectName}${draggedItem.path}`
+        const newPath = `/projects/${currentProjectName}${targetFolderPath}/`
+
+        console.log('[FileTree] Moving file/folder:')
+        console.log('[FileTree]   oldPath:', oldPath)
+        console.log('[FileTree]   newPath:', newPath)
+
+        // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
+        const result = await unix.mv(oldPath, newPath)
+        console.log('[FileTree] Move result:', result)
+
+        if (onRefresh) {
+          console.log('[FileTree] Refreshing file tree')
+          setTimeout(onRefresh, 100)
+        }
+      } catch (error: any) {
+        console.error('[FileTree] Failed to move file:', error)
+      }
+    })
 
   return (
     <div
@@ -808,13 +800,13 @@ export default function FileTree({
       onDragOver={level === 0 ? handleDragOver : undefined}
     >
       {/* カスタムドラッグレイヤーはpage.tsxで共通表示 */}
-      
+
       {items.map(item => {
-        const isExpanded = expandedFolders.has(item.id);
+        const isExpanded = expandedFolders.has(item.id)
         const isIgnored =
           gitignoreRules && gitignoreRules.length > 0
             ? isPathIgnored(gitignoreRules, item.path.replace(/^\/+/, ''), item.type === 'folder')
-            : false;
+            : false
         return (
           <FileTreeItem
             key={item.id}
@@ -837,7 +829,7 @@ export default function FileTree({
             handleDragOver={handleDragOver}
             onInternalFileDrop={internalDropHandler}
           />
-        );
+        )
       })}
 
       {/* 空白領域を追加(最上位レベルのみ) */}
@@ -855,22 +847,22 @@ export default function FileTree({
           }}
           onClick={() => setContextMenu(null)}
           onContextMenu={e => {
-            e.preventDefault();
-            setContextMenu({ x: e.clientX, y: e.clientY, item: null });
+            e.preventDefault()
+            setContextMenu({ x: e.clientX, y: e.clientY, item: null })
           }}
           onTouchStart={e => {
             if (e.touches.length === 1) {
-              const touch = e.touches[0];
-              touchPosition.current = { x: touch.clientX, y: touch.clientY };
+              const touch = e.touches[0]
+              touchPosition.current = { x: touch.clientX, y: touch.clientY }
               longPressTimeout.current = setTimeout(() => {
-                setContextMenu({ x: touch.clientX, y: touch.clientY, item: null });
-              }, 500);
+                setContextMenu({ x: touch.clientX, y: touch.clientY, item: null })
+              }, 500)
             }
           }}
           onTouchEnd={() => {
             if (longPressTimeout.current) {
-              clearTimeout(longPressTimeout.current);
-              longPressTimeout.current = null;
+              clearTimeout(longPressTimeout.current)
+              longPressTimeout.current = null
             }
           }}
           onDrop={handleDrop}
@@ -901,11 +893,11 @@ export default function FileTree({
               const menuItems: Array<{ key: string; label: string }> =
                 contextMenu && contextMenu.item == null
                   ? [
-                        { key: 'createFile', label: t('fileTree.menu.createFile') },
-                        { key: 'createFolder', label: t('fileTree.menu.createFolder') },
-                        { key: 'importFiles', label: t('fileTree.menu.importFiles') },
-                        { key: 'importFolder', label: t('fileTree.menu.importFolder') },
-                      ]
+                      { key: 'createFile', label: t('fileTree.menu.createFile') },
+                      { key: 'createFolder', label: t('fileTree.menu.createFolder') },
+                      { key: 'importFiles', label: t('fileTree.menu.importFiles') },
+                      { key: 'importFolder', label: t('fileTree.menu.importFolder') },
+                    ]
                   : ([
                       contextMenu && contextMenu.item && contextMenu.item.type === 'file'
                         ? { key: 'open', label: t('fileTree.menu.open') }
@@ -931,331 +923,334 @@ export default function FileTree({
                         ? { key: 'createFile', label: t('fileTree.menu.createFile') }
                         : null,
                       { key: 'webPreview', label: t('fileTree.menu.webPreview') },
-                    ].filter(Boolean) as Array<{ key: string; label: string }>);
+                    ].filter(Boolean) as Array<{ key: string; label: string }>)
 
               const handleMenuAction = async (key: string, menuItem: FileItem | null) => {
-                setContextMenu(null);
+                setContextMenu(null)
                 const unix = terminalCommandRegistry.getUnixCommands(
                   currentProjectName,
                   currentProjectId || ''
-                );
+                )
 
                 if (key === 'createFile') {
-                  const fileName = prompt(t('fileTree.prompt.newFileName'));
+                  const fileName = prompt(t('fileTree.prompt.newFileName'))
                   if (fileName && currentProjectId) {
-                    const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
-                    await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
-                    if (onRefresh) setTimeout(onRefresh, 100);
+                    const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName
+                    await fileRepository.createFile(currentProjectId, newFilePath, '', 'file')
+                    if (onRefresh) setTimeout(onRefresh, 100)
                   }
-                  return;
+                  return
                 }
 
                 if (key === 'createFolder') {
-                  const folderName = prompt(t('fileTree.prompt.newFolderName'));
+                  const folderName = prompt(t('fileTree.prompt.newFolderName'))
                   if (folderName && currentProjectId) {
-                    const newFolderPath = folderName.startsWith('/')
-                      ? folderName
-                      : '/' + folderName;
-                    await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
-                    if (onRefresh) setTimeout(onRefresh, 100);
+                    const newFolderPath = folderName.startsWith('/') ? folderName : '/' + folderName
+                    await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder')
+                    if (onRefresh) setTimeout(onRefresh, 100)
                   }
-                  return;
+                  return
                 }
 
                 if (key === 'importFiles' && !menuItem) {
-                  const input = document.createElement('input');
-                  input.type = 'file';
+                  const input = document.createElement('input')
+                  input.type = 'file'
                   // select multiple files only (no directory picker)
-                  input.multiple = true;
+                  input.multiple = true
                   input.onchange = async (e: any) => {
-                    const files: FileList = e.target.files;
-                    if (!files || files.length === 0) return;
+                    const files: FileList = e.target.files
+                    if (!files || files.length === 0) return
 
                     const ensureFoldersExistLocal = async (
                       projectId: string | undefined,
                       folderPath: string
                     ) => {
-                      if (!projectId) return;
-                      const parts = folderPath.split('/').filter(Boolean);
-                      let acc = '';
+                      if (!projectId) return
+                      const parts = folderPath.split('/').filter(Boolean)
+                      let acc = ''
                       for (const part of parts) {
-                        acc += '/' + part;
+                        acc += '/' + part
                         try {
-                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                          await fileRepository.createFile(projectId, acc, '', 'folder')
                         } catch (err) {
                           // ignore
                         }
                       }
-                    };
-
-                    for (let i = 0; i < files.length; i++) {
-                      const file = files[i];
-                      const targetPath = '/' + file.name;
-                      const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                      // ensure parent folders exist (root-level so usually none)
-                      const lastSlash = targetPath.lastIndexOf('/');
-                      if (lastSlash > 0) {
-                        const folderPath = targetPath.substring(0, lastSlash);
-                        await ensureFoldersExistLocal(currentProjectId, folderPath);
-                      }
-                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
                     }
-                    if (onRefresh) setTimeout(onRefresh, 100);
-                  };
-                  input.click();
-                  return;
-                }
-
-                if (key === 'importFolder' && !menuItem) {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  // allow selecting a folder (and its files)
-                  input.multiple = true;
-                  input.setAttribute('webkitdirectory', '');
-                  input.setAttribute('directory', '');
-                  input.onchange = async (e: any) => {
-                    const files: FileList = e.target.files;
-                    if (!files || files.length === 0) return;
-
-                    const ensureFoldersExistLocal = async (
-                      projectId: string | undefined,
-                      folderPath: string
-                    ) => {
-                      if (!projectId) return;
-                      const parts = folderPath.split('/').filter(Boolean);
-                      let acc = '';
-                      for (const part of parts) {
-                        acc += '/' + part;
-                        try {
-                          await fileRepository.createFile(projectId, acc, '', 'folder');
-                        } catch (err) {
-                          // ignore
-                        }
-                      }
-                    };
 
                     for (let i = 0; i < files.length; i++) {
-                      const file = files[i];
-                      const relative = (file as any).webkitRelativePath || file.name;
-                      const relPathParts = relative.split('/').filter(Boolean);
-                      const targetPath = '/' + relPathParts.join('/');
-                      const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`;
-                      // ensure parent folders exist
-                      const lastSlash = targetPath.lastIndexOf('/');
+                      const file = files[i]
+                      const targetPath = '/' + file.name
+                      const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`
+                      // ensure parent folders exist (root-level so usually none)
+                      const lastSlash = targetPath.lastIndexOf('/')
                       if (lastSlash > 0) {
-                        const folderPath = targetPath.substring(0, lastSlash);
-                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                        const folderPath = targetPath.substring(0, lastSlash)
+                        await ensureFoldersExistLocal(currentProjectId, folderPath)
                       }
                       await importSingleFile(
                         file,
                         targetAbsolutePath,
                         currentProjectName,
                         currentProjectId
-                      );
+                      )
                     }
-                    if (onRefresh) setTimeout(onRefresh, 100);
-                  };
-                  input.click();
-                  return;
+                    if (onRefresh) setTimeout(onRefresh, 100)
+                  }
+                  input.click()
+                  return
+                }
+
+                if (key === 'importFolder' && !menuItem) {
+                  const input = document.createElement('input')
+                  input.type = 'file'
+                  // allow selecting a folder (and its files)
+                  input.multiple = true
+                  input.setAttribute('webkitdirectory', '')
+                  input.setAttribute('directory', '')
+                  input.onchange = async (e: any) => {
+                    const files: FileList = e.target.files
+                    if (!files || files.length === 0) return
+
+                    const ensureFoldersExistLocal = async (
+                      projectId: string | undefined,
+                      folderPath: string
+                    ) => {
+                      if (!projectId) return
+                      const parts = folderPath.split('/').filter(Boolean)
+                      let acc = ''
+                      for (const part of parts) {
+                        acc += '/' + part
+                        try {
+                          await fileRepository.createFile(projectId, acc, '', 'folder')
+                        } catch (err) {
+                          // ignore
+                        }
+                      }
+                    }
+
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i]
+                      const relative = (file as any).webkitRelativePath || file.name
+                      const relPathParts = relative.split('/').filter(Boolean)
+                      const targetPath = '/' + relPathParts.join('/')
+                      const targetAbsolutePath = `/projects/${currentProjectName}${targetPath}`
+                      // ensure parent folders exist
+                      const lastSlash = targetPath.lastIndexOf('/')
+                      if (lastSlash > 0) {
+                        const folderPath = targetPath.substring(0, lastSlash)
+                        await ensureFoldersExistLocal(currentProjectId, folderPath)
+                      }
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      )
+                    }
+                    if (onRefresh) setTimeout(onRefresh, 100)
+                  }
+                  input.click()
+                  return
                 }
 
                 // actions for existing item
-                if (!menuItem) return;
+                if (!menuItem) return
 
                 if (key === 'open') {
                   // バイナリファイルは binary、そうでなければ editor
                   const kind =
-                    menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
-                  openTab(menuItem, { kind });
+                    menuItem && (menuItem as FileItem).isBufferArray ? 'binary' : 'editor'
+                  openTab(menuItem, { kind })
                 } else if (key === 'openPreview') {
-                  handlePreview(menuItem);
+                  handlePreview(menuItem)
                 } else if (key === 'openCodeMirror') {
                   if (menuItem && menuItem.type === 'file') {
                     // CodeMirrorはテキスト向け。バイナリの場合は binary で開く。
                     if ((menuItem as FileItem).isBufferArray) {
-                      openTab(menuItem, { kind: 'binary' });
+                      openTab(menuItem, { kind: 'binary' })
                     } else {
-                      openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
+                      openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' })
                     }
                   }
                 } else if (key === 'download') {
-                  const item = menuItem;
+                  const item = menuItem
                   if (item.type === 'file') {
-                    let content = item.content;
-                    if (typeof content !== 'string') content = 'error fetching content';
+                    let content = item.content
+                    if (typeof content !== 'string') content = 'error fetching content'
                     exportSingleFile({
                       name: item.name,
                       content,
                       isBufferArray: item.isBufferArray,
                       bufferContent: item.bufferContent,
-                    });
+                    })
                   } else if (item.type === 'folder') {
-                    await exportFolderZip(item);
+                    await exportFolderZip(item)
                   }
                 } else if (key === 'importFiles') {
                   // import files into a target (menuItem must exist)
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.multiple = true;
+                  const input = document.createElement('input')
+                  input.type = 'file'
+                  input.multiple = true
                   input.onchange = async (e: any) => {
-                    const files: FileList = e.target.files;
-                    if (!files || files.length === 0) return;
-                    let baseTargetDir = '';
+                    const files: FileList = e.target.files
+                    if (!files || files.length === 0) return
+                    let baseTargetDir = ''
                     if (menuItem) {
                       if (menuItem.type === 'file')
                         baseTargetDir =
-                          menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
-                      else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
+                          menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/'
+                      else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/'
                     }
                     const ensureFoldersExistLocal = async (
                       projectId: string | undefined,
                       folderPath: string
                     ) => {
-                      if (!projectId) return;
-                      const parts = folderPath.split('/').filter(Boolean);
-                      let acc = '';
+                      if (!projectId) return
+                      const parts = folderPath.split('/').filter(Boolean)
+                      let acc = ''
                       for (const part of parts) {
-                        acc += '/' + part;
+                        acc += '/' + part
                         try {
-                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                          await fileRepository.createFile(projectId, acc, '', 'folder')
                         } catch (err) {
                           // ignore
                         }
                       }
-                    };
+                    }
                     for (let i = 0; i < files.length; i++) {
-                      const file = files[i];
-                      const relPath = file.name;
+                      const file = files[i]
+                      const relPath = file.name
                       const normalizedBase = baseTargetDir.endsWith('/')
                         ? baseTargetDir.slice(0, -1)
-                        : baseTargetDir;
+                        : baseTargetDir
                       const targetAbsolutePath =
                         `/projects/${currentProjectName}${normalizedBase}/${relPath}`.replace(
                           '//',
                           '/'
-                        );
+                        )
                       // ensure parent folders exist
-                      const fullRelPath = `${normalizedBase}/${relPath}`.replace('//', '/');
-                      const lastSlash = fullRelPath.lastIndexOf('/');
+                      const fullRelPath = `${normalizedBase}/${relPath}`.replace('//', '/')
+                      const lastSlash = fullRelPath.lastIndexOf('/')
                       if (lastSlash > 0) {
-                        const folderPath = fullRelPath.substring(0, lastSlash);
-                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                        const folderPath = fullRelPath.substring(0, lastSlash)
+                        await ensureFoldersExistLocal(currentProjectId, folderPath)
                       }
                       await importSingleFile(
                         file,
                         targetAbsolutePath,
                         currentProjectName,
                         currentProjectId
-                      );
+                      )
                     }
-                    if (onRefresh) setTimeout(onRefresh, 100);
-                  };
-                  input.click();
+                    if (onRefresh) setTimeout(onRefresh, 100)
+                  }
+                  input.click()
                 } else if (key === 'importFolder') {
                   // import a folder (preserve nested structure) into the target
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.multiple = true;
-                  input.setAttribute('webkitdirectory', '');
-                  input.setAttribute('directory', '');
+                  const input = document.createElement('input')
+                  input.type = 'file'
+                  input.multiple = true
+                  input.setAttribute('webkitdirectory', '')
+                  input.setAttribute('directory', '')
                   input.onchange = async (e: any) => {
-                    const files: FileList = e.target.files;
-                    if (!files || files.length === 0) return;
-                    let baseTargetDir = '';
+                    const files: FileList = e.target.files
+                    if (!files || files.length === 0) return
+                    let baseTargetDir = ''
                     if (menuItem) {
                       if (menuItem.type === 'file')
                         baseTargetDir =
-                          menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/';
-                      else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/';
+                          menuItem.path.substring(0, menuItem.path.lastIndexOf('/')) || '/'
+                      else if (menuItem.type === 'folder') baseTargetDir = menuItem.path || '/'
                     }
                     const ensureFoldersExistLocal = async (
                       projectId: string | undefined,
                       folderPath: string
                     ) => {
-                      if (!projectId) return;
-                      const parts = folderPath.split('/').filter(Boolean);
-                      let acc = '';
+                      if (!projectId) return
+                      const parts = folderPath.split('/').filter(Boolean)
+                      let acc = ''
                       for (const part of parts) {
-                        acc += '/' + part;
+                        acc += '/' + part
                         try {
-                          await fileRepository.createFile(projectId, acc, '', 'folder');
+                          await fileRepository.createFile(projectId, acc, '', 'folder')
                         } catch (err) {
                           // ignore
                         }
                       }
-                    };
+                    }
                     for (let i = 0; i < files.length; i++) {
-                      const file = files[i];
-                      const relative = (file as any).webkitRelativePath || file.name;
-                      const relParts = relative.split('/').filter(Boolean);
-                      const relPath = relParts.join('/');
+                      const file = files[i]
+                      const relative = (file as any).webkitRelativePath || file.name
+                      const relParts = relative.split('/').filter(Boolean)
+                      const relPath = relParts.join('/')
                       const normalizedBase = baseTargetDir.endsWith('/')
                         ? baseTargetDir.slice(0, -1)
-                        : baseTargetDir;
+                        : baseTargetDir
                       const targetAbsolutePath =
                         `/projects/${currentProjectName}${normalizedBase}/${relPath}`.replace(
                           '//',
                           '/'
-                        );
+                        )
                       // ensure parent folders exist
-                      const fullRelPath = `${normalizedBase}/${relPath}`.replace('//', '/');
-                      const lastSlash = fullRelPath.lastIndexOf('/');
+                      const fullRelPath = `${normalizedBase}/${relPath}`.replace('//', '/')
+                      const lastSlash = fullRelPath.lastIndexOf('/')
                       if (lastSlash > 0) {
-                        const folderPath = fullRelPath.substring(0, lastSlash);
-                        await ensureFoldersExistLocal(currentProjectId, folderPath);
+                        const folderPath = fullRelPath.substring(0, lastSlash)
+                        await ensureFoldersExistLocal(currentProjectId, folderPath)
                       }
                       await importSingleFile(
                         file,
                         targetAbsolutePath,
                         currentProjectName,
                         currentProjectId
-                      );
+                      )
                     }
-                    if (onRefresh) setTimeout(onRefresh, 100);
-                  };
-                  input.click();
+                    if (onRefresh) setTimeout(onRefresh, 100)
+                  }
+                  input.click()
                 } else if (key === 'rename') {
-                  const item = menuItem;
-                  const newName = prompt(t('fileTree.prompt.rename'), item.name);
+                  const item = menuItem
+                  const newName = prompt(t('fileTree.prompt.rename'), item.name)
                   if (newName && newName !== item.name) {
                     try {
-                      const lastSlash = item.path.lastIndexOf('/');
-                      const oldPath = `/projects/${currentProjectName}${item.path}`;
-                      const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`;
-                      await unix.rename(oldPath, newPath);
-                      if (onRefresh) setTimeout(onRefresh, 100);
+                      const lastSlash = item.path.lastIndexOf('/')
+                      const oldPath = `/projects/${currentProjectName}${item.path}`
+                      const newPath = `/projects/${currentProjectName}${item.path.substring(0, lastSlash + 1)}${newName}`
+                      await unix.rename(oldPath, newPath)
+                      if (onRefresh) setTimeout(onRefresh, 100)
                     } catch (error: any) {
-                      alert(t('fileTree.alert.renameFailed', { params: { error: error.message } }));
+                      alert(t('fileTree.alert.renameFailed', { params: { error: error.message } }))
                     }
                   }
                 } else if (key === 'delete') {
-                  const item = menuItem;
+                  const item = menuItem
                   if (item && currentProjectId) {
-                    await fileRepository.deleteFile(item.id);
-                    if (onRefresh) setTimeout(onRefresh, 100);
+                    await fileRepository.deleteFile(item.id)
+                    if (onRefresh) setTimeout(onRefresh, 100)
                   }
                 } else if (key === 'webPreview') {
-                  handleWebPreview(menuItem);
+                  handleWebPreview(menuItem)
                 } else if (key === 'createFolder' && menuItem) {
-                  const folderName = prompt(t('fileTree.prompt.newFolderName'));
+                  const folderName = prompt(t('fileTree.prompt.newFolderName'))
                   if (folderName && currentProjectId) {
                     const newFolderPath = menuItem.path.endsWith('/')
                       ? menuItem.path + folderName
-                      : menuItem.path + '/' + folderName;
-                    await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
-                    if (onRefresh) setTimeout(onRefresh, 100);
+                      : menuItem.path + '/' + folderName
+                    await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder')
+                    if (onRefresh) setTimeout(onRefresh, 100)
                   }
                 } else if (key === 'createFile' && menuItem) {
-                  const fileName = prompt(t('fileTree.prompt.newFileName'));
+                  const fileName = prompt(t('fileTree.prompt.newFileName'))
                   if (fileName && currentProjectId) {
                     const newFilePath = menuItem.path.endsWith('/')
                       ? menuItem.path + fileName
-                      : menuItem.path + '/' + fileName;
-                    await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
-                    if (onRefresh) setTimeout(onRefresh, 100);
+                      : menuItem.path + '/' + fileName
+                    await fileRepository.createFile(currentProjectId, newFilePath, '', 'file')
+                    if (onRefresh) setTimeout(onRefresh, 100)
                   }
                 }
-              };
+              }
 
               return menuItems.map((mi, idx) => (
                 <li
@@ -1286,11 +1281,11 @@ export default function FileTree({
                 >
                   {mi.label}
                 </li>
-              ));
+              ))
             })()}
           </ul>
         </div>
       )}
     </div>
-  );
+  )
 }

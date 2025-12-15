@@ -1,6 +1,6 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types'
 
 /**
  * ls - ディレクトリの内容を表示
@@ -23,23 +23,23 @@ import type { ProjectFile } from '@/types';
  */
 export class LsCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { options, positional } = this.parseOptions(args)
 
-    const showAll = options.has('-a') || options.has('--all');
-    const longFormat = options.has('-l');
-    const humanReadable = options.has('-h') || options.has('--human-readable');
-    const recursive = options.has('-R') || options.has('--recursive');
-    const sortByTime = options.has('-t');
-    const reverseSort = options.has('-r') || options.has('--reverse');
+    const showAll = options.has('-a') || options.has('--all')
+    const longFormat = options.has('-l')
+    const humanReadable = options.has('-h') || options.has('--human-readable')
+    const recursive = options.has('-R') || options.has('--recursive')
+    const sortByTime = options.has('-t')
+    const reverseSort = options.has('-r') || options.has('--reverse')
 
-    const targets = positional.length > 0 ? positional : [this.currentDir];
-    const results: string[] = [];
+    const targets = positional.length > 0 ? positional : [this.currentDir]
+    const results: string[] = []
 
     for (const target of targets) {
-      const expanded = await this.expandPathPattern(target);
+      const expanded = await this.expandPathPattern(target)
 
       if (expanded.length === 0) {
-        throw new Error(`ls: cannot access '${target}': No such file or directory`);
+        throw new Error(`ls: cannot access '${target}': No such file or directory`)
       }
 
       for (const path of expanded) {
@@ -53,15 +53,15 @@ export class LsCommand extends UnixCommandBase {
             sortByTime,
             reverseSort,
             targets.length > 1 || expanded.length > 1
-          );
-          results.push(result);
+          )
+          results.push(result)
         } catch (error) {
-          throw new Error(`ls: cannot access '${path}': ${(error as Error).message}`);
+          throw new Error(`ls: cannot access '${path}': ${(error as Error).message}`)
         }
       }
     }
 
-    return results.join('\n\n');
+    return results.join('\n\n')
   }
 
   /**
@@ -77,89 +77,89 @@ export class LsCommand extends UnixCommandBase {
     reverseSort: boolean,
     showHeader: boolean
   ): Promise<string> {
-    const normalizedPath = this.normalizePath(path);
-    const isDir = await this.isDirectory(normalizedPath);
+    const normalizedPath = this.normalizePath(path)
+    const isDir = await this.isDirectory(normalizedPath)
 
     if (!isDir) {
       // ファイルの場合
       if (longFormat) {
-        return await this.formatLongEntry(normalizedPath, humanReadable);
+        return await this.formatLongEntry(normalizedPath, humanReadable)
       }
-      return normalizedPath;
+      return normalizedPath
     }
 
     // ディレクトリの場合
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const relativePath = this.getRelativePathFromProject(normalizedPath)
+    const prefix = relativePath === '/' ? '' : `${relativePath}/`
+    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix)
 
     // ディレクトリ直下のファイル/フォルダを取得
     let entries = files.filter((f: ProjectFile) => {
       if (relativePath === '/') {
-        return f.path.split('/').filter((p: string) => p).length === 1;
+        return f.path.split('/').filter((p: string) => p).length === 1
       } else {
-        const childPath = f.path.replace(prefix, '');
-        return f.path.startsWith(prefix) && !childPath.includes('/');
+        const childPath = f.path.replace(prefix, '')
+        return f.path.startsWith(prefix) && !childPath.includes('/')
       }
-    });
+    })
 
     // .git等のフィルタリング
     if (!showAll) {
       entries = entries.filter(f => {
-        const name = f.path.split('/').pop() || '';
-        return !name.startsWith('.') && name !== '.git';
-      });
+        const name = f.path.split('/').pop() || ''
+        return !name.startsWith('.') && name !== '.git'
+      })
     }
 
     // ソート
     if (sortByTime) {
       entries.sort((a, b) => {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-        return timeB - timeA;
-      });
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+        return timeB - timeA
+      })
     } else {
       entries.sort((a, b) => {
-        const nameA = a.path.split('/').pop() || '';
-        const nameB = b.path.split('/').pop() || '';
+        const nameA = a.path.split('/').pop() || ''
+        const nameB = b.path.split('/').pop() || ''
         if (a.type !== b.type) {
-          return a.type === 'folder' ? -1 : 1;
+          return a.type === 'folder' ? -1 : 1
         }
-        return nameA.localeCompare(nameB);
-      });
+        return nameA.localeCompare(nameB)
+      })
     }
 
     if (reverseSort) {
-      entries.reverse();
+      entries.reverse()
     }
 
-    let result = '';
+    let result = ''
 
     if (showHeader) {
-      result += `${normalizedPath}:\n`;
+      result += `${normalizedPath}:\n`
     }
 
     if (longFormat) {
-      result += `total ${entries.length}\n`;
+      result += `total ${entries.length}\n`
       for (const entry of entries) {
-        const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
-        result += (await this.formatLongEntry(fullPath, humanReadable)) + '\n';
+        const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`
+        result += (await this.formatLongEntry(fullPath, humanReadable)) + '\n'
       }
     } else {
       result += entries
         .map(e => {
-          const name = e.path.split('/').pop() || '';
-          return e.type === 'folder' ? `${name}/` : name;
+          const name = e.path.split('/').pop() || ''
+          return e.type === 'folder' ? `${name}/` : name
         })
-        .join('\n');
+        .join('\n')
     }
 
     // 再帰的表示
     if (recursive) {
       for (const entry of entries) {
         if (entry.type === 'folder') {
-          const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
-          result += '\n\n';
+          const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`
+          result += '\n\n'
           result += await this.listPath(
             fullPath,
             showAll,
@@ -169,50 +169,50 @@ export class LsCommand extends UnixCommandBase {
             sortByTime,
             reverseSort,
             true
-          );
+          )
         }
       }
     }
 
-    return result;
+    return result
   }
 
   /**
    * 詳細形式のエントリをフォーマット
    */
   private async formatLongEntry(path: string, humanReadable: boolean): Promise<string> {
-    const relativePath = this.getRelativePathFromProject(path);
-    const file = await this.getFileFromDB(relativePath);
+    const relativePath = this.getRelativePathFromProject(path)
+    const file = await this.getFileFromDB(relativePath)
 
     if (!file) {
-      return '';
+      return ''
     }
 
-    const type = file.type === 'folder' ? 'd' : '-';
-    const perms = 'rw-r--r--';
-    const size = file.bufferContent ? file.bufferContent.byteLength : file.content?.length || 0;
-    const sizeStr = humanReadable ? this.formatSize(size) : size.toString().padStart(8);
-    const date = file.updatedAt ? new Date(file.updatedAt) : new Date();
-    const dateStr = date.toLocaleDateString();
-    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const name = file.path.split('/').pop() || '';
+    const type = file.type === 'folder' ? 'd' : '-'
+    const perms = 'rw-r--r--'
+    const size = file.bufferContent ? file.bufferContent.byteLength : file.content?.length || 0
+    const sizeStr = humanReadable ? this.formatSize(size) : size.toString().padStart(8)
+    const date = file.updatedAt ? new Date(file.updatedAt) : new Date()
+    const dateStr = date.toLocaleDateString()
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const name = file.path.split('/').pop() || ''
 
-    return `${type}${perms} 1 user user ${sizeStr} ${dateStr} ${timeStr} ${name}${file.type === 'folder' ? '/' : ''}`;
+    return `${type}${perms} 1 user user ${sizeStr} ${dateStr} ${timeStr} ${name}${file.type === 'folder' ? '/' : ''}`
   }
 
   /**
    * サイズを人間が読みやすい形式にフォーマット
    */
   private formatSize(bytes: number): string {
-    const units = ['B', 'K', 'M', 'G', 'T'];
-    let size = bytes;
-    let unitIndex = 0;
+    const units = ['B', 'K', 'M', 'G', 'T']
+    let size = bytes
+    let unitIndex = 0
 
     while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
+      size /= 1024
+      unitIndex++
     }
 
-    return `${size.toFixed(1)}${units[unitIndex]}`.padStart(8);
+    return `${size.toFixed(1)}${units[unitIndex]}`.padStart(8)
   }
 }

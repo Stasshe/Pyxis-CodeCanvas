@@ -11,5 +11,5 @@ export function createOSModule() {
     tmpdir: () => '/tmp',
     homedir: () => '/home/user',
     EOL: '\n',
-  };
+  }
 }

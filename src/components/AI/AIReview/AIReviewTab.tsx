@@ -1,27 +1,27 @@
 // AIレビュータブコンポーネント
 // Monaco Editorの差分表示を使用して、AI提案の変更を確認・編集できる
 
-'use client';
+'use client'
 
-import { DiffEditor } from '@monaco-editor/react';
-import type { Monaco } from '@monaco-editor/react';
-import { Check, X } from 'lucide-react';
-import type * as monacoEditor from 'monaco-editor';
-import React, { useState, useRef, useEffect } from 'react';
+import { DiffEditor } from '@monaco-editor/react'
+import type { Monaco } from '@monaco-editor/react'
+import { Check, X } from 'lucide-react'
+import type * as monacoEditor from 'monaco-editor'
+import React, { useState, useRef, useEffect } from 'react'
 
-import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
-import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { calculateDiff } from '@/engine/ai/diffProcessor';
-import type { Tab } from '@/types';
+import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils'
+import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { calculateDiff } from '@/engine/ai/diffProcessor'
+import type { Tab } from '@/types'
 
 interface AIReviewTabProps {
-  tab: Tab;
-  onApplyChanges: (filePath: string, content: string) => void;
-  onDiscardChanges: (filePath: string) => void;
-  onUpdateSuggestedContent?: (tabId: string, newContent: string) => void;
-  onCloseTab?: (filePath: string) => void;
+  tab: Tab
+  onApplyChanges: (filePath: string, content: string) => void
+  onDiscardChanges: (filePath: string) => void
+  onUpdateSuggestedContent?: (tabId: string, newContent: string) => void
+  onCloseTab?: (filePath: string) => void
 }
 
 export default function AIReviewTab({
@@ -31,47 +31,44 @@ export default function AIReviewTab({
   onUpdateSuggestedContent,
   onCloseTab,
 }: AIReviewTabProps) {
-  const { colors, themeName } = useTheme();
-  const { t } = useTranslation();
+  const { colors, themeName } = useTheme()
+  const { t } = useTranslation()
 
-  console.log('[AIReviewTab] Rendering with tab:', tab);
+  console.log('[AIReviewTab] Rendering with tab:', tab)
 
   // AIReviewTab型にキャスト
-  const aiTab = tab as any;
-  const originalContent = aiTab.originalContent || '';
-  const suggestedContent = aiTab.suggestedContent || '';
-  const filePath = aiTab.filePath || aiTab.path || '';
+  const aiTab = tab as any
+  const originalContent = aiTab.originalContent || ''
+  const suggestedContent = aiTab.suggestedContent || ''
+  const filePath = aiTab.filePath || aiTab.path || ''
   // history is shown in AIPanel instead; not used here
-  const aiEntry = aiTab.aiEntry || null;
+  const aiEntry = aiTab.aiEntry || null
 
   console.log('[AIReviewTab] Data:', {
     originalContent: originalContent.length,
     suggestedContent: suggestedContent.length,
     filePath,
-  });
+  })
 
   // 現在編集中のsuggestedContentを管理（本体には影響しない）
-  const [currentSuggestedContent, setCurrentSuggestedContent] = useState(suggestedContent);
+  const [currentSuggestedContent, setCurrentSuggestedContent] = useState(suggestedContent)
 
   // DiffEditorとモデルの参照
-  const diffEditorRef = useRef<monacoEditor.editor.IStandaloneDiffEditor | null>(null);
+  const diffEditorRef = useRef<monacoEditor.editor.IStandaloneDiffEditor | null>(null)
   const modelsRef = useRef<{
-    original: monacoEditor.editor.ITextModel | null;
-    modified: monacoEditor.editor.ITextModel | null;
-  }>({ original: null, modified: null });
+    original: monacoEditor.editor.ITextModel | null
+    modified: monacoEditor.editor.ITextModel | null
+  }>({ original: null, modified: null })
 
   // デバウンス保存用のタイマー
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   if (!originalContent && !suggestedContent) {
     return (
-      <div
-        className="flex items-center justify-center h-full"
-        style={{ color: colors.mutedFg }}
-      >
+      <div className="flex items-center justify-center h-full" style={{ color: colors.mutedFg }}>
         {t('aiReviewTab.notFound')}
       </div>
-    );
+    )
   }
 
   // クリーンアップ
@@ -79,90 +76,90 @@ export default function AIReviewTab({
     return () => {
       // デバウンスタイマーをクリア
       if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+        clearTimeout(saveTimeoutRef.current)
       }
 
       // エディタをリセットしてからモデルを破棄
       if (diffEditorRef.current) {
         try {
-          diffEditorRef.current.setModel(null);
+          diffEditorRef.current.setModel(null)
         } catch (e) {
-          console.warn('[AIReviewTab] Failed to reset editor:', e);
+          console.warn('[AIReviewTab] Failed to reset editor:', e)
         }
         try {
-          diffEditorRef.current.dispose();
+          diffEditorRef.current.dispose()
         } catch (e) {
-          console.warn('[AIReviewTab] Failed to dispose editor:', e);
+          console.warn('[AIReviewTab] Failed to dispose editor:', e)
         }
       }
 
       // モデルを破棄
       try {
         if (modelsRef.current.original && !modelsRef.current.original.isDisposed()) {
-          modelsRef.current.original.dispose();
+          modelsRef.current.original.dispose()
         }
         if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
-          modelsRef.current.modified.dispose();
+          modelsRef.current.modified.dispose()
         }
       } catch (e) {
-        console.warn('[AIReviewTab] Failed to dispose models:', e);
+        console.warn('[AIReviewTab] Failed to dispose models:', e)
       }
-    };
-  }, []);
+    }
+  }, [])
 
   // デバウンス付き保存関数
   const debouncedSave = (content: string) => {
     if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+      clearTimeout(saveTimeoutRef.current)
     }
 
     saveTimeoutRef.current = setTimeout(() => {
-      console.log('[AIReviewTab] Debounced save triggered');
+      console.log('[AIReviewTab] Debounced save triggered')
       if (onUpdateSuggestedContent) {
-        onUpdateSuggestedContent(tab.id, content);
+        onUpdateSuggestedContent(tab.id, content)
       }
-    }, 2000); // 2秒のデバウンス
-  };
+    }, 2000) // 2秒のデバウンス
+  }
 
   // DiffEditorマウント時のハンドラ
   const handleDiffEditorMount = (
     editor: monacoEditor.editor.IStandaloneDiffEditor,
     monaco: Monaco
   ) => {
-    diffEditorRef.current = editor;
+    diffEditorRef.current = editor
 
     // テーマ定義と適用
     try {
-      defineAndSetMonacoThemes(monaco, colors, themeName);
+      defineAndSetMonacoThemes(monaco, colors, themeName)
     } catch (e) {
-      console.warn('[AIReviewTab] Failed to define/set themes:', e);
+      console.warn('[AIReviewTab] Failed to define/set themes:', e)
     }
 
     // モデルを取得して保存
-    const diffModel = editor.getModel();
+    const diffModel = editor.getModel()
     if (diffModel) {
       modelsRef.current = {
         original: diffModel.original,
         modified: diffModel.modified,
-      };
+      }
 
       // modifiedモデルの変更を監視
       if (diffModel.modified) {
         diffModel.modified.onDidChangeContent(() => {
-          const newContent = diffModel.modified.getValue();
-          console.log('[AIReviewTab] Content changed in DiffEditor');
+          const newContent = diffModel.modified.getValue()
+          console.log('[AIReviewTab] Content changed in DiffEditor')
 
           // 即座にステートを更新
-          setCurrentSuggestedContent(newContent);
+          setCurrentSuggestedContent(newContent)
 
           // デバウンス保存をトリガー
-          debouncedSave(newContent);
-        });
+          debouncedSave(newContent)
+        })
       }
     }
 
     // Monaco Editorのアクションを追加
-    const modifiedEditor = editor.getModifiedEditor();
+    const modifiedEditor = editor.getModifiedEditor()
 
     // 選択範囲を元に戻すアクション
     modifiedEditor.addAction({
@@ -172,29 +169,29 @@ export default function AIReviewTab({
       contextMenuGroupId: 'modification',
       contextMenuOrder: 1,
       run: ed => {
-        const selection = ed.getSelection();
-        if (!selection || !diffModel?.original || !diffModel?.modified) return;
+        const selection = ed.getSelection()
+        if (!selection || !diffModel?.original || !diffModel?.modified) return
 
-        const startLine = selection.startLineNumber;
-        const endLine = selection.endLineNumber;
+        const startLine = selection.startLineNumber
+        const endLine = selection.endLineNumber
 
         // 元のコンテンツから該当範囲を取得
-        const originalLines = diffModel.original.getLinesContent();
-        const revertLines = originalLines.slice(startLine - 1, endLine);
+        const originalLines = diffModel.original.getLinesContent()
+        const revertLines = originalLines.slice(startLine - 1, endLine)
 
         // 現在の内容を取得
-        const currentLines = diffModel.modified.getLinesContent();
+        const currentLines = diffModel.modified.getLinesContent()
         const newLines = [
           ...currentLines.slice(0, startLine - 1),
           ...revertLines,
           ...currentLines.slice(endLine),
-        ];
+        ]
 
         // 新しい内容をセット
-        const newContent = newLines.join('\n');
-        diffModel.modified.setValue(newContent);
+        const newContent = newLines.join('\n')
+        diffModel.modified.setValue(newContent)
       },
-    });
+    })
 
     // 差分を受け入れるアクション（Acceptボタンと同等）
     modifiedEditor.addAction({
@@ -204,72 +201,76 @@ export default function AIReviewTab({
       contextMenuGroupId: 'modification',
       contextMenuOrder: 2,
       run: () => {
-        handleApplyAll();
+        handleApplyAll()
       },
-    });
-  };
+    })
+  }
 
   // 全体適用（suggestedContent -> 本体のcontentへコピー）
   const handleApplyAll = () => {
-    onApplyChanges(filePath, currentSuggestedContent);
+    onApplyChanges(filePath, currentSuggestedContent)
     // レビュータブを閉じる
     if (onCloseTab) {
-      onCloseTab(filePath);
+      onCloseTab(filePath)
     }
-  };
+  }
 
   // 適用済みを元に戻す（ストレージの originalSnapshot を使って上書き）
   const handleRevertApplied = async () => {
     try {
-      if (!aiEntry || !aiEntry.originalSnapshot) return;
+      if (!aiEntry || !aiEntry.originalSnapshot) return
       // Apply original snapshot
-      await onApplyChanges(filePath, aiEntry.originalSnapshot);
+      await onApplyChanges(filePath, aiEntry.originalSnapshot)
 
       // mark entry as reverted and push history
       try {
-        const { updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
-        const hist = aiEntry.history || [];
-        const historyEntry = { id: `revert-${Date.now()}`, timestamp: new Date(), content: aiEntry.originalSnapshot, note: 'reverted' };
+        const { updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter')
+        const hist = aiEntry.history || []
+        const historyEntry = {
+          id: `revert-${Date.now()}`,
+          timestamp: new Date(),
+          content: aiEntry.originalSnapshot,
+          note: 'reverted',
+        }
         await updateAIReviewEntry(aiEntry.projectId, filePath, {
           status: 'reverted',
           history: [historyEntry, ...hist],
-        });
+        })
       } catch (e) {
-        console.warn('[AIReviewTab] Failed to mark AI review entry as reverted', e);
+        console.warn('[AIReviewTab] Failed to mark AI review entry as reverted', e)
       }
 
-      if (onCloseTab) onCloseTab(filePath);
+      if (onCloseTab) onCloseTab(filePath)
     } catch (e) {
-      console.error('[AIReviewTab] revert applied failed', e);
+      console.error('[AIReviewTab] revert applied failed', e)
     }
-  };
-
+  }
 
   // 全体破棄（元の内容に戻す）
   const handleDiscardAll = () => {
-    onDiscardChanges(filePath);
+    onDiscardChanges(filePath)
     // レビュータブを閉じる
     if (onCloseTab) {
-      onCloseTab(filePath);
+      onCloseTab(filePath)
     }
-  };
+  }
 
   // 元に戻す（suggestedContentをoriginalContentに戻す）
   const handleRevertToOriginal = () => {
-    setCurrentSuggestedContent(originalContent);
+    setCurrentSuggestedContent(originalContent)
     if (diffEditorRef.current) {
-      const diffModel = diffEditorRef.current.getModel();
+      const diffModel = diffEditorRef.current.getModel()
       if (diffModel?.modified) {
-        diffModel.modified.setValue(originalContent);
+        diffModel.modified.setValue(originalContent)
       }
     }
     if (onUpdateSuggestedContent) {
-      onUpdateSuggestedContent(tab.id, originalContent);
+      onUpdateSuggestedContent(tab.id, originalContent)
     }
-  };
+  }
 
   // use shared utility to detect language from filename
-  const language = getLanguage(filePath);
+  const language = getLanguage(filePath)
 
   return (
     <div className="flex flex-col h-full">
@@ -279,16 +280,10 @@ export default function AIReviewTab({
         style={{ borderColor: colors.border, background: colors.cardBg }}
       >
         <div>
-          <h3
-            className="font-semibold"
-            style={{ color: colors.foreground }}
-          >
+          <h3 className="font-semibold" style={{ color: colors.foreground }}>
             AI Review: {filePath.split('/').pop()}
           </h3>
-          <p
-            className="text-xs mt-1"
-            style={{ color: colors.mutedFg }}
-          >
+          <p className="text-xs mt-1" style={{ color: colors.mutedFg }}>
             {filePath}
           </p>
         </div>
@@ -355,12 +350,12 @@ export default function AIReviewTab({
       >
         {(() => {
           try {
-            const diffLines = calculateDiff(originalContent, currentSuggestedContent);
-            const added = diffLines.filter(l => l.type === 'added').length;
-            const removed = diffLines.filter(l => l.type === 'removed').length;
-            const unchanged = diffLines.filter(l => l.type === 'unchanged').length;
-            const originalCount = unchanged + removed;
-            const suggestedCount = unchanged + added;
+            const diffLines = calculateDiff(originalContent, currentSuggestedContent)
+            const added = diffLines.filter(l => l.type === 'added').length
+            const removed = diffLines.filter(l => l.type === 'removed').length
+            const unchanged = diffLines.filter(l => l.type === 'unchanged').length
+            const originalCount = unchanged + removed
+            const suggestedCount = unchanged + added
 
             return (
               <div className="flex gap-4">
@@ -393,10 +388,10 @@ export default function AIReviewTab({
                   -{removed}
                 </span>
               </div>
-            );
+            )
           } catch (e) {
-            const orig = originalContent.split('\n').length;
-            const sug = currentSuggestedContent.split('\n').length;
+            const orig = originalContent.split('\n').length
+            const sug = currentSuggestedContent.split('\n').length
             return (
               <div className="flex gap-4">
                 <span>
@@ -412,7 +407,7 @@ export default function AIReviewTab({
                   {t('diff.lines')}
                 </span>
               </div>
-            );
+            )
           }
         })()}
       </div>
@@ -461,10 +456,7 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        <span
-          role="img"
-          aria-label="hint"
-        >
+        <span role="img" aria-label="hint">
           💡
         </span>{' '}
         <b>{t('aiReviewTab.editRightDirectly')}</b>
@@ -473,5 +465,5 @@ export default function AIReviewTab({
         {t('aiReviewTab.revertSelectionHint')}
       </div>
     </div>
-  );
+  )
 }

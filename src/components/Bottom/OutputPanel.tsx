@@ -1,20 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
 
-type OutputType = 'info' | 'error' | 'warn' | 'check';
+type OutputType = 'info' | 'error' | 'warn' | 'check'
 
 export interface OutputMessage {
-  message: string;
-  type?: OutputType;
-  context?: string;
-  count?: number;
+  message: string
+  type?: OutputType
+  context?: string
+  count?: number
 }
 
 interface OutputPanelProps {
-  messages: OutputMessage[];
-  onClearDisplayed?: (toClear: OutputMessage[]) => void;
+  messages: OutputMessage[]
+  onClearDisplayed?: (toClear: OutputMessage[]) => void
 }
 
 // Themeの色を使う
@@ -23,33 +23,33 @@ const getTypeColor = (colors: any): Record<OutputType, string> => ({
   error: colors.red,
   warn: colors.accentFg,
   check: colors.green,
-});
+})
 
 export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const [contextFilter, setContextFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState<OutputType | 'all'>('all');
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const [contextFilter, setContextFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState<OutputType | 'all'>('all')
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
 
   const contextList = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>()
     messages.forEach(m => {
-      if (m.context) set.add(m.context);
-    });
-    return Array.from(set);
-  }, [messages]);
+      if (m.context) set.add(m.context)
+    })
+    return Array.from(set)
+  }, [messages])
 
-  const typeList: Array<OutputType | 'all'> = ['all', 'info', 'warn', 'error'];
-  const typeColor = getTypeColor(colors);
+  const typeList: Array<OutputType | 'all'> = ['all', 'info', 'warn', 'error']
+  const typeColor = getTypeColor(colors)
 
   const filtered = useMemo(() => {
     return messages.filter(msg => {
-      const typeMatch = typeFilter === 'all' || (msg.type || 'info') === typeFilter;
-      const contextMatch = !contextFilter || msg.context === contextFilter;
-      return typeMatch && contextMatch;
-    });
-  }, [messages, typeFilter, contextFilter]);
+      const typeMatch = typeFilter === 'all' || (msg.type || 'info') === typeFilter
+      const contextMatch = !contextFilter || msg.context === contextFilter
+      return typeMatch && contextMatch
+    })
+  }, [messages, typeFilter, contextFilter])
 
   return (
     <div
@@ -99,10 +99,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
           >
             <option value="">{t('bottom.outputPanel.all')}</option>
             {contextList.map(ctx => (
-              <option
-                key={ctx}
-                value={ctx}
-              >
+              <option key={ctx} value={ctx}>
                 {ctx}
               </option>
             ))}
@@ -124,10 +121,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
             onChange={e => setTypeFilter(e.target.value as OutputType | 'all')}
           >
             {typeList.map(type => (
-              <option
-                key={type}
-                value={type}
-              >
+              <option key={type} value={type}>
                 {type === 'all' ? t('bottom.outputPanel.all') : type}
               </option>
             ))}
@@ -136,7 +130,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
         {/* クリアボタン: 現在フィルターで表示されているメッセージを親に渡す */}
         <button
           onClick={() => {
-            if (onClearDisplayed) onClearDisplayed(filtered);
+            if (onClearDisplayed) onClearDisplayed(filtered)
           }}
           style={{
             marginLeft: 6,
@@ -156,31 +150,31 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
         <button
           onClick={async () => {
             const lines = filtered.map(msg => {
-              const type = msg.type || 'info';
-              const ctx = msg.context ? `(${msg.context}) ` : '';
-              const count = msg.count && msg.count > 1 ? ` ×${msg.count}` : '';
-              return `[${type}] ${ctx}${msg.message}${count}`;
-            });
-            const text = lines.join('\n');
+              const type = msg.type || 'info'
+              const ctx = msg.context ? `(${msg.context}) ` : ''
+              const count = msg.count && msg.count > 1 ? ` ×${msg.count}` : ''
+              return `[${type}] ${ctx}${msg.message}${count}`
+            })
+            const text = lines.join('\n')
             try {
               if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(text);
+                await navigator.clipboard.writeText(text)
               } else {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                ta.setAttribute('readonly', '');
-                ta.style.position = 'absolute';
-                ta.style.left = '-9999px';
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
+                const ta = document.createElement('textarea')
+                ta.value = text
+                ta.setAttribute('readonly', '')
+                ta.style.position = 'absolute'
+                ta.style.left = '-9999px'
+                document.body.appendChild(ta)
+                ta.select()
+                document.execCommand('copy')
+                document.body.removeChild(ta)
               }
-              setCopyStatus('copied');
-              setTimeout(() => setCopyStatus('idle'), 1800);
+              setCopyStatus('copied')
+              setTimeout(() => setCopyStatus('idle'), 1800)
             } catch (e) {
-              setCopyStatus('error');
-              setTimeout(() => setCopyStatus('idle'), 1800);
+              setCopyStatus('error')
+              setTimeout(() => setCopyStatus('idle'), 1800)
             }
           }}
           style={{
@@ -249,5 +243,5 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
         </div>
       )}
     </div>
-  );
+  )
 }

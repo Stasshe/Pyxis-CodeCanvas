@@ -1,23 +1,23 @@
 // src/hooks/useProjectWelcome.ts
-import { useEffect } from 'react';
+import { useEffect } from 'react'
 
-import { useTabStore } from '@/stores/tabStore';
-import { Project } from '@/types';
+import { useTabStore } from '@/stores/tabStore'
+import { Project } from '@/types'
 
 /**
  * プロジェクト読み込み時にWelcomeタブを開くカスタムフック
  */
 export function useProjectWelcome(currentProject: Project | null) {
-  const { panes, openTab } = useTabStore();
+  const { panes, openTab } = useTabStore()
 
   useEffect(() => {
     if (!currentProject) {
-      return;
+      return
     }
 
     // ペインが存在し、タブが1つもない場合のみWelcomeタブを開く
     if (panes.length > 0) {
-      const firstPane = panes[0];
+      const firstPane = panes[0]
       if (firstPane.tabs.length === 0) {
         openTab(
           {
@@ -25,8 +25,8 @@ export function useProjectWelcome(currentProject: Project | null) {
             description: currentProject.description,
           },
           { kind: 'welcome' }
-        );
+        )
       }
     }
-  }, [currentProject?.id]);
+  }, [currentProject?.id])
 }

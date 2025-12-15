@@ -1,18 +1,18 @@
-import React from 'react';
+import React from 'react'
 
-import AIPanel from '@/components/AI/AIPanel';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import type { FileItem, Project } from '@/types';
+import AIPanel from '@/components/AI/AIPanel'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import type { FileItem, Project } from '@/types'
 
 interface RightSidebarProps {
-  rightSidebarWidth: number;
-  onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  children?: React.ReactNode;
+  rightSidebarWidth: number
+  onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void
+  children?: React.ReactNode
   // AI Agent用のプロパティ
-  projectFiles?: FileItem[];
-  currentProject?: Project | null;
-  currentProjectId?: string;
+  projectFiles?: FileItem[]
+  currentProject?: Project | null
+  currentProjectId?: string
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -23,8 +23,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   currentProject = null,
   currentProjectId = '',
 }) => {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { colors } = useTheme()
+  const { t } = useTranslation()
 
   return (
     <>
@@ -53,8 +53,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
       </aside>
     </>
-  );
-};
+  )
+}
 
 // Memoize to avoid unnecessary re-renders when parent updates unrelated state
-export default React.memo(RightSidebar);
+export default React.memo(RightSidebar)

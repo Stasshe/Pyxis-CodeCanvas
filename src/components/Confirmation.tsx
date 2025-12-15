@@ -1,18 +1,18 @@
-import { Check, X } from 'lucide-react';
-import React from 'react';
+import { Check, X } from 'lucide-react'
+import React from 'react'
 
-import { useTranslation } from '../context/I18nContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from '../context/I18nContext'
+import { useTheme } from '../context/ThemeContext'
 
 export type ConfirmationProps = {
-  open: boolean;
-  title?: string;
-  message?: string;
-  confirmText?: string;
-  cancelText?: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-};
+  open: boolean
+  title?: string
+  message?: string
+  confirmText?: string
+  cancelText?: string
+  onConfirm: () => void
+  onCancel: () => void
+}
 export const Confirmation: React.FC<ConfirmationProps> = ({
   open,
   title = undefined,
@@ -22,9 +22,9 @@ export const Confirmation: React.FC<ConfirmationProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  if (!open) return null;
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  if (!open) return null
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -40,16 +40,10 @@ export const Confirmation: React.FC<ConfirmationProps> = ({
         }}
         className="rounded-lg shadow-xl p-6 min-w-[320px] max-w-[90vw]"
       >
-        <h2
-          className="text-lg font-bold mb-2"
-          style={{ color: colors.foreground }}
-        >
+        <h2 className="text-lg font-bold mb-2" style={{ color: colors.foreground }}>
           {title ?? t('confirmation.title')}
         </h2>
-        <div
-          className="mb-4"
-          style={{ color: colors.mutedFg }}
-        >
+        <div className="mb-4" style={{ color: colors.mutedFg }}>
           {message}
         </div>
         <div className="flex justify-end gap-2">
@@ -82,5 +76,5 @@ export const Confirmation: React.FC<ConfirmationProps> = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

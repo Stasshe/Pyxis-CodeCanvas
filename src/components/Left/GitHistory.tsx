@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 import {
   GitCommit,
@@ -11,34 +11,34 @@ import {
   Calendar,
   Hash,
   FileDiff,
-} from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
+} from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
-import { GitCommit as GitCommitType } from '@/types/git';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
+import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers'
+import { GitCommit as GitCommitType } from '@/types/git'
 
 interface GitHistoryProps {
-  commits: GitCommitType[];
-  currentProject?: string;
-  currentProjectId?: string;
-  currentBranch: string;
+  commits: GitCommitType[]
+  currentProject?: string
+  currentProjectId?: string
+  currentBranch: string
 }
 
 interface CommitChanges {
-  added: string[];
-  modified: string[];
-  deleted: string[];
+  added: string[]
+  modified: string[]
+  deleted: string[]
 }
 
 interface ExtendedCommit extends GitCommitType {
-  x: number;
-  y: number;
-  lane: number; // このコミットが描画されるレーン番号
-  laneColor: string; // このコミットの線の色
-  changes?: CommitChanges;
+  x: number
+  y: number
+  lane: number // このコミットが描画されるレーン番号
+  laneColor: string // このコミットの線の色
+  changes?: CommitChanges
 }
 
 export default function GitHistory({
@@ -47,92 +47,92 @@ export default function GitHistory({
   currentProjectId,
   currentBranch,
 }: GitHistoryProps) {
-  const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
-  const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
-  const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
+  const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([])
+  const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set())
+  const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map())
   // 重複コミットの表示切り替え
-  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false)
   // 重複グループ情報
-  const [duplicateGroups, setDuplicateGroups] = useState<Map<string, GitCommitType[]>>(new Map());
-  const svgRef = useRef<SVGSVGElement>(null);
+  const [duplicateGroups, setDuplicateGroups] = useState<Map<string, GitCommitType[]>>(new Map())
+  const svgRef = useRef<SVGSVGElement>(null)
   const gitCommands =
     currentProject && currentProjectId
       ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
-      : null;
+      : null
 
   // [NEW ARCHITECTURE] Diff タブハンドラー
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
     name: currentProject,
     id: currentProjectId,
-  });
+  })
 
   // トポロジカルソート: 親→子の順に並べる
   const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {
     // timestamp昇順（古い順）で処理する
-    const sorted = commits.slice().sort((a, b) => a.timestamp - b.timestamp);
-    const visited = new Set<string>();
-    const result: GitCommitType[] = [];
-    const map = new Map<string, GitCommitType>();
-    sorted.forEach(c => map.set(c.hash, c));
+    const sorted = commits.slice().sort((a, b) => a.timestamp - b.timestamp)
+    const visited = new Set<string>()
+    const result: GitCommitType[] = []
+    const map = new Map<string, GitCommitType>()
+    sorted.forEach(c => map.set(c.hash, c))
     const visit = (c: GitCommitType) => {
-      if (visited.has(c.hash)) return;
-      visited.add(c.hash);
+      if (visited.has(c.hash)) return
+      visited.add(c.hash)
       if (c.parentHashes) {
         c.parentHashes.forEach(ph => {
-          const parent = map.get(ph);
-          if (parent) visit(parent);
-        });
+          const parent = map.get(ph)
+          if (parent) visit(parent)
+        })
       }
-      result.push(c);
-    };
-    sorted.forEach(c => visit(c));
+      result.push(c)
+    }
+    sorted.forEach(c => visit(c))
     // 重複除去
-    const seen = new Set<string>();
+    const seen = new Set<string>()
     return result.filter(c => {
-      if (seen.has(c.hash)) return false;
-      seen.add(c.hash);
-      return true;
-    });
-  };
+      if (seen.has(c.hash)) return false
+      seen.add(c.hash)
+      return true
+    })
+  }
 
   // 重複コミットを除去（同じ内容のコミットはリモート優先）
   // 重複グループを返しつつ、表示用コミットリストを返す
   const deduplicateCommits = (
     commits: GitCommitType[]
   ): { deduplicated: GitCommitType[]; groups: Map<string, GitCommitType[]> } => {
-    const contentMap = new Map<string, GitCommitType[]>();
+    const contentMap = new Map<string, GitCommitType[]>()
     commits.forEach(commit => {
       const key = commit.tree
         ? `tree:${commit.tree}`
-        : `meta:${commit.author}|${commit.timestamp}|${commit.message}`;
+        : `meta:${commit.author}|${commit.timestamp}|${commit.message}`
       if (!contentMap.has(key)) {
-        contentMap.set(key, []);
+        contentMap.set(key, [])
       }
-      contentMap.get(key)!.push(commit);
-    });
-    const deduplicated: GitCommitType[] = [];
+      contentMap.get(key)!.push(commit)
+    })
+    const deduplicated: GitCommitType[] = []
     contentMap.forEach((group, key) => {
       if (group.length === 1) {
-        deduplicated.push(group[0]);
+        deduplicated.push(group[0])
       } else {
         // 重複あり: リモート参照があるコミットを優先
         const remoteCommit = group.find(
           c =>
             Array.isArray(c.refs) &&
             c.refs.some((ref: string) => ref.startsWith('origin/') || ref.startsWith('upstream/'))
-        );
+        )
         if (remoteCommit) {
-          deduplicated.push(remoteCommit);
+          deduplicated.push(remoteCommit)
         } else {
-          deduplicated.push(group[0]);
+          deduplicated.push(group[0])
         }
       }
-    });
-    return { deduplicated, groups: contentMap };
-  };
+    })
+    return { deduplicated, groups: contentMap }
+  }
 
   // ThemeContextから色を取得
-  const { colors } = useTheme();
+  const { colors } = useTheme()
 
   // ブランチカラーのパレット（ThemeContextから取得、なければデフォルト）
   const branchColors = colors.gitBranchColors || [
@@ -144,158 +144,158 @@ export default function GitHistory({
     '#06b6d4', // cyan
     '#f97316', // orange
     '#84cc16', // lime
-  ];
+  ]
 
   // コミット行の高さを動的に計算するヘルパー関数（小さめ）
   const getCommitRowHeight = (commitHash: string): number => {
-    const baseHeight = 28; // 基本の行高さ
-    const FILE_ITEM_HEIGHT = 24; // ファイル1つあたりの高さ
-    const MAX_FILES_DISPLAY = 10; // 最大表示ファイル数
-    const HEADER_FOOTER_HEIGHT = 32; // ヘッダー・フッター・パディング(最小)
+    const baseHeight = 28 // 基本の行高さ
+    const FILE_ITEM_HEIGHT = 24 // ファイル1つあたりの高さ
+    const MAX_FILES_DISPLAY = 10 // 最大表示ファイル数
+    const HEADER_FOOTER_HEIGHT = 32 // ヘッダー・フッター・パディング(最小)
 
     if (!expandedCommits.has(commitHash)) {
-      return baseHeight;
+      return baseHeight
     }
 
     // 変更ファイル数を取得
-    const changes = commitChanges.get(commitHash);
+    const changes = commitChanges.get(commitHash)
     if (!changes) {
-      return baseHeight + HEADER_FOOTER_HEIGHT; // デフォルトの展開高さ
+      return baseHeight + HEADER_FOOTER_HEIGHT // デフォルトの展開高さ
     }
 
-    const totalFiles = changes.added.length + changes.modified.length + changes.deleted.length;
-    const displayFiles = Math.min(totalFiles, MAX_FILES_DISPLAY);
+    const totalFiles = changes.added.length + changes.modified.length + changes.deleted.length
+    const displayFiles = Math.min(totalFiles, MAX_FILES_DISPLAY)
     // ファイルが1つもなければ最低限の高さだけ
     if (displayFiles === 0) {
-      return baseHeight + HEADER_FOOTER_HEIGHT;
+      return baseHeight + HEADER_FOOTER_HEIGHT
     }
     // ファイルが1つ以上なら、その分だけ高さを増やす
-    const expandedHeight = HEADER_FOOTER_HEIGHT + displayFiles * FILE_ITEM_HEIGHT;
-    return baseHeight + expandedHeight;
-  };
+    const expandedHeight = HEADER_FOOTER_HEIGHT + displayFiles * FILE_ITEM_HEIGHT
+    return baseHeight + expandedHeight
+  }
 
   // コミットの位置とレーンを計算（展開状態を考慮）
-  const [svgHeight, setSvgHeight] = useState<number>(0);
+  const [svgHeight, setSvgHeight] = useState<number>(0)
 
   useEffect(() => {
-    if (commits.length === 0) return;
+    if (commits.length === 0) return
 
     // 重複コミットを除去（リモート優先）
-    const { deduplicated, groups } = deduplicateCommits(commits);
-    setDuplicateGroups(groups);
+    const { deduplicated, groups } = deduplicateCommits(commits)
+    setDuplicateGroups(groups)
 
     // 表示用コミットリストを時系列（新しい順）でソート
     const sortedCommits = (showDuplicates ? commits : deduplicated)
       .slice()
-      .sort((a, b) => b.timestamp - a.timestamp);
+      .sort((a, b) => b.timestamp - a.timestamp)
 
     // レーン割り当ては古い順に処理（親→子の順）
     // ただし、描画は新しい順
-    const ROW_HEIGHT = 28;
-    const LANE_WIDTH = 16;
-    const EXPANDED_HEIGHT = 56;
-    const Y_OFFSET = 10;
+    const ROW_HEIGHT = 28
+    const LANE_WIDTH = 16
+    const EXPANDED_HEIGHT = 56
+    const Y_OFFSET = 10
 
     // レーン割り当てアルゴリズム（古い順に処理）
     // 古い順で処理するため、timestamp昇順で一時ソート
-    const sortedForLane = sortedCommits.slice().sort((a, b) => a.timestamp - b.timestamp);
-    const commitMap = new Map<string, GitCommitType>();
-    sortedForLane.forEach(c => commitMap.set(c.hash, c));
+    const sortedForLane = sortedCommits.slice().sort((a, b) => a.timestamp - b.timestamp)
+    const commitMap = new Map<string, GitCommitType>()
+    sortedForLane.forEach(c => commitMap.set(c.hash, c))
 
-    const lanes: (string | null)[] = [];
-    const commitLanes = new Map<string, number>();
-    const commitColors = new Map<string, string>();
+    const lanes: (string | null)[] = []
+    const commitLanes = new Map<string, number>()
+    const commitColors = new Map<string, string>()
 
     for (const commit of sortedForLane) {
-      let assignedLane = -1;
-      let assignedColor: string | undefined;
+      let assignedLane = -1
+      let assignedColor: string | undefined
       if (commit.parentHashes.length > 0) {
-        const firstParentHash = commit.parentHashes[0];
+        const firstParentHash = commit.parentHashes[0]
         if (commitLanes.has(firstParentHash)) {
-          const parentLane = commitLanes.get(firstParentHash)!;
-          assignedLane = parentLane;
-          assignedColor = commitColors.get(firstParentHash);
+          const parentLane = commitLanes.get(firstParentHash)!
+          assignedLane = parentLane
+          assignedColor = commitColors.get(firstParentHash)
         }
       }
       if (assignedLane === -1) {
-        assignedLane = lanes.findIndex(lane => lane === null);
+        assignedLane = lanes.findIndex(lane => lane === null)
         if (assignedLane === -1) {
-          assignedLane = lanes.length;
-          lanes.push(null);
+          assignedLane = lanes.length
+          lanes.push(null)
         }
-        assignedColor = branchColors[assignedLane % branchColors.length];
+        assignedColor = branchColors[assignedLane % branchColors.length]
       }
-      lanes[assignedLane] = commit.hash;
-      commitLanes.set(commit.hash, assignedLane);
-      commitColors.set(commit.hash, assignedColor!);
+      lanes[assignedLane] = commit.hash
+      commitLanes.set(commit.hash, assignedLane)
+      commitColors.set(commit.hash, assignedColor!)
       if (commit.parentHashes.length > 1) {
         for (let i = 1; i < commit.parentHashes.length; i++) {
-          const parentHash = commit.parentHashes[i];
+          const parentHash = commit.parentHashes[i]
           if (commitLanes.has(parentHash)) {
-            const parentLane = commitLanes.get(parentHash)!;
+            const parentLane = commitLanes.get(parentHash)!
             if (lanes[parentLane] === parentHash) {
-              lanes[parentLane] = null;
+              lanes[parentLane] = null
             }
           }
         }
       }
-      const hasChildren = sortedForLane.some(c => c.parentHashes.includes(commit.hash));
+      const hasChildren = sortedForLane.some(c => c.parentHashes.includes(commit.hash))
       if (!hasChildren) {
-        lanes[assignedLane] = null;
+        lanes[assignedLane] = null
       }
     }
 
-    let currentY = Y_OFFSET;
+    let currentY = Y_OFFSET
     // 新しい順で描画
-    const displayCommits = sortedCommits;
+    const displayCommits = sortedCommits
     const processedCommits: ExtendedCommit[] = displayCommits.map(commit => {
-      const lane = commitLanes.get(commit.hash) || 0;
-      const color = commitColors.get(commit.hash) || branchColors[0];
-      const commitY = currentY;
-      currentY += getCommitRowHeight(commit.hash);
+      const lane = commitLanes.get(commit.hash) || 0
+      const color = commitColors.get(commit.hash) || branchColors[0]
+      const commitY = currentY
+      currentY += getCommitRowHeight(commit.hash)
       return {
         ...commit,
         x: lane * LANE_WIDTH + 10,
         y: commitY,
         lane,
         laneColor: color,
-      };
-    });
-    const calculatedHeight = currentY + 30;
-    setSvgHeight(calculatedHeight);
-    setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits, commitChanges, branchColors, showDuplicates]);
+      }
+    })
+    const calculatedHeight = currentY + 30
+    setSvgHeight(calculatedHeight)
+    setExtendedCommits(processedCommits)
+  }, [commits, expandedCommits, commitChanges, branchColors, showDuplicates])
 
   // コミットの変更ファイルを取得
   const getCommitChanges = async (commitHash: string) => {
-    if (!gitCommands || commitChanges.has(commitHash)) return;
+    if (!gitCommands || commitChanges.has(commitHash)) return
 
     try {
       // 現在のコミットとその親コミットを比較
-      const currentCommit = commits.find(c => c.hash === commitHash);
+      const currentCommit = commits.find(c => c.hash === commitHash)
       if (!currentCommit || currentCommit.parentHashes.length === 0) {
         // 親コミットがない場合（初回コミット）は空の変更として扱う
-        console.log('[GitHistory] No parent commits found for:', commitHash);
+        console.log('[GitHistory] No parent commits found for:', commitHash)
         setCommitChanges(prev =>
           new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] })
-        );
-        return;
+        )
+        return
       }
 
       // 最初の親コミットと比較（マージコミットの場合も最初の親を使用）
-      const parentHash = currentCommit.parentHashes[0];
-      console.log('[GitHistory] Comparing commits (parent->child):', parentHash, '->', commitHash);
+      const parentHash = currentCommit.parentHashes[0]
+      console.log('[GitHistory] Comparing commits (parent->child):', parentHash, '->', commitHash)
 
       // 親コミット→子コミットの順序で差分を取得（変更を正しく表示するため）
-      const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
-      console.log('[GitHistory] Raw diff output:', diffOutput);
+      const diffOutput = await gitCommands.diffCommits(parentHash, commitHash)
+      console.log('[GitHistory] Raw diff output:', diffOutput)
 
-      const changes = parseDiffOutput(diffOutput);
-      setCommitChanges(prev => new Map(prev).set(commitHash, changes));
+      const changes = parseDiffOutput(diffOutput)
+      setCommitChanges(prev => new Map(prev).set(commitHash, changes))
     } catch (error) {
-      console.error('Failed to get commit changes:', error);
+      console.error('Failed to get commit changes:', error)
     }
-  };
+  }
 
   // diff出力をパースして変更ファイルを抽出
   const parseDiffOutput = (diffOutput: string): CommitChanges => {
@@ -303,98 +303,98 @@ export default function GitHistory({
       added: [],
       modified: [],
       deleted: [],
-    };
+    }
 
     if (
       !diffOutput ||
       diffOutput.trim() === '' ||
       diffOutput === 'No differences between commits'
     ) {
-      return changes;
+      return changes
     }
 
-    const lines = diffOutput.split('\n');
-    let currentFile = '';
+    const lines = diffOutput.split('\n')
+    let currentFile = ''
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const line = lines[i]
       // diff --git a/file b/file の形式でファイル名を取得
       if (line.startsWith('diff --git ')) {
-        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+        const match = line.match(/diff --git a\/(.+) b\/(.+)/)
         if (match) {
-          currentFile = match[2]; // b/file の部分
+          currentFile = match[2] // b/file の部分
         } else {
-          currentFile = '';
+          currentFile = ''
         }
       }
       // 削除されたファイル
       if (line.startsWith('deleted file mode')) {
         // diff --git の直後に deleted file mode が来ることが多い
         if (currentFile && !changes.deleted.includes(currentFile)) {
-          changes.deleted.push(currentFile);
+          changes.deleted.push(currentFile)
         }
-        currentFile = '';
-        continue;
+        currentFile = ''
+        continue
       }
       // 新規ファイル
       if (line.startsWith('new file mode')) {
         if (currentFile && !changes.added.includes(currentFile)) {
-          changes.added.push(currentFile);
+          changes.added.push(currentFile)
         }
-        continue;
+        continue
       }
       // 変更されたファイル（新規・削除以外）
       if (line.startsWith('index ') && currentFile) {
         if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
           if (!changes.modified.includes(currentFile)) {
-            changes.modified.push(currentFile);
+            changes.modified.push(currentFile)
           }
         }
       }
     }
 
-    console.log('[GitHistory] Parsed diff changes:', changes);
-    return changes;
-  };
+    console.log('[GitHistory] Parsed diff changes:', changes)
+    return changes
+  }
 
   // コミットの展開/収納をトグル
   const toggleCommitExpansion = async (commitHash: string) => {
-    const newExpanded = new Set(expandedCommits);
+    const newExpanded = new Set(expandedCommits)
     if (newExpanded.has(commitHash)) {
-      newExpanded.delete(commitHash);
+      newExpanded.delete(commitHash)
     } else {
-      newExpanded.add(commitHash);
-      await getCommitChanges(commitHash);
+      newExpanded.add(commitHash)
+      await getCommitChanges(commitHash)
     }
-    setExpandedCommits(newExpanded);
-  };
+    setExpandedCommits(newExpanded)
+  }
 
   // 相対時間を取得
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const getRelativeTime = (timestamp: number): string => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
+    const now = Date.now()
+    const diff = now - timestamp
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
 
-    if (minutes < 1) return t('gitHistory.justNow');
-    if (minutes < 60) return t('gitHistory.minutesAgo', { params: { minutes } });
-    if (hours < 24) return t('gitHistory.hoursAgo', { params: { hours } });
-    if (days < 7) return t('gitHistory.daysAgo', { params: { days } });
-    return new Date(timestamp).toLocaleDateString('ja-JP');
-  };
+    if (minutes < 1) return t('gitHistory.justNow')
+    if (minutes < 60) return t('gitHistory.minutesAgo', { params: { minutes } })
+    if (hours < 24) return t('gitHistory.hoursAgo', { params: { hours } })
+    if (days < 7) return t('gitHistory.daysAgo', { params: { days } })
+    return new Date(timestamp).toLocaleDateString('ja-JP')
+  }
 
   // ファイルタイプのアイコンを取得
   const getFileIcon = (type: 'added' | 'modified' | 'deleted') => {
     switch (type) {
       case 'added':
-        return <FilePlus className="w-2.5 h-2.5 text-green-500" />; // w-3 h-3 -> w-2.5 h-2.5
+        return <FilePlus className="w-2.5 h-2.5 text-green-500" /> // w-3 h-3 -> w-2.5 h-2.5
       case 'modified':
-        return <FileText className="w-2.5 h-2.5 text-blue-500" />; // w-3 h-3 -> w-2.5 h-2.5
+        return <FileText className="w-2.5 h-2.5 text-blue-500" /> // w-3 h-3 -> w-2.5 h-2.5
       case 'deleted':
-        return <FileMinus className="w-2.5 h-2.5 text-red-500" />; // w-3 h-3 -> w-2.5 h-2.5
+        return <FileMinus className="w-2.5 h-2.5 text-red-500" /> // w-3 h-3 -> w-2.5 h-2.5
     }
-  };
+  }
 
   return (
     <div
@@ -432,10 +432,7 @@ export default function GitHistory({
           )}
       </div>
       <div className="flex-1 overflow-auto">
-        <div
-          className="relative min-w-0"
-          style={{ overflow: 'visible' }}
-        >
+        <div className="relative min-w-0" style={{ overflow: 'visible' }}>
           {/* SVG for git graph lines */}
           <svg
             ref={svgRef}
@@ -448,11 +445,11 @@ export default function GitHistory({
           >
             {/* Draw lane lines */}
             {extendedCommits.map((commit, index) => {
-              const lines: React.ReactElement[] = [];
-              const ROW_HEIGHT = 28;
+              const lines: React.ReactElement[] = []
+              const ROW_HEIGHT = 28
               if (commit.parentHashes && commit.parentHashes.length > 0) {
                 commit.parentHashes.forEach((parentHash, parentIndex) => {
-                  const parentCommit = extendedCommits.find(c => c.hash === parentHash);
+                  const parentCommit = extendedCommits.find(c => c.hash === parentHash)
                   if (parentCommit) {
                     if (parentCommit.lane === commit.lane) {
                       lines.push(
@@ -465,10 +462,10 @@ export default function GitHistory({
                           stroke={commit.laneColor}
                           strokeWidth="2"
                         />
-                      );
+                      )
                     } else {
-                      const midY = (commit.y + parentCommit.y) / 2;
-                      const midX = (commit.x + parentCommit.x) / 2;
+                      const midY = (commit.y + parentCommit.y) / 2
+                      const midX = (commit.x + parentCommit.x) / 2
                       lines.push(
                         <g key={`curve-${commit.hash}-${parentHash}-${parentIndex}`}>
                           <path
@@ -484,10 +481,10 @@ export default function GitHistory({
                             fill="none"
                           />
                         </g>
-                      );
+                      )
                     }
                   } else {
-                    const virtualY = commit.y - ROW_HEIGHT;
+                    const virtualY = commit.y - ROW_HEIGHT
                     lines.push(
                       <line
                         key={`virtual-parent-line-${commit.hash}-${parentHash}-${parentIndex}`}
@@ -499,11 +496,11 @@ export default function GitHistory({
                         strokeWidth="1"
                         strokeDasharray="2,2"
                       />
-                    );
+                    )
                   }
-                });
+                })
               }
-              return lines;
+              return lines
             })}
             {/* Draw commit points */}
             {extendedCommits.map(commit => (
@@ -517,12 +514,7 @@ export default function GitHistory({
                   strokeWidth="1.5"
                 />
                 {commit.isMerge && (
-                  <circle
-                    cx={commit.x}
-                    cy={commit.y}
-                    r="2"
-                    fill={colors.gitMergeDot || 'white'}
-                  />
+                  <circle cx={commit.x} cy={commit.y} r="2" fill={colors.gitMergeDot || 'white'} />
                 )}
               </g>
             ))}
@@ -531,11 +523,11 @@ export default function GitHistory({
           <div className="pl-8">
             {extendedCommits.map(commit => {
               // 重複グループの他のコミットを取得
-              let duplicateGroup: GitCommitType[] = [];
+              let duplicateGroup: GitCommitType[] = []
               for (const group of duplicateGroups.values()) {
                 if (group.some(c => c.hash === commit.hash) && group.length > 1) {
-                  duplicateGroup = group;
-                  break;
+                  duplicateGroup = group
+                  break
                 }
               }
               return (
@@ -560,13 +552,13 @@ export default function GitHistory({
                       transition: 'border-color 0.2s',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.border = `1.5px solid ${colors.gitCommitMeta || '#a1a1aa'}`;
+                      e.currentTarget.style.border = `1.5px solid ${colors.gitCommitMeta || '#a1a1aa'}`
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.border = '1.5px solid transparent';
+                      e.currentTarget.style.border = '1.5px solid transparent'
                     }}
                     onClick={() => {
-                      toggleCommitExpansion(commit.hash);
+                      toggleCommitExpansion(commit.hash)
                     }}
                   >
                     {/* Expand/collapse icon */}
@@ -618,11 +610,11 @@ export default function GitHistory({
                                     justifyContent: 'center',
                                   }}
                                   onClick={async e => {
-                                    e.stopPropagation();
+                                    e.stopPropagation()
                                     await handleDiffAllFilesClick({
                                       commitId: commit.hash,
                                       parentCommitId: commit.parentHashes[0],
-                                    });
+                                    })
                                   }}
                                 >
                                   <FileDiff className="w-3 h-3 text-blue-400" />
@@ -655,10 +647,9 @@ export default function GitHistory({
                             {Array.isArray(commit.refs) && commit.refs.length > 0 && (
                               <div className="flex gap-0.5 flex-wrap">
                                 {commit.refs.map((refName: string) => {
-                                  const isCurrentBranch = refName === currentBranch;
+                                  const isCurrentBranch = refName === currentBranch
                                   const isRemote =
-                                    refName.startsWith('origin/') ||
-                                    refName.startsWith('upstream/');
+                                    refName.startsWith('origin/') || refName.startsWith('upstream/')
                                   return (
                                     <span
                                       key={refName}
@@ -684,7 +675,7 @@ export default function GitHistory({
                                       <GitBranch className="w-2 h-2" />
                                       {refName}
                                     </span>
-                                  );
+                                  )
                                 })}
                               </div>
                             )}
@@ -728,7 +719,7 @@ export default function GitHistory({
                       {commitChanges.has(commit.hash) ? (
                         <>
                           {(() => {
-                            const changes = commitChanges.get(commit.hash)!;
+                            const changes = commitChanges.get(commit.hash)!
                             const allFiles = [
                               ...changes.added.map(f => ({ file: f, type: 'added' as const })),
                               ...changes.modified.map(f => ({
@@ -736,8 +727,8 @@ export default function GitHistory({
                                 type: 'modified' as const,
                               })),
                               ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
-                            ];
-                            return allFiles.length;
+                            ]
+                            return allFiles.length
                           })() > 10 && (
                             <div
                               className="text-[10px] italic py-0.5 mb-1"
@@ -748,12 +739,12 @@ export default function GitHistory({
                               {t('gitHistory.allFiles', {
                                 params: {
                                   count: (() => {
-                                    const changes = commitChanges.get(commit.hash)!;
+                                    const changes = commitChanges.get(commit.hash)!
                                     return (
                                       changes.added.length +
                                       changes.modified.length +
                                       changes.deleted.length
-                                    );
+                                    )
                                   })(),
                                 },
                               })}
@@ -764,15 +755,18 @@ export default function GitHistory({
                             style={{ maxHeight: '240px' }}
                           >
                             {(() => {
-                              const changes = commitChanges.get(commit.hash)!;
+                              const changes = commitChanges.get(commit.hash)!
                               const allFiles = [
                                 ...changes.added.map(f => ({ file: f, type: 'added' as const })),
                                 ...changes.modified.map(f => ({
                                   file: f,
                                   type: 'modified' as const,
                                 })),
-                                ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
-                              ];
+                                ...changes.deleted.map(f => ({
+                                  file: f,
+                                  type: 'deleted' as const,
+                                })),
+                              ]
                               if (allFiles.length === 0) {
                                 return (
                                   <div
@@ -783,7 +777,7 @@ export default function GitHistory({
                                   >
                                     {t('gitHistory.noChangedFiles')}
                                   </div>
-                                );
+                                )
                               }
                               return (
                                 <>
@@ -796,7 +790,7 @@ export default function GitHistory({
                                           await handleDiffFileClick({
                                             commitId: commit.hash,
                                             filePath: file,
-                                          });
+                                          })
                                         }
                                       }}
                                       title={t('gitHistory.showFileDiff')}
@@ -811,7 +805,7 @@ export default function GitHistory({
                                     </div>
                                   ))}
                                 </>
-                              );
+                              )
                             })()}
                           </div>
                         </>
@@ -826,11 +820,11 @@ export default function GitHistory({
                     </div>
                   )}
                 </div>
-              );
+              )
             })}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

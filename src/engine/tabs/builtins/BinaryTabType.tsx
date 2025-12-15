@@ -1,18 +1,18 @@
 // src/engine/tabs/builtins/BinaryTabType.tsx
-import React from 'react';
+import React from 'react'
 
-import { TabTypeDefinition, TabComponentProps, OpenTabOptions, BinaryTab } from '../types';
+import { TabTypeDefinition, TabComponentProps, OpenTabOptions, BinaryTab } from '../types'
 
-import BinaryTabContent from '@/components/Tab/BinaryTabContent';
-import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
-import { isBufferArray } from '@/engine/helper/isBufferArray';
-import type { FileItem } from '@/types';
+import BinaryTabContent from '@/components/Tab/BinaryTabContent'
+import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils'
+import { isBufferArray } from '@/engine/helper/isBufferArray'
+import type { FileItem } from '@/types'
 
 /**
  * バイナリタブのコンポーネント
  */
 const BinaryTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
-  const binaryTab = tab as BinaryTab;
+  const binaryTab = tab as BinaryTab
 
   return (
     <BinaryTabContent
@@ -23,8 +23,8 @@ const BinaryTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
       // bufferContent が ArrayBuffer 等であるか
       isBufferArray={(arg: any) => isBufferArray(arg)}
     />
-  );
-};
+  )
+}
 
 /**
  * バイナリタブの型定義
@@ -36,9 +36,9 @@ export const BinaryTabType: TabTypeDefinition = {
   canPreview: false,
 
   createTab: (data: unknown, options?: OpenTabOptions) => {
-    const fileItem = data as FileItem;
-    const tabId = `binary-${fileItem.path}`;
-    const paneId = options?.targetPaneId || '';
+    const fileItem = data as FileItem
+    const tabId = `binary-${fileItem.path}`
+    const paneId = options?.targetPaneId || ''
 
     return {
       id: tabId,
@@ -49,8 +49,8 @@ export const BinaryTabType: TabTypeDefinition = {
       content: fileItem.content || '',
       bufferContent: fileItem.bufferContent,
       type: fileItem.type,
-    } as BinaryTab;
+    } as BinaryTab
   },
 
   component: BinaryTabComponent,
-};
+}

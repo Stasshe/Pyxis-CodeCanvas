@@ -1,93 +1,98 @@
-import { useEffect, useRef, useState, useCallback, useMemo, memo, type FC } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
-import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import type { PluggableList } from 'unified';
-import 'katex/dist/katex.min.css';
+import { useEffect, useRef, useState, useCallback, useMemo, memo, type FC } from 'react'
+import ReactMarkdown, { type Components } from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
+import rehypeRaw from 'rehype-raw'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import type { PluggableList } from 'unified'
+import 'katex/dist/katex.min.css'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme, ThemeContext } from '@/context/ThemeContext';
-import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf';
-import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
-import { useSettings } from '@/hooks/useSettings';
-import { useTabStore } from '@/stores/tabStore';
-import { Project } from '@/types';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme, ThemeContext } from '@/context/ThemeContext'
+import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf'
+import type { EditorTab, PreviewTab } from '@/engine/tabs/types'
+import { useSettings } from '@/hooks/useSettings'
+import { useTabStore } from '@/stores/tabStore'
+import { Project } from '@/types'
 
-import InlineHighlightedCode from './InlineHighlightedCode';
-import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';
+import InlineHighlightedCode from './InlineHighlightedCode'
+import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview'
 
 interface MarkdownPreviewTabProps {
-  activeTab: PreviewTab;
-  currentProject?: Project;
+  activeTab: PreviewTab
+  currentProject?: Project
 }
 
 const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
-  const { colors, themeName } = useTheme();
-  const { settings } = useSettings(currentProject?.id);
-  const { t } = useTranslation();
+  const { colors, themeName } = useTheme()
+  const { settings } = useSettings(currentProject?.id)
+  const { t } = useTranslation()
   // ref to markdown container for scrolling
-  const markdownContainerRef = useRef<HTMLDivElement | null>(null);
+  const markdownContainerRef = useRef<HTMLDivElement | null>(null)
   // keep previous content to detect append-only updates
-  const prevContentRef = useRef<string | null>(null);
+  const prevContentRef = useRef<string | null>(null)
 
   // determine markdown plugins based on settings
-  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
+  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([])
 
   // Subscribe to editor tab content changes for real-time preview
   // Find the corresponding editor tab and get its content
   const editorTabContent = useTabStore(state => {
     // Find editor tab with the same path
-    const result = state.findTabByPath(activeTab.path, 'editor');
+    const result = state.findTabByPath(activeTab.path, 'editor')
     if (result?.tab && result.tab.kind === 'editor') {
-      return (result.tab as EditorTab).content;
+      return (result.tab as EditorTab).content
     }
-    return null;
-  });
+    return null
+  })
 
   // Use editor tab content if available (for real-time updates), otherwise use preview tab content
-  const contentSource = editorTabContent ?? activeTab.content ?? '';
+  const contentSource = editorTabContent ?? activeTab.content ?? ''
 
   useEffect(() => {
-    let mounted = true;
+    let mounted = true
     const setup = async (): Promise<void> => {
-      const plugins: PluggableList = [];
+      const plugins: PluggableList = []
       try {
-        const mode = settings?.markdown?.singleLineBreaks || 'default';
+        const mode = settings?.markdown?.singleLineBreaks || 'default'
         if (mode === 'breaks') {
           // dynamic import to avoid hard dependency at compile time
           try {
-            const mod = await import('remark-breaks');
-            if (mounted) plugins.push(mod.default || mod);
+            const mod = await import('remark-breaks')
+            if (mounted) plugins.push(mod.default || mod)
           } catch (e) {
             console.warn(
               '[MarkdownPreviewTab] remark-breaks not available, falling back to default linebreak behavior.'
-            );
+            )
           }
         }
       } catch (e) {
-        console.warn('[MarkdownPreviewTab] failed to configure markdown plugins', e);
+        console.warn('[MarkdownPreviewTab] failed to configure markdown plugins', e)
       }
-      if (mounted) setExtraRemarkPlugins(plugins);
-    };
-    setup();
+      if (mounted) setExtraRemarkPlugins(plugins)
+    }
+    setup()
     return () => {
-      mounted = false;
-    };
-  }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter]);
+      mounted = false
+    }
+  }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter])
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
   const markdownComponents = useMemo<Partial<Components>>(
     () => ({
       code: ({ className, children, ...props }) => (
-        <CodeBlock className={className} colors={colors} currentProjectName={currentProject?.name} {...props}>
+        <CodeBlock
+          className={className}
+          colors={colors}
+          currentProjectName={currentProject?.name}
+          {...props}
+        >
           {children}
         </CodeBlock>
       ),
       img: ({ src, alt, ...props }) => {
-        const srcString = typeof src === 'string' ? src : '';
+        const srcString = typeof src === 'string' ? src : ''
         return (
           <LocalImage
             src={srcString}
@@ -97,20 +102,20 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
             activeTab={activeTab}
             {...props}
           />
-        );
+        )
       },
     }),
     [colors, currentProject?.name, currentProject?.id, activeTab]
-  );
+  )
 
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
   // For 'bracket' mode: escape dollar signs so they don't get processed as math
   const processedContent = useMemo(() => {
     // Use editor tab content for real-time updates, otherwise fall back to preview tab content
-    const src = contentSource;
-    const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
-    if (delimiter === 'dollar') return src;
+    const src = contentSource
+    const delimiter = settings?.markdown?.math?.delimiter || 'dollar'
+    if (delimiter === 'dollar') return src
 
     // Helper: process text while preserving code blocks
     const processNonCode = (text: string, processFn: (segment: string) => string): string => {
@@ -118,57 +123,57 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       return text
         .split(/(```[\s\S]*?```)/g)
         .map(part => {
-          if (/^```/.test(part)) return part; // code fence, leave
+          if (/^```/.test(part)) return part // code fence, leave
           // Within non-fence parts, also preserve inline code
           return part
             .split(/(`[^`]*`)/g)
             .map(seg => {
-              if (/^`/.test(seg)) return seg; // inline code
-              return processFn(seg);
+              if (/^`/.test(seg)) return seg // inline code
+              return processFn(seg)
             })
-            .join('');
+            .join('')
         })
-        .join('');
-    };
+        .join('')
+    }
 
     if (delimiter === 'bracket') {
-      // 'bracket' mode: 
+      // 'bracket' mode:
       // 1. First, escape existing dollar signs to prevent remark-math from processing them
       // 2. Then, convert bracket delimiters to dollar style
       // Use unique placeholders that won't appear in normal markdown text
-      const DOUBLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_DOUBLE_DOLLAR__';
-      const SINGLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_SINGLE_DOLLAR__';
-      
-      let result = processNonCode(src, (seg) => {
+      const DOUBLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_DOUBLE_DOLLAR__'
+      const SINGLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_SINGLE_DOLLAR__'
+
+      let result = processNonCode(src, seg => {
         // Escape $$ first (display math), then $ (inline math)
         return seg
           .replace(/\$\$/g, DOUBLE_DOLLAR_PLACEHOLDER)
-          .replace(/\$/g, SINGLE_DOLLAR_PLACEHOLDER);
-      });
+          .replace(/\$/g, SINGLE_DOLLAR_PLACEHOLDER)
+      })
       // Convert bracket delimiters to dollar style
-      result = processNonCode(result, (seg) => {
+      result = processNonCode(result, seg => {
         return seg
           .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
-      });
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$')
+      })
       // Restore escaped dollar signs as literal text (not math)
       result = result
         .replace(new RegExp(DOUBLE_DOLLAR_PLACEHOLDER, 'g'), '\\$\\$')
-        .replace(new RegExp(SINGLE_DOLLAR_PLACEHOLDER, 'g'), '\\$');
-      return result;
+        .replace(new RegExp(SINGLE_DOLLAR_PLACEHOLDER, 'g'), '\\$')
+      return result
     }
 
     if (delimiter === 'both') {
       // 'both' mode: convert bracket delimiters to dollar style (dollars also work)
-      return processNonCode(src, (seg) => {
+      return processNonCode(src, seg => {
         return seg
           .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
-      });
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$')
+      })
     }
 
-    return src;
-  }, [contentSource, settings?.markdown?.math?.delimiter]);
+    return src
+  }, [contentSource, settings?.markdown?.math?.delimiter])
 
   const markdownContent = useMemo(
     () => (
@@ -181,7 +186,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       </ReactMarkdown>
     ),
     [processedContent, markdownComponents, extraRemarkPlugins]
-  );
+  )
 
   /**
    * Apply export-friendly styles to an element
@@ -189,116 +194,122 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
    * Special handling for code blocks to ensure visibility
    */
   const applyExportStyles = useCallback((element: HTMLElement) => {
-    element.style.backgroundColor = '#ffffff';
-    element.style.color = '#000000';
-    
+    element.style.backgroundColor = '#ffffff'
+    element.style.color = '#000000'
+
     // Override all element colors for better readability
-    const allElements = Array.from(element.getElementsByTagName('*'));
+    const allElements = Array.from(element.getElementsByTagName('*'))
     for (const el of allElements) {
       if (el instanceof HTMLElement) {
         // Set text color to black
-        el.style.color = '#000000';
-        
+        el.style.color = '#000000'
+
         // For code blocks and pre elements, ensure light background
         if (el.tagName === 'PRE' || el.tagName === 'CODE') {
-          el.style.backgroundColor = '#f6f8fa';
-          el.style.color = '#24292f';
+          el.style.backgroundColor = '#f6f8fa'
+          el.style.color = '#24292f'
         }
       }
     }
-  }, []);
+  }, [])
 
   // PDF export processing
   const handleExportPdf = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    
+    if (typeof window === 'undefined') return
+
     // Get the rendered markdown content directly from the DOM
-    const markdownElement = markdownContainerRef.current?.querySelector('.markdown-body');
+    const markdownElement = markdownContainerRef.current?.querySelector('.markdown-body')
     if (!markdownElement) {
-      console.error('Markdown content not found');
-      return;
+      console.error('Markdown content not found')
+      return
     }
-    
+
     // Clone the element to avoid modifying the original
-    const clone = markdownElement.cloneNode(true) as HTMLElement;
-    
+    const clone = markdownElement.cloneNode(true) as HTMLElement
+
     // Apply export styles
-    applyExportStyles(clone);
-    
+    applyExportStyles(clone)
+
     // Get the HTML content
-    const htmlContent = clone.outerHTML;
-    
+    const htmlContent = clone.outerHTML
+
     // Export to PDF
-    await exportPdfFromHtml(htmlContent, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
-  }, [activeTab.name, applyExportStyles]);
+    await exportPdfFromHtml(
+      htmlContent,
+      (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf'
+    )
+  }, [activeTab.name, applyExportStyles])
 
   // PNG export processing
   const handleExportPng = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    const container = markdownContainerRef.current?.querySelector('.markdown-body');
+    if (typeof window === 'undefined') return
+    const container = markdownContainerRef.current?.querySelector('.markdown-body')
     if (!container || !(container instanceof HTMLElement)) {
-      console.error('Markdown container not found');
-      return;
+      console.error('Markdown container not found')
+      return
     }
-    
+
     try {
-      await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
+      await exportPngFromElement(
+        container,
+        (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png'
+      )
     } catch (err) {
-      console.error('Error occurred during PNG export', err);
+      console.error('Error occurred during PNG export', err)
     }
-  }, [activeTab.name]);
+  }, [activeTab.name])
 
   // 自動スクロール: 新しいコンテンツが「末尾に追記」された場合のみスクロールする
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const prev = prevContentRef.current;
-    const current = contentSource;
+    if (typeof window === 'undefined') return
+    const prev = prevContentRef.current
+    const current = contentSource
 
-    const trimTrailingWhitespace = (s: string): string => s.replace(/[\s\u00A0]+$/g, '');
+    const trimTrailingWhitespace = (s: string): string => s.replace(/[\s\u00A0]+$/g, '')
 
     const isAppend = (oldStr: string | null, newStr: string): boolean => {
-      if (!oldStr) return false;
-      if (newStr.length <= oldStr.length) return false;
+      if (!oldStr) return false
+      if (newStr.length <= oldStr.length) return false
 
-      const MAX_WINDOW = 2000;
+      const MAX_WINDOW = 2000
       // Trim trailing whitespace from both old and new for consistent comparison
-      const oldTrimmed = trimTrailingWhitespace(oldStr);
-      const newTrimmed = trimTrailingWhitespace(newStr);
+      const oldTrimmed = trimTrailingWhitespace(oldStr)
+      const newTrimmed = trimTrailingWhitespace(newStr)
 
-      if (newTrimmed.startsWith(oldTrimmed)) return true;
+      if (newTrimmed.startsWith(oldTrimmed)) return true
 
-      const start = Math.max(0, oldTrimmed.length - MAX_WINDOW);
-      const oldWindow = oldTrimmed.slice(start);
+      const start = Math.max(0, oldTrimmed.length - MAX_WINDOW)
+      const oldWindow = oldTrimmed.slice(start)
 
       if (newTrimmed.startsWith(oldWindow)) {
-        if (start === 0) return true;
-        const oldPrefix = oldTrimmed.slice(0, start);
-        const newPrefix = newTrimmed.slice(0, start);
-        if (oldPrefix === newPrefix) return true;
+        if (start === 0) return true
+        const oldPrefix = oldTrimmed.slice(0, start)
+        const newPrefix = newTrimmed.slice(0, start)
+        if (oldPrefix === newPrefix) return true
       }
 
-      const normalizeNewlines = (s: string): string => s.replace(/\n{2,}/g, '\n\n');
-      const oldNormalized = normalizeNewlines(oldTrimmed);
-      const newNormalized = normalizeNewlines(newTrimmed);
-      if (newNormalized.startsWith(oldNormalized)) return true;
+      const normalizeNewlines = (s: string): string => s.replace(/\n{2,}/g, '\n\n')
+      const oldNormalized = normalizeNewlines(oldTrimmed)
+      const newNormalized = normalizeNewlines(newTrimmed)
+      if (newNormalized.startsWith(oldNormalized)) return true
 
-      return false;
-    };
+      return false
+    }
 
     try {
       if (isAppend(prev, current)) {
-        const el = markdownContainerRef.current;
+        const el = markdownContainerRef.current
         if (el) {
-          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
         }
       }
     } catch {
-      const el = markdownContainerRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
+      const el = markdownContainerRef.current
+      if (el) el.scrollTop = el.scrollHeight
     }
 
-    prevContentRef.current = current;
-  }, [contentSource]);
+    prevContentRef.current = current
+  }, [contentSource])
 
   return (
     <div className="p-4 overflow-auto h-full w-full" ref={markdownContainerRef}>
@@ -334,7 +345,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         {markdownContent}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default memo(MarkdownPreviewTab);
+export default memo(MarkdownPreviewTab)

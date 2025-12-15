@@ -1,6 +1,6 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types'
 
 /**
  * find - ファイルを検索
@@ -27,45 +27,45 @@ export class FindCommand extends UnixCommandBase {
     // ...existing code...
 
     // パスと式を分離
-    const paths: string[] = [];
-    let expressionStart = 0;
+    const paths: string[] = []
+    let expressionStart = 0
 
     for (let i = 0; i < args.length; i++) {
       if (args[i].startsWith('-')) {
-        expressionStart = i;
-        break;
+        expressionStart = i
+        break
       }
-      paths.push(args[i]);
+      paths.push(args[i])
     }
 
     // デフォルトはカレントディレクトリ
-    if (paths.length === 0) paths.push(this.currentDir);
+    if (paths.length === 0) paths.push(this.currentDir)
 
-    const expressions = args.slice(expressionStart);
+    const expressions = args.slice(expressionStart)
 
     // 式を解析
-    const criteria = this.parseExpressions(expressions);
+    const criteria = this.parseExpressions(expressions)
 
-    const results: string[] = [];
+    const results: string[] = []
 
     // 各パスに対して検索実行
     for (const p of paths) {
-      const normalizedPath = this.normalizePath(this.resolvePath(p));
-      const found = await this.findFiles(normalizedPath, criteria);
-      results.push(...found);
+      const normalizedPath = this.normalizePath(this.resolvePath(p))
+      const found = await this.findFiles(normalizedPath, criteria)
+      results.push(...found)
     }
 
     // 重複除去しつつ順序を保持
-    const seen = new Set<string>();
-    const unique: string[] = [];
+    const seen = new Set<string>()
+    const unique: string[] = []
     for (const r of results) {
       if (!seen.has(r)) {
-        seen.add(r);
-        unique.push(r);
+        seen.add(r)
+        unique.push(r)
       }
     }
 
-    return unique.join('\n');
+    return unique.join('\n')
   }
 
   /**
@@ -78,72 +78,72 @@ export class FindCommand extends UnixCommandBase {
       typeFilter: null,
       maxDepth: Number.MAX_SAFE_INTEGER,
       minDepth: 0,
-    };
+    }
 
     for (let i = 0; i < expressions.length; i++) {
-      const expr = expressions[i];
-      const nextArg = expressions[i + 1];
+      const expr = expressions[i]
+      const nextArg = expressions[i + 1]
 
       switch (expr) {
         case '-name':
           if (nextArg) {
-            criteria.namePattern = this.globToRegExp(nextArg, false);
-            i++;
+            criteria.namePattern = this.globToRegExp(nextArg, false)
+            i++
           }
-          break;
+          break
 
         case '-iname':
           if (nextArg) {
-            criteria.namePattern = this.globToRegExp(nextArg, true);
-            i++;
+            criteria.namePattern = this.globToRegExp(nextArg, true)
+            i++
           }
-          break;
+          break
 
         case '-path':
           if (nextArg) {
-            criteria.pathPattern = this.globToRegExp(nextArg, false);
-            i++;
+            criteria.pathPattern = this.globToRegExp(nextArg, false)
+            i++
           }
-          break;
+          break
 
         case '-ipath':
           if (nextArg) {
-            criteria.pathPattern = this.globToRegExp(nextArg, true);
-            i++;
+            criteria.pathPattern = this.globToRegExp(nextArg, true)
+            i++
           }
-          break;
+          break
 
         case '-type':
           if (nextArg) {
-            if (nextArg === 'f') criteria.typeFilter = 'file';
-            else if (nextArg === 'd') criteria.typeFilter = 'folder';
-            i++;
+            if (nextArg === 'f') criteria.typeFilter = 'file'
+            else if (nextArg === 'd') criteria.typeFilter = 'folder'
+            i++
           }
-          break;
+          break
 
         case '-maxdepth':
           if (nextArg) {
-            const depth = parseInt(nextArg, 10);
+            const depth = parseInt(nextArg, 10)
             if (!isNaN(depth) && depth >= 0) {
-              criteria.maxDepth = depth;
+              criteria.maxDepth = depth
             }
-            i++;
+            i++
           }
-          break;
+          break
 
         case '-mindepth':
           if (nextArg) {
-            const depth = parseInt(nextArg, 10);
+            const depth = parseInt(nextArg, 10)
             if (!isNaN(depth) && depth >= 0) {
-              criteria.minDepth = depth;
+              criteria.minDepth = depth
             }
-            i++;
+            i++
           }
-          break;
+          break
       }
     }
 
-    return criteria;
+    return criteria
   }
 
   /**
@@ -165,121 +165,121 @@ export class FindCommand extends UnixCommandBase {
       return new RegExp(
         '^' + pattern.replace(/[.+^${}()|\[\]]/g, '\\$&') + '$',
         ignoreCase ? 'i' : ''
-      );
+      )
     }
     // ワイルドカードありはglob展開
-    let res = '';
-    let i = 0;
+    let res = ''
+    let i = 0
     while (i < pattern.length) {
-      const ch = pattern[i];
+      const ch = pattern[i]
       if (ch === '*') {
-        res += '.*';
-        i++;
+        res += '.*'
+        i++
       } else if (ch === '?') {
-        res += '.';
-        i++;
+        res += '.'
+        i++
       } else if (ch === '[') {
-        let j = i + 1;
-        let cls = '';
+        let j = i + 1
+        let cls = ''
         if (j < pattern.length && (pattern[j] === '!' || pattern[j] === '^')) {
-          cls += '^';
-          j++;
+          cls += '^'
+          j++
         }
         while (j < pattern.length && pattern[j] !== ']') {
-          const c = pattern[j];
+          const c = pattern[j]
           if (c === '\\' && j + 1 < pattern.length) {
-            cls += '\\';
-            j++;
-            cls += pattern[j];
-            j++;
+            cls += '\\'
+            j++
+            cls += pattern[j]
+            j++
           } else if (c === ']') {
-            break;
+            break
           } else {
             if (c === '-' || c === '\\') {
-              cls += '\\' + c;
+              cls += '\\' + c
             } else {
-              cls += c;
+              cls += c
             }
-            j++;
+            j++
           }
         }
-        res += '[' + cls + ']';
-        i = j + 1;
+        res += '[' + cls + ']'
+        i = j + 1
       } else if (ch === '\\' && i + 1 < pattern.length) {
-        const nextCh = pattern[i + 1];
+        const nextCh = pattern[i + 1]
         if (/[.+^${}()|\[\]]/.test(nextCh)) {
-          res += '\\' + nextCh;
+          res += '\\' + nextCh
         } else {
-          res += nextCh;
+          res += nextCh
         }
-        i += 2;
+        i += 2
       } else {
         if (/[.+^${}()|\[\]]/.test(ch)) {
-          res += '\\' + ch;
+          res += '\\' + ch
         } else {
-          res += ch;
+          res += ch
         }
-        i++;
+        i++
       }
     }
     // basename完全一致
-    return new RegExp('^' + res + '$', ignoreCase ? 'i' : '');
+    return new RegExp('^' + res + '$', ignoreCase ? 'i' : '')
   }
 
   /**
    * 指定されたパスからファイルを検索
    */
   protected async findFiles(startPath: string, criteria: SearchCriteria): Promise<string[]> {
-    const relativePath = this.getRelativePathFromProject(startPath);
-    const results: string[] = [];
-    const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
+    const relativePath = this.getRelativePathFromProject(startPath)
+    const results: string[] = []
+    const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath
 
     // 開始パス自体をチェック（depth 0）
-    const startFile = await this.cachedGetFile(relativePath);
+    const startFile = await this.cachedGetFile(relativePath)
     if (startFile) {
       // 深度チェック
       if (0 >= criteria.minDepth && 0 <= criteria.maxDepth) {
         if (this.matchesCriteria(startFile, normalizedStart, 0, criteria)) {
-          results.push(normalizedStart);
+          results.push(normalizedStart)
         }
       }
     }
 
     // 子要素を取得して検索
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const prefix = relativePath === '/' ? '' : `${relativePath}/`
+    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix)
 
     // POSIX準拠: prefix以下の全ファイル・ディレクトリを再帰的に検索
     for (const file of files) {
       let relativeToStart = file.path.startsWith(prefix)
         ? file.path.substring(prefix.length)
-        : file.path;
-      relativeToStart = relativeToStart.replace(/^\/+/, '');
+        : file.path
+      relativeToStart = relativeToStart.replace(/^\/+/, '')
 
       // 深度を計算
-      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length;
+      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length
 
       // 深度チェック
       if (depth < criteria.minDepth || depth > criteria.maxDepth) {
-        continue;
+        continue
       }
 
       // フルパスを構築
       const fullPath =
-        relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
+        relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`
 
       // POSIX: type指定がなければ全type対象、name指定もfile/folder両方
       if (criteria.typeFilter && file.type !== criteria.typeFilter) {
-        continue;
+        continue
       }
 
       // 条件に一致するかチェック（AND結合）
       if (this.matchesCriteria(file, fullPath, depth, criteria)) {
-        results.push(fullPath);
+        results.push(fullPath)
       }
     }
 
-    return results;
+    return results
   }
 
   /**
@@ -292,27 +292,27 @@ export class FindCommand extends UnixCommandBase {
     criteria: SearchCriteria
   ): boolean {
     // basename は ProjectFile の name プロパティを使う
-    const baseName = file.name || '';
+    const baseName = file.name || ''
     // AND条件で全てのcriteriaを判定
     // -name/-iname: type指定なしならfile/folder両方
     if (criteria.namePattern) {
       if (!criteria.namePattern.test(baseName)) {
-        return false;
+        return false
       }
     }
     // -path/-ipath
     if (criteria.pathPattern) {
       if (!criteria.pathPattern.test(fullPath)) {
-        return false;
+        return false
       }
     }
     // -type
     if (criteria.typeFilter) {
       if (file.type !== criteria.typeFilter) {
-        return false;
+        return false
       }
     }
-    return true;
+    return true
   }
 }
 
@@ -320,9 +320,9 @@ export class FindCommand extends UnixCommandBase {
  * 検索条件の型定義
  */
 interface SearchCriteria {
-  namePattern: RegExp | null;
-  pathPattern: RegExp | null;
-  typeFilter: 'file' | 'folder' | null;
-  maxDepth: number;
-  minDepth: number;
+  namePattern: RegExp | null
+  pathPattern: RegExp | null
+  typeFilter: 'file' | 'folder' | null
+  maxDepth: number
+  minDepth: number
 }

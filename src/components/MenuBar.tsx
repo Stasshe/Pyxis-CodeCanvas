@@ -1,21 +1,21 @@
-import { FolderOpen, LogIn, LogOut, Package } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
-import { useState } from 'react';
+import { FolderOpen, LogIn, LogOut, Package } from 'lucide-react'
+import * as LucideIcons from 'lucide-react'
+import { useState } from 'react'
 
-import { useTheme } from '../context/ThemeContext';
-import { MenuTab } from '../types';
+import { useTheme } from '../context/ThemeContext'
+import { MenuTab } from '../types'
 
-import { useGitHubUser } from '@/context/GitHubUserContext';
-import { useTranslation } from '@/context/I18nContext';
-import { authRepository } from '@/engine/user/authRepository';
-import { useExtensionPanels } from '@/hooks/useExtensionPanels';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useGitHubUser } from '@/context/GitHubUserContext'
+import { useTranslation } from '@/context/I18nContext'
+import { authRepository } from '@/engine/user/authRepository'
+import { useExtensionPanels } from '@/hooks/useExtensionPanels'
+import { useKeyBinding } from '@/hooks/useKeyBindings'
 
 interface MenuBarProps {
-  activeMenuTab: MenuTab;
-  onMenuTabClick: (tab: MenuTab) => void;
-  onProjectClick: () => void;
-  gitChangesCount?: number;
+  activeMenuTab: MenuTab
+  onMenuTabClick: (tab: MenuTab) => void
+  onProjectClick: () => void
+  gitChangesCount?: number
 }
 
 export default function MenuBar({
@@ -24,21 +24,21 @@ export default function MenuBar({
   onProjectClick,
   gitChangesCount = 0,
 }: MenuBarProps) {
-  const { colors } = useTheme();
-  const { user, fetchUser, clearUser } = useGitHubUser();
-  const { t } = useTranslation();
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showPATInput, setShowPATInput] = useState(false);
-  const [patInput, setPATInput] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const { colors } = useTheme()
+  const { user, fetchUser, clearUser } = useGitHubUser()
+  const { t } = useTranslation()
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showPATInput, setShowPATInput] = useState(false)
+  const [patInput, setPATInput] = useState('')
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
 
   const handleSignIn = async () => {
     if (!patInput.trim()) {
-      alert(t('auth.patPrompt'));
-      return;
+      alert(t('auth.patPrompt'))
+      return
     }
 
-    setIsAuthenticating(true);
+    setIsAuthenticating(true)
 
     try {
       const userResponse = await fetch('https://api.github.com/user', {
@@ -46,13 +46,13 @@ export default function MenuBar({
           Authorization: `Bearer ${patInput}`,
           Accept: 'application/vnd.github+json',
         },
-      });
+      })
 
       if (!userResponse.ok) {
-        throw new Error(t('auth.authFailed'));
+        throw new Error(t('auth.authFailed'))
       }
 
-      const userData = await userResponse.json();
+      const userData = await userResponse.json()
 
       const githubUser = {
         login: userData.login,
@@ -60,38 +60,38 @@ export default function MenuBar({
         email: userData.email,
         avatar_url: userData.avatar_url,
         id: userData.id,
-      };
+      }
 
       await authRepository.saveAuth({
         accessToken: patInput,
         user: githubUser,
         createdAt: Date.now(),
-      });
+      })
 
-      await fetchUser();
+      await fetchUser()
 
-      setPATInput('');
-      setShowPATInput(false);
-      console.log('[MenuBar] GitHub authentication successful');
-      alert(t('auth.authSuccess'));
+      setPATInput('')
+      setShowPATInput(false)
+      console.log('[MenuBar] GitHub authentication successful')
+      alert(t('auth.authSuccess'))
     } catch (error) {
-      console.error('[MenuBar] Authentication failed:', error);
-      alert(`${t('auth.authFailed')}: ${(error as Error).message}`);
+      console.error('[MenuBar] Authentication failed:', error)
+      alert(`${t('auth.authFailed')}: ${(error as Error).message}`)
     } finally {
-      setIsAuthenticating(false);
+      setIsAuthenticating(false)
     }
-  };
+  }
 
   const handleSignOut = async () => {
     if (confirm(t('auth.signOutConfirm'))) {
-      await authRepository.clearAuth();
-      clearUser();
-      setShowUserMenu(false);
+      await authRepository.clearAuth()
+      clearUser()
+      setShowUserMenu(false)
     }
-  };
+  }
 
   // 拡張機能のパネルを取得
-  const extensionPanels = useExtensionPanels();
+  const extensionPanels = useExtensionPanels()
 
   // 組み込みメニュータブ
   const builtinMenuTabs: Array<{ id: MenuTab; label: string; icon: string }> = [
@@ -101,7 +101,7 @@ export default function MenuBar({
     { id: 'run', label: t('menu.run'), icon: 'Play' },
     { id: 'extensions', label: t('menu.extensions', { fallback: 'Extensions' }), icon: 'Package' },
     { id: 'settings', label: t('menu.settings'), icon: 'Settings' },
-  ];
+  ]
 
   // 拡張パネルをメニュータブに追加
   const extensionMenuTabs = extensionPanels.map(panel => ({
@@ -109,22 +109,22 @@ export default function MenuBar({
     label: panel.title,
     icon: panel.icon,
     order: panel.order,
-  }));
+  }))
 
   // 全メニュータブ（組み込み + 拡張）
   const allMenuTabs = [
     ...builtinMenuTabs.map((tab, index) => ({ ...tab, order: index * 10 })),
     ...extensionMenuTabs,
-  ].sort((a, b) => a.order - b.order);
+  ].sort((a, b) => a.order - b.order)
 
   // グローバル検索ショートカット (Ctrl+Shift+F)
   useKeyBinding(
     'globalSearch',
     () => {
-      onMenuTabClick('search');
+      onMenuTabClick('search')
     },
     [onMenuTabClick]
-  );
+  )
 
   return (
     <div
@@ -143,12 +143,12 @@ export default function MenuBar({
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {allMenuTabs.map(({ id, label, icon }) => {
           // Lucide Reactからアイコンを動的に取得
-          let IconComponent = (LucideIcons as any)[icon];
+          let IconComponent = (LucideIcons as any)[icon]
           if (!IconComponent) {
-            console.warn(`Invalid icon: ${icon}`);
-            IconComponent = Package;
+            console.warn(`Invalid icon: ${icon}`)
+            IconComponent = Package
           }
-          const isActive = activeMenuTab === id;
+          const isActive = activeMenuTab === id
 
           return (
             <button
@@ -192,7 +192,7 @@ export default function MenuBar({
                 </span>
               )}
             </button>
-          );
+          )
         })}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}></div>
@@ -352,7 +352,7 @@ export default function MenuBar({
                     }}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
-                        handleSignIn();
+                        handleSignIn()
                       }
                     }}
                   />
@@ -385,8 +385,8 @@ export default function MenuBar({
                         fontSize: '0.875rem',
                       }}
                       onClick={() => {
-                        setShowPATInput(false);
-                        setPATInput('');
+                        setShowPATInput(false)
+                        setPATInput('')
                       }}
                     >
                       {t('action.cancel')}
@@ -416,5 +416,5 @@ export default function MenuBar({
         </button>
       </div>
     </div>
-  );
+  )
 }

@@ -1,5 +1,5 @@
-import git from 'isomorphic-git';
-import type FS from '@isomorphic-git/lightning-fs';
+import git from 'isomorphic-git'
+import type FS from '@isomorphic-git/lightning-fs'
 
 /**
  * git show コマンドの実装
@@ -7,33 +7,29 @@ import type FS from '@isomorphic-git/lightning-fs';
  * - origin/branch、upstream/branch などのリモートブランチに対応
  * - コミットハッシュやブランチ名に対応
  */
-export async function show(
-  fs: FS,
-  dir: string,
-  args: string[]
-): Promise<string> {
+export async function show(fs: FS, dir: string, args: string[]): Promise<string> {
   try {
     if (args.length === 0) {
-      return 'git show: missing commit or file';
+      return 'git show: missing commit or file'
     }
 
-    const arg = args[0];
+    const arg = args[0]
 
     // パターン解析: <commit>:<file> または単体のcommit
-    const colonIndex = arg.indexOf(':');
+    const colonIndex = arg.indexOf(':')
 
     if (colonIndex !== -1) {
       // <commit>:<file> 形式
-      const commitRef = arg.substring(0, colonIndex);
-      const filePath = arg.substring(colonIndex + 1);
+      const commitRef = arg.substring(0, colonIndex)
+      const filePath = arg.substring(colonIndex + 1)
 
-      return await showCommitFile(fs, dir, commitRef, filePath);
+      return await showCommitFile(fs, dir, commitRef, filePath)
     } else {
       // 単体のcommit参照（ハッシュまたはブランチ名）
-      return await showCommit(fs, dir, arg);
+      return await showCommit(fs, dir, arg)
     }
   } catch (error) {
-    throw new Error(`git show: ${(error as Error).message}`);
+    throw new Error(`git show: ${(error as Error).message}`)
   }
 }
 
@@ -49,14 +45,14 @@ async function showCommitFile(
 ): Promise<string> {
   try {
     // commitRef を解決（ハッシュ、ブランチ名、リモートブランチなど）
-    const commitOid = await resolveRef(fs, dir, commitRef);
+    const commitOid = await resolveRef(fs, dir, commitRef)
 
     if (!commitOid) {
-      return `fatal: ${commitRef}: unknown revision or path not in the working tree.`;
+      return `fatal: ${commitRef}: unknown revision or path not in the working tree.`
     }
 
     // ファイルが存在するかチェック
-    const normalizedPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+    const normalizedPath = filePath.startsWith('/') ? filePath.slice(1) : filePath
 
     try {
       const { blob } = await git.readBlob({
@@ -64,21 +60,20 @@ async function showCommitFile(
         dir,
         oid: commitOid,
         filepath: normalizedPath,
-      });
+      })
 
-      const content =
-        typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
+      const content = typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array)
 
-      return content;
+      return content
     } catch (readError) {
-      const err = readError as Error;
+      const err = readError as Error
       if (err.message.includes('not found') || err.message.includes('Could not find')) {
-        return `fatal: Path '${filePath}' does not exist in '${commitRef}'`;
+        return `fatal: Path '${filePath}' does not exist in '${commitRef}'`
       }
-      throw err;
+      throw err
     }
   } catch (error) {
-    throw new Error(`Failed to show file: ${(error as Error).message}`);
+    throw new Error(`Failed to show file: ${(error as Error).message}`)
   }
 }
 
@@ -89,10 +84,10 @@ async function showCommitFile(
 async function showCommit(fs: FS, dir: string, commitRef: string): Promise<string> {
   try {
     // commitRef を解決
-    const commitOid = await resolveRef(fs, dir, commitRef);
+    const commitOid = await resolveRef(fs, dir, commitRef)
 
     if (!commitOid) {
-      return `fatal: ${commitRef}: unknown revision or path not in the working tree.`;
+      return `fatal: ${commitRef}: unknown revision or path not in the working tree.`
     }
 
     // コミット情報を取得
@@ -100,29 +95,29 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
       fs,
       dir,
       oid: commitOid,
-    });
+    })
 
-    const { author, message } = commit.commit;
+    const { author, message } = commit.commit
 
     // コミット情報をフォーマット
-    let result = `commit ${commitOid}\n`;
+    let result = `commit ${commitOid}\n`
 
     if (author) {
-      const authorDate = new Date(author.timestamp * 1000).toLocaleString();
-      result += `Author: ${author.name} <${author.email}>\n`;
-      result += `Date:   ${authorDate}\n`;
+      const authorDate = new Date(author.timestamp * 1000).toLocaleString()
+      result += `Author: ${author.name} <${author.email}>\n`
+      result += `Date:   ${authorDate}\n`
     }
 
-    result += `\n    ${message}\n`;
+    result += `\n    ${message}\n`
 
     // 親コミットがあれば表示
     if (commit.commit.parent && commit.commit.parent.length > 0) {
-      result += `\nParent: ${commit.commit.parent.join(', ')}\n`;
+      result += `\nParent: ${commit.commit.parent.join(', ')}\n`
     }
 
-    return result;
+    return result
   } catch (error) {
-    throw new Error(`Failed to show commit: ${(error as Error).message}`);
+    throw new Error(`Failed to show commit: ${(error as Error).message}`)
   }
 }
 
@@ -135,7 +130,7 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
 async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | null> {
   try {
     // コミットハッシュかどうかを判定（4文字以上の16進数）
-    const isCommitHash = /^[a-f0-9]{4,}$/i.test(ref);
+    const isCommitHash = /^[a-f0-9]{4,}$/i.test(ref)
 
     if (isCommitHash) {
       // コミットハッシュの場合は expandOid を使用（短縮形ハッシュに対応）
@@ -144,11 +139,11 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
           fs,
           dir,
           oid: ref,
-        });
-        return oid;
+        })
+        return oid
       } catch {
         // 短縮系ハッシュが見つからない場合
-        return null;
+        return null
       }
     }
 
@@ -159,10 +154,10 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
           fs,
           dir,
           ref,
-        });
-        return oid;
+        })
+        return oid
       } catch {
-        return null;
+        return null
       }
     }
 
@@ -174,8 +169,8 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
           fs,
           dir,
           ref: `refs/remotes/${ref}`,
-        });
-        return oid;
+        })
+        return oid
       } catch {
         // リモートが存在しない場合、通常のref解決を試す
       }
@@ -187,13 +182,13 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
         fs,
         dir,
         ref,
-      });
-      return oid;
+      })
+      return oid
     } catch {
       // 失敗した場合はnull
-      return null;
+      return null
     }
   } catch {
-    return null;
+    return null
   }
 }

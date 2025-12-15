@@ -3,17 +3,17 @@
  * 拡張機能が自分のタブを作成・管理するためのAPI
  */
 
-import type { ExtensionContext } from '../types';
+import type { ExtensionContext } from '../types'
 
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { useTabStore } from '@/stores/tabStore';
+import { tabRegistry } from '@/engine/tabs/TabRegistry'
+import { useTabStore } from '@/stores/tabStore'
 
 /**
  * 拡張機能用タブデータ
  */
 export interface ExtensionTabData {
   /** 拡張機能が定義する任意のデータ */
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 /**
@@ -21,19 +21,19 @@ export interface ExtensionTabData {
  */
 export interface CreateTabOptions {
   /** タブの一意識別子（オプション）。指定すると同じIDのタブを再利用します */
-  id?: string;
+  id?: string
   /** タブのタイトル */
-  title: string;
+  title: string
   /** タブのアイコン（オプション） */
-  icon?: string;
+  icon?: string
   /** タブが閉じられない（オプション） */
-  closable?: boolean;
+  closable?: boolean
   /** 作成後にアクティブ化するか */
-  activateAfterCreate?: boolean;
+  activateAfterCreate?: boolean
   /** 開くペインID（オプション） */
-  paneId?: string;
+  paneId?: string
   /** 拡張機能固有のデータ */
-  data?: ExtensionTabData;
+  data?: ExtensionTabData
 }
 
 /**
@@ -41,27 +41,27 @@ export interface CreateTabOptions {
  */
 export interface UpdateTabOptions {
   /** 新しいタイトル */
-  title?: string;
+  title?: string
   /** 新しいアイコン */
-  icon?: string;
+  icon?: string
   /** 拡張機能固有のデータ */
-  data?: Partial<ExtensionTabData>;
+  data?: Partial<ExtensionTabData>
 }
 
 /**
  * タブクローズコールバック
  */
-export type TabCloseCallback = (tabId: string) => void | Promise<void>;
+export type TabCloseCallback = (tabId: string) => void | Promise<void>
 
 /**
  * TabAPI - 拡張機能がタブを管理するためのAPI
  */
 export class TabAPI {
-  private extensionId: string;
-  private closeCallbacks = new Map<string, TabCloseCallback>();
+  private extensionId: string
+  private closeCallbacks = new Map<string, TabCloseCallback>()
 
   constructor(context: ExtensionContext) {
-    this.extensionId = context.extensionId;
+    this.extensionId = context.extensionId
   }
 
   /**
@@ -69,11 +69,11 @@ export class TabAPI {
    * 拡張機能はactivate時にこれを呼ぶべき
    */
   registerTabType(component: any): void {
-    const tabKind = `extension:${this.extensionId}`;
+    const tabKind = `extension:${this.extensionId}`
 
     if (tabRegistry.has(tabKind as any)) {
-      console.warn(`[TabAPI] Tab type already registered: ${tabKind}`);
-      return;
+      console.warn(`[TabAPI] Tab type already registered: ${tabKind}`)
+      return
     }
 
     tabRegistry.register({
@@ -98,9 +98,9 @@ export class TabAPI {
           closable: data.closable !== false,
           ...data,
         }) as any,
-    });
+    })
 
-    console.log(`[TabAPI] Registered extension tab type: ${tabKind}`);
+    console.log(`[TabAPI] Registered extension tab type: ${tabKind}`)
   }
 
   /**
@@ -108,21 +108,21 @@ export class TabAPI {
    * TabStore の openTab を使用するため、重複チェックは自動的に行われる
    */
   createTab(options: CreateTabOptions): string {
-    const store = useTabStore.getState();
-    const tabKind = `extension:${this.extensionId}`;
+    const store = useTabStore.getState()
+    const tabKind = `extension:${this.extensionId}`
 
     // TabRegistryに登録されているか確認
     if (!tabRegistry.has(tabKind as any)) {
       console.error(
         `[TabAPI] Tab type not registered: ${tabKind}. ` +
           `Call context.tabs.registerTabType(YourComponent) in activate() first.`
-      );
-      throw new Error(`Extension tab type not registered: ${tabKind}`);
+      )
+      throw new Error(`Extension tab type not registered: ${tabKind}`)
     }
 
     // resourcePath の生成: options.id は "resource id" (例: note の id)
     // TabStore will compose the actual tab id as `${kind}:${resourcePath}`.
-    const resourcePath = options.id || '';
+    const resourcePath = options.id || ''
 
     // TabStore の openTab を使用（重複チェックと既存タブのアクティブ化を自動処理）
     store.openTab(
@@ -141,13 +141,13 @@ export class TabAPI {
         paneId: options.paneId,
         makeActive: options.activateAfterCreate !== false,
       }
-    );
+    )
 
     // Try to resolve the actual created tab id from the store (best effort)
-    const found = store.findTabByPath(resourcePath, tabKind);
-    const createdTabId = found?.tab?.id || `${tabKind}:${resourcePath || options.title}`;
-    console.log(`[TabAPI] Opened tab: ${createdTabId} for extension: ${this.extensionId}`);
-    return createdTabId;
+    const found = store.findTabByPath(resourcePath, tabKind)
+    const createdTabId = found?.tab?.id || `${tabKind}:${resourcePath || options.title}`
+    console.log(`[TabAPI] Opened tab: ${createdTabId} for extension: ${this.extensionId}`)
+    return createdTabId
   }
 
   /**
@@ -156,19 +156,19 @@ export class TabAPI {
   updateTab(tabId: string, options: UpdateTabOptions): boolean {
     // タブIDの検証
     if (!this.isOwnedTab(tabId)) {
-      console.error(`[TabAPI] Cannot update tab ${tabId}: not owned by ${this.extensionId}`);
-      return false;
+      console.error(`[TabAPI] Cannot update tab ${tabId}: not owned by ${this.extensionId}`)
+      return false
     }
 
-    const store = useTabStore.getState();
-    let updated = false;
+    const store = useTabStore.getState()
+    let updated = false
 
     store.setPanes(
       store.panes.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(tab => {
           if (tab.id === tabId) {
-            updated = true;
+            updated = true
             return {
               ...tab,
               // title オプションは name フィールドを更新
@@ -178,17 +178,17 @@ export class TabAPI {
               ...(options.data && {
                 data: { ...(tab as any).data, ...options.data },
               }),
-            };
+            }
           }
-          return tab;
+          return tab
         }),
       }))
-    );
+    )
 
     if (updated) {
-      console.log(`[TabAPI] Updated tab: ${tabId}`);
+      console.log(`[TabAPI] Updated tab: ${tabId}`)
     }
-    return updated;
+    return updated
   }
 
   /**
@@ -197,32 +197,32 @@ export class TabAPI {
   closeTab(tabId: string): boolean {
     // タブIDの検証
     if (!this.isOwnedTab(tabId)) {
-      console.error(`[TabAPI] Cannot close tab ${tabId}: not owned by ${this.extensionId}`);
-      return false;
+      console.error(`[TabAPI] Cannot close tab ${tabId}: not owned by ${this.extensionId}`)
+      return false
     }
 
-    const store = useTabStore.getState();
+    const store = useTabStore.getState()
 
     // クローズコールバックを実行
-    const callback = this.closeCallbacks.get(tabId);
+    const callback = this.closeCallbacks.get(tabId)
     if (callback) {
       Promise.resolve(callback(tabId)).catch(err => {
-        console.error(`[TabAPI] Error in close callback for tab ${tabId}:`, err);
-      });
-      this.closeCallbacks.delete(tabId);
+        console.error(`[TabAPI] Error in close callback for tab ${tabId}:`, err)
+      })
+      this.closeCallbacks.delete(tabId)
     }
 
     // タブを探して削除
     for (const pane of store.panes) {
-      const tab = pane.tabs.find(t => t.id === tabId);
+      const tab = pane.tabs.find(t => t.id === tabId)
       if (tab) {
-        store.closeTab(pane.id, tabId);
-        console.log(`[TabAPI] Closed tab: ${tabId}`);
-        return true;
+        store.closeTab(pane.id, tabId)
+        console.log(`[TabAPI] Closed tab: ${tabId}`)
+        return true
       }
     }
 
-    return false;
+    return false
   }
 
   /**
@@ -232,10 +232,10 @@ export class TabAPI {
     if (!this.isOwnedTab(tabId)) {
       console.error(
         `[TabAPI] Cannot register close callback for tab ${tabId}: not owned by ${this.extensionId}`
-      );
-      return;
+      )
+      return
     }
-    this.closeCallbacks.set(tabId, callback);
+    this.closeCallbacks.set(tabId, callback)
   }
 
   /**
@@ -243,19 +243,19 @@ export class TabAPI {
    */
   getTabData<T = ExtensionTabData>(tabId: string): T | null {
     if (!this.isOwnedTab(tabId)) {
-      console.error(`[TabAPI] Cannot get tab data for ${tabId}: not owned by ${this.extensionId}`);
-      return null;
+      console.error(`[TabAPI] Cannot get tab data for ${tabId}: not owned by ${this.extensionId}`)
+      return null
     }
 
-    const store = useTabStore.getState();
+    const store = useTabStore.getState()
     for (const pane of store.panes) {
       // 拡張機能タブの任意データにアクセス（型定義外のプロパティ）
-      const tab = pane.tabs.find(t => t.id === tabId) as any;
+      const tab = pane.tabs.find(t => t.id === tabId) as any
       if (tab && tab.data) {
-        return tab.data as T;
+        return tab.data as T
       }
     }
-    return null;
+    return null
   }
 
   /**
@@ -269,8 +269,8 @@ export class TabAPI {
    */
   private isOwnedTab(tabId: string): boolean {
     // createTab()で生成された正確なプレフィックスのみを許可
-    const expectedPrefix = `extension:${this.extensionId}`;
-    return tabId.startsWith(expectedPrefix);
+    const expectedPrefix = `extension:${this.extensionId}`
+    return tabId.startsWith(expectedPrefix)
   }
 
   /**
@@ -280,13 +280,13 @@ export class TabAPI {
   openSystemTab(
     file: any,
     options?: {
-      kind?: string;
-      jumpToLine?: number;
-      jumpToColumn?: number;
-      activateAfterOpen?: boolean;
+      kind?: string
+      jumpToLine?: number
+      jumpToColumn?: number
+      activateAfterOpen?: boolean
     }
   ): void {
-    const store = useTabStore.getState();
+    const store = useTabStore.getState()
 
     try {
       // システムのopenTabを呼び出す
@@ -295,12 +295,12 @@ export class TabAPI {
         jumpToLine: options?.jumpToLine,
         jumpToColumn: options?.jumpToColumn,
         activateAfterOpen: options?.activateAfterOpen ?? true,
-      });
+      })
 
-      console.log(`[TabAPI] Opened system tab for file: ${file.path}`);
+      console.log(`[TabAPI] Opened system tab for file: ${file.path}`)
     } catch (error) {
-      console.error(`[TabAPI] Failed to open system tab:`, error);
-      throw error;
+      console.error(`[TabAPI] Failed to open system tab:`, error)
+      throw error
     }
   }
 
@@ -308,30 +308,30 @@ export class TabAPI {
    * クリーンアップ - 全てのタブを閉じる
    */
   dispose(): void {
-    const store = useTabStore.getState();
-    const ownedTabs: Array<{ paneId: string; tabId: string }> = [];
+    const store = useTabStore.getState()
+    const ownedTabs: Array<{ paneId: string; tabId: string }> = []
 
     // 自分が所有するタブを全て探す
     for (const pane of store.panes) {
       for (const tab of pane.tabs) {
         if (this.isOwnedTab(tab.id)) {
-          ownedTabs.push({ paneId: pane.id, tabId: tab.id });
+          ownedTabs.push({ paneId: pane.id, tabId: tab.id })
         }
       }
     }
 
     // 全て閉じる
     for (const { paneId, tabId } of ownedTabs) {
-      const callback = this.closeCallbacks.get(tabId);
+      const callback = this.closeCallbacks.get(tabId)
       if (callback) {
         Promise.resolve(callback(tabId)).catch(err => {
-          console.error(`[TabAPI] Error in dispose callback for tab ${tabId}:`, err);
-        });
+          console.error(`[TabAPI] Error in dispose callback for tab ${tabId}:`, err)
+        })
       }
-      store.closeTab(paneId, tabId);
+      store.closeTab(paneId, tabId)
     }
 
-    this.closeCallbacks.clear();
-    console.log(`[TabAPI] Disposed all tabs for extension: ${this.extensionId}`);
+    this.closeCallbacks.clear()
+    console.log(`[TabAPI] Disposed all tabs for extension: ${this.extensionId}`)
   }
 }

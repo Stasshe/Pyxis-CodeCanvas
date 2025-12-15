@@ -1,4 +1,4 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
 /**
  * echo - テキストを出力
@@ -17,27 +17,27 @@ import { UnixCommandBase } from './base';
 export class EchoCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     if (args.length === 0) {
-      return '';
+      return ''
     }
 
-    const { options, positional } = this.parseOptions(args);
+    const { options, positional } = this.parseOptions(args)
 
-    const noNewline = options.has('-n');
-    const interpretEscapes = options.has('-e');
+    const noNewline = options.has('-n')
+    const interpretEscapes = options.has('-e')
 
-    let text = positional.join(' ');
+    let text = positional.join(' ')
 
     // エスケープ解釈
     if (interpretEscapes) {
-      text = this.interpretEscapes(text);
+      text = this.interpretEscapes(text)
     }
 
     // 改行追加（リダイレクトなしの場合のみ）
     if (!noNewline) {
-      text += '\n';
+      text += '\n'
     }
 
-    return text;
+    return text
   }
 
   /**
@@ -52,6 +52,6 @@ export class EchoCommand extends UnixCommandBase {
       .replace(/\\f/g, '\f')
       .replace(/\\v/g, '\v')
       .replace(/\\0/g, '\0')
-      .replace(/\\\\/g, '\\');
+      .replace(/\\\\/g, '\\')
   }
 }

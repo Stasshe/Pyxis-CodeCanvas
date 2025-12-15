@@ -9,14 +9,14 @@ import {
   loadExtensionModule,
   activateExtension,
   deactivateExtension,
-} from './extensionLoader';
+} from './extensionLoader'
 import {
   saveInstalledExtension,
   loadInstalledExtension,
   loadAllInstalledExtensions,
   deleteInstalledExtension,
-} from './storage-adapter';
-import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+} from './storage-adapter'
+import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes'
 import {
   ExtensionStatus,
   type ExtensionManifest,
@@ -24,48 +24,48 @@ import {
   type ExtensionExports,
   type ExtensionContext,
   type ExtensionActivation,
-} from './types';
+} from './types'
 
 /**
  * アクティブな拡張機能のキャッシュ
  */
 interface ActiveExtension {
-  manifest: ExtensionManifest;
-  exports: ExtensionExports;
-  activation: ExtensionActivation;
+  manifest: ExtensionManifest
+  exports: ExtensionExports
+  activation: ExtensionActivation
 }
 
 /**
  * 拡張機能の変更イベント
  */
 export type ExtensionChangeEvent = {
-  type: 'enabled' | 'disabled' | 'installed' | 'uninstalled';
-  extensionId: string;
-  manifest?: ExtensionManifest;
-};
+  type: 'enabled' | 'disabled' | 'installed' | 'uninstalled'
+  extensionId: string
+  manifest?: ExtensionManifest
+}
 
-type ExtensionChangeListener = (event: ExtensionChangeEvent) => void;
+type ExtensionChangeListener = (event: ExtensionChangeEvent) => void
 
 /**
  * Extension Manager
  */
 class ExtensionManager {
   /** アクティブな拡張機能 (extensionId -> ActiveExtension) */
-  private activeExtensions: Map<string, ActiveExtension> = new Map();
+  private activeExtensions: Map<string, ActiveExtension> = new Map()
 
   /** 初期化済みフラグ */
-  private initialized = false;
+  private initialized = false
 
   /** 変更イベントリスナー */
-  private changeListeners: Set<ExtensionChangeListener> = new Set();
+  private changeListeners: Set<ExtensionChangeListener> = new Set()
 
   /**
    * 変更イベントリスナーを登録
    */
   addChangeListener(listener: ExtensionChangeListener): () => void {
-    this.changeListeners.add(listener);
+    this.changeListeners.add(listener)
     // アンサブスクライブ関数を返す
-    return () => this.changeListeners.delete(listener);
+    return () => this.changeListeners.delete(listener)
   }
 
   /**
@@ -74,47 +74,47 @@ class ExtensionManager {
   private emitChange(event: ExtensionChangeEvent): void {
     this.changeListeners.forEach(listener => {
       try {
-        listener(event);
+        listener(event)
       } catch (error) {
-        console.error('[ExtensionManager] Error in change listener:', error);
+        console.error('[ExtensionManager] Error in change listener:', error)
       }
-    });
+    })
   }
 
   /**
    * 初期化
    */
   async init(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) return
 
-    console.log('[ExtensionManager] Initializing...');
+    console.log('[ExtensionManager] Initializing...')
 
     // Reactをグローバルに提供（拡張機能から使えるように）
     if (typeof window !== 'undefined') {
-      const React = await import('react');
-      const ReactDOM = await import('react-dom');
-      const ReactDomClient = await import('react-dom/client');
-      (window as any).__PYXIS_REACT__ = React;
-      (window as any).__PYXIS_REACT_DOM__ = { ...ReactDOM, ...ReactDomClient };
-      console.log('[ExtensionManager] React and ReactDOM provided globally for extensions');
+      const React = await import('react')
+      const ReactDOM = await import('react-dom')
+      const ReactDomClient = await import('react-dom/client')
+      ;(window as any).__PYXIS_REACT__ = React
+      ;(window as any).__PYXIS_REACT_DOM__ = { ...ReactDOM, ...ReactDomClient }
+      console.log('[ExtensionManager] React and ReactDOM provided globally for extensions')
       // Provide Markdown/math rendering libraries on the host so extensions
       // don't need to bundle heavy unified/rehype ecosystems into blob modules.
       try {
-        const ReactMarkdownModule = await import('react-markdown');
-        const remarkGfmModule = await import('remark-gfm');
-        const remarkMathModule = await import('remark-math');
-        const rehypeKatexModule = await import('rehype-katex');
-        const rehypeRawModule = await import('rehype-raw');
+        const ReactMarkdownModule = await import('react-markdown')
+        const remarkGfmModule = await import('remark-gfm')
+        const remarkMathModule = await import('remark-math')
+        const rehypeKatexModule = await import('rehype-katex')
+        const rehypeRawModule = await import('rehype-raw')
         // katex may be needed directly by some extensions
-        let katexModule: any = null;
+        let katexModule: any = null
         try {
-          katexModule = await import('katex');
+          katexModule = await import('katex')
         } catch (e) {
           // katex is optional; warn but continue
-          console.warn('[ExtensionManager] katex not available as host-provided module');
+          console.warn('[ExtensionManager] katex not available as host-provided module')
         }
 
-        (window as any).__PYXIS_MARKDOWN__ = {
+        ;(window as any).__PYXIS_MARKDOWN__ = {
           ReactMarkdown:
             (ReactMarkdownModule && (ReactMarkdownModule as any).default) || ReactMarkdownModule,
           remarkGfm: (remarkGfmModule && (remarkGfmModule as any).default) || remarkGfmModule,
@@ -123,27 +123,27 @@ class ExtensionManager {
             (rehypeKatexModule && (rehypeKatexModule as any).default) || rehypeKatexModule,
           rehypeRaw: (rehypeRawModule && (rehypeRawModule as any).default) || rehypeRawModule,
           katex: katexModule && ((katexModule as any).default || katexModule),
-        };
-        console.log('[ExtensionManager] Markdown/math libraries provided globally for extensions');
+        }
+        console.log('[ExtensionManager] Markdown/math libraries provided globally for extensions')
       } catch (err) {
-        console.warn('[ExtensionManager] Failed to provide markdown/math libraries globally:', err);
+        console.warn('[ExtensionManager] Failed to provide markdown/math libraries globally:', err)
       }
     }
 
     // インストール済み & 有効化済みの拡張機能を読み込み
-    const installed = await loadAllInstalledExtensions();
-    const enabled = installed.filter(ext => ext.enabled);
+    const installed = await loadAllInstalledExtensions()
+    const enabled = installed.filter(ext => ext.enabled)
 
     for (const ext of enabled) {
       try {
-        await this.enableExtension(ext.manifest.id);
+        await this.enableExtension(ext.manifest.id)
       } catch (error) {
-        console.error(`[ExtensionManager] Failed to enable extension: ${ext.manifest.id}`, error);
+        console.error(`[ExtensionManager] Failed to enable extension: ${ext.manifest.id}`, error)
       }
     }
 
-    this.initialized = true;
-    console.log(`[ExtensionManager] Initialized with ${this.activeExtensions.size} extensions`);
+    this.initialized = true
+    console.log(`[ExtensionManager] Initialized with ${this.activeExtensions.size} extensions`)
   }
 
   /**
@@ -151,37 +151,37 @@ class ExtensionManager {
    */
   async installExtension(manifestUrl: string): Promise<InstalledExtension | null> {
     try {
-      console.log('[ExtensionManager] Installing extension:', manifestUrl);
+      console.log('[ExtensionManager] Installing extension:', manifestUrl)
 
       // マニフェストを取得
-      const manifest = await fetchExtensionManifest(manifestUrl);
+      const manifest = await fetchExtensionManifest(manifestUrl)
       if (!manifest) {
-        throw new Error('Failed to fetch manifest');
+        throw new Error('Failed to fetch manifest')
       }
 
       // 既にインストール済みかチェック
-      const existing = await loadInstalledExtension(manifest.id);
+      const existing = await loadInstalledExtension(manifest.id)
       if (existing) {
-        console.log('[ExtensionManager] Extension already installed:', manifest.id);
-        return existing;
+        console.log('[ExtensionManager] Extension already installed:', manifest.id)
+        return existing
       }
 
       // 依存関係をチェック & 自動インストール
       if (manifest.dependencies && manifest.dependencies.length > 0) {
         for (const depId of manifest.dependencies) {
-          const dep = await loadInstalledExtension(depId);
+          const dep = await loadInstalledExtension(depId)
           if (!dep) {
             console.warn(
               `[ExtensionManager] Dependency not found: ${depId}. Please install it first.`
-            );
+            )
           }
         }
       }
 
       // コードを取得
-      const code = await fetchExtensionCode(manifest);
+      const code = await fetchExtensionCode(manifest)
       if (!code) {
-        throw new Error('Failed to fetch extension code');
+        throw new Error('Failed to fetch extension code')
       }
 
       // インストール情報を作成
@@ -196,17 +196,17 @@ class ExtensionManager {
           files: code.files,
           cachedAt: Date.now(),
         },
-      };
+      }
 
       // IndexedDBに保存
-      await saveInstalledExtension(installed);
+      await saveInstalledExtension(installed)
       // 自動有効化
-      await this.enableExtension(manifest.id);
+      await this.enableExtension(manifest.id)
 
-      return installed;
+      return installed
     } catch (error) {
-      console.error('[ExtensionManager] Failed to install extension:', error);
-      return null;
+      console.error('[ExtensionManager] Failed to install extension:', error)
+      return null
     }
   }
 
@@ -217,108 +217,108 @@ class ExtensionManager {
    */
   async installExtensionFromZip(file: File | Blob): Promise<InstalledExtension | null> {
     try {
-      console.log('[ExtensionManager] Installing extension from ZIP');
+      console.log('[ExtensionManager] Installing extension from ZIP')
 
       // 動的にJSZipをロード（ブラウザ向けに既に package.json に含まれている）
-      const JSZipModule = await import('jszip');
-      const JSZip = (JSZipModule as any).default || JSZipModule;
+      const JSZipModule = await import('jszip')
+      const JSZip = (JSZipModule as any).default || JSZipModule
 
-      const zip = await JSZip.loadAsync(file);
+      const zip = await JSZip.loadAsync(file)
 
       // manifest.json を探す: まずルートの manifest.json を優先
-      let manifestPath: string | null = null;
+      let manifestPath: string | null = null
       if (zip.file('manifest.json')) {
-        manifestPath = 'manifest.json';
+        manifestPath = 'manifest.json'
       } else {
         // ルート以外を探す（最初に見つかった manifest.json を使う）
         zip.forEach((relativePath: string) => {
           if (!manifestPath && relativePath.toLowerCase().endsWith('manifest.json')) {
-            manifestPath = relativePath;
+            manifestPath = relativePath
           }
-        });
+        })
       }
 
       if (!manifestPath) {
-        throw new Error('manifest.json not found inside ZIP');
+        throw new Error('manifest.json not found inside ZIP')
       }
 
-      const manifestText = await zip.file(manifestPath)!.async('string');
-      const manifest = JSON.parse(manifestText) as any;
+      const manifestText = await zip.file(manifestPath)!.async('string')
+      const manifest = JSON.parse(manifestText) as any
 
       if (!manifest || !manifest.id) {
-        throw new Error('Invalid manifest.json: missing id');
+        throw new Error('Invalid manifest.json: missing id')
       }
 
       // manifest.entry が無ければデフォルトを使う
-      if (!manifest.entry) manifest.entry = 'index.js';
+      if (!manifest.entry) manifest.entry = 'index.js'
 
       // manifestPath のディレクトリを求め、ファイルの相対パスを正規化する
-      const lastSlash = manifestPath.lastIndexOf('/');
-      const manifestDir = lastSlash === -1 ? '' : manifestPath.slice(0, lastSlash);
+      const lastSlash = manifestPath.lastIndexOf('/')
+      const manifestDir = lastSlash === -1 ? '' : manifestPath.slice(0, lastSlash)
 
       // ヘルパー: 与えられた candidate パスから zip 内で実在するものを返す
       const resolveZipPath = (candidatePaths: string[]) => {
         for (const p of candidatePaths) {
-          const normalized = p.replace(/^\.\//, '');
+          const normalized = p.replace(/^\.\//, '')
           // try with and without manifestDir prefix
-          if (zip.file(normalized)) return normalized;
+          if (zip.file(normalized)) return normalized
           if (manifestDir && zip.file(`${manifestDir}/${normalized}`))
-            return `${manifestDir}/${normalized}`;
+            return `${manifestDir}/${normalized}`
         }
-        return null;
-      };
+        return null
+      }
 
       const entryCandidates = [
         manifest.entry,
         `./${manifest.entry}`,
         manifest.entry.replace(/^\//, ''),
-      ];
-      const resolvedEntryPath = resolveZipPath(entryCandidates);
+      ]
+      const resolvedEntryPath = resolveZipPath(entryCandidates)
       if (!resolvedEntryPath) {
-        throw new Error(`Entry file not found in ZIP: ${manifest.entry}`);
+        throw new Error(`Entry file not found in ZIP: ${manifest.entry}`)
       }
 
       // エントリのコードを読み込む
-      const entryCode = await zip.file(resolvedEntryPath)!.async('string');
+      const entryCode = await zip.file(resolvedEntryPath)!.async('string')
 
       // manifest.entry を extension root 相対（manifestDir を削った形）に更新
-      let normalizedEntry = resolvedEntryPath;
+      let normalizedEntry = resolvedEntryPath
       if (manifestDir && normalizedEntry.startsWith(`${manifestDir}/`)) {
-        normalizedEntry = normalizedEntry.slice(manifestDir.length + 1);
+        normalizedEntry = normalizedEntry.slice(manifestDir.length + 1)
       }
-      manifest.entry = normalizedEntry;
+      manifest.entry = normalizedEntry
 
       // 追加ファイルは manifest.files に基づいて読み込む（extensionLoader.fetchExtensionCode と同じ挙動）
-      const filesMap: Record<string, string> = {};
+      const filesMap: Record<string, string> = {}
       if (manifest.files && manifest.files.length > 0) {
         for (const filePath of manifest.files) {
-          const candidates = [filePath, `./${filePath}`, filePath.replace(/^\//, '')];
-          const resolved = resolveZipPath(candidates);
+          const candidates = [filePath, `./${filePath}`, filePath.replace(/^\//, '')]
+          const resolved = resolveZipPath(candidates)
           if (!resolved) {
             // 個別ファイルが見つからない場合は警告して続行（fetchExtensionCode に合わせる）
             console.warn(
               `[ExtensionManager] File listed in manifest.files not found in ZIP (skipping): ${filePath}`
-            );
-            continue;
+            )
+            continue
           }
 
           // decide whether to read as binary based on extension (use shared util)
-          const { isBinaryExt, uint8ToBlob } = await import('./binaryUtils');
+          const { isBinaryExt, uint8ToBlob } = await import('./binaryUtils')
           if (isBinaryExt(filePath)) {
-            const uint8 = await zip.file(resolved)!.async('uint8array');
-            const blob = uint8ToBlob(uint8, filePath);
-            const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
-            filesMap[normalizedKey] = blob as any;
+            const uint8 = await zip.file(resolved)!.async('uint8array')
+            const blob = uint8ToBlob(uint8, filePath)
+            const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '')
+            filesMap[normalizedKey] = blob as any
           } else {
-            const content = await zip.file(resolved)!.async('string');
-            const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
-            filesMap[normalizedKey] = content;
+            const content = await zip.file(resolved)!.async('string')
+            const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '')
+            filesMap[normalizedKey] = content
           }
         }
 
         // manifest.files が宣言されているのに一つもロードできなければエラー
         if (Object.keys(filesMap).length === 0) {
-          throw new Error('manifest.files declared but no matching files found inside ZIP');
+          throw new Error('manifest.files declared but no matching files found inside ZIP')
         }
       }
 
@@ -334,22 +334,22 @@ class ExtensionManager {
           files: Object.keys(filesMap).length > 0 ? filesMap : undefined,
           cachedAt: Date.now(),
         },
-      };
+      }
 
       // IndexedDB に保存
-      await saveInstalledExtension(installed);
+      await saveInstalledExtension(installed)
 
       // 自動有効化を試みる
       try {
-        await this.enableExtension(manifest.id);
+        await this.enableExtension(manifest.id)
       } catch (err) {
-        console.warn('[ExtensionManager] Failed to auto-enable extension from ZIP:', err);
+        console.warn('[ExtensionManager] Failed to auto-enable extension from ZIP:', err)
       }
 
-      return installed;
+      return installed
     } catch (error) {
-      console.error('[ExtensionManager] Failed to install extension from ZIP:', error);
-      return null;
+      console.error('[ExtensionManager] Failed to install extension from ZIP:', error)
+      return null
     }
   }
 
@@ -358,59 +358,57 @@ class ExtensionManager {
    */
   async enableExtension(extensionId: string): Promise<boolean> {
     try {
-      console.log('[ExtensionManager] Enabling extension:', extensionId);
+      console.log('[ExtensionManager] Enabling extension:', extensionId)
 
       // 既に有効化されているかチェック
       if (this.activeExtensions.has(extensionId)) {
-        console.log('[ExtensionManager] Extension already enabled:', extensionId);
-        return true;
+        console.log('[ExtensionManager] Extension already enabled:', extensionId)
+        return true
       }
 
       // インストール済み拡張を取得
-      const installed = await loadInstalledExtension(extensionId);
+      const installed = await loadInstalledExtension(extensionId)
       if (!installed) {
-        throw new Error('Extension not installed');
+        throw new Error('Extension not installed')
       }
 
       // onlyOneグループのチェック: 同じグループの他の拡張機能を無効化
       if (installed.manifest.onlyOne) {
-        const group = installed.manifest.onlyOne;
+        const group = installed.manifest.onlyOne
         console.log(
           `[ExtensionManager] onlyOne group detected: ${group}. Checking for conflicts...`
-        );
+        )
 
         // 同じグループで有効化されている拡張機能を探す
-        const allInstalled = await loadAllInstalledExtensions();
+        const allInstalled = await loadAllInstalledExtensions()
         const conflictingExtensions = allInstalled.filter(
           ext => ext.manifest?.onlyOne === group && ext.enabled && ext.manifest?.id !== extensionId
-        );
+        )
 
         // 競合する拡張機能を無効化
         for (const conflict of conflictingExtensions) {
-          console.log(
-            `[ExtensionManager] Disabling conflicting extension: ${conflict.manifest.id}`
-          );
-          await this.disableExtension(conflict.manifest.id);
+          console.log(`[ExtensionManager] Disabling conflicting extension: ${conflict.manifest.id}`)
+          await this.disableExtension(conflict.manifest.id)
         }
       }
 
       // コンテキストを作成
-      const context = await this.createExtensionContext(extensionId);
+      const context = await this.createExtensionContext(extensionId)
 
       // モジュールをロード（追加ファイルも渡す）
       const exports = await loadExtensionModule(
         installed.cache.entryCode,
         installed.cache.files || {},
         context
-      );
+      )
       if (!exports) {
-        throw new Error('Failed to load extension module');
+        throw new Error('Failed to load extension module')
       }
 
       // アクティベート
-      const activation = await activateExtension(exports, context);
+      const activation = await activateExtension(exports, context)
       if (!activation) {
-        throw new Error('Failed to activate extension');
+        throw new Error('Failed to activate extension')
       }
 
       // アクティブリストに追加（contextも保存）
@@ -419,26 +417,26 @@ class ExtensionManager {
         exports,
         activation,
         _context: context,
-      } as any);
+      } as any)
 
       // 状態を更新
-      installed.enabled = true;
-      installed.status = ExtensionStatus.ENABLED;
-      installed.updatedAt = Date.now();
-      await saveInstalledExtension(installed);
+      installed.enabled = true
+      installed.status = ExtensionStatus.ENABLED
+      installed.updatedAt = Date.now()
+      await saveInstalledExtension(installed)
 
       // 変更イベントを発火
       this.emitChange({
         type: 'enabled',
         extensionId,
         manifest: installed.manifest,
-      });
+      })
 
-      console.log('[ExtensionManager] Extension enabled:', extensionId);
-      return true;
+      console.log('[ExtensionManager] Extension enabled:', extensionId)
+      return true
     } catch (error) {
-      console.error('[ExtensionManager] Failed to enable extension:', extensionId, error);
-      return false;
+      console.error('[ExtensionManager] Failed to enable extension:', extensionId, error)
+      return false
     }
   }
 
@@ -447,55 +445,55 @@ class ExtensionManager {
    */
   async disableExtension(extensionId: string): Promise<boolean> {
     try {
-      console.log('[ExtensionManager] Disabling extension:', extensionId);
+      console.log('[ExtensionManager] Disabling extension:', extensionId)
 
-      const active = this.activeExtensions.get(extensionId);
+      const active = this.activeExtensions.get(extensionId)
       if (!active) {
-        console.log('[ExtensionManager] Extension not enabled:', extensionId);
-        return false;
+        console.log('[ExtensionManager] Extension not enabled:', extensionId)
+        return false
       }
 
       // TabAPIとSidebarAPIをクリーンアップ
-      const context = (active as any)._context;
+      const context = (active as any)._context
       if (context) {
         if ((context as any)._tabAPI) {
-          (context as any)._tabAPI.dispose();
+          ;(context as any)._tabAPI.dispose()
         }
         if ((context as any)._sidebarAPI) {
-          (context as any)._sidebarAPI.dispose();
+          ;(context as any)._sidebarAPI.dispose()
         }
       }
 
       // コマンドをクリーンアップ
-      const { commandRegistry } = await import('./commandRegistry');
-      commandRegistry.unregisterExtensionCommands(extensionId);
+      const { commandRegistry } = await import('./commandRegistry')
+      commandRegistry.unregisterExtensionCommands(extensionId)
 
       // デアクティベート
-      await deactivateExtension(active.exports);
+      await deactivateExtension(active.exports)
 
       // アクティブリストから削除
-      this.activeExtensions.delete(extensionId);
+      this.activeExtensions.delete(extensionId)
 
       // 状態を更新
-      const installed = await loadInstalledExtension(extensionId);
+      const installed = await loadInstalledExtension(extensionId)
       if (installed) {
-        installed.enabled = false;
-        installed.status = ExtensionStatus.INSTALLED;
-        installed.updatedAt = Date.now();
-        await saveInstalledExtension(installed);
+        installed.enabled = false
+        installed.status = ExtensionStatus.INSTALLED
+        installed.updatedAt = Date.now()
+        await saveInstalledExtension(installed)
 
         // 変更イベントを発火
         this.emitChange({
           type: 'disabled',
           extensionId,
-        });
+        })
       }
 
-      console.log('[ExtensionManager] Extension disabled:', extensionId);
-      return true;
+      console.log('[ExtensionManager] Extension disabled:', extensionId)
+      return true
     } catch (error) {
-      console.error('[ExtensionManager] Failed to disable extension:', extensionId, error);
-      return false;
+      console.error('[ExtensionManager] Failed to disable extension:', extensionId, error)
+      return false
     }
   }
 
@@ -504,19 +502,19 @@ class ExtensionManager {
    */
   async uninstallExtension(extensionId: string): Promise<boolean> {
     try {
-      console.log('[ExtensionManager] Uninstalling extension:', extensionId);
+      console.log('[ExtensionManager] Uninstalling extension:', extensionId)
 
       // マニフェストを保存しておく（イベント発火用）
-      const installed = await loadInstalledExtension(extensionId);
-      const manifest = installed?.manifest;
+      const installed = await loadInstalledExtension(extensionId)
+      const manifest = installed?.manifest
 
       // 有効化されている場合は無効化
       if (this.activeExtensions.has(extensionId)) {
-        await this.disableExtension(extensionId);
+        await this.disableExtension(extensionId)
       }
 
       // IndexedDBから削除
-      await deleteInstalledExtension(extensionId);
+      await deleteInstalledExtension(extensionId)
 
       // 変更イベントを発火
       if (manifest) {
@@ -524,14 +522,14 @@ class ExtensionManager {
           type: 'uninstalled',
           extensionId,
           manifest,
-        });
+        })
       }
 
-      console.log('[ExtensionManager] Extension uninstalled:', extensionId);
-      return true;
+      console.log('[ExtensionManager] Extension uninstalled:', extensionId)
+      return true
     } catch (error) {
-      console.error('[ExtensionManager] Failed to uninstall extension:', extensionId, error);
-      return false;
+      console.error('[ExtensionManager] Failed to uninstall extension:', extensionId, error)
+      return false
     }
   }
 
@@ -539,48 +537,48 @@ class ExtensionManager {
    * インストール済み拡張機能のリストを取得
    */
   async getInstalledExtensions(): Promise<InstalledExtension[]> {
-    return await loadAllInstalledExtensions();
+    return await loadAllInstalledExtensions()
   }
 
   /**
    * 有効化済み拡張機能のリストを取得
    */
   getActiveExtensions(): ActiveExtension[] {
-    return Array.from(this.activeExtensions.values());
+    return Array.from(this.activeExtensions.values())
   }
 
   /**
    * 有効化されている全ての言語パックを取得
    */
   getEnabledLanguagePacks(): Array<{ locale: string; name: string; nativeName: string }> {
-    const langPacks: Array<{ locale: string; name: string; nativeName: string }> = [];
+    const langPacks: Array<{ locale: string; name: string; nativeName: string }> = []
     for (const active of this.activeExtensions.values()) {
       if (active.activation.services && active.activation.services['language-pack']) {
         langPacks.push(
           active.activation.services['language-pack'] as {
-            locale: string;
-            name: string;
-            nativeName: string;
+            locale: string
+            name: string
+            nativeName: string
           }
-        );
+        )
       }
     }
-    return langPacks;
+    return langPacks
   }
 
   /**
    * 全ての有効化済みビルトインモジュールを取得
    */
   getAllBuiltInModules(): Record<string, unknown> {
-    const modules: Record<string, unknown> = {};
+    const modules: Record<string, unknown> = {}
 
     for (const active of this.activeExtensions.values()) {
       if (active.activation.builtInModules) {
-        Object.assign(modules, active.activation.builtInModules);
+        Object.assign(modules, active.activation.builtInModules)
       }
     }
 
-    return modules;
+    return modules
   }
 
   /**
@@ -589,9 +587,9 @@ class ExtensionManager {
   private async createExtensionContext(extensionId: string): Promise<ExtensionContext> {
     // Load APIs we need to wire into the context. Import commandRegistry here so
     // we can create a fully-typed `ExtensionContext` literal (no `as` cast).
-    const { TabAPI } = await import('./system-api/TabAPI');
-    const { SidebarAPI } = await import('./system-api/SidebarAPI');
-    const { commandRegistry } = await import('./commandRegistry');
+    const { TabAPI } = await import('./system-api/TabAPI')
+    const { SidebarAPI } = await import('./system-api/SidebarAPI')
+    const { commandRegistry } = await import('./commandRegistry')
 
     // Helper used for strict initial stubs: if a consumer calls an API too
     // early, throw a useful error. We'll overwrite these stubs with real
@@ -601,8 +599,8 @@ class ExtensionManager {
       (..._args: any[]) => {
         throw new Error(
           `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
-        );
-      };
+        )
+      }
 
     // Create a fully-populated ExtensionContext literal so TypeScript verifies
     // all required properties at compile time. Use strict stubs for tabs and
@@ -622,69 +620,72 @@ class ExtensionManager {
         // システムモジュールへのアクセスを提供（型安全）
         switch (moduleName) {
           case 'fileRepository': {
-            const { fileRepository } = await import('@/engine/core/fileRepository');
-            return fileRepository as SystemModuleMap[T];
+            const { fileRepository } = await import('@/engine/core/fileRepository')
+            return fileRepository as SystemModuleMap[T]
           }
           case 'normalizeCjsEsm': {
-            const module = await import('@/engine/runtime/normalizeCjsEsm');
+            const module = await import('@/engine/runtime/normalizeCjsEsm')
             // import() returns a module namespace object which may not structurally
             // match the expected SystemModuleMap[T] type. Cast via unknown first
             // to satisfy TypeScript and avoid unsafe direct casting warnings.
-            return module as unknown as SystemModuleMap[T];
+            return module as unknown as SystemModuleMap[T]
           }
           case 'pathUtils': {
-            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } = await import('@/engine/core/pathResolver');
+            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } =
+              await import('@/engine/core/pathResolver')
             return {
               normalizePath,
               toAppPath,
               getParentPath,
               toGitPath,
               fromGitPath,
-            } as SystemModuleMap[T];
+            } as SystemModuleMap[T]
           }
           case 'commandRegistry': {
-            const { commandRegistry } = await import('./commandRegistry');
-            return commandRegistry as SystemModuleMap[T];
+            const { commandRegistry } = await import('./commandRegistry')
+            return commandRegistry as SystemModuleMap[T]
           }
           case 'systemBuiltinCommands': {
             // Provide registry that returns singleton command instances per project
-            const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
-            return terminalCommandRegistry as unknown as SystemModuleMap[T];
+            const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry')
+            return terminalCommandRegistry as unknown as SystemModuleMap[T]
           }
           default: {
             // TypeScriptの網羅性チェック用の変数
             // 実行時には到達しないが、型エラーメッセージを改善するために使用
-            const exhaustiveCheck: never = moduleName;
+            const exhaustiveCheck: never = moduleName
             // 実際のエラーメッセージでは元のmoduleNameを文字列として出力
-            throw new Error(`System module not found: ${String(moduleName)}`);
+            throw new Error(`System module not found: ${String(moduleName)}`)
           }
         }
       },
       registerTranspiler: async (transpilerConfig: any) => {
         // RuntimeRegistryにトランスパイラーを登録
         try {
-          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
-          const { ExtensionTranspilerProvider } = await import('@/engine/runtime/providers/ExtensionTranspilerProvider');
-          
+          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry')
+          const { ExtensionTranspilerProvider } = await import(
+            '@/engine/runtime/providers/ExtensionTranspilerProvider'
+          )
+
           const provider = new ExtensionTranspilerProvider(
             transpilerConfig.id,
             transpilerConfig.supportedExtensions || [],
             transpilerConfig.transpile,
             transpilerConfig.needsTranspile
-          );
-          
-          runtimeRegistry.registerTranspiler(provider);
-          console.log(`[${extensionId}] Registered transpiler: ${transpilerConfig.id}`);
+          )
+
+          runtimeRegistry.registerTranspiler(provider)
+          console.log(`[${extensionId}] Registered transpiler: ${transpilerConfig.id}`)
         } catch (error) {
-          console.error(`[${extensionId}] Failed to register transpiler:`, error);
-          throw error;
+          console.error(`[${extensionId}] Failed to register transpiler:`, error)
+          throw error
         }
       },
       registerRuntime: async (runtimeConfig: any) => {
         // RuntimeRegistryにランタイムを登録
         try {
-          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
-          
+          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry')
+
           // Create a runtime provider from the config
           const provider = {
             id: runtimeConfig.id,
@@ -697,13 +698,13 @@ class ExtensionManager {
             clearCache: runtimeConfig.clearCache,
             dispose: runtimeConfig.dispose,
             isReady: runtimeConfig.isReady,
-          };
-          
-          runtimeRegistry.registerRuntime(provider);
-          console.log(`[${extensionId}] Registered runtime: ${runtimeConfig.id}`);
+          }
+
+          runtimeRegistry.registerRuntime(provider)
+          console.log(`[${extensionId}] Registered runtime: ${runtimeConfig.id}`)
         } catch (error) {
-          console.error(`[${extensionId}] Failed to register runtime:`, error);
-          throw error;
+          console.error(`[${extensionId}] Failed to register runtime:`, error)
+          throw error
         }
       },
       // strict stubs — will be replaced after real API instances are created
@@ -729,18 +730,18 @@ class ExtensionManager {
             const fullContext = {
               ...context,
               ...cmdContext,
-            };
-            return handler(args, fullContext);
-          };
-          return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler);
+            }
+            return handler(args, fullContext)
+          }
+          return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler)
         },
       },
-    };
+    }
 
     // Initialize real API instances and overwrite the strict stubs with
     // concrete implementations.
-    const tabAPI = new TabAPI(context);
-    const sidebarAPI = new SidebarAPI(context);
+    const tabAPI = new TabAPI(context)
+    const sidebarAPI = new SidebarAPI(context)
 
     context.tabs = {
       registerTabType: (component: any) => tabAPI.registerTabType(component),
@@ -750,7 +751,7 @@ class ExtensionManager {
       onTabClose: (tabId: string, callback: any) => tabAPI.onTabClose(tabId, callback),
       getTabData: (tabId: string) => tabAPI.getTabData(tabId),
       openSystemTab: (file: any, options?: any) => tabAPI.openSystemTab(file, options),
-    };
+    }
 
     context.sidebar = {
       createPanel: (definition: any) => sidebarAPI.createPanel(definition),
@@ -758,20 +759,20 @@ class ExtensionManager {
       removePanel: (panelId: string) => sidebarAPI.removePanel(panelId),
       onPanelActivate: (panelId: string, callback: any) =>
         sidebarAPI.onPanelActivate(panelId, callback),
-    };
+    }
 
     // commands was created above with a working implementation that uses the
     // imported commandRegistry — nothing more to do here.
 
     // APIインスタンスを保存（dispose用）
-    (context as any)._tabAPI = tabAPI;
-    (context as any)._sidebarAPI = sidebarAPI;
+    ;(context as any)._tabAPI = tabAPI
+    ;(context as any)._sidebarAPI = sidebarAPI
 
-    return context;
+    return context
   }
 }
 
 /**
  * グローバルインスタンス
  */
-export const extensionManager = new ExtensionManager();
+export const extensionManager = new ExtensionManager()

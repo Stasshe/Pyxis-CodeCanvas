@@ -1,125 +1,125 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { getIconForFile } from 'vscode-icons-js';
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
+import { getIconForFile } from 'vscode-icons-js'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
-import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
-import { useSettings } from '@/hooks/useSettings';
-import { useTabStore } from '@/stores/tabStore';
-import { FileItem } from '@/types';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore'
+import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings'
+import { useSettings } from '@/hooks/useSettings'
+import { useTabStore } from '@/stores/tabStore'
+import { FileItem } from '@/types'
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
-  const result: FileItem[] = [];
+  const result: FileItem[] = []
 
   function traverse(items: FileItem[]) {
     for (const item of items) {
-      result.push(item);
+      result.push(item)
       if (item.children && item.children.length > 0) {
-        traverse(item.children);
+        traverse(item.children)
       }
     }
   }
 
-  traverse(items);
-  return result;
+  traverse(items)
+  return result
 }
 
 // --- VSCode-style matching helpers ---
 // CamelCase/snake_case boundaries を考慮したスコアリング
 function scoreMatch(text: string, query: string): number {
-  if (!query) return 100;
-  const t = text.toLowerCase();
-  const q = query.toLowerCase();
+  if (!query) return 100
+  const t = text.toLowerCase()
+  const q = query.toLowerCase()
 
   // 完全一致
-  if (t === q) return 100;
+  if (t === q) return 100
 
   // 前方一致（高スコア）
-  if (t.startsWith(q)) return 90;
+  if (t.startsWith(q)) return 90
 
   // 部分文字列一致
-  const idx = t.indexOf(q);
+  const idx = t.indexOf(q)
   if (idx !== -1) {
     // 単語の境界で始まる場合はスコアを上げる
     const isBoundary =
-      idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
-    return isBoundary ? 85 : 70;
+      idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-'
+    return isBoundary ? 85 : 70
   }
 
   // CamelCase マッチング (e.g., "ow" matches "OperationWindow")
-  const camelIndices: number[] = [];
-  let queryIdx = 0;
+  const camelIndices: number[] = []
+  let queryIdx = 0
   for (let i = 0; i < text.length && queryIdx < query.length; i++) {
     if (text[i].toLowerCase() === query[queryIdx].toLowerCase()) {
-      const isUpperCase = text[i] === text[i].toUpperCase() && text[i] !== text[i].toLowerCase();
+      const isUpperCase = text[i] === text[i].toUpperCase() && text[i] !== text[i].toLowerCase()
       const isBoundary =
-        i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
+        i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-'
       if (isUpperCase || isBoundary || queryIdx > 0) {
-        camelIndices.push(i);
-        queryIdx++;
+        camelIndices.push(i)
+        queryIdx++
       }
     }
   }
-  if (queryIdx === query.length) return 60;
+  if (queryIdx === query.length) return 60
 
-  return 0; // マッチしない
+  return 0 // マッチしない
 }
 
 function getIconSrcForFile(name: string) {
-  const iconPath = getIconForFile(name) || getIconForFile('');
+  const iconPath = getIconForFile(name) || getIconForFile('')
   if (iconPath && iconPath.endsWith('.svg')) {
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
   }
-  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`
 }
 
 export interface OperationListItem {
-  id: string;
-  label: string;
-  description?: string;
-  icon?: React.ReactNode | string; // URL string or Component
-  onClick?: () => void;
-  isActive?: boolean;
+  id: string
+  label: string
+  description?: string
+  icon?: React.ReactNode | string // URL string or Component
+  onClick?: () => void
+  isActive?: boolean
   // Editing state
-  isEditing?: boolean;
-  editValue?: string;
-  onEditChange?: (value: string) => void;
-  onEditConfirm?: () => void;
-  onEditCancel?: () => void;
+  isEditing?: boolean
+  editValue?: string
+  onEditChange?: (value: string) => void
+  onEditConfirm?: () => void
+  onEditCancel?: () => void
   // Actions
   actions?: {
-    id: string;
-    icon: React.ReactNode;
-    label: string;
-    onClick: (e: React.MouseEvent) => void;
-    danger?: boolean;
-  }[];
+    id: string
+    icon: React.ReactNode
+    label: string
+    onClick: (e: React.MouseEvent) => void
+    danger?: boolean
+  }[]
 }
 
 interface OperationWindowProps {
-  isVisible: boolean;
-  onClose: () => void;
-  projectFiles: FileItem[];
-  onFileSelect?: (file: FileItem, preview?: boolean) => void; // AI用モード用
-  aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
-  targetPaneId?: string | null; // ファイルを開くペインのID
-  
+  isVisible: boolean
+  onClose: () => void
+  projectFiles: FileItem[]
+  onFileSelect?: (file: FileItem, preview?: boolean) => void // AI用モード用
+  aiMode?: boolean // AI用モード（ファイルをタブで開かない）
+  targetPaneId?: string | null // ファイルを開くペインのID
+
   // Generic List Props
-  items?: OperationListItem[];
-  listTitle?: string; // Title for the list view (e.g. "Chat Spaces")
-  onSearchList?: (query: string) => void; // Optional: handle search externally or let component filter by label
+  items?: OperationListItem[]
+  listTitle?: string // Title for the list view (e.g. "Chat Spaces")
+  onSearchList?: (query: string) => void // Optional: handle search externally or let component filter by label
   headerActions?: {
-    icon: React.ReactNode;
-    label: string;
-    onClick: () => void;
-  }[];
-  
-  initialView?: 'files' | 'list';
+    icon: React.ReactNode
+    label: string
+    onClick: () => void
+  }[]
+
+  initialView?: 'files' | 'list'
 }
 
 export default function OperationWindow({
@@ -135,266 +135,269 @@ export default function OperationWindow({
   headerActions,
   initialView,
 }: OperationWindowProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
-  const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
-  const [viewMode, setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
-  const hideModeTabs = Boolean(items && initialView === 'list');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const [portalEl] = useState(() => (typeof document !== 'undefined' ? document.createElement('div') : null));
-  const { isExcluded } = useSettings();
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null)
+  const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0) // 0: プレビュー, 1: 通常エディタ
+  const [viewMode, setViewMode] = useState<'files' | 'list'>(() => initialView || 'files')
+  const hideModeTabs = Boolean(items && initialView === 'list')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [portalEl] = useState(() =>
+    typeof document !== 'undefined' ? document.createElement('div') : null
+  )
+  const { isExcluded } = useSettings()
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
-  const ITEM_HEIGHT = 20; // slightly more compact
+  const ITEM_HEIGHT = 20 // slightly more compact
 
   // Reset state when visibility changes
   useEffect(() => {
     if (isVisible) {
-      setSearchQuery('');
-      setSelectedIndex(0);
+      setSearchQuery('')
+      setSelectedIndex(0)
       // Focus input
       setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
+        inputRef.current?.focus()
+      }, 100)
     }
-  }, [isVisible]);
+  }, [isVisible])
 
   // Attach a top-level portal element to document.body so the overlay isn't clipped
   useEffect(() => {
-    if (!portalEl) return;
-    portalEl.className = 'pyxis-operation-window-portal';
+    if (!portalEl) return
+    portalEl.className = 'pyxis-operation-window-portal'
     // ensure portal container doesn't interfere with layout
-    portalEl.style.position = 'relative';
-    portalEl.style.zIndex = '99999';
-    document.body.appendChild(portalEl);
+    portalEl.style.position = 'relative'
+    portalEl.style.zIndex = '99999'
+    document.body.appendChild(portalEl)
     return () => {
       try {
-        document.body.removeChild(portalEl);
+        document.body.removeChild(portalEl)
       } catch (e) {
         // ignore
       }
-    };
-  }, [portalEl]);
+    }
+  }, [portalEl])
 
   // ファイル選択ハンドラ
   const handleFileSelectInOperation = (file: FileItem) => {
     // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
     if (aiMode) {
-      actuallyOpenFile(file, false);
-      return;
+      actuallyOpenFile(file, false)
+      return
     }
 
     if (file.name.toLowerCase().endsWith('.md')) {
-      setMdPreviewPrompt({ file });
-      return;
+      setMdPreviewPrompt({ file })
+      return
     }
-    actuallyOpenFile(file, false);
-  };
+    actuallyOpenFile(file, false)
+  }
 
   // 実際にファイルを開く処理（mdプレビューかどうかを指定）
   // NOTE: Tab system removed — delegate to `onFileSelect(file, preview)` if available.
   const actuallyOpenFile = (file: FileItem, preview: boolean) => {
     if (onFileSelect) {
       try {
-        onFileSelect(file, preview);
+        onFileSelect(file, preview)
       } catch (e) {
-        console.warn('[OperationWindow] onFileSelect threw:', e);
+        console.warn('[OperationWindow] onFileSelect threw:', e)
       }
-      onClose();
-      return;
+      onClose()
+      return
     }
 
     // Fallback: try to open via tab store if available (back-compat)
     try {
       const defaultEditor =
-        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-      const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
+        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco'
+      const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' }
       const options = targetPaneId
         ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
-        : { kind: preview ? 'preview' : 'editor' };
+        : { kind: preview ? 'preview' : 'editor' }
 
-      const store = useTabStore.getState ? useTabStore.getState() : null;
+      const store = useTabStore.getState ? useTabStore.getState() : null
       if (store && typeof store.openTab === 'function') {
-        store.openTab(fileWithEditor, options as any);
-        onClose();
-        return;
+        store.openTab(fileWithEditor, options as any)
+        onClose()
+        return
       }
     } catch (e) {
-      console.warn('[OperationWindow] tab fallback failed:', e);
+      console.warn('[OperationWindow] tab fallback failed:', e)
     }
 
     // No handler available — simply close and warn.
-    console.warn('[OperationWindow] No file open handler available (tabs removed).');
-    onClose();
-  };
+    console.warn('[OperationWindow] No file open handler available (tabs removed).')
+    onClose()
+  }
 
   // 設定から除外パターンを取得
   const gitignoreRules = useMemo(() => {
     try {
-      const flat = flattenFileItems(projectFiles);
-      const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');
-      if (!git || !git.content) return [] as any[];
-      return parseGitignore(git.content);
+      const flat = flattenFileItems(projectFiles)
+      const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore')
+      if (!git || !git.content) return [] as any[]
+      return parseGitignore(git.content)
     } catch (err) {
-      return [] as any[];
+      return [] as any[]
     }
-  }, [projectFiles]);
+  }, [projectFiles])
 
   const allFiles = flattenFileItems(projectFiles).filter(file => {
-    if (file.type !== 'file') return false;
-    if (typeof isExcluded === 'function' && isExcluded(file.path)) return false;
+    if (file.type !== 'file') return false
+    if (typeof isExcluded === 'function' && isExcluded(file.path)) return false
     if (gitignoreRules && gitignoreRules.length > 0) {
       try {
-        if (isPathIgnored(gitignoreRules, file.path, false)) return false;
+        if (isPathIgnored(gitignoreRules, file.path, false)) return false
       } catch (e) {
         // ignore errors
       }
     }
-    return true;
-  });
+    return true
+  })
 
   // Enhanced VSCode-style filtering + scoring for FILES
   const filteredFiles: FileItem[] = useMemo(() => {
-    if (viewMode !== 'files') return [];
-    if (!searchQuery) return allFiles;
-    const q = searchQuery.trim();
-    const scored: Array<{ file: FileItem; score: number }> = [];
+    if (viewMode !== 'files') return []
+    if (!searchQuery) return allFiles
+    const q = searchQuery.trim()
+    const scored: Array<{ file: FileItem; score: number }> = []
 
     for (const file of allFiles) {
-      const fileName = file.name;
-      const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-      const pathParts = file.path.split('/');
+      const fileName = file.name
+      const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName
+      const pathParts = file.path.split('/')
 
-      const nameScore = scoreMatch(fileName, q);
-      const nameNoExtScore = scoreMatch(fileNameNoExt, q);
-      const pathScore = scoreMatch(file.path, q);
-      const partScores = pathParts.map(part => scoreMatch(part, q));
-      const bestPartScore = Math.max(...partScores, 0);
+      const nameScore = scoreMatch(fileName, q)
+      const nameNoExtScore = scoreMatch(fileNameNoExt, q)
+      const pathScore = scoreMatch(file.path, q)
+      const partScores = pathParts.map(part => scoreMatch(part, q))
+      const bestPartScore = Math.max(...partScores, 0)
 
-      const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
+      const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore)
 
       if (best > 0) {
-        scored.push({ file, score: best });
+        scored.push({ file, score: best })
       }
     }
 
     scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.file.name.localeCompare(b.file.name);
-    });
+      if (b.score !== a.score) return b.score - a.score
+      return a.file.name.localeCompare(b.file.name)
+    })
 
-    return scored.map(s => s.file);
-  }, [allFiles, searchQuery, viewMode]);
+    return scored.map(s => s.file)
+  }, [allFiles, searchQuery, viewMode])
 
   // Filtering for GENERIC ITEMS
   const filteredItems: OperationListItem[] = useMemo(() => {
-    if (viewMode !== 'list' || !items) return [];
-    if (!searchQuery) return items;
-    const q = searchQuery.toLowerCase();
-    
-    // Simple filtering for items
-    return items.filter(item => 
-      item.label.toLowerCase().includes(q) || 
-      (item.description && item.description.toLowerCase().includes(q))
-    );
-  }, [items, searchQuery, viewMode]);
+    if (viewMode !== 'list' || !items) return []
+    if (!searchQuery) return items
+    const q = searchQuery.toLowerCase()
 
-  const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
+    // Simple filtering for items
+    return items.filter(
+      item =>
+        item.label.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q))
+    )
+  }, [items, searchQuery, viewMode])
+
+  const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length
 
   // 選択されたアイテムにスクロールする関数
   const scrollToSelectedItem = (index: number) => {
-    if (!listRef.current) return;
+    if (!listRef.current) return
 
-    const listElement = listRef.current;
-    const itemHeight = ITEM_HEIGHT;
-    const containerHeight = listElement.clientHeight;
-    const scrollTop = listElement.scrollTop;
+    const listElement = listRef.current
+    const itemHeight = ITEM_HEIGHT
+    const containerHeight = listElement.clientHeight
+    const scrollTop = listElement.scrollTop
 
-    const itemTop = index * itemHeight;
-    const itemBottom = itemTop + itemHeight;
+    const itemTop = index * itemHeight
+    const itemBottom = itemTop + itemHeight
 
     if (itemTop < scrollTop) {
-      listElement.scrollTop = itemTop;
+      listElement.scrollTop = itemTop
     } else if (itemBottom > scrollTop + containerHeight) {
-      listElement.scrollTop = itemBottom - containerHeight;
+      listElement.scrollTop = itemBottom - containerHeight
     }
-  };
+  }
 
   // ESCキーで閉じる、上下キーで選択、Enterで開く
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isVisible) return;
+      if (!isVisible) return
 
       // mdプレビュー選択ダイアログが表示中
       if (mdPreviewPrompt) {
         if (e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-          e.preventDefault();
-          setMdDialogSelected(prev => (prev === 0 ? 1 : 0));
+          e.preventDefault()
+          setMdDialogSelected(prev => (prev === 0 ? 1 : 0))
         } else if (e.key === 'Enter') {
-          e.preventDefault();
+          e.preventDefault()
           if (mdDialogSelected === 0) {
-            actuallyOpenFile(mdPreviewPrompt.file, true);
+            actuallyOpenFile(mdPreviewPrompt.file, true)
           } else {
-            actuallyOpenFile(mdPreviewPrompt.file, false);
+            actuallyOpenFile(mdPreviewPrompt.file, false)
           }
-          setMdPreviewPrompt(null);
+          setMdPreviewPrompt(null)
         } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setMdPreviewPrompt(null);
+          e.preventDefault()
+          setMdPreviewPrompt(null)
         }
-        return;
+        return
       }
-      
+
       // Editing mode in list item?
       // If an item is being edited, we might want to let the input handle keys.
-      // But here we are handling global navigation. 
+      // But here we are handling global navigation.
       // Ideally, the input in the list item should stop propagation of keys it handles.
 
       switch (e.key) {
         case 'Escape':
-          e.preventDefault();
-          onClose();
-          break;
+          e.preventDefault()
+          onClose()
+          break
         case 'ArrowUp':
-          e.preventDefault();
+          e.preventDefault()
           setSelectedIndex(prev => {
-            const newIndex = prev > 0 ? prev - 1 : currentListLength - 1;
-            setTimeout(() => scrollToSelectedItem(newIndex), 0);
-            return newIndex;
-          });
-          break;
+            const newIndex = prev > 0 ? prev - 1 : currentListLength - 1
+            setTimeout(() => scrollToSelectedItem(newIndex), 0)
+            return newIndex
+          })
+          break
         case 'ArrowDown':
-          e.preventDefault();
+          e.preventDefault()
           setSelectedIndex(prev => {
-            const newIndex = prev < currentListLength - 1 ? prev + 1 : 0;
-            setTimeout(() => scrollToSelectedItem(newIndex), 0);
-            return newIndex;
-          });
-          break;
+            const newIndex = prev < currentListLength - 1 ? prev + 1 : 0
+            setTimeout(() => scrollToSelectedItem(newIndex), 0)
+            return newIndex
+          })
+          break
         case 'Enter':
           // If we are in the search input, or just navigating
           // We need to trigger the action of the selected item
           if (viewMode === 'files' && filteredFiles[selectedIndex]) {
-             e.preventDefault();
-             handleFileSelectInOperation(filteredFiles[selectedIndex]);
+            e.preventDefault()
+            handleFileSelectInOperation(filteredFiles[selectedIndex])
           } else if (viewMode === 'list' && filteredItems[selectedIndex]) {
-             e.preventDefault();
-             filteredItems[selectedIndex].onClick?.();
+            e.preventDefault()
+            filteredItems[selectedIndex].onClick?.()
           }
-          break;
+          break
       }
-    };
+    }
 
     if (isVisible) {
-      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [
     isVisible,
     filteredFiles,
@@ -405,26 +408,26 @@ export default function OperationWindow({
     mdPreviewPrompt,
     mdDialogSelected,
     viewMode,
-    currentListLength
-  ]);
+    currentListLength,
+  ])
 
   // 検索クエリが変更されたときに選択インデックスをリセット
   useEffect(() => {
-    setSelectedIndex(0);
+    setSelectedIndex(0)
     if (onSearchList && viewMode === 'list') {
-      onSearchList(searchQuery);
+      onSearchList(searchQuery)
     }
-  }, [searchQuery, viewMode]);
+  }, [searchQuery, viewMode])
 
   // VSCode風のハイライト関数
   function highlightMatch(text: string, query: string, isSelected: boolean) {
-    if (!query) return <>{text}</>;
+    if (!query) return <>{text}</>
 
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    const idx = lowerText.indexOf(lowerQuery);
+    const lowerText = text.toLowerCase()
+    const lowerQuery = query.toLowerCase()
+    const idx = lowerText.indexOf(lowerQuery)
 
-    if (idx === -1) return <>{text}</>;
+    if (idx === -1) return <>{text}</>
 
     return (
       <>
@@ -442,10 +445,10 @@ export default function OperationWindow({
         </span>
         {text.slice(idx + query.length)}
       </>
-    );
+    )
   }
 
-  if (!isVisible) return null;
+  if (!isVisible) return null
 
   const jsx = (
     <>
@@ -512,8 +515,8 @@ export default function OperationWindow({
                 tabIndex={0}
                 autoFocus={mdDialogSelected === 0}
                 onClick={() => {
-                  actuallyOpenFile(mdPreviewPrompt.file, true);
-                  setMdPreviewPrompt(null);
+                  actuallyOpenFile(mdPreviewPrompt.file, true)
+                  setMdPreviewPrompt(null)
                 }}
               >
                 {t('operationWindow.openInPreview')}
@@ -535,8 +538,8 @@ export default function OperationWindow({
                 tabIndex={0}
                 autoFocus={mdDialogSelected === 1}
                 onClick={() => {
-                  actuallyOpenFile(mdPreviewPrompt.file, false);
-                  setMdPreviewPrompt(null);
+                  actuallyOpenFile(mdPreviewPrompt.file, false)
+                  setMdPreviewPrompt(null)
                 }}
               >
                 {t('operationWindow.openInEditor')}
@@ -581,9 +584,12 @@ export default function OperationWindow({
         >
           {/* Header */}
           <div style={{ padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}>
-
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}
+            >
+              <div
+                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
                 {viewMode === 'list' && headerActions && (
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {headerActions.map((action, i) => (
@@ -601,8 +607,8 @@ export default function OperationWindow({
                           alignItems: 'center',
                           borderRadius: '4px',
                         }}
-                        onMouseEnter={e => e.currentTarget.style.background = colors.mutedBg}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         {action.icon}
                       </button>
@@ -635,7 +641,7 @@ export default function OperationWindow({
               }}
               onKeyDown={e => {
                 if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                  e.preventDefault(); // Prevent cursor moving in input
+                  e.preventDefault() // Prevent cursor moving in input
                 }
               }}
             />
@@ -659,9 +665,9 @@ export default function OperationWindow({
                 </div>
               ) : (
                 filteredFiles.map((file, index) => {
-                  const isSelected = index === selectedIndex;
-                  const pathParts = file.path.split('/');
-                  const dirPath = pathParts.slice(0, -1).join('/');
+                  const isSelected = index === selectedIndex
+                  const pathParts = file.path.split('/')
+                  const dirPath = pathParts.slice(0, -1).join('/')
 
                   return (
                     <div
@@ -676,7 +682,9 @@ export default function OperationWindow({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
+                        borderLeft: isSelected
+                          ? `3px solid ${colors.accentBg}`
+                          : '3px solid transparent',
                       }}
                       onClick={() => handleFileSelectInOperation(file)}
                       onMouseEnter={() => setSelectedIndex(index)}
@@ -716,148 +724,165 @@ export default function OperationWindow({
                         </span>
                       )}
                     </div>
-                  );
+                  )
                 })
               )
+            ) : // GENERIC LIST VIEW
+            filteredItems.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
+                {t('operationWindow.noItemsFound') || 'No items found'}
+              </div>
             ) : (
-              // GENERIC LIST VIEW
-              filteredItems.length === 0 ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
-                  {t('operationWindow.noItemsFound') || 'No items found'}
-                </div>
-              ) : (
-                filteredItems.map((item, index) => {
-                  const isSelected = index === selectedIndex;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className="group"
-                      style={{
-                        height: ITEM_HEIGHT,
-                        boxSizing: 'border-box',
-                        padding: '2px 12px',
-                        background: isSelected ? colors.primary : 'transparent',
-                        color: isSelected ? colors.cardBg : colors.foreground,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
-                        position: 'relative',
-                      }}
-                      onClick={() => !item.isEditing && item.onClick?.()}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                    >
-                      {/* Icon */}
-                      {item.icon && (
-                        <div style={{ width: 16, height: 16, flex: '0 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {typeof item.icon === 'string' ? (
-                            <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
-                          ) : (
-                            item.icon
-                          )}
-                        </div>
-                      )}
+              filteredItems.map((item, index) => {
+                const isSelected = index === selectedIndex
 
-                      {/* Content */}
-                      {item.isEditing ? (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
-                            type="text"
-                            value={item.editValue ?? item.label}
-                            onChange={e => item.onEditChange?.(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.stopPropagation();
-                                item.onEditConfirm?.();
-                              } else if (e.key === 'Escape') {
-                                e.stopPropagation();
-                                item.onEditCancel?.();
-                              }
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            autoFocus
-                            style={{
-                              flex: 1,
-                              height: '18px',
-                              fontSize: '13px',
-                              padding: '0 4px',
-                              border: `1px solid ${colors.accent}`,
-                              background: colors.background,
-                              color: colors.foreground,
-                              borderRadius: '2px',
-                              outline: 'none',
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          <span
-                            style={{
-                              fontSize: '13px',
-                              fontWeight: isSelected || item.isActive ? '600' : '400',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              flex: 1,
-                            }}
-                          >
-                            {highlightMatch(item.label, searchQuery, isSelected)}
-                          </span>
-                          {item.description && (
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
-                                marginLeft: '8px',
-                              }}
-                            >
-                              {highlightMatch(item.description, searchQuery, isSelected)}
-                            </span>
-                          )}
-                        </>
-                      )}
+                return (
+                  <div
+                    key={item.id}
+                    className="group"
+                    style={{
+                      height: ITEM_HEIGHT,
+                      boxSizing: 'border-box',
+                      padding: '2px 12px',
+                      background: isSelected ? colors.primary : 'transparent',
+                      color: isSelected ? colors.cardBg : colors.foreground,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      borderLeft: isSelected
+                        ? `3px solid ${colors.accentBg}`
+                        : '3px solid transparent',
+                      position: 'relative',
+                    }}
+                    onClick={() => !item.isEditing && item.onClick?.()}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    {/* Icon */}
+                    {item.icon && (
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          flex: '0 0 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {typeof item.icon === 'string' ? (
+                          <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                          item.icon
+                        )}
+                      </div>
+                    )}
 
-                      {/* Actions (hover or selected) */}
-                      {!item.isEditing && item.actions && item.actions.length > 0 && (
-                        <div
+                    {/* Content */}
+                    {item.isEditing ? (
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input
+                          type="text"
+                          value={item.editValue ?? item.label}
+                          onChange={e => item.onEditChange?.(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.stopPropagation()
+                              item.onEditConfirm?.()
+                            } else if (e.key === 'Escape') {
+                              e.stopPropagation()
+                              item.onEditCancel?.()
+                            }
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          autoFocus
                           style={{
-                            display: isSelected ? 'flex' : 'none',
-                            gap: '4px',
-                            marginLeft: 'auto',
+                            flex: 1,
+                            height: '18px',
+                            fontSize: '13px',
+                            padding: '0 4px',
+                            border: `1px solid ${colors.accent}`,
+                            background: colors.background,
+                            color: colors.foreground,
+                            borderRadius: '2px',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <span
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: isSelected || item.isActive ? '600' : '400',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            flex: 1,
                           }}
                         >
-                          {item.actions.map(action => (
-                            <button
-                              key={action.id}
-                              onClick={e => {
-                                e.stopPropagation();
-                                action.onClick(e);
-                              }}
-                              title={action.label}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: action.danger ? (isSelected ? '#ffcccc' : colors.destructive) : (isSelected ? 'white' : colors.foreground),
-                                cursor: 'pointer',
-                                padding: '2px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderRadius: '3px',
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              {action.icon}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )
+                          {highlightMatch(item.label, searchQuery, isSelected)}
+                        </span>
+                        {item.description && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                              marginLeft: '8px',
+                            }}
+                          >
+                            {highlightMatch(item.description, searchQuery, isSelected)}
+                          </span>
+                        )}
+                      </>
+                    )}
+
+                    {/* Actions (hover or selected) */}
+                    {!item.isEditing && item.actions && item.actions.length > 0 && (
+                      <div
+                        style={{
+                          display: isSelected ? 'flex' : 'none',
+                          gap: '4px',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        {item.actions.map(action => (
+                          <button
+                            key={action.id}
+                            onClick={e => {
+                              e.stopPropagation()
+                              action.onClick(e)
+                            }}
+                            title={action.label}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: action.danger
+                                ? isSelected
+                                  ? '#ffcccc'
+                                  : colors.destructive
+                                : isSelected
+                                  ? 'white'
+                                  : colors.foreground,
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderRadius: '3px',
+                            }}
+                            onMouseEnter={e =>
+                              (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')
+                            }
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {action.icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
             )}
           </div>
 
@@ -889,12 +914,12 @@ export default function OperationWindow({
         </div>
       </div>
     </>
-  );
+  )
 
   // Render into portal element if available so the overlay will sit above main content
   if (portalEl) {
-    return createPortal(jsx, portalEl);
+    return createPortal(jsx, portalEl)
   }
 
-  return jsx;
+  return jsx
 }

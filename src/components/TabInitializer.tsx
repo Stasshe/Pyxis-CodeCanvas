@@ -1,8 +1,8 @@
 // src/components/TabInitializer.tsx
-'use client';
-import { useEffect } from 'react';
+'use client'
+import { useEffect } from 'react'
 
-import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
+import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs'
 
 /**
  * タブシステムの初期化コンポーネント
@@ -10,8 +10,8 @@ import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
  */
 export default function TabInitializer() {
   useEffect(() => {
-    registerBuiltinTabs();
-  }, []);
+    registerBuiltinTabs()
+  }, [])
 
-  return null;
+  return null
 }

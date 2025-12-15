@@ -1,32 +1,32 @@
 // ファイルコンテキスト構築ユーティリティ
 
-import type { FileItem, ProjectFile, AIFileContext } from '@/types';
+import type { FileItem, ProjectFile, AIFileContext } from '@/types'
 
 // ファイル内容の行数制限（400行）
-const MAX_LINES_PER_FILE = 400;
+const MAX_LINES_PER_FILE = 400
 
 // バイナリファイルかどうかをチェック
 function isBinaryFile(file: FileItem | ProjectFile): boolean {
-  return 'isBufferArray' in file && file.isBufferArray === true;
+  return 'isBufferArray' in file && file.isBufferArray === true
 }
 
 // ファイル内容の行数をチェック
 function normalizeContent(content: unknown): string {
-  if (content == null) return '';
-  if (typeof content === 'string') return content;
-  if (typeof content === 'number' || typeof content === 'boolean') return String(content);
+  if (content == null) return ''
+  if (typeof content === 'string') return content
+  if (typeof content === 'number' || typeof content === 'boolean') return String(content)
 
   // ArrayBuffer / TypedArray -> try to decode as utf-8
   try {
     if (typeof TextDecoder !== 'undefined') {
       if (content instanceof ArrayBuffer) {
-        return new TextDecoder('utf-8').decode(content);
+        return new TextDecoder('utf-8').decode(content)
       }
       // typed arrays (Uint8Array, etc.)
       // @ts-ignore
       if (ArrayBuffer.isView(content)) {
         // @ts-ignore
-        return new TextDecoder('utf-8').decode(content);
+        return new TextDecoder('utf-8').decode(content)
       }
     }
   } catch (e) {
@@ -34,34 +34,34 @@ function normalizeContent(content: unknown): string {
   }
 
   try {
-    return JSON.stringify(content);
+    return JSON.stringify(content)
   } catch (e) {
     try {
-      return String(content);
+      return String(content)
     } catch (e2) {
-      return '';
+      return ''
     }
   }
 }
 
 // ファイル内容の行数をチェック
 function isFileTooLarge(content: unknown): boolean {
-  const normalized = normalizeContent(content);
-  const lines = normalized.split('\n');
-  return lines.length > MAX_LINES_PER_FILE;
+  const normalized = normalizeContent(content)
+  const lines = normalized.split('\n')
+  return lines.length > MAX_LINES_PER_FILE
 }
 
 // ファイル内容を切り詰める
 // ファイル内容を切り詰める
 function truncateFileContent(content: unknown): string {
-  const normalized = normalizeContent(content);
-  const lines = normalized.split('\n');
+  const normalized = normalizeContent(content)
+  const lines = normalized.split('\n')
   if (lines.length <= MAX_LINES_PER_FILE) {
-    return normalized;
+    return normalized
   }
 
-  const truncatedLines = lines.slice(0, MAX_LINES_PER_FILE);
-  return truncatedLines.join('\n') + '\n\n// ... ファイルが長すぎるため切り詰められました';
+  const truncatedLines = lines.slice(0, MAX_LINES_PER_FILE)
+  return truncatedLines.join('\n') + '\n\n// ... ファイルが長すぎるため切り詰められました'
 }
 
 // FileItemをAIFileContextに変換
@@ -69,7 +69,7 @@ function fileItemToAIContext(file: FileItem, selected: boolean = false): AIFileC
   //console.log('[fileItemToAIContext] Processing file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file));
 
   if (isBinaryFile(file) || file.type === 'folder') {
-    return null;
+    return null
   }
 
   return {
@@ -77,7 +77,7 @@ function fileItemToAIContext(file: FileItem, selected: boolean = false): AIFileC
     name: file.name,
     content: file.content ? truncateFileContent(file.content) : '', // 空文字列でもOK
     selected,
-  };
+  }
 }
 
 // ProjectFileをAIFileContextに変換
@@ -86,7 +86,7 @@ function projectFileToAIContext(
   selected: boolean = false
 ): AIFileContext | null {
   if (isBinaryFile(file) || file.type === 'folder') {
-    return null;
+    return null
   }
 
   return {
@@ -94,7 +94,7 @@ function projectFileToAIContext(
     name: file.name,
     content: file.content ? truncateFileContent(file.content) : '', // 空文字列でもOK
     selected,
-  };
+  }
 }
 
 // フラットなファイルリストからAIコンテキストリストを作成
@@ -107,34 +107,34 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
   //   name: f.name
   // })));
 
-  const contexts: AIFileContext[] = [];
+  const contexts: AIFileContext[] = []
 
   // FileItemの場合は再帰的にフラット化する
   function flattenFileItems(items: FileItem[]): FileItem[] {
-    const result: FileItem[] = [];
+    const result: FileItem[] = []
 
     for (const item of items) {
       if (item.type === 'file') {
-        result.push(item);
+        result.push(item)
       }
       if (item.children && item.children.length > 0) {
-        result.push(...flattenFileItems(item.children));
+        result.push(...flattenFileItems(item.children))
       }
     }
 
-    return result;
+    return result
   }
 
   // ファイルをフラット化
-  const flatFiles: (FileItem | ProjectFile)[] = [];
+  const flatFiles: (FileItem | ProjectFile)[] = []
 
   for (const file of files) {
     if ('children' in file) {
       // FileItem - 再帰的にフラット化
-      flatFiles.push(...flattenFileItems([file]));
+      flatFiles.push(...flattenFileItems([file]))
     } else {
       // ProjectFile
-      flatFiles.push(file);
+      flatFiles.push(file)
     }
   }
 
@@ -148,18 +148,18 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
 
   // フラット化されたファイルをAIコンテキストに変換
   for (const file of flatFiles) {
-    let context: AIFileContext | null = null;
+    let context: AIFileContext | null = null
 
     if ('children' in file) {
       // FileItem
-      context = fileItemToAIContext(file);
+      context = fileItemToAIContext(file)
     } else {
       // ProjectFile
-      context = projectFileToAIContext(file as ProjectFile);
+      context = projectFileToAIContext(file as ProjectFile)
     }
 
     if (context) {
-      contexts.push(context);
+      contexts.push(context)
       // console.log('[buildAIFileContextList] Added context:', context.path, 'contentLength:', context.content.length);
     } else {
       // console.log('[buildAIFileContextList] Skipped file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file), 'contentLength:', file.content?.length || 0);
@@ -167,7 +167,7 @@ export function buildAIFileContextList(files: (FileItem | ProjectFile)[]): AIFil
   }
 
   // console.log('[buildAIFileContextList] Final contexts:', contexts.length, contexts.map(c => c.path));
-  return contexts;
+  return contexts
 }
 
 // 選択されたファイルのコンテキストを取得
@@ -179,29 +179,28 @@ export function getSelectedFileContexts(
     .map(ctx => ({
       path: ctx.path,
       content: ctx.content,
-    }));
+    }))
 }
 
 // Custom instructions file path
-export const CUSTOM_INSTRUCTIONS_PATH = '.pyxis/pyxis-instructions.md';
+export const CUSTOM_INSTRUCTIONS_PATH = '.pyxis/pyxis-instructions.md'
 
 /**
  * Extract custom instructions from file contexts if .pyxis/pyxis-instructions.md exists
  */
-export function getCustomInstructions(
-  contexts: AIFileContext[]
-): string | undefined {
+export function getCustomInstructions(contexts: AIFileContext[]): string | undefined {
   const instructionsFile = contexts.find(
-    ctx => ctx.path === CUSTOM_INSTRUCTIONS_PATH ||
-           ctx.path.endsWith('/.pyxis/pyxis-instructions.md') ||
-           ctx.path === 'pyxis-instructions.md'
-  );
+    ctx =>
+      ctx.path === CUSTOM_INSTRUCTIONS_PATH ||
+      ctx.path.endsWith('/.pyxis/pyxis-instructions.md') ||
+      ctx.path === 'pyxis-instructions.md'
+  )
 
   if (instructionsFile && instructionsFile.content) {
-    return instructionsFile.content;
+    return instructionsFile.content
   }
 
-  return undefined;
+  return undefined
 }
 
 /**
@@ -211,14 +210,15 @@ export function findCustomInstructionsFromFiles(
   files: Array<{ path: string; content?: string }>
 ): string | undefined {
   const instructionsFile = files.find(
-    f => f.path === CUSTOM_INSTRUCTIONS_PATH ||
-         f.path.endsWith('/.pyxis/pyxis-instructions.md') ||
-         f.path.endsWith('/pyxis-instructions.md')
-  );
+    f =>
+      f.path === CUSTOM_INSTRUCTIONS_PATH ||
+      f.path.endsWith('/.pyxis/pyxis-instructions.md') ||
+      f.path.endsWith('/pyxis-instructions.md')
+  )
 
   if (instructionsFile && instructionsFile.content) {
-    return instructionsFile.content;
+    return instructionsFile.content
   }
 
-  return undefined;
+  return undefined
 }

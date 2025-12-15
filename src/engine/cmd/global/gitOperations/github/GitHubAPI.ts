@@ -4,77 +4,77 @@
  */
 
 export interface GitRef {
-  ref: string;
+  ref: string
   object: {
-    sha: string;
-    type: string;
-  };
+    sha: string
+    type: string
+  }
 }
 
 export interface GitCommit {
-  sha: string;
+  sha: string
   tree: {
-    sha: string;
-  };
-  parents: Array<{ sha: string }>;
-  message: string;
-  author: GitUser;
-  committer: GitUser;
+    sha: string
+  }
+  parents: Array<{ sha: string }>
+  message: string
+  author: GitUser
+  committer: GitUser
 }
 
 export interface GitUser {
-  name: string;
-  email: string;
-  date: string;
+  name: string
+  email: string
+  date: string
 }
 
 export interface GitTree {
-  sha: string;
-  tree: Array<GitTreeEntry>;
+  sha: string
+  tree: Array<GitTreeEntry>
 }
 
 export interface GitTreeEntry {
-  path: string;
-  mode: string;
-  type: 'blob' | 'tree';
+  path: string
+  mode: string
+  type: 'blob' | 'tree'
   // sha can be null when explicitly deleting an entry via the Git Data API
-  sha?: string | null;
-  content?: string;
+  sha?: string | null
+  content?: string
 }
 
 export interface GitBlob {
-  sha: string;
-  content: string;
-  encoding: string;
+  sha: string
+  content: string
+  encoding: string
 }
 
 export class GitHubAPI {
-  private baseUrl: string;
-  private token: string;
+  private baseUrl: string
+  private token: string
 
   constructor(token: string, owner: string, repo: string) {
-    this.token = token;
-    this.baseUrl = `https://api.github.com/repos/${owner}/${repo}`;
+    this.token = token
+    this.baseUrl = `https://api.github.com/repos/${owner}/${repo}`
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${this.baseUrl}${endpoint}`
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'Accept': 'application/vnd.github.v3+json',
+        Authorization: `Bearer ${this.token}`,
+        Accept: 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
         ...options.headers,
       },
-    });
+    })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(`GitHub API error (${response.status}): ${error.message}`);
+      const error = await response.json().catch(() => ({ message: response.statusText }))
+      throw new Error(`GitHub API error (${response.status}): ${error.message}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   /**
@@ -82,13 +82,13 @@ export class GitHubAPI {
    */
   async getRef(branch: string): Promise<GitRef | null> {
     try {
-      return await this.request<GitRef>(`/git/refs/heads/${branch}`);
+      return await this.request<GitRef>(`/git/refs/heads/${branch}`)
     } catch (error: any) {
       // 404 or 409 = ブランチが存在しない
       if (error.message.includes('404') || error.message.includes('409')) {
-        return null;
+        return null
       }
-      throw error;
+      throw error
     }
   }
 
@@ -102,7 +102,7 @@ export class GitHubAPI {
         ref: `refs/heads/${branch}`,
         sha,
       }),
-    });
+    })
   }
 
   /**
@@ -117,13 +117,13 @@ export class GitHubAPI {
           sha,
           force,
         }),
-      });
+      })
     } catch (error: any) {
       if (error.message.includes('404')) {
         // 参照が存在しない場合は新規作成
-        return this.createRef(branch, sha);
+        return this.createRef(branch, sha)
       }
-      throw error;
+      throw error
     }
   }
 
@@ -131,16 +131,16 @@ export class GitHubAPI {
    * コミットを作成
    */
   async createCommit(data: {
-    message: string;
-    tree: string;
-    parents: string[];
-    author: GitUser;
-    committer: GitUser;
+    message: string
+    tree: string
+    parents: string[]
+    author: GitUser
+    committer: GitUser
   }): Promise<GitCommit> {
     return this.request<GitCommit>('/git/commits', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    })
   }
 
   /**
@@ -153,7 +153,7 @@ export class GitHubAPI {
         tree,
         ...(baseTree && { base_tree: baseTree }),
       }),
-    });
+    })
   }
 
   /**
@@ -166,29 +166,29 @@ export class GitHubAPI {
         content,
         encoding,
       }),
-    });
+    })
   }
 
   /**
    * ツリーを取得
    */
   async getTree(sha: string, recursive: boolean = false): Promise<GitTree> {
-    const params = recursive ? '?recursive=1' : '';
-    return this.request<GitTree>(`/git/trees/${sha}${params}`);
+    const params = recursive ? '?recursive=1' : ''
+    return this.request<GitTree>(`/git/trees/${sha}${params}`)
   }
 
   /**
    * Blobを取得
    */
   async getBlob(sha: string): Promise<GitBlob> {
-    return this.request<GitBlob>(`/git/blobs/${sha}`);
+    return this.request<GitBlob>(`/git/blobs/${sha}`)
   }
 
   /**
    * コミットを取得
    */
   async getCommit(sha: string): Promise<GitCommit> {
-    return this.request<GitCommit>(`/git/commits/${sha}`);
+    return this.request<GitCommit>(`/git/commits/${sha}`)
   }
 
   /**
@@ -197,20 +197,20 @@ export class GitHubAPI {
   async treeExists(sha: string): Promise<boolean> {
     try {
       // HEADリクエストで軽量チェック（ただしGitHub APIはHEADをサポートしていないのでGETを使用）
-      const url = `${this.baseUrl}/git/trees/${sha}`;
+      const url = `${this.baseUrl}/git/trees/${sha}`
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Accept': 'application/vnd.github.v3+json',
+          Authorization: `Bearer ${this.token}`,
+          Accept: 'application/vnd.github.v3+json',
         },
-      });
-      
-      return response.ok;
+      })
+
+      return response.ok
     } catch (error) {
       // ネットワークエラーなど、本当のエラーのみログ出力
-      console.warn('[GitHubAPI] treeExists network error:', error);
-      return false;
+      console.warn('[GitHubAPI] treeExists network error:', error)
+      return false
     }
   }
 
@@ -218,14 +218,14 @@ export class GitHubAPI {
    * コミットのツリーSHAを効率的に取得
    */
   async getCommitTree(commitSha: string): Promise<string> {
-    const commit = await this.getCommit(commitSha);
-    return commit.tree.sha;
+    const commit = await this.getCommit(commitSha)
+    return commit.tree.sha
   }
 
   /**
    * 2つのツリーが同一かチェック
    */
   async treesAreEqual(treeSha1: string, treeSha2: string): Promise<boolean> {
-    return treeSha1 === treeSha2;
+    return treeSha1 === treeSha2
   }
 }

@@ -1,17 +1,17 @@
-import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { authRepository } from '@/engine/user/authRepository';
-import { Project } from '@/types';
+import { useTranslation } from '@/context/I18nContext'
+import { fileRepository } from '@/engine/core/fileRepository'
+import { authRepository } from '@/engine/user/authRepository'
+import { Project } from '@/types'
 
 interface ProjectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onProjectSelect: (project: Project) => void;
-  onProjectCreate?: (name: string, description?: string) => Promise<void>;
-  currentProject: Project | null;
+  isOpen: boolean
+  onClose: () => void
+  onProjectSelect: (project: Project) => void
+  onProjectCreate?: (name: string, description?: string) => Promise<void>
+  currentProject: Project | null
 }
 
 export default function ProjectModal({
@@ -21,178 +21,178 @@ export default function ProjectModal({
   onProjectCreate,
   currentProject,
 }: ProjectModalProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isCloning, setIsCloning] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDescription, setNewProjectDescription] = useState('');
-  const [cloneUrl, setCloneUrl] = useState('');
-  const [cloneProjectName, setCloneProjectName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false);
-  const { t } = useTranslation();
+  const [projects, setProjects] = useState<Project[]>([])
+  const [isCreating, setIsCreating] = useState(false)
+  const [isCloning, setIsCloning] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectDescription, setNewProjectDescription] = useState('')
+  const [cloneUrl, setCloneUrl] = useState('')
+  const [cloneProjectName, setCloneProjectName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (isOpen) {
-      loadProjects();
-      checkGitHubAuth();
+      loadProjects()
+      checkGitHubAuth()
     }
-  }, [isOpen]);
+  }, [isOpen])
 
   const checkGitHubAuth = async () => {
     try {
-      const isAuth = await authRepository.isAuthenticated();
-      setIsGitHubAuthenticated(isAuth);
+      const isAuth = await authRepository.isAuthenticated()
+      setIsGitHubAuthenticated(isAuth)
     } catch (error) {
-      console.error('Failed to check GitHub auth:', error);
-      setIsGitHubAuthenticated(false);
+      console.error('Failed to check GitHub auth:', error)
+      setIsGitHubAuthenticated(false)
     }
-  };
+  }
 
   const loadProjects = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      await fileRepository.init();
-      const projectList = await fileRepository.getProjects();
-      setProjects(projectList);
+      await fileRepository.init()
+      const projectList = await fileRepository.getProjects()
+      setProjects(projectList)
     } catch (error) {
-      console.error('Failed to load projects:', error);
+      console.error('Failed to load projects:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleCreateProject = async () => {
-    let name = newProjectName.trim();
-    if (!name) return;
+    let name = newProjectName.trim()
+    if (!name) return
 
     // reponame: 英数字・ハイフンのみ、空白は-に置換、日本語不可
-    name = name.replace(/\s+/g, '-');
+    name = name.replace(/\s+/g, '-')
     if (!/^[a-zA-Z0-9-]+$/.test(name)) {
-      alert(t('projectModal.nameValidation'));
-      return;
+      alert(t('projectModal.nameValidation'))
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     try {
       if (onProjectCreate) {
-        await onProjectCreate(name, newProjectDescription.trim() || undefined);
+        await onProjectCreate(name, newProjectDescription.trim() || undefined)
       } else {
         const project = await fileRepository.createProject(
           name,
           newProjectDescription.trim() || undefined
-        );
-        onProjectSelect(project);
+        )
+        onProjectSelect(project)
       }
-      setNewProjectName('');
-      setNewProjectDescription('');
-      setIsCreating(false);
-      onClose();
-      await loadProjects();
+      setNewProjectName('')
+      setNewProjectDescription('')
+      setIsCreating(false)
+      onClose()
+      await loadProjects()
     } catch (error) {
-      console.error('Failed to create project:', error);
-      alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`);
+      console.error('Failed to create project:', error)
+      alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleCloneProject = async () => {
-    const url = cloneUrl.trim();
-    let name = cloneProjectName.trim();
+    const url = cloneUrl.trim()
+    let name = cloneProjectName.trim()
 
     if (!url) {
-      alert(t('projectModal.inputRepoUrl'));
-      return;
+      alert(t('projectModal.inputRepoUrl'))
+      return
     }
 
     // プロジェクト名が未入力の場合、URLから推測
     if (!name) {
-      const repoName = url.split('/').pop()?.replace('.git', '') || '';
-      name = repoName.replace(/\s+/g, '-');
+      const repoName = url.split('/').pop()?.replace('.git', '') || ''
+      name = repoName.replace(/\s+/g, '-')
     }
 
     // プロジェクト名のバリデーション
-    name = name.replace(/\s+/g, '-');
+    name = name.replace(/\s+/g, '-')
     if (!/^[a-zA-Z0-9-]+$/.test(name)) {
-      alert(t('projectModal.nameValidation'));
-      return;
+      alert(t('projectModal.nameValidation'))
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     try {
       // 空のプロジェクトを作成（デフォルトファイル無し）
-      const project = await fileRepository.createEmptyProject(name);
+      const project = await fileRepository.createEmptyProject(name)
 
       // GitCommandsはregistry経由で取得（シングルトン管理）
-      const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
-      const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
+      const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry')
+      const git = terminalCommandRegistry.getGitCommands(project.name, project.id)
 
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
       // ProjectModalで作成した空プロジェクトのルートに直接クローンするため targetDir='.' を渡す
       // 最大100件まで.gitオブジェクトを読み込む
-      await git.clone(url, '.', { maxGitObjects: 100 });
+      await git.clone(url, '.', { maxGitObjects: 100 })
 
       // プロジェクトを選択して開く
-      onProjectSelect(project);
+      onProjectSelect(project)
 
-      setCloneUrl('');
-      setCloneProjectName('');
-      setIsCloning(false);
-      onClose();
-      await loadProjects();
+      setCloneUrl('')
+      setCloneProjectName('')
+      setIsCloning(false)
+      onClose()
+      await loadProjects()
 
-      alert(t('projectModal.cloneSuccess'));
+      alert(t('projectModal.cloneSuccess'))
     } catch (error) {
-      console.error('Failed to clone project:', error);
-      alert(`クローンに失敗しました: ${(error as Error).message}`);
+      console.error('Failed to clone project:', error)
+      alert(`クローンに失敗しました: ${(error as Error).message}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleEditProject = async () => {
-    if (!editingProject) return;
+    if (!editingProject) return
 
-    setLoading(true);
+    setLoading(true)
     try {
       await fileRepository.updateProject(editingProject.id, {
         description: editingProject.description,
-      });
-      setEditingProject(null);
-      await loadProjects();
+      })
+      setEditingProject(null)
+      await loadProjects()
     } catch (error) {
-      console.error('Failed to edit project:', error);
+      console.error('Failed to edit project:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation()
 
     if (!confirm(t('projectModal.deleteConfirm'))) {
-      return;
+      return
     }
 
-    setLoading(true);
+    setLoading(true)
     try {
-      await fileRepository.deleteProject(projectId);
-      setProjects(prev => prev.filter(p => p.id !== projectId));
+      await fileRepository.deleteProject(projectId)
+      setProjects(prev => prev.filter(p => p.id !== projectId))
 
       if (currentProject?.id === projectId) {
-        const remainingProjects = projects.filter(p => p.id !== projectId);
+        const remainingProjects = projects.filter(p => p.id !== projectId)
         if (remainingProjects.length > 0) {
-          onProjectSelect(remainingProjects[0]);
+          onProjectSelect(remainingProjects[0])
         }
       }
     } catch (error) {
-      console.error('Failed to delete project:', error);
+      console.error('Failed to delete project:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('ja-JP', {
@@ -201,20 +201,17 @@ export default function ProjectModal({
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(date);
-  };
+    }).format(date)
+  }
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold">{t('projectModal.title')}</h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-accent rounded"
-          >
+          <button onClick={onClose} className="p-1 hover:bg-accent rounded">
             <X size={20} />
           </button>
         </div>
@@ -277,9 +274,9 @@ export default function ProjectModal({
                   </button>
                   <button
                     onClick={() => {
-                      setIsCreating(false);
-                      setNewProjectName('');
-                      setNewProjectDescription('');
+                      setIsCreating(false)
+                      setNewProjectName('')
+                      setNewProjectDescription('')
                     }}
                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >
@@ -325,9 +322,9 @@ export default function ProjectModal({
                   </button>
                   <button
                     onClick={() => {
-                      setIsCloning(false);
-                      setCloneUrl('');
-                      setCloneProjectName('');
+                      setIsCloning(false)
+                      setCloneUrl('')
+                      setCloneProjectName('')
                     }}
                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >
@@ -358,10 +355,7 @@ export default function ProjectModal({
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <Folder
-                        size={20}
-                        className="text-primary mt-0.5 flex-shrink-0"
-                      />
+                      <Folder size={20} className="text-primary mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium truncate">{project.name}</h3>
                         {project.description && (
@@ -396,8 +390,8 @@ export default function ProjectModal({
                       </button>
                       <button
                         onClick={() => {
-                          onProjectSelect(project);
-                          onClose();
+                          onProjectSelect(project)
+                          onClose()
                         }}
                         className="px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                       >
@@ -447,5 +441,5 @@ export default function ProjectModal({
         )}
       </div>
     </div>
-  );
+  )
 }

@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Visa diff (skrivskyddad)"
   },
   "gitHistory": {
-        "allFilesFiles": "Alla {count} filer",
+    "allFilesFiles": "Alla {count} filer",
     "allFilesScrollable": "Alla {count} filer (rullningsbar)",
     "changedFiles": "Ändrade filer:",
     "daysAgo": "{days} dagar sedan",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Genererar Mermaid-diagram...",
     "imageNotFound": "Bild hittades inte: {src}",
     "loadingImage": "Laddar bild...",
+    "mermaidPlaceholder": "Scrolla för att visa Mermaid-diagrammet",
     "preview": "Förhandsvisning",
     "reset": "Återställ",
     "zoomIn": "Zooma in",
-    "zoomOut": "Zooma ut",
-    "mermaidPlaceholder": "Scrolla för att visa Mermaid-diagrammet"
+    "zoomOut": "Zooma ut"
   },
   "menu": {
     "extensions": "Extensions",

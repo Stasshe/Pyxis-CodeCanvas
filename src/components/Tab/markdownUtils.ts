@@ -1,16 +1,16 @@
-import { fileRepository } from '@/engine/core/fileRepository';
-import { FileItem } from '@/types';
+import { fileRepository } from '@/engine/core/fileRepository'
+import { FileItem } from '@/types'
 
 // Safe conversion of Uint8Array to base64 using chunking to avoid call stack limits
 const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
-  const CHUNK_SIZE = 0x8000; // 32KB chunks
-  let result = '';
+  const CHUNK_SIZE = 0x8000 // 32KB chunks
+  let result = ''
   for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
-    const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
-    result += String.fromCharCode.apply(null, Array.from(chunk));
+    const chunk = uint8Array.subarray(i, i + CHUNK_SIZE)
+    result += String.fromCharCode.apply(null, Array.from(chunk))
   }
-  return btoa(result);
-};
+  return btoa(result)
+}
 
 export const loadImageAsDataURL = async (
   imagePath: string,
@@ -18,89 +18,89 @@ export const loadImageAsDataURL = async (
   projectId?: string,
   baseFilePath?: string // optional path of the markdown file that references this image
 ): Promise<string | null> => {
-  if (!projectName && !projectId) return null;
+  if (!projectName && !projectId) return null
 
   try {
     // Prefer indexed single-file lookup when projectId is available
-    let files: FileItem[] | undefined;
+    let files: FileItem[] | undefined
     if (projectId) {
       // we'll try to resolve candidate paths via getFileByPath instead of loading the whole tree
     }
 
-    const extension = (imagePath || '').toLowerCase().split('.').pop();
-    let mimeType = 'image/png';
+    const extension = (imagePath || '').toLowerCase().split('.').pop()
+    let mimeType = 'image/png'
     switch (extension) {
       case 'jpg':
       case 'jpeg':
-        mimeType = 'image/jpeg';
-        break;
+        mimeType = 'image/jpeg'
+        break
       case 'png':
-        mimeType = 'image/png';
-        break;
+        mimeType = 'image/png'
+        break
       case 'gif':
-        mimeType = 'image/gif';
-        break;
+        mimeType = 'image/gif'
+        break
       case 'svg':
-        mimeType = 'image/svg+xml';
-        break;
+        mimeType = 'image/svg+xml'
+        break
       case 'webp':
-        mimeType = 'image/webp';
-        break;
+        mimeType = 'image/webp'
+        break
     }
 
     // Quick checks for external URLs or data URLs
-    if (!imagePath) return null;
+    if (!imagePath) return null
     if (
       imagePath.startsWith('http://') ||
       imagePath.startsWith('https://') ||
       imagePath.startsWith('data:')
     ) {
-      return imagePath;
+      return imagePath
     }
 
     // Helper: normalize and resolve '..' and '.' segments
     const normalizeSegments = (p: string) => {
-      const parts = p.split('/');
-      const stack: string[] = [];
+      const parts = p.split('/')
+      const stack: string[] = []
       for (const part of parts) {
-        if (!part || part === '.') continue;
+        if (!part || part === '.') continue
         if (part === '..') {
-          if (stack.length) stack.pop();
+          if (stack.length) stack.pop()
         } else {
-          stack.push(part);
+          stack.push(part)
         }
       }
-      return '/' + stack.join('/');
-    };
+      return '/' + stack.join('/')
+    }
 
     // Build candidate paths to search in the project file tree.
     // We expect image paths to be either relative to the markdown file (baseFilePath)
     // or project-root relative. Keep resolution simple and deterministic.
-    const candidates: string[] = [];
+    const candidates: string[] = []
     if (imagePath.startsWith('/')) {
       // project-root relative
-      candidates.push(normalizeSegments(imagePath));
+      candidates.push(normalizeSegments(imagePath))
     } else {
       if (baseFilePath) {
-        const dir = baseFilePath.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
-        candidates.push(normalizeSegments(dir + '/' + imagePath));
+        const dir = baseFilePath.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/')
+        candidates.push(normalizeSegments(dir + '/' + imagePath))
       }
       // fallback: treat as project-root relative
-      candidates.push(normalizeSegments('/' + imagePath));
+      candidates.push(normalizeSegments('/' + imagePath))
     }
 
     // Remove duplicates while preserving order
-    const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)));
+    const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)))
 
     // Try candidate paths using indexed lookup when possible
-    let imageFile: FileItem | null = null;
+    let imageFile: FileItem | null = null
     if (projectId) {
       for (const cand of uniqueCandidates) {
         try {
-          const f = await fileRepository.getFileByPath(projectId, cand);
+          const f = await fileRepository.getFileByPath(projectId, cand)
           if (f && f.type === 'file') {
-            imageFile = f as FileItem;
-            break;
+            imageFile = f as FileItem
+            break
           }
         } catch (err) {
           // ignore and try next candidate
@@ -108,78 +108,78 @@ export const loadImageAsDataURL = async (
       }
     } else {
       // No projectId: conservative fallback (no project files loaded)
-      return null;
+      return null
     }
 
     // If bufferContent exists, convert to base64
     if ((imageFile as any).isBufferArray && (imageFile as any).bufferContent) {
-      const uint8Array = new Uint8Array((imageFile as any).bufferContent as any);
-      const base64 = uint8ArrayToBase64(uint8Array);
-      return `data:${mimeType};base64,${base64}`;
+      const uint8Array = new Uint8Array((imageFile as any).bufferContent as any)
+      const base64 = uint8ArrayToBase64(uint8Array)
+      return `data:${mimeType};base64,${base64}`
     }
 
     // If content exists and looks like a data URL, return it
     if (typeof (imageFile as any).content === 'string') {
-      const contentStr = (imageFile as any).content as string;
-      if (contentStr.startsWith('data:')) return contentStr;
+      const contentStr = (imageFile as any).content as string
+      if (contentStr.startsWith('data:')) return contentStr
       try {
         if (extension === 'svg' || /^\s*</.test(contentStr)) {
-          return `data:${mimeType};utf8,${encodeURIComponent(contentStr)}`;
+          return `data:${mimeType};utf8,${encodeURIComponent(contentStr)}`
         }
-        return `data:${mimeType};base64,${btoa(contentStr)}`;
+        return `data:${mimeType};base64,${btoa(contentStr)}`
       } catch (err) {
-        console.warn('Failed to convert file content to data URL', err);
-        return null;
+        console.warn('Failed to convert file content to data URL', err)
+        return null
       }
     }
 
-    return null;
+    return null
   } catch (error) {
-    console.warn(`Failed to load image: ${imagePath}`, error);
-    return null;
+    console.warn(`Failed to load image: ${imagePath}`, error)
+    return null
   }
-};
+}
 
 export const parseYamlConfig = (yamlText: string): any => {
   try {
-    const lines = yamlText.split('\n').filter(line => line.trim());
-    const config: any = {};
-    let currentObject = config;
+    const lines = yamlText.split('\n').filter(line => line.trim())
+    const config: any = {}
+    let currentObject = config
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const colonIndex = trimmed.indexOf(':');
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const colonIndex = trimmed.indexOf(':')
       if (colonIndex > 0) {
-        const key = trimmed.substring(0, colonIndex).trim();
-        const value = trimmed.substring(colonIndex + 1).trim();
+        const key = trimmed.substring(0, colonIndex).trim()
+        const value = trimmed.substring(colonIndex + 1).trim()
         if (value) {
-          let parsedValue: any = value;
-          if (value === 'true' || value === 'false') parsedValue = value === 'true';
-          else if (!isNaN(Number(value))) parsedValue = Number(value);
-          else if (value.startsWith("'") && value.endsWith("'")) parsedValue = value.slice(1, -1);
-          currentObject[key] = parsedValue;
+          let parsedValue: any = value
+          if (value === 'true' || value === 'false') parsedValue = value === 'true'
+          else if (!isNaN(Number(value))) parsedValue = Number(value)
+          else if (value.startsWith("'") && value.endsWith("'")) parsedValue = value.slice(1, -1)
+          currentObject[key] = parsedValue
         } else {
-          currentObject[key] = {};
-          currentObject = currentObject[key];
+          currentObject[key] = {}
+          currentObject = currentObject[key]
         }
       }
     }
-    return config;
+    return config
   } catch (error) {
-    console.warn('YAML設定の解析に失敗:', error);
-    return {};
+    console.warn('YAML設定の解析に失敗:', error)
+    return {}
   }
-};
+}
 
 export const parseMermaidContent = (chart: string): { config: any; diagram: string } => {
-  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
-  const match = chart.match(frontmatterRegex);
+  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/
+  const match = chart.match(frontmatterRegex)
   if (match) {
-    const yamlContent = match[1];
-    const diagramContent = match[2];
-    const config = parseYamlConfig(yamlContent);
-    return { config, diagram: diagramContent };
+    const yamlContent = match[1]
+    const diagramContent = match[2]
+    const config = parseYamlConfig(yamlContent)
+    return { config, diagram: diagramContent }
   }
-  return { config: {}, diagram: chart };
-};
+  return { config: {}, diagram: chart }
+}

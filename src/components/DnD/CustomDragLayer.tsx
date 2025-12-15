@@ -1,57 +1,59 @@
-'use client';
-import { memo, useMemo } from 'react';
-import { useDragLayer } from 'react-dnd';
-import { getIconForFile, getIconForFolder } from 'vscode-icons-js';
+'use client'
+import { memo, useMemo } from 'react'
+import { useDragLayer } from 'react-dnd'
+import { getIconForFile, getIconForFolder } from 'vscode-icons-js'
 
-import { DND_TAB, DND_FILE_TREE_ITEM } from '@/constants/dndTypes';
-import { useTheme } from '@/context/ThemeContext';
+import { DND_TAB, DND_FILE_TREE_ITEM } from '@/constants/dndTypes'
+import { useTheme } from '@/context/ThemeContext'
 
 /**
  * 共通カスタムドラッグレイヤー
  * FileTreeとTabBarの両方で使用するドラッグプレビューを表示
  */
 const CustomDragLayer = memo(function CustomDragLayer() {
-  const { colors } = useTheme();
-  const { isDragging, item, itemType, currentOffset } = useDragLayer((monitor) => ({
+  const { colors } = useTheme()
+  const { isDragging, item, itemType, currentOffset } = useDragLayer(monitor => ({
     item: monitor.getItem(),
     itemType: monitor.getItemType(),
     currentOffset: monitor.getSourceClientOffset(),
     isDragging: monitor.isDragging(),
-  }));
+  }))
 
   // アイテム情報をメモ化
   const { iconSrc, name, isFolder } = useMemo(() => {
     if (!item) {
-      return { iconSrc: '', name: '', isFolder: false };
+      return { iconSrc: '', name: '', isFolder: false }
     }
 
     // FILE_TREE_ITEMの場合
     if (itemType === DND_FILE_TREE_ITEM && item.item) {
-      const fileItem = item.item;
-      const isFolder = fileItem.type === 'folder';
+      const fileItem = item.item
+      const isFolder = fileItem.type === 'folder'
       const iconPath = isFolder
         ? getIconForFolder(fileItem.name) || getIconForFolder('')
-        : getIconForFile(fileItem.name) || getIconForFile('');
-      const iconSrc = iconPath && iconPath.endsWith('.svg')
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
-      return { iconSrc, name: fileItem.name, isFolder };
+        : getIconForFile(fileItem.name) || getIconForFile('')
+      const iconSrc =
+        iconPath && iconPath.endsWith('.svg')
+          ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+          : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`
+      return { iconSrc, name: fileItem.name, isFolder }
     }
 
     // TABの場合
     if (itemType === DND_TAB && item.tabName) {
-      const iconPath = getIconForFile(item.tabName) || getIconForFile('');
-      const iconSrc = iconPath && iconPath.endsWith('.svg')
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
-      return { iconSrc, name: item.tabName, isFolder: false };
+      const iconPath = getIconForFile(item.tabName) || getIconForFile('')
+      const iconSrc =
+        iconPath && iconPath.endsWith('.svg')
+          ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+          : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`
+      return { iconSrc, name: item.tabName, isFolder: false }
     }
 
-    return { iconSrc: '', name: '', isFolder: false };
-  }, [item, itemType]);
+    return { iconSrc: '', name: '', isFolder: false }
+  }, [item, itemType])
 
   if (!isDragging || !item || !currentOffset || !name) {
-    return null;
+    return null
   }
 
   return (
@@ -81,15 +83,11 @@ const CustomDragLayer = memo(function CustomDragLayer() {
           whiteSpace: 'nowrap',
         }}
       >
-        <img
-          src={iconSrc}
-          alt={isFolder ? 'folder' : 'file'}
-          style={{ width: 16, height: 16 }}
-        />
+        <img src={iconSrc} alt={isFolder ? 'folder' : 'file'} style={{ width: 16, height: 16 }} />
         <span>{name}</span>
       </div>
     </div>
-  );
-});
+  )
+})
 
-export default CustomDragLayer;
+export default CustomDragLayer

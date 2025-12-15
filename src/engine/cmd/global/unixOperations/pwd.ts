@@ -1,4 +1,4 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
 /**
  * pwd - カレントディレクトリのパスを表示
@@ -16,6 +16,6 @@ import { UnixCommandBase } from './base';
 export class PwdCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     // オプションは無視（シンボリックリンク未実装のため-L/-Pは同じ）
-    return this.currentDir;
+    return this.currentDir
   }
 }

@@ -7,38 +7,38 @@
  * Convert file: URL to path
  */
 export function fileURLToPath(url: string | URL): string {
-  const urlStr = typeof url === 'string' ? url : url.toString();
-  
+  const urlStr = typeof url === 'string' ? url : url.toString()
+
   // Remove file:// protocol
   if (urlStr.startsWith('file://')) {
-    let path = urlStr.slice(7); // Remove 'file://'
-    
+    let path = urlStr.slice(7) // Remove 'file://'
+
     // Handle Windows paths (file:///C:/...)
     if (path.startsWith('/') && /^\/[a-zA-Z]:/.test(path)) {
-      path = path.slice(1); // Remove leading /
+      path = path.slice(1) // Remove leading /
     }
-    
+
     // Decode URL encoding
-    path = decodeURIComponent(path);
-    
-    return path;
+    path = decodeURIComponent(path)
+
+    return path
   }
-  
-  return urlStr;
+
+  return urlStr
 }
 
 /**
  * Convert path to file: URL
  */
 export function pathToFileURL(path: string): URL {
-  let urlPath = path.replace(/\\/g, '/'); // Normalize backslashes
-  
+  let urlPath = path.replace(/\\/g, '/') // Normalize backslashes
+
   // Add leading slash if needed for absolute paths on Windows
   if (/^[a-zA-Z]:/.test(urlPath)) {
-    urlPath = '/' + urlPath;
+    urlPath = '/' + urlPath
   }
-  
-  return new URL('file://' + encodeURI(urlPath));
+
+  return new URL('file://' + encodeURI(urlPath))
 }
 
 /**
@@ -46,7 +46,7 @@ export function pathToFileURL(path: string): URL {
  */
 export function parse(urlString: string): any {
   try {
-    const url = new URL(urlString);
+    const url = new URL(urlString)
     return {
       protocol: url.protocol,
       hostname: url.hostname,
@@ -55,9 +55,9 @@ export function parse(urlString: string): any {
       search: url.search,
       hash: url.hash,
       href: url.href,
-    };
+    }
   } catch {
-    return null;
+    return null
   }
 }
 
@@ -66,4 +66,4 @@ export default {
   fileURLToPath,
   pathToFileURL,
   parse,
-};
+}

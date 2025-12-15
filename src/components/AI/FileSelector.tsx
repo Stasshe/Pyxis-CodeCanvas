@@ -1,17 +1,17 @@
 // AI用ファイル選択コンポーネント（OperationWindowの再利用）
 
-'use client';
+'use client'
 
-import React from 'react';
+import React from 'react'
 
-import OperationWindow from '@/components/OperationWindow';
-import type { FileItem } from '@/types';
+import OperationWindow from '@/components/OperationWindow'
+import type { FileItem } from '@/types'
 
 interface FileSelectorProps {
-  isOpen: boolean;
-  onClose: () => void;
-  files: FileItem[];
-  onFileSelect: (file: FileItem) => void;
+  isOpen: boolean
+  onClose: () => void
+  files: FileItem[]
+  onFileSelect: (file: FileItem) => void
 }
 
 export default function FileSelector({ isOpen, onClose, files, onFileSelect }: FileSelectorProps) {
@@ -25,5 +25,5 @@ export default function FileSelector({ isOpen, onClose, files, onFileSelect }: F
       onFileSelect={onFileSelect}
       aiMode={true} // AI用モード
     />
-  );
+  )
 }

@@ -8,18 +8,18 @@
  * パス変換は pathResolver モジュールを使用
  */
 
-import { gitFileSystem } from './gitFileSystem';
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
+import { gitFileSystem } from './gitFileSystem'
+import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore'
 import {
   toAppPath,
   toGitPath as pathToGitPath,
   fromGitPath as pathFromGitPath,
   getParentPath as pathGetParentPath,
-} from './pathResolver';
+} from './pathResolver'
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
-import { initialFileContents } from '@/engine/initialFileContents';
+import { LOCALSTORAGE_KEY } from '@/context/config'
+import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger'
+import { initialFileContents } from '@/engine/initialFileContents'
 import {
   createChatSpace,
   saveChatSpace,
@@ -30,78 +30,78 @@ import {
   updateChatSpaceMessage,
   updateChatSpaceSelectedFiles,
   renameChatSpace,
-} from '@/engine/storage/chatStorageAdapter';
-import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
+} from '@/engine/storage/chatStorageAdapter'
+import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types'
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substr(2, 12);
-  const counter = Math.floor(Math.random() * 10000);
-  return `${prefix}_${timestamp}_${random}_${counter}`;
-};
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).substr(2, 12)
+  const counter = Math.floor(Math.random() * 10000)
+  return `${prefix}_${timestamp}_${random}_${counter}`
+}
 
 // ファイル変更イベント型
 export type FileChangeEvent = {
-  type: 'create' | 'update' | 'delete';
-  projectId: string;
-  file: ProjectFile | { id: string; path: string }; // deleteの場合は最小限の情報
-};
+  type: 'create' | 'update' | 'delete'
+  projectId: string
+  file: ProjectFile | { id: string; path: string } // deleteの場合は最小限の情報
+}
 
 // イベントリスナー型
-type FileChangeListener = (event: FileChangeEvent) => void;
+type FileChangeListener = (event: FileChangeEvent) => void
 
 /**
  * パスを正規化する（先頭スラッシュ付き、末尾スラッシュなし）
  * pathResolver の toAppPath を使用
  * @deprecated 直接 pathResolver の toAppPath を使用してください
  */
-const normalizePath = toAppPath;
+const normalizePath = toAppPath
 
 /**
  * 親パスを取得（正規化済み）
  * pathResolver の getParentPath を使用
  * @deprecated 直接 pathResolver の getParentPath を使用してください
  */
-const getParentPath = pathGetParentPath;
+const getParentPath = pathGetParentPath
 
 export class FileRepository {
-  private dbName = 'PyxisProjects';
-  private version = 5; // Breaking change: ChatSpace operations now use chatStorageAdapter
-  private db: IDBDatabase | null = null;
-  private static instance: FileRepository | null = null;
-  private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
+  private dbName = 'PyxisProjects'
+  private version = 5 // Breaking change: ChatSpace operations now use chatStorageAdapter
+  private db: IDBDatabase | null = null
+  private static instance: FileRepository | null = null
+  private projectNameCache: Map<string, string> = new Map() // projectId -> projectName
 
   // .gitignore ルールのキャッシュ: projectId -> { rules(parsed), timestamp }
-  private gitignoreCache: Map<string, { rules: GitIgnoreRule[]; ts: number }> = new Map();
+  private gitignoreCache: Map<string, { rules: GitIgnoreRule[]; ts: number }> = new Map()
 
   // キャッシュの TTL（ミリ秒） - 5分
-  private readonly GITIGNORE_CACHE_TTL_MS = 5 * 60 * 1000;
+  private readonly GITIGNORE_CACHE_TTL_MS = 5 * 60 * 1000
 
   // イベントリスナー管理
-  private listeners: Set<FileChangeListener> = new Set();
+  private listeners: Set<FileChangeListener> = new Set()
 
-  private constructor() { }
+  private constructor() {}
 
   /**
    * シングルトンインスタンス取得
    */
   static getInstance(): FileRepository {
     if (!FileRepository.instance) {
-      FileRepository.instance = new FileRepository();
+      FileRepository.instance = new FileRepository()
     }
-    return FileRepository.instance;
+    return FileRepository.instance
   }
 
   /**
    * ファイル変更イベントリスナーを追加
    */
   addChangeListener(listener: FileChangeListener): () => void {
-    this.listeners.add(listener);
+    this.listeners.add(listener)
     // アンサブスクライブ関数を返す
     return () => {
-      this.listeners.delete(listener);
-    };
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -110,70 +110,70 @@ export class FileRepository {
   private emitChange(event: FileChangeEvent): void {
     this.listeners.forEach(listener => {
       try {
-        listener(event);
+        listener(event)
       } catch (error) {
-        coreWarn('[FileRepository] Listener error:', error);
+        coreWarn('[FileRepository] Listener error:', error)
       }
-    });
+    })
   }
 
   /**
    * データベース初期化
    */
   async init(): Promise<void> {
-    if (this.db) return; // 既に初期化済み
+    if (this.db) return // 既に初期化済み
 
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
+      const request = indexedDB.open(this.dbName, this.version)
 
       request.onerror = () => {
-        coreError('[FileRepository] Database initialization failed:', request.error);
-        reject(request.error);
-      };
+        coreError('[FileRepository] Database initialization failed:', request.error)
+        reject(request.error)
+      }
 
       request.onsuccess = () => {
-        this.db = request.result;
-        coreInfo('[FileRepository] Database initialized successfully');
-        resolve();
-      };
+        this.db = request.result
+        coreInfo('[FileRepository] Database initialized successfully')
+        resolve()
+      }
 
       request.onupgradeneeded = event => {
-        const db = (event.target as IDBOpenDBRequest).result;
+        const db = (event.target as IDBOpenDBRequest).result
 
         // プロジェクトストア
         if (!db.objectStoreNames.contains('projects')) {
-          const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
+          const projectStore = db.createObjectStore('projects', { keyPath: 'id' })
           // 名前での一意制約を追加して、同名プロジェクトの重複作成を防ぐ
-          projectStore.createIndex('name', 'name', { unique: true });
+          projectStore.createIndex('name', 'name', { unique: true })
         } else {
           // 既存ストアに name インデックスが無ければ追加（DB バージョンアップ時）
           const projectStore = (event.target as IDBOpenDBRequest).transaction!.objectStore(
             'projects'
-          );
+          )
           if (!projectStore.indexNames.contains('name')) {
-            projectStore.createIndex('name', 'name', { unique: true });
+            projectStore.createIndex('name', 'name', { unique: true })
           }
         }
 
         // ファイルストア
         if (!db.objectStoreNames.contains('files')) {
-          const fileStore = db.createObjectStore('files', { keyPath: 'id' });
-          fileStore.createIndex('projectId', 'projectId', { unique: false });
+          const fileStore = db.createObjectStore('files', { keyPath: 'id' })
+          fileStore.createIndex('projectId', 'projectId', { unique: false })
           // compound index for efficient lookup by projectId + path
           // keyPath as array allows querying with [projectId, path]
           try {
-            fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
+            fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false })
           } catch (e) {
             // ignore if not supported
           }
         } else {
-          const fileStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('files');
+          const fileStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('files')
           if (!fileStore.indexNames.contains('projectId')) {
-            fileStore.createIndex('projectId', 'projectId', { unique: false });
+            fileStore.createIndex('projectId', 'projectId', { unique: false })
           }
           if (!fileStore.indexNames.contains('projectId_path')) {
             try {
-              fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
+              fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false })
             } catch (e) {
               // ignore if not supported
             }
@@ -182,18 +182,18 @@ export class FileRepository {
 
         // チャットスペースストア
         if (!db.objectStoreNames.contains('chatSpaces')) {
-          const chatStore = db.createObjectStore('chatSpaces', { keyPath: 'id' });
-          chatStore.createIndex('projectId', 'projectId', { unique: false });
+          const chatStore = db.createObjectStore('chatSpaces', { keyPath: 'id' })
+          chatStore.createIndex('projectId', 'projectId', { unique: false })
         } else {
           const chatStore = (event.target as IDBOpenDBRequest).transaction!.objectStore(
             'chatSpaces'
-          );
+          )
           if (!chatStore.indexNames.contains('projectId')) {
-            chatStore.createIndex('projectId', 'projectId', { unique: false });
+            chatStore.createIndex('projectId', 'projectId', { unique: false })
           }
         }
-      };
-    });
+      }
+    })
   }
 
   // ==================== プロジェクト操作 ====================
@@ -202,14 +202,14 @@ export class FileRepository {
    * プロジェクト作成
    */
   async createProject(name: string, description?: string): Promise<Project> {
-    await this.init();
+    await this.init()
 
     // プロジェクト名の重複チェック
     // まず既存プロジェクトがないか名前で確認
-    const existingProjects = await this.getProjects();
-    const existing = existingProjects.find(p => p.name === name);
+    const existingProjects = await this.getProjects()
+    const existing = existingProjects.find(p => p.name === name)
     if (existing) {
-      return existing;
+      return existing
     }
 
     const project: Project = {
@@ -218,39 +218,39 @@ export class FileRepository {
       description,
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
+    }
 
     try {
-      await this.saveProject(project);
+      await this.saveProject(project)
     } catch (err: any) {
       // 名前重複などの制約エラーで保存に失敗した場合、既に作成されたプロジェクトを返す
       coreWarn(
         '[FileRepository] saveProject failed, attempting to recover by finding existing project:',
         err
-      );
-      const refreshed = await this.getProjects();
-      const found = refreshed.find(p => p.name === name);
+      )
+      const refreshed = await this.getProjects()
+      const found = refreshed.find(p => p.name === name)
       if (found) {
-        return found;
+        return found
       }
-      throw err; // 再スロー
+      throw err // 再スロー
     }
 
     // 初期ファイル・フォルダを再帰登録
     try {
-      await this.registerInitialFiles(project.id, initialFileContents, '');
+      await this.registerInitialFiles(project.id, initialFileContents, '')
     } catch (e) {
-      coreWarn('[FileRepository] registerInitialFiles failed (non-critical):', e);
+      coreWarn('[FileRepository] registerInitialFiles failed (non-critical):', e)
     }
 
     // 初期チャットスペースを作成
     try {
-      await createChatSpace(project.id, `${project.name} - 初期チャット`);
+      await createChatSpace(project.id, `${project.name} - 初期チャット`)
     } catch (error) {
-      console.warn('[FileRepository] Failed to create initial chat space:', error);
+      console.warn('[FileRepository] Failed to create initial chat space:', error)
     }
 
-    return project;
+    return project
   }
 
   /**
@@ -258,12 +258,12 @@ export class FileRepository {
    * GitFileSystemに.gitディレクトリを含めて作成される
    */
   async createEmptyProject(name: string, description?: string): Promise<Project> {
-    await this.init();
+    await this.init()
 
     // プロジェクト名の重複チェック
-    const existingProjects = await this.getProjects();
+    const existingProjects = await this.getProjects()
     if (existingProjects.some(project => project.name === name)) {
-      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`);
+      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`)
     }
 
     const project: Project = {
@@ -272,18 +272,18 @@ export class FileRepository {
       description,
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
+    }
 
-    await this.saveProject(project);
+    await this.saveProject(project)
 
     // 初期チャットスペースのみ作成（ファイルは作成しない）
     try {
-      await createChatSpace(project.id, `${project.name} - 初期チャット`);
+      await createChatSpace(project.id, `${project.name} - 初期チャット`)
     } catch (error) {
-      console.warn('[FileRepository] Failed to create initial chat space:', error);
+      console.warn('[FileRepository] Failed to create initial chat space:', error)
     }
 
-    return project;
+    return project
   }
 
   /**
@@ -296,24 +296,24 @@ export class FileRepository {
   ): Promise<void> {
     for (const [name, value] of Object.entries(obj)) {
       // children, content, type などのプロパティ名はスキップ
-      if (['children', 'content', 'type'].includes(name)) continue;
-      const path = parentPath === '' ? `/${name}` : `${parentPath}/${name}`;
+      if (['children', 'content', 'type'].includes(name)) continue
+      const path = parentPath === '' ? `/${name}` : `${parentPath}/${name}`
       if (typeof value === 'string') {
         // ファイル
-        await this.createFile(projectId, path, value, 'file');
+        await this.createFile(projectId, path, value, 'file')
       } else if (typeof value === 'object' && value !== null) {
-        const v: any = value;
+        const v: any = value
         if (v.type === 'folder' || v.children) {
-          await this.createFile(projectId, path, '', 'folder');
+          await this.createFile(projectId, path, '', 'folder')
           if (v.children && typeof v.children === 'object') {
-            await this.registerInitialFiles(projectId, v.children, path);
+            await this.registerInitialFiles(projectId, v.children, path)
           }
         } else if (v.type === 'file' && typeof v.content === 'string') {
-          await this.createFile(projectId, path, v.content, 'file');
+          await this.createFile(projectId, path, v.content, 'file')
         } else {
           // それ以外は従来通り再帰
-          await this.createFile(projectId, path, '', 'folder');
-          await this.registerInitialFiles(projectId, value, path);
+          await this.createFile(projectId, path, '', 'folder')
+          await this.registerInitialFiles(projectId, value, path)
         }
       }
     }
@@ -323,128 +323,128 @@ export class FileRepository {
    * プロジェクト保存
    */
   async saveProject(project: Project): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['projects'], 'readwrite');
-      const store = transaction.objectStore('projects');
-      const request = store.put({ ...project, updatedAt: new Date() });
+      const transaction = this.db!.transaction(['projects'], 'readwrite')
+      const store = transaction.objectStore('projects')
+      const request = store.put({ ...project, updatedAt: new Date() })
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => resolve()
+    })
   }
 
   /**
    * プロジェクト更新
    */
   async updateProject(projectId: string, updates: Partial<Project>): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
-    const projects = await this.getProjects();
-    const project = projects.find(p => p.id === projectId);
+    const projects = await this.getProjects()
+    const project = projects.find(p => p.id === projectId)
 
     if (!project) {
-      throw new Error(`Project with id ${projectId} not found`);
+      throw new Error(`Project with id ${projectId} not found`)
     }
 
-    const updatedProject = { ...project, ...updates, updatedAt: new Date() };
-    await this.saveProject(updatedProject);
+    const updatedProject = { ...project, ...updates, updatedAt: new Date() }
+    await this.saveProject(updatedProject)
   }
 
   /**
    * 全プロジェクト取得
    */
   async getProjects(): Promise<Project[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['projects'], 'readonly');
-      const store = transaction.objectStore('projects');
-      const request = store.getAll();
+      const transaction = this.db!.transaction(['projects'], 'readonly')
+      const store = transaction.objectStore('projects')
+      const request = store.getAll()
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error)
       request.onsuccess = () => {
         const projects = request.result.map((p: any) => ({
           ...p,
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt),
-        }));
-        resolve(projects);
-      };
-    });
+        }))
+        resolve(projects)
+      }
+    })
   }
 
   /**
    * プロジェクト削除
    */
   async deleteProject(projectId: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     // プロジェクト名取得
-    const projects = await this.getProjects();
-    const project = projects.find(p => p.id === projectId);
-    const projectName = project?.name || '';
+    const projects = await this.getProjects()
+    const project = projects.find(p => p.id === projectId)
+    const projectName = project?.name || ''
 
     return new Promise(async (resolve, reject) => {
-      const transaction = this.db!.transaction(['projects', 'files', 'chatSpaces'], 'readwrite');
+      const transaction = this.db!.transaction(['projects', 'files', 'chatSpaces'], 'readwrite')
 
       // プロジェクトを削除
-      const projectStore = transaction.objectStore('projects');
-      projectStore.delete(projectId);
+      const projectStore = transaction.objectStore('projects')
+      projectStore.delete(projectId)
 
       // 関連ファイルを削除
-      const fileStore = transaction.objectStore('files');
-      const fileIndex = fileStore.index('projectId');
-      const fileRequest = fileIndex.openCursor(IDBKeyRange.only(projectId));
+      const fileStore = transaction.objectStore('files')
+      const fileIndex = fileStore.index('projectId')
+      const fileRequest = fileIndex.openCursor(IDBKeyRange.only(projectId))
 
       fileRequest.onsuccess = event => {
-        const cursor = (event.target as IDBRequest).result;
+        const cursor = (event.target as IDBRequest).result
         if (cursor) {
-          cursor.delete();
-          cursor.continue();
+          cursor.delete()
+          cursor.continue()
         }
-      };
+      }
 
       // 関連チャットスペースを削除（IndexedDB内の古いデータ）
-      const chatStore = transaction.objectStore('chatSpaces');
-      const chatIndex = chatStore.index('projectId');
-      const chatRequest = chatIndex.openCursor(IDBKeyRange.only(projectId));
+      const chatStore = transaction.objectStore('chatSpaces')
+      const chatIndex = chatStore.index('projectId')
+      const chatRequest = chatIndex.openCursor(IDBKeyRange.only(projectId))
 
       chatRequest.onsuccess = event => {
-        const cursor = (event.target as IDBRequest).result;
+        const cursor = (event.target as IDBRequest).result
         if (cursor) {
-          cursor.delete();
-          cursor.continue();
+          cursor.delete()
+          cursor.continue()
         }
-      };
+      }
 
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = () => reject(transaction.error)
       transaction.oncomplete = async () => {
-        coreInfo(`[FileRepository] Project deleted from IndexedDB: ${projectName}`);
+        coreInfo(`[FileRepository] Project deleted from IndexedDB: ${projectName}`)
 
         // チャットスペースを新しいストレージアダプターから削除
         try {
-          await deleteChatSpacesForProject(projectId);
+          await deleteChatSpacesForProject(projectId)
         } catch (err) {
-          coreWarn('[FileRepository] Failed to delete chat spaces via adapter:', err);
+          coreWarn('[FileRepository] Failed to delete chat spaces via adapter:', err)
         }
 
         // LocalStorageから最近使用したプロジェクトを削除（バックグラウンド）
         this.cleanupLocalStorage(projectId).catch(err => {
-          coreWarn('[FileRepository] Failed to cleanup localStorage:', err);
-        });
+          coreWarn('[FileRepository] Failed to cleanup localStorage:', err)
+        })
 
         // GitFileSystemからプロジェクトを削除（バックグラウンド）
         if (projectName) {
           this.deleteProjectFromGitFS(projectName).catch(err => {
-            coreWarn('[FileRepository] Failed to delete project from GitFileSystem:', err);
-          });
+            coreWarn('[FileRepository] Failed to delete project from GitFileSystem:', err)
+          })
         }
 
-        resolve();
-      };
-    });
+        resolve()
+      }
+    })
   }
 
   /**
@@ -453,21 +453,21 @@ export class FileRepository {
   private async cleanupLocalStorage(projectId: string): Promise<void> {
     try {
       // 最近使用したプロジェクトから削除
-      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
+      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS)
       if (recentProjectsStr) {
-        const recentProjects = JSON.parse(recentProjectsStr);
-        const updatedProjects = recentProjects.filter((id: string) => id !== projectId);
-        localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(updatedProjects));
-        coreInfo(`[FileRepository] Removed project ${projectId} from recent projects`);
+        const recentProjects = JSON.parse(recentProjectsStr)
+        const updatedProjects = recentProjects.filter((id: string) => id !== projectId)
+        localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(updatedProjects))
+        coreInfo(`[FileRepository] Removed project ${projectId} from recent projects`)
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [
         `${LOCALSTORAGE_KEY.EDITOR_LAYOUT}${projectId}`,
         LOCALSTORAGE_KEY.LAST_EXECUTE_FILE,
-      ];
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      ]
+      keysToRemove.forEach(key => localStorage.removeItem(key))
     } catch (error) {
-      coreError('[FileRepository] Failed to cleanup localStorage:', error);
+      coreError('[FileRepository] Failed to cleanup localStorage:', error)
     }
   }
 
@@ -476,11 +476,11 @@ export class FileRepository {
    */
   private async deleteProjectFromGitFS(projectName: string): Promise<void> {
     try {
-      await gitFileSystem.deleteProject(projectName);
-      coreInfo(`[FileRepository] Deleted project from GitFileSystem: ${projectName}`);
+      await gitFileSystem.deleteProject(projectName)
+      coreInfo(`[FileRepository] Deleted project from GitFileSystem: ${projectName}`)
     } catch (error) {
-      coreError(`[FileRepository] Failed to delete project from GitFileSystem:`, error);
-      throw error;
+      coreError(`[FileRepository] Failed to delete project from GitFileSystem:`, error)
+      throw error
     }
   }
 
@@ -500,33 +500,33 @@ export class FileRepository {
     isBufferArray?: boolean,
     bufferContent?: ArrayBuffer
   ): Promise<ProjectFile> {
-    await this.init();
+    await this.init()
 
     // パスをAppPath形式に正規化
-    const normalizedPath = toAppPath(path);
+    const normalizedPath = toAppPath(path)
 
     // 既存ファイルをチェック
-    const existingFiles = await this.getProjectFiles(projectId);
-    const existingFile = existingFiles.find(f => f.path === normalizedPath);
+    const existingFiles = await this.getProjectFiles(projectId)
+    const existingFile = existingFiles.find(f => f.path === normalizedPath)
 
     if (existingFile) {
       // 既存ファイルを更新
       if (isBufferArray) {
-        existingFile.content = '';
-        existingFile.isBufferArray = true;
-        existingFile.bufferContent = bufferContent;
+        existingFile.content = ''
+        existingFile.isBufferArray = true
+        existingFile.bufferContent = bufferContent
       } else {
-        existingFile.content = content;
-        existingFile.isBufferArray = false;
-        existingFile.bufferContent = undefined;
+        existingFile.content = content
+        existingFile.isBufferArray = false
+        existingFile.bufferContent = undefined
       }
-      existingFile.updatedAt = new Date();
-      await this.saveFile(existingFile); // saveFileが自動同期を実行
-      return existingFile;
+      existingFile.updatedAt = new Date()
+      await this.saveFile(existingFile) // saveFileが自動同期を実行
+      return existingFile
     }
 
     // 親ディレクトリの自動作成（再帰的）
-    await this.ensureParentDirectories(projectId, normalizedPath, existingFiles);
+    await this.ensureParentDirectories(projectId, normalizedPath, existingFiles)
 
     // 新規ファイル作成
     const file: ProjectFile = {
@@ -541,18 +541,18 @@ export class FileRepository {
       updatedAt: new Date(),
       isBufferArray: !!isBufferArray,
       bufferContent: isBufferArray ? bufferContent : undefined,
-    };
+    }
 
-    await this.saveFile(file); // saveFileが自動同期を実行
+    await this.saveFile(file) // saveFileが自動同期を実行
 
     // ファイル作成イベントを発火
     this.emitChange({
       type: 'create',
       projectId,
       file,
-    });
+    })
 
-    return file;
+    return file
   }
 
   /**
@@ -565,25 +565,25 @@ export class FileRepository {
   ): Promise<void> {
     // ルートパスの場合は何もしない
     if (path === '/' || !path.includes('/')) {
-      return;
+      return
     }
 
     // 親パスを取得
-    const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
+    const parentPath = path.substring(0, path.lastIndexOf('/')) || '/'
 
     // ルートの場合は終了
     if (parentPath === '/' || parentPath === '') {
-      return;
+      return
     }
 
     // 親ディレクトリが既に存在するかチェック
-    const parentExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder');
+    const parentExists = existingFiles.some(f => f.path === parentPath && f.type === 'folder')
 
     if (!parentExists) {
-      coreInfo(`[FileRepository] Creating parent directory: ${parentPath}`);
+      coreInfo(`[FileRepository] Creating parent directory: ${parentPath}`)
 
       // 親の親を再帰的に作成
-      await this.ensureParentDirectories(projectId, parentPath, existingFiles);
+      await this.ensureParentDirectories(projectId, parentPath, existingFiles)
 
       // 親ディレクトリを作成（saveFileを直接呼び出して再帰を避ける）
       const parentFile: ProjectFile = {
@@ -598,19 +598,19 @@ export class FileRepository {
         updatedAt: new Date(),
         isBufferArray: false,
         bufferContent: undefined,
-      };
+      }
 
-      await this.saveFile(parentFile);
+      await this.saveFile(parentFile)
 
       // existingFilesにも追加して、後続の処理で使えるようにする
-      existingFiles.push(parentFile);
+      existingFiles.push(parentFile)
 
       // ファイル作成イベントを発火
       this.emitChange({
         type: 'create',
         projectId,
         file: parentFile,
-      });
+      })
     }
   }
 
@@ -618,29 +618,29 @@ export class FileRepository {
    * ファイル保存（自動的にGitFileSystemに非同期同期）
    */
   async saveFile(file: ProjectFile): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readwrite');
-      const store = transaction.objectStore('files');
-      const updatedFile = { ...file, updatedAt: new Date() };
-      const request = store.put(updatedFile);
+      const transaction = this.db!.transaction(['files'], 'readwrite')
+      const store = transaction.objectStore('files')
+      const updatedFile = { ...file, updatedAt: new Date() }
+      const request = store.put(updatedFile)
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error)
       request.onsuccess = async () => {
-        coreInfo(`[FileRepository] File saved: ${updatedFile.path} (${updatedFile.type})`);
+        coreInfo(`[FileRepository] File saved: ${updatedFile.path} (${updatedFile.type})`)
         // .gitignore の変更ならキャッシュを更新/削除
         try {
           if (updatedFile.path === '/.gitignore') {
             // content が空の場合は削除とみなす
             if (!updatedFile.content || updatedFile.content.trim() === '') {
-              this.clearGitignoreCache(updatedFile.projectId);
+              this.clearGitignoreCache(updatedFile.projectId)
             } else {
-              this.updateGitignoreCache(updatedFile.projectId, updatedFile.content);
+              this.updateGitignoreCache(updatedFile.projectId, updatedFile.content)
             }
           }
         } catch (e) {
-          coreWarn('[FileRepository] Failed to update gitignore cache after save:', e);
+          coreWarn('[FileRepository] Failed to update gitignore cache after save:', e)
         }
         // GitFileSystemへの自動同期（非同期・バックグラウンド実行）
         this.syncToGitFileSystem(
@@ -654,37 +654,37 @@ export class FileRepository {
           coreWarn(
             '[FileRepository] Background sync to GitFileSystem failed (non-critical):',
             error
-          );
-        });
+          )
+        })
 
         // ファイル更新イベントを発火
         this.emitChange({
           type: 'update',
           projectId: updatedFile.projectId,
           file: updatedFile,
-        });
+        })
 
-        resolve();
-      };
-    });
+        resolve()
+      }
+    })
   }
 
   /**
    * パスベースでファイルを保存または作成する便利メソッド
    * 既存ファイルがあれば更新し、なければ新規作成する
    * AI機能など、ファイルの存在を事前に確認せずに保存したい場合に使用
-   * 
+   *
    * NOTE: パスは自動的にAppPath形式（先頭スラッシュ付き）に正規化される
    */
   async saveFileByPath(projectId: string, path: string, content: string): Promise<void> {
-    await this.init();
-    
+    await this.init()
+
     // パスをAppPath形式に正規化（例: "src/main.rs" -> "/src/main.rs"）
-    const normalizedPath = toAppPath(path);
-    coreInfo(`[FileRepository] saveFileByPath: original="${path}", normalized="${normalizedPath}"`);
-    
-    const existingFile = await this.getFileByPath(projectId, normalizedPath);
-    
+    const normalizedPath = toAppPath(path)
+    coreInfo(`[FileRepository] saveFileByPath: original="${path}", normalized="${normalizedPath}"`)
+
+    const existingFile = await this.getFileByPath(projectId, normalizedPath)
+
     if (existingFile) {
       // 既存ファイルを更新
       const updatedFile = {
@@ -693,13 +693,13 @@ export class FileRepository {
         isBufferArray: false,
         bufferContent: undefined,
         updatedAt: new Date(),
-      };
-      await this.saveFile(updatedFile);
-      coreInfo(`[FileRepository] File updated by path: ${normalizedPath}`);
+      }
+      await this.saveFile(updatedFile)
+      coreInfo(`[FileRepository] File updated by path: ${normalizedPath}`)
     } else {
       // 新規ファイルを作成
-      await this.createFile(projectId, normalizedPath, content, 'file');
-      coreInfo(`[FileRepository] File created by path: ${normalizedPath}`);
+      await this.createFile(projectId, normalizedPath, content, 'file')
+      coreInfo(`[FileRepository] File created by path: ${normalizedPath}`)
     }
   }
 
@@ -709,29 +709,29 @@ export class FileRepository {
   private async shouldIgnorePathForGit(projectId: string, path: string): Promise<boolean> {
     try {
       // プロジェクト名を取得
-      let projectName = this.projectNameCache.get(projectId);
+      let projectName = this.projectNameCache.get(projectId)
       if (!projectName) {
-        const projects = await this.getProjects();
-        const project = projects.find(p => p.id === projectId);
+        const projects = await this.getProjects()
+        const project = projects.find(p => p.id === projectId)
         if (project) {
-          projectName = project.name;
-          this.projectNameCache.set(projectId, projectName);
+          projectName = project.name
+          this.projectNameCache.set(projectId, projectName)
         } else {
-          return false;
+          return false
         }
       }
 
       // parsed rules を取得（キャッシュ利用）
-      const parsedRules = await this.getParsedGitignoreRules(projectId);
-      if (!parsedRules || parsedRules.length === 0) return false;
+      const parsedRules = await this.getParsedGitignoreRules(projectId)
+      if (!parsedRules || parsedRules.length === 0) return false
 
-      const normalizedPath = path.replace(/^\/+/, '');
-      const ignored = isPathIgnored(parsedRules, normalizedPath, false);
-      if (ignored) coreInfo(`[FileRepository] Path "${path}" is ignored by .gitignore rules`);
-      return ignored;
+      const normalizedPath = path.replace(/^\/+/, '')
+      const ignored = isPathIgnored(parsedRules, normalizedPath, false)
+      if (ignored) coreInfo(`[FileRepository] Path "${path}" is ignored by .gitignore rules`)
+      return ignored
     } catch (error) {
-      console.warn('[FileRepository] Error checking gitignore:', error);
-      return false; // エラー時は無視しない（安全側に倒す）
+      console.warn('[FileRepository] Error checking gitignore:', error)
+      return false // エラー時は無視しない（安全側に倒す）
     }
   }
 
@@ -739,15 +739,15 @@ export class FileRepository {
    * キャッシュから解析済みの GitIgnore ルールを返す（なければ読み込む）
    */
   private async getParsedGitignoreRules(projectId: string): Promise<GitIgnoreRule[]> {
-    const entry = this.gitignoreCache.get(projectId);
+    const entry = this.gitignoreCache.get(projectId)
     if (entry && Date.now() - entry.ts < this.GITIGNORE_CACHE_TTL_MS) {
-      return entry.rules;
+      return entry.rules
     }
 
     // フォールバックで既存のロード経路を使う
-    await this.getGitignoreRules(projectId); // これがキャッシュに parsed をセットする
-    const refreshed = this.gitignoreCache.get(projectId);
-    return refreshed ? refreshed.rules : [];
+    await this.getGitignoreRules(projectId) // これがキャッシュに parsed をセットする
+    const refreshed = this.gitignoreCache.get(projectId)
+    return refreshed ? refreshed.rules : []
   }
 
   /**
@@ -755,26 +755,26 @@ export class FileRepository {
    */
   private async getGitignoreRules(projectId: string): Promise<string[]> {
     // キャッシュが有効か確認
-    const entry = this.gitignoreCache.get(projectId);
+    const entry = this.gitignoreCache.get(projectId)
     if (entry && Date.now() - entry.ts < this.GITIGNORE_CACHE_TTL_MS) {
-      return entry.rules.map(r => r.raw);
+      return entry.rules.map(r => r.raw)
     }
 
     try {
-      const files = await this.getProjectFiles(projectId);
-      const gitignoreFile = files.find(f => f.path === '/.gitignore');
+      const files = await this.getProjectFiles(projectId)
+      const gitignoreFile = files.find(f => f.path === '/.gitignore')
       if (!gitignoreFile || !gitignoreFile.content) {
-        this.gitignoreCache.delete(projectId);
-        return [];
+        this.gitignoreCache.delete(projectId)
+        return []
       }
 
-      const parsed = parseGitignore(gitignoreFile.content);
-      this.gitignoreCache.set(projectId, { rules: parsed, ts: Date.now() });
-      return parsed.map(r => r.raw);
+      const parsed = parseGitignore(gitignoreFile.content)
+      this.gitignoreCache.set(projectId, { rules: parsed, ts: Date.now() })
+      return parsed.map(r => r.raw)
     } catch (error) {
-      console.warn('[FileRepository] Failed to load .gitignore for caching:', error);
-      this.gitignoreCache.delete(projectId);
-      return [];
+      console.warn('[FileRepository] Failed to load .gitignore for caching:', error)
+      this.gitignoreCache.delete(projectId)
+      return []
     }
   }
 
@@ -783,18 +783,18 @@ export class FileRepository {
    */
   private updateGitignoreCache(projectId: string, content?: string): void {
     if (!content) {
-      this.gitignoreCache.delete(projectId);
-      return;
+      this.gitignoreCache.delete(projectId)
+      return
     }
-    const parsed = parseGitignore(content);
-    this.gitignoreCache.set(projectId, { rules: parsed, ts: Date.now() });
+    const parsed = parseGitignore(content)
+    this.gitignoreCache.set(projectId, { rules: parsed, ts: Date.now() })
   }
 
   /**
    * .gitignore キャッシュをクリア
    */
   private clearGitignoreCache(projectId: string): void {
-    this.gitignoreCache.delete(projectId);
+    this.gitignoreCache.delete(projectId)
   }
 
   /**
@@ -812,50 +812,50 @@ export class FileRepository {
   ): Promise<void> {
     coreInfo(
       `[FileRepository.syncToGitFileSystem] START - path: ${path}, operation: ${operation}, type: ${fileType}`
-    );
+    )
     try {
       // .gitignoreチェック（全ての操作で適用）
-      const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
+      const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path)
       if (shouldIgnore) {
-        coreInfo(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`);
-        return;
+        coreInfo(`[FileRepository] Skipping GitFileSystem sync for ignored path: ${path}`)
+        return
       }
-      coreInfo(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
+      coreInfo(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`)
 
       // 遅延インポートで循環参照を回避
-      const { syncManager } = await import('./syncManager');
+      const { syncManager } = await import('./syncManager')
       // プロジェクト名を取得
-      let projectName = this.projectNameCache.get(projectId);
+      let projectName = this.projectNameCache.get(projectId)
       if (!projectName) {
-        const projects = await this.getProjects();
-        const project = projects.find(p => p.id === projectId);
+        const projects = await this.getProjects()
+        const project = projects.find(p => p.id === projectId)
         if (project) {
-          projectName = project.name;
-          this.projectNameCache.set(projectId, projectName);
+          projectName = project.name
+          this.projectNameCache.set(projectId, projectName)
         } else {
-          coreWarn('[FileRepository] Project not found for sync:', projectId);
-          return;
+          coreWarn('[FileRepository] Project not found for sync:', projectId)
+          return
         }
       }
 
       // フォルダの場合はディレクトリを作成
       if (fileType === 'folder' && operation !== 'delete') {
-        coreInfo(`[FileRepository.syncToGitFileSystem] Creating directory: ${path}`);
-        const projectDir = gitFileSystem.getProjectDir(projectName);
-        const fullPath = `${projectDir}${path}`;
-        await gitFileSystem.ensureDirectory(fullPath);
+        coreInfo(`[FileRepository.syncToGitFileSystem] Creating directory: ${path}`)
+        const projectDir = gitFileSystem.getProjectDir(projectName)
+        const fullPath = `${projectDir}${path}`
+        await gitFileSystem.ensureDirectory(fullPath)
       } else {
         // ファイルの場合はSyncManagerを使用して同期
-        coreInfo(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`);
-        await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent);
+        coreInfo(`[FileRepository.syncToGitFileSystem] Calling syncSingleFileToFS for: ${path}`)
+        await syncManager.syncSingleFileToFS(projectName, path, content, operation, bufferContent)
       }
 
       // Git変更検知のために自動的にキャッシュフラッシュ
-      await gitFileSystem.flush();
-      coreInfo(`[FileRepository.syncToGitFileSystem] COMPLETED - path: ${path}`);
+      await gitFileSystem.flush()
+      coreInfo(`[FileRepository.syncToGitFileSystem] COMPLETED - path: ${path}`)
     } catch (error) {
-      coreError('[FileRepository] syncToGitFileSystem error:', error);
-      throw error;
+      coreError('[FileRepository] syncToGitFileSystem error:', error)
+      throw error
     }
   }
 
@@ -863,24 +863,24 @@ export class FileRepository {
    * プロジェクトの全ファイル取得
    */
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     // projectIdのバリデーション
     if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
-      coreError('[FileRepository] Invalid projectId:', projectId);
-      throw new Error(`Invalid projectId: ${projectId}`);
+      coreError('[FileRepository] Invalid projectId:', projectId)
+      throw new Error(`Invalid projectId: ${projectId}`)
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readonly');
-      const store = transaction.objectStore('files');
-      const index = store.index('projectId');
-      const request = index.getAll(projectId);
+      const transaction = this.db!.transaction(['files'], 'readonly')
+      const store = transaction.objectStore('files')
+      const index = store.index('projectId')
+      const request = index.getAll(projectId)
 
       request.onerror = () => {
-        console.error('[FileRepository] Failed to get project files:', request.error);
-        reject(request.error);
-      };
+        console.error('[FileRepository] Failed to get project files:', request.error)
+        reject(request.error)
+      }
 
       request.onsuccess = () => {
         const files = request.result.map((f: any) => ({
@@ -888,10 +888,10 @@ export class FileRepository {
           createdAt: new Date(f.createdAt),
           updatedAt: new Date(f.updatedAt),
           bufferContent: f.isBufferArray ? f.bufferContent : undefined,
-        }));
-        resolve(files);
-      };
-    });
+        }))
+        resolve(files)
+      }
+    })
   }
 
   /**
@@ -914,97 +914,98 @@ export class FileRepository {
   async createFilesBulk(
     projectId: string,
     entries: Array<{
-      path: string;
-      content: string;
-      type: 'file' | 'folder';
-      isBufferArray?: boolean;
-      bufferContent?: ArrayBuffer;
+      path: string
+      content: string
+      type: 'file' | 'folder'
+      isBufferArray?: boolean
+      bufferContent?: ArrayBuffer
     }>,
     skipSync: boolean = false
   ): Promise<ProjectFile[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     // 🚀 最適化1: タイムスタンプを事前生成（ループ外で1回だけ）
-    const timestamp = new Date();
-    const createdFiles: ProjectFile[] = [];
+    const timestamp = new Date()
+    const createdFiles: ProjectFile[] = []
 
     // 🚀 最適化2: プロジェクト名を事前取得（非同期待機を削減）
-    let projectName: string | undefined;
+    let projectName: string | undefined
     if (!skipSync) {
-      projectName = this.projectNameCache.get(projectId);
+      projectName = this.projectNameCache.get(projectId)
       if (!projectName) {
-        const projects = await this.getProjects();
-        const project = projects.find(p => p.id === projectId);
-        projectName = project?.name;
+        const projects = await this.getProjects()
+        const project = projects.find(p => p.id === projectId)
+        projectName = project?.name
         if (projectName) {
-          this.projectNameCache.set(projectId, projectName);
+          this.projectNameCache.set(projectId, projectName)
         }
       }
     }
 
     // 🚀 最適化3: バッチ処理（大量ファイル時にチャンク単位で処理）
-    const BATCH_SIZE = 200;
-    const batches: Array<typeof entries> = [];
+    const BATCH_SIZE = 200
+    const batches: Array<typeof entries> = []
     for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-      batches.push(entries.slice(i, i + BATCH_SIZE));
+      batches.push(entries.slice(i, i + BATCH_SIZE))
     }
 
     // .gitignore チェック用
-    let hasGitignore = false;
-    let gitignoreContent = '';
+    let hasGitignore = false
+    let gitignoreContent = ''
 
     // 🚀 最適化5: 各バッチを並列処理（Promise.all）
     await Promise.all(
-      batches.map(batch =>
-        new Promise < void> ((resolve, reject) => {
-          const transaction = this.db!.transaction(['files'], 'readwrite');
-          const store = transaction.objectStore('files');
+      batches.map(
+        batch =>
+          new Promise<void>((resolve, reject) => {
+            const transaction = this.db!.transaction(['files'], 'readwrite')
+            const store = transaction.objectStore('files')
 
-          transaction.onerror = () => reject(transaction.error);
-          transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error)
+            transaction.oncomplete = () => resolve()
 
-          try {
-            for (const entry of batch) {
-              const file: ProjectFile = {
-                id: generateUniqueId('file'),
-                projectId,
-                path: entry.path,
-                name: entry.path.split('/').pop() || '',
-                content: entry.isBufferArray ? '' : entry.content || '',
-                type: entry.type || 'file',
-                parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
-                createdAt: timestamp, // 事前生成されたタイムスタンプを使用
-                updatedAt: timestamp, // 事前生成されたタイムスタンプを使用
-                isBufferArray: !!entry.isBufferArray,
-                bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
-              };
+            try {
+              for (const entry of batch) {
+                const file: ProjectFile = {
+                  id: generateUniqueId('file'),
+                  projectId,
+                  path: entry.path,
+                  name: entry.path.split('/').pop() || '',
+                  content: entry.isBufferArray ? '' : entry.content || '',
+                  type: entry.type || 'file',
+                  parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
+                  createdAt: timestamp, // 事前生成されたタイムスタンプを使用
+                  updatedAt: timestamp, // 事前生成されたタイムスタンプを使用
+                  isBufferArray: !!entry.isBufferArray,
+                  bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
+                }
 
-              createdFiles.push(file);
-              store.put(file);
+                createdFiles.push(file)
+                store.put(file)
 
-              // .gitignore の検出
-              if (entry.path === '/.gitignore' && !entry.isBufferArray) {
-                hasGitignore = true;
-                gitignoreContent = entry.content || '';
+                // .gitignore の検出
+                if (entry.path === '/.gitignore' && !entry.isBufferArray) {
+                  hasGitignore = true
+                  gitignoreContent = entry.content || ''
+                }
               }
+            } catch (error) {
+              reject(error)
             }
-          } catch (error) {
-            reject(error);
-          }
-        })
+          })
       )
-    );
+    )
 
     // .gitignore キャッシュ更新
     if (hasGitignore) {
       try {
         if (!gitignoreContent || gitignoreContent.trim() === '') {
-          this.clearGitignoreCache(projectId);
+          this.clearGitignoreCache(projectId)
         } else {
-          this.updateGitignoreCache(projectId, gitignoreContent);
+          this.updateGitignoreCache(projectId, gitignoreContent)
         }
       } catch (e) {
-        coreWarn('[FileRepository] Failed to update gitignore cache after bulk create:', e);
+        coreWarn('[FileRepository] Failed to update gitignore cache after bulk create:', e)
       }
     }
 
@@ -1013,47 +1014,47 @@ export class FileRepository {
       try {
         coreInfo(
           `[FileRepository] Starting optimized bulk sync for ${createdFiles.length} files...`
-        );
+        )
 
         if (projectName) {
-          const { syncManager } = await import('./syncManager');
+          const { syncManager } = await import('./syncManager')
           // 一括同期（100ファイルでも1回の処理）
-          await syncManager.syncFromIndexedDBToFS(projectId, projectName);
-          coreInfo('[FileRepository] Optimized bulk sync completed');
+          await syncManager.syncFromIndexedDBToFS(projectId, projectName)
+          coreInfo('[FileRepository] Optimized bulk sync completed')
         } else {
-          coreWarn('[FileRepository] Project name not found, skipping sync');
+          coreWarn('[FileRepository] Project name not found, skipping sync')
         }
       } catch (error) {
-        coreError('[FileRepository] Optimized bulk sync error:', error);
+        coreError('[FileRepository] Optimized bulk sync error:', error)
         // 同期エラーでもファイル作成は成功しているので続行
       }
     } else {
-      coreInfo('[FileRepository] Skipping sync as per skipSync flag.');
+      coreInfo('[FileRepository] Skipping sync as per skipSync flag.')
     }
 
     // 🚀 最適化4: イベント発火を非同期化（メイン処理をブロックしない）
     setTimeout(() => {
       for (const file of createdFiles) {
-        this.emitChange({ type: 'create', projectId: file.projectId, file });
+        this.emitChange({ type: 'create', projectId: file.projectId, file })
       }
-    }, 0);
+    }, 0)
 
-    return createdFiles;
+    return createdFiles
   }
 
   /**
    * ファイル情報を取得（内部ヘルパー）
    */
   private async getFileById(fileId: string): Promise<ProjectFile | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readonly');
-      const store = transaction.objectStore('files');
-      const request = store.get(fileId);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result || null);
-    });
+      const transaction = this.db!.transaction(['files'], 'readonly')
+      const store = transaction.objectStore('files')
+      const request = store.get(fileId)
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => resolve(request.result || null)
+    })
   }
 
   /**
@@ -1062,23 +1063,23 @@ export class FileRepository {
    * NOTE: pathは自動的にAppPath形式に正規化される
    */
   async getFileByPath(projectId: string, path: string): Promise<ProjectFile | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     // パスをAppPath形式に正規化
-    const normalizedPath = toAppPath(path);
-    
+    const normalizedPath = toAppPath(path)
+
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readonly');
-      const store = transaction.objectStore('files');
+      const transaction = this.db!.transaction(['files'], 'readonly')
+      const store = transaction.objectStore('files')
 
       // 優先: compound index があればそれを使う
       if (store.indexNames.contains('projectId_path')) {
         try {
-          const idx = store.index('projectId_path');
-          const req = idx.get([projectId, normalizedPath]);
-          req.onerror = () => reject(req.error);
-          req.onsuccess = () => resolve(req.result || null);
-          return;
+          const idx = store.index('projectId_path')
+          const req = idx.get([projectId, normalizedPath])
+          req.onerror = () => reject(req.error)
+          req.onsuccess = () => resolve(req.result || null)
+          return
         } catch (e) {
           // fallthrough to fallback
         }
@@ -1086,26 +1087,27 @@ export class FileRepository {
 
       // フォールバック: projectId インデックスから全取得してフィルタ（従来の方法）
       if (store.indexNames.contains('projectId')) {
-        const idx = store.index('projectId');
-        const req = idx.getAll(projectId);
-        req.onerror = () => reject(req.error);
+        const idx = store.index('projectId')
+        const req = idx.getAll(projectId)
+        req.onerror = () => reject(req.error)
         req.onsuccess = () => {
-          const files = req.result as ProjectFile[];
-          const found = files.find(f => f.path === normalizedPath) || null;
-          resolve(found);
-        };
-        return;
+          const files = req.result as ProjectFile[]
+          const found = files.find(f => f.path === normalizedPath) || null
+          resolve(found)
+        }
+        return
       }
 
       // 最後の手段: 全件走査
-      const allReq = store.getAll();
-      allReq.onerror = () => reject(allReq.error);
+      const allReq = store.getAll()
+      allReq.onerror = () => reject(allReq.error)
       allReq.onsuccess = () => {
-        const files = allReq.result as ProjectFile[];
-        const found = files.find(f => f.projectId === projectId && f.path === normalizedPath) || null;
-        resolve(found);
-      };
-    });
+        const files = allReq.result as ProjectFile[]
+        const found =
+          files.find(f => f.projectId === projectId && f.path === normalizedPath) || null
+        resolve(found)
+      }
+    })
   }
 
   /**
@@ -1113,31 +1115,31 @@ export class FileRepository {
    * 例: prefix === '/src/' -> '/src/' 以下の全ファイルを返す
    */
   async getFilesByPrefix(projectId: string, prefix: string): Promise<ProjectFile[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readonly');
-      const store = transaction.objectStore('files');
+      const transaction = this.db!.transaction(['files'], 'readonly')
+      const store = transaction.objectStore('files')
 
       // 可能であれば projectId_path インデックスを使って範囲検索
       if (store.indexNames.contains('projectId_path')) {
         try {
-          const idx = store.index('projectId_path');
-          const lower: any = [projectId, prefix];
-          const upper: any = [projectId, prefix + '\uffff'];
-          const range = IDBKeyRange.bound(lower, upper);
-          const req = idx.getAll(range);
-          req.onerror = () => reject(req.error);
+          const idx = store.index('projectId_path')
+          const lower: any = [projectId, prefix]
+          const upper: any = [projectId, prefix + '\uffff']
+          const range = IDBKeyRange.bound(lower, upper)
+          const req = idx.getAll(range)
+          req.onerror = () => reject(req.error)
           req.onsuccess = () => {
             const files = req.result.map((f: any) => ({
               ...f,
               createdAt: new Date(f.createdAt),
               updatedAt: new Date(f.updatedAt),
               bufferContent: f.isBufferArray ? f.bufferContent : undefined,
-            }));
-            resolve(files as ProjectFile[]);
-          };
-          return;
+            }))
+            resolve(files as ProjectFile[])
+          }
+          return
         } catch (e) {
           // fallthrough
         }
@@ -1145,44 +1147,44 @@ export class FileRepository {
 
       // フォールバック: projectId インデックスで絞ってから prefix フィルタ
       if (store.indexNames.contains('projectId')) {
-        const idx = store.index('projectId');
-        const req = idx.getAll(projectId);
-        req.onerror = () => reject(req.error);
+        const idx = store.index('projectId')
+        const req = idx.getAll(projectId)
+        req.onerror = () => reject(req.error)
         req.onsuccess = () => {
           const files = (req.result as any[])
             .filter(f => {
-              if (!prefix || prefix === '') return true;
-              return (f.path || '').startsWith(prefix);
+              if (!prefix || prefix === '') return true
+              return (f.path || '').startsWith(prefix)
             })
             .map(f => ({
               ...f,
               createdAt: new Date(f.createdAt),
               updatedAt: new Date(f.updatedAt),
               bufferContent: f.isBufferArray ? f.bufferContent : undefined,
-            }));
-          resolve(files as ProjectFile[]);
-        };
-        return;
+            }))
+          resolve(files as ProjectFile[])
+        }
+        return
       }
 
       // 最後の手段: 全件取得してフィルタ
-      const allReq = store.getAll();
-      allReq.onerror = () => reject(allReq.error);
+      const allReq = store.getAll()
+      allReq.onerror = () => reject(allReq.error)
       allReq.onsuccess = () => {
         const files = (allReq.result as any[])
           .filter(f => {
-            if (!prefix || prefix === '') return true;
-            return (f.path || '').startsWith(prefix);
+            if (!prefix || prefix === '') return true
+            return (f.path || '').startsWith(prefix)
           })
           .map(f => ({
             ...f,
             createdAt: new Date(f.createdAt),
             updatedAt: new Date(f.updatedAt),
             bufferContent: f.isBufferArray ? f.bufferContent : undefined,
-          }));
-        resolve(files as ProjectFile[]);
-      };
-    });
+          }))
+        resolve(files as ProjectFile[])
+      }
+    })
   }
 
   /**
@@ -1194,12 +1196,12 @@ export class FileRepository {
     isRecursive: boolean = false
   ): Promise<void> {
     // .gitignoreが削除されていればキャッシュをクリア
-    const hasGitignore = deletedFiles.some(f => f.path === '/.gitignore');
+    const hasGitignore = deletedFiles.some(f => f.path === '/.gitignore')
     if (hasGitignore) {
       try {
-        this.clearGitignoreCache(projectId);
+        this.clearGitignoreCache(projectId)
       } catch (e) {
-        coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e);
+        coreWarn('[FileRepository] Failed to clear gitignore cache after delete:', e)
       }
     }
 
@@ -1207,25 +1209,25 @@ export class FileRepository {
     try {
       if (isRecursive || deletedFiles.length > 5) {
         // 大量削除の場合は全体同期
-        const { syncManager } = await import('./syncManager');
-        let projectName = this.projectNameCache.get(projectId);
+        const { syncManager } = await import('./syncManager')
+        let projectName = this.projectNameCache.get(projectId)
         if (!projectName) {
-          const projects = await this.getProjects();
-          const project = projects.find(p => p.id === projectId);
-          projectName = project?.name;
-          if (projectName) this.projectNameCache.set(projectId, projectName);
+          const projects = await this.getProjects()
+          const project = projects.find(p => p.id === projectId)
+          projectName = project?.name
+          if (projectName) this.projectNameCache.set(projectId, projectName)
         }
         if (projectName) {
-          await syncManager.syncFromIndexedDBToFS(projectId, projectName);
+          await syncManager.syncFromIndexedDBToFS(projectId, projectName)
         }
       } else {
         // 少数削除の場合は個別同期
         for (const file of deletedFiles) {
-          await this.syncToGitFileSystem(projectId, file.path, '', 'delete', undefined, file.type);
+          await this.syncToGitFileSystem(projectId, file.path, '', 'delete', undefined, file.type)
         }
       }
     } catch (error) {
-      coreWarn('[FileRepository] Post-deletion sync failed (non-critical):', error);
+      coreWarn('[FileRepository] Post-deletion sync failed (non-critical):', error)
     }
 
     // イベント発火
@@ -1234,7 +1236,7 @@ export class FileRepository {
         type: 'delete',
         projectId,
         file: { id: file.id, path: file.path },
-      });
+      })
     }
   }
 
@@ -1243,49 +1245,49 @@ export class FileRepository {
    * フォルダの場合は自動的に配下も削除される
    */
   async deleteFile(fileId: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
-    const fileToDelete = await this.getFileById(fileId);
+    const fileToDelete = await this.getFileById(fileId)
     if (!fileToDelete) {
-      throw new Error(`File with id ${fileId} not found`);
+      throw new Error(`File with id ${fileId} not found`)
     }
 
-    const { projectId, path, type } = fileToDelete;
-    const deletedFiles: ProjectFile[] = [];
+    const { projectId, path, type } = fileToDelete
+    const deletedFiles: ProjectFile[] = []
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readwrite');
-      const store = transaction.objectStore('files');
-      const index = store.index('projectId');
+      const transaction = this.db!.transaction(['files'], 'readwrite')
+      const store = transaction.objectStore('files')
+      const index = store.index('projectId')
 
       if (type === 'folder') {
         // フォルダの場合は配下も含めて削除
-        const request = index.getAll(projectId);
-        request.onerror = () => reject(request.error);
+        const request = index.getAll(projectId)
+        request.onerror = () => reject(request.error)
         request.onsuccess = () => {
-          const allFiles = request.result as ProjectFile[];
+          const allFiles = request.result as ProjectFile[]
           for (const f of allFiles) {
             if (f.path === path || f.path.startsWith(path + '/')) {
-              store.delete(f.id);
-              deletedFiles.push(f);
+              store.delete(f.id)
+              deletedFiles.push(f)
             }
           }
-        };
+        }
       } else {
         // ファイルの場合は単一削除
-        const request = store.delete(fileId);
-        request.onerror = () => reject(request.error);
+        const request = store.delete(fileId)
+        request.onerror = () => reject(request.error)
         request.onsuccess = () => {
-          deletedFiles.push(fileToDelete);
-        };
+          deletedFiles.push(fileToDelete)
+        }
       }
 
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = () => reject(transaction.error)
       transaction.oncomplete = async () => {
-        await this.handlePostDeletion(projectId, deletedFiles, type === 'folder');
-        resolve();
-      };
-    });
+        await this.handlePostDeletion(projectId, deletedFiles, type === 'folder')
+        resolve()
+      }
+    })
   }
 
   /**
@@ -1293,33 +1295,33 @@ export class FileRepository {
    * @deprecated deleteFile を使用してください（フォルダを渡せば自動的に再帰削除されます）
    */
   async deleteFilesByPrefix(projectId: string, prefix: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) throw new Error('Database not initialized')
 
-    const deletedFiles: ProjectFile[] = [];
+    const deletedFiles: ProjectFile[] = []
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readwrite');
-      const store = transaction.objectStore('files');
-      const index = store.index('projectId');
-      const request = index.getAll(projectId);
+      const transaction = this.db!.transaction(['files'], 'readwrite')
+      const store = transaction.objectStore('files')
+      const index = store.index('projectId')
+      const request = index.getAll(projectId)
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        const files = request.result as ProjectFile[];
+        const files = request.result as ProjectFile[]
         for (const f of files) {
           if (f.path === prefix || f.path.startsWith(prefix + '/')) {
-            store.delete(f.id);
-            deletedFiles.push(f);
+            store.delete(f.id)
+            deletedFiles.push(f)
           }
         }
-      };
+      }
 
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = () => reject(transaction.error)
       transaction.oncomplete = async () => {
-        await this.handlePostDeletion(projectId, deletedFiles, true);
-        resolve();
-      };
-    });
+        await this.handlePostDeletion(projectId, deletedFiles, true)
+        resolve()
+      }
+    })
   }
 
   /**
@@ -1327,31 +1329,31 @@ export class FileRepository {
    * NOTE: filePathは自動的にAppPath形式に正規化される
    */
   async clearAIReview(projectId: string, filePath: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-    
+    if (!this.db) throw new Error('Database not initialized')
+
     // パスをAppPath形式に正規化
-    const normalizedPath = toAppPath(filePath);
+    const normalizedPath = toAppPath(filePath)
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readwrite');
-      const store = transaction.objectStore('files');
-      const index = store.index('projectId');
-      const request = index.getAll(projectId);
+      const transaction = this.db!.transaction(['files'], 'readwrite')
+      const store = transaction.objectStore('files')
+      const index = store.index('projectId')
+      const request = index.getAll(projectId)
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error)
       request.onsuccess = () => {
-        const files = request.result;
-        const file = files.find((f: ProjectFile) => f.path === normalizedPath);
+        const files = request.result
+        const file = files.find((f: ProjectFile) => f.path === normalizedPath)
 
         if (file) {
-          file.aiReviewStatus = undefined;
-          file.aiReviewComments = undefined;
-          store.put(file);
+          file.aiReviewStatus = undefined
+          file.aiReviewComments = undefined
+          store.put(file)
         }
 
-        resolve();
-      };
-    });
+        resolve()
+      }
+    })
   }
 
   /**
@@ -1360,9 +1362,9 @@ export class FileRepository {
    */
   async close(): Promise<void> {
     if (this.db) {
-      this.db.close();
-      this.db = null;      
-      console.log('[FileRepository] Database connection closed');
+      this.db.close()
+      this.db = null
+      console.log('[FileRepository] Database connection closed')
     }
   }
 }
@@ -1372,18 +1374,18 @@ export class FileRepository {
  * pathResolver の toGitPath を使用
  * @deprecated 直接 pathResolver の toGitPath を使用してください
  */
-const toGitPath = pathToGitPath;
+const toGitPath = pathToGitPath
 
 /**
  * Git API用パス → fileRepository用パスに変換
  * pathResolver の fromGitPath を使用
  * @deprecated 直接 pathResolver の fromGitPath を使用してください
  */
-const fromGitPath = pathFromGitPath;
+const fromGitPath = pathFromGitPath
 
 // エクスポート
-export const fileRepository = FileRepository.getInstance();
-export { normalizePath, getParentPath, toGitPath, fromGitPath };
+export const fileRepository = FileRepository.getInstance()
+export { normalizePath, getParentPath, toGitPath, fromGitPath }
 
 // 新しいパス解決モジュールを再エクスポート
-export * from './pathResolver';
+export * from './pathResolver'

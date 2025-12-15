@@ -1,71 +1,71 @@
-import { Search, X, FileText, ChevronDown, ChevronRight, File, Edit3, Repeat } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { Search, X, FileText, ChevronDown, ChevronRight, File, Edit3, Repeat } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { useSettings } from '@/hooks/useSettings';
-import { useTabStore } from '@/stores/tabStore';
-import { FileItem } from '@/types';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { useSettings } from '@/hooks/useSettings'
+import { useTabStore } from '@/stores/tabStore'
+import { FileItem } from '@/types'
+import { fileRepository } from '@/engine/core/fileRepository'
 
 interface SearchPanelProps {
-  files: FileItem[];
-  projectId: string; // 設定読み込み用
+  files: FileItem[]
+  projectId: string // 設定読み込み用
 }
 
 interface SearchResult {
-  file: FileItem;
-  line: number;
-  column: number;
-  content: string;
-  matchStart: number;
-  matchEnd: number;
+  file: FileItem
+  line: number
+  column: number
+  content: string
+  matchStart: number
+  matchEnd: number
 }
 
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const { openTab } = useTabStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [caseSensitive, setCaseSensitive] = useState(false);
-  const [wholeWord, setWholeWord] = useState(false);
-  const [useRegex, setUseRegex] = useState(false);
-  const [searchInFilenames, setSearchInFilenames] = useState(false);
-  const [replaceQuery, setReplaceQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const { isExcluded } = useSettings(projectId);
-  const minQueryLength = 2; // 最低何文字で検索を開始するか
-  const debounceDelay = 400; // ms
-  const searchTimer = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const workerRef = useRef<Worker | null>(null);
-  const searchIdRef = useRef(0);
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const { openTab } = useTabStore()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [caseSensitive, setCaseSensitive] = useState(false)
+  const [wholeWord, setWholeWord] = useState(false)
+  const [useRegex, setUseRegex] = useState(false)
+  const [searchInFilenames, setSearchInFilenames] = useState(false)
+  const [replaceQuery, setReplaceQuery] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const { isExcluded } = useSettings(projectId)
+  const minQueryLength = 2 // 最低何文字で検索を開始するか
+  const debounceDelay = 400 // ms
+  const searchTimer = useRef<number | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const workerRef = useRef<Worker | null>(null)
+  const searchIdRef = useRef(0)
 
   // 全ファイルを再帰的に取得（isExcludedを適用）
   const getAllFiles = (items: FileItem[]): FileItem[] => {
-    const result: FileItem[] = [];
+    const result: FileItem[] = []
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
           if (!isExcluded || !isExcluded(item.path)) {
-            result.push(item);
+            result.push(item)
           }
         } else if (item.children) {
-          traverse(item.children);
+          traverse(item.children)
         }
       }
-    };
-    traverse(items);
-    return result;
-  };
+    }
+    traverse(items)
+    return result
+  }
 
   // 検索実行
   const performSearch = (query: string) => {
     if (!query || !query.trim()) {
-      setSearchResults([]);
-      return;
+      setSearchResults([])
+      return
     }
 
     // initialize worker if needed
@@ -76,27 +76,27 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         // eslint-disable-next-line no-undef
         workerRef.current = new Worker(new URL('../../workers/searchWorker.ts', import.meta.url), {
           type: 'module',
-        });
+        })
 
         workerRef.current.onmessage = e => {
-          const msg = e.data;
-          if (!msg) return;
+          const msg = e.data
+          if (!msg) return
           if (msg.type === 'result') {
-            const id = msg.searchId;
-            if (id !== searchIdRef.current) return; // stale
-            setSearchResults(msg.results || []);
-            setIsSearching(false);
+            const id = msg.searchId
+            if (id !== searchIdRef.current) return // stale
+            setSearchResults(msg.results || [])
+            setIsSearching(false)
           }
-        };
+        }
       } catch (err) {
-        console.error('Failed to create search worker', err);
+        console.error('Failed to create search worker', err)
         // fallback to in-thread search (not implemented here)
       }
     }
 
-    setIsSearching(true);
+    setIsSearching(true)
     // bump searchId
-    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
+    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1)
 
     const allFiles = getAllFiles(files).map(f => ({
       id: f.id,
@@ -104,7 +104,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       name: f.name,
       content: f.content,
       isBufferArray: f.isBufferArray,
-    }));
+    }))
 
     try {
       workerRef.current?.postMessage({
@@ -113,184 +113,187 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         query,
         options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
         files: allFiles,
-      });
+      })
     } catch (err) {
-      console.error('Worker postMessage failed', err);
-      setIsSearching(false);
+      console.error('Worker postMessage failed', err)
+      setIsSearching(false)
     }
-  };
+  }
 
   // 検索クエリが変更された時の処理（デバウンス + min length）
   useEffect(() => {
     // clear any existing timer
     if (searchTimer.current) {
-      window.clearTimeout(searchTimer.current);
-      searchTimer.current = null;
+      window.clearTimeout(searchTimer.current)
+      searchTimer.current = null
     }
 
     if (!searchQuery || searchQuery.length < minQueryLength) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
+      setSearchResults([])
+      setIsSearching(false)
+      return
     }
 
-    setIsSearching(true);
+    setIsSearching(true)
     // schedule search after debounceDelay
     searchTimer.current = window.setTimeout(() => {
-      performSearch(searchQuery);
-    }, debounceDelay);
+      performSearch(searchQuery)
+    }, debounceDelay)
 
     return () => {
       if (searchTimer.current) {
-        window.clearTimeout(searchTimer.current);
-        searchTimer.current = null;
+        window.clearTimeout(searchTimer.current)
+        searchTimer.current = null
       }
       // cleanup worker
       if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
+        workerRef.current.terminate()
+        workerRef.current = null
       }
-    };
-  }, [searchQuery, caseSensitive, wholeWord, useRegex, files]);
+    }
+  }, [searchQuery, caseSensitive, wholeWord, useRegex, files])
 
   // flattened results for keyboard navigation
-  const flatResults = searchResults;
-  const currentSelected = flatResults[selectedIndex] || null;
+  const flatResults = searchResults
+  const currentSelected = flatResults[selectedIndex] || null
 
   useEffect(() => {
     // keep selection within bounds
     if (selectedIndex >= flatResults.length) {
-      setSelectedIndex(Math.max(0, flatResults.length - 1));
+      setSelectedIndex(Math.max(0, flatResults.length - 1))
     }
-  }, [flatResults.length]);
+  }, [flatResults.length])
 
   const handleResultClick = async (result: SearchResult) => {
     try {
       // fetch full file from repository to ensure content is available
-      const projId = projectId;
-      const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
+      const projId = projectId
+      const fileEntry = await fileRepository.getFileByPath(projId, result.file.path)
 
       // localStorageのpyxis-defaultEditorを参照しisCodeMirrorを明示的に付与
-      let isCodeMirror = false;
+      let isCodeMirror = false
       if (typeof window !== 'undefined') {
-        const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
-        isCodeMirror = defaultEditor === 'codemirror';
+        const defaultEditor = localStorage.getItem('pyxis-defaultEditor')
+        isCodeMirror = defaultEditor === 'codemirror'
       }
 
       const fileWithJump = {
         ...(fileEntry || result.file),
         isCodeMirror,
         isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
-        bufferContent: fileEntry ? (fileEntry as any).bufferContent : (result.file as any).bufferContent,
-      };
+        bufferContent: fileEntry
+          ? (fileEntry as any).bufferContent
+          : (result.file as any).bufferContent,
+      }
 
       // バイナリファイルの場合は binary タブで開く
-      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
+      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor'
       openTab(fileWithJump, {
         kind,
         jumpToLine: result.line,
         jumpToColumn: result.column,
-      });
+      })
     } catch (err) {
-      console.error('Failed to open file from search result', err);
+      console.error('Failed to open file from search result', err)
     }
-  };
+  }
 
   const handleReplaceResult = async (result: SearchResult, replacement: string) => {
     // allow empty replacement (deletion)
     try {
-      const projId = projectId;
-      const filePath = result.file.path;
+      const projId = projectId
+      const filePath = result.file.path
 
       if (result.line === 0) {
         // Skip filename/path replacement — renaming is not supported from search panel
-        console.info('Skipping filename replace from SearchPanel');
-        return;
+        console.info('Skipping filename replace from SearchPanel')
+        return
       } else {
-        const fileEntry = await fileRepository.getFileByPath(projId, filePath);
-        if (!fileEntry || typeof fileEntry.content !== 'string') throw new Error('file not found or not text');
-        const lines = fileEntry.content.split('\n');
-        const lineIdx = result.line - 1;
-        const line = lines[lineIdx] || '';
-        const before = line.substring(0, result.matchStart);
-        const after = line.substring(result.matchEnd);
-        lines[lineIdx] = before + replacement + after;
-        const updatedContent = lines.join('\n');
-        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-        await fileRepository.saveFile(updated);
+        const fileEntry = await fileRepository.getFileByPath(projId, filePath)
+        if (!fileEntry || typeof fileEntry.content !== 'string')
+          throw new Error('file not found or not text')
+        const lines = fileEntry.content.split('\n')
+        const lineIdx = result.line - 1
+        const line = lines[lineIdx] || ''
+        const before = line.substring(0, result.matchStart)
+        const after = line.substring(result.matchEnd)
+        lines[lineIdx] = before + replacement + after
+        const updatedContent = lines.join('\n')
+        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() }
+        await fileRepository.saveFile(updated)
       }
 
-      performSearch(searchQuery);
+      performSearch(searchQuery)
     } catch (e) {
-      console.error('Replace error', e);
+      console.error('Replace error', e)
     }
-  };
+  }
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
     // allow empty replacement (deletion)
     try {
-      const projId = projectId;
-      const fileEntry = await fileRepository.getFileByPath(projId, file.path);
-      if (!fileEntry || typeof fileEntry.content !== 'string') return;
-      const flags = caseSensitive ? 'g' : 'gi';
-      const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
-      const updatedContent = fileEntry.content.replace(regex, replacement);
-      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-      await fileRepository.saveFile(updated);
-      performSearch(searchQuery);
+      const projId = projectId
+      const fileEntry = await fileRepository.getFileByPath(projId, file.path)
+      if (!fileEntry || typeof fileEntry.content !== 'string') return
+      const flags = caseSensitive ? 'g' : 'gi'
+      const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags)
+      const updatedContent = fileEntry.content.replace(regex, replacement)
+      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() }
+      await fileRepository.saveFile(updated)
+      performSearch(searchQuery)
     } catch (e) {
-      console.error('Replace all error', e);
+      console.error('Replace all error', e)
     }
-  };
+  }
 
   const handleReplaceAllResults = async (replacement: string) => {
     try {
-      const flags = caseSensitive ? 'g' : 'gi';
-      const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
+      const flags = caseSensitive ? 'g' : 'gi'
+      const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags)
 
-      const filesUpdated = new Set<string>();
+      const filesUpdated = new Set<string>()
       for (const r of searchResults) {
-        const filePath = r.file.path;
-        if (filesUpdated.has(filePath)) continue;
-        const fileEntry = await fileRepository.getFileByPath(projectId, filePath);
-        if (!fileEntry || typeof fileEntry.content !== 'string') continue;
-        const updatedContent = fileEntry.content.replace(regex, replacement);
-        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-        await fileRepository.saveFile(updated);
-        filesUpdated.add(filePath);
+        const filePath = r.file.path
+        if (filesUpdated.has(filePath)) continue
+        const fileEntry = await fileRepository.getFileByPath(projectId, filePath)
+        if (!fileEntry || typeof fileEntry.content !== 'string') continue
+        const updatedContent = fileEntry.content.replace(regex, replacement)
+        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() }
+        await fileRepository.saveFile(updated)
+        filesUpdated.add(filePath)
       }
 
-      performSearch(searchQuery);
+      performSearch(searchQuery)
     } catch (e) {
-      console.error('Replace all results error', e);
+      console.error('Replace all results error', e)
     }
-  };
+  }
 
   const handleKeyDown = (e: any) => {
-    if (flatResults.length === 0) return;
+    if (flatResults.length === 0) return
     if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex(i => Math.min(flatResults.length - 1, i + 1));
-      return;
+      e.preventDefault()
+      setSelectedIndex(i => Math.min(flatResults.length - 1, i + 1))
+      return
     }
     if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex(i => Math.max(0, i - 1));
-      return;
+      e.preventDefault()
+      setSelectedIndex(i => Math.max(0, i - 1))
+      return
     }
     if (e.key === 'Enter') {
-      e.preventDefault();
-      const r = flatResults[selectedIndex];
-      if (r) handleResultClick(r);
+      e.preventDefault()
+      const r = flatResults[selectedIndex]
+      if (r) handleResultClick(r)
     }
-  };
+  }
 
   const highlightMatch = (content: string, matchStart: number, matchEnd: number) => {
-    const before = content.substring(0, matchStart);
-    const match = content.substring(matchStart, matchEnd);
-    const after = content.substring(matchEnd);
+    const before = content.substring(0, matchStart)
+    const match = content.substring(matchStart, matchEnd)
+    const after = content.substring(matchEnd)
     return (
       <>
         {before}
@@ -306,20 +309,20 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         </span>
         {after}
       </>
-    );
-  };
+    )
+  }
 
   const clearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-  };
+    setSearchQuery('')
+    setSearchResults([])
+  }
 
   // per-file collapsed state
-  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
+  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({})
 
   const toggleFileCollapse = (key: string) => {
-    setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+    setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   return (
     <div
@@ -351,12 +354,12 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                 if (e.key === 'Enter') {
                   // immediate search on Enter if query long enough
                   if (searchTimer.current) {
-                    window.clearTimeout(searchTimer.current);
-                    searchTimer.current = null;
+                    window.clearTimeout(searchTimer.current)
+                    searchTimer.current = null
                   }
                   if (searchQuery && searchQuery.length >= minQueryLength) {
-                    setIsSearching(true);
-                    performSearch(searchQuery);
+                    setIsSearching(true)
+                    performSearch(searchQuery)
                   }
                 }
               }}
@@ -483,10 +486,14 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
             <div style={{ display: 'flex', gap: '0.12rem' }}>
               <button
                 onClick={() => {
-                  const r = flatResults[selectedIndex];
-                  if (r && r.line !== 0) handleReplaceResult(r, replaceQuery);
+                  const r = flatResults[selectedIndex]
+                  if (r && r.line !== 0) handleReplaceResult(r, replaceQuery)
                 }}
-                title={currentSelected && currentSelected.line === 0 ? 'Replace not available for filename matches' : 'Replace'}
+                title={
+                  currentSelected && currentSelected.line === 0
+                    ? 'Replace not available for filename matches'
+                    : 'Replace'
+                }
                 disabled={!!(currentSelected && currentSelected.line === 0)}
                 style={{
                   padding: '0.12rem',
@@ -556,15 +563,15 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
             {/* Group results by file */}
             {Object.values(
               searchResults.reduce((acc: Record<string, SearchResult[]>, r) => {
-                const key = r.file.id || r.file.path;
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(r);
-                return acc;
+                const key = r.file.id || r.file.path
+                if (!acc[key]) acc[key] = []
+                acc[key].push(r)
+                return acc
               }, {})
             ).map((group: SearchResult[], gIdx) => {
-              const first = group[0];
-              const key = first.file.id || first.file.path;
-              const isCollapsed = !!collapsedFiles[key];
+              const first = group[0]
+              const key = first.file.id || first.file.path
+              const isCollapsed = !!collapsedFiles[key]
               return (
                 <div
                   key={`${key}-${gIdx}`}
@@ -581,8 +588,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     onClick={() => toggleFileCollapse(key)}
                     onKeyDown={e => {
                       if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        toggleFileCollapse(key);
+                        e.preventDefault()
+                        toggleFileCollapse(key)
                       }
                     }}
                     style={{
@@ -595,21 +602,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     }}
                   >
                     {isCollapsed ? (
-                      <ChevronRight
-                        size={14}
-                        color={colors.mutedFg}
-                      />
+                      <ChevronRight size={14} color={colors.mutedFg} />
                     ) : (
-                      <ChevronDown
-                        size={14}
-                        color={colors.mutedFg}
-                      />
+                      <ChevronDown size={14} color={colors.mutedFg} />
                     )}
-                    <FileText
-                      size={12}
-                      color={colors.primary}
-                      style={{ flexShrink: 0 }}
-                    />
+                    <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
                     <span
                       style={{
                         color: colors.foreground,
@@ -644,8 +641,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     {/* Replace all in file button */}
                     <button
                       onClick={e => {
-                        e.stopPropagation();
-                        handleReplaceAllInFile(first.file, replaceQuery);
+                        e.stopPropagation()
+                        handleReplaceAllInFile(first.file, replaceQuery)
                       }}
                       title="Replace all in file"
                       style={{
@@ -668,16 +665,23 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                   </div>
 
                   {!isCollapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem', paddingLeft: '0.8rem' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.12rem',
+                        paddingLeft: '0.8rem',
+                      }}
+                    >
                       {group.map((result, idx) => {
-                        const globalIndex = flatResults.indexOf(result);
-                        const isSelected = globalIndex === selectedIndex;
+                        const globalIndex = flatResults.indexOf(result)
+                        const isSelected = globalIndex === selectedIndex
                         return (
                           <div
                             key={`${result.file.id}-${result.line}-${idx}`}
                             onClick={() => {
-                              setSelectedIndex(globalIndex);
-                              handleResultClick(result);
+                              setSelectedIndex(globalIndex)
+                              handleResultClick(result)
                             }}
                             style={{
                               padding: '0.12rem',
@@ -689,9 +693,20 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                               gap: '0.32rem',
                             }}
                             onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-                            onMouseLeave={e => (e.currentTarget.style.background = isSelected ? colors.accentBg : 'transparent')}
+                            onMouseLeave={e =>
+                              (e.currentTarget.style.background = isSelected
+                                ? colors.accentBg
+                                : 'transparent')
+                            }
                           >
-                            <div style={{ display: 'flex', gap: '0.32rem', alignItems: 'center', flex: 1 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: '0.32rem',
+                                alignItems: 'center',
+                                flex: 1,
+                              }}
+                            >
                               <span
                                 style={{
                                   color: colors.mutedFg,
@@ -723,10 +738,14 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                             {/* per-result replace button (VSCode-like) */}
                             <button
                               onClick={e => {
-                                e.stopPropagation();
-                                if (result.line !== 0) handleReplaceResult(result, replaceQuery);
+                                e.stopPropagation()
+                                if (result.line !== 0) handleReplaceResult(result, replaceQuery)
                               }}
-                              title={result.line === 0 ? 'Replace not available for filename matches' : 'Replace'}
+                              title={
+                                result.line === 0
+                                  ? 'Replace not available for filename matches'
+                                  : 'Replace'
+                              }
                               disabled={result.line === 0}
                               style={{
                                 padding: '0.08rem',
@@ -743,16 +762,16 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                               <Edit3 size={12} />
                             </button>
                           </div>
-                        );
+                        )
                       })}
                     </div>
                   )}
                 </div>
-              );
+              )
             })}
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

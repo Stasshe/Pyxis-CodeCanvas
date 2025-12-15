@@ -9,20 +9,20 @@
  * Terminal側から渡される基本情報のみを含む
  * 実際にはExtensionManagerでExtensionContext全体とマージされる
  */
-import type { GetSystemModule } from './systemModuleTypes';
+import type { GetSystemModule } from './systemModuleTypes'
 
 export interface CommandContext {
   /** プロジェクト名 */
-  projectName: string;
+  projectName: string
 
   /** プロジェクトID (IndexedDB参照用) */
-  projectId: string;
+  projectId: string
 
   /** 現在のディレクトリ (絶対パス) */
-  currentDirectory: string;
+  currentDirectory: string
 
   /** ExtensionManagerによって拡張された追加プロパティ */
-  [key: string]: any;
+  [key: string]: any
 }
 
 /**
@@ -31,19 +31,19 @@ export interface CommandContext {
 /**
  * 実行時に渡されるコマンドコンテキスト (ExtensionManager によって getSystemModule 等が追加される)
  */
-export type CommandExecutionContext = CommandContext & { getSystemModule: GetSystemModule };
+export type CommandExecutionContext = CommandContext & { getSystemModule: GetSystemModule }
 
 /**
  * コマンドハンドラー
  */
-export type CommandHandler = (args: string[], context: CommandExecutionContext) => Promise<string>;
+export type CommandHandler = (args: string[], context: CommandExecutionContext) => Promise<string>
 
 /**
  * 登録されたコマンド情報
  */
 interface RegisteredCommand {
-  extensionId: string;
-  handler: CommandHandler;
+  extensionId: string
+  handler: CommandHandler
 }
 
 /**
@@ -52,7 +52,7 @@ interface RegisteredCommand {
  */
 export class CommandRegistry {
   /** 登録されたコマンド (commandName -> RegisteredCommand) */
-  private commands: Map<string, RegisteredCommand> = new Map();
+  private commands: Map<string, RegisteredCommand> = new Map()
 
   /**
    * コマンドを登録
@@ -60,28 +60,28 @@ export class CommandRegistry {
    */
   registerCommand(extensionId: string, commandName: string, handler: CommandHandler): () => void {
     if (this.commands.has(commandName)) {
-      const existing = this.commands.get(commandName);
+      const existing = this.commands.get(commandName)
       console.warn(
         `[CommandRegistry] Command "${commandName}" already registered by extension "${existing?.extensionId}". Overwriting...`
-      );
+      )
     }
 
-    this.commands.set(commandName, { extensionId, handler });
-    console.log(`[CommandRegistry] Command "${commandName}" registered by "${extensionId}"`);
+    this.commands.set(commandName, { extensionId, handler })
+    console.log(`[CommandRegistry] Command "${commandName}" registered by "${extensionId}"`)
 
     // アンサブスクライブ関数を返す
     return () => {
-      this.unregisterCommand(commandName);
-    };
+      this.unregisterCommand(commandName)
+    }
   }
 
   /**
    * コマンドを登録解除
    */
   unregisterCommand(commandName: string): void {
-    const removed = this.commands.delete(commandName);
+    const removed = this.commands.delete(commandName)
     if (removed) {
-      console.log(`[CommandRegistry] Command "${commandName}" unregistered`);
+      console.log(`[CommandRegistry] Command "${commandName}" unregistered`)
     }
   }
 
@@ -89,22 +89,22 @@ export class CommandRegistry {
    * 拡張機能が登録した全コマンドを削除
    */
   unregisterExtensionCommands(extensionId: string): void {
-    const toRemove: string[] = [];
+    const toRemove: string[] = []
 
     for (const [commandName, registered] of this.commands.entries()) {
       if (registered.extensionId === extensionId) {
-        toRemove.push(commandName);
+        toRemove.push(commandName)
       }
     }
 
     for (const commandName of toRemove) {
-      this.unregisterCommand(commandName);
+      this.unregisterCommand(commandName)
     }
 
     if (toRemove.length > 0) {
       console.log(
         `[CommandRegistry] Unregistered ${toRemove.length} commands from extension "${extensionId}"`
-      );
+      )
     }
   }
 
@@ -116,20 +116,20 @@ export class CommandRegistry {
     args: string[],
     context: CommandExecutionContext
   ): Promise<string> {
-    const registered = this.commands.get(commandName);
+    const registered = this.commands.get(commandName)
 
     if (!registered) {
-      throw new Error(`Command "${commandName}" is not registered`);
+      throw new Error(`Command "${commandName}" is not registered`)
     }
 
     try {
       console.log(
         `[CommandRegistry] Executing command "${commandName}" from extension "${registered.extensionId}"`
-      );
-      return await registered.handler(args, context);
+      )
+      return await registered.handler(args, context)
     } catch (error) {
-      console.error(`[CommandRegistry] Error executing command "${commandName}":`, error);
-      throw error;
+      console.error(`[CommandRegistry] Error executing command "${commandName}":`, error)
+      throw error
     }
   }
 
@@ -137,14 +137,14 @@ export class CommandRegistry {
    * コマンドが登録されているか確認
    */
   hasCommand(commandName: string): boolean {
-    return this.commands.has(commandName);
+    return this.commands.has(commandName)
   }
 
   /**
    * 登録されている全コマンド名を取得
    */
   getRegisteredCommands(): string[] {
-    return Array.from(this.commands.keys());
+    return Array.from(this.commands.keys())
   }
 
   /**
@@ -154,11 +154,11 @@ export class CommandRegistry {
     return Array.from(this.commands.entries()).map(([command, registered]) => ({
       command,
       extensionId: registered.extensionId,
-    }));
+    }))
   }
 }
 
 /**
  * グローバルインスタンス
  */
-export const commandRegistry = new CommandRegistry();
+export const commandRegistry = new CommandRegistry()

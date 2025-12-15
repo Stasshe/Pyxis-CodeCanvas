@@ -2,16 +2,16 @@
  * SettingsManager - .pyxis/settings.json の読み書きを管理
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
-import { PyxisSettings, DEFAULT_PYXIS_SETTINGS } from '@/types/settings';
+import { fileRepository } from '@/engine/core/fileRepository'
+import { PyxisSettings, DEFAULT_PYXIS_SETTINGS } from '@/types/settings'
 
-const SETTINGS_PATH = '/.pyxis/settings.json';
+const SETTINGS_PATH = '/.pyxis/settings.json'
 
 export class SettingsManager {
-  private static instance: SettingsManager | null = null;
-  private cache: Map<string, PyxisSettings> = new Map();
-  private listeners: Map<string, Set<(settings: PyxisSettings) => void>> = new Map();
-  private isUpdating: Map<string, boolean> = new Map(); // 循環参照防止フラグ
+  private static instance: SettingsManager | null = null
+  private cache: Map<string, PyxisSettings> = new Map()
+  private listeners: Map<string, Set<(settings: PyxisSettings) => void>> = new Map()
+  private isUpdating: Map<string, boolean> = new Map() // 循環参照防止フラグ
 
   private constructor() {
     // ファイル変更イベントを監視
@@ -20,18 +20,18 @@ export class SettingsManager {
         // 自分自身の更新でない場合のみリスナーに通知
         if (!this.isUpdating.get(event.projectId)) {
           this.loadSettings(event.projectId).then(settings => {
-            this.notifyListeners(event.projectId, settings);
-          });
+            this.notifyListeners(event.projectId, settings)
+          })
         }
       }
-    });
+    })
   }
 
   static getInstance(): SettingsManager {
     if (!SettingsManager.instance) {
-      SettingsManager.instance = new SettingsManager();
+      SettingsManager.instance = new SettingsManager()
     }
-    return SettingsManager.instance;
+    return SettingsManager.instance
   }
 
   /**
@@ -39,35 +39,35 @@ export class SettingsManager {
    */
   addListener(projectId: string, listener: (settings: PyxisSettings) => void): () => void {
     if (!this.listeners.has(projectId)) {
-      this.listeners.set(projectId, new Set());
+      this.listeners.set(projectId, new Set())
     }
-    this.listeners.get(projectId)!.add(listener);
+    this.listeners.get(projectId)!.add(listener)
 
     // アンサブスクライブ関数を返す
     return () => {
-      const listeners = this.listeners.get(projectId);
+      const listeners = this.listeners.get(projectId)
       if (listeners) {
-        listeners.delete(listener);
+        listeners.delete(listener)
         if (listeners.size === 0) {
-          this.listeners.delete(projectId);
+          this.listeners.delete(projectId)
         }
       }
-    };
+    }
   }
 
   /**
    * リスナーに通知
    */
   private notifyListeners(projectId: string, settings: PyxisSettings): void {
-    const listeners = this.listeners.get(projectId);
+    const listeners = this.listeners.get(projectId)
     if (listeners) {
       listeners.forEach(listener => {
         try {
-          listener(settings);
+          listener(settings)
         } catch (error) {
-          console.error('[SettingsManager] Listener error:', error);
+          console.error('[SettingsManager] Listener error:', error)
         }
-      });
+      })
     }
   }
 
@@ -77,26 +77,26 @@ export class SettingsManager {
   async loadSettings(projectId: string): Promise<PyxisSettings> {
     try {
       // Use path-based lookup to avoid reading the entire project file list
-      const settingsFile = await fileRepository.getFileByPath(projectId, SETTINGS_PATH);
+      const settingsFile = await fileRepository.getFileByPath(projectId, SETTINGS_PATH)
 
       if (!settingsFile || !settingsFile.content) {
         // 設定ファイルがない場合はデフォルトを作成
-        const defaultSettings = { ...DEFAULT_PYXIS_SETTINGS };
-        await this.saveSettings(projectId, defaultSettings);
-        this.cache.set(projectId, defaultSettings);
-        return defaultSettings;
+        const defaultSettings = { ...DEFAULT_PYXIS_SETTINGS }
+        await this.saveSettings(projectId, defaultSettings)
+        this.cache.set(projectId, defaultSettings)
+        return defaultSettings
       }
 
-      const settings = JSON.parse(settingsFile.content) as PyxisSettings;
+      const settings = JSON.parse(settingsFile.content) as PyxisSettings
 
       // デフォルト値とマージ（新しいプロパティが追加された場合に対応）
-      const mergedSettings = this.mergeWithDefaults(settings);
+      const mergedSettings = this.mergeWithDefaults(settings)
 
-      this.cache.set(projectId, mergedSettings);
-      return mergedSettings;
+      this.cache.set(projectId, mergedSettings)
+      return mergedSettings
     } catch (error) {
-      console.error('[SettingsManager] Failed to load settings:', error);
-      return DEFAULT_PYXIS_SETTINGS;
+      console.error('[SettingsManager] Failed to load settings:', error)
+      return DEFAULT_PYXIS_SETTINGS
     }
   }
 
@@ -106,32 +106,32 @@ export class SettingsManager {
   async saveSettings(projectId: string, settings: PyxisSettings): Promise<void> {
     try {
       // 循環参照防止フラグを立てる
-      this.isUpdating.set(projectId, true);
+      this.isUpdating.set(projectId, true)
 
-      const content = JSON.stringify(settings, null, 2);
+      const content = JSON.stringify(settings, null, 2)
 
       // .pyxisフォルダを作成（存在しない場合）
-      const pyxisFolder = await fileRepository.getFileByPath(projectId, '/.pyxis');
+      const pyxisFolder = await fileRepository.getFileByPath(projectId, '/.pyxis')
       if (!pyxisFolder) {
-        await fileRepository.createFile(projectId, '/.pyxis', '', 'folder');
+        await fileRepository.createFile(projectId, '/.pyxis', '', 'folder')
       }
 
       // settings.jsonを作成または更新
-      await fileRepository.createFile(projectId, SETTINGS_PATH, content, 'file');
+      await fileRepository.createFile(projectId, SETTINGS_PATH, content, 'file')
 
       // キャッシュを更新
-      this.cache.set(projectId, settings);
+      this.cache.set(projectId, settings)
 
       // リスナーに通知
-      this.notifyListeners(projectId, settings);
+      this.notifyListeners(projectId, settings)
     } catch (error) {
-      console.error('[SettingsManager] Failed to save settings:', error);
-      throw error;
+      console.error('[SettingsManager] Failed to save settings:', error)
+      throw error
     } finally {
       // フラグを下ろす
       setTimeout(() => {
-        this.isUpdating.set(projectId, false);
-      }, 100);
+        this.isUpdating.set(projectId, false)
+      }, 100)
     }
   }
 
@@ -142,12 +142,12 @@ export class SettingsManager {
     projectId: string,
     updates: Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>)
   ): Promise<void> {
-    const currentSettings = await this.loadSettings(projectId);
+    const currentSettings = await this.loadSettings(projectId)
 
-    const updateObj = typeof updates === 'function' ? updates(currentSettings) : updates;
+    const updateObj = typeof updates === 'function' ? updates(currentSettings) : updates
 
-    const newSettings = this.deepMerge(currentSettings, updateObj);
-    await this.saveSettings(projectId, newSettings);
+    const newSettings = this.deepMerge(currentSettings, updateObj)
+    await this.saveSettings(projectId, newSettings)
   }
 
   /**
@@ -155,9 +155,9 @@ export class SettingsManager {
    */
   clearCache(projectId?: string): void {
     if (projectId) {
-      this.cache.delete(projectId);
+      this.cache.delete(projectId)
     } else {
-      this.cache.clear();
+      this.cache.clear()
     }
   }
 
@@ -165,25 +165,25 @@ export class SettingsManager {
    * デフォルト値とマージ
    */
   private mergeWithDefaults(settings: Partial<PyxisSettings>): PyxisSettings {
-    return this.deepMerge(DEFAULT_PYXIS_SETTINGS, settings) as PyxisSettings;
+    return this.deepMerge(DEFAULT_PYXIS_SETTINGS, settings) as PyxisSettings
   }
 
   /**
    * ディープマージ
    */
   private deepMerge(target: any, source: any): any {
-    const result = { ...target };
+    const result = { ...target }
 
     for (const key in source) {
       if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = this.deepMerge(result[key] || {}, source[key]);
+        result[key] = this.deepMerge(result[key] || {}, source[key])
       } else {
-        result[key] = source[key];
+        result[key] = source[key]
       }
     }
 
-    return result;
+    return result
   }
 }
 
-export const settingsManager = SettingsManager.getInstance();
+export const settingsManager = SettingsManager.getInstance()

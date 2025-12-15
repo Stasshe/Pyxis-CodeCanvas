@@ -1,20 +1,20 @@
 // 変更ファイル一覧パネル
 
-'use client';
+'use client'
 
-import { FileCode } from 'lucide-react';
-import React from 'react';
+import { FileCode } from 'lucide-react'
+import React from 'react'
 
-import FileChangeItem from './FileChangeItem';
+import FileChangeItem from './FileChangeItem'
 
-import { useTheme } from '@/context/ThemeContext';
-import type { AIEditResponse } from '@/types';
+import { useTheme } from '@/context/ThemeContext'
+import type { AIEditResponse } from '@/types'
 
 interface ChangedFilesPanelProps {
-  changedFiles: AIEditResponse['changedFiles'];
-  onOpenReview: (filePath: string, originalContent: string, suggestedContent: string) => void;
-  onApplyChanges: (filePath: string, content: string) => void;
-  onDiscardChanges: (filePath: string) => void;
+  changedFiles: AIEditResponse['changedFiles']
+  onOpenReview: (filePath: string, originalContent: string, suggestedContent: string) => void
+  onApplyChanges: (filePath: string, content: string) => void
+  onDiscardChanges: (filePath: string) => void
 }
 
 export default function ChangedFilesPanel({
@@ -24,11 +24,11 @@ export default function ChangedFilesPanel({
   onDiscardChanges,
 }: ChangedFilesPanelProps) {
   // Always compact
-  const compact = true;
-  const { colors } = useTheme();
+  const compact = true
+  const { colors } = useTheme()
 
   if (changedFiles.length === 0) {
-    return null;
+    return null
   }
 
   return (
@@ -58,5 +58,5 @@ export default function ChangedFilesPanel({
         ))}
       </div>
     </div>
-  );
+  )
 }

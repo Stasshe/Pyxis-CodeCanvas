@@ -1,26 +1,26 @@
-'use client';
+'use client'
 
-import React from 'react';
-import { useTabStore } from '@/stores/tabStore';
-import { useTheme } from '@/context/ThemeContext';
+import React from 'react'
+import { useTabStore } from '@/stores/tabStore'
+import { useTheme } from '@/context/ThemeContext'
 
 interface BreadcrumbProps {
-  paneId: string;
+  paneId: string
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
-  const { getPane } = useTabStore();
-  const { colors } = useTheme();
+  const { getPane } = useTabStore()
+  const { colors } = useTheme()
 
-  const pane = getPane(paneId);
-  if (!pane) return null;
+  const pane = getPane(paneId)
+  if (!pane) return null
 
-  const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+  const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
 
-  if (!activeTab) return null;
+  if (!activeTab) return null
 
   // pathがない場合（welcomeタブなど）は表示しない、あるいは名前を表示する
-  const displayPath = activeTab.path || activeTab.name;
+  const displayPath = activeTab.path || activeTab.name
 
   return (
     <div
@@ -34,5 +34,5 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
     >
       <span className="truncate">{displayPath}</span>
     </div>
-  );
-};
+  )
+}

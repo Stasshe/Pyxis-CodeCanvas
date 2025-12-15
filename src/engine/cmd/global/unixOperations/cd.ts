@@ -1,4 +1,4 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
 /**
  * cd - カレントディレクトリを変更
@@ -16,43 +16,43 @@ import { UnixCommandBase } from './base';
  */
 export class CdCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<{ newDir: string; message: string }> {
-    const { positional } = this.parseOptions(args);
+    const { positional } = this.parseOptions(args)
 
-    let targetDir: string;
+    let targetDir: string
 
     if (positional.length === 0) {
       // 引数なしの場合はプロジェクトルートへ
-      targetDir = this.getProjectRoot();
+      targetDir = this.getProjectRoot()
     } else {
-      const dir = positional[0];
+      const dir = positional[0]
 
       // 特殊ケース: -（前のディレクトリ）は未実装
       if (dir === '-') {
-        throw new Error('cd: OLDPWD not set');
+        throw new Error('cd: OLDPWD not set')
       }
 
-      targetDir = this.normalizePath(this.resolvePath(dir));
+      targetDir = this.normalizePath(this.resolvePath(dir))
     }
 
     // プロジェクト外への移動を禁止
     if (!this.isWithinProject(targetDir)) {
-      throw new Error('cd: Permission denied - Cannot navigate outside project directory');
+      throw new Error('cd: Permission denied - Cannot navigate outside project directory')
     }
 
     // ディレクトリの存在確認
-    const exists = await this.exists(targetDir);
+    const exists = await this.exists(targetDir)
     if (!exists) {
-      throw new Error(`cd: ${positional[0] || '~'}: No such file or directory`);
+      throw new Error(`cd: ${positional[0] || '~'}: No such file or directory`)
     }
 
-    const isDir = await this.isDirectory(targetDir);
+    const isDir = await this.isDirectory(targetDir)
     if (!isDir) {
-      throw new Error(`cd: ${positional[0]}: Not a directory`);
+      throw new Error(`cd: ${positional[0]}: Not a directory`)
     }
 
     return {
       newDir: targetDir,
       message: '',
-    };
+    }
   }
 }

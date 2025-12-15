@@ -5,7 +5,12 @@
  * 基本的なパス正規化は pathResolver を使用
  */
 
-import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix, normalizeDotSegments } from '@/engine/core/pathResolver';
+import {
+  toAppPath,
+  fsPathToAppPath,
+  hasPrefix as pathHasPrefix,
+  normalizeDotSegments,
+} from '@/engine/core/pathResolver'
 
 /**
  * パスを正規化
@@ -23,23 +28,23 @@ import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix, normalizeDotSeg
  * normalizePath('./src/file.js') // → '/src/file.js'
  */
 export function normalizePath(path: string, projectName?: string): string {
-  let result: string;
-  
+  let result: string
+
   if (projectName) {
     // プロジェクトプレフィックスがある場合は fsPathToAppPath を使用
-    const prefix = `/projects/${projectName}`;
+    const prefix = `/projects/${projectName}`
     if (path.startsWith(prefix)) {
-      result = fsPathToAppPath(path, projectName);
+      result = fsPathToAppPath(path, projectName)
     } else {
-      result = toAppPath(path);
+      result = toAppPath(path)
     }
   } else {
     // それ以外は toAppPath で正規化
-    result = toAppPath(path);
+    result = toAppPath(path)
   }
 
   // . と .. を解決（POSIX準拠）
-  return normalizeDotSegments(result);
+  return normalizeDotSegments(result)
 }
 
 /**
@@ -50,8 +55,8 @@ export function normalizePath(path: string, projectName?: string): string {
  * getExtension('/src/component.tsx') // → '.tsx'
  */
 export function getExtension(path: string): string {
-  const match = path.match(/\.[^./]+$/);
-  return match ? match[0] : '';
+  const match = path.match(/\.[^./]+$/)
+  return match ? match[0] : ''
 }
 
 /**
@@ -61,11 +66,11 @@ export function getExtension(path: string): string {
  * replaceExtension('/src/index.ts', '.js') // → '/src/index.js'
  */
 export function replaceExtension(path: string, newExt: string): string {
-  const ext = getExtension(path);
+  const ext = getExtension(path)
   if (ext) {
-    return path.slice(0, -ext.length) + newExt;
+    return path.slice(0, -ext.length) + newExt
   }
-  return path + newExt;
+  return path + newExt
 }
 
 /**
@@ -76,9 +81,9 @@ export function replaceExtension(path: string, newExt: string): string {
  * dirname('/index.js') // → '/'
  */
 export function dirname(path: string): string {
-  const parts = path.split('/');
-  parts.pop();
-  return parts.join('/') || '/';
+  const parts = path.split('/')
+  parts.pop()
+  return parts.join('/') || '/'
 }
 
 /**
@@ -89,14 +94,14 @@ export function dirname(path: string): string {
  * basename('/src/utils/helper.js', '.js') // → 'helper'
  */
 export function basename(path: string, ext?: string): string {
-  const parts = path.split('/');
-  let name = parts[parts.length - 1] || '';
+  const parts = path.split('/')
+  let name = parts[parts.length - 1] || ''
 
   if (ext && name.endsWith(ext)) {
-    name = name.slice(0, -ext.length);
+    name = name.slice(0, -ext.length)
   }
 
-  return name;
+  return name
 }
 
 /**
@@ -109,27 +114,27 @@ export function basename(path: string, ext?: string): string {
 export function resolveRelative(basePath: string, relativePath: string): string {
   // 既に絶対パスなら返す
   if (relativePath.startsWith('/')) {
-    return relativePath;
+    return relativePath
   }
 
-  const baseDir = dirname(basePath);
-  const parts = baseDir.split('/').filter(Boolean);
-  const relParts = relativePath.split('/');
+  const baseDir = dirname(basePath)
+  const parts = baseDir.split('/').filter(Boolean)
+  const relParts = relativePath.split('/')
 
   for (const part of relParts) {
     if (part === '.') {
       // カレントディレクトリ（何もしない）
-      continue;
+      continue
     } else if (part === '..') {
       // 親ディレクトリ
-      parts.pop();
+      parts.pop()
     } else {
       // 通常のパス
-      parts.push(part);
+      parts.push(part)
     }
   }
 
-  return '/' + parts.join('/');
+  return '/' + parts.join('/')
 }
 
 /**
@@ -141,5 +146,5 @@ export function resolveRelative(basePath: string, relativePath: string): string 
  * isUnder('/lib/tools.js', '/src') // → false
  */
 export function isUnder(path: string, dir: string): boolean {
-  return pathHasPrefix(path, dir);
+  return pathHasPrefix(path, dir)
 }

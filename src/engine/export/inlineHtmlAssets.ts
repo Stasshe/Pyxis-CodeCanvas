@@ -10,32 +10,32 @@ export const inlineHtmlAssets = async (
   fileReader: (fullPath: string) => Promise<string>
 ): Promise<string> => {
   // index.htmlまたは最初のhtmlファイルを探す
-  let htmlFile = files.find(f => f.toLowerCase() === 'index.html');
+  let htmlFile = files.find(f => f.toLowerCase() === 'index.html')
   if (!htmlFile) {
-    htmlFile = files.find(f => f.endsWith('.html'));
+    htmlFile = files.find(f => f.endsWith('.html'))
   }
   if (!htmlFile) {
-    throw new Error('フォルダ内にHTMLファイルがありません。');
+    throw new Error('フォルダ内にHTMLファイルがありません。')
   }
-  const htmlPath = path + '/' + htmlFile;
-  const read = fileReader;
+  const htmlPath = path + '/' + htmlFile
+  const read = fileReader
 
-  let htmlContent = await read(htmlPath);
+  let htmlContent = await read(htmlPath)
 
   // ローカル判定関数
   const isLocal = (src: string) => {
-    return src.startsWith('.') || src.startsWith('/') || src.startsWith('..');
-  };
+    return src.startsWith('.') || src.startsWith('/') || src.startsWith('..')
+  }
 
   // CSS
-  const cssFiles = files.filter(f => f.endsWith('.css'));
-  let cssContent = '';
+  const cssFiles = files.filter(f => f.endsWith('.css'))
+  let cssContent = ''
   for (const css of cssFiles) {
     try {
-      const cssPath = path + '/' + css;
-      cssContent += (await read(cssPath)) + '\n';
+      const cssPath = path + '/' + css
+      cssContent += (await read(cssPath)) + '\n'
     } catch (err) {
-      console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
+      console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err)
     }
   }
   // ローカルCSSのみインライン化し、ローカルCSSの<link>タグは完全に削除
@@ -43,24 +43,24 @@ export const inlineHtmlAssets = async (
     /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>\s*/gi,
     (match: string, href: string) => {
       if (isLocal(href)) {
-        return '';
+        return ''
       }
-      return match;
+      return match
     }
-  );
+  )
   if (cssContent) {
-    htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`);
+    htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`)
   }
 
   // JS
-  const jsFiles = files.filter(f => f.endsWith('.js'));
-  let jsContent = '';
+  const jsFiles = files.filter(f => f.endsWith('.js'))
+  let jsContent = ''
   for (const js of jsFiles) {
     try {
-      const jsPath = path + '/' + js;
-      jsContent += (await read(jsPath)) + '\n';
+      const jsPath = path + '/' + js
+      jsContent += (await read(jsPath)) + '\n'
     } catch (err) {
-      console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);
+      console.error(`JSファイルの読み込みに失敗しました: ${js}`, err)
     }
   }
   // ローカルJSのみインライン化し、ローカルJSの<script>タグは完全に削除
@@ -68,14 +68,14 @@ export const inlineHtmlAssets = async (
     /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>\s*/gi,
     (match: string, src: string) => {
       if (isLocal(src)) {
-        return '';
+        return ''
       }
-      return match;
+      return match
     }
-  );
+  )
   if (jsContent) {
-    htmlContent = htmlContent.replace(/<\/body>/i, `<script>\n${jsContent}\n<\/script></body>`);
+    htmlContent = htmlContent.replace(/<\/body>/i, `<script>\n${jsContent}\n<\/script></body>`)
   }
 
-  return htmlContent;
-};
+  return htmlContent
+}

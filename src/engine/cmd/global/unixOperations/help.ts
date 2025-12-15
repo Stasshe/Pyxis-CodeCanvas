@@ -1,4 +1,4 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
 /**
  * help - ヘルプメッセージを表示
@@ -16,10 +16,10 @@ import { UnixCommandBase } from './base';
 export class HelpCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     if (args.length > 0) {
-      return this.getCommandHelp(args[0]);
+      return this.getCommandHelp(args[0])
     }
 
-    return this.getGeneralHelp();
+    return this.getGeneralHelp()
   }
 
   private getGeneralHelp(): string {
@@ -278,7 +278,7 @@ Node Runtime:
   - コマンド置換（$(cmd), \`cmd\`）でコマンド出力を埋め込み
   - シェルスクリプト（.sh）で複雑な処理を自動化
   - Tab キーでファイル名補完（実装予定）
-`;
+`
   }
 
   private getCommandHelp(command: string): string {
@@ -857,13 +857,13 @@ Node Runtime:
 
 機能:
   - js, tsの実行`,
-    };
-
-    const helpText = helpTexts[command];
-    if (helpText) {
-      return helpText;
     }
 
-    return `help: '${command}' に関するヘルプはありません。\n'help' で全コマンドのリストを表示します。`;
+    const helpText = helpTexts[command]
+    if (helpText) {
+      return helpText
+    }
+
+    return `help: '${command}' に関するヘルプはありません。\n'help' で全コマンドのリストを表示します。`
   }
 }

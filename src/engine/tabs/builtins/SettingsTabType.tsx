@@ -1,19 +1,19 @@
 // src/engine/tabs/builtins/SettingsTabType.tsx
-import React from 'react';
+import React from 'react'
 
-import { TabTypeDefinition, SettingsTab, TabComponentProps } from '../types';
+import { TabTypeDefinition, SettingsTab, TabComponentProps } from '../types'
 
-import ShortcutKeysTab from '@/components/Tab/ShortcutKeysTab';
+import ShortcutKeysTab from '@/components/Tab/ShortcutKeysTab'
 
 /**
  * 設定タブのコンポーネント
  */
 const SettingsTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
-  const settingsTab = tab as SettingsTab;
+  const settingsTab = tab as SettingsTab
 
   // settingsTypeに応じて異なるコンポーネントを返す
   if (settingsTab.settingsType === 'shortcuts') {
-    return <ShortcutKeysTab />;
+    return <ShortcutKeysTab />
   }
 
   // デフォルトは一般設定
@@ -22,8 +22,8 @@ const SettingsTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       <h2 className="text-xl font-bold mb-4">Settings</h2>
       <p>General settings panel (to be implemented)</p>
     </div>
-  );
-};
+  )
+}
 
 /**
  * 設定タブタイプの定義
@@ -37,8 +37,8 @@ export const SettingsTabType: TabTypeDefinition = {
   component: SettingsTabRenderer,
 
   createTab: (file, options): SettingsTab => {
-    const settingsType = file.settingsType || 'general';
-    const tabId = `settings:${settingsType}`;
+    const settingsType = file.settingsType || 'general'
+    const tabId = `settings:${settingsType}`
 
     return {
       id: tabId,
@@ -47,13 +47,11 @@ export const SettingsTabType: TabTypeDefinition = {
       path: `settings/${settingsType}`,
       paneId: options?.paneId || '',
       settingsType,
-    };
+    }
   },
 
   shouldReuseTab: (existingTab, newFile, options) => {
-    const existingSettings = existingTab as SettingsTab;
-    return (
-      existingSettings.settingsType === newFile.settingsType && existingTab.kind === 'settings'
-    );
+    const existingSettings = existingTab as SettingsTab
+    return existingSettings.settingsType === newFile.settingsType && existingTab.kind === 'settings'
   },
-};
+}

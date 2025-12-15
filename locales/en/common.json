@@ -210,11 +210,11 @@
     "generatingMermaid": "Generating Mermaid diagram...",
     "imageNotFound": "Image not found: {src}",
     "loadingImage": "Loading image...",
+    "mermaidPlaceholder": "Scroll to view Mermaid diagram",
     "preview": "Preview",
     "reset": "Reset",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out",
-    "mermaidPlaceholder": "Scroll to view Mermaid diagram"
+    "zoomOut": "Zoom out"
   },
   "menu": {
     "extensions": "Extensions",
@@ -236,6 +236,18 @@
     "openInPreview": "Open in Preview",
     "quickOpen": "Quick open",
     "searchPlaceholder": "Search by file/folder name or path..."
+  },
+  "paneNavigator": {
+    "activate": "Activate",
+    "close": "Close",
+    "deletePane": "Delete Pane",
+    "emptyPane": "Empty",
+    "navigate": "Navigate",
+    "splitHorizontal": "Split Horizontal",
+    "splitVertical": "Split Vertical",
+    "tab": "tab",
+    "tabs": "tabs",
+    "title": "Pane Navigator"
   },
   "projectModal": {
     "cancel": "Cancel",
@@ -338,18 +350,6 @@
       "highlightTheme": "Code Highlight",
       "title": "Theme"
     }
-  },
-  "paneNavigator": {
-    "title": "Pane Navigator",
-    "emptyPane": "Empty",
-    "splitVertical": "Split Vertical",
-    "splitHorizontal": "Split Horizontal",
-    "deletePane": "Delete Pane",
-    "navigate": "Navigate",
-    "activate": "Activate",
-    "close": "Close",
-    "tab": "tab",
-    "tabs": "tabs"
   },
   "tabBar": {
     "closeTab": "Close tab",

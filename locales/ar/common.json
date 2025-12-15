@@ -181,7 +181,7 @@
     "viewDiffReadonly": "عرض الفرق (للقراءة فقط)"
   },
   "gitHistory": {
-        "allFilesFiles": "جميع {count} الملفات",
+    "allFilesFiles": "جميع {count} الملفات",
     "allFilesScrollable": "جميع {count} الملفات (قابلة للتمرير)",
     "changedFiles": "الملفات المُعدلة:",
     "daysAgo": "منذ {days} أيام",
@@ -210,11 +210,11 @@
     "generatingMermaid": "جارٍ إنشاء مخطط Mermaid...",
     "imageNotFound": "الصورة غير موجودة: {src}",
     "loadingImage": "جارٍ تحميل الصورة...",
+    "mermaidPlaceholder": "قم بالتمرير لعرض مخطط Mermaid",
     "preview": "معاينة",
     "reset": "إعادة تعيين",
     "zoomIn": "تكبير",
-    "zoomOut": "تصغير",
-    "mermaidPlaceholder": "قم بالتمرير لعرض مخطط Mermaid"
+    "zoomOut": "تصغير"
   },
   "menu": {
     "extensions": "Extensions",

@@ -1,20 +1,20 @@
 // 変更ファイルアイテム
 
-'use client';
+'use client'
 
-import { FileCode, Eye, Check, X } from 'lucide-react';
-import React from 'react';
+import { FileCode, Eye, Check, X } from 'lucide-react'
+import React from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { calculateDiff } from '@/engine/ai/diffProcessor';
-import type { AIEditResponse } from '@/types';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { calculateDiff } from '@/engine/ai/diffProcessor'
+import type { AIEditResponse } from '@/types'
 
 interface FileChangeItemProps {
-  file: AIEditResponse['changedFiles'][0];
-  onOpenReview?: (filePath: string, originalContent: string, suggestedContent: string) => void;
-  onApply?: (filePath: string, content: string) => void;
-  onDiscard?: (filePath: string) => void;
+  file: AIEditResponse['changedFiles'][0]
+  onOpenReview?: (filePath: string, originalContent: string, suggestedContent: string) => void
+  onApply?: (filePath: string, content: string) => void
+  onDiscard?: (filePath: string) => void
 }
 
 export default function FileChangeItem({
@@ -24,18 +24,18 @@ export default function FileChangeItem({
   onDiscard,
 }: FileChangeItemProps) {
   // always compact
-  const compact = true;
-  const { colors } = useTheme();
-  const { t } = useTranslation();
+  const compact = true
+  const { colors } = useTheme()
+  const { t } = useTranslation()
 
   // use diff processor to compute a pure diff summary (added/removed/unchanged)
-  const diffLines = calculateDiff(file.originalContent, file.suggestedContent);
-  const added = diffLines.filter(l => l.type === 'added').length;
-  const removed = diffLines.filter(l => l.type === 'removed').length;
-  const unchanged = diffLines.filter(l => l.type === 'unchanged').length;
-  const originalLines = unchanged + removed;
-  const suggestedLines = unchanged + added;
-  const fileName = file.path.split('/').pop() || file.path;
+  const diffLines = calculateDiff(file.originalContent, file.suggestedContent)
+  const added = diffLines.filter(l => l.type === 'added').length
+  const removed = diffLines.filter(l => l.type === 'removed').length
+  const unchanged = diffLines.filter(l => l.type === 'unchanged').length
+  const originalLines = unchanged + removed
+  const suggestedLines = unchanged + added
+  const fileName = file.path.split('/').pop() || file.path
 
   return (
     <div
@@ -49,7 +49,11 @@ export default function FileChangeItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <FileCode size={14} style={{ color: colors.accent }} />
-            <span className={`font-mono font-medium text-xs truncate`} style={{ color: colors.foreground }} title={file.path}>
+            <span
+              className={`font-mono font-medium text-xs truncate`}
+              style={{ color: colors.foreground }}
+              title={file.path}
+            >
               {fileName}
             </span>
           </div>
@@ -91,10 +95,10 @@ export default function FileChangeItem({
         <button
           onClick={() => {
             if (onOpenReview) {
-              onOpenReview(file.path, file.originalContent, file.suggestedContent);
+              onOpenReview(file.path, file.originalContent, file.suggestedContent)
             } else {
               // ハンドラがない場合は no-op でログ出力（安全策）
-              console.warn('[FileChangeItem] onOpenReview handler not provided');
+              console.warn('[FileChangeItem] onOpenReview handler not provided')
             }
           }}
           className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all transition-transform active:scale-95 ${onOpenReview ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
@@ -114,9 +118,9 @@ export default function FileChangeItem({
         <button
           onClick={() => {
             if (onApply) {
-              onApply(file.path, file.suggestedContent);
+              onApply(file.path, file.suggestedContent)
             } else {
-              console.warn('[FileChangeItem] onApply handler not provided');
+              console.warn('[FileChangeItem] onApply handler not provided')
             }
           }}
           className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all transition-transform active:scale-95 active:bg-opacity-80 ${onApply ? 'hover:opacity-90' : 'opacity-50 cursor-not-allowed'}`}
@@ -135,9 +139,9 @@ export default function FileChangeItem({
         <button
           onClick={() => {
             if (onDiscard) {
-              onDiscard(file.path);
+              onDiscard(file.path)
             } else {
-              console.warn('[FileChangeItem] onDiscard handler not provided');
+              console.warn('[FileChangeItem] onDiscard handler not provided')
             }
           }}
           className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all transition-transform active:scale-95 ${onDiscard ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
@@ -154,5 +158,5 @@ export default function FileChangeItem({
         </button>
       </div>
     </div>
-  );
+  )
 }

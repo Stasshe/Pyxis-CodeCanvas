@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
+import { useTranslation } from '@/context/I18nContext'
 
 export default function WelcomeTab() {
-  const { t } = useTranslation();
-  const [isDevServer, setIsDevServer] = useState(false);
-  const [lang, setLang] = useState<'en' | 'ja'>('en');
+  const { t } = useTranslation()
+  const [isDevServer, setIsDevServer] = useState(false)
+  const [lang, setLang] = useState<'en' | 'ja'>('en')
   return (
     <div
       className="h-full flex flex-col items-center text-muted-foreground overflow-hidden"
@@ -152,5 +152,5 @@ export default function WelcomeTab() {
         </div>
       </div>
     </div>
-  );
+  )
 }

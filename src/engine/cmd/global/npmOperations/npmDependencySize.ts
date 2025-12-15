@@ -11,52 +11,52 @@ export async function calculateDependencySize(
 ): Promise<number> {
   try {
     if (installedPackages.has(packageName)) {
-      return 0; // Skip already installed packages
+      return 0 // Skip already installed packages
     }
 
-    const response = await fetch(`https://registry.npmjs.org/${packageName}`);
+    const response = await fetch(`https://registry.npmjs.org/${packageName}`)
     if (!response.ok) {
-      throw new Error(`Failed to fetch package info for ${packageName}`);
+      throw new Error(`Failed to fetch package info for ${packageName}`)
     }
 
-    const packageData = await response.json();
-    const latestVersion = packageData['dist-tags'].latest;
-    const tarballUrl = packageData.versions[latestVersion].dist.tarball;
+    const packageData = await response.json()
+    const latestVersion = packageData['dist-tags'].latest
+    const tarballUrl = packageData.versions[latestVersion].dist.tarball
 
     // Debugging: Log tarball URL
-    console.log(`Fetching tarball size for: ${tarballUrl}`);
+    console.log(`Fetching tarball size for: ${tarballUrl}`)
 
     // Fetch tarball size using GET request if HEAD fails
     const tarballSize = await fetch(tarballUrl, { method: 'HEAD' })
       .then(res => {
-        const contentLength = res.headers.get('Content-Length');
+        const contentLength = res.headers.get('Content-Length')
         if (contentLength) {
-          return parseInt(contentLength, 10);
+          return parseInt(contentLength, 10)
         } else {
-          console.warn(`Content-Length missing for ${tarballUrl}, falling back to GET request.`);
+          console.warn(`Content-Length missing for ${tarballUrl}, falling back to GET request.`)
           return fetch(tarballUrl)
             .then(getRes => getRes.body?.getReader().read())
             .then(result => result?.value?.length || 0)
-            .catch(() => 0);
+            .catch(() => 0)
         }
       })
       .catch(error => {
-        console.error(`Failed to fetch tarball size for ${tarballUrl}:`, error);
-        return 0;
-      });
+        console.error(`Failed to fetch tarball size for ${tarballUrl}:`, error)
+        return 0
+      })
 
-    installedPackages.add(packageName); // Mark this package as installed
+    installedPackages.add(packageName) // Mark this package as installed
 
-    const dependencies = packageData.versions[latestVersion].dependencies || {};
-    let totalSize = tarballSize;
+    const dependencies = packageData.versions[latestVersion].dependencies || {}
+    let totalSize = tarballSize
 
     for (const depName of Object.keys(dependencies)) {
-      totalSize += await calculateDependencySize(depName, installedPackages);
+      totalSize += await calculateDependencySize(depName, installedPackages)
     }
 
-    return totalSize / 1024; // Convert bytes to kilobytes
+    return totalSize / 1024 // Convert bytes to kilobytes
   } catch (error) {
-    console.error(`Error calculating dependency size for ${packageName}:`, error);
-    throw new Error(`Error calculating dependency size: ${(error as Error).message}`);
+    console.error(`Error calculating dependency size for ${packageName}:`, error)
+    throw new Error(`Error calculating dependency size: ${(error as Error).message}`)
   }
 }

@@ -15,14 +15,14 @@
  * `extensions/_shared/types.ts` (the extension-facing, stable surface).
  */
 
-import type { CommandHandler } from './commandRegistry';
+import type { CommandHandler } from './commandRegistry'
 import type {
   CreateTabOptions,
   UpdateTabOptions,
   TabCloseCallback,
   ExtensionTabData,
-} from './system-api/TabAPI';
-import type { SystemModuleMap } from './systemModuleTypes';
+} from './system-api/TabAPI'
+import type { SystemModuleMap } from './systemModuleTypes'
 
 /**
  * 拡張機能の種類
@@ -65,47 +65,47 @@ export enum ExtensionStatus {
  */
 export interface ExtensionManifest {
   /** 拡張機能の一意なID (例: "pyxis.typescript-runtime") */
-  id: string;
+  id: string
   /** 表示名 */
-  name: string;
+  name: string
   /** バージョン (semver) */
-  version: string;
+  version: string
   /** 種類 */
-  type: ExtensionType;
+  type: ExtensionType
   /** 説明 */
-  description: string;
+  description: string
   /** 作者 */
-  author: string;
+  author: string
   /** アイコンURL (オプション) */
-  icon?: string;
+  icon?: string
   /** ホームページURL (オプション) */
-  homepage?: string;
+  homepage?: string
   /** 依存する他の拡張機能のID (オプション) */
-  dependencies?: string[];
+  dependencies?: string[]
   /** エントリーポイント (相対パス) */
-  entry: string;
+  entry: string
   /** 追加で必要なファイル (オプション) */
-  files?: string[];
+  files?: string[]
   /** 同じグループで同時に1つのみ有効化を許可 (例: "lang-pack") */
-  onlyOne?: string;
+  onlyOne?: string
   /** パックグループ情報 (UIでグループ化表示する際に使用) */
   packGroup?: {
     /** グループID (例: "language-packs") */
-    id: string;
+    id: string
     /** グループ名 (例: "Language Packs") */
-    name: string;
-  };
+    name: string
+  }
   /** メタデータ */
   metadata: {
     /** 公開日 */
-    publishedAt: string;
+    publishedAt: string
     /** 更新日 */
-    updatedAt: string;
+    updatedAt: string
     /** ダウンロード数 (オプション) */
-    downloads?: number;
+    downloads?: number
     /** タグ */
-    tags?: string[];
-  };
+    tags?: string[]
+  }
 }
 
 /**
@@ -113,26 +113,26 @@ export interface ExtensionManifest {
  */
 export interface InstalledExtension {
   /** マニフェスト */
-  manifest: ExtensionManifest;
+  manifest: ExtensionManifest
   /** 状態 */
-  status: ExtensionStatus;
+  status: ExtensionStatus
   /** インストール日時 */
-  installedAt: number;
+  installedAt: number
   /** 最終更新日時 */
-  updatedAt: number;
+  updatedAt: number
   /** 有効化されているか */
-  enabled: boolean;
+  enabled: boolean
   /** エラーメッセージ (エラー時) */
-  error?: string;
+  error?: string
   /** コードとファイルのキャッシュ */
   cache: {
     /** エントリーポイントのコード */
-    entryCode: string;
+    entryCode: string
     /** 追加ファイルのコード (ファイルパス -> コード) */
-    files?: Record<string, string | Blob>;
+    files?: Record<string, string | Blob>
     /** キャッシュ日時 */
-    cachedAt: number;
-  };
+    cachedAt: number
+  }
 }
 
 /**
@@ -140,20 +140,20 @@ export interface InstalledExtension {
  */
 export interface ExtensionRegistry {
   /** レジストリのバージョン */
-  version: string;
+  version: string
   /** 最終更新日時 */
-  updatedAt: string;
+  updatedAt: string
   /** 利用可能な拡張機能のリスト */
   extensions: Array<{
     /** 拡張機能のID */
-    id: string;
+    id: string
     /** マニフェストURL (相対パス) */
-    manifestUrl: string;
+    manifestUrl: string
     /** 種類 */
-    type: ExtensionType;
+    type: ExtensionType
     /** デフォルトで有効 (オプション) */
-    defaultEnabled?: boolean;
-  }>;
+    defaultEnabled?: boolean
+  }>
 }
 
 /**
@@ -164,81 +164,84 @@ export interface ExtensionRegistry {
  */
 export interface ExtensionContext {
   /** 拡張機能のID */
-  extensionId: string;
+  extensionId: string
   /** 拡張機能のパス */
-  extensionPath: string;
+  extensionPath: string
   /** バージョン */
-  version: string;
+  version: string
 
   /** Logger API */
   logger: {
-    info: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-  };
+    info: (...args: unknown[]) => void
+    warn: (...args: unknown[]) => void
+    error: (...args: unknown[]) => void
+  }
 
   /** システムモジュールへのアクセス (型安全) */
-  getSystemModule: <T extends keyof SystemModuleMap>(moduleName: T) => Promise<SystemModuleMap[T]>;
+  getSystemModule: <T extends keyof SystemModuleMap>(moduleName: T) => Promise<SystemModuleMap[T]>
 
   /** トランスパイラーを登録（transpiler拡張機能用） */
   registerTranspiler?: (config: {
-    id: string;
-    supportedExtensions: string[];
-    needsTranspile?: (filePath: string) => boolean;
-    transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
-  }) => Promise<void>;
+    id: string
+    supportedExtensions: string[]
+    needsTranspile?: (filePath: string) => boolean
+    transpile: (
+      code: string,
+      options: any
+    ) => Promise<{ code: string; map?: string; dependencies?: string[] }>
+  }) => Promise<void>
 
   /** ランタイムを登録（language-runtime拡張機能用） */
   registerRuntime?: (config: {
-    id: string;
-    name: string;
-    supportedExtensions: string[];
-    canExecute: (filePath: string) => boolean;
-    initialize?: (projectId: string, projectName: string) => Promise<void>;
-    execute: (options: any) => Promise<any>;
-    executeCode?: (code: string, options: any) => Promise<any>;
-    clearCache?: () => void;
-    dispose?: () => Promise<void>;
-    isReady?: () => boolean;
-  }) => Promise<void>;
+    id: string
+    name: string
+    supportedExtensions: string[]
+    canExecute: (filePath: string) => boolean
+    initialize?: (projectId: string, projectName: string) => Promise<void>
+    execute: (options: any) => Promise<any>
+    executeCode?: (code: string, options: any) => Promise<any>
+    clearCache?: () => void
+    dispose?: () => Promise<void>
+    isReady?: () => boolean
+  }) => Promise<void>
 
   /** 他の拡張機能との通信 (オプション・未実装) */
   messaging?: {
-    send: (targetId: string, message: unknown) => Promise<unknown>;
-    onMessage: (handler: (message: unknown) => unknown) => void;
-  };
+    send: (targetId: string, message: unknown) => Promise<unknown>
+    onMessage: (handler: (message: unknown) => unknown) => void
+  }
 
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
   tabs: {
-    registerTabType: (component: any) => void;
-    createTab: (options: CreateTabOptions) => string;
-    updateTab: (tabId: string, options: UpdateTabOptions) => boolean;
-    closeTab: (tabId: string) => boolean;
-    onTabClose: (tabId: string, callback: TabCloseCallback) => void;
-    getTabData: <T = ExtensionTabData>(tabId: string) => T | null;
+    registerTabType: (component: any) => void
+    createTab: (options: CreateTabOptions) => string
+    updateTab: (tabId: string, options: UpdateTabOptions) => boolean
+    closeTab: (tabId: string) => boolean
+    onTabClose: (tabId: string, callback: TabCloseCallback) => void
+    getTabData: <T = ExtensionTabData>(tabId: string) => T | null
     openSystemTab: (
       file: any,
       options?: {
-        kind?: string;
-        jumpToLine?: number;
-        jumpToColumn?: number;
-        activateAfterOpen?: boolean;
+        kind?: string
+        jumpToLine?: number
+        jumpToColumn?: number
+        activateAfterOpen?: boolean
       }
-    ) => void;
-  };
+    ) => void
+  }
 
   /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
   sidebar: {
-    createPanel: (definition: SidebarPanelDefinition) => void;
-    updatePanel: (panelId: string, state: any) => void;
-    removePanel: (panelId: string) => void;
-    onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
-  };
+    createPanel: (definition: SidebarPanelDefinition) => void
+    updatePanel: (panelId: string, state: any) => void
+    removePanel: (panelId: string) => void
+    onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void
+  }
 
   /** Commands API - 拡張機能がターミナルコマンドを追加 */
   commands: {
-    registerCommand: (commandName: string, handler: CommandHandler) => () => void;
-  };
+    registerCommand: (commandName: string, handler: CommandHandler) => () => void
+  }
 }
 
 /**
@@ -246,15 +249,15 @@ export interface ExtensionContext {
  */
 export interface SidebarPanelDefinition {
   /** パネルID (拡張機能内で一意) */
-  id: string;
+  id: string
   /** パネルタイトル */
-  title: string;
+  title: string
   /** パネルアイコン (Lucide React icon name) */
-  icon: string;
+  icon: string
   /** パネルコンポーネント */
-  component: React.ComponentType<any>;
+  component: React.ComponentType<any>
   /** 初期状態 (オプション) */
-  initialState?: any;
+  initialState?: any
 }
 
 /**
@@ -262,9 +265,9 @@ export interface SidebarPanelDefinition {
  */
 export interface ExtensionExports {
   /** アクティベーション関数 (拡張が有効化された時に呼ばれる) */
-  activate: (context: ExtensionContext) => Promise<ExtensionActivation>;
+  activate: (context: ExtensionContext) => Promise<ExtensionActivation>
   /** デアクティベーション関数 (拡張が無効化された時に呼ばれる) */
-  deactivate?: () => Promise<void>;
+  deactivate?: () => Promise<void>
 }
 
 /**
@@ -272,19 +275,19 @@ export interface ExtensionExports {
  */
 export interface ExtensionActivation {
   /** ビルトインモジュールの実装 (builtin-moduleタイプの拡張機能のみ) */
-  builtInModules?: Record<string, unknown>;
+  builtInModules?: Record<string, unknown>
 
   /** Runtime機能の実装 (transpilerタイプの拡張機能のみ) */
   runtimeFeatures?: {
     /** TypeScript等のトランスパイラ */
-    transpiler?: (code: string, options: unknown) => Promise<{ code: string }>;
+    transpiler?: (code: string, options: unknown) => Promise<{ code: string }>
     /** その他のRuntime拡張 */
-    [key: string]: unknown;
-  };
+    [key: string]: unknown
+  }
 
   /** サービスの実装 (serviceタイプの拡張機能のみ。現在は language-pack のみ使用) */
-  services?: Record<string, unknown>;
+  services?: Record<string, unknown>
 
   /** その他のAPI */
-  [key: string]: unknown;
+  [key: string]: unknown
 }

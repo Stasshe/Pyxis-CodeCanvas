@@ -1,41 +1,34 @@
 // Ask/Edit モード切り替えコンポーネント
 
-'use client';
+'use client'
 
-import { MessageCircle, FileEdit } from 'lucide-react';
-import React from 'react';
+import { MessageCircle, FileEdit } from 'lucide-react'
+import React from 'react'
 
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext'
 
 interface ModeSelectorProps {
-  mode: 'ask' | 'edit';
-  onChange: (mode: 'ask' | 'edit') => void;
-  disabled?: boolean;
+  mode: 'ask' | 'edit'
+  onChange: (mode: 'ask' | 'edit') => void
+  disabled?: boolean
 }
 
-export default function ModeSelector({
-  mode,
-  onChange,
-  disabled = false,
-}: ModeSelectorProps) {
-  const { colors } = useTheme();
+export default function ModeSelector({ mode, onChange, disabled = false }: ModeSelectorProps) {
+  const { colors } = useTheme()
 
   const modes = [
     { value: 'ask' as const, label: 'Ask', icon: MessageCircle, description: '質問・相談' },
     { value: 'edit' as const, label: 'Edit', icon: FileEdit, description: 'コード編集' },
-  ];
+  ]
 
   // 固定で small 振る舞いにする
-  const sizeClass = 'gap-0.5 p-0.5 rounded-md';
-  const btnPad = 'px-2 py-1';
-  const iconSize = 13;
-  const fontSize = 'text-xs';
+  const sizeClass = 'gap-0.5 p-0.5 rounded-md'
+  const btnPad = 'px-2 py-1'
+  const iconSize = 13
+  const fontSize = 'text-xs'
 
   return (
-    <div
-      className={`flex ${sizeClass} select-none`}
-      style={{ background: colors.mutedBg }}
-    >
+    <div className={`flex ${sizeClass} select-none`} style={{ background: colors.mutedBg }}>
       {modes.map(({ value, label, icon: Icon, description }) => (
         <button
           key={value}
@@ -44,7 +37,7 @@ export default function ModeSelector({
           className={`flex-1 flex items-center justify-center gap-1 ${btnPad} rounded ${
             mode === value ? 'shadow-sm' : 'hover:bg-opacity-50'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            style={{
+          style={{
             background: mode === value ? colors.accent : 'transparent',
             color: mode === value ? colors.accentFg : colors.mutedFg,
             minWidth: 56,
@@ -63,5 +56,5 @@ export default function ModeSelector({
         </button>
       ))}
     </div>
-  );
+  )
 }

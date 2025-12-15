@@ -20,7 +20,7 @@ const binaryExts = [
   '.mp4',
   '.webm',
   '.ogg',
-] as const;
+] as const
 
 const mimeMap: Record<string, string> = {
   '.png': 'image/png',
@@ -38,60 +38,60 @@ const mimeMap: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.ogg': 'audio/ogg',
-};
+}
 
 export function isBinaryExt(filePath: string): boolean {
-  const lower = (filePath || '').toLowerCase();
-  return binaryExts.some(e => lower.endsWith(e));
+  const lower = (filePath || '').toLowerCase()
+  return binaryExts.some(e => lower.endsWith(e))
 }
 
 export function extToMime(ext: string): string {
-  return mimeMap[ext] || 'application/octet-stream';
+  return mimeMap[ext] || 'application/octet-stream'
 }
 
 export function toDataUrlFromUint8(uint8: Uint8Array, filePath?: string): string {
   // convert to base64 in chunks to avoid stack limits
-  let binary = '';
-  const chunkSize = 0x8000;
+  let binary = ''
+  const chunkSize = 0x8000
   for (let i = 0; i < uint8.length; i += chunkSize) {
-    const chunk = uint8.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk as any));
+    const chunk = uint8.subarray(i, i + chunkSize)
+    binary += String.fromCharCode.apply(null, Array.from(chunk as any))
   }
-  const base64 = btoa(binary);
-  let mime = 'application/octet-stream';
+  const base64 = btoa(binary)
+  let mime = 'application/octet-stream'
   if (filePath) {
-    const lower = filePath.toLowerCase();
-    const ext = binaryExts.find(e => lower.endsWith(e)) || '';
-    mime = extToMime(ext);
+    const lower = filePath.toLowerCase()
+    const ext = binaryExts.find(e => lower.endsWith(e)) || ''
+    mime = extToMime(ext)
   }
-  return `data:${mime};base64,${base64}`;
+  return `data:${mime};base64,${base64}`
 }
 
 export function dataUrlToBlob(dataUrl: string): Blob {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
-  if (!match) throw new Error('Invalid data URL');
-  const mime = match[1];
-  const base64 = match[2];
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
+  const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/)
+  if (!match) throw new Error('Invalid data URL')
+  const mime = match[1]
+  const base64 = match[2]
+  const binary = atob(base64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
 }
 
-export { binaryExts };
+export { binaryExts }
 
 export function uint8ToBlob(uint8: Uint8Array, filePath?: string): Blob {
-  let mime = 'application/octet-stream';
+  let mime = 'application/octet-stream'
   if (filePath) {
-    const lower = filePath.toLowerCase();
-    const ext = binaryExts.find(e => lower.endsWith(e)) || '';
-    mime = extToMime(ext);
+    const lower = filePath.toLowerCase()
+    const ext = binaryExts.find(e => lower.endsWith(e)) || ''
+    mime = extToMime(ext)
   }
   // Ensure we pass an ArrayBuffer (not the entire underlying buffer)
   const ab = uint8.buffer.slice(
     uint8.byteOffset,
     uint8.byteOffset + uint8.byteLength
-  ) as unknown as ArrayBuffer;
-  return new Blob([ab], { type: mime });
+  ) as unknown as ArrayBuffer
+  return new Blob([ab], { type: mime })
 }

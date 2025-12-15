@@ -3,35 +3,35 @@
  * 翻訳キーの解決と変数の補間
  */
 
-import type { TranslationKey, TranslateOptions } from './types';
+import type { TranslationKey, TranslateOptions } from './types'
 
 /**
  * ネストされたオブジェクトから指定されたパスの値を取得
  */
 function getNestedValue(obj: Record<string, unknown>, path: string): string | undefined {
-  const keys = path.split('.');
-  let current: unknown = obj;
+  const keys = path.split('.')
+  let current: unknown = obj
 
   for (const key of keys) {
     if (current && typeof current === 'object' && key in current) {
-      current = (current as Record<string, unknown>)[key];
+      current = (current as Record<string, unknown>)[key]
     } else {
-      return undefined;
+      return undefined
     }
   }
 
-  return typeof current === 'string' ? current : undefined;
+  return typeof current === 'string' ? current : undefined
 }
 
 /**
  * 変数を補間する（例: "Hello {name}" + {name: "World"} => "Hello World"）
  */
 function interpolate(text: string, params?: Record<string, string | number>): string {
-  if (!params) return text;
+  if (!params) return text
 
   return text.replace(/\{(\w+)\}/g, (match, key) => {
-    return key in params ? String(params[key]) : match;
-  });
+    return key in params ? String(params[key]) : match
+  })
 }
 
 /**
@@ -40,24 +40,24 @@ function interpolate(text: string, params?: Record<string, string | number>): st
 export function createTranslator(translations: Record<string, unknown>) {
   return (key: TranslationKey, options?: TranslateOptions): string => {
     // 翻訳を取得
-    let text = getNestedValue(translations, key);
+    let text = getNestedValue(translations, key)
 
     // 翻訳が見つからない場合
     if (text === undefined) {
       if (options?.fallback) {
-        text = options.fallback;
+        text = options.fallback
       } else if (options?.defaultValue) {
-        text = options.defaultValue;
+        text = options.defaultValue
       } else {
         // デフォルト: キーをそのまま返す
         // console.warn(`[i18n] Translation not found: ${key}`);
-        return key;
+        return key
       }
     }
 
     // 変数を補間
-    return interpolate(text, options?.params);
-  };
+    return interpolate(text, options?.params)
+  }
 }
 
 /**
@@ -69,6 +69,6 @@ export function translatePlural(
   count: number,
   params?: Record<string, string | number>
 ): string {
-  const text = count === 1 ? singular : plural;
-  return interpolate(text, { ...params, count });
+  const text = count === 1 ? singular : plural
+  return interpolate(text, { ...params, count })
 }

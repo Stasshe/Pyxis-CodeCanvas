@@ -1,82 +1,82 @@
 // 統合AIパネル - GitHub Copilot風
 
-'use client';
+'use client'
 
-import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare, Terminal, X } from 'lucide-react';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare, Terminal, X } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
-import ChatContainer from './chat/ChatContainer';
-import ChatInput from './chat/ChatInput';
-import ModeSelector from './chat/ModeSelector';
-import FileSelector from './FileSelector';
-import ChangedFilesPanel from './review/ChangedFilesPanel';
+import ChatContainer from './chat/ChatContainer'
+import ChatInput from './chat/ChatInput'
+import ModeSelector from './chat/ModeSelector'
+import FileSelector from './FileSelector'
+import ChangedFilesPanel from './review/ChangedFilesPanel'
 
-import { Confirmation } from '@/components/Confirmation';
-import OperationWindow, { OperationListItem } from '@/components/OperationWindow';
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { useAI } from '@/hooks/ai/useAI';
-import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { useAIReview } from '@/hooks/useAIReview';
-import { useTabStore } from '@/stores/tabStore';
-import type { FileItem, Project, ChatSpaceMessage } from '@/types';
+import { Confirmation } from '@/components/Confirmation'
+import OperationWindow, { OperationListItem } from '@/components/OperationWindow'
+import { LOCALSTORAGE_KEY } from '@/context/config'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { buildAIFileContextList } from '@/engine/ai/contextBuilder'
+import { fileRepository } from '@/engine/core/fileRepository'
+import { useAI } from '@/hooks/ai/useAI'
+import { useChatSpace } from '@/hooks/ai/useChatSpace'
+import { useAIReview } from '@/hooks/useAIReview'
+import { useTabStore } from '@/stores/tabStore'
+import type { FileItem, Project, ChatSpaceMessage } from '@/types'
 
 interface AIPanelProps {
-  projectFiles: FileItem[];
-  currentProject: Project | null;
-  currentProjectId?: string;
+  projectFiles: FileItem[]
+  currentProject: Project | null
+  currentProjectId?: string
 }
 
 export default function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const [mode, setMode] = useState<'ask' | 'edit'>('ask');
-  const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
-  const [showSpaceList, setShowSpaceList] = useState(false);
-  const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-  const spaceButtonRef = useRef<HTMLButtonElement | null>(null);
-  
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<'ask' | 'edit'>('ask')
+  const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false)
+  const [showSpaceList, setShowSpaceList] = useState(false)
+  const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false)
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+  const spaceButtonRef = useRef<HTMLButtonElement | null>(null)
+
   // Track if we're on the client for portal rendering
-  const [isClient, setIsClient] = useState(false);
+  const [isClient, setIsClient] = useState(false)
 
   // Revert confirmation state
   const [revertConfirmation, setRevertConfirmation] = useState<{
-    open: boolean;
-    message: ChatSpaceMessage | null;
-  }>({ open: false, message: null });
+    open: boolean
+    message: ChatSpaceMessage | null
+  }>({ open: false, message: null })
 
   // Editing state for spaces
-  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
-  const [editingSpaceName, setEditingSpaceName] = useState('');
-  
+  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null)
+  const [editingSpaceName, setEditingSpaceName] = useState('')
+
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    setIsClient(true)
+  }, [])
 
   // Compute dropdown position relative to viewport (fixed) so it appears under the button
   const dropdownPosition = useMemo(() => {
-    if (!anchorRect || typeof window === 'undefined') return null;
-    const padding = 8;
-    const desiredWidth = 320;
-    const maxAvailableRight = window.innerWidth - padding - anchorRect.left;
-    const width = Math.min(desiredWidth, Math.max(160, Math.min(360, maxAvailableRight)));
+    if (!anchorRect || typeof window === 'undefined') return null
+    const padding = 8
+    const desiredWidth = 320
+    const maxAvailableRight = window.innerWidth - padding - anchorRect.left
+    const width = Math.min(desiredWidth, Math.max(160, Math.min(360, maxAvailableRight)))
 
     // If the dropdown would overflow the right edge, shift it left
-    let left = anchorRect.left;
+    let left = anchorRect.left
     if (left + width + padding > window.innerWidth) {
-      left = Math.max(padding, window.innerWidth - width - padding);
+      left = Math.max(padding, window.innerWidth - width - padding)
     }
 
     // place just below the button
-    const top = anchorRect.bottom + 6;
+    const top = anchorRect.bottom + 6
 
-    return { left, top, width };
-  }, [anchorRect]);
+    return { left, top, width }
+  }, [anchorRect])
 
   // チャットスペース管理
   const {
@@ -91,7 +91,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     updateSpaceName,
     updateChatMessage,
     revertToMessage,
-  } = useChatSpace(currentProject?.id || null);
+  } = useChatSpace(currentProject?.id || null)
 
   // AI機能
   const {
@@ -104,112 +104,107 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     generatePromptText,
   } = useAI({
     onAddMessage: async (content, type, mode, fileContext, editResponse) => {
-      return await addSpaceMessage(content, type, mode, fileContext, editResponse);
+      return await addSpaceMessage(content, type, mode, fileContext, editResponse)
     },
     selectedFiles: currentSpace?.selectedFiles,
     onUpdateSelectedFiles: updateSpaceSelectedFiles,
     messages: currentSpace?.messages,
     projectId: currentProject?.id,
-  });
+  })
 
   // Prompt debug modal state
-  const [showPromptDebug, setShowPromptDebug] = useState(false);
-  const [promptDebugText, setPromptDebugText] = useState('');
-
+  const [showPromptDebug, setShowPromptDebug] = useState(false)
+  const [promptDebugText, setPromptDebugText] = useState('')
 
   // レビュー機能
-  const { openAIReviewTab, closeAIReviewTab } = useAIReview();
-  
+  const { openAIReviewTab, closeAIReviewTab } = useAIReview()
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      const selectedMap = new Map(fileContexts.map(ctx => [ctx.path, ctx.selected]));
+      const selectedMap = new Map(fileContexts.map(ctx => [ctx.path, ctx.selected]))
       const contexts = buildAIFileContextList(projectFiles).map(ctx => ({
         ...ctx,
         selected: selectedMap.get(ctx.path) ?? false,
-      }));
-      updateFileContexts(contexts);
+      }))
+      updateFileContexts(contexts)
     }
-  }, [projectFiles]);
+  }, [projectFiles])
 
   // 履歴キャッシュ: filePath -> history entries
-  
-
-  
 
   // API キーのチェック
   const isApiKeySet = () => {
-    return !!localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
-  };
+    return !!localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY)
+  }
 
   // メッセージ送信ハンドラー
   const handleSendMessage = async (content: string) => {
     if (!isApiKeySet()) {
-      alert('Gemini APIキーが設定されていません。設定画面で設定してください。');
-      return;
+      alert('Gemini APIキーが設定されていません。設定画面で設定してください。')
+      return
     }
 
     if (!currentProject && mode === 'edit') {
-      alert('プロジェクトが選択されていません。');
-      return;
+      alert('プロジェクトが選択されていません。')
+      return
     }
 
     try {
-      await sendMessage(content, mode);
+      await sendMessage(content, mode)
     } catch (error) {
-      console.error('Failed to send message:', error);
-      alert(`エラーが発生しました: ${(error as Error).message}`);
+      console.error('Failed to send message:', error)
+      alert(`エラーが発生しました: ${(error as Error).message}`)
     }
-  };
+  }
 
   // ファイル選択
   const handleFileSelect = (file: FileItem) => {
-    const existingContext = fileContexts.find(ctx => ctx.path === file.path);
+    const existingContext = fileContexts.find(ctx => ctx.path === file.path)
     if (!existingContext && file.type === 'file' && file.content) {
       const newContext = {
         path: file.path,
         name: file.name,
         content: file.content,
         selected: true,
-      };
-      const newContexts = [...fileContexts, newContext];
-      updateFileContexts(newContexts);
+      }
+      const newContexts = [...fileContexts, newContext]
+      updateFileContexts(newContexts)
     } else if (existingContext) {
-      toggleFileSelection(file.path);
+      toggleFileSelection(file.path)
     }
-  };
+  }
 
   // 現在アクティブなタブのファイルを取得
-  const globalActiveTabId = useTabStore(state => state.globalActiveTab);
-  const activePaneId = useTabStore(state => state.activePane);
+  const globalActiveTabId = useTabStore(state => state.globalActiveTab)
+  const activePaneId = useTabStore(state => state.activePane)
 
   const activeTab = useMemo(() => {
-    if (!globalActiveTabId) return null;
-    const allTabs = useTabStore.getState().getAllTabs();
+    if (!globalActiveTabId) return null
+    const allTabs = useTabStore.getState().getAllTabs()
 
     // 同一ファイルが複数ペインで開かれている場合、現在アクティブなペインに属するタブを優先して返す。
-    const preferred = allTabs.find(t => t.id === globalActiveTabId && t.paneId === activePaneId);
-    if (preferred) return preferred;
+    const preferred = allTabs.find(t => t.id === globalActiveTabId && t.paneId === activePaneId)
+    if (preferred) return preferred
 
     // フォールバック: id のみでマッチする最初のタブを返す
-    return allTabs.find(t => t.id === globalActiveTabId) || null;
-  }, [globalActiveTabId, activePaneId]);
+    return allTabs.find(t => t.id === globalActiveTabId) || null
+  }, [globalActiveTabId, activePaneId])
 
   // アクティブタブをコンテキストに追加/削除するユーティリティ
   const handleToggleActiveTabContext = () => {
-    if (!activeTab || !activeTab.path) return;
+    if (!activeTab || !activeTab.path) return
 
-    const already = fileContexts.find(ctx => ctx.path === activeTab.path);
+    const already = fileContexts.find(ctx => ctx.path === activeTab.path)
     if (already) {
       // 既に存在するなら選択解除
-      toggleFileSelection(activeTab.path);
-      return;
+      toggleFileSelection(activeTab.path)
+      return
     }
 
     // content は Tab のユニオン型によって存在しない場合があるため型ガード
-    const isContentTab = activeTab.kind === 'editor' || activeTab.kind === 'preview';
-    const content = isContentTab ? (activeTab as any).content || '' : '';
+    const isContentTab = activeTab.kind === 'editor' || activeTab.kind === 'preview'
+    const content = isContentTab ? (activeTab as any).content || '' : ''
 
     // FileItem は必須で `id` を持つため、path を id として使う
     const newFile: FileItem = {
@@ -218,10 +213,10 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       name: activeTab.path.split('/').pop() || activeTab.path,
       type: 'file',
       content,
-    };
+    }
 
-    handleFileSelect(newFile);
-  };
+    handleFileSelect(newFile)
+  }
 
   // レビューを開く（ストレージから履歴を取得してタブに渡す）
   // NOTE: NEW-ARCHITECTURE.mdに従い、aiEntryにはprojectIdを必ず含める
@@ -230,48 +225,48 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     originalContent: string,
     suggestedContent: string
   ) => {
-    const projectId = currentProject?.id;
-    
+    const projectId = currentProject?.id
+
     try {
       if (projectId) {
-        const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
-        const entry = await getAIReviewEntry(projectId, filePath);
-        
+        const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter')
+        const entry = await getAIReviewEntry(projectId, filePath)
+
         // 既存エントリがない場合でも、projectIdを含む最小限のaiEntryを作成
-        const aiEntry = entry || { projectId, filePath };
-        openAIReviewTab(filePath, originalContent, suggestedContent, aiEntry);
-        return;
+        const aiEntry = entry || { projectId, filePath }
+        openAIReviewTab(filePath, originalContent, suggestedContent, aiEntry)
+        return
       }
     } catch (e) {
-      console.warn('[AIPanel] Failed to load AI review entry:', e);
+      console.warn('[AIPanel] Failed to load AI review entry:', e)
     }
 
     // currentProjectがない場合はprojectIdなしで開く（fallback）
-    openAIReviewTab(filePath, originalContent, suggestedContent);
-  };
+    openAIReviewTab(filePath, originalContent, suggestedContent)
+  }
 
   // 変更を適用（suggestedContent -> contentへコピー）
   // NOTE: NEW-ARCHITECTURE.mdに従い、fileRepositoryを直接使用
   const handleApplyChanges = async (filePath: string, newContent: string) => {
-    const projectId = currentProject?.id;
-    
+    const projectId = currentProject?.id
+
     if (!projectId) {
-      console.error('[AIPanel] No projectId available, cannot apply changes');
-      alert('プロジェクトが選択されていません');
-      return;
+      console.error('[AIPanel] No projectId available, cannot apply changes')
+      alert('プロジェクトが選択されていません')
+      return
     }
 
     try {
-      console.log('[AIPanel] Applying changes to:', filePath);
+      console.log('[AIPanel] Applying changes to:', filePath)
 
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-      await fileRepository.saveFileByPath(projectId, filePath, newContent);
+      await fileRepository.saveFileByPath(projectId, filePath, newContent)
 
       // Clear AI review metadata for this file (non-blocking)
       try {
-        await fileRepository.clearAIReview(projectId, filePath);
+        await fileRepository.clearAIReview(projectId, filePath)
       } catch (e) {
-        console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
+        console.warn('[AIPanel] clearAIReview failed (non-critical):', e)
       }
 
       // Mark this file as applied in the assistant editResponse (keep original content for revert)
@@ -280,65 +275,62 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           const editMsg = currentSpace.messages
             .slice()
             .reverse()
-            .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse);
+            .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse)
 
           if (editMsg && editMsg.editResponse) {
-            const newChangedFiles = editMsg.editResponse.changedFiles.map(f => 
+            const newChangedFiles = editMsg.editResponse.changedFiles.map(f =>
               f.path === filePath ? { ...f, applied: true } : f
-            );
-            const newEditResponse = { ...editMsg.editResponse, changedFiles: newChangedFiles };
+            )
+            const newEditResponse = { ...editMsg.editResponse, changedFiles: newChangedFiles }
 
             await updateChatMessage(currentSpace.id, editMsg.id, {
               editResponse: newEditResponse,
               content: editMsg.content,
-            });
+            })
           }
         }
       } catch (e) {
-        console.warn('[AIPanel] Failed to update chat message after apply:', e);
+        console.warn('[AIPanel] Failed to update chat message after apply:', e)
       }
-
     } catch (error) {
-      console.error('[AIPanel] Failed to apply changes:', error);
-      alert(`変更の適用に失敗しました: ${(error as Error).message}`);
+      console.error('[AIPanel] Failed to apply changes:', error)
+      alert(`変更の適用に失敗しました: ${(error as Error).message}`)
     }
-  };
+  }
 
   // 変更を破棄
   const handleDiscardChanges = async (filePath: string) => {
-    const projectId = currentProject?.id;
-    
+    const projectId = currentProject?.id
+
     try {
       // Close the review tab immediately so UI updates.
-      closeAIReviewTab(filePath);
+      closeAIReviewTab(filePath)
       // Finally clear ai review metadata for this file
       if (projectId) {
         try {
-          await fileRepository.init();
-          await fileRepository.clearAIReview(projectId, filePath);
+          await fileRepository.init()
+          await fileRepository.clearAIReview(projectId, filePath)
         } catch (e) {
-          console.warn('[AIPanel] clearAIReview failed after discard:', e);
+          console.warn('[AIPanel] clearAIReview failed after discard:', e)
         }
       }
     } catch (error) {
-      console.error('Failed to discard changes:', error);
-      alert(`変更の破棄に失敗しました: ${(error as Error).message}`);
+      console.error('Failed to discard changes:', error)
+      alert(`変更の破棄に失敗しました: ${(error as Error).message}`)
     }
-  };
+  }
 
   // 最新の編集レスポンスを取得
   const latestEditResponse = currentSpace?.messages
     .slice()
     .reverse()
-    .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)?.editResponse;
-
-  
+    .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)?.editResponse
 
   // Convert chatSpaces to OperationListItem[]
   const spaceItems: OperationListItem[] = useMemo(() => {
     return chatSpaces.map(space => {
-      const isEditing = editingSpaceId === space.id;
-      
+      const isEditing = editingSpaceId === space.id
+
       return {
         id: space.id,
         label: space.name,
@@ -348,18 +340,18 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         isEditing,
         editValue: isEditing ? editingSpaceName : undefined,
         onClick: () => {
-          selectSpace(space);
-          setShowSpaceList(false);
+          selectSpace(space)
+          setShowSpaceList(false)
         },
-        onEditChange: (val) => setEditingSpaceName(val),
+        onEditChange: val => setEditingSpaceName(val),
         onEditConfirm: () => {
           if (editingSpaceName.trim()) {
-            updateSpaceName(space.id, editingSpaceName.trim());
+            updateSpaceName(space.id, editingSpaceName.trim())
           }
-          setEditingSpaceId(null);
+          setEditingSpaceId(null)
         },
         onEditCancel: () => {
-          setEditingSpaceId(null);
+          setEditingSpaceId(null)
         },
         actions: [
           {
@@ -367,8 +359,8 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             icon: <Edit2 size={12} />,
             label: t('chatSpaceList.rename') || 'Rename',
             onClick: () => {
-              setEditingSpaceId(space.id);
-              setEditingSpaceName(space.name);
+              setEditingSpaceId(space.id)
+              setEditingSpaceName(space.name)
             },
           },
           {
@@ -378,14 +370,23 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             danger: true,
             onClick: () => {
               if (confirm(t('chatSpaceList.confirmDelete') || 'Delete this space?')) {
-                deleteSpace(space.id);
+                deleteSpace(space.id)
               }
             },
           },
         ],
-      };
-    });
-  }, [chatSpaces, currentSpace, editingSpaceId, editingSpaceName, t, selectSpace, updateSpaceName, deleteSpace]);
+      }
+    })
+  }, [
+    chatSpaces,
+    currentSpace,
+    editingSpaceId,
+    editingSpaceName,
+    t,
+    selectSpace,
+    updateSpaceName,
+    deleteSpace,
+  ])
 
   return (
     <div
@@ -410,10 +411,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           minWidth: 0,
         }}
       >
-        <div
-          className="flex items-center gap-3"
-          style={{ minWidth: 0 }}
-        >
+        <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
           <Bot size={16} style={{ color: colors.accent }} />
           <span
             className="text-sm font-semibold select-none overflow-hidden text-ellipsis whitespace-nowrap"
@@ -423,10 +421,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
           </span>
 
           {/* スペース切り替え */}
-          <div
-            className="relative"
-            style={{ minWidth: 0 }}
-          >
+          <div className="relative" style={{ minWidth: 0 }}>
             <button
               className="flex items-center gap-2 px-2 py-1 rounded-md hover:opacity-80 transition-all text-xs"
               style={{
@@ -444,9 +439,9 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
               ref={spaceButtonRef}
               onClick={() => {
                 if (spaceButtonRef.current) {
-                  setAnchorRect(spaceButtonRef.current.getBoundingClientRect());
+                  setAnchorRect(spaceButtonRef.current.getBoundingClientRect())
                 }
-                setShowSpaceList(prev => !prev);
+                setShowSpaceList(prev => !prev)
               }}
             >
               <span
@@ -468,9 +463,12 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
             background: 'transparent',
           }}
           onClick={() => {
-            const promptText = generatePromptText(t('ai.promptDebug.sampleInput') || '(Sample input)', mode);
-            setPromptDebugText(promptText);
-            setShowPromptDebug(true);
+            const promptText = generatePromptText(
+              t('ai.promptDebug.sampleInput') || '(Sample input)',
+              mode
+            )
+            setPromptDebugText(promptText)
+            setShowPromptDebug(true)
           }}
           title={t('ai.showPrompt') || 'Show internal prompt'}
         >
@@ -492,7 +490,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
               icon: <Plus size={12} />,
               label: t('chatSpaceList.create') || 'New Space',
               onClick: async () => {
-                await createNewSpace();
+                await createNewSpace()
               },
             },
           ]}
@@ -508,55 +506,59 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
         emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
         onRevert={async (message: ChatSpaceMessage) => {
           // Show confirmation dialog instead of executing immediately
-          setRevertConfirmation({ open: true, message });
+          setRevertConfirmation({ open: true, message })
         }}
       />
 
       {/* 変更ファイル一覧（Editモードで変更がある場合のみ表示）
           ここではパネルを最小化できるようにし、最小化中は ChangedFilesPanel 本体を描画しないことで
           「採用」などのアクションボタン類を表示しないようにする */}
-      {mode === 'edit' && latestEditResponse && latestEditResponse.changedFiles.filter(f => !f.applied).length > 0 && (
-        <div className="px-2 pt-2">
-          <div
-            className="flex items-center justify-between px-2 py-1 rounded-md"
-            style={{
-              background: colors.mutedBg,
-              border: `1px solid ${colors.border}`,
-              color: colors.foreground,
+      {mode === 'edit' &&
+        latestEditResponse &&
+        latestEditResponse.changedFiles.filter(f => !f.applied).length > 0 && (
+          <div className="px-2 pt-2">
+            <div
+              className="flex items-center justify-between px-2 py-1 rounded-md"
+              style={{
+                background: colors.mutedBg,
+                border: `1px solid ${colors.border}`,
+                color: colors.foreground,
               }}
-          >
-            <div className="text-xs font-medium">変更ファイル</div>
-            <div className="flex items-center gap-2">
-              <div className="text-xs opacity-80">{latestEditResponse.changedFiles.filter(f => !f.applied).length} 個</div>
-              <button
-                type="button"
-                aria-label={isChangedFilesMinimized ? '展開する' : '最小化する'}
-                title={isChangedFilesMinimized ? '展開する' : '最小化する'}
-                className="p-1 rounded hover:opacity-80"
-                onClick={() => setIsChangedFilesMinimized(prev => !prev)}
-                style={{ color: colors.foreground }}
-              >
-                <ChevronDown
-                  size={12}
-                  style={{ transform: isChangedFilesMinimized ? 'rotate(-180deg)' : 'none' }}
-                />
-              </button>
+            >
+              <div className="text-xs font-medium">変更ファイル</div>
+              <div className="flex items-center gap-2">
+                <div className="text-xs opacity-80">
+                  {latestEditResponse.changedFiles.filter(f => !f.applied).length} 個
+                </div>
+                <button
+                  type="button"
+                  aria-label={isChangedFilesMinimized ? '展開する' : '最小化する'}
+                  title={isChangedFilesMinimized ? '展開する' : '最小化する'}
+                  className="p-1 rounded hover:opacity-80"
+                  onClick={() => setIsChangedFilesMinimized(prev => !prev)}
+                  style={{ color: colors.foreground }}
+                >
+                  <ChevronDown
+                    size={12}
+                    style={{ transform: isChangedFilesMinimized ? 'rotate(-180deg)' : 'none' }}
+                  />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* パネル本体は最小化時は非表示にする（これにより採用ボタン等も表示されない） */}
-          {!isChangedFilesMinimized && (
-            <div className="mt-2">
-              <ChangedFilesPanel
-                changedFiles={latestEditResponse.changedFiles.filter(f => !f.applied)}
-                onOpenReview={handleOpenReview}
-                onApplyChanges={handleApplyChanges}
-                onDiscardChanges={handleDiscardChanges}
-              />
-            </div>
-          )}
-        </div>
-      )}
+            {/* パネル本体は最小化時は非表示にする（これにより採用ボタン等も表示されない） */}
+            {!isChangedFilesMinimized && (
+              <div className="mt-2">
+                <ChangedFilesPanel
+                  changedFiles={latestEditResponse.changedFiles.filter(f => !f.applied)}
+                  onOpenReview={handleOpenReview}
+                  onApplyChanges={handleApplyChanges}
+                  onDiscardChanges={handleDiscardChanges}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
       {/* AI 提案履歴は表示しない（ユーザー要望により削除） */}
 
@@ -564,11 +566,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       {/* アクティブタブピルは ChatInput の選択ファイル列へ渡す（ここでは表示を行わない） */}
 
       <div className="px-2 pb-2 flex justify-end">
-        <ModeSelector
-          mode={mode}
-          onChange={setMode}
-          disabled={isProcessing}
-        />
+        <ModeSelector mode={mode} onChange={setMode} disabled={isProcessing} />
       </div>
 
       {/* 入力エリア */}
@@ -599,150 +597,163 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
       )}
 
       {/* プロンプトデバッグモーダル - Portal rendering to avoid z-index issues */}
-      {showPromptDebug && isClient && createPortal(
-        <div
-          className="fixed inset-0 flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowPromptDebug(false)}
-        >
+      {showPromptDebug &&
+        isClient &&
+        createPortal(
           <div
-            className="rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
-            style={{
-              background: colors.cardBg,
-              color: colors.foreground,
-              border: `1px solid ${colors.border}`,
-              width: '90vw',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setShowPromptDebug(false)}
           >
             <div
-              className="flex items-center justify-between px-4 py-3 border-b"
-              style={{ borderColor: colors.border }}
+              className="rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
+              style={{
+                background: colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+                width: '90vw',
+              }}
+              onClick={e => e.stopPropagation()}
             >
-              <h2 className="text-sm font-semibold">
-                {t('ai.promptDebug.title') || '内部プロンプト'} ({mode === 'ask' ? 'Ask' : 'Edit'})
-              </h2>
-              <button
-                className="p-1 rounded hover:opacity-80"
-                style={{ color: colors.mutedFg }}
-                onClick={() => setShowPromptDebug(false)}
+              <div
+                className="flex items-center justify-between px-4 py-3 border-b"
+                style={{ borderColor: colors.border }}
               >
-                <X size={16} />
-              </button>
+                <h2 className="text-sm font-semibold">
+                  {t('ai.promptDebug.title') || '内部プロンプト'} ({mode === 'ask' ? 'Ask' : 'Edit'}
+                  )
+                </h2>
+                <button
+                  className="p-1 rounded hover:opacity-80"
+                  style={{ color: colors.mutedFg }}
+                  onClick={() => setShowPromptDebug(false)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto p-4" style={{ background: colors.editorBg }}>
+                <pre
+                  className="text-xs font-mono whitespace-pre-wrap"
+                  style={{ color: colors.editorFg }}
+                >
+                  {promptDebugText}
+                </pre>
+              </div>
+              <div
+                className="flex justify-end gap-2 px-4 py-3 border-t"
+                style={{ borderColor: colors.border }}
+              >
+                <button
+                  className="px-3 py-1.5 text-xs rounded"
+                  style={{
+                    background: colors.mutedBg,
+                    color: colors.foreground,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(promptDebugText)
+                  }}
+                >
+                  {t('ai.promptDebug.copy') || 'コピー'}
+                </button>
+                <button
+                  className="px-3 py-1.5 text-xs rounded"
+                  style={{
+                    background: colors.accent,
+                    color: colors.accentFg,
+                  }}
+                  onClick={() => setShowPromptDebug(false)}
+                >
+                  {t('ai.promptDebug.close') || '閉じる'}
+                </button>
+              </div>
             </div>
-            <div
-              className="flex-1 overflow-auto p-4"
-              style={{ background: colors.editorBg }}
-            >
-              <pre
-                className="text-xs font-mono whitespace-pre-wrap"
-                style={{ color: colors.editorFg }}
-              >
-                {promptDebugText}
-              </pre>
-            </div>
-            <div
-              className="flex justify-end gap-2 px-4 py-3 border-t"
-              style={{ borderColor: colors.border }}
-            >
-              <button
-                className="px-3 py-1.5 text-xs rounded"
-                style={{
-                  background: colors.mutedBg,
-                  color: colors.foreground,
-                  border: `1px solid ${colors.border}`,
-                }}
-                onClick={() => {
-                  navigator.clipboard.writeText(promptDebugText);
-                }}
-              >
-                {t('ai.promptDebug.copy') || 'コピー'}
-              </button>
-              <button
-                className="px-3 py-1.5 text-xs rounded"
-                style={{
-                  background: colors.accent,
-                  color: colors.accentFg,
-                }}
-                onClick={() => setShowPromptDebug(false)}
-              >
-                {t('ai.promptDebug.close') || '閉じる'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* リバート確認ダイアログ */}
       <Confirmation
         open={revertConfirmation.open}
         title={t('ai.revert.confirmTitle') || 'リバート確認'}
-        message={t('ai.revert.confirmMessage') || 'この操作は、選択したメッセージ以降の全ての変更をファイルから元に戻します。この操作は取り消せません。続行しますか？'}
+        message={
+          t('ai.revert.confirmMessage') ||
+          'この操作は、選択したメッセージ以降の全ての変更をファイルから元に戻します。この操作は取り消せません。続行しますか？'
+        }
         confirmText={t('ai.revert.confirm') || 'リバートする'}
         cancelText={t('ai.revert.cancel') || 'キャンセル'}
         onCancel={() => setRevertConfirmation({ open: false, message: null })}
         onConfirm={async () => {
-          const message = revertConfirmation.message;
-          setRevertConfirmation({ open: false, message: null });
-          
-          if (!message) return;
-          
-          const projectId = currentProject?.id;
-          try {
-            if (!projectId) return;
-            if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse) return;
+          const message = revertConfirmation.message
+          setRevertConfirmation({ open: false, message: null })
 
-            const { clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
+          if (!message) return
+
+          const projectId = currentProject?.id
+          try {
+            if (!projectId) return
+            if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse)
+              return
+
+            const { clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter')
 
             // 1. このメッセージ以降の全メッセージを削除（このメッセージ含む）
-            const deletedMessages = await revertToMessage(message.id);
-            
+            const deletedMessages = await revertToMessage(message.id)
+
             // 2. 削除されたメッセージの中から、editResponseを持つものを全て処理
             //    editResponse内のoriginalContentを使ってファイルを復元
             //    逆順で処理することで、最新の変更から順に元に戻す
-            const reversedMessages = [...deletedMessages].reverse();
-            
+            const reversedMessages = [...deletedMessages].reverse()
+
             for (const deletedMsg of reversedMessages) {
-              if (deletedMsg.type === 'assistant' && deletedMsg.mode === 'edit' && deletedMsg.editResponse) {
-                const files = deletedMsg.editResponse.changedFiles || [];
+              if (
+                deletedMsg.type === 'assistant' &&
+                deletedMsg.mode === 'edit' &&
+                deletedMsg.editResponse
+              ) {
+                const files = deletedMsg.editResponse.changedFiles || []
                 // Only revert files that were applied (default to false if undefined)
-                const appliedFiles = files.filter(f => f.applied === true);
-                
+                const appliedFiles = files.filter(f => f.applied === true)
+
                 for (const f of appliedFiles) {
                   try {
                     if (f.isNewFile) {
                       // This was a new file created by AI - delete it on revert
-                      const fileToDelete = await fileRepository.getFileByPath(projectId, f.path);
+                      const fileToDelete = await fileRepository.getFileByPath(projectId, f.path)
                       if (fileToDelete) {
-                        await fileRepository.deleteFile(fileToDelete.id);
-                        console.log('[AIPanel] Deleted new file on revert:', f.path);
+                        await fileRepository.deleteFile(fileToDelete.id)
+                        console.log('[AIPanel] Deleted new file on revert:', f.path)
                       }
                     } else {
                       // Existing file - restore originalContent
-                      await fileRepository.saveFileByPath(projectId, f.path, f.originalContent);
-                      console.log('[AIPanel] Reverted file:', f.path);
+                      await fileRepository.saveFileByPath(projectId, f.path, f.originalContent)
+                      console.log('[AIPanel] Reverted file:', f.path)
                     }
-                    
+
                     // Clear AI review entry
                     try {
-                      await clearAIReviewEntry(projectId, f.path);
+                      await clearAIReviewEntry(projectId, f.path)
                     } catch (e) {
-                      console.warn('[AIPanel] clearAIReviewEntry failed', e);
+                      console.warn('[AIPanel] clearAIReviewEntry failed', e)
                     }
                   } catch (e) {
-                    console.warn('[AIPanel] revert file failed for', f.path, e);
+                    console.warn('[AIPanel] revert file failed for', f.path, e)
                   }
                 }
               }
             }
-            
-            console.log('[AIPanel] Reverted to before message:', message.id, 'deleted messages:', deletedMessages.length);
+
+            console.log(
+              '[AIPanel] Reverted to before message:',
+              message.id,
+              'deleted messages:',
+              deletedMessages.length
+            )
           } catch (e) {
-            console.error('[AIPanel] handleRevertMessage failed', e);
+            console.error('[AIPanel] handleRevertMessage failed', e)
           }
         }}
       />
     </div>
-  );
+  )
 }

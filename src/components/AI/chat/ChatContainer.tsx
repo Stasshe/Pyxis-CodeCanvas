@@ -1,21 +1,21 @@
 // メッセージ表示コンテナ
 
-'use client';
+'use client'
 
-import { Loader2, MessageSquare, Bot } from 'lucide-react';
-import React, { useEffect, useRef } from 'react';
+import { Loader2, MessageSquare, Bot } from 'lucide-react'
+import React, { useEffect, useRef } from 'react'
 
-import ChatMessage from './ChatMessage';
+import ChatMessage from './ChatMessage'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import type { ChatSpaceMessage } from '@/types';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import type { ChatSpaceMessage } from '@/types'
 
 interface ChatContainerProps {
-  messages: ChatSpaceMessage[];
-  isProcessing: boolean;
-  emptyMessage?: string;
-  onRevert?: (message: ChatSpaceMessage) => Promise<void>;
+  messages: ChatSpaceMessage[]
+  isProcessing: boolean
+  emptyMessage?: string
+  onRevert?: (message: ChatSpaceMessage) => Promise<void>
 }
 
 export default function ChatContainer({
@@ -24,16 +24,16 @@ export default function ChatContainer({
   emptyMessage = 'AIとチャットを開始してください',
   onRevert,
 }: ChatContainerProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages.length, isProcessing]);
+  }, [messages.length, isProcessing])
 
   return (
     <div
@@ -58,11 +58,7 @@ export default function ChatContainer({
       ) : (
         <>
           {messages.map(message => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onRevert={onRevert}
-            />
+            <ChatMessage key={message.id} message={message} onRevert={onRevert} />
           ))}
 
           {/* Processing indicator */}
@@ -93,5 +89,5 @@ export default function ChatContainer({
         </>
       )}
     </div>
-  );
+  )
 }

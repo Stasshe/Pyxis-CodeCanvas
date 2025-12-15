@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'
 
-import { countCharsNoSpaces } from '../editors/editor-utils';
+import { countCharsNoSpaces } from '../editors/editor-utils'
 
 /**
  * 文字数カウント管理フック
  */
 export function useCharCount(content: string | undefined) {
-  const [charCount, setCharCount] = useState(0);
-  const [selectionCount, setSelectionCount] = useState<number | null>(null);
-  const [showCharCountPopup, setShowCharCountPopup] = useState(false);
+  const [charCount, setCharCount] = useState(0)
+  const [selectionCount, setSelectionCount] = useState<number | null>(null)
+  const [showCharCountPopup, setShowCharCountPopup] = useState(false)
 
   useEffect(() => {
-    setCharCount(countCharsNoSpaces(content || ''));
-    setSelectionCount(null);
-  }, [content]);
+    setCharCount(countCharsNoSpaces(content || ''))
+    setSelectionCount(null)
+  }, [content])
 
   return {
     charCount,
@@ -22,5 +22,5 @@ export function useCharCount(content: string | undefined) {
     setSelectionCount,
     showCharCountPopup,
     setShowCharCountPopup,
-  };
+  }
 }

@@ -27,41 +27,40 @@
  * ```
  */
 
-import { Buffer } from './modules/bufferModule';
-import * as stream from 'stream';
-import { createFSModule, type FSModuleOptions } from './modules/fsModule';
-import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
-import { createOSModule } from './modules/osModule';
-import { createPathModule } from './modules/pathModule';
-import { createReadlineModule } from './modules/readlineModule';
-import { createUtilModule } from './modules/utilModule';
-import { createAssertModule } from './modules/assertModule';
-import { createEventsModule } from './modules/eventsModule';
-import { createModuleModule } from './modules/moduleModule';
-import * as urlModule from './modules/urlModule';
-
+import { Buffer } from './modules/bufferModule'
+import * as stream from 'stream'
+import { createFSModule, type FSModuleOptions } from './modules/fsModule'
+import { createHTTPModule, createHTTPSModule } from './modules/httpModule'
+import { createOSModule } from './modules/osModule'
+import { createPathModule } from './modules/pathModule'
+import { createReadlineModule } from './modules/readlineModule'
+import { createUtilModule } from './modules/utilModule'
+import { createAssertModule } from './modules/assertModule'
+import { createEventsModule } from './modules/eventsModule'
+import { createModuleModule } from './modules/moduleModule'
+import * as urlModule from './modules/urlModule'
 
 export interface BuiltInModulesOptions {
-  projectDir: string;
-  projectId: string;
-  projectName: string;
-  onInput?: (prompt: string, callback: (input: string) => void) => void;
+  projectDir: string
+  projectId: string
+  projectName: string
+  onInput?: (prompt: string, callback: (input: string) => void) => void
 }
 
 export interface BuiltInModules {
-  url: typeof urlModule;
-  stream: typeof stream;
-  fs: ReturnType<typeof createFSModule>;
-  path: ReturnType<typeof createPathModule>;
-  os: ReturnType<typeof createOSModule>;
-  util: ReturnType<typeof createUtilModule>;
-  http: ReturnType<typeof createHTTPModule>;
-  https: ReturnType<typeof createHTTPSModule>;
-  events: ReturnType<typeof createEventsModule>;
-  Buffer: typeof Buffer;
-  readline: ReturnType<typeof createReadlineModule>;
-  assert: any;
-  module: ReturnType<typeof createModuleModule>;
+  url: typeof urlModule
+  stream: typeof stream
+  fs: ReturnType<typeof createFSModule>
+  path: ReturnType<typeof createPathModule>
+  os: ReturnType<typeof createOSModule>
+  util: ReturnType<typeof createUtilModule>
+  http: ReturnType<typeof createHTTPModule>
+  https: ReturnType<typeof createHTTPSModule>
+  events: ReturnType<typeof createEventsModule>
+  Buffer: typeof Buffer
+  readline: ReturnType<typeof createReadlineModule>
+  assert: any
+  module: ReturnType<typeof createModuleModule>
 }
 
 /**
@@ -71,7 +70,7 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, onInput } = options;
+  const { projectDir, projectId, projectName, onInput } = options
 
   return {
     fs: createFSModule({ projectDir, projectId, projectName }),
@@ -87,7 +86,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     module: createModuleModule(),
     url: urlModule,
     stream: stream,
-  };
+  }
 }
 
 /**
@@ -107,10 +106,9 @@ export {
   createModuleModule,
   urlModule,
   stream,
-};
-
+}
 
 /**
  * 型定義のエクスポート
  */
-export type { FSModuleOptions };
+export type { FSModuleOptions }

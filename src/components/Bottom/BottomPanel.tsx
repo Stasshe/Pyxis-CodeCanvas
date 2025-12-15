@@ -1,30 +1,30 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
+import { useState } from 'react'
 
-import DebugConsole from './DebugConsole';
-import OutputPanel, { OutputMessage } from './OutputPanel';
-import Terminal from './Terminal';
-import ProblemsPanel from './ProblemsPanel';
+import DebugConsole from './DebugConsole'
+import OutputPanel, { OutputMessage } from './OutputPanel'
+import Terminal from './Terminal'
+import ProblemsPanel from './ProblemsPanel'
 
-import { OUTPUT_CONFIG } from '@/context/config';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { FileItem } from '@/types';
+import { OUTPUT_CONFIG } from '@/context/config'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { FileItem } from '@/types'
 
 interface BottomPanelProps {
-  height: number;
-  currentProject?: string;
-  currentProjectId?: string;
-  projectFiles?: FileItem[];
-  onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
+  height: number
+  currentProject?: string
+  currentProjectId?: string
+  projectFiles?: FileItem[]
+  onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void
   // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
 }
 
 const outputMessagesRef: {
-  current: OutputMessage[];
-  set?: React.Dispatch<React.SetStateAction<OutputMessage[]>>;
-} = { current: [], set: undefined };
+  current: OutputMessage[]
+  set?: React.Dispatch<React.SetStateAction<OutputMessage[]>>
+} = { current: [], set: undefined }
 
 export function pushMsgOutPanel(
   msg: string,
@@ -35,37 +35,37 @@ export function pushMsgOutPanel(
     outputMessagesRef.set(prev => {
       // 直前のメッセージと同じ内容・type・contextなら回数を増やす
       if (prev.length > 0) {
-        const last = prev[prev.length - 1];
+        const last = prev[prev.length - 1]
         if (last.message === msg && last.type === type && last.context === context) {
           // 回数を記録するため、lastにcountプロパティを追加
-          const newPrev = [...prev];
+          const newPrev = [...prev]
           // @ts-ignore
-          newPrev[newPrev.length - 1] = { ...last, count: (last.count ?? 1) + 1 };
+          newPrev[newPrev.length - 1] = { ...last, count: (last.count ?? 1) + 1 }
           // Trim if over limit
-          const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
+          const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30
           if (newPrev.length > max) {
-            const start = newPrev.length - max;
-            const trimmed = newPrev.slice(start);
-            outputMessagesRef.current = trimmed;
-            return trimmed;
+            const start = newPrev.length - max
+            const trimmed = newPrev.slice(start)
+            outputMessagesRef.current = trimmed
+            return trimmed
           }
-          outputMessagesRef.current = newPrev;
-          return newPrev;
+          outputMessagesRef.current = newPrev
+          return newPrev
         }
       }
       // 新規メッセージ
-      const next = [...prev, { message: msg, type, context }];
+      const next = [...prev, { message: msg, type, context }]
       // Trim to keep only the most recent OUTPUT_MAX_MESSAGES
-      const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
+      const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30
       if (next.length > max) {
-        const start = next.length - max;
-        const trimmed = next.slice(start);
-        outputMessagesRef.current = trimmed;
-        return trimmed;
+        const start = next.length - max
+        const trimmed = next.slice(start)
+        outputMessagesRef.current = trimmed
+        return trimmed
       }
-      outputMessagesRef.current = next;
-      return next;
-    });
+      outputMessagesRef.current = next
+      return next
+    })
   }
 }
 
@@ -76,15 +76,15 @@ export default function BottomPanel({
   projectFiles,
   onResize,
 }: BottomPanelProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const [vimEditor, setVimEditor] = useState<any | null>(null);
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const [vimEditor, setVimEditor] = useState<any | null>(null)
   const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug' | 'problems'>(
     'terminal'
-  );
-  const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
-  outputMessagesRef.current = outputMessages;
-  outputMessagesRef.set = setOutputMessages;
+  )
+  const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([])
+  outputMessagesRef.current = outputMessages
+  outputMessagesRef.set = setOutputMessages
 
   return (
     <>
@@ -229,7 +229,7 @@ export default function BottomPanel({
           >
             {t('bottom.terminal')}
           </button>
-                    {currentProject && (
+          {currentProject && (
             <span
               className="ml-2 text-xs"
               style={{ color: colors.mutedFg, fontSize: '10px', marginLeft: '8px' }}
@@ -237,32 +237,32 @@ export default function BottomPanel({
               - {currentProject}
             </span>
           )}
-                    {/* Place ESC button at the far right of the tab bar when vim is active */}
-                    {vimEditor && (
-                      <button
-                        onClick={() => {
-                          try {
-                            if (typeof vimEditor.pressEsc === 'function') {
-                              vimEditor.pressEsc();
-                            }
-                          } catch (e) {}
-                        }}
-                        title={t('bottom.escButton') ?? 'Esc'}
-                        className="pyxis-esc-btn"
-                        style={{
-                          marginLeft: 'auto',
-                          background: colors.cardBg,
-                          color: colors.mutedFg,
-                          border: `1px solid ${colors.border}`,
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                          fontSize: 12,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Esc
-                      </button>
-                    )}
+          {/* Place ESC button at the far right of the tab bar when vim is active */}
+          {vimEditor && (
+            <button
+              onClick={() => {
+                try {
+                  if (typeof vimEditor.pressEsc === 'function') {
+                    vimEditor.pressEsc()
+                  }
+                } catch (e) {}
+              }}
+              title={t('bottom.escButton') ?? 'Esc'}
+              className="pyxis-esc-btn"
+              style={{
+                marginLeft: 'auto',
+                background: colors.cardBg,
+                color: colors.mutedFg,
+                border: `1px solid ${colors.border}`,
+                padding: '4px 8px',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              Esc
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-hidden relative">
           {/* 3つのパネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
@@ -295,7 +295,7 @@ export default function BottomPanel({
               messages={outputMessages}
               onClearDisplayed={toClear => {
                 // Remove the currently displayed (filtered) messages from the full messages list
-                setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
+                setOutputMessages(prev => prev.filter(m => !toClear.includes(m)))
               }}
             />
           </div>
@@ -329,15 +329,11 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <DebugConsole
-              height={height}
-              isActive={activeTab === 'debug'}
-            />
+            <DebugConsole height={height} isActive={activeTab === 'debug'} />
           </div>
         </div>
       </div>
       {/* Vim ESC button: shown when a VimEditor instance is active */}
-      
     </>
-  );
+  )
 }

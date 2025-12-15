@@ -31,9 +31,9 @@
  * パスの種類を表す型（ドキュメント目的）
  * 実行時には string として扱う
  */
-export type AppPath = string;
-export type GitPath = string;
-export type FSPath = string;
+export type AppPath = string
+export type GitPath = string
+export type FSPath = string
 
 // ========================================
 // 基本的な正規化関数
@@ -54,22 +54,22 @@ export type FSPath = string;
  * toAppPath(null) → "/"
  */
 export function toAppPath(path: string | null | undefined): AppPath {
-  if (!path || path === '') return '/';
+  if (!path || path === '') return '/'
 
   // 連続スラッシュを単一化
-  let normalized = path.replace(/\/+/g, '/');
+  let normalized = path.replace(/\/+/g, '/')
 
   // 先頭にスラッシュを追加
   if (!normalized.startsWith('/')) {
-    normalized = '/' + normalized;
+    normalized = '/' + normalized
   }
 
   // 末尾のスラッシュを除去（ルート以外）
   if (normalized !== '/' && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
+    normalized = normalized.slice(0, -1)
   }
 
-  return normalized;
+  return normalized
 }
 
 /**
@@ -83,12 +83,12 @@ export function toAppPath(path: string | null | undefined): AppPath {
  * toGitPath("src/hello.ts") → "src/hello.ts"
  */
 export function toGitPath(path: string | null | undefined): GitPath {
-  const appPath = toAppPath(path);
+  const appPath = toAppPath(path)
 
-  if (appPath === '/') return '.';
+  if (appPath === '/') return '.'
 
   // 先頭スラッシュを除去
-  return appPath.substring(1);
+  return appPath.substring(1)
 }
 
 /**
@@ -100,16 +100,16 @@ export function toGitPath(path: string | null | undefined): GitPath {
  * fromGitPath("") → "/"
  */
 export function fromGitPath(path: string | null | undefined): AppPath {
-  if (!path || path === '.' || path === './') return '/';
+  if (!path || path === '.' || path === './') return '/'
 
-  return toAppPath(path);
+  return toAppPath(path)
 }
 
 // ========================================
 // FSPath（ファイルシステム絶対パス）関連
 // ========================================
 
-const PROJECTS_BASE = '/projects';
+const PROJECTS_BASE = '/projects'
 
 /**
  * プロジェクトのルートディレクトリパスを取得
@@ -118,7 +118,7 @@ const PROJECTS_BASE = '/projects';
  * getProjectRoot("MyProject") → "/projects/MyProject"
  */
 export function getProjectRoot(projectName: string): FSPath {
-  return `${PROJECTS_BASE}/${projectName}`;
+  return `${PROJECTS_BASE}/${projectName}`
 }
 
 /**
@@ -129,15 +129,15 @@ export function getProjectRoot(projectName: string): FSPath {
  * toFSPath("MyProject", "/") → "/projects/MyProject"
  */
 export function toFSPath(projectName: string, appPath: string | null | undefined): FSPath {
-  const normalized = toAppPath(appPath);
-  const projectRoot = getProjectRoot(projectName);
+  const normalized = toAppPath(appPath)
+  const projectRoot = getProjectRoot(projectName)
 
   if (normalized === '/') {
-    return projectRoot;
+    return projectRoot
   }
 
   // AppPathは既に先頭スラッシュ付きなのでそのまま結合
-  return `${projectRoot}${normalized}`;
+  return `${projectRoot}${normalized}`
 }
 
 /**
@@ -148,26 +148,26 @@ export function toFSPath(projectName: string, appPath: string | null | undefined
  * fsPathToAppPath("/projects/MyProject", "MyProject") → "/"
  */
 export function fsPathToAppPath(fsPath: string, projectName: string): AppPath {
-  const projectRoot = getProjectRoot(projectName);
+  const projectRoot = getProjectRoot(projectName)
 
   if (fsPath === projectRoot) {
-    return '/';
+    return '/'
   }
 
   if (fsPath.startsWith(projectRoot + '/')) {
-    return toAppPath(fsPath.substring(projectRoot.length));
+    return toAppPath(fsPath.substring(projectRoot.length))
   }
 
   // プロジェクトルートと一致しない場合はそのまま返す（フォールバック）
-  return toAppPath(fsPath);
+  return toAppPath(fsPath)
 }
 
 /**
  * FSPathが指定プロジェクト内かチェック
  */
 export function isWithinProject(fsPath: string, projectName: string): boolean {
-  const projectRoot = getProjectRoot(projectName);
-  return fsPath === projectRoot || fsPath.startsWith(projectRoot + '/');
+  const projectRoot = getProjectRoot(projectName)
+  return fsPath === projectRoot || fsPath.startsWith(projectRoot + '/')
 }
 
 // ========================================
@@ -183,14 +183,14 @@ export function isWithinProject(fsPath: string, projectName: string): boolean {
  * getParentPath("/") → "/"
  */
 export function getParentPath(path: string | null | undefined): AppPath {
-  const normalized = toAppPath(path);
+  const normalized = toAppPath(path)
 
-  if (normalized === '/') return '/';
+  if (normalized === '/') return '/'
 
-  const lastSlash = normalized.lastIndexOf('/');
-  if (lastSlash === 0) return '/';
+  const lastSlash = normalized.lastIndexOf('/')
+  if (lastSlash === 0) return '/'
 
-  return normalized.substring(0, lastSlash);
+  return normalized.substring(0, lastSlash)
 }
 
 /**
@@ -202,12 +202,12 @@ export function getParentPath(path: string | null | undefined): AppPath {
  * getFileName("/") → ""
  */
 export function getFileName(path: string | null | undefined): string {
-  const normalized = toAppPath(path);
+  const normalized = toAppPath(path)
 
-  if (normalized === '/') return '';
+  if (normalized === '/') return ''
 
-  const lastSlash = normalized.lastIndexOf('/');
-  return normalized.substring(lastSlash + 1);
+  const lastSlash = normalized.lastIndexOf('/')
+  return normalized.substring(lastSlash + 1)
 }
 
 /**
@@ -219,21 +219,21 @@ export function getFileName(path: string | null | undefined): string {
  * joinPath("/", "src") → "/src"
  */
 export function joinPath(basePath: string, ...paths: string[]): AppPath {
-  let result = toAppPath(basePath);
+  let result = toAppPath(basePath)
 
   for (const path of paths) {
-    if (!path) continue;
+    if (!path) continue
 
     // 結合するパスが絶対パスの場合
     if (path.startsWith('/')) {
-      result = toAppPath(path);
+      result = toAppPath(path)
     } else {
       // 相対パスの場合は結合
-      result = toAppPath(result === '/' ? `/${path}` : `${result}/${path}`);
+      result = toAppPath(result === '/' ? `/${path}` : `${result}/${path}`)
     }
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -248,12 +248,12 @@ export function joinPath(basePath: string, ...paths: string[]): AppPath {
 export function resolvePath(basePath: string, relativePath: string): AppPath {
   // 絶対パスの場合はそのまま正規化して返す
   if (relativePath.startsWith('/')) {
-    return normalizeDotSegments(toAppPath(relativePath));
+    return normalizeDotSegments(toAppPath(relativePath))
   }
 
   // 相対パスの場合は結合してから解決
-  const combined = joinPath(basePath, relativePath);
-  return normalizeDotSegments(combined);
+  const combined = joinPath(basePath, relativePath)
+  return normalizeDotSegments(combined)
 }
 
 /**
@@ -265,25 +265,25 @@ export function resolvePath(basePath: string, relativePath: string): AppPath {
  * normalizeDotSegments("/src/sub/../../hello.ts") → "/hello.ts"
  */
 export function normalizeDotSegments(path: string): AppPath {
-  const normalized = toAppPath(path);
-  const segments = normalized.split('/').filter(s => s !== '');
-  const result: string[] = [];
+  const normalized = toAppPath(path)
+  const segments = normalized.split('/').filter(s => s !== '')
+  const result: string[] = []
 
   for (const segment of segments) {
     if (segment === '.') {
       // カレントディレクトリ: スキップ
-      continue;
+      continue
     } else if (segment === '..') {
       // 親ディレクトリ: 1つ戻る（ルートを超えない）
       if (result.length > 0) {
-        result.pop();
+        result.pop()
       }
     } else {
-      result.push(segment);
+      result.push(segment)
     }
   }
 
-  return '/' + result.join('/');
+  return '/' + result.join('/')
 }
 
 // ========================================
@@ -293,7 +293,7 @@ export function normalizeDotSegments(path: string): AppPath {
 /**
  * @deprecated toAppPath を使用してください
  */
-export const normalizePath = toAppPath;
+export const normalizePath = toAppPath
 
 // ========================================
 // パス検証ユーティリティ
@@ -303,7 +303,7 @@ export const normalizePath = toAppPath;
  * パスがルートかチェック
  */
 export function isRoot(path: string | null | undefined): boolean {
-  return toAppPath(path) === '/';
+  return toAppPath(path) === '/'
 }
 
 /**
@@ -316,14 +316,12 @@ export function isRoot(path: string | null | undefined): boolean {
  * hasPrefix("/other/hello.ts", "/src") → false
  */
 export function hasPrefix(path: string, prefix: string): boolean {
-  const normalizedPath = toAppPath(path);
-  const normalizedPrefix = toAppPath(prefix);
+  const normalizedPath = toAppPath(path)
+  const normalizedPrefix = toAppPath(prefix)
 
-  if (normalizedPrefix === '/') return true;
+  if (normalizedPrefix === '/') return true
 
-  return (
-    normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + '/')
-  );
+  return normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + '/')
 }
 
 /**
@@ -334,16 +332,16 @@ export function hasPrefix(path: string, prefix: string): boolean {
  * removePrefix("/src/hello.ts", "/") → "/src/hello.ts"
  */
 export function removePrefix(path: string, prefix: string): AppPath {
-  const normalizedPath = toAppPath(path);
-  const normalizedPrefix = toAppPath(prefix);
+  const normalizedPath = toAppPath(path)
+  const normalizedPrefix = toAppPath(prefix)
 
-  if (normalizedPrefix === '/') return normalizedPath;
+  if (normalizedPrefix === '/') return normalizedPath
 
-  if (normalizedPath === normalizedPrefix) return '/';
+  if (normalizedPath === normalizedPrefix) return '/'
 
   if (normalizedPath.startsWith(normalizedPrefix + '/')) {
-    return toAppPath(normalizedPath.substring(normalizedPrefix.length));
+    return toAppPath(normalizedPath.substring(normalizedPrefix.length))
   }
 
-  return normalizedPath;
+  return normalizedPath
 }

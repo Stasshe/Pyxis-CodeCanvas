@@ -1,76 +1,76 @@
 // src/stores/tabStore.ts
-import { create } from 'zustand';
+import { create } from 'zustand'
 
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types';
+import { tabRegistry } from '@/engine/tabs/TabRegistry'
+import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types'
 
 // Helper function to flatten all leaf panes (preserving order for pane index priority)
 function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {
   for (const p of panes) {
     if (!p.children || p.children.length === 0) {
-      result.push(p);
+      result.push(p)
     } else {
-      flattenLeafPanes(p.children, result);
+      flattenLeafPanes(p.children, result)
     }
   }
-  return result;
+  return result
 }
 
 interface TabStore {
   // ペイン管理
-  panes: EditorPane[];
-  activePane: string | null; // グローバルにアクティブなペイン
-  globalActiveTab: string | null; // グローバルにアクティブなタブ（1つだけ）
+  panes: EditorPane[]
+  activePane: string | null // グローバルにアクティブなペイン
+  globalActiveTab: string | null // グローバルにアクティブなタブ（1つだけ）
 
   // セッション管理
-  isLoading: boolean;
-  isRestored: boolean;
-  isContentRestored: boolean;
-  setIsLoading: (loading: boolean) => void;
-  setIsContentRestored: (restored: boolean) => void;
+  isLoading: boolean
+  isRestored: boolean
+  isContentRestored: boolean
+  setIsLoading: (loading: boolean) => void
+  setIsContentRestored: (restored: boolean) => void
 
   // ペイン操作
-  setPanes: (panes: EditorPane[]) => void;
-  addPane: (pane: EditorPane) => void;
-  removePane: (paneId: string) => void;
-  updatePane: (paneId: string, updates: Partial<EditorPane>) => void;
-  setActivePane: (paneId: string | null) => void;
-  splitPane: (paneId: string, direction: 'horizontal' | 'vertical') => void;
+  setPanes: (panes: EditorPane[]) => void
+  addPane: (pane: EditorPane) => void
+  removePane: (paneId: string) => void
+  updatePane: (paneId: string, updates: Partial<EditorPane>) => void
+  setActivePane: (paneId: string | null) => void
+  splitPane: (paneId: string, direction: 'horizontal' | 'vertical') => void
   splitPaneAndMoveTab: (
     paneId: string,
     direction: 'horizontal' | 'vertical',
     tabId: string,
     side: 'before' | 'after'
-  ) => void;
+  ) => void
   splitPaneAndOpenFile: (
     paneId: string,
     direction: 'horizontal' | 'vertical',
     file: any,
     side: 'before' | 'after'
-  ) => void;
-  resizePane: (paneId: string, newSize: number) => void;
+  ) => void
+  resizePane: (paneId: string, newSize: number) => void
 
   // タブ操作
-  openTab: (file: any, options?: OpenTabOptions) => void;
-  closeTab: (paneId: string, tabId: string) => void;
-  activateTab: (paneId: string, tabId: string) => void;
-  updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
-  updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
-  moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
-  moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
+  openTab: (file: any, options?: OpenTabOptions) => void
+  closeTab: (paneId: string, tabId: string) => void
+  activateTab: (paneId: string, tabId: string) => void
+  updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void
+  updateTabContent: (tabId: string, content: string, immediate?: boolean) => void
+  moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void
+  moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void
 
   // ユーティリティ
-  getPane: (paneId: string) => EditorPane | null;
-  getTab: (paneId: string, tabId: string) => Tab | null;
-  getAllTabs: () => Tab[];
-  findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null;
-  
+  getPane: (paneId: string) => EditorPane | null
+  getTab: (paneId: string, tabId: string) => Tab | null
+  getAllTabs: () => Tab[]
+  findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null
+
   // ファイル削除時のタブ処理
-  handleFileDeleted: (deletedPath: string) => void;
+  handleFileDeleted: (deletedPath: string) => void
 
   // セッション管理
-  saveSession: (projectId?: string) => Promise<void>;
-  loadSession: (projectId?: string) => Promise<void>;
+  saveSession: (projectId?: string) => Promise<void>
+  loadSession: (projectId?: string) => Promise<void>
 }
 
 export const useTabStore = create<TabStore>((set, get) => ({
@@ -87,76 +87,76 @@ export const useTabStore = create<TabStore>((set, get) => ({
   setPanes: panes => set({ panes }),
 
   addPane: pane => {
-    const state = get();
+    const state = get()
     // 重複チェック: 同じIDのペインが既に存在する場合は追加しない
-    const exists = state.panes.some(p => p.id === pane.id);
+    const exists = state.panes.some(p => p.id === pane.id)
     if (exists) {
-      console.warn('[TabStore] Pane with id', pane.id, 'already exists, skipping addPane');
-      return;
+      console.warn('[TabStore] Pane with id', pane.id, 'already exists, skipping addPane')
+      return
     }
-    set({ panes: [...state.panes, pane] });
+    set({ panes: [...state.panes, pane] })
   },
 
   removePane: paneId =>
     set(state => {
       // ルートレベルから削除する場合
-      const rootFiltered = state.panes.filter(p => p.id !== paneId);
+      const rootFiltered = state.panes.filter(p => p.id !== paneId)
       if (rootFiltered.length !== state.panes.length) {
         // ルートレベルで削除された場合、残りペインのサイズを調整
         if (rootFiltered.length > 0) {
-          const newSize = 100 / rootFiltered.length;
-          const adjusted = rootFiltered.map(pane => ({ ...pane, size: newSize }));
+          const newSize = 100 / rootFiltered.length
+          const adjusted = rootFiltered.map(pane => ({ ...pane, size: newSize }))
           return {
             panes: adjusted,
             activePane: state.activePane === paneId ? null : state.activePane,
             globalActiveTab: state.activePane === paneId ? null : state.globalActiveTab,
-          };
+          }
         }
         return {
           panes: [],
           activePane: null,
           globalActiveTab: null,
-        };
+        }
       }
 
       // 子ペインから削除する場合（再帰的）
       const removePaneRecursive = (pane: EditorPane): EditorPane => {
-        if (!pane.children) return pane;
+        if (!pane.children) return pane
 
         // 再帰的に子ペインを探索し、targetIdを削除
         const updatedChildren = pane.children
           .map(child => (child.id === paneId ? null : removePaneRecursive(child)))
-          .filter(Boolean) as EditorPane[];
+          .filter(Boolean) as EditorPane[]
 
         // 子ペインが1つだけ残った場合、その子を現在のペインに昇格
         if (updatedChildren.length === 1) {
-          const remainingChild = updatedChildren[0];
+          const remainingChild = updatedChildren[0]
           // 親ペインのsizeを維持
           return {
             ...remainingChild,
             size: pane.size,
-          };
+          }
         }
 
         // サイズを再調整
         if (updatedChildren.length > 0) {
-          const newSize = 100 / updatedChildren.length;
+          const newSize = 100 / updatedChildren.length
           return {
             ...pane,
             children: updatedChildren.map(child => ({ ...child, size: newSize })),
-          };
+          }
         }
 
-        return { ...pane, children: updatedChildren };
-      };
+        return { ...pane, children: updatedChildren }
+      }
 
-      const newPanes = state.panes.map(pane => removePaneRecursive(pane));
+      const newPanes = state.panes.map(pane => removePaneRecursive(pane))
 
       return {
         panes: newPanes,
         activePane: state.activePane === paneId ? null : state.activePane,
         globalActiveTab: state.activePane === paneId ? null : state.globalActiveTab,
-      };
+      }
     }),
 
   updatePane: (paneId, updates) =>
@@ -164,147 +164,152 @@ export const useTabStore = create<TabStore>((set, get) => ({
       const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
         return panes.map(p => {
           if (p.id === paneId) {
-            return { ...p, ...updates };
+            return { ...p, ...updates }
           }
           if (p.children) {
-            return { ...p, children: updatePaneRecursive(p.children) };
+            return { ...p, children: updatePaneRecursive(p.children) }
           }
-          return p;
-        });
-      };
+          return p
+        })
+      }
 
-      return { panes: updatePaneRecursive(state.panes) };
+      return { panes: updatePaneRecursive(state.panes) }
     }),
 
   setActivePane: paneId => set({ activePane: paneId }),
 
   openTab: (file, options = {}) => {
-    const state = get();
+    const state = get()
     // 優先順位: options.kind -> file.kind -> (buffer arrayなら'binary') -> 'editor'
     const kind =
       options.kind ||
       file.kind ||
-      (file && (file.isBufferArray === true || file.isBufferArray) ? 'binary' : 'editor');
+      (file && (file.isBufferArray === true || file.isBufferArray) ? 'binary' : 'editor')
     // 初期は options または global active pane を優先し、まだない場合は null にして
     // 後続のロジックで "leaf pane" の探索や新規作成を正しく行えるようにする
-    let targetPaneId = options.paneId || state.activePane || null;
+    let targetPaneId = options.paneId || state.activePane || null
     // もし全体でタブが一つもない場合は、優先順に
     // 1) options.paneId
     // 2) 現在の state.activePane（存在かつ有効なペイン）
     // 3) 子を持たない leaf ペイン
     // 4) 新規ペイン作成
-    const allTabs = get().getAllTabs();
+    const allTabs = get().getAllTabs()
     if (allTabs.length === 0) {
       if (options.paneId) {
-        targetPaneId = options.paneId;
+        targetPaneId = options.paneId
       } else if (state.activePane && get().getPane(state.activePane)) {
-        targetPaneId = state.activePane;
+        targetPaneId = state.activePane
       } else {
         // leaf ペインを探索（深さ優先）
         const findLeafPane = (panes: EditorPane[]): EditorPane | null => {
           for (const p of panes) {
-            if (!p.children || p.children.length === 0) return p;
-            const found = findLeafPane(p.children);
-            if (found) return found;
+            if (!p.children || p.children.length === 0) return p
+            const found = findLeafPane(p.children)
+            if (found) return found
           }
-          return null;
-        };
+          return null
+        }
 
-        const leaf = findLeafPane(get().panes);
+        const leaf = findLeafPane(get().panes)
         if (leaf) {
-          targetPaneId = leaf.id;
+          targetPaneId = leaf.id
         } else if (!targetPaneId) {
           // ペインが一つも存在しない場合は新規ペインを作る
-          const existingIds = get().panes.map(p => p.id);
-          let nextNum = 1;
-          while (existingIds.includes(`pane-${nextNum}`)) nextNum++;
-          const newPaneId = `pane-${nextNum}`;
-          const newPane: EditorPane = { id: newPaneId, tabs: [], activeTabId: '' };
-          get().addPane(newPane);
-          targetPaneId = newPaneId;
-          set({ activePane: newPaneId });
+          const existingIds = get().panes.map(p => p.id)
+          let nextNum = 1
+          while (existingIds.includes(`pane-${nextNum}`)) nextNum++
+          const newPaneId = `pane-${nextNum}`
+          const newPane: EditorPane = { id: newPaneId, tabs: [], activeTabId: '' }
+          get().addPane(newPane)
+          targetPaneId = newPaneId
+          set({ activePane: newPaneId })
         }
       }
 
       // ここまでで targetPaneId が未決定であれば、まず既存の最初のペインを試す。
       // それも無ければ新規ペインを作成して targetPaneId を決定する。
       if (!targetPaneId) {
-        const firstPaneId = state.panes[0]?.id;
+        const firstPaneId = state.panes[0]?.id
         if (firstPaneId) {
-          targetPaneId = firstPaneId;
+          targetPaneId = firstPaneId
         } else {
           // 既存ペインが全く無い場合は新規作成
-          const existingIds = get().panes.map(p => p.id);
-          let nextNum = 1;
-          while (existingIds.includes(`pane-${nextNum}`)) nextNum++;
-          const newPaneId = `pane-${nextNum}`;
-          const newPane: EditorPane = { id: newPaneId, tabs: [], activeTabId: '' };
-          get().addPane(newPane);
-          targetPaneId = newPaneId;
-          set({ activePane: newPaneId });
+          const existingIds = get().panes.map(p => p.id)
+          let nextNum = 1
+          while (existingIds.includes(`pane-${nextNum}`)) nextNum++
+          const newPaneId = `pane-${nextNum}`
+          const newPane: EditorPane = { id: newPaneId, tabs: [], activeTabId: '' }
+          get().addPane(newPane)
+          targetPaneId = newPaneId
+          set({ activePane: newPaneId })
         }
       }
 
       // 最終確認ガード（型安全性確保）
       if (!targetPaneId) {
-        console.error('[TabStore] No pane available to open tab in');
-        return;
+        console.error('[TabStore] No pane available to open tab in')
+        return
       }
     }
 
     // 最終ガード：ここで targetPaneId が決まっていなければ処理を中止して型の安全性を確保
     if (!targetPaneId) {
-      console.error('[TabStore] No pane available to open tab in (final guard)');
-      return;
+      console.error('[TabStore] No pane available to open tab in (final guard)')
+      return
     }
 
     // もし targetPaneId が親ペイン（children を持つ）を指している場合、実際のタブ追加は葉ペインに行う。
     // これは「グローバルアクティブが空の親ペイン」になっている状況への対処。
     const normalizeToLeafPane = (paneId: string): string => {
-      const startPane = get().getPane(paneId);
-      if (!startPane) return paneId;
+      const startPane = get().getPane(paneId)
+      if (!startPane) return paneId
 
       const findLeaf = (p: EditorPane): EditorPane => {
-        if (!p.children || p.children.length === 0) return p;
+        if (!p.children || p.children.length === 0) return p
         // 優先的に最初の子を辿る（UI上のフォーカスを自然に保つため）
-        return findLeaf(p.children[0]);
-      };
+        return findLeaf(p.children[0])
+      }
 
-      const leaf = findLeaf(startPane);
-      return leaf.id || paneId;
-    };
+      const leaf = findLeaf(startPane)
+      return leaf.id || paneId
+    }
 
     // 正規化して葉ペインIDを使う
-    targetPaneId = normalizeToLeafPane(targetPaneId);
+    targetPaneId = normalizeToLeafPane(targetPaneId)
 
-    const tabDef = tabRegistry.get(kind);
+    const tabDef = tabRegistry.get(kind)
     if (!tabDef) {
-      console.error(`[TabStore] No tab type registered for kind: ${kind}`);
-      return;
+      console.error(`[TabStore] No tab type registered for kind: ${kind}`)
+      return
     }
 
     // 既存タブの検索
-    const pane = state.getPane(targetPaneId);
+    const pane = state.getPane(targetPaneId)
     if (!pane) {
-      console.error(`[TabStore] Pane not found: ${targetPaneId}`);
-      return;
+      console.error(`[TabStore] Pane not found: ${targetPaneId}`)
+      return
     }
 
     // shouldReuseTabがある場合の検索
     if (tabDef.shouldReuseTab) {
       // searchAllPanesForReuseがtrueの場合、全ペインを検索（paneIndexが小さいペインを優先）
       if (options.searchAllPanesForReuse) {
-        const allLeafPanes = flattenLeafPanes(state.panes);
-        
+        const allLeafPanes = flattenLeafPanes(state.panes)
+
         for (const searchPane of allLeafPanes) {
           for (const tab of searchPane.tabs) {
             if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
               // 既存タブをアクティブ化
               if (options.makeActive !== false) {
-                get().activateTab(searchPane.id, tab.id);
+                get().activateTab(searchPane.id, tab.id)
               }
-              console.log('[TabStore] Reusing existing tab via shouldReuseTab (all panes):', tab.id, 'in pane:', searchPane.id);
-              return;
+              console.log(
+                '[TabStore] Reusing existing tab via shouldReuseTab (all panes):',
+                tab.id,
+                'in pane:',
+                searchPane.id
+              )
+              return
             }
           }
         }
@@ -315,26 +320,26 @@ export const useTabStore = create<TabStore>((set, get) => ({
           if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
             // 既存タブをアクティブ化
             if (options.makeActive !== false) {
-              get().activateTab(targetPaneId, tab.id);
+              get().activateTab(targetPaneId, tab.id)
             }
-            console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id);
-            return;
+            console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id)
+            return
           }
         }
         // shouldReuseTabで見つからなかった場合は新規タブを作成（通常検索はスキップ）
       }
     } else {
       // shouldReuseTabがない場合は、通常の検索（パス/IDベース）
-      const tabId = kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name;
+      const tabId = kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name
       const existingTab = pane.tabs.find(t => {
         // 同じkindとpathのタブを検索
-        return t.kind === kind && (t.path === file.path || t.id === tabId);
-      });
+        return t.kind === kind && (t.path === file.path || t.id === tabId)
+      })
 
       if (existingTab) {
         // 既存タブをアクティブ化
         if (options.makeActive !== false) {
-          get().activateTab(targetPaneId, existingTab.id);
+          get().activateTab(targetPaneId, existingTab.id)
         }
 
         // jumpToLine/jumpToColumnがある場合は更新
@@ -342,15 +347,15 @@ export const useTabStore = create<TabStore>((set, get) => ({
           get().updateTab(targetPaneId, existingTab.id, {
             jumpToLine: options.jumpToLine,
             jumpToColumn: options.jumpToColumn,
-          } as Partial<Tab>);
+          } as Partial<Tab>)
         }
 
-        return;
+        return
       }
     }
 
     // 新規タブの作成
-    const newTab = tabDef.createTab(file, { ...options, paneId: targetPaneId });
+    const newTab = tabDef.createTab(file, { ...options, paneId: targetPaneId })
 
     // ペインにタブを追加し、グローバルアクティブタブも同時に更新
     // 別々のset呼び出しではなく、1つの更新で原子的に行うことで
@@ -362,57 +367,59 @@ export const useTabStore = create<TabStore>((set, get) => ({
             ...p,
             tabs: [...p.tabs, newTab],
             activeTabId: options.makeActive !== false ? newTab.id : p.activeTabId,
-          };
+          }
         }
         if (p.children) {
-          return { ...p, children: updatePaneRecursive(p.children) };
+          return { ...p, children: updatePaneRecursive(p.children) }
         }
-        return p;
-      });
-    };
+        return p
+      })
+    }
 
     set(state => ({
       panes: updatePaneRecursive(state.panes),
-      ...(options.makeActive !== false ? {
-        globalActiveTab: newTab.id,
-        activePane: targetPaneId,
-      } : {}),
-    }));
+      ...(options.makeActive !== false
+        ? {
+            globalActiveTab: newTab.id,
+            activePane: targetPaneId,
+          }
+        : {}),
+    }))
   },
 
   closeTab: (paneId, tabId) => {
-    const state = get();
-    const pane = state.getPane(paneId);
-    if (!pane) return;
+    const state = get()
+    const pane = state.getPane(paneId)
+    if (!pane) return
 
-    const newTabs = pane.tabs.filter(t => t.id !== tabId);
-    let newActiveTabId = pane.activeTabId;
+    const newTabs = pane.tabs.filter(t => t.id !== tabId)
+    let newActiveTabId = pane.activeTabId
 
     // 閉じたタブがアクティブだった場合、次のタブをアクティブに
     if (pane.activeTabId === tabId) {
-      const closedIndex = pane.tabs.findIndex(t => t.id === tabId);
+      const closedIndex = pane.tabs.findIndex(t => t.id === tabId)
       if (newTabs.length > 0) {
         if (closedIndex > 0) {
-          newActiveTabId = newTabs[closedIndex - 1].id;
+          newActiveTabId = newTabs[closedIndex - 1].id
         } else {
-          newActiveTabId = newTabs[0].id;
+          newActiveTabId = newTabs[0].id
         }
       } else {
-        newActiveTabId = '';
+        newActiveTabId = ''
       }
     }
 
     get().updatePane(paneId, {
       tabs: newTabs,
       activeTabId: newActiveTabId,
-    });
+    })
 
     // グローバルアクティブタブの更新
     if (state.globalActiveTab === tabId) {
       set({
         globalActiveTab: newActiveTabId || null,
         activePane: newActiveTabId ? paneId : null,
-      });
+      })
     }
   },
 
@@ -422,202 +429,209 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
       return panes.map(p => {
         if (p.id === paneId) {
-          return { ...p, activeTabId: tabId };
+          return { ...p, activeTabId: tabId }
         }
         if (p.children) {
-          return { ...p, children: updatePaneRecursive(p.children) };
+          return { ...p, children: updatePaneRecursive(p.children) }
         }
-        return p;
-      });
-    };
+        return p
+      })
+    }
 
     set(state => ({
       panes: updatePaneRecursive(state.panes),
       globalActiveTab: tabId,
       activePane: paneId,
-    }));
+    }))
   },
 
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => {
-    const state = get();
-    const pane = state.getPane(paneId);
-    if (!pane) return;
+    const state = get()
+    const pane = state.getPane(paneId)
+    if (!pane) return
 
-    const newTabs = pane.tabs.map(t => (t.id === tabId ? ({ ...t, ...updates } as Tab) : t));
+    const newTabs = pane.tabs.map(t => (t.id === tabId ? ({ ...t, ...updates } as Tab) : t))
 
-    get().updatePane(paneId, { tabs: newTabs });
+    get().updatePane(paneId, { tabs: newTabs })
   },
 
   moveTab: (fromPaneId, toPaneId, tabId) => {
-    const state = get();
-    const fromPane = state.getPane(fromPaneId);
-    const toPane = state.getPane(toPaneId);
+    const state = get()
+    const fromPane = state.getPane(fromPaneId)
+    const toPane = state.getPane(toPaneId)
 
-    if (!fromPane || !toPane) return;
+    if (!fromPane || !toPane) return
 
-    const tab = fromPane.tabs.find(t => t.id === tabId);
-    if (!tab) return;
+    const tab = fromPane.tabs.find(t => t.id === tabId)
+    if (!tab) return
 
     // 移動元から削除
-    get().closeTab(fromPaneId, tabId);
+    get().closeTab(fromPaneId, tabId)
 
     // 移動先に追加（paneIdを更新）
-    const updatedTab = { ...tab, paneId: toPaneId };
+    const updatedTab = { ...tab, paneId: toPaneId }
     get().updatePane(toPaneId, {
       tabs: [...toPane.tabs, updatedTab],
       activeTabId: updatedTab.id,
-    });
+    })
 
     // グローバルアクティブタブを更新
     set({
       globalActiveTab: updatedTab.id,
       activePane: toPaneId,
-    });
+    })
   },
 
   // タブを特定のインデックスに移動（同一ペイン内の並び替えまたは他ペインへ挿入）
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => {
-    const state = get();
-    const fromPane = state.getPane(fromPaneId);
-    const toPane = state.getPane(toPaneId);
-    if (!fromPane || !toPane) return;
+    const state = get()
+    const fromPane = state.getPane(fromPaneId)
+    const toPane = state.getPane(toPaneId)
+    if (!fromPane || !toPane) return
 
-    const tab = fromPane.tabs.find(t => t.id === tabId);
-    if (!tab) return;
+    const tab = fromPane.tabs.find(t => t.id === tabId)
+    if (!tab) return
 
     // 同一ペイン内の並べ替えの場合は単純に配列を並べ替えて終了
     if (fromPaneId === toPaneId) {
-      const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId);
-      const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1));
-      if (currentIndex === -1 || currentIndex === targetIndex) return;
+      const currentIndex = fromPane.tabs.findIndex(t => t.id === tabId)
+      const targetIndex = Math.max(0, Math.min(index, fromPane.tabs.length - 1))
+      if (currentIndex === -1 || currentIndex === targetIndex) return
 
-      const reordered = [...fromPane.tabs];
-      const [removed] = reordered.splice(currentIndex, 1);
-      reordered.splice(targetIndex, 0, removed);
+      const reordered = [...fromPane.tabs]
+      const [removed] = reordered.splice(currentIndex, 1)
+      reordered.splice(targetIndex, 0, removed)
 
       get().updatePane(fromPaneId, {
         tabs: reordered,
         activeTabId: removed.id,
-      });
+      })
 
-      set({ globalActiveTab: removed.id, activePane: fromPaneId });
-      return;
+      set({ globalActiveTab: removed.id, activePane: fromPaneId })
+      return
     }
 
     // 別ペインへ移動する場合
     // まず移動元から削除
-    const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
+    const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId)
     get().updatePane(fromPaneId, {
       tabs: newFromTabs,
-      activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
-    });
+      activeTabId: fromPane.activeTabId === tabId ? newFromTabs[0]?.id || '' : fromPane.activeTabId,
+    })
 
     // 移動先に挿入
-    const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
-    const newToTabs = [...toPane.tabs.slice(0, adjustedIndex), { ...tab, paneId: toPaneId }, ...toPane.tabs.slice(adjustedIndex)];
+    const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length))
+    const newToTabs = [
+      ...toPane.tabs.slice(0, adjustedIndex),
+      { ...tab, paneId: toPaneId },
+      ...toPane.tabs.slice(adjustedIndex),
+    ]
 
     get().updatePane(toPaneId, {
       tabs: newToTabs,
       activeTabId: tab.id,
-    });
+    })
 
     set({
       globalActiveTab: tab.id,
       activePane: toPaneId,
-    });
+    })
   },
 
   // ユーティリティメソッド
   getPane: paneId => {
     const findPane = (panes: EditorPane[]): EditorPane | null => {
       for (const pane of panes) {
-        if (pane.id === paneId) return pane;
+        if (pane.id === paneId) return pane
         if (pane.children) {
-          const found = findPane(pane.children);
-          if (found) return found;
+          const found = findPane(pane.children)
+          if (found) return found
         }
       }
-      return null;
-    };
-    return findPane(get().panes);
+      return null
+    }
+    return findPane(get().panes)
   },
 
   getTab: (paneId, tabId) => {
-    const pane = get().getPane(paneId);
-    if (!pane) return null;
-    return pane.tabs.find(t => t.id === tabId) || null;
+    const pane = get().getPane(paneId)
+    if (!pane) return null
+    return pane.tabs.find(t => t.id === tabId) || null
   },
 
   getAllTabs: () => {
     const collectTabs = (panes: EditorPane[]): Tab[] => {
-      const tabs: Tab[] = [];
+      const tabs: Tab[] = []
       for (const pane of panes) {
-        tabs.push(...pane.tabs);
+        tabs.push(...pane.tabs)
         if (pane.children) {
-          tabs.push(...collectTabs(pane.children));
+          tabs.push(...collectTabs(pane.children))
         }
       }
-      return tabs;
-    };
-    return collectTabs(get().panes);
+      return tabs
+    }
+    return collectTabs(get().panes)
   },
 
   findTabByPath: (path, kind) => {
-    const state = get();
+    const state = get()
     const findInPanes = (panes: EditorPane[]): { paneId: string; tab: Tab } | null => {
       for (const pane of panes) {
-        const tab = pane.tabs.find(t => t.path === path && (kind === undefined || t.kind === kind));
-        if (tab) return { paneId: pane.id, tab };
+        const tab = pane.tabs.find(t => t.path === path && (kind === undefined || t.kind === kind))
+        if (tab) return { paneId: pane.id, tab }
 
         if (pane.children) {
-          const found = findInPanes(pane.children);
-          if (found) return found;
+          const found = findInPanes(pane.children)
+          if (found) return found
         }
       }
-      return null;
-    };
-    return findInPanes(state.panes);
+      return null
+    }
+    return findInPanes(state.panes)
   },
 
   // ファイル削除時のタブ処理: editor/previewを閉じ、diffはコンテンツを空にする
   handleFileDeleted: (deletedPath: string) => {
-    const state = get();
-    
+    const state = get()
+
     // パスを正規化
     const normalizePath = (p?: string): string => {
-      if (!p) return '';
-      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-    };
-    
-    const normalizedDeletedPath = normalizePath(deletedPath);
-    console.log('[TabStore] handleFileDeleted:', normalizedDeletedPath);
-    
+      if (!p) return ''
+      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p
+      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '')
+      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`
+    }
+
+    const normalizedDeletedPath = normalizePath(deletedPath)
+    console.log('[TabStore] handleFileDeleted:', normalizedDeletedPath)
+
     // 閉じるタブを収集
-    const tabsToClose: Array<{ paneId: string; tabId: string }> = [];
-    
+    const tabsToClose: Array<{ paneId: string; tabId: string }> = []
+
     // ペインを再帰的に更新
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
       return panes.map(pane => {
         if (pane.children && pane.children.length > 0) {
-          return { ...pane, children: updatePaneRecursive(pane.children) };
+          return { ...pane, children: updatePaneRecursive(pane.children) }
         }
-        
+
         // リーフペイン
         const newTabs = pane.tabs.map((tab: Tab) => {
-          const tabPath = normalizePath(tab.path);
-          
+          const tabPath = normalizePath(tab.path)
+
           // editor/previewは閉じる対象として記録
-          if ((tab.kind === 'editor' || tab.kind === 'preview') && tabPath === normalizedDeletedPath) {
-            tabsToClose.push({ paneId: pane.id, tabId: tab.id });
-            return tab;
+          if (
+            (tab.kind === 'editor' || tab.kind === 'preview') &&
+            tabPath === normalizedDeletedPath
+          ) {
+            tabsToClose.push({ paneId: pane.id, tabId: tab.id })
+            return tab
           }
-          
+
           // 編集可能なdiffタブ（ワーキングディレクトリとの差分）のみコンテンツを空にする
           // readonlyのdiffタブ（過去のcommit間の差分）は変更不要
           if (tab.kind === 'diff' && tabPath === normalizedDeletedPath) {
-            const diffTab = tab as DiffTab;
+            const diffTab = tab as DiffTab
             if (diffTab.editable) {
               return {
                 ...diffTab,
@@ -625,57 +639,57 @@ export const useTabStore = create<TabStore>((set, get) => ({
                   ...diff,
                   latterContent: '',
                 })),
-              };
+              }
             }
           }
-          
-          return tab;
-        });
-        
-        return { ...pane, tabs: newTabs };
-      });
-    };
+
+          return tab
+        })
+
+        return { ...pane, tabs: newTabs }
+      })
+    }
 
     // diffタブのコンテンツを更新
-    set({ panes: updatePaneRecursive(state.panes) });
-    
+    set({ panes: updatePaneRecursive(state.panes) })
+
     // editor/previewタブを閉じる
     for (const { paneId, tabId } of tabsToClose) {
-      get().closeTab(paneId, tabId);
+      get().closeTab(paneId, tabId)
     }
   },
 
   splitPane: (paneId, direction) => {
-    const state = get();
-    const targetPane = state.getPane(paneId);
-    if (!targetPane) return;
+    const state = get()
+    const targetPane = state.getPane(paneId)
+    if (!targetPane) return
 
     // 既存のペインIDを収集
     const getAllPaneIds = (panes: EditorPane[]): string[] => {
-      const ids: string[] = [];
+      const ids: string[] = []
       const traverse = (panes: EditorPane[]) => {
         panes.forEach(pane => {
-          ids.push(pane.id);
-          if (pane.children) traverse(pane.children);
-        });
-      };
-      traverse(panes);
-      return ids;
-    };
+          ids.push(pane.id)
+          if (pane.children) traverse(pane.children)
+        })
+      }
+      traverse(panes)
+      return ids
+    }
 
-    const existingIds = getAllPaneIds(state.panes);
-    let nextNum = 1;
+    const existingIds = getAllPaneIds(state.panes)
+    let nextNum = 1
     while (existingIds.includes(`pane-${nextNum}`)) {
-      nextNum++;
+      nextNum++
     }
-    const newPaneId = `pane-${nextNum}`;
-    
+    const newPaneId = `pane-${nextNum}`
+
     // existingPaneId も重複しないように生成
-    let nextNum2 = nextNum + 1;
+    let nextNum2 = nextNum + 1
     while (existingIds.includes(`pane-${nextNum2}`) || `pane-${nextNum2}` === newPaneId) {
-      nextNum2++;
+      nextNum2++
     }
-    const existingPaneId = `pane-${nextNum2}`;
+    const existingPaneId = `pane-${nextNum2}`
 
     // 再帰的にペインを更新
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
@@ -708,103 +722,105 @@ export const useTabStore = create<TabStore>((set, get) => ({
             ],
             tabs: [], // 親ペインはタブを持たない
             activeTabId: '',
-          };
+          }
         }
         if (pane.children) {
-          return { ...pane, children: updatePaneRecursive(pane.children) };
+          return { ...pane, children: updatePaneRecursive(pane.children) }
         }
-        return pane;
-      });
-    };
+        return pane
+      })
+    }
 
-    set({ panes: updatePaneRecursive(state.panes) });
+    set({ panes: updatePaneRecursive(state.panes) })
   },
 
   splitPaneAndMoveTab: (paneId, direction, tabId, side) => {
-    const state = get();
-    const targetPane = state.getPane(paneId);
-    if (!targetPane) return;
+    const state = get()
+    const targetPane = state.getPane(paneId)
+    if (!targetPane) return
 
     // 移動するタブを特定（どのペインにあるか探す）
-    let sourcePaneId = '';
-    let tabToMove: Tab | null = null;
-    
+    let sourcePaneId = ''
+    let tabToMove: Tab | null = null
+
     // 全ペインから探す
     const findTab = (panes: EditorPane[]) => {
       for (const p of panes) {
-        const t = p.tabs.find(tab => tab.id === tabId);
+        const t = p.tabs.find(tab => tab.id === tabId)
         if (t) {
-          sourcePaneId = p.id;
-          tabToMove = t;
-          return;
+          sourcePaneId = p.id
+          tabToMove = t
+          return
         }
-        if (p.children) findTab(p.children);
+        if (p.children) findTab(p.children)
       }
-    };
-    findTab(state.panes);
+    }
+    findTab(state.panes)
 
-    if (!tabToMove || !sourcePaneId) return;
+    if (!tabToMove || !sourcePaneId) return
 
     // 既存のペインIDを収集
     const getAllPaneIds = (panes: EditorPane[]): string[] => {
-      const ids: string[] = [];
+      const ids: string[] = []
       const traverse = (panes: EditorPane[]) => {
         panes.forEach(pane => {
-          ids.push(pane.id);
-          if (pane.children) traverse(pane.children);
-        });
-      };
-      traverse(panes);
-      return ids;
-    };
-
-    const existingIds = getAllPaneIds(state.panes);
-    let nextNum = 1;
-    while (existingIds.includes(`pane-${nextNum}`)) {
-      nextNum++;
+          ids.push(pane.id)
+          if (pane.children) traverse(pane.children)
+        })
+      }
+      traverse(panes)
+      return ids
     }
-    const newPaneId = `pane-${nextNum}`;
-    const existingPaneId = `pane-${nextNum + 1}`;
+
+    const existingIds = getAllPaneIds(state.panes)
+    let nextNum = 1
+    while (existingIds.includes(`pane-${nextNum}`)) {
+      nextNum++
+    }
+    const newPaneId = `pane-${nextNum}`
+    const existingPaneId = `pane-${nextNum + 1}`
 
     // 再帰的にペインを更新
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
       return panes.map(pane => {
         // ソースペインからタブを削除（ターゲットと同じペインの場合は後で処理されるのでここでは削除しない）
         if (pane.id === sourcePaneId && sourcePaneId !== paneId) {
-           const newTabs = pane.tabs.filter(t => t.id !== tabId);
-           return {
-             ...pane,
-             tabs: newTabs,
-             activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId
-           };
+          const newTabs = pane.tabs.filter(t => t.id !== tabId)
+          return {
+            ...pane,
+            tabs: newTabs,
+            activeTabId: pane.activeTabId === tabId ? newTabs[0]?.id || '' : pane.activeTabId,
+          }
         }
 
         if (pane.id === paneId) {
           // ターゲットペインを分割
           // 既存のタブ（移動するタブがここにある場合は除外）
-          const existingTabs = pane.tabs.filter(t => t.id !== tabId).map(tab => ({
-             ...tab,
-             // IDは変更しない（移動ではないため）
-             // ただし、新しいペインIDに属することになるため、内部的な整合性は必要だが
-             // ここでは既存のタブをそのまま `existingPaneId` のペインに移す
-             // タブIDにペインIDが含まれている場合などは置換が必要かもしれないが、
-             // 現在の実装では tab.id は path ベースのようなのでそのままで良い場合が多い
-             // しかし splitPane では replace している...
-             // 安全のため splitPane と同様に replace するか、あるいは paneId プロパティだけ更新するか
-             // tabStore の moveTab では paneId プロパティを更新している
-             paneId: existingPaneId
-          }));
-          
+          const existingTabs = pane.tabs
+            .filter(t => t.id !== tabId)
+            .map(tab => ({
+              ...tab,
+              // IDは変更しない（移動ではないため）
+              // ただし、新しいペインIDに属することになるため、内部的な整合性は必要だが
+              // ここでは既存のタブをそのまま `existingPaneId` のペインに移す
+              // タブIDにペインIDが含まれている場合などは置換が必要かもしれないが、
+              // 現在の実装では tab.id は path ベースのようなのでそのままで良い場合が多い
+              // しかし splitPane では replace している...
+              // 安全のため splitPane と同様に replace するか、あるいは paneId プロパティだけ更新するか
+              // tabStore の moveTab では paneId プロパティを更新している
+              paneId: existingPaneId,
+            }))
+
           // 移動するタブ
-          const movedTab = { ...tabToMove!, paneId: newPaneId };
+          const movedTab = { ...tabToMove!, paneId: newPaneId }
 
           const pane1 = {
             id: existingPaneId,
             tabs: existingTabs,
-            activeTabId: pane.activeTabId === tabId ? (existingTabs[0]?.id || '') : pane.activeTabId, // 移動するタブがアクティブだった場合は別のアクティブへ
+            activeTabId: pane.activeTabId === tabId ? existingTabs[0]?.id || '' : pane.activeTabId, // 移動するタブがアクティブだった場合は別のアクティブへ
             parentId: paneId,
             size: 50,
-          };
+          }
 
           const pane2 = {
             id: newPaneId,
@@ -812,7 +828,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
             activeTabId: movedTab.id,
             parentId: paneId,
             size: 50,
-          };
+          }
 
           return {
             ...pane,
@@ -820,54 +836,55 @@ export const useTabStore = create<TabStore>((set, get) => ({
             children: side === 'before' ? [pane2, pane1] : [pane1, pane2],
             tabs: [], // 親ペインはタブを持たない
             activeTabId: '',
-          };
+          }
         }
-        
-        if (pane.children) {
-          return { ...pane, children: updatePaneRecursive(pane.children) };
-        }
-        return pane;
-      });
-    };
 
-    const newPanes = updatePaneRecursive(state.panes);
-    set({ 
+        if (pane.children) {
+          return { ...pane, children: updatePaneRecursive(pane.children) }
+        }
+        return pane
+      })
+    }
+
+    const newPanes = updatePaneRecursive(state.panes)
+    set({
       panes: newPanes,
       activePane: newPaneId,
-      globalActiveTab: tabId
-    });
+      globalActiveTab: tabId,
+    })
   },
 
   splitPaneAndOpenFile: (paneId, direction, file, side) => {
-    const state = get();
-    const targetPane = state.getPane(paneId);
-    if (!targetPane) return;
+    const state = get()
+    const targetPane = state.getPane(paneId)
+    if (!targetPane) return
 
     // 既存のペインIDを収集
     const getAllPaneIds = (panes: EditorPane[]): string[] => {
-      const ids: string[] = [];
+      const ids: string[] = []
       const traverse = (panes: EditorPane[]) => {
         panes.forEach(pane => {
-          ids.push(pane.id);
-          if (pane.children) traverse(pane.children);
-        });
-      };
-      traverse(panes);
-      return ids;
-    };
-
-    const existingIds = getAllPaneIds(state.panes);
-    let nextNum = 1;
-    while (existingIds.includes(`pane-${nextNum}`)) {
-      nextNum++;
+          ids.push(pane.id)
+          if (pane.children) traverse(pane.children)
+        })
+      }
+      traverse(panes)
+      return ids
     }
-    const newPaneId = `pane-${nextNum}`;
-    const existingPaneId = `pane-${nextNum + 1}`;
+
+    const existingIds = getAllPaneIds(state.panes)
+    let nextNum = 1
+    while (existingIds.includes(`pane-${nextNum}`)) {
+      nextNum++
+    }
+    const newPaneId = `pane-${nextNum}`
+    const existingPaneId = `pane-${nextNum + 1}`
 
     // ファイル用の新しいタブを作成
-    const defaultEditor = typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-    const kind = file.isBufferArray ? 'binary' : 'editor';
-    const newTabId = `${file.path || file.name}-${Date.now()}`;
+    const defaultEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco'
+    const kind = file.isBufferArray ? 'binary' : 'editor'
+    const newTabId = `${file.path || file.name}-${Date.now()}`
     const newTab: Tab = {
       id: newTabId,
       name: file.name,
@@ -877,7 +894,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       content: file.content || '',
       isDirty: false,
       isCodeMirror: defaultEditor === 'codemirror',
-    };
+    }
 
     // 再帰的にペインを更新
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
@@ -886,8 +903,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
           // 既存のタブのpaneIdを更新
           const existingTabs = pane.tabs.map(tab => ({
             ...tab,
-            paneId: existingPaneId
-          }));
+            paneId: existingPaneId,
+          }))
 
           const pane1 = {
             id: existingPaneId,
@@ -895,7 +912,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
             activeTabId: pane.activeTabId,
             parentId: paneId,
             size: 50,
-          };
+          }
 
           const pane2 = {
             id: newPaneId,
@@ -903,7 +920,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
             activeTabId: newTabId,
             parentId: paneId,
             size: 50,
-          };
+          }
 
           return {
             ...pane,
@@ -911,102 +928,102 @@ export const useTabStore = create<TabStore>((set, get) => ({
             children: side === 'before' ? [pane2, pane1] : [pane1, pane2],
             tabs: [],
             activeTabId: '',
-          };
+          }
         }
-        
-        if (pane.children) {
-          return { ...pane, children: updatePaneRecursive(pane.children) };
-        }
-        return pane;
-      });
-    };
 
-    const newPanes = updatePaneRecursive(state.panes);
-    set({ 
+        if (pane.children) {
+          return { ...pane, children: updatePaneRecursive(pane.children) }
+        }
+        return pane
+      })
+    }
+
+    const newPanes = updatePaneRecursive(state.panes)
+    set({
       panes: newPanes,
       activePane: newPaneId,
-      globalActiveTab: newTabId
-    });
+      globalActiveTab: newTabId,
+    })
   },
 
   resizePane: (paneId, newSize) => {
-    get().updatePane(paneId, { size: newSize });
+    get().updatePane(paneId, { size: newSize })
   },
 
   // タブのコンテンツを同期更新（同じパスを持つ全てのEditorTab + DiffTabを更新）
   updateTabContent: (tabId: string, content: string, immediate = false) => {
-    const allTabs = get().getAllTabs();
-    const tabInfo = allTabs.find(t => t.id === tabId);
+    const allTabs = get().getAllTabs()
+    const tabInfo = allTabs.find(t => t.id === tabId)
 
-    if (!tabInfo) return;
+    if (!tabInfo) return
 
     // editor または diff 系のみ操作対象
-    if (tabInfo.kind !== 'editor' && tabInfo.kind !== 'diff') return;
+    if (tabInfo.kind !== 'editor' && tabInfo.kind !== 'diff') return
 
-    const targetPath = tabInfo.path || '';
-    if (!targetPath) return;
+    const targetPath = tabInfo.path || ''
+    if (!targetPath) return
 
     // 変更が必要なタブがあるかチェック
-    let hasChanges = false;
+    let hasChanges = false
 
     // 全てのペインを巡回して、path が一致する editor/diff タブを更新
     const updatePanesRecursive = (panes: any[]): any[] => {
       return panes.map((pane: any) => {
-        let paneChanged = false;
+        let paneChanged = false
         const newTabs = pane.tabs.map((t: any) => {
           // editor タブの更新
           if (t.kind === 'editor' && t.path === targetPath) {
             if (t.content === content && t.isDirty === immediate) {
-              return t; // コンテンツが同じ場合はスキップ
+              return t // コンテンツが同じ場合はスキップ
             }
-            paneChanged = true;
-            hasChanges = true;
-            return { ...t, content, isDirty: immediate };
+            paneChanged = true
+            hasChanges = true
+            return { ...t, content, isDirty: immediate }
           }
           // DiffTabの更新（リアルタイム同期）
           if (t.kind === 'diff' && t.path === targetPath && t.diffs && t.diffs.length > 0) {
             if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
-              return t; // コンテンツが同じ場合はスキップ
+              return t // コンテンツが同じ場合はスキップ
             }
-            const updatedDiffs = [...t.diffs];
+            const updatedDiffs = [...t.diffs]
             updatedDiffs[0] = {
               ...updatedDiffs[0],
               latterContent: content,
-            };
-            paneChanged = true;
-            hasChanges = true;
-            return { ...t, diffs: updatedDiffs, isDirty: immediate };
+            }
+            paneChanged = true
+            hasChanges = true
+            return { ...t, diffs: updatedDiffs, isDirty: immediate }
           }
-          return t;
-        });
+          return t
+        })
 
         if (pane.children) {
-          const newChildren = updatePanesRecursive(pane.children);
+          const newChildren = updatePanesRecursive(pane.children)
           if (paneChanged || newChildren !== pane.children) {
-            return { ...pane, tabs: newTabs, children: newChildren };
+            return { ...pane, tabs: newTabs, children: newChildren }
           }
         }
 
-        return paneChanged ? { ...pane, tabs: newTabs } : pane;
-      });
-    };
+        return paneChanged ? { ...pane, tabs: newTabs } : pane
+      })
+    }
 
-    const newPanes = updatePanesRecursive(get().panes);
+    const newPanes = updatePanesRecursive(get().panes)
     if (hasChanges) {
-      set({ panes: newPanes });
+      set({ panes: newPanes })
     }
   },
 
   saveSession: async (projectId?: string) => {
-    const state = get();
-    const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage');
-    
+    const state = get()
+    const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage')
+
     if (!projectId) {
-      const { getCurrentProjectId } = await import('@/stores/projectStore');
-      projectId = getCurrentProjectId() || undefined;
+      const { getCurrentProjectId } = await import('@/stores/projectStore')
+      projectId = getCurrentProjectId() || undefined
     }
-    if (!projectId) return;
-    
+    if (!projectId) return
+
     const session = {
       version: 1,
       lastSaved: Date.now(),
@@ -1016,43 +1033,43 @@ export const useTabStore = create<TabStore>((set, get) => ({
         globalActiveTab: state.globalActiveTab,
       },
       ui: DEFAULT_SESSION.ui,
-    };
-    
-    await sessionStorage.save(session, projectId);
+    }
+
+    await sessionStorage.save(session, projectId)
   },
 
   loadSession: async (projectId?: string) => {
-    const { sessionStorage } = await import('@/stores/sessionStorage');
+    const { sessionStorage } = await import('@/stores/sessionStorage')
     if (!projectId) {
-      const { getCurrentProjectId } = await import('@/stores/projectStore');
-      projectId = getCurrentProjectId() || undefined;
+      const { getCurrentProjectId } = await import('@/stores/projectStore')
+      projectId = getCurrentProjectId() || undefined
     }
 
     if (!projectId) {
-      set({ isLoading: false, isRestored: true, isContentRestored: true });
-      return;
+      set({ isLoading: false, isRestored: true, isContentRestored: true })
+      return
     }
 
-    const session = await sessionStorage.load(projectId);
+    const session = await sessionStorage.load(projectId)
 
     set({
       panes: session.tabs.panes,
       activePane: session.tabs.activePane || null,
-    });
+    })
 
     const hasAnyTabs = session.tabs.panes.some((pane: any) => {
       const checkPane = (p: any): boolean => {
-        if (p.tabs && p.tabs.length > 0) return true;
-        if (p.children) return p.children.some(checkPane);
-        return false;
-      };
-      return checkPane(pane);
-    });
+        if (p.tabs && p.tabs.length > 0) return true
+        if (p.children) return p.children.some(checkPane)
+        return false
+      }
+      return checkPane(pane)
+    })
 
     if (!hasAnyTabs) {
-      set({ isContentRestored: true });
+      set({ isContentRestored: true })
     }
 
-    set({ isLoading: false, isRestored: true });
+    set({ isLoading: false, isRestored: true })
   },
-}));
+}))

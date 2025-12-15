@@ -1,9 +1,9 @@
 // src/context/TabContext.tsx
-'use client';
-import React, { useEffect, ReactNode, useMemo } from 'react';
+'use client'
+import React, { useEffect, ReactNode, useMemo } from 'react'
 
-import { useProjectStore } from '@/stores/projectStore';
-import { useTabStore } from '@/stores/tabStore';
+import { useProjectStore } from '@/stores/projectStore'
+import { useTabStore } from '@/stores/tabStore'
 
 /**
  * TabProvider
@@ -12,37 +12,37 @@ import { useTabStore } from '@/stores/tabStore';
  * @deprecated useTabContext は削除されました。直接 useTabStore を使用してください。
  */
 interface TabProviderProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
-  const currentProject = useProjectStore(state => state.currentProject);
-  const loadSession = useTabStore(state => state.loadSession);
-  const saveSession = useTabStore(state => state.saveSession);
-  const isLoading = useTabStore(state => state.isLoading);
-  const panes = useTabStore(state => state.panes);
-  const activePane = useTabStore(state => state.activePane);
-  const globalActiveTab = useTabStore(state => state.globalActiveTab);
-  const setIsContentRestored = useTabStore(state => state.setIsContentRestored);
+  const currentProject = useProjectStore(state => state.currentProject)
+  const loadSession = useTabStore(state => state.loadSession)
+  const saveSession = useTabStore(state => state.saveSession)
+  const isLoading = useTabStore(state => state.isLoading)
+  const panes = useTabStore(state => state.panes)
+  const activePane = useTabStore(state => state.activePane)
+  const globalActiveTab = useTabStore(state => state.globalActiveTab)
+  const setIsContentRestored = useTabStore(state => state.setIsContentRestored)
 
   // プロジェクト変更時にセッションを復元
   useEffect(() => {
-    if (!currentProject) return;
-    loadSession(currentProject.id);
-  }, [currentProject, loadSession]);
+    if (!currentProject) return
+    loadSession(currentProject.id)
+  }, [currentProject, loadSession])
 
   // コンテンツ復元完了イベントのリスナー
   useEffect(() => {
     const handleContentRestored = () => {
-      console.log('[TabProvider] Content restoration completed');
-      setIsContentRestored(true);
-    };
+      console.log('[TabProvider] Content restoration completed')
+      setIsContentRestored(true)
+    }
 
-    window.addEventListener('pyxis-content-restored', handleContentRestored);
+    window.addEventListener('pyxis-content-restored', handleContentRestored)
     return () => {
-      window.removeEventListener('pyxis-content-restored', handleContentRestored);
-    };
-  }, [setIsContentRestored]);
+      window.removeEventListener('pyxis-content-restored', handleContentRestored)
+    }
+  }, [setIsContentRestored])
 
   // TabStore の変更を監視して自動保存
   // panes は大きな構造で中に content が含まれるため、
@@ -57,33 +57,34 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
         size: p.size,
         layout: p.layout,
         activeTabId: p.activeTabId,
-        tabs: p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
+        tabs:
+          p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
         children: p.children ? strip(p.children) : undefined,
-      }));
+      }))
 
     try {
-      return JSON.stringify(strip(panes));
+      return JSON.stringify(strip(panes))
     } catch (e) {
       try {
-        return JSON.stringify(panes);
+        return JSON.stringify(panes)
       } catch (_) {
-        return String(panes);
+        return String(panes)
       }
     }
-  }, [panes]);
+  }, [panes])
 
   useEffect(() => {
-    if (isLoading) return; // 初期ロード中は保存しない
+    if (isLoading) return // 初期ロード中は保存しない
 
     const timer = setTimeout(() => {
-      saveSession(currentProject?.id).catch(console.error);
-    }, 1000);
+      saveSession(currentProject?.id).catch(console.error)
+    }, 1000)
 
-    return () => clearTimeout(timer);
-  }, [structuralKey, activePane, globalActiveTab, isLoading, saveSession]);
+    return () => clearTimeout(timer)
+  }, [structuralKey, activePane, globalActiveTab, isLoading, saveSession])
 
-  return <>{children}</>;
-};
+  return <>{children}</>
+}
 
 /**
  * @deprecated useTabContext は削除されました。
@@ -96,6 +97,6 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
  * ```
  */
 export const useTabContext = () => {
-  console.warn('[useTabContext] This hook is deprecated. Use useTabStore() directly.');
-  return useTabStore();
-};
+  console.warn('[useTabContext] This hook is deprecated. Use useTabStore() directly.')
+  return useTabStore()
+}

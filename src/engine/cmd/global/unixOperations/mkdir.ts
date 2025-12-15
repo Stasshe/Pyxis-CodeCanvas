@@ -1,6 +1,6 @@
-import { UnixCommandBase } from './base';
+import { UnixCommandBase } from './base'
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fileRepository } from '@/engine/core/fileRepository'
 
 /**
  * mkdir - ディレクトリを作成
@@ -18,38 +18,38 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class MkdirCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { options, positional } = this.parseOptions(args)
 
     if (positional.length === 0) {
-      throw new Error('mkdir: missing operand\nUsage: mkdir [OPTION]... DIRECTORY...');
+      throw new Error('mkdir: missing operand\nUsage: mkdir [OPTION]... DIRECTORY...')
     }
 
-    const parents = options.has('-p') || options.has('--parents');
-    const verbose = options.has('-v') || options.has('--verbose');
+    const parents = options.has('-p') || options.has('--parents')
+    const verbose = options.has('-v') || options.has('--verbose')
 
-    const results: string[] = [];
-    const errors: string[] = [];
+    const results: string[] = []
+    const errors: string[] = []
 
     for (const dir of positional) {
       try {
-        const result = await this.createDirectory(dir, parents, verbose);
+        const result = await this.createDirectory(dir, parents, verbose)
         if (result) {
-          results.push(result);
+          results.push(result)
         }
       } catch (error) {
-        errors.push(`mkdir: cannot create directory '${dir}': ${(error as Error).message}`);
+        errors.push(`mkdir: cannot create directory '${dir}': ${(error as Error).message}`)
       }
     }
 
     if (errors.length > 0) {
-      throw new Error(errors.join('\n'));
+      throw new Error(errors.join('\n'))
     }
 
     if (verbose && results.length > 0) {
-      return results.join('\n');
+      return results.join('\n')
     }
 
-    return '';
+    return ''
   }
 
   /**
@@ -60,54 +60,54 @@ export class MkdirCommand extends UnixCommandBase {
     parents: boolean,
     verbose: boolean
   ): Promise<string | null> {
-    const normalizedPath = this.normalizePath(this.resolvePath(dir));
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
+    const normalizedPath = this.normalizePath(this.resolvePath(dir))
+    const relativePath = this.getRelativePathFromProject(normalizedPath)
 
     // 既に存在するかチェック
-    const exists = await this.exists(normalizedPath);
+    const exists = await this.exists(normalizedPath)
 
     if (exists) {
       if (parents) {
         // -pオプションがある場合は既存でもエラーなし
-        return null;
+        return null
       }
-      throw new Error('File exists');
+      throw new Error('File exists')
     }
 
     if (parents) {
       // 親ディレクトリも作成
-      const parts = relativePath.split('/').filter(p => p);
-      let currentPath = '';
+      const parts = relativePath.split('/').filter(p => p)
+      let currentPath = ''
 
       for (const part of parts) {
-        currentPath += '/' + part;
+        currentPath += '/' + part
         const exists = await this.exists(
           this.normalizePath(`${this.getProjectRoot()}${currentPath}`)
-        );
+        )
 
         if (!exists) {
-          await fileRepository.createFile(this.projectId, currentPath, '', 'folder');
+          await fileRepository.createFile(this.projectId, currentPath, '', 'folder')
         }
       }
     } else {
       // 親ディレクトリの存在チェック
-      const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
+      const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/'
       if (parentPath !== '/') {
-        const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`);
-        const parentExists = await this.exists(parentFullPath);
+        const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`)
+        const parentExists = await this.exists(parentFullPath)
 
         if (!parentExists) {
-          throw new Error('No such file or directory');
+          throw new Error('No such file or directory')
         }
       }
 
-      await fileRepository.createFile(this.projectId, relativePath, '', 'folder');
+      await fileRepository.createFile(this.projectId, relativePath, '', 'folder')
     }
 
     if (verbose) {
-      return `mkdir: created directory '${normalizedPath}'`;
+      return `mkdir: created directory '${normalizedPath}'`
     }
 
-    return null;
+    return null
   }
 }

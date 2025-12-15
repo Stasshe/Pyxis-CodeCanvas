@@ -6,56 +6,56 @@ export function createUtilModule() {
   return {
     inspect: (obj: any, options?: any): string => {
       try {
-        return JSON.stringify(obj, null, 2);
+        return JSON.stringify(obj, null, 2)
       } catch {
-        return String(obj);
+        return String(obj)
       }
     },
     format: (f: string, ...args: any[]): string => {
-      let i = 0;
+      let i = 0
       return f.replace(/%[sdj%]/g, x => {
-        if (x === '%%') return '%';
-        if (i >= args.length) return x;
+        if (x === '%%') return '%'
+        if (i >= args.length) return x
         switch (x) {
           case '%s':
-            return String(args[i++]);
+            return String(args[i++])
           case '%d':
-            return String(Number(args[i++]));
+            return String(Number(args[i++]))
           case '%j':
             try {
-              return JSON.stringify(args[i++]);
+              return JSON.stringify(args[i++])
             } catch {
-              return '[Circular]';
+              return '[Circular]'
             }
           default:
-            return x;
+            return x
         }
-      });
+      })
     },
     promisify: (fn: Function): Function => {
       return (...args: any[]) => {
         return new Promise((resolve, reject) => {
           fn(...args, (err: Error | null, result: any) => {
-            if (err) reject(err);
-            else resolve(result);
-          });
-        });
-      };
+            if (err) reject(err)
+            else resolve(result)
+          })
+        })
+      }
     },
     callbackify: (fn: Function): Function => {
       return (...args: any[]) => {
-        const callback = args[args.length - 1];
+        const callback = args[args.length - 1]
         fn(...args.slice(0, -1))
           .then((result: any) => callback(null, result))
-          .catch(callback);
-      };
+          .catch(callback)
+      }
     },
     inherits: (ctor: Function, superCtor: Function) => {
-      ctor.prototype = Object.create(superCtor.prototype);
-      ctor.prototype.constructor = ctor;
+      ctor.prototype = Object.create(superCtor.prototype)
+      ctor.prototype.constructor = ctor
     },
     isDeepStrictEqual: (a: any, b: any): boolean => {
-      return JSON.stringify(a) === JSON.stringify(b);
+      return JSON.stringify(a) === JSON.stringify(b)
     },
     types: {
       isArray: Array.isArray,
@@ -80,20 +80,20 @@ export function createUtilModule() {
     toPromise: (fn: Function, ...args: any[]): Promise<any> => {
       return new Promise((resolve, reject) => {
         fn(...args, (err: Error | null, result: any) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
-      });
+          if (err) reject(err)
+          else resolve(result)
+        })
+      })
     },
     deprecate: (fn: Function, msg: string): Function => {
-      let warned = false;
+      let warned = false
       return function (this: any, ...args: any[]) {
         if (!warned) {
-          console.warn(`DeprecationWarning: ${msg}`);
-          warned = true;
+          console.warn(`DeprecationWarning: ${msg}`)
+          warned = true
         }
-        return fn.apply(this, args);
-      };
+        return fn.apply(this, args)
+      }
     },
-  };
+  }
 }

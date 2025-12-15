@@ -3,14 +3,14 @@
  * 拡張機能システムと統合したビルトインモジュールのプロバイダー
  */
 
-import { extensionManager } from '@/engine/extensions/extensionManager';
-import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule';
+import { extensionManager } from '@/engine/extensions/extensionManager'
+import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule'
 
 export interface ExtendedBuiltInModulesOptions {
-  projectDir: string;
-  projectId: string;
-  projectName: string;
-  onInput?: (prompt: string, callback: (input: string) => void) => void;
+  projectDir: string
+  projectId: string
+  projectName: string
+  onInput?: (prompt: string, callback: (input: string) => void) => void
 }
 
 /**
@@ -25,16 +25,16 @@ export async function createExtendedBuiltInModules(
   options: ExtendedBuiltInModulesOptions
 ): Promise<BuiltInModules> {
   // 既存のビルトインモジュールを取得
-  const coreModules = createBuiltInModules(options);
+  const coreModules = createBuiltInModules(options)
 
   // 拡張機能からのビルトインモジュールを取得
-  const extensionModules = extensionManager.getAllBuiltInModules();
+  const extensionModules = extensionManager.getAllBuiltInModules()
 
   // マージして返す（拡張機能が優先）
   return {
     ...coreModules,
     ...extensionModules,
-  };
+  }
 }
 
 /**
@@ -48,23 +48,23 @@ export async function resolveBuiltInModule(
   coreModules: BuiltInModules
 ): Promise<unknown | null> {
   // 拡張機能から探す
-  const extensionModules = extensionManager.getAllBuiltInModules();
+  const extensionModules = extensionManager.getAllBuiltInModules()
   if (extensionModules[moduleName]) {
-    return extensionModules[moduleName];
+    return extensionModules[moduleName]
   }
 
   // コアモジュールから探す
   const builtIns: Record<string, unknown> = {
-    'fs': coreModules.fs,
+    fs: coreModules.fs,
     'fs/promises': coreModules.fs,
-    'path': coreModules.path,
-    'os': coreModules.os,
-    'util': coreModules.util,
-    'http': coreModules.http,
-    'https': coreModules.https,
-    'buffer': { Buffer: coreModules.Buffer },
-    'readline': coreModules.readline,
-  };
+    path: coreModules.path,
+    os: coreModules.os,
+    util: coreModules.util,
+    http: coreModules.http,
+    https: coreModules.https,
+    buffer: { Buffer: coreModules.Buffer },
+    readline: coreModules.readline,
+  }
 
-  return builtIns[moduleName] || null;
+  return builtIns[moduleName] || null
 }

@@ -1,6 +1,6 @@
-import FS from '@isomorphic-git/lightning-fs';
+import FS from '@isomorphic-git/lightning-fs'
 
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { gitFileSystem } from '@/engine/core/gitFileSystem'
 
 /**
  * Git操作で使用する共通のファイルシステムヘルパー関数
@@ -13,57 +13,57 @@ export class GitFileSystemHelper {
    * @returns ファイルパスの配列（プロジェクトルートからの相対パス）
    */
   static async getAllFiles(fs: FS, dirPath: string): Promise<string[]> {
-    const files: string[] = [];
+    const files: string[] = []
 
     const traverse = async (currentPath: string, relativePath: string = '') => {
       try {
         // ファイルシステムの同期を確実にする
         if ((fs as any).sync) {
           try {
-            await (fs as any).sync();
+            await (fs as any).sync()
             // 同期後の追加待機
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 50))
           } catch (syncError) {
-            console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError);
+            console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError)
           }
         }
 
-        const entries = await fs.promises.readdir(currentPath);
-        console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
+        const entries = await fs.promises.readdir(currentPath)
+        console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries)
 
         for (const entry of entries) {
           // .gitディレクトリは除外
-          if (entry === '.git') continue;
+          if (entry === '.git') continue
 
-          const fullPath = `${currentPath}/${entry}`;
-          const relativeFilePath = relativePath ? `${relativePath}/${entry}` : entry;
+          const fullPath = `${currentPath}/${entry}`
+          const relativeFilePath = relativePath ? `${relativePath}/${entry}` : entry
 
           try {
-            const stat = await fs.promises.stat(fullPath);
+            const stat = await fs.promises.stat(fullPath)
             console.log(`[getAllFiles] Stat for ${fullPath}:`, {
               isFile: stat.isFile(),
               isDirectory: stat.isDirectory(),
               size: stat.size,
-            });
+            })
 
             if (stat.isDirectory()) {
-              await traverse(fullPath, relativeFilePath);
+              await traverse(fullPath, relativeFilePath)
             } else if (stat.isFile()) {
-              files.push(relativeFilePath);
-              console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`);
+              files.push(relativeFilePath)
+              console.log(`[getAllFiles] Found file: ${relativeFilePath} (size: ${stat.size})`)
             }
           } catch (error) {
-            console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error);
+            console.warn(`[getAllFiles] Failed to stat ${fullPath}:`, error)
           }
         }
       } catch (error) {
-        console.warn(`[getAllFiles] Failed to read directory ${currentPath}:`, error);
+        console.warn(`[getAllFiles] Failed to read directory ${currentPath}:`, error)
       }
-    };
+    }
 
-    await traverse(dirPath);
-    console.log(`[getAllFiles] Total files found: ${files.length}`, files);
-    return files;
+    await traverse(dirPath)
+    console.log(`[getAllFiles] Total files found: ${files.length}`, files)
+    return files
   }
 
   /**
@@ -74,15 +74,15 @@ export class GitFileSystemHelper {
    * @returns マッチしたファイルパスの配列
    */
   static async getMatchingFiles(fs: FS, dirPath: string, pattern: string): Promise<string[]> {
-    const allFiles = await this.getAllFiles(fs, dirPath);
+    const allFiles = await this.getAllFiles(fs, dirPath)
 
     if (pattern === '*') {
-      return allFiles;
+      return allFiles
     }
 
     // シンプルなグロブパターンマッチング
-    const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'));
-    return allFiles.filter(file => regex.test(file));
+    const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'))
+    return allFiles.filter(file => regex.test(file))
   }
 
   /**
@@ -93,10 +93,10 @@ export class GitFileSystemHelper {
    */
   static getRelativePathFromProject(fullPath: string, projectDir: string): string {
     if (fullPath.startsWith(projectDir)) {
-      const relativePath = fullPath.replace(projectDir, '');
-      return relativePath.startsWith('/') ? relativePath : '/' + relativePath;
+      const relativePath = fullPath.replace(projectDir, '')
+      return relativePath.startsWith('/') ? relativePath : '/' + relativePath
     }
-    return fullPath;
+    return fullPath
   }
 
   /**
@@ -104,6 +104,6 @@ export class GitFileSystemHelper {
    * @param dirPath ディレクトリパス
    */
   static async ensureDirectory(dirPath: string): Promise<void> {
-    await gitFileSystem.ensureDirectory(dirPath);
+    await gitFileSystem.ensureDirectory(dirPath)
   }
 }

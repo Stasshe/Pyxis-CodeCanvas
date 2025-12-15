@@ -1,1 +1,1 @@
-declare module 'vm-browserify';
+declare module 'vm-browserify'

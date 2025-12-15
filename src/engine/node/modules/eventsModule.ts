@@ -3,75 +3,75 @@
  * Used by the in-browser Node.js builtins emulation.
  */
 
-type Listener = (...args: any[]) => void;
+type Listener = (...args: any[]) => void
 
 // Internal class implementation (keeps modern class semantics for ESModule consumers)
 class InternalEventEmitter {
-  private _events: Map<string | symbol, Listener[]> = new Map();
-  public defaultMaxListeners = 10;
+  private _events: Map<string | symbol, Listener[]> = new Map()
+  public defaultMaxListeners = 10
 
   on(event: string | symbol, listener: Listener): this {
-    const list = this._events.get(event) || [];
-    list.push(listener);
-    this._events.set(event, list);
-    return this;
+    const list = this._events.get(event) || []
+    list.push(listener)
+    this._events.set(event, list)
+    return this
   }
 
   addListener(event: string | symbol, listener: Listener): this {
-    return this.on(event, listener);
+    return this.on(event, listener)
   }
 
   once(event: string | symbol, listener: Listener): this {
     const wrapped: Listener = (...args: any[]) => {
-      (this as any).removeListener(event, wrapped);
-      listener(...args);
-    };
-    (wrapped as any).__original = listener;
-    return this.on(event, wrapped);
+      ;(this as any).removeListener(event, wrapped)
+      listener(...args)
+    }
+    ;(wrapped as any).__original = listener
+    return this.on(event, wrapped)
   }
 
   removeListener(event: string | symbol, listener: Listener): this {
-    const list = this._events.get(event);
-    if (!list) return this;
-    const filtered = list.filter(l => l !== listener && (l as any).__original !== listener);
-    if (filtered.length === 0) this._events.delete(event);
-    else this._events.set(event, filtered);
-    return this;
+    const list = this._events.get(event)
+    if (!list) return this
+    const filtered = list.filter(l => l !== listener && (l as any).__original !== listener)
+    if (filtered.length === 0) this._events.delete(event)
+    else this._events.set(event, filtered)
+    return this
   }
 
   off(event: string | symbol, listener: Listener): this {
-    return this.removeListener(event, listener);
+    return this.removeListener(event, listener)
   }
 
   removeAllListeners(event?: string | symbol): this {
     if (typeof event === 'undefined') {
-      this._events.clear();
+      this._events.clear()
     } else {
-      this._events.delete(event);
+      this._events.delete(event)
     }
-    return this;
+    return this
   }
 
   listeners(event: string | symbol): Listener[] {
-    return (this._events.get(event) || []).slice();
+    return (this._events.get(event) || []).slice()
   }
 
   listenerCount(event: string | symbol): number {
-    return (this._events.get(event) || []).length;
+    return (this._events.get(event) || []).length
   }
 
   emit(event: string | symbol, ...args: any[]): boolean {
-    const list = this._events.get(event);
-    if (!list || list.length === 0) return false;
-    const copy = list.slice();
+    const list = this._events.get(event)
+    if (!list || list.length === 0) return false
+    const copy = list.slice()
     for (const l of copy) {
       try {
-        l(...args);
+        l(...args)
       } catch (err) {
-        if (event === 'error') throw err;
+        if (event === 'error') throw err
       }
     }
-    return true;
+    return true
   }
 }
 
@@ -85,7 +85,7 @@ export interface EventEmitter extends InternalEventEmitter {}
 function EventEmitter(this: EventEmitter) {
   // Support calling without `new`.
   if (!(this instanceof EventEmitter)) {
-    return new (EventEmitter as any)();
+    return new (EventEmitter as any)()
   }
 
   // Initialize the internal fields expected by the prototype methods.
@@ -93,20 +93,20 @@ function EventEmitter(this: EventEmitter) {
     value: new Map(),
     writable: true,
     configurable: true,
-  });
-  this.defaultMaxListeners = 10;
+  })
+  this.defaultMaxListeners = 10
 }
 
 // Delegate prototype methods to InternalEventEmitter's prototype
-EventEmitter.prototype = InternalEventEmitter.prototype as any;
-EventEmitter.prototype.constructor = EventEmitter;
+EventEmitter.prototype = InternalEventEmitter.prototype as any
+EventEmitter.prototype.constructor = EventEmitter
 
-export { EventEmitter };
+export { EventEmitter }
 
 export function createEventsModule() {
   return {
     EventEmitter,
-  };
+  }
 }
 
-export default createEventsModule;
+export default createEventsModule

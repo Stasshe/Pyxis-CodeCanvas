@@ -1,9 +1,9 @@
 // src/utils/ai/geminiClient.ts
 const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
 export async function generateCodeEdit(prompt: string, apiKey: string): Promise<string> {
-  if (!apiKey) throw new Error('Gemini API key is missing');
+  if (!apiKey) throw new Error('Gemini API key is missing')
 
   try {
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
@@ -16,24 +16,24 @@ export async function generateCodeEdit(prompt: string, apiKey: string): Promise<
           maxOutputTokens: 4096,
         },
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data = await response.json();
-    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await response.json()
+    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text
 
-    console.log('[original response]', result);
+    console.log('[original response]', result)
 
     if (!result) {
-      throw new Error('No response from Gemini API');
+      throw new Error('No response from Gemini API')
     }
 
-    return result;
+    return result
   } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
+    throw new Error('Gemini API error: ' + (error as Error).message)
   }
 }
 
@@ -42,11 +42,11 @@ export async function generateChatResponse(
   context: string[],
   apiKey: string
 ): Promise<string> {
-  if (!apiKey) throw new Error('Gemini API key is missing');
+  if (!apiKey) throw new Error('Gemini API key is missing')
 
-  const contextText = context.length > 0 ? `\n\n参考コンテキスト:\n${context.join('\n---\n')}` : '';
+  const contextText = context.length > 0 ? `\n\n参考コンテキスト:\n${context.join('\n---\n')}` : ''
 
-  const prompt = `${message}${contextText}`;
+  const prompt = `${message}${contextText}`
 
   try {
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
@@ -59,22 +59,22 @@ export async function generateChatResponse(
           maxOutputTokens: 2048,
         },
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data = await response.json();
-    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await response.json()
+    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text
 
     if (!result) {
-      throw new Error('No response from Gemini API');
+      throw new Error('No response from Gemini API')
     }
-    console.log('[original response]', result);
+    console.log('[original response]', result)
 
-    return result;
+    return result
   } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
+    throw new Error('Gemini API error: ' + (error as Error).message)
   }
 }

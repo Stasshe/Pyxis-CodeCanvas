@@ -1,15 +1,15 @@
-import CharCountDetails from '../utils/CharCountDetails';
+import CharCountDetails from '../utils/CharCountDetails'
 
-import { useTranslation } from '@/context/I18nContext';
+import { useTranslation } from '@/context/I18nContext'
 
 interface CharCountDisplayProps {
-  charCount: number;
-  selectionCount: number | null;
-  showCharCountPopup: boolean;
-  onTogglePopup: () => void;
-  onClosePopup: () => void;
-  content: string;
-  alignLeft?: boolean;
+  charCount: number
+  selectionCount: number | null
+  showCharCountPopup: boolean
+  onTogglePopup: () => void
+  onClosePopup: () => void
+  content: string
+  alignLeft?: boolean
 }
 
 export default function CharCountDisplay({
@@ -21,7 +21,7 @@ export default function CharCountDisplay({
   content,
   alignLeft = false,
 }: CharCountDisplayProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   return (
     <>
       {/* 文字数カウント表示バー（クリックでポップアップ展開） */}
@@ -85,5 +85,5 @@ export default function CharCountDisplay({
         </div>
       )}
     </>
-  );
+  )
 }

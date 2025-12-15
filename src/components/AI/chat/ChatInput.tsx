@@ -1,29 +1,29 @@
 // 統合された入力コンポーネント（Ask/Edit共通）
 
-'use client';
+'use client'
 
-import { Send, Loader2, FileCode, Plus } from 'lucide-react';
-import { getIconForFile } from 'vscode-icons-js';
-import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
+import { Send, Loader2, FileCode, Plus } from 'lucide-react'
+import { getIconForFile } from 'vscode-icons-js'
+import React, { useState, KeyboardEvent, useRef, useEffect } from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { useInputHistory } from '@/hooks/ai/useInputHistory';
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { useInputHistory } from '@/hooks/ai/useInputHistory'
 
 interface ChatInputProps {
-  mode: 'ask' | 'edit';
-  onSubmit: (content: string) => void;
-  isProcessing: boolean;
-  selectedFiles?: string[];
-  onOpenFileSelector?: () => void;
-  disabled?: boolean;
-  onRemoveSelectedFile?: (path: string) => void;
+  mode: 'ask' | 'edit'
+  onSubmit: (content: string) => void
+  isProcessing: boolean
+  selectedFiles?: string[]
+  onOpenFileSelector?: () => void
+  disabled?: boolean
+  onRemoveSelectedFile?: (path: string) => void
   // Active editor/tab file path provided by parent (optional)
-  activeTabPath?: string | null;
+  activeTabPath?: string | null
   // Handler to toggle the active tab as selected file context
-  onToggleActiveTabContext?: () => void;
+  onToggleActiveTabContext?: () => void
   // Whether the active tab is currently selected/included
-  isActiveTabSelected?: boolean;
+  isActiveTabSelected?: boolean
 }
 
 export default function ChatInput({
@@ -38,74 +38,74 @@ export default function ChatInput({
   onToggleActiveTabContext,
   isActiveTabSelected = false,
 }: ChatInputProps) {
-  const { colors } = useTheme();
-  const [input, setInput] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { colors } = useTheme()
+  const [input, setInput] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const { addToHistory, goToPrevious, goToNext, hasHistory } = useInputHistory({
     maxHistorySize: 100,
     storageKey: `ai-chat-history-${mode}`,
-  });
+  })
 
   // テキストエリアの高さを自動調整
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
     }
-  }, [input]);
+  }, [input])
 
   const handleSubmit = () => {
     if (input.trim() && !isProcessing && !disabled) {
-      addToHistory(input.trim(), selectedFiles, mode);
-      onSubmit(input.trim());
-      setInput('');
+      addToHistory(input.trim(), selectedFiles, mode)
+      onSubmit(input.trim())
+      setInput('')
     }
-  };
+  }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // Ctrl/Cmd + Enter で送信
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      handleSubmit();
-      return;
+      e.preventDefault()
+      handleSubmit()
+      return
     }
 
     // Alt + 上下キーで履歴ナビゲーション
     if (e.altKey && hasHistory) {
       if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const entry = goToPrevious(input);
+        e.preventDefault()
+        const entry = goToPrevious(input)
         if (entry) {
-          setInput(entry.content);
+          setInput(entry.content)
         }
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const result = goToNext(input);
+        e.preventDefault()
+        const result = goToNext(input)
         if (typeof result === 'string') {
-          setInput(result);
+          setInput(result)
         } else if (result) {
-          setInput(result.content);
+          setInput(result.content)
         }
       }
     }
-  };
+  }
 
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   function getIconSrcForFile(name: string) {
     try {
-      const iconPath = getIconForFile(name) || getIconForFile('');
+      const iconPath = getIconForFile(name) || getIconForFile('')
       if (iconPath && iconPath.endsWith('.svg')) {
-        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
       }
     } catch (e) {
       // ignore and fallback
     }
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`
   }
 
-  const placeholder = mode === 'ask' ? t('ai.input.ask') : t('ai.input.edit');
+  const placeholder = mode === 'ask' ? t('ai.input.ask') : t('ai.input.edit')
 
   return (
     <div
@@ -119,10 +119,7 @@ export default function ChatInput({
         {/* 選択ファイル表示 */}
         {(selectedFiles.length > 0 || activeTabPath) && (
           <div className="flex items-center gap-1 flex-wrap">
-            <div
-              className="flex items-center gap-1 text-[10px]"
-              style={{ color: colors.mutedFg }}
-            >
+            <div className="flex items-center gap-1 text-[10px]" style={{ color: colors.mutedFg }}>
               <FileCode size={10} />
             </div>
 
@@ -145,7 +142,11 @@ export default function ChatInput({
                   lineHeight: 1,
                 }}
               >
-                <img src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)} alt="icon" style={{ width: 10, height: 10, flex: '0 0 10px' }} />
+                <img
+                  src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)}
+                  alt="icon"
+                  style={{ width: 10, height: 10, flex: '0 0 10px' }}
+                />
                 <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                   {activeTabPath.split('/').pop()}
                 </span>
@@ -172,8 +173,8 @@ export default function ChatInput({
             )}
 
             {selectedFiles.map((file, index) => {
-              const fileName = (file.split('/').pop() as string) || file;
-              const iconSrc = getIconSrcForFile(fileName);
+              const fileName = (file.split('/').pop() as string) || file
+              const iconSrc = getIconSrcForFile(fileName)
               return (
                 <div
                   key={index}
@@ -192,7 +193,11 @@ export default function ChatInput({
                     lineHeight: 1,
                   }}
                 >
-                  <img src={iconSrc} alt="icon" style={{ width: 10, height: 10, flex: '0 0 10px' }} />
+                  <img
+                    src={iconSrc}
+                    alt="icon"
+                    style={{ width: 10, height: 10, flex: '0 0 10px' }}
+                  />
                   <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                     {fileName}
                   </span>
@@ -213,10 +218,23 @@ export default function ChatInput({
                       cursor: 'pointer',
                     }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="8"
+                      height="8"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
                   </button>
                 </div>
-              );
+              )
             })}
           </div>
         )}
@@ -272,14 +290,7 @@ export default function ChatInput({
               }}
               title={t('ai.sendTitle')}
             >
-              {isProcessing ? (
-                <Loader2
-                  size={14}
-                  className="animate-spin"
-                />
-              ) : (
-                <Send size={14} />
-              )}
+              {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             </button>
           </div>
         </div>
@@ -294,5 +305,5 @@ export default function ChatInput({
         </div>
       </div>
     </div>
-  );
+  )
 }

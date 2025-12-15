@@ -1,16 +1,16 @@
 // src/engine/tabs/builtins/WelcomeTabType.tsx
-import React from 'react';
+import React from 'react'
 
-import type { TabTypeDefinition, TabComponentProps, OpenTabOptions, WelcomeTab } from '../types';
+import type { TabTypeDefinition, TabComponentProps, OpenTabOptions, WelcomeTab } from '../types'
 
-import WelcomeTabView from '@/components/Tab/WelcomeTab';
+import WelcomeTabView from '@/components/Tab/WelcomeTab'
 
 /**
  * ウェルカムタブのコンポーネント
  */
 const WelcomeTabComponent: React.FC<TabComponentProps> = () => {
-  return <WelcomeTabView />;
-};
+  return <WelcomeTabView />
+}
 
 /**
  * ウェルカムタブの型定義
@@ -22,8 +22,8 @@ export const WelcomeTabType: TabTypeDefinition = {
   canPreview: false,
 
   createTab: (data: unknown, options?: OpenTabOptions) => {
-    const tabId = 'welcome';
-    const paneId = options?.targetPaneId || '';
+    const tabId = 'welcome'
+    const paneId = options?.targetPaneId || ''
 
     return {
       id: tabId,
@@ -31,8 +31,8 @@ export const WelcomeTabType: TabTypeDefinition = {
       path: 'welcome',
       kind: 'welcome',
       paneId,
-    } as WelcomeTab;
+    } as WelcomeTab
   },
 
   component: WelcomeTabComponent,
-};
+}

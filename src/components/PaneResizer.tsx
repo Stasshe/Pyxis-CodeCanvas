@@ -1,17 +1,17 @@
 // src/components/PaneResizer.tsx
-'use client';
+'use client'
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react'
 
-import { useTheme } from '@/context/ThemeContext';
-import { usePaneResize } from '@/hooks/usePaneResize';
+import { useTheme } from '@/context/ThemeContext'
+import { usePaneResize } from '@/hooks/usePaneResize'
 
 interface PaneResizerProps {
-  direction: 'horizontal' | 'vertical';
-  onResize: (leftSize: number, rightSize: number) => void;
-  leftSize: number;
-  rightSize: number;
-  minSize?: number;
+  direction: 'horizontal' | 'vertical'
+  onResize: (leftSize: number, rightSize: number) => void
+  leftSize: number
+  rightSize: number
+  minSize?: number
 }
 
 /**
@@ -25,9 +25,9 @@ export default function PaneResizer({
   rightSize,
   minSize = 10,
 }: PaneResizerProps) {
-  const { colors } = useTheme();
-  const [isDragging, setIsDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { colors } = useTheme()
+  const [isDragging, setIsDragging] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const { startResize } = usePaneResize({
     direction,
@@ -35,21 +35,21 @@ export default function PaneResizer({
     minSize,
     onResize,
     containerRef,
-  });
+  })
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      startResize(e, setIsDragging);
+      startResize(e, setIsDragging)
     },
     [startResize]
-  );
+  )
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      startResize(e, setIsDragging);
+      startResize(e, setIsDragging)
     },
     [startResize]
-  );
+  )
 
   const resizerStyle: React.CSSProperties = {
     position: 'absolute',
@@ -72,7 +72,7 @@ export default function PaneResizer({
           height: '2px',
           transform: 'translateY(-1px)',
         }),
-  };
+  }
 
   const hoverZoneStyle: React.CSSProperties = {
     position: 'absolute',
@@ -93,13 +93,10 @@ export default function PaneResizer({
           bottom: 0,
           cursor: 'row-resize',
         }),
-  };
+  }
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%' }}
-    >
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* ホバー検出用の広いエリア */}
       <div
         style={hoverZoneStyle}
@@ -107,21 +104,17 @@ export default function PaneResizer({
         onTouchStart={handleTouchStart}
         onMouseEnter={() => {
           if (!isDragging) {
-            document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize';
+            document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize'
           }
         }}
         onMouseLeave={() => {
           if (!isDragging) {
-            document.body.style.cursor = '';
+            document.body.style.cursor = ''
           }
         }}
       />
       {/* 実際のリサイザーライン */}
-      <div
-        style={resizerStyle}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-      />
+      <div style={resizerStyle} onMouseDown={handleMouseDown} onTouchStart={handleTouchStart} />
     </div>
-  );
+  )
 }

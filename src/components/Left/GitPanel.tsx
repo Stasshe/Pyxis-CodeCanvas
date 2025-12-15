@@ -1,24 +1,24 @@
-'use client';
+'use client'
 
-import { GitBranch, GitCommit, RefreshCw, Plus, X, Clock, Minus, RotateCcw } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { GitBranch, GitCommit, RefreshCw, Plus, X, Clock, Minus, RotateCcw } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
 
-import GitHistory from './GitHistory';
+import GitHistory from './GitHistory'
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { generateCommitMessage } from '@/engine/commitMsgAI';
-import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
-import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
+import { LOCALSTORAGE_KEY } from '@/context/config'
+import { useTranslation } from '@/context/I18nContext'
+import { useTheme } from '@/context/ThemeContext'
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
+import { generateCommitMessage } from '@/engine/commitMsgAI'
+import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers'
+import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git'
 
 interface GitPanelProps {
-  currentProject?: string;
-  currentProjectId?: string;
-  onRefresh?: () => void;
-  gitRefreshTrigger?: number;
-  onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
+  currentProject?: string
+  currentProjectId?: string
+  onRefresh?: () => void
+  gitRefreshTrigger?: number
+  onGitStatusChange?: (changesCount: number) => void // Git変更状態のコールバック
 }
 
 export default function GitPanel({
@@ -28,71 +28,71 @@ export default function GitPanel({
   gitRefreshTrigger,
   onGitStatusChange,
 }: GitPanelProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
-  const [commitMessage, setCommitMessage] = useState('');
-  const [isCommitting, setIsCommitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const { colors } = useTheme()
+  const { t } = useTranslation()
+  const [gitRepo, setGitRepo] = useState<GitRepository | null>(null)
+  const [commitMessage, setCommitMessage] = useState('')
+  const [isCommitting, setIsCommitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [apiKey, setApiKey] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   // [NEW ARCHITECTURE] Diff タブハンドラー
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
     name: currentProject,
     id: currentProjectId,
-  });
+  })
 
   // Git操作用のコマンドインスタンス（新アーキテクチャ）
   const gitCommands =
     currentProject && currentProjectId
       ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
-      : null;
+      : null
 
   // Git状態を取得
   const fetchGitStatus = async () => {
-    if (!gitCommands || !currentProject) return;
+    if (!gitCommands || !currentProject) return
 
     try {
-      setIsLoading(true);
-      setError(null);
+      setIsLoading(true)
+      setError(null)
 
-      console.log('[GitPanel] Fetching git status...');
+      console.log('[GitPanel] Fetching git status...')
 
       // [重要] git.tsの内部で完全同期が実行されるため、ここでの同期処理は簡素化
       // ファイルシステムの同期を確実にする
-      const fs = (gitCommands as any).fs;
+      const fs = (gitCommands as any).fs
       if (fs && (fs as any).sync) {
         try {
-          await fs.sync();
-          console.log('[GitPanel] FileSystem synced before status check');
+          await fs.sync()
+          console.log('[GitPanel] FileSystem synced before status check')
         } catch (syncError) {
-          console.warn('[GitPanel] FileSystem sync failed:', syncError);
+          console.warn('[GitPanel] FileSystem sync failed:', syncError)
         }
       }
 
       // ファイルシステムの変更が確実に反映されるまで待機（短縮）
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 100))
 
       // Git状態を並行して取得
       const [statusResult, logResult, branchResult] = await Promise.all([
         gitCommands.status(),
         gitCommands.getFormattedLog(20),
         gitCommands.branch(),
-      ]);
+      ])
 
-      console.log('[GitPanel] Git status result:', statusResult);
+      console.log('[GitPanel] Git status result:', statusResult)
 
       // コミット履歴をパース
-      const commits = parseGitLog(logResult);
+      const commits = parseGitLog(logResult)
 
       // ブランチ情報をパース
-      const branches = parseGitBranches(branchResult);
+      const branches = parseGitBranches(branchResult)
 
       // ステータス情報をパース
-      const status = parseGitStatus(statusResult);
+      const status = parseGitStatus(statusResult)
 
       console.log('[GitPanel] Parsed status:', {
         staged: status.staged,
@@ -100,7 +100,7 @@ export default function GitPanel({
         untracked: status.untracked,
         commits: commits.length,
         branches: branches.length,
-      });
+      })
 
       setGitRepo({
         initialized: true,
@@ -108,7 +108,7 @@ export default function GitPanel({
         commits, // 直接パースしたコミットを使用（ブランチ情報含む）
         status,
         currentBranch: status.branch,
-      });
+      })
 
       // 変更ファイル数を計算してコールバックで通知
       if (onGitStatusChange) {
@@ -116,60 +116,60 @@ export default function GitPanel({
           status.staged.length +
           status.unstaged.length +
           status.untracked.length +
-          status.deleted.length;
-        console.log('[GitPanel] Notifying changes count:', changesCount);
-        onGitStatusChange(changesCount);
+          status.deleted.length
+        console.log('[GitPanel] Notifying changes count:', changesCount)
+        onGitStatusChange(changesCount)
       }
     } catch (error) {
-      console.error('Failed to fetch git status:', error);
-      setError(error instanceof Error ? error.message : t('git.operationError'));
-      setGitRepo(null);
+      console.error('Failed to fetch git status:', error)
+      setError(error instanceof Error ? error.message : t('git.operationError'))
+      setGitRepo(null)
       // エラー時は変更ファイル数を0にリセット
       if (onGitStatusChange) {
-        onGitStatusChange(0);
+        onGitStatusChange(0)
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   // Git logをパースしてコミット配列に変換（ブランチ情報付き）
   const parseGitLog = (logOutput: string): GitCommitType[] => {
     if (!logOutput.trim()) {
-      return [];
+      return []
     }
 
-    const lines = logOutput.split('\n').filter(line => line.trim());
-    const commits: GitCommitType[] = [];
+    const lines = logOutput.split('\n').filter(line => line.trim())
+    const commits: GitCommitType[] = []
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const parts = line.split('|');
+      const line = lines[i]
+      const parts = line.split('|')
 
       // 7つのパーツがあることを確認（refs + tree情報を含む）
       if (parts.length === 7) {
-        const hash = parts[0]?.trim();
-        const message = parts[1]?.trim();
-        const author = parts[2]?.trim();
-        const date = parts[3]?.trim();
-        const parentHashesStr = parts[4]?.trim();
-        const refsStr = parts[5]?.trim();
-        const treeSha = parts[6]?.trim();
+        const hash = parts[0]?.trim()
+        const message = parts[1]?.trim()
+        const author = parts[2]?.trim()
+        const date = parts[3]?.trim()
+        const parentHashesStr = parts[4]?.trim()
+        const refsStr = parts[5]?.trim()
+        const treeSha = parts[6]?.trim()
 
         // 全てのフィールドが有効であることを確認
         if (hash && hash.length >= 7 && message && author && date) {
           try {
-            const timestamp = new Date(date).getTime();
+            const timestamp = new Date(date).getTime()
             if (!isNaN(timestamp)) {
               // 親コミットのハッシュをパース
               const parentHashes =
                 parentHashesStr && parentHashesStr !== ''
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
-                  : [];
+                  : []
 
               // refsをカンマ区切りからstring配列に変換
               const refs =
-                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
+                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : []
 
               commits.push({
                 hash,
@@ -182,7 +182,7 @@ export default function GitPanel({
                 parentHashes,
                 refs, // このコミットを指すブランチ名配列
                 tree: treeSha || undefined, // ツリーSHA
-              });
+              })
             }
           } catch (dateError) {
             // Date parsing error, skip this commit
@@ -190,24 +190,24 @@ export default function GitPanel({
         }
       } else if (parts.length === 6) {
         // 旧フォーマット（tree情報なし）との互換性
-        const hash = parts[0]?.trim();
-        const message = parts[1]?.trim();
-        const author = parts[2]?.trim();
-        const date = parts[3]?.trim();
-        const parentHashesStr = parts[4]?.trim();
-        const refsStr = parts[5]?.trim();
+        const hash = parts[0]?.trim()
+        const message = parts[1]?.trim()
+        const author = parts[2]?.trim()
+        const date = parts[3]?.trim()
+        const parentHashesStr = parts[4]?.trim()
+        const refsStr = parts[5]?.trim()
 
         if (hash && hash.length >= 7 && message && author && date) {
           try {
-            const timestamp = new Date(date).getTime();
+            const timestamp = new Date(date).getTime()
             if (!isNaN(timestamp)) {
               const parentHashes =
                 parentHashesStr && parentHashesStr !== ''
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
-                  : [];
+                  : []
 
               const refs =
-                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
+                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : []
 
               commits.push({
                 hash,
@@ -220,7 +220,7 @@ export default function GitPanel({
                 parentHashes,
                 refs,
                 tree: undefined,
-              });
+              })
             }
           } catch (dateError) {
             // Date parsing error, skip this commit
@@ -228,20 +228,20 @@ export default function GitPanel({
         }
       } else if (parts.length === 5) {
         // 古いフォーマット（refs情報なし）との互換性
-        const hash = parts[0]?.trim();
-        const message = parts[1]?.trim();
-        const author = parts[2]?.trim();
-        const date = parts[3]?.trim();
-        const parentHashesStr = parts[4]?.trim();
+        const hash = parts[0]?.trim()
+        const message = parts[1]?.trim()
+        const author = parts[2]?.trim()
+        const date = parts[3]?.trim()
+        const parentHashesStr = parts[4]?.trim()
 
         if (hash && hash.length >= 7 && message && author && date) {
           try {
-            const timestamp = new Date(date).getTime();
+            const timestamp = new Date(date).getTime()
             if (!isNaN(timestamp)) {
               const parentHashes =
                 parentHashesStr && parentHashesStr !== ''
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
-                  : [];
+                  : []
 
               commits.push({
                 hash,
@@ -253,7 +253,7 @@ export default function GitPanel({
                 isMerge: parentHashes.length > 1,
                 parentHashes,
                 refs: [], // refsなし
-              });
+              })
             }
           } catch (dateError) {
             // Date parsing error, skip this commit
@@ -262,8 +262,8 @@ export default function GitPanel({
       }
     }
 
-    return commits.sort((a, b) => b.timestamp - a.timestamp);
-  };
+    return commits.sort((a, b) => b.timestamp - a.timestamp)
+  }
 
   // Git branchをパース
   const parseGitBranches = (branchOutput: string) => {
@@ -275,13 +275,13 @@ export default function GitPanel({
         isCurrent: line.startsWith('*'),
         isRemote: line.includes('remotes/'),
         lastCommit: undefined,
-      }));
-  };
+      }))
+  }
 
   // Git statusをパース
   const parseGitStatus = (statusOutput: string): GitStatus => {
-    console.log('[GitPanel] Parsing git status output:', statusOutput);
-    const lines = statusOutput.split('\n');
+    console.log('[GitPanel] Parsing git status output:', statusOutput)
+    const lines = statusOutput.split('\n')
     const status: GitStatus = {
       staged: [],
       unstaged: [],
@@ -290,50 +290,50 @@ export default function GitPanel({
       branch: 'main',
       ahead: 0,
       behind: 0,
-    };
+    }
 
-    let inChangesToBeCommitted = false;
-    let inChangesNotStaged = false;
-    let inUntrackedFiles = false;
+    let inChangesToBeCommitted = false
+    let inChangesNotStaged = false
+    let inUntrackedFiles = false
 
     for (const line of lines) {
-      const trimmed = line.trim();
+      const trimmed = line.trim()
 
       if (trimmed.includes('On branch')) {
-        status.branch = trimmed.replace('On branch ', '').trim();
-        console.log('[GitPanel] Found branch:', status.branch);
+        status.branch = trimmed.replace('On branch ', '').trim()
+        console.log('[GitPanel] Found branch:', status.branch)
       } else if (trimmed === 'Changes to be committed:') {
-        inChangesToBeCommitted = true;
-        inChangesNotStaged = false;
-        inUntrackedFiles = false;
-        console.log('[GitPanel] Entering staged files section');
+        inChangesToBeCommitted = true
+        inChangesNotStaged = false
+        inUntrackedFiles = false
+        console.log('[GitPanel] Entering staged files section')
       } else if (trimmed === 'Changes not staged for commit:') {
-        inChangesToBeCommitted = false;
-        inChangesNotStaged = true;
-        inUntrackedFiles = false;
-        console.log('[GitPanel] Entering unstaged files section');
+        inChangesToBeCommitted = false
+        inChangesNotStaged = true
+        inUntrackedFiles = false
+        console.log('[GitPanel] Entering unstaged files section')
       } else if (trimmed === 'Untracked files:') {
-        inChangesToBeCommitted = false;
-        inChangesNotStaged = false;
-        inUntrackedFiles = true;
-        console.log('[GitPanel] Entering untracked files section');
+        inChangesToBeCommitted = false
+        inChangesNotStaged = false
+        inUntrackedFiles = true
+        console.log('[GitPanel] Entering untracked files section')
       } else if (
         trimmed.startsWith('modified:') ||
         trimmed.startsWith('new file:') ||
         trimmed.startsWith('deleted:')
       ) {
-        const fileName = trimmed.split(':')[1]?.trim();
+        const fileName = trimmed.split(':')[1]?.trim()
         if (fileName) {
           if (inChangesToBeCommitted) {
-            status.staged.push(fileName);
-            console.log('[GitPanel] Found staged file:', fileName);
+            status.staged.push(fileName)
+            console.log('[GitPanel] Found staged file:', fileName)
           } else if (inChangesNotStaged) {
             if (trimmed.startsWith('deleted:')) {
-              status.deleted.push(fileName);
-              console.log('[GitPanel] Found deleted file:', fileName);
+              status.deleted.push(fileName)
+              console.log('[GitPanel] Found deleted file:', fileName)
             } else {
-              status.unstaged.push(fileName);
-              console.log('[GitPanel] Found unstaged file:', fileName);
+              status.unstaged.push(fileName)
+              console.log('[GitPanel] Found unstaged file:', fileName)
             }
           }
         }
@@ -347,8 +347,8 @@ export default function GitPanel({
       ) {
         // フォルダ（末尾に/があるもの）は除外
         if (!trimmed.endsWith('/')) {
-          status.untracked.push(trimmed);
-          console.log('[GitPanel] Found untracked file:', trimmed);
+          status.untracked.push(trimmed)
+          console.log('[GitPanel] Found untracked file:', trimmed)
         }
       }
     }
@@ -363,193 +363,193 @@ export default function GitPanel({
         status.unstaged.length +
         status.untracked.length +
         status.deleted.length,
-    });
+    })
 
-    return status;
-  };
+    return status
+  }
 
   // ファイルをステージング
   const handleStageFile = async (file: string) => {
-    if (!gitCommands) return;
+    if (!gitCommands) return
 
     try {
-      console.log('[GitPanel] Staging file:', file);
-      await gitCommands.add(file);
+      console.log('[GitPanel] Staging file:', file)
+      await gitCommands.add(file)
 
       // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
       setTimeout(() => {
-        console.log('[GitPanel] Refreshing status after staging');
-        fetchGitStatus();
-      }, 100);
+        console.log('[GitPanel] Refreshing status after staging')
+        fetchGitStatus()
+      }, 100)
     } catch (error) {
-      console.error('Failed to stage file:', error);
+      console.error('Failed to stage file:', error)
     }
-  };
+  }
 
   // ファイルをアンステージング
   const handleUnstageFile = async (file: string) => {
-    if (!gitCommands) return;
+    if (!gitCommands) return
 
     try {
-      await gitCommands.reset({ filepath: file });
-      fetchGitStatus();
+      await gitCommands.reset({ filepath: file })
+      fetchGitStatus()
     } catch (error) {
-      console.error('Failed to unstage file:', error);
+      console.error('Failed to unstage file:', error)
     }
-  };
+  }
 
   // 全ファイルをステージング
   const handleStageAll = async () => {
-    if (!gitCommands) return;
+    if (!gitCommands) return
 
     try {
-      console.log('[GitPanel] Staging all files');
-      await gitCommands.add('.');
+      console.log('[GitPanel] Staging all files')
+      await gitCommands.add('.')
       setTimeout(async () => {
-        const staged = gitRepo?.status?.staged || [];
+        const staged = gitRepo?.status?.staged || []
         for (const file of staged) {
-          await gitCommands.reset({ filepath: file });
+          await gitCommands.reset({ filepath: file })
         }
-        console.log('[GitPanel] Refreshing status after staging all');
-        fetchGitStatus();
-      }, 150);
+        console.log('[GitPanel] Refreshing status after staging all')
+        fetchGitStatus()
+      }, 150)
     } catch (error) {
-      console.error('Failed to stage all files:', error);
+      console.error('Failed to stage all files:', error)
     }
-  };
+  }
 
   // 全ファイルをアンステージング
   const handleUnstageAll = async () => {
-    if (!gitCommands) return;
-    const stagedFiles = gitRepo?.status.staged || [];
+    if (!gitCommands) return
+    const stagedFiles = gitRepo?.status.staged || []
 
     try {
-      console.log('[GitPanel] Unstaging all files');
+      console.log('[GitPanel] Unstaging all files')
       // ステージングされているファイルをすべてアンステージ
       for (const file of stagedFiles) {
-        await gitCommands.reset({ filepath: file });
+        await gitCommands.reset({ filepath: file })
       }
-      fetchGitStatus();
+      fetchGitStatus()
     } catch (error) {
-      console.error('Failed to unstage all files:', error);
+      console.error('Failed to unstage all files:', error)
     }
-  };
+  }
 
   // ファイルの変更を破棄
   const handleDiscardChanges = async (file: string) => {
-    if (!gitCommands) return;
+    if (!gitCommands) return
 
     try {
-      console.log('[GitPanel] Starting discard changes for file:', file);
-      const result = await gitCommands.discardChanges(file);
-      console.log('[GitPanel] Discard changes result:', result);
+      console.log('[GitPanel] Starting discard changes for file:', file)
+      const result = await gitCommands.discardChanges(file)
+      console.log('[GitPanel] Discard changes result:', result)
 
       // 少し待ってからGit状態を更新（ファイルシステムの同期を待つ）
       setTimeout(async () => {
-        console.log('[GitPanel] Refreshing git status after discard...');
-        await fetchGitStatus();
+        console.log('[GitPanel] Refreshing git status after discard...')
+        await fetchGitStatus()
 
         // 親コンポーネントにも更新を通知
         if (onRefresh) {
-          console.log('[GitPanel] Calling onRefresh after discard...');
-          onRefresh();
+          console.log('[GitPanel] Calling onRefresh after discard...')
+          onRefresh()
         }
-      }, 200);
+      }, 200)
     } catch (error) {
-      console.error('Failed to discard changes:', error);
+      console.error('Failed to discard changes:', error)
     }
-  };
+  }
 
   // コミット実行
   const handleCommit = async () => {
-    if (!gitCommands || !commitMessage.trim()) return;
+    if (!gitCommands || !commitMessage.trim()) return
 
     try {
-      setIsCommitting(true);
-      setError(null);
-      console.log('[GitPanel] Starting commit process...');
+      setIsCommitting(true)
+      setError(null)
+      console.log('[GitPanel] Starting commit process...')
 
       // タイムアウト付きでコミット実行
-      const commitPromise = gitCommands.commit(commitMessage.trim());
+      const commitPromise = gitCommands.commit(commitMessage.trim())
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
-      );
+      )
 
-      await Promise.race([commitPromise, timeoutPromise]);
+      await Promise.race([commitPromise, timeoutPromise])
 
-      console.log('[GitPanel] Commit completed successfully');
-      setCommitMessage('');
+      console.log('[GitPanel] Commit completed successfully')
+      setCommitMessage('')
 
       // コミット成功後、少し待ってからステータスを更新
       setTimeout(() => {
-        console.log('[GitPanel] Refreshing status after commit...');
-        fetchGitStatus();
-      }, 500);
+        console.log('[GitPanel] Refreshing status after commit...')
+        fetchGitStatus()
+      }, 500)
     } catch (error) {
-      console.error('Failed to commit:', error);
-      setError(error instanceof Error ? error.message : 'コミットに失敗しました');
+      console.error('Failed to commit:', error)
+      setError(error instanceof Error ? error.message : 'コミットに失敗しました')
     } finally {
-      setIsCommitting(false);
+      setIsCommitting(false)
     }
-  };
+  }
 
   // コミットメッセージ自動生成
   const handleGenerateCommitMessage = async () => {
-    if (!gitCommands || !apiKey) return;
-    setIsGenerating(true);
-    setGenerateError(null);
+    if (!gitCommands || !apiKey) return
+    setIsGenerating(true)
+    setGenerateError(null)
     try {
       // 実際のdiff内容を取得
-      const diffText = await gitCommands.diff({ staged: false });
+      const diffText = await gitCommands.diff({ staged: false })
 
       if (!diffText || diffText.trim() === '') {
-        throw new Error('変更内容がありません。ファイルを変更してからお試しください。');
+        throw new Error('変更内容がありません。ファイルを変更してからお試しください。')
       }
 
-      const message = await generateCommitMessage(diffText, apiKey);
-      setCommitMessage(message);
+      const message = await generateCommitMessage(diffText, apiKey)
+      setCommitMessage(message)
     } catch (error) {
-      console.error('Failed to generate commit message:', error);
-      setGenerateError(error instanceof Error ? error.message : 'Gemini APIエラー');
+      console.error('Failed to generate commit message:', error)
+      setGenerateError(error instanceof Error ? error.message : 'Gemini APIエラー')
     } finally {
-      setIsGenerating(false);
+      setIsGenerating(false)
     }
-  };
+  }
 
   // APIキーをlocalStorageから初期化
   useEffect(() => {
-    const savedKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY) || '';
-    setApiKey(savedKey);
-  }, []);
+    const savedKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY) || ''
+    setApiKey(savedKey)
+  }, [])
 
-  const hasApiKey = !!apiKey;
+  const hasApiKey = !!apiKey
 
   // APIキー入力時にlocalStorageへ保存
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setApiKey(value);
-    localStorage.setItem(LOCALSTORAGE_KEY.GEMINI_API_KEY, value);
-  };
+    const value = e.target.value
+    setApiKey(value)
+    localStorage.setItem(LOCALSTORAGE_KEY.GEMINI_API_KEY, value)
+  }
 
   // 初期化とプロジェクト変更時の更新
   useEffect(() => {
     if (currentProject) {
-      fetchGitStatus();
+      fetchGitStatus()
     }
-  }, [currentProject]);
+  }, [currentProject])
 
   // Git更新トリガーが変更されたときの更新
   useEffect(() => {
     if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
-      console.log('[GitPanel] Git refresh trigger fired:', gitRefreshTrigger);
+      console.log('[GitPanel] Git refresh trigger fired:', gitRefreshTrigger)
       // ファイル同期完了を待つために適度な遅延
       const timer = setTimeout(() => {
-        console.log('[GitPanel] Executing delayed git status fetch');
-        fetchGitStatus();
-      }, 200);
-      return () => clearTimeout(timer);
+        console.log('[GitPanel] Executing delayed git status fetch')
+        fetchGitStatus()
+      }, 200)
+      return () => clearTimeout(timer)
     }
-  }, [gitRefreshTrigger]);
+  }, [gitRefreshTrigger])
 
   if (!currentProject) {
     return (
@@ -566,7 +566,7 @@ export default function GitPanel({
         />
         <p style={{ fontSize: '0.875rem' }}>{t('git.projectSelect')}</p>
       </div>
-    );
+    )
   }
 
   if (isLoading) {
@@ -584,7 +584,7 @@ export default function GitPanel({
         />
         <p style={{ fontSize: '0.875rem' }}>{t('git.loadingStatus')}</p>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -617,7 +617,8 @@ export default function GitPanel({
           {t('action.retry')}
         </button>
         <p style={{ fontSize: '0.75rem', marginTop: '0.75rem', color: colors.mutedFg }}>
-          This error is might be due to the Github pages error, so use following page instead of here. {' '}
+          This error is might be due to the Github pages error, so use following page instead of
+          here.{' '}
           <a
             href="https://pyxis-codecanvas.onrender.com"
             target="_blank"
@@ -628,7 +629,7 @@ export default function GitPanel({
           </a>
         </p>
       </div>
-    );
+    )
   }
 
   if (!gitRepo) {
@@ -646,14 +647,14 @@ export default function GitPanel({
         />
         <p style={{ fontSize: '0.875rem' }}>{t('git.infoNotAvailable')}</p>
       </div>
-    );
+    )
   }
 
   const hasChanges =
     gitRepo.status.staged.length > 0 ||
     gitRepo.status.unstaged.length > 0 ||
     gitRepo.status.untracked.length > 0 ||
-    gitRepo.status.deleted.length > 0;
+    gitRepo.status.deleted.length > 0
 
   return (
     <div
@@ -787,10 +788,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               ) : (
-                <Plus
-                  style={{ width: '0.75rem', height: '0.75rem' }}
-                  className="select-none"
-                />
+                <Plus style={{ width: '0.75rem', height: '0.75rem' }} className="select-none" />
               )}
               {isGenerating ? t('git.generating') : t('git.generateCommitMessage')}
             </button>
@@ -956,13 +954,13 @@ export default function GitPanel({
                         onClick={async () => {
                           if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
-                            const latestCommit = gitRepo.commits[0];
+                            const latestCommit = gitRepo.commits[0]
                             // ステージング済みファイルは編集不可でdiffを表示
                             await handleDiffFileClick({
                               commitId: latestCommit.hash,
                               filePath: file,
                               editable: false,
-                            });
+                            })
                           }
                         }}
                       >
@@ -1025,13 +1023,13 @@ export default function GitPanel({
                         onClick={async () => {
                           if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
-                            const latestCommit = gitRepo.commits[0];
+                            const latestCommit = gitRepo.commits[0]
                             // 未ステージファイルは編集可能でdiffを表示
                             await handleDiffFileClick({
                               commitId: latestCommit.hash,
                               filePath: file,
                               editable: true,
-                            });
+                            })
                           }
                         }}
                       >
@@ -1115,13 +1113,13 @@ export default function GitPanel({
                         onClick={async () => {
                           if (handleDiffFileClick && gitRepo.commits.length > 0) {
                             // 最新コミットのhashを取得
-                            const latestCommit = gitRepo.commits[0];
+                            const latestCommit = gitRepo.commits[0]
                             // 削除されたファイルは編集可能でdiffを表示
                             await handleDiffFileClick({
                               commitId: latestCommit.hash,
                               filePath: file,
                               editable: true,
-                            });
+                            })
                           }
                         }}
                       >
@@ -1285,5 +1283,5 @@ export default function GitPanel({
         </div>
       </div>
     </div>
-  );
+  )
 }

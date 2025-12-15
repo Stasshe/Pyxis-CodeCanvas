@@ -1,19 +1,19 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata, Viewport } from 'next'
 
-import './globals.css';
-import ExtensionInitializer from '@/components/ExtensionInitializer';
-import TabInitializer from '@/components/TabInitializer';
-import { ToastContainer } from '@/components/Toast';
-import { FileSelectorProvider } from '@/context/FileSelectorContext';
-import { GitHubUserProvider } from '@/context/GitHubUserContext';
-import { I18nProvider } from '@/context/I18nContext';
-import { TabProvider } from '@/context/TabContext';
-import { ThemeProvider } from '@/context/ThemeContext';
+import './globals.css'
+import ExtensionInitializer from '@/components/ExtensionInitializer'
+import TabInitializer from '@/components/TabInitializer'
+import { ToastContainer } from '@/components/Toast'
+import { FileSelectorProvider } from '@/context/FileSelectorContext'
+import { GitHubUserProvider } from '@/context/GitHubUserContext'
+import { I18nProvider } from '@/context/I18nContext'
+import { TabProvider } from '@/context/TabContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 0.9,
-};
+}
 
 export const metadata: Metadata = {
   title: 'Pyxis - clientIDE Terminal',
@@ -70,52 +70,27 @@ export const metadata: Metadata = {
       },
     ],
   },
-};
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   // basePath を runtime で組み立て。NEXT_PUBLIC_BASE_PATH は next.config の env で注入済み
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-  const swPath = `${basePath}/sw.js`;
-  const manifestPath = `${basePath}/manifest.json`;
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+  const swPath = `${basePath}/sw.js`
+  const manifestPath = `${basePath}/manifest.json`
   return (
-    <html
-      lang="en"
-      className="h-full"
-      translate="no"
-    >
+    <html lang="en" className="h-full" translate="no">
       <head>
-        <meta
-          name="google"
-          content="notranslate"
-        />
-        <link
-          rel="icon"
-          href={`${basePath}/favicon.ico`}
-          sizes="any"
-        />
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          href={`${basePath}/file.svg`}
-        />
-        <link
-          rel="apple-touch-icon"
-          href={`${basePath}/apple-touch-icon.png`}
-          sizes="180x180"
-        />
-        <meta
-          name="theme-color"
-          content="#18181b"
-        />
+        <meta name="google" content="notranslate" />
+        <link rel="icon" href={`${basePath}/favicon.ico`} sizes="any" />
+        <link rel="icon" type="image/svg+xml" href={`${basePath}/file.svg`} />
+        <link rel="apple-touch-icon" href={`${basePath}/apple-touch-icon.png`} sizes="180x180" />
+        <meta name="theme-color" content="#18181b" />
         {/* Google Analytics */}
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-7K55SSBCPF"
-        />
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-7K55SSBCPF" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -127,42 +102,15 @@ export default function RootLayout({
           }}
         />
         {/* PWA manifest & service worker */}
-        <link
-          rel="manifest"
-          href={manifestPath}
-        />
-        <meta
-          name="apple-mobile-web-app-capable"
-          content="yes"
-        />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="default"
-        />
-        <meta
-          name="mobile-web-app-capable"
-          content="yes"
-        />
-        <meta
-          name="application-name"
-          content="Pyxis"
-        />
-        <meta
-          name="apple-mobile-web-app-title"
-          content="Pyxis"
-        />
-        <meta
-          name="msapplication-starturl"
-          content={basePath || '/'}
-        />
-        <meta
-          name="msapplication-TileColor"
-          content="#18181b"
-        />
-        <meta
-          name="msapplication-tap-highlight"
-          content="no"
-        />
+        <link rel="manifest" href={manifestPath} />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="Pyxis" />
+        <meta name="apple-mobile-web-app-title" content="Pyxis" />
+        <meta name="msapplication-starturl" content={basePath || '/'} />
+        <meta name="msapplication-TileColor" content="#18181b" />
+        <meta name="msapplication-tap-highlight" content="no" />
         {/* Load eruda only in development (controlled via NEXT_PUBLIC_IS_DEV or NODE_ENV) */}
         {(process.env.NEXT_PUBLIC_IS_PRODUCTION_BUILD !== 'true' ||
           process.env.NEXT_PUBLIC_IS_DEV_SERVER) && (
@@ -217,5 +165,5 @@ export default function RootLayout({
         />
       </body>
     </html>
-  );
+  )
 }

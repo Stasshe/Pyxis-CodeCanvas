@@ -4,77 +4,77 @@ export async function exportIndexeddbHtmlWithWindow(
   win: Window | null
 ) {
   if (!win) {
-    await writeOutput('about:blankの新規タブを開けませんでした。');
-    return;
+    await writeOutput('about:blankの新規タブを開けませんでした。')
+    return
   }
   try {
-    const html = await exportIndexeddbHtml();
-    win.document.write(html);
-    win.document.close();
-    await writeOutput('IndexedDBのデータを新規タブにエクスポートしました。');
+    const html = await exportIndexeddbHtml()
+    win.document.write(html)
+    win.document.close()
+    await writeOutput('IndexedDBのデータを新規タブにエクスポートしました。')
   } catch (e) {
-    let msg = '';
+    let msg = ''
     if (typeof e === 'object' && e !== null && 'message' in e) {
-      msg = (e as any).message;
+      msg = (e as any).message
     } else {
-      msg = String(e);
+      msg = String(e)
     }
-    await writeOutput('IndexedDBエクスポート失敗: ' + msg);
+    await writeOutput('IndexedDBエクスポート失敗: ' + msg)
   }
 }
 
 export async function exportIndexeddbHtml(): Promise<string> {
-  const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-  const allData: DbDump[] = [];
+  const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : [])
+  const allData: DbDump[] = []
   for (const dbInfo of dbs) {
-    const dbName = dbInfo.name;
-    if (!dbName) continue;
+    const dbName = dbInfo.name
+    if (!dbName) continue
     // pyxis-fs系DBは除外
-    if (dbName.startsWith('pyxis-fs')) continue;
-    const req = window.indexedDB.open(dbName);
+    if (dbName.startsWith('pyxis-fs')) continue
+    const req = window.indexedDB.open(dbName)
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-    const objectStoreNames = Array.from(db.objectStoreNames);
-    const dbDump: DbDump = { name: dbName, version: db.version, stores: [] };
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+    const objectStoreNames = Array.from(db.objectStoreNames)
+    const dbDump: DbDump = { name: dbName, version: db.version, stores: [] }
     for (const storeName of objectStoreNames) {
-      const tx = db.transaction(storeName, 'readonly');
-      const store = tx.objectStore(storeName);
-      const getAllReq = store.getAll();
+      const tx = db.transaction(storeName, 'readonly')
+      const store = tx.objectStore(storeName)
+      const getAllReq = store.getAll()
       const items = await new Promise<any[]>((resolve, reject) => {
-        getAllReq.onsuccess = () => resolve(getAllReq.result);
-        getAllReq.onerror = () => reject(getAllReq.error);
-      });
-      dbDump.stores.push({ name: storeName, items });
+        getAllReq.onsuccess = () => resolve(getAllReq.result)
+        getAllReq.onerror = () => reject(getAllReq.error)
+      })
+      dbDump.stores.push({ name: storeName, items })
     }
-    allData.push(dbDump);
-    db.close();
+    allData.push(dbDump)
+    db.close()
   }
   // HTML生成（見やすさ・大量データ対応強化）
   // TypeScript側でJSON構造を色分けする関数
   // JSON構造を色分けし、オブジェクトや配列は展開/縮小可能なHTMLに変換
   function syntaxHighlight(json: any, path: string = ''): string {
-    if (json === null) return `<span class='json-null'>null</span>`;
+    if (json === null) return `<span class='json-null'>null</span>`
     if (Array.isArray(json)) {
-      const id = `item-${path}`;
-      return `<span class='json-array-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> [Array(${json.length})]</span> <div class='json-array json-collapsible collapsed' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, path + '-' + i)}</div>`).join('')}</div>`;
+      const id = `item-${path}`
+      return `<span class='json-array-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> [Array(${json.length})]</span> <div class='json-array json-collapsible collapsed' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, path + '-' + i)}</div>`).join('')}</div>`
     }
     if (typeof json === 'object') {
-      const keys = Object.keys(json);
-      const id = `item-${path}`;
-      return `<span class='json-object-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> {Object(${keys.length})}</span> <div class='json-object json-collapsible collapsed' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], path + '-' + k)}</div>`).join('')}</div>`;
+      const keys = Object.keys(json)
+      const id = `item-${path}`
+      return `<span class='json-object-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> {Object(${keys.length})}</span> <div class='json-object json-collapsible collapsed' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], path + '-' + k)}</div>`).join('')}</div>`
     }
     if (typeof json === 'string') {
-      return `<span class='json-string'>"${json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`;
+      return `<span class='json-string'>"${json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`
     }
     if (typeof json === 'number') {
-      return `<span class='json-number'>${json}</span>`;
+      return `<span class='json-number'>${json}</span>`
     }
     if (typeof json === 'boolean') {
-      return `<span class='json-boolean'>${json}</span>`;
+      return `<span class='json-boolean'>${json}</span>`
     }
-    return String(json);
+    return String(json)
   }
 
   const html = `<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><title>IndexedDB Export</title>
@@ -293,10 +293,10 @@ export async function exportIndexeddbHtml(): Promise<string> {
       // 初期状態: すべて閉じる
       window.onload = () => { collapseAll(); };
     </script>
-  </body></html>`;
-  return html;
+  </body></html>`
+  return html
 }
 
 // IndexedDBの全データを取得してHTML文字列として返すユーティリティ
-export type StoreDump = { name: string; items: any[] };
-export type DbDump = { name: string; version: number; stores: StoreDump[] };
+export type StoreDump = { name: string; items: any[] }
+export type DbDump = { name: string; version: number; stores: StoreDump[] }

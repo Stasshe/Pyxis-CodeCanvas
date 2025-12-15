@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Voir le diff (lecture seule)"
   },
   "gitHistory": {
-        "allFilesFiles": "Tous les {count} fichiers",
+    "allFilesFiles": "Tous les {count} fichiers",
     "allFilesScrollable": "Tous les {count} fichiers (défilable)",
     "changedFiles": "Fichiers modifiés :",
     "daysAgo": "Il y a {days} jours",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Génération du diagramme Mermaid...",
     "imageNotFound": "Image introuvable : {src}",
     "loadingImage": "Chargement de l'image...",
+    "mermaidPlaceholder": "Faites défiler pour voir le diagramme Mermaid",
     "preview": "Aperçu",
     "reset": "Réinitialiser",
     "zoomIn": "Agrandir",
-    "zoomOut": "Rétrécir",
-    "mermaidPlaceholder": "Faites défiler pour voir le diagramme Mermaid"
+    "zoomOut": "Rétrécir"
   },
   "menu": {
     "extensions": "Extensions",

@@ -1,14 +1,14 @@
-import { FileText } from 'lucide-react';
-import React from 'react';
+import { FileText } from 'lucide-react'
+import React from 'react'
 
-import { useTranslation } from '@/context/I18nContext';
-import { BinaryTab, EditorTab } from '@/engine/tabs/types';
+import { useTranslation } from '@/context/I18nContext'
+import { BinaryTab, EditorTab } from '@/engine/tabs/types'
 
 interface BinaryTabContentProps {
-  activeTab: BinaryTab | EditorTab;
-  editorHeight: string;
-  guessMimeType: (fileName: string, buffer?: ArrayBuffer) => string;
-  isBufferArray: (arg: any) => boolean;
+  activeTab: BinaryTab | EditorTab
+  editorHeight: string
+  guessMimeType: (fileName: string, buffer?: ArrayBuffer) => string
+  isBufferArray: (arg: any) => boolean
 }
 
 /**
@@ -20,14 +20,14 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   guessMimeType,
   isBufferArray,
 }) => {
-  const { t } = useTranslation();
-  if (!('bufferContent' in activeTab) || !isBufferArray(activeTab.bufferContent)) return null;
-  const buffer = activeTab.bufferContent as ArrayBuffer | undefined;
-  const mime = guessMimeType(activeTab.name, buffer);
+  const { t } = useTranslation()
+  if (!('bufferContent' in activeTab) || !isBufferArray(activeTab.bufferContent)) return null
+  const buffer = activeTab.bufferContent as ArrayBuffer | undefined
+  const mime = guessMimeType(activeTab.name, buffer)
   // 画像ならimg表示
   if (mime.startsWith('image/') && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([buffer], { type: mime })
+    const url = URL.createObjectURL(blob)
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -45,12 +45,12 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
         />
         <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
       </div>
-    );
+    )
   }
   // 動画ならvideo表示
   if (mime.startsWith('video/') && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([buffer], { type: mime })
+    const url = URL.createObjectURL(blob)
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -63,12 +63,12 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
         />
         <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
       </div>
-    );
+    )
   }
   // PDFならiframeで表示
   if (mime === 'application/pdf' && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([buffer], { type: mime })
+    const url = URL.createObjectURL(blob)
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -87,12 +87,12 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
         />
         <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
       </div>
-    );
+    )
   }
   // 音声ファイルならaudio表示
   if ((mime === 'audio/mpeg' || mime === 'audio/wav' || mime === 'audio/ogg') && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([buffer], { type: mime })
+    const url = URL.createObjectURL(blob)
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -106,7 +106,7 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
         />
         <div style={{ marginTop: 12, color: '#aaa', fontSize: 13 }}>{activeTab.name}</div>
       </div>
-    );
+    )
   }
   // それ以外は「表示できません」
   return (
@@ -114,14 +114,11 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
       className="flex-1 min-h-0 flex flex-col items-center justify-center"
       style={{ height: editorHeight }}
     >
-      <FileText
-        size={48}
-        className="mx-auto mb-4 opacity-50"
-      />
+      <FileText size={48} className="mx-auto mb-4 opacity-50" />
       <div style={{ color: '#aaa', fontSize: 15, marginBottom: 8 }}>{activeTab.name}</div>
       <div style={{ color: '#d44', fontSize: 16 }}>{t('binaryTab.unsupportedFormat')}</div>
     </div>
-  );
-};
+  )
+}
 
-export default BinaryTabContent;
+export default BinaryTabContent

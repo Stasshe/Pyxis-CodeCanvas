@@ -6,19 +6,19 @@
  * - アプリケーション起動時に自動登録
  */
 
-import { NodeRuntimeProvider } from './providers/NodeRuntimeProvider';
-import { runtimeInfo } from './runtimeLogger';
-import { runtimeRegistry } from './RuntimeRegistry';
+import { NodeRuntimeProvider } from './providers/NodeRuntimeProvider'
+import { runtimeInfo } from './runtimeLogger'
+import { runtimeRegistry } from './RuntimeRegistry'
 
 /**
  * ビルトインランタイムプロバイダーを初期化・登録
  */
 export function initializeBuiltinRuntimes(): void {
-  runtimeInfo('🔧 Initializing builtin runtime providers...');
+  runtimeInfo('🔧 Initializing builtin runtime providers...')
 
   // Node.jsランタイムプロバイダーを登録
-  const nodeProvider = new NodeRuntimeProvider();
-  runtimeRegistry.registerRuntime(nodeProvider);
+  const nodeProvider = new NodeRuntimeProvider()
+  runtimeRegistry.registerRuntime(nodeProvider)
 
-  runtimeInfo('✅ Builtin runtime providers initialized');
+  runtimeInfo('✅ Builtin runtime providers initialized')
 }
