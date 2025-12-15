@@ -2,6 +2,7 @@
 'use client';
 import React, { useEffect, ReactNode, useMemo } from 'react';
 
+import { useProjectStore } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
@@ -15,6 +16,7 @@ interface TabProviderProps {
 }
 
 export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
+  const currentProject = useProjectStore(state => state.currentProject);
   const loadSession = useTabStore(state => state.loadSession);
   const saveSession = useTabStore(state => state.saveSession);
   const isLoading = useTabStore(state => state.isLoading);
@@ -23,10 +25,11 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   const globalActiveTab = useTabStore(state => state.globalActiveTab);
   const setIsContentRestored = useTabStore(state => state.setIsContentRestored);
 
-  // IndexedDBからセッションを復元
+  // プロジェクト変更時にセッションを復元
   useEffect(() => {
+    if (!currentProject) return;
     loadSession();
-  }, [loadSession]);
+  }, [currentProject, loadSession]);
 
   // コンテンツ復元完了イベントのリスナー
   useEffect(() => {
