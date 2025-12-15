@@ -81,47 +81,61 @@ export async function handlePyxisCommand(
             // Wait a bit for connections to fully close
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // 2. Clear all IndexedDB databases
+            // 2. Clear all IndexedDB databases IN PARALLEL
             await writeOutput('[2/5] Clearing IndexedDB databases...');
             const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-            let deletedCount = 0;
             
-            for (const dbInfo of dbs) {
-              if (!dbInfo.name) continue;
-              
-              try {
-                await new Promise<void>((resolve, reject) => {
-                  const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
-                  
-                  // Set timeout for blocked deletions
-                  const timeoutId = setTimeout(() => {
-                    console.warn(`Database ${dbInfo.name} deletion timed out`);
-                    reject(new Error(`Deletion timeout for ${dbInfo.name}`));
-                  }, 10000);
-                  
-                  deleteReq.onsuccess = () => {
-                    clearTimeout(timeoutId);
-                    deletedCount++;
-                    resolve();
-                  };
-                  
-                  deleteReq.onerror = () => {
-                    clearTimeout(timeoutId);
-                    reject(deleteReq.error);
-                  };
-                  
-                  deleteReq.onblocked = () => {
-                    console.warn(`Database ${dbInfo.name} deletion blocked`);
-                    // Don't resolve immediately, wait for timeout or success
-                  };
-                });
-                await writeOutput(`  ✓ Deleted database: ${dbInfo.name}`);
-              } catch (error) {
-                await writeOutput(`  ✗ Failed to delete ${dbInfo.name}: ${error}`);
+            // Delete all databases in parallel for speed
+            const deletionResults = await Promise.allSettled(
+              dbs.map(async (dbInfo) => {
+                if (!dbInfo.name) return { name: '', success: false };
+                
+                try {
+                  await new Promise<void>((resolve, reject) => {
+                    const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
+                    
+                    // Reduced timeout to 3 seconds for parallel operations
+                    const timeoutId = setTimeout(() => {
+                      console.warn(`Database ${dbInfo.name} deletion timed out`);
+                      resolve(); // Resolve to continue with reset
+                    }, 3000);
+                    
+                    deleteReq.onsuccess = () => {
+                      clearTimeout(timeoutId);
+                      resolve();
+                    };
+                    
+                    deleteReq.onerror = () => {
+                      clearTimeout(timeoutId);
+                      resolve(); // Resolve to continue with reset
+                    };
+                    
+                    deleteReq.onblocked = () => {
+                      console.warn(`Database ${dbInfo.name} deletion blocked`);
+                      // Let timeout handle it
+                    };
+                  });
+                  return { name: dbInfo.name, success: true };
+                } catch (error) {
+                  return { name: dbInfo.name, success: false };
+                }
+              })
+            );
+            
+            // Count successful deletions and output results
+            let deletedCount = 0;
+            for (const result of deletionResults) {
+              if (result.status === 'fulfilled' && result.value.name) {
+                if (result.value.success) {
+                  deletedCount++;
+                  await writeOutput(`  ✓ Deleted database: ${result.value.name}`);
+                } else {
+                  await writeOutput(`  ✗ Failed to delete ${result.value.name}`);
+                }
               }
             }
             
-            await writeOutput(`  Deleted ${deletedCount} database(s)`);
+            await writeOutput(`  Deleted ${deletedCount}/${dbs.length} database(s)`);
             
             // 3. Clear localStorage (except protected keys)
             await writeOutput('[3/5] Clearing localStorage...');

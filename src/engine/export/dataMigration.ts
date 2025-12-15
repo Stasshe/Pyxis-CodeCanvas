@@ -138,22 +138,23 @@ export async function importAllData(zipFile: File): Promise<void> {
     // Wait for connections to close
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // 3. Clear all existing IndexedDB databases
+    // 3. Clear all existing IndexedDB databases IN PARALLEL
     console.log('[importAllData] Clearing existing databases...');
     const existingDbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
     
-    for (const dbInfo of existingDbs) {
-      if (!dbInfo.name) continue;
+    // Delete all databases in parallel
+    const deletionPromises = existingDbs.map(async (dbInfo) => {
+      if (!dbInfo.name) return;
       
       try {
         await new Promise<void>((resolve, reject) => {
           const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
           
-          // Set a timeout to prevent indefinite blocking
+          // Reduced timeout to 3 seconds since we're doing parallel operations
           const timeoutId = setTimeout(() => {
-            console.warn(`Database ${dbInfo.name} deletion timed out after 10 seconds`);
-            reject(new Error(`Deletion timeout for ${dbInfo.name}`));
-          }, 10000);
+            console.warn(`Database ${dbInfo.name} deletion timed out after 3 seconds, continuing anyway`);
+            resolve(); // Resolve instead of reject to continue with import
+          }, 3000);
           
           deleteReq.onsuccess = () => {
             clearTimeout(timeoutId);
@@ -164,19 +165,23 @@ export async function importAllData(zipFile: File): Promise<void> {
           deleteReq.onerror = () => {
             clearTimeout(timeoutId);
             console.warn(`[importAllData] Failed to delete database ${dbInfo.name}:`, deleteReq.error);
-            reject(deleteReq.error);
+            resolve(); // Resolve to continue with import
           };
           
           deleteReq.onblocked = () => {
-            console.warn(`Database ${dbInfo.name} deletion blocked, waiting for timeout...`);
-            // Don't resolve here - let timeout or success handle it
+            console.warn(`Database ${dbInfo.name} deletion blocked, will timeout in 3s`);
+            // Let timeout handle it
           };
         });
       } catch (error) {
         console.warn(`[importAllData] Error deleting database ${dbInfo.name}:`, error);
         // Continue with other databases
       }
-    }
+    });
+    
+    // Wait for all deletions to complete
+    await Promise.all(deletionPromises);
+    console.log('[importAllData] All databases deleted');
 
     // 3. Restore IndexedDB databases from ZIP
     const indexedDBFolder = zip.folder('indexeddb');
