@@ -7,18 +7,18 @@ import {
   EchoCommand,
   FindCommand,
   GrepCommand,
+  HeadCommand,
   HelpCommand,
   LsCommand,
   MkdirCommand,
   MvCommand,
   PwdCommand,
   RmCommand,
+  StatCommand,
+  TailCommand,
   TouchCommand,
   TreeCommand,
   UnzipCommand,
-  HeadCommand,
-  TailCommand,
-  StatCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -228,7 +228,7 @@ export class UnixCommands {
     if (typeof source === 'string') {
       return await this.mvCmd.execute([source, destination]);
     }
-    
+
     // 複数ソースの場合は配列として渡す
     return await this.mvCmd.execute([...source, destination]);
   }
@@ -236,21 +236,24 @@ export class UnixCommands {
   /**
    * ファイル/ディレクトリをコピー（複数ソース対応）
    */
-  async cp(source: string | string[], destination: string, options: string[] = []): Promise<string> {
+  async cp(
+    source: string | string[],
+    destination: string,
+    options: string[] = []
+  ): Promise<string> {
     if (typeof source === 'string') {
       return await this.cpCmd.execute([...options, source, destination]);
     }
-    
+
     return await this.cpCmd.execute([...options, ...source, destination]);
   }
-  
+
   /**
    * ファイル/ディレクトリをリネーム（mvのエイリアス）
    */
   async rename(oldPath: string, newPath: string): Promise<string> {
     return await this.mvCmd.execute([oldPath, newPath]);
   }
-
 
   /**
    * ディレクトリ構造をツリー表示

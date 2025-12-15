@@ -1,12 +1,12 @@
-import { Search, X, FileText, ChevronDown, ChevronRight, File, Edit3, Repeat } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
-import { FileItem } from '@/types';
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { FileItem } from '@/types';
 
 interface SearchPanelProps {
   files: FileItem[];
@@ -181,7 +181,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         ...(fileEntry || result.file),
         isCodeMirror,
         isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
-        bufferContent: fileEntry ? (fileEntry as any).bufferContent : (result.file as any).bufferContent,
+        bufferContent: fileEntry
+          ? (fileEntry as any).bufferContent
+          : (result.file as any).bufferContent,
       };
 
       // バイナリファイルの場合は binary タブで開く
@@ -208,7 +210,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         return;
       } else {
         const fileEntry = await fileRepository.getFileByPath(projId, filePath);
-        if (!fileEntry || typeof fileEntry.content !== 'string') throw new Error('file not found or not text');
+        if (!fileEntry || typeof fileEntry.content !== 'string')
+          throw new Error('file not found or not text');
         const lines = fileEntry.content.split('\n');
         const lineIdx = result.line - 1;
         const line = lines[lineIdx] || '';
@@ -486,7 +489,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                   const r = flatResults[selectedIndex];
                   if (r && r.line !== 0) handleReplaceResult(r, replaceQuery);
                 }}
-                title={currentSelected && currentSelected.line === 0 ? 'Replace not available for filename matches' : 'Replace'}
+                title={
+                  currentSelected && currentSelected.line === 0
+                    ? 'Replace not available for filename matches'
+                    : 'Replace'
+                }
                 disabled={!!(currentSelected && currentSelected.line === 0)}
                 style={{
                   padding: '0.12rem',
@@ -595,21 +602,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     }}
                   >
                     {isCollapsed ? (
-                      <ChevronRight
-                        size={14}
-                        color={colors.mutedFg}
-                      />
+                      <ChevronRight size={14} color={colors.mutedFg} />
                     ) : (
-                      <ChevronDown
-                        size={14}
-                        color={colors.mutedFg}
-                      />
+                      <ChevronDown size={14} color={colors.mutedFg} />
                     )}
-                    <FileText
-                      size={12}
-                      color={colors.primary}
-                      style={{ flexShrink: 0 }}
-                    />
+                    <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
                     <span
                       style={{
                         color: colors.foreground,
@@ -668,7 +665,14 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                   </div>
 
                   {!isCollapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem', paddingLeft: '0.8rem' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.12rem',
+                        paddingLeft: '0.8rem',
+                      }}
+                    >
                       {group.map((result, idx) => {
                         const globalIndex = flatResults.indexOf(result);
                         const isSelected = globalIndex === selectedIndex;
@@ -689,9 +693,20 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                               gap: '0.32rem',
                             }}
                             onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-                            onMouseLeave={e => (e.currentTarget.style.background = isSelected ? colors.accentBg : 'transparent')}
+                            onMouseLeave={e =>
+                              (e.currentTarget.style.background = isSelected
+                                ? colors.accentBg
+                                : 'transparent')
+                            }
                           >
-                            <div style={{ display: 'flex', gap: '0.32rem', alignItems: 'center', flex: 1 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: '0.32rem',
+                                alignItems: 'center',
+                                flex: 1,
+                              }}
+                            >
                               <span
                                 style={{
                                   color: colors.mutedFg,
@@ -726,7 +741,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                                 e.stopPropagation();
                                 if (result.line !== 0) handleReplaceResult(result, replaceQuery);
                               }}
-                              title={result.line === 0 ? 'Replace not available for filename matches' : 'Replace'}
+                              title={
+                                result.line === 0
+                                  ? 'Replace not available for filename matches'
+                                  : 'Replace'
+                              }
                               disabled={result.line === 0}
                               style={{
                                 padding: '0.08rem',

@@ -2,20 +2,20 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { getSelectedFileContexts, getCustomInstructions } from '@/engine/ai/contextBuilder';
-import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
-import { EDIT_PROMPT_TEMPLATE, ASK_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
+import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
+import { generateChatResponse, generateCodeEdit } from '@/engine/ai/fetchAI';
+import { ASK_PROMPT_TEMPLATE, EDIT_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
 import {
-  parseEditResponse,
   extractFilePathsFromResponse,
+  parseEditResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
 import { fileRepository } from '@/engine/core/fileRepository';
-import type { AIFileContext, AIEditResponse, ChatSpaceMessage } from '@/types';
+import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
 
 interface UseAIProps {
   onAddMessage?: (
@@ -125,14 +125,24 @@ export function useAI(props?: UseAIProps) {
 
         if (mode === 'ask') {
           // Ask モード
-          const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
+          const prompt = ASK_PROMPT_TEMPLATE(
+            selectedFiles,
+            content,
+            previousMessages,
+            customInstructions
+          );
           const response = await generateChatResponse(prompt, [], apiKey);
 
           await addMessage(response, 'assistant', 'ask');
           return null;
         } else {
           // Edit モード
-          const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
+          const prompt = EDIT_PROMPT_TEMPLATE(
+            selectedFiles,
+            content,
+            previousMessages,
+            customInstructions
+          );
           const response = await generateCodeEdit(prompt, apiKey);
 
           // レスポンスのバリデーション
@@ -195,7 +205,11 @@ export function useAI(props?: UseAIProps) {
 
           console.log(
             '[useAI] All original files for parsing:',
-            allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length, isNewFile: f.isNewFile }))
+            allOriginalFiles.map(f => ({
+              path: f.path,
+              contentLength: f.content.length,
+              isNewFile: f.isNewFile,
+            }))
           );
 
           const parseResult = parseEditResponse(response, allOriginalFiles);
@@ -236,17 +250,33 @@ export function useAI(props?: UseAIProps) {
           }
 
           // Append assistant edit message and capture returned message (so we know its id)
-          const assistantMsg = await addMessage(detailedMessage, 'assistant', 'edit', [], editResponse);
+          const assistantMsg = await addMessage(
+            detailedMessage,
+            'assistant',
+            'edit',
+            [],
+            editResponse
+          );
 
           // Persist AI review metadata / snapshots using storage adapter when projectId provided
           try {
-            if (props?.projectId && aiStorage && typeof aiStorage.saveAIReviewEntry === 'function') {
+            if (
+              props?.projectId &&
+              aiStorage &&
+              typeof aiStorage.saveAIReviewEntry === 'function'
+            ) {
               for (const f of editResponse.changedFiles) {
                 aiStorage
-                  .saveAIReviewEntry(props.projectId, f.path, f.originalContent, f.suggestedContent, {
-                    message: parseResult.message,
-                    parentMessageId: assistantMsg?.id,
-                  })
+                  .saveAIReviewEntry(
+                    props.projectId,
+                    f.path,
+                    f.originalContent,
+                    f.suggestedContent,
+                    {
+                      message: parseResult.message,
+                      parentMessageId: assistantMsg?.id,
+                    }
+                  )
                   .catch(err => console.warn('[useAI] saveAIReviewEntry failed', err));
               }
             }

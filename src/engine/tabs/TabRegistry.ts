@@ -1,5 +1,5 @@
 // src/engine/tabs/TabRegistry.ts
-import { TabTypeDefinition, TabKind } from './types';
+import type { TabKind, TabTypeDefinition } from './types';
 
 /**
  * タブタイプレジストリ

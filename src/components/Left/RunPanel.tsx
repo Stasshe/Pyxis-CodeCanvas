@@ -1,14 +1,14 @@
 import clsx from 'clsx';
-import { Play, Square, Code, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { Code, Play, Square, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import OperationWindow from '@/components/OperationWindow';
-import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
-import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
+import { LOCALSTORAGE_KEY } from '@/context/config';
+import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry';
+import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
@@ -54,14 +54,14 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     const allRuntimes = runtimeRegistry.getAllRuntimes();
     const supportedExtensions: string[] = [];
     const extensionToLang: Map<string, string> = new Map();
-    
+
     // Node.jsは特別扱い（ビルトイン）
     const nodeExts = ['.js', '.ts', '.mjs', '.cjs'];
     nodeExts.forEach(ext => {
       supportedExtensions.push(ext);
       extensionToLang.set(ext, 'node');
     });
-    
+
     // 登録済みランタイムの拡張子を追加
     allRuntimes.forEach(runtime => {
       runtime.supportedExtensions.forEach(ext => {
@@ -232,7 +232,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           addOutput('Node.js runtime not available', 'error');
           return;
         }
-        
+
         const result = await runtime.executeCode?.(inputCode, {
           projectId: currentProject.id,
           projectName: currentProject.name,
@@ -258,10 +258,10 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     if (!selectedFile || !currentProject) return;
     setIsRunning(true);
     const filePath = `/${selectedFile}`;
-    
+
     // RuntimeRegistryからランタイムを取得
     const runtime = runtimeRegistry.getRuntimeForFile(filePath);
-    
+
     if (!runtime) {
       addOutput(`No runtime found for ${selectedFile}`, 'error');
       setIsRunning(false);
@@ -270,7 +270,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
     addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
-    
+
     try {
       const result = await runtime.execute({
         projectId: currentProject.id,
@@ -306,15 +306,9 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
   if (!currentProject) {
     return (
-      <div
-        className="h-full flex items-center justify-center"
-        style={{ color: colors.mutedFg }}
-      >
+      <div className="h-full flex items-center justify-center" style={{ color: colors.mutedFg }}>
         <div className="text-center">
-          <Code
-            size={48}
-            style={{ margin: '0 auto 1rem', color: colors.mutedFg }}
-          />
+          <Code size={48} style={{ margin: '0 auto 1rem', color: colors.mutedFg }} />
           <p>{t('run.noProject')}</p>
         </div>
       </div>
@@ -322,25 +316,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   }
 
   return (
-    <div
-      className="h-full flex flex-col"
-      style={{ background: colors.background }}
-    >
+    <div className="h-full flex flex-col" style={{ background: colors.background }}>
       {/* ヘッダー */}
-      <div
-        className="border-b p-3"
-        style={{ borderBottom: `1px solid ${colors.border}` }}
-      >
+      <div className="border-b p-3" style={{ borderBottom: `1px solid ${colors.border}` }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Code
-              size={16}
-              style={{ color: colors.primary }}
-            />
-            <span
-              className="font-semibold"
-              style={{ color: colors.foreground }}
-            >
+            <Code size={16} style={{ color: colors.primary }} />
+            <span className="font-semibold" style={{ color: colors.foreground }}>
               {t('run.title')}
             </span>
           </div>
@@ -422,10 +404,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         </div>
 
         {/* 入力エリア */}
-        <div
-          className="border-t p-3"
-          style={{ borderTop: `1px solid ${colors.border}` }}
-        >
+        <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>
           <div className="flex gap-2">
             <textarea
               value={inputCode}
@@ -471,10 +450,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
               )}
             </div>
           </div>
-          <div
-            className="text-xs mt-2"
-            style={{ color: colors.mutedFg }}
-          >
+          <div className="text-xs mt-2" style={{ color: colors.mutedFg }}>
             {t('run.executeHint')}
           </div>
         </div>

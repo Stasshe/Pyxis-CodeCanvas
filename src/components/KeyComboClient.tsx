@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
@@ -23,11 +24,7 @@ export default function KeyComboClient({ combo, className, style }: Props) {
   }, [combo]);
 
   return (
-    <span
-      className={className}
-      style={style}
-      aria-hidden
-    >
+    <span className={className} style={style} aria-hidden>
       {label}
     </span>
   );

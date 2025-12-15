@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Bekijk diff (alleen-lezen)"
   },
   "gitHistory": {
-        "allFilesFiles": "Alle {count} bestanden",
+    "allFilesFiles": "Alle {count} bestanden",
     "allFilesScrollable": "Alle {count} bestanden (scrollbaar)",
     "changedFiles": "Gewijzigde bestanden:",
     "daysAgo": "{days} dagen geleden",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Mermaid-diagram genereren...",
     "imageNotFound": "Afbeelding niet gevonden: {src}",
     "loadingImage": "Afbeelding laden...",
+    "mermaidPlaceholder": "Scroll om het Mermaid-diagram te bekijken",
     "preview": "Voorbeeld",
     "reset": "Resetten",
     "zoomIn": "Inzoomen",
-    "zoomOut": "Uitzoomen",
-    "mermaidPlaceholder": "Scroll om het Mermaid-diagram te bekijken"
+    "zoomOut": "Uitzoomen"
   },
   "menu": {
     "extensions": "Extensies",

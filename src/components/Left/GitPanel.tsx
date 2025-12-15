@@ -1,17 +1,18 @@
 'use client';
 
-import { GitBranch, GitCommit, RefreshCw, Plus, X, Clock, Minus, RotateCcw } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { Clock, GitBranch, GitCommit, Minus, Plus, RefreshCw, RotateCcw, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 import GitHistory from './GitHistory';
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
-import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git';
+import type { GitCommit as GitCommitType, GitRepository, GitStatus } from '@/types/git';
 
 interface GitPanelProps {
   currentProject?: string;
@@ -615,7 +616,8 @@ export default function GitPanel({
           {t('action.retry')}
         </button>
         <p style={{ fontSize: '0.75rem', marginTop: '0.75rem', color: colors.mutedFg }}>
-          This error is might be due to the Github pages error, so use following page instead of here. {' '}
+          This error is might be due to the Github pages error, so use following page instead of
+          here.{' '}
           <a
             href="https://pyxis-codecanvas.onrender.com"
             target="_blank"
@@ -785,10 +787,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               ) : (
-                <Plus
-                  style={{ width: '0.75rem', height: '0.75rem' }}
-                  className="select-none"
-                />
+                <Plus style={{ width: '0.75rem', height: '0.75rem' }} className="select-none" />
               )}
               {isGenerating ? t('git.generating') : t('git.generateCommitMessage')}
             </button>

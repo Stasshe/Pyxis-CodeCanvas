@@ -11,9 +11,9 @@
 
 import { NpmInstall } from './npmOperations/npmInstall';
 
-import { fileRepository } from '@/engine/core/fileRepository';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 export class NpmCommands {
   private currentDir: string;
@@ -42,7 +42,7 @@ export class NpmCommands {
     this.terminalUI = ui;
   }
 
-  async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
+  async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
     const npmInstall = new NpmInstall(this.projectName, this.projectId);
     npmInstall.startBatchProcessing();
     try {
@@ -61,13 +61,13 @@ export class NpmCommands {
   async install(packageName?: string, flags: string[] = []): Promise<string> {
     const startTime = Date.now();
     const ui = this.terminalUI;
-    
+
     // Use TerminalUI spinner if available, otherwise fall back to setLoading
     const useTerminalUI = !!ui;
     if (!useTerminalUI) {
       this.setLoading?.(true);
     }
-    
+
     try {
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
@@ -111,30 +111,32 @@ export class NpmCommands {
         }
 
         let installedCount = 0;
-        let failedPackages: string[] = [];
+        const failedPackages: string[] = [];
 
         const npmInstall = new NpmInstall(this.projectName, this.projectId);
-        
+
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
           npmInstall.setInstallProgressCallback(async (pkgName, pkgVersion, _isDirect) => {
-            await ui.spinner.update(`reify:${pkgName}@${pkgVersion}: timing reifyNode:node_modules/${pkgName} (${pkgVersion})`);
+            await ui.spinner.update(
+              `reify:${pkgName}@${pkgVersion}: timing reifyNode:node_modules/${pkgName} (${pkgVersion})`
+            );
           });
         }
-        
+
         npmInstall.startBatchProcessing();
-        
+
         try {
           // Start spinner with initial message
           if (ui) {
             await ui.spinner.start(`reify: resolving ${packageNames.length} packages...`);
           }
-          
+
           for (let i = 0; i < packageNames.length; i++) {
             const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
             const version = versionSpec.replace(/^[\^~]/, '');
-            
+
             try {
               await npmInstall.installWithDependencies(pkg, version, { isDirect: true });
               installedCount++;
@@ -151,7 +153,7 @@ export class NpmCommands {
             } catch {}
           }
         }
-        
+
         // Stop spinner
         if (ui) {
           await ui.spinner.stop();
@@ -159,7 +161,7 @@ export class NpmCommands {
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         let output = '';
-        
+
         // Output warnings for failed packages
         if (failedPackages.length > 0) {
           for (const failed of failedPackages) {
@@ -192,7 +194,7 @@ export class NpmCommands {
           if (ui) {
             await ui.spinner.start(`http fetch GET https://registry.npmjs.org/${packageName}`);
           }
-          
+
           const packageInfo = await this.fetchPackageInfo(packageName);
           const version = packageInfo.version;
 
@@ -233,14 +235,16 @@ export class NpmCommands {
             return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
           } else {
             const npmInstall = new NpmInstall(this.projectName, this.projectId);
-            
+
             // Set up progress callback to log all packages (direct + transitive)
             if (ui) {
               npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
-                await ui.spinner.update(`reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
+                await ui.spinner.update(
+                  `reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`
+                );
               });
             }
-            
+
             npmInstall.startBatchProcessing();
             try {
               await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
@@ -250,12 +254,12 @@ export class NpmCommands {
                 await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
               } catch {}
             }
-            
+
             // Stop spinner
             if (ui) {
               await ui.spinner.stop();
             }
-            
+
             const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
           }
@@ -280,17 +284,17 @@ export class NpmCommands {
     const startTime = Date.now();
     const ui = this.terminalUI;
     const useTerminalUI = !!ui;
-    
+
     if (!useTerminalUI) {
       this.setLoading?.(true);
     }
-    
+
     try {
       // Start spinner
       if (ui) {
         await ui.spinner.start(`reify: removing ${packageName}...`);
       }
-      
+
       // IndexedDBからpackage.jsonを単一取得（インデックス経由）
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
@@ -331,9 +335,9 @@ export class NpmCommands {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        
+
         if (ui) await ui.spinner.stop();
-        
+
         if (totalRemoved === 0) {
           return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
         } else {

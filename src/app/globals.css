@@ -1,8 +1,8 @@
 /* stylelint-disable at-rule-no-unknown */
 /* xterm.js styles */
-@import '@xterm/xterm/css/xterm.css';
-@import './markdown.css';
-@import './Toast.css';
+@import "@xterm/xterm/css/xterm.css";
+@import "./markdown.css";
+@import "./Toast.css";
 
 @tailwind base;
 @tailwind components;
@@ -121,7 +121,7 @@ body::-webkit-scrollbar,
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   overflow: hidden;
 }
 
@@ -177,7 +177,7 @@ body {
 
 /* リサイズ中のパフォーマンス改善 */
 .resizer-vertical::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -3px;
@@ -187,7 +187,7 @@ body {
 }
 
 .resizer-horizontal::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -3px;
   left: 0;
@@ -239,7 +239,6 @@ body {
   -webkit-text-size-adjust: none !important;
   text-size-adjust: none !important;
 }
-
 
 .tab-active {
   background: hsl(var(--background));
@@ -319,9 +318,7 @@ body {
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-feature-settings:
-      'rlig' 1,
-      'calt' 1;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 

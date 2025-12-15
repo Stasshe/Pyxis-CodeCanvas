@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { loadImageAsDataURL } from './markdownUtils';
-import { FileItem } from '@/types';
 import { useTranslation } from '@/context/I18nContext';
+import { FileItem } from '@/types';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { loadImageAsDataURL } from './markdownUtils';
 
 export const LocalImage: React.FC<{
   src: string;
@@ -61,7 +62,15 @@ export const LocalImage: React.FC<{
       <span
         role="img"
         aria-label="loading-image"
-        style={{ display: 'inline-block', padding: '8px 12px', background: '#f0f0f0', border: '1px dashed #ccc', borderRadius: 4, color: '#666', ...style }}
+        style={{
+          display: 'inline-block',
+          padding: '8px 12px',
+          background: '#f0f0f0',
+          border: '1px dashed #ccc',
+          borderRadius: 4,
+          color: '#666',
+          ...style,
+        }}
         {...props}
       >
         {t ? t('markdownPreview.loadingImage') : '画像を読み込み中...'}
@@ -74,15 +83,32 @@ export const LocalImage: React.FC<{
       <span
         role="img"
         aria-label="missing-image"
-        style={{ display: 'inline-block', padding: '8px 12px', background: '#ffe6e6', border: '1px dashed #ff9999', borderRadius: 4, color: '#cc0000', ...style }}
+        style={{
+          display: 'inline-block',
+          padding: '8px 12px',
+          background: '#ffe6e6',
+          border: '1px dashed #ff9999',
+          borderRadius: 4,
+          color: '#cc0000',
+          ...style,
+        }}
         {...props}
       >
-        {t ? t('markdownPreview.imageNotFound', { params: { src } }) : `画像が見つかりません: ${src}`}
+        {t
+          ? t('markdownPreview.imageNotFound', { params: { src } })
+          : `画像が見つかりません: ${src}`}
       </span>
     );
   }
 
-  return <img src={dataUrl} alt={alt} style={{ maxWidth: '100%', height: 'auto', ...style }} {...props} />;
+  return (
+    <img
+      src={dataUrl}
+      alt={alt}
+      style={{ maxWidth: '100%', height: 'auto', ...style }}
+      {...props}
+    />
+  );
 };
 
 export default LocalImage;

@@ -3,7 +3,7 @@
  * 拡張機能が登録したサイドバーパネルを取得
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { sidebarRegistry } from '@/engine/extensions/system-api/SidebarAPI';
 

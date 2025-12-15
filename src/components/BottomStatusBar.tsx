@@ -1,7 +1,7 @@
- 'use client';
-import { Loader2Icon, CheckCircle2 } from 'lucide-react';
+'use client';
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings';
+import { CheckCircle2, Loader2Icon } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
-import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 
 import { syncManager } from '@/engine/core/syncManager';
 
@@ -102,10 +102,7 @@ export default function BottomStatusBar({
         fontSize: 12,
       }}
     >
-      <div
-        className="truncate"
-        style={{ color: colors.mutedFg }}
-      >
+      <div className="truncate" style={{ color: colors.mutedFg }}>
         {currentProjectName || 'No Project'}
       </div>
       <div style={{ color: colors.mutedFg }}>|</div>
@@ -136,19 +133,12 @@ export default function BottomStatusBar({
         <span style={{ marginRight: 12, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {isSyncing ? (
             <>
-              <Loader2Icon
-                className="animate-spin"
-                color={colors.mutedFg}
-                size={14}
-              />
+              <Loader2Icon className="animate-spin" color={colors.mutedFg} size={14} />
               <span>Syncing...</span>
             </>
           ) : (
             <>
-              <CheckCircle2
-                color={colors.mutedFg}
-                size={14}
-              />
+              <CheckCircle2 color={colors.mutedFg} size={14} />
               <span>Synced</span>
             </>
           )}

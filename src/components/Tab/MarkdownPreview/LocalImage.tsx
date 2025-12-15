@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import type { PreviewTab } from '@/engine/tabs/types';
@@ -97,7 +97,9 @@ const LocalImage = memo<LocalImageProps>(
             color: '#cc0000',
           }}
         >
-          {t ? t('markdownPreview.imageNotFound', { params: { src } }) : `画像が見つかりません: ${src}`}
+          {t
+            ? t('markdownPreview.imageNotFound', { params: { src } })
+            : `画像が見つかりません: ${src}`}
         </span>
       );
     }

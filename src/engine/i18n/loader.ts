@@ -16,7 +16,7 @@ const memoryCache = new Map<string, Record<string, unknown>>();
  */
 export async function loadTranslations(
   locale: Locale,
-  namespace: string = 'common'
+  namespace = 'common'
 ): Promise<Record<string, unknown>> {
   const cacheKey = `${locale}-${namespace}`;
 

@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Xem diff (chỉ đọc)"
   },
   "gitHistory": {
-        "allFilesFiles": "Tất cả {count} tệp",
+    "allFilesFiles": "Tất cả {count} tệp",
     "allFilesScrollable": "Tất cả {count} tệp (có thể cuộn)",
     "changedFiles": "Tệp đã thay đổi:",
     "daysAgo": "{days} ngày trước",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Đang tạo biểu đồ Mermaid...",
     "imageNotFound": "Không tìm thấy hình: {src}",
     "loadingImage": "Đang tải hình...",
+    "mermaidPlaceholder": "Cuộn để xem sơ đồ Mermaid",
     "preview": "Xem trước",
     "reset": "Đặt lại",
     "zoomIn": "Phóng to",
-    "zoomOut": "Thu nhỏ",
-    "mermaidPlaceholder": "Cuộn để xem sơ đồ Mermaid"
+    "zoomOut": "Thu nhỏ"
   },
   "menu": {
     "extensions": "Extensions",

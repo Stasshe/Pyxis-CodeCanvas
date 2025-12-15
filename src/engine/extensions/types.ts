@@ -18,9 +18,9 @@
 import type { CommandHandler } from './commandRegistry';
 import type {
   CreateTabOptions,
-  UpdateTabOptions,
-  TabCloseCallback,
   ExtensionTabData,
+  TabCloseCallback,
+  UpdateTabOptions,
 } from './system-api/TabAPI';
 import type { SystemModuleMap } from './systemModuleTypes';
 
@@ -185,7 +185,10 @@ export interface ExtensionContext {
     id: string;
     supportedExtensions: string[];
     needsTranspile?: (filePath: string) => boolean;
-    transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
+    transpile: (
+      code: string,
+      options: any
+    ) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
   }) => Promise<void>;
 
   /** ランタイムを登録（language-runtime拡張機能用） */

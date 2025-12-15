@@ -52,10 +52,7 @@ export default function TopBar({
           paddingRight: 12,
         }}
       >
-        <Search
-          size={14}
-          color={isOperationWindowVisible ? colors.primary : colors.mutedFg}
-        />
+        <Search size={14} color={isOperationWindowVisible ? colors.primary : colors.mutedFg} />
         <span className="ml-2 truncate">
           {currentProjectName} [{t('topBar.searchLabel')}]
         </span>
@@ -75,11 +72,7 @@ export default function TopBar({
           borderColor: colors.border,
         }}
       >
-        <Terminal
-          size={14}
-          color={colors.primary}
-          strokeWidth={2.2}
-        />
+        <Terminal size={14} color={colors.primary} strokeWidth={2.2} />
       </button>
       <button
         className={`relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors ml-1`}
@@ -92,11 +85,7 @@ export default function TopBar({
           borderColor: colors.border,
         }}
       >
-        <PanelRightIcon
-          size={18}
-          color={colors.primary}
-          strokeWidth={2.2}
-        />
+        <PanelRightIcon size={18} color={colors.primary} strokeWidth={2.2} />
       </button>
     </div>
   );

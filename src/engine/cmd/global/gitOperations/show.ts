@@ -1,5 +1,5 @@
-import git from 'isomorphic-git';
 import type FS from '@isomorphic-git/lightning-fs';
+import git from 'isomorphic-git';
 
 /**
  * git show コマンドの実装
@@ -7,11 +7,7 @@ import type FS from '@isomorphic-git/lightning-fs';
  * - origin/branch、upstream/branch などのリモートブランチに対応
  * - コミットハッシュやブランチ名に対応
  */
-export async function show(
-  fs: FS,
-  dir: string,
-  args: string[]
-): Promise<string> {
+export async function show(fs: FS, dir: string, args: string[]): Promise<string> {
   try {
     if (args.length === 0) {
       return 'git show: missing commit or file';

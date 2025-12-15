@@ -24,21 +24,23 @@ export function useDiffTabHandlers(currentProject: any) {
       editable?: boolean;
     }) => {
       if (!currentProject) return;
-      
+
       //  fileRepository用に正規化（先頭スラッシュあり）
       const normalizedPath = normalizePath(filePath);
       //  Git API用に変換（先頭スラッシュなし）
       const gitPath = toGitPath(normalizedPath);
-      
-      console.log(`[useDiffTabHandlers] Path: Git="${filePath}" → Repo="${normalizedPath}" → Git API="${gitPath}"`);
-      
+
+      console.log(
+        `[useDiffTabHandlers] Path: Git="${filePath}" → Repo="${normalizedPath}" → Git API="${gitPath}"`
+      );
+
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
       // working directory vs コミット のdiff（editableがtrueの場合）
       if (editable === true && commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
         const formerCommitId = commitId;
         const latterCommitId = 'WORKDIR';
-        
+
         //  Git APIには先頭スラッシュなしで渡す
         const formerContent = await git.getFileContentAtCommit(formerCommitId, gitPath);
 
@@ -46,10 +48,10 @@ export function useDiffTabHandlers(currentProject: any) {
         let latterContent = '';
         try {
           const { fileRepository } = await import('@/engine/core/fileRepository');
-          
+
           //  正規化されたパスでファイルを検索
           const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
-          
+
           if (file && file.content) {
             latterContent = file.content;
             console.log('[useDiffTabHandlers] Read latterContent from fileRepository');
@@ -95,7 +97,7 @@ export function useDiffTabHandlers(currentProject: any) {
       const lines = log.split('\n');
       const idx = lines.findIndex(line => line.startsWith(commitId));
       let parentCommitId = '';
-      
+
       if (idx !== -1) {
         const parts = lines[idx].split('|');
         if (parts.length >= 5) {
@@ -104,7 +106,12 @@ export function useDiffTabHandlers(currentProject: any) {
         }
       }
 
-      console.log('[useDiffTabHandlers] Commit diff:', { commitId, parentCommitId, normalizedPath, gitPath });
+      console.log('[useDiffTabHandlers] Commit diff:', {
+        commitId,
+        parentCommitId,
+        normalizedPath,
+        gitPath,
+      });
 
       const latterCommitId = commitId;
       const formerCommitId = parentCommitId;
@@ -185,7 +192,7 @@ export function useDiffTabHandlers(currentProject: any) {
       // 変更ファイルを抽出
       const files: Array<{ gitPath: string; normalizedPath: string }> = [];
       const lines = diffOutput.split('\n');
-      
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (line.startsWith('diff --git ')) {
@@ -195,20 +202,22 @@ export function useDiffTabHandlers(currentProject: any) {
             const rawGitPath = match[2];
             //  fileRepository用に正規化（先頭スラッシュあり）
             const normalizedFilePath = normalizePath(rawGitPath);
-            
+
             files.push({
-              gitPath: rawGitPath,        // Git API用（スラッシュなし）
-              normalizedPath: normalizedFilePath  // fileRepository用（スラッシュあり）
+              gitPath: rawGitPath, // Git API用（スラッシュなし）
+              normalizedPath: normalizedFilePath, // fileRepository用（スラッシュあり）
             });
-            
-            console.log(`[useDiffTabHandlers] File: Git="${rawGitPath}" → Repo="${normalizedFilePath}"`);
+
+            console.log(
+              `[useDiffTabHandlers] File: Git="${rawGitPath}" → Repo="${normalizedFilePath}"`
+            );
           }
         }
       }
 
       // 各ファイルごとにdiff情報を取得
       const diffs: SingleFileDiff[] = [];
-      
+
       for (const { gitPath, normalizedPath } of files) {
         let latterContent = '';
         let formerContent = '';

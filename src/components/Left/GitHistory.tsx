@@ -1,24 +1,25 @@
 'use client';
 
 import {
-  GitCommit,
-  GitBranch,
-  ChevronRight,
-  ChevronDown,
-  FileText,
-  FilePlus,
-  FileMinus,
   Calendar,
-  Hash,
+  ChevronDown,
+  ChevronRight,
   FileDiff,
+  FileMinus,
+  FilePlus,
+  FileText,
+  GitBranch,
+  GitCommit,
+  Hash,
 } from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
-import { GitCommit as GitCommitType } from '@/types/git';
+import type { GitCommit as GitCommitType } from '@/types/git';
 
 interface GitHistoryProps {
   commits: GitCommitType[];
@@ -432,10 +433,7 @@ export default function GitHistory({
           )}
       </div>
       <div className="flex-1 overflow-auto">
-        <div
-          className="relative min-w-0"
-          style={{ overflow: 'visible' }}
-        >
+        <div className="relative min-w-0" style={{ overflow: 'visible' }}>
           {/* SVG for git graph lines */}
           <svg
             ref={svgRef}
@@ -517,12 +515,7 @@ export default function GitHistory({
                   strokeWidth="1.5"
                 />
                 {commit.isMerge && (
-                  <circle
-                    cx={commit.x}
-                    cy={commit.y}
-                    r="2"
-                    fill={colors.gitMergeDot || 'white'}
-                  />
+                  <circle cx={commit.x} cy={commit.y} r="2" fill={colors.gitMergeDot || 'white'} />
                 )}
               </g>
             ))}
@@ -771,7 +764,10 @@ export default function GitHistory({
                                   file: f,
                                   type: 'modified' as const,
                                 })),
-                                ...changes.deleted.map(f => ({ file: f, type: 'deleted' as const })),
+                                ...changes.deleted.map(f => ({
+                                  file: f,
+                                  type: 'deleted' as const,
+                                })),
                               ];
                               if (allFiles.length === 0) {
                                 return (

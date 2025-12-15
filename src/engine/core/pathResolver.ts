@@ -321,9 +321,7 @@ export function hasPrefix(path: string, prefix: string): boolean {
 
   if (normalizedPrefix === '/') return true;
 
-  return (
-    normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + '/')
-  );
+  return normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + '/');
 }
 
 /**

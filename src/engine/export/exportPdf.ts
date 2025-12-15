@@ -1,5 +1,5 @@
-import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 
 // High quality export setting for retina displays
 const HIGH_QUALITY_PIXEL_RATIO = 2;
@@ -10,7 +10,7 @@ const HIGH_QUALITY_PIXEL_RATIO = 2;
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.pdf')
  */
-export async function exportPdfFromHtml(html: string, fileName: string = 'export.pdf'): Promise<void> {
+export async function exportPdfFromHtml(html: string, fileName = 'export.pdf'): Promise<void> {
   if (typeof window === 'undefined') return;
 
   // Create a temporary container with the content
@@ -171,7 +171,10 @@ export async function exportPdfFromHtml(html: string, fileName: string = 'export
  * @param element - HTML element to export
  * @param fileName - Output filename (optional, default: 'export.png')
  */
-export async function exportPngFromElement(element: HTMLElement, fileName: string = 'export.png'): Promise<void> {
+export async function exportPngFromElement(
+  element: HTMLElement,
+  fileName = 'export.png'
+): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
@@ -199,7 +202,7 @@ export async function exportPngFromElement(element: HTMLElement, fileName: strin
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.png')
  */
-export async function exportPngFromHtml(html: string, fileName: string = 'export.png'): Promise<void> {
+export async function exportPngFromHtml(html: string, fileName = 'export.png'): Promise<void> {
   if (typeof window === 'undefined') return;
 
   const element = document.createElement('div');
@@ -210,7 +213,7 @@ export async function exportPngFromHtml(html: string, fileName: string = 'export
   element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   element.style.maxWidth = '900px';
   element.style.margin = '0 auto';
-  
+
   document.body.appendChild(element);
 
   try {
@@ -227,7 +230,10 @@ export async function exportPngFromHtml(html: string, fileName: string = 'export
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.pdf')
  */
-export async function exportPdfFromHtmlCanvas(html: string, fileName: string = 'export.pdf'): Promise<void> {
+export async function exportPdfFromHtmlCanvas(
+  html: string,
+  fileName = 'export.pdf'
+): Promise<void> {
   if (typeof window === 'undefined') return;
 
   const element = document.createElement('div');
@@ -237,7 +243,7 @@ export async function exportPdfFromHtmlCanvas(html: string, fileName: string = '
   element.style.color = '#000000';
   element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   element.style.maxWidth = '900px';
-  
+
   document.body.appendChild(element);
 
   try {
@@ -259,7 +265,7 @@ export async function exportPdfFromHtmlCanvas(html: string, fileName: string = '
     const imgProps = pdf.getImageProperties(dataUrl);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
+
     let heightLeft = pdfHeight;
     let position = 0;
 

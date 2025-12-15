@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
-import { useDrag, useDrop, useDragLayer } from 'react-dnd';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useDrag, useDragLayer, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 
@@ -9,12 +9,12 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/gitignore';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { exportSingleFile } from '@/engine/export/exportSingleFile';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { useTabStore } from '@/stores/tabStore';
-import { FileItem } from '@/types';
+import type { FileItem } from '@/types';
 
 // ドラッグアイテムの型定義（FileTreeDragItemと互換性を持たせる）
 interface DragItem {
@@ -37,7 +37,7 @@ interface FileTreeProps {
 // パフォーマンス最適化のためmemoを使用
 const CustomDragLayer = memo(function CustomDragLayer() {
   const { colors } = useTheme();
-  const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
+  const { isDragging, item, currentOffset } = useDragLayer(monitor => ({
     item: monitor.getItem() as DragItem | null,
     currentOffset: monitor.getSourceClientOffset(),
     isDragging: monitor.isDragging(),
@@ -53,9 +53,10 @@ const CustomDragLayer = memo(function CustomDragLayer() {
     const iconPath = isFolder
       ? getIconForFolder(fileItem.name) || getIconForFolder('')
       : getIconForFile(fileItem.name) || getIconForFile('');
-    const iconSrc = iconPath && iconPath.endsWith('.svg')
-      ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-      : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
+    const iconSrc =
+      iconPath && iconPath.endsWith('.svg')
+        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
     return { iconSrc, name: fileItem.name, isFolder };
   }, [item?.item?.name, item?.item?.type]);
 
@@ -90,11 +91,7 @@ const CustomDragLayer = memo(function CustomDragLayer() {
           whiteSpace: 'nowrap',
         }}
       >
-        <img
-          src={iconSrc}
-          alt={isFolder ? 'folder' : 'file'}
-          style={{ width: 16, height: 16 }}
-        />
+        <img src={iconSrc} alt={isFolder ? 'folder' : 'file'} style={{ width: 16, height: 16 }} />
         <span>{name}</span>
       </div>
     </div>
@@ -151,8 +148,8 @@ function FileTreeItem({
     const checkTouchDevice = () => {
       setIsTouchDevice(
         'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
+          navigator.maxTouchPoints > 0 ||
+          ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
       );
     };
     checkTouchDevice();
@@ -176,14 +173,14 @@ function FileTreeItem({
         }
         return { type: DND_FILE_TREE_ITEM, item };
       },
-      collect: (monitor) => ({
+      collect: monitor => ({
         isDragging: monitor.isDragging(),
       }),
       end: (draggedItem, monitor) => {
         if (isDev) {
-          console.log('[FileTreeItem] DRAG END', { 
+          console.log('[FileTreeItem] DRAG END', {
             didDrop: monitor.didDrop(),
-            dropResult: monitor.getDropResult()
+            dropResult: monitor.getDropResult(),
           });
         }
       },
@@ -208,7 +205,8 @@ function FileTreeItem({
         // ドラッグアイテム（フォルダ）を自分の子孫にドロップしようとしている場合は不可
         if (item.path.startsWith(dragItem.item.path + '/')) return false;
         // ドラッグアイテムの親フォルダにドロップしようとしている場合は不可
-        const draggedParent = dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
+        const draggedParent =
+          dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
         if (draggedParent === item.path) return false;
         return true;
       },
@@ -217,19 +215,19 @@ function FileTreeItem({
       },
       drop: (dragItem: DragItem, monitor) => {
         if (isDev) {
-          console.log('[FileTreeItem] DROP EVENT', { 
+          console.log('[FileTreeItem] DROP EVENT', {
             target: item.path,
             dragged: dragItem.item.path,
             didDrop: monitor.didDrop(),
-            isOver: monitor.isOver({ shallow: true })
+            isOver: monitor.isOver({ shallow: true }),
           });
         }
-        
+
         // 子要素が既にドロップを処理した場合はスキップ
         if (monitor.didDrop()) {
           return;
         }
-        
+
         if (onInternalFileDrop && item.type === 'folder') {
           if (isDev) {
             console.log('[FileTreeItem] Calling onInternalFileDrop');
@@ -239,7 +237,7 @@ function FileTreeItem({
         }
         return undefined;
       },
-      collect: (monitor) => ({
+      collect: monitor => ({
         isOver: monitor.isOver({ shallow: true }),
         canDrop: monitor.canDrop(),
       }),
@@ -278,7 +276,7 @@ function FileTreeItem({
           alignItems: 'center',
           gap: '0.25rem',
           padding: '0.15rem 0.2rem',
-          cursor: isTouchDevice ? 'pointer' : (isDragging ? 'grabbing' : 'grab'),
+          cursor: isTouchDevice ? 'pointer' : isDragging ? 'grabbing' : 'grab',
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
@@ -293,7 +291,9 @@ function FileTreeItem({
           marginLeft: `${level * 12}px`,
           touchAction: isTouchDevice ? 'auto' : 'manipulation',
           opacity: isDragging ? 0.5 : 1,
-          border: dropIndicator ? `1px dashed ${colors.primary || '#007acc'}` : '1px solid transparent',
+          border: dropIndicator
+            ? `1px dashed ${colors.primary || '#007acc'}`
+            : '1px solid transparent',
         }}
         onClick={() => onItemClick(item)}
         onContextMenu={e => onContextMenu(e, item)}
@@ -323,15 +323,9 @@ function FileTreeItem({
         {item.type === 'folder' ? (
           <>
             {isExpanded ? (
-              <ChevronDown
-                size={14}
-                color={colors.mutedFg}
-              />
+              <ChevronDown size={14} color={colors.mutedFg} />
             ) : (
-              <ChevronRight
-                size={14}
-                color={colors.mutedFg}
-              />
+              <ChevronRight size={14} color={colors.mutedFg} />
             )}
             <img
               src={(() => {
@@ -392,7 +386,7 @@ function FileTreeItem({
         >
           {item.name}
         </span>
-        
+
         {/* Grab handle for touch devices - only visible on touch devices */}
         {isTouchDevice && (
           <div
@@ -461,15 +455,14 @@ export default function FileTree({
     // Check if this is a react-dnd drop (has no files) - let react-dnd handle it
     const hasFiles = e.dataTransfer.files && e.dataTransfer.files.length > 0;
     const hasItems = e.dataTransfer.items && e.dataTransfer.items.length > 0;
-    const hasNativeFiles = hasItems && Array.from(e.dataTransfer.items).some(
-      item => item.kind === 'file'
-    );
-    
+    const hasNativeFiles =
+      hasItems && Array.from(e.dataTransfer.items).some(item => item.kind === 'file');
+
     // If no native files, this is likely a react-dnd internal drop - don't interfere
     if (!hasFiles && !hasNativeFiles) {
       return;
     }
-    
+
     e.preventDefault();
     e.stopPropagation();
     const items = e.dataTransfer.items;
@@ -732,64 +725,63 @@ export default function FileTree({
 
   // react-dnd: ファイル/フォルダをドロップターゲットに移動する
   // propsから渡されている場合はそれを使用、そうでなければ自前のハンドラーを使用
-  const internalDropHandler = onInternalFileDrop ?? (async (draggedItem: FileItem, targetFolderPath: string) => {
-    console.log('[FileTree] ============================================');
-    console.log('[FileTree] internalDropHandler called');
-    console.log('[FileTree] draggedItem:', JSON.stringify(draggedItem, null, 2));
-    console.log('[FileTree] targetFolderPath:', targetFolderPath);
-    console.log('[FileTree] currentProjectId:', currentProjectId);
-    console.log('[FileTree] currentProjectName:', currentProjectName);
-    console.log('[FileTree] ============================================');
-    
-    if (!currentProjectId) {
-      console.error('[FileTree] ERROR: No currentProjectId, cannot move file');
-      return;
-    }
-    
-    if (!currentProjectName) {
-      console.error('[FileTree] ERROR: No currentProjectName, cannot move file');
-      return;
-    }
-    
-    // 自分自身への移動は無視
-    if (draggedItem.path === targetFolderPath) {
-      console.log('[FileTree] Same path, ignoring move');
-      return;
-    }
-    
-    // ドラッグしたアイテムを自分の子フォルダに移動しようとしている場合は無視
-    if (targetFolderPath.startsWith(draggedItem.path + '/')) {
-      console.log('[FileTree] Cannot move to child folder');
-      return;
-    }
-    
-    try {
-      console.log('[FileTree] Getting unix commands...');
-      const unix = terminalCommandRegistry.getUnixCommands(
-        currentProjectName,
-        currentProjectId
-      );
-      console.log('[FileTree] Got unix commands:', !!unix);
-      
-      const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
-      const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
-      
-      console.log('[FileTree] Moving file/folder:');
-      console.log('[FileTree]   oldPath:', oldPath);
-      console.log('[FileTree]   newPath:', newPath);
-      
-      // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
-      const result = await unix.mv(oldPath, newPath);
-      console.log('[FileTree] Move result:', result);
-      
-      if (onRefresh) {
-        console.log('[FileTree] Refreshing file tree');
-        setTimeout(onRefresh, 100);
+  const internalDropHandler =
+    onInternalFileDrop ??
+    (async (draggedItem: FileItem, targetFolderPath: string) => {
+      console.log('[FileTree] ============================================');
+      console.log('[FileTree] internalDropHandler called');
+      console.log('[FileTree] draggedItem:', JSON.stringify(draggedItem, null, 2));
+      console.log('[FileTree] targetFolderPath:', targetFolderPath);
+      console.log('[FileTree] currentProjectId:', currentProjectId);
+      console.log('[FileTree] currentProjectName:', currentProjectName);
+      console.log('[FileTree] ============================================');
+
+      if (!currentProjectId) {
+        console.error('[FileTree] ERROR: No currentProjectId, cannot move file');
+        return;
       }
-    } catch (error: any) {
-      console.error('[FileTree] Failed to move file:', error);
-    }
-  });
+
+      if (!currentProjectName) {
+        console.error('[FileTree] ERROR: No currentProjectName, cannot move file');
+        return;
+      }
+
+      // 自分自身への移動は無視
+      if (draggedItem.path === targetFolderPath) {
+        console.log('[FileTree] Same path, ignoring move');
+        return;
+      }
+
+      // ドラッグしたアイテムを自分の子フォルダに移動しようとしている場合は無視
+      if (targetFolderPath.startsWith(draggedItem.path + '/')) {
+        console.log('[FileTree] Cannot move to child folder');
+        return;
+      }
+
+      try {
+        console.log('[FileTree] Getting unix commands...');
+        const unix = terminalCommandRegistry.getUnixCommands(currentProjectName, currentProjectId);
+        console.log('[FileTree] Got unix commands:', !!unix);
+
+        const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
+        const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
+
+        console.log('[FileTree] Moving file/folder:');
+        console.log('[FileTree]   oldPath:', oldPath);
+        console.log('[FileTree]   newPath:', newPath);
+
+        // mvコマンドを使用（ファイルもフォルダも正しく移動できる）
+        const result = await unix.mv(oldPath, newPath);
+        console.log('[FileTree] Move result:', result);
+
+        if (onRefresh) {
+          console.log('[FileTree] Refreshing file tree');
+          setTimeout(onRefresh, 100);
+        }
+      } catch (error: any) {
+        console.error('[FileTree] Failed to move file:', error);
+      }
+    });
 
   return (
     <div
@@ -808,7 +800,7 @@ export default function FileTree({
       onDragOver={level === 0 ? handleDragOver : undefined}
     >
       {/* カスタムドラッグレイヤーはpage.tsxで共通表示 */}
-      
+
       {items.map(item => {
         const isExpanded = expandedFolders.has(item.id);
         const isIgnored =
@@ -901,11 +893,11 @@ export default function FileTree({
               const menuItems: Array<{ key: string; label: string }> =
                 contextMenu && contextMenu.item == null
                   ? [
-                        { key: 'createFile', label: t('fileTree.menu.createFile') },
-                        { key: 'createFolder', label: t('fileTree.menu.createFolder') },
-                        { key: 'importFiles', label: t('fileTree.menu.importFiles') },
-                        { key: 'importFolder', label: t('fileTree.menu.importFolder') },
-                      ]
+                      { key: 'createFile', label: t('fileTree.menu.createFile') },
+                      { key: 'createFolder', label: t('fileTree.menu.createFolder') },
+                      { key: 'importFiles', label: t('fileTree.menu.importFiles') },
+                      { key: 'importFolder', label: t('fileTree.menu.importFolder') },
+                    ]
                   : ([
                       contextMenu && contextMenu.item && contextMenu.item.type === 'file'
                         ? { key: 'open', label: t('fileTree.menu.open') }
@@ -998,7 +990,12 @@ export default function FileTree({
                         const folderPath = targetPath.substring(0, lastSlash);
                         await ensureFoldersExistLocal(currentProjectId, folderPath);
                       }
-                      await importSingleFile(file, targetAbsolutePath, currentProjectName, currentProjectId);
+                      await importSingleFile(
+                        file,
+                        targetAbsolutePath,
+                        currentProjectName,
+                        currentProjectId
+                      );
                     }
                     if (onRefresh) setTimeout(onRefresh, 100);
                   };

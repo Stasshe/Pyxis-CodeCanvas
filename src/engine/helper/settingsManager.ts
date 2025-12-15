@@ -3,7 +3,7 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { PyxisSettings, DEFAULT_PYXIS_SETTINGS } from '@/types/settings';
+import { DEFAULT_PYXIS_SETTINGS, type PyxisSettings } from '@/types/settings';
 
 const SETTINGS_PATH = '/.pyxis/settings.json';
 

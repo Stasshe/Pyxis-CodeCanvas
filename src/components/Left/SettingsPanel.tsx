@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import { useTabStore } from '@/stores/tabStore';
@@ -163,10 +164,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       style={{ background: colors.background, color: colors.foreground }}
     >
       {/* ワークスペースエクスポート */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: colors.border }}
-      >
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
@@ -201,10 +199,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       </div>
 
       {/* テーマ設定 */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: colors.border }}
-      >
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
@@ -213,10 +208,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </h2>
         <div className="space-y-3">
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.theme.colorTheme')}
             </label>
             <select
@@ -230,10 +222,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               }}
             >
               {themeList.map(name => (
-                <option
-                  key={name}
-                  value={name}
-                >
+                <option key={name} value={name}>
                   {name}
                 </option>
               ))}
@@ -274,32 +263,20 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               <span>{t('settingsPanel.theme.colorCustomize')}</span>
               <span className="text-[10px]">
                 {showColorSettings ? (
-                  <ChevronDown
-                    size={14}
-                    strokeWidth={2}
-                  />
+                  <ChevronDown size={14} strokeWidth={2} />
                 ) : (
-                  <ChevronRight
-                    size={14}
-                    strokeWidth={2}
-                  />
+                  <ChevronRight size={14} strokeWidth={2} />
                 )}
               </span>
             </button>
             {showColorSettings && (
-              <div
-                className="mt-2 p-2 rounded"
-                style={{ background: colors.cardBg }}
-              >
+              <div className="mt-2 p-2 rounded" style={{ background: colors.cardBg }}>
                 <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
                   {Object.entries(colors)
                     // only show simple string color values (hex or rgb/rgba)
                     .filter(([_k, v]) => typeof v === 'string' && /^#|^rgb\(/.test(v))
                     .map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="flex items-center gap-2"
-                      >
+                      <div key={key} className="flex items-center gap-2">
                         <input
                           id={`theme-${key}`}
                           type="color"
@@ -344,10 +321,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       </div>
 
       {/* エディター設定 */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: colors.border }}
-      >
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
@@ -356,10 +330,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </h2>
         <div className="space-y-3">
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.editor.defaultEditor')}
             </label>
             <select
@@ -375,10 +346,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               <option value="monaco">Monaco Editor</option>
               <option value="codemirror">CodeMirror</option>
             </select>
-            <p
-              className="text-[10px] mt-1"
-              style={{ color: colors.mutedFg }}
-            >
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
               {t('settingsPanel.editor.savedToLocalStorage')}
             </p>
           </div>
@@ -402,10 +370,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           </label>
 
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.editor.fontSize')}
             </label>
             <input
@@ -415,7 +380,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={settings.editor.fontSize}
               onChange={e =>
                 updateSettings({
-                  editor: { ...settings.editor, fontSize: parseInt(e.target.value) || 14 },
+                  editor: { ...settings.editor, fontSize: Number.parseInt(e.target.value) || 14 },
                 })
               }
               className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
@@ -428,10 +393,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           </div>
 
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.editor.tabSize')}
             </label>
             <input
@@ -441,7 +403,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={settings.editor.tabSize}
               onChange={e =>
                 updateSettings({
-                  editor: { ...settings.editor, tabSize: parseInt(e.target.value) || 2 },
+                  editor: { ...settings.editor, tabSize: Number.parseInt(e.target.value) || 2 },
                 })
               }
               className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
@@ -454,10 +416,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           </div>
 
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.markdown.mathDelimiter')}
             </label>
             <select
@@ -484,10 +443,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               <option value="bracket">\\(...\\) / \\[...\\]</option>
               <option value="both">Both</option>
             </select>
-            <p
-              className="text-[10px] mt-1"
-              style={{ color: colors.mutedFg }}
-            >
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
               {t('settingsPanel.markdown.mathDelimiterHint')}
             </p>
           </div>
@@ -495,10 +451,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       </div>
 
       {/* API設定 */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: colors.border }}
-      >
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
@@ -506,10 +459,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           {t('settingsPanel.api.title')}
         </h2>
         <div>
-          <label
-            className="block text-xs mb-1.5"
-            style={{ color: colors.foreground }}
-          >
+          <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
             {t('settingsPanel.api.geminiApiKey')}
           </label>
           <input
@@ -524,20 +474,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               border: `1px solid ${colors.border}`,
             }}
           />
-          <p
-            className="text-[10px] mt-1"
-            style={{ color: colors.mutedFg }}
-          >
+          <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
             {t('settingsPanel.api.savedToLocalStorage')}
           </p>
         </div>
       </div>
 
       {/* 検索設定 */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: colors.border }}
-      >
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2
           className="text-xs font-semibold uppercase tracking-wide mb-3"
           style={{ color: colors.mutedFg }}
@@ -546,10 +490,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </h2>
         <div className="space-y-3">
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.search.excludePattern')}
             </label>
             <textarea
@@ -572,10 +513,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 border: `1px solid ${colors.border}`,
               }}
             />
-            <p
-              className="text-[10px] mt-1"
-              style={{ color: colors.mutedFg }}
-            >
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
               {t('settingsPanel.search.globPatternHint')}
             </p>
           </div>
@@ -610,10 +548,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </h2>
         <div className="space-y-3">
           <div>
-            <label
-              className="block text-xs mb-1.5"
-              style={{ color: colors.foreground }}
-            >
+            <label className="block text-xs mb-1.5" style={{ color: colors.foreground }}>
               {t('settingsPanel.files.excludePattern')}
             </label>
             <textarea
@@ -621,7 +556,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               onChange={e => setFilesExcludeText(e.target.value)}
               onBlur={() =>
                 updateSettings({
-                  files: { ...settings.files, exclude: filesExcludeText.split('\n').filter(Boolean) },
+                  files: {
+                    ...settings.files,
+                    exclude: filesExcludeText.split('\n').filter(Boolean),
+                  },
                 })
               }
               placeholder="**/.git&#10;**/.DS_Store"
@@ -633,10 +571,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
                 border: `1px solid ${colors.border}`,
               }}
             />
-            <p
-              className="text-[10px] mt-1"
-              style={{ color: colors.mutedFg }}
-            >
+            <p className="text-[10px] mt-1" style={{ color: colors.mutedFg }}>
               {t('settingsPanel.files.excludeHint')}
             </p>
           </div>

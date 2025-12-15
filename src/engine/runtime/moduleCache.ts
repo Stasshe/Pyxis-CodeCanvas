@@ -12,7 +12,7 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { runtimeInfo, runtimeWarn, runtimeError } from '@/engine/runtime/runtimeLogger';
+import { runtimeError, runtimeInfo, runtimeWarn } from '@/engine/runtime/runtimeLogger';
 
 export interface CacheEntry {
   originalPath: string;

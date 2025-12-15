@@ -29,7 +29,7 @@ export class TreeCommand extends UnixCommandBase {
     if (options.has('-L')) {
       const levelIndex = args.indexOf('-L');
       if (levelIndex >= 0 && levelIndex + 1 < args.length) {
-        maxDepth = parseInt(args[levelIndex + 1], 10) || 999;
+        maxDepth = Number.parseInt(args[levelIndex + 1], 10) || 999;
       }
     }
 
@@ -60,11 +60,7 @@ export class TreeCommand extends UnixCommandBase {
     let dirCount = 0;
     let fileCount = 0;
 
-    const buildTree = async (
-      dirPath: string,
-      prefix: string = '',
-      depth: number = 0
-    ): Promise<string> => {
+    const buildTree = async (dirPath: string, prefix = '', depth = 0): Promise<string> => {
       if (depth > maxDepth) return '';
 
       const relativePath = this.getRelativePathFromProject(dirPath);

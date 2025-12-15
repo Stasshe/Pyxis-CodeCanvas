@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { useTabStore } from '@/stores/tabStore';
 import { useTheme } from '@/context/ThemeContext';
+import { useTabStore } from '@/stores/tabStore';
+import type React from 'react';
 
 interface BreadcrumbProps {
   paneId: string;
@@ -15,7 +15,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
   const pane = getPane(paneId);
   if (!pane) return null;
 
-  const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+  const activeTab = pane.tabs.find(t => t.id === pane.activeTabId);
 
   if (!activeTab) return null;
 

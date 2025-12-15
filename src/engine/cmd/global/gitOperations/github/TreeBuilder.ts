@@ -3,10 +3,10 @@
  * ローカルのGitツリーをGitHub上に再構築する
  */
 
-import FS from '@isomorphic-git/lightning-fs';
+import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
-import { GitHubAPI, GitTreeEntry } from './GitHubAPI';
+import type { GitHubAPI, GitTreeEntry } from './GitHubAPI';
 
 export class TreeBuilder {
   private fs: FS;
@@ -30,7 +30,7 @@ export class TreeBuilder {
 
     // Check if this exact tree already exists remotely
     const localTreeInfo = await git.readTree({ fs: this.fs, dir: this.dir, oid: treeOid });
-    
+
     // If we have a remote tree SHA to compare against
     if (remoteTreeSha) {
       try {

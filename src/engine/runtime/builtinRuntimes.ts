@@ -6,9 +6,9 @@
  * - アプリケーション起動時に自動登録
  */
 
+import { runtimeRegistry } from './RuntimeRegistry';
 import { NodeRuntimeProvider } from './providers/NodeRuntimeProvider';
 import { runtimeInfo } from './runtimeLogger';
-import { runtimeRegistry } from './RuntimeRegistry';
 
 /**
  * ビルトインランタイムプロバイダーを初期化・登録

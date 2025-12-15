@@ -86,7 +86,7 @@ export const exportPage = async (
       // eruda
       const erudaScript = iframeDoc.createElement('script');
       erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
-      erudaScript.onload = function () {
+      erudaScript.onload = () => {
         const initScript = iframeDoc.createElement('script');
         initScript.textContent = 'eruda.init();';
         iframeDoc.body.appendChild(initScript);
@@ -116,7 +116,7 @@ export const exportPage = async (
       // eruda
       const erudaScript = iframeDoc.createElement('script');
       erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
-      erudaScript.onload = function () {
+      erudaScript.onload = () => {
         const initScript = iframeDoc.createElement('script');
         initScript.textContent = 'eruda.init();';
         iframeDoc.body.appendChild(initScript);

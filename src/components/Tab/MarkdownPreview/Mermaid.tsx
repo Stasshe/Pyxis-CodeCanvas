@@ -1,9 +1,9 @@
-import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
+import { Download, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import mermaid from 'mermaid';
-import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme, type ThemeColors } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 
 import { parseMermaidContent } from '../markdownUtils';
 
@@ -233,14 +233,14 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
           });
 
           const container = ref.current as HTMLDivElement;
-          
+
           // Apply transform directly to SVG without triggering React re-render
           const applyTransformVisual = (): void => {
             const s = scaleRef.current;
             const { x, y } = translateRef.current;
             svgElem.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
           };
-          
+
           // Sync state with refs (called only when interaction ends)
           const syncStateWithRefs = (): void => {
             setZoomState({ scale: scaleRef.current, translate: { ...translateRef.current } });
@@ -292,8 +292,10 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
                 const newScale = Math.max(0.2, Math.min(8, pinchStartScale * scaleDelta));
                 const tx = translateRef.current.x;
                 const ty = translateRef.current.y;
-                translateRef.current.x = pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
-                translateRef.current.y = pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
+                translateRef.current.x =
+                  pinchStart.x - (pinchStart.x - tx) * (newScale / scaleRef.current);
+                translateRef.current.y =
+                  pinchStart.y - (pinchStart.y - ty) * (newScale / scaleRef.current);
                 scaleRef.current = newScale;
                 applyTransformVisual();
               }
@@ -367,7 +369,8 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
               // ignore
             }
           };
-          (container as HTMLDivElement & { __mermaidCleanup?: () => void }).__mermaidCleanup = cleanup;
+          (container as HTMLDivElement & { __mermaidCleanup?: () => void }).__mermaidCleanup =
+            cleanup;
         }
         setIsLoading(false);
       } catch (e: unknown) {
@@ -377,7 +380,8 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
         let errorMessage = 'Mermaidのレンダリングに失敗しました。';
         const err = e as Error & { str?: string };
         if (err.message?.includes('timeout') || err.message?.includes('Rendering timeout')) {
-          errorMessage += ' 図が複雑すぎてタイムアウトしました。ノード数を減らすか、シンプルな構造にしてください。';
+          errorMessage +=
+            ' 図が複雑すぎてタイムアウトしました。ノード数を減らすか、シンプルな構造にしてください。';
         } else if (err.message?.includes('Parse error')) {
           errorMessage += ` 構文エラー: ${err.message}`;
         } else if (err.message?.includes('Lexical error')) {
@@ -476,7 +480,15 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
   // Placeholder shown before the element comes into view
   if (!hasIntersected) {
     return (
-      <div ref={containerRef} style={{ minHeight: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        ref={containerRef}
+        style={{
+          minHeight: '120px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <div
           style={{
             padding: '16px',

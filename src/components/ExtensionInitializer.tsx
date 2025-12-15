@@ -13,7 +13,7 @@ export default function ExtensionInitializer() {
       try {
         // ビルトインランタイムを初期化
         initializeBuiltinRuntimes();
-        
+
         // 拡張機能を初期化
         await initializeExtensions();
         if (mounted) {

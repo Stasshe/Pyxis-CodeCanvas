@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ToastMessage {
@@ -32,10 +33,7 @@ export const ToastContainer: React.FC = () => {
   return createPortal(
     <div className="toast-container">
       {toasts.map(toast => (
-        <div
-          key={toast.id}
-          className={`toast toast-${toast.type}`}
-        >
+        <div key={toast.id} className={`toast toast-${toast.type}`}>
           {toast.message}
         </div>
       ))}

@@ -1,6 +1,7 @@
 // src/context/TabContext.tsx
 'use client';
-import React, { useEffect, ReactNode, useMemo } from 'react';
+import type React from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 
 import { useTabStore } from '@/stores/tabStore';
 
@@ -54,7 +55,8 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
         size: p.size,
         layout: p.layout,
         activeTabId: p.activeTabId,
-        tabs: p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
+        tabs:
+          p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
         children: p.children ? strip(p.children) : undefined,
       }));
 

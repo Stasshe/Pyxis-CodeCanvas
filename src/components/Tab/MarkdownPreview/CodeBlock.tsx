@@ -1,7 +1,7 @@
-import { memo, type ReactNode } from 'react';
+import { type ReactNode, memo } from 'react';
 
-import { type ThemeColors } from '@/context/ThemeContext';
-import { FileItem } from '@/types';
+import type { ThemeColors } from '@/context/ThemeContext';
+import type { FileItem } from '@/types';
 
 import InlineHighlightedCode from '../InlineHighlightedCode';
 

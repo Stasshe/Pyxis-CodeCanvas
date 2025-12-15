@@ -181,7 +181,7 @@
     "viewDiffReadonly": "查看差异（只读）"
   },
   "gitHistory": {
-        "allFilesFiles": "全部 {count} 个文件（可滚动）",
+    "allFilesFiles": "全部 {count} 个文件（可滚动）",
     "allFilesScrollable": "全部 {count} 个文件（可滚动）",
     "changedFiles": "更改的文件：",
     "daysAgo": "{days} 天前",
@@ -210,11 +210,11 @@
     "generatingMermaid": "正在生成 Mermaid 图表...",
     "imageNotFound": "未找到图片：{src}",
     "loadingImage": "正在加载图片...",
+    "mermaidPlaceholder": "滚动以查看 Mermaid 图",
     "preview": "预览",
     "reset": "重置",
     "zoomIn": "放大",
-    "zoomOut": "缩小",
-    "mermaidPlaceholder": "滚动以查看 Mermaid 图"
+    "zoomOut": "缩小"
   },
   "menu": {
     "extensions": "Extensions",

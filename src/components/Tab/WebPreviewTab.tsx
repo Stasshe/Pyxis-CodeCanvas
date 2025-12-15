@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 
@@ -191,10 +192,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
-      <iframe
-        ref={iframeRef}
-        style={{ border: 'none', width: '100%', height: '100%' }}
-      />
+      <iframe ref={iframeRef} style={{ border: 'none', width: '100%', height: '100%' }} />
     </div>
   );
 };

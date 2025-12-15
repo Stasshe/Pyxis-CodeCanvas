@@ -1,4 +1,4 @@
-import { Monaco } from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import { getLanguage } from './editor-utils';
 
@@ -14,22 +14,22 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
     console.log('[jsx-language] Already registered, skipping');
     return;
   }
-  
+
   console.log('[jsx-language] Registering JSX semantic token provider');
-  
+
   // TypeScript のセマンティックトークンを有効化
   monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
     noSemanticValidation: false,
     noSyntaxValidation: false,
   });
-  
+
   // JSX 要素用のカスタムドキュメントセマンティックトークンプロバイダー
   // これは TypeScript 言語サービスの出力を補完する
   monaco.languages.registerDocumentSemanticTokensProvider('typescript', {
     getLegend: () => ({
       tokenTypes: [
         'class',
-        'interface', 
+        'interface',
         'enum',
         'typeParameter',
         'type',
@@ -44,9 +44,9 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         'regexp',
         'operator',
         'namespace',
-        'tag',           // JSX タグ名
-        'attribute',     // JSX 属性名
-        'text',          // JSX テキスト内容
+        'tag', // JSX タグ名
+        'attribute', // JSX 属性名
+        'text', // JSX テキスト内容
       ],
       tokenModifiers: [
         'declaration',
@@ -58,7 +58,7 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         'defaultLibrary',
       ],
     }),
-    provideDocumentSemanticTokens: async (model) => {
+    provideDocumentSemanticTokens: async model => {
       // TypeScript の言語サービスが既にセマンティックトークンを提供しているため
       // ここでは null を返して標準の処理に任せる
       // （必要に応じて追加のトークンをここで生成できる）
@@ -66,13 +66,13 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
     },
     releaseDocumentSemanticTokens: () => {},
   });
-  
+
   // JavaScript (JSX) も同様
   monaco.languages.registerDocumentSemanticTokensProvider('javascript', {
     getLegend: () => ({
       tokenTypes: [
         'class',
-        'interface', 
+        'interface',
         'enum',
         'typeParameter',
         'type',
@@ -104,7 +104,7 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
     provideDocumentSemanticTokens: async () => null,
     releaseDocumentSemanticTokens: () => {},
   });
-  
+
   isRegistered = true;
   console.log('[jsx-language] JSX semantic token provider registered');
 }

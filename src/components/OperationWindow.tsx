@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getIconForFile } from 'vscode-icons-js';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
+import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
-import { FileItem } from '@/types';
+import type { FileItem } from '@/types';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -108,7 +109,7 @@ interface OperationWindowProps {
   onFileSelect?: (file: FileItem, preview?: boolean) => void; // AI用モード用
   aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
   targetPaneId?: string | null; // ファイルを開くペインのID
-  
+
   // Generic List Props
   items?: OperationListItem[];
   listTitle?: string; // Title for the list view (e.g. "Chat Spaces")
@@ -118,7 +119,7 @@ interface OperationWindowProps {
     label: string;
     onClick: () => void;
   }[];
-  
+
   initialView?: 'files' | 'list';
 }
 
@@ -145,7 +146,9 @@ export default function OperationWindow({
   const hideModeTabs = Boolean(items && initialView === 'list');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [portalEl] = useState(() => (typeof document !== 'undefined' ? document.createElement('div') : null));
+  const [portalEl] = useState(() =>
+    typeof document !== 'undefined' ? document.createElement('div') : null
+  );
   const { isExcluded } = useSettings();
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
   const ITEM_HEIGHT = 20; // slightly more compact
@@ -294,11 +297,12 @@ export default function OperationWindow({
     if (viewMode !== 'list' || !items) return [];
     if (!searchQuery) return items;
     const q = searchQuery.toLowerCase();
-    
+
     // Simple filtering for items
-    return items.filter(item => 
-      item.label.toLowerCase().includes(q) || 
-      (item.description && item.description.toLowerCase().includes(q))
+    return items.filter(
+      item =>
+        item.label.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q))
     );
   }, [items, searchQuery, viewMode]);
 
@@ -347,10 +351,10 @@ export default function OperationWindow({
         }
         return;
       }
-      
+
       // Editing mode in list item?
       // If an item is being edited, we might want to let the input handle keys.
-      // But here we are handling global navigation. 
+      // But here we are handling global navigation.
       // Ideally, the input in the list item should stop propagation of keys it handles.
 
       switch (e.key) {
@@ -378,11 +382,11 @@ export default function OperationWindow({
           // If we are in the search input, or just navigating
           // We need to trigger the action of the selected item
           if (viewMode === 'files' && filteredFiles[selectedIndex]) {
-             e.preventDefault();
-             handleFileSelectInOperation(filteredFiles[selectedIndex]);
+            e.preventDefault();
+            handleFileSelectInOperation(filteredFiles[selectedIndex]);
           } else if (viewMode === 'list' && filteredItems[selectedIndex]) {
-             e.preventDefault();
-             filteredItems[selectedIndex].onClick?.();
+            e.preventDefault();
+            filteredItems[selectedIndex].onClick?.();
           }
           break;
       }
@@ -405,7 +409,7 @@ export default function OperationWindow({
     mdPreviewPrompt,
     mdDialogSelected,
     viewMode,
-    currentListLength
+    currentListLength,
   ]);
 
   // 検索クエリが変更されたときに選択インデックスをリセット
@@ -581,9 +585,12 @@ export default function OperationWindow({
         >
           {/* Header */}
           <div style={{ padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}>
-
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}
+            >
+              <div
+                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
                 {viewMode === 'list' && headerActions && (
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {headerActions.map((action, i) => (
@@ -601,8 +608,8 @@ export default function OperationWindow({
                           alignItems: 'center',
                           borderRadius: '4px',
                         }}
-                        onMouseEnter={e => e.currentTarget.style.background = colors.mutedBg}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         {action.icon}
                       </button>
@@ -676,7 +683,9 @@ export default function OperationWindow({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
+                        borderLeft: isSelected
+                          ? `3px solid ${colors.accentBg}`
+                          : '3px solid transparent',
                       }}
                       onClick={() => handleFileSelectInOperation(file)}
                       onMouseEnter={() => setSelectedIndex(index)}
@@ -719,145 +728,162 @@ export default function OperationWindow({
                   );
                 })
               )
+            ) : // GENERIC LIST VIEW
+            filteredItems.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
+                {t('operationWindow.noItemsFound') || 'No items found'}
+              </div>
             ) : (
-              // GENERIC LIST VIEW
-              filteredItems.length === 0 ? (
-                <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
-                  {t('operationWindow.noItemsFound') || 'No items found'}
-                </div>
-              ) : (
-                filteredItems.map((item, index) => {
-                  const isSelected = index === selectedIndex;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className="group"
-                      style={{
-                        height: ITEM_HEIGHT,
-                        boxSizing: 'border-box',
-                        padding: '2px 12px',
-                        background: isSelected ? colors.primary : 'transparent',
-                        color: isSelected ? colors.cardBg : colors.foreground,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
-                        position: 'relative',
-                      }}
-                      onClick={() => !item.isEditing && item.onClick?.()}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                    >
-                      {/* Icon */}
-                      {item.icon && (
-                        <div style={{ width: 16, height: 16, flex: '0 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {typeof item.icon === 'string' ? (
-                            <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
-                          ) : (
-                            item.icon
-                          )}
-                        </div>
-                      )}
+              filteredItems.map((item, index) => {
+                const isSelected = index === selectedIndex;
 
-                      {/* Content */}
-                      {item.isEditing ? (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
-                            type="text"
-                            value={item.editValue ?? item.label}
-                            onChange={e => item.onEditChange?.(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                e.stopPropagation();
-                                item.onEditConfirm?.();
-                              } else if (e.key === 'Escape') {
-                                e.stopPropagation();
-                                item.onEditCancel?.();
-                              }
-                            }}
-                            onClick={e => e.stopPropagation()}
-                            autoFocus
-                            style={{
-                              flex: 1,
-                              height: '18px',
-                              fontSize: '13px',
-                              padding: '0 4px',
-                              border: `1px solid ${colors.accent}`,
-                              background: colors.background,
-                              color: colors.foreground,
-                              borderRadius: '2px',
-                              outline: 'none',
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          <span
-                            style={{
-                              fontSize: '13px',
-                              fontWeight: isSelected || item.isActive ? '600' : '400',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              flex: 1,
-                            }}
-                          >
-                            {highlightMatch(item.label, searchQuery, isSelected)}
-                          </span>
-                          {item.description && (
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
-                                marginLeft: '8px',
-                              }}
-                            >
-                              {highlightMatch(item.description, searchQuery, isSelected)}
-                            </span>
-                          )}
-                        </>
-                      )}
+                return (
+                  <div
+                    key={item.id}
+                    className="group"
+                    style={{
+                      height: ITEM_HEIGHT,
+                      boxSizing: 'border-box',
+                      padding: '2px 12px',
+                      background: isSelected ? colors.primary : 'transparent',
+                      color: isSelected ? colors.cardBg : colors.foreground,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      borderLeft: isSelected
+                        ? `3px solid ${colors.accentBg}`
+                        : '3px solid transparent',
+                      position: 'relative',
+                    }}
+                    onClick={() => !item.isEditing && item.onClick?.()}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    {/* Icon */}
+                    {item.icon && (
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          flex: '0 0 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {typeof item.icon === 'string' ? (
+                          <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                          item.icon
+                        )}
+                      </div>
+                    )}
 
-                      {/* Actions (hover or selected) */}
-                      {!item.isEditing && item.actions && item.actions.length > 0 && (
-                        <div
+                    {/* Content */}
+                    {item.isEditing ? (
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input
+                          type="text"
+                          value={item.editValue ?? item.label}
+                          onChange={e => item.onEditChange?.(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.stopPropagation();
+                              item.onEditConfirm?.();
+                            } else if (e.key === 'Escape') {
+                              e.stopPropagation();
+                              item.onEditCancel?.();
+                            }
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          autoFocus
                           style={{
-                            display: isSelected ? 'flex' : 'none',
-                            gap: '4px',
-                            marginLeft: 'auto',
+                            flex: 1,
+                            height: '18px',
+                            fontSize: '13px',
+                            padding: '0 4px',
+                            border: `1px solid ${colors.accent}`,
+                            background: colors.background,
+                            color: colors.foreground,
+                            borderRadius: '2px',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <span
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: isSelected || item.isActive ? '600' : '400',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            flex: 1,
                           }}
                         >
-                          {item.actions.map(action => (
-                            <button
-                              key={action.id}
-                              onClick={e => {
-                                e.stopPropagation();
-                                action.onClick(e);
-                              }}
-                              title={action.label}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: action.danger ? (isSelected ? '#ffcccc' : colors.destructive) : (isSelected ? 'white' : colors.foreground),
-                                cursor: 'pointer',
-                                padding: '2px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderRadius: '3px',
-                              }}
-                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              {action.icon}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )
+                          {highlightMatch(item.label, searchQuery, isSelected)}
+                        </span>
+                        {item.description && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                              marginLeft: '8px',
+                            }}
+                          >
+                            {highlightMatch(item.description, searchQuery, isSelected)}
+                          </span>
+                        )}
+                      </>
+                    )}
+
+                    {/* Actions (hover or selected) */}
+                    {!item.isEditing && item.actions && item.actions.length > 0 && (
+                      <div
+                        style={{
+                          display: isSelected ? 'flex' : 'none',
+                          gap: '4px',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        {item.actions.map(action => (
+                          <button
+                            key={action.id}
+                            onClick={e => {
+                              e.stopPropagation();
+                              action.onClick(e);
+                            }}
+                            title={action.label}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: action.danger
+                                ? isSelected
+                                  ? '#ffcccc'
+                                  : colors.destructive
+                                : isSelected
+                                  ? 'white'
+                                  : colors.foreground,
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderRadius: '3px',
+                            }}
+                            onMouseEnter={e =>
+                              (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')
+                            }
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {action.icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
 

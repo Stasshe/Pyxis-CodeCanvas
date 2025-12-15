@@ -136,12 +136,15 @@ export interface TranspilerProvider {
   /**
    * コードをトランスパイル
    */
-  transpile(code: string, options: {
-    filePath: string;
-    isTypeScript?: boolean;
-    isESModule?: boolean;
-    isJSX?: boolean;
-  }): Promise<{
+  transpile(
+    code: string,
+    options: {
+      filePath: string;
+      isTypeScript?: boolean;
+      isESModule?: boolean;
+      isJSX?: boolean;
+    }
+  ): Promise<{
     code: string;
     map?: string;
     dependencies?: string[];

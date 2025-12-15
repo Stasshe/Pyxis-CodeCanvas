@@ -17,17 +17,17 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { DEFAULT_BINDINGS } from './defaultKeybindings';
 import {
+  type Binding,
+  formatKeyComboForDisplay,
   formatKeyEvent,
   normalizeKeyCombo,
-  formatKeyComboForDisplay,
-  Binding,
 } from './keybindingUtils';
 
-import { storageService, STORES } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/storage';
 
 const KEYBINDINGS_STORAGE_ID = 'user-keybindings';
 
@@ -59,9 +59,13 @@ class KeyBindingsManager {
           // Add new default bindings that don't exist in saved
           const savedIds = new Set(saved.map(b => b.id));
           const newBindings = DEFAULT_BINDINGS.filter(b => !savedIds.has(b.id));
-          
+
           if (newBindings.length > 0) {
-            console.log('[KeyBindings] Found', newBindings.length, 'new default bindings, merging...');
+            console.log(
+              '[KeyBindings] Found',
+              newBindings.length,
+              'new default bindings, merging...'
+            );
             this.bindings = [...saved, ...newBindings];
             // Save merged bindings
             await storageService.set(STORES.KEYBINDINGS, KEYBINDINGS_STORAGE_ID, this.bindings);
@@ -101,7 +105,7 @@ class KeyBindingsManager {
       this.actions.set(actionId, new Set());
     }
     this.actions.get(actionId)!.add(callback);
-    
+
     return () => {
       const callbacks = this.actions.get(actionId);
       if (callbacks) {
@@ -140,22 +144,25 @@ class KeyBindingsManager {
       // Always prevent default when in pending chord state
       e.preventDefault();
       e.stopPropagation();
-      
+
       const keyCombo = formatKeyEvent(e);
-      
+
       // Helper: check full match for a binding (including chords)
-      const matchBindingForCombo = (firstPart: string | null, secondPart: string | null): Binding | null => {
+      const matchBindingForCombo = (
+        firstPart: string | null,
+        secondPart: string | null
+      ): Binding | null => {
         for (const b of this.bindings) {
           const normalized = normalizeKeyCombo(b.combo);
           const parts = normalized.split(/\s+/);
-          
+
           // Chord binding
           if (parts.length === 2 && firstPart && secondPart) {
             // Exact match
             if (parts[0] === firstPart && parts[1] === secondPart) {
               return b;
             }
-            
+
             // Allow second part without modifiers (e.g., 'V' matches 'Shift+V')
             // This is intentional to support flexible chord completion
             if (parts[0] === firstPart) {
@@ -168,13 +175,13 @@ class KeyBindingsManager {
         }
         return null;
       };
-      
+
       const first = this.pendingChord;
       const second = keyCombo;
       const binding = keyCombo ? matchBindingForCombo(first, second) : null;
-      
+
       this.clearPendingChord();
-      
+
       if (binding) {
         const callbacks = this.actions.get(binding.id);
         if (callbacks && callbacks.size > 0) {
@@ -182,13 +189,13 @@ class KeyBindingsManager {
           return true;
         }
       }
-      
+
       // Even if no binding matched, we still blocked the input
       return true;
     }
 
     const keyCombo = formatKeyEvent(e);
-    
+
     // CRITICAL: When Japanese IME is active, e.key might be "Process" and formatKeyEvent returns empty
     // BUT if modifier keys are pressed (cmd/ctrl/alt), we must still preventDefault
     // to prevent the key from being typed into the editor
@@ -205,14 +212,12 @@ class KeyBindingsManager {
     }
 
     // Check if this key starts a chord sequence
-    const possibleChord = this.bindings.find(
-      b => {
-        const normalized = normalizeKeyCombo(b.combo);
-        const parts = normalized.split(/\s+/);
-        return parts.length === 2 && parts[0] === keyCombo;
-      }
-    );
-    
+    const possibleChord = this.bindings.find(b => {
+      const normalized = normalizeKeyCombo(b.combo);
+      const parts = normalized.split(/\s+/);
+      return parts.length === 2 && parts[0] === keyCombo;
+    });
+
     if (possibleChord) {
       this.setPendingChord(keyCombo);
       e.preventDefault();
@@ -221,13 +226,11 @@ class KeyBindingsManager {
     }
 
     // Check for single-key binding
-    const singleBinding = this.bindings.find(
-      b => {
-        const normalized = normalizeKeyCombo(b.combo);
-        return normalized === keyCombo && !normalized.includes(' ');
-      }
-    );
-    
+    const singleBinding = this.bindings.find(b => {
+      const normalized = normalizeKeyCombo(b.combo);
+      return normalized === keyCombo && !normalized.includes(' ');
+    });
+
     if (singleBinding) {
       const callbacks = this.actions.get(singleBinding.id);
       if (callbacks && callbacks.size > 0) {

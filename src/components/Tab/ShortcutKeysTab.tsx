@@ -1,27 +1,28 @@
 'use client';
 
 import {
-  Edit2,
-  RefreshCw,
-  X,
-  Search,
   Command,
-  Keyboard,
-  File,
+  Edit2,
   Eye,
-  Play,
-  GitBranch,
+  File,
   Folder,
-  Settings,
+  GitBranch,
   Grid,
+  Keyboard,
   List,
+  Play,
+  RefreshCw,
+  Search,
+  Settings,
   Terminal,
+  X,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
-import { Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils';
-import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
+import { type Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils';
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings';
 
 export default function ShortcutKeysTab() {
   const { bindings, updateBindings } = useKeyBindings();
@@ -72,7 +73,8 @@ export default function ShortcutKeysTab() {
 
       if (isModifierKey(e.key)) {
         const parts: string[] = [];
-        const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+        const isMac =
+          typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
         if (isMac) {
           if (e.metaKey) parts.push('Cmd');
           if (e.ctrlKey) parts.push('Ctrl');
@@ -91,7 +93,9 @@ export default function ShortcutKeysTab() {
 
       if (pendingFirstPart) {
         const full = `${pendingFirstPart} ${single}`;
-        const duplicate = bindings.find(b => normalizeKeyCombo(b.combo) === normalizeKeyCombo(full) && b.id !== editingId);
+        const duplicate = bindings.find(
+          b => normalizeKeyCombo(b.combo) === normalizeKeyCombo(full) && b.id !== editingId
+        );
         if (duplicate) {
           setError(`Already assigned to: ${duplicate.name}`);
           clearPending();
@@ -114,9 +118,13 @@ export default function ShortcutKeysTab() {
         pendingFirstPart = normalizedSingle;
         setPreviewCombo(pendingFirstPart + ' ...');
         pendingTimer.id = window.setTimeout(() => {
-          const singleBinding = bindings.find(b => normalizeKeyCombo(b.combo) === pendingFirstPart && !b.combo.includes(' '));
+          const singleBinding = bindings.find(
+            b => normalizeKeyCombo(b.combo) === pendingFirstPart && !b.combo.includes(' ')
+          );
           if (singleBinding) {
-            const newBindings = bindings.map(b => (b.id === editingId ? { ...b, combo: pendingFirstPart! } : b));
+            const newBindings = bindings.map(b =>
+              b.id === editingId ? { ...b, combo: pendingFirstPart! } : b
+            );
             updateBindings(newBindings);
           }
           clearPending();
@@ -167,14 +175,24 @@ export default function ShortcutKeysTab() {
       groups.get(category)!.push(binding);
     }
     return Array.from(groups.entries()).sort((a, b) => {
-        // Custom sort order if needed, or just alphabetical
-        const order = ['file', 'search', 'view', 'execution', 'tab', 'pane', 'git', 'project', 'other'];
-        const indexA = order.indexOf(a[0]);
-        const indexB = order.indexOf(b[0]);
-        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        return a[0].localeCompare(b[0]);
+      // Custom sort order if needed, or just alphabetical
+      const order = [
+        'file',
+        'search',
+        'view',
+        'execution',
+        'tab',
+        'pane',
+        'git',
+        'project',
+        'other',
+      ];
+      const indexA = order.indexOf(a[0]);
+      const indexB = order.indexOf(b[0]);
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return a[0].localeCompare(b[0]);
     });
   }, [filteredBindings]);
 
@@ -204,7 +222,10 @@ export default function ShortcutKeysTab() {
           </div>
 
           <div className="flex-1 max-w-sm relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+            <Search
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+              size={14}
+            />
             <input
               type="text"
               placeholder="検索 (機能名, キー)..."
@@ -236,8 +257,8 @@ export default function ShortcutKeysTab() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {groupedBindings.map(([category, categoryBindings]) => (
-                <div 
-                  key={category} 
+                <div
+                  key={category}
                   className="bg-card border border-border rounded-lg overflow-hidden shadow-sm flex flex-col h-full"
                 >
                   <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center gap-2">
@@ -251,33 +272,41 @@ export default function ShortcutKeysTab() {
                       {categoryBindings.length}
                     </span>
                   </div>
-                  
+
                   <div className="divide-y divide-border/50">
                     {categoryBindings.map(b => (
-                      <div 
-                        key={b.id} 
+                      <div
+                        key={b.id}
                         className="group flex items-center justify-between p-2 hover:bg-muted/50 transition-colors text-sm"
                       >
-                        <span className="text-foreground/90 font-medium truncate pr-4" title={b.name}>
+                        <span
+                          className="text-foreground/90 font-medium truncate pr-4"
+                          title={b.name}
+                        >
                           {b.name}
                         </span>
-                        
+
                         <button
                           onClick={() => startCapture(b.id)}
                           className="flex items-center gap-2 group-hover:bg-background rounded px-1 py-0.5 transition-all border border-transparent group-hover:border-border"
                           title="クリックして編集"
                         >
                           <div className="flex gap-1">
-                            {formatKeyComboForDisplay(b.combo).split(' ').map((part, i) => (
-                              <kbd 
-                                key={i}
-                                className="px-1 py-0.5 bg-muted text-muted-foreground rounded border border-border/50 text-[10px] font-mono shadow-sm min-w-[1.1em] text-center"
-                              >
-                                {part}
-                              </kbd>
-                            ))}
+                            {formatKeyComboForDisplay(b.combo)
+                              .split(' ')
+                              .map((part, i) => (
+                                <kbd
+                                  key={i}
+                                  className="px-1 py-0.5 bg-muted text-muted-foreground rounded border border-border/50 text-[10px] font-mono shadow-sm min-w-[1.1em] text-center"
+                                >
+                                  {part}
+                                </kbd>
+                              ))}
                           </div>
-                          <Edit2 size={12} className="opacity-0 group-hover:opacity-100 text-muted-foreground" />
+                          <Edit2
+                            size={12}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground"
+                          />
                         </button>
                       </div>
                     ))}
@@ -292,7 +321,7 @@ export default function ShortcutKeysTab() {
       {/* Capture Modal */}
       {editingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-3">
-          <div 
+          <div
             className="bg-card text-card-foreground border border-border rounded-lg shadow-2xl w-full max-w-sm overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
@@ -303,23 +332,28 @@ export default function ShortcutKeysTab() {
 
               <h3 className="text-sm font-semibold mb-1">新しいキーを入力</h3>
               <p className="text-xs text-muted-foreground mb-4">
-                <span className="font-medium text-foreground">{bindings.find(b => b.id === editingId)?.name}</span> のショートカット
+                <span className="font-medium text-foreground">
+                  {bindings.find(b => b.id === editingId)?.name}
+                </span>{' '}
+                のショートカット
               </p>
 
               <div className="w-full bg-muted/50 border-2 border-dashed border-border rounded-lg p-4 mb-4 flex items-center justify-center min-h-[72px]">
                 {previewCombo ? (
-                 <div className="flex gap-2 flex-wrap justify-center">
-                   {previewCombo.split(' ').map((part, i) => (
-                     <kbd 
-                       key={i}
-                       className="px-2 py-1 bg-background text-foreground rounded border border-border shadow-sm text-lg font-mono font-semibold"
-                     >
-                       {part}
-                     </kbd>
-                   ))}
-                 </div>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    {previewCombo.split(' ').map((part, i) => (
+                      <kbd
+                        key={i}
+                        className="px-2 py-1 bg-background text-foreground rounded border border-border shadow-sm text-lg font-mono font-semibold"
+                      >
+                        {part}
+                      </kbd>
+                    ))}
+                  </div>
                 ) : (
-                  <span className="text-muted-foreground animate-pulse text-xs">キーを押してください...</span>
+                  <span className="text-muted-foreground animate-pulse text-xs">
+                    キーを押してください...
+                  </span>
                 )}
               </div>
 
@@ -338,7 +372,7 @@ export default function ShortcutKeysTab() {
                 </button>
               </div>
             </div>
-            
+
             <div className="bg-muted/30 px-4 py-2 text-xs text-muted-foreground border-t border-border flex justify-between">
               <span>Esc でキャンセル</span>
               <span>自動保存されます</span>

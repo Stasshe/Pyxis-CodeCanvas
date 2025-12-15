@@ -1,10 +1,10 @@
-import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Edit, Folder, GitBranch, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { authRepository } from '@/engine/user/authRepository';
-import { Project } from '@/types';
+import type { Project } from '@/types';
 
 interface ProjectModalProps {
   isOpen: boolean;
@@ -211,10 +211,7 @@ export default function ProjectModal({
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold">{t('projectModal.title')}</h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-accent rounded"
-          >
+          <button onClick={onClose} className="p-1 hover:bg-accent rounded">
             <X size={20} />
           </button>
         </div>
@@ -358,10 +355,7 @@ export default function ProjectModal({
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <Folder
-                        size={20}
-                        className="text-primary mt-0.5 flex-shrink-0"
-                      />
+                      <Folder size={20} className="text-primary mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium truncate">{project.name}</h3>
                         {project.description && (

@@ -7,8 +7,8 @@
  * - package.jsonの解析とエントリーポイント決定
  */
 
-import { normalizePath, dirname } from './pathUtils';
-import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger';
+import { dirname, normalizePath } from './pathUtils';
+import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 

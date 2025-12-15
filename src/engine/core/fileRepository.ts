@@ -9,29 +9,29 @@
  */
 
 import { gitFileSystem } from './gitFileSystem';
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from './gitignore';
 import {
-  toAppPath,
-  toGitPath as pathToGitPath,
   fromGitPath as pathFromGitPath,
   getParentPath as pathGetParentPath,
+  toGitPath as pathToGitPath,
+  toAppPath,
 } from './pathResolver';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger';
+import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
 import { initialFileContents } from '@/engine/initialFileContents';
 import {
+  addMessageToChatSpace as chatAddMessageToChatSpace,
   createChatSpace as chatCreateChatSpace,
-  saveChatSpace as chatSaveChatSpace,
-  getChatSpaces as chatGetChatSpaces,
   deleteChatSpace as chatDeleteChatSpace,
   deleteChatSpacesForProject as chatDeleteChatSpacesForProject,
-  addMessageToChatSpace as chatAddMessageToChatSpace,
+  getChatSpaces as chatGetChatSpaces,
+  renameChatSpace as chatRenameChatSpace,
+  saveChatSpace as chatSaveChatSpace,
   updateChatSpaceMessage as chatUpdateChatSpaceMessage,
   updateChatSpaceSelectedFiles as chatUpdateChatSpaceSelectedFiles,
-  renameChatSpace as chatRenameChatSpace,
 } from '@/engine/storage/chatStorageAdapter';
-import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types';
+import type { ChatSpace, ChatSpaceMessage, Project, ProjectFile } from '@/types';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -81,7 +81,7 @@ export class FileRepository {
   // イベントリスナー管理
   private listeners: Set<FileChangeListener> = new Set();
 
-  private constructor() { }
+  private constructor() {}
 
   /**
    * シングルトンインスタンス取得
@@ -674,18 +674,18 @@ export class FileRepository {
    * パスベースでファイルを保存または作成する便利メソッド
    * 既存ファイルがあれば更新し、なければ新規作成する
    * AI機能など、ファイルの存在を事前に確認せずに保存したい場合に使用
-   * 
+   *
    * NOTE: パスは自動的にAppPath形式（先頭スラッシュ付き）に正規化される
    */
   async saveFileByPath(projectId: string, path: string, content: string): Promise<void> {
     await this.init();
-    
+
     // パスをAppPath形式に正規化（例: "src/main.rs" -> "/src/main.rs"）
     const normalizedPath = toAppPath(path);
     coreInfo(`[FileRepository] saveFileByPath: original="${path}", normalized="${normalizedPath}"`);
-    
+
     const existingFile = await this.getFileByPath(projectId, normalizedPath);
-    
+
     if (existingFile) {
       // 既存ファイルを更新
       const updatedFile = {
@@ -921,7 +921,7 @@ export class FileRepository {
       isBufferArray?: boolean;
       bufferContent?: ArrayBuffer;
     }>,
-    skipSync: boolean = false
+    skipSync = false
   ): Promise<ProjectFile[]> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -956,43 +956,44 @@ export class FileRepository {
 
     // 🚀 最適化5: 各バッチを並列処理（Promise.all）
     await Promise.all(
-      batches.map(batch =>
-        new Promise < void> ((resolve, reject) => {
-          const transaction = this.db!.transaction(['files'], 'readwrite');
-          const store = transaction.objectStore('files');
+      batches.map(
+        batch =>
+          new Promise<void>((resolve, reject) => {
+            const transaction = this.db!.transaction(['files'], 'readwrite');
+            const store = transaction.objectStore('files');
 
-          transaction.onerror = () => reject(transaction.error);
-          transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.oncomplete = () => resolve();
 
-          try {
-            for (const entry of batch) {
-              const file: ProjectFile = {
-                id: generateUniqueId('file'),
-                projectId,
-                path: entry.path,
-                name: entry.path.split('/').pop() || '',
-                content: entry.isBufferArray ? '' : entry.content || '',
-                type: entry.type || 'file',
-                parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
-                createdAt: timestamp, // 事前生成されたタイムスタンプを使用
-                updatedAt: timestamp, // 事前生成されたタイムスタンプを使用
-                isBufferArray: !!entry.isBufferArray,
-                bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
-              };
+            try {
+              for (const entry of batch) {
+                const file: ProjectFile = {
+                  id: generateUniqueId('file'),
+                  projectId,
+                  path: entry.path,
+                  name: entry.path.split('/').pop() || '',
+                  content: entry.isBufferArray ? '' : entry.content || '',
+                  type: entry.type || 'file',
+                  parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
+                  createdAt: timestamp, // 事前生成されたタイムスタンプを使用
+                  updatedAt: timestamp, // 事前生成されたタイムスタンプを使用
+                  isBufferArray: !!entry.isBufferArray,
+                  bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
+                };
 
-              createdFiles.push(file);
-              store.put(file);
+                createdFiles.push(file);
+                store.put(file);
 
-              // .gitignore の検出
-              if (entry.path === '/.gitignore' && !entry.isBufferArray) {
-                hasGitignore = true;
-                gitignoreContent = entry.content || '';
+                // .gitignore の検出
+                if (entry.path === '/.gitignore' && !entry.isBufferArray) {
+                  hasGitignore = true;
+                  gitignoreContent = entry.content || '';
+                }
               }
+            } catch (error) {
+              reject(error);
             }
-          } catch (error) {
-            reject(error);
-          }
-        })
+          })
       )
     );
 
@@ -1067,7 +1068,7 @@ export class FileRepository {
 
     // パスをAppPath形式に正規化
     const normalizedPath = toAppPath(path);
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['files'], 'readonly');
       const store = transaction.objectStore('files');
@@ -1103,7 +1104,8 @@ export class FileRepository {
       allReq.onerror = () => reject(allReq.error);
       allReq.onsuccess = () => {
         const files = allReq.result as ProjectFile[];
-        const found = files.find(f => f.projectId === projectId && f.path === normalizedPath) || null;
+        const found =
+          files.find(f => f.projectId === projectId && f.path === normalizedPath) || null;
         resolve(found);
       };
     });
@@ -1192,7 +1194,7 @@ export class FileRepository {
   private async handlePostDeletion(
     projectId: string,
     deletedFiles: ProjectFile[],
-    isRecursive: boolean = false
+    isRecursive = false
   ): Promise<void> {
     // .gitignoreが削除されていればキャッシュをクリア
     const hasGitignore = deletedFiles.some(f => f.path === '/.gitignore');
@@ -1329,7 +1331,7 @@ export class FileRepository {
    */
   async clearAIReview(projectId: string, filePath: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    
+
     // パスをAppPath形式に正規化
     const normalizedPath = toAppPath(filePath);
 
@@ -1420,7 +1422,11 @@ export class FileRepository {
    * チャットスペースの選択ファイル更新
    * @deprecated chatStorageAdapter.updateChatSpaceSelectedFiles を直接使用してください
    */
-  async updateChatSpaceSelectedFiles(projectId: string, chatSpaceId: string, selectedFiles: string[]): Promise<void> {
+  async updateChatSpaceSelectedFiles(
+    projectId: string,
+    chatSpaceId: string,
+    selectedFiles: string[]
+  ): Promise<void> {
     return chatUpdateChatSpaceSelectedFiles(projectId, chatSpaceId, selectedFiles);
   }
 

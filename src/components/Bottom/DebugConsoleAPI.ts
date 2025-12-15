@@ -74,12 +74,12 @@ class DebugConsoleAPIClass {
   }
 
   // 指定した行数を削除
-  deleteLines(count: number = 1) {
+  deleteLines(count = 1) {
     this._emitAction({ type: 'deleteLines', data: count });
   }
 
   // 指定した行数を挿入
-  insertLines(count: number = 1) {
+  insertLines(count = 1) {
     this._emitAction({ type: 'insertLines', data: count });
   }
 
@@ -123,7 +123,7 @@ class DebugConsoleAPIClass {
   // === プログレスバー ===
 
   // プログレスバーを表示
-  progress(percentage: number, width: number = 50, label?: string) {
+  progress(percentage: number, width = 50, label?: string) {
     const filled = Math.floor((percentage / 100) * width);
     const empty = width - filled;
     const bar = '█'.repeat(filled) + '░'.repeat(empty);

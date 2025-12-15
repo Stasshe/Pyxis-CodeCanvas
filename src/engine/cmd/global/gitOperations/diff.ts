@@ -1,4 +1,4 @@
-import FS from '@isomorphic-git/lightning-fs';
+import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
@@ -47,7 +47,7 @@ export class GitDiffOperations {
         return await this.diffCommits(commit1, commit2, filepath);
       } else if (branchName) {
         // git diff <branch> の場合: 現在のHEADとbranchNameのHEADを比較
-        let currentBranch: string = '';
+        let currentBranch = '';
         try {
           const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
           currentBranch = typeof branch === 'string' ? branch : '';
@@ -93,7 +93,9 @@ export class GitDiffOperations {
       // still want to include new file contents in the diff for commit
       // message generation.
       if (!headCommitHash) {
-        console.log('[GitDiffOperations] No HEAD commit found; showing working directory changes (treating missing HEAD as empty)');
+        console.log(
+          '[GitDiffOperations] No HEAD commit found; showing working directory changes (treating missing HEAD as empty)'
+        );
       }
 
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });

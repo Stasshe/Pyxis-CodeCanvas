@@ -1,6 +1,6 @@
 import { oneDark } from '@codemirror/theme-one-dark';
 import CodeMirror from '@uiw/react-codemirror';
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { getCMExtensions } from './codemirror-utils';
 import { countCharsNoSpaces } from './editor-utils';
@@ -18,7 +18,17 @@ interface CodeMirrorEditorProps {
 }
 
 export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
-  const { tabId, fileName, content, onChange, onSelectionChange, tabSize, insertSpaces, fontSize = 14, isActive = false } = props;
+  const {
+    tabId,
+    fileName,
+    content,
+    onChange,
+    onSelectionChange,
+    tabSize,
+    insertSpaces,
+    fontSize = 14,
+    isActive = false,
+  } = props;
 
   // CodeMirrorインスタンスのref
   const cmRef = useRef<any>(null);
@@ -41,7 +51,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
   // タブが非アクティブになった時にフォーカスを外す
   useEffect(() => {
     if (!cmRef.current?.view) return;
-    
+
     if (isActive) {
       // アクティブになったらフォーカスを当てる
       const timeoutId = setTimeout(() => {

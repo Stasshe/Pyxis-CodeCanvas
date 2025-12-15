@@ -1,5 +1,5 @@
-import { VimEditor } from './VimEditor';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { VimEditor } from './VimEditor';
 
 // Vim command handler that integrates VimEditor with the terminal
 // src/engine/cmd/vim.ts
@@ -35,7 +35,7 @@ export async function handleVimCommand(
   xtermInstance.clear();
   xtermInstance.write('\x1b[2J\x1b[3J\x1b[H');
 
-  let entryPath = args[0]
+  let entryPath = args[0];
   try {
     if (unixCommandsRef && unixCommandsRef.current) {
       if (!entryPath.startsWith('/')) {
@@ -96,7 +96,7 @@ export async function handleVimCommand(
   } catch (e) {
     await write(`vim: Error: ${(e as Error).message}\n`);
   }
-  
+
   return null;
 }
 

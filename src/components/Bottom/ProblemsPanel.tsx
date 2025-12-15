@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { loader } from '@monaco-editor/react';
-import type * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
+import { loader } from '@monaco-editor/react';
+import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import type * as monaco from 'monaco-editor';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface ProblemsPanelProps {
   height: number;
@@ -32,7 +32,7 @@ function shouldExcludeFile(fileName: string): boolean {
 function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
   const lower = fileName.toLowerCase();
   const ownerLower = (owner || '').toLowerCase();
-  
+
   // TypeScript/JavaScript markers should only apply to TS/JS/JSX/TSX files
   if (ownerLower === 'typescript' || ownerLower === 'javascript') {
     return (
@@ -46,7 +46,7 @@ function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
       lower.endsWith('.cjs')
     );
   }
-  
+
   // CSS markers should only apply to CSS/SCSS/LESS files
   if (ownerLower === 'css' || ownerLower === 'scss' || ownerLower === 'less') {
     return (
@@ -56,21 +56,17 @@ function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
       lower.endsWith('.sass')
     );
   }
-  
+
   // JSON markers should only apply to JSON files
   if (ownerLower === 'json') {
     return lower.endsWith('.json') || lower.endsWith('.jsonc');
   }
-  
+
   // HTML markers should only apply to HTML files
   if (ownerLower === 'html') {
-    return (
-      lower.endsWith('.html') ||
-      lower.endsWith('.htm') ||
-      lower.endsWith('.xhtml')
-    );
+    return lower.endsWith('.html') || lower.endsWith('.htm') || lower.endsWith('.xhtml');
   }
-  
+
   // Allow other markers (unknown owners)
   return true;
 }
@@ -114,68 +110,71 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     let isCancelled = false;
 
     // Use @monaco-editor/react's loader to get Monaco instance
-    loader.init().then((mon) => {
-      if (isCancelled) return;
-
-      const collectAllMarkers = () => {
+    loader
+      .init()
+      .then(mon => {
         if (isCancelled) return;
-        
-        try {
-          // Get ALL markers from Monaco
-          const allMonacoMarkers = mon.editor.getModelMarkers({});
-          const markersWithFiles: MarkerWithFile[] = [];
-          
-          for (const marker of allMonacoMarkers) {
-            try {
-              // Extract file path from the marker's resource URI
-              let filePath = marker.resource?.path || '';
-              if (filePath.startsWith('/')) {
-                filePath = filePath.substring(1);
-              }
-              // Remove any timestamp suffixes added for uniqueness
-              filePath = filePath.replace(/__\d+$/, '');
-              
-              const fileName = filePath.split('/').pop() || filePath;
-              
-              // Skip excluded file types
-              if (shouldExcludeFile(fileName)) {
-                continue;
-              }
-              
-              // Skip markers where the owner doesn't match the file type
-              // (e.g., TypeScript errors for CSS files)
-              if (!isMarkerOwnerValidForFile(fileName, marker.owner)) {
-                continue;
-              }
 
-              markersWithFiles.push({
-                marker,
-                filePath,
-                fileName,
-              });
-            } catch (e) {
-              // Skip markers that fail
+        const collectAllMarkers = () => {
+          if (isCancelled) return;
+
+          try {
+            // Get ALL markers from Monaco
+            const allMonacoMarkers = mon.editor.getModelMarkers({});
+            const markersWithFiles: MarkerWithFile[] = [];
+
+            for (const marker of allMonacoMarkers) {
+              try {
+                // Extract file path from the marker's resource URI
+                let filePath = marker.resource?.path || '';
+                if (filePath.startsWith('/')) {
+                  filePath = filePath.substring(1);
+                }
+                // Remove any timestamp suffixes added for uniqueness
+                filePath = filePath.replace(/__\d+$/, '');
+
+                const fileName = filePath.split('/').pop() || filePath;
+
+                // Skip excluded file types
+                if (shouldExcludeFile(fileName)) {
+                  continue;
+                }
+
+                // Skip markers where the owner doesn't match the file type
+                // (e.g., TypeScript errors for CSS files)
+                if (!isMarkerOwnerValidForFile(fileName, marker.owner)) {
+                  continue;
+                }
+
+                markersWithFiles.push({
+                  marker,
+                  filePath,
+                  fileName,
+                });
+              } catch (e) {
+                // Skip markers that fail
+              }
             }
+
+            if (!isCancelled) {
+              setAllMarkers(markersWithFiles);
+            }
+          } catch (e) {
+            console.warn('[ProblemsPanel] failed to collect markers', e);
           }
+        };
 
-          if (!isCancelled) {
-            setAllMarkers(markersWithFiles);
-          }
-        } catch (e) {
-          console.warn('[ProblemsPanel] failed to collect markers', e);
-        }
-      };
-
-      // Initial collection
-      collectAllMarkers();
-
-      // Listen to marker changes
-      disposable = mon.editor.onDidChangeMarkers(() => {
+        // Initial collection
         collectAllMarkers();
+
+        // Listen to marker changes
+        disposable = mon.editor.onDidChangeMarkers(() => {
+          collectAllMarkers();
+        });
+      })
+      .catch(e => {
+        console.warn('[ProblemsPanel] failed to initialize Monaco', e);
       });
-    }).catch((e) => {
-      console.warn('[ProblemsPanel] failed to initialize Monaco', e);
-    });
 
     return () => {
       isCancelled = true;
@@ -189,15 +188,15 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;
-    
+
     // Find the tab and pane for this file
     const tabId = filePath.startsWith('/') ? filePath : `/${filePath}`;
     const paneId = findPaneIdForTab(tabId) || findPaneIdForTab(filePath);
-    
+
     if (paneId) {
       // Activate the tab first
       activateTab(paneId, tabId.startsWith('/') ? tabId : filePath);
-      
+
       // Then update with jump info
       updateTab(paneId, tabId.startsWith('/') ? tabId : filePath, {
         jumpToLine: marker.startLineNumber,
@@ -254,11 +253,23 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         color: colors.editorFg,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 6,
+        }}
+      >
         <div style={{ fontSize: 11, color: colors.mutedFg }}>
           Problems ({totalProblems})
-          {errorCount > 0 && <span style={{ color: '#D16969', marginLeft: 6 }}>E:{errorCount}</span>}
-          {warningCount > 0 && <span style={{ color: '#D7BA7D', marginLeft: 6 }}>W:{warningCount}</span>}
+          {errorCount > 0 && (
+            <span style={{ color: '#D16969', marginLeft: 6 }}>E:{errorCount}</span>
+          )}
+          {warningCount > 0 && (
+            <span style={{ color: '#D7BA7D', marginLeft: 6 }}>W:{warningCount}</span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <button
@@ -301,7 +312,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             const isCollapsed = collapsedFiles.has(filePath);
             const fileErrorCount = fileMarkers.filter(m => m.marker.severity === 8).length;
             const fileWarnCount = fileMarkers.filter(m => m.marker.severity === 4).length;
-            
+
             return (
               <div key={filePath} style={{ marginBottom: 4 }}>
                 <div
@@ -325,7 +336,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                   )}
                   <span style={{ flex: 1 }}>{fileMarkers[0]?.fileName || filePath}</span>
                   <span style={{ fontSize: 10, color: colors.mutedFg }}>
-                    {fileErrorCount > 0 && <span style={{ color: '#D16969', marginRight: 4 }}>{fileErrorCount}</span>}
+                    {fileErrorCount > 0 && (
+                      <span style={{ color: '#D16969', marginRight: 4 }}>{fileErrorCount}</span>
+                    )}
                     {fileWarnCount > 0 && <span style={{ color: '#D7BA7D' }}>{fileWarnCount}</span>}
                   </span>
                 </div>
@@ -347,7 +360,10 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                         <span style={{ color: colors.mutedFg, marginRight: 4 }}>
                           {m.marker.startLineNumber}:{m.marker.startColumn}
                         </span>
-                        <span>{m.marker.message.split('\n')[0].substring(0, 80)}{m.marker.message.length > 80 ? '...' : ''}</span>
+                        <span>
+                          {m.marker.message.split('\n')[0].substring(0, 80)}
+                          {m.marker.message.length > 80 ? '...' : ''}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -356,9 +372,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             );
           })}
           {displayedMarkers.length !== allMarkers.length && (
-            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>
-              一部非表示中
-            </div>
+            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>一部非表示中</div>
           )}
         </div>
       ) : (

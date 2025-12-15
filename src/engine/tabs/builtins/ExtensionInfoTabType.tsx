@@ -1,15 +1,16 @@
 // src/engine/tabs/builtins/ExtensionInfoTabType.tsx
 'use client';
-import { Package, CheckCircle2, XCircle, Calendar, Tag, User } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
+import LocalImage from '@/components/Tab/LocalImage';
+import { Calendar, CheckCircle2, Package, Tag, User, XCircle } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
-import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
-import LocalImage from '@/components/Tab/LocalImage';
 
-import { TabTypeDefinition, TabComponentProps, ExtensionInfoTab } from '../types';
+import type { ExtensionInfoTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useTheme } from '@/context/ThemeContext';
 import type { ExtensionManifest } from '@/engine/extensions/types';
@@ -24,24 +25,24 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const getExtensionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      'transpiler': 'Transpiler',
-      'service': 'Service',
+      transpiler: 'Transpiler',
+      service: 'Service',
       'builtin-module': 'Built-in Module',
       'language-runtime': 'Language Runtime',
-      'tool': 'Tool',
-      'ui': 'UI Extension',
+      tool: 'Tool',
+      ui: 'UI Extension',
     };
     return labels[type] || type;
   };
 
   const getExtensionTypeBadgeColor = (type: string): string => {
     const colorMap: Record<string, string> = {
-      'transpiler': colors.blue,
-      'service': colors.purple,
+      transpiler: colors.blue,
+      service: colors.purple,
       'builtin-module': colors.green,
       'language-runtime': colors.orange,
-      'tool': colors.yellow,
-      'ui': colors.cyan,
+      tool: colors.yellow,
+      ui: colors.cyan,
     };
     return colorMap[type] || colors.mutedFg;
   };
@@ -78,14 +79,8 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         {/* ヘッダー */}
         <div className="mb-6 flex-shrink-0">
           <div className="flex items-start gap-4 mb-2">
-            <div
-              className="p-3 rounded-lg"
-              style={{ background: colors.primary + '20' }}
-            >
-              <Package
-                size={28}
-                style={{ color: colors.primary }}
-              />
+            <div className="p-3 rounded-lg" style={{ background: colors.primary + '20' }}>
+              <Package size={28} style={{ color: colors.primary }} />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
@@ -114,10 +109,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                   </span>
                 )}
               </div>
-              <p
-                className="text-sm"
-                style={{ color: colors.mutedFg }}
-              >
+              <p className="text-sm" style={{ color: colors.mutedFg }}>
                 {manifest.description}
               </p>
             </div>
@@ -127,7 +119,10 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         {/* コンテンツ: 左に README (大きめ)、右に manifest 情報 */}
         <div className={`flex ${isWide ? 'flex-row' : 'flex-col'} gap-6 flex-1 min-h-0`}>
           {/* README */}
-          <div style={isWide ? { width: '66.666%' } : { width: '100%' }} className="h-full flex flex-col min-h-0">
+          <div
+            style={isWide ? { width: '66.666%' } : { width: '100%' }}
+            className="h-full flex flex-col min-h-0"
+          >
             <div
               className="p-4 rounded-lg border h-full flex flex-col min-h-0"
               style={{
@@ -137,10 +132,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
             >
               <div className="mb-4">
                 <h2 className="text-lg font-semibold">Readme</h2>
-                <span
-                  className="text-xs"
-                  style={{ color: colors.mutedFg }}
-                >
+                <span className="text-xs" style={{ color: colors.mutedFg }}>
                   {manifest.readme ? 'README.md' : 'No README available'}
                 </span>
               </div>
@@ -150,9 +142,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                 style={{ color: colors.foreground }}
               >
                 {manifest.readme ? (
-                  <div
-                    className="flex-1 overflow-y-auto pr-2"
-                  >
+                  <div className="flex-1 overflow-y-auto pr-2">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw, rehypeSanitize]}
@@ -180,12 +170,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                           const lang = match ? match[1] : '';
                           const codeString = String(children).replace(/\n$/, '');
                           if (!inline && lang) {
-                            return (
-                              <InlineHighlightedCode
-                                language={lang}
-                                value={codeString}
-                              />
-                            );
+                            return <InlineHighlightedCode language={lang} value={codeString} />;
                           }
                           return (
                             <code
@@ -206,10 +191,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                     </ReactMarkdown>
                   </div>
                 ) : (
-                  <div
-                    className="text-sm"
-                    style={{ color: colors.mutedFg }}
-                  >
+                  <div className="text-sm" style={{ color: colors.mutedFg }}>
                     {manifest.description || 'No README available for this extension.'}
                   </div>
                 )}
@@ -227,10 +209,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Package
-                  size={16}
-                  style={{ color: colors.primary }}
-                />
+                <Package size={16} style={{ color: colors.primary }} />
                 <span className="text-sm font-semibold">Extension ID</span>
               </div>
               <code
@@ -252,10 +231,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Tag
-                  size={16}
-                  style={{ color: colors.primary }}
-                />
+                <Tag size={16} style={{ color: colors.primary }} />
                 <span className="text-sm font-semibold">Version</span>
               </div>
               <span className="text-sm font-mono">{manifest.version}</span>
@@ -269,10 +245,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Package
-                  size={16}
-                  style={{ color: colors.primary }}
-                />
+                <Package size={16} style={{ color: colors.primary }} />
                 <span className="text-sm font-semibold">Type</span>
               </div>
               <span
@@ -294,10 +267,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <User
-                  size={16}
-                  style={{ color: colors.primary }}
-                />
+                <User size={16} style={{ color: colors.primary }} />
                 <span className="text-sm font-semibold">Author</span>
               </div>
               <span className="text-sm">{manifest.author || 'Unknown'}</span>
@@ -312,19 +282,13 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                 }}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <Calendar
-                    size={16}
-                    style={{ color: colors.primary }}
-                  />
+                  <Calendar size={16} style={{ color: colors.primary }} />
                   <span className="text-sm font-semibold">Metadata</span>
                 </div>
 
                 {manifest.metadata.publishedAt && (
                   <div className="mb-2">
-                    <span
-                      className="text-xs"
-                      style={{ color: colors.mutedFg }}
-                    >
+                    <span className="text-xs" style={{ color: colors.mutedFg }}>
                       Published:
                     </span>
                     <span className="text-sm ml-2">
@@ -335,10 +299,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
                 {manifest.metadata.tags && manifest.metadata.tags.length > 0 && (
                   <div>
-                    <span
-                      className="text-xs mb-2 block"
-                      style={{ color: colors.mutedFg }}
-                    >
+                    <span className="text-xs mb-2 block" style={{ color: colors.mutedFg }}>
                       Tags:
                     </span>
                     <div className="flex flex-wrap gap-2">
@@ -365,10 +326,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Package
-                  size={16}
-                  style={{ color: colors.primary }}
-                />
+                <Package size={16} style={{ color: colors.primary }} />
                 <span className="text-sm font-semibold">Entry Point</span>
               </div>
               <code

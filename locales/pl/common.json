@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Pokaż różnice (tylko do odczytu)"
   },
   "gitHistory": {
-        "allFilesFiles": "Wszystkie {count} pliki",
+    "allFilesFiles": "Wszystkie {count} pliki",
     "allFilesScrollable": "Wszystkie {count} pliki (przewijane)",
     "changedFiles": "Zmienione pliki:",
     "daysAgo": "{days} dni temu",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Generowanie diagramu Mermaid...",
     "imageNotFound": "Nie znaleziono obrazu: {src}",
     "loadingImage": "Ładowanie obrazu...",
+    "mermaidPlaceholder": "Przewiń, aby zobaczyć diagram Mermaid",
     "preview": "Podgląd",
     "reset": "Resetuj",
     "zoomIn": "Powiększ",
-    "zoomOut": "Pomniejsz",
-    "mermaidPlaceholder": "Przewiń, aby zobaczyć diagram Mermaid"
+    "zoomOut": "Pomniejsz"
   },
   "menu": {
     "extensions": "Extensions",

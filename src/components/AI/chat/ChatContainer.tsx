@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Loader2, MessageSquare, Bot } from 'lucide-react';
+import { Bot, Loader2, MessageSquare } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 
 import ChatMessage from './ChatMessage';
@@ -58,11 +58,7 @@ export default function ChatContainer({
       ) : (
         <>
           {messages.map(message => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onRevert={onRevert}
-            />
+            <ChatMessage key={message.id} message={message} onRevert={onRevert} />
           ))}
 
           {/* Processing indicator */}

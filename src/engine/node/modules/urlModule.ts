@@ -8,22 +8,22 @@
  */
 export function fileURLToPath(url: string | URL): string {
   const urlStr = typeof url === 'string' ? url : url.toString();
-  
+
   // Remove file:// protocol
   if (urlStr.startsWith('file://')) {
     let path = urlStr.slice(7); // Remove 'file://'
-    
+
     // Handle Windows paths (file:///C:/...)
     if (path.startsWith('/') && /^\/[a-zA-Z]:/.test(path)) {
       path = path.slice(1); // Remove leading /
     }
-    
+
     // Decode URL encoding
     path = decodeURIComponent(path);
-    
+
     return path;
   }
-  
+
   return urlStr;
 }
 
@@ -32,12 +32,12 @@ export function fileURLToPath(url: string | URL): string {
  */
 export function pathToFileURL(path: string): URL {
   let urlPath = path.replace(/\\/g, '/'); // Normalize backslashes
-  
+
   // Add leading slash if needed for absolute paths on Windows
   if (/^[a-zA-Z]:/.test(urlPath)) {
     urlPath = '/' + urlPath;
   }
-  
+
   return new URL('file://' + encodeURI(urlPath));
 }
 

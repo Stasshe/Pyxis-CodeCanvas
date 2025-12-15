@@ -2,7 +2,7 @@
 
 'use client';
 
-import { FileCode, Clock, RotateCcw, Bot, User } from 'lucide-react';
+import { Bot, Clock, FileCode, RotateCcw, User } from 'lucide-react';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -104,12 +104,26 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
                     </code>
                   );
                 },
-                p: ({ children }) => <p className="mb-1.5 last:mb-0 leading-relaxed text-xs">{children}</p>,
-                h1: ({ children }) => <h1 className="text-sm font-bold mb-1.5 mt-2 first:mt-0">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-xs font-bold mb-1 mt-1.5 first:mt-0">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-xs font-semibold mb-1 mt-1 first:mt-0">{children}</h3>,
-                ul: ({ children }) => <ul className="list-disc list-inside mb-1.5 space-y-0.5 text-xs">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal list-inside mb-1.5 space-y-0.5 text-xs">{children}</ol>,
+                p: ({ children }) => (
+                  <p className="mb-1.5 last:mb-0 leading-relaxed text-xs">{children}</p>
+                ),
+                h1: ({ children }) => (
+                  <h1 className="text-sm font-bold mb-1.5 mt-2 first:mt-0">{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-xs font-bold mb-1 mt-1.5 first:mt-0">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-xs font-semibold mb-1 mt-1 first:mt-0">{children}</h3>
+                ),
+                ul: ({ children }) => (
+                  <ul className="list-disc list-inside mb-1.5 space-y-0.5 text-xs">{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="list-decimal list-inside mb-1.5 space-y-0.5 text-xs">
+                    {children}
+                  </ol>
+                ),
                 li: ({ children }) => <li className="ml-1 text-xs">{children}</li>,
                 blockquote: ({ children }) => (
                   <blockquote
@@ -121,13 +135,19 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
                 ),
                 table: ({ children }) => (
                   <div className="overflow-x-auto my-2">
-                    <table className="min-w-full divide-y text-xs" style={{ borderColor: colors.border }}>
+                    <table
+                      className="min-w-full divide-y text-xs"
+                      style={{ borderColor: colors.border }}
+                    >
                       {children}
                     </table>
                   </div>
                 ),
                 th: ({ children }) => (
-                  <th className="px-2 py-1 text-left text-[10px] font-semibold" style={{ background: colors.mutedBg }}>
+                  <th
+                    className="px-2 py-1 text-left text-[10px] font-semibold"
+                    style={{ background: colors.mutedBg }}
+                  >
                     {children}
                   </th>
                 ),
@@ -137,7 +157,13 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
                   </td>
                 ),
                 a: ({ children, href }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline" style={{ color: colors.accent }}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:no-underline"
+                    style={{ color: colors.accent }}
+                  >
                     {children}
                   </a>
                 ),
@@ -152,7 +178,10 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
 
           {/* File context */}
           {message.fileContext && message.fileContext.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-opacity-20" style={{ borderColor: colors.border }}>
+            <div
+              className="mt-2 pt-2 border-t border-opacity-20"
+              style={{ borderColor: colors.border }}
+            >
               <div className="flex items-center gap-1 text-[10px] opacity-70 flex-wrap">
                 <FileCode size={10} />
                 {message.fileContext.map((filePath, index) => (
@@ -179,17 +208,23 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
             >
               <div className="flex items-center gap-2 text-[10px]">
                 {appliedCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#16a34a' }}>
+                  <span
+                    className="px-1.5 py-0.5 rounded"
+                    style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#16a34a' }}
+                  >
                     {appliedCount} {t('ai.applied') || '適用済み'}
                   </span>
                 )}
                 {pendingCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(234, 179, 8, 0.2)', color: '#ca8a04' }}>
+                  <span
+                    className="px-1.5 py-0.5 rounded"
+                    style={{ background: 'rgba(234, 179, 8, 0.2)', color: '#ca8a04' }}
+                  >
                     {pendingCount} {t('ai.pending') || '保留中'}
                   </span>
                 )}
               </div>
-              
+
               {/* Revert button */}
               {appliedCount > 0 && onRevert && (
                 <button

@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import type { Tab, FileItem, Project } from '@/types';
+import type { FileItem, Project, Tab } from '@/types';
 
 export function useGitMonitor({
   currentProject,

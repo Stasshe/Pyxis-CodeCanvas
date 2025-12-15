@@ -51,14 +51,26 @@ export function normalizeCjsEsm(code: string): { code: string; dependencies: str
 
   // Remove problematic 'const require = ...' redeclarations
   // Prettier tries to redefine require, but it's already global
-  code = code.replace(/\bconst\s+require\s*=\s*__prettier.*?;/g, '// const require redeclaration removed');
+  code = code.replace(
+    /\bconst\s+require\s*=\s*__prettier.*?;/g,
+    '// const require redeclaration removed'
+  );
 
-  // Remove problematic '__filename' and '__dirname' redeclarations  
-  code = code.replace(/\bconst\s+__filename\s*=\s*__prettier.*?;/g, '// const __filename redeclaration removed');
-  code = code.replace(/\bconst\s+__dirname\s*=\s*__prettier.*?;/g, '// const __dirname redeclaration removed');
+  // Remove problematic '__filename' and '__dirname' redeclarations
+  code = code.replace(
+    /\bconst\s+__filename\s*=\s*__prettier.*?;/g,
+    '// const __filename redeclaration removed'
+  );
+  code = code.replace(
+    /\bconst\s+__dirname\s*=\s*__prettier.*?;/g,
+    '// const __dirname redeclaration removed'
+  );
 
   // Remove problematic 'process' redeclarations
-  code = code.replace(/\bconst\s+process\s*=\s*require\(['"]process['"]\);/g, '// const process redeclaration removed');
+  code = code.replace(
+    /\bconst\s+process\s*=\s*require\(['"]process['"]\);/g,
+    '// const process redeclaration removed'
+  );
 
   // Mask import.meta.url to avoid errors
   code = code.replace(/import\.meta\.url/g, '"file:///" + __filename');

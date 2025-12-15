@@ -1,3 +1,4 @@
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
@@ -7,9 +8,8 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { exportPage } from '@/engine/export/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
-import { storageService, STORES } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
-import { LOCALSTORAGE_KEY } from '@/context/config';
 
 export async function handlePyxisCommand(
   cmd: string,
@@ -47,21 +47,21 @@ export async function handlePyxisCommand(
         await writeOutput('  - sessionStorage (terminal history)');
         await writeOutput('');
         await writeOutput('Type "yes" to confirm or "no" to cancel:');
-        
+
         // Note: This is a simplified version. In a real implementation,
         // we would need to wait for user input. For now, we'll require
         // the user to run a separate confirmation command.
         await writeOutput('');
         await writeOutput('To proceed, run: pyxis init --all --admin --confirm');
-        
+
         if (args.includes('--confirm')) {
           await writeOutput('');
           await writeOutput('Starting complete system reset...');
-          
+
           try {
             // 1. Close all database connections first
             await writeOutput('[1/5] Closing database connections...');
-            
+
             // Close storageService connection
             try {
               storageService.close();
@@ -69,7 +69,7 @@ export async function handlePyxisCommand(
             } catch (e) {
               console.warn('Failed to close storageService:', e);
             }
-            
+
             // Close fileRepository connection
             try {
               await fileRepository.close();
@@ -77,39 +77,39 @@ export async function handlePyxisCommand(
             } catch (e) {
               console.warn('Failed to close fileRepository:', e);
             }
-            
+
             // Wait a bit for connections to fully close
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // 2. Clear all IndexedDB databases IN PARALLEL
             await writeOutput('[2/5] Clearing IndexedDB databases...');
             const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-            
+
             // Delete all databases in parallel for speed
             const deletionResults = await Promise.allSettled(
-              dbs.map(async (dbInfo) => {
+              dbs.map(async dbInfo => {
                 if (!dbInfo.name) return { name: '', success: false };
-                
+
                 try {
                   await new Promise<void>((resolve, reject) => {
                     const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
-                    
+
                     // Reduced timeout to 3 seconds for parallel operations
                     const timeoutId = setTimeout(() => {
                       console.warn(`Database ${dbInfo.name} deletion timed out`);
                       resolve(); // Resolve to continue with reset
                     }, 3000);
-                    
+
                     deleteReq.onsuccess = () => {
                       clearTimeout(timeoutId);
                       resolve();
                     };
-                    
+
                     deleteReq.onerror = () => {
                       clearTimeout(timeoutId);
                       resolve(); // Resolve to continue with reset
                     };
-                    
+
                     deleteReq.onblocked = () => {
                       console.warn(`Database ${dbInfo.name} deletion blocked`);
                       // Let timeout handle it
@@ -121,7 +121,7 @@ export async function handlePyxisCommand(
                 }
               })
             );
-            
+
             // Count successful deletions and output results
             let deletedCount = 0;
             for (const result of deletionResults) {
@@ -134,43 +134,42 @@ export async function handlePyxisCommand(
                 }
               }
             }
-            
+
             await writeOutput(`  Deleted ${deletedCount}/${dbs.length} database(s)`);
-            
+
             // 3. Clear localStorage (except protected keys)
             await writeOutput('[3/5] Clearing localStorage...');
-            const protectedKeys = [
-              LOCALSTORAGE_KEY.RECENT_PROJECTS,
-              LOCALSTORAGE_KEY.LOCALE,
-            ];
-            
+            const protectedKeys = [LOCALSTORAGE_KEY.RECENT_PROJECTS, LOCALSTORAGE_KEY.LOCALE];
+
             const savedValues: Record<string, string> = {};
             protectedKeys.forEach(key => {
               const value = localStorage.getItem(key);
               if (value) savedValues[key] = value;
             });
-            
+
             localStorage.clear();
-            
+
             // Restore protected keys
             Object.entries(savedValues).forEach(([key, value]) => {
               localStorage.setItem(key, value);
             });
-            
-            await writeOutput(`  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`);
-            
+
+            await writeOutput(
+              `  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`
+            );
+
             // 4. Clear sessionStorage
             await writeOutput('[4/5] Clearing sessionStorage...');
             clearAllTerminalHistory();
             sessionStorage.clear();
             await writeOutput('  ✓ Cleared sessionStorage');
-            
+
             // 5. Reload page to reinitialize
             await writeOutput('[5/5] Reloading application...');
             await writeOutput('');
             await writeOutput('✅ Complete system reset successful!');
             await writeOutput('Page will reload in 2 seconds...');
-            
+
             setTimeout(() => {
               window.location.reload();
             }, 2000);
@@ -811,9 +810,7 @@ export async function handlePyxisCommand(
             `\n📊 Total: ${totalEntries} entries, ${totalSizeKB} KB (${totalSizeMB} MB)`
           );
           if (expiredCount > 0) {
-            await writeOutput(
-              `⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`
-            );
+            await writeOutput(`⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`);
           }
         } catch (e) {
           await writeOutput(`storage-stats: エラー: ${(e as Error).message}`);

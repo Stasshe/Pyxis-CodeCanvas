@@ -1,4 +1,4 @@
-import FS from '@isomorphic-git/lightning-fs';
+import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 
@@ -10,12 +10,12 @@ import { GitMergeOperations } from './gitOperations/merge';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { toAppPath, joinPath } from '@/engine/core/pathResolver';
+import { joinPath, toAppPath } from '@/engine/core/pathResolver';
 import { syncManager } from '@/engine/core/syncManager';
 import { authRepository } from '@/engine/user/authRepository';
-import type { TerminalUI } from '@/engine/cmd/terminalUI';
 
 /**
  * [NEW ARCHITECTURE] Git操作を管理するクラス
@@ -48,7 +48,7 @@ export class GitCommands {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory( this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.dir);
   }
 
   // Gitリポジトリが初期化されているかチェック
@@ -1027,12 +1027,7 @@ export class GitCommands {
     } = {}
   ): Promise<string> {
     const { GitSwitchOperations } = await import('./gitOperations/switch');
-    const switchOps = new GitSwitchOperations(
-      this.fs,
-      this.dir,
-      this.projectId,
-      this.projectName
-    );
+    const switchOps = new GitSwitchOperations(this.fs, this.dir, this.projectId, this.projectName);
     return await switchOps.switch(targetRef, options);
   }
 

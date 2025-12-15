@@ -1,4 +1,4 @@
-import { storageService, STORES } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/storage';
 
 /**
  * Simple adapter to persist AI review metadata using storageService.
@@ -33,7 +33,10 @@ export async function saveAIReviewEntry(
     status: 'pending',
     comments: meta?.message,
     parentMessageId: meta?.parentMessageId,
-    history: existing && Array.isArray(existing.history) ? [historyEntry, ...existing.history] : [historyEntry],
+    history:
+      existing && Array.isArray(existing.history)
+        ? [historyEntry, ...existing.history]
+        : [historyEntry],
     updatedAt: Date.now(),
   };
 
@@ -55,7 +58,11 @@ export async function getAIReviewEntry(projectId: string, filePath: string) {
   return (await storageService.get(STORES.AI_REVIEWS, key)) as any | null;
 }
 
-export async function updateAIReviewEntry(projectId: string, filePath: string, patch: Partial<any>) {
+export async function updateAIReviewEntry(
+  projectId: string,
+  filePath: string,
+  patch: Partial<any>
+) {
   if (!projectId) return null;
   const normalizedPath = String(filePath || '').replace(/^\/+/, '');
   const key = `aiReview:${projectId}:${normalizedPath}`;

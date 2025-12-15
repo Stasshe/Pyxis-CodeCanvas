@@ -2,7 +2,7 @@
 
 .markdown-body {
   background: var(--markdown-background, #18181b);
-  font-family: 'Segoe UI', 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
   font-size: 1rem;
   line-height: 1.7;
   word-break: break-word;
@@ -64,7 +64,7 @@
 .markdown-body li.task-list-item {
   list-style: none;
 }
-.markdown-body input[type='checkbox'] {
+.markdown-body input[type="checkbox"] {
   margin: 0 0.5rem 0 0;
   vertical-align: text-bottom;
   transform: translateY(1px);
@@ -112,8 +112,8 @@
   margin: 1em 0;
   max-width: 100%;
   display: block;
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono",
+    monospace;
   font-size: 0.9em;
 }
 
@@ -132,10 +132,10 @@
   white-space: pre;
 }
 
-.markdown-body code[class^='language-'],
-.markdown-body pre[class^='language-'] {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+.markdown-body code[class^="language-"],
+.markdown-body pre[class^="language-"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono",
+    monospace;
 }
 
 .markdown-body a {

@@ -99,10 +99,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
           >
             <option value="">{t('bottom.outputPanel.all')}</option>
             {contextList.map(ctx => (
-              <option
-                key={ctx}
-                value={ctx}
-              >
+              <option key={ctx} value={ctx}>
                 {ctx}
               </option>
             ))}
@@ -124,10 +121,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
             onChange={e => setTypeFilter(e.target.value as OutputType | 'all')}
           >
             {typeList.map(type => (
-              <option
-                key={type}
-                value={type}
-              >
+              <option key={type} value={type}>
                 {type === 'all' ? t('bottom.outputPanel.all') : type}
               </option>
             ))}

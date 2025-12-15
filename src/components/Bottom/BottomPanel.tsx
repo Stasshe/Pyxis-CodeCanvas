@@ -3,14 +3,14 @@
 import { useState } from 'react';
 
 import DebugConsole from './DebugConsole';
-import OutputPanel, { OutputMessage } from './OutputPanel';
-import Terminal from './Terminal';
+import OutputPanel, { type OutputMessage } from './OutputPanel';
 import ProblemsPanel from './ProblemsPanel';
+import Terminal from './Terminal';
 
-import { OUTPUT_CONFIG } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { FileItem } from '@/types';
+import { OUTPUT_CONFIG } from '@/context/config';
+import type { FileItem } from '@/types';
 
 interface BottomPanelProps {
   height: number;
@@ -229,7 +229,7 @@ export default function BottomPanel({
           >
             {t('bottom.terminal')}
           </button>
-                    {currentProject && (
+          {currentProject && (
             <span
               className="ml-2 text-xs"
               style={{ color: colors.mutedFg, fontSize: '10px', marginLeft: '8px' }}
@@ -237,32 +237,32 @@ export default function BottomPanel({
               - {currentProject}
             </span>
           )}
-                    {/* Place ESC button at the far right of the tab bar when vim is active */}
-                    {vimEditor && (
-                      <button
-                        onClick={() => {
-                          try {
-                            if (typeof vimEditor.pressEsc === 'function') {
-                              vimEditor.pressEsc();
-                            }
-                          } catch (e) {}
-                        }}
-                        title={t('bottom.escButton') ?? 'Esc'}
-                        className="pyxis-esc-btn"
-                        style={{
-                          marginLeft: 'auto',
-                          background: colors.cardBg,
-                          color: colors.mutedFg,
-                          border: `1px solid ${colors.border}`,
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                          fontSize: 12,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Esc
-                      </button>
-                    )}
+          {/* Place ESC button at the far right of the tab bar when vim is active */}
+          {vimEditor && (
+            <button
+              onClick={() => {
+                try {
+                  if (typeof vimEditor.pressEsc === 'function') {
+                    vimEditor.pressEsc();
+                  }
+                } catch (e) {}
+              }}
+              title={t('bottom.escButton') ?? 'Esc'}
+              className="pyxis-esc-btn"
+              style={{
+                marginLeft: 'auto',
+                background: colors.cardBg,
+                color: colors.mutedFg,
+                border: `1px solid ${colors.border}`,
+                padding: '4px 8px',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              Esc
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-hidden relative">
           {/* 3つのパネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
@@ -329,15 +329,11 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <DebugConsole
-              height={height}
-              isActive={activeTab === 'debug'}
-            />
+            <DebugConsole height={height} isActive={activeTab === 'debug'} />
           </div>
         </div>
       </div>
       {/* Vim ESC button: shown when a VimEditor instance is active */}
-      
     </>
   );
 }

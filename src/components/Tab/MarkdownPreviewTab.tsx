@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, memo, type FC } from 'react';
+import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -8,12 +8,12 @@ import type { PluggableList } from 'unified';
 import 'katex/dist/katex.min.css';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme, ThemeContext } from '@/context/ThemeContext';
+import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf';
 import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
-import { Project } from '@/types';
+import type { Project } from '@/types';
 
 import InlineHighlightedCode from './InlineHighlightedCode';
 import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';
@@ -82,7 +82,12 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const markdownComponents = useMemo<Partial<Components>>(
     () => ({
       code: ({ className, children, ...props }) => (
-        <CodeBlock className={className} colors={colors} currentProjectName={currentProject?.name} {...props}>
+        <CodeBlock
+          className={className}
+          colors={colors}
+          currentProjectName={currentProject?.name}
+          {...props}
+        >
           {children}
         </CodeBlock>
       ),
@@ -132,21 +137,21 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     };
 
     if (delimiter === 'bracket') {
-      // 'bracket' mode: 
+      // 'bracket' mode:
       // 1. First, escape existing dollar signs to prevent remark-math from processing them
       // 2. Then, convert bracket delimiters to dollar style
       // Use unique placeholders that won't appear in normal markdown text
       const DOUBLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_DOUBLE_DOLLAR__';
       const SINGLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_SINGLE_DOLLAR__';
-      
-      let result = processNonCode(src, (seg) => {
+
+      let result = processNonCode(src, seg => {
         // Escape $$ first (display math), then $ (inline math)
         return seg
           .replace(/\$\$/g, DOUBLE_DOLLAR_PLACEHOLDER)
           .replace(/\$/g, SINGLE_DOLLAR_PLACEHOLDER);
       });
       // Convert bracket delimiters to dollar style
-      result = processNonCode(result, (seg) => {
+      result = processNonCode(result, seg => {
         return seg
           .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
           .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
@@ -160,7 +165,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
     if (delimiter === 'both') {
       // 'both' mode: convert bracket delimiters to dollar style (dollars also work)
-      return processNonCode(src, (seg) => {
+      return processNonCode(src, seg => {
         return seg
           .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
           .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
@@ -191,14 +196,14 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const applyExportStyles = useCallback((element: HTMLElement) => {
     element.style.backgroundColor = '#ffffff';
     element.style.color = '#000000';
-    
+
     // Override all element colors for better readability
     const allElements = Array.from(element.getElementsByTagName('*'));
     for (const el of allElements) {
       if (el instanceof HTMLElement) {
         // Set text color to black
         el.style.color = '#000000';
-        
+
         // For code blocks and pre elements, ensure light background
         if (el.tagName === 'PRE' || el.tagName === 'CODE') {
           el.style.backgroundColor = '#f6f8fa';
@@ -211,25 +216,28 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // PDF export processing
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined') return;
-    
+
     // Get the rendered markdown content directly from the DOM
     const markdownElement = markdownContainerRef.current?.querySelector('.markdown-body');
     if (!markdownElement) {
       console.error('Markdown content not found');
       return;
     }
-    
+
     // Clone the element to avoid modifying the original
     const clone = markdownElement.cloneNode(true) as HTMLElement;
-    
+
     // Apply export styles
     applyExportStyles(clone);
-    
+
     // Get the HTML content
     const htmlContent = clone.outerHTML;
-    
+
     // Export to PDF
-    await exportPdfFromHtml(htmlContent, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf');
+    await exportPdfFromHtml(
+      htmlContent,
+      (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf'
+    );
   }, [activeTab.name, applyExportStyles]);
 
   // PNG export processing
@@ -240,9 +248,12 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       console.error('Markdown container not found');
       return;
     }
-    
+
     try {
-      await exportPngFromElement(container, (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png');
+      await exportPngFromElement(
+        container,
+        (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png'
+      );
     } catch (err) {
       console.error('Error occurred during PNG export', err);
     }

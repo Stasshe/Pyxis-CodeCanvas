@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types';
+import type { DiffTab, EditorPane, OpenTabOptions, Tab } from '@/engine/tabs/types';
 
 // Helper function to flatten all leaf panes (preserving order for pane index priority)
 function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {
@@ -64,7 +64,7 @@ interface TabStore {
   getTab: (paneId: string, tabId: string) => Tab | null;
   getAllTabs: () => Tab[];
   findTabByPath: (path: string, kind?: string) => { paneId: string; tab: Tab } | null;
-  
+
   // ファイル削除時のタブ処理
   handleFileDeleted: (deletedPath: string) => void;
 
@@ -295,7 +295,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       // searchAllPanesForReuseがtrueの場合、全ペインを検索（paneIndexが小さいペインを優先）
       if (options.searchAllPanesForReuse) {
         const allLeafPanes = flattenLeafPanes(state.panes);
-        
+
         for (const searchPane of allLeafPanes) {
           for (const tab of searchPane.tabs) {
             if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
@@ -303,7 +303,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
               if (options.makeActive !== false) {
                 get().activateTab(searchPane.id, tab.id);
               }
-              console.log('[TabStore] Reusing existing tab via shouldReuseTab (all panes):', tab.id, 'in pane:', searchPane.id);
+              console.log(
+                '[TabStore] Reusing existing tab via shouldReuseTab (all panes):',
+                tab.id,
+                'in pane:',
+                searchPane.id
+              );
               return;
             }
           }
@@ -325,7 +330,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
       }
     } else {
       // shouldReuseTabがない場合は、通常の検索（パス/IDベース）
-      const tabId = kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name;
+      const tabId =
+        kind !== 'editor' ? `${kind}:${file.path || file.name}` : file.path || file.name;
       const existingTab = pane.tabs.find(t => {
         // 同じkindとpathのタブを検索
         return t.kind === kind && (t.path === file.path || t.id === tabId);
@@ -373,10 +379,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     set(state => ({
       panes: updatePaneRecursive(state.panes),
-      ...(options.makeActive !== false ? {
-        globalActiveTab: newTab.id,
-        activePane: targetPaneId,
-      } : {}),
+      ...(options.makeActive !== false
+        ? {
+            globalActiveTab: newTab.id,
+            activePane: targetPaneId,
+          }
+        : {}),
     }));
   },
 
@@ -509,12 +517,16 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const newFromTabs = fromPane.tabs.filter(t => t.id !== tabId);
     get().updatePane(fromPaneId, {
       tabs: newFromTabs,
-      activeTabId: fromPane.activeTabId === tabId ? (newFromTabs[0]?.id || '') : fromPane.activeTabId,
+      activeTabId: fromPane.activeTabId === tabId ? newFromTabs[0]?.id || '' : fromPane.activeTabId,
     });
 
     // 移動先に挿入
     const adjustedIndex = Math.max(0, Math.min(index, toPane.tabs.length));
-    const newToTabs = [...toPane.tabs.slice(0, adjustedIndex), { ...tab, paneId: toPaneId }, ...toPane.tabs.slice(adjustedIndex)];
+    const newToTabs = [
+      ...toPane.tabs.slice(0, adjustedIndex),
+      { ...tab, paneId: toPaneId },
+      ...toPane.tabs.slice(adjustedIndex),
+    ];
 
     get().updatePane(toPaneId, {
       tabs: newToTabs,
@@ -582,7 +594,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
   // ファイル削除時のタブ処理: editor/previewを閉じ、diffはコンテンツを空にする
   handleFileDeleted: (deletedPath: string) => {
     const state = get();
-    
+
     // パスを正規化
     const normalizePath = (p?: string): string => {
       if (!p) return '';
@@ -590,30 +602,33 @@ export const useTabStore = create<TabStore>((set, get) => ({
       const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
       return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
     };
-    
+
     const normalizedDeletedPath = normalizePath(deletedPath);
     console.log('[TabStore] handleFileDeleted:', normalizedDeletedPath);
-    
+
     // 閉じるタブを収集
     const tabsToClose: Array<{ paneId: string; tabId: string }> = [];
-    
+
     // ペインを再帰的に更新
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
       return panes.map(pane => {
         if (pane.children && pane.children.length > 0) {
           return { ...pane, children: updatePaneRecursive(pane.children) };
         }
-        
+
         // リーフペイン
         const newTabs = pane.tabs.map((tab: Tab) => {
           const tabPath = normalizePath(tab.path);
-          
+
           // editor/previewは閉じる対象として記録
-          if ((tab.kind === 'editor' || tab.kind === 'preview') && tabPath === normalizedDeletedPath) {
+          if (
+            (tab.kind === 'editor' || tab.kind === 'preview') &&
+            tabPath === normalizedDeletedPath
+          ) {
             tabsToClose.push({ paneId: pane.id, tabId: tab.id });
             return tab;
           }
-          
+
           // 編集可能なdiffタブ（ワーキングディレクトリとの差分）のみコンテンツを空にする
           // readonlyのdiffタブ（過去のcommit間の差分）は変更不要
           if (tab.kind === 'diff' && tabPath === normalizedDeletedPath) {
@@ -628,17 +643,17 @@ export const useTabStore = create<TabStore>((set, get) => ({
               };
             }
           }
-          
+
           return tab;
         });
-        
+
         return { ...pane, tabs: newTabs };
       });
     };
 
     // diffタブのコンテンツを更新
     set({ panes: updatePaneRecursive(state.panes) });
-    
+
     // editor/previewタブを閉じる
     for (const { paneId, tabId } of tabsToClose) {
       get().closeTab(paneId, tabId);
@@ -669,7 +684,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       nextNum++;
     }
     const newPaneId = `pane-${nextNum}`;
-    
+
     // existingPaneId も重複しないように生成
     let nextNum2 = nextNum + 1;
     while (existingIds.includes(`pane-${nextNum2}`) || `pane-${nextNum2}` === newPaneId) {
@@ -728,7 +743,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
     // 移動するタブを特定（どのペインにあるか探す）
     let sourcePaneId = '';
     let tabToMove: Tab | null = null;
-    
+
     // 全ペインから探す
     const findTab = (panes: EditorPane[]) => {
       for (const p of panes) {
@@ -771,37 +786,39 @@ export const useTabStore = create<TabStore>((set, get) => ({
       return panes.map(pane => {
         // ソースペインからタブを削除（ターゲットと同じペインの場合は後で処理されるのでここでは削除しない）
         if (pane.id === sourcePaneId && sourcePaneId !== paneId) {
-           const newTabs = pane.tabs.filter(t => t.id !== tabId);
-           return {
-             ...pane,
-             tabs: newTabs,
-             activeTabId: pane.activeTabId === tabId ? (newTabs[0]?.id || '') : pane.activeTabId
-           };
+          const newTabs = pane.tabs.filter(t => t.id !== tabId);
+          return {
+            ...pane,
+            tabs: newTabs,
+            activeTabId: pane.activeTabId === tabId ? newTabs[0]?.id || '' : pane.activeTabId,
+          };
         }
 
         if (pane.id === paneId) {
           // ターゲットペインを分割
           // 既存のタブ（移動するタブがここにある場合は除外）
-          const existingTabs = pane.tabs.filter(t => t.id !== tabId).map(tab => ({
-             ...tab,
-             // IDは変更しない（移動ではないため）
-             // ただし、新しいペインIDに属することになるため、内部的な整合性は必要だが
-             // ここでは既存のタブをそのまま `existingPaneId` のペインに移す
-             // タブIDにペインIDが含まれている場合などは置換が必要かもしれないが、
-             // 現在の実装では tab.id は path ベースのようなのでそのままで良い場合が多い
-             // しかし splitPane では replace している...
-             // 安全のため splitPane と同様に replace するか、あるいは paneId プロパティだけ更新するか
-             // tabStore の moveTab では paneId プロパティを更新している
-             paneId: existingPaneId
-          }));
-          
+          const existingTabs = pane.tabs
+            .filter(t => t.id !== tabId)
+            .map(tab => ({
+              ...tab,
+              // IDは変更しない（移動ではないため）
+              // ただし、新しいペインIDに属することになるため、内部的な整合性は必要だが
+              // ここでは既存のタブをそのまま `existingPaneId` のペインに移す
+              // タブIDにペインIDが含まれている場合などは置換が必要かもしれないが、
+              // 現在の実装では tab.id は path ベースのようなのでそのままで良い場合が多い
+              // しかし splitPane では replace している...
+              // 安全のため splitPane と同様に replace するか、あるいは paneId プロパティだけ更新するか
+              // tabStore の moveTab では paneId プロパティを更新している
+              paneId: existingPaneId,
+            }));
+
           // 移動するタブ
           const movedTab = { ...tabToMove!, paneId: newPaneId };
 
           const pane1 = {
             id: existingPaneId,
             tabs: existingTabs,
-            activeTabId: pane.activeTabId === tabId ? (existingTabs[0]?.id || '') : pane.activeTabId, // 移動するタブがアクティブだった場合は別のアクティブへ
+            activeTabId: pane.activeTabId === tabId ? existingTabs[0]?.id || '' : pane.activeTabId, // 移動するタブがアクティブだった場合は別のアクティブへ
             parentId: paneId,
             size: 50,
           };
@@ -822,7 +839,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
             activeTabId: '',
           };
         }
-        
+
         if (pane.children) {
           return { ...pane, children: updatePaneRecursive(pane.children) };
         }
@@ -831,10 +848,10 @@ export const useTabStore = create<TabStore>((set, get) => ({
     };
 
     const newPanes = updatePaneRecursive(state.panes);
-    set({ 
+    set({
       panes: newPanes,
       activePane: newPaneId,
-      globalActiveTab: tabId
+      globalActiveTab: tabId,
     });
   },
 
@@ -865,7 +882,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const existingPaneId = `pane-${nextNum + 1}`;
 
     // ファイル用の新しいタブを作成
-    const defaultEditor = typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const defaultEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
     const kind = file.isBufferArray ? 'binary' : 'editor';
     const newTabId = `${file.path || file.name}-${Date.now()}`;
     const newTab: Tab = {
@@ -886,7 +904,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
           // 既存のタブのpaneIdを更新
           const existingTabs = pane.tabs.map(tab => ({
             ...tab,
-            paneId: existingPaneId
+            paneId: existingPaneId,
           }));
 
           const pane1 = {
@@ -913,7 +931,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
             activeTabId: '',
           };
         }
-        
+
         if (pane.children) {
           return { ...pane, children: updatePaneRecursive(pane.children) };
         }
@@ -922,10 +940,10 @@ export const useTabStore = create<TabStore>((set, get) => ({
     };
 
     const newPanes = updatePaneRecursive(state.panes);
-    set({ 
+    set({
       panes: newPanes,
       activePane: newPaneId,
-      globalActiveTab: newTabId
+      globalActiveTab: newTabId,
     });
   },
 
@@ -1000,7 +1018,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
   saveSession: async () => {
     const state = get();
     const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage');
-    
+
     // UI状態は含めない（page.tsxが管理）
     const session = {
       version: 1,
@@ -1012,7 +1030,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       },
       ui: DEFAULT_SESSION.ui, // デフォルト値を使用
     };
-    
+
     await sessionStorage.save(session);
   },
 

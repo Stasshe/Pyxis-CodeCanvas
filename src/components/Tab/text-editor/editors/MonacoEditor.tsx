@@ -1,13 +1,17 @@
-import Editor, { Monaco, OnMount } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
-import { useRef, useEffect, useCallback, useState } from 'react';
+import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
+import type * as monaco from 'monaco-editor';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
-import { registerEnhancedJSXLanguage, getEnhancedLanguage, getModelLanguage } from './monarch-jsx-language';
-import { defineAndSetMonacoThemes } from './monaco-themes';
+import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
+import { defineAndSetMonacoThemes } from './monaco-themes';
+import {
+  getEnhancedLanguage,
+  getModelLanguage,
+  registerEnhancedJSXLanguage,
+} from './monarch-jsx-language';
 
 import { useTheme } from '@/context/ThemeContext';
 
@@ -60,8 +64,7 @@ export default function MonacoEditor({
     };
   }, []);
 
-  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel } =
-    useMonacoModels();
+  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel } = useMonacoModels();
 
   const isEditorSafe = useCallback(() => {
     return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;
@@ -121,8 +124,8 @@ export default function MonacoEditor({
       const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
       if (model && isEditorSafe()) {
         try {
-            editor.setModel(model);
-            // initial model debug logs removed in cleanup
+          editor.setModel(model);
+          // initial model debug logs removed in cleanup
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
         } catch (e: any) {
@@ -227,7 +230,7 @@ export default function MonacoEditor({
   // タブが非アクティブになった時にフォーカスを外す
   useEffect(() => {
     if (!isEditorReady || !editorRef.current) return;
-    
+
     if (isActive) {
       // アクティブになったらフォーカスを当てる
       const timeoutId = setTimeout(() => {
@@ -238,7 +241,11 @@ export default function MonacoEditor({
       return () => clearTimeout(timeoutId);
     } else {
       // 非アクティブになったらフォーカスを外す
-      if (editorRef.current && !(editorRef.current as any)._isDisposed && editorRef.current.hasTextFocus()) {
+      if (
+        editorRef.current &&
+        !(editorRef.current as any)._isDisposed &&
+        editorRef.current.hasTextFocus()
+      ) {
         const domNode = editorRef.current.getDomNode();
         if (domNode) {
           domNode.blur();
@@ -269,7 +276,7 @@ export default function MonacoEditor({
   return (
     <Editor
       height="100%"
-    language={getModelLanguage(fileName)}
+      language={getModelLanguage(fileName)}
       onMount={handleEditorDidMount}
       onChange={value => {
         if (value !== undefined) {

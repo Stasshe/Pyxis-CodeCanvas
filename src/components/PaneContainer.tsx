@@ -5,9 +5,14 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 
 import PaneResizer from '@/components/PaneResizer';
-import TabBar from '@/components/Tab/TabBar';
 import { Breadcrumb } from '@/components/Tab/Breadcrumb';
-import { DND_TAB, DND_FILE_TREE_ITEM, isTabDragItem, isFileTreeDragItem } from '@/constants/dndTypes';
+import TabBar from '@/components/Tab/TabBar';
+import {
+  DND_FILE_TREE_ITEM,
+  DND_TAB,
+  isFileTreeDragItem,
+  isTabDragItem,
+} from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { useTabStore } from '@/stores/tabStore';
@@ -54,27 +59,44 @@ function flattenPanes(paneList: EditorPane[]): EditorPane[] {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, activePane, setPanes, panes: allPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = useTabStore();
-  
+  const {
+    globalActiveTab,
+    activePane,
+    setPanes,
+    panes: allPanes,
+    moveTab,
+    splitPaneAndMoveTab,
+    openTab,
+    splitPaneAndOpenFile,
+  } = useTabStore();
+
   // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
   const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
-  const [dropZone, setDropZone] = React.useState<'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null>(null);
+  const [dropZone, setDropZone] = React.useState<
+    'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null
+  >(null);
   const elementRef = React.useRef<HTMLDivElement | null>(null);
   const dropZoneRef = React.useRef<typeof dropZone>(null);
-  
+
   // dropZone stateが変更されたらrefも更新（drop時に最新の値を参照するため）
   React.useEffect(() => {
     dropZoneRef.current = dropZone;
   }, [dropZone]);
 
   // ファイルを開くヘルパー関数
-  const openFileInPane = React.useCallback((fileItem: FileItem, targetPaneId?: string) => {
-    if (fileItem.type !== 'file') return;
-    const defaultEditor =
-      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-    const kind = fileItem.isBufferArray ? 'binary' : 'editor';
-    openTab({ ...fileItem, isCodeMirror: defaultEditor === 'codemirror' }, { kind, paneId: targetPaneId || pane.id });
-  }, [openTab, pane.id]);
+  const openFileInPane = React.useCallback(
+    (fileItem: FileItem, targetPaneId?: string) => {
+      if (fileItem.type !== 'file') return;
+      const defaultEditor =
+        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+      const kind = fileItem.isBufferArray ? 'binary' : 'editor';
+      openTab(
+        { ...fileItem, isCodeMirror: defaultEditor === 'codemirror' },
+        { kind, paneId: targetPaneId || pane.id }
+      );
+    },
+    [openTab, pane.id]
+  );
 
   // このペイン自体をドロップターゲットとして扱う（TABとFILE_TREE_ITEM両方受け付け）
   const [{ isOver }, drop] = useDrop(
@@ -83,12 +105,12 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
       drop: (item: any, monitor) => {
         const currentDropZone = dropZoneRef.current;
         console.log('[PaneContainer] drop called', { item, currentDropZone });
-        
+
         // FILE_TREE_ITEMの場合
         if (isFileTreeDragItem(item)) {
           const fileItem = item.item as FileItem;
           console.log('[PaneContainer] File dropped from tree:', { fileItem, currentDropZone });
-          
+
           // ファイルのみ処理（フォルダは無視）
           if (fileItem.type === 'file') {
             // TabBar上またはcenterの場合は単純にファイルを開く
@@ -96,9 +118,13 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
               openFileInPane(fileItem);
             } else {
               // 端にドロップした場合はペイン分割して開く
-              const direction = (currentDropZone === 'top' || currentDropZone === 'bottom') ? 'horizontal' : 'vertical';
-              const position = (currentDropZone === 'top' || currentDropZone === 'left') ? 'before' : 'after';
-              
+              const direction =
+                currentDropZone === 'top' || currentDropZone === 'bottom'
+                  ? 'horizontal'
+                  : 'vertical';
+              const position =
+                currentDropZone === 'top' || currentDropZone === 'left' ? 'before' : 'after';
+
               // splitPaneAndOpenFileがあればそれを使用、なければ手動で処理
               if (splitPaneAndOpenFile) {
                 splitPaneAndOpenFile(pane.id, direction, fileItem, position);
@@ -111,7 +137,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
           setDropZone(null);
           return;
         }
-        
+
         // TABの場合は既存のタブ移動ロジック
         if (isTabDragItem(item)) {
           if (!currentDropZone || currentDropZone === 'center' || currentDropZone === 'tabbar') {
@@ -119,12 +145,14 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
             moveTab(item.fromPaneId, pane.id, item.tabId);
           } else {
             // Split logic
-            const direction = (currentDropZone === 'top' || currentDropZone === 'bottom') ? 'horizontal' : 'vertical';
-            const side = (currentDropZone === 'top' || currentDropZone === 'left') ? 'before' : 'after';
+            const direction =
+              currentDropZone === 'top' || currentDropZone === 'bottom' ? 'horizontal' : 'vertical';
+            const side =
+              currentDropZone === 'top' || currentDropZone === 'left' ? 'before' : 'after';
             splitPaneAndMoveTab(pane.id, direction, item.tabId, side);
           }
         }
-        
+
         setDropZone(null);
       },
       hover: (item, monitor) => {
@@ -144,7 +172,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
         // TabBarの高さ（約40px）
         const tabBarHeight = 40;
-        
+
         // TabBar上にいる場合
         if (y < tabBarHeight) {
           setDropZone('tabbar');
@@ -164,7 +192,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
         setDropZone(zone);
       },
-      collect: (monitor) => ({
+      collect: monitor => ({
         isOver: monitor.isOver({ shallow: true }),
       }),
     }),
@@ -193,10 +221,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                 flexGrow: 0,
               }}
             >
-              <PaneContainer
-                pane={childPane}
-                setGitRefreshTrigger={setGitRefreshTrigger}
-              />
+              <PaneContainer pane={childPane} setGitRefreshTrigger={setGitRefreshTrigger} />
             </div>
 
             {/* 子ペイン間のリサイザー */}
@@ -272,13 +297,13 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   // ドロップゾーンオーバーレイのスタイルを計算
   const getDropOverlayStyle = (): React.CSSProperties | null => {
     if (!isOver || !dropZone) return null;
-    
+
     const baseStyle: React.CSSProperties = {
       position: 'absolute',
       zIndex: 50,
       pointerEvents: 'none',
     };
-    
+
     // TabBar上の場合：青いハイライト（ペイン分割なし、ファイルを開くだけ）
     if (dropZone === 'tabbar') {
       return {
@@ -291,7 +316,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         border: '2px solid #3b82f6',
       };
     }
-    
+
     // Center：青いハイライト（ペイン移動/ファイルを開く）
     if (dropZone === 'center') {
       return {
@@ -301,14 +326,14 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         border: '2px solid #3b82f6',
       };
     }
-    
+
     // 端にドロップ：白いオーバーレイ（ペイン分割）
     const splitStyle: React.CSSProperties = {
       ...baseStyle,
       backgroundColor: 'rgba(255, 255, 255, 0.25)',
       border: '2px dashed rgba(59, 130, 246, 0.5)',
     };
-    
+
     switch (dropZone) {
       case 'top':
         return { ...splitStyle, top: 0, left: 0, right: 0, height: '50%' };
@@ -338,7 +363,9 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
           height: '100%',
           background: colors.background,
           border: showActiveBorder ? `1px solid ${colors.green}` : `1px solid ${colors.border}`,
-          boxShadow: showActiveBorder ? `0 0 16px ${colors.green}40, 0 0 32px ${colors.green}20` : 'none',
+          boxShadow: showActiveBorder
+            ? `0 0 16px ${colors.green}40, 0 0 32px ${colors.green}20`
+            : 'none',
         }}
       >
         {/* ドロップゾーンのオーバーレイ */}
@@ -346,18 +373,14 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
         {/* タブバー */}
         <TabBar paneId={pane.id} />
-        
+
         {/* ブレッドクラム */}
         <Breadcrumb paneId={pane.id} />
 
         {/* エディタコンテンツ - TabRegistryで動的レンダリング */}
         <div className="flex-1 overflow-hidden">
           {activeTab && TabComponent ? (
-            <TabComponent
-              key={activeTab.id}
-              tab={activeTab}
-              isActive={isGloballyActive}
-            />
+            <TabComponent key={activeTab.id} tab={activeTab} isActive={isGloballyActive} />
           ) : (
             <div
               className="flex flex-col h-full gap-2 select-none"

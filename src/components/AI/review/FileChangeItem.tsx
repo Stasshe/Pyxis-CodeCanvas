@@ -2,7 +2,7 @@
 
 'use client';
 
-import { FileCode, Eye, Check, X } from 'lucide-react';
+import { Check, Eye, FileCode, X } from 'lucide-react';
 import React from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -49,7 +49,11 @@ export default function FileChangeItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <FileCode size={14} style={{ color: colors.accent }} />
-            <span className={`font-mono font-medium text-xs truncate`} style={{ color: colors.foreground }} title={file.path}>
+            <span
+              className={`font-mono font-medium text-xs truncate`}
+              style={{ color: colors.foreground }}
+              title={file.path}
+            >
               {fileName}
             </span>
           </div>

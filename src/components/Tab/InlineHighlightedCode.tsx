@@ -73,23 +73,53 @@ const createPatterns = (lang: string): PatternDef[] => {
     // Template strings handled by tokenizeJsTs for proper ${} support with nested templates
     { type: 'string', regex: /^"(?:[^"\\]|\\[\s\S])*?"/ },
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
-    { type: 'regex', regex: /^\/(?!\/)(?:[^/\\[\n]|\\[\s\S]|\[[^\]\\]*(?:\\[\s\S][^\]\\]*)*\])+\/[gimsy]*/ },
+    {
+      type: 'regex',
+      regex: /^\/(?!\/)(?:[^/\\[\n]|\\[\s\S]|\[[^\]\\]*(?:\\[\s\S][^\]\\]*)*\])+\/[gimsy]*/,
+    },
     { type: 'decorator', regex: /^@[a-zA-Z_$][a-zA-Z0-9_$]*/ },
-    { type: 'tag', regex: /^<[a-zA-Z][a-zA-Z0-9.]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|\{[^}]*\}))?)*\s*\/>/ },
-    { type: 'tag', regex: /^<[a-zA-Z][a-zA-Z0-9.]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|\{[^}]*\}))?)*\s*>/ },
+    {
+      type: 'tag',
+      regex:
+        /^<[a-zA-Z][a-zA-Z0-9.]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|\{[^}]*\}))?)*\s*\/>/,
+    },
+    {
+      type: 'tag',
+      regex:
+        /^<[a-zA-Z][a-zA-Z0-9.]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|\{[^}]*\}))?)*\s*>/,
+    },
     { type: 'tag', regex: /^<\/[a-zA-Z][a-zA-Z0-9.]*\s*>/ },
-    { type: 'type', regex: /^:\s*(?:string|number|boolean|any|void|never|unknown|null|undefined|object|symbol|bigint)\b/ },
+    {
+      type: 'type',
+      regex:
+        /^:\s*(?:string|number|boolean|any|void|never|unknown|null|undefined|object|symbol|bigint)\b/,
+    },
     { type: 'arrow', regex: /^=>/ },
-    { type: 'controlKeyword', regex: /^(?:if|else|switch|case|default|for|while|do|break|continue|return|throw|try|catch|finally)\b/ },
-    { type: 'storageKeyword', regex: /^(?:const|let|var|function|class|interface|type|enum|namespace|module|declare|abstract|readonly|static|public|private|protected|async|await|yield|export|import|from|as|extends|implements|new)\b/ },
+    {
+      type: 'controlKeyword',
+      regex:
+        /^(?:if|else|switch|case|default|for|while|do|break|continue|return|throw|try|catch|finally)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex:
+        /^(?:const|let|var|function|class|interface|type|enum|namespace|module|declare|abstract|readonly|static|public|private|protected|async|await|yield|export|import|from|as|extends|implements|new)\b/,
+    },
     { type: 'null', regex: /^(?:null|undefined)\b/ },
     { type: 'boolean', regex: /^(?:true|false)\b/ },
-    { type: 'builtin', regex: /^(?:Array|Object|String|Number|Boolean|Function|Symbol|Map|Set|WeakMap|WeakSet|Promise|Date|RegExp|Error|Math|JSON|console|window|document|globalThis|process)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:Array|Object|String|Number|Boolean|Function|Symbol|Map|Set|WeakMap|WeakSet|Promise|Date|RegExp|Error|Math|JSON|console|window|document|globalThis|process)\b/,
+    },
     { type: 'class', regex: /^[A-Z][a-zA-Z0-9_$]*(?=\s*[({<])/ },
     { type: 'type', regex: /^[A-Z][a-zA-Z0-9_$]*(?=\s*[,;)\]|&>])/ },
     { type: 'method', regex: /^[a-zA-Z_$][a-zA-Z0-9_$]*(?=\s*\()/ },
     { type: 'property', regex: /^\.([a-zA-Z_$][a-zA-Z0-9_$]*)/ },
-    { type: 'number', regex: /^(?:0x[0-9a-fA-F]+n?|0b[01]+n?|0o[0-7]+n?|\d+\.?\d*(?:[eE][+-]?\d+)?n?)\b/ },
+    {
+      type: 'number',
+      regex: /^(?:0x[0-9a-fA-F]+n?|0b[01]+n?|0o[0-7]+n?|\d+\.?\d*(?:[eE][+-]?\d+)?n?)\b/,
+    },
     { type: 'comparison', regex: /^(?:===|!==|==|!=|<=|>=|<|>)/ },
     { type: 'operator', regex: /^(?:&&|\|\||>>>|>>|<<|[+\-*/%|&^~!]=?|\?\?|\?\.?)/ },
     { type: 'operator', regex: /^(?:\+=|-=|\*=|\/=|%=|&&=|\|\|=|\?\?=|<<=|>>=|>>>=|&=|\|=|\^=|=)/ },
@@ -117,20 +147,46 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'string', regex: /^"(?:[^"\\]|\\[\s\S])*?"/ },
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
     { type: 'decorator', regex: /^@[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*/ },
-    { type: 'controlKeyword', regex: /^(?:if|elif|else|for|while|break|continue|pass|return|raise|try|except|finally|with|assert|yield|match|case)\b/ },
-    { type: 'storageKeyword', regex: /^(?:def|class|lambda|import|from|as|global|nonlocal|async|await|del)\b/ },
+    {
+      type: 'controlKeyword',
+      regex:
+        /^(?:if|elif|else|for|while|break|continue|pass|return|raise|try|except|finally|with|assert|yield|match|case)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex: /^(?:def|class|lambda|import|from|as|global|nonlocal|async|await|del)\b/,
+    },
     { type: 'boolean', regex: /^(?:True|False)\b/ },
     { type: 'null', regex: /^None\b/ },
-    { type: 'builtin', regex: /^(?:print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|hasattr|getattr|setattr|open|input|sorted|reversed|enumerate|zip|map|filter|reduce|sum|min|max|abs|round|pow|format|repr|id|dir|vars|help|super|property|classmethod|staticmethod)\b/ },
-    { type: 'builtin', regex: /^(?:Exception|TypeError|ValueError|KeyError|IndexError|AttributeError|ImportError|RuntimeError|StopIteration|OSError|IOError|FileNotFoundError|NotImplementedError|ZeroDivisionError)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:print|len|range|str|int|float|list|dict|set|tuple|bool|type|isinstance|hasattr|getattr|setattr|open|input|sorted|reversed|enumerate|zip|map|filter|reduce|sum|min|max|abs|round|pow|format|repr|id|dir|vars|help|super|property|classmethod|staticmethod)\b/,
+    },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:Exception|TypeError|ValueError|KeyError|IndexError|AttributeError|ImportError|RuntimeError|StopIteration|OSError|IOError|FileNotFoundError|NotImplementedError|ZeroDivisionError)\b/,
+    },
     { type: 'method', regex: /^__[a-zA-Z_][a-zA-Z0-9_]*__/ },
-    { type: 'type', regex: /^(?:Optional|Union|List|Dict|Set|Tuple|Callable|Any|NoReturn|ClassVar|Final|Literal|TypeVar|Generic|Protocol|TypedDict|Awaitable|Coroutine|AsyncGenerator|Iterator|Iterable|Mapping|Sequence|MutableMapping|MutableSequence)\b/ },
+    {
+      type: 'type',
+      regex:
+        /^(?:Optional|Union|List|Dict|Set|Tuple|Callable|Any|NoReturn|ClassVar|Final|Literal|TypeVar|Generic|Protocol|TypedDict|Awaitable|Coroutine|AsyncGenerator|Iterator|Iterable|Mapping|Sequence|MutableMapping|MutableSequence)\b/,
+    },
     { type: 'class', regex: /^[A-Z][a-zA-Z0-9_]*(?=\s*[:(])/ },
     { type: 'method', regex: /^[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/ },
     { type: 'property', regex: /^\.([a-zA-Z_][a-zA-Z0-9_]*)/ },
-    { type: 'number', regex: /^(?:0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:[eE][+-]?\d+)?j?)\b/ },
+    {
+      type: 'number',
+      regex: /^(?:0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:[eE][+-]?\d+)?j?)\b/,
+    },
     { type: 'comparison', regex: /^(?:==|!=|<=|>=|<>|<|>)/ },
-    { type: 'operator', regex: /^(?:\*\*|\/\/|@|:=|->|[+\-*/%|&^~]=?|not\s+in\b|is\s+not\b|not\b|and\b|or\b|in\b|is\b)/ },
+    {
+      type: 'operator',
+      regex:
+        /^(?:\*\*|\/\/|@|:=|->|[+\-*/%|&^~]=?|not\s+in\b|is\s+not\b|not\b|and\b|or\b|in\b|is\b)/,
+    },
     { type: 'bracket', regex: /^[[\]]/ },
     { type: 'brace', regex: /^[{}]/ },
     { type: 'paren', regex: /^[()]/ },
@@ -154,14 +210,29 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'attribute', regex: /^#!?\[[^\]]*\]/ },
     { type: 'typeParameter', regex: /^'[a-zA-Z_][a-zA-Z0-9_]*\b/ },
     { type: 'macro', regex: /^[a-zA-Z_][a-zA-Z0-9_]*!/ },
-    { type: 'controlKeyword', regex: /^(?:if|else|match|loop|while|for|break|continue|return|yield)\b/ },
-    { type: 'storageKeyword', regex: /^(?:fn|let|mut|const|static|struct|enum|trait|impl|type|pub|crate|mod|use|extern|self|Self|super|async|await|dyn|ref|move|unsafe|where|in|as)\b/ },
+    {
+      type: 'controlKeyword',
+      regex: /^(?:if|else|match|loop|while|for|break|continue|return|yield)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex:
+        /^(?:fn|let|mut|const|static|struct|enum|trait|impl|type|pub|crate|mod|use|extern|self|Self|super|async|await|dyn|ref|move|unsafe|where|in|as)\b/,
+    },
     { type: 'boolean', regex: /^(?:true|false)\b/ },
-    { type: 'builtin', regex: /^(?:i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell|HashMap|HashSet|BTreeMap|BTreeSet|VecDeque|LinkedList|BinaryHeap)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Cell|RefCell|HashMap|HashSet|BTreeMap|BTreeSet|VecDeque|LinkedList|BinaryHeap)\b/,
+    },
     { type: 'type', regex: /^[A-Z][a-zA-Z0-9_]*/ },
     { type: 'method', regex: /^[a-z_][a-zA-Z0-9_]*(?=\s*[(<])/ },
     { type: 'property', regex: /^\.([a-z_][a-zA-Z0-9_]*)/ },
-    { type: 'number', regex: /^(?:0x[0-9a-fA-F_]+|0b[01_]+|0o[0-7_]+|\d[\d_]*\.?[\d_]*(?:[eE][+-]?[\d_]+)?)[iu]?(?:8|16|32|64|128|size)?/ },
+    {
+      type: 'number',
+      regex:
+        /^(?:0x[0-9a-fA-F_]+|0b[01_]+|0o[0-7_]+|\d[\d_]*\.?[\d_]*(?:[eE][+-]?[\d_]+)?)[iu]?(?:8|16|32|64|128|size)?/,
+    },
     { type: 'comparison', regex: /^(?:==|!=|<=|>=|<|>)/ },
     { type: 'arrow', regex: /^(?:->|=>)/ },
     { type: 'operator', regex: /^(?:&&|\|\||[+\-*/%|&^!]=?|\.\.=?|::|\?)/ },
@@ -182,16 +253,34 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'string', regex: /^`[^`]*`/ },
     { type: 'string', regex: /^"(?:[^"\\]|\\[\s\S])*?"/ },
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])'/ },
-    { type: 'controlKeyword', regex: /^(?:if|else|switch|case|default|for|range|break|continue|goto|return|fallthrough|select)\b/ },
-    { type: 'storageKeyword', regex: /^(?:func|var|const|type|struct|interface|map|chan|package|import|defer|go)\b/ },
+    {
+      type: 'controlKeyword',
+      regex:
+        /^(?:if|else|switch|case|default|for|range|break|continue|goto|return|fallthrough|select)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex: /^(?:func|var|const|type|struct|interface|map|chan|package|import|defer|go)\b/,
+    },
     { type: 'boolean', regex: /^(?:true|false)\b/ },
     { type: 'null', regex: /^nil\b/ },
-    { type: 'builtin', regex: /^(?:int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|uintptr|float32|float64|complex64|complex128|bool|byte|rune|string|error|any)\b/ },
-    { type: 'builtin', regex: /^(?:make|new|len|cap|append|copy|delete|close|panic|recover|print|println|complex|real|imag)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|uintptr|float32|float64|complex64|complex128|bool|byte|rune|string|error|any)\b/,
+    },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:make|new|len|cap|append|copy|delete|close|panic|recover|print|println|complex|real|imag)\b/,
+    },
     { type: 'type', regex: /^[A-Z][a-zA-Z0-9_]*/ },
     { type: 'method', regex: /^[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/ },
     { type: 'property', regex: /^\.([a-zA-Z_][a-zA-Z0-9_]*)/ },
-    { type: 'number', regex: /^(?:0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:[eE][+-]?\d+)?i?)\b/ },
+    {
+      type: 'number',
+      regex: /^(?:0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+\.?\d*(?:[eE][+-]?\d+)?i?)\b/,
+    },
     { type: 'comparison', regex: /^(?:==|!=|<=|>=|<|>)/ },
     { type: 'arrow', regex: /^<-/ },
     { type: 'operator', regex: /^(?:&&|\|\||:=|[+\-*/%|&^]=?|\.\.\.|\+\+|--)/ },
@@ -211,8 +300,16 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'comment', regex: /^<!--[\s\S]*?-->/ },
     { type: 'string', regex: /^<!\[CDATA\[[\s\S]*?\]\]>/ },
     { type: 'preprocessor', regex: /^<\?[\s\S]*?\?>/ },
-    { type: 'tag', regex: /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=><`]+))?)*\s*\/>/ },
-    { type: 'tag', regex: /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=><`]+))?)*\s*>/ },
+    {
+      type: 'tag',
+      regex:
+        /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=><`]+))?)*\s*\/>/,
+    },
+    {
+      type: 'tag',
+      regex:
+        /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=><`]+))?)*\s*>/,
+    },
     { type: 'tag', regex: /^<\/[a-zA-Z][a-zA-Z0-9-]*\s*>/ },
     { type: 'tagBracket', regex: /^<\/?/ },
     { type: 'tagBracket', regex: /^\/?>/ },
@@ -236,9 +333,16 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'class', regex: /^\.[a-zA-Z_-][a-zA-Z0-9_-]*/ },
     { type: 'tag', regex: /^[a-zA-Z][a-zA-Z0-9-]*/ },
     { type: 'property', regex: /^[a-zA-Z-]+(?=\s*:)/ },
-    { type: 'number', regex: /^-?(?:\d+\.?\d*|\.\d+)(?:px|em|rem|vh|vw|vmin|vmax|%|deg|rad|turn|s|ms|fr|ch|ex)?/ },
+    {
+      type: 'number',
+      regex: /^-?(?:\d+\.?\d*|\.\d+)(?:px|em|rem|vh|vw|vmin|vmax|%|deg|rad|turn|s|ms|fr|ch|ex)?/,
+    },
     { type: 'constant', regex: /^#[0-9a-fA-F]{3,8}\b/ },
-    { type: 'keyword', regex: /^(?:inherit|initial|unset|revert|auto|none|block|inline|flex|grid|absolute|relative|fixed|sticky|hidden|visible|scroll|center|left|right|top|bottom|solid|dashed|dotted|normal|bold|italic|pointer|default|ease|linear|infinite)\b/ },
+    {
+      type: 'keyword',
+      regex:
+        /^(?:inherit|initial|unset|revert|auto|none|block|inline|flex|grid|absolute|relative|fixed|sticky|hidden|visible|scroll|center|left|right|top|bottom|solid|dashed|dotted|normal|bold|italic|pointer|default|ease|linear|infinite)\b/,
+    },
     { type: 'method', regex: /^[a-zA-Z-]+(?=\()/ },
     { type: 'operator', regex: /^[+\-*/%>~]/ },
     { type: 'brace', regex: /^[{}]/ },
@@ -314,9 +418,20 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'variable', regex: /^\$\{[^}]*\}/ },
     { type: 'variable', regex: /^\$[a-zA-Z_][a-zA-Z0-9_]*/ },
     { type: 'variable', regex: /^\$[0-9@#?$!*-]/ },
-    { type: 'controlKeyword', regex: /^(?:if|then|else|elif|fi|case|esac|for|while|until|do|done|in|select)\b/ },
-    { type: 'builtin', regex: /^(?:echo|printf|read|cd|pwd|export|unset|source|eval|exec|exit|return|shift|set|unset|local|declare|typeset|readonly|alias|unalias|function|test|true|false)\b/ },
-    { type: 'method', regex: /^(?:ls|cat|grep|sed|awk|find|sort|uniq|head|tail|wc|cut|tr|chmod|chown|mkdir|rmdir|rm|cp|mv|ln|touch|tar|gzip|gunzip|zip|unzip|curl|wget|ssh|scp|git|docker|npm|node|python|pip|make|gcc|go)\b/ },
+    {
+      type: 'controlKeyword',
+      regex: /^(?:if|then|else|elif|fi|case|esac|for|while|until|do|done|in|select)\b/,
+    },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:echo|printf|read|cd|pwd|export|unset|source|eval|exec|exit|return|shift|set|unset|local|declare|typeset|readonly|alias|unalias|function|test|true|false)\b/,
+    },
+    {
+      type: 'method',
+      regex:
+        /^(?:ls|cat|grep|sed|awk|find|sort|uniq|head|tail|wc|cut|tr|chmod|chown|mkdir|rmdir|rm|cp|mv|ln|touch|tar|gzip|gunzip|zip|unzip|curl|wget|ssh|scp|git|docker|npm|node|python|pip|make|gcc|go)\b/,
+    },
     { type: 'storageKeyword', regex: /^function\b/ },
     { type: 'comparison', regex: /^(?:-eq|-ne|-lt|-gt|-le|-ge|-z|-n|-e|-f|-d|-r|-w|-x)\b/ },
     { type: 'operator', regex: /^(?:&&|\|\||[|&;<>]|>>|<<|2>&1|>&2)/ },
@@ -333,10 +448,26 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'comment', regex: /^\/\*[\s\S]*?\*\// },
     { type: 'string', regex: /^'(?:[^']|'')*'/ },
     { type: 'string', regex: /^"(?:[^"]|"")*"/ },
-    { type: 'keyword', regex: /^(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|IS|NULL|AS|DISTINCT|ALL|UNION|INTERSECT|EXCEPT|ORDER|BY|ASC|DESC|LIMIT|OFFSET|GROUP|HAVING|INTO|VALUES|SET)\b/i },
-    { type: 'storageKeyword', regex: /^(?:CREATE|ALTER|DROP|TRUNCATE|TABLE|VIEW|INDEX|DATABASE|SCHEMA|CONSTRAINT|PRIMARY|KEY|FOREIGN|REFERENCES|UNIQUE|CHECK|DEFAULT|CASCADE|RESTRICT|AUTO_INCREMENT|IDENTITY|SERIAL)\b/i },
-    { type: 'type', regex: /^(?:INT|INTEGER|BIGINT|SMALLINT|TINYINT|DECIMAL|NUMERIC|FLOAT|REAL|DOUBLE|PRECISION|CHAR|VARCHAR|TEXT|NCHAR|NVARCHAR|NTEXT|DATE|TIME|DATETIME|TIMESTAMP|BOOLEAN|BOOL|BLOB|CLOB|JSON|UUID)\b/i },
-    { type: 'builtin', regex: /^(?:COUNT|SUM|AVG|MIN|MAX|COALESCE|NULLIF|CAST|CONVERT|CONCAT|SUBSTRING|LENGTH|UPPER|LOWER|TRIM|LTRIM|RTRIM|REPLACE|NOW|CURRENT_DATE|CURRENT_TIME|CURRENT_TIMESTAMP|DATEADD|DATEDIFF|YEAR|MONTH|DAY|HOUR|MINUTE|SECOND|ROUND|FLOOR|CEILING|ABS|MOD|POWER|SQRT)\b/i },
+    {
+      type: 'keyword',
+      regex:
+        /^(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|IS|NULL|AS|DISTINCT|ALL|UNION|INTERSECT|EXCEPT|ORDER|BY|ASC|DESC|LIMIT|OFFSET|GROUP|HAVING|INTO|VALUES|SET)\b/i,
+    },
+    {
+      type: 'storageKeyword',
+      regex:
+        /^(?:CREATE|ALTER|DROP|TRUNCATE|TABLE|VIEW|INDEX|DATABASE|SCHEMA|CONSTRAINT|PRIMARY|KEY|FOREIGN|REFERENCES|UNIQUE|CHECK|DEFAULT|CASCADE|RESTRICT|AUTO_INCREMENT|IDENTITY|SERIAL)\b/i,
+    },
+    {
+      type: 'type',
+      regex:
+        /^(?:INT|INTEGER|BIGINT|SMALLINT|TINYINT|DECIMAL|NUMERIC|FLOAT|REAL|DOUBLE|PRECISION|CHAR|VARCHAR|TEXT|NCHAR|NVARCHAR|NTEXT|DATE|TIME|DATETIME|TIMESTAMP|BOOLEAN|BOOL|BLOB|CLOB|JSON|UUID)\b/i,
+    },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:COUNT|SUM|AVG|MIN|MAX|COALESCE|NULLIF|CAST|CONVERT|CONCAT|SUBSTRING|LENGTH|UPPER|LOWER|TRIM|LTRIM|RTRIM|REPLACE|NOW|CURRENT_DATE|CURRENT_TIME|CURRENT_TIMESTAMP|DATEADD|DATEDIFF|YEAR|MONTH|DAY|HOUR|MINUTE|SECOND|ROUND|FLOOR|CEILING|ABS|MOD|POWER|SQRT)\b/i,
+    },
     { type: 'null', regex: /^NULL\b/i },
     { type: 'boolean', regex: /^(?:TRUE|FALSE)\b/i },
     { type: 'number', regex: /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/ },
@@ -360,15 +491,30 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
     { type: 'attribute', regex: /^\[[a-zA-Z_][a-zA-Z0-9_]*(?:\([^)]*\))?\]/ },
     { type: 'decorator', regex: /^@[a-zA-Z_][a-zA-Z0-9_]*(?:\([^)]*\))?/ },
-    { type: 'controlKeyword', regex: /^(?:if|else|switch|case|default|for|foreach|while|do|break|continue|return|throw|try|catch|finally|goto)\b/ },
-    { type: 'storageKeyword', regex: /^(?:public|private|protected|internal|static|final|const|readonly|volatile|synchronized|native|transient|abstract|virtual|override|sealed|extern|unsafe|partial|async|await|var|let|new|class|struct|interface|enum|delegate|event|namespace|using|import|package|extends|implements|throws|sizeof|typeof|instanceof|as|is|in|out|ref|params)\b/ },
+    {
+      type: 'controlKeyword',
+      regex:
+        /^(?:if|else|switch|case|default|for|foreach|while|do|break|continue|return|throw|try|catch|finally|goto)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex:
+        /^(?:public|private|protected|internal|static|final|const|readonly|volatile|synchronized|native|transient|abstract|virtual|override|sealed|extern|unsafe|partial|async|await|var|let|new|class|struct|interface|enum|delegate|event|namespace|using|import|package|extends|implements|throws|sizeof|typeof|instanceof|as|is|in|out|ref|params)\b/,
+    },
     { type: 'boolean', regex: /^(?:true|false)\b/ },
     { type: 'null', regex: /^(?:null|nullptr|nil|NULL)\b/ },
-    { type: 'builtin', regex: /^(?:void|int|long|short|byte|float|double|char|bool|boolean|string|String|object|Object|var|auto)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:void|int|long|short|byte|float|double|char|bool|boolean|string|String|object|Object|var|auto)\b/,
+    },
     { type: 'type', regex: /^[A-Z][a-zA-Z0-9_]*/ },
     { type: 'method', regex: /^[a-zA-Z_][a-zA-Z0-9_]*(?=\s*[(<])/ },
     { type: 'property', regex: /^\.([a-zA-Z_][a-zA-Z0-9_]*)/ },
-    { type: 'number', regex: /^(?:0x[0-9a-fA-F]+[uUlL]*|0b[01]+[uUlL]*|\d+\.?\d*(?:[eE][+-]?\d+)?[fFdDmMuUlL]*)\b/ },
+    {
+      type: 'number',
+      regex: /^(?:0x[0-9a-fA-F]+[uUlL]*|0b[01]+[uUlL]*|\d+\.?\d*(?:[eE][+-]?\d+)?[fFdDmMuUlL]*)\b/,
+    },
     { type: 'comparison', regex: /^(?:===|!==|==|!=|<=|>=|<|>)/ },
     { type: 'arrow', regex: /^(?:->|=>)/ },
     { type: 'operator', regex: /^(?:&&|\|\||>>>|>>|<<|[+\-*/%|&^~!]=?|\?\?|\?\.?|::)/ },
@@ -391,15 +537,30 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'preprocessor', regex: /^<\?(?:php|=)?/ },
     { type: 'preprocessor', regex: /^\?>/ },
     { type: 'string', regex: /^<<<['"]?([a-zA-Z_][a-zA-Z0-9_]*)['"]?\n[\s\S]*?\n\1;?/ },
-    { type: 'templateString', regex: /^"(?:[^"\\$]|\\[\s\S]|\$[a-zA-Z_][a-zA-Z0-9_]*|\$\{[^}]*\})*?"/ },
+    {
+      type: 'templateString',
+      regex: /^"(?:[^"\\$]|\\[\s\S]|\$[a-zA-Z_][a-zA-Z0-9_]*|\$\{[^}]*\})*?"/,
+    },
     { type: 'string', regex: /^'(?:[^'\\]|\\[\s\S])*?'/ },
     { type: 'variable', regex: /^\$[a-zA-Z_][a-zA-Z0-9_]*/ },
     { type: 'attribute', regex: /^#\[[^\]]*\]/ },
-    { type: 'controlKeyword', regex: /^(?:if|elseif|else|switch|case|default|for|foreach|while|do|break|continue|return|throw|try|catch|finally|match)\b/ },
-    { type: 'storageKeyword', regex: /^(?:function|class|interface|trait|enum|abstract|final|static|public|private|protected|const|var|new|extends|implements|use|namespace|as|clone|instanceof|yield|from|global|include|include_once|require|require_once|echo|print|die|exit|readonly)\b/ },
+    {
+      type: 'controlKeyword',
+      regex:
+        /^(?:if|elseif|else|switch|case|default|for|foreach|while|do|break|continue|return|throw|try|catch|finally|match)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex:
+        /^(?:function|class|interface|trait|enum|abstract|final|static|public|private|protected|const|var|new|extends|implements|use|namespace|as|clone|instanceof|yield|from|global|include|include_once|require|require_once|echo|print|die|exit|readonly)\b/,
+    },
     { type: 'boolean', regex: /^(?:true|false)\b/i },
     { type: 'null', regex: /^null\b/i },
-    { type: 'builtin', regex: /^(?:array|string|int|float|bool|object|callable|iterable|mixed|void|never|self|parent|static)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:array|string|int|float|bool|object|callable|iterable|mixed|void|never|self|parent|static)\b/,
+    },
     { type: 'type', regex: /^[A-Z][a-zA-Z0-9_]*/ },
     { type: 'method', regex: /^[a-zA-Z_][a-zA-Z0-9_]*(?=\s*\()/ },
     { type: 'property', regex: /^->([a-zA-Z_][a-zA-Z0-9_]*)/ },
@@ -431,11 +592,23 @@ const createPatterns = (lang: string): PatternDef[] => {
     { type: 'variable', regex: /^@@?[a-zA-Z_][a-zA-Z0-9_]*/ },
     { type: 'variable', regex: /^\$[a-zA-Z_][a-zA-Z0-9_]*/ },
     { type: 'constant', regex: /^:[a-zA-Z_][a-zA-Z0-9_]*[!?]?/ },
-    { type: 'controlKeyword', regex: /^(?:if|elsif|else|unless|case|when|while|until|for|break|next|redo|retry|return|raise|rescue|ensure|begin|end|then|do)\b/ },
-    { type: 'storageKeyword', regex: /^(?:def|class|module|include|extend|prepend|attr_reader|attr_writer|attr_accessor|alias|undef|defined\?|private|protected|public|require|require_relative|load|yield|super|self|new|lambda|proc)\b/ },
+    {
+      type: 'controlKeyword',
+      regex:
+        /^(?:if|elsif|else|unless|case|when|while|until|for|break|next|redo|retry|return|raise|rescue|ensure|begin|end|then|do)\b/,
+    },
+    {
+      type: 'storageKeyword',
+      regex:
+        /^(?:def|class|module|include|extend|prepend|attr_reader|attr_writer|attr_accessor|alias|undef|defined\?|private|protected|public|require|require_relative|load|yield|super|self|new|lambda|proc)\b/,
+    },
     { type: 'boolean', regex: /^(?:true|false)\b/ },
     { type: 'null', regex: /^nil\b/ },
-    { type: 'builtin', regex: /^(?:Array|Hash|String|Integer|Float|Symbol|Proc|Lambda|Object|Class|Module|Kernel|Enumerable|Comparable|File|IO|Dir|Time|Range|Regexp|Exception|StandardError|RuntimeError|ArgumentError|TypeError|NameError)\b/ },
+    {
+      type: 'builtin',
+      regex:
+        /^(?:Array|Hash|String|Integer|Float|Symbol|Proc|Lambda|Object|Class|Module|Kernel|Enumerable|Comparable|File|IO|Dir|Time|Range|Regexp|Exception|StandardError|RuntimeError|ArgumentError|TypeError|NameError)\b/,
+    },
     { type: 'type', regex: /^[A-Z][a-zA-Z0-9_]*/ },
     { type: 'method', regex: /^[a-zA-Z_][a-zA-Z0-9_]*[!?]?(?=\s*[({])/ },
     { type: 'property', regex: /^\.([a-zA-Z_][a-zA-Z0-9_]*[!?]?)/ },
@@ -874,14 +1047,18 @@ const tokenizeJsTs = (code: string, patterns: PatternDef[]): Token[] => {
 const tokenize = (code: string, patterns: PatternDef[], lang?: string): Token[] => {
   // Use specialized tokenizer based on language
   const normalizedLang = (lang || '').toLowerCase();
-  
+
   // Shell/Bash languages
   if (['bash', 'sh', 'shell', 'zsh', 'fish'].includes(normalizedLang)) {
     return tokenizeShell(code, patterns);
   }
-  
+
   // JavaScript/TypeScript languages
-  if (['javascript', 'js', 'typescript', 'ts', 'tsx', 'jsx', 'mjs', 'cjs', 'mts', 'cts'].includes(normalizedLang)) {
+  if (
+    ['javascript', 'js', 'typescript', 'ts', 'tsx', 'jsx', 'mjs', 'cjs', 'mts', 'cts'].includes(
+      normalizedLang
+    )
+  ) {
     return tokenizeJsTs(code, patterns);
   }
 
@@ -1051,7 +1228,8 @@ export default function InlineHighlightedCode({
       <code
         className="inline-code"
         style={{
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
+          fontFamily:
+            'ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace',
           fontSize: '0.9em',
           padding: '0.2em 0.35em',
           borderRadius: 4,

@@ -1,7 +1,7 @@
 // src/engine/tabs/builtins/AIReviewTabType.tsx
-import React from 'react';
+import type React from 'react';
 
-import { TabTypeDefinition, AIReviewTab, TabComponentProps } from '../types';
+import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/PaneContainer';
@@ -11,7 +11,7 @@ import { useTabStore } from '@/stores/tabStore';
 
 /**
  * AIレビュータブのコンポーネント
- * 
+ *
  * NOTE: NEW-ARCHITECTURE.mdに従い、ファイル操作はfileRepositoryを直接使用。
  * useProjectフックは各コンポーネントで独立した状態を持つため、
  * currentProjectがnullになりファイルが保存されない問題があった。
@@ -25,7 +25,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     const projectId = aiTab.aiEntry?.projectId;
-    
+
     if (!projectId) {
       console.error('[AIReviewTabRenderer] No projectId available, cannot save file');
       return;
@@ -34,10 +34,10 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     try {
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
       await fileRepository.saveFileByPath(projectId, filePath, content);
-      
+
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);
-      
+
       // AIレビュー状態をクリア
       try {
         await fileRepository.clearAIReview(projectId, filePath);
@@ -52,10 +52,17 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     // Add a chat message indicating the apply action, branching from parent if available
     if (addMessage) {
       try {
-        await addMessage(`Applied changes to ${filePath}`, 'assistant', 'edit', [filePath], undefined, {
-          parentMessageId: aiTab.aiEntry?.parentMessageId,
-          action: 'apply',
-        });
+        await addMessage(
+          `Applied changes to ${filePath}`,
+          'assistant',
+          'edit',
+          [filePath],
+          undefined,
+          {
+            parentMessageId: aiTab.aiEntry?.parentMessageId,
+            action: 'apply',
+          }
+        );
       } catch (e) {
         console.warn('[AIReviewTabRenderer] Failed to append apply message to chat:', e);
       }
@@ -66,7 +73,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const handleDiscardChanges = async (filePath: string) => {
     const projectId = aiTab.aiEntry?.projectId;
-    
+
     // AIレビュー状態をクリア（projectIdがある場合のみ）
     if (projectId) {
       try {
@@ -76,14 +83,21 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         console.warn('[AIReviewTabRenderer] clearAIReview failed (non-critical):', e);
       }
     }
-    
+
     // record revert/discard in chat
     if (addMessage) {
       try {
-        await addMessage(`Discarded AI suggested changes for ${filePath}`, 'assistant', 'edit', [filePath], undefined, {
-          parentMessageId: aiTab.aiEntry?.parentMessageId,
-          action: 'revert',
-        });
+        await addMessage(
+          `Discarded AI suggested changes for ${filePath}`,
+          'assistant',
+          'edit',
+          [filePath],
+          undefined,
+          {
+            parentMessageId: aiTab.aiEntry?.parentMessageId,
+            action: 'revert',
+          }
+        );
       } catch (e) {
         console.warn('[AIReviewTabRenderer] Failed to append discard message to chat:', e);
       }

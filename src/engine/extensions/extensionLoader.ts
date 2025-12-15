@@ -3,13 +3,13 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
-import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils';
-import { extensionInfo, extensionError } from './extensionsLogger';
+import { dataUrlToBlob, isBinaryExt, toDataUrlFromUint8 } from './binaryUtils';
+import { extensionError, extensionInfo } from './extensionsLogger';
 import type {
-  ExtensionManifest,
-  ExtensionExports,
-  ExtensionContext,
   ExtensionActivation,
+  ExtensionContext,
+  ExtensionExports,
+  ExtensionManifest,
 } from './types';
 
 /**
@@ -233,10 +233,7 @@ export async function loadExtensionModule(
       );
 
       // デバッグ: 変換後のコードの最初の部分をログ出力
-      console.log(
-        '[ExtensionLoader] Processed code preview:',
-        processedEntryCode.slice(0, 500)
-      );
+      console.log('[ExtensionLoader] Processed code preview:', processedEntryCode.slice(0, 500));
       // 変換前のentryCodeも出力
       console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
 

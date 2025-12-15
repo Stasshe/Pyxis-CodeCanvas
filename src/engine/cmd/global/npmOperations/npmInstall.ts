@@ -100,11 +100,7 @@ export class NpmInstall {
   // 現在インストール処理中のパッケージ（循環依存回避）
   private installingPackages: Set<string> = new Set();
 
-  constructor(
-    projectName: string,
-    projectId: string,
-    skipLoadingInstalledPackages: boolean = false
-  ) {
+  constructor(projectName: string, projectId: string, skipLoadingInstalledPackages = false) {
     this.projectName = projectName;
     this.projectId = projectId;
 
@@ -294,7 +290,9 @@ export class NpmInstall {
           shimLines.push('try {');
           shimLines.push(`  require('${target}');`);
           shimLines.push('} catch (e) {');
-          shimLines.push("  console.error('Failed to run " + name + ":', e && e.message ? e.message : e);" );
+          shimLines.push(
+            "  console.error('Failed to run " + name + ":', e && e.message ? e.message : e);"
+          );
           shimLines.push('  process.exit(1);');
           shimLines.push('}');
 
@@ -496,10 +494,7 @@ export class NpmInstall {
   }
 
   // NPMレジストリからパッケージ情報を取得
-  private async fetchPackageInfo(
-    packageName: string,
-    version: string = 'latest'
-  ): Promise<PackageInfo> {
+  private async fetchPackageInfo(packageName: string, version = 'latest'): Promise<PackageInfo> {
     try {
       const packageUrl = `https://registry.npmjs.org/${packageName}`;
       console.log(`[npm.fetchPackageInfo] Fetching package info from: ${packageUrl}`);
@@ -622,7 +617,7 @@ export class NpmInstall {
   // 依存関係を再帰的にインストール
   async installWithDependencies(
     packageName: string,
-    version: string = 'latest',
+    version = 'latest',
     options?: { autoAddGitignore?: boolean; ignoreEntry?: string; isDirect?: boolean }
   ): Promise<void> {
     const resolvedVersion = this.resolveVersion(version);
@@ -714,7 +709,9 @@ export class NpmInstall {
             batch.map(async ([depName, depVersion]) => {
               try {
                 // Transitive dependencies are marked as isDirect: false
-                await this.installWithDependencies(depName, this.resolveVersion(depVersion), { isDirect: false });
+                await this.installWithDependencies(depName, this.resolveVersion(depVersion), {
+                  isDirect: false,
+                });
               } catch (error) {
                 console.warn(
                   `[npm.installWithDependencies] Failed to install dependency ${depName}@${depVersion}: ${(error as Error).message}`
@@ -747,7 +744,7 @@ export class NpmInstall {
   // パッケージをダウンロードしてインストール（.tgzから直接）
   async downloadAndInstallPackage(
     packageName: string,
-    version: string = 'latest',
+    version = 'latest',
     tarballUrl?: string
   ): Promise<void> {
     try {
@@ -838,18 +835,28 @@ export class NpmInstall {
 
         // 展開されたファイルをバッチ/並列で同期
         const foldersToCreate: string[] = [];
-        const filesToCreate: Array<{ projectId: string; path: string; content: string; type: string }> = [];
+        const filesToCreate: Array<{
+          projectId: string;
+          path: string;
+          content: string;
+          type: string;
+        }> = [];
 
         for (const [relPath, fileInfo] of extractedFiles) {
           const fullPath = `${basePath}/${relPath}`;
           if (fileInfo.isDirectory) {
             foldersToCreate.push(fullPath);
           } else {
-            filesToCreate.push({ projectId: this.projectId, path: fullPath, content: fileInfo.content || '', type: 'file' });
+            filesToCreate.push({
+              projectId: this.projectId,
+              path: fullPath,
+              content: fileInfo.content || '',
+              type: 'file',
+            });
           }
         }
 
-          if (this.batchProcessing) {
+        if (this.batchProcessing) {
           // バッチモード時はフォルダは即時作成、ファイルはキューに追加
           await Promise.all(foldersToCreate.map(p => this.executeFileOperation(p, 'folder')));
           for (const f of filesToCreate) {
@@ -870,19 +877,20 @@ export class NpmInstall {
           for (let i = 0; i < filesToCreate.length; i += BATCH_SIZE) {
             const batch = filesToCreate.slice(i, i + BATCH_SIZE);
             try {
-              await fileRepository.createFilesBulk(
-                this.projectId,
-                batch as any,
-                true
-              );
+              await fileRepository.createFilesBulk(this.projectId, batch as any, true);
             } catch (err) {
               console.warn(`[npm.downloadAndInstallPackage] createFilesBulk failed:`, err);
               // フォールバックで個別作成（並列）
               await Promise.all(
                 batch.map(b =>
-                  fileRepository.createFile(this.projectId, b.path, b.content || '', 'file').catch(e => {
-                    console.warn(`[npm.downloadAndInstallPackage] Failed to create file ${b.path}:`, e);
-                  })
+                  fileRepository
+                    .createFile(this.projectId, b.path, b.content || '', 'file')
+                    .catch(e => {
+                      console.warn(
+                        `[npm.downloadAndInstallPackage] Failed to create file ${b.path}:`,
+                        e
+                      );
+                    })
                 )
               );
             }

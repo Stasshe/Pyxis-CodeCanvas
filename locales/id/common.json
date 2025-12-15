@@ -181,7 +181,7 @@
     "viewDiffReadonly": "Lihat diff (hanya baca)"
   },
   "gitHistory": {
-        "allFilesFiles": "Semua {count} file",
+    "allFilesFiles": "Semua {count} file",
     "allFilesScrollable": "Semua {count} file (dapat digulir)",
     "changedFiles": "File yang diubah:",
     "daysAgo": "{days} hari yang lalu",
@@ -210,11 +210,11 @@
     "generatingMermaid": "Membuat diagram Mermaid...",
     "imageNotFound": "Gambar tidak ditemukan: {src}",
     "loadingImage": "Memuat gambar...",
+    "mermaidPlaceholder": "Gulir untuk melihat diagram Mermaid",
     "preview": "Pratinjau",
     "reset": "Reset",
     "zoomIn": "Perbesar",
-    "zoomOut": "Perkecil",
-    "mermaidPlaceholder": "Gulir untuk melihat diagram Mermaid"
+    "zoomOut": "Perkecil"
   },
   "menu": {
     "extensions": "Extensions",

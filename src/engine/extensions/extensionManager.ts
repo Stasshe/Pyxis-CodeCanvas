@@ -4,26 +4,26 @@
  */
 
 import {
-  fetchExtensionManifest,
-  fetchExtensionCode,
-  loadExtensionModule,
   activateExtension,
   deactivateExtension,
+  fetchExtensionCode,
+  fetchExtensionManifest,
+  loadExtensionModule,
 } from './extensionLoader';
 import {
-  saveInstalledExtension,
-  loadInstalledExtension,
-  loadAllInstalledExtensions,
   deleteInstalledExtension,
+  loadAllInstalledExtensions,
+  loadInstalledExtension,
+  saveInstalledExtension,
 } from './storage-adapter';
-import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
 import {
-  ExtensionStatus,
-  type ExtensionManifest,
-  type InstalledExtension,
-  type ExtensionExports,
-  type ExtensionContext,
   type ExtensionActivation,
+  type ExtensionContext,
+  type ExtensionExports,
+  type ExtensionManifest,
+  ExtensionStatus,
+  type InstalledExtension,
 } from './types';
 
 /**
@@ -633,7 +633,8 @@ class ExtensionManager {
             return module as unknown as SystemModuleMap[T];
           }
           case 'pathUtils': {
-            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } = await import('@/engine/core/pathResolver');
+            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } =
+              await import('@/engine/core/pathResolver');
             return {
               normalizePath,
               toAppPath,
@@ -664,15 +665,17 @@ class ExtensionManager {
         // RuntimeRegistryにトランスパイラーを登録
         try {
           const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
-          const { ExtensionTranspilerProvider } = await import('@/engine/runtime/providers/ExtensionTranspilerProvider');
-          
+          const { ExtensionTranspilerProvider } = await import(
+            '@/engine/runtime/providers/ExtensionTranspilerProvider'
+          );
+
           const provider = new ExtensionTranspilerProvider(
             transpilerConfig.id,
             transpilerConfig.supportedExtensions || [],
             transpilerConfig.transpile,
             transpilerConfig.needsTranspile
           );
-          
+
           runtimeRegistry.registerTranspiler(provider);
           console.log(`[${extensionId}] Registered transpiler: ${transpilerConfig.id}`);
         } catch (error) {
@@ -684,7 +687,7 @@ class ExtensionManager {
         // RuntimeRegistryにランタイムを登録
         try {
           const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
-          
+
           // Create a runtime provider from the config
           const provider = {
             id: runtimeConfig.id,
@@ -698,7 +701,7 @@ class ExtensionManager {
             dispose: runtimeConfig.dispose,
             isReady: runtimeConfig.isReady,
           };
-          
+
           runtimeRegistry.registerRuntime(provider);
           console.log(`[${extensionId}] Registered runtime: ${runtimeConfig.id}`);
         } catch (error) {

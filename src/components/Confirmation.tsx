@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react';
-import React from 'react';
+import type React from 'react';
 
 import { useTranslation } from '../context/I18nContext';
 import { useTheme } from '../context/ThemeContext';
@@ -40,16 +40,10 @@ export const Confirmation: React.FC<ConfirmationProps> = ({
         }}
         className="rounded-lg shadow-xl p-6 min-w-[320px] max-w-[90vw]"
       >
-        <h2
-          className="text-lg font-bold mb-2"
-          style={{ color: colors.foreground }}
-        >
+        <h2 className="text-lg font-bold mb-2" style={{ color: colors.foreground }}>
           {title ?? t('confirmation.title')}
         </h2>
-        <div
-          className="mb-4"
-          style={{ color: colors.mutedFg }}
-        >
+        <div className="mb-4" style={{ color: colors.mutedFg }}>
           {message}
         </div>
         <div className="flex justify-end gap-2">

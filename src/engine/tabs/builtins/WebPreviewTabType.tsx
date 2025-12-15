@@ -1,7 +1,7 @@
 // src/engine/tabs/builtins/WebPreviewTabType.tsx
-import React from 'react';
+import type React from 'react';
 
-import { TabTypeDefinition, WebPreviewTab, TabComponentProps } from '../types';
+import type { TabComponentProps, TabTypeDefinition, WebPreviewTab } from '../types';
 
 import WebPreviewTabComponent from '@/components/Tab/WebPreviewTab';
 
@@ -14,12 +14,7 @@ const WebPreviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   // タブに保存されたprojectNameを優先、なければcurrentProjectから取得
   const projectName = webTab.projectName;
 
-  return (
-    <WebPreviewTabComponent
-      filePath={webTab.path}
-      currentProjectName={projectName}
-    />
-  );
+  return <WebPreviewTabComponent filePath={webTab.path} currentProjectName={projectName} />;
 };
 
 /**

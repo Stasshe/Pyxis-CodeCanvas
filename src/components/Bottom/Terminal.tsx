@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
-import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
@@ -17,9 +17,9 @@ import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import {
+  clearTerminalHistory,
   getTerminalHistory,
   saveTerminalHistory,
-  clearTerminalHistory,
 } from '@/stores/terminalHistoryStorage';
 
 interface TerminalProps {
@@ -336,7 +336,7 @@ function ClientTerminal({
           const rgb = colorHex
             .replace('#', '')
             .match(/.{2}/g)
-            ?.map(x => parseInt(x, 16)) || [0, 0, 0];
+            ?.map(x => Number.parseInt(x, 16)) || [0, 0, 0];
           branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
         }
         term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
@@ -365,7 +365,7 @@ function ClientTerminal({
     // Write lock to prevent concurrent writes causing newlines
     let isTermWriting = false;
     const writeQueue: string[] = [];
-    
+
     const flushWriteQueue = () => {
       if (isTermWriting || writeQueue.length === 0) return;
       isTermWriting = true;
@@ -410,16 +410,16 @@ function ClientTerminal({
           // keep this lightweight and safe
           console.log('[Terminal] captureWriteOutput received:', JSON.stringify(output));
         } catch (e) {}
-        
+
         // Don't add newlines to in-place updates (starts with \r for carriage return)
         // or cursor control sequences (starts with \x1b[)
         const isInPlaceUpdate = output.startsWith('\r') || output.startsWith('\x1b[?');
-        
+
         // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）
         // But skip for in-place updates which need to stay on the same line
         const normalizedOutput = isInPlaceUpdate || output.endsWith('\n') ? output : output + '\n';
         capturedOutput += normalizedOutput;
-        
+
         if (!redirect) {
           await writeOutput(normalizedOutput);
         }
@@ -427,7 +427,7 @@ function ClientTerminal({
 
       let skipTerminalRedirect = false;
       try {
-         switch (cmd) {
+        switch (cmd) {
           // New namespaced form: pyxis <category> <action> [...]
           case 'pyxis': {
             if (args.length === 0) {
@@ -499,20 +499,25 @@ function ClientTerminal({
             }
             break;
           }
-          
+
           case 'git':
             await handleGitCommand(args, currentProject, currentProjectId, captureWriteOutput);
             break;
 
           case 'npm':
-            await handleNPMCommand(args, currentProject, currentProjectId, captureWriteOutput, setLoading);
+            await handleNPMCommand(
+              args,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput,
+              setLoading
+            );
             break;
-
 
           case 'vim': {
             // Disable normal terminal input during vim mode
             vimModeActive = true;
-            
+
             const vimEditor = await handleVimCommand(
               args,
               unixCommandsRef,
@@ -529,14 +534,13 @@ function ClientTerminal({
                 showPrompt();
               }
             );
-            
+
             // Store Vim editor instance for ESC button
             vimEditorRef.current = vimEditor;
             if (onVimModeChange) onVimModeChange(vimEditor);
-            
+
             break;
           }
-
 
           default: {
             // カスタムコマンドをチェック
@@ -578,12 +582,12 @@ function ClientTerminal({
                     }
                   },
                 });
-                  // 完了後は何もしない（既にコールバックで出力済み）
-                  // StreamShell (shellRef) はリダイレクトを内部で処理しているため
-                  // Terminal側でのファイル書き込みは行わないようにする。
-                  if (redirect && fileName && unixCommandsRef.current) {
-                    skipTerminalRedirect = true;
-                  }
+                // 完了後は何もしない（既にコールバックで出力済み）
+                // StreamShell (shellRef) はリダイレクトを内部で処理しているため
+                // Terminal側でのファイル書き込みは行わないようにする。
+                if (redirect && fileName && unixCommandsRef.current) {
+                  skipTerminalRedirect = true;
+                }
               }
             }
             break;
@@ -774,7 +778,7 @@ function ClientTerminal({
 
     // 通常のキー入力
     let vimModeActive = false; // Flag to disable normal input during vim mode
-    
+
     term.onData((data: string) => {
       if (ignoreNextOnData) {
         // clear and ignore a single following onData payload
@@ -933,8 +937,8 @@ function ClientTerminal({
         // Update shell terminal size after resize
         if (currentProjectId && xtermRef.current) {
           terminalCommandRegistry.updateShellSize(
-            currentProjectId, 
-            xtermRef.current?.cols ?? 80, 
+            currentProjectId,
+            xtermRef.current?.cols ?? 80,
             xtermRef.current?.rows ?? 24
           );
         }
@@ -1001,10 +1005,7 @@ export default function Terminal({
         className="w-full h-full flex items-center justify-center"
         style={{ height: `${height - 32}px`, background: colors.editorBg }}
       >
-        <div
-          className="text-sm"
-          style={{ color: colors.mutedFg }}
-        >
+        <div className="text-sm" style={{ color: colors.mutedFg }}>
           {t('bottom.terminalInitializing')}
         </div>
       </div>
