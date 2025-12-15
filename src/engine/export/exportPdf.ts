@@ -1,5 +1,5 @@
-import { jsPDF } from 'jspdf'
 import { toPng } from 'html-to-image'
+import { jsPDF } from 'jspdf'
 
 // High quality export setting for retina displays
 const HIGH_QUALITY_PIXEL_RATIO = 2
@@ -10,10 +10,7 @@ const HIGH_QUALITY_PIXEL_RATIO = 2
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.pdf')
  */
-export async function exportPdfFromHtml(
-  html: string,
-  fileName: string = 'export.pdf'
-): Promise<void> {
+export async function exportPdfFromHtml(html: string, fileName = 'export.pdf'): Promise<void> {
   if (typeof window === 'undefined') return
 
   // Create a temporary container with the content
@@ -176,7 +173,7 @@ export async function exportPdfFromHtml(
  */
 export async function exportPngFromElement(
   element: HTMLElement,
-  fileName: string = 'export.png'
+  fileName = 'export.png'
 ): Promise<void> {
   if (typeof window === 'undefined') return
 
@@ -205,10 +202,7 @@ export async function exportPngFromElement(
  * @param html - HTML content to export
  * @param fileName - Output filename (optional, default: 'export.png')
  */
-export async function exportPngFromHtml(
-  html: string,
-  fileName: string = 'export.png'
-): Promise<void> {
+export async function exportPngFromHtml(html: string, fileName = 'export.png'): Promise<void> {
   if (typeof window === 'undefined') return
 
   const element = document.createElement('div')
@@ -238,7 +232,7 @@ export async function exportPngFromHtml(
  */
 export async function exportPdfFromHtmlCanvas(
   html: string,
-  fileName: string = 'export.pdf'
+  fileName = 'export.pdf'
 ): Promise<void> {
   if (typeof window === 'undefined') return
 

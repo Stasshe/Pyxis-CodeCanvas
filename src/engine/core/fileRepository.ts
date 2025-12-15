@@ -9,29 +9,29 @@
  */
 
 import { gitFileSystem } from './gitFileSystem'
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore'
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from './gitignore'
 import {
-  toAppPath,
-  toGitPath as pathToGitPath,
   fromGitPath as pathFromGitPath,
   getParentPath as pathGetParentPath,
+  toGitPath as pathToGitPath,
+  toAppPath,
 } from './pathResolver'
 
 import { LOCALSTORAGE_KEY } from '@/context/config'
-import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger'
+import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger'
 import { initialFileContents } from '@/engine/initialFileContents'
 import {
+  addMessageToChatSpace,
   createChatSpace,
-  saveChatSpace,
-  getChatSpaces,
   deleteChatSpace,
   deleteChatSpacesForProject,
-  addMessageToChatSpace,
+  getChatSpaces,
+  renameChatSpace,
+  saveChatSpace,
   updateChatSpaceMessage,
   updateChatSpaceSelectedFiles,
-  renameChatSpace,
 } from '@/engine/storage/chatStorageAdapter'
-import { Project, ProjectFile, ChatSpace, ChatSpaceMessage } from '@/types'
+import { ChatSpace, ChatSpaceMessage, type Project, type ProjectFile } from '@/types'
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -920,7 +920,7 @@ export class FileRepository {
       isBufferArray?: boolean
       bufferContent?: ArrayBuffer
     }>,
-    skipSync: boolean = false
+    skipSync = false
   ): Promise<ProjectFile[]> {
     if (!this.db) throw new Error('Database not initialized')
 
@@ -1193,7 +1193,7 @@ export class FileRepository {
   private async handlePostDeletion(
     projectId: string,
     deletedFiles: ProjectFile[],
-    isRecursive: boolean = false
+    isRecursive = false
   ): Promise<void> {
     // .gitignoreが削除されていればキャッシュをクリア
     const hasGitignore = deletedFiles.some(f => f.path === '/.gitignore')

@@ -6,10 +6,10 @@
  */
 
 import {
-  toAppPath,
   fsPathToAppPath,
-  hasPrefix as pathHasPrefix,
   normalizeDotSegments,
+  hasPrefix as pathHasPrefix,
+  toAppPath,
 } from '@/engine/core/pathResolver'
 
 /**

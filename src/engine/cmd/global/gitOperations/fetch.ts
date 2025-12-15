@@ -3,7 +3,7 @@
  * GitHub APIを使用してリモートの参照を取得
  */
 
-import FS from '@isomorphic-git/lightning-fs'
+import type FS from '@isomorphic-git/lightning-fs'
 import git from 'isomorphic-git'
 import http from 'isomorphic-git/http/web'
 

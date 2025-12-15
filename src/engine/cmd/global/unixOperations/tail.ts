@@ -8,7 +8,7 @@ export class TailCommand extends UnixCommandBase {
     }
     const file = positional[0]
     const nArg = args.find(a => a.startsWith('-n')) || '-n10'
-    const n = parseInt(nArg.replace('-n', '')) || 10
+    const n = Number.parseInt(nArg.replace('-n', '')) || 10
 
     const path = this.normalizePath(this.resolvePath(file))
     const isDir = await this.isDirectory(path)

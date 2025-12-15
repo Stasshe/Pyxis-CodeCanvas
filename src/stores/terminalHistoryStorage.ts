@@ -3,7 +3,7 @@
  * IndexedDBを使用したターミナルコマンド履歴管理（プロジェクト別）
  */
 
-import { storageService, STORES } from '@/engine/storage'
+import { STORES, storageService } from '@/engine/storage'
 
 const historyCache = new Map<string, string[]>()
 

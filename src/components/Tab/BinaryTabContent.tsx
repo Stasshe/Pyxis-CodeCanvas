@@ -1,8 +1,8 @@
 import { FileText } from 'lucide-react'
-import React from 'react'
+import type React from 'react'
 
 import { useTranslation } from '@/context/I18nContext'
-import { BinaryTab, EditorTab } from '@/engine/tabs/types'
+import type { BinaryTab, EditorTab } from '@/engine/tabs/types'
 
 interface BinaryTabContentProps {
   activeTab: BinaryTab | EditorTab

@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 
 import { useTabStore } from '@/stores/tabStore'
-import { Project } from '@/types'
+import type { Project } from '@/types'
 
 /**
  * プロジェクト読み込み時にWelcomeタブを開くカスタムフック

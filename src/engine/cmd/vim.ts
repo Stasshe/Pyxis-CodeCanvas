@@ -1,5 +1,5 @@
-import { VimEditor } from './VimEditor'
 import { fileRepository } from '@/engine/core/fileRepository'
+import { VimEditor } from './VimEditor'
 
 // Vim command handler that integrates VimEditor with the terminal
 // src/engine/cmd/vim.ts

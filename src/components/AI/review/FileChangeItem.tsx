@@ -2,7 +2,7 @@
 
 'use client'
 
-import { FileCode, Eye, Check, X } from 'lucide-react'
+import { Check, Eye, FileCode, X } from 'lucide-react'
 import React from 'react'
 
 import { useTranslation } from '@/context/I18nContext'

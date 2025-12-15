@@ -17,17 +17,17 @@
 
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { DEFAULT_BINDINGS } from './defaultKeybindings'
 import {
+  type Binding,
+  formatKeyComboForDisplay,
   formatKeyEvent,
   normalizeKeyCombo,
-  formatKeyComboForDisplay,
-  Binding,
 } from './keybindingUtils'
 
-import { storageService, STORES } from '@/engine/storage'
+import { STORES, storageService } from '@/engine/storage'
 
 const KEYBINDINGS_STORAGE_ID = 'user-keybindings'
 

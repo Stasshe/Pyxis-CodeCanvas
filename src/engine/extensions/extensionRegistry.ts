@@ -4,8 +4,8 @@
  */
 
 import { fetchExtensionManifest } from './extensionLoader'
-import { extensionInfo, extensionError } from './extensionsLogger'
-import type { ExtensionRegistry, ExtensionManifest } from './types'
+import { extensionError, extensionInfo } from './extensionsLogger'
+import type { ExtensionManifest, ExtensionRegistry } from './types'
 
 const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/registry.json'
 
@@ -13,7 +13,7 @@ const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/re
  * キャッシュされたレジストリ
  */
 let cachedRegistry: ExtensionRegistry | null = null
-let lastFetch: number = 0
+let lastFetch = 0
 const CACHE_TTL = 1 * 60 * 1000 // 5分
 
 /**

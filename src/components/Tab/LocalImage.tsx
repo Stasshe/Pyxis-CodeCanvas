@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
-import { loadImageAsDataURL } from './markdownUtils'
-import { FileItem } from '@/types'
 import { useTranslation } from '@/context/I18nContext'
+import { FileItem } from '@/types'
+import type React from 'react'
+import { useEffect, useState } from 'react'
+import { loadImageAsDataURL } from './markdownUtils'
 
 export const LocalImage: React.FC<{
   src: string

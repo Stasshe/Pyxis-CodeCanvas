@@ -1,6 +1,7 @@
 // src/context/TabContext.tsx
 'use client'
-import React, { useEffect, ReactNode, useMemo } from 'react'
+import type React from 'react'
+import { type ReactNode, useEffect, useMemo } from 'react'
 
 import { useProjectStore } from '@/stores/projectStore'
 import { useTabStore } from '@/stores/tabStore'

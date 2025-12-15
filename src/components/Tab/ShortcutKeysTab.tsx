@@ -1,27 +1,28 @@
 'use client'
 
 import {
-  Edit2,
-  RefreshCw,
-  X,
-  Search,
   Command,
-  Keyboard,
-  File,
+  Edit2,
   Eye,
-  Play,
-  GitBranch,
+  File,
   Folder,
-  Settings,
+  GitBranch,
   Grid,
+  Keyboard,
   List,
+  Play,
+  RefreshCw,
+  Search,
+  Settings,
   Terminal,
+  X,
 } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import type React from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings'
-import { Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils'
-import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings'
+import { type Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils'
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings'
 
 export default function ShortcutKeysTab() {
   const { bindings, updateBindings } = useKeyBindings()

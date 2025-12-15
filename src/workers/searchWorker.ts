@@ -127,7 +127,6 @@ self.addEventListener('message', (ev: MessageEvent) => {
         }
       }
     }
-
     ;(self as any).postMessage({ type: 'result', searchId, results })
   } catch (err) {
     ;(self as any).postMessage({ type: 'result', searchId, results: [], error: String(err) })

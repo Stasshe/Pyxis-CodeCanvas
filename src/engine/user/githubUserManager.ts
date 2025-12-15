@@ -32,7 +32,7 @@ class GitHubUserManager {
   private static instance: GitHubUserManager
   private user: GitHubUser | null = null
   private fetchPromise: Promise<GitHubUser | null> | null = null
-  private lastFetchTime: number = 0
+  private lastFetchTime = 0
   private readonly CACHE_DURATION = 5 * 60 * 1000 // 5分間キャッシュ
 
   private constructor() {}

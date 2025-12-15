@@ -1,17 +1,18 @@
 'use client'
 
-import { GitBranch, GitCommit, RefreshCw, Plus, X, Clock, Minus, RotateCcw } from 'lucide-react'
-import React, { useState, useEffect } from 'react'
+import { Clock, GitBranch, GitCommit, Minus, Plus, RefreshCw, RotateCcw, X } from 'lucide-react'
+import type React from 'react'
+import { useEffect, useState } from 'react'
 
 import GitHistory from './GitHistory'
 
-import { LOCALSTORAGE_KEY } from '@/context/config'
 import { useTranslation } from '@/context/I18nContext'
 import { useTheme } from '@/context/ThemeContext'
+import { LOCALSTORAGE_KEY } from '@/context/config'
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
 import { generateCommitMessage } from '@/engine/commitMsgAI'
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers'
-import { GitRepository, GitCommit as GitCommitType, GitStatus } from '@/types/git'
+import type { GitCommit as GitCommitType, GitRepository, GitStatus } from '@/types/git'
 
 interface GitPanelProps {
   currentProject?: string

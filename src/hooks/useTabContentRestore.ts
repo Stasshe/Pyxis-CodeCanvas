@@ -1,9 +1,9 @@
 // src/hooks/useTabContentRestore.ts
-import { useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { fileRepository } from '@/engine/core/fileRepository'
 import { useTabStore } from '@/stores/tabStore'
-import { FileItem, EditorPane } from '@/types'
+import type { EditorPane, FileItem } from '@/types'
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {

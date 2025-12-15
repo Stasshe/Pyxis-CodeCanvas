@@ -265,7 +265,7 @@ export async function handleUnixCommand(
           const paths = args.filter(a => !a.startsWith('-'))
           const file = paths[0]
           const nOption = options.find(o => o.startsWith('-n'))
-          const n = nOption ? parseInt(nOption.replace('-n', '')) || 10 : 10
+          const n = nOption ? Number.parseInt(nOption.replace('-n', '')) || 10 : 10
           try {
             const result = unix.head ? await unix.head(file, n) : await unix.cat(file)
             await append(result)
@@ -284,7 +284,7 @@ export async function handleUnixCommand(
           const paths = args.filter(a => !a.startsWith('-'))
           const file = paths[0]
           const nOption = options.find(o => o.startsWith('-n'))
-          const n = nOption ? parseInt(nOption.replace('-n', '')) || 10 : 10
+          const n = nOption ? Number.parseInt(nOption.replace('-n', '')) || 10 : 10
           try {
             const result = unix.tail ? await unix.tail(file, n) : await unix.cat(file)
             await append(result)

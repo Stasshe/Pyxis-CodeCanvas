@@ -1,5 +1,5 @@
-import git from 'isomorphic-git'
 import type FS from '@isomorphic-git/lightning-fs'
+import git from 'isomorphic-git'
 
 /**
  * git show コマンドの実装

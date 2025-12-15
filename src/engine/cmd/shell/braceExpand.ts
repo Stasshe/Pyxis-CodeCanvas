@@ -36,8 +36,8 @@ const splitTopLevelCommas = (s: string): string[] => {
 const expandNumericRange = (s: string): string[] | null => {
   const m = s.match(/^(-?\d+)\.\.(-?\d+)$/)
   if (!m) return null
-  const a = parseInt(m[1], 10)
-  const b = parseInt(m[2], 10)
+  const a = Number.parseInt(m[1], 10)
+  const b = Number.parseInt(m[2], 10)
   const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length)
   const out: string[] = []
   if (a <= b) {

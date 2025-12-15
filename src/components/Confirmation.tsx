@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react'
-import React from 'react'
+import type React from 'react'
 
 import { useTranslation } from '../context/I18nContext'
 import { useTheme } from '../context/ThemeContext'

@@ -1,8 +1,8 @@
 'use client'
 
-import React from 'react'
-import { useTabStore } from '@/stores/tabStore'
 import { useTheme } from '@/context/ThemeContext'
+import { useTabStore } from '@/stores/tabStore'
+import type React from 'react'
 
 interface BreadcrumbProps {
   paneId: string

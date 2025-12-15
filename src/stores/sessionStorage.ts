@@ -8,8 +8,8 @@
  * - メタデータ（バージョン、最終保存時刻）
  */
 
-import { storageService, STORES } from '@/engine/storage'
-import { EditorPane } from '@/engine/tabs/types'
+import { STORES, storageService } from '@/engine/storage'
+import type { EditorPane } from '@/engine/tabs/types'
 
 /**
  * Pyxisセッションの型定義

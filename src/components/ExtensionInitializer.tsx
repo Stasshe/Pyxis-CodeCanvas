@@ -8,7 +8,6 @@ import { initializeBuiltinRuntimes } from '@/engine/runtime/builtinRuntimes'
 export default function ExtensionInitializer() {
   useEffect(() => {
     let mounted = true
-
     ;(async () => {
       try {
         // ビルトインランタイムを初期化

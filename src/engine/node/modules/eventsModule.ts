@@ -101,7 +101,7 @@ function EventEmitter(this: EventEmitter) {
 EventEmitter.prototype = InternalEventEmitter.prototype as any
 EventEmitter.prototype.constructor = EventEmitter
 
-export { EventEmitter }
+export type { EventEmitter }
 
 export function createEventsModule() {
   return {

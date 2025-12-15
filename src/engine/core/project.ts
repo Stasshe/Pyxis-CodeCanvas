@@ -9,15 +9,15 @@
  * 5. 手動の状態更新は不要（イベントシステムに任せる）
  */
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { fileRepository } from './fileRepository'
 
 import { LOCALSTORAGE_KEY } from '@/context/config'
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
 import { createChatSpace } from '@/engine/storage/chatStorageAdapter'
-import { FileItem } from '@/types'
-import { Project, ProjectFile } from '@/types/'
+import type { FileItem } from '@/types'
+import type { Project, ProjectFile } from '@/types/'
 
 /**
  * プロジェクト作成時のGit初期化とコミット
@@ -272,7 +272,7 @@ export const useProject = () => {
   const syncTerminalFileOperation = async (
     path: string,
     type: 'file' | 'folder' | 'delete',
-    content: string = '',
+    content = '',
     bufferContent?: ArrayBuffer
   ) => {
     if (!currentProject) {

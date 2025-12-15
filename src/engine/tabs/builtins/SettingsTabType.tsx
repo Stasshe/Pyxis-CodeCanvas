@@ -1,7 +1,7 @@
 // src/engine/tabs/builtins/SettingsTabType.tsx
-import React from 'react'
+import type React from 'react'
 
-import { TabTypeDefinition, SettingsTab, TabComponentProps } from '../types'
+import type { SettingsTab, TabComponentProps, TabTypeDefinition } from '../types'
 
 import ShortcutKeysTab from '@/components/Tab/ShortcutKeysTab'
 

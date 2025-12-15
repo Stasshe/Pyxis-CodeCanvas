@@ -1,4 +1,4 @@
-import FS from '@isomorphic-git/lightning-fs'
+import type FS from '@isomorphic-git/lightning-fs'
 import git from 'isomorphic-git'
 import http from 'isomorphic-git/http/web'
 
@@ -10,12 +10,12 @@ import { GitMergeOperations } from './gitOperations/merge'
 import { GitResetOperations } from './gitOperations/reset'
 import { GitRevertOperations } from './gitOperations/revert'
 
+import type { TerminalUI } from '@/engine/cmd/terminalUI'
 import { fileRepository } from '@/engine/core/fileRepository'
 import { gitFileSystem } from '@/engine/core/gitFileSystem'
-import { toAppPath, joinPath } from '@/engine/core/pathResolver'
+import { joinPath, toAppPath } from '@/engine/core/pathResolver'
 import { syncManager } from '@/engine/core/syncManager'
 import { authRepository } from '@/engine/user/authRepository'
-import type { TerminalUI } from '@/engine/cmd/terminalUI'
 
 /**
  * [NEW ARCHITECTURE] Git操作を管理するクラス

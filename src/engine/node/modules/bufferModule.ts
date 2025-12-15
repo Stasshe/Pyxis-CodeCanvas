@@ -55,7 +55,7 @@ class BufferEmulation {
     return result
   }
 
-  toString(encoding: string = 'utf8'): string {
+  toString(encoding = 'utf8'): string {
     const decoder = new TextDecoder(encoding)
     return decoder.decode(this._data)
   }

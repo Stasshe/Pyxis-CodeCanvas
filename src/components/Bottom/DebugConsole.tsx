@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react'
 
-import { DebugConsoleAPI, TerminalAction } from './DebugConsoleAPI'
+import { DebugConsoleAPI, type TerminalAction } from './DebugConsoleAPI'
 
 import { useTheme } from '@/context/ThemeContext'
 

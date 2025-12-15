@@ -4,26 +4,26 @@
  */
 
 import {
-  fetchExtensionManifest,
-  fetchExtensionCode,
-  loadExtensionModule,
   activateExtension,
   deactivateExtension,
+  fetchExtensionCode,
+  fetchExtensionManifest,
+  loadExtensionModule,
 } from './extensionLoader'
 import {
-  saveInstalledExtension,
-  loadInstalledExtension,
-  loadAllInstalledExtensions,
   deleteInstalledExtension,
+  loadAllInstalledExtensions,
+  loadInstalledExtension,
+  saveInstalledExtension,
 } from './storage-adapter'
-import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes'
+import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes'
 import {
-  ExtensionStatus,
-  type ExtensionManifest,
-  type InstalledExtension,
-  type ExtensionExports,
-  type ExtensionContext,
   type ExtensionActivation,
+  type ExtensionContext,
+  type ExtensionExports,
+  type ExtensionManifest,
+  ExtensionStatus,
+  type InstalledExtension,
 } from './types'
 
 /**
@@ -113,7 +113,6 @@ class ExtensionManager {
           // katex is optional; warn but continue
           console.warn('[ExtensionManager] katex not available as host-provided module')
         }
-
         ;(window as any).__PYXIS_MARKDOWN__ = {
           ReactMarkdown:
             (ReactMarkdownModule && (ReactMarkdownModule as any).default) || ReactMarkdownModule,

@@ -1,6 +1,6 @@
 // ファイルコンテキスト構築ユーティリティ
 
-import type { FileItem, ProjectFile, AIFileContext } from '@/types'
+import type { AIFileContext, FileItem, ProjectFile } from '@/types'
 
 // ファイル内容の行数制限（400行）
 const MAX_LINES_PER_FILE = 400
@@ -65,7 +65,7 @@ function truncateFileContent(content: unknown): string {
 }
 
 // FileItemをAIFileContextに変換
-function fileItemToAIContext(file: FileItem, selected: boolean = false): AIFileContext | null {
+function fileItemToAIContext(file: FileItem, selected = false): AIFileContext | null {
   //console.log('[fileItemToAIContext] Processing file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file));
 
   if (isBinaryFile(file) || file.type === 'folder') {
@@ -81,10 +81,7 @@ function fileItemToAIContext(file: FileItem, selected: boolean = false): AIFileC
 }
 
 // ProjectFileをAIFileContextに変換
-function projectFileToAIContext(
-  file: ProjectFile,
-  selected: boolean = false
-): AIFileContext | null {
+function projectFileToAIContext(file: ProjectFile, selected = false): AIFileContext | null {
   if (isBinaryFile(file) || file.type === 'folder') {
     return null
   }

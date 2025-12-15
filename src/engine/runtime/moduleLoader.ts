@@ -8,11 +8,11 @@
  * - 循環参照の検出
  */
 
+import { runtimeRegistry } from './RuntimeRegistry'
 import { ModuleCache } from './moduleCache'
 import { ModuleResolver } from './moduleResolver'
-import { normalizePath, dirname } from './pathUtils'
-import { runtimeInfo, runtimeWarn, runtimeError } from './runtimeLogger'
-import { runtimeRegistry } from './RuntimeRegistry'
+import { dirname, normalizePath } from './pathUtils'
+import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger'
 import { transpileManager } from './transpileManager'
 
 import { fileRepository } from '@/engine/core/fileRepository'

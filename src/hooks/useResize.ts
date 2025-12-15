@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 type Direction = 'horizontal' | 'vertical'
 
@@ -61,7 +61,7 @@ export function useResize(options: UseResizeOptions) {
   }, [])
 
   const handleMove = useCallback(
-    (clientX: number, clientY: number, isInverted: boolean = false) => {
+    (clientX: number, clientY: number, isInverted = false) => {
       const state = stateRef.current
       if (!state.isResizing) return
 
@@ -123,7 +123,7 @@ export function useResize(options: UseResizeOptions) {
   const startResize = useCallback(
     (
       e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
-      isInverted: boolean = false
+      isInverted = false
     ) => {
       e.preventDefault()
 

@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react'
 import { useDragLayer } from 'react-dnd'
 import { getIconForFile, getIconForFolder } from 'vscode-icons-js'
 
-import { DND_TAB, DND_FILE_TREE_ITEM } from '@/constants/dndTypes'
+import { DND_FILE_TREE_ITEM, DND_TAB } from '@/constants/dndTypes'
 import { useTheme } from '@/context/ThemeContext'
 
 /**

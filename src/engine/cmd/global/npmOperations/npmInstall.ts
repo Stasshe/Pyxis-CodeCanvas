@@ -100,11 +100,7 @@ export class NpmInstall {
   // 現在インストール処理中のパッケージ（循環依存回避）
   private installingPackages: Set<string> = new Set()
 
-  constructor(
-    projectName: string,
-    projectId: string,
-    skipLoadingInstalledPackages: boolean = false
-  ) {
+  constructor(projectName: string, projectId: string, skipLoadingInstalledPackages = false) {
     this.projectName = projectName
     this.projectId = projectId
 
@@ -498,10 +494,7 @@ export class NpmInstall {
   }
 
   // NPMレジストリからパッケージ情報を取得
-  private async fetchPackageInfo(
-    packageName: string,
-    version: string = 'latest'
-  ): Promise<PackageInfo> {
+  private async fetchPackageInfo(packageName: string, version = 'latest'): Promise<PackageInfo> {
     try {
       const packageUrl = `https://registry.npmjs.org/${packageName}`
       console.log(`[npm.fetchPackageInfo] Fetching package info from: ${packageUrl}`)
@@ -624,7 +617,7 @@ export class NpmInstall {
   // 依存関係を再帰的にインストール
   async installWithDependencies(
     packageName: string,
-    version: string = 'latest',
+    version = 'latest',
     options?: { autoAddGitignore?: boolean; ignoreEntry?: string; isDirect?: boolean }
   ): Promise<void> {
     const resolvedVersion = this.resolveVersion(version)
@@ -751,7 +744,7 @@ export class NpmInstall {
   // パッケージをダウンロードしてインストール（.tgzから直接）
   async downloadAndInstallPackage(
     packageName: string,
-    version: string = 'latest',
+    version = 'latest',
     tarballUrl?: string
   ): Promise<void> {
     try {
@@ -1094,7 +1087,6 @@ export class NpmInstall {
 
           // do not mutate inflate.result directly; pako will overwrite on next push
         }
-
         ;(async () => {
           try {
             while (true) {

@@ -1,5 +1,5 @@
 import { fileRepository } from '@/engine/core/fileRepository'
-import { runtimeInfo, runtimeWarn, runtimeError } from '@/engine/runtime/runtimeLogger'
+import { runtimeError, runtimeInfo, runtimeWarn } from '@/engine/runtime/runtimeLogger'
 
 interface PyodideInterface {
   runPythonAsync(code: string): Promise<any>

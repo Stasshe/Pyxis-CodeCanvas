@@ -4,7 +4,7 @@
  */
 
 import { extensionManager } from '@/engine/extensions/extensionManager'
-import { createBuiltInModules, type BuiltInModules } from '@/engine/node/builtInModule'
+import { type BuiltInModules, createBuiltInModules } from '@/engine/node/builtInModule'
 
 export interface ExtendedBuiltInModulesOptions {
   projectDir: string

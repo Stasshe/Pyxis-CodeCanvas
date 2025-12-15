@@ -6,7 +6,7 @@
 import { dataUrlToBlob } from './binaryUtils'
 import type { InstalledExtension } from './types'
 
-import { storageService, STORES } from '@/engine/storage'
+import { STORES, storageService } from '@/engine/storage'
 
 /**
  * インストール済み拡張機能をIndexedDBに保存

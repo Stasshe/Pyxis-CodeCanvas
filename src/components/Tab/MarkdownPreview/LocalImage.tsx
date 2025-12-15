@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 
 import { useTranslation } from '@/context/I18nContext'
 import type { PreviewTab } from '@/engine/tabs/types'

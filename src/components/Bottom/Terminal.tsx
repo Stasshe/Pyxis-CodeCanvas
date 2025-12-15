@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel'
-import { LOCALSTORAGE_KEY } from '@/context/config'
 import { useTranslation } from '@/context/I18nContext'
 import { useTheme } from '@/context/ThemeContext'
+import { LOCALSTORAGE_KEY } from '@/context/config'
 import type { GitCommands } from '@/engine/cmd/global/git'
 import type { NpmCommands } from '@/engine/cmd/global/npm'
 import type { UnixCommands } from '@/engine/cmd/global/unix'
@@ -17,9 +17,9 @@ import { handleVimCommand } from '@/engine/cmd/vim'
 import { fileRepository } from '@/engine/core/fileRepository'
 import { gitFileSystem } from '@/engine/core/gitFileSystem'
 import {
+  clearTerminalHistory,
   getTerminalHistory,
   saveTerminalHistory,
-  clearTerminalHistory,
 } from '@/stores/terminalHistoryStorage'
 
 interface TerminalProps {
@@ -336,7 +336,7 @@ function ClientTerminal({
           const rgb = colorHex
             .replace('#', '')
             .match(/.{2}/g)
-            ?.map(x => parseInt(x, 16)) || [0, 0, 0]
+            ?.map(x => Number.parseInt(x, 16)) || [0, 0, 0]
           branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`
         }
         term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `)

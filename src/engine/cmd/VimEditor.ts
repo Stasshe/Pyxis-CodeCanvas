@@ -1,5 +1,5 @@
-import type { Terminal } from '@xterm/xterm'
 import { fileRepository } from '@/engine/core/fileRepository'
+import type { Terminal } from '@xterm/xterm'
 
 type VimMode = 'NORMAL' | 'INSERT' | 'VISUAL' | 'COMMAND'
 
@@ -334,7 +334,7 @@ export class VimEditor {
       this.replaceCommand(cmd)
     } else if (cmd.match(/^\d+$/)) {
       // Go to line number
-      const lineNum = parseInt(cmd, 10) - 1
+      const lineNum = Number.parseInt(cmd, 10) - 1
       if (lineNum >= 0 && lineNum < this.state.lines.length) {
         this.state.cursorRow = lineNum
         this.state.cursorCol = 0

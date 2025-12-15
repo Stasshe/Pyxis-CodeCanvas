@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
-import { useState, useEffect, useRef, useMemo, memo } from 'react'
-import { useDrag, useDrop, useDragLayer } from 'react-dnd'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { useDrag, useDragLayer, useDrop } from 'react-dnd'
 import { getEmptyImage } from 'react-dnd-html5-backend'
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js'
 
@@ -9,12 +9,12 @@ import { useTranslation } from '@/context/I18nContext'
 import { useTheme } from '@/context/ThemeContext'
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
 import { fileRepository } from '@/engine/core/fileRepository'
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from '@/engine/core/gitignore'
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore'
 import { exportFolderZip } from '@/engine/export/exportFolderZip'
 import { exportSingleFile } from '@/engine/export/exportSingleFile'
 import { importSingleFile } from '@/engine/import/importSingleFile'
 import { useTabStore } from '@/stores/tabStore'
-import { FileItem } from '@/types'
+import type { FileItem } from '@/types'
 
 // ドラッグアイテムの型定義（FileTreeDragItemと互換性を持たせる）
 interface DragItem {

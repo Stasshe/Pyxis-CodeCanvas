@@ -14,7 +14,7 @@
 
 import { create } from 'zustand'
 
-import { Project } from '@/types'
+import type { Project } from '@/types'
 
 interface ProjectStore {
   // 現在のプロジェクト

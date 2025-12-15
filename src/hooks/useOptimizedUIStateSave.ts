@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 import { useProjectStore } from '@/stores/projectStore'
-import { sessionStorage, PyxisSession } from '@/stores/sessionStorage'
+import { type PyxisSession, sessionStorage } from '@/stores/sessionStorage'
 
 const MIN_SAVE_INTERVAL = 3000
 

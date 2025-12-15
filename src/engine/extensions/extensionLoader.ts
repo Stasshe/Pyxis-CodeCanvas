@@ -3,13 +3,13 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
-import { isBinaryExt, toDataUrlFromUint8, dataUrlToBlob } from './binaryUtils'
-import { extensionInfo, extensionError } from './extensionsLogger'
+import { dataUrlToBlob, isBinaryExt, toDataUrlFromUint8 } from './binaryUtils'
+import { extensionError, extensionInfo } from './extensionsLogger'
 import type {
-  ExtensionManifest,
-  ExtensionExports,
-  ExtensionContext,
   ExtensionActivation,
+  ExtensionContext,
+  ExtensionExports,
+  ExtensionManifest,
 } from './types'
 
 /**

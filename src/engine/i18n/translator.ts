@@ -3,7 +3,7 @@
  * 翻訳キーの解決と変数の補間
  */
 
-import type { TranslationKey, TranslateOptions } from './types'
+import type { TranslateOptions, TranslationKey } from './types'
 
 /**
  * ネストされたオブジェクトから指定されたパスの値を取得

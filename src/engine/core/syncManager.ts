@@ -6,10 +6,10 @@
 
 import { fileRepository } from './fileRepository'
 import { gitFileSystem } from './gitFileSystem'
-import { parseGitignore, isPathIgnored, GitIgnoreRule } from './gitignore'
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from './gitignore'
 
-import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger'
-import { ProjectFile } from '@/types'
+import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger'
+import type { ProjectFile } from '@/types'
 
 export class SyncManager {
   private static instance: SyncManager | null = null

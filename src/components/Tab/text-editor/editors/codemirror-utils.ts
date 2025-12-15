@@ -15,8 +15,8 @@ import {
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
-  lineNumbers,
   keymap,
+  lineNumbers,
 } from '@codemirror/view'
 
 /**

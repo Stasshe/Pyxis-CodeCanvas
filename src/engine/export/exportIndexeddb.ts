@@ -54,7 +54,7 @@ export async function exportIndexeddbHtml(): Promise<string> {
   // HTML生成（見やすさ・大量データ対応強化）
   // TypeScript側でJSON構造を色分けする関数
   // JSON構造を色分けし、オブジェクトや配列は展開/縮小可能なHTMLに変換
-  function syntaxHighlight(json: any, path: string = ''): string {
+  function syntaxHighlight(json: any, path = ''): string {
     if (json === null) return `<span class='json-null'>null</span>`
     if (Array.isArray(json)) {
       const id = `item-${path}`

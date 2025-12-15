@@ -2,9 +2,9 @@
 
 'use client'
 
-import { Send, Loader2, FileCode, Plus } from 'lucide-react'
+import { FileCode, Loader2, Plus, Send } from 'lucide-react'
+import React, { useState, type KeyboardEvent, useRef, useEffect } from 'react'
 import { getIconForFile } from 'vscode-icons-js'
-import React, { useState, KeyboardEvent, useRef, useEffect } from 'react'
 
 import { useTranslation } from '@/context/I18nContext'
 import { useTheme } from '@/context/ThemeContext'

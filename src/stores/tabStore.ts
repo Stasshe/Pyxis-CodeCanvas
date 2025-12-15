@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 
 import { tabRegistry } from '@/engine/tabs/TabRegistry'
-import { EditorPane, Tab, OpenTabOptions, DiffTab } from '@/engine/tabs/types'
+import type { DiffTab, EditorPane, OpenTabOptions, Tab } from '@/engine/tabs/types'
 
 // Helper function to flatten all leaf panes (preserving order for pane index priority)
 function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {

@@ -452,7 +452,7 @@ export function parseCommandLine(
           const targetFd = tkn2.text
           // record generalized fd duplication mapping
           const fromFd = fd
-          const toFd = /^\d+$/.test(targetFd) ? Number(targetFd) : NaN
+          const toFd = /^\d+$/.test(targetFd) ? Number(targetFd) : Number.NaN
           cur.fdDup = cur.fdDup || []
           if (fromFd !== null && !isNaN(toFd)) cur.fdDup.push({ from: fromFd as number, to: toFd })
           // set convenience flags for common 1/2 mappings

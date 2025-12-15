@@ -123,7 +123,7 @@ export class FindCommand extends UnixCommandBase {
 
         case '-maxdepth':
           if (nextArg) {
-            const depth = parseInt(nextArg, 10)
+            const depth = Number.parseInt(nextArg, 10)
             if (!isNaN(depth) && depth >= 0) {
               criteria.maxDepth = depth
             }
@@ -133,7 +133,7 @@ export class FindCommand extends UnixCommandBase {
 
         case '-mindepth':
           if (nextArg) {
-            const depth = parseInt(nextArg, 10)
+            const depth = Number.parseInt(nextArg, 10)
             if (!isNaN(depth) && depth >= 0) {
               criteria.minDepth = depth
             }

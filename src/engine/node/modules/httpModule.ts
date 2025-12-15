@@ -23,12 +23,12 @@ interface RequestOptions {
 
 // IncomingMessageクラス（レスポンス）
 class IncomingMessage {
-  public statusCode: number = 200
-  public statusMessage: string = 'OK'
+  public statusCode = 200
+  public statusMessage = 'OK'
   public headers: { [key: string]: string } = {}
   public rawHeaders: string[] = []
-  public httpVersion: string = '1.1'
-  public complete: boolean = false
+  public httpVersion = '1.1'
+  public complete = false
   public url?: string
   public method?: string
   public trailers: { [key: string]: string } = {}
@@ -123,8 +123,8 @@ class IncomingMessage {
 class ClientRequest {
   private _listeners: { [event: string]: Function[] } = {}
   private _options: RequestOptions
-  private _body: string = ''
-  private _aborted: boolean = false
+  private _body = ''
+  private _aborted = false
   private _response: IncomingMessage | null = null
 
   constructor(options: RequestOptions | string, callback?: Function) {
@@ -133,7 +133,7 @@ class ClientRequest {
       this._options = {
         protocol: url.protocol,
         hostname: url.hostname,
-        port: url.port ? parseInt(url.port) : undefined,
+        port: url.port ? Number.parseInt(url.port) : undefined,
         path: url.pathname + url.search,
         method: 'GET',
       }
@@ -284,7 +284,7 @@ export function createHTTPModule() {
         options = {
           protocol: url.protocol,
           hostname: url.hostname,
-          port: url.port ? parseInt(url.port) : undefined,
+          port: url.port ? Number.parseInt(url.port) : undefined,
           path: url.pathname + url.search,
           method: 'GET',
         }

@@ -11,9 +11,9 @@
 
 import { NpmInstall } from './npmOperations/npmInstall'
 
-import { fileRepository } from '@/engine/core/fileRepository'
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry'
 import type { TerminalUI } from '@/engine/cmd/terminalUI'
+import { fileRepository } from '@/engine/core/fileRepository'
 
 export class NpmCommands {
   private currentDir: string
@@ -42,7 +42,7 @@ export class NpmCommands {
     this.terminalUI = ui
   }
 
-  async downloadAndInstallPackage(packageName: string, version: string = 'latest'): Promise<void> {
+  async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
     const npmInstall = new NpmInstall(this.projectName, this.projectId)
     npmInstall.startBatchProcessing()
     try {
@@ -111,7 +111,7 @@ export class NpmCommands {
         }
 
         let installedCount = 0
-        let failedPackages: string[] = []
+        const failedPackages: string[] = []
 
         const npmInstall = new NpmInstall(this.projectName, this.projectId)
 

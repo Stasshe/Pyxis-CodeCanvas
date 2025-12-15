@@ -27,18 +27,18 @@
  * ```
  */
 
-import { Buffer } from './modules/bufferModule'
 import * as stream from 'stream'
-import { createFSModule, type FSModuleOptions } from './modules/fsModule'
+import { createAssertModule } from './modules/assertModule'
+import { Buffer } from './modules/bufferModule'
+import { createEventsModule } from './modules/eventsModule'
+import { type FSModuleOptions, createFSModule } from './modules/fsModule'
 import { createHTTPModule, createHTTPSModule } from './modules/httpModule'
+import { createModuleModule } from './modules/moduleModule'
 import { createOSModule } from './modules/osModule'
 import { createPathModule } from './modules/pathModule'
 import { createReadlineModule } from './modules/readlineModule'
-import { createUtilModule } from './modules/utilModule'
-import { createAssertModule } from './modules/assertModule'
-import { createEventsModule } from './modules/eventsModule'
-import { createModuleModule } from './modules/moduleModule'
 import * as urlModule from './modules/urlModule'
+import { createUtilModule } from './modules/utilModule'
 
 export interface BuiltInModulesOptions {
   projectDir: string

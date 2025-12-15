@@ -1,12 +1,12 @@
-import { Search, X, FileText, ChevronDown, ChevronRight, File, Edit3, Repeat } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useTranslation } from '@/context/I18nContext'
 import { useTheme } from '@/context/ThemeContext'
+import { fileRepository } from '@/engine/core/fileRepository'
 import { useSettings } from '@/hooks/useSettings'
 import { useTabStore } from '@/stores/tabStore'
-import { FileItem } from '@/types'
-import { fileRepository } from '@/engine/core/fileRepository'
+import type { FileItem } from '@/types'
 
 interface SearchPanelProps {
   files: FileItem[]

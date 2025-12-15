@@ -9,9 +9,9 @@
 
 import FS from '@isomorphic-git/lightning-fs'
 
-import { getProjectRoot, toFSPath, toGitPath, toAppPath } from './pathResolver'
+import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathResolver'
 
-import { coreInfo, coreWarn, coreError } from '@/engine/core/coreLogger'
+import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger'
 
 export class GitFileSystem {
   private fs: FS | null = null
@@ -213,7 +213,7 @@ export class GitFileSystem {
    */
   async getAllFiles(
     projectName: string,
-    relativePath: string = ''
+    relativePath = ''
   ): Promise<Array<{ path: string; content: string; type: 'file' | 'folder' }>> {
     const fs = this.getFS()
     const projectDir = this.getProjectDir(projectName)

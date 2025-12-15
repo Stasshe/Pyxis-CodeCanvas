@@ -1,7 +1,7 @@
 'use client'
-import { Loader2Icon, CheckCircle2 } from 'lucide-react'
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings'
+import { CheckCircle2, Loader2Icon } from 'lucide-react'
 import React, { useEffect, useState, useRef } from 'react'
-import { useKeyBindings, formatKeyComboForDisplay } from '@/hooks/useKeyBindings'
 
 import { syncManager } from '@/engine/core/syncManager'
 

@@ -1,16 +1,17 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import type React from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getIconForFile } from 'vscode-icons-js'
 
 import { useTranslation } from '@/context/I18nContext'
 import { useTheme } from '@/context/ThemeContext'
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore'
+import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore'
 import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings'
 import { useSettings } from '@/hooks/useSettings'
 import { useTabStore } from '@/stores/tabStore'
-import { FileItem } from '@/types'
+import type { FileItem } from '@/types'
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 function flattenFileItems(items: FileItem[]): FileItem[] {

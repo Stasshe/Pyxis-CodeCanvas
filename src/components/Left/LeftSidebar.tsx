@@ -1,4 +1,4 @@
-import { FolderOpen, FilePlus, FolderPlus } from 'lucide-react'
+import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react'
 
 import ExtensionPanelRenderer from './ExtensionPanelRenderer'
 import ExtensionsPanel from './ExtensionsPanel'
@@ -13,7 +13,7 @@ import { useTheme } from '@/context/ThemeContext'
 import { fileRepository } from '@/engine/core/fileRepository'
 import { useExtensionPanels } from '@/hooks/useExtensionPanels'
 import type { Project } from '@/types'
-import { MenuTab, FileItem } from '@/types'
+import type { FileItem, MenuTab } from '@/types'
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab

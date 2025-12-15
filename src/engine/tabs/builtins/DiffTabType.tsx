@@ -1,7 +1,8 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
-import React, { useRef, useCallback, useEffect } from 'react'
+import type React from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
-import { TabTypeDefinition, DiffTab, TabComponentProps } from '../types'
+import type { DiffTab, TabComponentProps, TabTypeDefinition } from '../types'
 
 import { useGitContext } from '@/components/PaneContainer'
 import DiffTabComponent from '@/components/Tab/DiffTab'
