@@ -1431,6 +1431,19 @@ export class FileRepository {
   async renameChatSpace(projectId: string, chatSpaceId: string, newName: string): Promise<void> {
     return chatRenameChatSpace(projectId, chatSpaceId, newName);
   }
+
+  /**
+   * データベース接続を閉じる
+   * データベースを削除する前に呼び出す必要がある
+   */
+  async close(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.initPromise = null;
+      coreInfo('[FileRepository] Database connection closed');
+    }
+  }
 }
 
 /**
