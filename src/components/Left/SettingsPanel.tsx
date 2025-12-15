@@ -1,7 +1,6 @@
-import { ChevronDown, ChevronRight, Keyboard, Download } from 'lucide-react';
+import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
-import DataMigrationModal from '@/components/Left/DataMigrationModal';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -17,7 +16,6 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [showMigrationModal, setShowMigrationModal] = useState(false);
   const { t } = useTranslation();
   const { openTab } = useTabStore();
   const { colors, setColor, themeName, setTheme, themeList } = useTheme();
@@ -198,36 +196,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             {isExporting
               ? t('settingsPanel.export.exporting')
               : t('settingsPanel.export.zipDownload')}
-          </button>
-        </div>
-      </div>
-
-      {/* データ移行と復元 */}
-      <div
-        className="px-4 py-3 border-b"
-        style={{ borderColor: colors.border }}
-      >
-        <h2
-          className="text-xs font-semibold uppercase tracking-wide mb-3"
-          style={{ color: colors.mutedFg }}
-        >
-          データ移行と復元
-        </h2>
-        <div className="space-y-2">
-          <p
-            className="text-[10px] mb-2"
-            style={{ color: colors.mutedFg }}
-          >
-            全てのIndexedDB（プロジェクト、ファイルシステム、設定など）とlocalStorageをZIPファイルとして保存・復元できます。
-          </p>
-          
-          <button
-            className="w-full px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-            style={{ background: colors.accentBg, color: colors.accentFg }}
-            onClick={() => setShowMigrationModal(true)}
-          >
-            <Download size={14} />
-            <span>移行と復元</span>
           </button>
         </div>
       </div>
@@ -676,12 +644,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
           {/* autoSave removed from settings */}
         </div>
       </div>
-
-      {/* データ移行と復元モーダル */}
-      <DataMigrationModal
-        isOpen={showMigrationModal}
-        onClose={() => setShowMigrationModal(false)}
-      />
     </div>
   );
 };
