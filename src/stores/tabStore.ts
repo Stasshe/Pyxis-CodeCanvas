@@ -1000,6 +1000,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
   saveSession: async () => {
     const state = get();
     const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage');
+    const { getCurrentProjectId } = await import('@/stores/projectStore');
+    
+    const projectId = getCurrentProjectId();
+    if (!projectId) {
+      console.warn('[TabStore] Cannot save session: no active project');
+      return;
+    }
     
     // UI状態は含めない（page.tsxが管理）
     const session = {
@@ -1013,14 +1020,23 @@ export const useTabStore = create<TabStore>((set, get) => ({
       ui: DEFAULT_SESSION.ui, // デフォルト値を使用
     };
     
-    await sessionStorage.save(session);
+    await sessionStorage.save(session, projectId);
   },
 
   loadSession: async () => {
     try {
       const { sessionStorage } = await import('@/stores/sessionStorage');
-      console.log('[TabStore] Loading session from IndexedDB...');
-      const session = await sessionStorage.load();
+      const { getCurrentProjectId } = await import('@/stores/projectStore');
+      
+      const projectId = getCurrentProjectId();
+      if (!projectId) {
+        console.warn('[TabStore] Cannot load session: no active project');
+        set({ isLoading: false, isRestored: true, isContentRestored: true });
+        return;
+      }
+      
+      console.log(`[TabStore] Loading session for project: ${projectId}`);
+      const session = await sessionStorage.load(projectId);
 
       set({
         panes: session.tabs.panes,

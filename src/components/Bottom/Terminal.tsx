@@ -351,15 +351,29 @@ function ClientTerminal({
 
     let cmdOutputs = '';
 
-    // 履歴の初期化・復元（sessionStorageから）
-    let commandHistory: string[] = getTerminalHistory(currentProject);
+    // 履歴の初期化・復元（IndexedDBから）
+    let commandHistory: string[] = [];
     let historyIndex = -1;
     let currentLine = '';
     let cursorPos = 0;
 
-    // 履歴保存関数（sessionStorageへ）
+    // 非同期で履歴を読み込み
+    const loadHistory = async () => {
+      try {
+        commandHistory = await getTerminalHistory(currentProjectId);
+        console.log(`[Terminal] Loaded ${commandHistory.length} commands from history`);
+      } catch (error) {
+        console.warn('[Terminal] Failed to load command history:', error);
+        commandHistory = [];
+      }
+    };
+    loadHistory();
+
+    // 履歴保存関数（IndexedDBへ）
     const saveHistory = () => {
-      saveTerminalHistory(currentProject, commandHistory);
+      saveTerminalHistory(currentProjectId, commandHistory).catch(error => {
+        console.warn('[Terminal] Failed to save command history:', error);
+      });
     };
 
     // Write lock to prevent concurrent writes causing newlines

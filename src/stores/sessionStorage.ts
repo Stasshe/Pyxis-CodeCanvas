@@ -59,17 +59,23 @@ export const DEFAULT_SESSION: PyxisSession = {
   },
 };
 
-const SESSION_KEY = 'current-session';
-const UI_STATE_KEY = 'ui-state'; // UI状態専用キー
+const UI_STATE_KEY = 'ui-state'; // グローバルUI状態専用キー
 
 /**
  * セッションストレージ管理クラス
  */
 class SessionStorageManager {
   /**
-   * セッションを保存
+   * プロジェクトごとのセッションキーを生成
    */
-  async save(session: PyxisSession): Promise<void> {
+  private getSessionKey(projectId: string): string {
+    return `session-${projectId}`;
+  }
+
+  /**
+   * セッションを保存（プロジェクト別）
+   */
+  async save(session: PyxisSession, projectId: string): Promise<void> {
     try {
       const sessionToSave: PyxisSession = {
         ...session,
@@ -79,8 +85,9 @@ class SessionStorageManager {
       // contentやbufferContentを除外して保存
       const cleanedSession = this.cleanSessionForStorage(sessionToSave);
 
-      await storageService.set(STORES.USER_PREFERENCES, SESSION_KEY, cleanedSession);
-      console.log('[SessionStorage] Session saved successfully');
+      const sessionKey = this.getSessionKey(projectId);
+      await storageService.set(STORES.SESSION_STATE, sessionKey, cleanedSession);
+      console.log(`[SessionStorage] Session saved for project: ${projectId}`);
     } catch (error) {
       console.error('[SessionStorage] Failed to save session:', error);
       throw error;
@@ -88,21 +95,22 @@ class SessionStorageManager {
   }
 
   /**
-   * セッションを読み込み
+   * セッションを読み込み（プロジェクト別）
    */
-  async load(): Promise<PyxisSession> {
+  async load(projectId: string): Promise<PyxisSession> {
     try {
-      const session = await storageService.get<PyxisSession>(STORES.USER_PREFERENCES, SESSION_KEY);
+      const sessionKey = this.getSessionKey(projectId);
+      const session = await storageService.get<PyxisSession>(STORES.SESSION_STATE, sessionKey);
 
       if (!session) {
-        console.log('[SessionStorage] No saved session found, using default');
+        console.log(`[SessionStorage] No saved session found for project: ${projectId}, using default`);
         return DEFAULT_SESSION;
       }
 
       // 復元後にneedsContentRestoreフラグを設定
       const restoredSession = this.prepareSessionForRestore(session);
 
-      console.log('[SessionStorage] Session loaded successfully');
+      console.log(`[SessionStorage] Session loaded for project: ${projectId}`);
       return restoredSession;
     } catch (error) {
       console.error('[SessionStorage] Failed to load session:', error);
@@ -111,15 +119,16 @@ class SessionStorageManager {
   }
 
   /**
-   * UI状態を保存（UI状態専用）
+   * UI状態を保存（プロジェクト別）
    */
-  async saveUIState(uiState: PyxisSession['ui']): Promise<void> {
+  async saveUIState(uiState: PyxisSession['ui'], projectId: string): Promise<void> {
     try {
-      await storageService.set(STORES.USER_PREFERENCES, UI_STATE_KEY, {
+      const uiKey = `ui-state-${projectId}`;
+      await storageService.set(STORES.SESSION_STATE, uiKey, {
         ...uiState,
         lastSaved: Date.now(),
       });
-      console.log('[SessionStorage] UI state saved successfully');
+      console.log(`[SessionStorage] UI state saved for project: ${projectId}`);
     } catch (error) {
       console.error('[SessionStorage] Failed to save UI state:', error);
       throw error;
@@ -127,16 +136,17 @@ class SessionStorageManager {
   }
 
   /**
-   * UI状態を読み込み（UI状態専用）
+   * UI状態を読み込み（プロジェクト別）
    */
-  async loadUIState(): Promise<PyxisSession['ui']> {
+  async loadUIState(projectId: string): Promise<PyxisSession['ui']> {
     try {
-      const saved = await storageService.get<PyxisSession['ui']>(STORES.USER_PREFERENCES, UI_STATE_KEY);
+      const uiKey = `ui-state-${projectId}`;
+      const saved = await storageService.get<PyxisSession['ui']>(STORES.SESSION_STATE, uiKey);
       if (saved) {
-        console.log('[SessionStorage] UI state loaded successfully');
+        console.log(`[SessionStorage] UI state loaded for project: ${projectId}`);
         return saved;
       }
-      console.log('[SessionStorage] No saved UI state found, using default');
+      console.log(`[SessionStorage] No saved UI state found for project: ${projectId}, using default`);
       return DEFAULT_SESSION.ui;
     } catch (error) {
       console.error('[SessionStorage] Failed to load UI state:', error);
@@ -145,12 +155,13 @@ class SessionStorageManager {
   }
 
   /**
-   * セッションをクリア
+   * セッションをクリア（プロジェクト別）
    */
-  async clear(): Promise<void> {
+  async clear(projectId: string): Promise<void> {
     try {
-      await storageService.delete(STORES.USER_PREFERENCES, SESSION_KEY);
-      console.log('[SessionStorage] Session cleared');
+      const sessionKey = this.getSessionKey(projectId);
+      await storageService.delete(STORES.SESSION_STATE, sessionKey);
+      console.log(`[SessionStorage] Session cleared for project: ${projectId}`);
     } catch (error) {
       console.error('[SessionStorage] Failed to clear session:', error);
       throw error;

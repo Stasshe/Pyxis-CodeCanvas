@@ -122,25 +122,30 @@ export default function Home() {
 
   // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
-  // UI状態の復元（sessionStorage統合）
+  // UI状態の復元（プロジェクト変更時）
   useEffect(() => {
     const restoreUIState = async () => {
+      if (!currentProject) {
+        console.log('[page.tsx] No project selected, skipping UI state restore');
+        return;
+      }
+
       try {
-        const uiState = await sessionStorage.loadUIState();
+        const uiState = await sessionStorage.loadUIState(currentProject.id);
         setLeftSidebarWidth(uiState.leftSidebarWidth);
         setRightSidebarWidth(uiState.rightSidebarWidth);
         setBottomPanelHeight(uiState.bottomPanelHeight);
         setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
         setIsRightSidebarVisible(uiState.isRightSidebarVisible);
         setIsBottomPanelVisible(uiState.isBottomPanelVisible);
-        console.log('[page.tsx] UI state restored from storage');
+        console.log(`[page.tsx] UI state restored for project: ${currentProject.id}`);
       } catch (error) {
         console.error('[page.tsx] Failed to restore UI state:', error);
       }
     };
 
     restoreUIState();
-  }, []);
+  }, [currentProject]); // プロジェクト変更時に実行
 
   // UI状態の自動保存（最適化版）
   const { saveUIState, timerRef: saveTimerRef } = useOptimizedUIStateSave();

@@ -1,11 +1,13 @@
 // src/hooks/useOptimizedUIStateSave.ts
 import { useCallback, useEffect, useRef } from 'react';
 import { sessionStorage, PyxisSession } from '@/stores/sessionStorage';
+import { getCurrentProjectId } from '@/stores/projectStore';
 
 /**
- * 最適化された UI 保存フック
+ * 最適化された UI 保存フック（プロジェクト別）
  * - 保存間隔を制限して頻繁な書き込みを防ぐ
  * - 内部で再スケジューリング可能なタイマーを持つ
+ * - プロジェクトごとにUI状態を保存
  */
 export function useOptimizedUIStateSave() {
   const timerRef = useRef<number | null>(null);
@@ -27,9 +29,15 @@ export function useOptimizedUIStateSave() {
     }
 
     try {
-      await sessionStorage.saveUIState(uiState);
+      const projectId = getCurrentProjectId();
+      if (!projectId) {
+        console.warn('[useOptimizedUIStateSave] No active project, skipping UI state save');
+        return;
+      }
+
+      await sessionStorage.saveUIState(uiState, projectId);
       lastSaveRef.current = Date.now();
-      console.log('[useOptimizedUIStateSave] UI state saved to storage');
+      console.log(`[useOptimizedUIStateSave] UI state saved for project: ${projectId}`);
     } catch (error) {
       console.error('[useOptimizedUIStateSave] Failed to save UI state:', error);
     }

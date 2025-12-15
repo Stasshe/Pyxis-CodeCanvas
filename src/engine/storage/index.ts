@@ -18,7 +18,7 @@
  */
 
 const DB_NAME = 'pyxis-global';
-const DB_VERSION = 5; // Breaking change: ChatSpace key format changed to include projectId
+const DB_VERSION = 6; // Breaking change: Added project-aware session and terminal history stores
 
 /**
  * ストアの定義
@@ -27,11 +27,13 @@ const DB_VERSION = 5; // Breaking change: ChatSpace key format changed to includ
 export const STORES = {
   TRANSLATIONS: 'translations', // i18n翻訳データ
   KEYBINDINGS: 'keybindings', // ショートカットキー設定
-  USER_PREFERENCES: 'user_preferences', // ユーザー設定
+  USER_PREFERENCES: 'user_preferences', // ユーザー設定（グローバルUIなど）
   EXTENSIONS: 'extensions', // 拡張機能データ
-  TAB_STATE: 'tab_state', // タブ・ペイン状態
+  TAB_STATE: 'tab_state', // タブ・ペイン状態（廃止予定、SESSION_STATEに移行）
   CHAT_SPACES: 'chat_spaces', // チャットスペース（AIチャット）
   AI_REVIEWS: 'ai_reviews', // AIレビュー用スナップショット／メタデータ
+  SESSION_STATE: 'session_state', // プロジェクトごとのセッション状態（タブ、ペイン、UI）
+  TERMINAL_HISTORY: 'terminal_history', // プロジェクトごとのターミナルコマンド履歴
 } as const;
 
 export type StoreName = (typeof STORES)[keyof typeof STORES];
