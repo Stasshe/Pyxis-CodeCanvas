@@ -1991,14 +1991,22 @@ export class StreamShell {
       }
 
       // backward-compatible stdout/stderr fields
-      if (overallLastSeg.stdoutFile)
-        add(overallLastSeg.stdoutFile, finalOut, !!overallLastSeg.append);
-      else if (overallLastSeg.stdoutToStderr && overallLastSeg.stderrFile)
-        add(overallLastSeg.stderrFile, finalOut, !!overallLastSeg.append);
+      // If fdFiles were explicitly specified by the parser (e.g. "1>file"),
+      // those entries have already been added above. Avoid adding the same
+      // path twice by preferring fdFiles when present.
+      const hasFdFiles = (overallLastSeg as any).fdFiles && Object.keys((overallLastSeg as any).fdFiles).length > 0;
 
-      if (overallLastSeg.stderrFile) add(overallLastSeg.stderrFile, finalErr, false);
-      else if (overallLastSeg.stderrToStdout && overallLastSeg.stdoutFile)
+      if (overallLastSeg.stdoutFile && !hasFdFiles) {
+        add(overallLastSeg.stdoutFile, finalOut, !!overallLastSeg.append);
+      } else if (overallLastSeg.stdoutToStderr && overallLastSeg.stderrFile && !hasFdFiles) {
+        add(overallLastSeg.stderrFile, finalOut, !!overallLastSeg.append);
+      }
+
+      if (overallLastSeg.stderrFile && !hasFdFiles) {
+        add(overallLastSeg.stderrFile, finalErr, false);
+      } else if (overallLastSeg.stderrToStdout && overallLastSeg.stdoutFile && !hasFdFiles) {
         add(overallLastSeg.stdoutFile, finalErr, !!overallLastSeg.append);
+      }
 
       // Perform writes respecting per-path append flags
       for (const pth of Object.keys(writes)) {
