@@ -106,17 +106,37 @@ export default function Home() {
     setCurrentProjectToStore(currentProject)
   }, [currentProject, setCurrentProjectToStore])
 
-  // プロジェクト切替時にタブセッションを復元する
+  // 【セッション復元フロー】
+  // 1. プロジェクト切替時にloadSessionを呼び、IndexedDBからペイン構造を復元
+  // 2. loadSession完了 → tabStore.isRestored = true
+  // 3. useTabContentRestoreが isRestored と projectFiles を監視し、両方揃ったらコンテンツ復元
   const loadSession = useTabStore(state => state.loadSession)
   useEffect(() => {
+    const projectId = currentProject?.id
+
+    if (!projectId) {
+      console.log('[Page] No project, skipping session load')
+      return
+    }
+
+    console.log(`[Page] Loading session for project: ${projectId}`)
+
     // 非同期でセッションをロード（IndexedDBからの復元を開始）
+    let cancelled = false
     ;(async () => {
       try {
-        await loadSession(currentProject?.id)
+        await loadSession(projectId)
+        if (!cancelled) {
+          console.log('[Page] ✓ Session loaded successfully')
+        }
       } catch (err) {
-        console.error('Failed to load tab session:', err)
+        console.error('[Page] Failed to load tab session:', err)
       }
     })()
+
+    return () => {
+      cancelled = true
+    }
   }, [currentProject?.id, loadSession])
 
   // タブコンテンツの復元と自動更新

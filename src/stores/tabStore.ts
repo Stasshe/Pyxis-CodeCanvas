@@ -1046,11 +1046,16 @@ export const useTabStore = create<TabStore>((set, get) => ({
     }
 
     if (!projectId) {
+      console.log('[TabStore] No project ID, marking as restored')
       set({ isLoading: false, isRestored: true, isContentRestored: true })
       return
     }
 
+    console.log(`[TabStore] Loading session for project: ${projectId}`)
+
     const session = await sessionStorage.load(projectId)
+
+    console.log(`[TabStore] Session loaded, restoring ${session.tabs.panes.length} pane(s)`)
 
     set({
       panes: session.tabs.panes,
@@ -1067,9 +1072,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
     })
 
     if (!hasAnyTabs) {
+      console.log('[TabStore] No tabs found in session, marking content as restored')
       set({ isContentRestored: true })
+    } else {
+      console.log('[TabStore] Tabs found, waiting for content restoration')
     }
 
     set({ isLoading: false, isRestored: true })
+    console.log('[TabStore] ✓ Session restoration complete (panes restored)')
   },
 }))
