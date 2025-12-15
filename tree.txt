@@ -453,11 +453,10 @@ Root
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
-├── tsconfig.tsbuildinfo
 └── types
     └── esbuild-cdn.d.ts
 
-68 directories, 389 files
+68 directories, 388 files
 
 =================================
 
@@ -469,7 +468,6 @@ extensions/ 以下のディレクトリ構造:
 │   ├── systemModuleTypes.ts
 │   └── types.ts
 ├── calc
-│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
@@ -481,17 +479,6 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
-│   │   ├── @kurkle
-│   │   │   └── color
-│   │   │       ├── LICENSE.md
-│   │   │       ├── README.md
-│   │   │       ├── dist
-│   │   │       │   ├── color.cjs
-│   │   │       │   ├── color.d.ts
-│   │   │       │   ├── color.esm.js
-│   │   │       │   ├── color.min.js
-│   │   │       │   └── color.min.js.map
-│   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
@@ -565,7 +552,6 @@ extensions/ 以下のディレクトリ構造:
 │   │   └── pyodide -> ../../../node_modules/.pnpm/pyodide@0.29.0/node_modules/pyodide
 │   └── package.json
 ├── react-preview
-│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── _build.js
 │   ├── index.tsx
@@ -591,14 +577,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-43 directories, 85 files
+40 directories, 75 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 63986
-合計文字数: 2075512
-合計ファイルサイズ(bytes): 2210770
+合計行数: 63884
+合計文字数: 2075180
+合計ファイルサイズ(bytes): 2210438
 
-開発時のdev container全体のサイズ(bytes): 2.4G	.
+開発時のdev container全体のサイズ(bytes): 1.2G	.
+==========
+ビルト済みファイルの行数: 127450
+合計文字数: 26777000
+合計ファイルサイズ(bytes): 29754682
