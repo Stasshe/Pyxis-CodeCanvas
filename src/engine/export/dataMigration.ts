@@ -122,16 +122,38 @@ export async function importAllData(zipFile: File): Promise<void> {
       if (!dbInfo.name) continue;
       
       try {
+        // Close all connections to the database first
+        // This helps prevent blocking issues
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 100); // Give time for connections to close
+        });
+
         await new Promise<void>((resolve, reject) => {
           const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
-          deleteReq.onsuccess = () => resolve();
-          deleteReq.onerror = () => reject(deleteReq.error);
-          deleteReq.onblocked = () => {
-            console.warn(`Database ${dbInfo.name} deletion blocked, continuing...`);
+          
+          // Set a timeout to prevent indefinite blocking
+          const timeoutId = setTimeout(() => {
+            console.warn(`Database ${dbInfo.name} deletion timed out after 5 seconds, continuing...`);
+            resolve();
+          }, 5000);
+          
+          deleteReq.onsuccess = () => {
+            clearTimeout(timeoutId);
+            console.log(`[importAllData] Deleted database: ${dbInfo.name}`);
             resolve();
           };
+          
+          deleteReq.onerror = () => {
+            clearTimeout(timeoutId);
+            console.warn(`[importAllData] Failed to delete database ${dbInfo.name}:`, deleteReq.error);
+            resolve(); // Continue anyway
+          };
+          
+          deleteReq.onblocked = () => {
+            console.warn(`Database ${dbInfo.name} deletion blocked, waiting...`);
+            // Don't resolve here, let the timeout handle it
+          };
         });
-        console.log(`[importAllData] Deleted database: ${dbInfo.name}`);
       } catch (error) {
         console.warn(`[importAllData] Failed to delete database ${dbInfo.name}:`, error);
       }

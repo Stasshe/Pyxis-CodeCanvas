@@ -1,5 +1,6 @@
 import { Download, Upload } from 'lucide-react';
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useTheme } from '@/context/ThemeContext';
 import { exportAllData, importAllData, downloadBlob } from '@/engine/export/dataMigration';
@@ -73,7 +74,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ isOpen, onClose
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0, 0, 0, 0.7)' }}
@@ -222,6 +223,11 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ isOpen, onClose
       </div>
     </div>
   );
+
+  // Use createPortal to render modal at document body level
+  return typeof document !== 'undefined' 
+    ? createPortal(modalContent, document.body)
+    : null;
 };
 
 export default DataMigrationModal;
