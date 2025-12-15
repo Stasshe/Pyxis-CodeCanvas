@@ -8,6 +8,8 @@ import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { exportPage } from '@/engine/export/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { storageService, STORES } from '@/engine/storage';
+import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 
 export async function handlePyxisCommand(
   cmd: string,
@@ -27,6 +29,111 @@ export async function handlePyxisCommand(
 
   try {
     switch (cmd) {
+      case 'init': {
+        // pyxis init --all --admin: Complete system initialization/reset
+        const hasAll = args.includes('--all');
+        const hasAdmin = args.includes('--admin');
+
+        if (!hasAll || !hasAdmin) {
+          await writeOutput('Usage: pyxis init --all --admin');
+          await writeOutput('This command requires both --all and --admin flags for safety.');
+          await writeOutput('It will completely reset all IndexedDB databases and localStorage.');
+          break;
+        }
+
+        await writeOutput('⚠️  WARNING: This will DELETE ALL DATA including:');
+        await writeOutput('  - All IndexedDB databases (pyxis-global, pyxisproject, lightning-fs)');
+        await writeOutput('  - localStorage (except recent projects and language settings)');
+        await writeOutput('  - sessionStorage (terminal history)');
+        await writeOutput('');
+        await writeOutput('Type "yes" to confirm or "no" to cancel:');
+        
+        // Note: This is a simplified version. In a real implementation,
+        // we would need to wait for user input. For now, we'll require
+        // the user to run a separate confirmation command.
+        await writeOutput('');
+        await writeOutput('To proceed, run: pyxis init --all --admin --confirm');
+        
+        if (args.includes('--confirm')) {
+          await writeOutput('');
+          await writeOutput('Starting complete system reset...');
+          
+          try {
+            // 1. Clear all IndexedDB databases
+            await writeOutput('[1/4] Clearing IndexedDB databases...');
+            const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
+            let deletedCount = 0;
+            
+            for (const dbInfo of dbs) {
+              if (!dbInfo.name) continue;
+              
+              try {
+                await new Promise<void>((resolve, reject) => {
+                  const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
+                  deleteReq.onsuccess = () => {
+                    deletedCount++;
+                    resolve();
+                  };
+                  deleteReq.onerror = () => reject(deleteReq.error);
+                  deleteReq.onblocked = () => {
+                    console.warn(`Database ${dbInfo.name} deletion blocked`);
+                    // Continue anyway
+                    resolve();
+                  };
+                });
+                await writeOutput(`  ✓ Deleted database: ${dbInfo.name}`);
+              } catch (error) {
+                await writeOutput(`  ✗ Failed to delete ${dbInfo.name}: ${error}`);
+              }
+            }
+            
+            await writeOutput(`  Deleted ${deletedCount} database(s)`);
+            
+            // 2. Clear localStorage (except protected keys)
+            await writeOutput('[2/4] Clearing localStorage...');
+            const protectedKeys = [
+              LOCALSTORAGE_KEY.RECENT_PROJECTS,
+              LOCALSTORAGE_KEY.LOCALE,
+            ];
+            
+            const savedValues: Record<string, string> = {};
+            protectedKeys.forEach(key => {
+              const value = localStorage.getItem(key);
+              if (value) savedValues[key] = value;
+            });
+            
+            localStorage.clear();
+            
+            // Restore protected keys
+            Object.entries(savedValues).forEach(([key, value]) => {
+              localStorage.setItem(key, value);
+            });
+            
+            await writeOutput(`  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`);
+            
+            // 3. Clear sessionStorage
+            await writeOutput('[3/4] Clearing sessionStorage...');
+            clearAllTerminalHistory();
+            sessionStorage.clear();
+            await writeOutput('  ✓ Cleared sessionStorage');
+            
+            // 4. Clear global storage service
+            await writeOutput('[4/4] Clearing Pyxis storage service...');
+            await storageService.clearAll();
+            await writeOutput('  ✓ Cleared Pyxis storage service');
+            
+            await writeOutput('');
+            await writeOutput('✅ Complete system reset successful!');
+            await writeOutput('Please refresh the page to reinitialize the application.');
+          } catch (error) {
+            await writeOutput(`');
+            await writeOutput(`❌ Reset failed: ${(error as Error).message}`);
+            throw error;
+          }
+        }
+        break;
+      }
+
       case 'debug-db':
         try {
           await writeOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');

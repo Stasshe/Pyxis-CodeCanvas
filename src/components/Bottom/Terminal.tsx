@@ -16,6 +16,11 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import {
+  getTerminalHistory,
+  saveTerminalHistory,
+  clearTerminalHistory,
+} from '@/stores/terminalHistoryStorage';
 
 interface TerminalProps {
   height: number;
@@ -346,26 +351,15 @@ function ClientTerminal({
 
     let cmdOutputs = '';
 
-    // コマンド履歴のlocalStorageキー
-    const HISTORY_KEY = `${LOCALSTORAGE_KEY.TERMINAL_HISTORY}${currentProject}`;
-
-    // 履歴の初期化・復元
-    let commandHistory: string[] = [];
-    try {
-      const saved = localStorage.getItem(HISTORY_KEY);
-      if (saved) {
-        commandHistory = JSON.parse(saved);
-      }
-    } catch {}
+    // 履歴の初期化・復元（sessionStorageから）
+    let commandHistory: string[] = getTerminalHistory(currentProject);
     let historyIndex = -1;
     let currentLine = '';
     let cursorPos = 0;
 
-    // 履歴保存関数
+    // 履歴保存関数（sessionStorageへ）
     const saveHistory = () => {
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(commandHistory));
-      } catch {}
+      saveTerminalHistory(currentProject, commandHistory);
     };
 
     // Write lock to prevent concurrent writes causing newlines
@@ -488,10 +482,8 @@ function ClientTerminal({
               try {
                 commandHistory = [];
                 saveHistory();
-                // Remove from localStorage explicitly as well
-                try {
-                  localStorage.removeItem(HISTORY_KEY);
-                } catch (e) {}
+                // sessionStorageから明示的に削除
+                clearTerminalHistory(currentProject);
                 await captureWriteOutput('ターミナル履歴を削除しました');
               } catch (e) {
                 await captureWriteOutput(`履歴削除エラー: ${(e as Error).message}`);

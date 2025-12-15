@@ -1,10 +1,11 @@
-import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, Keyboard, Download, Upload } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
+import { exportAllData, importAllData, downloadBlob } from '@/engine/export/dataMigration';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import { useTabStore } from '@/stores/tabStore';
 import type { Project } from '@/types';
@@ -16,6 +17,9 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingData, setIsExportingData] = useState(false);
+  const [isImportingData, setIsImportingData] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const { openTab } = useTabStore();
   const { colors, setColor, themeName, setTheme, themeList } = useTheme();
@@ -145,6 +149,63 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     setIsExporting(false);
   };
 
+  const handleExportAllData = async () => {
+    setIsExportingData(true);
+    try {
+      const blob = await exportAllData();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      const filename = `pyxis-data-export-${timestamp}.zip`;
+      downloadBlob(blob, filename);
+      alert('全データのエクスポートが完了しました');
+    } catch (e) {
+      alert('データエクスポートに失敗しました: ' + (e instanceof Error ? e.message : e));
+    }
+    setIsExportingData(false);
+  };
+
+  const handleImportAllData = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const confirmed = confirm(
+      '⚠️ 警告: この操作は全ての既存データを削除し、インポートしたデータで置き換えます。\n\n' +
+      '以下のデータが完全に削除されます：\n' +
+      '- 全てのIndexedDBデータベース\n' +
+      '- localStorage（最近のプロジェクトと言語設定を除く）\n' +
+      '- sessionStorage\n\n' +
+      '続行しますか？'
+    );
+
+    if (!confirmed) {
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setIsImportingData(true);
+    try {
+      await importAllData(file);
+      alert(
+        'データのインポートが完了しました。\n' +
+        'ページをリロードして変更を反映してください。'
+      );
+      // Reload page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (e) {
+      alert('データインポートに失敗しました: ' + (e instanceof Error ? e.message : e));
+    } finally {
+      setIsImportingData(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   // ローディング中
   if (isLoadingSettings || !settings) {
     return (
@@ -197,6 +258,70 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               ? t('settingsPanel.export.exporting')
               : t('settingsPanel.export.zipDownload')}
           </button>
+        </div>
+      </div>
+
+      {/* データ移行（エクスポート・インポート） */}
+      <div
+        className="px-4 py-3 border-b"
+        style={{ borderColor: colors.border }}
+      >
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
+          データ移行
+        </h2>
+        <div className="space-y-2">
+          <p
+            className="text-[10px] mb-2"
+            style={{ color: colors.mutedFg }}
+          >
+            全てのIndexedDB（プロジェクト、ファイルシステム、設定など）とlocalStorageをZIPファイルとして保存・復元できます。
+          </p>
+          
+          <button
+            className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            style={{ background: colors.accentBg, color: colors.accentFg }}
+            onClick={handleExportAllData}
+            disabled={isExportingData}
+          >
+            <Download size={14} />
+            <span>{isExportingData ? 'エクスポート中...' : '全データをエクスポート'}</span>
+          </button>
+
+          <div className="relative">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              onChange={handleImportAllData}
+              className="hidden"
+              id="import-data-file"
+            />
+            <label
+              htmlFor="import-data-file"
+              className="w-full px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
+              style={{ 
+                background: isImportingData ? colors.mutedBg : colors.cardBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+                display: 'flex',
+                pointerEvents: isImportingData ? 'none' : 'auto',
+                opacity: isImportingData ? 0.5 : 1,
+              }}
+            >
+              <Upload size={14} />
+              <span>{isImportingData ? 'インポート中...' : 'データをインポート'}</span>
+            </label>
+          </div>
+
+          <p
+            className="text-[10px] mt-2"
+            style={{ color: colors.red }}
+          >
+            ⚠️ インポートすると既存データが全て削除されます
+          </p>
         </div>
       </div>
 
