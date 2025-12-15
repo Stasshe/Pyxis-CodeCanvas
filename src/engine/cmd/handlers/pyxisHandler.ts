@@ -126,7 +126,7 @@ export async function handlePyxisCommand(
             await writeOutput('✅ Complete system reset successful!');
             await writeOutput('Please refresh the page to reinitialize the application.');
           } catch (error) {
-            await writeOutput(`');
+            await writeOutput('');
             await writeOutput(`❌ Reset failed: ${(error as Error).message}`);
             throw error;
           }
