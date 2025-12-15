@@ -73,7 +73,10 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
   const performContentRestoration = useCallback(() => {
     if (restorationInProgress.current) return
 
-    if (!isRestored || !store.panes.length) return
+    // If IndexedDB restore hasn't completed yet, wait.
+    // Do NOT bail out when there are zero panes —
+    // zero open tabs should still mark restoration as completed.
+    if (!isRestored) return
 
     const flatPanes = flattenPanes(store.panes)
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
@@ -193,7 +196,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       restorationCompleted.current = false
       restorationInProgress.current = false
 
-      if (isRestored && store.panes.length) {
+      if (isRestored) {
         performContentRestoration()
       }
     }
