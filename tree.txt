@@ -27,6 +27,7 @@ Root
 ├── README.md
 ├── README_en.md
 ├── SHORT_README.md
+├── biome.json
 ├── docs
 │   ├── AI-SYSTEM.md
 │   ├── CORE-ENGINE.md
@@ -45,7 +46,6 @@ Root
 │   ├── en
 │   │   └── NODE-RUNTIME.md
 │   └── pyxis-all.svg.svg
-├── eslint.config.mjs
 ├── helper-code.txt
 ├── i18n.sh
 ├── initial_files
@@ -81,7 +81,6 @@ Root
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
 ├── postcss.config.js
-├── prettier.config.mjs
 ├── public
 │   ├── apple-touch-icon-precomposed.png
 │   ├── apple-touch-icon.png
@@ -411,7 +410,8 @@ Root
 │   ├── stores
 │   │   ├── projectStore.ts
 │   │   ├── sessionStorage.ts
-│   │   └── tabStore.ts
+│   │   ├── tabStore.ts
+│   │   └── terminalHistoryStorage.ts
 │   ├── types
 │   │   ├── git.ts
 │   │   ├── index.ts
@@ -597,12 +597,8 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 63019
-合計文字数: 2059470
-合計ファイルサイズ(bytes): 2193750
+合計行数: 63986
+合計文字数: 2075512
+合計ファイルサイズ(bytes): 2210770
 
-開発時のdev container全体のサイズ(bytes): 3.4G	.
-==========
-ビルト済みファイルの行数: 126818
-合計文字数: 26996325
-合計ファイルサイズ(bytes): 29974034
+開発時のdev container全体のサイズ(bytes): 2.4G	.
