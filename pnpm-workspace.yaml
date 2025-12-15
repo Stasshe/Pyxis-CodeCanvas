@@ -1,7 +1,9 @@
 packages:
-  - 'src/**'
-  - 'extensions/**'
+  - src/**
+  - extensions/**
+
 ignoredBuiltDependencies:
+  - '@biomejs/biome'
   - core-js
   - esbuild
   - sharp
