@@ -76,7 +76,21 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     // If IndexedDB restore hasn't completed yet, wait.
     // Do NOT bail out when there are zero panes —
     // zero open tabs should still mark restoration as completed.
-    if (!isRestored) return
+      if (!isRestored) {
+        return;
+      }
+
+      // If there are no panes (no tabs opened), mark restoration completed
+      // and emit the restored event so UI loading state can finish.
+      if (!store.panes.length) {
+        console.warn('[useTabContentRestore] No panes found — marking restoration completed');
+        restorationCompleted.current = true;
+        restorationInProgress.current = false;
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
+        }, 50);
+        return;
+      }
 
     const flatPanes = flattenPanes(store.panes)
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
