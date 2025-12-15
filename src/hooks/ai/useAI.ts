@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { getSelectedFileContexts, getCustomInstructions } from '@/engine/ai/contextBuilder';
-import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
+import { streamCodeEdit, streamChatResponse } from '@/engine/ai/fetchAI';
 import { EDIT_PROMPT_TEMPLATE, ASK_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
 import {
   parseEditResponse,
@@ -34,6 +34,7 @@ interface UseAIProps {
 export function useAI(props?: UseAIProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileContexts, setFileContexts] = useState<AIFileContext[]>([]);
+  const [streamingContent, setStreamingContent] = useState<string>('');
 
   // storage adapter for AI review metadata
   // import dynamically to avoid circular deps in some build setups
@@ -90,7 +91,7 @@ export function useAI(props?: UseAIProps) {
     [props?.onAddMessage]
   );
 
-  // メッセージを送信（Ask/Edit統合）
+  // メッセージを送信（Ask/Edit統合）- ストリーミング対応
   const sendMessage = useCallback(
     async (content: string, mode: 'ask' | 'edit'): Promise<AIEditResponse | null> => {
       const apiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
@@ -119,24 +120,41 @@ export function useAI(props?: UseAIProps) {
         }));
 
       setIsProcessing(true);
+      setStreamingContent('');
+      
       try {
         // Get custom instructions if available
         const customInstructions = getCustomInstructions(fileContexts);
 
         if (mode === 'ask') {
-          // Ask モード
+          // Ask モード - ストリーミング
           const prompt = ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
-          const response = await generateChatResponse(prompt, [], apiKey);
+          let fullResponse = '';
 
-          await addMessage(response, 'assistant', 'ask');
+          await streamChatResponse(prompt, [], apiKey, (chunk) => {
+            fullResponse += chunk;
+            setStreamingContent(fullResponse);
+          });
+
+          // ストリーミング完了後、最終メッセージを追加
+          await addMessage(fullResponse, 'assistant', 'ask');
+          setStreamingContent('');
           return null;
         } else {
-          // Edit モード
+          // Edit モード - ストリーミング
           const prompt = EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
-          const response = await generateCodeEdit(prompt, apiKey);
+          let fullResponse = '';
+
+          await streamCodeEdit(prompt, apiKey, (chunk) => {
+            fullResponse += chunk;
+            setStreamingContent(fullResponse);
+          });
+
+          // ストリーミング完了後、レスポンスをパース
+          console.log('[useAI] Full streamed response:', fullResponse);
 
           // レスポンスのバリデーション
-          const validation = validateResponse(response);
+          const validation = validateResponse(fullResponse);
           if (!validation.isValid) {
             console.warn('[useAI] Response validation errors:', validation.errors);
           }
@@ -145,7 +163,7 @@ export function useAI(props?: UseAIProps) {
           }
 
           // レスポンスをパース
-          const responsePaths = extractFilePathsFromResponse(response);
+          const responsePaths = extractFilePathsFromResponse(fullResponse);
           console.log(
             '[useAI] Selected files:',
             selectedFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
@@ -198,7 +216,7 @@ export function useAI(props?: UseAIProps) {
             allOriginalFiles.map(f => ({ path: f.path, contentLength: f.content.length, isNewFile: f.isNewFile }))
           );
 
-          const parseResult = parseEditResponse(response, allOriginalFiles);
+          const parseResult = parseEditResponse(fullResponse, allOriginalFiles);
 
           console.log(
             '[useAI] Parse result:',
@@ -237,6 +255,7 @@ export function useAI(props?: UseAIProps) {
 
           // Append assistant edit message and capture returned message (so we know its id)
           const assistantMsg = await addMessage(detailedMessage, 'assistant', 'edit', [], editResponse);
+          setStreamingContent('');
 
           // Persist AI review metadata / snapshots using storage adapter when projectId provided
           try {
@@ -259,12 +278,13 @@ export function useAI(props?: UseAIProps) {
       } catch (error) {
         const errorMessage = `Error: ${(error as Error).message}`;
         await addMessage(errorMessage, 'assistant', mode);
+        setStreamingContent('');
         throw error;
       } finally {
         setIsProcessing(false);
       }
     },
-    [fileContexts, addMessage, props?.messages]
+    [fileContexts, addMessage, props?.messages, props?.projectId, aiStorage]
   );
 
   // ファイルコンテキストを更新
@@ -337,5 +357,6 @@ export function useAI(props?: UseAIProps) {
     updateFileContexts,
     toggleFileSelection,
     generatePromptText,
+    streamingContent,
   };
 }
