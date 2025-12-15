@@ -84,8 +84,14 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       // and emit the restored event so UI loading state can finish.
       if (!store.panes.length) {
         console.warn('[useTabContentRestore] No panes found — marking restoration completed');
+        // ペインが無い場合でもセッション復元は完了扱いにする
         restorationCompleted.current = true;
         restorationInProgress.current = false;
+
+        // ストアのフラグを明示的に更新してUIのローディングを解除
+        store.setIsContentRestored(true)
+        store.setIsLoading(false)
+
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
         }, 50);
