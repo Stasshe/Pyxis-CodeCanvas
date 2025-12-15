@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 
 import { fileRepository } from '@/engine/core/fileRepository'
 import { useTabStore } from '@/stores/tabStore'
+import { useProjectStore } from '@/stores/projectStore'
 import type { EditorPane, FileItem } from '@/types'
 
 // FileItem[]を平坦化する関数
@@ -54,6 +55,11 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
   const store = useTabStore()
   const restorationCompleted = useRef(false)
   const restorationInProgress = useRef(false)
+  // 最後に処理したプロジェクトIDを保持
+  const lastProjectId = useRef<string | null>(null)
+
+  // 現在のプロジェクトIDを購読（プロジェクト切替を検知するため）
+  const currentProjectId = useProjectStore(state => state.currentProjectId)
 
   // パスを正規化する関数
   const normalizePath = useCallback((p?: string) => {
@@ -174,6 +180,19 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
   useEffect(() => {
     performContentRestoration()
   }, [performContentRestoration])
+
+  // `currentProjectId` が変わったら復元フラグをリセットして再試行
+  useEffect(() => {
+    if (currentProjectId !== lastProjectId.current) {
+      lastProjectId.current = currentProjectId
+      restorationCompleted.current = false
+      restorationInProgress.current = false
+
+      if (isRestored && store.panes.length) {
+        performContentRestoration()
+      }
+    }
+  }, [currentProjectId, isRestored, performContentRestoration])
 
   // 2. ファイル変更イベントのリスニング
   useEffect(() => {
