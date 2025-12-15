@@ -59,8 +59,30 @@ export async function handlePyxisCommand(
           await writeOutput('Starting complete system reset...');
           
           try {
-            // 1. Clear all IndexedDB databases
-            await writeOutput('[1/4] Clearing IndexedDB databases...');
+            // 1. Close all database connections first
+            await writeOutput('[1/5] Closing database connections...');
+            
+            // Close storageService connection
+            try {
+              storageService.close();
+              await writeOutput('  ✓ Closed pyxis-global connection');
+            } catch (e) {
+              console.warn('Failed to close storageService:', e);
+            }
+            
+            // Close fileRepository connection
+            try {
+              await fileRepository.close();
+              await writeOutput('  ✓ Closed PyxisProjects connection');
+            } catch (e) {
+              console.warn('Failed to close fileRepository:', e);
+            }
+            
+            // Wait a bit for connections to fully close
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 2. Clear all IndexedDB databases
+            await writeOutput('[2/5] Clearing IndexedDB databases...');
             const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
             let deletedCount = 0;
             
@@ -70,15 +92,27 @@ export async function handlePyxisCommand(
               try {
                 await new Promise<void>((resolve, reject) => {
                   const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
+                  
+                  // Set timeout for blocked deletions
+                  const timeoutId = setTimeout(() => {
+                    console.warn(`Database ${dbInfo.name} deletion timed out`);
+                    reject(new Error(`Deletion timeout for ${dbInfo.name}`));
+                  }, 10000);
+                  
                   deleteReq.onsuccess = () => {
+                    clearTimeout(timeoutId);
                     deletedCount++;
                     resolve();
                   };
-                  deleteReq.onerror = () => reject(deleteReq.error);
+                  
+                  deleteReq.onerror = () => {
+                    clearTimeout(timeoutId);
+                    reject(deleteReq.error);
+                  };
+                  
                   deleteReq.onblocked = () => {
                     console.warn(`Database ${dbInfo.name} deletion blocked`);
-                    // Continue anyway
-                    resolve();
+                    // Don't resolve immediately, wait for timeout or success
                   };
                 });
                 await writeOutput(`  ✓ Deleted database: ${dbInfo.name}`);
@@ -89,8 +123,8 @@ export async function handlePyxisCommand(
             
             await writeOutput(`  Deleted ${deletedCount} database(s)`);
             
-            // 2. Clear localStorage (except protected keys)
-            await writeOutput('[2/4] Clearing localStorage...');
+            // 3. Clear localStorage (except protected keys)
+            await writeOutput('[3/5] Clearing localStorage...');
             const protectedKeys = [
               LOCALSTORAGE_KEY.RECENT_PROJECTS,
               LOCALSTORAGE_KEY.LOCALE,
@@ -111,20 +145,21 @@ export async function handlePyxisCommand(
             
             await writeOutput(`  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`);
             
-            // 3. Clear sessionStorage
-            await writeOutput('[3/4] Clearing sessionStorage...');
+            // 4. Clear sessionStorage
+            await writeOutput('[4/5] Clearing sessionStorage...');
             clearAllTerminalHistory();
             sessionStorage.clear();
             await writeOutput('  ✓ Cleared sessionStorage');
             
-            // 4. Clear global storage service
-            await writeOutput('[4/4] Clearing Pyxis storage service...');
-            await storageService.clearAll();
-            await writeOutput('  ✓ Cleared Pyxis storage service');
-            
+            // 5. Reload page to reinitialize
+            await writeOutput('[5/5] Reloading application...');
             await writeOutput('');
             await writeOutput('✅ Complete system reset successful!');
-            await writeOutput('Please refresh the page to reinitialize the application.');
+            await writeOutput('Page will reload in 2 seconds...');
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
           } catch (error) {
             await writeOutput('');
             await writeOutput(`❌ Reset failed: ${(error as Error).message}`);

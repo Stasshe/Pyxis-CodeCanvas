@@ -5,6 +5,8 @@
 
 import JSZip from 'jszip';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import { storageService } from '@/engine/storage';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * Export all IndexedDB databases and localStorage to a ZIP file
@@ -114,7 +116,29 @@ export async function importAllData(zipFile: File): Promise<void> {
       console.log('[importAllData] Importing data from:', metadata.exportDate);
     }
 
-    // 2. Clear all existing IndexedDB databases
+    // 2. Close all database connections first
+    console.log('[importAllData] Closing database connections...');
+    
+    // Close storageService
+    try {
+      storageService.close();
+      console.log('[importAllData] Closed pyxis-global connection');
+    } catch (e) {
+      console.warn('[importAllData] Failed to close storageService:', e);
+    }
+    
+    // Close fileRepository
+    try {
+      await fileRepository.close();
+      console.log('[importAllData] Closed PyxisProjects connection');
+    } catch (e) {
+      console.warn('[importAllData] Failed to close fileRepository:', e);
+    }
+    
+    // Wait for connections to close
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // 3. Clear all existing IndexedDB databases
     console.log('[importAllData] Clearing existing databases...');
     const existingDbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
     
@@ -122,20 +146,14 @@ export async function importAllData(zipFile: File): Promise<void> {
       if (!dbInfo.name) continue;
       
       try {
-        // Close all connections to the database first
-        // This helps prevent blocking issues
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 100); // Give time for connections to close
-        });
-
         await new Promise<void>((resolve, reject) => {
           const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
           
           // Set a timeout to prevent indefinite blocking
           const timeoutId = setTimeout(() => {
-            console.warn(`Database ${dbInfo.name} deletion timed out after 5 seconds, continuing...`);
-            resolve();
-          }, 5000);
+            console.warn(`Database ${dbInfo.name} deletion timed out after 10 seconds`);
+            reject(new Error(`Deletion timeout for ${dbInfo.name}`));
+          }, 10000);
           
           deleteReq.onsuccess = () => {
             clearTimeout(timeoutId);
@@ -146,16 +164,17 @@ export async function importAllData(zipFile: File): Promise<void> {
           deleteReq.onerror = () => {
             clearTimeout(timeoutId);
             console.warn(`[importAllData] Failed to delete database ${dbInfo.name}:`, deleteReq.error);
-            resolve(); // Continue anyway
+            reject(deleteReq.error);
           };
           
           deleteReq.onblocked = () => {
-            console.warn(`Database ${dbInfo.name} deletion blocked, waiting...`);
-            // Don't resolve here, let the timeout handle it
+            console.warn(`Database ${dbInfo.name} deletion blocked, waiting for timeout...`);
+            // Don't resolve here - let timeout or success handle it
           };
         });
       } catch (error) {
-        console.warn(`[importAllData] Failed to delete database ${dbInfo.name}:`, error);
+        console.warn(`[importAllData] Error deleting database ${dbInfo.name}:`, error);
+        // Continue with other databases
       }
     }
 
