@@ -1440,7 +1440,6 @@ export class FileRepository {
     if (this.db) {
       this.db.close();
       this.db = null;
-      this.initPromise = null;
       coreInfo('[FileRepository] Database connection closed');
     }
   }

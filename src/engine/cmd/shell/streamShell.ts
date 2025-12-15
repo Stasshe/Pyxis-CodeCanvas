@@ -2,6 +2,8 @@ import EventEmitter from 'events';
 import { PassThrough, Readable, Writable } from 'stream';
 
 import type { StreamCtx } from './builtins';
+import { parseCommandLine } from './parser';
+import adaptBuiltins from './builtins';
 import expandBraces from './braceExpand';
 import type { UnixCommands } from '../global/unix';
 
@@ -341,8 +343,7 @@ export class StreamShell {
     const proc = new Process();
     // lazily obtain unix commands if not injected
     const unix = await this.getUnix().catch(() => this.unix);
-    const adaptBuiltins = await import('./builtins').then(m => m.default).catch(() => null);
-    const builtins = adaptBuiltins && unix ? adaptBuiltins(unix) : null;
+    const builtins = adaptBuiltins(unix);
 
     // apply any fd duplication mappings for this segment so that writes to
     // higher-numbered fds route to the intended target fds (e.g. 3>&1)
@@ -1691,29 +1692,14 @@ export class StreamShell {
     }
   ): Promise<{ stdout: string; stderr: string; code: number | null }> {
     let segs: any[] = [];
-    // Prefer the dedicated parser. If the parser module cannot be imported
-    // (e.g. not present in some environments), fall back to the simple
-    // tokenizer. BUT if the parser is present and throws during parsing,
-    // treat that as a real parse error and abort immediately (do not retry).
-    let parserModule: any = null;
+    // Use the AST-based parser exclusively. If importing or parsing fails,
+    // surface a parse error (exit code 2) instead of falling back to the
+    // simpler regex/tokenizer implementation.
     try {
-      parserModule = await import('./parser');
-    } catch (impErr) {
-      // import failed: fallback to simpler parser
-      const pieces = this.splitPipes(line);
-      segs = pieces.map(p => this.parseSegment(p));
-    }
-
-    if (parserModule) {
-      try {
-        segs = parserModule.parseCommandLine(line);
-      } catch (parseErr: any) {
-        // Return an immediate parse error result. Use exit code 2 to signal
-        // a shell misuse/parse error (conventional), and include the message
-        // on stderr so callers/tests can assert on it.
-        const msg = String(parseErr && parseErr.message ? parseErr.message : parseErr);
-        return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
-      }
+      segs = parseCommandLine(line);
+    } catch (parseErr: any) {
+      const msg = String(parseErr && parseErr.message ? parseErr.message : parseErr);
+      return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
     }
     // If nothing to run, return immediately
     if (!segs || segs.length === 0) {

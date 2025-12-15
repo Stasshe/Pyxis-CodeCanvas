@@ -419,6 +419,7 @@ export default function GitPanel({
   // 全ファイルをアンステージング
   const handleUnstageAll = async () => {
     if (!gitCommands) return;
+    const stagedFiles = gitRepo?.status.staged || [];
 
     try {
       console.log('[GitPanel] Unstaging all files');
