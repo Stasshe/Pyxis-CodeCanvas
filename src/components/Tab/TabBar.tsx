@@ -20,7 +20,7 @@ import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useKeyBinding, triggerAction } from '@/hooks/useKeyBindings';
 import { useTabStore } from '@/stores/tabStore';
 
 interface TabBarProps {
@@ -508,13 +508,13 @@ export default function TabBar({ paneId }: TabBarProps) {
             </button>
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              onClick={() => { setPaneMenuOpen(false); window.dispatchEvent(new CustomEvent('pyxis-save-restart')); }}
-              title={t('tabBar.saveRestart')}
+              onClick={() => { setPaneMenuOpen(false); triggerAction('saveFile'); }}
+              title={t('save')}
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
               <Save size={16} color={colors.primary} />
-              <span style={{ color: colors.foreground }}>{t('tabBar.saveRestart')}</span>
+              <span style={{ color: colors.foreground }}>{t('save')}</span>
             </button>
           </div>
         )}

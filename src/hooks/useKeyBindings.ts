@@ -114,6 +114,22 @@ class KeyBindingsManager {
   }
 
   /**
+   * 外部からアクションを直接呼び出す（例: UIからの保存ボタン経由）
+   */
+  triggerAction(actionId: string) {
+    const callbacks = this.actions.get(actionId);
+    if (callbacks && callbacks.size > 0) {
+      callbacks.forEach(cb => {
+        try {
+          cb();
+        } catch (err) {
+          console.error('[KeyBindings] triggerAction callback failed', err);
+        }
+      });
+    }
+  }
+
+  /**
    * キーイベントハンドラ
    */
   handleKeyDown(e: KeyboardEvent): boolean {
@@ -336,6 +352,19 @@ if (typeof window !== 'undefined') {
   // `beforeinput` fires just before DOM insertion; blocking it prevents characters
   // from being inserted even if key events failed to prevent them (common with IME).
   window.addEventListener('beforeinput', onBeforeInput, { capture: true });
+
+  // Allow UI components to request an explicit save via CustomEvent('pyxis-save')
+  // Historically we supported CustomEvent('pyxis-save'). Prefer direct triggering via
+  // exported `triggerAction` to avoid coupling to the DOM event system.
+}
+
+// Expose a programmatic API to trigger a registered action from non-hook code.
+export function triggerAction(actionId: string) {
+  try {
+    keyBindingsManager.triggerAction(actionId);
+  } catch (err) {
+    console.error('[KeyBindings] triggerAction failed', err);
+  }
 }
 
 /**
