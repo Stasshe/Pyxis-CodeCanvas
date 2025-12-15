@@ -88,6 +88,9 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     if (tabsNeedingRestore.length === 0) {
       restorationCompleted.current = true
       console.log('[useTabContentRestore] No tabs need restoration, marking as completed')
+      // UI側の復元フラグも更新
+      store.setIsContentRestored(true)
+      store.setIsLoading(false)
       // 完了イベントを発火（復元不要でもUIのローディングを解除するため）
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('pyxis-content-restored'))
@@ -100,6 +103,9 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return
     }
 
+    // UIを loading 状態にする
+    store.setIsLoading(true)
+    
     restorationInProgress.current = true
     console.log(
       '[useTabContentRestore] Starting content restoration for',
@@ -161,6 +167,10 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         restorationInProgress.current = false
         console.log('[useTabContentRestore] Content restoration completed successfully')
 
+        // UIフラグを更新
+        store.setIsContentRestored(true)
+        store.setIsLoading(false)
+        
         // Monaco強制再描画イベントを発火（100ms後）
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'))
@@ -172,6 +182,8 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         restorationInProgress.current = false
         // 失敗してもフラグは立てる（無限ループ防止）
         restorationCompleted.current = true
+        store.setIsLoading(false)
+        store.setIsContentRestored(true)
       }
     })
   }, [isRestored, store, projectFiles, normalizePath])
