@@ -56,7 +56,7 @@ function transpile(request: TranspileRequest): TranspileResult {
 
     // CJS/ESM正規化を実行（依存関係も同時に抽出される）
     const normalized = normalizeCjsEsm(code);
-    
+
     // デバッグ: normalizeCjsEsmの戻り値を確認
     console.log('🔍 normalizeCjsEsm result:', typeof normalized, normalized);
     console.log('🔍 normalized.code type:', typeof normalized.code);

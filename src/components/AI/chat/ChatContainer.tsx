@@ -58,11 +58,7 @@ export default function ChatContainer({
       ) : (
         <>
           {messages.map(message => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              onRevert={onRevert}
-            />
+            <ChatMessage key={message.id} message={message} onRevert={onRevert} />
           ))}
 
           {/* Processing indicator */}

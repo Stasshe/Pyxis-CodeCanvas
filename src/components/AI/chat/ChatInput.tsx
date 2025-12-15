@@ -119,10 +119,7 @@ export default function ChatInput({
         {/* 選択ファイル表示 */}
         {(selectedFiles.length > 0 || activeTabPath) && (
           <div className="flex items-center gap-1 flex-wrap">
-            <div
-              className="flex items-center gap-1 text-[10px]"
-              style={{ color: colors.mutedFg }}
-            >
+            <div className="flex items-center gap-1 text-[10px]" style={{ color: colors.mutedFg }}>
               <FileCode size={10} />
             </div>
 
@@ -145,7 +142,11 @@ export default function ChatInput({
                   lineHeight: 1,
                 }}
               >
-                <img src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)} alt="icon" style={{ width: 10, height: 10, flex: '0 0 10px' }} />
+                <img
+                  src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)}
+                  alt="icon"
+                  style={{ width: 10, height: 10, flex: '0 0 10px' }}
+                />
                 <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                   {activeTabPath.split('/').pop()}
                 </span>
@@ -192,7 +193,11 @@ export default function ChatInput({
                     lineHeight: 1,
                   }}
                 >
-                  <img src={iconSrc} alt="icon" style={{ width: 10, height: 10, flex: '0 0 10px' }} />
+                  <img
+                    src={iconSrc}
+                    alt="icon"
+                    style={{ width: 10, height: 10, flex: '0 0 10px' }}
+                  />
                   <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                     {fileName}
                   </span>
@@ -213,7 +218,20 @@ export default function ChatInput({
                       cursor: 'pointer',
                     }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="8"
+                      height="8"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
                   </button>
                 </div>
               );
@@ -272,14 +290,7 @@ export default function ChatInput({
               }}
               title={t('ai.sendTitle')}
             >
-              {isProcessing ? (
-                <Loader2
-                  size={14}
-                  className="animate-spin"
-                />
-              ) : (
-                <Send size={14} />
-              )}
+              {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             </button>
           </div>
         </div>

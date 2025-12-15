@@ -50,7 +50,7 @@ export class NodeRuntime {
   private projectDir: string;
   private terminalColumns: number;
   private terminalRows: number;
-  
+
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
   private eventLoopResolve: (() => void) | null = null;
@@ -102,13 +102,12 @@ export class NodeRuntime {
         runtimeInfo('📂 Pre-loading files into memory cache...');
         // Preload ALL files to support fs.readFileSync for any file type (e.g. .cow, .yml, .js)
         // Since we can't do synchronous IO against IndexedDB on demand, we must cache everything.
-        await this.builtInModules.fs.preloadFiles([]); 
+        await this.builtInModules.fs.preloadFiles([]);
         runtimeInfo('✅ Files pre-loaded');
       }
 
       // ModuleLoaderを初期化
       await this.moduleLoader.init();
-
 
       // グローバルオブジェクトを準備（process, Buffer, timersなど）
       // これらをModuleLoaderに注入して、依存関係の実行時にも使えるようにする
@@ -130,7 +129,7 @@ export class NodeRuntime {
         __filename: filePath,
         __dirname: this.dirname(filePath),
       };
-      
+
       // module.exportsへの参照を維持
       (sandbox as any).exports = (sandbox as any).module.exports;
 
@@ -158,8 +157,7 @@ export class NodeRuntime {
         runtimeError('Stack trace:', errorStack);
       }
       throw error;
-  }
-
+    }
   }
 
   /**
@@ -177,7 +175,7 @@ export class NodeRuntime {
     });
 
     // イベントループが空になるまで待機
-    return new Promise<void>((resolve) => {
+    return new Promise<void>(resolve => {
       this.eventLoopResolve = resolve;
       // タイムアウト: 最大30秒待つ（無限ループ防止）
       setTimeout(() => {
@@ -258,7 +256,6 @@ export class NodeRuntime {
       })();
     `;
   }
-
 
   /**
    * グローバルオブジェクトを作成
@@ -434,7 +431,7 @@ export class NodeRuntime {
       try {
         // Simple resolution for relative/absolute paths
         let resolvedPath: string | null = null;
-        
+
         // Check moduleNameMap first (for npm packages)
         const mappedPath = this.moduleLoader.resolveModuleName(moduleName);
         if (mappedPath) {
@@ -474,9 +471,19 @@ export class NodeRuntime {
             runtimeInfo('✅ Module loaded from cache:', resolvedPath);
             return exports;
           }
-          
+
           // Try with extensions if exact path failed
-          const extensions = ['', '.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '/index.js', '/index.ts'];
+          const extensions = [
+            '',
+            '.js',
+            '.mjs',
+            '.ts',
+            '.mts',
+            '.tsx',
+            '.jsx',
+            '/index.js',
+            '/index.ts',
+          ];
           for (const ext of extensions) {
             const pathWithExt = resolvedPath + ext;
             const exportsExt = this.moduleLoader.getExports(pathWithExt);
@@ -504,20 +511,20 @@ export class NodeRuntime {
    */
   private resolveBuiltInModule(moduleName: string): unknown | null {
     const builtIns: Record<string, unknown> = {
-      'fs': this.builtInModules.fs,
+      fs: this.builtInModules.fs,
       'fs/promises': this.builtInModules.fs,
-      'path': this.builtInModules.path,
-      'os': this.builtInModules.os,
-      'util': this.builtInModules.util,
-      'http': this.builtInModules.http,
-      'https': this.builtInModules.https,
-      'buffer': { Buffer: this.builtInModules.Buffer },
-      'readline': this.builtInModules.readline,
-      'assert': this.builtInModules.assert,
-      'events': this.builtInModules.events,
-      'module': this.builtInModules.module,
-      'url': this.builtInModules.url,
-      'stream': this.builtInModules.stream,
+      path: this.builtInModules.path,
+      os: this.builtInModules.os,
+      util: this.builtInModules.util,
+      http: this.builtInModules.http,
+      https: this.builtInModules.https,
+      buffer: { Buffer: this.builtInModules.Buffer },
+      readline: this.builtInModules.readline,
+      assert: this.builtInModules.assert,
+      events: this.builtInModules.events,
+      module: this.builtInModules.module,
+      url: this.builtInModules.url,
+      stream: this.builtInModules.stream,
     };
 
     return builtIns[moduleName] || null;

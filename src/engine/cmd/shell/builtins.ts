@@ -321,11 +321,10 @@ export default function adaptUnixToStream(unix: any) {
       // デバッグコンソールを設定（即座に出力、バッファリングなし）
       const debugConsole = {
         log: (...args: unknown[]) => {
-          const output = args
-            .map(arg =>
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            )
-            .join(' ') + '\n';
+          const output =
+            args
+              .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+              .join(' ') + '\n';
           // 即座にストリームに書き込む（バッファリングなし）
           try {
             ctx.stdout.write(output);
@@ -335,9 +334,7 @@ export default function adaptUnixToStream(unix: any) {
         },
         error: (...args: unknown[]) => {
           const output = args
-            .map(arg =>
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            )
+            .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ');
           try {
             ctx.stderr.write(`\x1b[31m${output}\x1b[0m\n`);
@@ -345,9 +342,7 @@ export default function adaptUnixToStream(unix: any) {
         },
         warn: (...args: unknown[]) => {
           const output = args
-            .map(arg =>
-              typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-            )
+            .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ');
           try {
             ctx.stdout.write(`\x1b[33m${output}\x1b[0m\n`);
@@ -373,13 +368,11 @@ export default function adaptUnixToStream(unix: any) {
           if (!entryPath.startsWith('/')) {
             const cwd = await unix.pwd();
             const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
-            entryPath = typeof unix.normalizePath === 'function' 
-              ? unix.normalizePath(combined) 
-              : combined;
+            entryPath =
+              typeof unix.normalizePath === 'function' ? unix.normalizePath(combined) : combined;
           } else {
-            entryPath = typeof unix.normalizePath === 'function'
-              ? unix.normalizePath(entryPath)
-              : entryPath;
+            entryPath =
+              typeof unix.normalizePath === 'function' ? unix.normalizePath(entryPath) : entryPath;
           }
         }
       } catch (e) {
@@ -399,7 +392,6 @@ export default function adaptUnixToStream(unix: any) {
 
       // NodeRuntimeを実行
       await runtime.execute(entryPath, args.slice(1));
-
 
       // ★ イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
       // setTimeout, Promise.thenなど、すべての非同期タスクが完了するまで自動的に待機

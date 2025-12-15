@@ -294,7 +294,9 @@ export class NpmInstall {
           shimLines.push('try {');
           shimLines.push(`  require('${target}');`);
           shimLines.push('} catch (e) {');
-          shimLines.push("  console.error('Failed to run " + name + ":', e && e.message ? e.message : e);" );
+          shimLines.push(
+            "  console.error('Failed to run " + name + ":', e && e.message ? e.message : e);"
+          );
           shimLines.push('  process.exit(1);');
           shimLines.push('}');
 
@@ -714,7 +716,9 @@ export class NpmInstall {
             batch.map(async ([depName, depVersion]) => {
               try {
                 // Transitive dependencies are marked as isDirect: false
-                await this.installWithDependencies(depName, this.resolveVersion(depVersion), { isDirect: false });
+                await this.installWithDependencies(depName, this.resolveVersion(depVersion), {
+                  isDirect: false,
+                });
               } catch (error) {
                 console.warn(
                   `[npm.installWithDependencies] Failed to install dependency ${depName}@${depVersion}: ${(error as Error).message}`
@@ -838,18 +842,28 @@ export class NpmInstall {
 
         // 展開されたファイルをバッチ/並列で同期
         const foldersToCreate: string[] = [];
-        const filesToCreate: Array<{ projectId: string; path: string; content: string; type: string }> = [];
+        const filesToCreate: Array<{
+          projectId: string;
+          path: string;
+          content: string;
+          type: string;
+        }> = [];
 
         for (const [relPath, fileInfo] of extractedFiles) {
           const fullPath = `${basePath}/${relPath}`;
           if (fileInfo.isDirectory) {
             foldersToCreate.push(fullPath);
           } else {
-            filesToCreate.push({ projectId: this.projectId, path: fullPath, content: fileInfo.content || '', type: 'file' });
+            filesToCreate.push({
+              projectId: this.projectId,
+              path: fullPath,
+              content: fileInfo.content || '',
+              type: 'file',
+            });
           }
         }
 
-          if (this.batchProcessing) {
+        if (this.batchProcessing) {
           // バッチモード時はフォルダは即時作成、ファイルはキューに追加
           await Promise.all(foldersToCreate.map(p => this.executeFileOperation(p, 'folder')));
           for (const f of filesToCreate) {
@@ -870,19 +884,20 @@ export class NpmInstall {
           for (let i = 0; i < filesToCreate.length; i += BATCH_SIZE) {
             const batch = filesToCreate.slice(i, i + BATCH_SIZE);
             try {
-              await fileRepository.createFilesBulk(
-                this.projectId,
-                batch as any,
-                true
-              );
+              await fileRepository.createFilesBulk(this.projectId, batch as any, true);
             } catch (err) {
               console.warn(`[npm.downloadAndInstallPackage] createFilesBulk failed:`, err);
               // フォールバックで個別作成（並列）
               await Promise.all(
                 batch.map(b =>
-                  fileRepository.createFile(this.projectId, b.path, b.content || '', 'file').catch(e => {
-                    console.warn(`[npm.downloadAndInstallPackage] Failed to create file ${b.path}:`, e);
-                  })
+                  fileRepository
+                    .createFile(this.projectId, b.path, b.content || '', 'file')
+                    .catch(e => {
+                      console.warn(
+                        `[npm.downloadAndInstallPackage] Failed to create file ${b.path}:`,
+                        e
+                      );
+                    })
                 )
               );
             }

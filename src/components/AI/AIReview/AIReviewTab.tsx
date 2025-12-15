@@ -65,10 +65,7 @@ export default function AIReviewTab({
 
   if (!originalContent && !suggestedContent) {
     return (
-      <div
-        className="flex items-center justify-center h-full"
-        style={{ color: colors.mutedFg }}
-      >
+      <div className="flex items-center justify-center h-full" style={{ color: colors.mutedFg }}>
         {t('aiReviewTab.notFound')}
       </div>
     );
@@ -229,7 +226,12 @@ export default function AIReviewTab({
       try {
         const { updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
         const hist = aiEntry.history || [];
-        const historyEntry = { id: `revert-${Date.now()}`, timestamp: new Date(), content: aiEntry.originalSnapshot, note: 'reverted' };
+        const historyEntry = {
+          id: `revert-${Date.now()}`,
+          timestamp: new Date(),
+          content: aiEntry.originalSnapshot,
+          note: 'reverted',
+        };
         await updateAIReviewEntry(aiEntry.projectId, filePath, {
           status: 'reverted',
           history: [historyEntry, ...hist],
@@ -243,7 +245,6 @@ export default function AIReviewTab({
       console.error('[AIReviewTab] revert applied failed', e);
     }
   };
-
 
   // 全体破棄（元の内容に戻す）
   const handleDiscardAll = () => {
@@ -279,16 +280,10 @@ export default function AIReviewTab({
         style={{ borderColor: colors.border, background: colors.cardBg }}
       >
         <div>
-          <h3
-            className="font-semibold"
-            style={{ color: colors.foreground }}
-          >
+          <h3 className="font-semibold" style={{ color: colors.foreground }}>
             AI Review: {filePath.split('/').pop()}
           </h3>
-          <p
-            className="text-xs mt-1"
-            style={{ color: colors.mutedFg }}
-          >
+          <p className="text-xs mt-1" style={{ color: colors.mutedFg }}>
             {filePath}
           </p>
         </div>
@@ -461,10 +456,7 @@ export default function AIReviewTab({
           color: colors.mutedFg,
         }}
       >
-        <span
-          role="img"
-          aria-label="hint"
-        >
+        <span role="img" aria-label="hint">
           💡
         </span>{' '}
         <b>{t('aiReviewTab.editRightDirectly')}</b>

@@ -97,7 +97,7 @@ export default function Home() {
   // プロジェクト管理
   const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
     useProject();
-  
+
   // グローバルプロジェクトストアを同期
   // NOTE: useProject()は各コンポーネントで独立したステートを持つため、
   // ここでグローバルストアに同期することで、全コンポーネントが一貫したプロジェクト情報にアクセスできる
@@ -297,304 +297,331 @@ export default function Home() {
 
   // Pane management shortcuts
   useKeyBinding('openPaneNavigator', () => setIsPaneNavigatorOpen(true), []);
-  
-  useKeyBinding('splitPaneVertical', () => {
-    const flatPanes = flattenPanes(panes);
-    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
-    if (currentPane) {
-      splitPane(currentPane.id, 'vertical');
-    }
-  }, [panes, activePane, flattenPanes, splitPane]);
 
-  useKeyBinding('splitPaneHorizontal', () => {
-    const flatPanes = flattenPanes(panes);
-    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
-    if (currentPane) {
-      splitPane(currentPane.id, 'horizontal');
-    }
-  }, [panes, activePane, flattenPanes, splitPane]);
+  useKeyBinding(
+    'splitPaneVertical',
+    () => {
+      const flatPanes = flattenPanes(panes);
+      const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+      if (currentPane) {
+        splitPane(currentPane.id, 'vertical');
+      }
+    },
+    [panes, activePane, flattenPanes, splitPane]
+  );
 
-  useKeyBinding('closePane', () => {
-    const flatPanes = flattenPanes(panes);
-    if (flatPanes.length <= 1) return; // Don't close the last pane
-    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
-    if (currentPane) {
-      removePane(currentPane.id);
-      // Focus the first remaining pane
-      const remaining = flatPanes.filter(p => p.id !== currentPane.id);
-      if (remaining.length > 0) {
-        setActivePane(remaining[0].id);
-        if (remaining[0].activeTabId) {
-          activateTab(remaining[0].id, remaining[0].activeTabId);
+  useKeyBinding(
+    'splitPaneHorizontal',
+    () => {
+      const flatPanes = flattenPanes(panes);
+      const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+      if (currentPane) {
+        splitPane(currentPane.id, 'horizontal');
+      }
+    },
+    [panes, activePane, flattenPanes, splitPane]
+  );
+
+  useKeyBinding(
+    'closePane',
+    () => {
+      const flatPanes = flattenPanes(panes);
+      if (flatPanes.length <= 1) return; // Don't close the last pane
+      const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+      if (currentPane) {
+        removePane(currentPane.id);
+        // Focus the first remaining pane
+        const remaining = flatPanes.filter(p => p.id !== currentPane.id);
+        if (remaining.length > 0) {
+          setActivePane(remaining[0].id);
+          if (remaining[0].activeTabId) {
+            activateTab(remaining[0].id, remaining[0].activeTabId);
+          }
         }
       }
-    }
-  }, [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]);
+    },
+    [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]
+  );
 
-  useKeyBinding('focusNextPane', () => {
-    const flatPanes = flattenPanes(panes);
-    if (flatPanes.length <= 1) return;
-    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
-    const nextIndex = (currentIndex + 1) % flatPanes.length;
-    const nextPane = flatPanes[nextIndex];
-    setActivePane(nextPane.id);
-    if (nextPane.activeTabId) {
-      activateTab(nextPane.id, nextPane.activeTabId);
-    }
-  }, [panes, activePane, flattenPanes, setActivePane, activateTab]);
+  useKeyBinding(
+    'focusNextPane',
+    () => {
+      const flatPanes = flattenPanes(panes);
+      if (flatPanes.length <= 1) return;
+      const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+      const nextIndex = (currentIndex + 1) % flatPanes.length;
+      const nextPane = flatPanes[nextIndex];
+      setActivePane(nextPane.id);
+      if (nextPane.activeTabId) {
+        activateTab(nextPane.id, nextPane.activeTabId);
+      }
+    },
+    [panes, activePane, flattenPanes, setActivePane, activateTab]
+  );
 
-  useKeyBinding('focusPrevPane', () => {
-    const flatPanes = flattenPanes(panes);
-    if (flatPanes.length <= 1) return;
-    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
-    const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
-    const prevPane = flatPanes[prevIndex];
-    setActivePane(prevPane.id);
-    if (prevPane.activeTabId) {
-      activateTab(prevPane.id, prevPane.activeTabId);
-    }
-  }, [panes, activePane, flattenPanes, setActivePane, activateTab]);
+  useKeyBinding(
+    'focusPrevPane',
+    () => {
+      const flatPanes = flattenPanes(panes);
+      if (flatPanes.length <= 1) return;
+      const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+      const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
+      const prevPane = flatPanes[prevIndex];
+      setActivePane(prevPane.id);
+      if (prevPane.activeTabId) {
+        activateTab(prevPane.id, prevPane.activeTabId);
+      }
+    },
+    [panes, activePane, flattenPanes, setActivePane, activateTab]
+  );
 
-  useKeyBinding('moveTabToNextPane', () => {
-    const flatPanes = flattenPanes(panes);
-    if (flatPanes.length <= 1) return;
-    const currentPane = flatPanes.find(p => p.id === activePane);
-    if (!currentPane || !currentPane.activeTabId) return;
-    
-    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
-    const nextIndex = (currentIndex + 1) % flatPanes.length;
-    const nextPane = flatPanes[nextIndex];
-    
-    moveTab(currentPane.id, nextPane.id, currentPane.activeTabId);
-  }, [panes, activePane, flattenPanes, moveTab]);
+  useKeyBinding(
+    'moveTabToNextPane',
+    () => {
+      const flatPanes = flattenPanes(panes);
+      if (flatPanes.length <= 1) return;
+      const currentPane = flatPanes.find(p => p.id === activePane);
+      if (!currentPane || !currentPane.activeTabId) return;
+
+      const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+      const nextIndex = (currentIndex + 1) % flatPanes.length;
+      const nextPane = flatPanes[nextIndex];
+
+      moveTab(currentPane.id, nextPane.id, currentPane.activeTabId);
+    },
+    [panes, activePane, flattenPanes, moveTab]
+  );
 
   // TouchBackendオプション: enableMouseEventsでマウスとタッチ両方をサポート
   // delayTouchStart: 長押し（200ms）でドラッグ開始
-  const dndOptions = useMemo(() => ({
-    enableMouseEvents: true,
-    delayTouchStart: 200,
-  }), []);
+  const dndOptions = useMemo(
+    () => ({
+      enableMouseEvents: true,
+      delayTouchStart: 200,
+    }),
+    []
+  );
 
   return (
     <DndProvider backend={TouchBackend} options={dndOptions}>
       <CustomDragLayer />
       <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <TopBar
-        isOperationWindowVisible={isOperationWindowVisible}
-        toggleOperationWindow={toggleOperationWindow}
-        isBottomPanelVisible={isBottomPanelVisible}
-        toggleBottomPanel={toggleBottomPanel}
-        isRightSidebarVisible={isRightSidebarVisible}
-        toggleRightSidebar={toggleRightSidebar}
-        colors={colors}
-        currentProjectName={currentProject?.name}
-      />
-
-      <div
-        className="flex-1 w-full flex overflow-hidden"
         style={{
-          background: colors.background,
-          position: 'relative',
+          position: 'fixed',
+          inset: 0,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {/* セッション復元中のローディング表示 */}
-        {(isTabsLoading || (isRestored && !isContentRestored)) && (
-          <div
-            className="absolute inset-0 flex items-center justify-center z-50"
-            style={{
-              background: 'rgba(0, 0, 0, 0.5)',
-            }}
-          >
-            <div className="text-white text-lg">
-              {isTabsLoading ? 'Loading session...' : 'Restoring content...'}
-            </div>
-          </div>
-        )}
-
-        <MenuBar
-          activeMenuTab={activeMenuTab}
-          onMenuTabClick={handleMenuTabClick}
-          onProjectClick={() => setIsProjectModalOpen(true)}
-          gitChangesCount={gitChangesCount}
+        <TopBar
+          isOperationWindowVisible={isOperationWindowVisible}
+          toggleOperationWindow={toggleOperationWindow}
+          isBottomPanelVisible={isBottomPanelVisible}
+          toggleBottomPanel={toggleBottomPanel}
+          isRightSidebarVisible={isRightSidebarVisible}
+          toggleRightSidebar={toggleRightSidebar}
+          colors={colors}
+          currentProjectName={currentProject?.name}
         />
 
-        {isLeftSidebarVisible && (
-          <LeftSidebar
-            activeMenuTab={activeMenuTab}
-            leftSidebarWidth={leftSidebarWidth}
-            files={projectFiles}
-            currentProject={currentProject!}
-            onResize={handleLeftResize}
-            onGitRefresh={() => {
-              if (currentProject && loadProject) {
-                loadProject(currentProject);
-              }
-            }}
-            gitRefreshTrigger={gitRefreshTrigger}
-            onGitStatusChange={setGitChangesCount}
-            onRefresh={() => {
-              if (refreshProjectFiles) {
-                refreshProjectFiles().then(() => {
-                  setGitRefreshTrigger(prev => prev + 1);
-                });
-              }
-            }}
-          />
-        )}
-
         <div
-          className="flex-1 flex flex-row overflow-hidden min-h-0"
-          style={{ position: 'relative' }}
+          className="flex-1 w-full flex overflow-hidden"
+          style={{
+            background: colors.background,
+            position: 'relative',
+          }}
         >
-          {/* メインエディタエリア */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          {/* セッション復元中のローディング表示 */}
+          {(isTabsLoading || (isRestored && !isContentRestored)) && (
             <div
-              className="flex-1 overflow-hidden flex flex-row"
-              style={{ position: 'relative' }}
+              className="absolute inset-0 flex items-center justify-center z-50"
+              style={{
+                background: 'rgba(0, 0, 0, 0.5)',
+              }}
             >
-              {panes.map((pane, idx) => (
-                <React.Fragment key={pane.id}>
-                  <div
-                    style={{
-                      width: panes.length > 1 ? `${pane.size || 100 / panes.length}%` : '100%',
-                      height: '100%',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      flexGrow: 0,
-                    }}
-                  >
-                    <PaneContainer
-                      pane={pane}
-                      setGitRefreshTrigger={setGitRefreshTrigger}
-                    />
-                  </div>
+              <div className="text-white text-lg">
+                {isTabsLoading ? 'Loading session...' : 'Restoring content...'}
+              </div>
+            </div>
+          )}
 
-                  {/* ルートレベルペイン間のリサイザー */}
-                  {idx < panes.length - 1 && (
+          <MenuBar
+            activeMenuTab={activeMenuTab}
+            onMenuTabClick={handleMenuTabClick}
+            onProjectClick={() => setIsProjectModalOpen(true)}
+            gitChangesCount={gitChangesCount}
+          />
+
+          {isLeftSidebarVisible && (
+            <LeftSidebar
+              activeMenuTab={activeMenuTab}
+              leftSidebarWidth={leftSidebarWidth}
+              files={projectFiles}
+              currentProject={currentProject!}
+              onResize={handleLeftResize}
+              onGitRefresh={() => {
+                if (currentProject && loadProject) {
+                  loadProject(currentProject);
+                }
+              }}
+              gitRefreshTrigger={gitRefreshTrigger}
+              onGitStatusChange={setGitChangesCount}
+              onRefresh={() => {
+                if (refreshProjectFiles) {
+                  refreshProjectFiles().then(() => {
+                    setGitRefreshTrigger(prev => prev + 1);
+                  });
+                }
+              }}
+            />
+          )}
+
+          <div
+            className="flex-1 flex flex-row overflow-hidden min-h-0"
+            style={{ position: 'relative' }}
+          >
+            {/* メインエディタエリア */}
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <div
+                className="flex-1 overflow-hidden flex flex-row"
+                style={{ position: 'relative' }}
+              >
+                {panes.map((pane, idx) => (
+                  <React.Fragment key={pane.id}>
                     <div
                       style={{
-                        position: 'relative',
-                        width: '6px',
+                        width: panes.length > 1 ? `${pane.size || 100 / panes.length}%` : '100%',
                         height: '100%',
+                        position: 'relative',
+                        overflow: 'hidden',
                         flexShrink: 0,
                         flexGrow: 0,
-                        cursor: 'col-resize',
-                        background: colors.border,
-                        zIndex: 10,
                       }}
-                      onMouseDown={e => {
-                        e.preventDefault();
-                        const startX = e.clientX;
-                        const startLeftSize = pane.size || 100 / panes.length;
-                        const startRightSize = panes[idx + 1]?.size || 100 / panes.length;
+                    >
+                      <PaneContainer pane={pane} setGitRefreshTrigger={setGitRefreshTrigger} />
+                    </div>
 
-                        const handleMouseMove = (moveEvent: MouseEvent) => {
-                          const container = e.currentTarget.parentElement;
-                          if (!container) return;
+                    {/* ルートレベルペイン間のリサイザー */}
+                    {idx < panes.length - 1 && (
+                      <div
+                        style={{
+                          position: 'relative',
+                          width: '6px',
+                          height: '100%',
+                          flexShrink: 0,
+                          flexGrow: 0,
+                          cursor: 'col-resize',
+                          background: colors.border,
+                          zIndex: 10,
+                        }}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startLeftSize = pane.size || 100 / panes.length;
+                          const startRightSize = panes[idx + 1]?.size || 100 / panes.length;
 
-                          const containerWidth = container.clientWidth;
-                          const delta = moveEvent.clientX - startX;
-                          const deltaPercent = (delta / containerWidth) * 100;
-                          const newLeftSize = Math.max(
-                            10,
-                            Math.min(90, startLeftSize + deltaPercent)
-                          );
-                          const newRightSize = Math.max(
-                            10,
-                            Math.min(90, startRightSize - deltaPercent)
-                          );
+                          const handleMouseMove = (moveEvent: MouseEvent) => {
+                            const container = e.currentTarget.parentElement;
+                            if (!container) return;
 
-                          const updatedPanes = [...panes];
-                          updatedPanes[idx] = { ...pane, size: newLeftSize };
-                          updatedPanes[idx + 1] = { ...updatedPanes[idx + 1], size: newRightSize };
-                          setPanes(updatedPanes);
-                        };
+                            const containerWidth = container.clientWidth;
+                            const delta = moveEvent.clientX - startX;
+                            const deltaPercent = (delta / containerWidth) * 100;
+                            const newLeftSize = Math.max(
+                              10,
+                              Math.min(90, startLeftSize + deltaPercent)
+                            );
+                            const newRightSize = Math.max(
+                              10,
+                              Math.min(90, startRightSize - deltaPercent)
+                            );
 
-                        const handleMouseUp = () => {
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
+                            const updatedPanes = [...panes];
+                            updatedPanes[idx] = { ...pane, size: newLeftSize };
+                            updatedPanes[idx + 1] = {
+                              ...updatedPanes[idx + 1],
+                              size: newRightSize,
+                            };
+                            setPanes(updatedPanes);
+                          };
 
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    />
-                  )}
-                </React.Fragment>
-              ))}
+                          const handleMouseUp = () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUp);
+                          };
+
+                          document.addEventListener('mousemove', handleMouseMove);
+                          document.addEventListener('mouseup', handleMouseUp);
+                        }}
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {isBottomPanelVisible && (
+                <BottomPanel
+                  height={bottomPanelHeight}
+                  currentProject={currentProject?.name}
+                  currentProjectId={currentProject?.id || ''}
+                  projectFiles={projectFiles}
+                  onResize={handleBottomResize}
+                />
+              )}
             </div>
 
-            {isBottomPanelVisible && (
-              <BottomPanel
-                height={bottomPanelHeight}
-                currentProject={currentProject?.name}
-                currentProjectId={currentProject?.id || ''}
-                projectFiles={projectFiles}
-                onResize={handleBottomResize}
-              />
+            {/* 右サイドバー */}
+            {isRightSidebarVisible && (
+              <>
+                <div
+                  className="resizer resizer-vertical flex-shrink-0"
+                  onMouseDown={handleRightResize}
+                  onTouchStart={handleRightResize}
+                  style={{
+                    background: colors.sidebarResizerBg,
+                    cursor: 'col-resize',
+                  }}
+                />
+                <RightSidebar
+                  rightSidebarWidth={rightSidebarWidth}
+                  onResize={handleRightResize}
+                  projectFiles={projectFiles}
+                  currentProject={currentProject}
+                  currentProjectId={currentProject?.id || ''}
+                />
+              </>
             )}
           </div>
 
-          {/* 右サイドバー */}
-          {isRightSidebarVisible && (
-            <>
-              <div
-                className="resizer resizer-vertical flex-shrink-0"
-                onMouseDown={handleRightResize}
-                onTouchStart={handleRightResize}
-                style={{
-                  background: colors.sidebarResizerBg,
-                  cursor: 'col-resize',
-                }}
-              />
-              <RightSidebar
-                rightSidebarWidth={rightSidebarWidth}
-                onResize={handleRightResize}
-                projectFiles={projectFiles}
-                currentProject={currentProject}
-                currentProjectId={currentProject?.id || ''}
-              />
-            </>
-          )}
+          <ProjectModal
+            isOpen={isProjectModalOpen}
+            onClose={() => setIsProjectModalOpen(false)}
+            onProjectSelect={handleProjectSelect}
+            onProjectCreate={handleProjectCreate}
+            currentProject={currentProject}
+          />
+
+          <OperationWindow
+            isVisible={isOperationWindowVisible}
+            onClose={closeFileSelector}
+            projectFiles={projectFiles}
+            targetPaneId={operationWindowTargetPaneId}
+          />
+
+          <PaneNavigator
+            isOpen={isPaneNavigatorOpen}
+            onClose={() => setIsPaneNavigatorOpen(false)}
+          />
         </div>
 
-        <ProjectModal
-          isOpen={isProjectModalOpen}
-          onClose={() => setIsProjectModalOpen(false)}
-          onProjectSelect={handleProjectSelect}
-          onProjectCreate={handleProjectCreate}
-          currentProject={currentProject}
+        <BottomStatusBar
+          height={22}
+          currentProjectName={currentProject?.name}
+          gitChangesCount={gitChangesCount}
+          nodeRuntimeBusy={nodeRuntimeOperationInProgress}
+          colors={colors}
         />
-
-        <OperationWindow
-          isVisible={isOperationWindowVisible}
-          onClose={closeFileSelector}
-          projectFiles={projectFiles}
-          targetPaneId={operationWindowTargetPaneId}
-        />
-
-        <PaneNavigator
-          isOpen={isPaneNavigatorOpen}
-          onClose={() => setIsPaneNavigatorOpen(false)}
-        />
-      </div>
-
-      <BottomStatusBar
-        height={22}
-        currentProjectName={currentProject?.name}
-        gitChangesCount={gitChangesCount}
-        nodeRuntimeBusy={nodeRuntimeOperationInProgress}
-        colors={colors}
-      />
       </div>
     </DndProvider>
   );

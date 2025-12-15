@@ -131,7 +131,10 @@ class SessionStorageManager {
    */
   async loadUIState(): Promise<PyxisSession['ui']> {
     try {
-      const saved = await storageService.get<PyxisSession['ui']>(STORES.USER_PREFERENCES, UI_STATE_KEY);
+      const saved = await storageService.get<PyxisSession['ui']>(
+        STORES.USER_PREFERENCES,
+        UI_STATE_KEY
+      );
       if (saved) {
         console.log('[SessionStorage] UI state loaded successfully');
         return saved;

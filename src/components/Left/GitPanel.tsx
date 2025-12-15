@@ -615,7 +615,8 @@ export default function GitPanel({
           {t('action.retry')}
         </button>
         <p style={{ fontSize: '0.75rem', marginTop: '0.75rem', color: colors.mutedFg }}>
-          This error is might be due to the Github pages error, so use following page instead of here. {' '}
+          This error is might be due to the Github pages error, so use following page instead of
+          here.{' '}
           <a
             href="https://pyxis-codecanvas.onrender.com"
             target="_blank"
@@ -785,10 +786,7 @@ export default function GitPanel({
                   className="select-none"
                 />
               ) : (
-                <Plus
-                  style={{ width: '0.75rem', height: '0.75rem' }}
-                  className="select-none"
-                />
+                <Plus style={{ width: '0.75rem', height: '0.75rem' }} className="select-none" />
               )}
               {isGenerating ? t('git.generating') : t('git.generateCommitMessage')}
             </button>

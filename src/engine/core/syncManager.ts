@@ -75,17 +75,17 @@ export class SyncManager {
    */
   private shouldIgnorePath(rules: GitIgnoreRule[], path: string): boolean {
     if (rules.length === 0) return false;
-    
+
     // Normalize path (remove leading slash for consistent matching)
     const normalizedPath = path.replace(/^\/+/, '');
-    
+
     // Check if path is ignored (false = not a directory for type-specific rules)
     const ignored = isPathIgnored(rules, normalizedPath, false);
-    
+
     if (ignored) {
       coreInfo(`[SyncManager] Path "${path}" is ignored by .gitignore`);
     }
-    
+
     return ignored;
   }
 
@@ -110,7 +110,7 @@ export class SyncManager {
       const filteredDbFiles = dbFiles.filter(file => {
         // Always include .gitignore itself (using consistent path format)
         if (file.path === '/.gitignore') return true;
-        
+
         // Check if file should be ignored
         return !this.shouldIgnorePath(gitignoreRules, file.path);
       });

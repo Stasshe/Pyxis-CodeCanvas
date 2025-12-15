@@ -208,7 +208,6 @@ class Interface {
       this.emit('close');
     }
   }
-
 }
 
 const cursorTo = (stream: any, x: number, y?: number): boolean => {
@@ -246,7 +245,9 @@ const clearScreenDown = (stream: any): boolean => {
   return true;
 };
 
-export function createReadlineModule(onInput?: (prompt: string, callback: (input: string) => void) => void) {
+export function createReadlineModule(
+  onInput?: (prompt: string, callback: (input: string) => void) => void
+) {
   // create a lightweight pseudo-stdin stream that other parts can listen to.
   // This stream implements `on('data', fn)`, `removeListener`, `once`, `setRawMode`, `pause`, `resume`.
   const dataListeners: Array<(chunk: any) => void> = [];
@@ -287,7 +288,9 @@ export function createReadlineModule(onInput?: (prompt: string, callback: (input
         try {
           l(Buffer.from(chunk, 'utf8'));
         } catch (e) {
-          try { l(chunk); } catch (_) {}
+          try {
+            l(chunk);
+          } catch (_) {}
         }
       }
       // Emit once listeners and clear them
@@ -295,7 +298,9 @@ export function createReadlineModule(onInput?: (prompt: string, callback: (input
         try {
           l(Buffer.from(chunk, 'utf8'));
         } catch (e) {
-          try { l(chunk); } catch (_) {}
+          try {
+            l(chunk);
+          } catch (_) {}
         }
       }
     } catch (err) {
@@ -313,7 +318,10 @@ export function createReadlineModule(onInput?: (prompt: string, callback: (input
       // - Otherwise, if options.input is provided, use it.
       // - Otherwise fall back to host process.stdin if available, else pseudoStdin.
       let input: any;
-      const hostStdin = (typeof process !== 'undefined' && (process as any).stdin) ? (process as any).stdin : undefined;
+      const hostStdin =
+        typeof process !== 'undefined' && (process as any).stdin
+          ? (process as any).stdin
+          : undefined;
 
       if (options.input && options.input === hostStdin) {
         // Caller explicitly passed the real host stdin

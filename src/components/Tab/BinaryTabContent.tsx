@@ -114,10 +114,7 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
       className="flex-1 min-h-0 flex flex-col items-center justify-center"
       style={{ height: editorHeight }}
     >
-      <FileText
-        size={48}
-        className="mx-auto mb-4 opacity-50"
-      />
+      <FileText size={48} className="mx-auto mb-4 opacity-50" />
       <div style={{ color: '#aaa', fontSize: 15, marginBottom: 8 }}>{activeTab.name}</div>
       <div style={{ color: '#d44', fontSize: 16 }}>{t('binaryTab.unsupportedFormat')}</div>
     </div>

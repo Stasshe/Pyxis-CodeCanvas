@@ -210,11 +210,11 @@
     "generatingMermaid": "Mermaid図表を生成中...",
     "imageNotFound": "画像が見つかりません: {src}",
     "loadingImage": "画像を読み込み中...",
+    "mermaidPlaceholder": "スクロールするとMermaid図が表示されます",
     "preview": "プレビュー",
     "reset": "リセット",
     "zoomIn": "ズームイン",
-    "zoomOut": "ズームアウト",
-    "mermaidPlaceholder": "スクロールするとMermaid図が表示されます"
+    "zoomOut": "ズームアウト"
   },
   "menu": {
     "extensions": "拡張機能",
@@ -236,6 +236,18 @@
     "openInPreview": "プレビューで開く",
     "quickOpen": "クイックオープン",
     "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索..."
+  },
+  "paneNavigator": {
+    "activate": "選択",
+    "close": "閉じる",
+    "deletePane": "ペインを削除",
+    "emptyPane": "空",
+    "navigate": "移動",
+    "splitHorizontal": "横に分割",
+    "splitVertical": "縦に分割",
+    "tab": "タブ",
+    "tabs": "タブ",
+    "title": "ペインナビゲーター"
   },
   "projectModal": {
     "cancel": "キャンセル",
@@ -338,18 +350,6 @@
       "highlightTheme": "コードハイライト",
       "title": "テーマ"
     }
-  },
-  "paneNavigator": {
-    "title": "ペインナビゲーター",
-    "emptyPane": "空",
-    "splitVertical": "縦に分割",
-    "splitHorizontal": "横に分割",
-    "deletePane": "ペインを削除",
-    "navigate": "移動",
-    "activate": "選択",
-    "close": "閉じる",
-    "tab": "タブ",
-    "tabs": "タブ"
   },
   "tabBar": {
     "closeTab": "タブを閉じる",

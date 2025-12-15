@@ -6,11 +6,7 @@
  * 2. Legacy full-file replacement format (fallback)
  */
 
-import {
-  type PatchBlock,
-  type SearchReplaceBlock,
-  applyPatchBlock,
-} from './patchApplier';
+import { type PatchBlock, type SearchReplaceBlock, applyPatchBlock } from './patchApplier';
 
 export interface ParsedFile {
   path: string;
@@ -79,9 +75,11 @@ export function extractFilePathsFromResponse(response: string): string[] {
 /**
  * Parse SEARCH/REPLACE blocks for a specific file section
  */
-function parseFilePatchSection(
-  section: string
-): { blocks: SearchReplaceBlock[]; isNewFile: boolean; fullContent?: string } {
+function parseFilePatchSection(section: string): {
+  blocks: SearchReplaceBlock[];
+  isNewFile: boolean;
+  fullContent?: string;
+} {
   const blocks: SearchReplaceBlock[] = [];
   let isNewFile = false;
   let fullContent: string | undefined;
@@ -113,7 +111,10 @@ function parseFilePatchSection(
  */
 function extractFilePatchSections(
   response: string
-): Map<string, { blocks: SearchReplaceBlock[]; explanation: string; isNewFile: boolean; fullContent?: string }> {
+): Map<
+  string,
+  { blocks: SearchReplaceBlock[]; explanation: string; isNewFile: boolean; fullContent?: string }
+> {
   const sections = new Map<
     string,
     { blocks: SearchReplaceBlock[]; explanation: string; isNewFile: boolean; fullContent?: string }
@@ -134,7 +135,10 @@ function extractFilePatchSections(
   // Process each file section
   for (let i = 0; i < matches.length; i++) {
     const currentMatch = matches[i];
-    const nextIndex = i + 1 < matches.length ? matches[i + 1].index - matches[i + 1].path.length - 10 : response.length;
+    const nextIndex =
+      i + 1 < matches.length
+        ? matches[i + 1].index - matches[i + 1].path.length - 10
+        : response.length;
     const section = response.substring(currentMatch.index, nextIndex);
 
     // Extract explanation
@@ -226,7 +230,8 @@ export function extractReasons(response: string): Map<string, string> {
   }
 
   // Pattern 2: ## Changed File: ... **Reason**: ...
-  const pattern2 = /##\s*(?:Changed\s+)?File:\s*(.+?)\s*\n+\*\*(?:Reason|変更理由)\*\*:\s*(.+?)(?=\n)/g;
+  const pattern2 =
+    /##\s*(?:Changed\s+)?File:\s*(.+?)\s*\n+\*\*(?:Reason|変更理由)\*\*:\s*(.+?)(?=\n)/g;
   let match2;
   while ((match2 = pattern2.exec(response)) !== null) {
     const path = match2[1].trim();
@@ -341,10 +346,7 @@ export function cleanupMessage(response: string): string {
  * Check if response uses patch format (SEARCH/REPLACE blocks)
  */
 function usesPatchFormat(response: string): boolean {
-  return (
-    response.includes('<<<<<<< SEARCH') ||
-    response.includes('<<<<<<< NEW_FILE')
-  );
+  return response.includes('<<<<<<< SEARCH') || response.includes('<<<<<<< NEW_FILE');
 }
 
 /**
@@ -445,7 +447,8 @@ export function parseEditResponse(
   const hasValidMessage = message && message.replace(/\s/g, '').length >= 5;
 
   if (changedFiles.length === 0 && !hasValidMessage) {
-    const failureNote = 'Failed to parse response. Ensure you use the correct SEARCH/REPLACE block format (<<<<<<< SEARCH ... >>>>>>> REPLACE) or legacy file tags (<AI_EDIT_CONTENT_START:...>).';
+    const failureNote =
+      'Failed to parse response. Ensure you use the correct SEARCH/REPLACE block format (<<<<<<< SEARCH ... >>>>>>> REPLACE) or legacy file tags (<AI_EDIT_CONTENT_START:...>).';
     const safeResponse = response.replace(/```/g, '```\u200B');
     const rawBlock = '\n\n---\n\nRaw response:\n\n```text\n' + safeResponse + '\n```';
     message = failureNote + rawBlock;
@@ -487,11 +490,15 @@ export function validateResponse(response: string): {
     const newFileEndCount = (response.match(/>>>>>>> NEW_FILE/g) || []).length;
 
     if (searchCount !== replaceCount) {
-      errors.push('Mismatched SEARCH/REPLACE: ' + searchCount + ' SEARCH vs ' + replaceCount + ' REPLACE');
+      errors.push(
+        'Mismatched SEARCH/REPLACE: ' + searchCount + ' SEARCH vs ' + replaceCount + ' REPLACE'
+      );
     }
 
     if (newFileStartCount !== newFileEndCount) {
-      errors.push('Mismatched NEW_FILE tags: ' + newFileStartCount + ' start vs ' + newFileEndCount + ' end');
+      errors.push(
+        'Mismatched NEW_FILE tags: ' + newFileStartCount + ' start vs ' + newFileEndCount + ' end'
+      );
     }
 
     if (searchCount === 0 && newFileStartCount === 0) {

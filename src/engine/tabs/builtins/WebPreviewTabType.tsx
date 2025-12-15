@@ -14,12 +14,7 @@ const WebPreviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   // タブに保存されたprojectNameを優先、なければcurrentProjectから取得
   const projectName = webTab.projectName;
 
-  return (
-    <WebPreviewTabComponent
-      filePath={webTab.path}
-      currentProjectName={projectName}
-    />
-  );
+  return <WebPreviewTabComponent filePath={webTab.path} currentProjectName={projectName} />;
 };
 
 /**

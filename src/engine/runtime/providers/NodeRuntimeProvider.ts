@@ -11,7 +11,11 @@ import { runtimeInfo } from '../runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
-import type { RuntimeProvider, RuntimeExecutionOptions, RuntimeExecutionResult } from '../RuntimeProvider';
+import type {
+  RuntimeProvider,
+  RuntimeExecutionOptions,
+  RuntimeExecutionResult,
+} from '../RuntimeProvider';
 
 export class NodeRuntimeProvider implements RuntimeProvider {
   readonly id = 'nodejs';
@@ -30,12 +34,21 @@ export class NodeRuntimeProvider implements RuntimeProvider {
   }
 
   async execute(options: RuntimeExecutionOptions): Promise<RuntimeExecutionResult> {
-    const { projectId, projectName, filePath, argv = [], debugConsole, onInput, terminalColumns, terminalRows } = options;
+    const {
+      projectId,
+      projectName,
+      filePath,
+      argv = [],
+      debugConsole,
+      onInput,
+      terminalColumns,
+      terminalRows,
+    } = options;
 
     try {
       // NodeRuntimeインスタンスを作成（プロジェクトごとにキャッシュ）
       const key = `${projectId}-${filePath}`;
-      
+
       // 既存のキャッシュはメモリリーク防止のためクリア
       if (this.runtimeInstances.has(key)) {
         const existing = this.runtimeInstances.get(key)!;
@@ -71,7 +84,10 @@ export class NodeRuntimeProvider implements RuntimeProvider {
     }
   }
 
-  async executeCode(code: string, options: RuntimeExecutionOptions): Promise<RuntimeExecutionResult> {
+  async executeCode(
+    code: string,
+    options: RuntimeExecutionOptions
+  ): Promise<RuntimeExecutionResult> {
     const { projectId, projectName } = options;
 
     try {

@@ -93,7 +93,9 @@ export class GitDiffOperations {
       // still want to include new file contents in the diff for commit
       // message generation.
       if (!headCommitHash) {
-        console.log('[GitDiffOperations] No HEAD commit found; showing working directory changes (treating missing HEAD as empty)');
+        console.log(
+          '[GitDiffOperations] No HEAD commit found; showing working directory changes (treating missing HEAD as empty)'
+        );
       }
 
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });

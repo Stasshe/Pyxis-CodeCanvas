@@ -30,7 +30,7 @@ export class TreeBuilder {
 
     // Check if this exact tree already exists remotely
     const localTreeInfo = await git.readTree({ fs: this.fs, dir: this.dir, oid: treeOid });
-    
+
     // If we have a remote tree SHA to compare against
     if (remoteTreeSha) {
       try {

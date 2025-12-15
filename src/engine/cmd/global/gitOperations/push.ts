@@ -101,7 +101,7 @@ async function findCommonAncestor(
     // リモートのコミット履歴を遡って取得（最大100件）
     const remoteCommits: Array<{ sha: string; treeSha: string }> = [];
     let currentSha: string | null = remoteHeadSha;
-    
+
     for (let i = 0; i < 100 && currentSha; i++) {
       try {
         const commit = await githubAPI.getCommit(currentSha);
@@ -109,7 +109,7 @@ async function findCommonAncestor(
           sha: currentSha,
           treeSha: commit.tree.sha,
         });
-        
+
         // 親コミットに遡る
         if (commit.parents.length > 0) {
           currentSha = commit.parents[0].sha;
@@ -121,28 +121,28 @@ async function findCommonAncestor(
         break;
       }
     }
-    
+
     console.log(`[git push] Fetched ${remoteCommits.length} remote commit(s) for ancestor search`);
-    
+
     // ローカルの履歴を取得
     const localLog = await git.log({ fs, dir, ref: branch });
-    
+
     // ローカルの各コミットのtree SHAとリモートのtree SHAを比較
     for (const localCommit of localLog) {
       const localTreeSha = localCommit.commit.tree;
-      
+
       // リモートコミットで同じtree SHAを持つものを探す
       const matchingRemote = remoteCommits.find(rc => rc.treeSha === localTreeSha);
-      
+
       if (matchingRemote) {
         console.log(
           `[git push] Found common ancestor: remote ${matchingRemote.sha.slice(0, 7)} ` +
-          `<-> local ${localCommit.oid.slice(0, 7)} (tree: ${localTreeSha.slice(0, 7)})`
+            `<-> local ${localCommit.oid.slice(0, 7)} (tree: ${localTreeSha.slice(0, 7)})`
         );
         return matchingRemote;
       }
     }
-    
+
     console.log('[git push] No common ancestor found');
     return null;
   } catch (error) {
@@ -152,8 +152,8 @@ async function findCommonAncestor(
 }
 
 export async function push(
-  fs: FS, 
-  dir: string, 
+  fs: FS,
+  dir: string,
   options: PushOptions = {},
   ui?: TerminalUI
 ): Promise<string> {
@@ -164,7 +164,7 @@ export async function push(
     if (ui) {
       await ui.spinner.start('Enumerating objects...');
     }
-    
+
     const token = await authRepository.getAccessToken();
     if (!token) {
       if (ui) await ui.spinner.stop();
@@ -243,7 +243,7 @@ export async function push(
         // forceの場合: 共通の祖先を探して、そこから続きをpush
         if (force) {
           const localLog = await git.log({ fs, dir, ref: targetBranch });
-          
+
           // リモートとの共通祖先を探す
           const commonAncestor = await findCommonAncestor(
             fs,
@@ -252,13 +252,11 @@ export async function push(
             remoteHeadSha!,
             githubAPI
           );
-          
+
           if (commonAncestor) {
             // 共通祖先が見つかった場合、そのtree SHAを持つローカルコミット以降をpush
-            const ancestorIndex = localLog.findIndex(
-              c => c.commit.tree === commonAncestor.treeSha
-            );
-            
+            const ancestorIndex = localLog.findIndex(c => c.commit.tree === commonAncestor.treeSha);
+
             if (ancestorIndex !== -1) {
               commitsToPush = localLog.slice(0, ancestorIndex).reverse();
               commonAncestorSha = commonAncestor.sha;
@@ -268,12 +266,16 @@ export async function push(
             } else {
               // 見つからない場合は全コミットをpush
               commitsToPush = localLog.reverse();
-              console.log(`[git push] Force push: ancestor not found locally, pushing all ${commitsToPush.length} commit(s)`);
+              console.log(
+                `[git push] Force push: ancestor not found locally, pushing all ${commitsToPush.length} commit(s)`
+              );
             }
           } else {
             // 共通祖先が見つからない場合は全コミットをpush
             commitsToPush = localLog.reverse();
-            console.log(`[git push] Force push: no common ancestor, pushing all ${commitsToPush.length} commit(s)`);
+            console.log(
+              `[git push] Force push: no common ancestor, pushing all ${commitsToPush.length} commit(s)`
+            );
           }
         } else {
           throw error;
@@ -286,16 +288,16 @@ export async function push(
       if (force && remoteHeadSha) {
         // ローカルのHEADコミットを取得
         const localHead = await git.resolveRef({ fs, dir, ref: targetBranch });
-        
+
         // リモートHEADと違う場合は、リモートを巻き戻す
         if (localHead !== remoteHeadSha) {
           console.log(
             `[git push] Force push: rewinding remote from ${remoteHeadSha.slice(0, 7)} to ${localHead.slice(0, 7)}`
           );
-          
+
           // リモートrefを更新
           await githubAPI.updateRef(targetBranch, localHead, true);
-          
+
           // リモート追跡ブランチを更新
           try {
             await git.writeRef({
@@ -308,22 +310,22 @@ export async function push(
           } catch (error) {
             console.warn('[git push] Failed to update remote tracking branch:', error);
           }
-          
+
           // Stop spinner before returning
           if (ui) {
             await ui.spinner.stop();
           }
-          
+
           const remoteUrl = remoteInfo.url;
           return `To ${remoteUrl}\\n + ${remoteHeadSha.slice(0, 7)}...${localHead.slice(0, 7)} ${targetBranch} -> ${targetBranch} (forced update)\\n`;
         }
       }
-      
+
       // Stop spinner before returning
       if (ui) {
         await ui.spinner.stop();
       }
-      
+
       return 'Everything up-to-date';
     }
 

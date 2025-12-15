@@ -54,7 +54,8 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
         size: p.size,
         layout: p.layout,
         activeTabId: p.activeTabId,
-        tabs: p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
+        tabs:
+          p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
         children: p.children ? strip(p.children) : undefined,
       }));
 

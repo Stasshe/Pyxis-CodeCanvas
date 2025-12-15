@@ -16,10 +16,10 @@ export async function handleGitCommand(
   const ui = createTerminalUI(writeOutput);
 
   const git = terminalCommandRegistry.getGitCommands(projectName, projectId);
-  
+
   // Pass TerminalUI to git commands for advanced output
   git.setTerminalUI(ui);
-  
+
   const gitCmd = args[0];
 
   switch (gitCmd) {
@@ -238,7 +238,7 @@ export async function handleGitCommand(
         // Check if args[1] looks like a file path or a commit reference
         // Try to parse as commit first, fall back to filepath if it fails
         const arg = args[1];
-        
+
         // Skip if it's a flag
         if (arg.startsWith('--')) {
           const resetResult = await git.reset();
@@ -255,7 +255,9 @@ export async function handleGitCommand(
               await writeOutput(resetResult);
             } catch (fileError) {
               // Both attempts failed, report a helpful error message
-              await writeOutput(`git reset: unable to resolve '${arg}' as either a commit reference or filepath\nCommit error: ${(commitError as Error).message}\nFile error: ${(fileError as Error).message}`);
+              await writeOutput(
+                `git reset: unable to resolve '${arg}' as either a commit reference or filepath\nCommit error: ${(commitError as Error).message}\nFile error: ${(fileError as Error).message}`
+              );
             }
           }
         }

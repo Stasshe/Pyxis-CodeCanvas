@@ -51,7 +51,9 @@ export function createModuleModule() {
       // For now, we'll return a dummy function or throw an error if used.
       // However, many tools just check for its existence.
       return (id: string) => {
-        throw new Error(`require() created via module.createRequire is not fully supported in this environment yet.`);
+        throw new Error(
+          `require() created via module.createRequire is not fully supported in this environment yet.`
+        );
       };
     },
     // Add other properties as needed

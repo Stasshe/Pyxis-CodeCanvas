@@ -43,46 +43,16 @@ export function TabIcon({ kind, filename, size = 14, color = 'currentColor' }: T
   // kindに応じたアイコンを表示
   switch (kind) {
     case 'preview':
-      return (
-        <Eye
-          size={size}
-          color={color}
-        />
-      );
+      return <Eye size={size} color={color} />;
     case 'webPreview':
-      return (
-        <Globe
-          size={size}
-          color={color}
-        />
-      );
+      return <Globe size={size} color={color} />;
     case 'ai':
-      return (
-        <Zap
-          size={size}
-          color={color}
-        />
-      );
+      return <Zap size={size} color={color} />;
     case 'diff':
-      return (
-        <GitBranch
-          size={size}
-          color={color}
-        />
-      );
+      return <GitBranch size={size} color={color} />;
     case 'settings':
-      return (
-        <Settings
-          size={size}
-          color={color}
-        />
-      );
+      return <Settings size={size} color={color} />;
     default:
-      return (
-        <FileText
-          size={size}
-          color={color}
-        />
-      );
+      return <FileText size={size} color={color} />;
   }
 }

@@ -23,11 +23,7 @@ export default function KeyComboClient({ combo, className, style }: Props) {
   }, [combo]);
 
   return (
-    <span
-      className={className}
-      style={style}
-      aria-hidden
-    >
+    <span className={className} style={style} aria-hidden>
       {label}
     </span>
   );

@@ -78,9 +78,7 @@ export class GitSwitchOperations {
           try {
             commitOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
           } catch {
-            throw new Error(
-              `Remote branch '${normalizedRef}' not found. Did you run 'git fetch'?`
-            );
+            throw new Error(`Remote branch '${normalizedRef}' not found. Did you run 'git fetch'?`);
           }
 
           // detached HEAD状態でチェックアウト

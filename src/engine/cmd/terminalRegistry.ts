@@ -60,9 +60,9 @@ class TerminalCommandRegistry {
   async getShell(
     projectName: string,
     projectId: string,
-    opts?: { 
-      unix?: UnixCommands; 
-      commandRegistry?: unknown; 
+    opts?: {
+      unix?: UnixCommands;
+      commandRegistry?: unknown;
       fileRepository?: typeof fileRepository;
       terminalColumns?: number;
       terminalRows?: number;

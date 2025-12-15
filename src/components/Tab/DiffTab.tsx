@@ -302,7 +302,13 @@ const DiffTab: React.FC<DiffTabProps> = ({
               }}
               style={{
                 ...(isSingleFile
-                  ? { flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }
+                  ? {
+                      flex: 1,
+                      minHeight: 0,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }
                   : { marginBottom: 24, scrollMarginTop: 24 }),
                 borderBottom: isSingleFile ? 'none' : '1px solid #333',
               }}
@@ -331,7 +337,13 @@ const DiffTab: React.FC<DiffTabProps> = ({
                   </span>
                 </div>
               </div>
-              <div style={isSingleFile ? { flex: 1, minHeight: 0, height: '100%' } : { height: 500, minHeight: 0 }}>
+              <div
+                style={
+                  isSingleFile
+                    ? { flex: 1, minHeight: 0, height: '100%' }
+                    : { height: 500, minHeight: 0 }
+                }
+              >
                 {(() => {
                   const formerBinary = isBinaryContent(diff.formerContent);
                   const latterBinary = isBinaryContent(diff.latterContent);

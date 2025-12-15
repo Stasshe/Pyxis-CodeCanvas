@@ -14,9 +14,7 @@
   color: white;
   font-size: 14px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  animation:
-    fadeIn 0.3s ease,
-    fadeOut 0.3s ease 2.7s;
+  animation: fadeIn 0.3s ease, fadeOut 0.3s ease 2.7s;
 }
 
 .toast-success {

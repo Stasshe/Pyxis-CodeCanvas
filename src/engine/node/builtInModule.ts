@@ -40,7 +40,6 @@ import { createEventsModule } from './modules/eventsModule';
 import { createModuleModule } from './modules/moduleModule';
 import * as urlModule from './modules/urlModule';
 
-
 export interface BuiltInModulesOptions {
   projectDir: string;
   projectId: string;
@@ -108,7 +107,6 @@ export {
   urlModule,
   stream,
 };
-
 
 /**
  * 型定義のエクスポート

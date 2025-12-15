@@ -28,7 +28,8 @@ export function createAssertModule() {
       deepStrictEqual(actual: any, expected: any, message?: string): void {
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
           throw new Error(
-            message || `Deep equal assertion failed: ${JSON.stringify(actual)} !== ${JSON.stringify(expected)}`
+            message ||
+              `Deep equal assertion failed: ${JSON.stringify(actual)} !== ${JSON.stringify(expected)}`
           );
         }
       },

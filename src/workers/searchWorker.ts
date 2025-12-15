@@ -77,7 +77,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
     const results: any[] = [];
 
     // Prepare exclude regexes from provided glob patterns (if any).
-    const excludePatterns: RegExp[] = (options.excludeGlobs || []).map((g) =>
+    const excludePatterns: RegExp[] = (options.excludeGlobs || []).map(g =>
       globToRegex(g, options.caseSensitive)
     );
 
@@ -86,7 +86,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
       // If the path or filename matches any exclude pattern, skip this file.
       if (
         excludePatterns.length > 0 &&
-        excludePatterns.some((rx) => rx.test(normalizedPath) || (file.name && rx.test(file.name)))
+        excludePatterns.some(rx => rx.test(normalizedPath) || (file.name && rx.test(file.name)))
       ) {
         continue;
       }

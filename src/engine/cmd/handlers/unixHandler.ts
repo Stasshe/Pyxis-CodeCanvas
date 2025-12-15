@@ -150,7 +150,7 @@ export async function handleUnixCommand(
             // 複数ソースの場合は配列として渡す
             const dest = paths[paths.length - 1];
             const sources = paths.slice(0, -1);
-            
+
             const result = await unix.mv(sources.length === 1 ? sources[0] : sources, dest);
             await append(result || 'File(s) moved successfully');
           }
@@ -169,8 +169,12 @@ export async function handleUnixCommand(
           } else {
             const dest = paths[paths.length - 1];
             const sources = paths.slice(0, -1);
-            
-            const result = await unix.cp(sources.length === 1 ? sources[0] : sources, dest, options);
+
+            const result = await unix.cp(
+              sources.length === 1 ? sources[0] : sources,
+              dest,
+              options
+            );
             await append(result || 'File(s) copied successfully');
           }
         }

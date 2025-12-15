@@ -62,8 +62,8 @@ export class GitHubAPI {
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'Accept': 'application/vnd.github.v3+json',
+        Authorization: `Bearer ${this.token}`,
+        Accept: 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
         ...options.headers,
       },
@@ -201,11 +201,11 @@ export class GitHubAPI {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Accept': 'application/vnd.github.v3+json',
+          Authorization: `Bearer ${this.token}`,
+          Accept: 'application/vnd.github.v3+json',
         },
       });
-      
+
       return response.ok;
     } catch (error) {
       // ネットワークエラーなど、本当のエラーのみログ出力

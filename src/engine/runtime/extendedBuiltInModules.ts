@@ -55,15 +55,15 @@ export async function resolveBuiltInModule(
 
   // コアモジュールから探す
   const builtIns: Record<string, unknown> = {
-    'fs': coreModules.fs,
+    fs: coreModules.fs,
     'fs/promises': coreModules.fs,
-    'path': coreModules.path,
-    'os': coreModules.os,
-    'util': coreModules.util,
-    'http': coreModules.http,
-    'https': coreModules.https,
-    'buffer': { Buffer: coreModules.Buffer },
-    'readline': coreModules.readline,
+    path: coreModules.path,
+    os: coreModules.os,
+    util: coreModules.util,
+    http: coreModules.http,
+    https: coreModules.https,
+    buffer: { Buffer: coreModules.Buffer },
+    readline: coreModules.readline,
   };
 
   return builtIns[moduleName] || null;

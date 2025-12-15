@@ -55,7 +55,9 @@ export class RuntimeRegistry {
       this.extensionToRuntime.set(ext, id);
     }
 
-    runtimeInfo(`✅ Runtime provider registered: ${id} (${provider.supportedExtensions.join(', ')})`);
+    runtimeInfo(
+      `✅ Runtime provider registered: ${id} (${provider.supportedExtensions.join(', ')})`
+    );
   }
 
   /**
@@ -78,7 +80,9 @@ export class RuntimeRegistry {
       this.extensionToTranspiler.get(ext)!.push(id);
     }
 
-    runtimeInfo(`✅ Transpiler provider registered: ${id} (${provider.supportedExtensions.join(', ')})`);
+    runtimeInfo(
+      `✅ Transpiler provider registered: ${id} (${provider.supportedExtensions.join(', ')})`
+    );
   }
 
   /**

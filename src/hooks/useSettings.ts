@@ -86,9 +86,7 @@ export function useSettings(projectId?: string) {
     return excludeRegexps.some(re => re.test(path));
   };
 
-  type UpdatesArg =
-    | Partial<PyxisSettings>
-    | ((current: PyxisSettings) => Partial<PyxisSettings>);
+  type UpdatesArg = Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>);
 
   const updateSettings = async (updates: UpdatesArg) => {
     if (!projectId || !settings) return;

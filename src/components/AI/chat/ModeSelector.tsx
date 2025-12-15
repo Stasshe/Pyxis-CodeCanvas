@@ -13,11 +13,7 @@ interface ModeSelectorProps {
   disabled?: boolean;
 }
 
-export default function ModeSelector({
-  mode,
-  onChange,
-  disabled = false,
-}: ModeSelectorProps) {
+export default function ModeSelector({ mode, onChange, disabled = false }: ModeSelectorProps) {
   const { colors } = useTheme();
 
   const modes = [
@@ -32,10 +28,7 @@ export default function ModeSelector({
   const fontSize = 'text-xs';
 
   return (
-    <div
-      className={`flex ${sizeClass} select-none`}
-      style={{ background: colors.mutedBg }}
-    >
+    <div className={`flex ${sizeClass} select-none`} style={{ background: colors.mutedBg }}>
       {modes.map(({ value, label, icon: Icon, description }) => (
         <button
           key={value}
@@ -44,7 +37,7 @@ export default function ModeSelector({
           className={`flex-1 flex items-center justify-center gap-1 ${btnPad} rounded ${
             mode === value ? 'shadow-sm' : 'hover:bg-opacity-50'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            style={{
+          style={{
             background: mode === value ? colors.accent : 'transparent',
             color: mode === value ? colors.accentFg : colors.mutedFg,
             minWidth: 56,

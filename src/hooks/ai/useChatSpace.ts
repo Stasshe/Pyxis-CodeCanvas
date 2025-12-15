@@ -19,10 +19,10 @@ export const useChatSpace = (projectId: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);
   const [currentSpace, setCurrentSpace] = useState<ChatSpace | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   const currentSpaceRef = useRef<ChatSpace | null>(null);
   const projectIdRef = useRef<string | null>(projectId);
-  
+
   useEffect(() => {
     projectIdRef.current = projectId;
   }, [projectId]);
@@ -113,7 +113,7 @@ export const useChatSpace = (projectId: string | null) => {
   const deleteSpace = async (spaceId: string) => {
     const pid = projectIdRef.current;
     if (!pid) return;
-    
+
     if (chatSpaces.length <= 1) {
       console.log('最後のスペースは削除できません。');
       return;
@@ -155,7 +155,7 @@ export const useChatSpace = (projectId: string | null) => {
       console.error('[useChatSpace] No projectId available');
       return null;
     }
-    
+
     let activeSpace = currentSpaceRef.current;
     if (!activeSpace) {
       console.warn('[useChatSpace] No current space available - creating a new one');
@@ -182,12 +182,18 @@ export const useChatSpace = (projectId: string | null) => {
         const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
         await renameChatSpace(pid, activeSpace.id, newName);
         setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
-        setChatSpaces(prev => prev.map(s => (s.id === activeSpace!.id ? { ...s, name: newName } : s)));
+        setChatSpaces(prev =>
+          prev.map(s => (s.id === activeSpace!.id ? { ...s, name: newName } : s))
+        );
       }
 
       if (options?.parentMessageId && options?.action) {
         const dup = (activeSpace.messages || []).find(
-          m => m.parentMessageId === options.parentMessageId && m.action === options.action && m.type === type && m.mode === mode
+          m =>
+            m.parentMessageId === options.parentMessageId &&
+            m.action === options.action &&
+            m.type === type &&
+            m.mode === mode
         );
         if (dup) return dup;
       }
@@ -213,7 +219,9 @@ export const useChatSpace = (projectId: string | null) => {
 
       setChatSpaces(prev => {
         const updated = prev.map(s =>
-          s.id === activeSpace!.id ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() } : s
+          s.id === activeSpace!.id
+            ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() }
+            : s
         );
         return updated.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       });
@@ -225,10 +233,14 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  const updateChatMessage = async (spaceId: string, messageId: string, patch: Partial<ChatSpaceMessage>) => {
+  const updateChatMessage = async (
+    spaceId: string,
+    messageId: string,
+    patch: Partial<ChatSpaceMessage>
+  ) => {
     const pid = projectIdRef.current;
     if (!pid) return null;
-    
+
     try {
       const updated = await updateChatSpaceMessage(pid, spaceId, messageId, patch);
       if (!updated) return null;
@@ -245,7 +257,11 @@ export const useChatSpace = (projectId: string | null) => {
         prev
           .map(space =>
             space.id === spaceId
-              ? { ...space, messages: space.messages.map(m => (m.id === updated.id ? updated : m)), updatedAt: new Date() }
+              ? {
+                  ...space,
+                  messages: space.messages.map(m => (m.id === updated.id ? updated : m)),
+                  updatedAt: new Date(),
+                }
               : space
           )
           .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -299,14 +315,14 @@ export const useChatSpace = (projectId: string | null) => {
   /**
    * Revert to a specific message: delete all messages from the specified message onwards
    * and return the list of deleted messages for potential rollback of AI state changes.
-   * 
+   *
    * If the target message is an AI assistant response, also delete the corresponding
    * user message that prompted it (user message and AI response are a pair).
    */
   const revertToMessage = async (messageId: string): Promise<ChatSpaceMessage[]> => {
     const pid = projectIdRef.current;
     const activeSpace = currentSpaceRef.current;
-    
+
     if (!pid || !activeSpace) {
       console.warn('[useChatSpace] No project or space available for revert');
       return [];
@@ -321,12 +337,12 @@ export const useChatSpace = (projectId: string | null) => {
       }
 
       const targetMessage = activeSpace.messages[targetIdx];
-      
+
       // Determine the actual start index for deletion
       // If the target is an assistant message, also include the preceding user message
       let deleteFromIdx = targetIdx;
       let deleteFromMessageId = messageId;
-      
+
       if (targetMessage.type === 'assistant' && targetIdx > 0) {
         const prevMessage = activeSpace.messages[targetIdx - 1];
         // Include the user message if it's directly before the assistant message
@@ -337,8 +353,12 @@ export const useChatSpace = (projectId: string | null) => {
         }
       }
 
-      const deletedMessages = await truncateMessagesFromMessage(pid, activeSpace.id, deleteFromMessageId);
-      
+      const deletedMessages = await truncateMessagesFromMessage(
+        pid,
+        activeSpace.id,
+        deleteFromMessageId
+      );
+
       if (deletedMessages.length === 0) {
         console.warn('[useChatSpace] No messages were deleted during revert');
         return [];

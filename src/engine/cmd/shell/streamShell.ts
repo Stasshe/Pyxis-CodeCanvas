@@ -335,7 +335,8 @@ export class StreamShell {
         // The current working dir on the unix side - used to resolve relative
         // patterns inside the project workspace.
         const currentWorkingDir = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-        const projectRelativeCwd = currentWorkingDir.replace(`/projects/${this.projectName}`, '') || '/';
+        const projectRelativeCwd =
+          currentWorkingDir.replace(`/projects/${this.projectName}`, '') || '/';
 
         // ★★★ Split pattern into directory prefix and filename glob ★★★
         const lastSlashIndex = pattern.lastIndexOf('/');
@@ -381,11 +382,12 @@ export class StreamShell {
         }
 
         // searchPrefix must include leading slash for the fileRepository API
-        const searchPrefix = projectRelativeDir === '' || projectRelativeDir === '/'
-          ? ''
-          : projectRelativeDir.endsWith('/')
-          ? projectRelativeDir
-          : projectRelativeDir + '/';
+        const searchPrefix =
+          projectRelativeDir === '' || projectRelativeDir === '/'
+            ? ''
+            : projectRelativeDir.endsWith('/')
+              ? projectRelativeDir
+              : projectRelativeDir + '/';
 
         let projectFiles: any[] = [];
         if (this.fileRepository.getFilesByPrefix) {
@@ -433,9 +435,19 @@ export class StreamShell {
         const regex = new RegExp(regexStr);
         const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
         console.log('[globExpand] input:', pattern);
-        console.log('[globExpand] cwd:', currentWorkingDir, 'projectRelativeCwd:', projectRelativeCwd);
+        console.log(
+          '[globExpand] cwd:',
+          currentWorkingDir,
+          'projectRelativeCwd:',
+          projectRelativeCwd
+        );
         console.log('[globExpand] dirPrefix:', dirPrefix, 'fileGlob:', fileGlob);
-        console.log('[globExpand] resolvedTargetDir:', resolvedTargetDir, 'searchPrefix:', searchPrefix);
+        console.log(
+          '[globExpand] resolvedTargetDir:',
+          resolvedTargetDir,
+          'searchPrefix:',
+          searchPrefix
+        );
         console.log('[globExpand] files found:', projectFiles.length);
         console.log('[globExpand] directChildren:', directChildren.length);
         console.log('[globExpand] matched:', matchedNames);
@@ -555,8 +567,10 @@ export class StreamShell {
           // Strategy 1: Try to find the package directly and read its bin configuration
           // This is better than .bin because .bin files might be copies, breaking relative requires.
           const packageJsonPath = `/node_modules/${cmd}/package.json`;
-          const pkgFile = await this.fileRepository.getFileByPath(this.projectId, packageJsonPath).catch(() => null);
-          
+          const pkgFile = await this.fileRepository
+            .getFileByPath(this.projectId, packageJsonPath)
+            .catch(() => null);
+
           let resolvedBin: string | null = null;
 
           if (pkgFile && pkgFile.content) {
@@ -597,11 +611,13 @@ export class StreamShell {
                   cleaned + '.tsx',
                   cleaned + '/index.js',
                   cleaned + '/index.mjs',
-                  cleaned + '/index.ts'
+                  cleaned + '/index.ts',
                 ];
 
                 for (const cand of candidates) {
-                  const f = await this.fileRepository.getFileByPath(this.projectId, cand).catch(() => null);
+                  const f = await this.fileRepository
+                    .getFileByPath(this.projectId, cand)
+                    .catch(() => null);
                   if (f && f.content) {
                     resolvedBin = cand;
                     break;
@@ -616,7 +632,9 @@ export class StreamShell {
           // Strategy 2: Fallback to .bin if package lookup failed (e.g. command name != package name)
           if (!resolvedBin) {
             const binPath = `/node_modules/.bin/${cmd}`;
-            const bf = await this.fileRepository.getFileByPath(this.projectId, binPath).catch(() => null);
+            const bf = await this.fileRepository
+              .getFileByPath(this.projectId, binPath)
+              .catch(() => null);
             if (bf && bf.content) {
               resolvedBin = binPath;
             }
@@ -795,8 +813,6 @@ export class StreamShell {
           }
         }
 
-        
-
         // Fallback to unix handler (returns structured {code, output})
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
@@ -877,7 +893,6 @@ export class StreamShell {
           proc.exit(127);
           return;
         }
-
       } catch (e: any) {
         // Support silent failure marker objects thrown by builtins (e.g. { __silent: true, code: 1 })
         // If present, do not print the object to stderr — just exit with provided code.
@@ -1852,7 +1867,8 @@ export class StreamShell {
       // If fdFiles were explicitly specified by the parser (e.g. "1>file"),
       // those entries have already been added above. Avoid adding the same
       // path twice by preferring fdFiles when present.
-      const hasFdFiles = (overallLastSeg as any).fdFiles && Object.keys((overallLastSeg as any).fdFiles).length > 0;
+      const hasFdFiles =
+        (overallLastSeg as any).fdFiles && Object.keys((overallLastSeg as any).fdFiles).length > 0;
 
       if (overallLastSeg.stdoutFile && !hasFdFiles) {
         add(overallLastSeg.stdoutFile, finalOut, !!overallLastSeg.append);

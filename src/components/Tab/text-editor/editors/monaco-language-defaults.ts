@@ -7,13 +7,13 @@ import type { Monaco } from '@monaco-editor/react';
 export function configureMonacoLanguageDefaults(mon: Monaco): void {
   // TypeScript/JavaScript設定
   configureTypeScriptDefaults(mon);
-  
+
   // CSS/SCSS/LESS設定
   configureCSSDefaults(mon);
-  
+
   // JSON設定
   configureJSONDefaults(mon);
-  
+
   // HTML設定
   configureHTMLDefaults(mon);
 }

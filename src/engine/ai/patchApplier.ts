@@ -154,7 +154,10 @@ function findExactMatch(
     const matchedText = content.substring(originalStartIndex, originalEndIndex);
 
     // Verify the match
-    const matchSimilarity = calculateLineSimilarity(normalizedSearch, normalizeForComparison(matchedText));
+    const matchSimilarity = calculateLineSimilarity(
+      normalizedSearch,
+      normalizeForComparison(matchedText)
+    );
     if (matchSimilarity > 0.9) {
       return { index: originalStartIndex, matchedText };
     }
@@ -187,8 +190,10 @@ function findFuzzyMatch(
   for (let i = 0; i < contentLines.length - searchLines.length + 1; i++) {
     // Check if first line matches
     const contentLineNormalized = contentLines[i].trim();
-    if (!contentLineNormalized.includes(firstSearchLine) &&
-        !firstSearchLine.includes(contentLineNormalized)) {
+    if (
+      !contentLineNormalized.includes(firstSearchLine) &&
+      !firstSearchLine.includes(contentLineNormalized)
+    ) {
       continue;
     }
 
@@ -260,7 +265,8 @@ export function applySearchReplaceBlock(
     return {
       success: false,
       content: normalizedContent,
-      error: 'Empty search pattern requires a lineNumber hint for insertion. Provide lineNumber in the SearchReplaceBlock.',
+      error:
+        'Empty search pattern requires a lineNumber hint for insertion. Provide lineNumber in the SearchReplaceBlock.',
     };
   }
 
@@ -306,7 +312,13 @@ export function applySearchReplaceBlock(
 export function applyMultipleBlocks(
   content: string,
   blocks: SearchReplaceBlock[]
-): { success: boolean; content: string; appliedCount: number; failedBlocks: SearchReplaceBlock[]; errors: string[] } {
+): {
+  success: boolean;
+  content: string;
+  appliedCount: number;
+  failedBlocks: SearchReplaceBlock[];
+  errors: string[];
+} {
   let currentContent = normalizeLineEndings(content);
   const failedBlocks: SearchReplaceBlock[] = [];
   const errors: string[] = [];
@@ -336,10 +348,7 @@ export function applyMultipleBlocks(
 /**
  * Apply a complete patch block (potentially with multiple search/replace operations)
  */
-export function applyPatchBlock(
-  originalContent: string,
-  patch: PatchBlock
-): PatchResult {
+export function applyPatchBlock(originalContent: string, patch: PatchBlock): PatchResult {
   // Handle new file creation
   if (patch.isNewFile && patch.fullContent !== undefined) {
     return {

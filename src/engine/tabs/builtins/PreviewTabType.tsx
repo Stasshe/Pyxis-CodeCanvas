@@ -9,7 +9,7 @@ import type { FileItem } from '@/types';
 
 /**
  * プレビュータブのコンポーネント
- * 
+ *
  * NOTE: useProject()は各コンポーネントで独立したステートを持つため、
  * グローバルなprojectStoreからプロジェクト情報を取得する。
  */
@@ -17,12 +17,7 @@ const PreviewTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
   const previewTab = tab as PreviewTab;
   const currentProject = useProjectStore(state => state.currentProject);
 
-  return (
-    <MarkdownPreviewTab
-      activeTab={previewTab}
-      currentProject={currentProject || undefined}
-    />
-  );
+  return <MarkdownPreviewTab activeTab={previewTab} currentProject={currentProject || undefined} />;
 };
 
 /**

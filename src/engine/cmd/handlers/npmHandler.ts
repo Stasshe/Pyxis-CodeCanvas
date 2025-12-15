@@ -21,10 +21,10 @@ export async function handleNPMCommand(
     projectId,
     `/projects/${projectName}`
   );
-  
+
   // Pass the TerminalUI to npm commands for advanced output
   npm.setTerminalUI(ui);
-  
+
   if (setLoading) {
     npm.setLoadingHandler(setLoading);
   }

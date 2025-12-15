@@ -48,7 +48,7 @@ export class GitCommands {
 
   // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory( this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.dir);
   }
 
   // Gitリポジトリが初期化されているかチェック
@@ -1027,12 +1027,7 @@ export class GitCommands {
     } = {}
   ): Promise<string> {
     const { GitSwitchOperations } = await import('./gitOperations/switch');
-    const switchOps = new GitSwitchOperations(
-      this.fs,
-      this.dir,
-      this.projectId,
-      this.projectName
-    );
+    const switchOps = new GitSwitchOperations(this.fs, this.dir, this.projectId, this.projectName);
     return await switchOps.switch(targetRef, options);
   }
 

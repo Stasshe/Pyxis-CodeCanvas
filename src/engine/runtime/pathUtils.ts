@@ -5,7 +5,12 @@
  * 基本的なパス正規化は pathResolver を使用
  */
 
-import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix, normalizeDotSegments } from '@/engine/core/pathResolver';
+import {
+  toAppPath,
+  fsPathToAppPath,
+  hasPrefix as pathHasPrefix,
+  normalizeDotSegments,
+} from '@/engine/core/pathResolver';
 
 /**
  * パスを正規化
@@ -24,7 +29,7 @@ import { toAppPath, fsPathToAppPath, hasPrefix as pathHasPrefix, normalizeDotSeg
  */
 export function normalizePath(path: string, projectName?: string): string {
   let result: string;
-  
+
   if (projectName) {
     // プロジェクトプレフィックスがある場合は fsPathToAppPath を使用
     const prefix = `/projects/${projectName}`;

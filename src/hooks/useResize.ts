@@ -29,7 +29,7 @@ function getDefaultMaxSize(direction: Direction): number {
 
 /**
  * 汎用リサイズフック - マウスとタッチの両方に対応
- * 
+ *
  * 従来の個別リサイズフック（useLeftSidebarResize, useRightSidebarResize, useBottomPanelResize）を
  * 1つの汎用フックに統合し、コードの重複を排除
  */
@@ -60,41 +60,42 @@ export function useResize(options: UseResizeOptions) {
     };
   }, []);
 
-  const handleMove = useCallback((clientX: number, clientY: number, isInverted: boolean = false) => {
-    const state = stateRef.current;
-    if (!state.isResizing) return;
+  const handleMove = useCallback(
+    (clientX: number, clientY: number, isInverted: boolean = false) => {
+      const state = stateRef.current;
+      if (!state.isResizing) return;
 
-    const currentPos = direction === 'horizontal' ? clientY : clientX;
-    const delta = isInverted 
-      ? state.startPos - currentPos 
-      : currentPos - state.startPos;
-    
-    const newSize = state.initialSize + delta;
-    const clampedSize = Math.max(minSize, Math.min(maxSize, newSize));
-    
-    state.currentSize = clampedSize;
+      const currentPos = direction === 'horizontal' ? clientY : clientX;
+      const delta = isInverted ? state.startPos - currentPos : currentPos - state.startPos;
 
-    // Cancel previous frame and schedule new one
-    if (state.rafId !== null) {
-      cancelAnimationFrame(state.rafId);
-    }
+      const newSize = state.initialSize + delta;
+      const clampedSize = Math.max(minSize, Math.min(maxSize, newSize));
 
-    state.rafId = requestAnimationFrame(() => {
-      onResize(state.currentSize);
-      
-      // Direct DOM update for better performance during drag
-      if (targetSelector) {
-        const element = document.querySelector(targetSelector) as HTMLElement;
-        if (element) {
-          if (direction === 'horizontal') {
-            element.style.height = `${state.currentSize}px`;
-          } else {
-            element.style.width = `${state.currentSize}px`;
+      state.currentSize = clampedSize;
+
+      // Cancel previous frame and schedule new one
+      if (state.rafId !== null) {
+        cancelAnimationFrame(state.rafId);
+      }
+
+      state.rafId = requestAnimationFrame(() => {
+        onResize(state.currentSize);
+
+        // Direct DOM update for better performance during drag
+        if (targetSelector) {
+          const element = document.querySelector(targetSelector) as HTMLElement;
+          if (element) {
+            if (direction === 'horizontal') {
+              element.style.height = `${state.currentSize}px`;
+            } else {
+              element.style.width = `${state.currentSize}px`;
+            }
           }
         }
-      }
-    });
-  }, [direction, minSize, maxSize, onResize, targetSelector]);
+      });
+    },
+    [direction, minSize, maxSize, onResize, targetSelector]
+  );
 
   const handleEnd = useCallback(() => {
     const state = stateRef.current;
@@ -119,66 +120,74 @@ export function useResize(options: UseResizeOptions) {
   const touchMoveHandler = useRef<((e: TouchEvent) => void) | null>(null);
   const touchEndHandler = useRef<(() => void) | null>(null);
 
-  const startResize = useCallback((
-    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
-    isInverted: boolean = false
-  ) => {
-    e.preventDefault();
-    
-    const isTouch = 'touches' in e;
-    const startPos = isTouch 
-      ? (direction === 'horizontal' ? e.touches[0].clientY : e.touches[0].clientX)
-      : (direction === 'horizontal' ? e.clientY : e.clientX);
-
-    const state = stateRef.current;
-    state.isResizing = true;
-    state.startPos = startPos;
-    state.initialSize = initialSize;
-    state.currentSize = initialSize;
-
-    // Set body styles
-    document.body.style.cursor = direction === 'horizontal' ? 'row-resize' : 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.body.style.touchAction = 'none';
-
-    // Create handlers with closure over isInverted
-    mouseMoveHandler.current = (e: MouseEvent) => {
+  const startResize = useCallback(
+    (
+      e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
+      isInverted: boolean = false
+    ) => {
       e.preventDefault();
-      handleMove(e.clientX, e.clientY, isInverted);
-    };
 
-    mouseUpHandler.current = () => {
-      handleEnd();
-      // Remove listeners
-      document.removeEventListener('mousemove', mouseMoveHandler.current!);
-      document.removeEventListener('mouseup', mouseUpHandler.current!);
-    };
+      const isTouch = 'touches' in e;
+      const startPos = isTouch
+        ? direction === 'horizontal'
+          ? e.touches[0].clientY
+          : e.touches[0].clientX
+        : direction === 'horizontal'
+          ? e.clientY
+          : e.clientX;
 
-    touchMoveHandler.current = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      handleMove(touch.clientX, touch.clientY, isInverted);
-    };
+      const state = stateRef.current;
+      state.isResizing = true;
+      state.startPos = startPos;
+      state.initialSize = initialSize;
+      state.currentSize = initialSize;
 
-    touchEndHandler.current = () => {
-      handleEnd();
-      // Remove listeners
-      document.removeEventListener('touchmove', touchMoveHandler.current!);
-      document.removeEventListener('touchend', touchEndHandler.current!);
-    };
+      // Set body styles
+      document.body.style.cursor = direction === 'horizontal' ? 'row-resize' : 'col-resize';
+      document.body.style.userSelect = 'none';
+      document.body.style.touchAction = 'none';
 
-    // Add event listeners
-    document.addEventListener('mousemove', mouseMoveHandler.current);
-    document.addEventListener('mouseup', mouseUpHandler.current);
-    document.addEventListener('touchmove', touchMoveHandler.current, { passive: false });
-    document.addEventListener('touchend', touchEndHandler.current);
-  }, [direction, initialSize, handleMove, handleEnd]);
+      // Create handlers with closure over isInverted
+      mouseMoveHandler.current = (e: MouseEvent) => {
+        e.preventDefault();
+        handleMove(e.clientX, e.clientY, isInverted);
+      };
+
+      mouseUpHandler.current = () => {
+        handleEnd();
+        // Remove listeners
+        document.removeEventListener('mousemove', mouseMoveHandler.current!);
+        document.removeEventListener('mouseup', mouseUpHandler.current!);
+      };
+
+      touchMoveHandler.current = (e: TouchEvent) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        handleMove(touch.clientX, touch.clientY, isInverted);
+      };
+
+      touchEndHandler.current = () => {
+        handleEnd();
+        // Remove listeners
+        document.removeEventListener('touchmove', touchMoveHandler.current!);
+        document.removeEventListener('touchend', touchEndHandler.current!);
+      };
+
+      // Add event listeners
+      document.addEventListener('mousemove', mouseMoveHandler.current);
+      document.addEventListener('mouseup', mouseUpHandler.current);
+      document.addEventListener('touchmove', touchMoveHandler.current, { passive: false });
+      document.addEventListener('touchend', touchEndHandler.current);
+    },
+    [direction, initialSize, handleMove, handleEnd]
+  );
 
   return {
     startResize,
     /** For right sidebar where drag direction is inverted */
     startResizeInverted: useCallback(
-      (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => startResize(e, true),
+      (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) =>
+        startResize(e, true),
       [startResize]
     ),
   };

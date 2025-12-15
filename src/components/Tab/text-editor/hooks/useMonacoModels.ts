@@ -22,7 +22,7 @@ function getMonarchLanguage(fileName: string): string {
   if (ext.endsWith('.jsx')) return getEnhancedLanguage(fileName); // 'enhanced-jsx'
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.js')) return 'javascript';
-  
+
   // Fallback to existing helper
   return getLanguage(fileName);
 }
@@ -118,12 +118,17 @@ export function useMonacoModels() {
       if (!model) {
         // Enforce model limit before creating a new model
         enforceModelLimit(monacoModelMap, MONACO_CONFIG.MAX_MONACO_MODELS);
-        
+
         try {
           // Use the tabId to construct a unique in-memory URI so different
           // tabs/files with the same base filename don't collide.
           const safeFileName = fileName && fileName.length > 0 ? fileName : `untitled-${tabId}`;
-          const normalizedTabPath = tabId && tabId.length > 0 ? (tabId.startsWith('/') ? tabId : `/${tabId}`) : `/${safeFileName}`;
+          const normalizedTabPath =
+            tabId && tabId.length > 0
+              ? tabId.startsWith('/')
+                ? tabId
+                : `/${tabId}`
+              : `/${safeFileName}`;
           const uri = mon.Uri.parse(`inmemory://model${normalizedTabPath}`);
           // computed URI log removed in cleanup
 

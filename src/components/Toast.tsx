@@ -32,10 +32,7 @@ export const ToastContainer: React.FC = () => {
   return createPortal(
     <div className="toast-container">
       {toasts.map(toast => (
-        <div
-          key={toast.id}
-          className={`toast toast-${toast.type}`}
-        >
+        <div key={toast.id} className={`toast toast-${toast.type}`}>
           {toast.message}
         </div>
       ))}

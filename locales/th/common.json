@@ -181,7 +181,7 @@
     "viewDiffReadonly": "ดู diff (อ่านอย่างเดียว)"
   },
   "gitHistory": {
-        "allFilesFiles": "ทั้งหมด {count} ไฟล์",
+    "allFilesFiles": "ทั้งหมด {count} ไฟล์",
     "allFilesScrollable": "ทั้งหมด {count} ไฟล์ (เลื่อนดูได้)",
     "changedFiles": "ไฟล์ที่เปลี่ยนแปลง:",
     "daysAgo": "{days} วันที่ผ่านมา",
@@ -210,11 +210,11 @@
     "generatingMermaid": "กำลังสร้างแผนภูมิ Mermaid...",
     "imageNotFound": "ไม่พบรูปภาพ: {src}",
     "loadingImage": "กำลังโหลดรูปภาพ...",
+    "mermaidPlaceholder": "เลื่อนเพื่อดูไดอะแกรม Mermaid",
     "preview": "ดูตัวอย่าง",
     "reset": "รีเซ็ต",
     "zoomIn": "ซูมเข้า",
-    "zoomOut": "ซูมออก",
-    "mermaidPlaceholder": "เลื่อนเพื่อดูไดอะแกรม Mermaid"
+    "zoomOut": "ซูมออก"
   },
   "menu": {
     "extensions": "Extensions",

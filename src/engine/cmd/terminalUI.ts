@@ -1,11 +1,11 @@
 /**
  * TerminalUI - Advanced terminal display API
- * 
+ *
  * This module provides a systematic and professional API for advanced terminal
  * display capabilities including spinners, progress indicators, status lines,
  * and interactive output. It abstracts xterm.js ANSI escape codes into a
  * clean, reusable interface.
- * 
+ *
  * Usage:
  *   const ui = new TerminalUI(writeCallback);
  *   await ui.spinner.start('Loading packages...');
@@ -21,12 +21,12 @@ export const ANSI = {
   CURSOR_SHOW: '\x1b[?25h',
   CURSOR_SAVE: '\x1b[s',
   CURSOR_RESTORE: '\x1b[u',
-  
+
   // Line control
-  CLEAR_LINE: '\r\x1b[K',        // Clear entire line
-  CLEAR_TO_END: '\x1b[0K',       // Clear from cursor to end of line
-  CLEAR_TO_START: '\x1b[1K',     // Clear from cursor to start of line
-  
+  CLEAR_LINE: '\r\x1b[K', // Clear entire line
+  CLEAR_TO_END: '\x1b[0K', // Clear from cursor to end of line
+  CLEAR_TO_START: '\x1b[1K', // Clear from cursor to start of line
+
   // Cursor movement
   MOVE_UP: (n: number) => `\x1b[${n}A`,
   MOVE_DOWN: (n: number) => `\x1b[${n}B`,
@@ -34,7 +34,7 @@ export const ANSI = {
   MOVE_LEFT: (n: number) => `\x1b[${n}D`,
   MOVE_TO_COL: (n: number) => `\x1b[${n}G`,
   MOVE_TO: (row: number, col: number) => `\x1b[${row};${col}H`,
-  
+
   // Colors (foreground)
   FG: {
     BLACK: '\x1b[30m',
@@ -54,7 +54,7 @@ export const ANSI = {
     BRIGHT_CYAN: '\x1b[96m',
     BRIGHT_WHITE: '\x1b[97m',
   },
-  
+
   // Colors (background)
   BG: {
     BLACK: '\x1b[40m',
@@ -66,7 +66,7 @@ export const ANSI = {
     CYAN: '\x1b[46m',
     WHITE: '\x1b[47m',
   },
-  
+
   // Text styles
   RESET: '\x1b[0m',
   BOLD: '\x1b[1m',
@@ -114,7 +114,7 @@ export class SpinnerController {
   private color: string;
   private interval: number;
   private isRunning = false;
-  
+
   constructor(
     write: WriteCallback,
     type: SpinnerType = 'BRAILLE',
@@ -126,7 +126,7 @@ export class SpinnerController {
     this.color = color;
     this.interval = interval;
   }
-  
+
   /**
    * Get the current spinner frame with color
    */
@@ -134,7 +134,7 @@ export class SpinnerController {
     const frame = this.frames[this.frameIndex % this.frames.length];
     return `${this.color}${frame}${ANSI.RESET}`;
   }
-  
+
   /**
    * Start the spinner with an optional message
    */
@@ -143,11 +143,11 @@ export class SpinnerController {
     this.isRunning = true;
     this.message = message;
     this.frameIndex = 0;
-    
+
     // Hide cursor and write initial frame in single write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
     await this.write(ANSI.CURSOR_HIDE + display);
-    
+
     // Start animation
     this.intervalId = setInterval(async () => {
       this.frameIndex++;
@@ -156,31 +156,31 @@ export class SpinnerController {
       await this.write(ANSI.CLEAR_LINE + display);
     }, this.interval);
   }
-  
+
   /**
    * Update the spinner message while running
    */
   async update(message: string): Promise<void> {
     this.message = message;
     if (!this.isRunning) return;
-    
+
     // Immediately update display - combine clear and write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
     await this.write(ANSI.CLEAR_LINE + display);
   }
-  
+
   /**
    * Stop the spinner and optionally show a final message
    */
   async stop(finalMessage?: string): Promise<void> {
     if (!this.isRunning) return;
     this.isRunning = false;
-    
+
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    
+
     // Clear the spinner line and show cursor - combine into single write
     // If there's a final message, include it with newline
     if (finalMessage) {
@@ -189,35 +189,35 @@ export class SpinnerController {
       await this.write(ANSI.CLEAR_LINE + ANSI.CURSOR_SHOW);
     }
   }
-  
+
   /**
    * Stop with success indicator
    */
   async success(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.GREEN}✓${ANSI.RESET} ${message}`);
   }
-  
+
   /**
    * Stop with error indicator
    */
   async error(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.RED}✗${ANSI.RESET} ${message}`);
   }
-  
+
   /**
    * Stop with warning indicator
    */
   async warn(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.YELLOW}⚠${ANSI.RESET} ${message}`);
   }
-  
+
   /**
    * Stop with info indicator
    */
   async info(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.CYAN}ℹ${ANSI.RESET} ${message}`);
   }
-  
+
   /**
    * Check if spinner is currently running
    */
@@ -238,19 +238,14 @@ export class ProgressBar {
   private filledChar: string;
   private emptyChar: string;
   private isActive = false;
-  
-  constructor(
-    write: WriteCallback,
-    width = 30,
-    filledChar = '█',
-    emptyChar = '░'
-  ) {
+
+  constructor(write: WriteCallback, width = 30, filledChar = '█', emptyChar = '░') {
     this.write = write;
     this.width = width;
     this.filledChar = filledChar;
     this.emptyChar = emptyChar;
   }
-  
+
   /**
    * Start the progress bar
    */
@@ -259,11 +254,11 @@ export class ProgressBar {
     this.current = 0;
     this.message = message;
     this.isActive = true;
-    
+
     await this.write(ANSI.CURSOR_HIDE);
     await this.render();
   }
-  
+
   /**
    * Update progress
    */
@@ -275,14 +270,14 @@ export class ProgressBar {
     }
     await this.render();
   }
-  
+
   /**
    * Increment progress by a step
    */
   async increment(step = 1, message?: string): Promise<void> {
     await this.update(this.current + step, message);
   }
-  
+
   /**
    * Render the progress bar
    */
@@ -290,17 +285,15 @@ export class ProgressBar {
     const percent = Math.round((this.current / this.total) * 100);
     const filled = Math.round((this.current / this.total) * this.width);
     const empty = this.width - filled;
-    
+
     const bar = `${ANSI.FG.GREEN}${this.filledChar.repeat(filled)}${ANSI.FG.GRAY}${this.emptyChar.repeat(empty)}${ANSI.RESET}`;
     const percentStr = `${percent}%`.padStart(4);
-    
-    const display = this.message 
-      ? `${bar} ${percentStr} ${this.message}`
-      : `${bar} ${percentStr}`;
-    
+
+    const display = this.message ? `${bar} ${percentStr} ${this.message}` : `${bar} ${percentStr}`;
+
     await this.write(ANSI.CLEAR_LINE + display);
   }
-  
+
   /**
    * Complete the progress bar
    */
@@ -322,11 +315,11 @@ export class ProgressBar {
 export class StatusLine {
   private write: WriteCallback;
   private isActive = false;
-  
+
   constructor(write: WriteCallback) {
     this.write = write;
   }
-  
+
   /**
    * Start status line mode
    */
@@ -334,7 +327,7 @@ export class StatusLine {
     this.isActive = true;
     await this.write(ANSI.CURSOR_HIDE);
   }
-  
+
   /**
    * Update status text (replaces current line)
    */
@@ -345,7 +338,7 @@ export class StatusLine {
     }
     await this.write(ANSI.CLEAR_LINE + text);
   }
-  
+
   /**
    * End status line mode and move to new line
    */
@@ -364,75 +357,75 @@ export class StatusLine {
  */
 export class TerminalUI {
   private write: WriteCallback;
-  
+
   // UI components
   public spinner: SpinnerController;
   public progress: ProgressBar;
   public status: StatusLine;
-  
+
   constructor(write: WriteCallback, spinnerType: SpinnerType = 'BRAILLE') {
     this.write = write;
     this.spinner = new SpinnerController(write, spinnerType);
     this.progress = new ProgressBar(write);
     this.status = new StatusLine(write);
   }
-  
+
   /**
    * Write raw text to terminal
    */
   async print(text: string): Promise<void> {
     await this.write(text);
   }
-  
+
   /**
    * Write text followed by newline
    */
   async println(text: string): Promise<void> {
     await this.write(text + '\n');
   }
-  
+
   /**
    * Clear the current line
    */
   async clearLine(): Promise<void> {
     await this.write(ANSI.CLEAR_LINE);
   }
-  
+
   /**
    * Write colored text
    */
   async colored(text: string, color: string): Promise<void> {
     await this.write(`${color}${text}${ANSI.RESET}`);
   }
-  
+
   /**
    * Write success message (green checkmark)
    */
   async success(message: string): Promise<void> {
     await this.write(`${ANSI.FG.GREEN}✓${ANSI.RESET} ${message}\n`);
   }
-  
+
   /**
    * Write error message (red X)
    */
   async error(message: string): Promise<void> {
     await this.write(`${ANSI.FG.RED}✗${ANSI.RESET} ${message}\n`);
   }
-  
+
   /**
    * Write warning message (yellow triangle)
    */
   async warn(message: string): Promise<void> {
     await this.write(`${ANSI.FG.YELLOW}⚠${ANSI.RESET} ${message}\n`);
   }
-  
+
   /**
    * Write info message (cyan info icon)
    */
   async info(message: string): Promise<void> {
     await this.write(`${ANSI.FG.CYAN}ℹ${ANSI.RESET} ${message}\n`);
   }
-  
+
   /**
    * Write a tree item (for directory listings, etc)
    */
@@ -440,28 +433,32 @@ export class TerminalUI {
     const prefix = '  '.repeat(indent) + (isLast ? '└── ' : '├── ');
     await this.write(`${ANSI.FG.GRAY}${prefix}${ANSI.RESET}${text}\n`);
   }
-  
+
   /**
    * Write a dimmed/secondary text
    */
   async dim(text: string): Promise<void> {
     await this.write(`${ANSI.FG.GRAY}${text}${ANSI.RESET}`);
   }
-  
+
   /**
    * Write bold text
    */
   async bold(text: string): Promise<void> {
     await this.write(`${ANSI.BOLD}${text}${ANSI.RESET}`);
   }
-  
+
   /**
    * Create a new spinner with custom settings
    */
-  createSpinner(type: SpinnerType = 'BRAILLE', color: string = ANSI.FG.CYAN, interval = 80): SpinnerController {
+  createSpinner(
+    type: SpinnerType = 'BRAILLE',
+    color: string = ANSI.FG.CYAN,
+    interval = 80
+  ): SpinnerController {
     return new SpinnerController(this.write, type, color, interval);
   }
-  
+
   /**
    * Create a new progress bar with custom settings
    */
@@ -473,7 +470,10 @@ export class TerminalUI {
 /**
  * Create a TerminalUI instance from a write callback
  */
-export function createTerminalUI(write: WriteCallback, spinnerType: SpinnerType = 'BRAILLE'): TerminalUI {
+export function createTerminalUI(
+  write: WriteCallback,
+  spinnerType: SpinnerType = 'BRAILLE'
+): TerminalUI {
   return new TerminalUI(write, spinnerType);
 }
 

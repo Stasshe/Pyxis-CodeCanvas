@@ -96,10 +96,7 @@ export default function PaneResizer({
   };
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%' }}
-    >
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {/* ホバー検出用の広いエリア */}
       <div
         style={hoverZoneStyle}
@@ -117,11 +114,7 @@ export default function PaneResizer({
         }}
       />
       {/* 実際のリサイザーライン */}
-      <div
-        style={resizerStyle}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
-      />
+      <div style={resizerStyle} onMouseDown={handleMouseDown} onTouchStart={handleTouchStart} />
     </div>
   );
 }

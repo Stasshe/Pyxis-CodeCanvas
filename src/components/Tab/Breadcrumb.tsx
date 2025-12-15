@@ -15,7 +15,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
   const pane = getPane(paneId);
   if (!pane) return null;
 
-  const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+  const activeTab = pane.tabs.find(t => t.id === pane.activeTabId);
 
   if (!activeTab) return null;
 

@@ -221,25 +221,25 @@ export default function CodeEditor({
     ]
   );
 
-    // 折り返しのトグルショートカット登録 (Alt+Z)
-    useKeyBinding(
-      'toggleWordWrap',
-      async () => {
-        if (!projectId || !updateSettings) return;
-        const current = settings?.editor?.wordWrap ?? false;
-        try {
-          await updateSettings(prev => ({
-            editor: {
-              ...(prev?.editor || {}),
-              wordWrap: !current,
-            },
-          }));
-        } catch (e) {
-          console.error('[CodeEditor] toggleWordWrap failed:', e);
-        }
-      },
-      [projectId, settings?.editor?.wordWrap, updateSettings]
-    );
+  // 折り返しのトグルショートカット登録 (Alt+Z)
+  useKeyBinding(
+    'toggleWordWrap',
+    async () => {
+      if (!projectId || !updateSettings) return;
+      const current = settings?.editor?.wordWrap ?? false;
+      try {
+        await updateSettings(prev => ({
+          editor: {
+            ...(prev?.editor || {}),
+            wordWrap: !current,
+          },
+        }));
+      } catch (e) {
+        console.error('[CodeEditor] toggleWordWrap failed:', e);
+      }
+    },
+    [projectId, settings?.editor?.wordWrap, updateSettings]
+  );
 
   // === タブなし ===
   if (!activeTab) {
@@ -261,10 +261,7 @@ export default function CodeEditor({
   // === CodeMirrorエディター ===
   if (isCodeMirror) {
     return (
-      <div
-        className="flex-1 min-h-0 relative"
-        style={{ height: editorHeight }}
-      >
+      <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
         <CodeMirrorEditor
           tabId={activeTab.id}
           fileName={activeTab.name}
@@ -291,10 +288,7 @@ export default function CodeEditor({
 
   // === Monaco Editorエディター（デフォルト）===
   return (
-    <div
-      className="flex-1 min-h-0 relative"
-      style={{ height: editorHeight }}
-    >
+    <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
       <MonacoEditor
         tabId={activeTab.id}
         fileName={activeTab.name}

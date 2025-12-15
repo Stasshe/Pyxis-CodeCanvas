@@ -66,8 +66,6 @@ export class ModuleLoader {
     this.resolver = new ModuleResolver(this.projectId, this.projectName);
   }
 
-
-
   /**
    * 初期化
    */
@@ -132,13 +130,13 @@ export class ModuleLoader {
 
       // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
       const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-      
+
       // デバッグ: transpileResultの内容を確認
       runtimeInfo('📝 Transpile result type:', typeof transpileResult);
       runtimeInfo('📝 Transpile result:', transpileResult);
-      
+
       const { code, dependencies } = transpileResult;
-      
+
       // デバッグ: codeとdependenciesの型を確認
       runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
 
@@ -148,11 +146,28 @@ export class ModuleLoader {
         for (const dep of dependencies) {
           try {
             // ビルトインモジュールはスキップ
-            const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline', 'events', 'child_process', 'assert', 'crypto', 'stream', 'url', 'zlib'];
+            const builtIns = [
+              'fs',
+              'fs/promises',
+              'path',
+              'os',
+              'util',
+              'http',
+              'https',
+              'buffer',
+              'readline',
+              'events',
+              'child_process',
+              'assert',
+              'crypto',
+              'stream',
+              'url',
+              'zlib',
+            ];
             if (builtIns.includes(dep)) {
               continue;
             }
-            
+
             // 依存関係を再帰的にロード
             await this.load(dep, resolvedPath);
           } catch (error) {
@@ -169,10 +184,15 @@ export class ModuleLoader {
       this.executionCache[resolvedPath].exports = moduleExports;
       this.executionCache[resolvedPath].loaded = true;
       this.executionCache[resolvedPath].loading = false;
-      
+
       // モジュール名→パスのマッピングを保存（require時の解決用）
       // パッケージ名（node_modulesから）の場合のみマッピングを保存
-      if (!resolved.isBuiltIn && moduleName && !moduleName.startsWith('.') && !moduleName.startsWith('/')) {
+      if (
+        !resolved.isBuiltIn &&
+        moduleName &&
+        !moduleName.startsWith('.') &&
+        !moduleName.startsWith('/')
+      ) {
         this.moduleNameMap[moduleName] = resolvedPath;
         runtimeInfo('📝 Stored module name mapping:', moduleName, '→', resolvedPath);
       }
@@ -189,17 +209,27 @@ export class ModuleLoader {
 
   /**
    * トランスパイル済みコードと依存関係を取得
-   * 
+   *
    * 依存関係の事前ロードに使用する
    */
-  async getTranspiledCodeWithDeps(filePath: string, content: string): Promise<{ code: string; dependencies: string[] }> {
+  async getTranspiledCodeWithDeps(
+    filePath: string,
+    content: string
+  ): Promise<{ code: string; dependencies: string[] }> {
     // キャッシュをチェック
     const version = this.computeContentVersion(content);
     const cached = await this.cache.get(filePath, version);
     if (cached) {
       runtimeInfo('📦 Using transpile cache (with dependencies):', filePath);
       // デバッグ: キャッシュの内容を確認
-      runtimeInfo('📝 Cache structure:', typeof cached, 'code type:', typeof cached.code, 'deps:', cached.deps);
+      runtimeInfo(
+        '📝 Cache structure:',
+        typeof cached,
+        'code type:',
+        typeof cached.code,
+        'deps:',
+        cached.deps
+      );
       return { code: cached.code, dependencies: cached.deps || [] };
     }
 
@@ -224,7 +254,9 @@ export class ModuleLoader {
     if (isTypeScript) {
       const transpiler = runtimeRegistry.getTranspilerForFile(filePath);
       if (!transpiler) {
-        throw new Error(`No transpiler found for ${filePath}. Please install the TypeScript runtime extension.`);
+        throw new Error(
+          `No transpiler found for ${filePath}. Please install the TypeScript runtime extension.`
+        );
       }
 
       try {
@@ -345,18 +377,35 @@ export class ModuleLoader {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
       for (const dep of dependencies) {
         try {
-          const builtIns = ['fs', 'fs/promises', 'path', 'os', 'util', 'http', 'https', 'buffer', 'readline', 'events', 'child_process', 'assert', 'crypto', 'stream', 'url', 'zlib'];
+          const builtIns = [
+            'fs',
+            'fs/promises',
+            'path',
+            'os',
+            'util',
+            'http',
+            'https',
+            'buffer',
+            'readline',
+            'events',
+            'child_process',
+            'assert',
+            'crypto',
+            'stream',
+            'url',
+            'zlib',
+          ];
           if (builtIns.includes(dep)) {
             continue;
           }
-          
+
           await this.load(dep, resolvedPath);
         } catch (error) {
           runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
         }
       }
     }
-    
+
     runtimeInfo('✅ Dependencies pre-loaded for:', resolvedPath);
   }
 
@@ -379,19 +428,50 @@ export class ModuleLoader {
     // Modules must be pre-loaded into execution cache before they can be required
     const require = (moduleName: string): any => {
       runtimeInfo('📦 require (in module):', moduleName, 'from', filePath);
-      
+
       // Simple synchronous resolution for pre-loaded modules
       let resolvedPath: string | null = null;
-      
+
       // Try built-in modules first
       // Expanded list of built-ins
       const builtIns = [
-        'assert', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto', 'dgram', 'dns', 
-        'domain', 'events', 'fs', 'fs/promises', 'http', 'https', 'module', 'net', 'os', 'path', 'process', 
-        'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder', 'sys', 'timers', 'tls', 
-        'tty', 'url', 'util', 'v8', 'vm', 'zlib'
+        'assert',
+        'buffer',
+        'child_process',
+        'cluster',
+        'console',
+        'constants',
+        'crypto',
+        'dgram',
+        'dns',
+        'domain',
+        'events',
+        'fs',
+        'fs/promises',
+        'http',
+        'https',
+        'module',
+        'net',
+        'os',
+        'path',
+        'process',
+        'punycode',
+        'querystring',
+        'readline',
+        'repl',
+        'stream',
+        'string_decoder',
+        'sys',
+        'timers',
+        'tls',
+        'tty',
+        'url',
+        'util',
+        'v8',
+        'vm',
+        'zlib',
       ];
-      
+
       if (builtIns.includes(moduleName)) {
         if (this.builtinResolver) {
           const builtIn = this.builtinResolver(moduleName);
@@ -404,7 +484,7 @@ export class ModuleLoader {
         // But usually this means we can't handle it.
         runtimeWarn('⚠️ Built-in module requested but not resolved:', moduleName);
       }
-      
+
       // Check if module name is in the moduleNameMap (for npm packages)
       if (this.moduleNameMap[moduleName]) {
         resolvedPath = this.moduleNameMap[moduleName];
@@ -416,12 +496,12 @@ export class ModuleLoader {
         const currentDir = this.dirname(filePath);
         const parts = currentDir.split('/').filter(Boolean);
         const relParts = moduleName.split('/').filter(Boolean);
-        
+
         for (const part of relParts) {
           if (part === '..') parts.pop();
           else if (part !== '.') parts.push(part);
         }
-        
+
         resolvedPath = '/' + parts.join('/');
       } else if (moduleName.startsWith('@/')) {
         // Alias
@@ -433,19 +513,19 @@ export class ModuleLoader {
         // node_modules package - try to find in moduleNameMap first
         // If not in map, construct the path manually
         const isScoped = moduleName.startsWith('@');
-        const packageName = isScoped 
+        const packageName = isScoped
           ? moduleName.split('/').slice(0, 2).join('/')
           : moduleName.split('/')[0];
         const subPath = isScoped
           ? moduleName.split('/').slice(2).join('/')
           : moduleName.split('/').slice(1).join('/');
-        
+
         resolvedPath = `/projects/${this.projectName}/node_modules/${packageName}`;
         if (subPath) {
           resolvedPath += '/' + subPath;
         }
       }
-      
+
       // Try to find in execution cache (may need extension)
       if (resolvedPath) {
         // Try exact path first
@@ -457,9 +537,19 @@ export class ModuleLoader {
             return cached.exports;
           }
         }
-        
+
         // Try with common extensions
-        const extensions = ['', '.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '/index.js', '/index.ts'];
+        const extensions = [
+          '',
+          '.js',
+          '.mjs',
+          '.ts',
+          '.mts',
+          '.tsx',
+          '.jsx',
+          '/index.js',
+          '/index.ts',
+        ];
         for (const ext of extensions) {
           const pathWithExt = resolvedPath + ext;
           if (this.executionCache[pathWithExt]) {
@@ -477,7 +567,9 @@ export class ModuleLoader {
       runtimeError('❌ Module not pre-loaded:', moduleName, 'resolved:', resolvedPath);
       runtimeError('Available modules in cache:', Object.keys(this.executionCache));
       runtimeError('ModuleNameMap:', this.moduleNameMap);
-      throw new Error(`Module '${moduleName}' not pre-loaded. Available modules: ${Object.keys(this.executionCache).join(', ')}`);
+      throw new Error(
+        `Module '${moduleName}' not pre-loaded. Available modules: ${Object.keys(this.executionCache).join(', ')}`
+      );
     };
 
     // Prepare a sandboxed console that forwards to the ModuleLoader's debugConsole
@@ -529,7 +621,7 @@ export class ModuleLoader {
         brands: [{ brand: 'Chromium', version: 120 }], // version as number for > 93 comparison
       },
     };
-    
+
     // Apply spoofed navigator to globalThis
     try {
       Object.defineProperty(globalThis, 'navigator', {
@@ -579,7 +671,7 @@ export class ModuleLoader {
         message: error instanceof Error ? error.message : String(error),
         name: error instanceof Error ? error.name : undefined,
       });
-      
+
       // Return empty exports to allow dependent modules to at least load
       // This is especially useful for Prettier where some plugins may fail
       // but the core functionality might still work

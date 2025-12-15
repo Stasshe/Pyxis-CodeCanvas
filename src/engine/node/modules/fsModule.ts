@@ -7,7 +7,12 @@
  */
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { toAppPath, toFSPath, fsPathToAppPath, normalizeDotSegments } from '@/engine/core/pathResolver';
+import {
+  toAppPath,
+  toFSPath,
+  fsPathToAppPath,
+  normalizeDotSegments,
+} from '@/engine/core/pathResolver';
 
 export interface FSModuleOptions {
   projectDir: string;
@@ -43,7 +48,6 @@ export function createFSModule(options: FSModuleOptions) {
       relativePath: appPath,
     };
   }
-
 
   /**
    * ファイルを書き込む（IndexedDBに保存し、自動的にGitFileSystemに同期）
@@ -129,7 +133,7 @@ export function createFSModule(options: FSModuleOptions) {
     readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
       try {
         const { relativePath } = normalizeModulePath(path);
-        
+
         // キャッシュにあればそれを返す
         if (memoryCache.has(relativePath)) {
           const content = memoryCache.get(relativePath)!;
@@ -143,7 +147,7 @@ export function createFSModule(options: FSModuleOptions) {
         const file = await fileRepository.getFileByPath(projectId, relativePath);
         if (!file) throw new Error(`File not found: ${path}`);
         const content = file.content ?? '';
-        
+
         // キャッシュ更新
         memoryCache.set(relativePath, content);
 
@@ -163,7 +167,7 @@ export function createFSModule(options: FSModuleOptions) {
     writeFile: async (path: string, data: string | Uint8Array, options?: any): Promise<void> => {
       try {
         const { relativePath } = normalizeModulePath(path);
-        
+
         // キャッシュ更新
         const content = typeof data === 'string' ? data : new TextDecoder().decode(data);
         memoryCache.set(relativePath, content); // Note: storing string in cache for simplicity if possible, or raw data
@@ -180,7 +184,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     readFileSync: (path: string, options?: any): string | Uint8Array => {
       const { relativePath } = normalizeModulePath(path);
-      
+
       if (memoryCache.has(relativePath)) {
         const content = memoryCache.get(relativePath)!;
         if (options && options.encoding === null) {
@@ -214,12 +218,12 @@ export function createFSModule(options: FSModuleOptions) {
       const { relativePath } = normalizeModulePath(path);
       // Check cache first
       if (memoryCache.has(relativePath)) return true;
-      
+
       // Hack: we can't check IndexedDB synchronously if not in cache.
       // We assume if it's not in cache (and we preloaded), it might not exist or we don't know.
       // But for yargs, it checks existence.
       // If we preloaded everything, cache miss = not found.
-      return false; 
+      return false;
     },
 
     /**
@@ -233,13 +237,13 @@ export function createFSModule(options: FSModuleOptions) {
         const files = await fileRepository.getProjectFiles(projectId);
         let count = 0;
         for (const file of files) {
-           // 拡張子フィルタ（空の場合は全ファイル）
-           if (extensions.length === 0 || extensions.some(ext => file.path.endsWith(ext))) {
-             if (file.content !== undefined) {
-               memoryCache.set(file.path, file.content);
-               count++;
-             }
-           }
+          // 拡張子フィルタ（空の場合は全ファイル）
+          if (extensions.length === 0 || extensions.some(ext => file.path.endsWith(ext))) {
+            if (file.content !== undefined) {
+              memoryCache.set(file.path, file.content);
+              count++;
+            }
+          }
         }
         console.log(`[fsModule] Preloaded ${count} files into memory cache.`);
       } catch (error) {
@@ -363,7 +367,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     unlink: async (path: string): Promise<void> => {
       const { relativePath } = normalizeModulePath(path);
-      
+
       // キャッシュから削除
       if (memoryCache.has(relativePath)) {
         memoryCache.delete(relativePath);
@@ -389,11 +393,14 @@ export function createFSModule(options: FSModuleOptions) {
       try {
         const { relativePath } = normalizeModulePath(path);
         let existingContent = '';
-        
+
         // キャッシュまたはDBから取得
         if (memoryCache.has(relativePath)) {
-           const cacheContent = memoryCache.get(relativePath)!;
-           existingContent = typeof cacheContent === 'string' ? cacheContent : new TextDecoder().decode(cacheContent);
+          const cacheContent = memoryCache.get(relativePath)!;
+          existingContent =
+            typeof cacheContent === 'string'
+              ? cacheContent
+              : new TextDecoder().decode(cacheContent);
         } else {
           try {
             const file = await fileRepository.getFileByPath(projectId, relativePath);
@@ -402,7 +409,7 @@ export function createFSModule(options: FSModuleOptions) {
             // ファイルが存在しない場合は新規作成
           }
         }
-        
+
         await fsModule.writeFile(path, existingContent + data, options);
       } catch (error) {
         throw new Error(`ファイルへの追記に失敗しました: ${path}`);
@@ -415,11 +422,11 @@ export function createFSModule(options: FSModuleOptions) {
     stat: async (path: string): Promise<any> => {
       try {
         const { relativePath } = normalizeModulePath(path);
-        
+
         // キャッシュにあればファイルとして返す
         if (memoryCache.has(relativePath)) {
-           const content = memoryCache.get(relativePath)!;
-           return {
+          const content = memoryCache.get(relativePath)!;
+          return {
             isFile: () => true,
             isDirectory: () => false,
             size: content.length,

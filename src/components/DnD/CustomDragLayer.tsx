@@ -12,7 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
  */
 const CustomDragLayer = memo(function CustomDragLayer() {
   const { colors } = useTheme();
-  const { isDragging, item, itemType, currentOffset } = useDragLayer((monitor) => ({
+  const { isDragging, item, itemType, currentOffset } = useDragLayer(monitor => ({
     item: monitor.getItem(),
     itemType: monitor.getItemType(),
     currentOffset: monitor.getSourceClientOffset(),
@@ -32,18 +32,20 @@ const CustomDragLayer = memo(function CustomDragLayer() {
       const iconPath = isFolder
         ? getIconForFolder(fileItem.name) || getIconForFolder('')
         : getIconForFile(fileItem.name) || getIconForFile('');
-      const iconSrc = iconPath && iconPath.endsWith('.svg')
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
+      const iconSrc =
+        iconPath && iconPath.endsWith('.svg')
+          ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+          : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
       return { iconSrc, name: fileItem.name, isFolder };
     }
 
     // TABの場合
     if (itemType === DND_TAB && item.tabName) {
       const iconPath = getIconForFile(item.tabName) || getIconForFile('');
-      const iconSrc = iconPath && iconPath.endsWith('.svg')
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+      const iconSrc =
+        iconPath && iconPath.endsWith('.svg')
+          ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
+          : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
       return { iconSrc, name: item.tabName, isFolder: false };
     }
 
@@ -81,11 +83,7 @@ const CustomDragLayer = memo(function CustomDragLayer() {
           whiteSpace: 'nowrap',
         }}
       >
-        <img
-          src={iconSrc}
-          alt={isFolder ? 'folder' : 'file'}
-          style={{ width: 16, height: 16 }}
-        />
+        <img src={iconSrc} alt={isFolder ? 'folder' : 'file'} style={{ width: 16, height: 16 }} />
         <span>{name}</span>
       </div>
     </div>
