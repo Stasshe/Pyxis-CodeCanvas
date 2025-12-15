@@ -69,49 +69,42 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     return cleaned.startsWith('/') ? cleaned : `/${cleaned}`
   }, [])
 
-  // コンテンツ復元を実行する関数（1回だけ確実に実行）
+  // コンテンツ復元を実行する関数（needsContentRestore のあるタブがあれば必ず試みる）
   const performContentRestoration = useCallback(() => {
-    if (restorationCompleted.current || restorationInProgress.current) {
-      return
-    }
+    if (restorationInProgress.current) return
 
-    if (!isRestored || !store.panes.length) {
-      return
-    }
+    if (!isRestored || !store.panes.length) return
 
     const flatPanes = flattenPanes(store.panes)
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
       pane.tabs.filter((tab: any) => tab.needsContentRestore)
     )
 
-    // 復元が不要な場合も完了イベントを発火
+    // 復元不要（needsContentRestore が無い）場合は完了として扱う
     if (tabsNeedingRestore.length === 0) {
       restorationCompleted.current = true
       console.log('[useTabContentRestore] No tabs need restoration, marking as completed')
-      // UI側の復元フラグも更新
       store.setIsContentRestored(true)
       store.setIsLoading(false)
-      // 完了イベントを発火（復元不要でもUIのローディングを解除するため）
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('pyxis-content-restored'))
       }, 100)
       return
     }
 
-    // プロジェクトファイルがまだロードされていない場合は待機
-    if (!projectFiles.length) {
+    // ただし既に完了フラグが立っていれば再試行は不要
+    if (restorationCompleted.current) {
       return
     }
 
+    // プロジェクトファイルがまだロードされていない場合は待機
+    if (!projectFiles.length) return
+
     // UIを loading 状態にする
     store.setIsLoading(true)
-    
+
     restorationInProgress.current = true
-    console.log(
-      '[useTabContentRestore] Starting content restoration for',
-      tabsNeedingRestore.length,
-      'tabs'
-    )
+    console.log('[useTabContentRestore] Starting content restoration for', tabsNeedingRestore.length, 'tabs')
 
     const flattenedFiles = flattenFileItems(projectFiles)
 
@@ -170,7 +163,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         // UIフラグを更新
         store.setIsContentRestored(true)
         store.setIsLoading(false)
-        
+
         // Monaco強制再描画イベントを発火（100ms後）
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'))

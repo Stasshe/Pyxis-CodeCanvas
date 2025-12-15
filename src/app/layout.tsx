@@ -7,7 +7,6 @@ import { ToastContainer } from '@/components/Toast'
 import { FileSelectorProvider } from '@/context/FileSelectorContext'
 import { GitHubUserProvider } from '@/context/GitHubUserContext'
 import { I18nProvider } from '@/context/I18nContext'
-import { TabProvider } from '@/context/TabContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 
 export const viewport: Viewport = {
@@ -132,14 +131,12 @@ export default function RootLayout({
         <I18nProvider>
           <ThemeProvider>
             <GitHubUserProvider>
-              <TabProvider>
-                <FileSelectorProvider>
-                  {children}
-                  <TabInitializer />
-                  <ExtensionInitializer />
-                  <ToastContainer />
-                </FileSelectorProvider>
-              </TabProvider>
+              <FileSelectorProvider>
+                {children}
+                <TabInitializer />
+                <ExtensionInitializer />
+                <ToastContainer />
+              </FileSelectorProvider>
             </GitHubUserProvider>
           </ThemeProvider>
         </I18nProvider>
