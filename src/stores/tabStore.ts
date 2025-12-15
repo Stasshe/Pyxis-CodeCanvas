@@ -1003,12 +1003,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const { getCurrentProjectId } = await import('@/stores/projectStore');
     
     const projectId = getCurrentProjectId();
-    if (!projectId) {
-      console.warn('[TabStore] Cannot save session: no active project');
-      return;
-    }
+    if (!projectId) return;
     
-    // UI状態は含めない（page.tsxが管理）
     const session = {
       version: 1,
       lastSaved: Date.now(),
@@ -1017,53 +1013,42 @@ export const useTabStore = create<TabStore>((set, get) => ({
         activePane: state.activePane,
         globalActiveTab: state.globalActiveTab,
       },
-      ui: DEFAULT_SESSION.ui, // デフォルト値を使用
+      ui: DEFAULT_SESSION.ui,
     };
     
     await sessionStorage.save(session, projectId);
   },
 
   loadSession: async () => {
-    try {
-      const { sessionStorage } = await import('@/stores/sessionStorage');
-      const { getCurrentProjectId } = await import('@/stores/projectStore');
-      
-      const projectId = getCurrentProjectId();
-      if (!projectId) {
-        console.warn('[TabStore] Cannot load session: no active project');
-        set({ isLoading: false, isRestored: true, isContentRestored: true });
-        return;
-      }
-      
-      console.log(`[TabStore] Loading session for project: ${projectId}`);
-      const session = await sessionStorage.load(projectId);
-
-      set({
-        panes: session.tabs.panes,
-        activePane: session.tabs.activePane || null,
-      });
-
-      console.log('[TabStore] Session restored successfully');
-
-      // タブが1つもない場合は即座にコンテンツ復元完了とする
-      const hasAnyTabs = session.tabs.panes.some((pane: any) => {
-        const checkPane = (p: any): boolean => {
-          if (p.tabs && p.tabs.length > 0) return true;
-          if (p.children) return p.children.some(checkPane);
-          return false;
-        };
-        return checkPane(pane);
-      });
-
-      if (!hasAnyTabs) {
-        console.log('[TabStore] No tabs to restore, marking as completed immediately');
-        set({ isContentRestored: true });
-      }
-    } catch (error) {
-      console.error('[TabStore] Failed to restore session:', error);
-      set({ isContentRestored: true });
-    } finally {
-      set({ isLoading: false, isRestored: true });
+    const { sessionStorage } = await import('@/stores/sessionStorage');
+    const { getCurrentProjectId } = await import('@/stores/projectStore');
+    
+    const projectId = getCurrentProjectId();
+    if (!projectId) {
+      set({ isLoading: false, isRestored: true, isContentRestored: true });
+      return;
     }
+    
+    const session = await sessionStorage.load(projectId);
+
+    set({
+      panes: session.tabs.panes,
+      activePane: session.tabs.activePane || null,
+    });
+
+    const hasAnyTabs = session.tabs.panes.some((pane: any) => {
+      const checkPane = (p: any): boolean => {
+        if (p.tabs && p.tabs.length > 0) return true;
+        if (p.children) return p.children.some(checkPane);
+        return false;
+      };
+      return checkPane(pane);
+    });
+
+    if (!hasAnyTabs) {
+      set({ isContentRestored: true });
+    }
+
+    set({ isLoading: false, isRestored: true });
   },
 }));

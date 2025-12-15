@@ -26,11 +26,11 @@ import {
 } from '@/engine/helper/resize';
 import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
 import { useTabContentRestore } from '@/hooks/useTabContentRestore';
-import { sessionStorage } from '@/stores/sessionStorage';
-import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useProjectStore } from '@/stores/projectStore';
+import { sessionStorage } from '@/stores/sessionStorage';
 import { useTabStore } from '@/stores/tabStore';
 import { Project } from '@/types';
 import type { MenuTab } from '@/types';
@@ -122,30 +122,21 @@ export default function Home() {
 
   // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
-  // UI状態の復元（プロジェクト変更時）
   useEffect(() => {
-    const restoreUIState = async () => {
-      if (!currentProject) {
-        console.log('[page.tsx] No project selected, skipping UI state restore');
-        return;
-      }
+    if (!currentProject) return;
 
-      try {
-        const uiState = await sessionStorage.loadUIState(currentProject.id);
-        setLeftSidebarWidth(uiState.leftSidebarWidth);
-        setRightSidebarWidth(uiState.rightSidebarWidth);
-        setBottomPanelHeight(uiState.bottomPanelHeight);
-        setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
-        setIsRightSidebarVisible(uiState.isRightSidebarVisible);
-        setIsBottomPanelVisible(uiState.isBottomPanelVisible);
-        console.log(`[page.tsx] UI state restored for project: ${currentProject.id}`);
-      } catch (error) {
-        console.error('[page.tsx] Failed to restore UI state:', error);
-      }
+    const restoreUIState = async () => {
+      const uiState = await sessionStorage.loadUIState(currentProject.id);
+      setLeftSidebarWidth(uiState.leftSidebarWidth);
+      setRightSidebarWidth(uiState.rightSidebarWidth);
+      setBottomPanelHeight(uiState.bottomPanelHeight);
+      setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
+      setIsRightSidebarVisible(uiState.isRightSidebarVisible);
+      setIsBottomPanelVisible(uiState.isBottomPanelVisible);
     };
 
     restoreUIState();
-  }, [currentProject]); // プロジェクト変更時に実行
+  }, [currentProject]);
 
   // UI状態の自動保存（最適化版）
   const { saveUIState, timerRef: saveTimerRef } = useOptimizedUIStateSave();

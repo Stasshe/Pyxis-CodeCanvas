@@ -346,34 +346,20 @@ function ClientTerminal({
       scrollToBottom();
     };
 
-    // 初期プロンプト表示
     showPrompt();
 
     let cmdOutputs = '';
-
-    // 履歴の初期化・復元（IndexedDBから）
     let commandHistory: string[] = [];
     let historyIndex = -1;
     let currentLine = '';
     let cursorPos = 0;
 
-    // 非同期で履歴を読み込み
-    const loadHistory = async () => {
-      try {
-        commandHistory = await getTerminalHistory(currentProjectId);
-        console.log(`[Terminal] Loaded ${commandHistory.length} commands from history`);
-      } catch (error) {
-        console.warn('[Terminal] Failed to load command history:', error);
-        commandHistory = [];
-      }
-    };
-    loadHistory();
+    getTerminalHistory(currentProjectId).then(history => {
+      commandHistory = history;
+    });
 
-    // 履歴保存関数（IndexedDBへ）
     const saveHistory = () => {
-      saveTerminalHistory(currentProjectId, commandHistory).catch(error => {
-        console.warn('[Terminal] Failed to save command history:', error);
-      });
+      saveTerminalHistory(currentProjectId, commandHistory);
     };
 
     // Write lock to prevent concurrent writes causing newlines
@@ -493,15 +479,10 @@ function ClientTerminal({
             // args: ['clear'] -> clear history
             const sub = args[0];
             if (sub === 'clear' || sub === 'reset' || sub === '--clear') {
-              try {
-                commandHistory = [];
-                saveHistory();
-                // sessionStorageから明示的に削除
-                clearTerminalHistory(currentProject);
-                await captureWriteOutput('ターミナル履歴を削除しました');
-              } catch (e) {
-                await captureWriteOutput(`履歴削除エラー: ${(e as Error).message}`);
-              }
+              commandHistory = [];
+              saveHistory();
+              await clearTerminalHistory(currentProjectId);
+              await captureWriteOutput('ターミナル履歴を削除しました');
             } else {
               if (commandHistory.length === 0) {
                 await captureWriteOutput('履歴はありません');

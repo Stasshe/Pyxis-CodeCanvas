@@ -2,7 +2,7 @@ import { storageService, STORES } from '@/engine/storage';
 
 /**
  * Simple adapter to persist AI review metadata using storageService.
- * Stores entries under `TAB_STATE` store with keys: `aiReview:${projectId}:${filePath}`
+ * Stores entries under `AI_REVIEWS` store with keys: `aiReview:${projectId}:${filePath}`
  */
 export async function saveAIReviewEntry(
   projectId: string,
