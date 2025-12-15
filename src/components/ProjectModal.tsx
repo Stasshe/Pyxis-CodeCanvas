@@ -1,10 +1,10 @@
-import { X, Plus, Folder, Trash2, Edit, GitBranch } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Edit, Folder, GitBranch, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { authRepository } from '@/engine/user/authRepository';
-import { Project } from '@/types';
+import type { Project } from '@/types';
 
 interface ProjectModalProps {
   isOpen: boolean;

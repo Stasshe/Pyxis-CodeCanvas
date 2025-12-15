@@ -20,21 +20,21 @@ import TopBar from '@/components/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
 import {
-  useLeftSidebarResize,
   useBottomPanelResize,
+  useLeftSidebarResize,
   useRightSidebarResize,
 } from '@/engine/helper/resize';
+import type { EditorPane } from '@/engine/tabs/types';
 import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
 import { useTabContentRestore } from '@/hooks/useTabContentRestore';
-import { sessionStorage } from '@/stores/sessionStorage';
-import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useProjectStore } from '@/stores/projectStore';
+import { sessionStorage } from '@/stores/sessionStorage';
 import { useTabStore } from '@/stores/tabStore';
-import { Project } from '@/types';
+import type { Project } from '@/types';
 import type { MenuTab } from '@/types';
-import type { EditorPane } from '@/engine/tabs/types';
 
 /**
  * Home: 新アーキテクチャのメインページ

@@ -1,4 +1,4 @@
-import FS from '@isomorphic-git/lightning-fs';
+import type FS from '@isomorphic-git/lightning-fs';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 
@@ -15,7 +15,7 @@ export class GitFileSystemHelper {
   static async getAllFiles(fs: FS, dirPath: string): Promise<string[]> {
     const files: string[] = [];
 
-    const traverse = async (currentPath: string, relativePath: string = '') => {
+    const traverse = async (currentPath: string, relativePath = '') => {
       try {
         // ファイルシステムの同期を確実にする
         if ((fs as any).sync) {

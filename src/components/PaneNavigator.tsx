@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 import {
-  ArrowUp,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Columns2,
+  CornerDownLeft,
   Rows2,
   Trash2,
-  CornerDownLeft,
 } from 'lucide-react';
+import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
-import { EditorPane } from '@/engine/tabs/types';
+import type { EditorPane } from '@/engine/tabs/types';
 import { useTabStore } from '@/stores/tabStore';
 
 interface PaneNavigatorProps {
@@ -276,7 +276,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
 
       // Number keys 1-9 for direct selection
       if (key >= '1' && key <= '9') {
-        const idx = parseInt(key) - 1;
+        const idx = Number.parseInt(key) - 1;
         if (idx < flattenedPanes.length) {
           handleActivate(flattenedPanes[idx].id);
         }

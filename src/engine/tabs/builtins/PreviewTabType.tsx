@@ -1,7 +1,7 @@
 // src/engine/tabs/builtins/PreviewTabType.tsx
-import React from 'react';
+import type React from 'react';
 
-import { TabTypeDefinition, TabComponentProps, OpenTabOptions, PreviewTab } from '../types';
+import type { OpenTabOptions, PreviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
 import { useProjectStore } from '@/stores/projectStore';

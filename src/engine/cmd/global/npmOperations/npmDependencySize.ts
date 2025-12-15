@@ -31,7 +31,7 @@ export async function calculateDependencySize(
       .then(res => {
         const contentLength = res.headers.get('Content-Length');
         if (contentLength) {
-          return parseInt(contentLength, 10);
+          return Number.parseInt(contentLength, 10);
         } else {
           console.warn(`Content-Length missing for ${tarballUrl}, falling back to GET request.`);
           return fetch(tarballUrl)

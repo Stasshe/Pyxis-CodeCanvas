@@ -108,7 +108,7 @@ export class GitHubAPI {
   /**
    * 参照を更新
    */
-  async updateRef(branch: string, sha: string, force: boolean = false): Promise<GitRef> {
+  async updateRef(branch: string, sha: string, force = false): Promise<GitRef> {
     try {
       // 既存の参照を更新
       return await this.request<GitRef>(`/git/refs/heads/${branch}`, {
@@ -172,7 +172,7 @@ export class GitHubAPI {
   /**
    * ツリーを取得
    */
-  async getTree(sha: string, recursive: boolean = false): Promise<GitTree> {
+  async getTree(sha: string, recursive = false): Promise<GitTree> {
     const params = recursive ? '?recursive=1' : '';
     return this.request<GitTree>(`/git/trees/${sha}${params}`);
   }

@@ -1,14 +1,14 @@
 import clsx from 'clsx';
-import { Play, Square, Code, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { Code, Play, Square, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import OperationWindow from '@/components/OperationWindow';
-import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { parseGitignore, isPathIgnored } from '@/engine/core/gitignore';
-import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
+import { LOCALSTORAGE_KEY } from '@/context/config';
+import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry';
+import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;

@@ -5,7 +5,7 @@
 
 import type { Locale } from './types';
 
-import { storageService, STORES } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/storage';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7日間
 

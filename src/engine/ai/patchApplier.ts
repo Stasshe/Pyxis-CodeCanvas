@@ -100,7 +100,7 @@ function calculateLineSimilarity(a: string, b: string): number {
 function findExactMatch(
   content: string,
   search: string,
-  startFrom: number = 0
+  startFrom = 0
 ): { index: number; matchedText: string } | null {
   // Try exact match first
   const exactIndex = content.indexOf(search, startFrom);
@@ -172,7 +172,7 @@ function findExactMatch(
 function findFuzzyMatch(
   content: string,
   search: string,
-  startFrom: number = 0
+  startFrom = 0
 ): { index: number; matchedText: string; confidence: number } | null {
   const normalizedContent = normalizeForComparison(content);
   const normalizedSearch = normalizeForComparison(search);
@@ -244,7 +244,7 @@ function findFuzzyMatch(
 export function applySearchReplaceBlock(
   content: string,
   block: SearchReplaceBlock,
-  startFrom: number = 0
+  startFrom = 0
 ): { success: boolean; content: string; error?: string; matchEnd?: number } {
   const normalizedContent = normalizeLineEndings(content);
   const normalizedSearch = normalizeLineEndings(block.search);

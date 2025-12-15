@@ -1,11 +1,11 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import {
-  toAppPath,
+  fsPathToAppPath,
   normalizeDotSegments,
   getProjectRoot as pathGetProjectRoot,
-  fsPathToAppPath,
   isWithinProject as pathIsWithinProject,
   resolvePath as pathResolvePath,
+  toAppPath,
 } from '@/engine/core/pathResolver';
 import type { ProjectFile } from '@/types';
 

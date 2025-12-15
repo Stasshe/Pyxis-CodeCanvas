@@ -9,19 +9,20 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type React from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
 
 import { extensionManager } from '@/engine/extensions/extensionManager';
-import { loadTranslations, clearAllCacheForLocale } from '@/engine/i18n/loader';
+import { clearAllCacheForLocale, loadTranslations } from '@/engine/i18n/loader';
 import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
 import { createTranslator } from '@/engine/i18n/translator';
 import type {
-  Locale,
   I18nContextValue,
-  TranslationKey,
+  Locale,
   TranslateOptions,
+  TranslationKey,
 } from '@/engine/i18n/types';
 import { isSupportedLocale } from '@/engine/i18n/types';
 

@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import { useTabStore } from '@/stores/tabStore';
@@ -379,7 +380,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={settings.editor.fontSize}
               onChange={e =>
                 updateSettings({
-                  editor: { ...settings.editor, fontSize: parseInt(e.target.value) || 14 },
+                  editor: { ...settings.editor, fontSize: Number.parseInt(e.target.value) || 14 },
                 })
               }
               className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
@@ -402,7 +403,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={settings.editor.tabSize}
               onChange={e =>
                 updateSettings({
-                  editor: { ...settings.editor, tabSize: parseInt(e.target.value) || 2 },
+                  editor: { ...settings.editor, tabSize: Number.parseInt(e.target.value) || 2 },
                 })
               }
               className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"

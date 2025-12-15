@@ -8,10 +8,10 @@
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import {
-  toAppPath,
-  toFSPath,
   fsPathToAppPath,
   normalizeDotSegments,
+  toAppPath,
+  toFSPath,
 } from '@/engine/core/pathResolver';
 
 export interface FSModuleOptions {
@@ -56,7 +56,7 @@ export function createFSModule(options: FSModuleOptions) {
   async function handleWriteFile(
     path: string,
     data: string | Uint8Array,
-    isNodeRuntime: boolean = true
+    isNodeRuntime = true
   ): Promise<void> {
     // projectIdのバリデーション
     if (!projectId || typeof projectId !== 'string') {

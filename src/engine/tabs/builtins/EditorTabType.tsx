@@ -1,13 +1,14 @@
 // src/engine/tabs/builtins/EditorTabType.tsx
-import React, { useCallback } from 'react';
+import type React from 'react';
+import { useCallback } from 'react';
 
-import { TabTypeDefinition, EditorTab, TabComponentProps } from '../types';
+import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useGitContext } from '@/components/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/useSettings';
-import { useProjectStore, getCurrentProjectId } from '@/stores/projectStore';
+import { getCurrentProjectId, useProjectStore } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
 /**

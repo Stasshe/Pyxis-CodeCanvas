@@ -3,7 +3,7 @@
  * LocalStorageにPersonal Access Token (PAT)を暗号化して保存
  */
 
-import { encryptText, decryptText, clearEncryptionKey } from './crypto';
+import { clearEncryptionKey, decryptText, encryptText } from './crypto';
 
 export interface GitHubUser {
   login: string;

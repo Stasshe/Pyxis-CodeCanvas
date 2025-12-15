@@ -3,15 +3,15 @@
  * GitHub Git Data API + GraphQL APIを使用して正式なコミットとしてプッシュ
  */
 
-import FS from '@isomorphic-git/lightning-fs';
+import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitHubAPI } from './github/GitHubAPI';
 import { TreeBuilder } from './github/TreeBuilder';
 import { parseGitHubUrl } from './github/utils';
 
-import { authRepository } from '@/engine/user/authRepository';
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
+import { authRepository } from '@/engine/user/authRepository';
 
 export interface PushOptions {
   remote?: string;

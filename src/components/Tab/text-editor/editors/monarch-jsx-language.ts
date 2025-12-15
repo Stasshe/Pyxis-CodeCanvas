@@ -1,4 +1,4 @@
-import { Monaco } from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import { getLanguage } from './editor-utils';
 

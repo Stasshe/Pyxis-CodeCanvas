@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Loader2, MessageSquare, Bot } from 'lucide-react';
+import { Bot, Loader2, MessageSquare } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 
 import ChatMessage from './ChatMessage';

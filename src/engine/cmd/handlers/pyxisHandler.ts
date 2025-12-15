@@ -1,3 +1,4 @@
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
@@ -7,9 +8,8 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { exportPage } from '@/engine/export/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
-import { storageService, STORES } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
-import { LOCALSTORAGE_KEY } from '@/context/config';
 
 export async function handlePyxisCommand(
   cmd: string,

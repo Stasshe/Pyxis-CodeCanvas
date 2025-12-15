@@ -1,5 +1,5 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { createTerminalUI, TerminalUI } from '@/engine/cmd/terminalUI';
+import { TerminalUI, createTerminalUI } from '@/engine/cmd/terminalUI';
 
 export async function handleNPMCommand(
   args: string[],

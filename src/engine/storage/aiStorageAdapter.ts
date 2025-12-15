@@ -1,4 +1,4 @@
-import { storageService, STORES } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/storage';
 
 /**
  * Simple adapter to persist AI review metadata using storageService.

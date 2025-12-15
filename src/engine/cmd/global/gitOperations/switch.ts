@@ -1,4 +1,4 @@
-import FS from '@isomorphic-git/lightning-fs';
+import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitCheckoutOperations } from './checkout';

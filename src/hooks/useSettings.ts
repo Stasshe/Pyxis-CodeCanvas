@@ -2,10 +2,10 @@
  * useSettings - Pyxis設定を使用するためのReact Hook
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { settingsManager } from '@/engine/helper/settingsManager';
-import { PyxisSettings } from '@/types/settings';
+import type { PyxisSettings } from '@/types/settings';
 
 export function useSettings(projectId?: string) {
   const [settings, setSettings] = useState<PyxisSettings | null>(null);

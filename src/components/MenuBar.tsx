@@ -3,7 +3,7 @@ import * as LucideIcons from 'lucide-react';
 import { useState } from 'react';
 
 import { useTheme } from '../context/ThemeContext';
-import { MenuTab } from '../types';
+import type { MenuTab } from '../types';
 
 import { useGitHubUser } from '@/context/GitHubUserContext';
 import { useTranslation } from '@/context/I18nContext';

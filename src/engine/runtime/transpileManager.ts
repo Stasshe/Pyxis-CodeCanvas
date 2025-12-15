@@ -12,8 +12,8 @@
  * - moduleLoaderから使用される
  */
 
-import { runtimeInfo, runtimeError } from './runtimeLogger';
-import type { TranspileResult, TranspileRequest } from './transpileWorker';
+import { runtimeError, runtimeInfo } from './runtimeLogger';
+import type { TranspileRequest, TranspileResult } from './transpileWorker';
 
 /**
  * トランスパイルオプション

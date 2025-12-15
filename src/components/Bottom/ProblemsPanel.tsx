@@ -1,11 +1,11 @@
 'use client';
 
-import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { loader } from '@monaco-editor/react';
-import type * as monaco from 'monaco-editor';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
+import { loader } from '@monaco-editor/react';
+import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import type * as monaco from 'monaco-editor';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface ProblemsPanelProps {
   height: number;

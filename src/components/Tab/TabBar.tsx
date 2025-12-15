@@ -2,15 +2,16 @@
 'use client';
 import {
   Menu,
-  Plus,
-  X,
-  SplitSquareVertical,
-  SplitSquareHorizontal,
-  Trash2,
-  Save,
   Minus,
+  Plus,
+  Save,
+  SplitSquareHorizontal,
+  SplitSquareVertical,
+  Trash2,
+  X,
 } from 'lucide-react';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 
 import { TabIcon } from './TabIcon';
@@ -20,7 +21,7 @@ import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useKeyBinding, triggerAction } from '@/hooks/useKeyBindings';
+import { triggerAction, useKeyBinding } from '@/hooks/useKeyBindings';
 import { useTabStore } from '@/stores/tabStore';
 
 interface TabBarProps {

@@ -3,14 +3,14 @@
 import { useState } from 'react';
 
 import DebugConsole from './DebugConsole';
-import OutputPanel, { OutputMessage } from './OutputPanel';
-import Terminal from './Terminal';
+import OutputPanel, { type OutputMessage } from './OutputPanel';
 import ProblemsPanel from './ProblemsPanel';
+import Terminal from './Terminal';
 
-import { OUTPUT_CONFIG } from '@/context/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { FileItem } from '@/types';
+import { OUTPUT_CONFIG } from '@/context/config';
+import type { FileItem } from '@/types';
 
 interface BottomPanelProps {
   height: number;

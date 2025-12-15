@@ -7,18 +7,18 @@ import {
   EchoCommand,
   FindCommand,
   GrepCommand,
+  HeadCommand,
   HelpCommand,
   LsCommand,
   MkdirCommand,
   MvCommand,
   PwdCommand,
   RmCommand,
+  StatCommand,
+  TailCommand,
   TouchCommand,
   TreeCommand,
   UnzipCommand,
-  HeadCommand,
-  TailCommand,
-  StatCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';

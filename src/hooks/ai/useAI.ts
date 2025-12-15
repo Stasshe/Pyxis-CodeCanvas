@@ -2,20 +2,20 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { LOCALSTORAGE_KEY } from '@/context/config';
-import { getSelectedFileContexts, getCustomInstructions } from '@/engine/ai/contextBuilder';
-import { generateCodeEdit, generateChatResponse } from '@/engine/ai/fetchAI';
-import { EDIT_PROMPT_TEMPLATE, ASK_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
+import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
+import { generateChatResponse, generateCodeEdit } from '@/engine/ai/fetchAI';
+import { ASK_PROMPT_TEMPLATE, EDIT_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
 import {
-  parseEditResponse,
   extractFilePathsFromResponse,
+  parseEditResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
 import { fileRepository } from '@/engine/core/fileRepository';
-import type { AIFileContext, AIEditResponse, ChatSpaceMessage } from '@/types';
+import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
 
 interface UseAIProps {
   onAddMessage?: (

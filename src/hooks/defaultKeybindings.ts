@@ -1,4 +1,4 @@
-import { Binding } from './keybindingUtils';
+import type { Binding } from './keybindingUtils';
 export const DEFAULT_BINDINGS: Binding[] = [
   // File operations
   { id: 'saveFile', name: 'Save File', combo: 'Ctrl+S', category: 'file' },

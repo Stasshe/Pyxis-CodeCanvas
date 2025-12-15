@@ -2,28 +2,28 @@
 
 'use client';
 
-import { Bot, ChevronDown, Plus, Edit2, Trash2, MessageSquare, Terminal, X } from 'lucide-react';
+import { Bot, ChevronDown, Edit2, MessageSquare, Plus, Terminal, Trash2, X } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
+import FileSelector from './FileSelector';
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
 import ModeSelector from './chat/ModeSelector';
-import FileSelector from './FileSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 
 import { Confirmation } from '@/components/Confirmation';
-import OperationWindow, { OperationListItem } from '@/components/OperationWindow';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import OperationWindow, { type OperationListItem } from '@/components/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useAI } from '@/hooks/ai/useAI';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAIReview } from '@/hooks/useAIReview';
 import { useTabStore } from '@/stores/tabStore';
-import type { FileItem, Project, ChatSpaceMessage } from '@/types';
+import type { ChatSpaceMessage, FileItem, Project } from '@/types';
 
 interface AIPanelProps {
   projectFiles: FileItem[];

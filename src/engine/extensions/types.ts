@@ -18,9 +18,9 @@
 import type { CommandHandler } from './commandRegistry';
 import type {
   CreateTabOptions,
-  UpdateTabOptions,
-  TabCloseCallback,
   ExtensionTabData,
+  TabCloseCallback,
+  UpdateTabOptions,
 } from './system-api/TabAPI';
 import type { SystemModuleMap } from './systemModuleTypes';
 

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { FileCode, Clock, RotateCcw, Bot, User } from 'lucide-react';
+import { Bot, Clock, FileCode, RotateCcw, User } from 'lucide-react';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

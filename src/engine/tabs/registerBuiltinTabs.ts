@@ -1,16 +1,16 @@
+import { tabRegistry } from './TabRegistry';
 // src/engine/tabs/registerBuiltinTabs.ts
 import {
-  EditorTabType,
-  DiffTabType,
   AIReviewTabType,
-  WebPreviewTabType,
-  SettingsTabType,
-  WelcomeTabType,
-  PreviewTabType,
   BinaryTabType,
+  DiffTabType,
+  EditorTabType,
   ExtensionInfoTabType,
+  PreviewTabType,
+  SettingsTabType,
+  WebPreviewTabType,
+  WelcomeTabType,
 } from './builtins';
-import { tabRegistry } from './TabRegistry';
 
 /**
  * ビルトインタブタイプを登録

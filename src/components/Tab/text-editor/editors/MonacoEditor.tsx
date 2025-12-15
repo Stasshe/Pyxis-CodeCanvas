@@ -1,17 +1,17 @@
-import Editor, { Monaco, OnMount } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
-import { useRef, useEffect, useCallback, useState } from 'react';
+import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
+import type * as monaco from 'monaco-editor';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { countCharsNoSpaces } from './editor-utils';
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
+import { countCharsNoSpaces } from './editor-utils';
+import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
+import { defineAndSetMonacoThemes } from './monaco-themes';
 import {
-  registerEnhancedJSXLanguage,
   getEnhancedLanguage,
   getModelLanguage,
+  registerEnhancedJSXLanguage,
 } from './monarch-jsx-language';
-import { defineAndSetMonacoThemes } from './monaco-themes';
-import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 
 import { useTheme } from '@/context/ThemeContext';
 

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { MessageCircle, FileEdit } from 'lucide-react';
+import { FileEdit, MessageCircle } from 'lucide-react';
 import React from 'react';
 
 import { useTheme } from '@/context/ThemeContext';

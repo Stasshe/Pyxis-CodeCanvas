@@ -1,6 +1,6 @@
 import { oneDark } from '@codemirror/theme-one-dark';
 import CodeMirror from '@uiw/react-codemirror';
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { getCMExtensions } from './codemirror-utils';
 import { countCharsNoSpaces } from './editor-utils';

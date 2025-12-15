@@ -4,26 +4,26 @@
  */
 
 import {
-  Download,
-  Trash2,
-  Power,
-  PowerOff,
-  Loader,
-  RotateCw,
-  Package,
   CheckCircle2,
-  Search,
   ChevronDown,
   ChevronRight,
+  Download,
+  Loader,
+  Package,
+  Power,
+  PowerOff,
+  RotateCw,
+  Search,
+  Trash2,
   Upload,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Confirmation } from '@/components/Confirmation';
 import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
-import type { InstalledExtension, ExtensionManifest } from '@/engine/extensions/types';
+import type { ExtensionManifest, InstalledExtension } from '@/engine/extensions/types';
 import { useTabStore } from '@/stores/tabStore';
 
 interface ExtensionPack {

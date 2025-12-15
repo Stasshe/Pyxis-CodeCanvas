@@ -4,26 +4,26 @@
  */
 
 import {
-  fetchExtensionManifest,
-  fetchExtensionCode,
-  loadExtensionModule,
   activateExtension,
   deactivateExtension,
+  fetchExtensionCode,
+  fetchExtensionManifest,
+  loadExtensionModule,
 } from './extensionLoader';
 import {
-  saveInstalledExtension,
-  loadInstalledExtension,
-  loadAllInstalledExtensions,
   deleteInstalledExtension,
+  loadAllInstalledExtensions,
+  loadInstalledExtension,
+  saveInstalledExtension,
 } from './storage-adapter';
-import type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
 import {
-  ExtensionStatus,
-  type ExtensionManifest,
-  type InstalledExtension,
-  type ExtensionExports,
-  type ExtensionContext,
   type ExtensionActivation,
+  type ExtensionContext,
+  type ExtensionExports,
+  type ExtensionManifest,
+  ExtensionStatus,
+  type InstalledExtension,
 } from './types';
 
 /**

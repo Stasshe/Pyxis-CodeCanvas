@@ -1,11 +1,11 @@
 import EventEmitter from 'events';
-import { PassThrough, Readable, Writable } from 'stream';
+import { PassThrough, type Readable, type Writable } from 'stream';
 
-import type { StreamCtx } from './builtins';
-import { parseCommandLine } from './parser';
-import adaptBuiltins from './builtins';
-import expandBraces from './braceExpand';
 import type { UnixCommands } from '../global/unix';
+import expandBraces from './braceExpand';
+import type { StreamCtx } from './builtins';
+import adaptBuiltins from './builtins';
+import { parseCommandLine } from './parser';
 
 import type { fileRepository } from '@/engine/core/fileRepository';
 
@@ -165,7 +165,7 @@ export class Process extends EventEmitter {
     this.emit('exit', code, signal);
   }
 
-  kill(signal: string = 'SIGINT') {
+  kill(signal = 'SIGINT') {
     // Emit the signal event so the running handler may react
     this.emit('signal', signal);
     // default behavior: mark as killed
@@ -601,7 +601,7 @@ export class StreamShell {
               try {
                 // Normalize any ./ segments (e.g. /node_modules/pkg/./index -> /node_modules/pkg/index)
                 // Also normalize Windows backslashes to forward slashes
-                let cleaned = resolvedBin.replace(/\\/g, '/').replace(/(^|\/)\.\//g, '$1');
+                const cleaned = resolvedBin.replace(/\\/g, '/').replace(/(^|\/)\.\//g, '$1');
 
                 const candidates = [
                   cleaned,
@@ -1845,7 +1845,7 @@ export class StreamShell {
     ) {
       const writes: Record<string, string> = {};
       const appendMap: Record<string, boolean> = {};
-      const add = (path: string | undefined | null, content: string, append: boolean = false) => {
+      const add = (path: string | undefined | null, content: string, append = false) => {
         if (!path) return;
         const key = path.startsWith('/') ? path : `/${path}`;
         writes[key] = (writes[key] || '') + content;
@@ -1934,7 +1934,7 @@ export class StreamShell {
   }
 
   // Kill the current foreground process with given signal
-  killForeground(signal: string = 'SIGINT') {
+  killForeground(signal = 'SIGINT') {
     try {
       if (this.foregroundProc) this.foregroundProc.kill(signal);
     } catch (e) {}

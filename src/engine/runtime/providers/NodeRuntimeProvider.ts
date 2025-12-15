@@ -12,9 +12,9 @@ import { runtimeInfo } from '../runtimeLogger';
 import { fileRepository } from '@/engine/core/fileRepository';
 
 import type {
-  RuntimeProvider,
   RuntimeExecutionOptions,
   RuntimeExecutionResult,
+  RuntimeProvider,
 } from '../RuntimeProvider';
 
 export class NodeRuntimeProvider implements RuntimeProvider {

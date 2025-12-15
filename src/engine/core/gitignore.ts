@@ -142,7 +142,7 @@ export function isPathIgnored(rules: GitIgnoreRule[], path: string, isDir = fals
  */
 export function ensureGitignoreContains(
   content: string | undefined,
-  entry: string = 'node_modules'
+  entry = 'node_modules'
 ): { content: string; changed: boolean } {
   const normalizedEntry = entry.trim();
 

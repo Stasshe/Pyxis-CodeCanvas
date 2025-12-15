@@ -20,13 +20,13 @@ class Interface {
   public input: any;
   public output: any;
   public terminal: boolean;
-  public promptStr: string = '> ';
+  public promptStr = '> ';
   private listeners: { [event: string]: Function[] } = {};
-  private closed: boolean = false;
+  private closed = false;
   // Expose `history` to better match Node's API (most modules access rl.history)
   public history: string[] = [];
   public historySize?: number;
-  private _inputBuffer: string = '';
+  private _inputBuffer = '';
   private _inputListener?: (chunk: any) => void;
   private _lineConsumer?: (line: string) => boolean;
 
@@ -229,7 +229,7 @@ const moveCursor = (stream: any, dx: number, dy: number): boolean => {
   return true;
 };
 
-const clearLine = (stream: any, dir: number = 0): boolean => {
+const clearLine = (stream: any, dir = 0): boolean => {
   if (!stream || !stream.write) return false;
 
   if (dir < 0) stream.write('\x1b[1K');

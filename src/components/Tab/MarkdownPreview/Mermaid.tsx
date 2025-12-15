@@ -1,9 +1,9 @@
-import { ZoomIn, ZoomOut, RefreshCw, Download } from 'lucide-react';
+import { Download, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 import mermaid from 'mermaid';
-import { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme, type ThemeColors } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 
 import { parseMermaidContent } from '../markdownUtils';
 

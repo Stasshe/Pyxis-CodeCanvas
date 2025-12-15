@@ -1,15 +1,16 @@
 // src/engine/tabs/builtins/ExtensionInfoTabType.tsx
 'use client';
-import { Package, CheckCircle2, XCircle, Calendar, Tag, User } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
+import LocalImage from '@/components/Tab/LocalImage';
+import { Calendar, CheckCircle2, Package, Tag, User, XCircle } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
-import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
-import LocalImage from '@/components/Tab/LocalImage';
 
-import { TabTypeDefinition, TabComponentProps, ExtensionInfoTab } from '../types';
+import type { ExtensionInfoTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useTheme } from '@/context/ThemeContext';
 import type { ExtensionManifest } from '@/engine/extensions/types';

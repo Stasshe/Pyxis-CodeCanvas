@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { ChatSpace, ChatSpaceMessage, AIEditResponse } from '@/types';
 import {
-  getChatSpaces,
+  addMessageToChatSpace,
   createChatSpace,
   deleteChatSpace,
+  getChatSpaces,
   renameChatSpace,
-  addMessageToChatSpace,
-  updateChatSpaceMessage,
-  updateChatSpaceSelectedFiles,
   saveChatSpace,
   truncateMessagesFromMessage,
+  updateChatSpaceMessage,
+  updateChatSpaceSelectedFiles,
 } from '@/engine/storage/chatStorageAdapter';
+import type { AIEditResponse, ChatSpace, ChatSpaceMessage } from '@/types';
 
 export const useChatSpace = (projectId: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);

@@ -1,7 +1,7 @@
 // src/engine/tabs/builtins/AIReviewTabType.tsx
-import React from 'react';
+import type React from 'react';
 
-import { TabTypeDefinition, AIReviewTab, TabComponentProps } from '../types';
+import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/PaneContainer';
