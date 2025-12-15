@@ -106,6 +106,19 @@ export default function Home() {
     setCurrentProjectToStore(currentProject)
   }, [currentProject, setCurrentProjectToStore])
 
+  // プロジェクト切替時にタブセッションを復元する
+  const loadSession = useTabStore(state => state.loadSession)
+  useEffect(() => {
+    // 非同期でセッションをロード（IndexedDBからの復元を開始）
+    ;(async () => {
+      try {
+        await loadSession(currentProject?.id)
+      } catch (err) {
+        console.error('Failed to load tab session:', err)
+      }
+    })()
+  }, [currentProject?.id, loadSession])
+
   // タブコンテンツの復元と自動更新
   useTabContentRestore(projectFiles, isRestored)
 
