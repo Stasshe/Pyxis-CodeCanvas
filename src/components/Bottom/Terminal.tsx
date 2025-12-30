@@ -405,12 +405,6 @@ function ClientTerminal({
       // リダイレクト時にコマンド出力をキャプチャ
       let capturedOutput = '';
       const captureWriteOutput = async (output: string) => {
-        // Debug: log raw output received from command (helps detect unexpected encoding)
-        try {
-          // keep this lightweight and safe
-          console.log('[Terminal] captureWriteOutput received:', JSON.stringify(output));
-        } catch (e) {}
-
         // Don't add newlines to in-place updates (starts with \r for carriage return)
         // or cursor control sequences (starts with \x1b[)
         const isInPlaceUpdate = output.startsWith('\r') || output.startsWith('\x1b[?');
