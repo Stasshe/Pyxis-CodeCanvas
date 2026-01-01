@@ -675,27 +675,23 @@ export class GitCommands {
    * ステージされたファイルに追加の未ステージ変更があるかチェック
    * インデックス(stage)の内容とワーキングディレクトリのOIDを比較
    */
-  private async hasUnstagedChanges(filepath: string): Promise<boolean> {
+  private async hasUnstagedChanges(filePath: string): Promise<boolean> {
     try {
       // git.walk を使用してSTAGEとWORKDIRのOIDを直接比較
       let stageOid: string | null = null;
       let workdirOid: string | null = null;
-      let found = false;
 
+      // filepathsオプションを使って特定のファイルのみを処理
       await git.walk({
         fs: this.fs,
         dir: this.dir,
         trees: [git.STAGE(), git.WORKDIR()],
-        map: async (filepath_in_walk, [stageEntry, workdirEntry]) => {
-          if (filepath_in_walk === filepath) {
+        map: async (filePathInWalk, [stageEntry, workdirEntry]) => {
+          // 指定されたファイルのみ処理
+          if (filePathInWalk === filePath) {
             stageOid = stageEntry ? await stageEntry.oid() : null;
             workdirOid = workdirEntry ? await workdirEntry.oid() : null;
-            found = true;
-            // 見つかったら早期終了（残りのファイルを処理する必要はない）
-            return undefined;
           }
-          // ターゲットファイルが見つかっていれば、以降の処理をスキップ
-          if (found) return undefined;
           return null;
         },
       });
@@ -703,7 +699,7 @@ export class GitCommands {
       // OIDが異なる場合、ステージ後に変更がある
       return stageOid !== null && workdirOid !== null && stageOid !== workdirOid;
     } catch (error) {
-      console.warn(`[hasUnstagedChanges] Failed to check ${filepath}:`, error);
+      console.warn(`[hasUnstagedChanges] Failed to check ${filePath}:`, error);
       return false;
     }
   }
