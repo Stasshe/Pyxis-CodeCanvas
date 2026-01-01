@@ -673,53 +673,29 @@ export class GitCommands {
 
   /**
    * ステージされたファイルに追加の未ステージ変更があるかチェック
-   * インデックス(stage)の内容とワーキングディレクトリを比較
+   * インデックス(stage)の内容とワーキングディレクトリのOIDを比較
    */
   private async hasUnstagedChanges(filepath: string): Promise<boolean> {
     try {
-      // ステージエリア（インデックス）からファイル内容を読み取る
-      const indexEntry = await git.readBlob({
-        fs: this.fs,
-        dir: this.dir,
-        oid: 'HEAD', // これは間違い - 実際にはindexから読む必要がある
-        filepath,
-      }).catch(() => null);
-
-      // ワーキングディレクトリからファイル内容を読み取る
-      const workdirContent = await this.fs.promises.readFile(
-        `${this.dir}/${filepath}`,
-        'utf8'
-      ).catch(() => null);
-
-      // インデックスから直接読み取る方法がないため、
-      // OIDベースの比較を使用
-      const statusMatrix = await git.statusMatrix({
-        fs: this.fs,
-        dir: this.dir,
-        filepaths: [filepath],
-      });
-
-      if (statusMatrix.length === 0) return false;
-
-      const [, , workdir, stage] = statusMatrix[0];
-      
-      // workdir=2 かつ stage=2/3 の場合、インデックスとワーキングディレクトリの
-      // OIDを比較する必要があるが、isomorphic-gitのstatusMatrixだけでは
-      // この情報が得られない。
-      
-      // 代替案: git.walk を使用してOIDを直接比較
+      // git.walk を使用してSTAGEとWORKDIRのOIDを直接比較
       let stageOid: string | null = null;
       let workdirOid: string | null = null;
+      let found = false;
 
       await git.walk({
         fs: this.fs,
         dir: this.dir,
         trees: [git.STAGE(), git.WORKDIR()],
-        map: async function (filepath_in_walk, [stageEntry, workdirEntry]) {
+        map: async (filepath_in_walk, [stageEntry, workdirEntry]) => {
           if (filepath_in_walk === filepath) {
             stageOid = stageEntry ? await stageEntry.oid() : null;
             workdirOid = workdirEntry ? await workdirEntry.oid() : null;
+            found = true;
+            // 見つかったら早期終了（残りのファイルを処理する必要はない）
+            return undefined;
           }
+          // ターゲットファイルが見つかっていれば、以降の処理をスキップ
+          if (found) return undefined;
           return null;
         },
       });
