@@ -107,7 +107,7 @@ export default function Home() {
   }, [currentProject, setCurrentProjectToStore]);
 
   // タブコンテンツの復元と自動更新
-  useTabContentRestore(projectFiles, isRestored);
+  useTabContentRestore(projectFiles, isRestored, refreshProjectFiles);
 
   // プロジェクト読み込み時のWelcomeタブ
   useProjectWelcome(currentProject);

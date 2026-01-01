@@ -52,16 +52,22 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
 /**
  * タブのコンテンツを復元するカスタムフック
  *
- * 以下の2つの役割を持つ:
+ * 以下の役割を持つ:
  * 1. IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを確実に復元
  * 2. FileRepositoryからのファイル変更イベントを監視し、開いているタブを自動更新
+ * 3. Git操作後にprojectFilesを再読み込みしてFileTreeの表示を最新化
  *
  * 改善点:
  * - 復元を1回だけ確実に実行（重複実行防止）
  * - 復元状態を明示的に追跡
  * - Monaco内部状態の強制同期
+ * - Git操作後のprojectFiles再読み込み（タブ再オープン時のstale data問題を解決）
  */
-export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
+export function useTabContentRestore(
+  projectFiles: FileItem[],
+  isRestored: boolean,
+  onRefreshProjectFiles?: () => Promise<void>
+) {
   const store = useTabStore();
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
@@ -364,6 +370,13 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
 
         store.setPanes(updatePaneRecursive(store.panes));
 
+        // projectFilesを再読み込み（FileTreeが最新の状態を表示できるようにする）
+        // これにより、タブを閉じて再度開いた場合でもstaleなデータが使われなくなる
+        if (onRefreshProjectFiles) {
+          console.log('[useTabContentRestore] Refreshing projectFiles after git operation');
+          await onRefreshProjectFiles();
+        }
+
         // Monaco/CodeMirrorの強制再描画をトリガー
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'));
@@ -378,5 +391,5 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     return () => {
       syncManager.off('sync:stop', handleSyncStop);
     };
-  }, [isRestored, store, normalizePath]);
+  }, [isRestored, store, normalizePath, onRefreshProjectFiles]);
 }
