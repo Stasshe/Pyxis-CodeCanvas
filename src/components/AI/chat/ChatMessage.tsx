@@ -18,7 +18,7 @@ interface ChatMessageProps {
   onRevert?: (message: ChatSpaceMessage) => Promise<void>;
 }
 
-export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
+function ChatMessage({ message, onRevert }: ChatMessageProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const isUser = message.type === 'user';
@@ -272,11 +272,17 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
 // React.memo でメモ化し、message が変更されない限り再レンダリングを防ぐ
 export default React.memo(ChatMessage, (prevProps, nextProps) => {
   // message の ID と内容が同じかチェック
+  // editResponse も含めて比較して、変更があれば再レンダリング
+  const prevMsg = prevProps.message;
+  const nextMsg = nextProps.message;
+  
   return (
-    prevProps.message.id === nextProps.message.id &&
-    prevProps.message.content === nextProps.message.content &&
-    prevProps.message.type === nextProps.message.type &&
-    prevProps.message.mode === nextProps.message.mode &&
+    prevMsg.id === nextMsg.id &&
+    prevMsg.content === nextMsg.content &&
+    prevMsg.type === nextMsg.type &&
+    prevMsg.mode === nextMsg.mode &&
+    prevMsg.timestamp.getTime() === nextMsg.timestamp.getTime() &&
+    JSON.stringify(prevMsg.editResponse) === JSON.stringify(nextMsg.editResponse) &&
     prevProps.onRevert === nextProps.onRevert
   );
 });

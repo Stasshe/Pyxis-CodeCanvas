@@ -18,7 +18,7 @@ interface ChatContainerProps {
   onRevert?: (message: ChatSpaceMessage) => Promise<void>;
 }
 
-export default function ChatContainer({
+function ChatContainer({
   messages,
   isProcessing,
   emptyMessage = 'AIとチャットを開始してください',

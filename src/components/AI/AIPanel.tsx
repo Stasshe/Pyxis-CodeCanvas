@@ -150,8 +150,7 @@ const AIPanel = ({ projectFiles, currentProject, currentProjectId }: AIPanelProp
       }));
       updateFileContexts(contexts);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectFilesKey]);
+  }, [projectFilesKey, updateFileContexts]);
 
   // API キーのチェック - メモ化
   const isApiKeySet = useCallback(() => {
@@ -786,9 +785,13 @@ const AIPanel = ({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 export default React.memo(AIPanel, (prevProps, nextProps) => {
   // カスタム比較関数で詳細な比較を実行
   // projectFiles の比較（配列の長さと各要素のパスとIDで比較）
+  // 注: file content の変更は AIPanel 内で管理されるため、ここではチェックしない
   if (prevProps.projectFiles.length !== nextProps.projectFiles.length) {
     return false;
   }
+  
+  // 簡易比較: path と id が一致すればファイル構造は同じとみなす
+  // content の変更は内部状態で処理されるため、ここでは比較不要
   for (let i = 0; i < prevProps.projectFiles.length; i++) {
     if (
       prevProps.projectFiles[i].path !== nextProps.projectFiles[i].path ||
