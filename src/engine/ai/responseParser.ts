@@ -79,6 +79,10 @@ export function extractFilePathsFromResponse(response: string): string[] {
  * - Optional whitespace around markers
  * - Multiple blocks in sequence
  * - Incomplete blocks (will be skipped)
+ * - Empty replace blocks (deletions)
+ * 
+ * Uses a manual parsing approach to correctly handle edge cases
+ * that regex-based approaches struggle with.
  */
 function parseFilePatchSection(section: string): {
   blocks: SearchReplaceBlock[];
@@ -98,16 +102,45 @@ function parseFilePatchSection(section: string): {
     return { blocks, isNewFile, fullContent };
   }
 
-  // Parse SEARCH/REPLACE blocks with more robust pattern
-  // Pattern handles optional whitespace and ensures separator is present
-  const blockPattern = /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)\n\s*>>>>>>> REPLACE/g;
-  let match;
+  // Manual parsing approach to handle edge cases
+  let currentIndex = 0;
   
-  while ((match = blockPattern.exec(section)) !== null) {
+  while (currentIndex < section.length) {
+    // Find next SEARCH marker
+    const searchStart = section.indexOf('<<<<<<< SEARCH', currentIndex);
+    if (searchStart === -1) break;
+    
+    // Find end of SEARCH marker line
+    const searchMarkerEnd = section.indexOf('\n', searchStart);
+    if (searchMarkerEnd === -1) break;
+    
+    // Find separator
+    const separatorStart = section.indexOf('\n=======\n', searchMarkerEnd);
+    if (separatorStart === -1) {
+      // No separator found, skip this incomplete block
+      currentIndex = searchStart + 1;
+      continue;
+    }
+    
+    // Find REPLACE marker
+    const replaceStart = section.indexOf('\n>>>>>>> REPLACE', separatorStart);
+    if (replaceStart === -1) {
+      // No REPLACE marker found, skip this incomplete block
+      currentIndex = searchStart + 1;
+      continue;
+    }
+    
+    // Extract search and replace content
+    const searchContent = section.substring(searchMarkerEnd + 1, separatorStart);
+    const replaceContent = section.substring(separatorStart + 9, replaceStart); // +9 to skip "\n=======\n"
+    
     blocks.push({
-      search: match[1],
-      replace: match[2],
+      search: searchContent,
+      replace: replaceContent,
     });
+    
+    // Move to after this block
+    currentIndex = replaceStart + 16; // +16 to skip "\n>>>>>>> REPLACE"
   }
 
   return { blocks, isNewFile, fullContent };
