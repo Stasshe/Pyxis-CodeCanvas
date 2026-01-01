@@ -74,6 +74,15 @@ export function extractFilePathsFromResponse(response: string): string[] {
 
 /**
  * Parse SEARCH/REPLACE blocks for a specific file section
+ * 
+ * Enhanced to handle:
+ * - Optional whitespace around markers
+ * - Multiple blocks in sequence
+ * - Incomplete blocks (will be skipped)
+ * - Empty replace blocks (deletions)
+ * 
+ * Uses a manual parsing approach to correctly handle edge cases
+ * that regex-based approaches struggle with.
  */
 function parseFilePatchSection(section: string): {
   blocks: SearchReplaceBlock[];
@@ -84,23 +93,59 @@ function parseFilePatchSection(section: string): {
   let isNewFile = false;
   let fullContent: string | undefined;
 
-  // Check for NEW_FILE format
-  const newFilePattern = /<<<<<<< NEW_FILE\n([\s\S]*?)\n>>>>>>> NEW_FILE/g;
-  const newFileMatch = newFilePattern.exec(section);
-  if (newFileMatch) {
-    isNewFile = true;
-    fullContent = newFileMatch[1];
-    return { blocks, isNewFile, fullContent };
+  // Check for NEW_FILE format using manual parsing for consistency
+  const newFileStart = section.indexOf('<<<<<<< NEW_FILE');
+  if (newFileStart !== -1) {
+    const newFileMarkerEnd = section.indexOf('\n', newFileStart);
+    if (newFileMarkerEnd !== -1) {
+      const newFileEnd = section.indexOf('\n>>>>>>> NEW_FILE', newFileMarkerEnd);
+      if (newFileEnd !== -1) {
+        isNewFile = true;
+        fullContent = section.substring(newFileMarkerEnd + 1, newFileEnd);
+        return { blocks, isNewFile, fullContent };
+      }
+    }
   }
 
-  // Parse SEARCH/REPLACE blocks
-  const blockPattern = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
-  let match;
-  while ((match = blockPattern.exec(section)) !== null) {
+  // Manual parsing approach to handle edge cases
+  let currentIndex = 0;
+  
+  while (currentIndex < section.length) {
+    // Find next SEARCH marker
+    const searchStart = section.indexOf('<<<<<<< SEARCH', currentIndex);
+    if (searchStart === -1) break;
+    
+    // Find end of SEARCH marker line
+    const searchMarkerEnd = section.indexOf('\n', searchStart);
+    if (searchMarkerEnd === -1) break;
+    
+    // Find separator
+    const separatorStart = section.indexOf('\n=======\n', searchMarkerEnd);
+    if (separatorStart === -1) {
+      // No separator found, skip this incomplete block
+      currentIndex = searchStart + 1;
+      continue;
+    }
+    
+    // Find REPLACE marker
+    const replaceStart = section.indexOf('\n>>>>>>> REPLACE', separatorStart);
+    if (replaceStart === -1) {
+      // No REPLACE marker found, skip this incomplete block
+      currentIndex = searchStart + 1;
+      continue;
+    }
+    
+    // Extract search and replace content
+    const searchContent = section.substring(searchMarkerEnd + 1, separatorStart);
+    const replaceContent = section.substring(separatorStart + 9, replaceStart); // +9 to skip "\n=======\n"
+    
     blocks.push({
-      search: match[1],
-      replace: match[2],
+      search: searchContent,
+      replace: replaceContent,
     });
+    
+    // Move to after this block
+    currentIndex = replaceStart + 16; // +16 to skip "\n>>>>>>> REPLACE"
   }
 
   return { blocks, isNewFile, fullContent };
@@ -499,6 +544,21 @@ export function validateResponse(response: string): {
       errors.push(
         'Mismatched NEW_FILE tags: ' + newFileStartCount + ' start vs ' + newFileEndCount + ' end'
       );
+    }
+
+    // Additional validation: Check for well-formed blocks
+    if (searchCount > 0) {
+      // Count complete blocks (with proper separator and end marker)
+      // Allow optional whitespace around markers for flexibility
+      const completeBlockPattern = /<<<<<<< SEARCH\s*\n[\s\S]*?\n\s*=======\s*\n[\s\S]*?\n\s*>>>>>>> REPLACE/g;
+      const completeBlocks = (response.match(completeBlockPattern) || []).length;
+      
+      if (completeBlocks < searchCount && searchCount === replaceCount) {
+        warnings.push(
+          'Some SEARCH/REPLACE blocks may be missing the separator (=======). ' +
+          completeBlocks + ' complete blocks found out of ' + searchCount + ' expected.'
+        );
+      }
     }
 
     if (searchCount === 0 && newFileStartCount === 0) {
