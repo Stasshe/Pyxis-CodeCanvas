@@ -268,3 +268,15 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
     </div>
   );
 }
+
+// React.memo でメモ化し、message が変更されない限り再レンダリングを防ぐ
+export default React.memo(ChatMessage, (prevProps, nextProps) => {
+  // message の ID と内容が同じかチェック
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.type === nextProps.message.type &&
+    prevProps.message.mode === nextProps.message.mode &&
+    prevProps.onRevert === nextProps.onRevert
+  );
+});

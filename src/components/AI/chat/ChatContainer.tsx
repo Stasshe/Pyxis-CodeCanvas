@@ -91,3 +91,6 @@ export default function ChatContainer({
     </div>
   );
 }
+
+// React.memo でメモ化し、messages や isProcessing が変更されない限り再レンダリングを防ぐ
+export default React.memo(ChatContainer);
