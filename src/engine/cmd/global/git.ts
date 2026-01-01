@@ -687,6 +687,18 @@ export class GitCommands {
     try {
       await this.ensureProjectDirectory();
 
+      // [重要] ステージ済みファイルを編集した場合の対策
+      // IndexedDBからGit FSへの同期を強制実行して、最新のファイル内容を確実に反映
+      console.log('[git.add] Syncing IndexedDB to GitFS before staging...');
+      try {
+        const { syncManager } = await import('@/engine/core/syncManager');
+        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
+        console.log('[git.add] IndexedDB to GitFS sync completed');
+      } catch (syncError) {
+        console.warn('[git.add] Failed to sync IndexedDB to GitFS:', syncError);
+        // 同期失敗してもgit add自体は続行する
+      }
+
       // ファイルシステムの同期処理（git_stable.ts方式）
       if ((this.fs as any).sync) {
         try {
