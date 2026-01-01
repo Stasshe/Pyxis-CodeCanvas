@@ -519,15 +519,14 @@ test
 >>>>>>> REPLACE`;
 
       const validation = validateResponse(response);
-      // Current implementation doesn't check for separator, only counts markers
-      // This should be fixed - for now document the issue
-      // TODO: Add separator validation
-      // expect(validation.isValid).toBe(false);
+      // With the enhanced validation, this should produce a warning
+      // about missing separator (marker count matches but block is incomplete)
       
-      // The block won't actually parse correctly even if validation passes
+      // The block won't actually parse correctly
       const originalFiles = [{ path: 'test.ts', content: 'test' }];
-      const result = validateResponse(response);
+      const parseResult = parseEditResponse(response, originalFiles);
       // parseEditResponse won't find any valid blocks without separator
+      expect(parseResult.changedFiles.length).toBe(0);
     });
   });
 });

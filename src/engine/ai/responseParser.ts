@@ -93,13 +93,18 @@ function parseFilePatchSection(section: string): {
   let isNewFile = false;
   let fullContent: string | undefined;
 
-  // Check for NEW_FILE format
-  const newFilePattern = /<<<<<<< NEW_FILE\s*\n([\s\S]*?)\n\s*>>>>>>> NEW_FILE/g;
-  const newFileMatch = newFilePattern.exec(section);
-  if (newFileMatch) {
-    isNewFile = true;
-    fullContent = newFileMatch[1];
-    return { blocks, isNewFile, fullContent };
+  // Check for NEW_FILE format using manual parsing for consistency
+  const newFileStart = section.indexOf('<<<<<<< NEW_FILE');
+  if (newFileStart !== -1) {
+    const newFileMarkerEnd = section.indexOf('\n', newFileStart);
+    if (newFileMarkerEnd !== -1) {
+      const newFileEnd = section.indexOf('\n>>>>>>> NEW_FILE', newFileMarkerEnd);
+      if (newFileEnd !== -1) {
+        isNewFile = true;
+        fullContent = section.substring(newFileMarkerEnd + 1, newFileEnd);
+        return { blocks, isNewFile, fullContent };
+      }
+    }
   }
 
   // Manual parsing approach to handle edge cases
