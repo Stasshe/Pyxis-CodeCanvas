@@ -74,6 +74,11 @@ export function extractFilePathsFromResponse(response: string): string[] {
 
 /**
  * Parse SEARCH/REPLACE blocks for a specific file section
+ * 
+ * Enhanced to handle:
+ * - Optional whitespace around markers
+ * - Multiple blocks in sequence
+ * - Incomplete blocks (will be skipped)
  */
 function parseFilePatchSection(section: string): {
   blocks: SearchReplaceBlock[];
@@ -85,7 +90,7 @@ function parseFilePatchSection(section: string): {
   let fullContent: string | undefined;
 
   // Check for NEW_FILE format
-  const newFilePattern = /<<<<<<< NEW_FILE\n([\s\S]*?)\n>>>>>>> NEW_FILE/g;
+  const newFilePattern = /<<<<<<< NEW_FILE\s*\n([\s\S]*?)\n\s*>>>>>>> NEW_FILE/g;
   const newFileMatch = newFilePattern.exec(section);
   if (newFileMatch) {
     isNewFile = true;
@@ -93,9 +98,11 @@ function parseFilePatchSection(section: string): {
     return { blocks, isNewFile, fullContent };
   }
 
-  // Parse SEARCH/REPLACE blocks
-  const blockPattern = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
+  // Parse SEARCH/REPLACE blocks with more robust pattern
+  // Pattern handles optional whitespace and ensures separator is present
+  const blockPattern = /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)\n\s*>>>>>>> REPLACE/g;
   let match;
+  
   while ((match = blockPattern.exec(section)) !== null) {
     blocks.push({
       search: match[1],
@@ -499,6 +506,21 @@ export function validateResponse(response: string): {
       errors.push(
         'Mismatched NEW_FILE tags: ' + newFileStartCount + ' start vs ' + newFileEndCount + ' end'
       );
+    }
+
+    // Additional validation: Check for well-formed blocks
+    if (searchCount > 0) {
+      // Count complete blocks (with proper separator and end marker)
+      // Allow optional whitespace around markers for flexibility
+      const completeBlockPattern = /<<<<<<< SEARCH\s*\n[\s\S]*?\n\s*=======\s*\n[\s\S]*?\n\s*>>>>>>> REPLACE/g;
+      const completeBlocks = (response.match(completeBlockPattern) || []).length;
+      
+      if (completeBlocks < searchCount && searchCount === replaceCount) {
+        warnings.push(
+          'Some SEARCH/REPLACE blocks may be missing the separator (=======). ' +
+          completeBlocks + ' complete blocks found out of ' + searchCount + ' expected.'
+        );
+      }
     }
 
     if (searchCount === 0 && newFileStartCount === 0) {
