@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { syncManager } from '@/engine/core/syncManager';
 import { useTabStore } from '@/stores/tabStore';
 import type { EditorPane, FileItem } from '@/types';
 
@@ -242,5 +243,113 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     return () => {
       unsubscribe();
     };
-  }, [isRestored, store.panes]);
+  }, [isRestored, store.panes, normalizePath]);
+
+  // 3. Git操作後の強制リフレッシュ（git revert, reset, checkout等）
+  useEffect(() => {
+    if (!isRestored) {
+      return;
+    }
+
+    const handleSyncStop = (event: any) => {
+      // fs->db方向の同期（git操作後）のみ処理
+      if (event.direction !== 'fs->db' || !event.success) {
+        return;
+      }
+
+      console.log('[useTabContentRestore] Git operation detected, force refreshing all tabs');
+
+      // 全タブのコンテンツを強制的にリフレッシュ
+      // IndexedDBから最新のファイル内容を取得して全タブを更新
+      const refreshAllTabs = async () => {
+        const flatPanes = flattenPanes(store.panes);
+        const allTabs = flatPanes.flatMap(pane => pane.tabs);
+
+        // 各タブのパスからファイルを取得
+        const updates = await Promise.all(
+          allTabs
+            .filter((tab: any) => tab.path && (tab.kind === 'editor' || tab.kind === 'diff'))
+            .map(async (tab: any) => {
+              try {
+                const file = await fileRepository.getFileByPath(event.projectId, tab.path);
+                return { tab, file };
+              } catch (error) {
+                console.warn(
+                  `[useTabContentRestore] Failed to refresh tab ${tab.path}:`,
+                  error
+                );
+                return null;
+              }
+            })
+        );
+
+        // ペインを再帰的に更新
+        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+          return panes.map(pane => {
+            if (pane.children && pane.children.length > 0) {
+              return {
+                ...pane,
+                children: updatePaneRecursive(pane.children),
+              };
+            }
+
+            // リーフペインの場合、タブを更新
+            return {
+              ...pane,
+              tabs: pane.tabs.map((tab: any) => {
+                const update = updates.find(u => u?.tab.id === tab.id);
+                if (update?.file) {
+                  console.log('[useTabContentRestore] Force refreshing tab:', tab.path);
+                  
+                  // Editorタブの更新
+                  if (tab.kind === 'editor') {
+                    return {
+                      ...tab,
+                      content: update.file.content || '',
+                      bufferContent: tab.isBufferArray ? update.file.bufferContent : undefined,
+                      isDirty: false,
+                    };
+                  }
+                  
+                  // Diffタブの更新（editableなタブのみ）
+                  if (tab.kind === 'diff' && tab.editable && tab.diffs && tab.diffs.length > 0) {
+                    return {
+                      ...tab,
+                      diffs: tab.diffs.map((diff: any, idx: number) => {
+                        // 最初のdiff（通常は1つだけ）のlatterContentを更新
+                        if (idx === 0) {
+                          return {
+                            ...diff,
+                            latterContent: update.file.content || '',
+                          };
+                        }
+                        return diff;
+                      }),
+                      isDirty: false,
+                    };
+                  }
+                }
+                return tab;
+              }),
+            };
+          });
+        };
+
+        store.setPanes(updatePaneRecursive(store.panes));
+
+        // Monaco/CodeMirrorの強制再描画をトリガー
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'));
+        }, 100);
+      };
+
+      refreshAllTabs();
+    };
+
+    syncManager.on('sync:stop', handleSyncStop);
+
+    return () => {
+      syncManager.off('sync:stop', handleSyncStop);
+    };
+  }, [isRestored, store, normalizePath]);
 }
