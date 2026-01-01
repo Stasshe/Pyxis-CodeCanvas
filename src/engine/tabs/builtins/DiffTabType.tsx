@@ -34,19 +34,22 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   // 最新のコンテンツを保持（即時保存用）
   const latestContentRef = useRef<string>('');
 
+  // 初期コンテンツをメモ化
+  const initialContent = diffTab.diffs.length === 1 ? diffTab.diffs[0]?.latterContent || '' : '';
+
   // EditorMemoryManagerを初期化し、初期コンテンツを登録
   useEffect(() => {
     const initMemory = async () => {
       await editorMemoryManager.init();
       // editable単一ファイルdiffの場合のみ登録
       if (diffTab.editable && diffTab.path && diffTab.diffs.length === 1) {
-        const initialContent = diffTab.diffs[0].latterContent || '';
         editorMemoryManager.registerInitialContent(diffTab.path, initialContent);
         latestContentRef.current = initialContent;
       }
     };
     initMemory();
-  }, [diffTab.editable, diffTab.path, diffTab.diffs]);
+    // 依存配列から diffTab.diffs を除外し、初期化は path/editable の変更時のみ実行
+  }, [diffTab.editable, diffTab.path, initialContent]);
 
   // 保存完了時にGit状態を更新
   useEffect(() => {

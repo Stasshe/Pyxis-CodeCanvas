@@ -51,6 +51,8 @@ export function useEditorMemory(options: UseEditorMemoryOptions): UseEditorMemor
 
   // マウント時にEditorMemoryManagerを初期化
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
     const initManager = async () => {
       await editorMemoryManager.init();
 
@@ -59,19 +61,19 @@ export function useEditorMemory(options: UseEditorMemoryOptions): UseEditorMemor
         editorMemoryManager.registerInitialContent(normalizedPath, initialContent);
         initializedRef.current = true;
       }
+
+      // 保存完了時にGit状態を更新（初期化完了後に登録）
+      unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
+        if (success && toAppPath(savedPath) === normalizedPath) {
+          gitRefreshRef.current?.();
+        }
+      });
     };
 
     initManager();
 
-    // 保存完了時にGit状態を更新
-    const unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
-      if (success && toAppPath(savedPath) === normalizedPath) {
-        gitRefreshRef.current?.();
-      }
-    });
-
     return () => {
-      unsubscribe();
+      unsubscribe?.();
     };
   }, [normalizedPath, initialContent]);
 
@@ -84,13 +86,13 @@ export function useEditorMemory(options: UseEditorMemoryOptions): UseEditorMemor
     [normalizedPath, editable]
   );
 
-  // コンテンツを即時反映（UIのみ、保存スキップ）
+  // コンテンツを即時反映（デバウンス保存付き）
+  // EditorMemoryManagerが自動的にデバウンス保存をスケジュールする
   const handleImmediateChange = useCallback(
     (content: string) => {
       if (!editable) return;
-      // setContentをskipDebounce=trueで呼ぶと、デバウンス保存がスケジュールされない
-      // ただし、この関数は「UIのみ更新、保存しない」という意図なので、
-      // 実際には通常のsetContentを使い、保存は後で行う
+      // EditorMemoryManagerを通じてコンテンツを更新
+      // デバウンス保存が自動的にスケジュールされる
       editorMemoryManager.setContent(normalizedPath, content);
     },
     [normalizedPath, editable]

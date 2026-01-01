@@ -446,7 +446,11 @@ class EditorMemoryManager {
       // タイマー発火時に再度エントリを取得（最新の状態を使用）
       const currentEntry = this.contentMap.get(path);
       if (currentEntry && currentEntry.isDirty) {
-        await this.executeSave(path, currentEntry.content);
+        try {
+          await this.executeSave(path, currentEntry.content);
+        } catch (e) {
+          console.error('[EditorMemoryManager] Scheduled save failed:', e);
+        }
       }
     }, this.options.debounceMs);
 
