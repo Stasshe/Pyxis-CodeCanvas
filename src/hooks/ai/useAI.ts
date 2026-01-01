@@ -48,12 +48,27 @@ export function useAI(props?: UseAIProps) {
   // チャットスペースから選択ファイルが変更された時にファイルコンテキストに反映
   useEffect(() => {
     if (props?.selectedFiles && fileContexts.length > 0) {
-      setFileContexts(prev =>
-        prev.map(ctx => ({
+      setFileContexts(prev => {
+        // 現在の選択状態を取得
+        const currentSelected = prev.filter(ctx => ctx.selected).map(ctx => ctx.path).sort();
+        
+        // 新しい選択状態
+        const newSelected = [...props.selectedFiles].sort();
+        
+        // 実際に変更があった場合のみ更新
+        const hasChanged = 
+          currentSelected.length !== newSelected.length ||
+          currentSelected.some((path, idx) => path !== newSelected[idx]);
+        
+        if (!hasChanged) {
+          return prev; // 変更なしなら同じ参照を返す
+        }
+        
+        return prev.map(ctx => ({
           ...ctx,
           selected: props.selectedFiles?.includes(ctx.path) || false,
-        }))
-      );
+        }));
+      });
     }
   }, [props?.selectedFiles]);
 
@@ -300,12 +315,22 @@ export function useAI(props?: UseAIProps) {
   // ファイルコンテキストを更新
   const updateFileContexts = useCallback(
     (contexts: AIFileContext[]) => {
-      setFileContexts(contexts);
+      setFileContexts(prevContexts => {
+        // 選択ファイルが実際に変わったかチェック
+        const prevSelected = prevContexts.filter(ctx => ctx.selected).map(ctx => ctx.path).sort();
+        const newSelected = contexts.filter(ctx => ctx.selected).map(ctx => ctx.path).sort();
+        
+        const hasChanged = 
+          prevSelected.length !== newSelected.length ||
+          prevSelected.some((path, idx) => path !== newSelected[idx]);
 
-      if (props?.onUpdateSelectedFiles) {
-        const selectedPaths = contexts.filter(ctx => ctx.selected).map(ctx => ctx.path);
-        props.onUpdateSelectedFiles(selectedPaths);
-      }
+        // 選択ファイルが変わった場合のみストレージに保存
+        if (hasChanged && props?.onUpdateSelectedFiles) {
+          props.onUpdateSelectedFiles(newSelected);
+        }
+
+        return contexts;
+      });
     },
     [props?.onUpdateSelectedFiles]
   );

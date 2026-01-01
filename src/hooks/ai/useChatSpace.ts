@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   addMessageToChatSpace,
@@ -142,7 +142,7 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  const addMessage = async (
+  const addMessage = useCallback(async (
     content: string,
     type: 'user' | 'assistant',
     mode: 'ask' | 'edit',
@@ -231,7 +231,7 @@ export const useChatSpace = (projectId: string | null) => {
       console.error('[useChatSpace] Failed to add message:', error);
       return null;
     }
-  };
+  }, [createNewSpace]);
 
   const updateChatMessage = async (
     spaceId: string,
@@ -274,12 +274,26 @@ export const useChatSpace = (projectId: string | null) => {
     }
   };
 
-  const updateSelectedFiles = async (selectedFiles: string[]) => {
+  const updateSelectedFiles = useCallback(async (selectedFiles: string[]) => {
     const pid = projectIdRef.current;
-    if (!pid || !currentSpace) return;
+    const space = currentSpaceRef.current;
+    if (!pid || !space) return;
+
+    // 現在の選択ファイルと比較
+    const currentSelected = (space.selectedFiles || []).slice().sort();
+    const newSelected = selectedFiles.slice().sort();
+    
+    // 変更がない場合は何もしない
+    const hasChanged = 
+      currentSelected.length !== newSelected.length ||
+      currentSelected.some((path, idx) => path !== newSelected[idx]);
+    
+    if (!hasChanged) {
+      return;
+    }
 
     try {
-      await updateChatSpaceSelectedFiles(pid, currentSpace.id, selectedFiles);
+      await updateChatSpaceSelectedFiles(pid, space.id, selectedFiles);
 
       setCurrentSpace(prev => {
         if (!prev) return null;
@@ -287,12 +301,12 @@ export const useChatSpace = (projectId: string | null) => {
       });
 
       setChatSpaces(prev =>
-        prev.map(space => (space.id === currentSpace.id ? { ...space, selectedFiles } : space))
+        prev.map(s => (s.id === space.id ? { ...s, selectedFiles } : s))
       );
     } catch (error) {
       console.error('Failed to update selected files:', error);
     }
-  };
+  }, []);
 
   const updateSpaceName = async (spaceId: string, newName: string) => {
     try {
