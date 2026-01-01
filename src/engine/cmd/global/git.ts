@@ -451,6 +451,7 @@ export class GitCommands {
     if ((this.fs as any).sync) {
       try {
         await (this.fs as any).sync();
+        console.log('[git.status] FileSystem synced successfully');
       } catch (syncError) {
         console.warn('[git.status] FileSystem sync failed:', syncError);
       }
@@ -462,6 +463,10 @@ export class GitCommands {
     let status: Array<[string, number, number, number]> = [];
     try {
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+      console.log('[git.status] statusMatrix returned', status.length, 'entries');
+      if (status.length > 0) {
+        console.log('[git.status] First few entries:', status.slice(0, 5));
+      }
     } catch (statusError) {
       const error = statusError as Error;
       console.warn('[git.status] statusMatrix failed, using fallback method:', error.message);
@@ -564,7 +569,7 @@ export class GitCommands {
       return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
     }
 
-    const { untracked, modified, staged, deleted } = await this.categorizeStatusFiles(status);
+    const { untracked, modified, staged, deleted } = this.categorizeStatusFiles(status);
 
     let result = `On branch ${currentBranch}\n`;
 
@@ -603,19 +608,23 @@ export class GitCommands {
     return result;
   }
 
-  // ファイルのステータスを分類（git_stable.tsベース + 追加変更検出機能）
-  private async categorizeStatusFiles(status: Array<[string, number, number, number]>): Promise<{
+  // ファイルのステータスを分類（git_stable.tsベース）
+  private categorizeStatusFiles(status: Array<[string, number, number, number]>): {
     untracked: string[];
     modified: string[];
     staged: string[];
     deleted: string[];
-  }> {
+  } {
     const untracked: string[] = [];
     const modified: string[] = [];
     const staged: string[] = [];
     const deleted: string[] = [];
 
-    for (const [filepath, HEAD, workdir, stage] of status) {
+    console.log('[categorizeStatusFiles] Processing', status.length, 'files');
+
+    status.forEach(([filepath, HEAD, workdir, stage]) => {
+      console.log(`[categorizeStatusFiles] ${filepath}: HEAD=${HEAD}, workdir=${workdir}, stage=${stage}`);
+      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
@@ -624,88 +633,49 @@ export class GitCommands {
       if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
         // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
         untracked.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> untracked`);
       } else if (HEAD === 0 && stage === 3) {
         // 新しくステージされたファイル（stage=3の場合）
         staged.push(filepath);
-        // stage=3でworkdir=2の場合、ステージ後にさらに変更がある可能性をチェック
-        if (workdir === 2) {
-          const hasAdditionalChanges = await this.hasUnstagedChanges(filepath);
-          if (hasAdditionalChanges) {
-            modified.push(filepath);
-          }
-        }
+        console.log(`[categorizeStatusFiles]  -> staged (new, stage=3)`);
       } else if (HEAD === 0 && stage === 2) {
         // 新しくステージされたファイル（stage=2の場合）
         staged.push(filepath);
-        // stage=2でworkdir=2の場合、ステージ後にさらに変更がある可能性をチェック
-        if (workdir === 2) {
-          const hasAdditionalChanges = await this.hasUnstagedChanges(filepath);
-          if (hasAdditionalChanges) {
-            modified.push(filepath);
-          }
-        }
+        console.log(`[categorizeStatusFiles]  -> staged (new, stage=2)`);
       } else if (HEAD === 1 && workdir === 2 && stage === 1) {
         // 変更されたファイル（未ステージ）
         modified.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> modified (unstaged)`);
       } else if (HEAD === 1 && workdir === 2 && stage === 2) {
         // 変更されてステージされたファイル
         staged.push(filepath);
-        // ステージ後にさらに変更がある可能性をチェック
-        const hasAdditionalChanges = await this.hasUnstagedChanges(filepath);
-        if (hasAdditionalChanges) {
-          modified.push(filepath);
-        }
+        console.log(`[categorizeStatusFiles]  -> staged (modified)`);
       } else if (HEAD === 1 && workdir === 0 && stage === 1) {
         // 削除されたファイル（未ステージ）- unstaged deletion
         deleted.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> deleted (unstaged)`);
       } else if (HEAD === 1 && workdir === 0 && stage === 0) {
         // 削除されたファイル（ステージ済み）- staged deletion
         staged.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> staged (deleted)`);
       } else if (HEAD === 1 && workdir === 0 && stage === 3) {
         // 削除されてステージされたファイル
         staged.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> staged (deleted, stage=3)`);
+      } else {
+        console.log(`[categorizeStatusFiles]  -> no change or unhandled case`);
       }
       // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-    }
+    });
+
+    console.log('[categorizeStatusFiles] Result:', {
+      untracked: untracked.length,
+      modified: modified.length,
+      staged: staged.length,
+      deleted: deleted.length,
+    });
 
     return { untracked, modified, staged, deleted };
-  }
-
-  /**
-   * ステージされたファイルに追加の未ステージ変更があるかチェック
-   * インデックス(stage)の内容とワーキングディレクトリのOIDを比較
-   * 
-   * Note: git.walkは全ファイルを走査するが、これはisomorphic-gitで
-   * STAGEとWORKDIRのOIDを比較する標準的な方法である。
-   * この操作はstage=2/3でworkdir=2の場合のみ実行されるため、
-   * パフォーマンスへの影響は限定的。
-   */
-  private async hasUnstagedChanges(filePath: string): Promise<boolean> {
-    try {
-      // git.walk を使用してSTAGEとWORKDIRのOIDを直接比較
-      let stageOid: string | null = null;
-      let workdirOid: string | null = null;
-
-      await git.walk({
-        fs: this.fs,
-        dir: this.dir,
-        trees: [git.STAGE(), git.WORKDIR()],
-        map: async (filePathInWalk, [stageEntry, workdirEntry]) => {
-          // 指定されたファイルのみ処理
-          if (filePathInWalk === filePath) {
-            stageOid = stageEntry ? await stageEntry.oid() : null;
-            workdirOid = workdirEntry ? await workdirEntry.oid() : null;
-          }
-          return null;
-        },
-      });
-
-      // OIDが異なる場合、ステージ後に変更がある
-      return stageOid !== null && workdirOid !== null && stageOid !== workdirOid;
-    } catch (error) {
-      console.warn(`[hasUnstagedChanges] Failed to check ${filePath}:`, error);
-      return false;
-    }
   }
 
   // ========================================
