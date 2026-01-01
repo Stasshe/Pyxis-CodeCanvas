@@ -4,7 +4,17 @@ import { useCallback, useEffect, useRef } from 'react';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
 import { useTabStore } from '@/stores/tabStore';
+import type { Tab, EditorTab } from '@/engine/tabs/types';
 import type { EditorPane, FileItem } from '@/types';
+
+// SyncManager sync:stop event type
+interface SyncStopEvent {
+  projectId: string;
+  projectName: string;
+  direction: 'db->fs' | 'fs->db' | 'init' | 'single:db->fs';
+  success: boolean;
+  error?: any;
+}
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -120,8 +130,12 @@ export function useTabContentRestore(
             // リーフペインの場合、全タブを復元
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: any) => {
-                if (!tab.needsContentRestore) return tab;
+              tabs: pane.tabs.map((tab: Tab) => {
+                // TypeScript型ガード: needsContentRestoreはEditorTabにのみ存在
+                const isEditorWithRestore = tab.kind === 'editor' && 'needsContentRestore' in tab && 
+                  (tab as EditorTab & { needsContentRestore?: boolean }).needsContentRestore;
+                
+                if (!isEditorWithRestore) return tab;
 
                 const correspondingFile = flattenedFiles.find(
                   f => normalizePath(f.path) === normalizePath(tab.path)
@@ -130,21 +144,29 @@ export function useTabContentRestore(
                 if (!correspondingFile) {
                   console.warn('[useTabContentRestore] File not found for tab:', tab.path);
                   // ファイルが見つからない場合でもフラグは解除
-                  return {
-                    ...tab,
-                    needsContentRestore: false,
-                  };
+                  if (tab.kind === 'editor') {
+                    return {
+                      ...tab,
+                      needsContentRestore: false,
+                    } as EditorTab;
+                  }
+                  return tab;
                 }
 
                 console.log('[useTabContentRestore] ✓ Restored:', tab.path);
 
-                return {
-                  ...tab,
-                  content: correspondingFile.content || '',
-                  bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
-                  isDirty: false,
-                  needsContentRestore: false,
-                };
+                if (tab.kind === 'editor') {
+                  const editorTab = tab as EditorTab;
+                  return {
+                    ...editorTab,
+                    content: correspondingFile.content || '',
+                    bufferContent: editorTab.isBufferArray ? correspondingFile.bufferContent : undefined,
+                    isDirty: false,
+                    needsContentRestore: false,
+                  } as EditorTab;
+                }
+                
+                return tab;
               }),
             };
           });
@@ -197,7 +219,7 @@ export function useTabContentRestore(
         // 変更されたファイルのパスに対応するタブがあるかチェック
         const flatPanes = flattenPanes(store.panes);
         const hasMatchingTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path))
+          pane.tabs.some((tab: Tab) => normalizePath(tab.path) === normalizePath(changedFile.path))
         );
 
         if (!hasMatchingTab) {
@@ -207,7 +229,7 @@ export function useTabContentRestore(
         console.log('[useTabContentRestore] Updating tab content for:', changedFile.path);
 
         // 再帰的にペインを更新（devブランチと同じ）
-        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[]=> {
           return panes.map(pane => {
             if (pane.children && pane.children.length > 0) {
               return {
@@ -218,18 +240,22 @@ export function useTabContentRestore(
             // リーフペインの場合、該当するタブのコンテンツを更新
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: any) => {
+              tabs: pane.tabs.map((tab: Tab) => {
                 // パスが一致するタブのみ更新
                 if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
                   console.log('[useTabContentRestore] Updating tab:', tab.id);
-                  return {
-                    ...tab,
-                    content: (changedFile as any).content || '',
-                    bufferContent: tab.isBufferArray
-                      ? (changedFile as any).bufferContent
-                      : undefined,
-                    isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
-                  };
+                  
+                  if (tab.kind === 'editor') {
+                    const editorTab = tab as EditorTab;
+                    return {
+                      ...editorTab,
+                      content: (changedFile as any).content || '',
+                      bufferContent: editorTab.isBufferArray
+                        ? (changedFile as any).bufferContent
+                        : undefined,
+                      isDirty: false,
+                    } as EditorTab;
+                  }
                 }
                 return tab;
               }),
@@ -252,7 +278,7 @@ export function useTabContentRestore(
       return;
     }
 
-    const handleSyncStop = async (event: any) => {
+    const handleSyncStop = async (event: SyncStopEvent) => {
       // fs->db方向の同期（git操作後）のみ処理
       if (event.direction !== 'fs->db' || !event.success) {
         return;
@@ -264,8 +290,8 @@ export function useTabContentRestore(
         // 全ての開いているタブを取得
         const flatPanes = flattenPanes(store.panes);
         const allTabs = flatPanes.flatMap(pane => pane.tabs);
-        const editorTabs = allTabs.filter((tab: any) => 
-          tab.kind === 'editor' && tab.path
+        const editorTabs = allTabs.filter((tab: Tab): tab is EditorTab => 
+          tab.kind === 'editor' && !!tab.path
         );
 
         if (editorTabs.length === 0) {
@@ -276,9 +302,9 @@ export function useTabContentRestore(
         // IndexedDBから最新のファイル内容を一括取得
         console.log('[useTabContentRestore] Fetching latest content for', editorTabs.length, 'tabs');
         const fileUpdates = await Promise.all(
-          editorTabs.map(async (tab: any) => {
+          editorTabs.map(async (tab: EditorTab) => {
             try {
-              const file = await fileRepository.getFileByPath(event.projectId, tab.path);
+              const file = await fileRepository.getFileByPath(event.projectId, tab.path || '');
               return { tabId: tab.id, path: tab.path, content: file.content || '', success: true };
             } catch (error) {
               console.warn('[useTabContentRestore] Failed to fetch file:', tab.path, error);
@@ -315,7 +341,7 @@ export function useTabContentRestore(
             // リーフペインの場合、タブを更新
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: any) => {
+              tabs: pane.tabs.map((tab: Tab) => {
                 const newContent = contentMap.get(tab.id);
                 if (newContent !== undefined && tab.kind === 'editor') {
                   console.log('[useTabContentRestore] Updating tab:', tab.path);
@@ -323,7 +349,7 @@ export function useTabContentRestore(
                     ...tab,
                     content: newContent,
                     isDirty: false,
-                  };
+                  } as EditorTab;
                 }
                 return tab;
               }),
