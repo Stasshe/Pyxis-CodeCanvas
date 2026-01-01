@@ -4,17 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
 import { useTabStore } from '@/stores/tabStore';
-import type { DiffTab, EditorTab, Tab } from '@/engine/tabs/types';
 import type { EditorPane, FileItem } from '@/types';
-
-// SyncManager イベントの型定義
-interface SyncEvent {
-  projectId: string;
-  projectName: string;
-  direction: 'db->fs' | 'fs->db' | 'init' | 'single:db->fs';
-  success: boolean;
-  error?: any;
-}
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -55,13 +45,8 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
  * 以下の役割を持つ:
  * 1. IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを確実に復元
  * 2. FileRepositoryからのファイル変更イベントを監視し、開いているタブを自動更新
- * 3. Git操作後にprojectFilesを再読み込みしてFileTreeの表示を最新化
- *
- * 改善点:
- * - 復元を1回だけ確実に実行（重複実行防止）
- * - 復元状態を明示的に追跡
- * - Monaco内部状態の強制同期
- * - Git操作後のprojectFiles再読み込み（タブ再オープン時のstale data問題を解決）
+ * 3. Git操作後にすべてのタブを強制的にリフレッシュ（syncManagerイベント経由）
+ * 4. Git操作後にprojectFilesを再読み込み（FileTreeの表示を最新化）
  */
 export function useTabContentRestore(
   projectFiles: FileItem[],
@@ -135,9 +120,8 @@ export function useTabContentRestore(
             // リーフペインの場合、全タブを復元
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: Tab) => {
-                // TypeScript型ガード：needsContentRestoreはEditorTabにのみ存在
-                if (!('needsContentRestore' in tab) || !(tab as any).needsContentRestore) return tab;
+              tabs: pane.tabs.map((tab: any) => {
+                if (!tab.needsContentRestore) return tab;
 
                 const correspondingFile = flattenedFiles.find(
                   f => normalizePath(f.path) === normalizePath(tab.path)
@@ -146,29 +130,21 @@ export function useTabContentRestore(
                 if (!correspondingFile) {
                   console.warn('[useTabContentRestore] File not found for tab:', tab.path);
                   // ファイルが見つからない場合でもフラグは解除
-                  if (tab.kind === 'editor') {
-                    return {
-                      ...tab,
-                      needsContentRestore: false,
-                    } as EditorTab;
-                  }
-                  return tab;
+                  return {
+                    ...tab,
+                    needsContentRestore: false,
+                  };
                 }
 
                 console.log('[useTabContentRestore] ✓ Restored:', tab.path);
 
-                if (tab.kind === 'editor') {
-                  const editorTab = tab as EditorTab;
-                  return {
-                    ...editorTab,
-                    content: correspondingFile.content || '',
-                    bufferContent: editorTab.isBufferArray ? correspondingFile.bufferContent : undefined,
-                    isDirty: false,
-                    needsContentRestore: false,
-                  } as EditorTab;
-                }
-
-                return tab;
+                return {
+                  ...tab,
+                  content: correspondingFile.content || '',
+                  bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
+                  isDirty: false,
+                  needsContentRestore: false,
+                };
               }),
             };
           });
@@ -221,7 +197,7 @@ export function useTabContentRestore(
         // 変更されたファイルのパスに対応するタブがあるかチェック
         const flatPanes = flattenPanes(store.panes);
         const hasMatchingTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: Tab) => normalizePath(tab.path) === normalizePath(changedFile.path))
+          pane.tabs.some((tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path))
         );
 
         if (!hasMatchingTab) {
@@ -242,22 +218,18 @@ export function useTabContentRestore(
             // リーフペインの場合、該当するタブのコンテンツを更新
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: Tab) => {
+              tabs: pane.tabs.map((tab: any) => {
                 // パスが一致するタブのみ更新
                 if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
                   console.log('[useTabContentRestore] Updating tab:', tab.id);
-                  
-                  if (tab.kind === 'editor') {
-                    const editorTab = tab as EditorTab;
-                    return {
-                      ...editorTab,
-                      content: (changedFile as any).content || '',
-                      bufferContent: editorTab.isBufferArray
-                        ? (changedFile as any).bufferContent
-                        : undefined,
-                      isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
-                    } as EditorTab;
-                  }
+                  return {
+                    ...tab,
+                    content: (changedFile as any).content || '',
+                    bufferContent: tab.isBufferArray
+                      ? (changedFile as any).bufferContent
+                      : undefined,
+                    isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
+                  };
                 }
                 return tab;
               }),
@@ -272,47 +244,65 @@ export function useTabContentRestore(
     return () => {
       unsubscribe();
     };
-  }, [isRestored, store.panes, normalizePath]);
+  }, [isRestored, normalizePath]);
 
-  // 3. Git操作後の強制リフレッシュ（git revert, reset, checkout等）
+  // 3. Git操作完了後の強制タブ更新
   useEffect(() => {
     if (!isRestored) {
       return;
     }
 
-    const handleSyncStop = (event: SyncEvent) => {
+    const handleSyncStop = async (event: any) => {
       // fs->db方向の同期（git操作後）のみ処理
       if (event.direction !== 'fs->db' || !event.success) {
         return;
       }
 
-      console.log('[useTabContentRestore] Git operation detected, force refreshing all tabs');
+      console.log('[useTabContentRestore] Git operation completed, force refreshing all open tabs');
 
-      // 全タブのコンテンツを強制的にリフレッシュ
-      // IndexedDBから最新のファイル内容を取得して全タブを更新
-      const refreshAllTabs = async () => {
+      try {
+        // 全ての開いているタブを取得
         const flatPanes = flattenPanes(store.panes);
         const allTabs = flatPanes.flatMap(pane => pane.tabs);
-
-        // 各タブのパスからファイルを取得
-        const updates = await Promise.all(
-          allTabs
-            .filter((tab: Tab) => tab.path && (tab.kind === 'editor' || tab.kind === 'diff'))
-            .map(async (tab: Tab) => {
-              try {
-                const file = await fileRepository.getFileByPath(event.projectId, tab.path || '');
-                return { tab, file };
-              } catch (error) {
-                console.warn(
-                  `[useTabContentRestore] Failed to refresh tab ${tab.path}:`,
-                  error
-                );
-                return null;
-              }
-            })
+        const editorTabs = allTabs.filter((tab: any) => 
+          tab.kind === 'editor' && tab.path
         );
 
-        // ペインを再帰的に更新
+        if (editorTabs.length === 0) {
+          console.log('[useTabContentRestore] No editor tabs to refresh');
+          return;
+        }
+
+        // IndexedDBから最新のファイル内容を一括取得
+        console.log('[useTabContentRestore] Fetching latest content for', editorTabs.length, 'tabs');
+        const fileUpdates = await Promise.all(
+          editorTabs.map(async (tab: any) => {
+            try {
+              const file = await fileRepository.getFileByPath(event.projectId, tab.path);
+              return { tabId: tab.id, path: tab.path, content: file.content || '', success: true };
+            } catch (error) {
+              console.warn('[useTabContentRestore] Failed to fetch file:', tab.path, error);
+              return { tabId: tab.id, path: tab.path, content: '', success: false };
+            }
+          })
+        );
+
+        // 成功したファイル更新のみをMapに格納
+        const contentMap = new Map<string, string>();
+        fileUpdates.forEach(update => {
+          if (update.success) {
+            contentMap.set(update.tabId, update.content);
+          }
+        });
+
+        if (contentMap.size === 0) {
+          console.warn('[useTabContentRestore] No files were successfully fetched');
+          return;
+        }
+
+        console.log('[useTabContentRestore] Successfully fetched', contentMap.size, 'files, updating tabs...');
+
+        // 全ペインを一括更新
         const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
           return panes.map(pane => {
             if (pane.children && pane.children.length > 0) {
@@ -325,42 +315,15 @@ export function useTabContentRestore(
             // リーフペインの場合、タブを更新
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: Tab) => {
-                const update = updates.find(u => u?.tab.id === tab.id);
-                if (update?.file) {
-                  console.log('[useTabContentRestore] Force refreshing tab:', tab.path);
-                  
-                  // Editorタブの更新
-                  if (tab.kind === 'editor') {
-                    const editorTab = tab as EditorTab;
-                    return {
-                      ...editorTab,
-                      content: update.file.content || '',
-                      bufferContent: editorTab.isBufferArray ? update.file.bufferContent : undefined,
-                      isDirty: false,
-                    } as EditorTab;
-                  }
-                  
-                  // Diffタブの更新（editableなタブのみ）
-                  if (tab.kind === 'diff') {
-                    const diffTab = tab as DiffTab;
-                    if (diffTab.editable && diffTab.diffs && diffTab.diffs.length > 0) {
-                      return {
-                        ...diffTab,
-                        diffs: diffTab.diffs.map((diff, idx) => {
-                          // 最初のdiff（通常は1つだけ）のlatterContentを更新
-                          if (idx === 0 && update?.file) {
-                            return {
-                              ...diff,
-                              latterContent: update.file.content || '',
-                            };
-                          }
-                          return diff;
-                        }),
-                        isDirty: false,
-                      } as DiffTab;
-                    }
-                  }
+              tabs: pane.tabs.map((tab: any) => {
+                const newContent = contentMap.get(tab.id);
+                if (newContent !== undefined && tab.kind === 'editor') {
+                  console.log('[useTabContentRestore] Updating tab:', tab.path);
+                  return {
+                    ...tab,
+                    content: newContent,
+                    isDirty: false,
+                  };
                 }
                 return tab;
               }),
@@ -370,20 +333,22 @@ export function useTabContentRestore(
 
         store.setPanes(updatePaneRecursive(store.panes));
 
-        // projectFilesを再読み込み（FileTreeが最新の状態を表示できるようにする）
-        // これにより、タブを閉じて再度開いた場合でもstaleなデータが使われなくなる
+        // projectFilesを再読み込み（FileTreeの表示を最新化、タブ再オープン時のstale data防止）
         if (onRefreshProjectFiles) {
-          console.log('[useTabContentRestore] Refreshing projectFiles after git operation');
+          console.log('[useTabContentRestore] Refreshing projectFiles...');
           await onRefreshProjectFiles();
+          console.log('[useTabContentRestore] ProjectFiles refreshed');
         }
 
-        // Monaco/CodeMirrorの強制再描画をトリガー
+        // Monaco/CodeMirrorに強制再描画を指示
+        console.log('[useTabContentRestore] Dispatching force refresh event');
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'));
         }, 100);
-      };
 
-      refreshAllTabs();
+      } catch (error) {
+        console.error('[useTabContentRestore] Git operation tab refresh failed:', error);
+      }
     };
 
     syncManager.on('sync:stop', handleSyncStop);
@@ -391,5 +356,5 @@ export function useTabContentRestore(
     return () => {
       syncManager.off('sync:stop', handleSyncStop);
     };
-  }, [isRestored, store, normalizePath, onRefreshProjectFiles]);
+  }, [isRestored, normalizePath, onRefreshProjectFiles]);
 }
