@@ -650,6 +650,16 @@ export class GitCommands {
         // 変更されてステージされたファイル
         staged.push(filepath);
         console.log(`[categorizeStatusFiles]  -> staged (modified)`);
+      } else if (HEAD === 1 && workdir === 2 && stage === 3) {
+        // ステージ済みファイルが再度変更された場合
+        // staged（ステージされた変更）とmodified（追加の未ステージ変更）の両方に追加
+        staged.push(filepath);
+        modified.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> staged + modified (staged file was modified)`);
+      } else if (HEAD === 1 && workdir === 1 && stage === 3) {
+        // ステージ済み（stage=3）でworkdirがHEADと同じ場合
+        staged.push(filepath);
+        console.log(`[categorizeStatusFiles]  -> staged (stage=3, workdir unchanged)`);
       } else if (HEAD === 1 && workdir === 0 && stage === 1) {
         // 削除されたファイル（未ステージ）- unstaged deletion
         deleted.push(filepath);
@@ -686,18 +696,6 @@ export class GitCommands {
   async add(filepath: string): Promise<string> {
     try {
       await this.ensureProjectDirectory();
-
-      // [重要] ステージ済みファイルを編集した場合の対策
-      // IndexedDBからGit FSへの同期を強制実行して、最新のファイル内容を確実に反映
-      console.log('[git.add] Syncing IndexedDB to GitFS before staging...');
-      try {
-        const { syncManager } = await import('@/engine/core/syncManager');
-        await syncManager.syncFromIndexedDBToFS(this.projectId, this.projectName);
-        console.log('[git.add] IndexedDB to GitFS sync completed');
-      } catch (syncError) {
-        console.warn('[git.add] Failed to sync IndexedDB to GitFS:', syncError);
-        // 同期失敗してもgit add自体は続行する
-      }
 
       // ファイルシステムの同期処理（git_stable.ts方式）
       if ((this.fs as any).sync) {
