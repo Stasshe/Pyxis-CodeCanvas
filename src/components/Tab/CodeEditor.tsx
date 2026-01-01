@@ -1,21 +1,14 @@
 /**
- * CodeEditor_new.tsx - リファクタリング版エディターコンポーネント
+ * CodeEditor - リファクタリング版エディターコンポーネント
  *
  * 責務:
  * - タブの状態判定とルーティング（Monaco/CodeMirror/プレビュー/バイナリ/Welcome）
- * - デバウンス保存の制御
  * - エディター間の共通インターフェース提供
  *
- * 保持された機能:
- * - jumpToLine/jumpToColumn
- * - ブレークポイント管理
- * - 文字数カウント
- * - デバウンス保存
- * - モデル管理とundo/redo履歴
- *
- * 改善点:
- * - コンテンツ復元中はエディターをブロック（データ不整合防止）
- * - 復元完了後に確実にエディターを再描画
+ * 注意:
+ * - デバウンス保存はEditorMemoryManagerが管理
+ * - コンテンツ変更はonImmediateContentChangeを通じてEditorMemoryManagerに通知
+ * - Ctrl+Sの即時保存もEditorMemoryManager経由
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,6 +19,7 @@ import { useCharCount } from './text-editor/hooks/useCharCount';
 import CharCountDisplay from './text-editor/ui/CharCountDisplay';
 import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
 
+import { editorMemoryManager } from '@/engine/editor';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useSettings } from '@/hooks/useSettings';
@@ -63,7 +57,6 @@ export default function CodeEditor({
     (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
   const { settings, updateSettings } = useSettings(projectId);
   const { isContentRestored } = useTabStore();
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // コンテンツ復元中かどうかを判定
   const isRestoringContent =
@@ -128,69 +121,28 @@ export default function CodeEditor({
     };
   }, []);
 
-  // デバウンス付きの保存関数（5秒）
-  const debouncedSave = useCallback(
-    (tabId: string, content: string) => {
-      if (nodeRuntimeOperationInProgress) {
-        console.log('[CodeEditor_new] Skipping debounced save during NodeRuntime operation');
-        return;
-      }
-
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
-      const currentTabId = tabId;
-      const currentContent = content;
-
-      // One-shot: schedule single save after debounce interval. No retries.
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          console.log('[CodeEditor_new] Debounced save triggered for:', currentTabId);
-          await onContentChange(currentTabId, currentContent);
-        } catch (e) {
-          console.error('[CodeEditor_new] Debounced save failed:', e);
-        }
-      }, 5000);
-    },
-    [onContentChange, nodeRuntimeOperationInProgress]
-  );
-
-  // クリーンアップ
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // エディター変更ハンドラー（デバウンス保存のみ）
-  // [REMOVED] onContentChangeImmediate - fileRepositoryのイベントシステムで自動更新
-  // ユーザー入力時はデバウンス保存のみ行い、タブの更新はfileRepository.emitChangeに任せる
+  // エディター変更ハンドラー
+  // EditorMemoryManagerを通じてコンテンツを更新（デバウンス保存と同期は自動）
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
-      // 即時フラグ反映（isDirty を全ペーンに立てる）
+      // onImmediateContentChangeを通じてEditorMemoryManagerに変更を通知
+      // EditorMemoryManagerがデバウンス保存とタブ間同期を管理
       try {
         onImmediateContentChange?.(activeTab.id, value);
       } catch (e) {
-        // 保険: 何か例外が起きても保存は続行する
-        console.error('[CodeEditor_new] onImmediateContentChange handler failed', e);
+        console.error('[CodeEditor] onImmediateContentChange handler failed', e);
       }
-
-      // デバウンス保存のみ実行
-      debouncedSave(activeTab.id, value);
     },
-    [activeTab, debouncedSave, onImmediateContentChange]
+    [activeTab, onImmediateContentChange]
   );
 
   // Ctrl+S 等のキーボードショートカットで即時保存するハンドラを登録
-  // 意図: デバウンスによる遅延保存とは別に、ユーザーが明示的に保存を要求したら即時に保存を行う
+  // EditorMemoryManagerを通じて即時保存を実行
   useKeyBinding(
     'saveFile',
     async () => {
-      if (!activeTab) return;
+      if (!activeTab?.path) return;
       // コンテンツ復元中やランタイム操作中は保存を無視
       if (isRestoringContent) return;
       if (nodeRuntimeOperationInProgress) {
@@ -198,27 +150,15 @@ export default function CodeEditor({
         return;
       }
 
-      // 既存のデバウンスタイマーをクリアして即時保存
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        // @ts-ignore - NodeJS.Timeout 型 とブラウザのタイマー型の差を無視
-        saveTimeoutRef.current = null;
-      }
-
       try {
-        await onContentChange(activeTab.id, activeTab.content);
+        // EditorMemoryManagerを通じて即時保存
+        await editorMemoryManager.saveImmediately(activeTab.path);
+        console.log('[CodeEditor] Immediate save completed');
       } catch (e) {
         console.error('[CodeEditor] Immediate save failed:', e);
       }
     },
-    // 依存: アクティブタブやコンテンツ、状態フラグ
-    [
-      activeTab?.id,
-      activeTab?.content,
-      isRestoringContent,
-      nodeRuntimeOperationInProgress,
-      onContentChange,
-    ]
+    [activeTab?.path, isRestoringContent, nodeRuntimeOperationInProgress]
   );
 
   // 折り返しのトグルショートカット登録 (Alt+Z)

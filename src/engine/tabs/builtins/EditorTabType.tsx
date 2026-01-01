@@ -1,23 +1,22 @@
 // src/engine/tabs/builtins/EditorTabType.tsx
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useGitContext } from '@/components/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { editorMemoryManager } from '@/engine/editor';
 import { useSettings } from '@/hooks/useSettings';
-import { getCurrentProjectId, useProjectStore } from '@/stores/projectStore';
-import { useTabStore } from '@/stores/tabStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 /**
  * エディタタブのコンポーネント
  *
- * NOTE: NEW-ARCHITECTURE.mdに従い、ファイル操作はfileRepositoryを直接使用。
- * useProject()フックは各コンポーネントで独立した状態を持つため、
- * currentProjectがnullになりファイルが保存されない問題があった。
- * 代わりにグローバルなprojectStoreからプロジェクト情報を取得する。
+ * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
+ * - コンテンツ変更はEditorMemoryManagerを通じて行う
+ * - デバウンス保存、タブ間同期は自動的に処理される
+ * - Git状態更新は保存完了時に自動実行
  */
 const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
@@ -27,41 +26,53 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const projectId = currentProject?.id;
 
   const { settings } = useSettings(projectId);
-  const updateTabContent = useTabStore(state => state.updateTabContent);
   const { setGitRefreshTrigger } = useGitContext();
 
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
+  // EditorMemoryManagerを初期化し、初期コンテンツを登録
+  useEffect(() => {
+    const initMemory = async () => {
+      await editorMemoryManager.init();
+      if (editorTab.path && editorTab.content !== undefined) {
+        editorMemoryManager.registerInitialContent(editorTab.path, editorTab.content);
+      }
+    };
+    initMemory();
+  }, [editorTab.path, editorTab.content]);
+
+  // 保存完了時にGit状態を更新
+  useEffect(() => {
+    if (!editorTab.path) return;
+
+    const unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
+      if (success) {
+        setGitRefreshTrigger(prev => prev + 1);
+      }
+    });
+
+    return unsubscribe;
+  }, [editorTab.path, setGitRefreshTrigger]);
+
+  // デバウンス保存付きのコンテンツ変更ハンドラー
   const handleContentChange = useCallback(
     async (tabId: string, content: string) => {
-      // 同一パスの全タブに対して即時フラグ（isDirty=true）を立てる
-      updateTabContent(tabId, content, true);
-
-      // ファイルを保存
-      // getCurrentProjectId()でその時点の最新のprojectIdを取得
-      const currentProjectId = getCurrentProjectId();
-      if (currentProjectId && editorTab.path) {
-        try {
-          // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-          await fileRepository.saveFileByPath(currentProjectId, editorTab.path, content);
-          // 保存後は全タブの isDirty をクリア
-          updateTabContent(tabId, content, false);
-          // Git状態を更新
-          setGitRefreshTrigger(prev => prev + 1);
-        } catch (error) {
-          console.error('[EditorTabType] Failed to save file:', error);
-        }
-      }
+      if (!editorTab.path) return;
+      // EditorMemoryManagerを通じてコンテンツを更新
+      // デバウンス保存、タブ間同期は自動的に処理される
+      editorMemoryManager.setContent(editorTab.path, content);
     },
-    [editorTab.path, updateTabContent, setGitRefreshTrigger]
+    [editorTab.path]
   );
 
+  // 即時反映ハンドラー（UIのみ、デバウンス保存をトリガー）
   const handleImmediateContentChange = useCallback(
     (tabId: string, content: string) => {
-      // 即座に同一ファイルを開いている全タブの内容を更新し、isDirty を立てる
-      updateTabContent(tabId, content, true);
+      if (!editorTab.path) return;
+      // EditorMemoryManagerを通じて即時反映
+      editorMemoryManager.setContent(editorTab.path, content);
     },
-    [updateTabContent]
+    [editorTab.path]
   );
 
   return (
