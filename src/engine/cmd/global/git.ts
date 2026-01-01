@@ -674,6 +674,11 @@ export class GitCommands {
   /**
    * ステージされたファイルに追加の未ステージ変更があるかチェック
    * インデックス(stage)の内容とワーキングディレクトリのOIDを比較
+   * 
+   * Note: git.walkは全ファイルを走査するが、これはisomorphic-gitで
+   * STAGEとWORKDIRのOIDを比較する標準的な方法である。
+   * この操作はstage=2/3でworkdir=2の場合のみ実行されるため、
+   * パフォーマンスへの影響は限定的。
    */
   private async hasUnstagedChanges(filePath: string): Promise<boolean> {
     try {
@@ -681,7 +686,6 @@ export class GitCommands {
       let stageOid: string | null = null;
       let workdirOid: string | null = null;
 
-      // filepathsオプションを使って特定のファイルのみを処理
       await git.walk({
         fs: this.fs,
         dir: this.dir,
