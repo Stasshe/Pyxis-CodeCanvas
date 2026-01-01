@@ -1,8 +1,8 @@
 // src/components/PaneResizer.tsx
 'use client';
 
-import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import React from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { usePaneResize } from '@/hooks/usePaneResize';
@@ -19,13 +19,13 @@ interface PaneResizerProps {
  * ペイン間リサイザーコンポーネント
  * usePaneResizeフックを使用してマウス/タッチイベントを処理
  */
-export default function PaneResizer({
+const PaneResizer = ({
   direction,
   onResize,
   leftSize,
   rightSize,
   minSize = 10,
-}: PaneResizerProps) {
+}: PaneResizerProps) => {
   const { colors } = useTheme();
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,49 +52,69 @@ export default function PaneResizer({
     [startResize]
   );
 
-  const resizerStyle: React.CSSProperties = {
-    position: 'absolute',
-    backgroundColor: isDragging ? colors.primary : colors.border,
-    transition: isDragging ? 'none' : 'background-color 0.2s ease',
-    cursor: direction === 'vertical' ? 'col-resize' : 'row-resize',
-    zIndex: 20,
-    ...(direction === 'vertical'
-      ? {
-          top: 0,
-          bottom: 0,
-          left: '50%',
-          width: '2px',
-          transform: 'translateX(-1px)',
-        }
-      : {
-          left: 0,
-          right: 0,
-          top: '50%',
-          height: '2px',
-          transform: 'translateY(-1px)',
-        }),
-  };
+  // スタイルをメモ化して再計算を防ぐ
+  const resizerStyle: React.CSSProperties = useMemo(
+    () => ({
+      position: 'absolute',
+      backgroundColor: isDragging ? colors.primary : colors.border,
+      transition: isDragging ? 'none' : 'background-color 0.2s ease',
+      cursor: direction === 'vertical' ? 'col-resize' : 'row-resize',
+      zIndex: 20,
+      ...(direction === 'vertical'
+        ? {
+            top: 0,
+            bottom: 0,
+            left: '50%',
+            width: '2px',
+            transform: 'translateX(-1px)',
+          }
+        : {
+            left: 0,
+            right: 0,
+            top: '50%',
+            height: '2px',
+            transform: 'translateY(-1px)',
+          }),
+    }),
+    [isDragging, colors.primary, colors.border, direction]
+  );
 
-  const hoverZoneStyle: React.CSSProperties = {
-    position: 'absolute',
-    backgroundColor: 'transparent',
-    zIndex: 15,
-    ...(direction === 'vertical'
-      ? {
-          top: 0,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          cursor: 'col-resize',
-        }
-      : {
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          cursor: 'row-resize',
-        }),
-  };
+  const hoverZoneStyle: React.CSSProperties = useMemo(
+    () => ({
+      position: 'absolute',
+      backgroundColor: 'transparent',
+      zIndex: 15,
+      ...(direction === 'vertical'
+        ? {
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            cursor: 'col-resize',
+          }
+        : {
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            cursor: 'row-resize',
+          }),
+    }),
+    [direction]
+  );
+
+  // マウスイベントハンドラーをメモ化
+  const handleMouseEnter = useCallback(() => {
+    if (!isDragging) {
+      document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize';
+    }
+  }, [isDragging, direction]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!isDragging) {
+      document.body.style.cursor = '';
+    }
+  }, [isDragging]);
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -103,19 +123,14 @@ export default function PaneResizer({
         style={hoverZoneStyle}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
-        onMouseEnter={() => {
-          if (!isDragging) {
-            document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize';
-          }
-        }}
-        onMouseLeave={() => {
-          if (!isDragging) {
-            document.body.style.cursor = '';
-          }
-        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       />
       {/* 実際のリサイザーライン */}
       <div style={resizerStyle} onMouseDown={handleMouseDown} onTouchStart={handleTouchStart} />
     </div>
   );
-}
+};
+
+// React.memo でメモ化し、不要な再レンダリングを防ぐ
+export default React.memo(PaneResizer);
