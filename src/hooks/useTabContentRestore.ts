@@ -4,7 +4,17 @@ import { useCallback, useEffect, useRef } from 'react';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
 import { useTabStore } from '@/stores/tabStore';
+import type { DiffTab, EditorTab, Tab } from '@/engine/tabs/types';
 import type { EditorPane, FileItem } from '@/types';
+
+// SyncManager イベントの型定義
+interface SyncEvent {
+  projectId: string;
+  projectName: string;
+  direction: 'db->fs' | 'fs->db' | 'init' | 'single:db->fs';
+  success: boolean;
+  error?: any;
+}
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -119,8 +129,9 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
             // リーフペインの場合、全タブを復元
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: any) => {
-                if (!tab.needsContentRestore) return tab;
+              tabs: pane.tabs.map((tab: Tab) => {
+                // TypeScript型ガード：needsContentRestoreはEditorTabにのみ存在
+                if (!('needsContentRestore' in tab) || !(tab as any).needsContentRestore) return tab;
 
                 const correspondingFile = flattenedFiles.find(
                   f => normalizePath(f.path) === normalizePath(tab.path)
@@ -129,21 +140,29 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
                 if (!correspondingFile) {
                   console.warn('[useTabContentRestore] File not found for tab:', tab.path);
                   // ファイルが見つからない場合でもフラグは解除
-                  return {
-                    ...tab,
-                    needsContentRestore: false,
-                  };
+                  if (tab.kind === 'editor') {
+                    return {
+                      ...tab,
+                      needsContentRestore: false,
+                    } as EditorTab;
+                  }
+                  return tab;
                 }
 
                 console.log('[useTabContentRestore] ✓ Restored:', tab.path);
 
-                return {
-                  ...tab,
-                  content: correspondingFile.content || '',
-                  bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
-                  isDirty: false,
-                  needsContentRestore: false,
-                };
+                if (tab.kind === 'editor') {
+                  const editorTab = tab as EditorTab;
+                  return {
+                    ...editorTab,
+                    content: correspondingFile.content || '',
+                    bufferContent: editorTab.isBufferArray ? correspondingFile.bufferContent : undefined,
+                    isDirty: false,
+                    needsContentRestore: false,
+                  } as EditorTab;
+                }
+
+                return tab;
               }),
             };
           });
@@ -196,7 +215,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         // 変更されたファイルのパスに対応するタブがあるかチェック
         const flatPanes = flattenPanes(store.panes);
         const hasMatchingTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path))
+          pane.tabs.some((tab: Tab) => normalizePath(tab.path) === normalizePath(changedFile.path))
         );
 
         if (!hasMatchingTab) {
@@ -217,18 +236,22 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
             // リーフペインの場合、該当するタブのコンテンツを更新
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: any) => {
+              tabs: pane.tabs.map((tab: Tab) => {
                 // パスが一致するタブのみ更新
                 if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
                   console.log('[useTabContentRestore] Updating tab:', tab.id);
-                  return {
-                    ...tab,
-                    content: (changedFile as any).content || '',
-                    bufferContent: tab.isBufferArray
-                      ? (changedFile as any).bufferContent
-                      : undefined,
-                    isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
-                  };
+                  
+                  if (tab.kind === 'editor') {
+                    const editorTab = tab as EditorTab;
+                    return {
+                      ...editorTab,
+                      content: (changedFile as any).content || '',
+                      bufferContent: editorTab.isBufferArray
+                        ? (changedFile as any).bufferContent
+                        : undefined,
+                      isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
+                    } as EditorTab;
+                  }
                 }
                 return tab;
               }),
@@ -251,7 +274,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    const handleSyncStop = (event: any) => {
+    const handleSyncStop = (event: SyncEvent) => {
       // fs->db方向の同期（git操作後）のみ処理
       if (event.direction !== 'fs->db' || !event.success) {
         return;
@@ -268,10 +291,10 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         // 各タブのパスからファイルを取得
         const updates = await Promise.all(
           allTabs
-            .filter((tab: any) => tab.path && (tab.kind === 'editor' || tab.kind === 'diff'))
-            .map(async (tab: any) => {
+            .filter((tab: Tab) => tab.path && (tab.kind === 'editor' || tab.kind === 'diff'))
+            .map(async (tab: Tab) => {
               try {
-                const file = await fileRepository.getFileByPath(event.projectId, tab.path);
+                const file = await fileRepository.getFileByPath(event.projectId, tab.path || '');
                 return { tab, file };
               } catch (error) {
                 console.warn(
@@ -296,37 +319,41 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
             // リーフペインの場合、タブを更新
             return {
               ...pane,
-              tabs: pane.tabs.map((tab: any) => {
+              tabs: pane.tabs.map((tab: Tab) => {
                 const update = updates.find(u => u?.tab.id === tab.id);
                 if (update?.file) {
                   console.log('[useTabContentRestore] Force refreshing tab:', tab.path);
                   
                   // Editorタブの更新
                   if (tab.kind === 'editor') {
+                    const editorTab = tab as EditorTab;
                     return {
-                      ...tab,
+                      ...editorTab,
                       content: update.file.content || '',
-                      bufferContent: tab.isBufferArray ? update.file.bufferContent : undefined,
+                      bufferContent: editorTab.isBufferArray ? update.file.bufferContent : undefined,
                       isDirty: false,
-                    };
+                    } as EditorTab;
                   }
                   
                   // Diffタブの更新（editableなタブのみ）
-                  if (tab.kind === 'diff' && tab.editable && tab.diffs && tab.diffs.length > 0) {
-                    return {
-                      ...tab,
-                      diffs: tab.diffs.map((diff: any, idx: number) => {
-                        // 最初のdiff（通常は1つだけ）のlatterContentを更新
-                        if (idx === 0) {
-                          return {
-                            ...diff,
-                            latterContent: update.file.content || '',
-                          };
-                        }
-                        return diff;
-                      }),
-                      isDirty: false,
-                    };
+                  if (tab.kind === 'diff') {
+                    const diffTab = tab as DiffTab;
+                    if (diffTab.editable && diffTab.diffs && diffTab.diffs.length > 0) {
+                      return {
+                        ...diffTab,
+                        diffs: diffTab.diffs.map((diff, idx) => {
+                          // 最初のdiff（通常は1つだけ）のlatterContentを更新
+                          if (idx === 0 && update?.file) {
+                            return {
+                              ...diff,
+                              latterContent: update.file.content || '',
+                            };
+                          }
+                          return diff;
+                        }),
+                        isDirty: false,
+                      } as DiffTab;
+                    }
                   }
                 }
                 return tab;
