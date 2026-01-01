@@ -273,6 +273,7 @@ function ChatMessage({ message, onRevert }: ChatMessageProps) {
 export default React.memo(ChatMessage, (prevProps, nextProps) => {
   // message の ID と内容が同じかチェック
   // editResponse も含めて比較して、変更があれば再レンダリング
+  // Note: editResponse は通常小さいオブジェクトなので JSON.stringify で比較
   const prevMsg = prevProps.message;
   const nextMsg = nextProps.message;
   

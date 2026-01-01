@@ -136,6 +136,8 @@ const AIPanel = ({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 
   // プロジェクトファイルが変更されたときにコンテキストを更新
   // ファイルの変更検出を最適化（長さと内容の簡易チェック）
+  // Note: path と id のみでキーを生成し、ファイル構造の変更を検出
+  // content の変更は内部状態で管理されるため、ここでは検出不要
   const projectFilesKey = useMemo(
     () => projectFiles.map(f => `${f.path}:${f.id}`).join(','),
     [projectFiles]
