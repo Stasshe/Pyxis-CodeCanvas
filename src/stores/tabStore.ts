@@ -1,3 +1,27 @@
+/**
+ * TabStore - 中央集約型タブ・ペイン管理ストア
+ * 
+ * 責務:
+ * - エディタペインの階層構造管理（分割ペイン対応）
+ * - タブのライフサイクル管理（開く、閉じる、移動、アクティブ化）
+ * - タブコンテンツの一元的な同期管理
+ * - セッションの永続化・復元
+ * 
+ * 重要な設計原則:
+ * 1. すべてのタブ操作（CodeEditor, DiffTab, AIReviewTab）はこのストアを経由
+ * 2. タブコンテンツの変更は updateTabContent で一元管理され、同じパスの全タブに反映
+ * 3. Git操作後の同期は useTabContentRestore フックが syncManager イベントを監視して処理
+ * 
+ * ファイル構成:
+ * - Helper関数（flattenLeafPanes）
+ * - TabStore インターフェース定義
+ * - ペイン操作（addPane, removePane, splitPane等）
+ * - タブ操作（openTab, closeTab, moveTab等）
+ * - ユーティリティ（getPane, getAllTabs等）
+ * - セッション管理（saveSession, loadSession）
+ * 
+ * NOTE: このファイルは1000行超だが、機能が密結合しているため分割は慎重に行う必要がある
+ */
 // src/stores/tabStore.ts
 import { create } from 'zustand';
 
