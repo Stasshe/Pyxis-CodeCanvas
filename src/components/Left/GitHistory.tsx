@@ -47,8 +47,8 @@ interface ExtendedCommit extends GitCommitType {
  * 
  * Gitグラフでは、子コミットが親コミットより前（上）に表示される必要があります。
  * このアルゴリズムは以下のステップで動作します：
- * 1. 各コミットの「子の数」（入次数）をカウント
- * 2. 子を持たないコミット（入次数0）から処理を開始
+ * 1. 各コミットの「子の数」（入次数）をカウント - 子から指されている数
+ * 2. 子を持たないコミット（入次数0 = 最新のコミット）から処理を開始
  * 3. 処理したコミットの親の入次数を減らし、0になったら次の候補に
  * 4. 同じ入次数のコミットはtimestampで新しい順にソート
  */
@@ -59,6 +59,7 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   commits.forEach(c => commitMap.set(c.hash, c));
   
   // 各コミットを指す子の数をカウント（入次数）
+  // 親コミットは子から指されているので、親の入次数を増やす
   const inDegree = new Map<string, number>();
   
   commits.forEach(c => {
@@ -66,11 +67,12 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   });
   
   // 親子関係を構築（表示されているコミットのみ）
+  // 子→親の辺があるので、親の入次数を増やす
   commits.forEach(c => {
     c.parentHashes.forEach(parentHash => {
       if (commitMap.has(parentHash)) {
-        // c.hash の入次数を増やす
-        inDegree.set(c.hash, (inDegree.get(c.hash) || 0) + 1);
+        // 親コミットの入次数を増やす（子から指されている）
+        inDegree.set(parentHash, (inDegree.get(parentHash) || 0) + 1);
       }
     });
   });
