@@ -37,9 +37,229 @@ interface CommitChanges {
 interface ExtendedCommit extends GitCommitType {
   x: number;
   y: number;
-  lane: number; // このコミットが描画されるレーン番号
-  laneColor: string; // このコミットの線の色
+  lane: number;
+  laneColor: string;
   changes?: CommitChanges;
+}
+
+/**
+ * トポロジカルソート（Kahn's algorithm inspired by VSCode SCM）
+ * 
+ * Gitグラフでは、子コミットが親コミットより前（上）に表示される必要があります。
+ * このアルゴリズムは以下のステップで動作します：
+ * 1. 各コミットの「子の数」（入次数）をカウント - 子から指されている数
+ * 2. 子を持たないコミット（入次数0 = 最新のコミット）から処理を開始
+ * 3. 処理したコミットの親の入次数を減らし、0になったら次の候補に
+ * 4. 同じ入次数のコミットはtimestampで新しい順にソート
+ */
+function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
+  if (commits.length === 0) return [];
+  
+  const commitMap = new Map<string, GitCommitType>();
+  commits.forEach(c => commitMap.set(c.hash, c));
+  
+  // 各コミットを指す子の数をカウント（入次数）
+  // 親コミットは子から指されているので、親の入次数を増やす
+  const inDegree = new Map<string, number>();
+  
+  commits.forEach(c => {
+    inDegree.set(c.hash, 0);
+  });
+  
+  // 親子関係を構築（表示されているコミットのみ）
+  // 子→親の辺があるので、親の入次数を増やす
+  commits.forEach(c => {
+    c.parentHashes.forEach(parentHash => {
+      if (commitMap.has(parentHash)) {
+        // 親コミットの入次数を増やす（子から指されている）
+        inDegree.set(parentHash, (inDegree.get(parentHash) || 0) + 1);
+      }
+    });
+  });
+  
+  // 入次数が0のコミット（子がいないコミット = 最新のコミット）を収集
+  // timestampで新しい順にソート
+  const queue: GitCommitType[] = commits
+    .filter(c => (inDegree.get(c.hash) || 0) === 0)
+    .sort((a, b) => b.timestamp - a.timestamp);
+  
+  const result: GitCommitType[] = [];
+  const visited = new Set<string>();
+  
+  while (queue.length > 0) {
+    // キューの先頭から取得（既にソート済み）
+    const commit = queue.shift()!;
+    
+    if (visited.has(commit.hash)) continue;
+    visited.add(commit.hash);
+    result.push(commit);
+    
+    // このコミットの親の入次数を減らし、0になったものをキューに追加
+    const newReadyCommits: GitCommitType[] = [];
+    commit.parentHashes.forEach(parentHash => {
+      const parent = commitMap.get(parentHash);
+      if (parent && !visited.has(parentHash)) {
+        const newDegree = (inDegree.get(parentHash) || 0) - 1;
+        inDegree.set(parentHash, newDegree);
+        if (newDegree === 0) {
+          newReadyCommits.push(parent);
+        }
+      }
+    });
+    
+    // 新たにキューに追加するコミットをソートしてマージ
+    if (newReadyCommits.length > 0) {
+      newReadyCommits.sort((a, b) => b.timestamp - a.timestamp);
+      // キューにマージ（timestampで新しい順を維持）
+      const merged: GitCommitType[] = [];
+      let i = 0, j = 0;
+      while (i < queue.length && j < newReadyCommits.length) {
+        if (queue[i].timestamp >= newReadyCommits[j].timestamp) {
+          merged.push(queue[i++]);
+        } else {
+          merged.push(newReadyCommits[j++]);
+        }
+      }
+      while (i < queue.length) merged.push(queue[i++]);
+      while (j < newReadyCommits.length) merged.push(newReadyCommits[j++]);
+      queue.length = 0;
+      queue.push(...merged);
+    }
+  }
+  
+  // 循環がある場合、残りのコミットを追加
+  commits.forEach(c => {
+    if (!visited.has(c.hash)) {
+      result.push(c);
+    }
+  });
+  
+  return result;
+}
+
+/**
+ * VSCodeスタイルのレーン割り当てアルゴリズム
+ * 
+ * 新しいコミットから古いコミットへの順序で処理し、
+ * 各コミットに適切なレーンを割り当てます。
+ * 
+ * ルール：
+ * 1. 子コミットから見て、第1親はそのレーンを継承
+ * 2. マージの第2親以降は新しいレーンに配置
+ * 3. ブランチの終端（親を持たないコミット）でレーンを解放
+ */
+function assignLanes(
+  commits: GitCommitType[],
+  branchColors: string[]
+): { commitLanes: Map<string, number>; commitColors: Map<string, string>; maxLane: number } {
+  const commitLanes = new Map<string, number>();
+  const commitColors = new Map<string, string>();
+  
+  // アクティブなレーン管理
+  let totalLanes = 0;
+  // 空いているレーンのセット（O(1)でのアクセス用）
+  const availableLanes = new Set<number>();
+  
+  // 各コミットの子を追跡
+  const childrenMap = new Map<string, string[]>();
+  const commitMap = new Map<string, GitCommitType>();
+  commits.forEach(c => {
+    commitMap.set(c.hash, c);
+    childrenMap.set(c.hash, []);
+  });
+  
+  // 子関係を構築
+  commits.forEach(c => {
+    c.parentHashes.forEach(parentHash => {
+      if (childrenMap.has(parentHash)) {
+        childrenMap.get(parentHash)!.push(c.hash);
+      }
+    });
+  });
+  
+  // 予約済みレーン: 親コミットがこのレーンを使う予定
+  const reservedLanes = new Map<string, number>();
+  
+  // 空いているレーンを取得するヘルパー関数（excludeを除く）
+  const getAvailableLane = (exclude?: number): number => {
+    for (const lane of availableLanes) {
+      if (lane !== exclude) {
+        return lane;
+      }
+    }
+    // 空いているレーンがない場合、新しいレーンを作成
+    return totalLanes;
+  };
+  
+  for (const commit of commits) {
+    let assignedLane: number;
+    let assignedColor: string;
+    
+    // このコミットにレーンが予約されているかチェック
+    if (reservedLanes.has(commit.hash)) {
+      assignedLane = reservedLanes.get(commit.hash)!;
+      assignedColor = branchColors[assignedLane % branchColors.length];
+      reservedLanes.delete(commit.hash);
+      // 予約されていたレーンを使用中にする（availableLanesから削除）
+      availableLanes.delete(assignedLane);
+    } else {
+      // 新しいレーンを割り当て
+      assignedLane = getAvailableLane();
+      if (assignedLane === totalLanes) {
+        totalLanes++;
+      } else {
+        availableLanes.delete(assignedLane);
+      }
+      assignedColor = branchColors[assignedLane % branchColors.length];
+    }
+    
+    commitLanes.set(commit.hash, assignedLane);
+    commitColors.set(commit.hash, assignedColor);
+    
+    // 親コミットのレーンを予約
+    if (commit.parentHashes.length > 0) {
+      // 第1親: このコミットのレーンを継承
+      const firstParent = commit.parentHashes[0];
+      if (commitMap.has(firstParent) && !reservedLanes.has(firstParent)) {
+        reservedLanes.set(firstParent, assignedLane);
+      }
+      
+      // 第2親以降: 新しいレーン
+      for (let i = 1; i < commit.parentHashes.length; i++) {
+        const parentHash = commit.parentHashes[i];
+        if (commitMap.has(parentHash) && !reservedLanes.has(parentHash)) {
+          // 空いているレーンを探す（現在のレーン以外）
+          const newLane = getAvailableLane(assignedLane);
+          if (newLane === totalLanes) {
+            totalLanes++;
+          } else {
+            availableLanes.delete(newLane);
+          }
+          reservedLanes.set(parentHash, newLane);
+        }
+      }
+    }
+    
+    // このコミットに子がいなければレーンを解放
+    const childCount = childrenMap.get(commit.hash)?.length || 0;
+    // 子の中でこのコミットを第1親として持つものの数
+    const firstParentChildCount = (childrenMap.get(commit.hash) || []).filter(childHash => {
+      const child = commitMap.get(childHash);
+      return child && child.parentHashes[0] === commit.hash;
+    }).length;
+    
+    // 全ての子が処理済みで、もうこのレーンを使う子がいなければ解放
+    if (childCount === 0 || firstParentChildCount === 0) {
+      // ただし、まだ処理されていない親への接続がある場合は解放しない
+      const hasUnprocessedParent = commit.parentHashes.some(p => commitMap.has(p) && !commitLanes.has(p));
+      if (!hasUnprocessedParent && firstParentChildCount === 0) {
+        availableLanes.add(assignedLane);
+      }
+    }
+  }
+  
+  const maxLane = totalLanes > 0 ? totalLanes - 1 : 0;
+  return { commitLanes, commitColors, maxLane };
 }
 
 export default function GitHistory({
@@ -51,205 +271,70 @@ export default function GitHistory({
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
-  // 重複コミットの表示切り替え
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  // 重複グループ情報
-  const [duplicateGroups, setDuplicateGroups] = useState<Map<string, GitCommitType[]>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands =
     currentProject && currentProjectId
       ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
       : null;
 
-  // [NEW ARCHITECTURE] Diff タブハンドラー
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
     name: currentProject,
     id: currentProjectId,
   });
 
-  // トポロジカルソート: 親→子の順に並べる
-  const topoSortCommits = (commits: GitCommitType[]): GitCommitType[] => {
-    // timestamp昇順（古い順）で処理する
-    const sorted = commits.slice().sort((a, b) => a.timestamp - b.timestamp);
-    const visited = new Set<string>();
-    const result: GitCommitType[] = [];
-    const map = new Map<string, GitCommitType>();
-    sorted.forEach(c => map.set(c.hash, c));
-    const visit = (c: GitCommitType) => {
-      if (visited.has(c.hash)) return;
-      visited.add(c.hash);
-      if (c.parentHashes) {
-        c.parentHashes.forEach(ph => {
-          const parent = map.get(ph);
-          if (parent) visit(parent);
-        });
-      }
-      result.push(c);
-    };
-    sorted.forEach(c => visit(c));
-    // 重複除去
-    const seen = new Set<string>();
-    return result.filter(c => {
-      if (seen.has(c.hash)) return false;
-      seen.add(c.hash);
-      return true;
-    });
-  };
-
-  // 重複コミットを除去（同じ内容のコミットはリモート優先）
-  // 重複グループを返しつつ、表示用コミットリストを返す
-  const deduplicateCommits = (
-    commits: GitCommitType[]
-  ): { deduplicated: GitCommitType[]; groups: Map<string, GitCommitType[]> } => {
-    const contentMap = new Map<string, GitCommitType[]>();
-    commits.forEach(commit => {
-      const key = commit.tree
-        ? `tree:${commit.tree}`
-        : `meta:${commit.author}|${commit.timestamp}|${commit.message}`;
-      if (!contentMap.has(key)) {
-        contentMap.set(key, []);
-      }
-      contentMap.get(key)!.push(commit);
-    });
-    const deduplicated: GitCommitType[] = [];
-    contentMap.forEach((group, key) => {
-      if (group.length === 1) {
-        deduplicated.push(group[0]);
-      } else {
-        // 重複あり: リモート参照があるコミットを優先
-        const remoteCommit = group.find(
-          c =>
-            Array.isArray(c.refs) &&
-            c.refs.some((ref: string) => ref.startsWith('origin/') || ref.startsWith('upstream/'))
-        );
-        if (remoteCommit) {
-          deduplicated.push(remoteCommit);
-        } else {
-          deduplicated.push(group[0]);
-        }
-      }
-    });
-    return { deduplicated, groups: contentMap };
-  };
-
-  // ThemeContextから色を取得
   const { colors } = useTheme();
 
-  // ブランチカラーのパレット（ThemeContextから取得、なければデフォルト）
   const branchColors = colors.gitBranchColors || [
-    '#3b82f6', // blue
-    '#10b981', // emerald
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // violet
-    '#06b6d4', // cyan
-    '#f97316', // orange
-    '#84cc16', // lime
+    '#3b82f6',
+    '#10b981',
+    '#f59e0b',
+    '#ef4444',
+    '#8b5cf6',
+    '#06b6d4',
+    '#f97316',
+    '#84cc16',
   ];
 
-  // コミット行の高さを動的に計算するヘルパー関数（小さめ）
   const getCommitRowHeight = (commitHash: string): number => {
-    const baseHeight = 28; // 基本の行高さ
-    const FILE_ITEM_HEIGHT = 24; // ファイル1つあたりの高さ
-    const MAX_FILES_DISPLAY = 10; // 最大表示ファイル数
-    const HEADER_FOOTER_HEIGHT = 32; // ヘッダー・フッター・パディング(最小)
+    const baseHeight = 28;
+    const FILE_ITEM_HEIGHT = 24;
+    const MAX_FILES_DISPLAY = 10;
+    const HEADER_FOOTER_HEIGHT = 32;
 
     if (!expandedCommits.has(commitHash)) {
       return baseHeight;
     }
 
-    // 変更ファイル数を取得
     const changes = commitChanges.get(commitHash);
     if (!changes) {
-      return baseHeight + HEADER_FOOTER_HEIGHT; // デフォルトの展開高さ
+      return baseHeight + HEADER_FOOTER_HEIGHT;
     }
 
     const totalFiles = changes.added.length + changes.modified.length + changes.deleted.length;
     const displayFiles = Math.min(totalFiles, MAX_FILES_DISPLAY);
-    // ファイルが1つもなければ最低限の高さだけ
     if (displayFiles === 0) {
       return baseHeight + HEADER_FOOTER_HEIGHT;
     }
-    // ファイルが1つ以上なら、その分だけ高さを増やす
     const expandedHeight = HEADER_FOOTER_HEIGHT + displayFiles * FILE_ITEM_HEIGHT;
     return baseHeight + expandedHeight;
   };
 
-  // コミットの位置とレーンを計算（展開状態を考慮）
   const [svgHeight, setSvgHeight] = useState<number>(0);
 
   useEffect(() => {
     if (commits.length === 0) return;
 
-    // 重複コミットを除去（リモート優先）
-    const { deduplicated, groups } = deduplicateCommits(commits);
-    setDuplicateGroups(groups);
+    // トポロジカルソートで正しい順序に並べ替え
+    const sortedCommits = topoSortCommits(commits);
 
-    // 表示用コミットリストを時系列（新しい順）でソート
-    const sortedCommits = (showDuplicates ? commits : deduplicated)
-      .slice()
-      .sort((a, b) => b.timestamp - a.timestamp);
-
-    // レーン割り当ては古い順に処理（親→子の順）
-    // ただし、描画は新しい順
-    const ROW_HEIGHT = 28;
     const LANE_WIDTH = 16;
-    const EXPANDED_HEIGHT = 56;
     const Y_OFFSET = 10;
 
-    // レーン割り当てアルゴリズム（古い順に処理）
-    // 古い順で処理するため、timestamp昇順で一時ソート
-    const sortedForLane = sortedCommits.slice().sort((a, b) => a.timestamp - b.timestamp);
-    const commitMap = new Map<string, GitCommitType>();
-    sortedForLane.forEach(c => commitMap.set(c.hash, c));
-
-    const lanes: (string | null)[] = [];
-    const commitLanes = new Map<string, number>();
-    const commitColors = new Map<string, string>();
-
-    for (const commit of sortedForLane) {
-      let assignedLane = -1;
-      let assignedColor: string | undefined;
-      if (commit.parentHashes.length > 0) {
-        const firstParentHash = commit.parentHashes[0];
-        if (commitLanes.has(firstParentHash)) {
-          const parentLane = commitLanes.get(firstParentHash)!;
-          assignedLane = parentLane;
-          assignedColor = commitColors.get(firstParentHash);
-        }
-      }
-      if (assignedLane === -1) {
-        assignedLane = lanes.findIndex(lane => lane === null);
-        if (assignedLane === -1) {
-          assignedLane = lanes.length;
-          lanes.push(null);
-        }
-        assignedColor = branchColors[assignedLane % branchColors.length];
-      }
-      lanes[assignedLane] = commit.hash;
-      commitLanes.set(commit.hash, assignedLane);
-      commitColors.set(commit.hash, assignedColor!);
-      if (commit.parentHashes.length > 1) {
-        for (let i = 1; i < commit.parentHashes.length; i++) {
-          const parentHash = commit.parentHashes[i];
-          if (commitLanes.has(parentHash)) {
-            const parentLane = commitLanes.get(parentHash)!;
-            if (lanes[parentLane] === parentHash) {
-              lanes[parentLane] = null;
-            }
-          }
-        }
-      }
-      const hasChildren = sortedForLane.some(c => c.parentHashes.includes(commit.hash));
-      if (!hasChildren) {
-        lanes[assignedLane] = null;
-      }
-    }
+    // レーン割り当て
+    const { commitLanes, commitColors } = assignLanes(sortedCommits, branchColors);
 
     let currentY = Y_OFFSET;
-    // 新しい順で描画
-    const displayCommits = sortedCommits;
-    const processedCommits: ExtendedCommit[] = displayCommits.map(commit => {
+    const processedCommits: ExtendedCommit[] = sortedCommits.map(commit => {
       const lane = commitLanes.get(commit.hash) || 0;
       const color = commitColors.get(commit.hash) || branchColors[0];
       const commitY = currentY;
@@ -262,20 +347,19 @@ export default function GitHistory({
         laneColor: color,
       };
     });
+
     const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits, commitChanges, branchColors, showDuplicates]);
+  }, [commits, expandedCommits, commitChanges, branchColors]);
 
   // コミットの変更ファイルを取得
   const getCommitChanges = async (commitHash: string) => {
     if (!gitCommands || commitChanges.has(commitHash)) return;
 
     try {
-      // 現在のコミットとその親コミットを比較
       const currentCommit = commits.find(c => c.hash === commitHash);
       if (!currentCommit || currentCommit.parentHashes.length === 0) {
-        // 親コミットがない場合（初回コミット）は空の変更として扱う
         console.log('[GitHistory] No parent commits found for:', commitHash);
         setCommitChanges(prev =>
           new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] })
@@ -283,11 +367,9 @@ export default function GitHistory({
         return;
       }
 
-      // 最初の親コミットと比較（マージコミットの場合も最初の親を使用）
       const parentHash = currentCommit.parentHashes[0];
       console.log('[GitHistory] Comparing commits (parent->child):', parentHash, '->', commitHash);
 
-      // 親コミット→子コミットの順序で差分を取得（変更を正しく表示するため）
       const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
       console.log('[GitHistory] Raw diff output:', diffOutput);
 
@@ -298,7 +380,6 @@ export default function GitHistory({
     }
   };
 
-  // diff出力をパースして変更ファイルを抽出
   const parseDiffOutput = (diffOutput: string): CommitChanges => {
     const changes: CommitChanges = {
       added: [],
@@ -318,32 +399,27 @@ export default function GitHistory({
     let currentFile = '';
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // diff --git a/file b/file の形式でファイル名を取得
       if (line.startsWith('diff --git ')) {
         const match = line.match(/diff --git a\/(.+) b\/(.+)/);
         if (match) {
-          currentFile = match[2]; // b/file の部分
+          currentFile = match[2];
         } else {
           currentFile = '';
         }
       }
-      // 削除されたファイル
       if (line.startsWith('deleted file mode')) {
-        // diff --git の直後に deleted file mode が来ることが多い
         if (currentFile && !changes.deleted.includes(currentFile)) {
           changes.deleted.push(currentFile);
         }
         currentFile = '';
         continue;
       }
-      // 新規ファイル
       if (line.startsWith('new file mode')) {
         if (currentFile && !changes.added.includes(currentFile)) {
           changes.added.push(currentFile);
         }
         continue;
       }
-      // 変更されたファイル（新規・削除以外）
       if (line.startsWith('index ') && currentFile) {
         if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
           if (!changes.modified.includes(currentFile)) {
@@ -357,7 +433,6 @@ export default function GitHistory({
     return changes;
   };
 
-  // コミットの展開/収納をトグル
   const toggleCommitExpansion = async (commitHash: string) => {
     const newExpanded = new Set(expandedCommits);
     if (newExpanded.has(commitHash)) {
@@ -369,7 +444,6 @@ export default function GitHistory({
     setExpandedCommits(newExpanded);
   };
 
-  // 相対時間を取得
   const { t } = useTranslation();
   const getRelativeTime = (timestamp: number): string => {
     const now = Date.now();
@@ -385,15 +459,28 @@ export default function GitHistory({
     return new Date(timestamp).toLocaleDateString('ja-JP');
   };
 
-  // ファイルタイプのアイコンを取得
   const getFileIcon = (type: 'added' | 'modified' | 'deleted') => {
     switch (type) {
       case 'added':
-        return <FilePlus className="w-2.5 h-2.5 text-green-500" />; // w-3 h-3 -> w-2.5 h-2.5
+        return <FilePlus className="w-2.5 h-2.5 text-green-500" />;
       case 'modified':
-        return <FileText className="w-2.5 h-2.5 text-blue-500" />; // w-3 h-3 -> w-2.5 h-2.5
+        return <FileText className="w-2.5 h-2.5 text-blue-500" />;
       case 'deleted':
-        return <FileMinus className="w-2.5 h-2.5 text-red-500" />; // w-3 h-3 -> w-2.5 h-2.5
+        return <FileMinus className="w-2.5 h-2.5 text-red-500" />;
+    }
+  };
+
+  /**
+   * 2点間のベジェ曲線パスを生成
+   */
+  const createBezierPath = (x1: number, y1: number, x2: number, y2: number): string => {
+    const midY = (y1 + y2) / 2;
+    if (x1 === x2) {
+      // 垂直線
+      return `M ${x1} ${y1} L ${x2} ${y2}`;
+    } else {
+      // ベジェ曲線
+      return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
     }
   };
 
@@ -402,36 +489,6 @@ export default function GitHistory({
       className="h-full flex flex-col"
       style={{ background: colors.sidebarBg, color: colors.sidebarFg }}
     >
-      {/* 重複コミット表示切り替えボタン */}
-      <div
-        className="px-2 py-1 border-b border-gray-700 flex items-center gap-2 text-xs"
-        style={{ background: colors.sidebarBg }}
-      >
-        <button
-          className="px-2 py-0.5 rounded border text-xs font-medium"
-          style={{
-            background: showDuplicates ? colors.gitBranchOtherBg : colors.gitBranchCurrentBg,
-            color: showDuplicates ? colors.gitBranchOtherFg : colors.gitBranchCurrentFg,
-            borderColor: showDuplicates
-              ? colors.gitBranchOtherBorder
-              : colors.gitBranchCurrentBorder,
-            transition: 'background 0.2s',
-          }}
-          onClick={() => setShowDuplicates(v => !v)}
-        >
-          {showDuplicates ? t('gitHistory.hideDuplicates') : t('gitHistory.showDuplicates')}
-        </button>
-        {!showDuplicates &&
-          Array.from(duplicateGroups.values()).filter(g => g.length > 1).length > 0 && (
-            <span className="text-[11px] text-gray-400">
-              {t('gitHistory.duplicateGroupsHidden', {
-                params: {
-                  count: Array.from(duplicateGroups.values()).filter(g => g.length > 1).length,
-                },
-              })}
-            </span>
-          )}
-      </div>
       <div className="flex-1 overflow-auto">
         <div className="relative min-w-0" style={{ overflow: 'visible' }}>
           {/* SVG for git graph lines */}
@@ -444,48 +501,35 @@ export default function GitHistory({
               overflow: 'visible',
             }}
           >
-            {/* Draw lane lines */}
-            {extendedCommits.map((commit, index) => {
+            {/* 接続線を描画 */}
+            {extendedCommits.map((commit) => {
               const lines: React.ReactElement[] = [];
-              const ROW_HEIGHT = 28;
+              
               if (commit.parentHashes && commit.parentHashes.length > 0) {
                 commit.parentHashes.forEach((parentHash, parentIndex) => {
                   const parentCommit = extendedCommits.find(c => c.hash === parentHash);
                   if (parentCommit) {
-                    if (parentCommit.lane === commit.lane) {
-                      lines.push(
-                        <line
-                          key={`line-${commit.hash}-${parentHash}-${parentIndex}`}
-                          x1={commit.x}
-                          y1={commit.y}
-                          x2={parentCommit.x}
-                          y2={parentCommit.y}
-                          stroke={commit.laneColor}
-                          strokeWidth="2"
-                        />
-                      );
-                    } else {
-                      const midY = (commit.y + parentCommit.y) / 2;
-                      const midX = (commit.x + parentCommit.x) / 2;
-                      lines.push(
-                        <g key={`curve-${commit.hash}-${parentHash}-${parentIndex}`}>
-                          <path
-                            d={`M ${commit.x} ${commit.y} C ${commit.x} ${commit.y + 15} ${midX} ${midY - 15} ${midX} ${midY}`}
-                            stroke={commit.laneColor}
-                            strokeWidth="2"
-                            fill="none"
-                          />
-                          <path
-                            d={`M ${midX} ${midY} C ${midX} ${midY + 15} ${parentCommit.x} ${parentCommit.y - 15} ${parentCommit.x} ${parentCommit.y}`}
-                            stroke={parentCommit.laneColor}
-                            strokeWidth="2"
-                            fill="none"
-                          />
-                        </g>
-                      );
-                    }
+                    // コミット間の接続線を描画
+                    const path = createBezierPath(
+                      commit.x, commit.y,
+                      parentCommit.x, parentCommit.y
+                    );
+                    
+                    // 色はコミットから親に向かう線では、親に近い方の色を使う
+                    const lineColor = parentIndex === 0 ? commit.laneColor : parentCommit.laneColor;
+                    
+                    lines.push(
+                      <path
+                        key={`line-${commit.hash}-${parentHash}-${parentIndex}`}
+                        d={path}
+                        stroke={lineColor}
+                        strokeWidth="2"
+                        fill="none"
+                      />
+                    );
                   } else {
-                    const virtualY = commit.y - ROW_HEIGHT;
+                    // 親が表示範囲外の場合、点線で下に延長
+                    const virtualY = commit.y + 28;
                     lines.push(
                       <line
                         key={`virtual-parent-line-${commit.hash}-${parentHash}-${parentIndex}`}
@@ -503,7 +547,7 @@ export default function GitHistory({
               }
               return lines;
             })}
-            {/* Draw commit points */}
+            {/* コミットポイントを描画 */}
             {extendedCommits.map(commit => (
               <g key={`point-${commit.hash}`}>
                 <circle
@@ -523,14 +567,6 @@ export default function GitHistory({
           {/* Commit list */}
           <div className="pl-8">
             {extendedCommits.map(commit => {
-              // 重複グループの他のコミットを取得
-              let duplicateGroup: GitCommitType[] = [];
-              for (const group of duplicateGroups.values()) {
-                if (group.some(c => c.hash === commit.hash) && group.length > 1) {
-                  duplicateGroup = group;
-                  break;
-                }
-              }
               return (
                 <div
                   key={commit.hash}
@@ -694,12 +730,6 @@ export default function GitHistory({
                       </div>
                     </div>
                   </div>
-                  {/* 重複コミットグループの表示（重複がある場合のみ） */}
-                  {!showDuplicates && duplicateGroup.length > 1 && (
-                    <div className="ml-6 mt-1 text-[11px] text-gray-400">
-                      <span>（{duplicateGroup.length - 1}件の重複コミットを非表示中）</span>
-                    </div>
-                  )}
                   {/* Expanded commit changes */}
                   {expandedCommits.has(commit.hash) && (
                     <div
