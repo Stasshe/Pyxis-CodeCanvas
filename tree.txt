@@ -410,6 +410,7 @@ Root
 │   │   ├── useAIReview.ts
 │   │   ├── useDiffTabHandlers.ts
 │   │   ├── useExtensionPanels.ts
+│   │   ├── useFileDeleteTabSync.ts
 │   │   ├── useGlobalScrollLock.ts
 │   │   ├── useKeyBindings.ts
 │   │   ├── useOptimizedUIStateSave.ts
@@ -469,7 +470,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-70 directories, 399 files
+70 directories, 400 files
 
 =================================
 
@@ -596,12 +597,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 64590
-合計文字数: 2088824
-合計ファイルサイズ(bytes): 2226782
+合計行数: 64775
+合計文字数: 2091722
+合計ファイルサイズ(bytes): 2231262
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127453
-合計文字数: 26797262
-合計ファイルサイズ(bytes): 29774944
+ビルト済みファイルの行数: 127454
+合計文字数: 26885411
+合計ファイルサイズ(bytes): 29863515
