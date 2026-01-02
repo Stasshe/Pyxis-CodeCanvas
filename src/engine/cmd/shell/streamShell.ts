@@ -1,13 +1,22 @@
-import EventEmitter from 'events';
-import { PassThrough, type Readable, type Writable } from 'stream';
-
 import type { UnixCommands } from '../global/unix';
-import expandBraces from './braceExpand';
 import type { StreamCtx } from './builtins';
 import adaptBuiltins from './builtins';
+import { expandTokens } from './expansion';
 import { parseCommandLine } from './parser';
+import { Process, type ProcExit } from './process';
+import { runScript } from './scriptRunner';
+import {
+  isDevNull,
+  type Segment,
+  type ShellOptions,
+  type ShellRunResult,
+  type TokenObj,
+} from './types';
 
 import type { fileRepository } from '@/engine/core/fileRepository';
+
+// Re-export for backward compatibility
+export { Process, type ProcExit } from './process';
 
 /**
  * Stream-based Shell
@@ -16,188 +25,8 @@ import type { fileRepository } from '@/engine/core/fileRepository';
  * - Redirections: >, >>, < handled by shell (uses FileRepository when provided)
  * - Signal handling (SIGINT) via EventEmitter and Process.kill()
  * - Delegates filesystem commands to UnixCommands when available
+ * - Supports /dev/null and other special files
  */
-
-export type ProcExit = { code: number | null; signal?: string | null };
-
-export class Process extends EventEmitter {
-  public stdin: Writable;
-  public stdout: Readable;
-  public stderr: Readable;
-  private _stdin: PassThrough;
-  private _stdout: PassThrough;
-  private _stderr: PassThrough;
-  // map of additional file-descriptor write streams (1 and 2 point to stdout/stderr)
-  private _fdMap: Map<number, PassThrough>;
-  public pid: number;
-  private exited = false;
-  private exitPromise: Promise<ProcExit>;
-  private resolveExit!: (r: ProcExit) => void;
-
-  constructor() {
-    super();
-    this._stdin = new PassThrough();
-    this._stdout = new PassThrough();
-    this._stderr = new PassThrough();
-    this._fdMap = new Map();
-    // fd 1 -> stdout, fd 2 -> stderr
-    this._fdMap.set(1, this._stdout);
-    this._fdMap.set(2, this._stderr);
-    this.stdin = this._stdin as unknown as Writable;
-    this.stdout = this._stdout as unknown as Readable;
-    this.stderr = this._stderr as unknown as Readable;
-    this.pid = Math.floor(Math.random() * 1e9);
-    this.exitPromise = new Promise(resolve => {
-      this.resolveExit = resolve;
-    });
-  }
-
-  // Return a writable stream for the given fd. Creates a PassThrough for unknown fds.
-  getFdWrite(fd: number): PassThrough {
-    if (!this._fdMap.has(fd)) {
-      const p = new PassThrough();
-      this._fdMap.set(fd, p);
-    }
-    return this._fdMap.get(fd)!;
-  }
-
-  // Duplicate fd 'from' to 'to' within this process (so writes to `from` go to same stream as `to`).
-  setFdDup(from: number, to: number) {
-    const target = this.getFdWrite(to);
-    this._fdMap.set(from, target);
-    // if duplicating stdout or stderr, update the public streams so builtins
-    // that write to ctx.stdout / ctx.stderr see the duplicated destination
-    if (from === 1) {
-      this._stdout = target;
-      this.stdout = this._stdout as unknown as Readable;
-      this._fdMap.set(1, target);
-    }
-    if (from === 2) {
-      this._stderr = target;
-      this.stderr = this._stderr as unknown as Readable;
-      this._fdMap.set(2, target);
-    }
-  }
-
-  // expose internal streams where needed
-  get stdinStream() {
-    return this._stdin;
-  }
-
-  get stdoutStream() {
-    return this._stdout;
-  }
-
-  get stderrStream() {
-    return this._stderr;
-  }
-
-  writeStdout(chunk: string | Buffer) {
-    try {
-      if (chunk === undefined || chunk === null) {
-        this._stdout.write('');
-      } else if (typeof chunk === 'object') {
-        try {
-          this._stdout.write(JSON.stringify(chunk));
-        } catch (e) {
-          this._stdout.write(String(chunk));
-        }
-      } else if (typeof chunk === 'string') {
-        this._stdout.write(chunk);
-      } else {
-        this._stdout.write(String(chunk));
-      }
-    } catch (e) {
-      try {
-        this._stdout.write(String(chunk));
-      } catch {}
-    }
-  }
-
-  writeStderr(chunk: string | Buffer) {
-    try {
-      if (chunk === undefined || chunk === null) {
-        this._stderr.write('');
-      } else if (typeof chunk === 'object') {
-        try {
-          this._stderr.write(JSON.stringify(chunk));
-        } catch (e) {
-          this._stderr.write(String(chunk));
-        }
-      } else if (typeof chunk === 'string') {
-        this._stderr.write(chunk);
-      } else {
-        this._stderr.write(String(chunk));
-      }
-    } catch (e) {
-      try {
-        this._stderr.write(String(chunk));
-      } catch {}
-    }
-  }
-
-  endStdout() {
-    this._stdout.end();
-  }
-
-  endStderr() {
-    this._stderr.end();
-  }
-
-  async wait(): Promise<ProcExit> {
-    return this.exitPromise;
-  }
-
-  exit(code: number | null = 0, signal: string | null = null) {
-    if (this.exited) return;
-    this.exited = true;
-    // end streams
-    try {
-      this._stdin.end();
-    } catch {}
-    try {
-      this._stdout.end();
-    } catch {}
-    try {
-      this._stderr.end();
-    } catch {}
-    this.resolveExit({ code, signal });
-    this.emit('exit', code, signal);
-  }
-
-  kill(signal = 'SIGINT') {
-    // Emit the signal event so the running handler may react
-    this.emit('signal', signal);
-    // default behavior: mark as killed
-    this.exit(null, signal);
-  }
-}
-
-type ShellOptions = {
-  projectName: string;
-  projectId: string;
-  unix: UnixCommands; // injection for tests
-  fileRepository?: typeof fileRepository; // injection for tests
-  commandRegistry?: any;
-  /** Terminal columns (width). Updated dynamically on resize. */
-  terminalColumns?: number;
-  /** Terminal rows (height). Updated dynamically on resize. */
-  terminalRows?: number;
-};
-
-type TokenObj = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
-type Segment = {
-  raw: string;
-  // tokens may be TokenObj (from parser) or plain strings (after splitting/globbing)
-  tokens: Array<string | TokenObj>;
-  stdinFile?: string | null;
-  stdoutFile?: string | null;
-  stderrFile?: string | null;
-  stderrToStdout?: boolean;
-  stdoutToStderr?: boolean;
-  append?: boolean;
-  background?: boolean;
-};
 
 export class StreamShell {
   private unix: UnixCommands;
@@ -297,233 +126,34 @@ export class StreamShell {
       seg.tokens = withCmdSub;
     }
 
-    // Field splitting (IFS) and pathname expansion (glob)
-    const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
-    const isIfsWhitespace = /[ \t\n]/.test(ifs);
-
-    const escapeForCharClass = (ch: string) => {
-      // escape regex special chars inside character class
-      if (ch === '\\') return '\\\\';
-      if (ch === ']') return '\\]';
-      if (ch === '-') return '\\-';
-      if (ch === '^') return '\\^';
-      return ch.replace(/([\\\]\-\^])/g, m => '\\' + m);
-    };
-
-    const splitOnIFS = (s: string): string[] => {
-      if (!s) return [''];
-      if (isIfsWhitespace) {
-        // treat runs of whitespace as single separator and trim edges
-        return s.split(/\s+/).filter(Boolean);
-      }
-      // split on any IFS char, preserve empty fields
-      const chars = Array.from(new Set(ifs.split('')))
-        .map(c => escapeForCharClass(c))
-        .join('');
-      const re = new RegExp('[' + chars + ']');
-      return s.split(re).filter(x => x !== undefined);
-    };
-
-    const hasGlob = (s: string) => /[*?\[]/.test(s);
-
-    // brace expansion handled by separate utility `expandBraces` imported above
-
-    const globExpand = async (pattern: string): Promise<string[]> => {
-      if (!this.fileRepository || !unix) return [pattern];
-
-      try {
-        // The current working dir on the unix side - used to resolve relative
-        // patterns inside the project workspace.
-        const currentWorkingDir = await unix.pwd().catch(() => `/projects/${this.projectName}`);
-        const projectRelativeCwd =
-          currentWorkingDir.replace(`/projects/${this.projectName}`, '') || '/';
-
-        // ★★★ Split pattern into directory prefix and filename glob ★★★
-        const lastSlashIndex = pattern.lastIndexOf('/');
-        const dirPrefix = lastSlashIndex >= 0 ? pattern.slice(0, lastSlashIndex + 1) : '';
-        const fileGlob = lastSlashIndex >= 0 ? pattern.slice(lastSlashIndex + 1) : pattern;
-
-        // ★★★ Resolve dirPrefix into a normalized absolute project path ★★★
-        const projectBase = `/projects/${this.projectName}`;
-        let resolvedTargetDir: string;
-        if (dirPrefix.startsWith('/')) {
-          // absolute inside project
-          resolvedTargetDir = projectBase + dirPrefix;
-        } else if (dirPrefix === '') {
-          // unspecified dir -> use cwd
-          const resolvedCwd = await unix.pwd().catch(() => projectBase);
-          resolvedTargetDir = resolvedCwd;
-        } else {
-          // relative dir -> combine with cwd
-          const resolvedCwd = await unix.pwd().catch(() => projectBase);
-          let combined = resolvedCwd === '/' ? '/' + dirPrefix : resolvedCwd + '/' + dirPrefix;
-          combined = combined.replace(/\/+/g, '/'); // normalize slashes
-          // Normalize path (resolve ../ and ./)
-          const parts = combined.split('/').filter(p => p !== '' && p !== '.');
-          const stack: string[] = [];
-          for (const part of parts) {
-            if (part === '..') {
-              if (stack.length > 0) stack.pop();
-            } else {
-              stack.push(part);
-            }
-          }
-          resolvedTargetDir = '/' + stack.join('/');
-        }
-
-        // ★★★ Convert resolvedTargetDir into a project-relative prefix used by the repo API ★★★
-        let projectRelativeDir: string;
-        if (resolvedTargetDir === projectBase || resolvedTargetDir === projectBase + '/') {
-          projectRelativeDir = '';
-        } else if (resolvedTargetDir.startsWith(projectBase)) {
-          projectRelativeDir = resolvedTargetDir.substring(projectBase.length); // '/typescript' etc
-        } else {
-          projectRelativeDir = resolvedTargetDir;
-        }
-
-        // searchPrefix must include leading slash for the fileRepository API
-        const searchPrefix =
-          projectRelativeDir === '' || projectRelativeDir === '/'
-            ? ''
-            : projectRelativeDir.endsWith('/')
-              ? projectRelativeDir
-              : projectRelativeDir + '/';
-
-        let projectFiles: any[] = [];
-        if (this.fileRepository.getFilesByPrefix) {
-          projectFiles = await this.fileRepository.getFilesByPrefix(this.projectId, searchPrefix);
-        }
-
-        // ★★★ Filter files to direct children under the target directory only ★★★
-        const directChildren = projectFiles.filter((file: any) => {
-          if (searchPrefix === '') {
-            // root direct children only (one level)
-            const parts = file.path.split('/').filter((p: string) => p);
-            return parts.length === 1;
-          }
-          const prefix = searchPrefix + (searchPrefix.endsWith('/') ? '' : '/');
-          if (!file.path.startsWith(prefix)) return false;
-          const remainder = file.path.substring(prefix.length);
-          return !remainder.includes('/');
-        });
-
-        const fileNames = directChildren
-          .map((file: any) => file.path.split('/').pop() || '')
-          .filter((n: string) => n !== '');
-
-        // ★★★ Match the filename glob against the retrieved children ★★★
-        const regexParts: string[] = [];
-        for (let i = 0; i < fileGlob.length; i++) {
-          const ch = fileGlob[i];
-          if (ch === '*') regexParts.push('[^/]*');
-          else if (ch === '?') regexParts.push('[^/]');
-          else if (ch === '[') {
-            let j = i + 1;
-            let cls = '';
-            while (j < fileGlob.length && fileGlob[j] !== ']') {
-              const c = fileGlob[j++];
-              if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
-              else cls += c;
-            }
-            i = Math.min(j, fileGlob.length - 1);
-            regexParts.push('[' + cls + ']');
-          } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push('\\' + ch);
-          else regexParts.push(ch);
-        }
-
-        const regexStr = '^' + regexParts.join('') + '$';
-        const regex = new RegExp(regexStr);
-        const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
-        console.log('[globExpand] input:', pattern);
-        console.log(
-          '[globExpand] cwd:',
-          currentWorkingDir,
-          'projectRelativeCwd:',
-          projectRelativeCwd
-        );
-        console.log('[globExpand] dirPrefix:', dirPrefix, 'fileGlob:', fileGlob);
-        console.log(
-          '[globExpand] resolvedTargetDir:',
-          resolvedTargetDir,
-          'searchPrefix:',
-          searchPrefix
-        );
-        console.log('[globExpand] files found:', projectFiles.length);
-        console.log('[globExpand] directChildren:', directChildren.length);
-        console.log('[globExpand] matched:', matchedNames);
-
-        // ★★★ Return full path(s) as dirPrefix + matched filename(s) ★★★
-        if (matchedNames.length > 0) {
-          return matchedNames.map(name => dirPrefix + name);
-        }
-      } catch (e) {
-        console.warn('[globExpand] failed:', e);
-      }
-
-      return [pattern];
-    };
-
-    // Now perform splitting and globbing (and brace expansion) to produce final argv array
-    const finalWords: string[] = [];
-    const tokenObjs = seg.tokens as TokenObj[];
-    for (const tk of tokenObjs) {
-      if (tk.quote === 'single' || tk.quote === 'double') {
-        // quoted: no field splitting, no globbing
-        finalWords.push(tk.text);
-        continue;
-      }
-      // unquoted: perform IFS splitting
-      const parts = splitOnIFS(tk.text);
-      for (const p of parts) {
-        if (p === '') continue;
-        // brace expansion (supports nested, comma lists and numeric ranges)
-        const bexp = expandBraces(p);
-        if (bexp.length > 1 || bexp[0] !== p) {
-          for (const bp of bexp) {
-            if (hasGlob(bp) && bp !== '') {
-              const matches = await globExpand(bp);
-              for (const m of matches) finalWords.push(m);
-            } else if (bp !== '') {
-              finalWords.push(bp);
-            }
-          }
-          continue;
-        }
-        if (hasGlob(p) && p !== '') {
-          const matches = await globExpand(p);
-          for (const m of matches) finalWords.push(m);
-        } else if (p !== '') {
-          finalWords.push(p);
-        }
-      }
-    }
-
-    // デバッグ: グロブ展開・分割後の引数を出力
-    console.log('[shell] finalWords:', finalWords);
+    // Field splitting (IFS), pathname expansion (glob), and brace expansion
+    // Use the expandTokens utility from expansion.ts
+    const finalWords = await expandTokens(seg.tokens as TokenObj[], {
+      projectId: this.projectId,
+      projectName: this.projectName,
+      fileRepository: this.fileRepository,
+      unix,
+    });
     // Replace seg.tokens with final words (plain strings) for execution
     (seg as any).tokens = finalWords;
 
-    // helper to set foreground process (cleared when exits)
-    const setForeground = (p: Process | null) => {
-      this.foregroundProc = p;
-      if (p) {
-        p.on('exit', () => {
-          if (this.foregroundProc === p) this.foregroundProc = null;
-        });
-      }
-    };
-
     // If stdinFile is provided, read it and pipe into proc.stdin
+    // Handle /dev/null specially: provide empty input
     if (seg.stdinFile && unix) {
-      (async () => {
-        try {
-          const content = await unix.cat(seg.stdinFile!).catch(() => '');
-          if (content !== undefined && content !== null) {
-            proc.stdin.write(String(content));
-          }
-        } catch (e) {}
+      if (isDevNull(seg.stdinFile)) {
+        // /dev/null as stdin: end immediately with no data
         proc.stdin.end();
-      })();
+      } else {
+        (async () => {
+          try {
+            const content = await unix.cat(seg.stdinFile!).catch(() => '');
+            if (content !== undefined && content !== null) {
+              proc.stdin.write(String(content));
+            }
+          } catch (e) {}
+          proc.stdin.end();
+        })();
+      }
     }
 
     // Launch handler async
@@ -689,7 +319,7 @@ export class StreamShell {
               // Build argv with script name followed by provided args.
               const scriptArgs = [cmd, ...args];
               try {
-                await this.runScript(String(text), scriptArgs, proc);
+                await runScript(String(text), scriptArgs, proc, this);
               } catch (e) {
                 // propagate error to stderr
                 try {
@@ -742,7 +372,7 @@ export class StreamShell {
           }
 
           // Improved script execution: handle control flow (if/for/while) and positional args
-          await this.runScript(String(content), args, proc).catch(() => {});
+          await runScript(String(content), args, proc, this).catch(() => {});
           proc.endStdout();
           proc.endStderr();
           proc.exit(0);
@@ -954,652 +584,6 @@ export class StreamShell {
     return proc;
   }
 
-  // Execute a script text with simple control flow support (if/for/while)
-  // args: positional args passed to the script (argv[1..])
-  private async runScript(text: string, args: string[], proc: Process) {
-    // Split the script into physical lines first BUT respect quotes, backticks and $(...)
-    // so multi-line quoted strings are preserved as a single logical line.
-    const splitPhysicalLines = (src: string): string[] => {
-      const out: string[] = [];
-      let cur = '';
-      let inS = false;
-      let inD = false;
-      let inBT = false;
-      let parenDepth = 0; // for $(...)
-      for (let i = 0; i < src.length; i++) {
-        const ch = src[i];
-        if (ch === '\\') {
-          // copy escape and next char if present
-          cur += ch;
-          if (i + 1 < src.length) cur += src[++i];
-          continue;
-        }
-        if (ch === '`' && !inS && !inD) {
-          inBT = !inBT;
-          cur += ch;
-          continue;
-        }
-        if (ch === '"' && !inS && !inBT) {
-          inD = !inD;
-          cur += ch;
-          continue;
-        }
-        if (ch === "'" && !inD && !inBT) {
-          inS = !inS;
-          cur += ch;
-          continue;
-        }
-        if (!inS && !inD && !inBT) {
-          if (ch === '$' && src[i + 1] === '(') {
-            parenDepth++;
-            cur += ch;
-            continue;
-          }
-          if (ch === '(' && parenDepth > 0) {
-            cur += ch;
-            continue;
-          }
-          if (ch === ')') {
-            if (parenDepth > 0) parenDepth--;
-            cur += ch;
-            continue;
-          }
-          if (ch === '\n' && parenDepth === 0) {
-            out.push(cur);
-            cur = '';
-            continue;
-          }
-        }
-        cur += ch;
-      }
-      if (cur !== '') out.push(cur);
-      return out;
-    };
-
-    const rawLines = splitPhysicalLines(text);
-    // Helper: split a line at top-level semicolons (not inside quotes, backticks, or $(...)).
-    // This lets us treat `if cond; then cmd; fi` and multi-line variants uniformly.
-    const splitTopLevelSemicolons = (s: string): string[] => {
-      const out: string[] = [];
-      let cur = '';
-      let inS = false;
-      let inD = false;
-      let inBT = false; // backtick
-      let parenDepth = 0; // for $( ... )
-      for (let i = 0; i < s.length; i++) {
-        const ch = s[i];
-        // handle escapes
-        if (ch === '\\') {
-          cur += ch;
-          if (i + 1 < s.length) cur += s[++i];
-          continue;
-        }
-        if (ch === '`' && !inS && !inD) {
-          inBT = !inBT;
-          cur += ch;
-          continue;
-        }
-        if (ch === "'" && !inD && !inBT) {
-          inS = !inS;
-          cur += ch;
-          continue;
-        }
-        if (ch === '"' && !inS && !inBT) {
-          inD = !inD;
-          cur += ch;
-          continue;
-        }
-        if (!inS && !inD && !inBT) {
-          if (ch === '$' && s[i + 1] === '(') {
-            parenDepth++;
-            cur += ch;
-            continue;
-          }
-          if (ch === '(' && parenDepth > 0) {
-            cur += ch;
-            continue;
-          }
-          if (ch === ')') {
-            if (parenDepth > 0) parenDepth--;
-            cur += ch;
-            continue;
-          }
-          if (ch === ';' && parenDepth === 0) {
-            out.push(cur);
-            cur = '';
-            continue;
-          }
-        }
-        cur += ch;
-      }
-      if (cur !== '') out.push(cur);
-      return out;
-    };
-
-    // Build statement list by splitting each physical line at top-level semicolons.
-    const lines: string[] = [];
-    for (const rl of rawLines) {
-      const parts = splitTopLevelSemicolons(rl);
-      for (const p of parts) {
-        lines.push(p);
-      }
-    }
-    // Evaluate simple arithmetic $(( ... )) where used in assignments
-    // This helper evaluates numeric arithmetic expressions found as $((...)).
-    // Note: it intentionally only supports numeric expressions composed of
-    // digits, whitespace and arithmetic operators. Variable names are replaced
-    // with numeric values from `localVars` before evaluation.
-    const evalArithmeticInString = (s: string, localVars: Record<string, string>) => {
-      return s.replace(/\$\(\((.*?)\)\)/g, (_, expr) => {
-        // replace variable names with numeric values from localVars
-        const safe = expr.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m: string) => {
-          if (/^\d+$/.test(m)) return m;
-          const v = localVars[m];
-          return String(Number(v || 0));
-        });
-        // allow only digits, spaces and arithmetic operators
-        if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
-        try {
-          const val = Function(`return (${safe})`)();
-          return String(Number(val));
-        } catch (e) {
-          return '0';
-        }
-      });
-    };
-
-    // Helper: evaluate command-substitutions in a string (supports $(...) and `...`)
-    // Replaces occurrences with the stdout of the inner command (trimmed).
-    // ALSO: after expanding command-substitutions, run arithmetic expansion
-    // ($((...))) so arithmetic expressions inside the result are evaluated.
-    // Previously this function did not evaluate $((...)); that caused some
-    // scripts to leave arithmetic expressions unexpanded. We now evaluate
-    // arithmetic here using the localVars context.
-    const evalCommandSubstitutions = async (
-      s: string,
-      localVars: Record<string, string>
-    ): Promise<string> => {
-      // handle backticks first (non-nested simple support)
-      let out = s;
-      // backticks: `...` (non nested)
-      while (true) {
-        const bt = out.indexOf('`');
-        if (bt === -1) break;
-        let j = bt + 1;
-        let buf = '';
-        while (j < out.length && out[j] !== '`') {
-          buf += out[j++];
-        }
-        if (j >= out.length) break; // unterminated - leave as-is
-        const inner = buf;
-        const res = await this.run(inner);
-        const replacement = String(res.stdout || '');
-        out = out.slice(0, bt) + replacement + out.slice(j + 1);
-      }
-
-      // handle $(...) with nesting
-      const findMatching = (str: string, start: number) => {
-        let depth = 0;
-        for (let k = start; k < str.length; k++) {
-          if (str[k] === '(') depth++;
-          if (str[k] === ')') {
-            depth--;
-            if (depth === 0) return k;
-          }
-        }
-        return -1;
-      };
-
-      while (true) {
-        const idx = out.indexOf('$(');
-        if (idx === -1) break;
-        const openPos = idx + 1; // position of '('
-        const end = findMatching(out, openPos);
-        if (end === -1) break; // unterminated - stop
-        const inner = out.slice(openPos + 1, end);
-        // recursively evaluate inner substitutions first
-        const innerEval = await evalCommandSubstitutions(inner, localVars);
-        const res = await this.run(innerEval);
-        const replacement = String(res.stdout || '');
-        out = out.slice(0, idx) + replacement + out.slice(end + 1);
-      }
-
-      // After command-substitutions, also perform arithmetic expansion $((...))
-      // so expressions inside the resulting string are evaluated using localVars.
-      try {
-        out = evalArithmeticInString(out, localVars);
-      } catch (e) {
-        // if arithmetic expansion fails, leave the string as-is
-      }
-
-      return out;
-    };
-
-    const interpolate = (line: string, localVars: Record<string, string>) => {
-      // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
-      let out = line;
-      // Replace $@ with context-sensitive expansion:
-      // - inside single quotes: no expansion
-      // - inside double quotes: join args with spaces (escape double-quotes inside args)
-      // - unquoted: expand to individually single-quoted args so word boundaries are preserved
-      const replaceAt = (s: string) => {
-        let res = '';
-        let i = 0;
-        while (i < s.length) {
-          const idx = s.indexOf('$@', i);
-          if (idx === -1) {
-            res += s.slice(i);
-            break;
-          }
-          res += s.slice(i, idx);
-          // determine quote context at idx
-          let inS = false;
-          let inD = false;
-          for (let j = 0; j < idx; j++) {
-            const ch = s[j];
-            if (ch === "'" && !inD) inS = !inS;
-            if (ch === '"' && !inS) inD = !inD;
-          }
-          if (inS) {
-            // no expansion inside single quotes
-            res += '$@';
-          } else if (inD) {
-            // join args and escape double quotes
-            const joined = (args && args.length > 1 ? args.slice(1) : [])
-              .map(a => String(a).replace(/"/g, '\\"'))
-              .join(' ');
-            res += joined;
-          } else {
-            // unquoted: expand to individually single-quoted args
-            const parts = (args && args.length > 1 ? args.slice(1) : []).map(a => {
-              const s = String(a);
-              // escape single quotes by closing, inserting \"'\", and reopening
-              const esc = s.replace(/'/g, "'\\''");
-              return "'" + esc + "'";
-            });
-            res += parts.join(' ');
-          }
-          i = idx + 2;
-        }
-        return res;
-      };
-      out = replaceAt(out);
-      // $0 -> script name (args[0])
-      out = out.replace(/\$0\b/g, args[0] || '');
-      // positional $1..$9 -> args[1]..args[9]
-      for (let i = 1; i <= 9; i++) {
-        const val = args[i] || '';
-        out = out.replace(new RegExp(`\\$${i}\\b`, 'g'), val);
-      }
-      // ${VAR} style
-      out = out.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, name) => {
-        if (name in localVars) return localVars[name];
-        return '';
-      });
-      // $VAR style (word boundary)
-      for (const k of Object.keys(localVars)) {
-        out = out.replace(new RegExp('\\$' + k + '\\b', 'g'), localVars[k]);
-      }
-      return out;
-    };
-
-    // Unified evaluation pipeline for a script fragment:
-    // 1) parameter/variable and positional interpolation (interpolate)
-    // 2) command substitutions (`...` and $(...))
-    // 3) arithmetic expansion $((...))
-    // This centralizes the expansion order so callers don't need to mix
-    // interpolate/evalCommandSubstitutions/evalArithmeticInString calls.
-    const evaluateLine = async (lineStr: string, localVars: Record<string, string>) => {
-      // first do variable/positional interpolation
-      const afterInterp = interpolate(lineStr, localVars);
-      // then expand command substitutions and nested arithmetic
-      const afterCmdSub = await evalCommandSubstitutions(afterInterp, localVars);
-      // finally arithmetic expansion (already applied inside evalCommandSubstitutions for nested results,
-      // but run again here for safety on direct inputs)
-      try {
-        return evalArithmeticInString(afterCmdSub, localVars);
-      } catch (e) {
-        return afterCmdSub;
-      }
-    };
-
-    // Evaluate a condition used in if/elif/while. Supports leading '!' negation
-    // operators (possibly multiple) by stripping them, evaluating the inner
-    // command, and inverting the exit code if needed. Returns the same shape
-    // as this.run() (stdout, stderr, code) with code possibly inverted.
-    const runCondition = async (condExpr: string, localVars: Record<string, string>) => {
-      if (!condExpr) return { stdout: '', stderr: '', code: 1 };
-      // count leading ! operators
-      let s = condExpr.trimStart();
-      let neg = 0;
-      while (s.startsWith('!')) {
-        neg++;
-        s = s.slice(1).trimStart();
-      }
-      if (!s) return { stdout: '', stderr: '', code: neg % 2 === 1 ? 0 : 1 };
-      // evaluate expansions then run
-      const evaled = await evaluateLine(s, localVars);
-      const res = await this.run(evaled);
-      const codeNum = typeof res.code === 'number' ? res.code : 0;
-      const finalCode = neg % 2 === 1 ? (codeNum === 0 ? 1 : 0) : codeNum;
-      return { stdout: res.stdout, stderr: res.stderr, code: finalCode };
-    };
-
-    // brace expansion for runScript uses shared expandBraces utility (handles nested, lists, ranges)
-
-    const MAX_LOOP = 10000;
-
-    // run a range [start, end) of lines; supports break/continue signaling via return value
-    const runRange = async (
-      start: number,
-      end: number,
-      localVars: Record<string, string>
-    ): Promise<'ok' | 'break' | 'continue' | { exit: number }> => {
-      for (let i = start; i < end; i++) {
-        const raw = lines[i] ?? '';
-        const trimmed = raw.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        // Skip structural tokens that may appear as separate statements after splitting
-        if (
-          trimmed === 'then' ||
-          trimmed === 'fi' ||
-          trimmed === 'do' ||
-          trimmed === 'done' ||
-          trimmed === 'else' ||
-          trimmed.startsWith('elif ')
-        ) {
-          continue;
-        }
-
-        // Helper to find matching end index for a block starting at `i`.
-        // Works for if/fi (handling elif/else), for/done, while/done.
-        // Note: lines is the pre-split statement array, so `then`/`do`/`fi` appear as separate statements
-        // or may be on the same statement (e.g. 'if cond then' or 'do echo'). We handle both.
-
-        // IF block
-        if (/^if\b/.test(trimmed)) {
-          // extract conditional expression between 'if' and 'then' (may be on same statement)
-          let condLine = trimmed.replace(/^if\s+/, '').trim();
-          let thenIdx = -1;
-          // if this statement contains 'then' (e.g. 'if cond then' or 'if cond; then')
-          const thenMatch = condLine.match(/\bthen\b(.*)$/);
-          if (thenMatch) {
-            // split cond and trailing body
-            condLine = condLine.slice(0, thenMatch.index).trim();
-            const trailing = thenMatch[1] ? thenMatch[1].trim() : '';
-            // insert trailing part as next statement if present
-            if (trailing) {
-              lines.splice(i + 1, 0, trailing);
-            }
-            thenIdx = i;
-          } else {
-            // search for a 'then' statement in subsequent statements
-            for (let j = i + 1; j < lines.length; j++) {
-              const t = (lines[j] || '').trim();
-              if (/^then\b/.test(t)) {
-                thenIdx = j;
-                const trailing = t.replace(/^then\b/, '').trim();
-                if (trailing) lines.splice(j + 1, 0, trailing);
-                break;
-              }
-            }
-          }
-
-          // find matching fi, and collect top-level elif/else positions
-          let depth = 1;
-          let fiIdx = -1;
-          const elifs: number[] = [];
-          let elseIdx = -1;
-          for (let j = thenIdx === -1 ? i + 1 : thenIdx + 1; j < lines.length; j++) {
-            const t = (lines[j] || '').trim();
-            if (/^if\b/.test(t)) {
-              depth++;
-            }
-            if (/^fi\b/.test(t)) {
-              depth--;
-              if (depth === 0) {
-                fiIdx = j;
-                break;
-              }
-            }
-            if (depth === 1) {
-              if (/^elif\b/.test(t)) elifs.push(j);
-              if (/^else\b/.test(t) && elseIdx === -1) elseIdx = j;
-            }
-          }
-          if (fiIdx === -1) {
-            // unterminated if - treat remainder as block
-            fiIdx = lines.length - 1;
-          }
-
-          // evaluate condition
-          const condEval = await runCondition(condLine, localVars);
-
-          // forward any output from condition evaluation to the script process
-          if (condEval.stdout) proc.writeStdout(condEval.stdout);
-          if (condEval.stderr) proc.writeStderr(condEval.stderr);
-          if (condEval.code === 0) {
-            // then block starts after thenIdx
-            const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
-            const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
-            const r = await runRange(thenStart, thenEnd, localVars);
-            if (r !== 'ok') return r;
-          } else {
-            // check elifs in order
-            let matched = false;
-            for (let k = 0; k < elifs.length; k++) {
-              const eIdx = elifs[k];
-              // extract condition after 'elif'
-              const eLine = (lines[eIdx] || '').trim();
-              let eCond = eLine.replace(/^elif\s+/, '').trim();
-              // if 'then' on same line, split trailing
-              const m = eCond.match(/\bthen\b(.*)$/);
-              if (m) {
-                eCond = eCond.slice(0, m.index).trim();
-                const trailing = m[1] ? m[1].trim() : '';
-                if (trailing) lines.splice(eIdx + 1, 0, trailing);
-              }
-              const eRes = await runCondition(eCond, localVars);
-
-              // forward outputs from elif condition
-              if (eRes.stdout) proc.writeStdout(eRes.stdout);
-              if (eRes.stderr) proc.writeStderr(eRes.stderr);
-              if (eRes.code === 0) {
-                const eThenStart = eIdx + 1;
-                const eThenEnd =
-                  k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
-                const r = await runRange(eThenStart, eThenEnd, localVars);
-                if (r !== 'ok') return r;
-                matched = true;
-                break;
-              }
-            }
-            if (!matched && elseIdx !== -1) {
-              const r = await runRange(elseIdx + 1, fiIdx, { ...localVars });
-              if (r !== 'ok') return r;
-            }
-          }
-          // advance i to fiIdx
-          i = fiIdx;
-          continue;
-        }
-
-        // FOR block
-        if (/^for\b/.test(trimmed)) {
-          const m = trimmed.match(/^for\s+(\w+)\s+in\s*(.*)$/);
-          if (!m) {
-            continue;
-          }
-          const varName = m[1];
-          let itemsStr = m[2] ? m[2].trim() : '';
-          // if itemsStr contains 'do' (inline), split
-          if (/\bdo\b/.test(itemsStr)) {
-            const parts = itemsStr.split(/\bdo\b/);
-            itemsStr = parts[0].trim();
-            const trailing = parts.slice(1).join('do').trim();
-            if (trailing) lines.splice(i + 1, 0, trailing);
-          }
-          // find do and matching done
-          let doIdx = -1;
-          let doneIdx = -1;
-          for (let j = i + 1; j < lines.length; j++) {
-            const t = (lines[j] || '').trim();
-            if (/^do\b/.test(t) && doIdx === -1) {
-              // if 'do' has trailing content, push it as next stmt
-              const trailing = t.replace(/^do\b/, '').trim();
-              if (trailing) lines.splice(j + 1, 0, trailing);
-              doIdx = j;
-            }
-            if (/^done\b/.test(t)) {
-              doneIdx = j;
-              break;
-            }
-          }
-          if (doIdx === -1 || doneIdx === -1) {
-            i = doneIdx === -1 ? lines.length - 1 : doneIdx;
-            continue;
-          }
-          const bodyStart = doIdx + 1;
-          const bodyEnd = doneIdx;
-          const interpItems = await evaluateLine(itemsStr, localVars);
-          // split items and support simple brace expansion (e.g. {1..5})
-          const rawItems = interpItems.split(/\s+/).filter(Boolean);
-          const items: string[] = [];
-          for (const it of rawItems) {
-            const expanded = expandBraces(it);
-            if (expanded.length > 1 || expanded[0] !== it) items.push(...expanded);
-            else items.push(it);
-          }
-          let iter = 0;
-          for (const it of items) {
-            if (++iter > MAX_LOOP) break;
-            // set loop variable in localVars (shell variables are global in this scope)
-            localVars[varName] = it;
-            const r = await runRange(bodyStart, bodyEnd, localVars);
-            if (r === 'break') break;
-            if (r === 'continue') continue;
-            // propagate exit objects upward so scripts terminate immediately
-            if (typeof r === 'object' && r && 'exit' in r) return r;
-          }
-          i = doneIdx;
-          continue;
-        }
-
-        // WHILE block
-        if (/^while\b/.test(trimmed)) {
-          let condLine = trimmed.replace(/^while\s+/, '').trim();
-          // handle inline do
-          if (/\bdo\b/.test(condLine)) {
-            const parts = condLine.split(/\bdo\b/);
-            condLine = parts[0].trim();
-            const trailing = parts.slice(1).join('do').trim();
-            if (trailing) lines.splice(i + 1, 0, trailing);
-          }
-          let doIdx = -1;
-          let doneIdx = -1;
-          for (let j = i + 1; j < lines.length; j++) {
-            const t = (lines[j] || '').trim();
-            if (/^do\b/.test(t) && doIdx === -1) {
-              const trailing = t.replace(/^do\b/, '').trim();
-              if (trailing) lines.splice(j + 1, 0, trailing);
-              doIdx = j;
-            }
-            if (/^done\b/.test(t)) {
-              doneIdx = j;
-              break;
-            }
-          }
-          if (doIdx === -1 || doneIdx === -1) {
-            i = doneIdx === -1 ? lines.length - 1 : doneIdx;
-            continue;
-          }
-          const bodyStart = doIdx + 1;
-          const bodyEnd = doneIdx;
-          let count = 0;
-          while (true) {
-            if (++count > MAX_LOOP) break;
-            const cres = await runCondition(condLine, localVars);
-            // (condition evaluation output is forwarded below when appropriate)
-            // forward outputs from while condition
-            if (cres.stdout) proc.writeStdout(cres.stdout);
-            if (cres.stderr) proc.writeStderr(cres.stderr);
-            // trace removed; condition outputs are forwarded above
-            if (cres.code !== 0) break;
-            const r = await runRange(bodyStart, bodyEnd, localVars);
-            if (r === 'break') break;
-            if (r === 'continue') continue;
-            // propagate exit upward so while-loop and enclosing script stop
-            if (typeof r === 'object' && r && 'exit' in r) return r;
-          }
-          i = doneIdx;
-          continue;
-        }
-
-        // break / continue
-        if (trimmed === 'break') return 'break';
-        if (trimmed === 'continue') return 'continue';
-
-        // regular command or assignment: interpolate and execute
-        let execLine = interpolate(trimmed, localVars);
-
-        // handle `set ...` as a noop for now (common in scripts)
-        if (execLine.startsWith('set ')) {
-          // ignore set flags (e.g. -euo pipefail) for now
-          continue;
-        }
-
-        // assignment-only: VAR=VALUE (no command)
-        const assignMatch = execLine.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s);
-        if (assignMatch) {
-          const name = assignMatch[1];
-          let rhs = assignMatch[2] ?? '';
-          // trim surrounding quotes if present
-          rhs = rhs.trim();
-          if (
-            (rhs.startsWith("'") && rhs.endsWith("'")) ||
-            (rhs.startsWith('"') && rhs.endsWith('"'))
-          ) {
-            rhs = rhs.slice(1, -1);
-          }
-          // handle arithmetic expansion $((...)) before command-substitution
-          rhs = evalArithmeticInString(rhs, localVars);
-          // evaluate command substitutions in rhs
-          try {
-            const evaluated = await evalCommandSubstitutions(rhs, localVars);
-            // store into localVars for subsequent interpolation
-            localVars[name] = evaluated;
-          } catch (e) {
-            // fallback: raw assignment
-            localVars[name] = rhs;
-          }
-          continue;
-        }
-        // For non-assignment commands, perform full evaluation pipeline
-        try {
-          execLine = await evaluateLine(execLine, localVars);
-        } catch (e) {
-          // ignore evaluation errors and use original execLine
-        }
-        const res = await this.run(execLine);
-        if (res.stdout) proc.writeStdout(res.stdout);
-        if (res.stderr) proc.writeStderr(res.stderr);
-        // continue even on non-zero exit - matching simple shell behavior unless script uses conditional
-      }
-      return 'ok';
-    };
-
-    const result = await runRange(0, lines.length, {});
-
-    // If an exit object was returned from the script body, terminate the
-    // script process with the provided code immediately.
-    if (typeof result === 'object' && result && 'exit' in result) {
-      try {
-        proc.exit(result.exit);
-      } catch (e) {}
-      return;
-    }
-  }
-
   // Run full pipeline line and resolve final stdout/stderr and code
   async run(
     line: string,
@@ -1653,6 +637,14 @@ export class StreamShell {
             const stream = proc.getFdWrite(fd);
             const fdFiles = (seg as any)?.fdFiles || {};
             const fileInfo = fdFiles[fd];
+            
+            // Check if redirecting to /dev/null - discard output silently
+            if (fileInfo && isDevNull(fileInfo.path)) {
+              // Consume data but don't store it (discard)
+              stream.on('data', () => {});
+              return;
+            }
+            
             if (fileInfo && this.fileRepository) {
               // Collect data into buffers and notify real-time callbacks,
               // but defer actual repository writes until the end of the pipeline.
@@ -1847,6 +839,8 @@ export class StreamShell {
       const appendMap: Record<string, boolean> = {};
       const add = (path: string | undefined | null, content: string, append = false) => {
         if (!path) return;
+        // Skip /dev/null - don't write anything
+        if (isDevNull(path)) return;
         const key = path.startsWith('/') ? path : `/${path}`;
         writes[key] = (writes[key] || '') + content;
         appendMap[key] = appendMap[key] || append;
@@ -1858,6 +852,8 @@ export class StreamShell {
           const fdn = Number(k);
           if (Number.isNaN(fdn)) continue;
           const info = (overallLastSeg as any).fdFiles[fdn];
+          // Skip /dev/null
+          if (isDevNull(info.path)) continue;
           const content = (fdBuffers[fdn] || []).join('');
           add(info.path, content, !!info.append);
         }
@@ -1912,14 +908,22 @@ export class StreamShell {
       }
     }
 
-    // Determine returned stdout/stderr: if redirected to files, do not include in return
+    // Determine returned stdout/stderr: if redirected to files (including /dev/null), do not include in return
     const code = typeof lastExitCode === 'number' ? lastExitCode : 0;
     const lastFdFiles = overallLastSeg ? (overallLastSeg as any).fdFiles : undefined;
+    
+    // Check if stdout/stderr are redirected to /dev/null
+    const stdoutToDevNull = (overallLastSeg?.stdoutFile && isDevNull(overallLastSeg.stdoutFile)) ||
+                           (lastFdFiles && lastFdFiles[1] && isDevNull(lastFdFiles[1].path));
+    const stderrToDevNull = (overallLastSeg?.stderrFile && isDevNull(overallLastSeg.stderrFile)) ||
+                           (lastFdFiles && lastFdFiles[2] && isDevNull(lastFdFiles[2].path));
+    
     const returnedStdout =
       overallLastSeg &&
       (overallLastSeg.stdoutFile ||
         overallLastSeg.stdoutToStderr ||
-        (lastFdFiles && lastFdFiles[1]))
+        (lastFdFiles && lastFdFiles[1]) ||
+        stdoutToDevNull)
         ? ''
         : finalOut;
     // Suppress returned stderr if it was redirected to a file or merged into stdout via 2>&1
@@ -1927,7 +931,8 @@ export class StreamShell {
       overallLastSeg &&
       (overallLastSeg.stderrFile ||
         overallLastSeg.stderrToStdout ||
-        (lastFdFiles && lastFdFiles[2]))
+        (lastFdFiles && lastFdFiles[2]) ||
+        stderrToDevNull)
         ? ''
         : finalErr;
     return { stdout: returnedStdout, stderr: returnedStderr, code };
