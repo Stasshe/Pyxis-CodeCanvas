@@ -11,7 +11,7 @@ import type { FileItem } from '@/types';
 
 import FileTreeContextMenu from './FileTreeContextMenu';
 import FileTreeItem from './FileTreeItem';
-import type { ContextMenuState, FileTreeProps, FlattenedTreeItem, StickyFolder } from './types';
+import type { ContextMenuState, FileTreeProps, FlattenedTreeItem } from './types';
 
 const ITEM_HEIGHT = 24;
 
@@ -54,43 +54,6 @@ function flattenTree(
   return result;
 }
 
-/**
- * Calculates sticky folders based on current scroll position.
- * Returns folders that should be "sticky" at the top of the viewport.
- */
-function calculateStickyFolders(
-  flattenedItems: FlattenedTreeItem[],
-  scrollOffset: number
-): StickyFolder[] {
-  const stickyFolders: StickyFolder[] = [];
-  const itemIndex = Math.floor(scrollOffset / ITEM_HEIGHT);
-
-  if (itemIndex < 0 || itemIndex >= flattenedItems.length) {
-    return stickyFolders;
-  }
-
-  // Find parent folders for the current visible item
-  const currentItem = flattenedItems[itemIndex];
-  if (!currentItem) return stickyFolders;
-
-  // Trace back to find parent folders
-  const parentPaths = currentItem.parentPath.split('/').filter(Boolean);
-  let accPath = '';
-
-  for (let i = 0; i < parentPaths.length; i++) {
-    accPath += '/' + parentPaths[i];
-    // Find the folder item with this path
-    const folderItem = flattenedItems.find(
-      f => f.item.type === 'folder' && f.item.path === accPath
-    );
-    if (folderItem) {
-      stickyFolders.push({ item: folderItem.item, level: folderItem.level });
-    }
-  }
-
-  return stickyFolders;
-}
-
 export default function VirtualizedFileTree({
   items,
   currentProjectName,
@@ -109,7 +72,6 @@ export default function VirtualizedFileTree({
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
-  const [scrollOffset, setScrollOffset] = useState(0);
 
   // Touch long-press handling
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -121,24 +83,13 @@ export default function VirtualizedFileTree({
     [items, expandedFolders, gitignoreRules]
   );
 
-  // Calculate sticky folders
-  const stickyFolders = useMemo(
-    () => calculateStickyFolders(flattenedItems, scrollOffset),
-    [flattenedItems, scrollOffset]
-  );
-
-  // Initialize virtualizer
+  // Initialize virtualizer with fixed size for smoother scrolling
   const virtualizer = useVirtualizer({
     count: flattenedItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ITEM_HEIGHT,
-    overscan: 10,
+    overscan: 5, // Reduced overscan for better performance
   });
-
-  // Handle scroll for sticky folders
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollOffset(e.currentTarget.scrollTop);
-  }, []);
 
   // Load expanded folders from localStorage
   useEffect(() => {
@@ -328,49 +279,14 @@ export default function VirtualizedFileTree({
       onDrop={e => handleNativeFileDrop(e)}
       onDragOver={handleDragOver}
     >
-      {/* Sticky folder headers */}
-      {stickyFolders.length > 0 && (
-        <div
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-            background: colors.cardBg,
-            borderBottom: `1px solid ${colors.border}`,
-          }}
-        >
-          {stickyFolders.map((sf, idx) => (
-            <div
-              key={sf.item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.15rem 0.2rem',
-                marginLeft: `${sf.level * 12}px`,
-                height: ITEM_HEIGHT,
-                fontSize: '0.875rem',
-                color: colors.foreground,
-                background: colors.mutedBg,
-                cursor: 'pointer',
-              }}
-              onClick={() => toggleFolder(sf.item.id)}
-            >
-              <span style={{ fontWeight: 500 }}>{sf.item.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Virtualized list */}
+      {/* Virtualized list - uses native scrolling without scroll event handlers */}
       <div
         ref={parentRef}
-        onScroll={handleScroll}
         style={{
           flex: 1,
           overflow: 'auto',
           overflowX: 'hidden',
-          WebkitOverflowScrolling: 'touch', // Enable momentum scrolling on iOS
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <div

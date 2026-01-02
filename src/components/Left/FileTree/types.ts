@@ -50,8 +50,3 @@ export interface FlattenedTreeItem {
   isIgnored: boolean;
   parentPath: string;
 }
-
-export interface StickyFolder {
-  item: FileItem;
-  level: number;
-}
