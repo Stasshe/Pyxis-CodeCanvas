@@ -29,6 +29,8 @@ export interface PyxisSession {
     isLeftSidebarVisible: boolean;
     isRightSidebarVisible: boolean;
     isBottomPanelVisible: boolean;
+    activeMenuTab: string;
+    bottomPanelActiveTab: string;
   };
 }
 
@@ -56,6 +58,8 @@ export const DEFAULT_SESSION: PyxisSession = {
     isLeftSidebarVisible: true,
     isRightSidebarVisible: true,
     isBottomPanelVisible: true,
+    activeMenuTab: 'files',
+    bottomPanelActiveTab: 'terminal',
   },
 };
 

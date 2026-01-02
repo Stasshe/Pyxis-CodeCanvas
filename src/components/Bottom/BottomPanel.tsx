@@ -18,6 +18,8 @@ interface BottomPanelProps {
   currentProjectId?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
+  activeTab?: 'output' | 'terminal' | 'debug' | 'problems';
+  onActiveTabChange?: (tab: 'output' | 'terminal' | 'debug' | 'problems') => void;
   // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
 }
 
@@ -75,16 +77,22 @@ export default function BottomPanel({
   currentProjectId,
   projectFiles,
   onResize,
+  activeTab: externalActiveTab,
+  onActiveTabChange,
 }: BottomPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [vimEditor, setVimEditor] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'output' | 'terminal' | 'debug' | 'problems'>(
-    'terminal'
-  );
+  const [internalActiveTab, setInternalActiveTab] = useState<
+    'output' | 'terminal' | 'debug' | 'problems'
+  >('terminal');
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
   outputMessagesRef.set = setOutputMessages;
+
+  // Use external activeTab if provided, otherwise use internal state
+  const activeTab = externalActiveTab ?? internalActiveTab;
+  const setActiveTab = onActiveTabChange ?? setInternalActiveTab;
 
   return (
     <>

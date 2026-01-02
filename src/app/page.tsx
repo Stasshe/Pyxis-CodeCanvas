@@ -44,6 +44,9 @@ import type { MenuTab } from '@/types';
  */
 export default function Home() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('files');
+  const [bottomPanelActiveTab, setBottomPanelActiveTab] = useState<
+    'output' | 'terminal' | 'debug' | 'problems'
+  >('terminal');
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(240);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
   const [rightSidebarWidth, setRightSidebarWidth] = useState(240);
@@ -133,6 +136,10 @@ export default function Home() {
         setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
         setIsRightSidebarVisible(uiState.isRightSidebarVisible);
         setIsBottomPanelVisible(uiState.isBottomPanelVisible);
+        setActiveMenuTab(uiState.activeMenuTab as MenuTab);
+        setBottomPanelActiveTab(
+          uiState.bottomPanelActiveTab as 'output' | 'terminal' | 'debug' | 'problems'
+        );
         console.log('[page.tsx] UI state restored from storage');
       } catch (error) {
         console.error('[page.tsx] Failed to restore UI state:', error);
@@ -160,6 +167,8 @@ export default function Home() {
       isLeftSidebarVisible,
       isRightSidebarVisible,
       isBottomPanelVisible,
+      activeMenuTab,
+      bottomPanelActiveTab,
     };
 
     // 3秒後に保存（hooks 側で最小間隔や再スケジュールを管理）
@@ -180,6 +189,8 @@ export default function Home() {
     isLeftSidebarVisible,
     isRightSidebarVisible,
     isBottomPanelVisible,
+    activeMenuTab,
+    bottomPanelActiveTab,
     saveUIState,
     saveTimerRef,
   ]);
@@ -567,6 +578,8 @@ export default function Home() {
                   currentProjectId={currentProject?.id || ''}
                   projectFiles={projectFiles}
                   onResize={handleBottomResize}
+                  activeTab={bottomPanelActiveTab}
+                  onActiveTabChange={setBottomPanelActiveTab}
                 />
               )}
             </div>
