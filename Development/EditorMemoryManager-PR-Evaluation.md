@@ -2,30 +2,30 @@
 
 ## 概要
 
-このレポートは、EditorMemoryManagerを導入するPRの価値を客観的に評価します。
+このレポートは、EditorMemoryManagerを導入するPRの価値を**厳格かつ客観的**に評価します。
 
 ## 変更の規模
 
 | 項目 | 値 |
 |------|-----|
-| 新規ファイル | 3 (736行) |
-| 変更ファイル | 5 |
-| 追加行数 | +895 |
-| 削除行数 | -276 |
-| 純増 | +619行 |
+| 新規ファイル | 3 (746行) |
+| 変更ファイル | 6 |
+| 純増 | 約+500行 |
 
-### ファイル別の変更
+### ファイル別の変更（現在の行数）
 
-| ファイル | Before | After | 差分 |
-|----------|--------|-------|------|
-| EditorMemoryManager.ts | 0 | 567 | +567 (新規) |
-| useEditorMemory.ts | 0 | 154 | +154 (新規) |
-| index.ts | 0 | 15 | +15 (新規) |
-| CodeEditor.tsx | 318 | 258 | -60 |
-| EditorTabType.tsx | 114 | 125 | +11 |
-| DiffTabType.tsx | 231 | 199 | -32 |
-| AIReviewTabType.tsx | 188 | 202 | +14 |
-| useTabContentRestore.ts | 246 | 196 | -50 |
+| ファイル | 行数 | 変更内容 |
+|----------|------|----------|
+| EditorMemoryManager.ts | 577 | 新規: メモリ管理シングルトン |
+| useEditorMemory.ts | 154 | 新規: Reactフック |
+| index.ts | 15 | 新規: エクスポート |
+| CodeEditor.tsx | 258 | 変更: EditorMemoryManager使用 |
+| EditorTabType.tsx | 138 | 変更: updateContent/getContentPath追加 |
+| DiffTabType.tsx | 224 | 変更: updateContent/getContentPath追加 |
+| AIReviewTabType.tsx | 202 | 変更: EditorMemoryManager使用 |
+| useTabContentRestore.ts | 196 | 変更: セッション復元のみに簡素化 |
+| tabStore.ts | - | 変更: TabRegistryへの委譲 |
+| types.ts | - | 変更: TabTypeDefinition拡張 |
 
 ---
 
@@ -159,59 +159,79 @@ useTabContentRestore.ts
 
 ## 総合評価
 
-### マージを推奨しない理由
+### マージを見送る理由（デメリット）
 
 1. **機能的な価値がない**
    - 既存システムで全ての機能が正常に動作
-   - 新しい機能は追加されていない
+   - ユーザーから見た新機能は追加されていない
 
-2. ~~**複雑性の増加**~~ → **責任分離で改善**
-   - tabStore: ペイン/タブ構造管理のみ
-   - EditorMemoryManager: コンテンツ同期・保存
-   - useTabContentRestore: セッション復元のみ
+2. **コード量の増加**
+   - 約+500行の純増
+   - 新しい概念（EditorMemoryManager）の学習コスト
 
-3. ~~**メモリ使用量の増加**~~ → **解消済み**
-   - ~~ファイル内容の二重保持~~ → metadataMapのみ保持
-   - メモリ使用量は main branch と同等
+3. **複雑性の微増**
+   - データフロー: Editor → EditorMemoryManager → tabStore
+   - 既存: Editor → tabStore（直接）
 
-4. **コード量の増加**
-   - +400行程度の純増（改善後）
-   - ただし責任が明確に分離
+### マージを検討する理由（メリット）
 
-### マージを検討する理由
-
-1. **拡張性の向上**
-   - TabTypeDefinitionにupdateContent/getContentPathを追加
+1. **拡張性の向上** ⭐重要
+   - TabTypeDefinitionに`updateContent`/`getContentPath`を追加
    - 新しいタブタイプが自身の更新ロジックを実装可能
-   - 拡張機能からも同じインターフェースで利用可能
+   - **拡張機能からも同じインターフェースで利用可能**
 
 2. **責任分離の明確化**
    - tabStore: 構造管理のみ（updateTabContentはレジストリに委譲）
    - EditorMemoryManager: コンテンツ同期・デバウンス保存
    - useTabContentRestore: セッション復元専用
 
-3. **メモリ効率化**
-   - コンテンツはtabStoreのみで保持
-   - metadataMapは軽量なメタデータのみ
-
-4. **ハードコードの解消**
+3. **ハードコードの解消**
    - tabStore.updateTabContentから`editor`/`diff`のハードコードを削除
    - 各タブタイプが自身の更新ロジックを定義
 
+4. **メモリ効率**
+   - ✅ コンテンツはtabStoreのみで保持（二重保持なし）
+   - ✅ metadataMapは軽量（`lastModified`, `saveTimerId`のみ）
+   - ✅ mainブランチと同等のメモリ使用量
+
 ---
 
-## 結論
+## メモリ重複の検証
 
-**推奨: マージを推奨**
+**EditorMemoryManager内のデータ構造:**
+```typescript
+metadataMap: Map<string, {
+  lastModified: number;      // タイムスタンプのみ
+  saveTimerId?: ReturnType<typeof setTimeout>;  // タイマーIDのみ
+}>
+```
 
-改善後の状態:
-- ✅ メモリ二重保持問題 → 解消済み
-- ✅ パフォーマンス → main branch と同等
-- ✅ 責任分離 → 明確に分離
-- ✅ 拡張性 → TabTypeDefinitionで拡張可能
+**コンテンツの保持場所:**
+- `tabStore`のみ（zustand state）
+- EditorMemoryManagerは`tabStore`から読み取る（`getContentFromTabStore()`）
 
-マージする価値:
-- **責任分離**: tabStore/EditorMemoryManager/useTabContentRestoreの役割が明確
-- **拡張性**: 新しいタブタイプ追加時に統一的なインターフェース
-- **保守性**: ハードコードを削除し、各タブタイプが自身のロジックを管理
-- **メモリ効率**: mainブランチと同等以下のメモリ使用量
+**結論: メモリの重複はない** ✅
+
+---
+
+## 最終結論
+
+| 観点 | 評価 |
+|------|------|
+| 機能追加 | なし |
+| メモリ効率 | 同等 ✅ |
+| パフォーマンス | 同等 ✅ |
+| 拡張性 | **向上** ⭐ |
+| 保守性 | 向上 |
+| 複雑性 | 微増 |
+| コード量 | +500行 |
+
+**推奨: 条件付きでマージを推奨**
+
+- **新しいタブタイプの追加予定がある場合**: マージ推奨
+  - 拡張性とハードコード解消のメリットが大きい
+  
+- **現状維持で良い場合**: マージ不要
+  - 既存システムで問題なく動作している
+
+**判断基準**: 今後の拡張計画による

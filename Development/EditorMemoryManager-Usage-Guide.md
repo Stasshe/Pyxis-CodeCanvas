@@ -167,9 +167,11 @@ setContent(path: string, content: string, skipDebounce = false): void
 ```
 
 コンテンツを更新。自動的に:
-- メモリ内のcontentMapを更新
+- **metadataMap**を更新（タイムスタンプ、タイマーID）
 - tabStoreの全同一パスタブを同期
 - デバウンス保存をスケジュール（skipDebounce=trueでスキップ）
+
+**注意**: コンテンツ自体は`tabStore`に保存。EditorMemoryManagerはメタデータのみ保持。
 
 #### saveImmediately(path)
 
@@ -193,7 +195,7 @@ updateFromExternal(path: string, content: string): void
 registerInitialContent(path: string, content: string): void
 ```
 
-タブ表示時に初期コンテンツを登録。既にエントリがあれば無視。
+タブ表示時にメタデータを登録。**コンテンツは保存しない**（tabStoreが保持）。
 
 #### getContent(path)
 
@@ -201,7 +203,7 @@ registerInitialContent(path: string, content: string): void
 getContent(path: string): string | undefined
 ```
 
-指定パスのコンテンツを取得。
+指定パスのコンテンツを**tabStoreから**取得。
 
 #### isDirty(path)
 
@@ -340,11 +342,27 @@ const handleApplyChanges = async (filePath: string, content: string) => {
 
 ## 注意事項
 
-### メモリ使用量（改善済み）
+### メモリ使用量（zustandとの重複なし）
 
-- `metadataMap` はメタデータのみ保持（`lastModified`, `saveTimerId`）
-- **コンテンツは`tabStore`のみで保持** - 二重保持なし
-- メモリ効率は main branch と同等
+**EditorMemoryManagerが保持するデータ:**
+```typescript
+metadataMap: Map<string, {
+  lastModified: number;      // 8バイト
+  saveTimerId?: NodeJS.Timeout;  // 参照のみ
+}>
+```
+
+**コンテンツの保持場所:**
+| データ | 保持場所 | 重複 |
+|--------|----------|------|
+| ファイル内容 | `tabStore`（zustand）のみ | ❌ なし |
+| 最終更新時刻 | `metadataMap` | - |
+| 保存タイマーID | `metadataMap` | - |
+
+**重要**: EditorMemoryManagerは**コンテンツを保持しない**。
+- `getContent()` → tabStoreから取得
+- `setContent()` → tabStoreを更新
+- `registerInitialContent()` → メタデータのみ登録
 
 ### 無限ループ防止
 
@@ -355,3 +373,27 @@ const handleApplyChanges = async (filePath: string, content: string) => {
 
 - 各タブコンポーネントのマウント時に `init()` を呼び出す
 - 既に初期化済みの場合は即座にreturn
+
+## データフロー図
+
+```
+ユーザー編集
+     │
+     ▼
+EditorMemoryManager.setContent(path, content)
+     │
+     ├─→ metadataMap.set(path, { lastModified, saveTimerId })
+     │   （メタデータのみ）
+     │
+     ├─→ tabStore.updateTabContent(tabId, content, isDirty)
+     │   （コンテンツはここに保存）
+     │
+     └─→ scheduleSave(path)
+              │
+              ▼  (5秒後)
+         executeSave(path)
+              │
+              ├─→ getContentFromTabStore(path)  ← tabStoreから取得
+              │
+              └─→ fileRepository.saveFileByPath(projectId, path, content)
+```
