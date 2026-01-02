@@ -136,10 +136,20 @@ export default function Home() {
         setIsLeftSidebarVisible(uiState.isLeftSidebarVisible);
         setIsRightSidebarVisible(uiState.isRightSidebarVisible);
         setIsBottomPanelVisible(uiState.isBottomPanelVisible);
-        setActiveMenuTab(uiState.activeMenuTab as MenuTab);
-        setBottomPanelActiveTab(
-          uiState.bottomPanelActiveTab as 'output' | 'terminal' | 'debug' | 'problems'
-        );
+        
+        // Safely restore activeMenuTab (can be MenuTab or extension panel ID)
+        if (uiState.activeMenuTab) {
+          setActiveMenuTab(uiState.activeMenuTab as MenuTab);
+        }
+        
+        // Safely restore bottomPanelActiveTab with validation
+        const validBottomTabs = ['output', 'terminal', 'debug', 'problems'];
+        if (validBottomTabs.includes(uiState.bottomPanelActiveTab)) {
+          setBottomPanelActiveTab(
+            uiState.bottomPanelActiveTab as 'output' | 'terminal' | 'debug' | 'problems'
+          );
+        }
+        
         console.log('[page.tsx] UI state restored from storage');
       } catch (error) {
         console.error('[page.tsx] Failed to restore UI state:', error);
