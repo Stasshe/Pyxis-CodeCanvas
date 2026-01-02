@@ -171,7 +171,12 @@ Root
 │   │   ├── Left
 │   │   │   ├── ExtensionPanelRenderer.tsx
 │   │   │   ├── ExtensionsPanel.tsx
-│   │   │   ├── FileTree.tsx
+│   │   │   ├── FileTree
+│   │   │   │   ├── FileTreeContextMenu.tsx
+│   │   │   │   ├── FileTreeItem.tsx
+│   │   │   │   ├── VirtualizedFileTree.tsx
+│   │   │   │   ├── index.tsx
+│   │   │   │   └── types.ts
 │   │   │   ├── GitHistory.tsx
 │   │   │   ├── GitPanel.tsx
 │   │   │   ├── LeftSidebar.tsx
@@ -464,7 +469,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-69 directories, 395 files
+70 directories, 399 files
 
 =================================
 
@@ -591,12 +596,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 64651
-合計文字数: 2095687
-合計ファイルサイズ(bytes): 2234897
+合計行数: 64590
+合計文字数: 2088824
+合計ファイルサイズ(bytes): 2226782
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127450
-合計文字数: 26783675
-合計ファイルサイズ(bytes): 29761355
+ビルト済みファイルの行数: 127453
+合計文字数: 26797262
+合計ファイルサイズ(bytes): 29774944
