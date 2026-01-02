@@ -462,7 +462,109 @@ export class StreamShell {
           }
         }
 
-        // 3. Unix commands - Fallback to unixHandler
+        // 3. Tool commands - git, npm, pyxis
+        // These are special commands that have their own handlers
+        if (cmd === 'git') {
+          try {
+            const { handleGitCommand } = await import('../handlers/gitHandler');
+            await handleGitCommand(
+              args,
+              this.projectName,
+              this.projectId,
+              async (out: string) => {
+                proc.writeStdout(normalizeForWrite(out));
+              }
+            );
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(0);
+            return;
+          } catch (e: any) {
+            proc.writeStderr(normalizeForWrite(e.message || e));
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(1);
+            return;
+          }
+        }
+
+        if (cmd === 'npm') {
+          try {
+            const { handleNPMCommand } = await import('../handlers/npmHandler');
+            await handleNPMCommand(
+              args,
+              this.projectName,
+              this.projectId,
+              async (out: string) => {
+                proc.writeStdout(normalizeForWrite(out));
+              },
+              () => {} // setLoading - no-op in shell context
+            );
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(0);
+            return;
+          } catch (e: any) {
+            proc.writeStderr(normalizeForWrite(e.message || e));
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(1);
+            return;
+          }
+        }
+
+        if (cmd === 'pyxis') {
+          try {
+            const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
+            // Parse pyxis subcommand: pyxis <category> <action> [args]
+            if (args.length === 0) {
+              proc.writeStdout('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]\n');
+              proc.endStdout();
+              proc.endStderr();
+              proc.exit(1);
+              return;
+            }
+            const category = args[0];
+            const action = args[1];
+            if (!action) {
+              proc.writeStdout('pyxis: missing action. Usage: pyxis <category> <action> [args]\n');
+              proc.endStdout();
+              proc.endStderr();
+              proc.exit(1);
+              return;
+            }
+            let cmdToCall: string;
+            let subArgs: string[];
+            if (action.startsWith('-')) {
+              cmdToCall = category;
+              subArgs = args.slice(1);
+            } else {
+              cmdToCall = `${category}-${action}`;
+              subArgs = args.slice(2);
+            }
+            await handlePyxisCommand(
+              cmdToCall,
+              subArgs,
+              this.projectName,
+              this.projectId,
+              async (out: string) => {
+                proc.writeStdout(normalizeForWrite(out));
+              }
+            );
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(0);
+            return;
+          } catch (e: any) {
+            proc.writeStderr(normalizeForWrite(e.message || e));
+            proc.endStdout();
+            proc.endStderr();
+            proc.exit(1);
+            return;
+          }
+        }
+
+        // 4. Unix commands - Fallback to unixHandler
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
           // Wait for pipes to be ready before reading stdin
