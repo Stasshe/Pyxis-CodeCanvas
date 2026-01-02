@@ -369,7 +369,8 @@ export default function VirtualizedFileTree({
         style={{
           flex: 1,
           overflow: 'auto',
-          contain: 'strict',
+          overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch', // Enable momentum scrolling on iOS
         }}
       >
         <div

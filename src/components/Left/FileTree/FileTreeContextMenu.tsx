@@ -11,6 +11,18 @@ import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 import type { ContextMenuState } from './types';
 
+/**
+ * Constructs a file path from a base path and a name.
+ * Handles proper path joining with slashes.
+ */
+function constructPath(basePath: string | undefined, name: string): string {
+  if (!basePath) {
+    return name.startsWith('/') ? name : '/' + name;
+  }
+  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+  return `${normalizedBase}/${name}`;
+}
+
 interface FileTreeContextMenuProps {
   contextMenu: ContextMenuState;
   setContextMenu: (menu: ContextMenuState | null) => void;
@@ -97,10 +109,8 @@ export default function FileTreeContextMenu({
     if (key === 'createFile') {
       const fileName = prompt(t('fileTree.prompt.newFileName'));
       if (fileName && currentProjectId) {
-        const basePath = menuItem?.type === 'folder' ? menuItem.path : '';
-        const newFilePath = basePath 
-          ? (basePath.endsWith('/') ? basePath + fileName : basePath + '/' + fileName)
-          : (fileName.startsWith('/') ? fileName : '/' + fileName);
+        const basePath = menuItem?.type === 'folder' ? menuItem.path : undefined;
+        const newFilePath = constructPath(basePath, fileName);
         await fileRepository.createFile(currentProjectId, newFilePath, '', 'file');
         if (onRefresh) setTimeout(onRefresh, 100);
       }
@@ -110,10 +120,8 @@ export default function FileTreeContextMenu({
     if (key === 'createFolder') {
       const folderName = prompt(t('fileTree.prompt.newFolderName'));
       if (folderName && currentProjectId) {
-        const basePath = menuItem?.type === 'folder' ? menuItem.path : '';
-        const newFolderPath = basePath 
-          ? (basePath.endsWith('/') ? basePath + folderName : basePath + '/' + folderName)
-          : (folderName.startsWith('/') ? folderName : '/' + folderName);
+        const basePath = menuItem?.type === 'folder' ? menuItem.path : undefined;
+        const newFolderPath = constructPath(basePath, folderName);
         await fileRepository.createFile(currentProjectId, newFolderPath, '', 'folder');
         if (onRefresh) setTimeout(onRefresh, 100);
       }

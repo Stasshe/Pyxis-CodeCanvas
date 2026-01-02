@@ -1,4 +1,5 @@
 import type { FileItem } from '@/types';
+import type { ThemeColors } from '@/context/ThemeContext';
 
 export interface FileTreeProps {
   items: FileItem[];
@@ -16,7 +17,7 @@ export interface FileTreeItemProps {
   isExpanded: boolean;
   isIgnored: boolean;
   hoveredItemId: string | null;
-  colors: any;
+  colors: ThemeColors;
   currentProjectName: string;
   currentProjectId?: string;
   onRefresh?: () => void;

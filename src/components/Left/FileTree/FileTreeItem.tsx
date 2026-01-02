@@ -160,7 +160,7 @@ const FileTreeItem = memo(function FileTreeItem({
             ? colors.accentBg
             : 'transparent',
         marginLeft: `${level * 12}px`,
-        touchAction: isTouchDevice ? 'auto' : 'manipulation',
+        touchAction: 'pan-y', // Allow vertical scrolling on touch devices
         opacity: isDragging ? 0.5 : 1,
         border: dropIndicator
           ? `1px dashed ${colors.primary || '#007acc'}`
