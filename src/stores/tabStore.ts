@@ -67,6 +67,7 @@ interface TabStore {
 
   // ファイル削除時のタブ処理
   handleFileDeleted: (deletedPath: string) => void;
+  handleFilesDeleted: (deletedPaths: string[]) => void; // バッチ処理版
 
   // セッション管理
   saveSession: () => Promise<void>;
@@ -652,6 +653,82 @@ export const useTabStore = create<TabStore>((set, get) => ({
     };
 
     // diffタブのコンテンツを更新
+    set({ panes: updatePaneRecursive(state.panes) });
+
+    // editor/previewタブを閉じる
+    for (const { paneId, tabId } of tabsToClose) {
+      get().closeTab(paneId, tabId);
+    }
+  },
+
+  // バッチ版: 複数ファイルの削除を一度に処理（パフォーマンス最適化）
+  handleFilesDeleted: (deletedPaths: string[]) => {
+    if (deletedPaths.length === 0) return;
+    if (deletedPaths.length === 1) {
+      get().handleFileDeleted(deletedPaths[0]);
+      return;
+    }
+
+    const state = get();
+
+    // パスを正規化
+    const normalizePath = (p?: string): string => {
+      if (!p) return '';
+      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+    };
+
+    // 削除対象パスのセットを作成（高速検索用）
+    const normalizedDeletedPaths = new Set(deletedPaths.map(p => normalizePath(p)));
+
+    // 閉じるタブを収集
+    const tabsToClose: Array<{ paneId: string; tabId: string }> = [];
+
+    // ペインを再帰的に更新（一度のトラバースで全ての削除を処理）
+    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(pane => {
+        if (pane.children && pane.children.length > 0) {
+          return { ...pane, children: updatePaneRecursive(pane.children) };
+        }
+
+        // リーフペイン
+        const newTabs = pane.tabs.map((tab: Tab) => {
+          const tabPath = normalizePath(tab.path);
+
+          // 削除対象かチェック（Set検索でO(1)）
+          if (!normalizedDeletedPaths.has(tabPath)) {
+            return tab;
+          }
+
+          // editor/previewは閉じる対象として記録
+          if (tab.kind === 'editor' || tab.kind === 'preview') {
+            tabsToClose.push({ paneId: pane.id, tabId: tab.id });
+            return tab;
+          }
+
+          // 編集可能なdiffタブのコンテンツを空にする
+          if (tab.kind === 'diff') {
+            const diffTab = tab as DiffTab;
+            if (diffTab.editable) {
+              return {
+                ...diffTab,
+                diffs: diffTab.diffs.map(diff => ({
+                  ...diff,
+                  latterContent: '',
+                })),
+              };
+            }
+          }
+
+          return tab;
+        });
+
+        return { ...pane, tabs: newTabs };
+      });
+    };
+
+    // diffタブのコンテンツを更新（一度のset呼び出し）
     set({ panes: updatePaneRecursive(state.panes) });
 
     // editor/previewタブを閉じる
