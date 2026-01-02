@@ -75,11 +75,37 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
     });
   });
   
+  // ルートコミット（親がリスト外にある、または親がないコミット）を特定
+  // これらは履歴の最後に表示する
+  const isRootCommit = (c: GitCommitType): boolean => {
+    // 親ハッシュがあるが、その親がコミットリストに存在しない場合
+    // これはPyxis特有の「.gitの最初のcommitの親がない」ケース
+    if (c.parentHashes.length > 0) {
+      const hasParentInList = c.parentHashes.some(ph => commitMap.has(ph));
+      return !hasParentInList;
+    }
+    // 親ハッシュがない場合も真のルートコミット
+    return true;
+  };
+  
   // 入次数が0のコミット（子がいないコミット = 最新のコミット）を収集
-  // timestampで新しい順にソートして初期キューを構築
+  // ただし、ルートコミットは除外して後で追加
+  const rootCommits: GitCommitType[] = [];
   const queue: GitCommitType[] = commits
-    .filter(c => (inDegree.get(c.hash) || 0) === 0)
+    .filter(c => {
+      if ((inDegree.get(c.hash) || 0) === 0) {
+        if (isRootCommit(c)) {
+          rootCommits.push(c);
+          return false;
+        }
+        return true;
+      }
+      return false;
+    })
     .sort((a, b) => b.timestamp - a.timestamp);
+  
+  // ルートコミットをtimestampで古い順にソート（最後に追加するため）
+  rootCommits.sort((a, b) => b.timestamp - a.timestamp);
   
   const result: GitCommitType[] = [];
   const visited = new Set<string>();
@@ -100,7 +126,12 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
         const newDegree = (inDegree.get(parentHash) || 0) - 1;
         inDegree.set(parentHash, newDegree);
         if (newDegree === 0) {
-          newReadyCommits.push(parent);
+          // ルートコミットでない場合のみキューに追加
+          if (!isRootCommit(parent)) {
+            newReadyCommits.push(parent);
+          } else if (!rootCommits.includes(parent)) {
+            rootCommits.push(parent);
+          }
         }
       }
     });
@@ -124,6 +155,15 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
       queue.push(...merged);
     }
   }
+  
+  // ルートコミットを最後に追加（timestampで新しい順）
+  rootCommits.sort((a, b) => b.timestamp - a.timestamp);
+  rootCommits.forEach(c => {
+    if (!visited.has(c.hash)) {
+      visited.add(c.hash);
+      result.push(c);
+    }
+  });
   
   // 循環がある場合、残りのコミットを追加
   commits.forEach(c => {
@@ -269,8 +309,6 @@ export default function GitHistory({
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  const [duplicateGroups, setDuplicateGroups] = useState<Map<string, GitCommitType[]>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
   const gitCommands =
     currentProject && currentProjectId
@@ -281,40 +319,6 @@ export default function GitHistory({
     name: currentProject,
     id: currentProjectId,
   });
-
-  // 重複コミットを除去（同じ内容のコミットはリモート優先）
-  const deduplicateCommits = (
-    commits: GitCommitType[]
-  ): { deduplicated: GitCommitType[]; groups: Map<string, GitCommitType[]> } => {
-    const contentMap = new Map<string, GitCommitType[]>();
-    commits.forEach(commit => {
-      const key = commit.tree
-        ? `tree:${commit.tree}`
-        : `meta:${commit.author}|${commit.timestamp}|${commit.message}`;
-      if (!contentMap.has(key)) {
-        contentMap.set(key, []);
-      }
-      contentMap.get(key)!.push(commit);
-    });
-    const deduplicated: GitCommitType[] = [];
-    contentMap.forEach((group, key) => {
-      if (group.length === 1) {
-        deduplicated.push(group[0]);
-      } else {
-        const remoteCommit = group.find(
-          c =>
-            Array.isArray(c.refs) &&
-            c.refs.some((ref: string) => ref.startsWith('origin/') || ref.startsWith('upstream/'))
-        );
-        if (remoteCommit) {
-          deduplicated.push(remoteCommit);
-        } else {
-          deduplicated.push(group[0]);
-        }
-      }
-    });
-    return { deduplicated, groups: contentMap };
-  };
 
   const { colors } = useTheme();
 
@@ -358,14 +362,8 @@ export default function GitHistory({
   useEffect(() => {
     if (commits.length === 0) return;
 
-    // 重複コミットを除去（リモート優先）
-    const { deduplicated, groups } = deduplicateCommits(commits);
-    setDuplicateGroups(groups);
-
-    const displayCommits = showDuplicates ? commits : deduplicated;
-    
     // トポロジカルソートで正しい順序に並べ替え
-    const sortedCommits = topoSortCommits(displayCommits);
+    const sortedCommits = topoSortCommits(commits);
 
     const LANE_WIDTH = 16;
     const Y_OFFSET = 10;
@@ -391,7 +389,7 @@ export default function GitHistory({
     const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits, commitChanges, branchColors, showDuplicates]);
+  }, [commits, expandedCommits, commitChanges, branchColors]);
 
   // コミットの変更ファイルを取得
   const getCommitChanges = async (commitHash: string) => {
@@ -529,36 +527,6 @@ export default function GitHistory({
       className="h-full flex flex-col"
       style={{ background: colors.sidebarBg, color: colors.sidebarFg }}
     >
-      {/* 重複コミット表示切り替えボタン */}
-      <div
-        className="px-2 py-1 border-b border-gray-700 flex items-center gap-2 text-xs"
-        style={{ background: colors.sidebarBg }}
-      >
-        <button
-          className="px-2 py-0.5 rounded border text-xs font-medium"
-          style={{
-            background: showDuplicates ? colors.gitBranchOtherBg : colors.gitBranchCurrentBg,
-            color: showDuplicates ? colors.gitBranchOtherFg : colors.gitBranchCurrentFg,
-            borderColor: showDuplicates
-              ? colors.gitBranchOtherBorder
-              : colors.gitBranchCurrentBorder,
-            transition: 'background 0.2s',
-          }}
-          onClick={() => setShowDuplicates(v => !v)}
-        >
-          {showDuplicates ? t('gitHistory.hideDuplicates') : t('gitHistory.showDuplicates')}
-        </button>
-        {!showDuplicates &&
-          Array.from(duplicateGroups.values()).filter(g => g.length > 1).length > 0 && (
-            <span className="text-[11px] text-gray-400">
-              {t('gitHistory.duplicateGroupsHidden', {
-                params: {
-                  count: Array.from(duplicateGroups.values()).filter(g => g.length > 1).length,
-                },
-              })}
-            </span>
-          )}
-      </div>
       <div className="flex-1 overflow-auto">
         <div className="relative min-w-0" style={{ overflow: 'visible' }}>
           {/* SVG for git graph lines */}
@@ -637,13 +605,6 @@ export default function GitHistory({
           {/* Commit list */}
           <div className="pl-8">
             {extendedCommits.map(commit => {
-              let duplicateGroup: GitCommitType[] = [];
-              for (const group of duplicateGroups.values()) {
-                if (group.some(c => c.hash === commit.hash) && group.length > 1) {
-                  duplicateGroup = group;
-                  break;
-                }
-              }
               return (
                 <div
                   key={commit.hash}
@@ -807,12 +768,6 @@ export default function GitHistory({
                       </div>
                     </div>
                   </div>
-                  {/* 重複コミットグループの表示（重複がある場合のみ） */}
-                  {!showDuplicates && duplicateGroup.length > 1 && (
-                    <div className="ml-6 mt-1 text-[11px] text-gray-400">
-                      <span>（{duplicateGroup.length - 1}件の重複コミットを非表示中）</span>
-                    </div>
-                  )}
                   {/* Expanded commit changes */}
                   {expandedCommits.has(commit.hash) && (
                     <div
