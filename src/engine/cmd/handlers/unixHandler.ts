@@ -334,8 +334,102 @@ export async function handleUnixCommand(
         await append('user');
         break;
 
-      default:
-        await append(`Command not found: ${cmd}\nType 'help' for available commands.\n`, 127);
+      case 'git': {
+        // Delegate to gitHandler for git commands
+        try {
+          const { handleGitCommand } = await import('./gitHandler');
+          await handleGitCommand(args, projectName, projectId, async (out: string) => {
+            await append(out);
+          });
+        } catch (e) {
+          await appendError(`git: ${(e as Error).message}\n`, 1);
+        }
+        break;
+      }
+
+      case 'npm': {
+        // Delegate to npmHandler for npm commands
+        try {
+          const { handleNPMCommand } = await import('./npmHandler');
+          await handleNPMCommand(
+            args,
+            projectName,
+            projectId,
+            async (out: string) => {
+              await append(out);
+            },
+            // No-op for loading indicator - not needed in shell context since
+            // StreamShell manages its own execution state and progress display
+            () => {}
+          );
+        } catch (e) {
+          await appendError(`npm: ${(e as Error).message}\n`, 1);
+        }
+        break;
+      }
+
+      case 'pyxis': {
+        // Delegate to pyxisHandler for pyxis commands
+        try {
+          const { handlePyxisCommand } = await import('./pyxisHandler');
+          if (args.length === 0) {
+            await append('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]\n');
+            break;
+          }
+          const category = args[0];
+          const action = args[1];
+
+          if (!action) {
+            await append('pyxis: missing action. Usage: pyxis <category> <action> [args]\n');
+            break;
+          }
+
+          // Handle flag-style actions
+          let cmdToCall: string;
+          let subArgs: string[];
+          if (action.startsWith('-')) {
+            cmdToCall = category;
+            subArgs = args.slice(1);
+          } else {
+            cmdToCall = `${category}-${action}`;
+            subArgs = args.slice(2);
+          }
+
+          await handlePyxisCommand(cmdToCall, subArgs, projectName, projectId, async (out: string) => {
+            await append(out);
+          });
+        } catch (e) {
+          await appendError(`pyxis: ${(e as Error).message}\n`, 1);
+        }
+        break;
+      }
+
+      default: {
+        // Check for extension commands
+        let extensionHandled = false;
+        try {
+          const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
+          if (commandRegistry && commandRegistry.hasCommand(cmd)) {
+            const currentDir = unix ? await unix.pwd() : `/projects/${projectName}`;
+            const result = await commandRegistry.executeCommand(cmd, args, {
+              projectName,
+              projectId,
+              currentDirectory: currentDir,
+            });
+            await append(typeof result === 'string' ? result : JSON.stringify(result));
+            extensionHandled = true;
+          }
+        } catch (e) {
+          // Extension command execution failed - log error for debugging
+          console.warn(`[unixHandler] Extension command '${cmd}' failed:`, (e as Error).message);
+          await appendError(`${cmd}: ${(e as Error).message}\n`, 1);
+          extensionHandled = true; // Mark as handled to avoid "command not found"
+        }
+        
+        if (!extensionHandled) {
+          await append(`Command not found: ${cmd}\nType 'help' for available commands.\n`, 127);
+        }
+      }
     }
   } catch (error) {
     await append(`Error: ${(error as Error).message}\n`, 1);
