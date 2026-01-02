@@ -26,6 +26,7 @@ import {
 } from '@/engine/helper/resize';
 import type { EditorPane } from '@/engine/tabs/types';
 import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
+import { useFileDeleteTabSync } from '@/hooks/useFileDeleteTabSync';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';
@@ -108,6 +109,9 @@ export default function Home() {
 
   // タブコンテンツの復元と自動更新
   useTabContentRestore(projectFiles, isRestored);
+
+  // ファイル削除時のタブ同期
+  useFileDeleteTabSync();
 
   // プロジェクト読み込み時のWelcomeタブ
   useProjectWelcome(currentProject);
