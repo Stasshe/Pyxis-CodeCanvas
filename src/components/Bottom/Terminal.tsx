@@ -5,9 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
+import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
+import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
+import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -382,94 +386,260 @@ function ClientTerminal({
     };
 
     const processCommand = async (command: string) => {
-      // Parse the first command to check for terminal-specific commands
-      const trimmedCmd = command.trim();
-      const firstWord = trimmedCmd.split(/\s+/)[0]?.toLowerCase() || '';
-      
-      // Terminal-specific commands that must be handled locally (not via shell)
-      // These commands interact directly with the terminal UI or state
-      const terminalOnlyCommands = ['clear', 'history', 'vim'];
-      
-      if (terminalOnlyCommands.includes(firstWord)) {
-        const parts = trimmedCmd.split(/\s+/);
-        const cmd = parts[0].toLowerCase();
-        const args = parts.slice(1);
-        
+      // リダイレクト演算子のパース
+      let redirect = null;
+      let fileName = null;
+      let append = false;
+      let baseCommand = command;
+      const redirectMatch = command.match(/(.+?)\s*(>>|>)\s*([^>\s]+)\s*$/);
+      if (redirectMatch) {
+        baseCommand = redirectMatch[1].trim();
+        redirect = redirectMatch[2];
+        fileName = redirectMatch[3];
+        append = redirect === '>>';
+      }
+      const parts = baseCommand.trim().split(/\s+/);
+      const cmd = parts[0].toLowerCase();
+      const args = parts.slice(1);
+
+      // リダイレクト時にコマンド出力をキャプチャ
+      let capturedOutput = '';
+      const captureWriteOutput = async (output: string) => {
+        // Don't add newlines to in-place updates (starts with \r for carriage return)
+        // or cursor control sequences (starts with \x1b[)
+        const isInPlaceUpdate = output.startsWith('\r') || output.startsWith('\x1b[?');
+
+        // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）
+        // But skip for in-place updates which need to stay on the same line
+        const normalizedOutput = isInPlaceUpdate || output.endsWith('\n') ? output : output + '\n';
+        capturedOutput += normalizedOutput;
+
+        if (!redirect) {
+          await writeOutput(normalizedOutput);
+        }
+      };
+
+      let skipTerminalRedirect = false;
+      try {
         switch (cmd) {
+          // New namespaced form: pyxis <category> <action> [...]
+          case 'pyxis': {
+            if (args.length === 0) {
+              await captureWriteOutput(
+                'pyxis: missing subcommand. Usage: pyxis <category> <action> [args]'
+              );
+              break;
+            }
+            const category = args[0];
+            const action = args[1];
+
+            // If there is no action token, the category itself is required to have an action
+            if (!action) {
+              await captureWriteOutput(
+                'pyxis: missing action. Usage: pyxis <category> <action> [args]'
+              );
+              break;
+            }
+
+            // If the action token looks like a flag (starts with '-'), do NOT merge it into the command name.
+            // Treat it as an argument for the category command: `pyxis export --indexeddb` -> cmd: 'export', args: ['--indexeddb']
+            let cmdToCall: string;
+            let subArgs: string[];
+            if (action.startsWith('-')) {
+              cmdToCall = category;
+              subArgs = args.slice(1); // include the flag and following args
+            } else {
+              cmdToCall = `${category}-${action}`;
+              subArgs = args.slice(2);
+            }
+
+            await handlePyxisCommand(
+              cmdToCall,
+              subArgs,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput
+            );
+            break;
+          }
+
           case 'clear':
             term.clear();
             term.write('\x1b[H\x1b[2J\x1b[3J');
             break;
 
+          // 履歴表示・削除コマンド
           case 'history': {
+            // args: ['clear'] -> clear history
             const sub = args[0];
             if (sub === 'clear' || sub === 'reset' || sub === '--clear') {
               try {
                 commandHistory = [];
                 saveHistory();
+                // sessionStorageから明示的に削除
                 clearTerminalHistory(currentProject);
-                await writeOutput('ターミナル履歴を削除しました\n');
+                await captureWriteOutput('ターミナル履歴を削除しました');
               } catch (e) {
-                await writeOutput(`履歴削除エラー: ${(e as Error).message}\n`);
+                await captureWriteOutput(`履歴削除エラー: ${(e as Error).message}`);
               }
             } else {
               if (commandHistory.length === 0) {
-                await writeOutput('履歴はありません\n');
+                await captureWriteOutput('履歴はありません');
               } else {
                 for (let i = 0; i < commandHistory.length; i++) {
-                  await writeOutput(`${i + 1}: ${commandHistory[i]}\n`);
+                  await captureWriteOutput(`${i + 1}: ${commandHistory[i]}`);
                 }
               }
             }
             break;
           }
 
+          case 'git':
+            await handleGitCommand(args, currentProject, currentProjectId, captureWriteOutput);
+            break;
+
+          case 'npm':
+            await handleNPMCommand(
+              args,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput,
+              setLoading
+            );
+            break;
+
           case 'vim': {
+            // Disable normal terminal input during vim mode
             vimModeActive = true;
+
             const vimEditor = await handleVimCommand(
               args,
               unixCommandsRef,
-              writeOutput,
+              captureWriteOutput,
               currentProject,
               currentProjectId,
-              term,
+              term, // Pass xterm instance
               () => {
-                vimModeActive = false;
+                // On vim exit callback
+                vimModeActive = false; // Re-enable normal terminal input
                 vimEditorRef.current = null;
                 if (onVimModeChange) onVimModeChange(null);
                 term.clear();
                 showPrompt();
               }
             );
+
+            // Store Vim editor instance for ESC button
             vimEditorRef.current = vimEditor;
             if (onVimModeChange) onVimModeChange(vimEditor);
+
+            break;
+          }
+
+          default: {
+            // カスタムコマンドをチェック
+            const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
+            if (commandRegistry.hasCommand(cmd)) {
+              try {
+                const currentDir = unixCommandsRef.current
+                  ? await unixCommandsRef.current.pwd()
+                  : `/projects/${currentProject}`;
+
+                // コマンド実行に必要な最小限の情報を渡す
+                // ExtensionManagerのラッパーでExtensionContextがマージされる
+                const result = await commandRegistry.executeCommand(cmd, args, {
+                  projectName: currentProject,
+                  projectId: currentProjectId,
+                  currentDirectory: currentDir,
+                } as any);
+
+                await captureWriteOutput(result);
+              } catch (error) {
+                await captureWriteOutput(`Error: ${(error as Error).message}`);
+              }
+            } else {
+              // 通常のUnixコマンドとして処理
+              if (shellRef.current) {
+                // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
+                // リアルタイム出力コールバックを渡す
+                const res = await shellRef.current.run(command, {
+                  stdout: (data: string) => {
+                    // 即座にTerminalに表示（リアルタイム出力）
+                    if (!redirect) {
+                      writeOutput(data).catch(() => {});
+                    }
+                  },
+                  stderr: (data: string) => {
+                    // stderrも即座に表示
+                    if (!redirect) {
+                      writeOutput(data).catch(() => {});
+                    }
+                  },
+                });
+                // 完了後は何もしない（既にコールバックで出力済み）
+                // StreamShell (shellRef) はリダイレクトを内部で処理しているため
+                // Terminal側でのファイル書き込みは行わないようにする。
+                if (redirect && fileName && unixCommandsRef.current) {
+                  skipTerminalRedirect = true;
+                }
+              }
+            }
             break;
           }
         }
-        
-        scrollToBottom();
-        setTimeout(() => scrollToBottom(), 50);
-        return;
-      }
-      
-      // All other commands are delegated to StreamShell
-      // This includes: git, npm, pyxis, unix commands, pipes, redirects, &&, ||, etc.
-      if (shellRef.current) {
-        try {
-          await shellRef.current.run(command, {
-            stdout: (data: string) => {
-              writeOutput(data).catch(() => {});
-            },
-            stderr: (data: string) => {
-              writeOutput(data).catch(() => {});
-            },
-          });
-        } catch (error) {
-          await writeOutput(`Error: ${(error as Error).message}\n`);
+
+        // リダイレクト処理
+        if (!skipTerminalRedirect && redirect && fileName && unixCommandsRef.current) {
+          // コマンド出力がない場合は空文字列として扱う
+          const outputContent = capturedOutput || '';
+
+          // ファイルパスを解決
+          const fullPath = fileName.startsWith('/')
+            ? fileName
+            : `${await unixCommandsRef.current.pwd()}/${fileName}`;
+          const normalizedPath = unixCommandsRef.current.normalizePath(fullPath);
+          const relativePath = unixCommandsRef.current.getRelativePathFromProject(normalizedPath);
+
+          try {
+            let content = outputContent;
+
+            // 追記モードの場合、既存のコンテンツを先頭に追加
+            if (append) {
+              // Use indexed single-file lookup for append
+              try {
+                const existingFile = await fileRepository.getFileByPath(
+                  currentProjectId,
+                  relativePath
+                );
+                if (existingFile && existingFile.content) {
+                  content = existingFile.content + content;
+                }
+              } catch (e) {
+                // ignore and proceed with content as-is
+              }
+            }
+
+            // ファイルを保存または更新
+            const existingFile = await fileRepository.getFileByPath(currentProjectId, relativePath);
+
+            if (existingFile) {
+              await fileRepository.saveFile({
+                ...existingFile,
+                content,
+                updatedAt: new Date(),
+              });
+            } else {
+              await fileRepository.createFile(currentProjectId, relativePath, content, 'file');
+            }
+          } catch (e) {
+            await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
+          }
+          return;
         }
-      } else {
-        // Fallback: shell not initialized yet
-        await writeOutput('Shell not initialized. Please wait...\n');
+      } catch (error) {
+        if (!redirect) {
+          await writeOutput(`エラー: ${(error as Error).message}`);
+        }
       }
 
       scrollToBottom();

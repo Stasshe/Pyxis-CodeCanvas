@@ -1,12 +1,6 @@
 import type { UnixCommands } from '../global/unix';
 import type { StreamCtx } from './builtins';
 import adaptBuiltins from './builtins';
-import {
-  CommandCategory,
-  categorizeCommand,
-  getCommandRouter,
-  type CommandCategoryType,
-} from './commandRouter';
 import { expandTokens } from './expansion';
 import { parseCommandLine } from './parser';
 import { Process, type ProcExit } from './process';
@@ -28,23 +22,21 @@ export { Process, type ProcExit } from './process';
  * Stream-based Shell
  * 
  * Architecture:
- * - All commands are routed through CommandRouter for categorization
  * - Process abstraction with stdin/stdout/stderr as streams
  * - Pipeline support using stream.pipe
  * - Redirections: >, >>, < handled by shell (uses FileRepository when provided)
  * - Signal handling (SIGINT) via EventEmitter and Process.kill()
  * - Supports /dev/null and other special files
+ * - Delegates filesystem commands to UnixCommands when available
  * 
  * Command Execution Flow:
  * 1. Parse command line (parser.ts)
  * 2. Expand tokens (expansion.ts) - IFS, glob, brace expansion
- * 3. Route command (commandRouter.ts) - categorize and delegate
- * 4. Execute via appropriate handler:
+ * 3. Execute via appropriate handler:
  *    - Builtins: Direct execution
- *    - Extensions: commandRegistry
- *    - Tools: git/npm/pyxis handlers
+ *    - Extensions: commandRegistry (if registered)
  *    - Unix: unixHandler
- * 5. Handle pipes and redirections
+ * 4. Handle pipes and redirections
  */
 
 export class StreamShell {
@@ -65,11 +57,6 @@ export class StreamShell {
     this.commandRegistry = opts.commandRegistry;
     this._terminalColumns = opts.terminalColumns ?? 80;
     this._terminalRows = opts.terminalRows ?? 24;
-    
-    // Initialize command router with extension registry
-    if (this.commandRegistry) {
-      getCommandRouter().setExtensionRegistry(this.commandRegistry);
-    }
   }
 
   /** Update terminal size (call on resize) */
@@ -92,14 +79,6 @@ export class StreamShell {
     this.unix = terminalCommandRegistry.getUnixCommands(this.projectName, this.projectId);
     return this.unix;
   }
-  
-  /**
-   * Get command category for routing
-   */
-  private getCommandCategory(cmd: string): CommandCategoryType {
-    return categorizeCommand(cmd, this.commandRegistry);
-  }
-
   // Create a process for a segment. Handler can use streams and listen for 'signal' events.
   private async createProcessForSegment(seg: Segment, originalLine?: string): Promise<Process> {
     const proc = new Process();
@@ -416,12 +395,9 @@ export class StreamShell {
         // Priority order:
         // 1. Shell builtins (test, [, true, type, echo, etc.)
         // 2. Extension commands (user-registered via commandRegistry)
-        // 3. Tool commands (git, npm, pyxis) - handled via unixHandler
-        // 4. Unix commands (ls, cat, etc.) - handled via unixHandler
-        // 5. Unknown commands - error
+        // 3. Unix commands (ls, cat, etc.) - handled via unixHandler
+        // 4. Unknown commands - error
         // =================================================================
-        
-        const cmdCategory = this.getCommandCategory(cmd);
         
         // 1. Shell Builtins - Direct execution via builtins adapter
         if (builtins && typeof builtins[cmd] === 'function') {
@@ -456,22 +432,18 @@ export class StreamShell {
           }
         }
 
-        // 2. Extension Commands - User-registered commands take precedence
+        // 2. Extension Commands - User-registered commands via commandRegistry
         if (
-          cmdCategory === CommandCategory.EXTENSION ||
-          (this.commandRegistry &&
-           this.commandRegistry.hasCommand &&
-           this.commandRegistry.hasCommand(cmd))
+          this.commandRegistry &&
+          this.commandRegistry.hasCommand &&
+          this.commandRegistry.hasCommand(cmd)
         ) {
           try {
             const cwd = await unix.pwd();
-            // Import getSystemModule for proper extension command execution
-            const { getSystemModule } = await import('@/engine/extensions/systemModuleProvider');
             const res: any = await this.commandRegistry.executeCommand(cmd, args, {
               projectName: this.projectName,
               projectId: this.projectId,
               currentDirectory: cwd,
-              getSystemModule,
               stdin: proc.stdinStream,
               stdout: proc.stdoutStream,
               stderr: proc.stderrStream,
@@ -490,8 +462,7 @@ export class StreamShell {
           }
         }
 
-        // 3. Tool Commands (git, npm, pyxis) and 4. Unix Commands
-        // Both are handled via unixHandler which delegates to specialized handlers
+        // 3. Unix commands - Fallback to unixHandler
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
           // Wait for pipes to be ready before reading stdin
