@@ -22,7 +22,7 @@ export function useFileDeleteTabSync() {
   useEffect(() => {
     // fileRepositoryの削除イベントを監視
     const unsubscribe = fileRepository.addChangeListener(event => {
-      if (event.type === 'delete' && event.file.path) {
+      if (event.type === 'delete') {
         handleFileDeleted(event.file.path);
       }
     });
