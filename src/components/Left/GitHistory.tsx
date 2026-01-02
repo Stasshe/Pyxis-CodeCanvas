@@ -60,19 +60,15 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   
   // 各コミットを指す子の数をカウント（入次数）
   const inDegree = new Map<string, number>();
-  const children = new Map<string, string[]>();
   
   commits.forEach(c => {
     inDegree.set(c.hash, 0);
-    children.set(c.hash, []);
   });
   
   // 親子関係を構築（表示されているコミットのみ）
   commits.forEach(c => {
     c.parentHashes.forEach(parentHash => {
       if (commitMap.has(parentHash)) {
-        // parentHash の子として c.hash を追加
-        children.get(parentHash)!.push(c.hash);
         // c.hash の入次数を増やす
         inDegree.set(c.hash, (inDegree.get(c.hash) || 0) + 1);
       }
@@ -80,7 +76,7 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   });
   
   // 入次数が0のコミット（子がいないコミット = 最新のコミット）を収集
-  // timestampで新しい順にソート
+  // timestampで新しい順にソートして初期キューを構築
   const queue: GitCommitType[] = commits
     .filter(c => (inDegree.get(c.hash) || 0) === 0)
     .sort((a, b) => b.timestamp - a.timestamp);
@@ -89,25 +85,44 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   const visited = new Set<string>();
   
   while (queue.length > 0) {
-    // キューから最もtimestampが新しいコミットを取得
-    queue.sort((a, b) => b.timestamp - a.timestamp);
+    // キューの先頭から取得（既にソート済み）
     const commit = queue.shift()!;
     
     if (visited.has(commit.hash)) continue;
     visited.add(commit.hash);
     result.push(commit);
     
-    // このコミットの親の入次数を減らす
+    // このコミットの親の入次数を減らし、0になったものをキューに追加
+    const newReadyCommits: GitCommitType[] = [];
     commit.parentHashes.forEach(parentHash => {
       const parent = commitMap.get(parentHash);
       if (parent && !visited.has(parentHash)) {
-        const newDegree = (inDegree.get(parentHash) || 1) - 1;
+        const newDegree = (inDegree.get(parentHash) || 0) - 1;
         inDegree.set(parentHash, newDegree);
         if (newDegree === 0) {
-          queue.push(parent);
+          newReadyCommits.push(parent);
         }
       }
     });
+    
+    // 新たにキューに追加するコミットをソートしてマージ
+    if (newReadyCommits.length > 0) {
+      newReadyCommits.sort((a, b) => b.timestamp - a.timestamp);
+      // キューにマージ（timestampで新しい順を維持）
+      const merged: GitCommitType[] = [];
+      let i = 0, j = 0;
+      while (i < queue.length && j < newReadyCommits.length) {
+        if (queue[i].timestamp >= newReadyCommits[j].timestamp) {
+          merged.push(queue[i++]);
+        } else {
+          merged.push(newReadyCommits[j++]);
+        }
+      }
+      while (i < queue.length) merged.push(queue[i++]);
+      while (j < newReadyCommits.length) merged.push(newReadyCommits[j++]);
+      queue.length = 0;
+      queue.push(...merged);
+    }
   }
   
   // 循環がある場合、残りのコミットを追加
@@ -138,8 +153,10 @@ function assignLanes(
   const commitLanes = new Map<string, number>();
   const commitColors = new Map<string, string>();
   
-  // アクティブなレーン: lane番号 -> 現在のコミットハッシュ
-  const activeLanes: (string | null)[] = [];
+  // アクティブなレーン管理
+  let totalLanes = 0;
+  // 空いているレーンのセット（O(1)でのアクセス用）
+  const availableLanes = new Set<number>();
   
   // 各コミットの子を追跡
   const childrenMap = new Map<string, string[]>();
@@ -161,27 +178,39 @@ function assignLanes(
   // 予約済みレーン: 親コミットがこのレーンを使う予定
   const reservedLanes = new Map<string, number>();
   
+  // 空いているレーンを取得するヘルパー関数（excludeを除く）
+  const getAvailableLane = (exclude?: number): number => {
+    for (const lane of availableLanes) {
+      if (lane !== exclude) {
+        return lane;
+      }
+    }
+    // 空いているレーンがない場合、新しいレーンを作成
+    return totalLanes;
+  };
+  
   for (const commit of commits) {
-    let assignedLane = -1;
-    let assignedColor: string | undefined;
+    let assignedLane: number;
+    let assignedColor: string;
     
     // このコミットにレーンが予約されているかチェック
     if (reservedLanes.has(commit.hash)) {
       assignedLane = reservedLanes.get(commit.hash)!;
       assignedColor = branchColors[assignedLane % branchColors.length];
       reservedLanes.delete(commit.hash);
+      // 予約されていたレーンを使用中にする（availableLanesから削除）
+      availableLanes.delete(assignedLane);
     } else {
       // 新しいレーンを割り当て
-      // 空いているレーンを探す
-      assignedLane = activeLanes.findIndex(l => l === null);
-      if (assignedLane === -1) {
-        assignedLane = activeLanes.length;
-        activeLanes.push(null);
+      assignedLane = getAvailableLane();
+      if (assignedLane === totalLanes) {
+        totalLanes++;
+      } else {
+        availableLanes.delete(assignedLane);
       }
       assignedColor = branchColors[assignedLane % branchColors.length];
     }
     
-    activeLanes[assignedLane] = commit.hash;
     commitLanes.set(commit.hash, assignedLane);
     commitColors.set(commit.hash, assignedColor);
     
@@ -198,10 +227,11 @@ function assignLanes(
         const parentHash = commit.parentHashes[i];
         if (commitMap.has(parentHash) && !reservedLanes.has(parentHash)) {
           // 空いているレーンを探す（現在のレーン以外）
-          let newLane = activeLanes.findIndex((l, idx) => l === null && idx !== assignedLane);
-          if (newLane === -1) {
-            newLane = activeLanes.length;
-            activeLanes.push(null);
+          const newLane = getAvailableLane(assignedLane);
+          if (newLane === totalLanes) {
+            totalLanes++;
+          } else {
+            availableLanes.delete(newLane);
           }
           reservedLanes.set(parentHash, newLane);
         }
@@ -221,12 +251,12 @@ function assignLanes(
       // ただし、まだ処理されていない親への接続がある場合は解放しない
       const hasUnprocessedParent = commit.parentHashes.some(p => commitMap.has(p) && !commitLanes.has(p));
       if (!hasUnprocessedParent && firstParentChildCount === 0) {
-        activeLanes[assignedLane] = null;
+        availableLanes.add(assignedLane);
       }
     }
   }
   
-  const maxLane = activeLanes.length - 1;
+  const maxLane = totalLanes > 0 ? totalLanes - 1 : 0;
   return { commitLanes, commitColors, maxLane };
 }
 
