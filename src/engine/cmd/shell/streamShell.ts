@@ -465,10 +465,13 @@ export class StreamShell {
         ) {
           try {
             const cwd = await unix.pwd();
+            // Import getSystemModule for proper extension command execution
+            const { getSystemModule } = await import('@/engine/extensions/systemModuleProvider');
             const res: any = await this.commandRegistry.executeCommand(cmd, args, {
               projectName: this.projectName,
               projectId: this.projectId,
               currentDirectory: cwd,
+              getSystemModule,
               stdin: proc.stdinStream,
               stdout: proc.stdoutStream,
               stderr: proc.stderrStream,

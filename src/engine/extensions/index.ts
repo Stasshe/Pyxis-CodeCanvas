@@ -8,3 +8,5 @@ export * from './extensionLoader';
 export * from './extensionRegistry';
 export * from './storage-adapter';
 export * from './autoInstaller';
+export * from './systemModuleProvider';
+export * from './commandRegistry';

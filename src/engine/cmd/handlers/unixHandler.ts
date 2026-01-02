@@ -411,14 +411,14 @@ export async function handleUnixCommand(
           const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
           if (commandRegistry && commandRegistry.hasCommand(cmd)) {
             const currentDir = unix ? await unix.pwd() : `/projects/${projectName}`;
-            // Provide a minimal execution context - getSystemModule returns null
-            // since we're in a handler context without full extension support
+            // Provide the correct getSystemModule implementation
+            const { getSystemModule } = await import('@/engine/extensions/systemModuleProvider');
             const result = await commandRegistry.executeCommand(cmd, args, {
               projectName,
               projectId,
               currentDirectory: currentDir,
-              getSystemModule: () => null, // Extensions needing system modules won't work from unixHandler
-            } as any);
+              getSystemModule,
+            });
             await append(typeof result === 'string' ? result : JSON.stringify(result));
             extensionHandled = true;
           }
