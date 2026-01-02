@@ -75,37 +75,11 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
     });
   });
   
-  // ルートコミット（親がリスト外にある、または親がないコミット）を特定
-  // これらは履歴の最後に表示する
-  const isRootCommit = (c: GitCommitType): boolean => {
-    // 親ハッシュがあるが、その親がコミットリストに存在しない場合
-    // これはPyxis特有の「.gitの最初のcommitの親がない」ケース
-    if (c.parentHashes.length > 0) {
-      const hasParentInList = c.parentHashes.some(ph => commitMap.has(ph));
-      return !hasParentInList;
-    }
-    // 親ハッシュがない場合も真のルートコミット
-    return true;
-  };
-  
   // 入次数が0のコミット（子がいないコミット = 最新のコミット）を収集
-  // ただし、ルートコミットは除外して後で追加
-  const rootCommits: GitCommitType[] = [];
+  // timestampで新しい順にソート
   const queue: GitCommitType[] = commits
-    .filter(c => {
-      if ((inDegree.get(c.hash) || 0) === 0) {
-        if (isRootCommit(c)) {
-          rootCommits.push(c);
-          return false;
-        }
-        return true;
-      }
-      return false;
-    })
+    .filter(c => (inDegree.get(c.hash) || 0) === 0)
     .sort((a, b) => b.timestamp - a.timestamp);
-  
-  // ルートコミットをtimestampで古い順にソート（最後に追加するため）
-  rootCommits.sort((a, b) => b.timestamp - a.timestamp);
   
   const result: GitCommitType[] = [];
   const visited = new Set<string>();
@@ -126,12 +100,7 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
         const newDegree = (inDegree.get(parentHash) || 0) - 1;
         inDegree.set(parentHash, newDegree);
         if (newDegree === 0) {
-          // ルートコミットでない場合のみキューに追加
-          if (!isRootCommit(parent)) {
-            newReadyCommits.push(parent);
-          } else if (!rootCommits.includes(parent)) {
-            rootCommits.push(parent);
-          }
+          newReadyCommits.push(parent);
         }
       }
     });
@@ -155,15 +124,6 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
       queue.push(...merged);
     }
   }
-  
-  // ルートコミットを最後に追加（timestampで新しい順）
-  rootCommits.sort((a, b) => b.timestamp - a.timestamp);
-  rootCommits.forEach(c => {
-    if (!visited.has(c.hash)) {
-      visited.add(c.hash);
-      result.push(c);
-    }
-  });
   
   // 循環がある場合、残りのコミットを追加
   commits.forEach(c => {
