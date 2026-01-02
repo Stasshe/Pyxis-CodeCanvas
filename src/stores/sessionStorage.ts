@@ -141,7 +141,11 @@ class SessionStorageManager {
       );
       if (saved) {
         console.log('[SessionStorage] UI state loaded successfully');
-        return saved;
+        // Ensure backward compatibility with old sessions that don't have the new fields
+        return {
+          ...DEFAULT_SESSION.ui,
+          ...saved,
+        };
       }
       console.log('[SessionStorage] No saved UI state found, using default');
       return DEFAULT_SESSION.ui;

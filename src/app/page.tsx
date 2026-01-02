@@ -287,7 +287,14 @@ export default function Home() {
     },
     []
   );
-  useKeyBinding('openTerminal', () => setIsBottomPanelVisible(true), []);
+  useKeyBinding(
+    'openTerminal',
+    () => {
+      setIsBottomPanelVisible(true);
+      setBottomPanelActiveTab('terminal');
+    },
+    []
+  );
   useKeyBinding('openProject', () => setIsProjectModalOpen(true), []);
   useKeyBinding(
     'globalSearch',
