@@ -77,10 +77,17 @@ export default function LeftSidebar({
             {activeExtensionPanel && activeExtensionPanel.title}
           </span>
         </div>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-hidden flex flex-col">
           {activeMenuTab === 'files' && (
-            <div className="p-2 select-none">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="flex-1 flex flex-col select-none overflow-hidden">
+              {/* Fixed header with file creation icons - does not scroll */}
+              <div 
+                className="flex items-center gap-2 p-2 flex-shrink-0"
+                style={{ 
+                  background: colors.cardBg,
+                  borderBottom: `1px solid ${colors.border}`,
+                }}
+              >
                 <FolderOpen size={14} color={colors.sidebarIconFg} />
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>
                   ./
@@ -137,12 +144,15 @@ export default function LeftSidebar({
                   <FolderPlus size={16} color={colors.sidebarIconFg} />
                 </button>
               </div>
-              <FileTree
-                items={files}
-                currentProjectName={currentProject?.name ?? ''}
-                currentProjectId={currentProject?.id ?? ''}
-                onRefresh={onRefresh}
-              />
+              {/* Virtualized file tree - scrolls independently */}
+              <div className="flex-1 overflow-hidden">
+                <FileTree
+                  items={files}
+                  currentProjectName={currentProject?.name ?? ''}
+                  currentProjectId={currentProject?.id ?? ''}
+                  onRefresh={onRefresh}
+                />
+              </div>
             </div>
           )}
           {activeMenuTab === 'search' && (
