@@ -239,7 +239,7 @@ jobs:
             - [Repository](${{ github.server_url }}/${{ github.repository }})
           draft: false
           prerelease: ${{ github.event.inputs.prerelease }}
-          generate_release_notes: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
