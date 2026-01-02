@@ -10,5 +10,6 @@
  */
 
 export { default } from './VirtualizedFileTree';
-export { default as FileTreeDragLayer } from './FileTreeDragLayer';
+// Use the shared CustomDragLayer from src/components/DnD/CustomDragLayer.tsx
+// for drag preview functionality
 export type { FileTreeProps, FlattenedTreeItem, StickyFolder } from './types';
