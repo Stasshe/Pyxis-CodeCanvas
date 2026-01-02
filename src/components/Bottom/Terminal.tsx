@@ -5,9 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { LOCALSTORAGE_KEY } from '@/context/config';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
+import { handleGitCommand } from '@/engine/cmd/handlers/gitHandler';
+import { handleNPMCommand } from '@/engine/cmd/handlers/npmHandler';
+import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -382,7 +386,7 @@ function ClientTerminal({
     };
 
     const processCommand = async (command: string) => {
-      // リダイレクト演算子のパース (StreamShellが処理するが、ここでも基本的な解析を行う)
+      // リダイレクト演算子のパース
       let redirect = null;
       let fileName = null;
       let append = false;
@@ -417,9 +421,48 @@ function ClientTerminal({
 
       let skipTerminalRedirect = false;
       try {
-        // Terminal-specific commands: only clear, history, vim are handled here
-        // All other commands (including git, npm, pyxis, extensions) go through StreamShell
         switch (cmd) {
+          // New namespaced form: pyxis <category> <action> [...]
+          case 'pyxis': {
+            if (args.length === 0) {
+              await captureWriteOutput(
+                'pyxis: missing subcommand. Usage: pyxis <category> <action> [args]'
+              );
+              break;
+            }
+            const category = args[0];
+            const action = args[1];
+
+            // If there is no action token, the category itself is required to have an action
+            if (!action) {
+              await captureWriteOutput(
+                'pyxis: missing action. Usage: pyxis <category> <action> [args]'
+              );
+              break;
+            }
+
+            // If the action token looks like a flag (starts with '-'), do NOT merge it into the command name.
+            // Treat it as an argument for the category command: `pyxis export --indexeddb` -> cmd: 'export', args: ['--indexeddb']
+            let cmdToCall: string;
+            let subArgs: string[];
+            if (action.startsWith('-')) {
+              cmdToCall = category;
+              subArgs = args.slice(1); // include the flag and following args
+            } else {
+              cmdToCall = `${category}-${action}`;
+              subArgs = args.slice(2);
+            }
+
+            await handlePyxisCommand(
+              cmdToCall,
+              subArgs,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput
+            );
+            break;
+          }
+
           case 'clear':
             term.clear();
             term.write('\x1b[H\x1b[2J\x1b[3J');
@@ -451,6 +494,20 @@ function ClientTerminal({
             break;
           }
 
+          case 'git':
+            await handleGitCommand(args, currentProject, currentProjectId, captureWriteOutput);
+            break;
+
+          case 'npm':
+            await handleNPMCommand(
+              args,
+              currentProject,
+              currentProjectId,
+              captureWriteOutput,
+              setLoading
+            );
+            break;
+
           case 'vim': {
             // Disable normal terminal input during vim mode
             vimModeActive = true;
@@ -480,33 +537,52 @@ function ClientTerminal({
           }
 
           default: {
-            // ALL other commands (git, npm, pyxis, extensions, unix) go through StreamShell
-            // This enables && || | operators for all commands
-            if (shellRef.current) {
-              // delegate entire command to StreamShell which handles pipes/redirection/subst
-              // リアルタイム出力コールバックを渡す
-              const res = await shellRef.current.run(command, {
-                stdout: (data: string) => {
-                  // 即座にTerminalに表示（リアルタイム出力）
-                  if (!redirect) {
-                    writeOutput(data).catch(() => {});
-                  }
-                },
-                stderr: (data: string) => {
-                  // stderrも即座に表示
-                  if (!redirect) {
-                    writeOutput(data).catch(() => {});
-                  }
-                },
-              });
-              // 完了後は何もしない（既にコールバックで出力済み）
-              // StreamShell (shellRef) はリダイレクトを内部で処理しているため
-              // Terminal側でのファイル書き込みは行わないようにする。
-              if (redirect && fileName && unixCommandsRef.current) {
-                skipTerminalRedirect = true;
+            // カスタムコマンドをチェック
+            const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
+            if (commandRegistry.hasCommand(cmd)) {
+              try {
+                const currentDir = unixCommandsRef.current
+                  ? await unixCommandsRef.current.pwd()
+                  : `/projects/${currentProject}`;
+
+                // コマンド実行に必要な最小限の情報を渡す
+                // ExtensionManagerのラッパーでExtensionContextがマージされる
+                const result = await commandRegistry.executeCommand(cmd, args, {
+                  projectName: currentProject,
+                  projectId: currentProjectId,
+                  currentDirectory: currentDir,
+                } as any);
+
+                await captureWriteOutput(result);
+              } catch (error) {
+                await captureWriteOutput(`Error: ${(error as Error).message}`);
               }
             } else {
-              await captureWriteOutput('Shell not initialized. Please wait and try again.\n');
+              // 通常のUnixコマンドとして処理
+              if (shellRef.current) {
+                // delegate entire baseCommand to StreamShell which handles pipes/redirection/subst
+                // リアルタイム出力コールバックを渡す
+                const res = await shellRef.current.run(command, {
+                  stdout: (data: string) => {
+                    // 即座にTerminalに表示（リアルタイム出力）
+                    if (!redirect) {
+                      writeOutput(data).catch(() => {});
+                    }
+                  },
+                  stderr: (data: string) => {
+                    // stderrも即座に表示
+                    if (!redirect) {
+                      writeOutput(data).catch(() => {});
+                    }
+                  },
+                });
+                // 完了後は何もしない（既にコールバックで出力済み）
+                // StreamShell (shellRef) はリダイレクトを内部で処理しているため
+                // Terminal側でのファイル書き込みは行わないようにする。
+                if (redirect && fileName && unixCommandsRef.current) {
+                  skipTerminalRedirect = true;
+                }
+              }
             }
             break;
           }

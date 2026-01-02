@@ -20,23 +20,12 @@ export { Process, type ProcExit } from './process';
 
 /**
  * Stream-based Shell
- * 
- * Architecture:
  * - Process abstraction with stdin/stdout/stderr as streams
  * - Pipeline support using stream.pipe
  * - Redirections: >, >>, < handled by shell (uses FileRepository when provided)
  * - Signal handling (SIGINT) via EventEmitter and Process.kill()
- * - Supports /dev/null and other special files
  * - Delegates filesystem commands to UnixCommands when available
- * 
- * Command Execution Flow:
- * 1. Parse command line (parser.ts)
- * 2. Expand tokens (expansion.ts) - IFS, glob, brace expansion
- * 3. Execute via appropriate handler:
- *    - Builtins: Direct execution
- *    - Extensions: commandRegistry (if registered)
- *    - Unix: unixHandler
- * 4. Handle pipes and redirections
+ * - Supports /dev/null and other special files
  */
 
 export class StreamShell {
@@ -53,7 +42,7 @@ export class StreamShell {
     this.projectName = opts.projectName;
     this.projectId = opts.projectId;
     this.unix = opts.unix || null;
-    this.fileRepository = opts.fileRepository;
+    this.fileRepository = opts.fileRepository; // optional
     this.commandRegistry = opts.commandRegistry;
     this._terminalColumns = opts.terminalColumns ?? 80;
     this._terminalRows = opts.terminalRows ?? 24;
@@ -79,6 +68,7 @@ export class StreamShell {
     this.unix = terminalCommandRegistry.getUnixCommands(this.projectName, this.projectId);
     return this.unix;
   }
+
   // Create a process for a segment. Handler can use streams and listen for 'signal' events.
   private async createProcessForSegment(seg: Segment, originalLine?: string): Promise<Process> {
     const proc = new Process();
@@ -389,20 +379,11 @@ export class StreamShell {
           return;
         }
 
-        // =================================================================
-        // Command Execution Flow (via CommandRouter categorization)
-        // =================================================================
-        // Priority order:
-        // 1. Shell builtins (test, [, true, type, echo, etc.)
-        // 2. Extension commands (user-registered via commandRegistry)
-        // 3. Unix commands (ls, cat, etc.) - handled via unixHandler
-        // 4. Unknown commands - error
-        // =================================================================
-        
-        // 1. Shell Builtins - Direct execution via builtins adapter
+        // Use the builtins adapter if available (stream-friendly wrappers)
         if (builtins && typeof builtins[cmd] === 'function') {
           try {
             await builtins[cmd](ctx, args);
+            // builtins are expected to manage stdout/stderr end; ensure process exit
             proc.endStdout();
             proc.endStderr();
             proc.exit(0);
@@ -432,7 +413,7 @@ export class StreamShell {
           }
         }
 
-        // 2. Extension Commands - User-registered commands via commandRegistry
+        // Extension/registered command
         if (
           this.commandRegistry &&
           this.commandRegistry.hasCommand &&
@@ -462,112 +443,12 @@ export class StreamShell {
           }
         }
 
-        // 3. Tool commands - git, npm, pyxis
-        // These are special commands that have their own handlers
-        if (cmd === 'git') {
-          try {
-            const { handleGitCommand } = await import('../handlers/gitHandler');
-            await handleGitCommand(
-              args,
-              this.projectName,
-              this.projectId,
-              async (out: string) => {
-                proc.writeStdout(normalizeForWrite(out));
-              }
-            );
-            proc.endStdout();
-            proc.endStderr();
-            proc.exit(0);
-            return;
-          } catch (e: any) {
-            proc.writeStderr(normalizeForWrite(e.message || e));
-            proc.endStdout();
-            proc.endStderr();
-            proc.exit(1);
-            return;
-          }
-        }
-
-        if (cmd === 'npm') {
-          try {
-            const { handleNPMCommand } = await import('../handlers/npmHandler');
-            await handleNPMCommand(
-              args,
-              this.projectName,
-              this.projectId,
-              async (out: string) => {
-                proc.writeStdout(normalizeForWrite(out));
-              },
-              () => {} // setLoading - no-op in shell context
-            );
-            proc.endStdout();
-            proc.endStderr();
-            proc.exit(0);
-            return;
-          } catch (e: any) {
-            proc.writeStderr(normalizeForWrite(e.message || e));
-            proc.endStdout();
-            proc.endStderr();
-            proc.exit(1);
-            return;
-          }
-        }
-
-        if (cmd === 'pyxis') {
-          try {
-            const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
-            // Parse pyxis subcommand: pyxis <category> <action> [args]
-            if (args.length === 0) {
-              proc.writeStdout('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]\n');
-              proc.endStdout();
-              proc.endStderr();
-              proc.exit(1);
-              return;
-            }
-            const category = args[0];
-            const action = args[1];
-            if (!action) {
-              proc.writeStdout('pyxis: missing action. Usage: pyxis <category> <action> [args]\n');
-              proc.endStdout();
-              proc.endStderr();
-              proc.exit(1);
-              return;
-            }
-            let cmdToCall: string;
-            let subArgs: string[];
-            if (action.startsWith('-')) {
-              cmdToCall = category;
-              subArgs = args.slice(1);
-            } else {
-              cmdToCall = `${category}-${action}`;
-              subArgs = args.slice(2);
-            }
-            await handlePyxisCommand(
-              cmdToCall,
-              subArgs,
-              this.projectName,
-              this.projectId,
-              async (out: string) => {
-                proc.writeStdout(normalizeForWrite(out));
-              }
-            );
-            proc.endStdout();
-            proc.endStderr();
-            proc.exit(0);
-            return;
-          } catch (e: any) {
-            proc.writeStderr(normalizeForWrite(e.message || e));
-            proc.endStdout();
-            proc.endStderr();
-            proc.exit(1);
-            return;
-          }
-        }
-
-        // 4. Unix commands - Fallback to unixHandler
+        // Fallback to unix handler (returns structured {code, output})
         try {
           const { handleUnixCommand } = await import('../handlers/unixHandler');
-          // Wait for pipes to be ready before reading stdin
+          // collect stdin content (if any) before invoking handler; the stdin stream
+          // may already be piped from a previous process by the time this runs
+          // Wait for run() to wire up pipes before attempting to read any stdin buffer
           await new Promise<void>(resolve => {
             let resolved = false;
             const onReady = () => {
@@ -759,10 +640,8 @@ export class StreamShell {
             
             // Check if redirecting to /dev/null - discard output silently
             if (fileInfo && isDevNull(fileInfo.path)) {
-              // Intentionally discard all data sent to /dev/null by attaching
-              // a no-op handler. This mimics Unix /dev/null behavior.
-              const discardData = () => { /* /dev/null: discard data */ };
-              stream.on('data', discardData);
+              // Consume data but don't store it (discard)
+              stream.on('data', () => {});
               return;
             }
             
