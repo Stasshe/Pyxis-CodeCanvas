@@ -19,6 +19,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { editorMemoryManager } from '@/engine/editor';
 import { useAI } from '@/hooks/ai/useAI';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useAIReview } from '@/hooks/useAIReview';
@@ -247,6 +248,7 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
 
   // 変更を適用（suggestedContent -> contentへコピー）
   // NOTE: NEW-ARCHITECTURE.mdに従い、fileRepositoryを直接使用
+  // EditorMemoryManagerを使用して他のタブにも変更を同期
   const handleApplyChanges = async (filePath: string, newContent: string) => {
     const projectId = currentProject?.id;
 
@@ -261,6 +263,10 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
 
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
       await fileRepository.saveFileByPath(projectId, filePath, newContent);
+
+      // EditorMemoryManagerを通じて他のタブに変更を通知
+      // 外部更新として扱い、同一ファイルを開いている全タブ（エディタ、AI Review等）に即時反映
+      editorMemoryManager.updateFromExternal(filePath, newContent);
 
       // Clear AI review metadata for this file (non-blocking)
       try {
