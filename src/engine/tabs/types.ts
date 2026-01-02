@@ -187,6 +187,22 @@ export interface TabTypeDefinition {
   component: React.ComponentType<TabComponentProps>;
   createTab: (file: any, options?: OpenTabOptions) => Tab;
   shouldReuseTab?: (existingTab: Tab, newFile: any, options?: OpenTabOptions) => boolean;
+  /**
+   * コンテンツ更新メソッド - タブのコンテンツを更新して新しいタブオブジェクトを返す
+   * 各タブタイプが自身のコンテンツ構造に応じて実装する
+   * @param tab 更新対象のタブ
+   * @param content 新しいコンテンツ
+   * @param isDirty 変更フラグ
+   * @returns 更新されたタブ（変更がない場合は元のタブを返す）
+   */
+  updateContent?: (tab: Tab, content: string, isDirty: boolean) => Tab;
+  /**
+   * 同期対象のファイルパスを取得
+   * タブのコンテンツがファイルと同期する必要がある場合に実装
+   * @param tab タブ
+   * @returns ファイルパス、同期不要の場合はundefined
+   */
+  getContentPath?: (tab: Tab) => string | undefined;
 }
 
 /**

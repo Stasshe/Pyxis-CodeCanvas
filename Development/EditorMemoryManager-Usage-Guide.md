@@ -2,7 +2,16 @@
 
 ## 概要
 
-EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）の保存状態・デバウンス保存を一元管理するシングルトンクラスです。
+このドキュメントでは、リファクタリング後のエディターメモリ管理システムの使い方を説明します。
+
+### 責任分離アーキテクチャ
+
+| モジュール | 責務 |
+|-----------|------|
+| **tabStore** | ペイン/タブ構造の管理のみ |
+| **EditorMemoryManager** | コンテンツ同期・保存・isDirty管理 |
+| **useTabContentRestore** | セッション復元のみ |
+| **TabTypeDefinition** | 各タブタイプの更新ロジック定義 |
 
 **重要: コンテンツはtabStoreで保持し、EditorMemoryManagerはメタデータのみ保持**
 - メモリ効率化のため、コンテンツの二重保持を避ける設計
@@ -11,17 +20,25 @@ EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）の�
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   EditorMemoryManager                        │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  metadataMap: Map<path, MetadataEntry>              │    │
-│  │    path1 → { lastModified, saveTimerId }            │    │
-│  │    path2 → { lastModified, saveTimerId }            │    │
-│  │  ※コンテンツは保持しない（tabStoreに委譲）           │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌──────────────────┐  ┌──────────────────┐                │
-│  │ changeListeners  │  │  saveListeners   │                │
-│  └──────────────────┘  └──────────────────┘                │
+│                 責任分離アーキテクチャ                        │
+├─────────────────────────────────────────────────────────────┤
+│ TabTypeDefinition (拡張ポイント)                             │
+│   updateContent?: (tab, content, isDirty) => Tab            │
+│   getContentPath?: (tab) => string | undefined              │
+├─────────────────────────────────────────────────────────────┤
+│ EditorMemoryManager (シングルトン)                           │
+│   metadataMap: Map<path, { lastModified, saveTimerId }>     │
+│   ├─ setContent() → tabStore.updateTabContent() + 保存予約  │
+│   ├─ saveImmediately() → 即時保存                           │
+│   └─ updateFromExternal() → 外部変更反映                    │
+├─────────────────────────────────────────────────────────────┤
+│ tabStore                                                     │
+│   updateTabContent() → TabRegistry.updateContent()を委譲    │
+│   ├─ ハードコードなし                                        │
+│   └─ 各タブタイプが自身の更新ロジックを実装                  │
+├─────────────────────────────────────────────────────────────┤
+│ useTabContentRestore                                         │
+│   セッション復元専用（ファイル監視は行わない）               │
 └─────────────────────────────────────────────────────────────┘
          │                          │
          ▼                          ▼
@@ -29,6 +46,44 @@ EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）の�
 │    tabStore     │        │ fileRepository  │
 │ (コンテンツ保持) │        │  (IndexedDB)    │
 └─────────────────┘        └─────────────────┘
+```
+
+## 新しいタブタイプの追加方法
+
+### TabTypeDefinitionの拡張
+
+```typescript
+export const MyCustomTabType: TabTypeDefinition = {
+  kind: 'my-custom',
+  displayName: 'My Custom Tab',
+  component: MyCustomTabComponent,
+  canEdit: true,
+  canPreview: false,
+
+  createTab: (file, options) => ({
+    id: file.path || `my-custom-${Date.now()}`,
+    name: file.name,
+    kind: 'my-custom',
+    path: file.path || '',
+    paneId: options?.paneId || '',
+    content: file.content || '',
+    isDirty: false,
+  }),
+
+  // コンテンツ更新メソッド（必須: tabStore.updateTabContentで使用）
+  updateContent: (tab, content, isDirty) => {
+    const myTab = tab as MyCustomTab;
+    if (myTab.content === content && myTab.isDirty === isDirty) {
+      return tab; // 変更なし
+    }
+    return { ...myTab, content, isDirty };
+  },
+
+  // 同期対象パスを返す（undefined: 同期不要）
+  getContentPath: (tab) => {
+    return tab.path || undefined;
+  },
+};
 ```
 
 ## 基本的な使い方

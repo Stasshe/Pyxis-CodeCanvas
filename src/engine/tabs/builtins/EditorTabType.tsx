@@ -122,4 +122,17 @@ export const EditorTabType: TabTypeDefinition = {
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'editor';
   },
+
+  updateContent: (tab, content, isDirty) => {
+    const editorTab = tab as EditorTab;
+    // 変更がない場合は元のタブを返す
+    if (editorTab.content === content && editorTab.isDirty === isDirty) {
+      return tab;
+    }
+    return { ...editorTab, content, isDirty };
+  },
+
+  getContentPath: (tab) => {
+    return tab.path || undefined;
+  },
 };

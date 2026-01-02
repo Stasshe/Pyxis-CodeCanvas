@@ -196,4 +196,29 @@ export const DiffTabType: TabTypeDefinition = {
       diffTab.diffs[0]?.latterCommitId === singleFileDiff.latterCommitId
     );
   },
+
+  updateContent: (tab, content, isDirty) => {
+    const diffTab = tab as DiffTab;
+    // diffs配列が空、または最初のdiffがない場合はそのまま返す
+    if (!diffTab.diffs || diffTab.diffs.length === 0) {
+      return tab;
+    }
+    // 変更がない場合は元のタブを返す
+    if (diffTab.diffs[0].latterContent === content && diffTab.isDirty === isDirty) {
+      return tab;
+    }
+    // latterContentを更新
+    const updatedDiffs = [...diffTab.diffs];
+    updatedDiffs[0] = { ...updatedDiffs[0], latterContent: content };
+    return { ...diffTab, diffs: updatedDiffs, isDirty };
+  },
+
+  getContentPath: (tab) => {
+    const diffTab = tab as DiffTab;
+    // 編集可能な単一ファイルdiffのみパスを返す
+    if (diffTab.editable && diffTab.diffs?.length === 1) {
+      return diffTab.path || undefined;
+    }
+    return undefined;
+  },
 };

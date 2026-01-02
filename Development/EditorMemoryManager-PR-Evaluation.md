@@ -31,46 +31,54 @@
 
 ## 機能的な比較
 
-### 既存システム（Before）
+### 既存システム（Before - main branch）
 
 ```
-EditorTabType.tsx
-  └─ handleContentChange → updateTabContent (tabStore)
-                        → fileRepository.saveFileByPath
-                        → setGitRefreshTrigger
+tabStore.updateTabContent
+  └─ editor/diffタイプがハードコード
+  └─ 各タブタイプごとの更新ロジックが集中
+  └─ 拡張機能への対応が困難
 
-DiffTabType.tsx  
-  └─ handleContentChange → 独自のデバウンス実装
-                        → fileRepository.saveFileByPath
-
-AIReviewTabType.tsx
-  └─ handleApplyChanges → fileRepository.saveFileByPath
-                        → setGitRefreshTrigger
+EditorTabType.tsx / DiffTabType.tsx
+  └─ 各コンポーネント内でデバウンス実装
+  └─ Git更新トリガーが分散
 
 useTabContentRestore.ts
-  └─ fileRepository.addChangeListener → タブコンテンツ更新
+  └─ ファイル変更リスナー + セッション復元が混在
 ```
 
-### 新システム（After）
+### 新システム（After - リファクタリング済み）
 
 ```
-EditorMemoryManager (シングルトン)
-  └─ contentMap: Map<path, ContentEntry>
-  └─ fileRepository.addChangeListener → updateFromExternal
-  └─ scheduleSave → デバウンス保存
-  └─ syncToTabStore → 全タブ同期
+┌─────────────────────────────────────────────────────────────┐
+│                    責任分離アーキテクチャ                     │
+├─────────────────────────────────────────────────────────────┤
+│ tabStore                                                     │
+│   └─ ペイン/タブ構造の管理のみ                               │
+│   └─ updateTabContent → TabRegistry.updateContent()を使用   │
+│   └─ 各タブタイプが自身の更新ロジックを実装（拡張可能）       │
+├─────────────────────────────────────────────────────────────┤
+│ EditorMemoryManager (シングルトン)                           │
+│   └─ metadataMap: Map<path, { lastModified, saveTimerId }>  │
+│   └─ コンテンツ同期・isDirty管理                            │
+│   └─ デバウンス保存の統一制御                               │
+│   └─ fileRepository変更イベント監視 → 外部変更検知          │
+├─────────────────────────────────────────────────────────────┤
+│ useTabContentRestore                                         │
+│   └─ セッション復元専用（ファイル監視は行わない）            │
+├─────────────────────────────────────────────────────────────┤
+│ TabTypeDefinition (拡張ポイント)                             │
+│   └─ updateContent?: (tab, content, isDirty) => Tab         │
+│   └─ getContentPath?: (tab) => string | undefined           │
+│   └─ 各タブタイプが自身の更新ロジックを実装                  │
+└─────────────────────────────────────────────────────────────┘
 
-EditorTabType.tsx
-  └─ editorMemoryManager.setContent()
-  
-DiffTabType.tsx
-  └─ editorMemoryManager.setContent()
-  
-AIReviewTabType.tsx
-  └─ editorMemoryManager.updateFromExternal()
-
-useTabContentRestore.ts
-  └─ セッション復元のみ（ファイル監視なし）
+データフロー:
+  Editor編集 → EditorMemoryManager.setContent()
+            → tabStore.updateTabContent() → TabRegistry.updateContent()
+            → デバウンス保存スケジュール
+            → fileRepository.saveFileByPath()
+            → Git更新トリガー
 ```
 
 ---
@@ -157,10 +165,10 @@ useTabContentRestore.ts
    - 既存システムで全ての機能が正常に動作
    - 新しい機能は追加されていない
 
-2. **複雑性の増加**
-   - 新しい抽象層（EditorMemoryManager）の追加
-   - 学習コストの増加
-   - デバッグの複雑化
+2. ~~**複雑性の増加**~~ → **責任分離で改善**
+   - tabStore: ペイン/タブ構造管理のみ
+   - EditorMemoryManager: コンテンツ同期・保存
+   - useTabContentRestore: セッション復元のみ
 
 3. ~~**メモリ使用量の増加**~~ → **解消済み**
    - ~~ファイル内容の二重保持~~ → metadataMapのみ保持
@@ -168,51 +176,42 @@ useTabContentRestore.ts
 
 4. **コード量の増加**
    - +400行程度の純増（改善後）
-   - 保守対象の増加
+   - ただし責任が明確に分離
 
 ### マージを検討する理由
 
-1. **コードの整理**
-   - デバウンスロジックの集約
-   - 責任分離の明確化
+1. **拡張性の向上**
+   - TabTypeDefinitionにupdateContent/getContentPathを追加
+   - 新しいタブタイプが自身の更新ロジックを実装可能
+   - 拡張機能からも同じインターフェースで利用可能
 
-2. **将来の拡張性**
-   - 新しいタブタイプ追加時の統一的なインターフェース
-   - テスト容易性の向上
+2. **責任分離の明確化**
+   - tabStore: 構造管理のみ（updateTabContentはレジストリに委譲）
+   - EditorMemoryManager: コンテンツ同期・デバウンス保存
+   - useTabContentRestore: セッション復元専用
 
-3. **メモリ効率化（改善後）**
+3. **メモリ効率化**
    - コンテンツはtabStoreのみで保持
    - metadataMapは軽量なメタデータのみ
+
+4. **ハードコードの解消**
+   - tabStore.updateTabContentから`editor`/`diff`のハードコードを削除
+   - 各タブタイプが自身の更新ロジックを定義
 
 ---
 
 ## 結論
 
-**推奨: マージ可能（条件付き）**
+**推奨: マージを推奨**
 
 改善後の状態:
 - ✅ メモリ二重保持問題 → 解消済み
 - ✅ パフォーマンス → main branch と同等
-- ⚠️ 複雑性 → やや増加（トレードオフ）
+- ✅ 責任分離 → 明確に分離
+- ✅ 拡張性 → TabTypeDefinitionで拡張可能
 
-マージする場合の価値:
-- デバウンス保存の統一的な管理
-- 外部変更（Git/AI）の一元的な検知・反映
-- 将来のタブタイプ拡張に対応しやすい設計
-
----
-
-## 代替提案
-
-既存コードの改善を個別に行う:
-
-1. **デバウンスロジックの共通化**
-   - 新しいシングルトンではなく、共通ユーティリティ関数として抽出
-   
-2. **責任分離の明確化**
-   - useTabContentRestoreのリファクタリングのみ実施
-   
-3. **コメントとドキュメントの改善**
-   - 既存のフローを明文化
-
-これにより、複雑性を増さずに保守性を向上できる。
+マージする価値:
+- **責任分離**: tabStore/EditorMemoryManager/useTabContentRestoreの役割が明確
+- **拡張性**: 新しいタブタイプ追加時に統一的なインターフェース
+- **保守性**: ハードコードを削除し、各タブタイプが自身のロジックを管理
+- **メモリ効率**: mainブランチと同等以下のメモリ使用量
