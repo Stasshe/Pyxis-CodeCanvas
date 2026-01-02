@@ -244,9 +244,9 @@ function interpolate(line: string, localVars: Record<string, string>, args: stri
         // no expansion inside single quotes
         res += '$@';
       } else if (inD) {
-        // join args and escape double quotes
+        // join args and escape backslashes first, then double quotes
         const joined = (args && args.length > 1 ? args.slice(1) : [])
-          .map(a => String(a).replace(/"/g, '\\"'))
+          .map(a => String(a).replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
           .join(' ');
         res += joined;
       } else {

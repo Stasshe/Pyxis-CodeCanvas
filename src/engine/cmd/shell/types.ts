@@ -54,11 +54,15 @@ export const SPECIAL_FILES = {
   DEV_STDERR: '/dev/stderr',
 } as const;
 
+// Type for special file paths
+type SpecialFilePath = (typeof SPECIAL_FILES)[keyof typeof SPECIAL_FILES];
+
 // Check if a path is a special device file
 export function isSpecialFile(path: string | null | undefined): boolean {
   if (!path) return false;
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return Object.values(SPECIAL_FILES).includes(normalizedPath as any);
+  const specialFilePaths: readonly string[] = Object.values(SPECIAL_FILES);
+  return specialFilePaths.includes(normalizedPath);
 }
 
 // Check if a path is /dev/null

@@ -640,8 +640,10 @@ export class StreamShell {
             
             // Check if redirecting to /dev/null - discard output silently
             if (fileInfo && isDevNull(fileInfo.path)) {
-              // Consume data but don't store it (discard)
-              stream.on('data', () => {});
+              // Intentionally discard all data sent to /dev/null by attaching
+              // a no-op handler. This mimics Unix /dev/null behavior.
+              const discardData = () => { /* /dev/null: discard data */ };
+              stream.on('data', discardData);
               return;
             }
             
