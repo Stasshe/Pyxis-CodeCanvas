@@ -166,15 +166,22 @@ function findExactMatch(
   return null;
 }
 
+// Constants for fuzzy matching and scoring
+const MIN_CONFIDENCE_THRESHOLD = 0.6; // Lowered from 0.85 to accept more variations
+const MIN_NONTRIVIAL_LINE_LENGTH = 10; // Minimum characters for a line to be considered significant
+const PARTIAL_MATCH_SCORE = 0.7; // Score for partial line matches
+const BASE_PARTIAL_SCORE = 0.5; // Base score for partial context matches
+const LENGTH_RATIO_WEIGHT = 0.5; // Weight for length ratio in partial scoring
+
 /**
  * Find the best fuzzy match for search text in content
- * Uses a lower threshold (0.6) to be more lenient with file changes
+ * Uses a lower threshold to be more lenient with file changes
  */
 function findFuzzyMatch(
   content: string,
   search: string,
   startFrom = 0,
-  minConfidence = 0.6 // Lowered from 0.8 to accept more variations
+  minConfidence = MIN_CONFIDENCE_THRESHOLD
 ): { index: number; matchedText: string; confidence: number } | null {
   const normalizedContent = normalizeForComparison(content);
   const normalizedSearch = normalizeForComparison(search);
@@ -208,7 +215,7 @@ function findFuzzyMatch(
       if (contentLine === searchLine) {
         matchScore += 1;
       } else if (contentLine.includes(searchLine) || searchLine.includes(contentLine)) {
-        matchScore += 0.7;
+        matchScore += PARTIAL_MATCH_SCORE;
       }
     }
 
@@ -256,7 +263,7 @@ function findBestInsertPosition(
   // Try to find a unique line from the search block
   const uniqueLines = searchLines.filter(line => {
     const trimmed = line.trim();
-    return trimmed.length > 10 && // Non-trivial line
+    return trimmed.length > MIN_NONTRIVIAL_LINE_LENGTH && // Non-trivial line
            !trimmed.startsWith('//') && // Not a comment
            !trimmed.startsWith('/*') &&
            !trimmed.startsWith('*');
@@ -279,9 +286,10 @@ function findBestInsertPosition(
         break;
       }
       if (contentTrimmed.includes(searchTrimmed) || searchTrimmed.includes(contentTrimmed)) {
-        // Partial match
-        const score = 0.5 + (Math.min(contentTrimmed.length, searchTrimmed.length) / 
-                           Math.max(contentTrimmed.length, searchTrimmed.length)) * 0.5;
+        // Partial match: base score + length ratio bonus
+        const lengthRatio = Math.min(contentTrimmed.length, searchTrimmed.length) / 
+                           Math.max(contentTrimmed.length, searchTrimmed.length);
+        const score = BASE_PARTIAL_SCORE + lengthRatio * LENGTH_RATIO_WEIGHT;
         if (score > bestScore) {
           bestScore = score;
           bestLineIndex = i;
@@ -300,7 +308,7 @@ function findBestInsertPosition(
   }
 
   // Find a reasonable range to replace (the matched line and some context)
-  let endIndex = startIndex + contentLines[bestLineIndex].length;
+  const endIndex = startIndex + contentLines[bestLineIndex].length;
 
   return {
     index: startIndex,
@@ -547,9 +555,9 @@ export function validateSearchExists(content: string, search: string): boolean {
     return true;
   }
 
-  // Fuzzy match with lowered threshold
+  // Fuzzy match with threshold constant
   const match = findFuzzyMatch(normalizedContent, normalizedSearch);
-  return match !== null && match.confidence > 0.6;
+  return match !== null && match.confidence > MIN_CONFIDENCE_THRESHOLD;
 }
 
 /**
