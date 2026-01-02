@@ -1,20 +1,22 @@
 // src/engine/tabs/builtins/AIReviewTabType.tsx
 import type React from 'react';
+import { useEffect } from 'react';
 
 import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/PaneContainer';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { editorMemoryManager } from '@/engine/editor';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
  * AIレビュータブのコンポーネント
  *
- * NOTE: NEW-ARCHITECTURE.mdに従い、ファイル操作はfileRepositoryを直接使用。
- * useProjectフックは各コンポーネントで独立した状態を持つため、
- * currentProjectがnullになりファイルが保存されない問題があった。
+ * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
+ * - AI適用時にEditorMemoryManager経由でコンテンツを更新
+ * - 他のエディタータブとの同期は自動的に行われる
  */
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
@@ -22,6 +24,14 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const updateTab = useTabStore(state => state.updateTab);
   const { setGitRefreshTrigger } = useGitContext();
   const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
+
+  // EditorMemoryManagerを初期化
+  useEffect(() => {
+    const initMemory = async () => {
+      await editorMemoryManager.init();
+    };
+    initMemory();
+  }, []);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     const projectId = aiTab.aiEntry?.projectId;
@@ -32,8 +42,12 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     }
 
     try {
-      // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
+      // fileRepositoryを直接使用してファイルを保存
       await fileRepository.saveFileByPath(projectId, filePath, content);
+
+      // EditorMemoryManagerを通じて他のタブに変更を通知
+      // 外部更新として扱い、同一ファイルを開いている全タブに即時反映
+      editorMemoryManager.updateFromExternal(filePath, content);
 
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);

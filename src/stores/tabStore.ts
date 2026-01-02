@@ -55,7 +55,7 @@ interface TabStore {
   closeTab: (paneId: string, tabId: string) => void;
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
-  updateTabContent: (tabId: string, content: string, immediate?: boolean) => void;
+  updateTabContent: (tabId: string, content: string, isDirty?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
 
@@ -951,49 +951,43 @@ export const useTabStore = create<TabStore>((set, get) => ({
     get().updatePane(paneId, { size: newSize });
   },
 
-  // タブのコンテンツを同期更新（同じパスを持つ全てのEditorTab + DiffTabを更新）
-  updateTabContent: (tabId: string, content: string, immediate = false) => {
+  // タブのコンテンツを同期更新（TabRegistryのupdateContentを使用）
+  // 拡張性を確保：各タブタイプが自身のupdateContent実装を提供
+  updateTabContent: (tabId: string, content: string, isDirty = false) => {
     const allTabs = get().getAllTabs();
     const tabInfo = allTabs.find(t => t.id === tabId);
 
     if (!tabInfo) return;
 
-    // editor または diff 系のみ操作対象
-    if (tabInfo.kind !== 'editor' && tabInfo.kind !== 'diff') return;
+    // TabRegistryから該当タブタイプの定義を取得
+    const tabDef = tabRegistry.get(tabInfo.kind);
+    
+    // updateContentメソッドがない場合はスキップ
+    if (!tabDef?.updateContent) return;
 
-    const targetPath = tabInfo.path || '';
+    // getContentPathでファイルパスを取得
+    const targetPath = tabDef.getContentPath?.(tabInfo) || tabInfo.path || '';
     if (!targetPath) return;
 
     // 変更が必要なタブがあるかチェック
     let hasChanges = false;
 
-    // 全てのペインを巡回して、path が一致する editor/diff タブを更新
-    const updatePanesRecursive = (panes: any[]): any[] => {
-      return panes.map((pane: any) => {
+    // 全てのペインを巡回して、path が一致するタブを更新
+    const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map((pane) => {
         let paneChanged = false;
-        const newTabs = pane.tabs.map((t: any) => {
-          // editor タブの更新
-          if (t.kind === 'editor' && t.path === targetPath) {
-            if (t.content === content && t.isDirty === immediate) {
-              return t; // コンテンツが同じ場合はスキップ
+        const newTabs = pane.tabs.map((t) => {
+          // 同じパスを持つタブを検索
+          const tDef = tabRegistry.get(t.kind);
+          const tPath = tDef?.getContentPath?.(t) || t.path || '';
+          
+          if (tPath === targetPath && tDef?.updateContent) {
+            const updatedTab = tDef.updateContent(t, content, isDirty);
+            if (updatedTab !== t) {
+              paneChanged = true;
+              hasChanges = true;
+              return updatedTab;
             }
-            paneChanged = true;
-            hasChanges = true;
-            return { ...t, content, isDirty: immediate };
-          }
-          // DiffTabの更新（リアルタイム同期）
-          if (t.kind === 'diff' && t.path === targetPath && t.diffs && t.diffs.length > 0) {
-            if (t.diffs[0].latterContent === content && t.isDirty === immediate) {
-              return t; // コンテンツが同じ場合はスキップ
-            }
-            const updatedDiffs = [...t.diffs];
-            updatedDiffs[0] = {
-              ...updatedDiffs[0],
-              latterContent: content,
-            };
-            paneChanged = true;
-            hasChanges = true;
-            return { ...t, diffs: updatedDiffs, isDirty: immediate };
           }
           return t;
         });

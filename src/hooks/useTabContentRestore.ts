@@ -1,7 +1,19 @@
 // src/hooks/useTabContentRestore.ts
+/**
+ * タブのコンテンツを復元するカスタムフック
+ *
+ * 責務:
+ * - ページリロード時のセッション復帰によるコンテンツ復元に徹する
+ * - IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを復元
+ *
+ * 注意:
+ * - ファイル変更イベントの処理はEditorMemoryManagerに委譲
+ * - リアルタイム同期はEditorMemoryManagerが担当
+ */
+
 import { useCallback, useEffect, useRef } from 'react';
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import { editorMemoryManager } from '@/engine/editor';
 import { useTabStore } from '@/stores/tabStore';
 import type { EditorPane, FileItem } from '@/types';
 
@@ -41,14 +53,8 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
 /**
  * タブのコンテンツを復元するカスタムフック
  *
- * 以下の2つの役割を持つ:
- * 1. IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを確実に復元
- * 2. FileRepositoryからのファイル変更イベントを監視し、開いているタブを自動更新
- *
- * 改善点:
- * - 復元を1回だけ確実に実行（重複実行防止）
- * - 復元状態を明示的に追跡
- * - Monaco内部状態の強制同期
+ * ページリロード時のセッション復帰によるコンテンツ復元専用。
+ * ファイル変更イベントの処理はEditorMemoryManagerが担当する。
  */
 export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
   const store = useTabStore();
@@ -104,8 +110,11 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     const flattenedFiles = flattenFileItems(projectFiles);
 
     // 復元を非同期で実行（Monaco内部状態の同期を確実にするため）
-    requestAnimationFrame(() => {
+    requestAnimationFrame(async () => {
       try {
+        // EditorMemoryManagerを初期化
+        await editorMemoryManager.init();
+
         const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
           return panes.map(pane => {
             if (pane.children && pane.children.length > 0) {
@@ -134,11 +143,18 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
                   };
                 }
 
+                const restoredContent = correspondingFile.content || '';
+
+                // EditorMemoryManagerに初期コンテンツを登録
+                if (tab.path && (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')) {
+                  editorMemoryManager.registerInitialContent(tab.path, restoredContent);
+                }
+
                 console.log('[useTabContentRestore] ✓ Restored:', tab.path);
 
                 return {
                   ...tab,
-                  content: correspondingFile.content || '',
+                  content: restoredContent,
                   bufferContent: tab.isBufferArray ? correspondingFile.bufferContent : undefined,
                   isDirty: false,
                   needsContentRestore: false,
@@ -170,77 +186,11 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     });
   }, [isRestored, store, projectFiles, normalizePath]);
 
-  // 1. IndexedDB復元完了後、コンテンツを復元（1回だけ）
+  // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {
     performContentRestoration();
   }, [performContentRestoration]);
 
-  // 2. ファイル変更イベントのリスニング
-  useEffect(() => {
-    if (!isRestored) {
-      return;
-    }
-
-    const unsubscribe = fileRepository.addChangeListener(event => {
-      // 削除イベント: tabStoreに委譲
-      if (event.type === 'delete') {
-        store.handleFileDeleted(event.file.path);
-        return;
-      }
-
-      // 作成・更新イベントの場合、該当するタブのコンテンツを更新
-      if (event.type === 'create' || event.type === 'update') {
-        const changedFile = event.file;
-
-        // 変更されたファイルのパスに対応するタブがあるかチェック
-        const flatPanes = flattenPanes(store.panes);
-        const hasMatchingTab = flatPanes.some(pane =>
-          pane.tabs.some((tab: any) => normalizePath(tab.path) === normalizePath(changedFile.path))
-        );
-
-        if (!hasMatchingTab) {
-          return; // No matching tabs, return unchanged
-        }
-
-        console.log('[useTabContentRestore] Updating tab content for:', changedFile.path);
-
-        // 再帰的にペインを更新（devブランチと同じ）
-        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-          return panes.map(pane => {
-            if (pane.children && pane.children.length > 0) {
-              return {
-                ...pane,
-                children: updatePaneRecursive(pane.children),
-              };
-            }
-            // リーフペインの場合、該当するタブのコンテンツを更新
-            return {
-              ...pane,
-              tabs: pane.tabs.map((tab: any) => {
-                // パスが一致するタブのみ更新
-                if (normalizePath(tab.path) === normalizePath(changedFile.path)) {
-                  console.log('[useTabContentRestore] Updating tab:', tab.id);
-                  return {
-                    ...tab,
-                    content: (changedFile as any).content || '',
-                    bufferContent: tab.isBufferArray
-                      ? (changedFile as any).bufferContent
-                      : undefined,
-                    isDirty: false, // ファイルが保存されたので、タブを非ダーティ状態にする
-                  };
-                }
-                return tab;
-              }),
-            };
-          });
-        };
-
-        store.setPanes(updatePaneRecursive(store.panes));
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isRestored, store.panes]);
+  // ファイル変更イベントの処理はEditorMemoryManagerに委譲されているため、
+  // このフックではファイル変更リスナーを設置しない
 }

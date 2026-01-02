@@ -6,23 +6,21 @@ import type { DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useGitContext } from '@/components/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { editorMemoryManager } from '@/engine/editor';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useSettings } from '@/hooks/useSettings';
-import { getCurrentProjectId, useProjectStore } from '@/stores/projectStore';
-import { useTabStore } from '@/stores/tabStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 /**
  * Diffタブのコンポーネント
  *
- * NOTE: NEW-ARCHITECTURE.mdに従い、ファイル操作はfileRepositoryを直接使用。
- * useProject()フックは各コンポーネントで独立した状態を持つため、
- * currentProjectがnullになりファイルが保存されない問題があった。
- * 代わりにグローバルなprojectStoreからプロジェクトIDを取得する。
+ * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
+ * - editable=trueの場合のみコンテンツ編集が可能
+ * - コンテンツ変更はEditorMemoryManagerを通じて行う
+ * - デバウンス保存、タブ間同期は自動的に処理される
  */
 const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
-  const updateTabContent = useTabStore(state => state.updateTabContent);
   const { setGitRefreshTrigger } = useGitContext();
 
   // グローバルストアからプロジェクト情報を取得
@@ -33,18 +31,38 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const { settings } = useSettings(projectId);
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
-  // 保存タイマーの管理
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // 最新のコンテンツを保持（即時保存用）
   const latestContentRef = useRef<string>('');
 
-  // クリーンアップ
+  // 初期コンテンツをメモ化
+  const initialContent = diffTab.diffs.length === 1 ? diffTab.diffs[0]?.latterContent || '' : '';
+
+  // EditorMemoryManagerを初期化し、初期コンテンツを登録
   useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+    const initMemory = async () => {
+      await editorMemoryManager.init();
+      // editable単一ファイルdiffの場合のみ登録
+      if (diffTab.editable && diffTab.path && diffTab.diffs.length === 1) {
+        editorMemoryManager.registerInitialContent(diffTab.path, initialContent);
+        latestContentRef.current = initialContent;
       }
     };
-  }, []);
+    initMemory();
+    // 依存配列から diffTab.diffs を除外し、初期化は path/editable の変更時のみ実行
+  }, [diffTab.editable, diffTab.path, initialContent]);
+
+  // 保存完了時にGit状態を更新
+  useEffect(() => {
+    if (!diffTab.editable || !diffTab.path) return;
+
+    const unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
+      if (success) {
+        setGitRefreshTrigger(prev => prev + 1);
+      }
+    });
+
+    return unsubscribe;
+  }, [diffTab.editable, diffTab.path, setGitRefreshTrigger]);
 
   // 即時保存ハンドラー（Ctrl+S用）
   const handleImmediateSave = useCallback(async () => {
@@ -56,101 +74,51 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       return;
     }
 
-    // グローバルストアからプロジェクトIDを取得
-    const projectId = getCurrentProjectId();
-    if (!projectId) {
-      console.error('[DiffTabType] No project ID available');
-      return;
-    }
-
-    // デバウンスタイマーをクリア
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-
-    const contentToSave =
-      latestContentRef.current || (diffTab.diffs.length > 0 ? diffTab.diffs[0].latterContent : '');
-
     console.log('[DiffTabType] Immediate save:', {
       path: diffTab.path,
-      contentLength: contentToSave.length,
+      contentLength: latestContentRef.current.length,
     });
 
-    try {
-      // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-      await fileRepository.saveFileByPath(projectId, diffTab.path, contentToSave);
-      // 保存後は全タブのisDirtyをクリア
-      updateTabContent(diffTab.id, contentToSave, false);
-      setGitRefreshTrigger(prev => prev + 1);
+    const success = await editorMemoryManager.saveImmediately(diffTab.path);
+    if (success) {
       console.log('[DiffTabType] ✓ Immediate save completed');
-    } catch (error) {
-      console.error('[DiffTabType] Immediate save failed:', error);
     }
-  }, [
-    diffTab.editable,
-    diffTab.path,
-    diffTab.diffs,
-    diffTab.id,
-    updateTabContent,
-    setGitRefreshTrigger,
-  ]);
+  }, [diffTab.editable, diffTab.path]);
 
   // Ctrl+S バインディング
   useKeyBinding('saveFile', handleImmediateSave, [handleImmediateSave]);
 
+  // 即時コンテンツ変更ハンドラー
   const handleImmediateContentChange = useCallback(
     (content: string) => {
+      if (!diffTab.editable || !diffTab.path) return;
+
       // 最新のコンテンツを保存
       latestContentRef.current = content;
 
-      // 即座に同じパスを持つ全タブのコンテンツを更新（isDirtyをtrue）
-      updateTabContent(diffTab.id, content, true);
+      // EditorMemoryManagerを通じてコンテンツを更新
+      editorMemoryManager.setContent(diffTab.path, content);
     },
-    [diffTab.id, updateTabContent]
+    [diffTab.editable, diffTab.path]
   );
 
+  // デバウンス保存付きのコンテンツ変更ハンドラー
+  // 注: DiffTabでは即時変更ハンドラーで既に保存がスケジュールされるため、
+  // このハンドラーは主に互換性のために残している
   const handleContentChange = useCallback(
     async (content: string) => {
-      // グローバルストアからプロジェクトIDを取得
-      const projectId = getCurrentProjectId();
-      if (!diffTab.editable || !diffTab.path || !projectId) {
-        console.log('[DiffTabType] Debounced save skipped:', {
+      if (!diffTab.editable || !diffTab.path) {
+        console.log('[DiffTabType] Content change skipped:', {
           editable: diffTab.editable,
           path: diffTab.path,
-          hasProjectId: !!projectId,
         });
         return;
       }
 
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
-      console.log('[DiffTabType] Scheduling debounced save in 5 seconds...');
-      saveTimeoutRef.current = setTimeout(async () => {
-        console.log('[DiffTabType] Executing debounced save');
-
-        // 保存時点で再度プロジェクトIDを取得（変更されている可能性があるため）
-        const currentProjectId = getCurrentProjectId();
-        if (!currentProjectId) {
-          console.error('[DiffTabType] No project ID at save time');
-          return;
-        }
-
-        try {
-          // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-          await fileRepository.saveFileByPath(currentProjectId, diffTab.path!, content);
-          // 保存後は全タブのisDirtyをクリア
-          updateTabContent(diffTab.id, content, false);
-          setGitRefreshTrigger(prev => prev + 1);
-          console.log('[DiffTabType] ✓ Debounced save completed');
-        } catch (error) {
-          console.error('[DiffTabType] Debounced save failed:', error);
-        }
-      }, 5000);
+      // EditorMemoryManagerが自動的にデバウンス保存をスケジュール
+      editorMemoryManager.setContent(diffTab.path, content);
     },
-    [diffTab.editable, diffTab.path, diffTab.id, updateTabContent, setGitRefreshTrigger]
+    [diffTab.editable, diffTab.path]
   );
 
   return (
@@ -227,5 +195,30 @@ export const DiffTabType: TabTypeDefinition = {
       diffTab.diffs[0]?.formerCommitId === singleFileDiff.formerCommitId &&
       diffTab.diffs[0]?.latterCommitId === singleFileDiff.latterCommitId
     );
+  },
+
+  updateContent: (tab, content, isDirty) => {
+    const diffTab = tab as DiffTab;
+    // diffs配列が空、または最初のdiffがない場合はそのまま返す
+    if (!diffTab.diffs || diffTab.diffs.length === 0) {
+      return tab;
+    }
+    // 変更がない場合は元のタブを返す
+    if (diffTab.diffs[0].latterContent === content && diffTab.isDirty === isDirty) {
+      return tab;
+    }
+    // latterContentを更新
+    const updatedDiffs = [...diffTab.diffs];
+    updatedDiffs[0] = { ...updatedDiffs[0], latterContent: content };
+    return { ...diffTab, diffs: updatedDiffs, isDirty };
+  },
+
+  getContentPath: (tab) => {
+    const diffTab = tab as DiffTab;
+    // 編集可能な単一ファイルdiffのみパスを返す
+    if (diffTab.editable && diffTab.diffs?.length === 1) {
+      return diffTab.path || undefined;
+    }
+    return undefined;
   },
 };
