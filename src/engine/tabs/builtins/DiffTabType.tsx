@@ -213,7 +213,7 @@ export const DiffTabType: TabTypeDefinition = {
     return { ...diffTab, diffs: updatedDiffs, isDirty };
   },
 
-  getContentPath: (tab) => {
+  getContentPath: tab => {
     const diffTab = tab as DiffTab;
     // 編集可能な単一ファイルdiffのみパスを返す
     if (diffTab.editable && diffTab.diffs?.length === 1) {

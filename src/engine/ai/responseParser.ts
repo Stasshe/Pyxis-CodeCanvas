@@ -74,13 +74,13 @@ export function extractFilePathsFromResponse(response: string): string[] {
 
 /**
  * Parse SEARCH/REPLACE blocks for a specific file section
- * 
+ *
  * Enhanced to handle:
  * - Optional whitespace around markers
  * - Multiple blocks in sequence
  * - Incomplete blocks (will be skipped)
  * - Empty replace blocks (deletions)
- * 
+ *
  * Uses a manual parsing approach to correctly handle edge cases
  * that regex-based approaches struggle with.
  */
@@ -109,16 +109,16 @@ function parseFilePatchSection(section: string): {
 
   // Manual parsing approach to handle edge cases
   let currentIndex = 0;
-  
+
   while (currentIndex < section.length) {
     // Find next SEARCH marker
     const searchStart = section.indexOf('<<<<<<< SEARCH', currentIndex);
     if (searchStart === -1) break;
-    
+
     // Find end of SEARCH marker line
     const searchMarkerEnd = section.indexOf('\n', searchStart);
     if (searchMarkerEnd === -1) break;
-    
+
     // Find separator
     const separatorStart = section.indexOf('\n=======\n', searchMarkerEnd);
     if (separatorStart === -1) {
@@ -126,7 +126,7 @@ function parseFilePatchSection(section: string): {
       currentIndex = searchStart + 1;
       continue;
     }
-    
+
     // Find REPLACE marker
     const replaceStart = section.indexOf('\n>>>>>>> REPLACE', separatorStart);
     if (replaceStart === -1) {
@@ -134,16 +134,16 @@ function parseFilePatchSection(section: string): {
       currentIndex = searchStart + 1;
       continue;
     }
-    
+
     // Extract search and replace content
     const searchContent = section.substring(searchMarkerEnd + 1, separatorStart);
     const replaceContent = section.substring(separatorStart + 9, replaceStart); // +9 to skip "\n=======\n"
-    
+
     blocks.push({
       search: searchContent,
       replace: replaceContent,
     });
-    
+
     // Move to after this block
     currentIndex = replaceStart + 16; // +16 to skip "\n>>>>>>> REPLACE"
   }
@@ -550,13 +550,17 @@ export function validateResponse(response: string): {
     if (searchCount > 0) {
       // Count complete blocks (with proper separator and end marker)
       // Allow optional whitespace around markers for flexibility
-      const completeBlockPattern = /<<<<<<< SEARCH\s*\n[\s\S]*?\n\s*=======\s*\n[\s\S]*?\n\s*>>>>>>> REPLACE/g;
+      const completeBlockPattern =
+        /<<<<<<< SEARCH\s*\n[\s\S]*?\n\s*=======\s*\n[\s\S]*?\n\s*>>>>>>> REPLACE/g;
       const completeBlocks = (response.match(completeBlockPattern) || []).length;
-      
+
       if (completeBlocks < searchCount && searchCount === replaceCount) {
         warnings.push(
           'Some SEARCH/REPLACE blocks may be missing the separator (=======). ' +
-          completeBlocks + ' complete blocks found out of ' + searchCount + ' expected.'
+            completeBlocks +
+            ' complete blocks found out of ' +
+            searchCount +
+            ' expected.'
         );
       }
     }

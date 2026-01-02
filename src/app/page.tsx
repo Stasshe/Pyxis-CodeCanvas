@@ -25,8 +25,8 @@ import {
   useRightSidebarResize,
 } from '@/engine/helper/resize';
 import type { EditorPane } from '@/engine/tabs/types';
-import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useFileDeleteTabSync } from '@/hooks/useFileDeleteTabSync';
+import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/useKeyBindings';
 import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
 import { useProjectWelcome } from '@/hooks/useProjectWelcome';

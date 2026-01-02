@@ -132,7 +132,7 @@ export const EditorTabType: TabTypeDefinition = {
     return { ...editorTab, content, isDirty };
   },
 
-  getContentPath: (tab) => {
+  getContentPath: tab => {
     return tab.path || undefined;
   },
 };

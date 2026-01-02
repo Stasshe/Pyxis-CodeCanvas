@@ -623,8 +623,6 @@ export class GitCommands {
     console.log('[categorizeStatusFiles] Processing', status.length, 'files');
 
     status.forEach(([filepath, HEAD, workdir, stage]) => {
-      console.log(`[categorizeStatusFiles] ${filepath}: HEAD=${HEAD}, workdir=${workdir}, stage=${stage}`);
-      
       // isomorphic-gitのstatusMatrixの値の意味:
       // HEAD: 0=ファイルなし, 1=ファイルあり
       // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり

@@ -1030,7 +1030,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     // TabRegistryから該当タブタイプの定義を取得
     const tabDef = tabRegistry.get(tabInfo.kind);
-    
+
     // updateContentメソッドがない場合はスキップ
     if (!tabDef?.updateContent) return;
 
@@ -1043,13 +1043,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     // 全てのペインを巡回して、path が一致するタブを更新
     const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
-      return panes.map((pane) => {
+      return panes.map(pane => {
         let paneChanged = false;
-        const newTabs = pane.tabs.map((t) => {
+        const newTabs = pane.tabs.map(t => {
           // 同じパスを持つタブを検索
           const tDef = tabRegistry.get(t.kind);
           const tPath = tDef?.getContentPath?.(t) || t.path || '';
-          
+
           if (tPath === targetPath && tDef?.updateContent) {
             const updatedTab = tDef.updateContent(t, content, isDirty);
             if (updatedTab !== t) {

@@ -231,7 +231,7 @@ export const AIReviewTabType: TabTypeDefinition = {
    * 同期対象のファイルパスを取得
    * AIReviewTabはfilePathを使用してWDファイルと同期する
    */
-  getContentPath: (tab) => {
+  getContentPath: tab => {
     const aiTab = tab as AIReviewTab;
     return aiTab.filePath || aiTab.path || undefined;
   },

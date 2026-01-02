@@ -81,9 +81,9 @@ export default function LeftSidebar({
           {activeMenuTab === 'files' && (
             <div className="flex-1 flex flex-col select-none overflow-hidden">
               {/* Fixed header with file creation icons - does not scroll */}
-              <div 
+              <div
                 className="flex items-center gap-2 p-2 flex-shrink-0"
-                style={{ 
+                style={{
                   background: colors.cardBg,
                   borderBottom: `1px solid ${colors.border}`,
                 }}

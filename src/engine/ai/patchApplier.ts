@@ -257,16 +257,18 @@ function findBestInsertPosition(
 ): { index: number; matchedText: string } | null {
   const contentLines = content.split('\n');
   const searchLines = search.split('\n').filter(line => line.trim());
-  
+
   if (searchLines.length === 0) return null;
 
   // Try to find a unique line from the search block
   const uniqueLines = searchLines.filter(line => {
     const trimmed = line.trim();
-    return trimmed.length > MIN_NONTRIVIAL_LINE_LENGTH && // Non-trivial line
-           !trimmed.startsWith('//') && // Not a comment
-           !trimmed.startsWith('/*') &&
-           !trimmed.startsWith('*');
+    return (
+      trimmed.length > MIN_NONTRIVIAL_LINE_LENGTH && // Non-trivial line
+      !trimmed.startsWith('//') && // Not a comment
+      !trimmed.startsWith('/*') &&
+      !trimmed.startsWith('*')
+    );
   });
 
   if (uniqueLines.length === 0) return null;
@@ -287,8 +289,9 @@ function findBestInsertPosition(
       }
       if (contentTrimmed.includes(searchTrimmed) || searchTrimmed.includes(contentTrimmed)) {
         // Partial match: base score + length ratio bonus
-        const lengthRatio = Math.min(contentTrimmed.length, searchTrimmed.length) / 
-                           Math.max(contentTrimmed.length, searchTrimmed.length);
+        const lengthRatio =
+          Math.min(contentTrimmed.length, searchTrimmed.length) /
+          Math.max(contentTrimmed.length, searchTrimmed.length);
         const score = BASE_PARTIAL_SCORE + lengthRatio * LENGTH_RATIO_WEIGHT;
         if (score > bestScore) {
           bestScore = score;

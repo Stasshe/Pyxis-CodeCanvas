@@ -53,7 +53,7 @@ const DEFAULT_OPTIONS: EditorMemoryManagerOptions = {
 
 /**
  * EditorMemoryManager - 統一的なエディターメモリ管理
- * 
+ *
  * メモリ効率化: コンテンツはtabStoreのみで保持し、二重保持を避ける
  */
 class EditorMemoryManager {
@@ -166,7 +166,7 @@ class EditorMemoryManager {
    */
   setContent(path: string, content: string, skipDebounce = false): void {
     const normalizedPath = toAppPath(path);
-    
+
     // 既存のタイマーをクリア
     const existing = this.metadataMap.get(normalizedPath);
     if (existing?.saveTimerId) {
@@ -231,7 +231,7 @@ class EditorMemoryManager {
    */
   updateFromExternal(path: string, content: string): void {
     const normalizedPath = toAppPath(path);
-    
+
     // 既存のタイマーをクリア
     const existing = this.metadataMap.get(normalizedPath);
     if (existing?.saveTimerId) {
@@ -276,7 +276,7 @@ class EditorMemoryManager {
   isDirty(path: string): boolean {
     const normalizedPath = toAppPath(path);
     const tabInfo = useTabStore.getState().findTabByPath(normalizedPath, 'editor');
-    return tabInfo ? (tabInfo.tab as any).isDirty ?? false : false;
+    return tabInfo ? ((tabInfo.tab as any).isDirty ?? false) : false;
   }
 
   /**
@@ -360,19 +360,15 @@ class EditorMemoryManager {
    */
   private getContentFromTabStore(path: string): string | undefined {
     const tabs = useTabStore.getState().getAllTabs();
-    
+
     // editorタブを優先
-    const editorTab = tabs.find(
-      t => t.kind === 'editor' && toAppPath(t.path || '') === path
-    );
+    const editorTab = tabs.find(t => t.kind === 'editor' && toAppPath(t.path || '') === path);
     if (editorTab) {
       return (editorTab as any).content;
     }
 
     // diffタブ
-    const diffTab = tabs.find(
-      t => t.kind === 'diff' && toAppPath(t.path || '') === path
-    );
+    const diffTab = tabs.find(t => t.kind === 'diff' && toAppPath(t.path || '') === path);
     if (diffTab && (diffTab as any).diffs?.length > 0) {
       return (diffTab as any).diffs[0].latterContent;
     }

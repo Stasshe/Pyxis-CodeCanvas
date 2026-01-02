@@ -146,7 +146,10 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
                 const restoredContent = correspondingFile.content || '';
 
                 // EditorMemoryManagerに初期コンテンツを登録
-                if (tab.path && (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')) {
+                if (
+                  tab.path &&
+                  (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')
+                ) {
                   editorMemoryManager.registerInitialContent(tab.path, restoredContent);
                 }
 

@@ -1,5 +1,5 @@
-import type { FileItem } from '@/types';
 import type { ThemeColors } from '@/context/ThemeContext';
+import type { FileItem } from '@/types';
 
 export interface FileTreeProps {
   items: FileItem[];
