@@ -20,19 +20,14 @@ export function useFileDeleteTabSync() {
   const handleFileDeleted = useTabStore(state => state.handleFileDeleted);
 
   useEffect(() => {
-    console.log('[useFileDeleteTabSync] Setting up file deletion listener');
-
     // fileRepositoryの削除イベントを監視
     const unsubscribe = fileRepository.addChangeListener(event => {
-      if (event.type === 'delete') {
-        const deletedPath = event.file.path;
-        console.log('[useFileDeleteTabSync] File deleted, closing tabs for:', deletedPath);
-        handleFileDeleted(deletedPath);
+      if (event.type === 'delete' && event.file.path) {
+        handleFileDeleted(event.file.path);
       }
     });
 
     return () => {
-      console.log('[useFileDeleteTabSync] Cleaning up file deletion listener');
       unsubscribe();
     };
   }, [handleFileDeleted]);
