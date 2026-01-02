@@ -74,6 +74,14 @@ interface TabStore {
   loadSession: () => Promise<void>;
 }
 
+// パス正規化ヘルパー関数（ファイル削除処理で共通使用）
+function normalizeTabPath(p?: string): string {
+  if (!p) return '';
+  const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
+  const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
+  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+}
+
 export const useTabStore = create<TabStore>((set, get) => ({
   panes: [],
   activePane: null,
@@ -595,16 +603,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
   // ファイル削除時のタブ処理: editor/previewを閉じ、diffはコンテンツを空にする
   handleFileDeleted: (deletedPath: string) => {
     const state = get();
-
-    // パスを正規化
-    const normalizePath = (p?: string): string => {
-      if (!p) return '';
-      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-    };
-
-    const normalizedDeletedPath = normalizePath(deletedPath);
+    const normalizedDeletedPath = normalizeTabPath(deletedPath);
     console.log('[TabStore] handleFileDeleted:', normalizedDeletedPath);
 
     // 閉じるタブを収集
@@ -619,7 +618,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
         // リーフペイン
         const newTabs = pane.tabs.map((tab: Tab) => {
-          const tabPath = normalizePath(tab.path);
+          const tabPath = normalizeTabPath(tab.path);
 
           // editor/previewは閉じる対象として記録
           if (
@@ -671,16 +670,9 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     const state = get();
 
-    // パスを正規化
-    const normalizePath = (p?: string): string => {
-      if (!p) return '';
-      const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-      const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-      return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-    };
-
     // 削除対象パスのセットを作成（高速検索用）
-    const normalizedDeletedPaths = new Set(deletedPaths.map(p => normalizePath(p)));
+    const normalizedDeletedPaths = new Set(deletedPaths.map(p => normalizeTabPath(p)));
+    console.log('[TabStore] handleFilesDeleted: batch processing', deletedPaths.length, 'files');
 
     // 閉じるタブを収集
     const tabsToClose: Array<{ paneId: string; tabId: string }> = [];
@@ -694,7 +686,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
         // リーフペイン
         const newTabs = pane.tabs.map((tab: Tab) => {
-          const tabPath = normalizePath(tab.path);
+          const tabPath = normalizeTabPath(tab.path);
 
           // 削除対象かチェック（Set検索でO(1)）
           if (!normalizedDeletedPaths.has(tabPath)) {
