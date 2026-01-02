@@ -6,7 +6,7 @@ import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/PaneContainer';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
 import { editorMemoryManager } from '@/engine/editor';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { useTabStore } from '@/stores/tabStore';
@@ -17,6 +17,7 @@ import { useTabStore } from '@/stores/tabStore';
  * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
  * - AI適用時にEditorMemoryManager経由でコンテンツを更新
  * - 他のエディタータブとの同期は自動的に行われる
+ * - ワーキングディレクトリのファイル変更を検知してoriginalContentを更新
  */
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
@@ -25,13 +26,25 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const { setGitRefreshTrigger } = useGitContext();
   const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
 
-  // EditorMemoryManagerを初期化
+  // EditorMemoryManagerを初期化し、外部変更を監視
   useEffect(() => {
     const initMemory = async () => {
       await editorMemoryManager.init();
     };
     initMemory();
-  }, []);
+
+    // 外部変更リスナーを追加（WDファイルの変更をoriginalContentに反映）
+    const normalizedFilePath = toAppPath(aiTab.filePath);
+    const unsubscribe = editorMemoryManager.addChangeListener((changedPath, newContent, source) => {
+      // 外部更新（他のエディタでの保存など）を検知してoriginalContentを更新
+      if (source === 'external' && toAppPath(changedPath) === normalizedFilePath) {
+        console.log('[AIReviewTabRenderer] Detected external change for:', changedPath);
+        updateTab(aiTab.paneId, aiTab.id, { originalContent: newContent } as Partial<AIReviewTab>);
+      }
+    });
+
+    return unsubscribe;
+  }, [aiTab.filePath, aiTab.paneId, aiTab.id, updateTab]);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     const projectId = aiTab.aiEntry?.projectId;
@@ -198,5 +211,28 @@ export const AIReviewTabType: TabTypeDefinition = {
 
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'ai';
+  },
+
+  /**
+   * AIレビュータブのコンテンツを更新（同期用）
+   * originalContentがワーキングディレクトリの最新状態を反映する
+   */
+  updateContent: (tab, content, isDirty) => {
+    const aiTab = tab as AIReviewTab;
+    // originalContentの変更がない場合は元のタブを返す
+    if (aiTab.originalContent === content) {
+      return tab;
+    }
+    // originalContentを更新（WDファイルとの同期）
+    return { ...aiTab, originalContent: content };
+  },
+
+  /**
+   * 同期対象のファイルパスを取得
+   * AIReviewTabはfilePathを使用してWDファイルと同期する
+   */
+  getContentPath: (tab) => {
+    const aiTab = tab as AIReviewTab;
+    return aiTab.filePath || aiTab.path || undefined;
   },
 };

@@ -166,13 +166,22 @@ function findExactMatch(
   return null;
 }
 
+// Constants for fuzzy matching and scoring
+const MIN_CONFIDENCE_THRESHOLD = 0.6; // Lowered from 0.85 to accept more variations
+const MIN_NONTRIVIAL_LINE_LENGTH = 10; // Minimum characters for a line to be considered significant
+const PARTIAL_MATCH_SCORE = 0.7; // Score for partial line matches
+const BASE_PARTIAL_SCORE = 0.5; // Base score for partial context matches
+const LENGTH_RATIO_WEIGHT = 0.5; // Weight for length ratio in partial scoring
+
 /**
  * Find the best fuzzy match for search text in content
+ * Uses a lower threshold to be more lenient with file changes
  */
 function findFuzzyMatch(
   content: string,
   search: string,
-  startFrom = 0
+  startFrom = 0,
+  minConfidence = MIN_CONFIDENCE_THRESHOLD
 ): { index: number; matchedText: string; confidence: number } | null {
   const normalizedContent = normalizeForComparison(content);
   const normalizedSearch = normalizeForComparison(search);
@@ -206,13 +215,13 @@ function findFuzzyMatch(
       if (contentLine === searchLine) {
         matchScore += 1;
       } else if (contentLine.includes(searchLine) || searchLine.includes(contentLine)) {
-        matchScore += 0.7;
+        matchScore += PARTIAL_MATCH_SCORE;
       }
     }
 
     const confidence = matchScore / searchLines.length;
 
-    if (confidence > 0.8 && (!bestMatch || confidence > bestMatch.confidence)) {
+    if (confidence > minConfidence && (!bestMatch || confidence > bestMatch.confidence)) {
       // Calculate exact positions in original content
       let startIndex = 0;
       for (let k = 0; k < i; k++) {
@@ -236,6 +245,75 @@ function findFuzzyMatch(
   }
 
   return bestMatch;
+}
+
+/**
+ * Find best position to insert replace content based on context
+ * Used as fallback when exact/fuzzy matching fails
+ */
+function findBestInsertPosition(
+  content: string,
+  search: string
+): { index: number; matchedText: string } | null {
+  const contentLines = content.split('\n');
+  const searchLines = search.split('\n').filter(line => line.trim());
+  
+  if (searchLines.length === 0) return null;
+
+  // Try to find a unique line from the search block
+  const uniqueLines = searchLines.filter(line => {
+    const trimmed = line.trim();
+    return trimmed.length > MIN_NONTRIVIAL_LINE_LENGTH && // Non-trivial line
+           !trimmed.startsWith('//') && // Not a comment
+           !trimmed.startsWith('/*') &&
+           !trimmed.startsWith('*');
+  });
+
+  if (uniqueLines.length === 0) return null;
+
+  // Find the best matching line in content
+  let bestLineIndex = -1;
+  let bestScore = 0;
+
+  for (const searchLine of uniqueLines) {
+    const searchTrimmed = searchLine.trim();
+    for (let i = 0; i < contentLines.length; i++) {
+      const contentTrimmed = contentLines[i].trim();
+      if (contentTrimmed === searchTrimmed) {
+        // Exact match - highest priority
+        bestLineIndex = i;
+        bestScore = 1;
+        break;
+      }
+      if (contentTrimmed.includes(searchTrimmed) || searchTrimmed.includes(contentTrimmed)) {
+        // Partial match: base score + length ratio bonus
+        const lengthRatio = Math.min(contentTrimmed.length, searchTrimmed.length) / 
+                           Math.max(contentTrimmed.length, searchTrimmed.length);
+        const score = BASE_PARTIAL_SCORE + lengthRatio * LENGTH_RATIO_WEIGHT;
+        if (score > bestScore) {
+          bestScore = score;
+          bestLineIndex = i;
+        }
+      }
+    }
+    if (bestScore === 1) break;
+  }
+
+  if (bestLineIndex === -1) return null;
+
+  // Calculate the position
+  let startIndex = 0;
+  for (let i = 0; i < bestLineIndex; i++) {
+    startIndex += contentLines[i].length + 1;
+  }
+
+  // Find a reasonable range to replace (the matched line and some context)
+  const endIndex = startIndex + contentLines[bestLineIndex].length;
+
+  return {
+    index: startIndex,
+    matchedText: content.substring(startIndex, endIndex),
+  };
 }
 
 /**
@@ -284,9 +362,9 @@ export function applySearchReplaceBlock(
     };
   }
 
-  // Try fuzzy match
+  // Try fuzzy match with standard threshold
   const fuzzyMatch = findFuzzyMatch(normalizedContent, normalizedSearch, startFrom);
-  if (fuzzyMatch && fuzzyMatch.confidence > 0.85) {
+  if (fuzzyMatch && fuzzyMatch.confidence > 0.6) {
     const before = normalizedContent.substring(0, fuzzyMatch.index);
     const after = normalizedContent.substring(fuzzyMatch.index + fuzzyMatch.matchedText.length);
     const newContent = before + normalizedReplace + after;
@@ -295,6 +373,22 @@ export function applySearchReplaceBlock(
       success: true,
       content: newContent,
       matchEnd: fuzzyMatch.index + normalizedReplace.length,
+    };
+  }
+
+  // Fallback: Try to find best position based on context (prefer AI edit on conflict)
+  // This handles cases where the file has been significantly edited
+  const bestPosition = findBestInsertPosition(normalizedContent, normalizedSearch);
+  if (bestPosition) {
+    const before = normalizedContent.substring(0, bestPosition.index);
+    const after = normalizedContent.substring(bestPosition.index + bestPosition.matchedText.length);
+    const newContent = before + normalizedReplace + after;
+
+    console.log('[PatchApplier] Applied patch using best-effort position matching');
+    return {
+      success: true,
+      content: newContent,
+      matchEnd: bestPosition.index + normalizedReplace.length,
     };
   }
 
@@ -461,9 +555,9 @@ export function validateSearchExists(content: string, search: string): boolean {
     return true;
   }
 
-  // Fuzzy match
+  // Fuzzy match with threshold constant
   const match = findFuzzyMatch(normalizedContent, normalizedSearch);
-  return match !== null && match.confidence > 0.85;
+  return match !== null && match.confidence > MIN_CONFIDENCE_THRESHOLD;
 }
 
 /**
