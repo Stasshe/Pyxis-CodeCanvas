@@ -2,7 +2,10 @@
 
 ## 概要
 
-EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）のコンテンツをメモリ上で一元管理するシングルトンクラスです。
+EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）の保存状態・デバウンス保存を一元管理するシングルトンクラスです。
+
+**重要: コンテンツはtabStoreで保持し、EditorMemoryManagerはメタデータのみ保持**
+- メモリ効率化のため、コンテンツの二重保持を避ける設計
 
 ## アーキテクチャ
 
@@ -10,9 +13,10 @@ EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）の�
 ┌─────────────────────────────────────────────────────────────┐
 │                   EditorMemoryManager                        │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │  contentMap: Map<path, ContentEntry>                 │    │
-│  │    path1 → { content, savedContent, isDirty, ... }   │    │
-│  │    path2 → { content, savedContent, isDirty, ... }   │    │
+│  │  metadataMap: Map<path, MetadataEntry>              │    │
+│  │    path1 → { lastModified, saveTimerId }            │    │
+│  │    path2 → { lastModified, saveTimerId }            │    │
+│  │  ※コンテンツは保持しない（tabStoreに委譲）           │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                                                              │
 │  ┌──────────────────┐  ┌──────────────────┐                │
@@ -23,7 +27,7 @@ EditorMemoryManagerは、エディタータブ（editor, diff, ai-review）の�
          ▼                          ▼
 ┌─────────────────┐        ┌─────────────────┐
 │    tabStore     │        │ fileRepository  │
-│ (Zustand Store) │        │  (IndexedDB)    │
+│ (コンテンツ保持) │        │  (IndexedDB)    │
 └─────────────────┘        └─────────────────┘
 ```
 
@@ -43,8 +47,8 @@ import { editorMemoryManager } from '@/engine/editor';
 useEffect(() => {
   const initMemory = async () => {
     await editorMemoryManager.init();
-    // 初期コンテンツを登録
-    if (tab.path && tab.content !== undefined) {
+    // メタデータを登録（コンテンツはtabStoreが保持）
+    if (tab.path) {
       editorMemoryManager.registerInitialContent(tab.path, tab.content);
     }
   };
@@ -281,10 +285,11 @@ const handleApplyChanges = async (filePath: string, content: string) => {
 
 ## 注意事項
 
-### メモリ使用量
+### メモリ使用量（改善済み）
 
-- contentMapに全ファイルの内容がキャッシュされる
-- tabStoreとの二重保持になるため、大きなファイルでメモリ使用量が増加
+- `metadataMap` はメタデータのみ保持（`lastModified`, `saveTimerId`）
+- **コンテンツは`tabStore`のみで保持** - 二重保持なし
+- メモリ効率は main branch と同等
 
 ### 無限ループ防止
 

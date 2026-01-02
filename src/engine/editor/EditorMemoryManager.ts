@@ -2,17 +2,16 @@
  * EditorMemoryManager - 統一的なエディターメモリ管理システム
  *
  * 責務:
- * 1. 全エディタータブ（editor, diff, ai-review）のコンテンツをメモリ上で一元管理
- * 2. ファイルパスごとのコンテンツ同期（同じファイルを開いている全タブに即時反映）
- * 3. デバウンス保存の統一的な制御
- * 4. 外部変更（Git操作、AI適用）の検知と反映
- * 5. DB（IndexedDB/fileRepository）への保存制御
+ * 1. デバウンス保存の統一的な制御
+ * 2. 外部変更（Git操作、AI適用）の検知と反映
+ * 3. ファイルパスごとの保存状態管理
+ * 4. DB（IndexedDB/fileRepository）への保存制御
  *
  * 設計方針:
  * - シングルトンパターンで全アプリケーションで1つのインスタンスを共有
+ * - **コンテンツはtabStoreに委譲** - 二重保持を避ける（メモリ効率化）
+ * - metadataMap: パスごとのメタデータ（保存タイマー等）のみ保持
  * - fileRepositoryのイベントシステムを活用して変更を検知
- * - tabStoreと連携してタブのコンテンツを同期
- * - 各エディタータブはこのマネージャーを通じてコンテンツを読み書き
  */
 
 import type { FileChangeEvent } from '@/engine/core/fileRepository';
@@ -21,15 +20,9 @@ import { getCurrentProjectId } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
- * コンテンツエントリ - パスごとのコンテンツ状態を管理
+ * メタデータエントリ - パスごとの保存状態を管理（コンテンツは保持しない）
  */
-interface ContentEntry {
-  /** 現在のコンテンツ */
-  content: string;
-  /** 最後に保存されたコンテンツ */
-  savedContent: string;
-  /** 変更があるか（isDirty） */
-  isDirty: boolean;
+interface MetadataEntry {
   /** 最終更新時刻 */
   lastModified: number;
   /** 保存タイマーID */
@@ -60,12 +53,14 @@ const DEFAULT_OPTIONS: EditorMemoryManagerOptions = {
 
 /**
  * EditorMemoryManager - 統一的なエディターメモリ管理
+ * 
+ * メモリ効率化: コンテンツはtabStoreのみで保持し、二重保持を避ける
  */
 class EditorMemoryManager {
   private static instance: EditorMemoryManager | null = null;
 
-  /** パスごとのコンテンツエントリ */
-  private contentMap: Map<string, ContentEntry> = new Map();
+  /** パスごとのメタデータ（タイマー等）- コンテンツは保持しない */
+  private metadataMap: Map<string, MetadataEntry> = new Map();
 
   /** コンテンツ変更リスナー */
   private changeListeners: Set<ContentChangeListener> = new Set();
@@ -121,7 +116,7 @@ class EditorMemoryManager {
    */
   dispose(): void {
     // 全ての保存タイマーをクリア
-    for (const entry of this.contentMap.values()) {
+    for (const entry of this.metadataMap.values()) {
       if (entry.saveTimerId) {
         clearTimeout(entry.saveTimerId);
       }
@@ -137,8 +132,8 @@ class EditorMemoryManager {
     this.changeListeners.clear();
     this.saveListeners.clear();
 
-    // コンテンツマップをクリア
-    this.contentMap.clear();
+    // メタデータマップをクリア
+    this.metadataMap.clear();
 
     this.initialized = false;
     console.log('[EditorMemoryManager] Disposed');
@@ -147,19 +142,22 @@ class EditorMemoryManager {
   // ==================== コンテンツ操作 ====================
 
   /**
-   * パスに対応するコンテンツを取得
+   * パスに対応するコンテンツを取得（tabStoreから取得）
    * @param path ファイルパス（AppPath形式）
-   * @returns コンテンツ文字列、またはエントリがない場合はundefined
+   * @returns コンテンツ文字列、またはタブがない場合はundefined
    */
   getContent(path: string): string | undefined {
     const normalizedPath = toAppPath(path);
-    return this.contentMap.get(normalizedPath)?.content;
+    const tabInfo = useTabStore.getState().findTabByPath(normalizedPath, 'editor');
+    if (tabInfo) {
+      return (tabInfo.tab as any).content;
+    }
+    return undefined;
   }
 
   /**
    * パスに対応するコンテンツをセット（エディター編集時に呼び出し）
-   * - 即時にメモリを更新
-   * - tabStoreの全同一パスタブを更新
+   * - tabStoreを直接更新（コンテンツの二重保持を避ける）
    * - デバウンス保存をスケジュール
    *
    * @param path ファイルパス
@@ -168,22 +166,18 @@ class EditorMemoryManager {
    */
   setContent(path: string, content: string, skipDebounce = false): void {
     const normalizedPath = toAppPath(path);
-    const existing = this.contentMap.get(normalizedPath);
-
+    
     // 既存のタイマーをクリア
+    const existing = this.metadataMap.get(normalizedPath);
     if (existing?.saveTimerId) {
       clearTimeout(existing.saveTimerId);
     }
 
-    // エントリを更新または作成
-    const entry: ContentEntry = {
-      content,
-      savedContent: existing?.savedContent ?? content,
-      isDirty: content !== (existing?.savedContent ?? content),
+    // メタデータを更新
+    const entry: MetadataEntry = {
       lastModified: Date.now(),
     };
-
-    this.contentMap.set(normalizedPath, entry);
+    this.metadataMap.set(normalizedPath, entry);
 
     // tabStoreの全同一パスタブを更新（isDirty=true）
     this.syncToTabStore(normalizedPath, content, true);
@@ -192,11 +186,11 @@ class EditorMemoryManager {
     this.notifyChangeListeners(normalizedPath, content, 'editor');
 
     // デバウンス保存をスケジュール（skipDebounceでなければ）
-    if (!skipDebounce && entry.isDirty) {
-      this.scheduleSave(normalizedPath, content);
+    if (!skipDebounce) {
+      this.scheduleSave(normalizedPath);
     }
 
-    console.log('[EditorMemoryManager] Content set:', { path: normalizedPath, isDirty: entry.isDirty });
+    console.log('[EditorMemoryManager] Content set:', { path: normalizedPath });
   }
 
   /**
@@ -209,31 +203,26 @@ class EditorMemoryManager {
    */
   async saveImmediately(path: string): Promise<boolean> {
     const normalizedPath = toAppPath(path);
-    const entry = this.contentMap.get(normalizedPath);
-
-    if (!entry) {
-      console.warn('[EditorMemoryManager] No entry found for path:', normalizedPath);
-      return false;
-    }
+    const entry = this.metadataMap.get(normalizedPath);
 
     // 保留中のタイマーをキャンセル
-    if (entry.saveTimerId) {
+    if (entry?.saveTimerId) {
       clearTimeout(entry.saveTimerId);
       entry.saveTimerId = undefined;
     }
 
-    // 変更がなければスキップ
-    if (!entry.isDirty) {
-      console.log('[EditorMemoryManager] No changes to save:', normalizedPath);
-      return true;
+    // tabStoreから現在のコンテンツを取得
+    const content = this.getContentFromTabStore(normalizedPath);
+    if (content === undefined) {
+      console.warn('[EditorMemoryManager] No tab found for path:', normalizedPath);
+      return false;
     }
 
-    return this.executeSave(normalizedPath, entry.content);
+    return this.executeSave(normalizedPath, content);
   }
 
   /**
    * 指定パスのコンテンツを外部から更新（Git操作、AI適用後など）
-   * - メモリを更新
    * - tabStoreを更新
    * - isDirtyはfalse（外部からの更新は保存済みとみなす）
    *
@@ -242,22 +231,18 @@ class EditorMemoryManager {
    */
   updateFromExternal(path: string, content: string): void {
     const normalizedPath = toAppPath(path);
-    const existing = this.contentMap.get(normalizedPath);
-
+    
     // 既存のタイマーをクリア
+    const existing = this.metadataMap.get(normalizedPath);
     if (existing?.saveTimerId) {
       clearTimeout(existing.saveTimerId);
     }
 
-    // エントリを更新（外部更新は保存済み状態）
-    const entry: ContentEntry = {
-      content,
-      savedContent: content,
-      isDirty: false,
+    // メタデータを更新
+    const entry: MetadataEntry = {
       lastModified: Date.now(),
     };
-
-    this.contentMap.set(normalizedPath, entry);
+    this.metadataMap.set(normalizedPath, entry);
 
     // tabStoreの全同一パスタブを更新（isDirty=false）
     this.syncToTabStore(normalizedPath, content, false);
@@ -270,38 +255,28 @@ class EditorMemoryManager {
 
   /**
    * パスのエントリを削除（タブを閉じた時など）
-   * 他にそのパスを参照しているタブがなければ削除
    *
    * @param path ファイルパス
    */
   removeEntry(path: string): void {
     const normalizedPath = toAppPath(path);
-    const entry = this.contentMap.get(normalizedPath);
+    const entry = this.metadataMap.get(normalizedPath);
 
     if (entry?.saveTimerId) {
       clearTimeout(entry.saveTimerId);
     }
 
-    // 他にこのパスを参照しているタブがあるかチェック
-    const tabs = useTabStore.getState().getAllTabs();
-    const hasOtherTabs = tabs.some(
-      t =>
-        toAppPath(t.path || '') === normalizedPath &&
-        (t.kind === 'editor' || t.kind === 'diff' || t.kind === 'ai')
-    );
-
-    if (!hasOtherTabs) {
-      this.contentMap.delete(normalizedPath);
-      console.log('[EditorMemoryManager] Entry removed:', normalizedPath);
-    }
+    this.metadataMap.delete(normalizedPath);
+    console.log('[EditorMemoryManager] Entry removed:', normalizedPath);
   }
 
   /**
-   * 指定パスが変更中（isDirty）かどうかを取得
+   * 指定パスが変更中（isDirty）かどうかを取得（tabStoreから）
    */
   isDirty(path: string): boolean {
     const normalizedPath = toAppPath(path);
-    return this.contentMap.get(normalizedPath)?.isDirty ?? false;
+    const tabInfo = useTabStore.getState().findTabByPath(normalizedPath, 'editor');
+    return tabInfo ? (tabInfo.tab as any).isDirty ?? false : false;
   }
 
   /**
@@ -310,14 +285,26 @@ class EditorMemoryManager {
   async saveAllPending(): Promise<void> {
     const savePromises: Promise<boolean>[] = [];
 
-    for (const [path, entry] of this.contentMap.entries()) {
-      if (entry.isDirty) {
-        // タイマーをキャンセルして即時保存
-        if (entry.saveTimerId) {
-          clearTimeout(entry.saveTimerId);
-          entry.saveTimerId = undefined;
-        }
-        savePromises.push(this.executeSave(path, entry.content));
+    // tabStoreからisDirtyなタブを取得
+    const allTabs = useTabStore.getState().getAllTabs();
+    const dirtyTabs = allTabs.filter(
+      t => (t.kind === 'editor' || t.kind === 'diff') && (t as any).isDirty
+    );
+
+    for (const tab of dirtyTabs) {
+      const path = toAppPath(tab.path || '');
+      if (!path) continue;
+
+      // タイマーをキャンセル
+      const entry = this.metadataMap.get(path);
+      if (entry?.saveTimerId) {
+        clearTimeout(entry.saveTimerId);
+        entry.saveTimerId = undefined;
+      }
+
+      const content = this.getContentFromTabStore(path);
+      if (content !== undefined) {
+        savePromises.push(this.executeSave(path, content));
       }
     }
 
@@ -327,27 +314,24 @@ class EditorMemoryManager {
 
   /**
    * 初期コンテンツを登録（タブを開いた時に呼び出し）
-   * 既にエントリがある場合は何もしない
+   * メタデータのみ登録（コンテンツはtabStoreが保持）
    *
    * @param path ファイルパス
-   * @param content 初期コンテンツ
+   * @param _content 初期コンテンツ（互換性のため引数は残すが使用しない）
    */
-  registerInitialContent(path: string, content: string): void {
+  registerInitialContent(path: string, _content: string): void {
     const normalizedPath = toAppPath(path);
 
     // 既にエントリがあれば何もしない
-    if (this.contentMap.has(normalizedPath)) {
+    if (this.metadataMap.has(normalizedPath)) {
       return;
     }
 
-    const entry: ContentEntry = {
-      content,
-      savedContent: content,
-      isDirty: false,
+    const entry: MetadataEntry = {
       lastModified: Date.now(),
     };
 
-    this.contentMap.set(normalizedPath, entry);
+    this.metadataMap.set(normalizedPath, entry);
     console.log('[EditorMemoryManager] Initial content registered:', normalizedPath);
   }
 
@@ -372,6 +356,31 @@ class EditorMemoryManager {
   // ==================== 内部メソッド ====================
 
   /**
+   * tabStoreからコンテンツを取得
+   */
+  private getContentFromTabStore(path: string): string | undefined {
+    const tabs = useTabStore.getState().getAllTabs();
+    
+    // editorタブを優先
+    const editorTab = tabs.find(
+      t => t.kind === 'editor' && toAppPath(t.path || '') === path
+    );
+    if (editorTab) {
+      return (editorTab as any).content;
+    }
+
+    // diffタブ
+    const diffTab = tabs.find(
+      t => t.kind === 'diff' && toAppPath(t.path || '') === path
+    );
+    if (diffTab && (diffTab as any).diffs?.length > 0) {
+      return (diffTab as any).diffs[0].latterContent;
+    }
+
+    return undefined;
+  }
+
+  /**
    * fileRepositoryの変更イベントを処理
    */
   private handleFileRepositoryChange(event: FileChangeEvent): void {
@@ -389,10 +398,15 @@ class EditorMemoryManager {
         return;
       }
 
-      // メモリ上のコンテンツと比較して、外部変更かどうかを判定
-      const entry = this.contentMap.get(filePath);
-      if (entry && entry.content === newContent) {
+      // tabStoreの現在のコンテンツと比較
+      const currentContent = this.getContentFromTabStore(filePath);
+      if (currentContent === newContent) {
         // 内容が同じならスキップ
+        return;
+      }
+
+      // タブが開いていない場合はスキップ
+      if (currentContent === undefined) {
         return;
       }
 
@@ -418,7 +432,6 @@ class EditorMemoryManager {
     if (matchingTabs.length === 0) return;
 
     // updateTabContentを使用して全タブを更新
-    // 最初に見つかったタブのIDを使う（updateTabContentは同一pathの全タブを更新する）
     const firstTab = matchingTabs[0];
     tabStore.updateTabContent(firstTab.id, content, isDirty);
 
@@ -432,22 +445,22 @@ class EditorMemoryManager {
   /**
    * デバウンス保存をスケジュール
    */
-  private scheduleSave(path: string, content: string): void {
-    const entry = this.contentMap.get(path);
+  private scheduleSave(path: string): void {
+    const entry = this.metadataMap.get(path);
     if (!entry) return;
 
-    // 既存のタイマーがあればクリア（setContentで既にクリアされているはずだが念のため）
+    // 既存のタイマーがあればクリア
     if (entry.saveTimerId) {
       clearTimeout(entry.saveTimerId);
     }
 
     // 新しいタイマーを設定
     entry.saveTimerId = setTimeout(async () => {
-      // タイマー発火時に再度エントリを取得（最新の状態を使用）
-      const currentEntry = this.contentMap.get(path);
-      if (currentEntry && currentEntry.isDirty) {
+      // タイマー発火時にtabStoreから最新のコンテンツを取得
+      const content = this.getContentFromTabStore(path);
+      if (content !== undefined) {
         try {
-          await this.executeSave(path, currentEntry.content);
+          await this.executeSave(path, content);
         } catch (e) {
           console.error('[EditorMemoryManager] Scheduled save failed:', e);
         }
@@ -483,11 +496,9 @@ class EditorMemoryManager {
       // 保存完了後にフラグを解除
       this.savingPaths.delete(path);
 
-      // エントリを更新（保存完了）
-      const entry = this.contentMap.get(path);
+      // メタデータを更新
+      const entry = this.metadataMap.get(path);
       if (entry) {
-        entry.savedContent = content;
-        entry.isDirty = entry.content !== content; // 保存中に変更があったかチェック
         entry.saveTimerId = undefined;
       }
 
@@ -546,11 +557,10 @@ class EditorMemoryManager {
    */
   debug(): void {
     console.log('[EditorMemoryManager] Current state:', {
-      entries: Array.from(this.contentMap.entries()).map(([path, entry]) => ({
+      entries: Array.from(this.metadataMap.entries()).map(([path, entry]) => ({
         path,
-        isDirty: entry.isDirty,
-        contentLength: entry.content.length,
         hasPendingTimer: !!entry.saveTimerId,
+        lastModified: entry.lastModified,
       })),
       listenerCount: {
         change: this.changeListeners.size,
