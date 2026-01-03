@@ -316,6 +316,22 @@ export const useTabStore = create<TabStore>((set, get) => ({
         for (const searchPane of allLeafPanes) {
           for (const tab of searchPane.tabs) {
             if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
+              // 既存タブを再利用する前に、最新のコンテンツで更新
+              if ((kind === 'editor' || kind === 'binary') && file.path) {
+                try {
+                  const projectId = getCurrentProjectId();
+                  if (projectId) {
+                    const freshFile = await fileRepository.getFileByPath(projectId, file.path);
+                    if (freshFile && freshFile.content !== undefined) {
+                      // 既存タブのコンテンツを最新に更新
+                      get().updateTabContent(tab.id, freshFile.content, false);
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
+                }
+              }
+              
               // 既存タブをアクティブ化
               if (options.makeActive !== false) {
                 get().activateTab(searchPane.id, tab.id);
@@ -335,6 +351,22 @@ export const useTabStore = create<TabStore>((set, get) => ({
         // 従来の動作：targetPane内でのみカスタム検索を行う
         for (const tab of pane.tabs) {
           if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
+            // 既存タブを再利用する前に、最新のコンテンツで更新
+            if ((kind === 'editor' || kind === 'binary') && file.path) {
+              try {
+                const projectId = getCurrentProjectId();
+                if (projectId) {
+                  const freshFile = await fileRepository.getFileByPath(projectId, file.path);
+                  if (freshFile && freshFile.content !== undefined) {
+                    // 既存タブのコンテンツを最新に更新
+                    get().updateTabContent(tab.id, freshFile.content, false);
+                  }
+                }
+              } catch (e) {
+                console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
+              }
+            }
+            
             // 既存タブをアクティブ化
             if (options.makeActive !== false) {
               get().activateTab(targetPaneId, tab.id);
@@ -355,6 +387,22 @@ export const useTabStore = create<TabStore>((set, get) => ({
       });
 
       if (existingTab) {
+        // 既存タブを再利用する前に、最新のコンテンツで更新
+        if ((kind === 'editor' || kind === 'binary') && file.path) {
+          try {
+            const projectId = getCurrentProjectId();
+            if (projectId) {
+              const freshFile = await fileRepository.getFileByPath(projectId, file.path);
+              if (freshFile && freshFile.content !== undefined) {
+                // 既存タブのコンテンツを最新に更新
+                get().updateTabContent(existingTab.id, freshFile.content, false);
+              }
+            }
+          } catch (e) {
+            console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
+          }
+        }
+        
         // 既存タブをアクティブ化
         if (options.makeActive !== false) {
           get().activateTab(targetPaneId, existingTab.id);
