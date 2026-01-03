@@ -144,15 +144,14 @@ export default function MonacoEditor({
     if (model && currentModelIdRef.current !== tabId) {
       try {
         editorRef.current!.setModel(model);
-        // marker dump removed in cleanup
         currentModelIdRef.current = tabId;
-        onCharCountChange(countCharsNoSpaces(model.getValue()));
       } catch (e: any) {
         console.warn('[MonacoEditor] setModel failed:', e?.message);
       }
     }
 
-    // 内容同期
+    // 内容同期: 常にcontentとモデルの値を比較して同期
+    // 外部要因（runtime, shell, aiなど）で変更された場合も反映される
     if (isModelSafe(model) && model!.getValue() !== content) {
       try {
         model!.setValue(content);
@@ -167,7 +166,7 @@ export default function MonacoEditor({
     if (isModelSafe(model)) {
       onCharCountChange(countCharsNoSpaces(model!.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
+  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, onCharCountChange]);
 
   // 強制再描画イベントのリスナー
   useEffect(() => {
