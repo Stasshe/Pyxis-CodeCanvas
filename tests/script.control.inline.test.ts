@@ -28,7 +28,8 @@ describe('StreamShell inline/semicolon control flow', () => {
     };
   const shell = new StreamShellClass({ projectName: 'default', projectId: 'p1', unix: mockUnix });
     const res = await shell.run('sh inline2.sh');
-    expect(String(res.stdout || '')).toBe('ab');
+    // POSIX echo adds newlines
+    expect(String(res.stdout || '').trim()).toBe('a\nb');
   });
 
   test('mixed newline and semicolon forms', async () => {

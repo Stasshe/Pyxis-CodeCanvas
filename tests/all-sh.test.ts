@@ -1,5 +1,6 @@
 import StreamShell from '@/engine/cmd/shell/streamShell';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { resetGlobalRegistry } from '@/engine/cmd/shell/providers';
 
 describe('Shell Script Integration Tests', () => {
   let projectId: string;
@@ -8,6 +9,9 @@ describe('Shell Script Integration Tests', () => {
   let mockFileRepo: any;
 
   beforeEach(async () => {
+    // Reset the global provider registry before each test
+    await resetGlobalRegistry();
+    
     projectId = `test-project-${Date.now()}`;
     projectName = 'test-project';
 
@@ -17,6 +21,9 @@ describe('Shell Script Integration Tests', () => {
     mockFileRepo = {
       getProjectFiles: jest.fn(async (pid: string) => {
         return Array.from(memoryFiles.values()).filter(f => f.path.startsWith('/'));
+      }),
+      getFileByPath: jest.fn(async (pid: string, path: string) => {
+        return memoryFiles.get(path) || null;
       }),
       createFile: jest.fn(async (pid: string, path: string, content: string, type: string) => {
         memoryFiles.set(path, { path, content, type });
@@ -84,9 +91,19 @@ describe('Shell Script Integration Tests', () => {
         memoryFiles.delete(normalized);
         return '';
       }),
-      grep: jest.fn(async (pattern: string, files: string[]) => {
+      grep: jest.fn(async (pattern: string, files: string[], options?: string[], stdin?: string | null) => {
         const regex = new RegExp(pattern);
         const results: string[] = [];
+        
+        // Handle stdin if provided
+        if (stdin !== null && stdin !== undefined) {
+          const lines = stdin.split('\n');
+          lines.forEach(line => {
+            if (regex.test(line)) results.push(line);
+          });
+        }
+        
+        // Handle files
         for (const file of files) {
           const normalized = file.startsWith('/') ? file : `${currentDir}/${file}`;
           const f = memoryFiles.get(normalized);
@@ -99,13 +116,26 @@ describe('Shell Script Integration Tests', () => {
         }
         return results.join('\n');
       }),
-      head: jest.fn(async (path: string, n: number) => {
+      head: jest.fn(async (pathOrContent: string, n: number, _options?: string[], stdin?: string | null) => {
+        // Handle stdin if provided
+        if (stdin !== null && stdin !== undefined) {
+          return stdin.split('\n').slice(0, n).join('\n');
+        }
+        // Handle file
+        const path = pathOrContent;
         const normalized = path.startsWith('/') ? path : `${currentDir}/${path}`;
         const file = memoryFiles.get(normalized);
         if (!file) throw new Error(`head: ${path}: No such file or directory`);
         return file.content.split('\n').slice(0, n).join('\n');
       }),
-      tail: jest.fn(async (path: string, n: number) => {
+      tail: jest.fn(async (pathOrContent: string, n: number, _options?: string[], stdin?: string | null) => {
+        // Handle stdin if provided
+        if (stdin !== null && stdin !== undefined) {
+          const lines = stdin.split('\n').filter(l => l.length > 0);
+          return lines.slice(-n).join('\n');
+        }
+        // Handle file
+        const path = pathOrContent;
         const normalized = path.startsWith('/') ? path : `${currentDir}/${path}`;
         const file = memoryFiles.get(normalized);
         if (!file) throw new Error(`tail: ${path}: No such file or directory`);
@@ -591,8 +621,8 @@ echo "after error"
       await mockFileRepo.createFile(projectId, '/test.sh', script, 'file');
       const result = await shell.run('sh /test.sh');
 
-      // エラーメッセージがstderrに出力される
-      expect(result.stderr).toContain('Command not found');
+      // エラーメッセージがstderrに出力される (case-insensitive check)
+      expect(result.stderr.toLowerCase()).toContain('command not found');
       // スクリプトは継続実行される（set -e が無い場合）
       expect(result.stdout).toContain('after error');
     });

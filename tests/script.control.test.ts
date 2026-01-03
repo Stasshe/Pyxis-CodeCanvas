@@ -112,8 +112,8 @@ done
 
   const shell = new StreamShellClass({ projectName: 'default', projectId: 'p1', unix: mockUnix });
   const res = await shell.run('sh script4.sh');
-  // echo in builtins doesn't append newline; expect concatenated output 'abc'
-  expect(String(res.stdout || '')).toBe('abc');
+  // POSIX echo adds newlines - expect each item on separate line
+  expect(String(res.stdout || '').trim()).toBe('a\nb\nc');
   });
 
   test('while loop runs body and respects break', async () => {
