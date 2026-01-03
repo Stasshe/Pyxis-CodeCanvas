@@ -135,39 +135,52 @@ export default function MonacoEditor({
     }
   };
 
-  // タブ切り替え時のモデル管理
+  // タブ切り替え時のモデル管理と外部変更の反映
   useEffect(() => {
     if (!isEditorSafe() || !monacoRef.current) return;
 
     const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
 
+    // タブ切り替え: モデルを変更
     if (model && currentModelIdRef.current !== tabId) {
       try {
         editorRef.current!.setModel(model);
-        // marker dump removed in cleanup
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
-      } catch (e: any) {
-        console.warn('[MonacoEditor] setModel failed:', e?.message);
+      } catch (e: unknown) {
+        console.warn('[MonacoEditor] setModel failed:', (e as Error)?.message);
       }
     }
 
-    // 内容同期
-    if (isModelSafe(model) && model!.getValue() !== content) {
-      try {
-        model!.setValue(content);
-        if (isEditorSafe()) {
-          editorRef.current!.layout();
-        }
-      } catch (e: any) {
-        console.warn('[MonacoEditor] Model setValue failed:', e?.message);
-      }
-    }
-
+    // 外部変更の反映: content prop が変わったら必ずモデルを更新
+    // EditorMemoryManager からの外部変更を確実に反映するため、
+    // content prop の変更を検知して強制的にモデルを更新
     if (isModelSafe(model)) {
+      const currentValue = model!.getValue();
+      if (currentValue !== content) {
+        try {
+          // プログラマティックな変更として、undo/redo スタックをクリアせずに更新
+          model!.pushEditOperations(
+            [],
+            [
+              {
+                range: model!.getFullModelRange(),
+                text: content,
+              },
+            ],
+            () => null
+          );
+          if (isEditorSafe()) {
+            editorRef.current!.layout();
+          }
+          console.log('[MonacoEditor] Content synced from external change');
+        } catch (e: unknown) {
+          console.warn('[MonacoEditor] Model content sync failed:', (e as Error)?.message);
+        }
+      }
       onCharCountChange(countCharsNoSpaces(model!.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
+  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, onCharCountChange]);
 
   // 強制再描画イベントのリスナー
   useEffect(() => {
