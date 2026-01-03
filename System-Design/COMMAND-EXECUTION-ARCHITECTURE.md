@@ -12,13 +12,14 @@ This document defines a comprehensive, POSIX-compliant command execution archite
 4. [Command Provider Interface](#command-provider-interface)
 5. [Provider Registration and Discovery](#provider-registration-and-discovery)
 6. [Execution Context and Environment](#execution-context-and-environment)
-7. [Shell Builtin System](#shell-builtin-system)
-8. [Extension Integration](#extension-integration)
-9. [Process Management](#process-management)
-10. [Standard Streams and I/O](#standard-streams-and-io)
-11. [Security and Isolation](#security-and-isolation)
-12. [Performance Considerations](#performance-considerations)
-13. [Migration Strategy](#migration-strategy)
+7. [Process Context Isolation](#process-context-isolation)
+8. [Shell Builtin System](#shell-builtin-system)
+9. [Extension Integration](#extension-integration)
+10. [Process Management](#process-management)
+11. [Standard Streams and I/O](#standard-streams-and-io)
+12. [Security and Isolation](#security-and-isolation)
+13. [Performance Considerations](#performance-considerations)
+14. [Migration Strategy](#migration-strategy)
 
 ---
 
@@ -934,6 +935,489 @@ function createExecutionContext(
 
 ---
 
+## Process Context Isolation
+
+### Problem Statement
+
+In POSIX systems, child processes inherit the parent's environment but operate in isolated contexts. Changes to a child process's state (CWD, environment variables, etc.) do not affect the parent. This is critical for shell scripts:
+
+```bash
+# Terminal's CWD: /projects/myproject
+sh script.sh  # Script does: cd /tmp
+# Terminal's CWD should still be: /projects/myproject
+```
+
+Currently in Pyxis, if a script executes `cd`, it changes the terminal's working directory, which violates process isolation.
+
+### POSIX Behavior Reference
+
+| Operation | Parent Shell | Child Process | Effect on Parent |
+|-----------|--------------|---------------|------------------|
+| `cd /tmp` | Interactive terminal | Script execution | No change (isolated) |
+| `export VAR=value` | Interactive terminal | Script execution | No change (isolated) |
+| `source script.sh` | Interactive terminal | Same shell context | Changes persist (by design) |
+| `alias ll='ls -la'` | Interactive terminal | Script execution | No change (isolated) |
+
+### Solution: Context Isolation Levels
+
+We define three levels of context isolation:
+
+#### Level 1: Interactive Shell Context (Parent)
+
+The **Interactive Shell Context** is the main terminal context that persists between commands:
+
+```typescript
+/**
+ * Interactive Shell Context
+ * Persistent context for the terminal session
+ */
+class InteractiveShellContext {
+  // This is the main shell context managed by Terminal.tsx
+  private context: ExecutionContext;
+  
+  constructor(projectName: string, projectId: string, getSystemModule: GetSystemModule) {
+    this.context = createExecutionContext(projectName, projectId, getSystemModule);
+  }
+  
+  /**
+   * Get the current context (for reading)
+   */
+  getContext(): Readonly<ExecutionContext> {
+    return this.context;
+  }
+  
+  /**
+   * Execute a builtin command that modifies shell state
+   * This is only called for direct terminal input, not from scripts
+   */
+  async executeBuiltin(
+    command: string,
+    args: string[],
+    provider: CommandProvider,
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Special builtins that modify parent shell context
+    if (isShellModifyingBuiltin(command)) {
+      return await provider.execute(command, args, this.context, streams);
+    }
+    
+    // For other commands, use isolated context
+    return await this.executeIsolated(command, args, provider, streams);
+  }
+  
+  /**
+   * Execute command in isolated context (for scripts)
+   */
+  async executeIsolated(
+    command: string,
+    args: string[],
+    provider: CommandProvider,
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Create isolated child context
+    const childContext = this.context.fork();
+    
+    // Execute in child context
+    const result = await provider.execute(command, args, childContext, streams);
+    
+    // Child context is discarded after execution
+    return result;
+  }
+}
+
+/**
+ * Check if command modifies parent shell state
+ */
+function isShellModifyingBuiltin(command: string): boolean {
+  // These commands affect the parent shell when executed directly
+  return ['cd', 'export', 'unset', 'alias', 'unalias', 'set'].includes(command);
+}
+```
+
+#### Level 2: Script Execution Context (Child)
+
+When executing a shell script (`.sh` file), create an isolated context:
+
+```typescript
+/**
+ * Script Executor
+ * Executes shell scripts in isolated contexts
+ */
+class ScriptExecutor {
+  constructor(private parentContext: InteractiveShellContext) {}
+  
+  async executeScript(
+    scriptPath: string,
+    args: string[],
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Read script content
+    const fileRepo = await this.parentContext.getContext().getSystemModule('fileRepository');
+    const content = await fileRepo.readFile(
+      this.parentContext.getContext().projectId,
+      scriptPath
+    );
+    
+    // Create ISOLATED child context (fork from parent)
+    const scriptContext = this.parentContext.getContext().fork();
+    
+    // Set script arguments ($0, $1, $2, ...)
+    scriptContext.setEnv('0', scriptPath);
+    for (let i = 0; i < args.length; i++) {
+      scriptContext.setEnv(String(i + 1), args[i]);
+    }
+    scriptContext.setEnv('#', String(args.length));
+    
+    // Execute script in isolated context
+    const result = await this.runScriptContent(content, scriptContext, streams);
+    
+    // Context is discarded - changes don't affect parent
+    return result;
+  }
+  
+  private async runScriptContent(
+    content: string,
+    context: ExecutionContext,
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Parse and execute script
+    // All commands in the script use the isolated context
+    // ...
+    return { exitCode: 0 };
+  }
+}
+```
+
+#### Level 3: Subshell Context (Nested Child)
+
+For explicit subshells `(commands)` or command substitution `$(command)`:
+
+```typescript
+/**
+ * Subshell Executor
+ * Executes commands in subshell (even more isolated)
+ */
+class SubshellExecutor {
+  async executeSubshell(
+    commands: string,
+    parentContext: ExecutionContext,
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Create a completely isolated subshell context
+    const subshellContext = parentContext.fork();
+    
+    // Give it a new shell PID
+    subshellContext.shellPid = Math.floor(Math.random() * 32768);
+    
+    // Execute commands in subshell
+    const result = await this.runCommands(commands, subshellContext, streams);
+    
+    // Subshell context is completely discarded
+    return result;
+  }
+  
+  private async runCommands(
+    commands: string,
+    context: ExecutionContext,
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Parse and execute commands
+    // ...
+    return { exitCode: 0 };
+  }
+}
+```
+
+### Context Decision Tree
+
+```mermaid
+graph TD
+    Input[Command Input] --> CheckSource{Source?}
+    
+    CheckSource -->|Terminal Input| CheckBuiltin{Shell Builtin?}
+    CheckSource -->|Script File| IsolatedScript[Execute in Script Context]
+    CheckSource -->|Subshell| IsolatedSubshell[Execute in Subshell Context]
+    
+    CheckBuiltin -->|cd, export, alias| ParentContext[Execute in Parent Context]
+    CheckBuiltin -->|Other| CheckType{Command Type?}
+    
+    CheckType -->|source, .| ParentContext
+    CheckType -->|Other| IsolatedChild[Execute in Child Context]
+    
+    IsolatedScript --> Discard1[Discard Context]
+    IsolatedSubshell --> Discard2[Discard Context]
+    IsolatedChild --> Discard3[Discard Context]
+    
+    ParentContext --> Persist[Changes Persist]
+```
+
+### Implementation Strategy
+
+#### Updated ExecutionContext with Fork Support
+
+```typescript
+interface ExecutionContext {
+  // ... existing properties ...
+  
+  // Context metadata
+  readonly isInteractive: boolean;    // True for terminal, false for scripts
+  readonly parentPid?: number;        // Parent shell PID (if child)
+  
+  // Fork with proper isolation
+  fork(options?: ForkOptions): ExecutionContext;
+}
+
+interface ForkOptions {
+  interactive?: boolean;              // Default: false
+  copyAliases?: boolean;             // Default: true
+  copyFunctions?: boolean;           // Default: true
+  copyExports?: boolean;             // Default: true (exported vars only)
+}
+
+function createExecutionContext(
+  projectName: string,
+  projectId: string,
+  getSystemModule: GetSystemModule,
+  options: {
+    isInteractive?: boolean;
+    parentPid?: number;
+  } = {}
+): ExecutionContext {
+  const shellPid = Math.floor(Math.random() * 32768);
+  
+  return {
+    // ... existing properties ...
+    
+    isInteractive: options.isInteractive ?? false,
+    parentPid: options.parentPid,
+    
+    fork(forkOptions?: ForkOptions): ExecutionContext {
+      const opts = {
+        interactive: false,
+        copyAliases: true,
+        copyFunctions: true,
+        copyExports: true,
+        ...forkOptions
+      };
+      
+      // Create new context
+      const child = createExecutionContext(
+        this.projectName,
+        this.projectId,
+        this.getSystemModule,
+        {
+          isInteractive: opts.interactive,
+          parentPid: this.shellPid
+        }
+      );
+      
+      // Copy environment variables (shallow copy for isolation)
+      child.env = { ...this.env };
+      
+      // Optionally copy aliases
+      if (opts.copyAliases) {
+        child.aliases = new Map(this.aliases);
+      }
+      
+      // Optionally copy functions
+      if (opts.copyFunctions) {
+        child.functions = new Map(this.functions);
+      }
+      
+      // Child gets its own options (not inherited)
+      child.options = { ...this.options };
+      
+      return child;
+    }
+  };
+}
+```
+
+### Command Execution Flow with Isolation
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Terminal
+    participant InteractiveCtx as Interactive Context
+    participant Resolver
+    participant Provider
+    participant ChildCtx as Child Context
+    
+    User->>Terminal: cd /tmp
+    Terminal->>Resolver: resolve("cd")
+    Resolver->>Provider: BuiltinProvider
+    Terminal->>InteractiveCtx: executeBuiltin("cd", ["/tmp"])
+    InteractiveCtx->>Provider: execute(cd, ["/tmp"], parentContext)
+    Note over InteractiveCtx: CWD changed in parent
+    
+    User->>Terminal: sh script.sh
+    Terminal->>Resolver: resolve("sh")
+    Resolver->>Provider: ScriptExecutor
+    InteractiveCtx->>ChildCtx: fork()
+    Note over ChildCtx: Isolated context created
+    Provider->>ChildCtx: execute script
+    ChildCtx->>ChildCtx: cd /another/path
+    Note over ChildCtx: CWD changed in child only
+    ChildCtx-->>InteractiveCtx: exitCode
+    Note over ChildCtx: Context discarded
+    Note over InteractiveCtx: Parent CWD unchanged
+```
+
+### Special Cases
+
+#### Source Command (`.` or `source`)
+
+The `source` command explicitly executes in the parent context:
+
+```typescript
+async function sourceBuiltin(
+  args: string[],
+  context: ExecutionContext,
+  streams: StreamManager
+): Promise<ExecutionResult> {
+  if (args.length === 0) {
+    await streams.stderr.write('source: missing filename\n');
+    return { exitCode: 1 };
+  }
+  
+  const scriptPath = args[0];
+  
+  // Read script
+  const fileRepo = await context.getSystemModule('fileRepository');
+  const content = await fileRepo.readFile(context.projectId, scriptPath);
+  
+  // Execute in CURRENT context (not isolated)
+  // This allows the script to modify parent shell state
+  const result = await runScriptInContext(content, context, streams);
+  
+  return result;
+}
+```
+
+#### Exec Command
+
+The `exec` command replaces the current shell:
+
+```typescript
+async function execBuiltin(
+  args: string[],
+  context: ExecutionContext,
+  streams: StreamManager
+): Promise<ExecutionResult> {
+  if (args.length === 0) {
+    return { exitCode: 0 }; // Just return
+  }
+  
+  // In interactive shell, exec should prevent further commands
+  if (context.isInteractive) {
+    await streams.stderr.write('exec: not allowed in interactive shell\n');
+    return { exitCode: 1 };
+  }
+  
+  // Execute command and exit with its exit code
+  // The current process is replaced
+  const [command, ...cmdArgs] = args;
+  const result = await executeCommand(command, cmdArgs, context, streams);
+  
+  // Signal that shell should exit
+  return { exitCode: result.exitCode, metadata: { shouldExit: true } };
+}
+```
+
+### Practical Example
+
+```bash
+# Terminal session (Interactive Context)
+$ pwd
+/projects/myproject
+
+$ export MYVAR=hello
+$ echo $MYVAR
+hello
+
+# Run script that changes state
+$ sh test.sh
+Inside script: /tmp
+Inside script MYVAR: world
+
+# Back to terminal - state unchanged
+$ pwd
+/projects/myproject
+$ echo $MYVAR
+hello
+
+# Source script - state DOES change
+$ source test.sh
+Inside script: /tmp
+
+$ pwd
+/tmp
+$ echo $MYVAR
+world
+```
+
+### Simplified Implementation (Pragmatic Approach)
+
+Given that Pyxis doesn't support multiple terminal instances, a simplified approach is acceptable:
+
+**Compromise Solution:**
+
+1. **Direct Terminal Commands**: Affect parent context (current behavior)
+2. **Script Execution**: Always isolated (new behavior)
+3. **Source Command**: Affects parent context (POSIX-compliant)
+4. **No Background Processes**: Not implemented (acceptable limitation)
+
+This provides proper isolation for scripts while maintaining simplicity and avoiding the complexity of full process trees.
+
+```typescript
+/**
+ * Simplified Command Executor
+ * Distinguishes between direct commands and script execution
+ */
+class SimplifiedCommandExecutor {
+  constructor(private interactiveContext: ExecutionContext) {}
+  
+  async execute(
+    command: string,
+    args: string[],
+    source: 'terminal' | 'script',
+    provider: CommandProvider,
+    streams: StreamManager
+  ): Promise<ExecutionResult> {
+    // Determine which context to use
+    const useParentContext = 
+      source === 'terminal' && isShellModifyingBuiltin(command) ||
+      command === 'source' || command === '.';
+    
+    if (useParentContext) {
+      // Execute in parent context
+      return await provider.execute(command, args, this.interactiveContext, streams);
+    } else {
+      // Execute in isolated child context
+      const childContext = this.interactiveContext.fork();
+      const result = await provider.execute(command, args, childContext, streams);
+      // Child context discarded
+      return result;
+    }
+  }
+}
+```
+
+### Testing Context Isolation
+
+Essential test cases:
+
+| Test Case | Expected Behavior |
+|-----------|-------------------|
+| Terminal: `cd /tmp` then `pwd` | Should show `/tmp` |
+| Terminal: `sh script.sh` (script does `cd /tmp`) then `pwd` | Should show original directory |
+| Terminal: `export VAR=a` then `sh script.sh` (script does `export VAR=b`) then `echo $VAR` | Should show `a` |
+| Terminal: `source script.sh` (script does `cd /tmp`) then `pwd` | Should show `/tmp` |
+| Script calls another script | Both scripts have isolated contexts |
+
+---
+
 ## Shell Builtin System
 
 ### Builtin Categories
@@ -1165,6 +1649,16 @@ The new provider system is fully backward compatible with existing extensions:
 ---
 
 ## Process Management
+
+### Overview
+
+Process management in Pyxis simulates POSIX process behavior in a browser environment. Each process has:
+
+1. **Isolated Execution Context**: See [Process Context Isolation](#process-context-isolation) for details on how parent and child processes maintain separate states
+2. **Stream-based I/O**: stdin/stdout/stderr using Node.js streams
+3. **Process Lifecycle**: Creation, execution, and cleanup
+
+**Important**: Process context isolation ensures that child processes (scripts, subshells) do not modify the parent shell's state (CWD, environment variables, etc.) unless explicitly using commands like `source`.
 
 ### Process Abstraction
 
