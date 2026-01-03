@@ -14,12 +14,22 @@ import type {
 import { ProviderType } from './types';
 
 /**
+ * Default timeout for stdin collection in milliseconds.
+ * This timeout is used when reading from piped stdin to avoid blocking forever.
+ * For interactive scenarios or longer pipelines, this may need to be increased.
+ */
+const DEFAULT_STDIN_TIMEOUT_MS = 100;
+
+/**
  * Read stdin content from a stream with timeout
  * @param streams - The stream manager
- * @param timeoutMs - Timeout in milliseconds
+ * @param timeoutMs - Timeout in milliseconds (default: DEFAULT_STDIN_TIMEOUT_MS)
  * @returns The stdin content or null if empty/timeout
  */
-async function collectStdin(streams: IStreamManager, timeoutMs = 100): Promise<string | null> {
+async function collectStdin(
+  streams: IStreamManager,
+  timeoutMs: number = DEFAULT_STDIN_TIMEOUT_MS
+): Promise<string | null> {
   try {
     const chunks: string[] = [];
     const stdin = streams.stdin as any;
@@ -43,7 +53,7 @@ async function collectStdin(streams: IStreamManager, timeoutMs = 100): Promise<s
         stdin.on('data', onData);
         stdin.once('end', onEnd);
         stdin.once('close', onEnd);
-        // Timeout to avoid hanging
+        // Timeout to avoid hanging on stdin reads
         setTimeout(() => {
           stdin.off('data', onData);
           resolve();

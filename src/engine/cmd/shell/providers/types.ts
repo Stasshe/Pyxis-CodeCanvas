@@ -282,22 +282,25 @@ export class CommandNotFoundError extends Error {
 }
 
 /**
- * Special Builtins - Commands that always take precedence (POSIX.1-2017)
+ * Special Builtins - Commands that always take precedence
+ * Based on POSIX.1-2017 Section 2.14 "Special Built-In Utilities"
+ * Reference: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_14
+ * Note: 'exec' and '.' are also special builtins but handled elsewhere due to their behavior
  */
 export const SPECIAL_BUILTINS = new Set([
-  'break',
-  'continue',
-  'exit',
-  'return',
-  'eval',
-  ':',
-  'export',
-  'readonly',
-  'unset',
-  'set',
-  'shift',
-  'trap',
-  'times',
+  'break',     // Exit from for/while/until loop
+  ':',         // Null utility (no-op, returns 0)
+  'continue',  // Continue loop iteration
+  'eval',      // Construct command by concatenating arguments
+  'exit',      // Exit the shell
+  'export',    // Set export attribute for variables
+  'readonly',  // Set readonly attribute for variables
+  'return',    // Return from function
+  'set',       // Set or unset shell options and positional parameters
+  'shift',     // Shift positional parameters
+  'times',     // Print accumulated user and system times
+  'trap',      // Trap signals
+  'unset',     // Unset values and attributes of variables
 ]);
 
 /**
