@@ -252,22 +252,6 @@ export function useMonacoModels() {
     currentModelIdRef.current = null;
   }, [currentModelIdRef]);
 
-  const updateModelContent = useCallback((tabId: string, content: string) => {
-    const monacoModelMap = monacoModelMapRef.current;
-    const model = monacoModelMap.get(tabId);
-    if (isModelSafe(model)) {
-      try {
-        const currentValue = model!.getValue();
-        if (currentValue !== content) {
-          model!.setValue(content);
-          console.log('[useMonacoModels] Updated model content for:', tabId);
-        }
-      } catch (e) {
-        console.warn('[useMonacoModels] Failed to update model content:', e);
-      }
-    }
-  }, [isModelSafe]);
-
   return {
     monacoModelMapRef,
     currentModelIdRef,
@@ -275,6 +259,5 @@ export function useMonacoModels() {
     getOrCreateModel,
     disposeModel,
     disposeAllModels,
-    updateModelContent,
   };
 }
