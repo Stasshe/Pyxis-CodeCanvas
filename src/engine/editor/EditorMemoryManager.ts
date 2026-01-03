@@ -396,19 +396,18 @@ class EditorMemoryManager {
 
       // tabStoreの現在のコンテンツと比較
       const currentContent = this.getContentFromTabStore(filePath);
-      if (currentContent === newContent) {
-        // 内容が同じならスキップ
+      
+      // タブが存在し、内容が同じならスキップ
+      if (currentContent !== undefined && currentContent === newContent) {
         return;
       }
 
-      // タブが開いていない場合はスキップ
-      if (currentContent === undefined) {
-        return;
+      // タブが存在する場合のみ更新（存在しない場合は次回開く時にIndexedDBから最新が読まれる）
+      if (currentContent !== undefined) {
+        // 外部からの変更として処理
+        console.log('[EditorMemoryManager] External change detected:', filePath);
+        this.updateFromExternal(filePath, newContent);
       }
-
-      // 外部からの変更として処理
-      console.log('[EditorMemoryManager] External change detected:', filePath);
-      this.updateFromExternal(filePath, newContent);
     }
   }
 

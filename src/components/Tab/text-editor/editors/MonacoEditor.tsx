@@ -135,7 +135,7 @@ export default function MonacoEditor({
     }
   };
 
-  // タブ切り替え時のモデル管理
+  // タブ切り替え時のモデル管理と外部変更の反映
   useEffect(() => {
     if (!isEditorSafe() || !monacoRef.current) return;
 
@@ -152,22 +152,33 @@ export default function MonacoEditor({
       }
     }
 
-    // 内容同期
-    if (isModelSafe(model) && model!.getValue() !== content) {
-      try {
-        model!.setValue(content);
-        if (isEditorSafe()) {
-          editorRef.current!.layout();
-        }
-      } catch (e: any) {
-        console.warn('[MonacoEditor] Model setValue failed:', e?.message);
-      }
-    }
-
+    // 内容同期: 外部変更を確実に反映するため強制的にモデルを更新
     if (isModelSafe(model)) {
+      const currentValue = model!.getValue();
+      if (currentValue !== content) {
+        try {
+          // pushEditOperationsを使用してundo/redoスタックを保持しつつ更新
+          model!.pushEditOperations(
+            [],
+            [
+              {
+                range: model!.getFullModelRange(),
+                text: content,
+              },
+            ],
+            () => null
+          );
+          if (isEditorSafe()) {
+            editorRef.current!.layout();
+          }
+          console.log('[MonacoEditor] External content synced:', tabId);
+        } catch (e: any) {
+          console.warn('[MonacoEditor] Model content sync failed:', e?.message);
+        }
+      }
       onCharCountChange(countCharsNoSpaces(model!.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
+  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, onCharCountChange]);
 
   // 強制再描画イベントのリスナー
   useEffect(() => {
