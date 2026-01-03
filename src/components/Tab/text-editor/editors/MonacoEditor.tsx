@@ -182,37 +182,6 @@ export default function MonacoEditor({
     }
   }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, onCharCountChange]);
 
-  // 強制再描画イベントのリスナー
-  useEffect(() => {
-    const handleForceRefresh = () => {
-      if (!isEditorSafe() || !monacoRef.current) return;
-
-      try {
-        console.log('[MonacoEditor] Force refresh triggered for tabId:', tabId);
-        const model = editorRef.current!.getModel();
-
-        if (isModelSafe(model)) {
-          const currentValue = model!.getValue();
-          if (currentValue !== content) {
-            model!.setValue(content);
-          }
-
-          editorRef.current!.layout();
-          onCharCountChange(countCharsNoSpaces(content));
-
-          console.log('[MonacoEditor] ✓ Force refresh completed');
-        }
-      } catch (e) {
-        console.warn('[MonacoEditor] Force refresh failed:', e);
-      }
-    };
-
-    window.addEventListener('pyxis-force-monaco-refresh', handleForceRefresh);
-    return () => {
-      window.removeEventListener('pyxis-force-monaco-refresh', handleForceRefresh);
-    };
-  }, [tabId, content, isEditorSafe, isModelSafe, onCharCountChange]);
-
   // ジャンプ機能
   useEffect(() => {
     if (!isEditorReady || !editorRef.current || !monacoRef.current) return;
