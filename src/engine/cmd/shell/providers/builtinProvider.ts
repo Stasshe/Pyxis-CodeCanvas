@@ -71,6 +71,7 @@ export class BuiltinCommandProvider implements CommandProvider {
     this.registerBuiltin('printf', this.printfCommand.bind(this));
     this.registerBuiltin('command', this.commandCommand.bind(this));
     this.registerBuiltin('builtin', this.builtinCommand.bind(this));
+    this.registerBuiltin('node', this.nodeCommand.bind(this));
   }
 
   private registerBuiltin(name: string, handler: BuiltinHandler): void {
@@ -816,6 +817,90 @@ export class BuiltinCommandProvider implements CommandProvider {
 
     // Execute the builtin directly
     return this.execute(cmd, args.slice(1), context, streams);
+  }
+
+  /**
+   * Node command - Execute JavaScript files using NodeRuntime
+   */
+  private async nodeCommand(
+    args: string[],
+    context: IExecutionContext,
+    streams: IStreamManager
+  ): Promise<ExecutionResult> {
+    // Support version flags
+    if (args.length >= 1 && (args[0] === '-v' || args[0] === '--version')) {
+      await streams.writeStdout('v18.0.0 (custom build)\n');
+      return { exitCode: 0 };
+    }
+
+    if (args.length === 0) {
+      await streams.writeStderr('Usage: node <file.js>\n');
+      return { exitCode: 2 };
+    }
+
+    try {
+      // Dynamic import NodeRuntime
+      const { NodeRuntime } = await import('../../../runtime/nodeRuntime');
+
+      // Create debug console that writes to streams
+      const debugConsole = {
+        log: (...logArgs: unknown[]) => {
+          const output = logArgs
+            .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+            .join(' ') + '\n';
+          streams.writeStdout(output);
+        },
+        error: (...logArgs: unknown[]) => {
+          const output = logArgs
+            .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+            .join(' ');
+          streams.writeStderr(`\x1b[31m${output}\x1b[0m\n`);
+        },
+        warn: (...logArgs: unknown[]) => {
+          const output = logArgs
+            .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+            .join(' ');
+          streams.writeStdout(`\x1b[33m${output}\x1b[0m\n`);
+        },
+        clear: () => {},
+      };
+
+      // Input handler (not supported in this context)
+      const onInput = (_promptText: string, callback: (input: string) => void) => {
+        streams.writeStderr('node: interactive input not supported\n');
+        callback('');
+      };
+
+      // Resolve path
+      let entryPath = args[0];
+      if (!entryPath.startsWith('/')) {
+        entryPath = context.cwd.replace(/\/$/, '') + '/' + entryPath;
+      }
+
+      const runtime = new NodeRuntime({
+        projectId: context.projectId,
+        projectName: context.projectName,
+        filePath: entryPath,
+        debugConsole,
+        onInput,
+        terminalColumns: 80,
+        terminalRows: 24,
+      });
+
+      // Execute
+      await runtime.execute(entryPath, args.slice(1));
+
+      // Wait for event loop to complete
+      if (typeof runtime.waitForEventLoop === 'function') {
+        await runtime.waitForEventLoop();
+      }
+
+      return { exitCode: 0 };
+    } catch (e: any) {
+      const msg = e && e.message ? String(e.message) : String(e);
+      await streams.writeStderr(`node: error: ${msg}\n`);
+      return { exitCode: 1 };
+    }
   }
 }
 

@@ -327,6 +327,7 @@ export const SHELL_BUILTINS = new Set([
   'umask',
   'ulimit',
   'times',
+  'node', // NodeRuntime execution
 ]);
 
 /**

@@ -32,8 +32,8 @@ export class ExternalCommandProvider implements CommandProvider {
     'ls', 'cd', 'pwd', 'mkdir', 'touch', 'rm', 'cp', 'mv', 'cat', 'echo',
     'head', 'tail', 'grep', 'find', 'tree', 'stat', 'unzip', 'rename',
     'chmod', 'chown', 'ln', 'date', 'whoami', 'help',
-    // Runtime commands
-    'node', 'sh', 'bash',
+    // Runtime commands (node is handled by builtins with NodeRuntime)
+    'sh', 'bash',
     // Other
     'npx', 'clear', 'history', 'vim',
   ]);
@@ -421,72 +421,6 @@ export class ExternalCommandProvider implements CommandProvider {
             }
           }
           return { exitCode: 0 };
-
-        case 'node': {
-          // Execute JavaScript file
-          if (args.length === 0) {
-            await streams.writeStderr('node: missing file operand\n');
-            return { exitCode: 1 };
-          }
-          const nodeFile = args[0];
-          const nodeArgs = args.slice(1);
-          
-          // Try unix.node if available
-          if (typeof unix.node === 'function') {
-            try {
-              result = await unix.node(nodeFile, nodeArgs);
-              if (result !== undefined && result !== null) {
-                await streams.writeStdout(String(result));
-                if (!String(result).endsWith('\n')) {
-                  await streams.writeStdout('\n');
-                }
-              }
-              return { exitCode: 0 };
-            } catch (e) {
-              const msg = e instanceof Error ? e.message : String(e);
-              await streams.writeStderr(`node: ${msg}\n`);
-              return { exitCode: 1 };
-            }
-          }
-          
-          // Fallback: Read and evaluate the file
-          try {
-            const fileContent = await unix.cat?.(nodeFile);
-            if (!fileContent) {
-              await streams.writeStderr(`node: cannot open '${nodeFile}': No such file\n`);
-              return { exitCode: 1 };
-            }
-            
-            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-            const fn = new AsyncFunction('console', 'process', `
-              const __args = ${JSON.stringify(nodeArgs)};
-              ${fileContent}
-            `);
-            
-            const mockConsole = {
-              log: (...a: any[]) => streams.writeStdout(a.map(String).join(' ') + '\n'),
-              error: (...a: any[]) => streams.writeStderr(a.map(String).join(' ') + '\n'),
-              warn: (...a: any[]) => streams.writeStderr(a.map(String).join(' ') + '\n'),
-              info: (...a: any[]) => streams.writeStdout(a.map(String).join(' ') + '\n'),
-            };
-            
-            const mockProcess = {
-              argv: ['node', nodeFile, ...nodeArgs],
-              exit: (code: number) => { throw new Error(`EXIT:${code}`); },
-              cwd: () => context.cwd,
-              env: context.env,
-            };
-            
-            await fn(mockConsole, mockProcess);
-            return { exitCode: 0 };
-          } catch (e: any) {
-            if (e?.message?.startsWith('EXIT:')) {
-              return { exitCode: parseInt(e.message.split(':')[1]) || 0 };
-            }
-            await streams.writeStderr(`node: ${e?.message || String(e)}\n`);
-            return { exitCode: 1 };
-          }
-        }
 
         case 'stat':
           if (args.length === 0) {
