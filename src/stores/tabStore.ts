@@ -90,6 +90,29 @@ function normalizeTabPath(p?: string): string {
   return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
 }
 
+// タブコンテンツ更新ヘルパー関数（openTabで共通使用）
+async function loadAndUpdateTabContent(
+  tabId: string,
+  kind: string,
+  filePath: string | undefined,
+  get: () => TabStore
+): Promise<void> {
+  if ((kind === 'editor' || kind === 'binary') && filePath) {
+    try {
+      const projectId = getCurrentProjectId();
+      if (projectId) {
+        const freshFile = await fileRepository.getFileByPath(projectId, filePath);
+        if (freshFile && freshFile.content !== undefined) {
+          // 既存タブのコンテンツを最新に更新
+          get().updateTabContent(tabId, freshFile.content, false);
+        }
+      }
+    } catch (e) {
+      console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
+    }
+  }
+}
+
 export const useTabStore = create<TabStore>((set, get) => ({
   panes: [],
   activePane: null,
@@ -317,20 +340,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
           for (const tab of searchPane.tabs) {
             if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
               // 既存タブを再利用する前に、最新のコンテンツで更新
-              if ((kind === 'editor' || kind === 'binary') && file.path) {
-                try {
-                  const projectId = getCurrentProjectId();
-                  if (projectId) {
-                    const freshFile = await fileRepository.getFileByPath(projectId, file.path);
-                    if (freshFile && freshFile.content !== undefined) {
-                      // 既存タブのコンテンツを最新に更新
-                      get().updateTabContent(tab.id, freshFile.content, false);
-                    }
-                  }
-                } catch (e) {
-                  console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
-                }
-              }
+              await loadAndUpdateTabContent(tab.id, kind, file.path, get);
               
               // 既存タブをアクティブ化
               if (options.makeActive !== false) {
@@ -352,20 +362,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
         for (const tab of pane.tabs) {
           if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
             // 既存タブを再利用する前に、最新のコンテンツで更新
-            if ((kind === 'editor' || kind === 'binary') && file.path) {
-              try {
-                const projectId = getCurrentProjectId();
-                if (projectId) {
-                  const freshFile = await fileRepository.getFileByPath(projectId, file.path);
-                  if (freshFile && freshFile.content !== undefined) {
-                    // 既存タブのコンテンツを最新に更新
-                    get().updateTabContent(tab.id, freshFile.content, false);
-                  }
-                }
-              } catch (e) {
-                console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
-              }
-            }
+            await loadAndUpdateTabContent(tab.id, kind, file.path, get);
             
             // 既存タブをアクティブ化
             if (options.makeActive !== false) {
@@ -388,20 +385,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
       if (existingTab) {
         // 既存タブを再利用する前に、最新のコンテンツで更新
-        if ((kind === 'editor' || kind === 'binary') && file.path) {
-          try {
-            const projectId = getCurrentProjectId();
-            if (projectId) {
-              const freshFile = await fileRepository.getFileByPath(projectId, file.path);
-              if (freshFile && freshFile.content !== undefined) {
-                // 既存タブのコンテンツを最新に更新
-                get().updateTabContent(existingTab.id, freshFile.content, false);
-              }
-            }
-          } catch (e) {
-            console.warn('[TabStore] Failed to load fresh content for reused tab:', e);
-          }
-        }
+        await loadAndUpdateTabContent(existingTab.id, kind, file.path, get);
         
         // 既存タブをアクティブ化
         if (options.makeActive !== false) {
