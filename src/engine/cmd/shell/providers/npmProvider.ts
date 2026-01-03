@@ -29,6 +29,10 @@ export class NpmCommandProvider implements CommandProvider {
     return command === 'npm';
   }
 
+  getSupportedCommands(): string[] {
+    return ['npm'];
+  }
+
   async initialize(projectId: string, context: IExecutionContext): Promise<void> {
     this.projectId = projectId;
     this.projectName = context.projectName;

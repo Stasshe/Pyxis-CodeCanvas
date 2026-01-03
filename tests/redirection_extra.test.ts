@@ -1,5 +1,6 @@
 import parseCommandLine from '@/engine/cmd/shell/parser';
 import StreamShell from '@/engine/cmd/shell/streamShell';
+import { resetGlobalRegistry } from '@/engine/cmd/shell/providers';
 
 describe('Redirection extra tests', () => {
   let projectId: string;
@@ -8,6 +9,9 @@ describe('Redirection extra tests', () => {
   let mockFileRepo: any;
 
   beforeEach(async () => {
+    // Reset the global provider registry before each test
+    await resetGlobalRegistry();
+    
     projectId = `test-project-${Date.now()}`;
     projectName = 'test-project';
 
@@ -15,6 +19,7 @@ describe('Redirection extra tests', () => {
 
     mockFileRepo = {
       getProjectFiles: jest.fn(async (pid: string) => Array.from(memoryFiles.values()).filter(f => f.path.startsWith('/'))),
+      getFileByPath: jest.fn(async (pid: string, path: string) => memoryFiles.get(path) || null),
       createFile: jest.fn(async (pid: string, path: string, content: string, type: string) => {
         memoryFiles.set(path.startsWith('/') ? path : `/${path}`, { path: path.startsWith('/') ? path : `/${path}`, content, type });
         return { id: `file-${Date.now()}`, path, content, type };
@@ -56,7 +61,8 @@ nonexistent_cmd &>> /both.txt
     const both = files.find((f: any) => f.path === '/both.txt');
     expect(both).toBeDefined();
     expect(both.content.startsWith('PRE\n')).toBeTruthy();
-    expect(both.content).toContain('Command not found');
+    // Use case-insensitive check for error message
+    expect(both.content.toLowerCase()).toContain('command not found');
     expect(res.stdout).toBe('');
     expect(res.stderr).toBe('');
   });

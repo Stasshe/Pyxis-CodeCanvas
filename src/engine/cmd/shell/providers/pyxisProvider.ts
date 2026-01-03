@@ -28,6 +28,10 @@ export class PyxisCommandProvider implements CommandProvider {
     return command === 'pyxis';
   }
 
+  getSupportedCommands(): string[] {
+    return ['pyxis'];
+  }
+
   async initialize(projectId: string, context: IExecutionContext): Promise<void> {
     this.projectId = projectId;
     this.projectName = context.projectName;

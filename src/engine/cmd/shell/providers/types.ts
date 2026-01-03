@@ -200,6 +200,13 @@ export interface CommandProvider {
   ): Promise<ExecutionResult>;
 
   /**
+   * Get the list of commands this provider supports
+   * This is used for command discovery and completion
+   * Returns an array of command names that this provider can handle
+   */
+  getSupportedCommands(): string[];
+
+  /**
    * Optional: Provide command completion suggestions
    */
   complete?(partial: string, context: IExecutionContext): Promise<CompletionResult[]>;
@@ -275,7 +282,7 @@ export class CommandNotFoundError extends Error {
 }
 
 /**
- * Special Builtins - Commands that always take precedence
+ * Special Builtins - Commands that always take precedence (POSIX.1-2017)
  */
 export const SPECIAL_BUILTINS = new Set([
   'break',
@@ -288,10 +295,14 @@ export const SPECIAL_BUILTINS = new Set([
   'readonly',
   'unset',
   'set',
+  'shift',
+  'trap',
+  'times',
 ]);
 
 /**
  * Shell Builtins - Commands that affect shell state
+ * Note: shift, trap, times are now in SPECIAL_BUILTINS per POSIX.1-2017
  */
 export const SHELL_BUILTINS = new Set([
   'cd',
@@ -320,13 +331,10 @@ export const SHELL_BUILTINS = new Set([
   'kill',
   'true',
   'false',
-  'shift',
   'getopts',
   'exec',
-  'trap',
   'umask',
   'ulimit',
-  'times',
 ]);
 
 /**

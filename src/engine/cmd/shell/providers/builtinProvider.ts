@@ -81,6 +81,14 @@ export class BuiltinCommandProvider implements CommandProvider {
     return this.builtins.has(command) || isShellBuiltin(command) || isSpecialBuiltin(command);
   }
 
+  getSupportedCommands(): string[] {
+    // Return all registered builtins plus known shell/special builtins
+    const commands = new Set<string>(this.builtins.keys());
+    for (const cmd of SHELL_BUILTINS) commands.add(cmd);
+    for (const cmd of SPECIAL_BUILTINS) commands.add(cmd);
+    return Array.from(commands);
+  }
+
   async execute(
     command: string,
     args: string[],
@@ -703,13 +711,22 @@ export class BuiltinCommandProvider implements CommandProvider {
     return { exitCode: 0 };
   }
 
+  /**
+   * Read command implementation
+   * TODO: Full implementation should read from stdin and split by IFS
+   * Current limitation: Sets empty values for variables since stdin
+   * reading requires terminal integration not yet implemented.
+   */
   private async readCommand(
     args: string[],
     context: IExecutionContext,
     streams: IStreamManager
   ): Promise<ExecutionResult> {
-    // Basic read implementation - would need stdin access
-    // For now, just set empty values
+    // Basic read implementation - sets empty values
+    // Full implementation would:
+    // 1. Read a line from stdin (requires terminal integration)
+    // 2. Split by IFS (Internal Field Separator)
+    // 3. Assign to variables
     for (const name of args.filter(a => !a.startsWith('-'))) {
       context.setEnv(name, '');
     }

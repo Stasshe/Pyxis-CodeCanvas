@@ -148,6 +148,38 @@ export class ProviderRegistry {
   }
 
   /**
+   * Get all supported commands from all providers
+   * Returns a deduplicated list of commands sorted alphabetically
+   */
+  getAllSupportedCommands(): string[] {
+    const commands = new Set<string>();
+    
+    for (const provider of this.providers) {
+      const providerCommands = provider.getSupportedCommands();
+      for (const cmd of providerCommands) {
+        commands.add(cmd);
+      }
+    }
+    
+    return Array.from(commands).sort();
+  }
+
+  /**
+   * Get supported commands grouped by provider
+   * Useful for help output and debugging
+   */
+  getCommandsByProvider(): Map<string, string[]> {
+    const result = new Map<string, string[]>();
+    
+    for (const provider of this.providers) {
+      const commands = provider.getSupportedCommands();
+      result.set(provider.id, commands);
+    }
+    
+    return result;
+  }
+
+  /**
    * Get provider count
    */
   get count(): number {

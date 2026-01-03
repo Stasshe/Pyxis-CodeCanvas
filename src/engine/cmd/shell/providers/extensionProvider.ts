@@ -39,6 +39,13 @@ export class ExtensionCommandProvider implements CommandProvider {
     return this.commandRegistry.hasCommand(command);
   }
 
+  getSupportedCommands(): string[] {
+    if (!this.commandRegistry || typeof this.commandRegistry.getCommands !== 'function') {
+      return [];
+    }
+    return this.commandRegistry.getCommands();
+  }
+
   private async ensureRegistry(): Promise<void> {
     if (this.commandRegistry) return;
 

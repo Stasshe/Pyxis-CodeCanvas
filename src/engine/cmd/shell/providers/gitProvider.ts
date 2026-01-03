@@ -29,6 +29,10 @@ export class GitCommandProvider implements CommandProvider {
     return command === 'git';
   }
 
+  getSupportedCommands(): string[] {
+    return ['git'];
+  }
+
   async initialize(projectId: string, context: IExecutionContext): Promise<void> {
     this.projectId = projectId;
     this.projectName = context.projectName;

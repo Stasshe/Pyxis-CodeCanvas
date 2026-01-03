@@ -14,7 +14,56 @@ import type {
 import { ProviderType } from './types';
 
 /**
+ * Read stdin content from a stream with timeout
+ * @param streams - The stream manager
+ * @param timeoutMs - Timeout in milliseconds
+ * @returns The stdin content or null if empty/timeout
+ */
+async function collectStdin(streams: IStreamManager, timeoutMs = 100): Promise<string | null> {
+  try {
+    const chunks: string[] = [];
+    const stdin = streams.stdin as any;
+    
+    // First, try to read any buffered data
+    if (stdin && typeof stdin.read === 'function') {
+      let chunk: any;
+      while ((chunk = stdin.read()) !== null) {
+        chunks.push(String(chunk));
+      }
+    }
+    
+    // Then listen for more data with timeout
+    if (stdin && typeof stdin.on === 'function') {
+      await new Promise<void>((resolve) => {
+        const onData = (chunk: any) => chunks.push(String(chunk));
+        const onEnd = () => {
+          stdin.off('data', onData);
+          resolve();
+        };
+        stdin.on('data', onData);
+        stdin.once('end', onEnd);
+        stdin.once('close', onEnd);
+        // Timeout to avoid hanging
+        setTimeout(() => {
+          stdin.off('data', onData);
+          resolve();
+        }, timeoutMs);
+      });
+    }
+    
+    return chunks.length > 0 ? chunks.join('') : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * External Command Provider Implementation
+ * This is the fallback provider that handles filesystem commands and scripts.
+ * It dynamically determines command availability based on:
+ * 1. Standard Unix/POSIX file commands
+ * 2. Script files (*.sh)
+ * 3. node_modules/.bin executables
  */
 export class ExternalCommandProvider implements CommandProvider {
   readonly id = 'pyxis.provider.external';
@@ -26,21 +75,44 @@ export class ExternalCommandProvider implements CommandProvider {
   private projectId: string = '';
   private projectName: string = '';
 
-  // Known external commands
-  private readonly knownCommands = new Set([
-    // Unix commands
-    'ls', 'cd', 'pwd', 'mkdir', 'touch', 'rm', 'cp', 'mv', 'cat', 'echo',
-    'head', 'tail', 'grep', 'find', 'tree', 'stat', 'unzip', 'rename',
-    'chmod', 'chown', 'ln', 'date', 'whoami', 'help',
-    // Runtime commands
-    'node', 'sh', 'bash',
-    // Other
-    'npx', 'clear', 'history', 'vim',
-  ]);
+  /**
+   * Standard Unix/POSIX filesystem commands
+   * These are commands commonly available on POSIX systems for file manipulation
+   */
+  private static readonly FILESYSTEM_COMMANDS = [
+    // Core file operations
+    'ls', 'cat', 'cp', 'mv', 'rm', 'mkdir', 'rmdir', 'touch', 'ln',
+    // File inspection
+    'head', 'tail', 'stat', 'file', 'wc',
+    // Search and filter
+    'grep', 'find', 'tree',
+    // Archive
+    'unzip', 'tar',
+    // Permissions
+    'chmod', 'chown',
+    // Other utilities
+    'date', 'whoami', 'hostname', 'uname',
+    'help', 'clear', 'history',
+  ] as const;
+
+  /**
+   * Runtime/interpreter commands
+   * Commands for running scripts and programs
+   */
+  private static readonly RUNTIME_COMMANDS = [
+    'node', 'sh', 'bash', 'npx',
+  ] as const;
+
+  /**
+   * Editor commands
+   */
+  private static readonly EDITOR_COMMANDS = [
+    'vim', 'vi', 'nano', 'ed',
+  ] as const;
 
   async canHandle(command: string, context: IExecutionContext): Promise<boolean> {
-    // Check known commands
-    if (this.knownCommands.has(command)) {
+    // Check if it's a known filesystem/runtime command
+    if (this.isKnownCommand(command)) {
       return true;
     }
 
@@ -63,8 +135,29 @@ export class ExternalCommandProvider implements CommandProvider {
       // Ignore
     }
 
-    // Default: accept any command as external provider is the fallback
+    // As fallback provider, accept any command
+    // This allows for dynamic commands from injected unix handlers
     return true;
+  }
+
+  /**
+   * Check if a command is in our known command lists
+   */
+  private isKnownCommand(command: string): boolean {
+    return (
+      (ExternalCommandProvider.FILESYSTEM_COMMANDS as readonly string[]).includes(command) ||
+      (ExternalCommandProvider.RUNTIME_COMMANDS as readonly string[]).includes(command) ||
+      (ExternalCommandProvider.EDITOR_COMMANDS as readonly string[]).includes(command)
+    );
+  }
+
+  getSupportedCommands(): string[] {
+    // Return all known commands this provider can handle
+    return [
+      ...ExternalCommandProvider.FILESYSTEM_COMMANDS,
+      ...ExternalCommandProvider.RUNTIME_COMMANDS,
+      ...ExternalCommandProvider.EDITOR_COMMANDS,
+    ];
   }
 
   async initialize(projectId: string, context: IExecutionContext): Promise<void> {
@@ -252,44 +345,8 @@ export class ExternalCommandProvider implements CommandProvider {
           const pattern = grepArgs[0];
           const files = grepArgs.slice(1);
           
-          // Collect stdin for grep
-          let grepStdin: string | null = null;
-          if (files.length === 0) {
-            // No files specified, read from stdin
-            try {
-              const chunks: string[] = [];
-              const stdin = streams.stdin as any;
-              if (stdin && typeof stdin.read === 'function') {
-                // Read buffered data
-                let chunk: any;
-                while ((chunk = stdin.read()) !== null) {
-                  chunks.push(String(chunk));
-                }
-              }
-              if (stdin && typeof stdin.on === 'function') {
-                await new Promise<void>((resolve) => {
-                  const onData = (chunk: any) => chunks.push(String(chunk));
-                  const onEnd = () => {
-                    stdin.off('data', onData);
-                    resolve();
-                  };
-                  stdin.on('data', onData);
-                  stdin.once('end', onEnd);
-                  stdin.once('close', onEnd);
-                  // Timeout to avoid hanging
-                  setTimeout(() => {
-                    stdin.off('data', onData);
-                    resolve();
-                  }, 100);
-                });
-              }
-              if (chunks.length > 0) {
-                grepStdin = chunks.join('');
-              }
-            } catch {
-              // Ignore stdin errors
-            }
-          }
+          // Collect stdin for grep if no files specified
+          const grepStdin = files.length === 0 ? await collectStdin(streams) : null;
           
           result = await unix.grep?.(pattern, files, grepOptions, grepStdin);
           if (result) {
@@ -307,38 +364,7 @@ export class ExternalCommandProvider implements CommandProvider {
           const headOptions = args.filter(a => a.startsWith('-'));
           
           // Collect stdin for head if no file specified
-          let headStdin: string | null = null;
-          if (!headFile) {
-            try {
-              const chunks: string[] = [];
-              const stdin = streams.stdin as any;
-              if (stdin && typeof stdin.read === 'function') {
-                let chunk: any;
-                while ((chunk = stdin.read()) !== null) {
-                  chunks.push(String(chunk));
-                }
-              }
-              if (stdin && typeof stdin.on === 'function') {
-                await new Promise<void>((resolve) => {
-                  const onData = (chunk: any) => chunks.push(String(chunk));
-                  const onEnd = () => {
-                    stdin.off('data', onData);
-                    resolve();
-                  };
-                  stdin.on('data', onData);
-                  stdin.once('end', onEnd);
-                  stdin.once('close', onEnd);
-                  setTimeout(() => {
-                    stdin.off('data', onData);
-                    resolve();
-                  }, 100);
-                });
-              }
-              if (chunks.length > 0) {
-                headStdin = chunks.join('');
-              }
-            } catch {}
-          }
+          const headStdin = !headFile ? await collectStdin(streams) : null;
           
           result = await unix.head?.(headFile || '', headLines, headOptions, headStdin);
           if (result) {
@@ -357,38 +383,7 @@ export class ExternalCommandProvider implements CommandProvider {
           const tailOptions = args.filter(a => a.startsWith('-'));
           
           // Collect stdin for tail if no file specified
-          let tailStdin: string | null = null;
-          if (!tailFile) {
-            try {
-              const chunks: string[] = [];
-              const stdin = streams.stdin as any;
-              if (stdin && typeof stdin.read === 'function') {
-                let chunk: any;
-                while ((chunk = stdin.read()) !== null) {
-                  chunks.push(String(chunk));
-                }
-              }
-              if (stdin && typeof stdin.on === 'function') {
-                await new Promise<void>((resolve) => {
-                  const onData = (chunk: any) => chunks.push(String(chunk));
-                  const onEnd = () => {
-                    stdin.off('data', onData);
-                    resolve();
-                  };
-                  stdin.on('data', onData);
-                  stdin.once('end', onEnd);
-                  stdin.once('close', onEnd);
-                  setTimeout(() => {
-                    stdin.off('data', onData);
-                    resolve();
-                  }, 100);
-                });
-              }
-              if (chunks.length > 0) {
-                tailStdin = chunks.join('');
-              }
-            } catch {}
-          }
+          const tailStdin = !tailFile ? await collectStdin(streams) : null;
           
           result = await unix.tail?.(tailFile || '', tailLines, tailOptions, tailStdin);
           if (result) {
@@ -554,7 +549,7 @@ export class ExternalCommandProvider implements CommandProvider {
   }
 
   async complete(partial: string, _context: IExecutionContext): Promise<CompletionResult[]> {
-    const commands = Array.from(this.knownCommands);
+    const commands = this.getSupportedCommands();
 
     return commands
       .filter(cmd => cmd.startsWith(partial))
@@ -567,32 +562,50 @@ export class ExternalCommandProvider implements CommandProvider {
 
   private getCommandDescription(cmd: string): string {
     const descriptions: Record<string, string> = {
+      // Core file operations
       ls: 'List directory contents',
-      cd: 'Change directory',
-      pwd: 'Print working directory',
-      mkdir: 'Create directory',
-      touch: 'Create empty file',
-      rm: 'Remove files/directories',
+      cat: 'Display file contents',
       cp: 'Copy files/directories',
       mv: 'Move files/directories',
-      cat: 'Display file contents',
-      echo: 'Display text',
+      rm: 'Remove files/directories',
+      mkdir: 'Create directory',
+      rmdir: 'Remove directory',
+      touch: 'Create empty file or update timestamp',
+      ln: 'Create links',
+      // File inspection
       head: 'Display first lines',
       tail: 'Display last lines',
+      stat: 'Display file status',
+      file: 'Determine file type',
+      wc: 'Count lines, words, bytes',
+      // Search and filter
       grep: 'Search for patterns',
       find: 'Find files',
       tree: 'Display directory tree',
-      stat: 'Display file status',
+      // Archive
       unzip: 'Extract ZIP archive',
-      rename: 'Rename file',
+      tar: 'Archive utility',
+      // Permissions
+      chmod: 'Change file permissions',
+      chown: 'Change file owner',
+      // Utilities
+      date: 'Display date and time',
+      whoami: 'Display current user',
+      hostname: 'Display hostname',
+      uname: 'Display system information',
+      help: 'Show help',
+      clear: 'Clear terminal',
+      history: 'Show command history',
+      // Runtime
       node: 'Run JavaScript',
       sh: 'Run shell script',
       bash: 'Run bash script',
       npx: 'Run npm package',
-      clear: 'Clear terminal',
-      history: 'Show command history',
+      // Editors
       vim: 'Edit file with vim',
-      help: 'Show help',
+      vi: 'Edit file with vi',
+      nano: 'Edit file with nano',
+      ed: 'Line editor',
     };
     return descriptions[cmd] || 'External command';
   }
