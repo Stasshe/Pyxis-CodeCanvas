@@ -352,12 +352,28 @@ export const useTabStore = create<TabStore>((set, get) => ({
           get().activateTab(targetPaneId, existingTab.id);
         }
 
-        // jumpToLine/jumpToColumnがある場合は更新
+        // Update content from the file object to reflect external changes
+        // This ensures tabs always show the latest content when reopened
+        const updates: Partial<Tab> = {};
+        
         if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
-          get().updateTab(targetPaneId, existingTab.id, {
-            jumpToLine: options.jumpToLine,
-            jumpToColumn: options.jumpToColumn,
-          } as Partial<Tab>);
+          updates.jumpToLine = options.jumpToLine;
+          updates.jumpToColumn = options.jumpToColumn;
+        }
+        
+        // Update content if provided in file object (from IndexedDB fetch)
+        if ('content' in file && file.content !== undefined) {
+          (updates as any).content = file.content;
+        }
+        if ('isBufferArray' in file) {
+          (updates as any).isBufferArray = file.isBufferArray;
+        }
+        if ('bufferContent' in file) {
+          (updates as any).bufferContent = file.bufferContent;
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          get().updateTab(targetPaneId, existingTab.id, updates);
         }
 
         return;
