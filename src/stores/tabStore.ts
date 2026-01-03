@@ -2,8 +2,10 @@
 import { create } from 'zustand';
 
 import { updateCachedModelContent } from '@/components/Tab/text-editor/hooks/useMonacoModels';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { DiffTab, EditorPane, OpenTabOptions, Tab } from '@/engine/tabs/types';
+import { getCurrentProjectId } from './projectStore';
 
 // Helper function to flatten all leaf panes (preserving order for pane index priority)
 function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {
@@ -52,7 +54,7 @@ interface TabStore {
   resizePane: (paneId: string, newSize: number) => void;
 
   // タブ操作
-  openTab: (file: any, options?: OpenTabOptions) => void;
+  openTab: (file: any, options?: OpenTabOptions) => Promise<void>;
   closeTab: (paneId: string, tabId: string) => void;
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
@@ -188,7 +190,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   setActivePane: paneId => set({ activePane: paneId }),
 
-  openTab: (file, options = {}) => {
+  openTab: async (file, options = {}) => {
     const state = get();
     // 優先順位: options.kind -> file.kind -> (buffer arrayなら'binary') -> 'editor'
     const kind =
@@ -366,7 +368,30 @@ export const useTabStore = create<TabStore>((set, get) => ({
     }
 
     // 新規タブの作成
-    const newTab = tabDef.createTab(file, { ...options, paneId: targetPaneId });
+    // エディタータブの場合、最新のコンテンツをfileRepositoryから取得
+    let fileToCreate = file;
+    if ((kind === 'editor' || kind === 'binary') && file.path) {
+      try {
+        const projectId = getCurrentProjectId();
+        if (projectId) {
+          const freshFile = await fileRepository.getFileByPath(projectId, file.path);
+          if (freshFile) {
+            // 最新のコンテンツで上書き
+            fileToCreate = {
+              ...file,
+              content: freshFile.content,
+              isBufferArray: freshFile.isBufferArray,
+              bufferContent: freshFile.bufferContent,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('[TabStore] Failed to load fresh content for new tab:', e);
+        // フォールバック: 渡されたfileオブジェクトをそのまま使用
+      }
+    }
+    
+    const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
 
     // ペインにタブを追加し、グローバルアクティブタブも同時に更新
     // 別々のset呼び出しではなく、1つの更新で原子的に行うことで
