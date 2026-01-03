@@ -1,5 +1,4 @@
 import StreamShell from '@/engine/cmd/shell/streamShell';
-import { resetGlobalRegistry } from '@/engine/cmd/shell/providers';
 
 describe('Redirection tests', () => {
   let projectId: string;
@@ -8,9 +7,6 @@ describe('Redirection tests', () => {
   let mockFileRepo: any;
 
   beforeEach(async () => {
-    // Reset the global provider registry before each test
-    await resetGlobalRegistry();
-    
     projectId = `test-project-${Date.now()}`;
     projectName = 'test-project';
 

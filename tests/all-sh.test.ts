@@ -1,6 +1,5 @@
 import StreamShell from '@/engine/cmd/shell/streamShell';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { resetGlobalRegistry } from '@/engine/cmd/shell/providers';
 
 describe('Shell Script Integration Tests', () => {
   let projectId: string;
@@ -9,9 +8,6 @@ describe('Shell Script Integration Tests', () => {
   let mockFileRepo: any;
 
   beforeEach(async () => {
-    // Reset the global provider registry before each test
-    await resetGlobalRegistry();
-    
     projectId = `test-project-${Date.now()}`;
     projectName = 'test-project';
 

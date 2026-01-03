@@ -1,28 +1,16 @@
 /**
  * Shell Executor
- * Core shell execution engine using the provider-based architecture.
- * Handles command parsing, resolution, and execution with full POSIX support.
+ * POSIX-compliant shell execution engine.
+ * Directly uses existing handlers (gitHandler, npmHandler, pyxisHandler, unixHandler)
+ * without unnecessary provider abstraction layer.
  */
 
-import { Process, type ProcExit } from './process';
+import { Process } from './process';
 import { parseCommandLine } from './parser';
 import { expandTokens } from './expansion';
 import { runScript } from './scriptRunner';
 import { isDevNull, type Segment, type TokenObj } from './types';
-import { ExecutionContext, createExecutionContext } from './context/executionContext';
-import { StreamManager, createStreamManager } from './io/streamManager';
-import {
-  getProviderRegistry,
-  setupDefaultProviders,
-  CommandResolver,
-  createCommandResolver,
-  type IExecutionContext,
-  type IStreamManager,
-  type ResolvedCommand,
-  type ExecutionResult,
-  CommandNotFoundError,
-  ProviderType,
-} from './providers';
+import adaptBuiltins, { type StreamCtx } from './builtins';
 
 import type { UnixCommands } from '../global/unix';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
@@ -60,79 +48,44 @@ export interface OutputCallbacks {
 }
 
 /**
+ * Execution Context - simplified version without provider overhead
+ */
+interface ExecutionContext {
+  projectName: string;
+  projectId: string;
+  cwd: string;
+  env: Record<string, string>;
+  aliases: Record<string, string>;
+  terminalColumns: number;
+  terminalRows: number;
+}
+
+/**
  * Shell Executor
- * Executes shell commands using the provider-based architecture.
+ * Executes shell commands using existing handlers directly.
  */
 export class ShellExecutor {
-  private context: IExecutionContext;
-  private resolver: CommandResolver;
+  private context: ExecutionContext;
   private unix: UnixCommands | null = null;
   private fileRepository: typeof FileRepository | undefined;
   private commandRegistry: any;
   private foregroundProc: Process | null = null;
-  private initialized = false;
+  private builtins: Record<string, any> | null = null;
 
   constructor(options: ShellExecutorOptions) {
-    // Create system module accessor
-    const getSystemModule = async (moduleName: string) => {
-      switch (moduleName) {
-        case 'unixCommands':
-          return this.getUnix();
-        case 'fileRepository':
-          return this.fileRepository;
-        case 'commandRegistry':
-          return this.commandRegistry;
-        default:
-          throw new Error(`Unknown system module: ${moduleName}`);
-      }
+    this.context = {
+      projectName: options.projectName,
+      projectId: options.projectId,
+      cwd: `/projects/${options.projectName}`,
+      env: options.env ?? {},
+      aliases: {},
+      terminalColumns: options.terminalColumns ?? 80,
+      terminalRows: options.terminalRows ?? 24,
     };
 
-    // Create execution context
-    this.context = createExecutionContext(
-      options.projectName,
-      options.projectId,
-      getSystemModule,
-      {
-        isInteractive: options.isInteractive ?? true,
-        terminalColumns: options.terminalColumns ?? 80,
-        terminalRows: options.terminalRows ?? 24,
-        env: options.env,
-      }
-    );
-
-    // Store references
     this.unix = options.unix ?? null;
     this.fileRepository = options.fileRepository;
     this.commandRegistry = options.commandRegistry;
-
-    // Create resolver (registry will be initialized lazily)
-    const registry = getProviderRegistry();
-    this.resolver = createCommandResolver(registry);
-  }
-
-  /**
-   * Initialize the shell executor
-   */
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
-
-    // Setup default providers
-    await setupDefaultProviders();
-
-    // If a custom command registry was provided, configure the extension provider
-    if (this.commandRegistry) {
-      const registry = getProviderRegistry();
-      const extProvider = registry.getProvider('pyxis.provider.extension');
-      if (extProvider && typeof (extProvider as any).setCommandRegistry === 'function') {
-        (extProvider as any).setCommandRegistry(this.commandRegistry);
-      }
-    }
-
-    // Initialize providers
-    const registry = getProviderRegistry();
-    await registry.initializeProviders(this.context.projectId, this.context);
-
-    this.initialized = true;
   }
 
   /**
@@ -154,10 +107,21 @@ export class ShellExecutor {
   }
 
   /**
+   * Get builtins (lazy initialization)
+   */
+  private async getBuiltins(): Promise<Record<string, any>> {
+    if (this.builtins) return this.builtins;
+    const unix = await this.getUnix();
+    this.builtins = adaptBuiltins(unix);
+    return this.builtins;
+  }
+
+  /**
    * Update terminal size
    */
   setTerminalSize(columns: number, rows: number): void {
-    (this.context as ExecutionContext).setTerminalSize(columns, rows);
+    this.context.terminalColumns = columns;
+    this.context.terminalRows = rows;
   }
 
   get terminalColumns(): number {
@@ -172,11 +136,6 @@ export class ShellExecutor {
    * Run a command line
    */
   async run(line: string, callbacks?: OutputCallbacks): Promise<ShellRunResult> {
-    // Ensure initialized
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
     // Parse command line
     let segments: Segment[];
     try {
@@ -387,20 +346,17 @@ export class ShellExecutor {
       args = args.slice(1);
     }
 
-    // Create stream context
-    const streams: IStreamManager = {
-      stdin: proc.stdinStream,
-      stdout: proc.stdoutStream,
-      stderr: proc.stderrStream,
-      writeStdout: async (data) => {
-        proc.writeStdout(typeof data === 'string' ? data : data.toString());
-      },
-      writeStderr: async (data) => {
-        proc.writeStderr(typeof data === 'string' ? data : data.toString());
-      },
-      endStdout: () => proc.endStdout(),
-      endStderr: () => proc.endStderr(),
-    };
+    // Check for alias expansion
+    if (this.context.aliases[cmd]) {
+      const expandedLine = `${this.context.aliases[cmd]} ${args.join(' ')}`;
+      const result = await this.run(expandedLine);
+      proc.writeStdout(result.stdout);
+      proc.writeStderr(result.stderr);
+      proc.endStdout();
+      proc.endStderr();
+      proc.exit(result.code ?? 0);
+      return;
+    }
 
     try {
       // Check for script files
@@ -446,36 +402,11 @@ export class ShellExecutor {
         return;
       }
 
-      // Resolve command through provider system
-      try {
-        const resolved = await this.resolver.resolve(cmd, {
-          skipAliases: false,
-          skipFunctions: false,
-          onlyBuiltins: false,
-          context: this.context,
-        });
-
-        const result = await this.executeResolved(resolved, cmd, args, streams);
-        proc.endStdout();
-        proc.endStderr();
-        proc.exit(result.exitCode);
-      } catch (error) {
-        if (error instanceof CommandNotFoundError) {
-          proc.writeStderr(`${cmd}: command not found\n`);
-          if (error.suggestions.length > 0) {
-            proc.writeStderr(`Did you mean: ${error.suggestions.join(', ')}?\n`);
-          }
-          proc.endStdout();
-          proc.endStderr();
-          proc.exit(127);
-        } else {
-          const msg = error instanceof Error ? error.message : String(error);
-          proc.writeStderr(`${cmd}: ${msg}\n`);
-          proc.endStdout();
-          proc.endStderr();
-          proc.exit(1);
-        }
-      }
+      // Execute command through appropriate handler
+      const exitCode = await this.executeCommand(cmd, args, proc);
+      proc.endStdout();
+      proc.endStderr();
+      proc.exit(exitCode);
     } catch (error: any) {
       // Handle silent failures
       if (error?.__silent) {
@@ -495,37 +426,145 @@ export class ShellExecutor {
   }
 
   /**
-   * Execute a resolved command
+   * Execute a command through appropriate handler
    */
-  private async executeResolved(
-    resolved: ResolvedCommand,
-    command: string,
-    args: string[],
-    streams: IStreamManager
-  ): Promise<ExecutionResult> {
-    // Handle aliases
-    if (resolved.type === 'alias' && resolved.expansion) {
-      const expandedLine = `${resolved.expansion} ${args.join(' ')}`;
-      const result = await this.run(expandedLine);
-      return { exitCode: result.code ?? 0 };
+  private async executeCommand(cmd: string, args: string[], proc: Process): Promise<number> {
+    const writeOutput = async (output: string) => {
+      proc.writeStdout(output);
+      if (!output.endsWith('\n')) {
+        proc.writeStdout('\n');
+      }
+    };
+
+    const writeError = async (output: string) => {
+      proc.writeStderr(output);
+      if (!output.endsWith('\n')) {
+        proc.writeStderr('\n');
+      }
+    };
+
+    // 1. Git command
+    if (cmd === 'git') {
+      try {
+        const { handleGitCommand } = await import('../handlers/gitHandler');
+        await handleGitCommand(args, this.context.projectName, this.context.projectId, writeOutput);
+        return 0;
+      } catch (e: any) {
+        await writeError(`git: ${e.message}`);
+        return 1;
+      }
     }
 
-    // Handle functions
-    if (resolved.type === 'function' && resolved.body) {
-      // Execute function body in subshell
-      const childContext = this.context.fork({ copyFunctions: true });
-      childContext.setPositionalParams([resolved.body.name, ...args]);
-
-      const result = await this.run(resolved.body.body);
-      return { exitCode: result.code ?? 0 };
+    // 2. NPM command
+    if (cmd === 'npm') {
+      try {
+        const { handleNPMCommand } = await import('../handlers/npmHandler');
+        await handleNPMCommand(
+          args,
+          this.context.projectName,
+          this.context.projectId,
+          writeOutput,
+          () => {} // setLoading - no-op in shell context
+        );
+        return 0;
+      } catch (e: any) {
+        await writeError(`npm: ${e.message}`);
+        return 1;
+      }
     }
 
-    // Execute through provider
-    if (resolved.provider) {
-      return await resolved.provider.execute(command, args, this.context, streams);
+    // 3. Pyxis command
+    if (cmd === 'pyxis') {
+      try {
+        const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
+        
+        if (args.length === 0) {
+          await writeError('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
+          return 1;
+        }
+
+        const category = args[0];
+        const action = args[1];
+
+        if (!action && !category.startsWith('-')) {
+          await writeError('pyxis: missing action. Usage: pyxis <category> <action> [args]');
+          return 1;
+        }
+
+        let cmdToCall: string;
+        let subArgs: string[];
+
+        if (action && action.startsWith('-')) {
+          cmdToCall = category;
+          subArgs = args.slice(1);
+        } else if (action) {
+          cmdToCall = `${category}-${action}`;
+          subArgs = args.slice(2);
+        } else {
+          cmdToCall = category;
+          subArgs = args.slice(1);
+        }
+
+        await handlePyxisCommand(
+          cmdToCall,
+          subArgs,
+          this.context.projectName,
+          this.context.projectId,
+          writeOutput
+        );
+        return 0;
+      } catch (e: any) {
+        await writeError(`pyxis: ${e.message}`);
+        return 1;
+      }
     }
 
-    throw new CommandNotFoundError(command);
+    // 4. Extension commands
+    if (this.commandRegistry && this.commandRegistry.hasCommand(cmd)) {
+      try {
+        const unix = await this.getUnix();
+        const currentDir = unix ? await unix.pwd() : this.context.cwd;
+        const result = await this.commandRegistry.executeCommand(cmd, args, {
+          projectName: this.context.projectName,
+          projectId: this.context.projectId,
+          currentDirectory: currentDir,
+        });
+        await writeOutput(result);
+        return 0;
+      } catch (e: any) {
+        await writeError(`${cmd}: ${e.message}`);
+        return 1;
+      }
+    }
+
+    // 5. Builtin commands (echo, ls, cat, grep, etc.)
+    const builtins = await this.getBuiltins();
+    if (builtins[cmd]) {
+      const ctx: StreamCtx = {
+        stdin: proc.stdinStream,
+        stdout: proc.stdoutStream,
+        stderr: proc.stderrStream,
+        onSignal: (fn) => proc.on('signal', fn),
+        projectName: this.context.projectName,
+        projectId: this.context.projectId,
+        terminalColumns: this.context.terminalColumns,
+        terminalRows: this.context.terminalRows,
+      };
+
+      try {
+        await builtins[cmd](ctx, args);
+        return 0;
+      } catch (e: any) {
+        if (e?.__silent) {
+          return typeof e.code === 'number' ? e.code : 1;
+        }
+        throw e;
+      }
+    }
+
+    // 6. Command not found
+    proc.writeStderr(`${cmd}: command not found\n`);
+    return 127;
   }
 
   /**
@@ -710,38 +749,31 @@ export class ShellExecutor {
   }
 
   /**
-   * Get the execution context
-   */
-  getContext(): IExecutionContext {
-    return this.context;
-  }
-
-  /**
    * Set an alias
    */
   setAlias(name: string, expansion: string): void {
-    this.context.setAlias(name, expansion);
+    this.context.aliases[name] = expansion;
   }
 
   /**
    * Get an alias
    */
   getAlias(name: string): string | undefined {
-    return this.context.getAlias(name);
+    return this.context.aliases[name];
   }
 
   /**
    * Set an environment variable
    */
   setEnv(key: string, value: string): void {
-    this.context.setEnv(key, value);
+    this.context.env[key] = value;
   }
 
   /**
    * Get an environment variable
    */
   getEnv(key: string): string | undefined {
-    return this.context.getEnv(key);
+    return this.context.env[key];
   }
 }
 

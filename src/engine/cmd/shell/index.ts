@@ -6,23 +6,21 @@
  * Architecture Overview:
  * =====================
  * 
- * Provider-based command execution:
- * - BuiltinProvider     - Shell builtins (cd, pwd, export, etc.)
- * - GitProvider         - Git commands
- * - NpmProvider         - NPM commands
- * - PyxisProvider       - Pyxis-specific commands
- * - ExtensionProvider   - Extension commands (via commandRegistry)
- * - ExternalProvider    - Unix file system commands
+ * Direct handler-based command execution:
+ * - handlers/gitHandler.ts     - Git commands
+ * - handlers/npmHandler.ts     - NPM commands
+ * - handlers/pyxisHandler.ts   - Pyxis-specific commands
+ * - handlers/unixHandler.ts    - Unix commands
+ * - builtins.ts                - Shell builtins via unixHandler
  * 
- * StreamShell (backward compatibility):
- * - Wraps ShellExecutor for existing code
+ * StreamShell:
+ * - Wraps ShellExecutor
  * - Maintains the original API
  * 
- * ShellExecutor (new):
- * - Provider-based command resolution
+ * ShellExecutor:
+ * - Direct handler invocation (no provider abstraction)
  * - POSIX-compliant execution
- * - Execution context management
- * - Stream management
+ * - Alias/env management
  * 
  * Shell operators supported:
  * - Pipes (|)
@@ -36,17 +34,14 @@
  * ======
  * - index.ts              - Module exports and documentation
  * - streamShell.ts        - Backward compatible wrapper
- * - executor.ts           - New provider-based shell executor
+ * - executor.ts           - Shell executor (uses handlers directly)
  * - parser.ts             - Command line parsing (AST-based)
  * - expansion.ts          - Token expansion (IFS, glob, brace)
- * - builtins.ts           - Legacy builtin implementations
+ * - builtins.ts           - Builtin command implementations
  * - process.ts            - Process abstraction with streams
  * - scriptRunner.ts       - Shell script execution
  * - braceExpand.ts        - Brace expansion utility
  * - types.ts              - Shared type definitions
- * - providers/            - Command provider implementations
- * - context/              - Execution context management
- * - io/                   - Stream management
  */
 
 // Main shell classes
@@ -71,11 +66,6 @@ export {
 export { expandTokens } from './expansion';
 export { default as expandBraces } from './braceExpand';
 export { runScript } from './scriptRunner';
-
-// Provider system
-export * from './providers';
-export * from './context';
-export * from './io';
 
 // Default export
 export { StreamShell as default } from './streamShell';
