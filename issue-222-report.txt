@@ -1,0 +1,33 @@
+﻿Issue 222 – バックグラウンドタブに外部変更が反映されない
+
+概要:
+- バックグラウンドのタブに対し、外部の編集（runtime/shell/AIなど）が反映されず、アクティブなタブだけが更新される。
+- 再現 (issue 記載): ファイルを開く → 別ファイルを開き対象タブを非アクティブにしてタブバーに残す → 外部から対象ファイルを編集 → タブを再度開くと内容が古いまま。
+
+根本原因（実装レベル）:
+- EditorMemoryManager.handleFileRepositoryChange (src/engine/editor/EditorMemoryManager.ts) で、getContentFromTabStore が undefined を返すと即 return してしまうため、実際には開かれているが内容が materialize されていないタブ（背景/needsContentRestore など）への更新を捨てている。
+    const currentContent = this.getContentFromTabStore(filePath);
+    if (currentContent === newContent) return;
+    if (currentContent === undefined) return; // ← これで落ちる
+
+修正案（どこをどう変えるか）:
+- 「タブが開いていない」の判定と「内容がまだ無い」を分け、タブが存在するなら外部更新を通す。
+- handleFileRepositoryChange の該当部分を以下のように変更:
+    // 変更前:
+    const currentContent = this.getContentFromTabStore(filePath);
+    if (currentContent === newContent) return;
+    if (currentContent === undefined) return; // この早期 return をやめる
+    this.updateFromExternal(filePath, newContent);
+
+    // 変更後の例:
+    const state = useTabStore.getState();
+    const tabOpen = !!state.findTabByPath(filePath, 'editor');
+    if (!tabOpen) return; // そもそも開かれていないなら無視
+    const currentContent = this.getContentFromTabStore(filePath);
+    if (currentContent === newContent) return; // 同一内容ならスキップ
+    this.updateFromExternal(filePath, newContent);
+
+- これにより、非アクティブ/未描画のタブでも外部更新が反映される。一方で、開かれていないファイルのイベントは従来通り無視できる。
+
+補足:
+- fileRepository が渡すパスは toAppPath 済み。必要なら findTabByPath 側でも同じ正規化を合わせるとより安全。

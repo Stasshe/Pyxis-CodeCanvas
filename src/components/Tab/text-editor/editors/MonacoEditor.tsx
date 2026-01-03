@@ -226,6 +226,24 @@ export default function MonacoEditor({
     return () => clearTimeout(timeoutId);
   }, [jumpToLine, jumpToColumn, isEditorReady]);
 
+  // タブがアクティブになった時にコンテンツを再同期（Issue 222対応）
+  // 非アクティブ時に外部変更があった場合、アクティブ化時にUIに反映する
+  useEffect(() => {
+    if (!isActive || !isEditorSafe() || !monacoRef.current) return;
+    
+    const model = editorRef.current!.getModel();
+    if (!isModelSafe(model)) return;
+    
+    // 現在のモデルの値とpropsのcontentを比較
+    const currentValue = model!.getValue();
+    if (currentValue !== content) {
+      console.log('[MonacoEditor] Tab activated, syncing content from props');
+      model!.setValue(content);
+      editorRef.current!.layout();
+      onCharCountChange(countCharsNoSpaces(content));
+    }
+  }, [isActive, content, isEditorSafe, isModelSafe, onCharCountChange, isEditorReady]);
+
   // タブがアクティブになった時にエディタにフォーカスを当てる
   // タブが非アクティブになった時にフォーカスを外す
   useEffect(() => {
@@ -253,6 +271,7 @@ export default function MonacoEditor({
       }
     }
   }, [isActive, isEditorReady]);
+
 
   // クリーンアップ
   useEffect(() => {
