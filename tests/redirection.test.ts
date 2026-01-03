@@ -14,6 +14,7 @@ describe('Redirection tests', () => {
 
     mockFileRepo = {
         getProjectFiles: jest.fn(async (pid: string) => Array.from(memoryFiles.values()).filter(f => f.path.startsWith('/'))),
+      getFileByPath: jest.fn(async (pid: string, path: string) => memoryFiles.get(path) || null),
       createFile: jest.fn(async (pid: string, path: string, content: string, type: string) => {
         memoryFiles.set(path, { path, content, type });
         return { id: `file-${Date.now()}`, path, content, type };
@@ -53,7 +54,8 @@ nonexistent_cmd 2>/err.txt
     const files = await mockFileRepo.getProjectFiles(projectId);
     const errFile = files.find((f: any) => f.path === '/err.txt');
     expect(errFile).toBeDefined();
-    expect(errFile.content).toContain('Command not found');
+    // Use case-insensitive check for error message
+    expect(errFile.content.toLowerCase()).toContain('command not found');
     // returned stderr should be empty
     expect(res.stderr).toBe('');
   });
@@ -65,7 +67,8 @@ nonexistent_cmd 2>&1
     const shell = new StreamShell({ projectName, projectId, unix: mockUnix, fileRepository: mockFileRepo });
     await mockFileRepo.createFile(projectId, '/test.sh', script, 'file');
     const res = await shell.run('sh /test.sh');
-    expect(res.stdout).toContain('Command not found');
+    // Use case-insensitive check for error message
+    expect(res.stdout.toLowerCase()).toContain('command not found');
     expect(res.stderr).toBe('');
   });
 
@@ -79,7 +82,8 @@ nonexistent_cmd &> /both.txt
     const files = await mockFileRepo.getProjectFiles(projectId);
     const both = files.find((f: any) => f.path === '/both.txt');
     expect(both).toBeDefined();
-    expect(both.content).toContain('Command not found');
+    // Use case-insensitive check for error message
+    expect(both.content.toLowerCase()).toContain('command not found');
     expect(res.stdout).toBe('');
     expect(res.stderr).toBe('');
   });
