@@ -172,29 +172,23 @@ export default function VirtualizedFileTree({
       } else {
         // Fetch latest content from IndexedDB to ensure we have the most up-to-date version
         // This handles cases where external modifications (AI, shell, runtime) may have updated the file
-        try {
-          const latestFile = await fileRepository.getFileByPath(currentProjectId, item.path);
-          const fileToOpen = latestFile 
-            ? {
-                ...item,
-                content: latestFile.content,
-                isBufferArray: latestFile.isBufferArray,
-                bufferContent: latestFile.bufferContent,
-              }
-            : item;
-          
-          const defaultEditor =
-            typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-          const kind = fileToOpen.isBufferArray ? 'binary' : 'editor';
-          openTab({ ...fileToOpen, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
-        } catch (error) {
-          console.error('[FileTree] Failed to fetch latest file content:', error);
-          // Fallback to cached item if fetch fails
-          const defaultEditor =
-            typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-          const kind = item.isBufferArray ? 'binary' : 'editor';
-          openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+        const latestFile = await fileRepository.getFileByPath(currentProjectId, item.path);
+        if (!latestFile) {
+          console.error('[FileTree] File not found in database:', item.path);
+          return;
         }
+        
+        const fileToOpen = {
+          ...item,
+          content: latestFile.content,
+          isBufferArray: latestFile.isBufferArray,
+          bufferContent: latestFile.bufferContent,
+        };
+        
+        const defaultEditor =
+          typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+        const kind = fileToOpen.isBufferArray ? 'binary' : 'editor';
+        openTab({ ...fileToOpen, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
       }
     },
     [toggleFolder, openTab, currentProjectId]
