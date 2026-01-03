@@ -117,6 +117,34 @@ export class ShellExecutor {
   }
 
   /**
+   * Save current working directory for process isolation
+   * Returns the saved CWD or null if unable to save
+   */
+  private async saveCwd(unix: UnixCommands): Promise<string | null> {
+    try {
+      return await unix.pwd();
+    } catch (e) {
+      // Non-fatal: CWD save failed, script will run without isolation
+      console.warn('[ShellExecutor] Failed to save CWD for process isolation:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Restore working directory after script execution (POSIX process isolation)
+   * Script's CWD changes are discarded, parent CWD is restored
+   */
+  private async restoreCwd(unix: UnixCommands, savedCwd: string | null): Promise<void> {
+    if (!savedCwd) return;
+    try {
+      await unix.cd(savedCwd);
+    } catch (e) {
+      // Non-fatal: CWD restore failed, may affect subsequent commands
+      console.warn('[ShellExecutor] Failed to restore CWD after script execution:', e);
+    }
+  }
+
+  /**
    * Update terminal size
    */
   setTerminalSize(columns: number, rows: number): void {
@@ -368,11 +396,8 @@ export class ShellExecutor {
           const text = String(maybeContent);
           const firstLine = text.split('\n', 1)[0] || '';
           if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
-            // Save parent context state before script execution
-            let savedCwd: string | null = null;
-            try {
-              savedCwd = await unix.pwd();
-            } catch {}
+            // Save parent context CWD before script execution
+            const savedCwd = await this.saveCwd(unix);
             
             const scriptArgs = [cmd, ...args];
             try {
@@ -382,12 +407,7 @@ export class ShellExecutor {
             }
             
             // Restore parent context CWD after script completes
-            // (Script's cd changes are discarded - POSIX behavior)
-            if (savedCwd) {
-              try {
-                await unix.cd(savedCwd);
-              } catch {}
-            }
+            await this.restoreCwd(unix, savedCwd);
             
             proc.endStdout();
             proc.endStderr();
@@ -415,23 +435,15 @@ export class ShellExecutor {
           return;
         }
         
-        // Save parent context state before script execution
-        let savedCwd: string | null = null;
-        if (unix) {
-          try {
-            savedCwd = await unix.pwd();
-          } catch {}
-        }
+        // Save parent context CWD before script execution
+        const savedCwd = unix ? await this.saveCwd(unix) : null;
         
         // Run script in isolated context
         await runScript(String(content), args, proc, this as any).catch(() => {});
         
         // Restore parent context CWD after script completes
-        // (Script's cd changes are discarded - POSIX behavior)
-        if (savedCwd && unix) {
-          try {
-            await unix.cd(savedCwd);
-          } catch {}
+        if (unix) {
+          await this.restoreCwd(unix, savedCwd);
         }
         
         proc.endStdout();
