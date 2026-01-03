@@ -200,13 +200,6 @@ export interface CommandProvider {
   ): Promise<ExecutionResult>;
 
   /**
-   * Get the list of commands this provider supports
-   * This is used for command discovery and completion
-   * Returns an array of command names that this provider can handle
-   */
-  getSupportedCommands(): string[];
-
-  /**
    * Optional: Provide command completion suggestions
    */
   complete?(partial: string, context: IExecutionContext): Promise<CompletionResult[]>;
@@ -283,29 +276,22 @@ export class CommandNotFoundError extends Error {
 
 /**
  * Special Builtins - Commands that always take precedence
- * Based on POSIX.1-2017 Section 2.14 "Special Built-In Utilities"
- * Reference: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_14
- * Note: 'exec' and '.' are also special builtins but handled elsewhere due to their behavior
  */
 export const SPECIAL_BUILTINS = new Set([
-  'break',     // Exit from for/while/until loop
-  ':',         // Null utility (no-op, returns 0)
-  'continue',  // Continue loop iteration
-  'eval',      // Construct command by concatenating arguments
-  'exit',      // Exit the shell
-  'export',    // Set export attribute for variables
-  'readonly',  // Set readonly attribute for variables
-  'return',    // Return from function
-  'set',       // Set or unset shell options and positional parameters
-  'shift',     // Shift positional parameters
-  'times',     // Print accumulated user and system times
-  'trap',      // Trap signals
-  'unset',     // Unset values and attributes of variables
+  'break',
+  'continue',
+  'exit',
+  'return',
+  'eval',
+  ':',
+  'export',
+  'readonly',
+  'unset',
+  'set',
 ]);
 
 /**
  * Shell Builtins - Commands that affect shell state
- * Note: shift, trap, times are now in SPECIAL_BUILTINS per POSIX.1-2017
  */
 export const SHELL_BUILTINS = new Set([
   'cd',
@@ -334,10 +320,13 @@ export const SHELL_BUILTINS = new Set([
   'kill',
   'true',
   'false',
+  'shift',
   'getopts',
   'exec',
+  'trap',
   'umask',
   'ulimit',
+  'times',
 ]);
 
 /**
