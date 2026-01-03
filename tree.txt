@@ -305,8 +305,13 @@ Root
 │   │   │   ├── shell
 │   │   │   │   ├── braceExpand.ts
 │   │   │   │   ├── builtins.ts
+│   │   │   │   ├── expansion.ts
+│   │   │   │   ├── index.ts
 │   │   │   │   ├── parser.ts
-│   │   │   │   └── streamShell.ts
+│   │   │   │   ├── process.ts
+│   │   │   │   ├── scriptRunner.ts
+│   │   │   │   ├── streamShell.ts
+│   │   │   │   └── types.ts
 │   │   │   ├── terminalRegistry.ts
 │   │   │   ├── terminalUI.ts
 │   │   │   └── vim.ts
@@ -461,6 +466,7 @@ Root
 │   ├── script.args.test.ts
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
+│   ├── shell.operators.test.ts
 │   ├── shell.stream.test.ts
 │   └── transform_real_files.test.ts
 ├── tree-built-out.sh
@@ -470,7 +476,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-70 directories, 400 files
+70 directories, 406 files
 
 =================================
 
@@ -597,12 +603,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 64775
-合計文字数: 2091722
-合計ファイルサイズ(bytes): 2231262
+合計行数: 64947
+合計文字数: 2090936
+合計ファイルサイズ(bytes): 2230366
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
 ビルト済みファイルの行数: 127454
-合計文字数: 26885411
-合計ファイルサイズ(bytes): 29863515
+合計文字数: 26885871
+合計ファイルサイズ(bytes): 29863975
