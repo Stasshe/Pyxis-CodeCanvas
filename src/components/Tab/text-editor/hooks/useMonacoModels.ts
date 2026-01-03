@@ -36,6 +36,25 @@ const modelAccessOrder: string[] = [];
 // モジュール共有の currentModelIdRef 互換オブジェクト
 const sharedCurrentModelIdRef: { current: string | null } = { current: null };
 
+/**
+ * モジュールレベルの関数: 既存のモデルのコンテンツを更新
+ * TabStoreから呼び出されて、非アクティブなタブのモデルも更新する
+ */
+export function updateCachedModelContent(tabId: string, content: string): void {
+  const model = sharedModelMap.get(tabId);
+  if (model && typeof model.isDisposed === 'function' && !model.isDisposed()) {
+    try {
+      const currentValue = model.getValue();
+      if (currentValue !== content) {
+        model.setValue(content);
+        console.log('[useMonacoModels] Updated cached model content for inactive tab:', tabId);
+      }
+    } catch (e) {
+      console.warn('[useMonacoModels] Failed to update cached model content:', e);
+    }
+  }
+}
+
 // LRU順序を更新するヘルパー
 function updateModelAccessOrder(tabId: string): void {
   const index = modelAccessOrder.indexOf(tabId);
@@ -233,6 +252,22 @@ export function useMonacoModels() {
     currentModelIdRef.current = null;
   }, [currentModelIdRef]);
 
+  const updateModelContent = useCallback((tabId: string, content: string) => {
+    const monacoModelMap = monacoModelMapRef.current;
+    const model = monacoModelMap.get(tabId);
+    if (isModelSafe(model)) {
+      try {
+        const currentValue = model!.getValue();
+        if (currentValue !== content) {
+          model!.setValue(content);
+          console.log('[useMonacoModels] Updated model content for:', tabId);
+        }
+      } catch (e) {
+        console.warn('[useMonacoModels] Failed to update model content:', e);
+      }
+    }
+  }, [isModelSafe]);
+
   return {
     monacoModelMapRef,
     currentModelIdRef,
@@ -240,5 +275,6 @@ export function useMonacoModels() {
     getOrCreateModel,
     disposeModel,
     disposeAllModels,
+    updateModelContent,
   };
 }

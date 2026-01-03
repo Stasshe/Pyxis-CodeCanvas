@@ -1,6 +1,7 @@
 // src/stores/tabStore.ts
 import { create } from 'zustand';
 
+import { updateCachedModelContent } from '@/components/Tab/text-editor/hooks/useMonacoModels';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { DiffTab, EditorPane, OpenTabOptions, Tab } from '@/engine/tabs/types';
 
@@ -1040,6 +1041,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     // 変更が必要なタブがあるかチェック
     let hasChanges = false;
+    const updatedTabIds: string[] = [];
 
     // 全てのペインを巡回して、path が一致するタブを更新
     const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
@@ -1055,6 +1057,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
             if (updatedTab !== t) {
               paneChanged = true;
               hasChanges = true;
+              updatedTabIds.push(t.id);
               return updatedTab;
             }
           }
@@ -1075,6 +1078,16 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const newPanes = updatePanesRecursive(get().panes);
     if (hasChanges) {
       set({ panes: newPanes });
+      
+      // 非アクティブなタブのMonacoモデルキャッシュも更新
+      // これにより、タブを開いていない状態でも外部変更が反映される
+      for (const updatedTabId of updatedTabIds) {
+        try {
+          updateCachedModelContent(updatedTabId, content);
+        } catch (e) {
+          console.warn('[TabStore] Failed to update cached model for:', updatedTabId, e);
+        }
+      }
     }
   },
 
