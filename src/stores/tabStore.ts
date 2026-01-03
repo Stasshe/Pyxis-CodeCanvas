@@ -53,7 +53,7 @@ interface TabStore {
   // タブ操作
   openTab: (file: any, options?: OpenTabOptions) => void;
   closeTab: (paneId: string, tabId: string) => void;
-  activateTab: (paneId: string, tabId: string) => Promise<void>;
+  activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, isDirty?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
@@ -352,28 +352,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
           get().activateTab(targetPaneId, existingTab.id);
         }
 
-        // Update content from the file object to reflect external changes
-        // This ensures tabs always show the latest content when reopened
-        const updates: Partial<Tab> = {};
-        
+        // jumpToLine/jumpToColumnがある場合は更新
         if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
-          updates.jumpToLine = options.jumpToLine;
-          updates.jumpToColumn = options.jumpToColumn;
-        }
-        
-        // Update content if provided in file object (from IndexedDB fetch)
-        if ('content' in file && file.content !== undefined) {
-          (updates as any).content = file.content;
-        }
-        if ('isBufferArray' in file) {
-          (updates as any).isBufferArray = file.isBufferArray;
-        }
-        if ('bufferContent' in file) {
-          (updates as any).bufferContent = file.bufferContent;
-        }
-        
-        if (Object.keys(updates).length > 0) {
-          get().updateTab(targetPaneId, existingTab.id, updates);
+          get().updateTab(targetPaneId, existingTab.id, {
+            jumpToLine: options.jumpToLine,
+            jumpToColumn: options.jumpToColumn,
+          } as Partial<Tab>);
         }
 
         return;
@@ -449,49 +433,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
     }
   },
 
-  activateTab: async (paneId, tabId) => {
-    const state = get();
-    
-    // Find the tab being activated
-    const allTabs = state.getAllTabs();
-    const tabToActivate = allTabs.find(t => t.id === tabId);
-    
-    // If tab has a file path, fetch latest content from IndexedDB before activating
-    if (tabToActivate && tabToActivate.path) {
-      try {
-        const { fileRepository } = await import('@/engine/core/fileRepository');
-        const { getCurrentProjectId } = await import('@/stores/projectStore');
-        const projectId = getCurrentProjectId();
-        
-        if (projectId) {
-          const latestFile = await fileRepository.getFileByPath(projectId, tabToActivate.path);
-          
-          if (latestFile && 'content' in latestFile) {
-            // Update tab content with latest from IndexedDB
-            const pane = state.getPane(paneId);
-            if (pane) {
-              const tabIndex = pane.tabs.findIndex(t => t.id === tabId);
-              if (tabIndex !== -1) {
-                const updatedTab = {
-                  ...pane.tabs[tabIndex],
-                  content: latestFile.content,
-                  isBufferArray: latestFile.isBufferArray,
-                  bufferContent: latestFile.bufferContent,
-                };
-                
-                const updatedTabs = [...pane.tabs];
-                updatedTabs[tabIndex] = updatedTab;
-                
-                get().updatePane(paneId, { tabs: updatedTabs });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[TabStore] Failed to fetch latest content on tab activation:', error);
-      }
-    }
-    
+  activateTab: (paneId, tabId) => {
     // ペインのactiveTabIdとグローバル状態を同時に更新
     // 別々のset呼び出しだと状態の不整合が発生し、フォーカスが正しく当たらない
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {

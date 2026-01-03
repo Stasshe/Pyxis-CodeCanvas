@@ -14,8 +14,9 @@
  * - fileRepositoryのイベントシステムを活用して変更を検知
  */
 
-import type { FileChangeEvent } from '@/engine/core/fileRepository';
+import type { FileChangeEvent, ProjectFile } from '@/engine/core/fileRepository';
 import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
+import type { EditorTab } from '@/engine/tabs/types';
 import { getCurrentProjectId } from '@/stores/projectStore';
 import { useTabStore } from '@/stores/tabStore';
 
@@ -386,23 +387,31 @@ class EditorMemoryManager {
     }
 
     if (event.type === 'create' || event.type === 'update') {
-      const filePath = toAppPath((event.file as any).path || '');
-      const newContent = (event.file as any).content || '';
+      const filePath = toAppPath((event.file as ProjectFile).path || '');
+      const newContent = (event.file as ProjectFile).content || '';
 
       // 自身の保存による変更は無視（無限ループ防止）
       if (this.savingPaths.has(filePath)) {
         return;
       }
 
-      // tabStoreの現在のコンテンツと比較
-      const currentContent = this.getContentFromTabStore(filePath);
-      if (currentContent === newContent) {
-        // 内容が同じならスキップ
+      // tabStoreから該当パスのタブを取得
+      const tabStore = useTabStore.getState();
+      const tabs = tabStore.getAllTabs();
+      const matchingTabs = tabs.filter(t => {
+        const tabPath = toAppPath(t.path || '');
+        return tabPath === filePath && (t.kind === 'editor' || t.kind === 'diff' || t.kind === 'ai');
+      });
+
+      // 該当するタブがない場合はスキップ
+      if (matchingTabs.length === 0) {
         return;
       }
 
-      // タブが開いていない場合はスキップ
-      if (currentContent === undefined) {
+      // 現在のコンテンツと比較（最初のタブの内容をチェック）
+      const currentContent = (matchingTabs[0] as EditorTab).content;
+      if (currentContent === newContent) {
+        // 内容が同じならスキップ
         return;
       }
 

@@ -166,32 +166,17 @@ export default function VirtualizedFileTree({
 
   // Handle item click
   const handleItemClick = useCallback(
-    async (item: FileItem) => {
+    (item: FileItem) => {
       if (item.type === 'folder') {
         toggleFolder(item.id);
       } else {
-        // Fetch latest content from IndexedDB to ensure we have the most up-to-date version
-        // This handles cases where external modifications (AI, shell, runtime) may have updated the file
-        const latestFile = await fileRepository.getFileByPath(currentProjectId, item.path);
-        if (!latestFile) {
-          console.error('[FileTree] File not found in database:', item.path);
-          return;
-        }
-        
-        const fileToOpen = {
-          ...item,
-          content: latestFile.content,
-          isBufferArray: latestFile.isBufferArray,
-          bufferContent: latestFile.bufferContent,
-        };
-        
         const defaultEditor =
           typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-        const kind = fileToOpen.isBufferArray ? 'binary' : 'editor';
-        openTab({ ...fileToOpen, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+        const kind = item.isBufferArray ? 'binary' : 'editor';
+        openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
       }
     },
-    [toggleFolder, openTab, currentProjectId]
+    [toggleFolder, openTab]
   );
 
   // Handle context menu
