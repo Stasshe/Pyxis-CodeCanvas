@@ -258,12 +258,14 @@ Resolution results are cached with TTL (Time To Live) to avoid repeated lookups:
 
 | Provider Type | Cache TTL | Invalidation Trigger |
 |--------------|-----------|---------------------|
-| Builtin | Infinite | Never (static) |
+| Builtin | Infinite* | Never (static)* |
 | Alias | Until shell exit | `unalias` command |
 | Function | Until shell exit | `unset -f` command |
 | Extension | 60 seconds | Extension enable/disable |
 | Domain (git/npm) | Infinite | Never (static) |
 | External | 30 seconds | File system changes |
+
+\* In this implementation, builtin availability is treated as static for the lifetime of the shell. POSIX `enable`/`disable`-style dynamic builtin management is not currently supported; if it is introduced in the future, the builtin cache TTL and invalidation policy must be updated to account for runtime changes in builtin state.
 
 ---
 
@@ -335,8 +337,10 @@ interface CommandProvider {
   
   /**
    * Optional: Initialize provider (called once when first used)
+   * @param projectId - Project identifier
+   * @param context - Execution context (for accessing projectName and other metadata)
    */
-  initialize?(projectId: string): Promise<void>;
+  initialize?(projectId: string, context: ExecutionContext): Promise<void>;
   
   /**
    * Optional: Cleanup provider resources
@@ -395,7 +399,7 @@ class GitCommandProvider implements CommandProvider {
     return command === 'git';
   }
   
-  async initialize(projectId: string): Promise<void> {
+  async initialize(projectId: string, context: ExecutionContext): Promise<void> {
     const { projectName } = context;
     this.gitCommands = terminalCommandRegistry.getGitCommands(projectName, projectId);
   }
@@ -418,15 +422,15 @@ class GitCommandProvider implements CommandProvider {
       await streams.stdout.write(output);
     };
     
-    // Execute git subcommand (using existing handlers)
+    // Execute git subcommand using the existing GitCommands implementation.
+    // This is conceptual/pseudocode; the concrete wiring depends on the actual GitCommands API.
     try {
-      await handleGitSubcommand(
-        subcommand,
-        args.slice(1),
-        this.gitCommands,
-        context,
-        writeOutput
-      );
+      // Delegate to existing GitCommands implementation (switch/case or method dispatch)
+      // Example: await this.gitCommands.executeSubcommand(subcommand, args.slice(1), writeOutput);
+      // The actual implementation would call specific methods like:
+      // - 'status' -> this.gitCommands.status()
+      // - 'add' -> this.gitCommands.add(args.slice(1))
+      // - etc.
       return { exitCode: 0 };
     } catch (error) {
       await streams.stderr.write(`git: ${error.message}\n`);
@@ -794,8 +798,11 @@ interface ExecutionContext {
   
   // Special variables
   exitCode: number;        // $? - Last exit code
-  shellPid: number;        // $$ - Shell process ID
+  shellPid: number;        // $$ - Shell process ID (not readonly to allow subshell PID assignment)
   lastBgPid: number;       // $! - Last background process ID
+  
+  // Positional parameters ($0, $1, $2, etc.) - distinct from environment variables
+  positionalParams: string[];  // $0 is command/script name, $1, $2, etc. are arguments
   
   // Shell options (set -e, set -u, etc.)
   options: ShellOptions;
@@ -811,9 +818,11 @@ interface ExecutionContext {
   getAlias(name: string): string | undefined;
   setFunction(name: string, func: ShellFunction): void;
   getFunction(name: string): ShellFunction | undefined;
+  setPositionalParams(params: string[]): void;
+  getPositionalParam(index: number): string | undefined;
   
   // Create a child context (for subshells)
-  fork(): ExecutionContext;
+  fork(options?: ForkOptions): ExecutionContext;
 }
 
 /**
@@ -835,6 +844,17 @@ interface ShellFunction {
   name: string;
   body: string;           // Function body (shell script)
   source: string;         // Source file (if from file)
+}
+
+/**
+ * Fork Options
+ */
+interface ForkOptions {
+  interactive?: boolean;              // Default: false
+  copyAliases?: boolean;             // Default: true
+  copyFunctions?: boolean;           // Default: true
+  copyExports?: boolean;             // Default: true (exported vars only)
+  newShellPid?: boolean;             // Default: true (assign new PID to child)
 }
 ```
 
@@ -878,6 +898,7 @@ function createExecutionContext(
     },
     aliases: new Map(),
     functions: new Map(),
+    positionalParams: [],
     exitCode: 0,
     shellPid,
     lastBgPid: 0,
@@ -921,13 +942,59 @@ function createExecutionContext(
       return this.functions.get(name);
     },
     
-    fork(): ExecutionContext {
+    setPositionalParams(params: string[]): void {
+      this.positionalParams = params;
+    },
+    
+    getPositionalParam(index: number): string | undefined {
+      return this.positionalParams[index];
+    },
+    
+    fork(forkOptions?: ForkOptions): ExecutionContext {
+      const opts = {
+        interactive: false,
+        copyAliases: true,
+        copyFunctions: true,
+        copyExports: true,
+        newShellPid: true,
+        ...forkOptions
+      };
+      
       // Create a child context with copied environment
-      return createExecutionContext(
+      const child = createExecutionContext(
         this.projectName,
         this.projectId,
         this.getSystemModule
       );
+      
+      // Copy environment variables (shallow copy for isolation)
+      child.env = { ...this.env };
+      
+      // Inherit current working directory from parent
+      child.cwd = this.cwd;
+      child.env.PWD = this.cwd;
+      
+      // Optionally copy aliases
+      if (opts.copyAliases) {
+        child.aliases = new Map(this.aliases);
+      }
+      
+      // Optionally copy functions
+      if (opts.copyFunctions) {
+        child.functions = new Map(this.functions);
+      }
+      
+      // Assign new shell PID if requested
+      if (opts.newShellPid) {
+        child.shellPid = Math.floor(Math.random() * 32768);
+      } else {
+        child.shellPid = this.shellPid;
+      }
+      
+      // Child gets its own options (not inherited)
+      child.options = { ...this.options, interactive: opts.interactive };
+      
+      return child;
     }
   };
 }
@@ -951,12 +1018,13 @@ Currently in Pyxis, if a script executes `cd`, it changes the terminal's working
 
 ### POSIX Behavior Reference
 
-| Operation | Parent Shell | Child Process | Effect on Parent |
-|-----------|--------------|---------------|------------------|
-| `cd /tmp` | Interactive terminal | Script execution | No change (isolated) |
-| `export VAR=value` | Interactive terminal | Script execution | No change (isolated) |
-| `source script.sh` | Interactive terminal | Same shell context | Changes persist (by design) |
-| `alias ll='ls -la'` | Interactive terminal | Script execution | No change (isolated) |
+| Scenario | Operation Location | Parent Shell Context | Child/Script Context | Effect on Parent |
+|----------|-------------------|----------------------|----------------------|------------------|
+| Terminal: `cd /tmp` | Parent shell (interactive input) | CWD changes from `/projects/myproject` to `/tmp` | N/A | State updated in parent (intended) |
+| Script: `cd /tmp` | Child process (script execution) | CWD remains `/projects/myproject` | CWD changes to `/tmp` within the script process | No change (child is isolated) |
+| Script: `export VAR=value` | Child process (script execution) | Environment unchanged | `VAR` is set only in the script process | No change (child is isolated) |
+| Terminal: `source script.sh` | Parent shell (same process) | CWD, environment, aliases may be modified by the script | N/A (runs in parent shell context) | Changes persist (by design, same shell context) |
+| Script: `alias ll='ls -la'` | Child process (script execution) | Aliases in interactive shell unchanged | `ll` alias available only inside the script process | No change (child is isolated) |
 
 ### Solution: Context Isolation Levels
 
@@ -1061,12 +1129,10 @@ class ScriptExecutor {
     // Create ISOLATED child context (fork from parent)
     const scriptContext = this.parentContext.getContext().fork();
     
-    // Set script arguments ($0, $1, $2, ...)
-    scriptContext.setEnv('0', scriptPath);
-    for (let i = 0; i < args.length; i++) {
-      scriptContext.setEnv(String(i + 1), args[i]);
-    }
-    scriptContext.setEnv('#', String(args.length));
+    // Set positional parameters ($0, $1, $2, ...) in the script context.
+    // POSIX positional parameters are distinct from environment variables,
+    // so they are stored separately from scriptContext.env.
+    scriptContext.setPositionalParams([scriptPath, ...args]);
     
     // Execute script in isolated context
     const result = await this.runScriptContent(content, scriptContext, streams);
@@ -1103,11 +1169,8 @@ class SubshellExecutor {
     parentContext: ExecutionContext,
     streams: StreamManager
   ): Promise<ExecutionResult> {
-    // Create a completely isolated subshell context
-    const subshellContext = parentContext.fork();
-    
-    // Give it a new shell PID
-    subshellContext.shellPid = Math.floor(Math.random() * 32768);
+    // Create a completely isolated subshell context with a new shell PID
+    const subshellContext = parentContext.fork({ newShellPid: true });
     
     // Execute commands in subshell
     const result = await this.runCommands(commands, subshellContext, streams);
@@ -1163,15 +1226,8 @@ interface ExecutionContext {
   readonly isInteractive: boolean;    // True for terminal, false for scripts
   readonly parentPid?: number;        // Parent shell PID (if child)
   
-  // Fork with proper isolation
+  // Fork with proper isolation (see ForkOptions defined earlier)
   fork(options?: ForkOptions): ExecutionContext;
-}
-
-interface ForkOptions {
-  interactive?: boolean;              // Default: false
-  copyAliases?: boolean;             // Default: true
-  copyFunctions?: boolean;           // Default: true
-  copyExports?: boolean;             // Default: true (exported vars only)
 }
 
 function createExecutionContext(
@@ -1197,6 +1253,7 @@ function createExecutionContext(
         copyAliases: true,
         copyFunctions: true,
         copyExports: true,
+        newShellPid: true,
         ...forkOptions
       };
       
@@ -1214,6 +1271,10 @@ function createExecutionContext(
       // Copy environment variables (shallow copy for isolation)
       child.env = { ...this.env };
       
+      // Inherit current working directory from parent
+      child.cwd = this.cwd;
+      child.env.PWD = this.cwd;
+      
       // Optionally copy aliases
       if (opts.copyAliases) {
         child.aliases = new Map(this.aliases);
@@ -1224,8 +1285,15 @@ function createExecutionContext(
         child.functions = new Map(this.functions);
       }
       
+      // Assign new shell PID if requested
+      if (opts.newShellPid) {
+        child.shellPid = Math.floor(Math.random() * 32768);
+      } else {
+        child.shellPid = this.shellPid;
+      }
+      
       // Child gets its own options (not inherited)
-      child.options = { ...this.options };
+      child.options = { ...this.options, interactive: opts.interactive };
       
       return child;
     }
@@ -1674,9 +1742,12 @@ interface Process {
   readonly args: string[];
   readonly status: ProcessStatus;
   
-  readonly stdin: Writable;
-  readonly stdout: Readable;
-  readonly stderr: Readable;
+  // From the command's perspective:
+  // - stdin is Readable (command reads input from it)
+  // - stdout/stderr are Writable (command writes output to them)
+  readonly stdin: Readable;
+  readonly stdout: Writable;
+  readonly stderr: Writable;
   
   wait(): Promise<ExecutionResult>;
   kill(signal?: string): void;
@@ -1863,31 +1934,34 @@ class Pipeline {
  * Manages standard streams (stdin, stdout, stderr) and redirections
  */
 class StreamManager {
-  private _stdin: Writable;
-  private _stdout: Readable;
-  private _stderr: Readable;
+  // From the command's perspective:
+  // - stdin is Readable (command reads input from it)
+  // - stdout/stderr are Writable (command writes output to them)
+  private _stdin: Readable;
+  private _stdout: Writable;
+  private _stderr: Writable;
   
   private redirections: Redirection[] = [];
   
   constructor(
-    stdin: Writable,
-    stdout: Readable,
-    stderr: Readable
+    stdin: Readable,
+    stdout: Writable,
+    stderr: Writable
   ) {
     this._stdin = stdin;
     this._stdout = stdout;
     this._stderr = stderr;
   }
   
-  get stdin(): Writable {
+  get stdin(): Readable {
     return this._stdin;
   }
   
-  get stdout(): Readable {
+  get stdout(): Writable {
     return this._stdout;
   }
   
-  get stderr(): Readable {
+  get stderr(): Writable {
     return this._stderr;
   }
   
@@ -1958,27 +2032,47 @@ class StreamManager {
     // Resolve path
     const path = resolvePath(context.cwd, filename);
     
-    // Create write stream
+    // Select the appropriate stream (stdout or stderr)
     const stream = fd === 1 ? this._stdout : this._stderr;
     
-    // Collect all data
-    const chunks: string[] = [];
-    stream.on('data', (chunk) => {
-      chunks.push(chunk.toString());
-    });
-    
-    // On end, write to file
-    stream.on('end', async () => {
-      const content = chunks.join('');
+    // Collect all data and wait for stream completion before returning
+    await new Promise<void>((resolve, reject) => {
+      const chunks: string[] = [];
       
-      if (append) {
-        // Append to existing file
-        const existing = await fileRepo.readFile(context.projectId, path);
-        await fileRepo.writeFile(context.projectId, path, existing + content);
-      } else {
-        // Overwrite file
-        await fileRepo.writeFile(context.projectId, path, content);
-      }
+      const onData = (chunk: Buffer | string) => {
+        chunks.push(chunk.toString());
+      };
+      
+      const onError = (err: unknown) => {
+        stream.off('data', onData);
+        stream.off('end', onEnd);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      };
+      
+      const onEnd = async () => {
+        stream.off('data', onData);
+        stream.off('error', onError);
+        
+        const content = chunks.join('');
+        
+        try {
+          if (append) {
+            // Append to existing file
+            const existing = await fileRepo.readFile(context.projectId, path);
+            await fileRepo.writeFile(context.projectId, path, existing + content);
+          } else {
+            // Overwrite file
+            await fileRepo.writeFile(context.projectId, path, content);
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      stream.on('data', onData);
+      stream.once('end', onEnd);
+      stream.once('error', onError);
     });
   }
   
@@ -2022,14 +2116,15 @@ class StreamManager {
   
   /**
    * Duplicate file descriptor
+   * For 2>&1 (stderr to stdout) or 1>&2 (stdout to stderr)
    */
   private duplicateFd(sourceFd: number, targetFd: number): void {
     if (sourceFd === 1 && targetFd === 2) {
-      // stdout -> stderr
-      this._stdout.pipe(this._stderr as any);
+      // stdout -> stderr (2>&1): send stderr to the same destination as stdout
+      this._stderr = this._stdout;
     } else if (sourceFd === 2 && targetFd === 1) {
-      // stderr -> stdout
-      this._stderr.pipe(this._stdout as any);
+      // stderr -> stdout (1>&2): send stdout to the same destination as stderr
+      this._stdout = this._stderr;
     }
   }
 }
@@ -2074,11 +2169,18 @@ Each command execution is sandboxed:
  * Prevents directory traversal attacks
  */
 function validatePath(requestedPath: string, basePath: string): string {
-  // Resolve to absolute path
-  const resolved = path.resolve(basePath, requestedPath);
-  
-  // Check if path is within base directory
-  if (!resolved.startsWith(basePath)) {
+  // Canonicalize base path
+  const normalizedBase = path.resolve(basePath);
+
+  // Resolve requested path against canonical base
+  const resolved = path.resolve(normalizedBase, requestedPath);
+
+  // Ensure resolved path is within base directory (directory-boundary aware)
+  const baseWithSep = normalizedBase.endsWith(path.sep)
+    ? normalizedBase
+    : normalizedBase + path.sep;
+
+  if (resolved !== normalizedBase && !resolved.startsWith(baseWithSep)) {
     throw new Error(`Access denied: ${requestedPath} is outside project directory`);
   }
   
@@ -2090,14 +2192,19 @@ function validatePath(requestedPath: string, basePath: string): string {
 
 ```typescript
 /**
- * Sanitize command arguments
- * Prevents command injection in shell scripts
+ * Sanitize command arguments for use in POSIX shell commands.
+ *
+ * Prefer passing arguments as an array to non-shell execution APIs
+ * (for example, `spawn(command, args, { shell: false })`) to avoid
+ * command injection entirely. Only use this helper when you must
+ * construct a single shell command string, and pair it with a
+ * proper shell-quoting implementation such as `shell-quote`.
  */
 function sanitizeArgs(args: string[]): string[] {
-  return args.map(arg => {
-    // Remove shell metacharacters
-    return arg.replace(/[;&|`$(){}[\]<>]/g, '\\$&');
-  });
+  // Quote each argument safely for a POSIX shell using a dedicated library.
+  // Example import in real code:
+  //   import { quote } from 'shell-quote';
+  return args.map(arg => quote([arg]));
 }
 ```
 
@@ -2213,26 +2320,27 @@ class EfficientFileReader {
 
 ```mermaid
 gantt
-    title Migration Timeline
+    title Migration Timeline (Placeholder Dates)
     dateFormat YYYY-MM-DD
+    %% Dates below are placeholders; substitute concrete dates when planning an actual rollout.
     section Phase 1
-    Core Interfaces           :2024-01-01, 7d
-    Provider Implementations  :2024-01-08, 7d
-    Unit Testing             :2024-01-15, 5d
+    Core Interfaces           :PHASE1_START, 7d
+    Provider Implementations  :PHASE1_START+7d, 7d
+    Unit Testing             :PHASE1_START+14d, 5d
     
     section Phase 2
-    Integration              :2024-01-20, 7d
-    Terminal Update          :2024-01-27, 5d
-    Integration Testing      :2024-02-01, 5d
+    Integration              :PHASE2_START, 7d
+    Terminal Update          :PHASE2_START+7d, 5d
+    Integration Testing      :PHASE2_START+12d, 5d
     
     section Phase 3
-    Performance Tuning       :2024-02-06, 5d
-    Documentation           :2024-02-11, 5d
-    Final Testing           :2024-02-16, 5d
+    Performance Tuning       :PHASE3_START, 5d
+    Documentation           :PHASE3_START+5d, 5d
+    Final Testing           :PHASE3_START+10d, 5d
     
     section Release
-    Beta Release            :milestone, 2024-02-21, 0d
-    Production Release      :milestone, 2024-02-28, 0d
+    Beta Release            :milestone, RELEASE_BETA, 0d
+    Production Release      :milestone, RELEASE_PROD, 0d
 ```
 
 ---
