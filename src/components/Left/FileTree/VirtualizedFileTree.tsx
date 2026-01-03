@@ -166,17 +166,38 @@ export default function VirtualizedFileTree({
 
   // Handle item click
   const handleItemClick = useCallback(
-    (item: FileItem) => {
+    async (item: FileItem) => {
       if (item.type === 'folder') {
         toggleFolder(item.id);
       } else {
-        const defaultEditor =
-          typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-        const kind = item.isBufferArray ? 'binary' : 'editor';
-        openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+        // Fetch latest content from IndexedDB to ensure we have the most up-to-date version
+        // This handles cases where external modifications (AI, shell, runtime) may have updated the file
+        try {
+          const latestFile = await fileRepository.getFileByPath(currentProjectId, item.path);
+          const fileToOpen = latestFile 
+            ? {
+                ...item,
+                content: latestFile.content,
+                isBufferArray: latestFile.isBufferArray,
+                bufferContent: latestFile.bufferContent,
+              }
+            : item;
+          
+          const defaultEditor =
+            typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+          const kind = fileToOpen.isBufferArray ? 'binary' : 'editor';
+          openTab({ ...fileToOpen, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+        } catch (error) {
+          console.error('[FileTree] Failed to fetch latest file content:', error);
+          // Fallback to cached item if fetch fails
+          const defaultEditor =
+            typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+          const kind = item.isBufferArray ? 'binary' : 'editor';
+          openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+        }
       }
     },
-    [toggleFolder, openTab]
+    [toggleFolder, openTab, currentProjectId]
   );
 
   // Handle context menu
