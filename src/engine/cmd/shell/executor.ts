@@ -360,18 +360,35 @@ export class ShellExecutor {
 
     try {
       // Check for script files
+      // POSIX Process Isolation: Script execution runs in isolated context
+      // Changes to CWD inside script do NOT affect parent shell
       if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
         const maybeContent = await unix.cat(cmd).catch(() => null);
         if (maybeContent !== null) {
           const text = String(maybeContent);
           const firstLine = text.split('\n', 1)[0] || '';
           if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
+            // Save parent context state before script execution
+            let savedCwd: string | null = null;
+            try {
+              savedCwd = await unix.pwd();
+            } catch {}
+            
             const scriptArgs = [cmd, ...args];
             try {
               await runScript(text, scriptArgs, proc, this as any);
             } catch (e: any) {
               proc.writeStderr(e?.message ?? String(e));
             }
+            
+            // Restore parent context CWD after script completes
+            // (Script's cd changes are discarded - POSIX behavior)
+            if (savedCwd) {
+              try {
+                await unix.cd(savedCwd);
+              } catch {}
+            }
+            
             proc.endStdout();
             proc.endStderr();
             proc.exit(0);
@@ -381,6 +398,8 @@ export class ShellExecutor {
       }
 
       // Handle sh/bash command
+      // POSIX Process Isolation: Script execution runs in isolated context
+      // Changes to CWD inside script do NOT affect parent shell
       if (cmd === 'sh' || cmd === 'bash') {
         if (args.length === 0) {
           proc.writeStderr('Usage: sh <file>\n');
@@ -395,7 +414,26 @@ export class ShellExecutor {
           proc.exit(1);
           return;
         }
+        
+        // Save parent context state before script execution
+        let savedCwd: string | null = null;
+        if (unix) {
+          try {
+            savedCwd = await unix.pwd();
+          } catch {}
+        }
+        
+        // Run script in isolated context
         await runScript(String(content), args, proc, this as any).catch(() => {});
+        
+        // Restore parent context CWD after script completes
+        // (Script's cd changes are discarded - POSIX behavior)
+        if (savedCwd && unix) {
+          try {
+            await unix.cd(savedCwd);
+          } catch {}
+        }
+        
         proc.endStdout();
         proc.endStderr();
         proc.exit(0);
