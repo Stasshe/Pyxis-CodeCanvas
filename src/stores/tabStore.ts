@@ -54,6 +54,11 @@ interface TabStore {
   resizePane: (paneId: string, newSize: number) => void;
 
   // タブ操作
+  /**
+   * タブを開く（非同期）
+   * 新規タブ作成時、fileRepositoryから最新のコンテンツを取得
+   * 注意: 非同期関数ですが、既存の呼び出し元では await 不要（後方互換性あり）
+   */
   openTab: (file: any, options?: OpenTabOptions) => Promise<void>;
   closeTab: (paneId: string, tabId: string) => void;
   activateTab: (paneId: string, tabId: string) => void;
@@ -376,12 +381,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
         if (projectId) {
           const freshFile = await fileRepository.getFileByPath(projectId, file.path);
           if (freshFile) {
-            // 最新のコンテンツで上書き
+            // 最新のコンテンツのみ更新（重要なプロパティは保持）
             fileToCreate = {
               ...file,
               content: freshFile.content,
-              isBufferArray: freshFile.isBufferArray,
-              bufferContent: freshFile.bufferContent,
+              isBufferArray: freshFile.isBufferArray ?? file.isBufferArray,
+              bufferContent: freshFile.bufferContent ?? file.bufferContent,
             };
           }
         }
@@ -390,7 +395,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
         // フォールバック: 渡されたfileオブジェクトをそのまま使用
       }
     }
-    
+
     const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
 
     // ペインにタブを追加し、グローバルアクティブタブも同時に更新
