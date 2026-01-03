@@ -17,6 +17,7 @@
     "clean": "rm -rf node_modules package-lock.json",
     "reinstall": "pnpm run clean && pnpm install"
   },
+  "packageManager": "pnpm@10.27.0",
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
