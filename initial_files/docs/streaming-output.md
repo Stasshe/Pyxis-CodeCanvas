@@ -28,7 +28,26 @@ stdbuf -o0 -e0 node src/index.js
 `stdbuf` が利用できない環境では、以下のフォールバック方法を使用します：
 
 1. **Pythonの unbuffered モード**: `python3 -u` を使用してNode.jsを起動
-2. **直接実行**: 最後の手段として、Node.jsを直接実行
+2. **直接実行**: 最後の手段として、Node.jsを直接実行（システムによってはバッファリングされる可能性あり）
+
+### 実装の詳細
+
+```bash
+if command -v stdbuf >/dev/null 2>&1; then
+  # 推奨: stdbufを使用
+  stdbuf -o0 -e0 node src/index.js
+else
+  if command -v python3 >/dev/null 2>&1; then
+    # フォールバック1: Python経由で実行
+    python3 -u -c "import sys, subprocess; \
+      proc = subprocess.Popen(['node', 'src/index.js']); \
+      sys.exit(proc.wait())"
+  else
+    # フォールバック2: 直接実行
+    node src/index.js
+  fi
+fi
+```
 
 ## テスト方法
 
@@ -48,6 +67,18 @@ bash run-test.sh
 bash test-streaming.sh
 ```
 
+### 出力例
+
+```
+開始: ストリーミングテスト
+出力 1/5 - 時刻: 9:00:19 AM
+出力 2/5 - 時刻: 9:00:20 AM  ← 1秒後にリアルタイムで表示
+出力 3/5 - 時刻: 9:00:21 AM  ← さらに1秒後に表示
+出力 4/5 - 時刻: 9:00:22 AM
+出力 5/5 - 時刻: 9:00:23 AM
+完了: すべての出力が終了しました
+```
+
 ## 技術的な詳細
 
 ### バッファリングモード
@@ -61,14 +92,42 @@ bash test-streaming.sh
 `run-test.sh` では、シェル自体の出力も unbuffered にするために以下のコマンドを使用しています：
 
 ```bash
-exec 1> >(exec cat -)
-exec 2> >(exec cat - >&2)
+# Bash 4以上でのみ使用（プロセス置換のサポート確認）
+if [[ $BASH_VERSINFO -ge 4 ]]; then
+  exec 1> >(exec cat -)
+  exec 2> >(exec cat - >&2)
+fi
 ```
 
 これにより、`echo` などのシェルコマンドの出力も即座に表示されます。
+
+### CPU効率的な待機
+
+`streaming-test.js` では、CPU負荷を最小限にするため、busy-wait ループの代わりに `async/await` と `setTimeout` を使用しています：
+
+```javascript
+// CPU効率的な待機関数
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function main() {
+  for (let i = 1; i <= 5; i++) {
+    console.log(`出力 ${i}/5`);
+    await sleep(1000);  // CPU負荷なしで1秒待機
+  }
+}
+```
+
+## 互換性
+
+- **Linux**: `stdbuf` コマンドが標準で利用可能（GNU coreutils）
+- **macOS**: `stdbuf` が利用できない場合があるため、Pythonフォールバックを使用
+- **Windows**: `stdbuf` は利用できないため、Pythonまたは直接実行にフォールバック
 
 ## 参考
 
 - [GNU Coreutils - stdbuf](https://www.gnu.org/software/coreutils/manual/html_node/stdbuf-invocation.html)
 - [Node.js Stream API](https://nodejs.org/api/stream.html)
 - [TTY (端末) の概念](https://nodejs.org/api/tty.html)
+- [Bash Process Substitution](https://www.gnu.org/software/bash/manual/html_node/Process-Substitution.html)
