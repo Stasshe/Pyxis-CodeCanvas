@@ -7,6 +7,29 @@ import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-la
 
 import { MONACO_CONFIG } from '@/context/config';
 
+/**
+ * Monaco Model Management Architecture
+ * 
+ * This module uses a HYBRID approach with two model lookup paths:
+ * 
+ * 1. TabId-based cache (sharedModelMap)
+ *    - Purpose: Fast lookup, LRU management, external update capability
+ *    - Indexed by: tabId (e.g., "/path/to/file.ts")
+ *    - Benefits: Enables updateCachedModelContent() for background tabs
+ * 
+ * 2. URI-based lookup (Monaco's native registry)
+ *    - Purpose: Prevent duplicate models, leverage Monaco's lifecycle
+ *    - Indexed by: URI (e.g., "inmemory://model/path/to/file.ts")
+ *    - Benefits: Safety net, Monaco-managed disposal
+ * 
+ * Why both?
+ * - TabId cache: Required for LRU eviction and external updates (tabStore integration)
+ * - URI lookup: Required to avoid creating duplicate models in Monaco's registry
+ * 
+ * This is NOT redundant - each serves a distinct purpose. Both paths properly
+ * update content on model reuse (fixes external change bug).
+ */
+
 // Monarch言語用のヘルパー
 function getMonarchLanguage(fileName: string): string {
   // Use the model language for TSX/JSX so the TypeScript diagnostics run.
@@ -110,6 +133,12 @@ export function useMonacoModels() {
       const monacoModelMap = monacoModelMapRef.current;
       let model = monacoModelMap.get(tabId);
 
+      // ARCHITECTURE NOTE: This function uses a hybrid approach with two lookup paths:
+      // 1. TabId-based lookup (our cache) - Fast path, enables LRU management and external updates
+      // 2. URI-based lookup (Monaco's registry) - Safety path, prevents duplicate model creation
+      // Both paths are intentional and serve different purposes. Do not refactor to single path
+      // without careful consideration of LRU functionality and external update requirements.
+
       // If a model exists in our map, ensure it's safe and has the correct language.
       // IMPORTANT: do not dispose a model here synchronously — other editor instances
       // may be attaching to the same underlying model. Instead we remove it from
@@ -160,6 +189,10 @@ export function useMonacoModels() {
           const uri = mon.Uri.parse(`inmemory://model${normalizedTabPath}`);
           // computed URI log removed in cleanup
 
+          // PATH 2: URI-based lookup in Monaco's native model registry
+          // This prevents creating duplicate models if Monaco already has one for this URI.
+          // Even though we checked our tabId cache above, Monaco might have a model we don't
+          // track (edge cases: models created elsewhere, desync after errors, etc.)
           // 既存のモデルを再利用（ただし言語IDは強制的に合わせる）
           try {
             const existingModel = mon.editor.getModel(uri);
