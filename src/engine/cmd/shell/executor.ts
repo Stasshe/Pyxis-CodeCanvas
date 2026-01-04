@@ -5,15 +5,15 @@
  * without unnecessary provider abstraction layer.
  */
 
-import { Process } from './process';
-import { parseCommandLine } from './parser';
-import { expandTokens } from './expansion';
-import { runScript } from './scriptRunner';
-import { isDevNull, type Segment, type TokenObj } from './types';
 import adaptBuiltins, { type StreamCtx } from './builtins';
+import { expandTokens } from './expansion';
+import { parseCommandLine } from './parser';
+import { Process } from './process';
+import { runScript } from './scriptRunner';
+import { type Segment, type TokenObj, isDevNull } from './types';
 
-import type { UnixCommands } from '../global/unix';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
+import type { UnixCommands } from '../global/unix';
 
 /**
  * Shell Executor Options
@@ -218,7 +218,9 @@ export class ShellExecutor {
 
       // Emit pipes-ready for all processes
       for (const p of procs) {
-        try { p.emit('pipes-ready'); } catch {}
+        try {
+          p.emit('pipes-ready');
+        } catch {}
       }
 
       // Watch output from last process
@@ -398,17 +400,17 @@ export class ShellExecutor {
           if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
             // Save parent context CWD before script execution
             const savedCwd = await this.saveCwd(unix);
-            
+
             const scriptArgs = [cmd, ...args];
             try {
               await runScript(text, scriptArgs, proc, this as any);
             } catch (e: any) {
               proc.writeStderr(e?.message ?? String(e));
             }
-            
+
             // Restore parent context CWD after script completes
             await this.restoreCwd(unix, savedCwd);
-            
+
             proc.endStdout();
             proc.endStderr();
             proc.exit(0);
@@ -427,25 +429,25 @@ export class ShellExecutor {
           proc.exit(2);
           return;
         }
-        let content = unix ? await unix.cat(args[0]).catch(() => null) : null;
+        const content = unix ? await unix.cat(args[0]).catch(() => null) : null;
         if (content === null) {
           proc.writeStderr(`sh: ${args[0]}: No such file\n`);
           proc.endStdout();
           proc.exit(1);
           return;
         }
-        
+
         // Save parent context CWD before script execution
         const savedCwd = unix ? await this.saveCwd(unix) : null;
-        
+
         // Run script in isolated context
         await runScript(String(content), args, proc, this as any).catch(() => {});
-        
+
         // Restore parent context CWD after script completes
         if (unix) {
           await this.restoreCwd(unix, savedCwd);
         }
-        
+
         proc.endStdout();
         proc.endStderr();
         proc.exit(0);
@@ -527,7 +529,7 @@ export class ShellExecutor {
     if (cmd === 'pyxis') {
       try {
         const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
-        
+
         if (args.length === 0) {
           await writeError('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
           return 1;
@@ -544,7 +546,7 @@ export class ShellExecutor {
         let cmdToCall: string;
         let subArgs: string[];
 
-        if (action && action.startsWith('-')) {
+        if (action?.startsWith('-')) {
           cmdToCall = category;
           subArgs = args.slice(1);
         } else if (action) {
@@ -570,7 +572,7 @@ export class ShellExecutor {
     }
 
     // 4. Extension commands
-    if (this.commandRegistry && this.commandRegistry.hasCommand(cmd)) {
+    if (this.commandRegistry?.hasCommand(cmd)) {
       try {
         const unix = await this.getUnix();
         const currentDir = unix ? await unix.pwd() : this.context.cwd;
@@ -594,7 +596,7 @@ export class ShellExecutor {
         stdin: proc.stdinStream,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
-        onSignal: (fn) => proc.on('signal', fn),
+        onSignal: fn => proc.on('signal', fn),
         projectName: this.context.projectName,
         projectId: this.context.projectId,
         terminalColumns: this.context.terminalColumns,
@@ -620,7 +622,9 @@ export class ShellExecutor {
   /**
    * Group segments by logical operators
    */
-  private groupByLogicalOperators(segments: Segment[]): Array<{ segs: Segment[]; opAfter?: string }> {
+  private groupByLogicalOperators(
+    segments: Segment[]
+  ): Array<{ segs: Segment[]; opAfter?: string }> {
     const groups: Array<{ segs: Segment[]; opAfter?: string }> = [];
     let currentGroup: Segment[] = [];
 
@@ -739,17 +743,19 @@ export class ShellExecutor {
         let contentToWrite = writes[pth];
 
         if (appendMap[pth]) {
-          const existing = typeof this.fileRepository.getFileByPath === 'function'
-            ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
-            : null;
+          const existing =
+            typeof this.fileRepository.getFileByPath === 'function'
+              ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
+              : null;
           if (existing?.content) {
             contentToWrite = existing.content + contentToWrite;
           }
         }
 
-        const existing = typeof this.fileRepository.getFileByPath === 'function'
-          ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
-          : null;
+        const existing =
+          typeof this.fileRepository.getFileByPath === 'function'
+            ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
+            : null;
 
         if (existing) {
           await this.fileRepository.saveFile({

@@ -3,14 +3,19 @@
 import { useCallback } from 'react';
 
 import { useTabStore } from '@/stores/tabStore';
-import type { FileItem } from '@/types';
+import type { AIReviewEntry, FileItem, Project } from '@/types';
 
 export function useAIReview() {
   const { openTab, closeTab } = useTabStore();
 
   // [NEW ARCHITECTURE] AIレビュータブを開く
   const openAIReviewTab = useCallback(
-    async (filePath: string, originalContent: string, suggestedContent: string, aiEntry?: any) => {
+    async (
+      filePath: string,
+      originalContent: string,
+      suggestedContent: string,
+      aiEntry?: AIReviewEntry
+    ) => {
       const fileName = filePath.split('/').pop() || 'unknown';
       const fileItem: FileItem = {
         name: `AI Review: ${fileName}`,
@@ -26,8 +31,8 @@ export function useAIReview() {
           originalContent,
           suggestedContent,
           filePath,
-          history: aiEntry?.history || undefined,
-          aiEntry: aiEntry || undefined,
+          history: aiEntry?.history,
+          aiEntry,
         },
       });
     },
@@ -39,7 +44,7 @@ export function useAIReview() {
     async (
       filePath: string,
       newContent: string,
-      currentProject: any,
+      currentProject: Project | null,
       saveFile: (projectId: string, filePath: string, content: string) => Promise<void>,
       clearAIReview: (filePath: string) => Promise<void>
     ) => {
@@ -84,13 +89,13 @@ export function useAIReview() {
       const { panes } = useTabStore.getState();
 
       // すべてのペインからAIレビュータブを検索して閉じる
-      panes.forEach(pane => {
+      for (const pane of panes) {
         const aiReviewTab = pane.tabs.find(tab => tab.kind === 'ai' && tab.id.includes(filePath));
 
         if (aiReviewTab) {
           closeTab(pane.id, aiReviewTab.id);
         }
-      });
+      }
     },
     [closeTab]
   );
@@ -104,7 +109,7 @@ export function useAIReview() {
       // 簡単な実装：指定行を置換
       const resultLines = [...originalLines];
 
-      linesToApply.forEach(lineNumber => {
+      for (const lineNumber of linesToApply) {
         if (lineNumber >= 0 && lineNumber < suggestedLines.length) {
           if (lineNumber < resultLines.length) {
             resultLines[lineNumber] = suggestedLines[lineNumber];
@@ -112,7 +117,7 @@ export function useAIReview() {
             resultLines.push(suggestedLines[lineNumber]);
           }
         }
-      });
+      }
 
       return resultLines.join('\n');
     },

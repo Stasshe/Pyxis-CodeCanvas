@@ -114,8 +114,7 @@ export class TabAPI {
     // TabRegistryに登録されているか確認
     if (!tabRegistry.has(tabKind as any)) {
       console.error(
-        `[TabAPI] Tab type not registered: ${tabKind}. ` +
-          `Call context.tabs.registerTabType(YourComponent) in activate() first.`
+        `[TabAPI] Tab type not registered: ${tabKind}. Call context.tabs.registerTabType(YourComponent) in activate() first.`
       );
       throw new Error(`Extension tab type not registered: ${tabKind}`);
     }
@@ -251,7 +250,7 @@ export class TabAPI {
     for (const pane of store.panes) {
       // 拡張機能タブの任意データにアクセス（型定義外のプロパティ）
       const tab = pane.tabs.find(t => t.id === tabId) as any;
-      if (tab && tab.data) {
+      if (tab?.data) {
         return tab.data as T;
       }
     }
@@ -299,7 +298,7 @@ export class TabAPI {
 
       console.log(`[TabAPI] Opened system tab for file: ${file.path}`);
     } catch (error) {
-      console.error(`[TabAPI] Failed to open system tab:`, error);
+      console.error('[TabAPI] Failed to open system tab:', error);
       throw error;
     }
   }

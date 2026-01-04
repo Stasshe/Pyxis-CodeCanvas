@@ -115,12 +115,12 @@ export default function RootLayout({
         {(process.env.NEXT_PUBLIC_IS_PRODUCTION_BUILD !== 'true' ||
           process.env.NEXT_PUBLIC_IS_DEV_SERVER) && (
           <>
-            <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+            <script src="https://cdn.jsdelivr.net/npm/eruda" />
             <script dangerouslySetInnerHTML={{ __html: 'eruda.init();' }} />
           </>
         )}
         {/* Pyodide (Python in browser) */}
-        <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+        <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js" />
       </head>
       <body className="antialiased h-full font-sans">
         {/* Set base path for runtime access */}

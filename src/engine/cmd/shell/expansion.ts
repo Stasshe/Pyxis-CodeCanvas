@@ -24,7 +24,7 @@ function escapeForCharClass(ch: string): string {
   if (ch === ']') return '\\]';
   if (ch === '-') return '\\-';
   if (ch === '^') return '\\^';
-  return ch.replace(/([\\\]\-\^])/g, m => '\\' + m);
+  return ch.replace(/([\\\]\-\^])/g, m => `\\${m}`);
 }
 
 /**
@@ -34,7 +34,7 @@ export function splitOnIFS(s: string, ifs?: string): string[] {
   if (!s) return [''];
   const ifsValue = (ifs ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
   const isIfsWhitespace = /[ \t\n]/.test(ifsValue);
-  
+
   if (isIfsWhitespace) {
     // treat runs of whitespace as single separator and trim edges
     return s.split(/\s+/).filter(Boolean);
@@ -43,7 +43,7 @@ export function splitOnIFS(s: string, ifs?: string): string[] {
   const chars = Array.from(new Set(ifsValue.split('')))
     .map(c => escapeForCharClass(c))
     .join('');
-  const re = new RegExp('[' + chars + ']');
+  const re = new RegExp(`[${chars}]`);
   return s.split(re).filter(x => x !== undefined);
 }
 
@@ -60,18 +60,15 @@ export interface GlobExpandOptions {
 /**
  * Expand glob pattern to matching file paths
  */
-export async function globExpand(
-  pattern: string,
-  options: GlobExpandOptions
-): Promise<string[]> {
+export async function globExpand(pattern: string, options: GlobExpandOptions): Promise<string[]> {
   const { projectId, projectName, fileRepository: repo, unix } = options;
-  
+
   if (!repo || !unix) return [pattern];
 
   try {
     const currentWorkingDir = await unix.pwd().catch(() => `/projects/${projectName}`);
     const projectBase = `/projects/${projectName}`;
-    
+
     // Split pattern into directory prefix and filename glob
     const lastSlashIndex = pattern.lastIndexOf('/');
     const dirPrefix = lastSlashIndex >= 0 ? pattern.slice(0, lastSlashIndex + 1) : '';
@@ -86,7 +83,7 @@ export async function globExpand(
       resolvedTargetDir = resolvedCwd;
     } else {
       const resolvedCwd = await unix.pwd().catch(() => projectBase);
-      let combined = resolvedCwd === '/' ? '/' + dirPrefix : resolvedCwd + '/' + dirPrefix;
+      let combined = resolvedCwd === '/' ? `/${dirPrefix}` : `${resolvedCwd}/${dirPrefix}`;
       combined = combined.replace(/\/+/g, '/');
       const parts = combined.split('/').filter(p => p !== '' && p !== '.');
       const stack: string[] = [];
@@ -97,12 +94,12 @@ export async function globExpand(
           stack.push(part);
         }
       }
-      resolvedTargetDir = '/' + stack.join('/');
+      resolvedTargetDir = `/${stack.join('/')}`;
     }
 
     // Convert resolvedTargetDir into a project-relative prefix
     let projectRelativeDir: string;
-    if (resolvedTargetDir === projectBase || resolvedTargetDir === projectBase + '/') {
+    if (resolvedTargetDir === projectBase || resolvedTargetDir === `${projectBase}/`) {
       projectRelativeDir = '';
     } else if (resolvedTargetDir.startsWith(projectBase)) {
       projectRelativeDir = resolvedTargetDir.substring(projectBase.length);
@@ -115,7 +112,7 @@ export async function globExpand(
         ? ''
         : projectRelativeDir.endsWith('/')
           ? projectRelativeDir
-          : projectRelativeDir + '/';
+          : `${projectRelativeDir}/`;
 
     let projectFiles: any[] = [];
     if (repo.getFilesByPrefix) {
@@ -149,19 +146,19 @@ export async function globExpand(
         let cls = '';
         while (j < fileGlob.length && fileGlob[j] !== ']') {
           const c = fileGlob[j++];
-          if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
+          if (c === '\\' || c === ']' || c === '-') cls += `\\${c}`;
           else cls += c;
         }
         i = Math.min(j, fileGlob.length - 1);
-        regexParts.push('[' + cls + ']');
-      } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push('\\' + ch);
+        regexParts.push(`[${cls}]`);
+      } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push(`\\${ch}`);
       else regexParts.push(ch);
     }
 
-    const regexStr = '^' + regexParts.join('') + '$';
+    const regexStr = `^${regexParts.join('')}$`;
     const regex = new RegExp(regexStr);
     const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
-    
+
     console.log('[globExpand] input:', pattern);
     console.log('[globExpand] cwd:', currentWorkingDir);
     console.log('[globExpand] dirPrefix:', dirPrefix, 'fileGlob:', fileGlob);
@@ -185,9 +182,9 @@ export async function expandTokens(
   options: GlobExpandOptions
 ): Promise<string[]> {
   const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
-  
+
   const finalWords: string[] = [];
-  
+
   for (const tk of tokens) {
     if (tk.quote === 'single' || tk.quote === 'double') {
       // quoted: no field splitting, no globbing

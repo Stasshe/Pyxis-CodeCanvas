@@ -72,64 +72,60 @@ export class GitCheckoutOperations {
         }
         await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
       } else {
-        try {
-          // Use remoteUtils to check if this is a remote reference
-          if (isRemoteRef(branchName)) {
-            // Try resolving as remote branch first
-            const remoteOid = await resolveRemoteRef(this.fs, this.dir, branchName);
-            if (remoteOid) {
-              targetCommitHash = remoteOid;
-              resolvedFromRemote = true;
-            }
+        // Use remoteUtils to check if this is a remote reference
+        if (isRemoteRef(branchName)) {
+          // Try resolving as remote branch first
+          const remoteOid = await resolveRemoteRef(this.fs, this.dir, branchName);
+          if (remoteOid) {
+            targetCommitHash = remoteOid;
+            resolvedFromRemote = true;
           }
+        }
 
-          // If not resolved from remote, try local heads
-          if (!targetCommitHash) {
+        // If not resolved from remote, try local heads
+        if (!targetCommitHash) {
+          try {
+            targetCommitHash = await git.resolveRef({
+              fs: this.fs,
+              dir: this.dir,
+              ref: `refs/heads/${branchName}`,
+            });
+            resolvedFromLocal = true;
+          } catch {
+            // try resolving as a full ref or oid-ish
             try {
+              // Sometimes callers pass a full ref or a short oid; try resolveRef as-is
               targetCommitHash = await git.resolveRef({
                 fs: this.fs,
                 dir: this.dir,
-                ref: `refs/heads/${branchName}`,
+                ref: branchName,
               });
-              resolvedFromLocal = true;
+              // If caller passed a full ref like refs/remotes/origin/main, mark accordingly
+              if (branchName.startsWith('refs/remotes/')) resolvedFromRemote = true;
+              if (branchName.startsWith('refs/heads/')) resolvedFromLocal = true;
             } catch {
-              // try resolving as a full ref or oid-ish
               try {
-                // Sometimes callers pass a full ref or a short oid; try resolveRef as-is
-                targetCommitHash = await git.resolveRef({
+                const expandedOid = await git.expandOid({
                   fs: this.fs,
                   dir: this.dir,
-                  ref: branchName,
+                  oid: branchName,
                 });
-                // If caller passed a full ref like refs/remotes/origin/main, mark accordingly
-                if (branchName.startsWith('refs/remotes/')) resolvedFromRemote = true;
-                if (branchName.startsWith('refs/heads/')) resolvedFromLocal = true;
+                targetCommitHash = expandedOid;
+                isNewBranch = false;
               } catch {
                 try {
-                  const expandedOid = await git.expandOid({
-                    fs: this.fs,
-                    dir: this.dir,
-                    oid: branchName,
-                  });
-                  targetCommitHash = expandedOid;
-                  isNewBranch = false;
+                  const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+                  throw new Error(
+                    `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
+                  );
                 } catch {
-                  try {
-                    const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
-                    throw new Error(
-                      `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
-                    );
-                  } catch {
-                    throw new Error(
-                      `pathspec '${branchName}' did not match any file(s) known to git`
-                    );
-                  }
+                  throw new Error(
+                    `pathspec '${branchName}' did not match any file(s) known to git`
+                  );
                 }
               }
             }
           }
-        } catch (error) {
-          throw error;
         }
       }
 
@@ -194,9 +190,11 @@ export class GitCheckoutOperations {
 
       if (errorMessage.includes('pathspec')) {
         throw new Error(errorMessage);
-      } else if (errorMessage.includes('not a git repository')) {
+      }
+      if (errorMessage.includes('not a git repository')) {
         throw new Error('fatal: not a git repository (or any of the parent directories): .git');
-      } else if (errorMessage.includes('Cannot create new branch')) {
+      }
+      if (errorMessage.includes('Cannot create new branch')) {
         throw new Error(`fatal: ${errorMessage}`);
       }
 

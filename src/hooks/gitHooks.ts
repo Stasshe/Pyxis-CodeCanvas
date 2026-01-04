@@ -52,9 +52,9 @@ function parseGitStatus(statusOutput: string) {
     .split('\n')
     .map(line => line.trim())
     .filter(Boolean);
-  let staged = 0,
-    unstaged = 0,
-    untracked = 0;
+  let staged = 0;
+  let unstaged = 0;
+  let untracked = 0;
   let inChangesToBeCommitted = false;
   let inChangesNotStaged = false;
   let inUntrackedFiles = false;

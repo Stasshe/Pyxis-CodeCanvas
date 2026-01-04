@@ -44,7 +44,7 @@ interface ExtendedCommit extends GitCommitType {
 
 /**
  * トポロジカルソート（Kahn's algorithm inspired by VSCode SCM）
- * 
+ *
  * Gitグラフでは、子コミットが親コミットより前（上）に表示される必要があります。
  * このアルゴリズムは以下のステップで動作します：
  * 1. 各コミットの「子の数」（入次数）をカウント - 子から指されている数
@@ -54,18 +54,18 @@ interface ExtendedCommit extends GitCommitType {
  */
 function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   if (commits.length === 0) return [];
-  
+
   const commitMap = new Map<string, GitCommitType>();
   commits.forEach(c => commitMap.set(c.hash, c));
-  
+
   // 各コミットを指す子の数をカウント（入次数）
   // 親コミットは子から指されているので、親の入次数を増やす
   const inDegree = new Map<string, number>();
-  
+
   commits.forEach(c => {
     inDegree.set(c.hash, 0);
   });
-  
+
   // 親子関係を構築（表示されているコミットのみ）
   // 子→親の辺があるので、親の入次数を増やす
   commits.forEach(c => {
@@ -76,24 +76,24 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
       }
     });
   });
-  
+
   // 入次数が0のコミット（子がいないコミット = 最新のコミット）を収集
   // timestampで新しい順にソート
   const queue: GitCommitType[] = commits
     .filter(c => (inDegree.get(c.hash) || 0) === 0)
     .sort((a, b) => b.timestamp - a.timestamp);
-  
+
   const result: GitCommitType[] = [];
   const visited = new Set<string>();
-  
+
   while (queue.length > 0) {
     // キューの先頭から取得（既にソート済み）
     const commit = queue.shift()!;
-    
+
     if (visited.has(commit.hash)) continue;
     visited.add(commit.hash);
     result.push(commit);
-    
+
     // このコミットの親の入次数を減らし、0になったものをキューに追加
     const newReadyCommits: GitCommitType[] = [];
     commit.parentHashes.forEach(parentHash => {
@@ -106,13 +106,14 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
         }
       }
     });
-    
+
     // 新たにキューに追加するコミットをソートしてマージ
     if (newReadyCommits.length > 0) {
       newReadyCommits.sort((a, b) => b.timestamp - a.timestamp);
       // キューにマージ（timestampで新しい順を維持）
       const merged: GitCommitType[] = [];
-      let i = 0, j = 0;
+      let i = 0;
+      let j = 0;
       while (i < queue.length && j < newReadyCommits.length) {
         if (queue[i].timestamp >= newReadyCommits[j].timestamp) {
           merged.push(queue[i++]);
@@ -126,23 +127,23 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
       queue.push(...merged);
     }
   }
-  
+
   // 循環がある場合、残りのコミットを追加
   commits.forEach(c => {
     if (!visited.has(c.hash)) {
       result.push(c);
     }
   });
-  
+
   return result;
 }
 
 /**
  * VSCodeスタイルのレーン割り当てアルゴリズム
- * 
+ *
  * 新しいコミットから古いコミットへの順序で処理し、
  * 各コミットに適切なレーンを割り当てます。
- * 
+ *
  * ルール：
  * 1. 子コミットから見て、第1親はそのレーンを継承
  * 2. マージの第2親以降は新しいレーンに配置
@@ -154,12 +155,12 @@ function assignLanes(
 ): { commitLanes: Map<string, number>; commitColors: Map<string, string>; maxLane: number } {
   const commitLanes = new Map<string, number>();
   const commitColors = new Map<string, string>();
-  
+
   // アクティブなレーン管理
   let totalLanes = 0;
   // 空いているレーンのセット（O(1)でのアクセス用）
   const availableLanes = new Set<number>();
-  
+
   // 各コミットの子を追跡
   const childrenMap = new Map<string, string[]>();
   const commitMap = new Map<string, GitCommitType>();
@@ -167,19 +168,19 @@ function assignLanes(
     commitMap.set(c.hash, c);
     childrenMap.set(c.hash, []);
   });
-  
+
   // 子関係を構築
   commits.forEach(c => {
     c.parentHashes.forEach(parentHash => {
       if (childrenMap.has(parentHash)) {
-        childrenMap.get(parentHash)!.push(c.hash);
+        childrenMap.get(parentHash)?.push(c.hash);
       }
     });
   });
-  
+
   // 予約済みレーン: 親コミットがこのレーンを使う予定
   const reservedLanes = new Map<string, number>();
-  
+
   // 空いているレーンを取得するヘルパー関数（excludeを除く）
   const getAvailableLane = (exclude?: number): number => {
     for (const lane of availableLanes) {
@@ -190,11 +191,11 @@ function assignLanes(
     // 空いているレーンがない場合、新しいレーンを作成
     return totalLanes;
   };
-  
+
   for (const commit of commits) {
     let assignedLane: number;
     let assignedColor: string;
-    
+
     // このコミットにレーンが予約されているかチェック
     if (reservedLanes.has(commit.hash)) {
       assignedLane = reservedLanes.get(commit.hash)!;
@@ -212,10 +213,10 @@ function assignLanes(
       }
       assignedColor = branchColors[assignedLane % branchColors.length];
     }
-    
+
     commitLanes.set(commit.hash, assignedLane);
     commitColors.set(commit.hash, assignedColor);
-    
+
     // 親コミットのレーンを予約
     if (commit.parentHashes.length > 0) {
       // 第1親: このコミットのレーンを継承
@@ -223,7 +224,7 @@ function assignLanes(
       if (commitMap.has(firstParent) && !reservedLanes.has(firstParent)) {
         reservedLanes.set(firstParent, assignedLane);
       }
-      
+
       // 第2親以降: 新しいレーン
       for (let i = 1; i < commit.parentHashes.length; i++) {
         const parentHash = commit.parentHashes[i];
@@ -239,7 +240,7 @@ function assignLanes(
         }
       }
     }
-    
+
     // このコミットに子がいなければレーンを解放
     const childCount = childrenMap.get(commit.hash)?.length || 0;
     // 子の中でこのコミットを第1親として持つものの数
@@ -247,17 +248,19 @@ function assignLanes(
       const child = commitMap.get(childHash);
       return child && child.parentHashes[0] === commit.hash;
     }).length;
-    
+
     // 全ての子が処理済みで、もうこのレーンを使う子がいなければ解放
     if (childCount === 0 || firstParentChildCount === 0) {
       // ただし、まだ処理されていない親への接続がある場合は解放しない
-      const hasUnprocessedParent = commit.parentHashes.some(p => commitMap.has(p) && !commitLanes.has(p));
+      const hasUnprocessedParent = commit.parentHashes.some(
+        p => commitMap.has(p) && !commitLanes.has(p)
+      );
       if (!hasUnprocessedParent && firstParentChildCount === 0) {
         availableLanes.add(assignedLane);
       }
     }
   }
-  
+
   const maxLane = totalLanes > 0 ? totalLanes - 1 : 0;
   return { commitLanes, commitColors, maxLane };
 }
@@ -478,10 +481,9 @@ export default function GitHistory({
     if (x1 === x2) {
       // 垂直線
       return `M ${x1} ${y1} L ${x2} ${y2}`;
-    } else {
-      // ベジェ曲線
-      return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
     }
+    // ベジェ曲線
+    return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
   };
 
   return (
@@ -502,22 +504,24 @@ export default function GitHistory({
             }}
           >
             {/* 接続線を描画 */}
-            {extendedCommits.map((commit) => {
+            {extendedCommits.map(commit => {
               const lines: React.ReactElement[] = [];
-              
+
               if (commit.parentHashes && commit.parentHashes.length > 0) {
                 commit.parentHashes.forEach((parentHash, parentIndex) => {
                   const parentCommit = extendedCommits.find(c => c.hash === parentHash);
                   if (parentCommit) {
                     // コミット間の接続線を描画
                     const path = createBezierPath(
-                      commit.x, commit.y,
-                      parentCommit.x, parentCommit.y
+                      commit.x,
+                      commit.y,
+                      parentCommit.x,
+                      parentCommit.y
                     );
-                    
+
                     // 色はコミットから親に向かう線では、親に近い方の色を使う
                     const lineColor = parentIndex === 0 ? commit.laneColor : parentCommit.laneColor;
-                    
+
                     lines.push(
                       <path
                         key={`line-${commit.hash}-${parentHash}-${parentIndex}`}
@@ -691,7 +695,9 @@ export default function GitHistory({
                                   return (
                                     <span
                                       key={refName}
-                                      className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium flex-shrink-0 whitespace-nowrap border`}
+                                      className={
+                                        'flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium flex-shrink-0 whitespace-nowrap border'
+                                      }
                                       style={{
                                         background: isCurrentBranch
                                           ? colors.gitBranchCurrentBg

@@ -111,7 +111,7 @@ const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
         ensureParentFolder(file.parentPath);
       }
       const parent = fileMap.get(file.parentPath);
-      if (parent && parent.children) {
+      if (parent?.children) {
         parent.children.push(item);
       }
     }
@@ -228,7 +228,7 @@ export const useProject = () => {
     const pathParts = filePath.split('/').filter(part => part !== '');
     let currentPath = '';
     for (let i = 0; i < pathParts.length - 1; i++) {
-      currentPath += '/' + pathParts[i];
+      currentPath += `/${pathParts[i]}`;
       // Query whether the folder exists directly from the repository instead of relying on cached projectFiles
       try {
         await fileRepository.init();
@@ -292,7 +292,7 @@ export const useProject = () => {
         if (fileToDelete) {
           await fileRepository.deleteFile(fileToDelete.id);
         } else {
-          const childFiles = await fileRepository.getFilesByPrefix(currentProject.id, path + '/');
+          const childFiles = await fileRepository.getFilesByPrefix(currentProject.id, `${path}/`);
           for (const child of childFiles) {
             await fileRepository.deleteFile(child.id);
           }
@@ -350,7 +350,7 @@ export const useProject = () => {
       await initializeProjectGit(newProject, files);
 
       try {
-        await createChatSpace(newProject.id, `新規チャット`);
+        await createChatSpace(newProject.id, '新規チャット');
       } catch (error) {
         console.warn('[Project] Failed to create initial chat space (non-critical):', error);
       }

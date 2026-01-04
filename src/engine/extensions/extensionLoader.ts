@@ -15,7 +15,7 @@ import type {
 /**
  * 拡張機能のベースURL（public/extensions/）
  */
-const EXTENSIONS_BASE_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions';
+const EXTENSIONS_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/extensions`;
 
 /**
  * 拡張機能のマニフェストを取得
@@ -197,7 +197,8 @@ export async function loadExtensionModule(
       // ランタイム保険: `react/jsx-runtime` と `react/jsx-dev-runtime` の shim を作成して
       // import map に登録しておく。ビルド時に漏れていた場合でもここで解決できる。
       try {
-        const jsxShimCode = `export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n`;
+        const jsxShimCode =
+          'export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n';
         const jsxBlob = new Blob([jsxShimCode], { type: 'application/javascript' });
         const jsxUrl = URL.createObjectURL(jsxBlob);
         blobUrls.push(jsxUrl);
@@ -238,7 +239,8 @@ export async function loadExtensionModule(
       console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
 
       // エントリーポイントをBlobURLとして作成
-      let entryBlob, entryUrl;
+      let entryBlob;
+      let entryUrl;
       try {
         entryBlob = new Blob([processedEntryCode], { type: 'application/javascript' });
         entryUrl = URL.createObjectURL(entryBlob);

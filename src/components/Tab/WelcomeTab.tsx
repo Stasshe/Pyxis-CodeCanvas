@@ -86,31 +86,31 @@ export default function WelcomeTab() {
             </h3>
             <ul className="space-y-2 text-base">
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.clientIDE')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.nodeRuntime')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.monaco')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.gitHistory')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.responsive')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.languages')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.features.mermaid')}
               </li>
             </ul>
@@ -122,19 +122,19 @@ export default function WelcomeTab() {
             </h3>
             <ul className="space-y-2 text-base">
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.mainFeatures.latex')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.mainFeatures.importExport')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.mainFeatures.theme')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
                 {t('welcome.mainFeatures.download')}
               </li>
             </ul>

@@ -80,7 +80,7 @@ export class MkdirCommand extends UnixCommandBase {
       let currentPath = '';
 
       for (const part of parts) {
-        currentPath += '/' + part;
+        currentPath += `/${part}`;
         const exists = await this.exists(
           this.normalizePath(`${this.getProjectRoot()}${currentPath}`)
         );

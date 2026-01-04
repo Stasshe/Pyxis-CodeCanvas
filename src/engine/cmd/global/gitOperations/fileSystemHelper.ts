@@ -74,7 +74,7 @@ export class GitFileSystemHelper {
    * @returns マッチしたファイルパスの配列
    */
   static async getMatchingFiles(fs: FS, dirPath: string, pattern: string): Promise<string[]> {
-    const allFiles = await this.getAllFiles(fs, dirPath);
+    const allFiles = await GitFileSystemHelper.getAllFiles(fs, dirPath);
 
     if (pattern === '*') {
       return allFiles;
@@ -94,7 +94,7 @@ export class GitFileSystemHelper {
   static getRelativePathFromProject(fullPath: string, projectDir: string): string {
     if (fullPath.startsWith(projectDir)) {
       const relativePath = fullPath.replace(projectDir, '');
-      return relativePath.startsWith('/') ? relativePath : '/' + relativePath;
+      return relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
     }
     return fullPath;
   }

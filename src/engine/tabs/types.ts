@@ -1,5 +1,8 @@
 // src/engine/tabs/types.ts
 
+import type { ExtensionManifest } from '@/engine/extensions/types';
+import type { AIReviewEntry, AIReviewHistoryEntry, FileItem } from '@/types';
+
 /**
  * タブの種類を表す型
  * 'editor' | 'preview' | 'webPreview' | 'ai' | 'diff' | 'settings' | string (拡張機能用)
@@ -66,10 +69,10 @@ export interface AIReviewTab extends BaseTab {
   originalContent: string;
   suggestedContent: string;
   filePath: string;
-  // Optional AI review metadata (stored in aiStorageAdapter). Included so
-  // that tabs can receive aiEntry/history from callers like AIPanel.
-  aiEntry?: any;
-  history?: any[];
+  /** AIレビューエントリ (projectIdやoriginalSnapshotなどを含む) */
+  aiEntry?: AIReviewEntry;
+  /** 履歴 */
+  history?: AIReviewHistoryEntry[];
 }
 
 /**
@@ -77,15 +80,18 @@ export interface AIReviewTab extends BaseTab {
  */
 export interface DiffTab extends BaseTab {
   kind: 'diff';
-  diffs: Array<{
-    formerFullPath: string;
-    formerCommitId: string;
-    latterFullPath: string;
-    latterCommitId: string;
-    formerContent: string;
-    latterContent: string;
-  }>;
+  diffs: DiffFileEntry[];
   editable?: boolean;
+}
+
+/** 単一ファイルのDiff情報 */
+export interface DiffFileEntry {
+  formerFullPath: string;
+  formerCommitId: string;
+  latterFullPath: string;
+  latterCommitId: string;
+  formerContent: string;
+  latterContent: string;
 }
 
 /**
@@ -118,7 +124,7 @@ export interface BinaryTab extends BaseTab {
  */
 export interface ExtensionInfoTab extends BaseTab {
   kind: 'extension-info';
-  manifest: any; // ExtensionManifest
+  manifest: ExtensionManifest;
   isEnabled: boolean;
 }
 
@@ -153,9 +159,8 @@ export interface OpenTabOptions {
     originalContent: string;
     suggestedContent: string;
     filePath: string;
-    // optional history and aiEntry payload passed when opening an AI review tab
-    history?: any[];
-    aiEntry?: any;
+    history?: AIReviewHistoryEntry[];
+    aiEntry?: AIReviewEntry;
   };
   diffProps?: {
     diffs: DiffTab['diffs'];
@@ -176,6 +181,23 @@ export interface TabComponentProps {
 }
 
 /**
+ * タブ作成用のファイル情報の基本型
+ * FileItemと互換性があり、拡張プロパティを許可する
+ */
+export interface TabFileInfo {
+  id?: string;
+  name?: string;
+  path?: string;
+  content?: string;
+  kind?: TabKind;
+  isCodeMirror?: boolean;
+  isBufferArray?: boolean;
+  bufferContent?: ArrayBuffer;
+  /** 拡張プロパティ - 各タブタイプ固有の追加データ */
+  [key: string]: unknown;
+}
+
+/**
  * タブタイプの定義
  */
 export interface TabTypeDefinition {
@@ -185,8 +207,8 @@ export interface TabTypeDefinition {
   canEdit: boolean;
   canPreview: boolean;
   component: React.ComponentType<TabComponentProps>;
-  createTab: (file: any, options?: OpenTabOptions) => Tab;
-  shouldReuseTab?: (existingTab: Tab, newFile: any, options?: OpenTabOptions) => boolean;
+  createTab: (file: TabFileInfo, options?: OpenTabOptions) => Tab;
+  shouldReuseTab?: (existingTab: Tab, newFile: TabFileInfo, options?: OpenTabOptions) => boolean;
   /**
    * コンテンツ更新メソッド - タブのコンテンツを更新して新しいタブオブジェクトを返す
    * 各タブタイプが自身のコンテンツ構造に応じて実装する

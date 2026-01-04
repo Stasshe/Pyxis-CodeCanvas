@@ -3,8 +3,9 @@
 'use client';
 
 import { Bot, Clock, FileCode, RotateCcw, User } from 'lucide-react';
+import type { ClassAttributes, HTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
@@ -12,6 +13,18 @@ import LocalImage from '@/components/Tab/LocalImage';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ChatSpaceMessage } from '@/types';
+
+/** Props for code component in ReactMarkdown */
+type CodeComponentProps = ClassAttributes<HTMLElement> &
+  HTMLAttributes<HTMLElement> &
+  ExtraProps & {
+    children?: ReactNode;
+  };
+
+/** Props for img component in ReactMarkdown */
+type ImgComponentProps = ClassAttributes<HTMLImageElement> &
+  ImgHTMLAttributes<HTMLImageElement> &
+  ExtraProps;
 
 interface ChatMessageProps {
   message: ChatSpaceMessage;
@@ -77,7 +90,7 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                code({ className, children, ...props }: any) {
+                code({ className, children, ...props }: CodeComponentProps) {
                   const match = /language-(\w+)/.exec(className || '');
                   const language = match ? match[1] : '';
                   const inline = !language;
@@ -167,7 +180,7 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
                     {children}
                   </a>
                 ),
-                img: ({ node, src, alt, ...props }: any) => (
+                img: ({ src, alt, ...props }: ImgComponentProps) => (
                   <LocalImage src={typeof src === 'string' ? src : ''} alt={alt || ''} {...props} />
                 ),
               }}

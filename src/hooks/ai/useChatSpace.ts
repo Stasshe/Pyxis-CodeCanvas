@@ -67,7 +67,7 @@ export const useChatSpace = (projectId: string | null) => {
     if (!pid) return null;
     try {
       const spaces = await getChatSpaces(pid);
-      const spaceName = name || `新規チャット`;
+      const spaceName = name || '新規チャット';
       const existingNewChat = spaces.find(s => s.name === spaceName);
       if (existingNewChat) {
         setCurrentSpace(existingNewChat);
@@ -179,11 +179,11 @@ export const useChatSpace = (projectId: string | null) => {
         content &&
         content.trim().length > 0
       ) {
-        const newName = content.length > 30 ? content.slice(0, 30) + '…' : content;
+        const newName = content.length > 30 ? `${content.slice(0, 30)}…` : content;
         await renameChatSpace(pid, activeSpace.id, newName);
         setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
         setChatSpaces(prev =>
-          prev.map(s => (s.id === activeSpace!.id ? { ...s, name: newName } : s))
+          prev.map(s => (s.id === activeSpace?.id ? { ...s, name: newName } : s))
         );
       }
 
@@ -219,7 +219,7 @@ export const useChatSpace = (projectId: string | null) => {
 
       setChatSpaces(prev => {
         const updated = prev.map(s =>
-          s.id === activeSpace!.id
+          s.id === activeSpace?.id
             ? { ...s, messages: [...s.messages, newMessage], updatedAt: new Date() }
             : s
         );

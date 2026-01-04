@@ -133,7 +133,7 @@ export default function BottomPanel({
               color: activeTab === 'problems' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
               borderBottom:
-                activeTab === 'problems' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+                activeTab === 'problems' ? `2px solid ${colors.primary}` : '2px solid transparent',
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('problems')}
@@ -161,7 +161,7 @@ export default function BottomPanel({
               color: activeTab === 'output' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
               borderBottom:
-                activeTab === 'output' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+                activeTab === 'output' ? `2px solid ${colors.primary}` : '2px solid transparent',
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('output')}
@@ -188,7 +188,7 @@ export default function BottomPanel({
               color: activeTab === 'debug' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
               borderBottom:
-                activeTab === 'debug' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+                activeTab === 'debug' ? `2px solid ${colors.primary}` : '2px solid transparent',
               transition: 'color 0.2s, border-bottom 0.2s',
               marginLeft: '2px',
             }}
@@ -216,7 +216,7 @@ export default function BottomPanel({
               color: activeTab === 'terminal' ? colors.primary : colors.mutedFg,
               cursor: 'pointer',
               borderBottom:
-                activeTab === 'terminal' ? `2px solid ${colors.primary}` : `2px solid transparent`,
+                activeTab === 'terminal' ? `2px solid ${colors.primary}` : '2px solid transparent',
               transition: 'color 0.2s, border-bottom 0.2s',
               marginLeft: '2px',
             }}

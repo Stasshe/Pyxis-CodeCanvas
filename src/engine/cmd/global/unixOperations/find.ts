@@ -124,7 +124,7 @@ export class FindCommand extends UnixCommandBase {
         case '-maxdepth':
           if (nextArg) {
             const depth = Number.parseInt(nextArg, 10);
-            if (!isNaN(depth) && depth >= 0) {
+            if (!Number.isNaN(depth) && depth >= 0) {
               criteria.maxDepth = depth;
             }
             i++;
@@ -134,7 +134,7 @@ export class FindCommand extends UnixCommandBase {
         case '-mindepth':
           if (nextArg) {
             const depth = Number.parseInt(nextArg, 10);
-            if (!isNaN(depth) && depth >= 0) {
+            if (!Number.isNaN(depth) && depth >= 0) {
               criteria.minDepth = depth;
             }
             i++;
@@ -162,8 +162,9 @@ export class FindCommand extends UnixCommandBase {
     // POSIX: ワイルドカードなしは完全一致（basenameのみ）
     if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
       // 例: find . -iname readme → basenameが"readme"のみ一致
+      // Escape regex special characters including backslash
       return new RegExp(
-        '^' + pattern.replace(/[.+^${}()|\[\]]/g, '\\$&') + '$',
+        `^${pattern.replace(/[\\.*+?^${}()|\[\]]/g, '\\$&')}$`,
         ignoreCase ? 'i' : ''
       );
     }
@@ -196,26 +197,26 @@ export class FindCommand extends UnixCommandBase {
             break;
           } else {
             if (c === '-' || c === '\\') {
-              cls += '\\' + c;
+              cls += `\\${c}`;
             } else {
               cls += c;
             }
             j++;
           }
         }
-        res += '[' + cls + ']';
+        res += `[${cls}]`;
         i = j + 1;
       } else if (ch === '\\' && i + 1 < pattern.length) {
         const nextCh = pattern[i + 1];
         if (/[.+^${}()|\[\]]/.test(nextCh)) {
-          res += '\\' + nextCh;
+          res += `\\${nextCh}`;
         } else {
           res += nextCh;
         }
         i += 2;
       } else {
         if (/[.+^${}()|\[\]]/.test(ch)) {
-          res += '\\' + ch;
+          res += `\\${ch}`;
         } else {
           res += ch;
         }
@@ -223,7 +224,7 @@ export class FindCommand extends UnixCommandBase {
       }
     }
     // basename完全一致
-    return new RegExp('^' + res + '$', ignoreCase ? 'i' : '');
+    return new RegExp(`^${res}$`, ignoreCase ? 'i' : '');
   }
 
   /**

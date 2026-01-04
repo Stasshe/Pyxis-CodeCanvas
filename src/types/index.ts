@@ -8,6 +8,8 @@ export interface FileItem {
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true
   bufferContent?: ArrayBuffer; // バイナリデータ本体
+  /** 拡張プロパティ許可（TabFileInfoとの互換性） */
+  [key: string]: unknown;
 }
 
 // Re-export new tab system types
@@ -23,6 +25,7 @@ export type {
   OpenTabOptions,
   TabComponentProps,
   TabTypeDefinition,
+  TabFileInfo,
   PaneLayoutType,
   EditorPane,
 } from '@/engine/tabs/types';
@@ -73,9 +76,35 @@ export interface ProjectFile {
     content: string; // 保存されたスナップショット
     note?: string;
   }>;
+  /** 拡張プロパティ許可（FileItemとの互換性） */
+  [key: string]: unknown;
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'run' | 'extensions' | 'settings';
+
+/** AI Review status */
+export type AIReviewStatus = 'pending' | 'applied' | 'discarded' | 'reverted';
+
+/** AI Review history entry */
+export interface AIReviewHistoryEntry {
+  id: string;
+  timestamp: Date;
+  content: string;
+  note?: string;
+}
+
+/** AI Review entry (stored in IndexedDB) */
+export interface AIReviewEntry {
+  projectId: string;
+  filePath: string;
+  suggestedContent: string;
+  originalSnapshot: string;
+  status: AIReviewStatus;
+  comments?: string;
+  parentMessageId?: string;
+  history: AIReviewHistoryEntry[];
+  updatedAt: number;
+}
 
 // AI Agent関連の型定義
 export interface AIMessage {

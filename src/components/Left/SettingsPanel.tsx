@@ -50,7 +50,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
 
         // Apply any saved custom colors into the theme context so UI reflects them
         try {
-          if (loadedSettings.theme && loadedSettings.theme.customColors) {
+          if (loadedSettings.theme?.customColors) {
             Object.entries(loadedSettings.theme.customColors).forEach(([k, v]) => {
               // only apply string values
               if (typeof v === 'string') {
@@ -90,7 +90,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       // settings に保存された customColors があれば、基礎テーマ適用後に上書きして再適用する
       // これにより、保存→通知で基礎テーマに戻される際のフリッカーを防ぐ
       try {
-        if (newSettings.theme && newSettings.theme.customColors) {
+        if (newSettings.theme?.customColors) {
           Object.entries(newSettings.theme.customColors).forEach(([k, v]) => {
             if (typeof v === 'string') {
               setColor(k, v);
@@ -141,7 +141,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     try {
       await downloadWorkspaceZip({ currentProject, includeGit });
     } catch (e) {
-      alert('エクスポートに失敗しました: ' + (e instanceof Error ? e.message : e));
+      alert(`エクスポートに失敗しました: ${e instanceof Error ? e.message : e}`);
     }
     setIsExporting(false);
   };
@@ -236,7 +236,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               type="button"
               onClick={async () => {
                 // [NEW ARCHITECTURE] Open shortcut keys settings tab using TabContext
-                await openTab({ name: 'Shortcut Keys', settingsType: 'shortcuts' }, { kind: 'settings' });
+                await openTab(
+                  { name: 'Shortcut Keys', settingsType: 'shortcuts' },
+                  { kind: 'settings' }
+                );
               }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded text-xs hover:bg-opacity-10 transition-colors"
               style={{

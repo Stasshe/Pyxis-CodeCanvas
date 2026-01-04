@@ -176,99 +176,92 @@ export class NpmCommands {
           output += `added ${installedCount} packages, and audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
         return output;
-      } else {
-        // 特定パッケージのインストール
-        const isDev = flags.includes('--save-dev') || flags.includes('-D');
+      }
+      // 特定パッケージのインストール
+      const isDev = flags.includes('--save-dev') || flags.includes('-D');
 
-        // package.jsonに記載があるかチェック
-        let isInPackageJson = false;
-        if (
-          (packageJson.dependencies && packageJson.dependencies[packageName]) ||
-          (packageJson.devDependencies && packageJson.devDependencies[packageName])
-        ) {
-          isInPackageJson = true;
+      // package.jsonに記載があるかチェック
+      let isInPackageJson = false;
+      if (packageJson.dependencies?.[packageName] || packageJson.devDependencies?.[packageName]) {
+        isInPackageJson = true;
+      }
+
+      try {
+        // Start spinner
+        if (ui) {
+          await ui.spinner.start(`http fetch GET https://registry.npmjs.org/${packageName}`);
         }
 
-        try {
-          // Start spinner
-          if (ui) {
-            await ui.spinner.start(`http fetch GET https://registry.npmjs.org/${packageName}`);
-          }
+        const packageInfo = await this.fetchPackageInfo(packageName);
+        const version = packageInfo.version;
 
-          const packageInfo = await this.fetchPackageInfo(packageName);
-          const version = packageInfo.version;
+        if (!packageJson.dependencies) packageJson.dependencies = {};
+        if (!packageJson.devDependencies) packageJson.devDependencies = {};
 
-          if (!packageJson.dependencies) packageJson.dependencies = {};
-          if (!packageJson.devDependencies) packageJson.devDependencies = {};
+        if (isDev) {
+          packageJson.devDependencies[packageName] = `^${version}`;
+        } else {
+          packageJson.dependencies[packageName] = `^${version}`;
+        }
 
-          if (isDev) {
-            packageJson.devDependencies[packageName] = `^${version}`;
-          } else {
-            packageJson.dependencies[packageName] = `^${version}`;
-          }
+        await fileRepository.createFile(
+          this.projectId,
+          '/package.json',
+          JSON.stringify(packageJson, null, 2),
+          'file'
+        );
 
-          await fileRepository.createFile(
-            this.projectId,
-            '/package.json',
-            JSON.stringify(packageJson, null, 2),
-            'file'
-          );
+        // 実際にnode_modulesにインストールされているかチェック（プレフィックス検索）
+        const nodeFiles = await fileRepository.getFilesByPrefix(
+          this.projectId,
+          `/node_modules/${packageName}`
+        );
+        const isActuallyInstalled = nodeFiles.length > 0;
 
-          // 実際にnode_modulesにインストールされているかチェック（プレフィックス検索）
-          const nodeFiles = await fileRepository.getFilesByPrefix(
-            this.projectId,
-            `/node_modules/${packageName}`
-          );
-          const isActuallyInstalled = nodeFiles.length > 0;
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-          if (isInPackageJson && isActuallyInstalled) {
-            if (ui) {
-              await ui.spinner.stop();
-            }
-            try {
-              const npmInstall = new NpmInstall(this.projectName, this.projectId);
-              // ensure .bin entries exist for already-installed package
-              // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-            } catch {}
-            return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
-          } else {
-            const npmInstall = new NpmInstall(this.projectName, this.projectId);
-
-            // Set up progress callback to log all packages (direct + transitive)
-            if (ui) {
-              npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
-                await ui.spinner.update(
-                  `reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`
-                );
-              });
-            }
-
-            npmInstall.startBatchProcessing();
-            try {
-              await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
-            } finally {
-              await npmInstall.finishBatchProcessing();
-              try {
-                await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-              } catch {}
-            }
-
-            // Stop spinner
-            if (ui) {
-              await ui.spinner.stop();
-            }
-
-            const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
-          }
-        } catch (error) {
+        if (isInPackageJson && isActuallyInstalled) {
           if (ui) {
             await ui.spinner.stop();
           }
-          throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);
+          try {
+            const npmInstall = new NpmInstall(this.projectName, this.projectId);
+            // ensure .bin entries exist for already-installed package
+            // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+          } catch {}
+          return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
+        const npmInstall = new NpmInstall(this.projectName, this.projectId);
+
+        // Set up progress callback to log all packages (direct + transitive)
+        if (ui) {
+          npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
+            await ui.spinner.update(`reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
+          });
+        }
+
+        npmInstall.startBatchProcessing();
+        try {
+          await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
+        } finally {
+          await npmInstall.finishBatchProcessing();
+          try {
+            await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
+          } catch {}
+        }
+
+        // Stop spinner
+        if (ui) {
+          await ui.spinner.stop();
+        }
+
+        const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
+      } catch (error) {
+        if (ui) {
+          await ui.spinner.stop();
+        }
+        throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);
       }
     } catch (error) {
       throw new Error(`npm install failed: ${(error as Error).message}`);
@@ -299,7 +292,7 @@ export class NpmCommands {
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
         if (ui) await ui.spinner.stop();
-        return `npm ERR! Cannot find package.json`;
+        return 'npm ERR! Cannot find package.json';
       }
       const packageJson = JSON.parse(packageFile.content);
 
@@ -340,9 +333,8 @@ export class NpmCommands {
 
         if (totalRemoved === 0) {
           return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        } else {
-          return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
+        return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
       } catch (error) {
         // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
         console.warn(
@@ -375,7 +367,7 @@ export class NpmCommands {
     try {
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
-        return `npm ERR! Cannot find package.json`;
+        return 'npm ERR! Cannot find package.json';
       }
       const packageJson = JSON.parse(packageFile.content);
       let output = `${this.projectName}@${packageJson.version} (IndexedDB)\n`;
@@ -441,7 +433,7 @@ export class NpmCommands {
     try {
       const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
       if (!packageFile) {
-        return `npm ERR! Cannot find package.json`;
+        return 'npm ERR! Cannot find package.json';
       }
       const packageJson = JSON.parse(packageFile.content);
       const scripts = packageJson.scripts || {};
@@ -449,7 +441,7 @@ export class NpmCommands {
         const availableScripts = Object.keys(scripts);
         let output = `npm ERR! script '${scriptName}' not found\n`;
         if (availableScripts.length > 0) {
-          output += `\nAvailable scripts:\n`;
+          output += '\nAvailable scripts:\n';
           availableScripts.forEach(script => {
             output += `  ${script}: ${scripts[script]}\n`;
           });
@@ -477,8 +469,8 @@ export class NpmCommands {
       const res = await shell.run(command);
 
       const outParts: string[] = [header];
-      if (res.stdout && res.stdout.length) outParts.push(res.stdout);
-      if (res.stderr && res.stderr.length) outParts.push(res.stderr);
+      if (res.stdout?.length) outParts.push(res.stdout);
+      if (res.stderr?.length) outParts.push(res.stderr);
       if (res.code === 0 || res.code === null) {
         outParts.push(`\nScript '${scriptName}' completed successfully.`);
       } else {
@@ -511,9 +503,8 @@ export class NpmCommands {
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error(`Package '${packageName}' not found`);
-        } else {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();

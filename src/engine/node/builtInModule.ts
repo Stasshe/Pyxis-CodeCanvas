@@ -27,7 +27,7 @@
  * ```
  */
 
-import * as stream from 'stream';
+import * as stream from 'node:stream';
 import { createAssertModule } from './modules/assertModule';
 import { Buffer } from './modules/bufferModule';
 import { createEventsModule } from './modules/eventsModule';

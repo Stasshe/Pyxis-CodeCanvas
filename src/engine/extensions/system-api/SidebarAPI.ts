@@ -161,7 +161,7 @@ class SidebarRegistry {
       this.activateCallbacks.set(fullId, new Set());
     }
 
-    this.activateCallbacks.get(fullId)!.add(callback);
+    this.activateCallbacks.get(fullId)?.add(callback);
   }
 
   /**

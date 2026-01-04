@@ -448,7 +448,7 @@ export default function TabBar({ paneId }: TabBarProps) {
           background: isActive ? colors.background : colors.mutedBg,
           borderColor: isActive ? `${colors.green}80` : colors.border,
           borderRight: `1px solid ${colors.border}`,
-          borderBottom: isActive ? `2px solid ${colors.green}90` : `2px solid transparent`,
+          borderBottom: isActive ? `2px solid ${colors.green}90` : '2px solid transparent',
           boxShadow: isActive ? `0 2px 8px ${colors.green}20` : 'none',
           minWidth: '120px',
           maxWidth: '200px',

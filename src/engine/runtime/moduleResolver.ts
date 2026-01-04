@@ -574,7 +574,7 @@ export class ModuleResolver {
       }
     }
 
-    return '/' + parts.join('/');
+    return `/${parts.join('/')}`;
   }
 
   /**

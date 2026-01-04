@@ -35,6 +35,6 @@ export async function generateCommitMessage(diff: string, apiKey: string): Promi
 
     return result;
   } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
+    throw new Error(`Gemini API error: ${(error as Error).message}`);
   }
 }

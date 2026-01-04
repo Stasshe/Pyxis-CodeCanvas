@@ -35,10 +35,10 @@ export function pathToFileURL(path: string): URL {
 
   // Add leading slash if needed for absolute paths on Windows
   if (/^[a-zA-Z]:/.test(urlPath)) {
-    urlPath = '/' + urlPath;
+    urlPath = `/${urlPath}`;
   }
 
-  return new URL('file://' + encodeURI(urlPath));
+  return new URL(`file://${encodeURI(urlPath)}`);
 }
 
 /**

@@ -22,7 +22,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
   // ファイルパスを仮想ファイルシステムのルートに基づいて解決
   const resolveFilePath = (path: string): string => {
-    const root = '/projects/' + currentProjectName; // 仮想ファイルシステムのルートを指定
+    const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
     return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
   };
 
@@ -115,7 +115,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
       ? filePath
       : filePath.substring(0, filePath.lastIndexOf('/')) || '/';
 
-    const normalize = (p: string) => (p && p.startsWith('/') ? p : '/' + (p || ''));
+    const normalize = (p: string) => (p?.startsWith('/') ? p : `/${p || ''}`);
 
     console.log(
       '[WebPreviewTab] Setting up repository watcher for path:',

@@ -208,20 +208,19 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         // Skip filename/path replacement — renaming is not supported from search panel
         console.info('Skipping filename replace from SearchPanel');
         return;
-      } else {
-        const fileEntry = await fileRepository.getFileByPath(projId, filePath);
-        if (!fileEntry || typeof fileEntry.content !== 'string')
-          throw new Error('file not found or not text');
-        const lines = fileEntry.content.split('\n');
-        const lineIdx = result.line - 1;
-        const line = lines[lineIdx] || '';
-        const before = line.substring(0, result.matchStart);
-        const after = line.substring(result.matchEnd);
-        lines[lineIdx] = before + replacement + after;
-        const updatedContent = lines.join('\n');
-        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-        await fileRepository.saveFile(updated);
       }
+      const fileEntry = await fileRepository.getFileByPath(projId, filePath);
+      if (!fileEntry || typeof fileEntry.content !== 'string')
+        throw new Error('file not found or not text');
+      const lines = fileEntry.content.split('\n');
+      const lineIdx = result.line - 1;
+      const line = lines[lineIdx] || '';
+      const before = line.substring(0, result.matchStart);
+      const after = line.substring(result.matchEnd);
+      lines[lineIdx] = before + replacement + after;
+      const updatedContent = lines.join('\n');
+      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
+      await fileRepository.saveFile(updated);
 
       performSearch(searchQuery);
     } catch (e) {
@@ -327,7 +326,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   return (
     <div
       ref={containerRef}
-      tabIndex={0}
       onKeyDown={handleKeyDown}
       style={{ height: '100%', display: 'flex', flexDirection: 'column', fontSize: '0.68rem' }}
     >
@@ -378,7 +376,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                 color: colors.foreground,
                 lineHeight: '1rem',
               }}
-              autoFocus
             />
             {searchQuery && (
               <button

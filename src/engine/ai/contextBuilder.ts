@@ -61,7 +61,7 @@ function truncateFileContent(content: unknown): string {
   }
 
   const truncatedLines = lines.slice(0, MAX_LINES_PER_FILE);
-  return truncatedLines.join('\n') + '\n\n// ... ファイルが長すぎるため切り詰められました';
+  return `${truncatedLines.join('\n')}\n\n// ... ファイルが長すぎるため切り詰められました`;
 }
 
 // FileItemをAIFileContextに変換
@@ -193,7 +193,7 @@ export function getCustomInstructions(contexts: AIFileContext[]): string | undef
       ctx.path === 'pyxis-instructions.md'
   );
 
-  if (instructionsFile && instructionsFile.content) {
+  if (instructionsFile?.content) {
     return instructionsFile.content;
   }
 
@@ -213,7 +213,7 @@ export function findCustomInstructionsFromFiles(
       f.path.endsWith('/pyxis-instructions.md')
   );
 
-  if (instructionsFile && instructionsFile.content) {
+  if (instructionsFile?.content) {
     return instructionsFile.content;
   }
 

@@ -71,10 +71,9 @@ export class TreeCommand extends UnixCommandBase {
       let entries = files.filter((f: ProjectFile) => {
         if (relativePath === '/') {
           return f.path.split('/').filter((p: string) => p).length === 1;
-        } else {
-          const childPath = f.path.replace(dirPrefix, '');
-          return f.path.startsWith(dirPrefix) && !childPath.includes('/');
         }
+        const childPath = f.path.replace(dirPrefix, '');
+        return f.path.startsWith(dirPrefix) && !childPath.includes('/');
       });
 
       // フィルタリング
@@ -92,7 +91,7 @@ export class TreeCommand extends UnixCommandBase {
       if (ignorePattern) {
         entries = entries.filter(f => {
           const name = f.path.split('/').pop() || '';
-          return !ignorePattern!.test(name);
+          return !ignorePattern?.test(name);
         });
       }
 

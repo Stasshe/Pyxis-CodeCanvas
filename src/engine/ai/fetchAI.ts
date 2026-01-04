@@ -33,7 +33,7 @@ export async function generateCodeEdit(prompt: string, apiKey: string): Promise<
 
     return result;
   } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
+    throw new Error(`Gemini API error: ${(error as Error).message}`);
   }
 }
 
@@ -75,6 +75,6 @@ export async function generateChatResponse(
 
     return result;
   } catch (error) {
-    throw new Error('Gemini API error: ' + (error as Error).message);
+    throw new Error(`Gemini API error: ${(error as Error).message}`);
   }
 }
