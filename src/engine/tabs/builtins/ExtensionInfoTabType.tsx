@@ -365,7 +365,7 @@ export const ExtensionInfoTabType: TabTypeDefinition = {
       path: `extension-info/${manifest.id}`,
       paneId: options?.paneId || '',
       manifest,
-      isEnabled: file.isEnabled ?? false,
+      isEnabled: Boolean(file.isEnabled),
     };
   },
 };

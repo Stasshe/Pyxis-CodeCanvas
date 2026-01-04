@@ -9,23 +9,23 @@ import { MONACO_CONFIG } from '@/context/config';
 
 /**
  * Monaco Model Management Architecture
- * 
+ *
  * This module uses a HYBRID approach with two model lookup paths:
- * 
+ *
  * 1. TabId-based cache (sharedModelMap)
  *    - Purpose: Fast lookup, LRU management, external update capability
  *    - Indexed by: tabId (e.g., "/path/to/file.ts")
  *    - Benefits: Enables updateCachedModelContent() for background tabs
- * 
+ *
  * 2. URI-based lookup (Monaco's native registry)
  *    - Purpose: Prevent duplicate models, leverage Monaco's lifecycle
  *    - Indexed by: URI (e.g., "inmemory://model/path/to/file.ts")
  *    - Benefits: Safety net, Monaco-managed disposal
- * 
+ *
  * Why both?
  * - TabId cache: Required for LRU eviction and external updates (tabStore integration)
  * - URI lookup: Required to avoid creating duplicate models in Monaco's registry
- * 
+ *
  * This is NOT redundant - each serves a distinct purpose. Both paths properly
  * update content on model reuse (fixes external change bug).
  */
@@ -66,7 +66,11 @@ const sharedCurrentModelIdRef: { current: string | null } = { current: null };
  * @param content 新しいコンテンツ
  * @param context 呼び出し元のコンテキスト（ログ用）
  */
-export function updateCachedModelContent(tabId: string, content: string, context = 'inactive'): void {
+export function updateCachedModelContent(
+  tabId: string,
+  content: string,
+  context = 'inactive'
+): void {
   const model = sharedModelMap.get(tabId);
   if (model && typeof model.isDisposed === 'function' && !model.isDisposed()) {
     try {
@@ -221,7 +225,7 @@ export function useMonacoModels() {
                   console.log('[useMonacoModels] Updating reused model content:', {
                     tabId,
                     oldLength: currentContent.length,
-                    newLength: content.length
+                    newLength: content.length,
                   });
                   existingModel.setValue(content);
                 }

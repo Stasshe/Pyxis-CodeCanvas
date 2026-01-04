@@ -266,7 +266,7 @@ export default function Home() {
     'openShortcutKeys',
     () => {
       openTab(
-        { name: 'Shortcut Keys', path: 'settings/shortcuts', settingsType: 'shortcuts' } as any,
+        { name: 'Shortcut Keys', path: 'settings/shortcuts', settingsType: 'shortcuts' },
         { kind: 'settings' }
       );
     },
@@ -457,12 +457,12 @@ export default function Home() {
             gitChangesCount={gitChangesCount}
           />
 
-          {isLeftSidebarVisible && (
+          {isLeftSidebarVisible && currentProject && (
             <LeftSidebar
               activeMenuTab={activeMenuTab}
               leftSidebarWidth={leftSidebarWidth}
               files={projectFiles}
-              currentProject={currentProject!}
+              currentProject={currentProject}
               onResize={handleLeftResize}
               onGitRefresh={() => {
                 if (currentProject && loadProject) {

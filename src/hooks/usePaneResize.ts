@@ -101,12 +101,12 @@ export function usePaneResize(options: UsePaneResizeOptions) {
 
       const handleMove = (clientX: number, clientY: number) => {
         const state = stateRef.current;
-        
+
         // Cancel previous animation frame if exists
         if (state.rafId !== undefined) {
           cancelAnimationFrame(state.rafId);
         }
-        
+
         // Schedule update on next animation frame for smooth 60fps updates
         state.rafId = requestAnimationFrame(() => {
           const currentPos = direction === 'vertical' ? clientX : clientY;
@@ -129,7 +129,7 @@ export function usePaneResize(options: UsePaneResizeOptions) {
           if (newLeftPercent >= minSize && newRightPercent >= minSize) {
             onResize(newLeftPercent, newRightPercent);
           }
-          
+
           state.rafId = undefined;
         });
       };

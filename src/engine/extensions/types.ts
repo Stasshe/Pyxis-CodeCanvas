@@ -88,6 +88,8 @@ export interface ExtensionManifest {
   files?: string[];
   /** 同じグループで同時に1つのみ有効化を許可 (例: "lang-pack") */
   onlyOne?: string;
+  /** READMEコンテンツ (ローダーによって追加される) */
+  readme?: string;
   /** パックグループ情報 (UIでグループ化表示する際に使用) */
   packGroup?: {
     /** グループID (例: "language-packs") */

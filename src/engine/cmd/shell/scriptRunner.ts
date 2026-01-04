@@ -443,8 +443,7 @@ async function runRange(
           if (eRes.stderr) proc.writeStderr(eRes.stderr);
           if (eRes.code === 0) {
             const eThenStart = eIdx + 1;
-            const eThenEnd =
-              k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
+            const eThenEnd = k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
             const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell);
             if (r !== 'ok') return r;
             matched = true;

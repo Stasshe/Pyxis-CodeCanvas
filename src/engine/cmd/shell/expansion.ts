@@ -34,7 +34,7 @@ export function splitOnIFS(s: string, ifs?: string): string[] {
   if (!s) return [''];
   const ifsValue = (ifs ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
   const isIfsWhitespace = /[ \t\n]/.test(ifsValue);
-  
+
   if (isIfsWhitespace) {
     // treat runs of whitespace as single separator and trim edges
     return s.split(/\s+/).filter(Boolean);
@@ -60,18 +60,15 @@ export interface GlobExpandOptions {
 /**
  * Expand glob pattern to matching file paths
  */
-export async function globExpand(
-  pattern: string,
-  options: GlobExpandOptions
-): Promise<string[]> {
+export async function globExpand(pattern: string, options: GlobExpandOptions): Promise<string[]> {
   const { projectId, projectName, fileRepository: repo, unix } = options;
-  
+
   if (!repo || !unix) return [pattern];
 
   try {
     const currentWorkingDir = await unix.pwd().catch(() => `/projects/${projectName}`);
     const projectBase = `/projects/${projectName}`;
-    
+
     // Split pattern into directory prefix and filename glob
     const lastSlashIndex = pattern.lastIndexOf('/');
     const dirPrefix = lastSlashIndex >= 0 ? pattern.slice(0, lastSlashIndex + 1) : '';
@@ -161,7 +158,7 @@ export async function globExpand(
     const regexStr = '^' + regexParts.join('') + '$';
     const regex = new RegExp(regexStr);
     const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
-    
+
     console.log('[globExpand] input:', pattern);
     console.log('[globExpand] cwd:', currentWorkingDir);
     console.log('[globExpand] dirPrefix:', dirPrefix, 'fileGlob:', fileGlob);
@@ -185,9 +182,9 @@ export async function expandTokens(
   options: GlobExpandOptions
 ): Promise<string[]> {
   const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
-  
+
   const finalWords: string[] = [];
-  
+
   for (const tk of tokens) {
     if (tk.quote === 'single' || tk.quote === 'double') {
       // quoted: no field splitting, no globbing

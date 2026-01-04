@@ -205,7 +205,10 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 
     // content は Tab のユニオン型によって存在しない場合があるため型ガード
     const isContentTab = activeTab.kind === 'editor' || activeTab.kind === 'preview';
-    const content = isContentTab ? (activeTab as any).content || '' : '';
+    let content = '';
+    if (isContentTab && 'content' in activeTab) {
+      content = String(activeTab.content) || '';
+    }
 
     // FileItem は必須で `id` を持つため、path を id として使う
     const newFile: FileItem = {
@@ -233,9 +236,8 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
         const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
         const entry = await getAIReviewEntry(projectId, filePath);
 
-        // 既存エントリがない場合でも、projectIdを含む最小限のaiEntryを作成
-        const aiEntry = entry || { projectId, filePath };
-        openAIReviewTab(filePath, originalContent, suggestedContent, aiEntry);
+        // 既存エントリがあればそれを使用、なければundefined
+        openAIReviewTab(filePath, originalContent, suggestedContent, entry ?? undefined);
         return;
       }
     } catch (e) {
@@ -773,7 +775,7 @@ export default memo(AIPanel, (prevProps, nextProps) => {
   if (prevProps.currentProject?.id !== nextProps.currentProject?.id) {
     return false;
   }
-  
+
   // その他の場合は再レンダリングしない（パフォーマンス最適化）
   return true;
 });

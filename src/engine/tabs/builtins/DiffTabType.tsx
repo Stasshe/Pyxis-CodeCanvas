@@ -2,7 +2,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 
-import type { DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
+import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useGitContext } from '@/components/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
@@ -144,40 +144,45 @@ export const DiffTabType: TabTypeDefinition = {
   component: DiffTabRenderer,
 
   createTab: (data, options): DiffTab => {
-    const files = data.files;
+    // data contains { files, editable } where files is DiffFileEntry[] or single DiffFileEntry
+    const files = data.files as DiffFileEntry[] | DiffFileEntry | undefined;
     const isMultiFile = Array.isArray(files);
-    const diffs = isMultiFile ? files : [files];
+    const diffs: DiffFileEntry[] = isMultiFile ? files : files ? [files] : [];
 
     let tabId: string;
     let tabName: string;
 
-    if (isMultiFile) {
+    if (isMultiFile && diffs.length > 0) {
       const firstDiff = diffs[0];
       tabId = `diff-all-${firstDiff.formerCommitId}-${firstDiff.latterCommitId}`;
       tabName = `Diff: ${firstDiff.formerCommitId?.slice(0, 6) || ''}..${firstDiff.latterCommitId?.slice(0, 6) || ''}`;
-    } else {
+    } else if (diffs.length > 0) {
       const diff = diffs[0];
       tabId = `diff-${diff.formerCommitId}-${diff.latterCommitId}-${diff.formerFullPath}`;
       tabName = `Diff: ${diff.formerFullPath.split('/').pop()} (${diff.formerCommitId?.slice(0, 6) || ''}..${diff.latterCommitId?.slice(0, 6) || ''})`;
+    } else {
+      tabId = `diff-${Date.now()}`;
+      tabName = 'Diff';
     }
 
     return {
       id: tabId,
       name: tabName,
       kind: 'diff',
-      path: isMultiFile ? '' : diffs[0].formerFullPath,
+      path: isMultiFile || diffs.length === 0 ? '' : diffs[0].formerFullPath,
       paneId: options?.paneId || '',
       diffs: diffs,
-      editable: data.editable ?? false,
+      editable: Boolean(data.editable),
     };
   },
 
   shouldReuseTab: (existingTab, newFile, options) => {
     const diffTab = existingTab as DiffTab;
+    const files = newFile.files as DiffFileEntry[] | DiffFileEntry | undefined;
 
     // 複数ファイルの場合はコミットIDで比較
-    if (newFile.files && Array.isArray(newFile.files) && newFile.files.length > 1) {
-      const firstDiff = newFile.files[0];
+    if (files && Array.isArray(files) && files.length > 1) {
+      const firstDiff = files[0];
       return (
         diffTab.kind === 'diff' &&
         diffTab.diffs.length > 1 &&
@@ -187,7 +192,11 @@ export const DiffTabType: TabTypeDefinition = {
     }
 
     // 単一ファイルの場合はパスとコミットIDで比較
-    const singleFileDiff = newFile.files ? newFile.files[0] : newFile;
+    const singleFileDiff = files
+      ? Array.isArray(files)
+        ? files[0]
+        : files
+      : (newFile as unknown as DiffFileEntry);
     return (
       diffTab.kind === 'diff' &&
       diffTab.diffs.length === 1 &&

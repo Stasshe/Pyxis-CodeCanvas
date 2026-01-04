@@ -236,7 +236,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               type="button"
               onClick={async () => {
                 // [NEW ARCHITECTURE] Open shortcut keys settings tab using TabContext
-                await openTab({ name: 'Shortcut Keys', settingsType: 'shortcuts' }, { kind: 'settings' });
+                await openTab(
+                  { name: 'Shortcut Keys', settingsType: 'shortcuts' },
+                  { kind: 'settings' }
+                );
               }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded text-xs hover:bg-opacity-10 transition-colors"
               style={{
