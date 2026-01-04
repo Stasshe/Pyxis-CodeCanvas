@@ -259,6 +259,7 @@ Root
 │   │   │   │   ├── git.ts
 │   │   │   │   ├── gitOperations
 │   │   │   │   │   ├── checkout.ts
+│   │   │   │   │   ├── clone.ts
 │   │   │   │   │   ├── diff.ts
 │   │   │   │   │   ├── fetch.ts
 │   │   │   │   │   ├── fileSystemHelper.ts
@@ -269,6 +270,7 @@ Root
 │   │   │   │   │   ├── log.ts
 │   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── push.ts
+│   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
 │   │   │   │   │   ├── show.ts
@@ -471,6 +473,7 @@ Root
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
 │   ├── shell.operators.test.ts
+│   ├── shell.script.streaming.test.ts
 │   ├── shell.stream.test.ts
 │   └── transform_real_files.test.ts
 ├── tree-built-out.sh
@@ -480,7 +483,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-71 directories, 409 files
+71 directories, 412 files
 
 =================================
 
@@ -607,12 +610,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 65138
-合計文字数: 2087474
-合計ファイルサイズ(bytes): 2228304
+合計行数: 65616
+合計文字数: 2099537
+合計ファイルサイズ(bytes): 2239819
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127459
-合計文字数: 26883965
-合計ファイルサイズ(bytes): 29862143
+ビルト済みファイルの行数: 127464
+合計文字数: 26887063
+合計ファイルサイズ(bytes): 29865241
