@@ -394,15 +394,18 @@ class EditorMemoryManager {
         return;
       }
 
+      // タブが開いているか確認（コンテンツ未ロードでも外部更新は拾う）
+      const tabStore = useTabStore.getState();
+      const tabInfo = tabStore.findTabByPath(filePath);
+      if (!tabInfo) {
+        // そもそもタブが開かれていない場合はスキップ
+        return;
+      }
+
       // tabStoreの現在のコンテンツと比較
       const currentContent = this.getContentFromTabStore(filePath);
       if (currentContent === newContent) {
         // 内容が同じならスキップ
-        return;
-      }
-
-      // タブが開いていない場合はスキップ
-      if (currentContent === undefined) {
         return;
       }
 
