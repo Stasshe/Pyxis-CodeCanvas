@@ -2,7 +2,7 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, memo } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { usePaneResize } from '@/hooks/usePaneResize';
@@ -19,7 +19,7 @@ interface PaneResizerProps {
  * ペイン間リサイザーコンポーネント
  * usePaneResizeフックを使用してマウス/タッチイベントを処理
  */
-export default function PaneResizer({
+function PaneResizer({
   direction,
   onResize,
   leftSize,
@@ -119,3 +119,27 @@ export default function PaneResizer({
     </div>
   );
 }
+
+// Memoize PaneResizer to prevent unnecessary re-renders during resize
+export default memo(PaneResizer, (prevProps, nextProps) => {
+  // directionが変わった場合は再レンダリング
+  if (prevProps.direction !== nextProps.direction) {
+    return false;
+  }
+  
+  // minSizeが変わった場合は再レンダリング
+  if (prevProps.minSize !== nextProps.minSize) {
+    return false;
+  }
+  
+  // onResizeコールバックの参照が変わった場合は再レンダリング
+  // (ただし、これは頻繁に起こるべきではない)
+  if (prevProps.onResize !== nextProps.onResize) {
+    return false;
+  }
+  
+  // leftSize/rightSizeの変更は無視（リサイズ中の頻繁な更新を防ぐ）
+  // これらの値は内部状態として管理され、親から再レンダリングを強制する必要はない
+  
+  return true;
+});
