@@ -166,14 +166,14 @@ export default function VirtualizedFileTree({
 
   // Handle item click
   const handleItemClick = useCallback(
-    (item: FileItem) => {
+    async (item: FileItem) => {
       if (item.type === 'folder') {
         toggleFolder(item.id);
       } else {
         const defaultEditor =
           typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
         const kind = item.isBufferArray ? 'binary' : 'editor';
-        openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
+        await openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
       }
     },
     [toggleFolder, openTab]

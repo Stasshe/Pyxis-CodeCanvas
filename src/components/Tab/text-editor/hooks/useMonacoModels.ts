@@ -36,6 +36,25 @@ const modelAccessOrder: string[] = [];
 // モジュール共有の currentModelIdRef 互換オブジェクト
 const sharedCurrentModelIdRef: { current: string | null } = { current: null };
 
+/**
+ * モジュールレベルの関数: 既存のモデルのコンテンツを更新
+ * TabStoreから呼び出されて、非アクティブなタブのモデルも更新する
+ */
+export function updateCachedModelContent(tabId: string, content: string): void {
+  const model = sharedModelMap.get(tabId);
+  if (model && typeof model.isDisposed === 'function' && !model.isDisposed()) {
+    try {
+      const currentValue = model.getValue();
+      if (currentValue !== content) {
+        model.setValue(content);
+        console.log('[useMonacoModels] Updated cached model content for inactive tab:', tabId);
+      }
+    } catch (e) {
+      console.warn('[useMonacoModels] Failed to update cached model content:', e);
+    }
+  }
+}
+
 // LRU順序を更新するヘルパー
 function updateModelAccessOrder(tabId: string): void {
   const index = modelAccessOrder.indexOf(tabId);
@@ -154,6 +173,16 @@ export function useMonacoModels() {
                 }
                 // Languages already match — reuse safely.
                 // reuse log removed in cleanup
+                // IMPORTANT: Update content when reusing existing model
+                const currentContent = existingModel.getValue();
+                if (currentContent !== content) {
+                  console.log('[useMonacoModels] Updating reused model content:', {
+                    tabId,
+                    oldLength: currentContent.length,
+                    newLength: content.length
+                  });
+                  existingModel.setValue(content);
+                }
                 monacoModelMap.set(tabId, existingModel);
                 updateModelAccessOrder(tabId);
                 return existingModel;

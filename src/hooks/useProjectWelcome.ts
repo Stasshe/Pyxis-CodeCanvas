@@ -19,13 +19,15 @@ export function useProjectWelcome(currentProject: Project | null) {
     if (panes.length > 0) {
       const firstPane = panes[0];
       if (firstPane.tabs.length === 0) {
-        openTab(
-          {
-            name: currentProject.name,
-            description: currentProject.description,
-          },
-          { kind: 'welcome' }
-        );
+        (async () => {
+          await openTab(
+            {
+              name: currentProject.name,
+              description: currentProject.description,
+            },
+            { kind: 'welcome' }
+          );
+        })();
       }
     }
   }, [currentProject?.id]);

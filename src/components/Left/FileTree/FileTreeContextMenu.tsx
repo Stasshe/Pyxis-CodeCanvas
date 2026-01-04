@@ -55,17 +55,17 @@ export default function FileTreeContextMenu({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [setContextMenu]);
 
-  const handlePreview = (item: FileItem) => {
+  const handlePreview = async (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' && item.name.endsWith('.md')) {
-      openTab(item, { kind: 'preview' });
+      await openTab(item, { kind: 'preview' });
     }
   };
 
-  const handleWebPreview = (item: FileItem) => {
+  const handleWebPreview = async (item: FileItem) => {
     setContextMenu(null);
     if (item.type === 'file' || item.type === 'folder') {
-      openTab(item, { kind: 'webPreview', projectName: currentProjectName });
+      await openTab(item, { kind: 'webPreview', projectName: currentProjectName });
     }
   };
 
@@ -218,15 +218,15 @@ export default function FileTreeContextMenu({
 
     if (key === 'open') {
       const kind = (menuItem as FileItem).isBufferArray ? 'binary' : 'editor';
-      openTab(menuItem, { kind });
+      await openTab(menuItem, { kind });
     } else if (key === 'openPreview') {
-      handlePreview(menuItem);
+      await handlePreview(menuItem);
     } else if (key === 'openCodeMirror') {
       if (menuItem.type === 'file') {
         if ((menuItem as FileItem).isBufferArray) {
-          openTab(menuItem, { kind: 'binary' });
+          await openTab(menuItem, { kind: 'binary' });
         } else {
-          openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
+          await openTab({ ...menuItem, isCodeMirror: true }, { kind: 'editor' });
         }
       }
     } else if (key === 'download') {

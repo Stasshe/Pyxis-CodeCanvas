@@ -188,7 +188,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
       // バイナリファイルの場合は binary タブで開く
       const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
-      openTab(fileWithJump, {
+      await openTab(fileWithJump, {
         kind,
         jumpToLine: result.line,
         jumpToColumn: result.column,
