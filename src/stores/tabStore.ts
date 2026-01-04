@@ -61,12 +61,7 @@ interface TabStore {
    */
   openTab: (file: any, options?: OpenTabOptions) => Promise<void>;
   closeTab: (paneId: string, tabId: string) => void;
-  /**
-   * タブをアクティブ化（非同期）
-   * エディタータブの場合、アクティブ化前に最新のコンテンツを取得
-   * 注意: 非同期関数ですが、既存の呼び出し元では await 不要（後方互換性あり）
-   */
-  activateTab: (paneId: string, tabId: string) => Promise<void>;
+  activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, isDirty?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
@@ -232,12 +227,18 @@ export const useTabStore = create<TabStore>((set, get) => ({
   setActivePane: paneId => set({ activePane: paneId }),
 
   openTab: async (file, options = {}) => {
+    console.log('[TabStore.openTab] Called with:', { 
+      fileName: file.name, 
+      filePath: file.path, 
+      options 
+    });
     const state = get();
     // 優先順位: options.kind -> file.kind -> (buffer arrayなら'binary') -> 'editor'
     const kind =
       options.kind ||
       file.kind ||
       (file && (file.isBufferArray === true || file.isBufferArray) ? 'binary' : 'editor');
+    console.log('[TabStore.openTab] Determined kind:', kind);
     // 初期は options または global active pane を優先し、まだない場合は null にして
     // 後続のロジックで "leaf pane" の探索や新規作成を正しく行えるようにする
     let targetPaneId = options.paneId || state.activePane || null;
@@ -421,12 +422,18 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     // 新規タブの作成
     // エディタータブの場合、最新のコンテンツをfileRepositoryから取得
+    console.log('[TabStore.openTab] Creating new tab for:', { kind, path: file.path });
     let fileToCreate = file;
     if ((kind === 'editor' || kind === 'binary') && file.path) {
       try {
         const projectId = getCurrentProjectId();
+        console.log('[TabStore.openTab] Loading fresh content for new tab:', { projectId, path: file.path });
         if (projectId) {
           const freshFile = await fileRepository.getFileByPath(projectId, file.path);
+          console.log('[TabStore.openTab] Loaded fresh file:', { 
+            hasFile: !!freshFile, 
+            contentLength: freshFile?.content?.length 
+          });
           if (freshFile) {
             // 最新のコンテンツのみ更新（重要なプロパティは保持）
             fileToCreate = {
@@ -435,6 +442,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
               isBufferArray: freshFile.isBufferArray ?? file.isBufferArray,
               bufferContent: freshFile.bufferContent ?? file.bufferContent,
             };
+            console.log('[TabStore.openTab] Updated fileToCreate with fresh content, length:', freshFile.content?.length);
           }
         }
       } catch (e) {
@@ -443,6 +451,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       }
     }
 
+    console.log('[TabStore.openTab] Calling createTab with content length:', fileToCreate.content?.length);
     const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
 
     // ペインにタブを追加し、グローバルアクティブタブも同時に更新
@@ -511,20 +520,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
     }
   },
 
-  activateTab: async (paneId, tabId) => {
-    console.log('[TabStore.activateTab] Activating tab:', { paneId, tabId });
-    
-    // タブをアクティブにする前に、最新のコンテンツで更新
-    const state = get();
-    const pane = state.getPane(paneId);
-    if (pane) {
-      const tab = pane.tabs.find(t => t.id === tabId);
-      if (tab && (tab.kind === 'editor' || tab.kind === 'binary')) {
-        console.log('[TabStore.activateTab] Loading fresh content for editor tab');
-        await loadAndUpdateTabContent(tab.id, tab.kind, tab.path, get);
-      }
-    }
-    
+  activateTab: (paneId, tabId) => {
     // ペインのactiveTabIdとグローバル状態を同時に更新
     // 別々のset呼び出しだと状態の不整合が発生し、フォーカスが正しく当たらない
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
