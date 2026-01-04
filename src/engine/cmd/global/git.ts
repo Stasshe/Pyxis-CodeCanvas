@@ -7,6 +7,7 @@ import { GitDiffOperations } from './gitOperations/diff';
 import { GitFileSystemHelper } from './gitOperations/fileSystemHelper';
 import { GitLogOperations } from './gitOperations/log';
 import { GitMergeOperations } from './gitOperations/merge';
+import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 
@@ -726,8 +727,8 @@ export class GitCommands {
     await this.ensureGitRepository();
 
     try {
-      // リモートブランチのコミットIDを取得
-      const remoteRef = `refs/remotes/${remoteBranch}`;
+      // Use remoteUtils to convert to full remote ref
+      const remoteRef = toFullRemoteRef(remoteBranch);
       let commitOid: string;
 
       try {
@@ -800,41 +801,8 @@ export class GitCommands {
         let result = '';
 
         if (remote || all) {
-          // リモートブランチを表示
-          const remoteBranches: string[] = [];
-
-          // refs/remotes 以下のブランチを直接取得
-          try {
-            // originのリモートブランチを取得
-            try {
-              const originBranches = await this.fs.promises.readdir(
-                `${this.dir}/.git/refs/remotes/origin`
-              );
-              for (const branch of originBranches) {
-                if (branch !== '.' && branch !== '..') {
-                  remoteBranches.push(`origin/${branch}`);
-                }
-              }
-            } catch {
-              // originディレクトリが存在しない
-            }
-
-            // upstreamのリモートブランチを取得
-            try {
-              const upstreamBranches = await this.fs.promises.readdir(
-                `${this.dir}/.git/refs/remotes/upstream`
-              );
-              for (const branch of upstreamBranches) {
-                if (branch !== '.' && branch !== '..') {
-                  remoteBranches.push(`upstream/${branch}`);
-                }
-              }
-            } catch {
-              // upstreamディレクトリが存在しない
-            }
-          } catch (error) {
-            console.warn('[git branch] Failed to read remote branches:', error);
-          }
+          // Use remoteUtils to get remote branches
+          const remoteBranches = await listAllRemoteRefs(this.fs, this.dir);
 
           if (all && !remote) {
             // -a: ローカルブランチも表示

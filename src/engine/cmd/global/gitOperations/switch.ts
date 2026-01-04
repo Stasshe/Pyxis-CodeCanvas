@@ -1,12 +1,13 @@
 import type FS from '@isomorphic-git/lightning-fs';
-import git from 'isomorphic-git';
 
 import { GitCheckoutOperations } from './checkout';
+import { isRemoteRef, resolveRemoteRef } from './remoteUtils';
 
 /**
  * [NEW ARCHITECTURE] Git switch操作を管理するクラス
  * - ローカルブランチ、リモートブランチ、コミットハッシュに対応
  * - checkout操作をラップして機能を提供
+ * - リモートブランチはremoteUtilsを使用して標準化された処理を行う
  */
 export class GitSwitchOperations {
   private fs: FS;
@@ -44,7 +45,7 @@ export class GitSwitchOperations {
     await this.ensureGitRepository();
 
     try {
-      const { createNew = false, detach = false } = options;
+      const { createNew = false } = options;
       const normalizedRef = targetRef.trim();
 
       // コミットハッシュかどうかを判定（7文字以上の16進数、短縮系に対応）
@@ -67,17 +68,13 @@ export class GitSwitchOperations {
         }
       }
 
-      // リモートブランチかどうかを判定（remote/branch形式）
-      if (normalizedRef.includes('/')) {
-        // origin/main, upstream/develop など
+      // Use remoteUtils to check if this is a remote reference
+      if (isRemoteRef(normalizedRef)) {
         try {
-          // リモート追跡ブランチの参照を確認
-          const remoteRef = `refs/remotes/${normalizedRef}`;
-          let commitOid: string;
+          // Resolve remote branch using standardized utility
+          const commitOid = await resolveRemoteRef(this.fs, this.dir, normalizedRef);
 
-          try {
-            commitOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
-          } catch {
+          if (!commitOid) {
             throw new Error(`Remote branch '${normalizedRef}' not found. Did you run 'git fetch'?`);
           }
 
@@ -96,23 +93,18 @@ export class GitSwitchOperations {
       }
 
       // ローカルブランチ
+      const checkoutOperations = new GitCheckoutOperations(
+        this.fs,
+        this.dir,
+        this.projectId,
+        this.projectName
+      );
+
       if (createNew) {
         // 新しいブランチを作成して切り替え
-        const checkoutOperations = new GitCheckoutOperations(
-          this.fs,
-          this.dir,
-          this.projectId,
-          this.projectName
-        );
         return await checkoutOperations.checkout(normalizedRef, true);
       } else {
         // 既存のブランチに切り替え
-        const checkoutOperations = new GitCheckoutOperations(
-          this.fs,
-          this.dir,
-          this.projectId,
-          this.projectName
-        );
         return await checkoutOperations.checkout(normalizedRef, false);
       }
     } catch (error) {
@@ -120,3 +112,4 @@ export class GitSwitchOperations {
     }
   }
 }
+
