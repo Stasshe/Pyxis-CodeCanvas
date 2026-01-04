@@ -2,12 +2,14 @@ import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
+import { isRemoteRef, resolveRemoteRef, toFullRemoteRef } from './remoteUtils';
 
 import { syncManager } from '@/engine/core/syncManager';
 
 /**
  * [NEW ARCHITECTURE] Git checkout操作を管理するクラス
  * - checkout後にsyncManager.syncFromFSToIndexedDB()で逆同期
+ * - リモートブランチはremoteUtilsを使用して標準化された処理を行う
  */
 export class GitCheckoutOperations {
   private fs: FS;
@@ -71,19 +73,13 @@ export class GitCheckoutOperations {
         await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
       } else {
         try {
-          // Try resolving remote refs first (e.g. "origin/main").
-          // Some branch names also contain slashes (e.g. "feature/x"),
-          // so prefer remotes when the ref matches refs/remotes/...
-          if (branchName.includes('/')) {
-            try {
-              targetCommitHash = await git.resolveRef({
-                fs: this.fs,
-                dir: this.dir,
-                ref: `refs/remotes/${branchName}`,
-              });
+          // Use remoteUtils to check if this is a remote reference
+          if (isRemoteRef(branchName)) {
+            // Try resolving as remote branch first
+            const remoteOid = await resolveRemoteRef(this.fs, this.dir, branchName);
+            if (remoteOid) {
+              targetCommitHash = remoteOid;
               resolvedFromRemote = true;
-            } catch {
-              // ignore and try other resolutions
             }
           }
 

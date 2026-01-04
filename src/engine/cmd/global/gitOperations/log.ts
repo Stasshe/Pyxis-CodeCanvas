@@ -2,9 +2,11 @@ import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
+import { listAllRemoteRefs, toFullRemoteRef } from './remoteUtils';
 
 /**
  * Git log操作を管理するクラス
+ * リモートブランチはremoteUtilsを使用して標準化された処理を行う
  */
 export class GitLogOperations {
   private fs: FS;
@@ -67,39 +69,8 @@ export class GitLogOperations {
       // ローカルブランチを取得
       const localBranches = await git.listBranches({ fs: this.fs, dir: this.dir });
 
-      // リモートブランチを取得（origin/とupstream/のみ）
-      const remoteBranches: string[] = [];
-      try {
-        // originのリモートブランチ
-        try {
-          const originBranches = await this.fs.promises.readdir(
-            `${this.dir}/.git/refs/remotes/origin`
-          );
-          for (const branch of originBranches) {
-            if (branch !== '.' && branch !== '..') {
-              remoteBranches.push(`origin/${branch}`);
-            }
-          }
-        } catch {
-          // originディレクトリが存在しない
-        }
-
-        // upstreamのリモートブランチ
-        try {
-          const upstreamBranches = await this.fs.promises.readdir(
-            `${this.dir}/.git/refs/remotes/upstream`
-          );
-          for (const branch of upstreamBranches) {
-            if (branch !== '.' && branch !== '..') {
-              remoteBranches.push(`upstream/${branch}`);
-            }
-          }
-        } catch {
-          // upstreamディレクトリが存在しない
-        }
-      } catch (error) {
-        console.warn('[getFormattedLog] Failed to read remote branches:', error);
-      }
+      // Use remoteUtils to get remote branches
+      const remoteBranches = await listAllRemoteRefs(this.fs, this.dir);
 
       // 全てのブランチ（ローカル + リモート）
       // origin/HEAD, upstream/HEADなどのシンボリックリファレンスを除外
@@ -116,11 +87,8 @@ export class GitLogOperations {
         try {
           console.log(`Getting commits for branch: ${branch}`);
 
-          // リモートブランチの場合は refs/remotes/ プレフィックスを使用
-          const refName =
-            branch.startsWith('origin/') || branch.startsWith('upstream/')
-              ? `refs/remotes/${branch}`
-              : branch;
+          // Use remoteUtils to convert to full ref
+          const refName = branch.includes('/') ? toFullRemoteRef(branch) : branch;
 
           const branchCommits = await git.log({
             fs: this.fs,
