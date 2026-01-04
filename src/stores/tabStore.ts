@@ -61,7 +61,12 @@ interface TabStore {
    */
   openTab: (file: any, options?: OpenTabOptions) => Promise<void>;
   closeTab: (paneId: string, tabId: string) => void;
-  activateTab: (paneId: string, tabId: string) => void;
+  /**
+   * タブをアクティブ化（非同期）
+   * エディタータブの場合、アクティブ化前に最新のコンテンツを取得
+   * 注意: 非同期関数ですが、既存の呼び出し元では await 不要（後方互換性あり）
+   */
+  activateTab: (paneId: string, tabId: string) => Promise<void>;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, isDirty?: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
@@ -506,7 +511,20 @@ export const useTabStore = create<TabStore>((set, get) => ({
     }
   },
 
-  activateTab: (paneId, tabId) => {
+  activateTab: async (paneId, tabId) => {
+    console.log('[TabStore.activateTab] Activating tab:', { paneId, tabId });
+    
+    // タブをアクティブにする前に、最新のコンテンツで更新
+    const state = get();
+    const pane = state.getPane(paneId);
+    if (pane) {
+      const tab = pane.tabs.find(t => t.id === tabId);
+      if (tab && (tab.kind === 'editor' || tab.kind === 'binary')) {
+        console.log('[TabStore.activateTab] Loading fresh content for editor tab');
+        await loadAndUpdateTabContent(tab.id, tab.kind, tab.path, get);
+      }
+    }
+    
     // ペインのactiveTabIdとグローバル状態を同時に更新
     // 別々のset呼び出しだと状態の不整合が発生し、フォーカスが正しく当たらない
     const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
