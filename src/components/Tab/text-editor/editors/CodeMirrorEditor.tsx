@@ -67,6 +67,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
   return (
     <div
       aria-label="codemirror-editor"
+      tabIndex={0}
       style={{
         height: '100%',
         width: '100%',

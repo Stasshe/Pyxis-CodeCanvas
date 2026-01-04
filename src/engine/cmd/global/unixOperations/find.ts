@@ -162,7 +162,8 @@ export class FindCommand extends UnixCommandBase {
     // POSIX: ワイルドカードなしは完全一致（basenameのみ）
     if (!pattern.includes('*') && !pattern.includes('?') && !pattern.includes('[')) {
       // 例: find . -iname readme → basenameが"readme"のみ一致
-      return new RegExp(`^${pattern.replace(/[.+^${}()|\[\]]/g, '\\$&')}$`, ignoreCase ? 'i' : '');
+      // Escape regex special characters including backslash
+      return new RegExp(`^${pattern.replace(/[\\.*+?^${}()|\[\]]/g, '\\$&')}$`, ignoreCase ? 'i' : '');
     }
     // ワイルドカードありはglob展開
     let res = '';
