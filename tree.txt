@@ -20,6 +20,7 @@ Root
 │   ├── Tauri-Setup.md
 │   ├── ai-agent-implementation-plan.md
 │   ├── all-flow.svg
+│   ├── code-flow-verification.md
 │   ├── docs
 │   │   ├── CONTENT-RESTORATION.md
 │   │   └── STORAGE-KEYBINDINGS.md
@@ -29,6 +30,8 @@ Root
 ├── README.md
 ├── README_en.md
 ├── SHORT_README.md
+├── System-Design
+│   └── COMMAND-EXECUTION-ARCHITECTURE.md
 ├── biome.json
 ├── docs
 │   ├── AI-SYSTEM.md
@@ -305,6 +308,7 @@ Root
 │   │   │   ├── shell
 │   │   │   │   ├── braceExpand.ts
 │   │   │   │   ├── builtins.ts
+│   │   │   │   ├── executor.ts
 │   │   │   │   ├── expansion.ts
 │   │   │   │   ├── index.ts
 │   │   │   │   ├── parser.ts
@@ -476,7 +480,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-70 directories, 406 files
+71 directories, 409 files
 
 =================================
 
@@ -603,12 +607,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 64947
-合計文字数: 2090936
-合計ファイルサイズ(bytes): 2230366
+合計行数: 65138
+合計文字数: 2087474
+合計ファイルサイズ(bytes): 2228304
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127454
-合計文字数: 26885871
-合計ファイルサイズ(bytes): 29863975
+ビルト済みファイルの行数: 127459
+合計文字数: 26883965
+合計ファイルサイズ(bytes): 29862143
