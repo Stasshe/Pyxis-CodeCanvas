@@ -753,16 +753,20 @@ function ClientTerminal({
             try {
               if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
                 console.log('[Terminal] Ctrl+C detected, killing foreground process');
+                term.writeln('[DEBUG] Sending SIGINT to foreground process');
                 shellRef.current.killForeground();
               } else {
                 console.warn('[Terminal] Ctrl+C detected but no shell or killForeground method available');
+                term.writeln('[DEBUG] No shell or killForeground available');
               }
             } catch (e) {
               console.error('[Terminal] Error killing foreground process:', e);
+              term.writeln(`[DEBUG] Error: ${e}`);
             }
             // Don't show prompt yet - wait for command to finish
           } else {
             // No command running, just show a new prompt
+            term.writeln('[DEBUG] No command running');
             showPrompt();
           }
           currentLine = '';
