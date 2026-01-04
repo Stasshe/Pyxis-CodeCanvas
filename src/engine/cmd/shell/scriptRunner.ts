@@ -330,7 +330,7 @@ async function runCondition(
   return { stdout: res.stdout, stderr: res.stderr, code: finalCode };
 }
 
-export type RunRangeResult = 'ok' | 'break' | 'continue' | { exit: number };
+export type RunRangeResult = 'ok' | 'break' | 'continue' | 'killed' | { exit: number };
 
 /**
  * Run a range [start, end) of lines; supports break/continue signaling
@@ -342,9 +342,15 @@ async function runRange(
   localVars: Record<string, string>,
   args: string[],
   proc: Process,
-  shell: StreamShell
+  shell: StreamShell,
+  killed: { value: boolean }
 ): Promise<RunRangeResult> {
   for (let i = start; i < end; i++) {
+    // Check if process was killed
+    if (killed.value) {
+      return 'killed';
+    }
+    
     const raw = lines[i] ?? '';
     const trimmed = raw.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
@@ -422,7 +428,7 @@ async function runRange(
       if (condEval.code === 0) {
         const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
         const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
-        const r = await runRange(lines, thenStart, thenEnd, localVars, args, proc, shell);
+        const r = await runRange(lines, thenStart, thenEnd, localVars, args, proc, shell, killed);
         if (r !== 'ok') return r;
       } else {
         // check elifs in order
@@ -445,14 +451,14 @@ async function runRange(
             const eThenStart = eIdx + 1;
             const eThenEnd =
               k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
-            const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell);
+            const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell, killed);
             if (r !== 'ok') return r;
             matched = true;
             break;
           }
         }
         if (!matched && elseIdx !== -1) {
-          const r = await runRange(lines, elseIdx + 1, fiIdx, { ...localVars }, args, proc, shell);
+          const r = await runRange(lines, elseIdx + 1, fiIdx, { ...localVars }, args, proc, shell, killed);
           if (r !== 'ok') return r;
         }
       }
@@ -508,12 +514,18 @@ async function runRange(
       }
       let iter = 0;
       for (const it of items) {
+        // Check if process was killed during loop
+        if (killed.value) {
+          return 'killed';
+        }
+        
         if (++iter > MAX_LOOP) break;
         // set loop variable in localVars
         localVars[varName] = it;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
+        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell, killed);
         if (r === 'break') break;
         if (r === 'continue') continue;
+        if (r === 'killed') return r;
         if (typeof r === 'object' && r && 'exit' in r) return r;
       }
       i = doneIdx;
@@ -552,14 +564,20 @@ async function runRange(
       const bodyEnd = doneIdx;
       let count = 0;
       while (true) {
+        // Check if process was killed during loop
+        if (killed.value) {
+          return 'killed';
+        }
+        
         if (++count > MAX_LOOP) break;
         const cres = await runCondition(condLine, localVars, args, shell);
         if (cres.stdout) proc.writeStdout(cres.stdout);
         if (cres.stderr) proc.writeStderr(cres.stderr);
         if (cres.code !== 0) break;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
+        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell, killed);
         if (r === 'break') break;
         if (r === 'continue') continue;
+        if (r === 'killed') return r;
         if (typeof r === 'object' && r && 'exit' in r) return r;
       }
       i = doneIdx;
@@ -643,7 +661,21 @@ export async function runScript(
     }
   }
 
-  const result = await runRange(lines, 0, lines.length, {}, args, proc, shell);
+  // Create a killed flag that can be set by signal handler
+  const killed = { value: false };
+  
+  // Listen for signals to handle Ctrl+C
+  const signalHandler = (signal: string) => {
+    if (signal === 'SIGINT' || signal === 'SIGTERM') {
+      killed.value = true;
+    }
+  };
+  proc.on('signal', signalHandler);
+
+  const result = await runRange(lines, 0, lines.length, {}, args, proc, shell, killed);
+
+  // Remove signal handler
+  proc.off('signal', signalHandler);
 
   // If an exit object was returned, terminate the script process
   if (typeof result === 'object' && result && 'exit' in result) {

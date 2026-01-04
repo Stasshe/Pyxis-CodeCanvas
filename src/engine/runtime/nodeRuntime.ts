@@ -54,6 +54,10 @@ export class NodeRuntime {
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
   private eventLoopResolve: (() => void) | null = null;
+  
+  // キャンセル機能
+  private aborted: boolean = false;
+  private abortCallbacks: Set<() => void> = new Set();
 
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
@@ -622,6 +626,50 @@ export class NodeRuntime {
    */
   clearCache(): void {
     this.moduleLoader.clearCache();
+  }
+
+  /**
+   * 実行を中止
+   */
+  abort(): void {
+    this.aborted = true;
+    
+    // Clear all active timers
+    for (const timerId of this.activeTimers) {
+      try {
+        clearTimeout(timerId);
+        clearInterval(timerId);
+      } catch {}
+    }
+    this.activeTimers.clear();
+    
+    // Call all abort callbacks
+    for (const callback of this.abortCallbacks) {
+      try {
+        callback();
+      } catch {}
+    }
+    this.abortCallbacks.clear();
+    
+    // Resolve event loop if waiting
+    if (this.eventLoopResolve) {
+      this.eventLoopResolve();
+      this.eventLoopResolve = null;
+    }
+  }
+
+  /**
+   * 中止されたかどうかをチェック
+   */
+  isAborted(): boolean {
+    return this.aborted;
+  }
+
+  /**
+   * 中止時のコールバックを登録
+   */
+  onAbort(callback: () => void): void {
+    this.abortCallbacks.add(callback);
   }
 }
 

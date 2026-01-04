@@ -31,6 +31,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [isPyodideReady, setIsPyodideReady] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
+  const currentRuntimeRef = useRef<any>(null);
 
   // Pyodideプロジェクト設定
   useEffect(() => {
@@ -233,6 +234,9 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           return;
         }
 
+        // Store runtime reference for cancellation
+        currentRuntimeRef.current = runtime;
+
         const result = await runtime.executeCode?.(inputCode, {
           projectId: currentProject.id,
           projectName: currentProject.name,
@@ -248,6 +252,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      currentRuntimeRef.current = null;
       setIsRunning(false);
       setInputCode('');
     }
@@ -267,6 +272,9 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       setIsRunning(false);
       return;
     }
+
+    // Store runtime reference for cancellation
+    currentRuntimeRef.current = runtime;
 
     addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
@@ -289,12 +297,18 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      currentRuntimeRef.current = null;
       setIsRunning(false);
     }
   };
 
   // 実行を停止
   const stopExecution = () => {
+    // Try to abort the current runtime
+    if (currentRuntimeRef.current && typeof currentRuntimeRef.current.abort === 'function') {
+      currentRuntimeRef.current.abort();
+    }
+    currentRuntimeRef.current = null;
     setIsRunning(false);
     addOutput(t('run.executionStopped'), 'log');
   };

@@ -23,6 +23,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
   readonly supportedExtensions = ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts'];
 
   private runtimeInstances: Map<string, NodeRuntime> = new Map();
+  private currentRuntime: NodeRuntime | null = null;
 
   canExecute(filePath: string): boolean {
     return this.supportedExtensions.some(ext => filePath.endsWith(ext));
@@ -66,16 +67,22 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         terminalRows,
       });
 
+      // Track current runtime for abort support
+      this.currentRuntime = runtime;
+
       // 実行
       await runtime.execute(filePath, argv);
 
       // イベントループの完了を待つ
       await runtime.waitForEventLoop();
 
+      this.currentRuntime = null;
+
       return {
         exitCode: 0,
       };
     } catch (error) {
+      this.currentRuntime = null;
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         stderr: errorMessage,
@@ -136,5 +143,15 @@ export class NodeRuntimeProvider implements RuntimeProvider {
 
   isReady(): boolean {
     return true; // Node.jsランタイムは常に準備完了
+  }
+
+  /**
+   * 現在実行中のランタイムを中止
+   */
+  abort(): void {
+    if (this.currentRuntime) {
+      this.currentRuntime.abort();
+      this.currentRuntime = null;
+    }
   }
 }
