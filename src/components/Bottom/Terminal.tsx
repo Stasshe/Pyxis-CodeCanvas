@@ -694,6 +694,7 @@ function ClientTerminal({
 
     // 通常のキー入力
     let vimModeActive = false; // Flag to disable normal input during vim mode
+    let commandRunning = false; // Track if a command is currently executing
 
     term.onData((data: string) => {
       if (ignoreNextOnData) {
@@ -719,7 +720,12 @@ function ClientTerminal({
             }
             saveHistory();
             historyIndex = -1;
+            commandRunning = true;
             processCommand(currentLine).then(() => {
+              commandRunning = false;
+              showPrompt();
+            }).catch(() => {
+              commandRunning = false;
               showPrompt();
             });
           } else {
@@ -743,18 +749,32 @@ function ClientTerminal({
         case '\u0003':
           term.writeln('^C');
           // send SIGINT to foreground process if available
-          try {
-            if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
-              shellRef.current.killForeground();
+          if (commandRunning) {
+            try {
+              if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
+                console.log('[Terminal] Ctrl+C detected, killing foreground process');
+                term.writeln('[DEBUG] Sending SIGINT to foreground process');
+                shellRef.current.killForeground();
+              } else {
+                console.warn('[Terminal] Ctrl+C detected but no shell or killForeground method available');
+                term.writeln('[DEBUG] No shell or killForeground available');
+              }
+            } catch (e) {
+              console.error('[Terminal] Error killing foreground process:', e);
+              term.writeln(`[DEBUG] Error: ${e}`);
             }
-          } catch (e) {}
+            // Don't show prompt yet - wait for command to finish
+          } else {
+            // No command running, just show a new prompt
+            term.writeln('[DEBUG] No command running');
+            showPrompt();
+          }
           currentLine = '';
           cursorPos = 0;
           historyIndex = -1;
           isSelecting = false;
           selectionStart = null;
           selectionEnd = null;
-          showPrompt();
           break;
         case '\u001b[A':
           if (commandHistory.length > 0) {

@@ -52,8 +52,13 @@ export class NodeRuntime {
   private terminalRows: number;
 
   // イベントループ追跡
-  private activeTimers: Set<any> = new Set();
+  private activeTimeouts: Set<any> = new Set();
+  private activeIntervals: Set<any> = new Set();
   private eventLoopResolve: (() => void) | null = null;
+  
+  // キャンセル機能
+  private aborted: boolean = false;
+  private abortCallbacks: Set<() => void> = new Set();
 
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
@@ -165,13 +170,15 @@ export class NodeRuntime {
    */
   async waitForEventLoop(): Promise<void> {
     // アクティブなタイマーがなければすぐに完了
-    if (this.activeTimers.size === 0) {
+    const totalTimers = this.activeTimeouts.size + this.activeIntervals.size;
+    if (totalTimers === 0) {
       runtimeInfo('✅ Event loop is already empty');
       return;
     }
 
     runtimeInfo('⏳ Waiting for event loop to complete...', {
-      activeTimers: this.activeTimers.size,
+      activeTimeouts: this.activeTimeouts.size,
+      activeIntervals: this.activeIntervals.size,
     });
 
     // イベントループが空になるまで待機
@@ -189,7 +196,8 @@ export class NodeRuntime {
   }
 
   private checkEventLoop() {
-    if (this.activeTimers.size === 0 && this.eventLoopResolve) {
+    const totalTimers = this.activeTimeouts.size + this.activeIntervals.size;
+    if (totalTimers === 0 && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
       this.eventLoopResolve();
       this.eventLoopResolve = null;
@@ -290,13 +298,13 @@ export class NodeRuntime {
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
       setTimeout: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
         const timerId = setTimeout(() => {
-          this.activeTimers.delete(timerId);
+          this.activeTimeouts.delete(timerId);
           if (typeof handler === 'function') {
             handler(...args);
           }
           this.checkEventLoop();
         }, timeout) as any;
-        this.activeTimers.add(timerId);
+        this.activeTimeouts.add(timerId);
         return timerId as number;
       },
       setInterval: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
@@ -305,20 +313,20 @@ export class NodeRuntime {
             handler(...args);
           }
         }, timeout) as any;
-        this.activeTimers.add(intervalId);
+        this.activeIntervals.add(intervalId);
         return intervalId as number;
       },
       clearTimeout: (id?: number) => {
         if (id !== undefined) {
           clearTimeout(id);
-          this.activeTimers.delete(id);
+          this.activeTimeouts.delete(id);
           this.checkEventLoop();
         }
       },
       clearInterval: (id?: number) => {
         if (id !== undefined) {
           clearInterval(id);
-          this.activeTimers.delete(id);
+          this.activeIntervals.delete(id);
           this.checkEventLoop();
         }
       },
@@ -622,6 +630,61 @@ export class NodeRuntime {
    */
   clearCache(): void {
     this.moduleLoader.clearCache();
+  }
+
+  /**
+   * 実行を中止
+   */
+  abort(): void {
+    this.aborted = true;
+    
+    // Clear all active timeouts
+    for (const timerId of this.activeTimeouts) {
+      try {
+        clearTimeout(timerId);
+      } catch {}
+    }
+    this.activeTimeouts.clear();
+    
+    // Clear all active intervals
+    for (const intervalId of this.activeIntervals) {
+      try {
+        clearInterval(intervalId);
+      } catch {}
+    }
+    this.activeIntervals.clear();
+    
+    // Call all abort callbacks
+    for (const callback of this.abortCallbacks) {
+      try {
+        callback();
+      } catch {}
+    }
+    this.abortCallbacks.clear();
+    
+    // Resolve event loop if waiting
+    if (this.eventLoopResolve) {
+      this.eventLoopResolve();
+      this.eventLoopResolve = null;
+    }
+  }
+
+  /**
+   * 中止されたかどうかをチェック
+   */
+  isAborted(): boolean {
+    return this.aborted;
+  }
+
+  /**
+   * 中止時のコールバックを登録
+   * @returns アンサブスクライブ関数
+   */
+  onAbort(callback: () => void): () => void {
+    this.abortCallbacks.add(callback);
+    return () => {
+      this.abortCallbacks.delete(callback);
+    };
   }
 }
 

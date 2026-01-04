@@ -153,6 +153,7 @@ export class Process extends EventEmitter {
   }
 
   kill(signal = 'SIGINT') {
+    console.log('[Process] kill() called with signal:', signal, 'pid:', this.pid);
     // Emit the signal event so the running handler may react
     this.emit('signal', signal);
     // default behavior: mark as killed

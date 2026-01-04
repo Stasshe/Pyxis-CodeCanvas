@@ -110,6 +110,13 @@ export interface RuntimeProvider {
    * ランタイムが準備完了しているか
    */
   isReady?(): boolean;
+
+  /**
+   * 現在実行中のプロセスを中止
+   * - Ctrl+CやStopボタンからの実行キャンセルに使用
+   * - 実装がオプショナルで、対応していないランタイムは何もしない
+   */
+  abort?(): void;
 }
 
 /**
