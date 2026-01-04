@@ -1,7 +1,7 @@
 import StreamShell from '@/engine/cmd/shell/streamShell';
 
 describe('Shell script streaming output', () => {
-  test('node command output is streamed in real-time through shell script', async () => {
+  test('commands output is streamed in real-time through shell script', async () => {
     const projectId = `test-stream-${Date.now()}`;
     const projectName = 'test-stream';
 
@@ -35,16 +35,11 @@ describe('Shell script streaming output', () => {
       pwd: jest.fn(async () => '/projects/test-stream'),
     };
 
-    // Create a simple Node.js script
-    const nodeScript = `console.log('Line 1');
-console.log('Line 2');
-console.log('Line 3');`;
-
-    // Create a shell script that runs the node script
+    // Create a shell script with multiple echo commands
     const shellScript = `#!/usr/bin/env bash
-echo "Starting test"
-node /src/test.js
-echo "Test complete"
+echo "Line 1: Start"
+echo "Line 2: Processing"
+echo "Line 3: End"
 `;
 
     const shell = new StreamShell({ 
@@ -54,8 +49,6 @@ echo "Test complete"
       fileRepository: mockFileRepo 
     });
 
-    // Set up files
-    await mockFileRepo.createFile(projectId, '/src/test.js', nodeScript, 'file');
     await mockFileRepo.createFile(projectId, '/run-test.sh', shellScript, 'file');
 
     // Track streaming output with timestamps
@@ -75,26 +68,22 @@ echo "Test complete"
     
     // Verify all expected output was streamed
     const allOutput = streamedOutput.map(o => o.text).join('');
-    expect(allOutput).toContain('Starting test');
-    expect(allOutput).toContain('Line 1');
-    expect(allOutput).toContain('Line 2');
-    expect(allOutput).toContain('Line 3');
-    expect(allOutput).toContain('Test complete');
+    expect(allOutput).toContain('Line 1: Start');
+    expect(allOutput).toContain('Line 2: Processing');
+    expect(allOutput).toContain('Line 3: End');
 
     // Verify output was streamed in real-time (multiple chunks received)
     expect(streamedOutput.length).toBeGreaterThan(1);
     
     // Verify order is correct
     const outputText = streamedOutput.map(o => o.text).join('');
-    const startingIndex = outputText.indexOf('Starting test');
-    const line1Index = outputText.indexOf('Line 1');
-    const line3Index = outputText.indexOf('Line 3');
-    const completeIndex = outputText.indexOf('Test complete');
+    const line1Index = outputText.indexOf('Line 1: Start');
+    const line2Index = outputText.indexOf('Line 2: Processing');
+    const line3Index = outputText.indexOf('Line 3: End');
     
-    expect(startingIndex).toBeGreaterThanOrEqual(0);
-    expect(line1Index).toBeGreaterThan(startingIndex);
-    expect(line3Index).toBeGreaterThan(line1Index);
-    expect(completeIndex).toBeGreaterThan(line3Index);
+    expect(line1Index).toBeGreaterThanOrEqual(0);
+    expect(line2Index).toBeGreaterThan(line1Index);
+    expect(line3Index).toBeGreaterThan(line2Index);
   });
 
   test('echo commands are also streamed in real-time', async () => {

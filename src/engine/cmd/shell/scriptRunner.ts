@@ -311,7 +311,8 @@ async function runCondition(
   condExpr: string,
   localVars: Record<string, string>,
   args: string[],
-  shell: StreamShell
+  shell: StreamShell,
+  proc?: Process
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   if (!condExpr) return { stdout: '', stderr: '', code: 1 };
   // count leading ! operators
@@ -324,7 +325,14 @@ async function runCondition(
   if (!s) return { stdout: '', stderr: '', code: neg % 2 === 1 ? 0 : 1 };
   // evaluate expansions then run
   const evaled = await evaluateLine(s, localVars, args, shell);
-  const res = await shell.run(evaled);
+  
+  // Use streaming callbacks if proc is provided
+  const callbacks = proc ? {
+    stdout: (data: string) => proc.writeStdout(data),
+    stderr: (data: string) => proc.writeStderr(data),
+  } : undefined;
+  
+  const res = await shell.run(evaled, callbacks);
   const codeNum = typeof res.code === 'number' ? res.code : 0;
   const finalCode = neg % 2 === 1 ? (codeNum === 0 ? 1 : 0) : codeNum;
   return { stdout: res.stdout, stderr: res.stderr, code: finalCode };
@@ -414,11 +422,9 @@ async function runRange(
       }
 
       // evaluate condition
-      const condEval = await runCondition(condLine, localVars, args, shell);
+      const condEval = await runCondition(condLine, localVars, args, shell, proc);
 
-      // forward any output from condition evaluation to the script process
-      if (condEval.stdout) proc.writeStdout(condEval.stdout);
-      if (condEval.stderr) proc.writeStderr(condEval.stderr);
+      // Note: output is already streamed via callbacks, no need to write again
       if (condEval.code === 0) {
         const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
         const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
@@ -437,10 +443,9 @@ async function runRange(
             const trailing = m[1] ? m[1].trim() : '';
             if (trailing) lines.splice(eIdx + 1, 0, trailing);
           }
-          const eRes = await runCondition(eCond, localVars, args, shell);
+          const eRes = await runCondition(eCond, localVars, args, shell, proc);
 
-          if (eRes.stdout) proc.writeStdout(eRes.stdout);
-          if (eRes.stderr) proc.writeStderr(eRes.stderr);
+          // Note: output is already streamed via callbacks
           if (eRes.code === 0) {
             const eThenStart = eIdx + 1;
             const eThenEnd =
@@ -553,9 +558,8 @@ async function runRange(
       let count = 0;
       while (true) {
         if (++count > MAX_LOOP) break;
-        const cres = await runCondition(condLine, localVars, args, shell);
-        if (cres.stdout) proc.writeStdout(cres.stdout);
-        if (cres.stderr) proc.writeStderr(cres.stderr);
+        const cres = await runCondition(condLine, localVars, args, shell, proc);
+        // Note: output is already streamed via callbacks
         if (cres.code !== 0) break;
         const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
         if (r === 'break') break;
