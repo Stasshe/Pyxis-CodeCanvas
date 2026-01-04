@@ -273,6 +273,10 @@ export class GitHubAPI {
   /**
    * コミット履歴をバッチ取得（REST API）
    * 1回のリクエストで最大100件のコミットを取得
+   *
+   * @param sha - 開始コミットのSHA
+   * @param perPage - 1ページあたりの取得件数（最大100）
+   * @param page - ページ番号（1から開始、将来の拡張用）
    */
   async getCommitHistory(sha: string, perPage = 100, page = 1): Promise<CommitInfo[]> {
     try {

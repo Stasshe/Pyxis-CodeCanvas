@@ -26,6 +26,12 @@ export interface PushOptions {
   force?: boolean;
 }
 
+/**
+ * コミット履歴取得時の最大深度
+ * GitHub REST APIは1回のリクエストで最大100件まで取得可能
+ */
+const MAX_COMMIT_HISTORY_DEPTH = 100;
+
 interface LocalCommit {
   oid: string;
   commit: {
@@ -52,7 +58,7 @@ async function getCommitsToPushOptimized(
   githubAPI: GitHubAPI
 ): Promise<{ commits: LocalCommit[]; remoteParentSha: string | null }> {
   // ローカルの履歴を取得（最大100件で十分）
-  const localLog = await git.log({ fs, dir, ref: branch, depth: 100 });
+  const localLog = await git.log({ fs, dir, ref: branch, depth: MAX_COMMIT_HISTORY_DEPTH });
 
   if (!remoteHeadSha) {
     // リモートが空の場合は全コミットを返す
@@ -142,7 +148,7 @@ async function findCommonAncestorOptimized(
 ): Promise<{ remoteAncestorSha: string; localAncestorTreeSha: string } | null> {
   try {
     // リモートのコミット履歴をバッチ取得（1回のAPIで最大100件）
-    const remoteCommits = await githubAPI.getCommitHistory(remoteHeadSha, 100);
+    const remoteCommits = await githubAPI.getCommitHistory(remoteHeadSha, MAX_COMMIT_HISTORY_DEPTH);
 
     if (remoteCommits.length === 0) {
       return null;
@@ -155,7 +161,7 @@ async function findCommonAncestorOptimized(
     }
 
     // ローカルの履歴を取得
-    const localLog = await git.log({ fs, dir, ref: branch, depth: 100 });
+    const localLog = await git.log({ fs, dir, ref: branch, depth: MAX_COMMIT_HISTORY_DEPTH });
 
     // ローカルの各コミットのツリーSHAと比較
     for (const localCommit of localLog) {
