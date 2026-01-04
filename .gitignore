@@ -66,4 +66,3 @@ extensions/**/PNPM-GUIDE.md
 
 # npm lock file (use pnpm instead)
 package-lock.json
-src/engine/initialFileContents.ts
