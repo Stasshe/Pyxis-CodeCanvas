@@ -173,6 +173,16 @@ export function useMonacoModels() {
                 }
                 // Languages already match — reuse safely.
                 // reuse log removed in cleanup
+                // IMPORTANT: Update content when reusing existing model
+                const currentContent = existingModel.getValue();
+                if (currentContent !== content) {
+                  console.log('[useMonacoModels] Updating reused model content:', {
+                    tabId,
+                    oldLength: currentContent.length,
+                    newLength: content.length
+                  });
+                  existingModel.setValue(content);
+                }
                 monacoModelMap.set(tabId, existingModel);
                 updateModelAccessOrder(tabId);
                 return existingModel;
