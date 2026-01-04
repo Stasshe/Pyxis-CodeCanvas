@@ -765,31 +765,13 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 }
 
 // Memoize AIPanel to prevent unnecessary re-renders
+// Note: projectFiles changes are handled by useEffect internally, so we don't need to
+// trigger re-renders based on projectFiles. Only re-render when project changes.
 export default memo(AIPanel, (prevProps, nextProps) => {
-  // プロジェクトIDが変わった場合は再レンダリング
+  // プロジェクトIDが変わった場合のみ再レンダリング
+  // projectFilesの変更はuseEffect内で処理されるため、ここでは検出不要
   if (prevProps.currentProject?.id !== nextProps.currentProject?.id) {
     return false;
-  }
-  
-  // プロジェクトファイルの数が変わった場合は再レンダリング
-  if (prevProps.projectFiles.length !== nextProps.projectFiles.length) {
-    return false;
-  }
-  
-  // プロジェクトファイルの内容が変わった場合は再レンダリング
-  // 最初と最後のファイルのIDとパスを比較（完全な深い比較は避ける）
-  // 注意: 中間要素の変更は検出されないが、パフォーマンスとのトレードオフ
-  // ファイルの追加/削除/先頭末尾の変更は確実に検出される
-  if (prevProps.projectFiles.length > 0 && nextProps.projectFiles.length > 0) {
-    const prevFirst = prevProps.projectFiles[0];
-    const nextFirst = nextProps.projectFiles[0];
-    const prevLast = prevProps.projectFiles[prevProps.projectFiles.length - 1];
-    const nextLast = nextProps.projectFiles[nextProps.projectFiles.length - 1];
-    
-    if (prevFirst.id !== nextFirst.id || prevFirst.path !== nextFirst.path ||
-        prevLast.id !== nextLast.id || prevLast.path !== nextLast.path) {
-      return false;
-    }
   }
   
   // その他の場合は再レンダリングしない（パフォーマンス最適化）

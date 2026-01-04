@@ -1,6 +1,6 @@
 // src/engine/tabs/builtins/EditorTabType.tsx
 import type React from 'react';
-import { useCallback, useEffect, memo } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
 
@@ -18,7 +18,7 @@ import { useProjectStore } from '@/stores/projectStore';
  * - デバウンス保存、タブ間同期は自動的に処理される
  * - Git状態更新は保存完了時に自動実行
  */
-const EditorTabComponent: React.FC<TabComponentProps> = memo(({ tab, isActive }) => {
+const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
 
   // グローバルストアからプロジェクト情報を取得
@@ -88,32 +88,7 @@ const EditorTabComponent: React.FC<TabComponentProps> = memo(({ tab, isActive })
       isActive={isActive}
     />
   );
-}, (prevProps, nextProps) => {
-  // タブIDが変わった場合は再レンダリング
-  if (prevProps.tab.id !== nextProps.tab.id) {
-    return false;
-  }
-  
-  // アクティブ状態が変わった場合は再レンダリング
-  if (prevProps.isActive !== nextProps.isActive) {
-    return false;
-  }
-  
-  // エディタタブのコンテンツが変わった場合は再レンダリング
-  const prevEditorTab = prevProps.tab as EditorTab;
-  const nextEditorTab = nextProps.tab as EditorTab;
-  
-  if (prevEditorTab.content !== nextEditorTab.content) {
-    return false;
-  }
-  
-  if (prevEditorTab.isDirty !== nextEditorTab.isDirty) {
-    return false;
-  }
-  
-  // その他の場合は再レンダリングしない
-  return true;
-});
+};
 
 /**
  * エディタタブタイプの定義
