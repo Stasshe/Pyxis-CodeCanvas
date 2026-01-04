@@ -304,9 +304,10 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
   // 実行を停止
   const stopExecution = () => {
-    // Try to abort the current runtime
-    if (currentRuntimeRef.current && typeof currentRuntimeRef.current.abort === 'function') {
-      currentRuntimeRef.current.abort();
+    // Try to abort the current runtime if it supports abort
+    const runtime = currentRuntimeRef.current;
+    if (runtime?.abort) {
+      runtime.abort();
     }
     currentRuntimeRef.current = null;
     setIsRunning(false);

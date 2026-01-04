@@ -665,6 +665,8 @@ export async function runScript(
   const killed = { value: false };
   
   // Listen for signals to handle Ctrl+C
+  // Note: We only handle SIGINT and SIGTERM as they are the standard termination signals
+  // SIGKILL cannot be caught or handled by user processes (it's sent by the OS kernel)
   const signalHandler = (signal: string) => {
     if (signal === 'SIGINT' || signal === 'SIGTERM') {
       killed.value = true;
