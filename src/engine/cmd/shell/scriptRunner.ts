@@ -605,9 +605,16 @@ async function runRange(
     } catch (e) {
       // ignore evaluation errors and use original execLine
     }
-    const res = await shell.run(execLine);
-    if (res.stdout) proc.writeStdout(res.stdout);
-    if (res.stderr) proc.writeStderr(res.stderr);
+    // Pass real-time output callbacks to enable streaming output
+    const res = await shell.run(execLine, {
+      stdout: (data: string) => {
+        proc.writeStdout(data);
+      },
+      stderr: (data: string) => {
+        proc.writeStderr(data);
+      },
+    });
+    // Note: output is already written via callbacks, no need to write again
     // continue even on non-zero exit
   }
   return 'ok';
