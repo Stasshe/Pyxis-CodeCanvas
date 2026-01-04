@@ -285,7 +285,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
             .reverse()
             .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse);
 
-          if (editMsg && editMsg.editResponse) {
+          if (editMsg?.editResponse) {
             const newChangedFiles = editMsg.editResponse.changedFiles.map(f =>
               f.path === filePath ? { ...f, applied: true } : f
             );
@@ -431,6 +431,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
           {/* スペース切り替え */}
           <div className="relative" style={{ minWidth: 0 }}>
             <button
+              type="button"
               className="flex items-center gap-2 px-2 py-1 rounded-md hover:opacity-80 transition-all text-xs"
               style={{
                 background: colors.mutedBg,
@@ -465,6 +466,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 
         {/* Debug button to show internal prompt */}
         <button
+          type="button"
           className="p-1 rounded hover:opacity-80 transition-all"
           style={{
             color: colors.mutedFg,
@@ -632,6 +634,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
                   )
                 </h2>
                 <button
+                  type="button"
                   className="p-1 rounded hover:opacity-80"
                   style={{ color: colors.mutedFg }}
                   onClick={() => setShowPromptDebug(false)}
@@ -652,6 +655,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
                 style={{ borderColor: colors.border }}
               >
                 <button
+                  type="button"
                   className="px-3 py-1.5 text-xs rounded"
                   style={{
                     background: colors.mutedBg,
@@ -665,6 +669,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
                   {t('ai.promptDebug.copy') || 'コピー'}
                 </button>
                 <button
+                  type="button"
                   className="px-3 py-1.5 text-xs rounded"
                   style={{
                     background: colors.accent,

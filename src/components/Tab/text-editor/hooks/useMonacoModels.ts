@@ -152,7 +152,7 @@ export function useMonacoModels() {
         updateModelAccessOrder(tabId);
         try {
           const desiredLang = getModelLanguage(fileName);
-          const currentLang = model!.getLanguageId();
+          const currentLang = model?.getLanguageId();
           if (currentLang !== desiredLang) {
             // Remove from our map so caller will create a new model. Do NOT dispose
             // the existing model here to avoid racing with setModel()/editor lifecycle.

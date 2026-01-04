@@ -72,7 +72,7 @@ export async function autoInstallExtensions(): Promise<void> {
         await extensionManager.installExtension(langPackEntry.manifestUrl);
         await extensionManager.enableExtension(langPackId);
       } catch (error) {
-        console.error(`[ExtensionAutoInstaller] Failed to install language pack:`, error);
+        console.error('[ExtensionAutoInstaller] Failed to install language pack:', error);
       }
     } else {
       console.log(`[ExtensionAutoInstaller] No language pack found for: ${detectedLocale}`);

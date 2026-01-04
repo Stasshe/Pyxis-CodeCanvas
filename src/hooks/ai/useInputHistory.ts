@@ -106,13 +106,12 @@ export function useInputHistory(options: UseInputHistoryOptions = {}) {
         const newIndex = currentIndex + 1;
         setCurrentIndex(newIndex);
         return history[newIndex];
-      } else {
-        // 最新の履歴に到達：一時保存された入力に戻る
-        setCurrentIndex(-1);
-        const temp = tempInput;
-        setTempInput('');
-        return temp;
       }
+      // 最新の履歴に到達：一時保存された入力に戻る
+      setCurrentIndex(-1);
+      const temp = tempInput;
+      setTempInput('');
+      return temp;
     },
     [history, currentIndex, tempInput]
   );

@@ -100,11 +100,11 @@ export class GitCloneOperations {
     if (targetDir) {
       if (targetDir === '.' || targetDir === './') {
         return baseDir;
-      } else if (targetDir.startsWith('/')) {
-        return targetDir;
-      } else {
-        return `${baseDir}/${targetDir}`;
       }
+      if (targetDir.startsWith('/')) {
+        return targetDir;
+      }
+      return `${baseDir}/${targetDir}`;
     }
     return `${baseDir}/${repoName}`;
   }
@@ -366,18 +366,17 @@ export class GitCloneOperations {
         isBufferArray: true,
         bufferContent: uint8Array.buffer as ArrayBuffer,
       };
-    } else {
-      const content =
-        typeof file.content === 'string'
-          ? file.content
-          : new TextDecoder().decode(file.content as Uint8Array);
-      return {
-        path: file.path,
-        content,
-        type: 'file' as const,
-        isBufferArray: false,
-      };
     }
+    const content =
+      typeof file.content === 'string'
+        ? file.content
+        : new TextDecoder().decode(file.content as Uint8Array);
+    return {
+      path: file.path,
+      content,
+      type: 'file' as const,
+      isBufferArray: false,
+    };
   }
 
   /**
@@ -386,13 +385,14 @@ export class GitCloneOperations {
   private toUint8Array(content: string | Uint8Array): Uint8Array {
     if (content instanceof Uint8Array) {
       return content;
-    } else if (content && typeof (content as unknown as ArrayBuffer).byteLength === 'number') {
-      return new Uint8Array(content as unknown as ArrayBuffer);
-    } else if (typeof content === 'string') {
-      return new TextEncoder().encode(content);
-    } else {
-      return new Uint8Array(content as unknown as ArrayBufferLike);
     }
+    if (content && typeof (content as unknown as ArrayBuffer).byteLength === 'number') {
+      return new Uint8Array(content as unknown as ArrayBuffer);
+    }
+    if (typeof content === 'string') {
+      return new TextEncoder().encode(content);
+    }
+    return new Uint8Array(content as unknown as ArrayBufferLike);
   }
 
   /**

@@ -24,7 +24,7 @@ function escapeForCharClass(ch: string): string {
   if (ch === ']') return '\\]';
   if (ch === '-') return '\\-';
   if (ch === '^') return '\\^';
-  return ch.replace(/([\\\]\-\^])/g, m => '\\' + m);
+  return ch.replace(/([\\\]\-\^])/g, m => `\\${m}`);
 }
 
 /**
@@ -43,7 +43,7 @@ export function splitOnIFS(s: string, ifs?: string): string[] {
   const chars = Array.from(new Set(ifsValue.split('')))
     .map(c => escapeForCharClass(c))
     .join('');
-  const re = new RegExp('[' + chars + ']');
+  const re = new RegExp(`[${chars}]`);
   return s.split(re).filter(x => x !== undefined);
 }
 
@@ -83,7 +83,7 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
       resolvedTargetDir = resolvedCwd;
     } else {
       const resolvedCwd = await unix.pwd().catch(() => projectBase);
-      let combined = resolvedCwd === '/' ? '/' + dirPrefix : resolvedCwd + '/' + dirPrefix;
+      let combined = resolvedCwd === '/' ? `/${dirPrefix}` : `${resolvedCwd}/${dirPrefix}`;
       combined = combined.replace(/\/+/g, '/');
       const parts = combined.split('/').filter(p => p !== '' && p !== '.');
       const stack: string[] = [];
@@ -94,12 +94,12 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
           stack.push(part);
         }
       }
-      resolvedTargetDir = '/' + stack.join('/');
+      resolvedTargetDir = `/${stack.join('/')}`;
     }
 
     // Convert resolvedTargetDir into a project-relative prefix
     let projectRelativeDir: string;
-    if (resolvedTargetDir === projectBase || resolvedTargetDir === projectBase + '/') {
+    if (resolvedTargetDir === projectBase || resolvedTargetDir === `${projectBase}/`) {
       projectRelativeDir = '';
     } else if (resolvedTargetDir.startsWith(projectBase)) {
       projectRelativeDir = resolvedTargetDir.substring(projectBase.length);
@@ -112,7 +112,7 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
         ? ''
         : projectRelativeDir.endsWith('/')
           ? projectRelativeDir
-          : projectRelativeDir + '/';
+          : `${projectRelativeDir}/`;
 
     let projectFiles: any[] = [];
     if (repo.getFilesByPrefix) {
@@ -146,16 +146,16 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
         let cls = '';
         while (j < fileGlob.length && fileGlob[j] !== ']') {
           const c = fileGlob[j++];
-          if (c === '\\' || c === ']' || c === '-') cls += '\\' + c;
+          if (c === '\\' || c === ']' || c === '-') cls += `\\${c}`;
           else cls += c;
         }
         i = Math.min(j, fileGlob.length - 1);
-        regexParts.push('[' + cls + ']');
-      } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push('\\' + ch);
+        regexParts.push(`[${cls}]`);
+      } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push(`\\${ch}`);
       else regexParts.push(ch);
     }
 
-    const regexStr = '^' + regexParts.join('') + '$';
+    const regexStr = `^${regexParts.join('')}$`;
     const regex = new RegExp(regexStr);
     const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
 

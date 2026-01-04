@@ -111,7 +111,7 @@ export default function MonacoEditor({
       const selection = e.selection;
       const model = editor.getModel();
       if (!isModelSafe(model)) return;
-      const length = countCharsNoSpaces(model!.getValueInRange(selection)) ?? 0;
+      const length = countCharsNoSpaces(model?.getValueInRange(selection)) ?? 0;
       if (selection.isEmpty()) {
         onSelectionCountChange(null);
       } else {
@@ -143,7 +143,7 @@ export default function MonacoEditor({
 
     if (model && currentModelIdRef.current !== tabId) {
       try {
-        editorRef.current!.setModel(model);
+        editorRef.current?.setModel(model);
         // marker dump removed in cleanup
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
@@ -153,11 +153,11 @@ export default function MonacoEditor({
     }
 
     // 内容同期
-    if (isModelSafe(model) && model!.getValue() !== content) {
+    if (isModelSafe(model) && model?.getValue() !== content) {
       try {
-        model!.setValue(content);
+        model?.setValue(content);
         if (isEditorSafe()) {
-          editorRef.current!.layout();
+          editorRef.current?.layout();
         }
       } catch (e: any) {
         console.warn('[MonacoEditor] Model setValue failed:', e?.message);
@@ -165,7 +165,7 @@ export default function MonacoEditor({
     }
 
     if (isModelSafe(model)) {
-      onCharCountChange(countCharsNoSpaces(model!.getValue()));
+      onCharCountChange(countCharsNoSpaces(model?.getValue()));
     }
   }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
 
@@ -207,17 +207,16 @@ export default function MonacoEditor({
         }
       }, 50);
       return () => clearTimeout(timeoutId);
-    } else {
-      // 非アクティブになったらフォーカスを外す
-      if (
-        editorRef.current &&
-        !(editorRef.current as any)._isDisposed &&
-        editorRef.current.hasTextFocus()
-      ) {
-        const domNode = editorRef.current.getDomNode();
-        if (domNode) {
-          domNode.blur();
-        }
+    }
+    // 非アクティブになったらフォーカスを外す
+    if (
+      editorRef.current &&
+      !(editorRef.current as any)._isDisposed &&
+      editorRef.current.hasTextFocus()
+    ) {
+      const domNode = editorRef.current.getDomNode();
+      if (domNode) {
+        domNode.blur();
       }
     }
   }, [isActive, isEditorReady]);

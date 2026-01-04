@@ -255,7 +255,7 @@ function interpolate(line: string, localVars: Record<string, string>, args: stri
           const s = String(a);
           // escape single quotes by closing, inserting \"'\", and reopening
           const esc = s.replace(/'/g, "'\\''");
-          return "'" + esc + "'";
+          return `'${esc}'`;
         });
         res += parts.join(' ');
       }
@@ -278,7 +278,7 @@ function interpolate(line: string, localVars: Record<string, string>, args: stri
   });
   // $VAR style (word boundary)
   for (const k of Object.keys(localVars)) {
-    out = out.replace(new RegExp('\\$' + k + '\\b', 'g'), localVars[k]);
+    out = out.replace(new RegExp(`\\$${k}\\b`, 'g'), localVars[k]);
   }
   return out;
 }

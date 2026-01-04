@@ -429,7 +429,7 @@ export default function ExtensionsPanel() {
         className="p-3 rounded-lg border transition-all hover:shadow-sm select-none"
         style={{
           background: colors.background,
-          borderColor: ext.enabled ? colors.primary + '40' : colors.border,
+          borderColor: ext.enabled ? `${colors.primary}40` : colors.border,
         }}
       >
         <div className="flex items-start justify-between mb-2">
@@ -462,7 +462,7 @@ export default function ExtensionsPanel() {
           <span
             className="text-xs px-2 py-0.5 rounded font-medium"
             style={{
-              background: typeColor + '20',
+              background: `${typeColor}20`,
               color: typeColor,
             }}
           >
@@ -480,11 +480,11 @@ export default function ExtensionsPanel() {
           <button
             className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
-              background: ext.enabled ? colors.accent + '15' : colors.primary + '15',
+              background: ext.enabled ? `${colors.accent}15` : `${colors.primary}15`,
               color: ext.enabled ? colors.foreground : colors.primary,
-              border: `1px solid ${ext.enabled ? colors.accent + '30' : colors.primary + '30'}`,
+              border: `1px solid ${ext.enabled ? `${colors.accent}30` : `${colors.primary}30`}`,
             }}
-            onClick={() => handleToggle(ext.manifest!.id, ext.enabled)}
+            onClick={() => handleToggle(ext.manifest?.id, ext.enabled)}
           >
             {ext.enabled ? (
               <>
@@ -501,11 +501,11 @@ export default function ExtensionsPanel() {
           <button
             className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
-              background: colors.red + '15',
+              background: `${colors.red}15`,
               color: colors.red,
               border: `1px solid ${colors.red}30`,
             }}
-            onClick={() => handleUninstall(ext.manifest!.id, ext.manifest!.name)}
+            onClick={() => handleUninstall(ext.manifest?.id, ext.manifest?.name)}
           >
             <Trash2 size={12} />
             Uninstall
@@ -513,7 +513,7 @@ export default function ExtensionsPanel() {
           <button
             className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
-              background: colors.primary + '15',
+              background: `${colors.primary}15`,
               color: colors.foreground,
               border: `1px solid ${colors.primary}30`,
             }}
@@ -573,7 +573,7 @@ export default function ExtensionsPanel() {
             <span
               className="text-xs px-2 py-0.5 rounded font-medium"
               style={{
-                background: typeColor + '20',
+                background: `${typeColor}20`,
                 color: typeColor,
               }}
             >
@@ -587,7 +587,7 @@ export default function ExtensionsPanel() {
           <button
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
             style={{
-              background: colors.primary + '15',
+              background: `${colors.primary}15`,
               color: colors.primary,
               border: `1px solid ${colors.primary}30`,
             }}
@@ -638,7 +638,7 @@ export default function ExtensionsPanel() {
             accept=".zip"
             style={{ display: 'none' }}
             onChange={async e => {
-              const f = e.target.files && e.target.files[0];
+              const f = e.target.files?.[0];
               if (!f) return;
               setLoading(true);
               try {
@@ -696,7 +696,7 @@ export default function ExtensionsPanel() {
           style={{
             color: activeTab === 'installed' ? colors.primary : colors.mutedFg,
             borderBottom: activeTab === 'installed' ? `2px solid ${colors.primary}` : 'none',
-            background: activeTab === 'installed' ? colors.mutedBg + '40' : 'transparent',
+            background: activeTab === 'installed' ? `${colors.mutedBg}40` : 'transparent',
           }}
           onClick={() => setActiveTab('installed')}
         >
@@ -707,7 +707,7 @@ export default function ExtensionsPanel() {
           style={{
             color: activeTab === 'available' ? colors.primary : colors.mutedFg,
             borderBottom: activeTab === 'available' ? `2px solid ${colors.primary}` : 'none',
-            background: activeTab === 'available' ? colors.mutedBg + '40' : 'transparent',
+            background: activeTab === 'available' ? `${colors.mutedBg}40` : 'transparent',
           }}
           onClick={() => setActiveTab('available')}
         >

@@ -153,8 +153,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       // Convert bracket delimiters to dollar style
       result = processNonCode(result, seg => {
         return seg
-          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
+          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => `$${g}$`)
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => `$$${g}$$`);
       });
       // Restore escaped dollar signs as literal text (not math)
       result = result
@@ -167,8 +167,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       // 'both' mode: convert bracket delimiters to dollar style (dollars also work)
       return processNonCode(src, seg => {
         return seg
-          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => '$' + g + '$')
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => '$$' + g + '$$');
+          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => `$${g}$`)
+          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => `$$${g}$$`);
       });
     }
 
@@ -236,7 +236,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     // Export to PDF
     await exportPdfFromHtml(
       htmlContent,
-      (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.pdf'
+      `${(activeTab.name || 'document').replace(/\.[^/.]+$/, '')}.pdf`
     );
   }, [activeTab.name, applyExportStyles]);
 
@@ -252,7 +252,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     try {
       await exportPngFromElement(
         container,
-        (activeTab.name || 'document').replace(/\.[^/.]+$/, '') + '.png'
+        `${(activeTab.name || 'document').replace(/\.[^/.]+$/, '')}.png`
       );
     } catch (err) {
       console.error('Error occurred during PNG export', err);

@@ -112,8 +112,8 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
       newReadyCommits.sort((a, b) => b.timestamp - a.timestamp);
       // キューにマージ（timestampで新しい順を維持）
       const merged: GitCommitType[] = [];
-      let i = 0,
-        j = 0;
+      let i = 0;
+      let j = 0;
       while (i < queue.length && j < newReadyCommits.length) {
         if (queue[i].timestamp >= newReadyCommits[j].timestamp) {
           merged.push(queue[i++]);
@@ -173,7 +173,7 @@ function assignLanes(
   commits.forEach(c => {
     c.parentHashes.forEach(parentHash => {
       if (childrenMap.has(parentHash)) {
-        childrenMap.get(parentHash)!.push(c.hash);
+        childrenMap.get(parentHash)?.push(c.hash);
       }
     });
   });
@@ -481,10 +481,9 @@ export default function GitHistory({
     if (x1 === x2) {
       // 垂直線
       return `M ${x1} ${y1} L ${x2} ${y2}`;
-    } else {
-      // ベジェ曲線
-      return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
     }
+    // ベジェ曲線
+    return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
   };
 
   return (
@@ -696,7 +695,9 @@ export default function GitHistory({
                                   return (
                                     <span
                                       key={refName}
-                                      className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium flex-shrink-0 whitespace-nowrap border`}
+                                      className={
+                                        'flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] font-medium flex-shrink-0 whitespace-nowrap border'
+                                      }
                                       style={{
                                         background: isCurrentBranch
                                           ? colors.gitBranchCurrentBg

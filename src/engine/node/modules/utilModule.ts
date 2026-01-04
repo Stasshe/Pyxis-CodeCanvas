@@ -72,8 +72,7 @@ export function createUtilModule() {
       isUndefined: (obj: any) => obj === undefined,
       isSymbol: (obj: any) => typeof obj === 'symbol',
       isBuffer: (obj: any) =>
-        obj &&
-        obj.constructor &&
+        obj?.constructor &&
         typeof obj.constructor.isBuffer === 'function' &&
         obj.constructor.isBuffer(obj),
     },

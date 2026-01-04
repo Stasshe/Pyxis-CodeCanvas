@@ -91,7 +91,7 @@ class Interface {
   // Match Node's readline.Interface.question(callback style)
   question(query: string, callback?: (answer: string) => void): void {
     // プロンプトを表示
-    if (this.output && this.output.write) {
+    if (this.output?.write) {
       this.output.write(query);
     }
 
@@ -347,7 +347,7 @@ export function createReadlineModule(
         iface.prompt = (preserveCursor?: boolean) => {
           try {
             onInput(iface.promptStr ?? '', (val: string) => {
-              emitData(val + '\n');
+              emitData(`${val}\n`);
             });
           } catch (err) {
             console.error('Error calling onInput handler:', err);
@@ -357,12 +357,12 @@ export function createReadlineModule(
 
         const origQuestion = iface.question.bind(iface);
         iface.question = (query: string, callback?: (answer: string) => void) => {
-          if (iface.output && iface.output.write) {
+          if (iface.output?.write) {
             iface.output.write(query);
           }
           try {
             onInput(query, (val: string) => {
-              emitData(val + '\n');
+              emitData(`${val}\n`);
               if (callback) callback(val);
             });
           } catch (err) {

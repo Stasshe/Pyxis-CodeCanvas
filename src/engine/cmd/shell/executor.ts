@@ -546,7 +546,7 @@ export class ShellExecutor {
         let cmdToCall: string;
         let subArgs: string[];
 
-        if (action && action.startsWith('-')) {
+        if (action?.startsWith('-')) {
           cmdToCall = category;
           subArgs = args.slice(1);
         } else if (action) {
@@ -572,7 +572,7 @@ export class ShellExecutor {
     }
 
     // 4. Extension commands
-    if (this.commandRegistry && this.commandRegistry.hasCommand(cmd)) {
+    if (this.commandRegistry?.hasCommand(cmd)) {
       try {
         const unix = await this.getUnix();
         const currentDir = unix ? await unix.pwd() : this.context.cwd;

@@ -33,7 +33,7 @@ export default function ChangedFilesPanel({
 
   return (
     <div
-      className={`p-2 border-t`}
+      className={'p-2 border-t'}
       style={{
         borderColor: colors.border,
         background: colors.cardBg,

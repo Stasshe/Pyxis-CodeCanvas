@@ -421,7 +421,7 @@ export class ModuleLoader {
     // Shebangを削除 (#!/usr/bin/env node など)
     // eval/new Function は Shebang をサポートしていないため
     if (code.startsWith('#!')) {
-      code = '//' + code; // コメントアウトして行数を維持
+      code = `//${code}`; // コメントアウトして行数を維持
     }
 
     // require 関数を定義（同期）
@@ -502,7 +502,7 @@ export class ModuleLoader {
           else if (part !== '.') parts.push(part);
         }
 
-        resolvedPath = '/' + parts.join('/');
+        resolvedPath = `/${parts.join('/')}`;
       } else if (moduleName.startsWith('@/')) {
         // Alias
         resolvedPath = moduleName.replace('@/', `/projects/${this.projectName}/src/`);
@@ -522,7 +522,7 @@ export class ModuleLoader {
 
         resolvedPath = `/projects/${this.projectName}/node_modules/${packageName}`;
         if (subPath) {
-          resolvedPath += '/' + subPath;
+          resolvedPath += `/${subPath}`;
         }
       }
 
@@ -578,21 +578,21 @@ export class ModuleLoader {
     // by the runtime/debug UI.
     const sandboxConsole = {
       log: (...args: unknown[]) => {
-        if (this.debugConsole && this.debugConsole.log) {
+        if (this.debugConsole?.log) {
           this.debugConsole.log(...args);
         } else {
           runtimeInfo(...args);
         }
       },
       error: (...args: unknown[]) => {
-        if (this.debugConsole && this.debugConsole.error) {
+        if (this.debugConsole?.error) {
           this.debugConsole.error(...args);
         } else {
           runtimeError(...args);
         }
       },
       warn: (...args: unknown[]) => {
-        if (this.debugConsole && this.debugConsole.warn) {
+        if (this.debugConsole?.warn) {
           this.debugConsole.warn(...args);
         } else {
           runtimeWarn(...args);
@@ -790,7 +790,7 @@ export class ModuleLoader {
    * NodeRuntime からも使用される
    */
   getExports(resolvedPath: string): any {
-    if (this.executionCache[resolvedPath] && this.executionCache[resolvedPath].loaded) {
+    if (this.executionCache[resolvedPath]?.loaded) {
       return this.executionCache[resolvedPath].exports;
     }
     return null;

@@ -17,7 +17,7 @@ export async function saveInstalledExtension(extension: InstalledExtension): Pro
   }
   // Convert any data URL strings inside extension.cache.files to Blobs to avoid storing large base64 strings
   try {
-    if (extension.cache && extension.cache.files) {
+    if (extension.cache?.files) {
       for (const [key, value] of Object.entries(extension.cache.files)) {
         if (typeof value === 'string' && value.startsWith('data:')) {
           try {
@@ -51,7 +51,7 @@ export async function loadInstalledExtension(
 export async function loadAllInstalledExtensions(): Promise<InstalledExtension[]> {
   const entries = await storageService.getAll<InstalledExtension>(STORES.EXTENSIONS);
   // manifestがnull/undefinedのものは除外
-  return entries.map(entry => entry.data).filter(ext => ext && ext.manifest);
+  return entries.map(entry => entry.data).filter(ext => ext?.manifest);
 }
 
 /**

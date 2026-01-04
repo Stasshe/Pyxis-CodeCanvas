@@ -157,7 +157,7 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
             });
             const text = lines.join('\n');
             try {
-              if (navigator.clipboard && navigator.clipboard.writeText) {
+              if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(text);
               } else {
                 const ta = document.createElement('textarea');

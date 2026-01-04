@@ -79,7 +79,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         {/* ヘッダー */}
         <div className="mb-6 flex-shrink-0">
           <div className="flex items-start gap-4 mb-2">
-            <div className="p-3 rounded-lg" style={{ background: colors.primary + '20' }}>
+            <div className="p-3 rounded-lg" style={{ background: `${colors.primary}20` }}>
               <Package size={28} style={{ color: colors.primary }} />
             </div>
             <div className="flex-1">
@@ -89,7 +89,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                   <span
                     className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
                     style={{
-                      background: colors.green + '20',
+                      background: `${colors.green}20`,
                       color: colors.green,
                     }}
                   >
@@ -251,7 +251,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
               <span
                 className="text-sm px-3 py-1 rounded font-medium inline-block"
                 style={{
-                  background: typeColor + '20',
+                  background: `${typeColor}20`,
                   color: typeColor,
                 }}
               >
@@ -307,7 +307,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                         <span
                           key={idx}
                           className="text-xs px-2 py-1 rounded"
-                          style={{ background: colors.primary + '15', color: colors.primary }}
+                          style={{ background: `${colors.primary}15`, color: colors.primary }}
                         >
                           {tag}
                         </span>

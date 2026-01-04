@@ -135,7 +135,7 @@ export default function VirtualizedFileTree({
       }
       try {
         const gitignoreFile = await fileRepository.getFileByPath(currentProjectId, '/.gitignore');
-        if (gitignoreFile && gitignoreFile.content) {
+        if (gitignoreFile?.content) {
           const parsed = parseGitignore(gitignoreFile.content);
           if (mounted) setGitignoreRules(parsed);
         } else {
@@ -251,7 +251,7 @@ export default function VirtualizedFileTree({
     async (draggedItem: FileItem, targetFolderPath: string) => {
       if (!currentProjectId || !currentProjectName) return;
       if (draggedItem.path === targetFolderPath) return;
-      if (targetFolderPath.startsWith(draggedItem.path + '/')) return;
+      if (targetFolderPath.startsWith(`${draggedItem.path}/`)) return;
 
       try {
         const unix = terminalCommandRegistry.getUnixCommands(currentProjectName, currentProjectId);

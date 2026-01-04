@@ -74,7 +74,7 @@ export default function LeftSidebar({
             {activeMenuTab === 'run' && 'Run'}
             {activeMenuTab === 'extensions' && 'Extensions'}
             {activeMenuTab === 'settings' && 'Settings'}
-            {activeExtensionPanel && activeExtensionPanel.title}
+            {activeExtensionPanel?.title}
           </span>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">
@@ -106,7 +106,7 @@ export default function LeftSidebar({
                   onClick={async () => {
                     const fileName = prompt('新しいファイル名を入力してください:');
                     if (fileName && currentProject?.id) {
-                      const newFilePath = fileName.startsWith('/') ? fileName : '/' + fileName;
+                      const newFilePath = fileName.startsWith('/') ? fileName : `/${fileName}`;
                       await fileRepository.createFile(currentProject.id, newFilePath, '', 'file');
                       if (onRefresh) setTimeout(onRefresh, 100);
                     }
@@ -130,7 +130,7 @@ export default function LeftSidebar({
                     if (folderName && currentProject?.id) {
                       const newFolderPath = folderName.startsWith('/')
                         ? folderName
-                        : '/' + folderName;
+                        : `/${folderName}`;
                       await fileRepository.createFile(
                         currentProject.id,
                         newFolderPath,

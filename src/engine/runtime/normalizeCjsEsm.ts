@@ -501,13 +501,12 @@ export function normalizeCjsEsm(code: string): { code: string; dependencies: str
         const from = asMatch[1];
         const to = asMatch[2];
         return `module.exports.${to} = ${from};`;
-      } else {
-        // cleaned might be just a name
-        const name = cleaned.match(/^(\w+)$/);
-        if (name) return `module.exports.${name[1]} = ${name[1]};`;
-        // fallback: preserve original (best-effort)
-        return `module.exports.${cleaned} = ${cleaned};`;
       }
+      // cleaned might be just a name
+      const name = cleaned.match(/^(\w+)$/);
+      if (name) return `module.exports.${name[1]} = ${name[1]};`;
+      // fallback: preserve original (best-effort)
+      return `module.exports.${cleaned} = ${cleaned};`;
     });
     return assigns.join(' ');
   });
@@ -541,7 +540,7 @@ export function normalizeCjsEsm(code: string): { code: string; dependencies: str
         assignsArr.push(`module.exports.${exported} = ${local};`);
       }
     }
-    if (assignsArr.length > 0) code = code + '\n' + assignsArr.join(' ');
+    if (assignsArr.length > 0) code = `${code}\n${assignsArr.join(' ')}`;
   }
 
   // Restore masked placeholders (reverse order for safety)

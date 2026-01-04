@@ -78,7 +78,7 @@ export async function handleGitCommand(
           await writeOutput(cloneResult);
           if (!targetDir) {
             await writeOutput(
-              `Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.\nTo clone directly into a project root (like via Project manager), use the Project modal which clones into the project root.`
+              'Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.\nTo clone directly into a project root (like via Project manager), use the Project modal which clones into the project root.'
             );
           }
         } catch (error) {
@@ -329,7 +329,7 @@ export async function handleGitCommand(
         let usedBranch = branch;
         if (!usedBranch && typeof pushResult === 'string') {
           const match = pushResult.match(/\s([\w\-]+) -> [\w\-]+/);
-          if (match && match[1]) usedBranch = match[1];
+          if (match?.[1]) usedBranch = match[1];
         }
         if (usedBranch) {
           const fetchResult = await git.fetch({ remote: 'origin', branch: usedBranch });

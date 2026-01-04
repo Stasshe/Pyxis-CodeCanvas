@@ -242,7 +242,7 @@ class ExtensionManager {
         throw new Error('manifest.json not found inside ZIP');
       }
 
-      const manifestText = await zip.file(manifestPath)!.async('string');
+      const manifestText = await zip.file(manifestPath)?.async('string');
       const manifest = JSON.parse(manifestText) as any;
 
       if (!manifest || !manifest.id) {
@@ -279,7 +279,7 @@ class ExtensionManager {
       }
 
       // エントリのコードを読み込む
-      const entryCode = await zip.file(resolvedEntryPath)!.async('string');
+      const entryCode = await zip.file(resolvedEntryPath)?.async('string');
 
       // manifest.entry を extension root 相対（manifestDir を削った形）に更新
       let normalizedEntry = resolvedEntryPath;
@@ -305,12 +305,12 @@ class ExtensionManager {
           // decide whether to read as binary based on extension (use shared util)
           const { isBinaryExt, uint8ToBlob } = await import('./binaryUtils');
           if (isBinaryExt(filePath)) {
-            const uint8 = await zip.file(resolved)!.async('uint8array');
+            const uint8 = await zip.file(resolved)?.async('uint8array');
             const blob = uint8ToBlob(uint8, filePath);
             const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
             filesMap[normalizedKey] = blob as any;
           } else {
-            const content = await zip.file(resolved)!.async('string');
+            const content = await zip.file(resolved)?.async('string');
             const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
             filesMap[normalizedKey] = content;
           }
@@ -555,7 +555,7 @@ class ExtensionManager {
   getEnabledLanguagePacks(): Array<{ locale: string; name: string; nativeName: string }> {
     const langPacks: Array<{ locale: string; name: string; nativeName: string }> = [];
     for (const active of this.activeExtensions.values()) {
-      if (active.activation.services && active.activation.services['language-pack']) {
+      if (active.activation.services?.['language-pack']) {
         langPacks.push(
           active.activation.services['language-pack'] as {
             locale: string;

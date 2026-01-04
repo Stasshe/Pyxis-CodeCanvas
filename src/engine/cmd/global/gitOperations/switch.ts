@@ -96,10 +96,9 @@ export class GitSwitchOperations {
       if (createNew) {
         // 新しいブランチを作成して切り替え
         return await this.createCheckoutOperations().checkout(normalizedRef, true);
-      } else {
-        // 既存のブランチに切り替え
-        return await this.createCheckoutOperations().checkout(normalizedRef, false);
       }
+      // 既存のブランチに切り替え
+      return await this.createCheckoutOperations().checkout(normalizedRef, false);
     } catch (error) {
       throw new Error(`git switch failed: ${(error as Error).message}`);
     }

@@ -19,7 +19,7 @@ export async function exportIndexeddbHtmlWithWindow(
     } else {
       msg = String(e);
     }
-    await writeOutput('IndexedDBエクスポート失敗: ' + msg);
+    await writeOutput(`IndexedDBエクスポート失敗: ${msg}`);
   }
 }
 
@@ -58,12 +58,12 @@ export async function exportIndexeddbHtml(): Promise<string> {
     if (json === null) return `<span class='json-null'>null</span>`;
     if (Array.isArray(json)) {
       const id = `item-${path}`;
-      return `<span class='json-array-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> [Array(${json.length})]</span> <div class='json-array json-collapsible collapsed' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, path + '-' + i)}</div>`).join('')}</div>`;
+      return `<span class='json-array-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> [Array(${json.length})]</span> <div class='json-array json-collapsible collapsed' id='${id}'>${json.map((v, i) => `<div class='json-array-item'>[${i}] ${syntaxHighlight(v, `${path}-${i}`)}</div>`).join('')}</div>`;
     }
     if (typeof json === 'object') {
       const keys = Object.keys(json);
       const id = `item-${path}`;
-      return `<span class='json-object-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> {Object(${keys.length})}</span> <div class='json-object json-collapsible collapsed' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], path + '-' + k)}</div>`).join('')}</div>`;
+      return `<span class='json-object-toggle' onclick="toggleItem('${id}',this)"><span class='arrow'>▶</span> {Object(${keys.length})}</span> <div class='json-object json-collapsible collapsed' id='${id}'>${keys.map(k => `<div class='json-object-item'><span class='json-key'>"${k}"</span>: ${syntaxHighlight(json[k], `${path}-${k}`)}</div>`).join('')}</div>`;
     }
     if (typeof json === 'string') {
       return `<span class='json-string'>"${json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</span>`;

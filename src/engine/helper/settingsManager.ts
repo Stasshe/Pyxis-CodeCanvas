@@ -41,7 +41,7 @@ export class SettingsManager {
     if (!this.listeners.has(projectId)) {
       this.listeners.set(projectId, new Set());
     }
-    this.listeners.get(projectId)!.add(listener);
+    this.listeners.get(projectId)?.add(listener);
 
     // アンサブスクライブ関数を返す
     return () => {

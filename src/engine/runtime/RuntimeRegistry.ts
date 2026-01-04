@@ -77,7 +77,7 @@ export class RuntimeRegistry {
       if (!this.extensionToTranspiler.has(ext)) {
         this.extensionToTranspiler.set(ext, []);
       }
-      this.extensionToTranspiler.get(ext)!.push(id);
+      this.extensionToTranspiler.get(ext)?.push(id);
     }
 
     runtimeInfo(

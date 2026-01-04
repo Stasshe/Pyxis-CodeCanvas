@@ -18,18 +18,28 @@ import type { ProjectFile } from '@/types';
  * - DB操作: AppPath形式（/src/hello.ts）
  */
 export abstract class UnixCommandBase {
-  protected currentDir: string;
+  protected _currentDir: string;
   protected projectId: string;
   protected projectName: string;
 
   constructor(projectName: string, currentDir: string, projectId?: string) {
     this.projectName = projectName;
-    this.currentDir = currentDir;
+    this._currentDir = currentDir;
     this.projectId = projectId || '';
 
     if (!this.projectId) {
       console.warn('[UnixCommandBase] projectId is empty! DB operations will fail.');
     }
+  }
+
+  /** Get current directory */
+  get currentDir(): string {
+    return this._currentDir;
+  }
+
+  /** Set current directory */
+  set currentDir(dir: string) {
+    this._currentDir = dir;
   }
 
   // NOTE: Caching disabled - direct DB reads are performed to ensure latest data is returned.
@@ -149,11 +159,10 @@ export abstract class UnixCommandBase {
       if (dirRelative === '/') {
         // ルートの場合、直下のみ
         return f.path.split('/').filter((p: string) => p).length === 1;
-      } else {
-        // 指定ディレクトリの直下のみ
-        const relativePath = f.path.replace(prefix, '');
-        return f.path.startsWith(prefix) && !relativePath.includes('/');
       }
+      // 指定ディレクトリの直下のみ
+      const relativePath = f.path.replace(prefix, '');
+      return f.path.startsWith(prefix) && !relativePath.includes('/');
     });
 
     return childrenInDir
@@ -276,12 +285,11 @@ export abstract class UnixCommandBase {
         if (currentRelative === '/') {
           // ルート直下
           return f.path.split('/').filter((p: string) => p).length === 1;
-        } else {
-          // 指定ディレクトリ直下
-          if (!f.path.startsWith(prefix)) return false;
-          const relativePath = f.path.substring(prefix.length);
-          return !relativePath.includes('/');
         }
+        // 指定ディレクトリ直下
+        if (!f.path.startsWith(prefix)) return false;
+        const relativePath = f.path.substring(prefix.length);
+        return !relativePath.includes('/');
       });
 
       // 特殊ケース: '**' は0個以上のディレクトリセグメントにマッチ
@@ -295,7 +303,7 @@ export abstract class UnixCommandBase {
 
           // child がディレクトリかどうかを判定
           const childIsDir =
-            child.type === 'folder' || files.some(f => f.path.startsWith(child.path + '/'));
+            child.type === 'folder' || files.some(f => f.path.startsWith(`${child.path}/`));
           if (!childIsDir) continue;
 
           const nextPath = currentPath === '' ? fileName : `${currentPath}/${fileName}`;
@@ -355,7 +363,7 @@ export abstract class UnixCommandBase {
 
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあれば存在する）
-    const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+    const parentPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
     const files = await this.cachedGetFilesByPrefix(parentPath);
     const hasChildren = files.some(
       (f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath
@@ -384,7 +392,7 @@ export abstract class UnixCommandBase {
 
     // ファイルが見つからない場合、子ファイルが存在するかチェック
     // （ディレクトリ自体がDBに登録されていない場合でも、子ファイルがあればディレクトリ）
-    const parentPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+    const parentPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
     const files = await this.cachedGetFilesByPrefix(parentPath);
     const hasChildren = files.some(
       (f: ProjectFile) => f.path.startsWith(parentPath) && f.path !== relativePath

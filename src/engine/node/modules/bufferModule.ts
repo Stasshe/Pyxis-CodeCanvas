@@ -29,11 +29,11 @@ class BufferEmulation {
     if (typeof data === 'string') {
       const encoder = new TextEncoder();
       return new BufferEmulation(encoder.encode(data));
-    } else if (data instanceof ArrayBuffer) {
-      return new BufferEmulation(data);
-    } else {
+    }
+    if (data instanceof ArrayBuffer) {
       return new BufferEmulation(data);
     }
+    return new BufferEmulation(data);
   }
 
   static alloc(size: number, fill?: number): BufferEmulation {
@@ -94,13 +94,13 @@ const BufferProxy = new Proxy(BufferEmulation, {
     const instance = new target(...args);
     return new Proxy(instance, {
       get(target, prop) {
-        if (typeof prop === 'string' && !isNaN(Number(prop))) {
+        if (typeof prop === 'string' && !Number.isNaN(Number(prop))) {
           return target._data[Number(prop)];
         }
         return (target as any)[prop];
       },
       set(target, prop, value) {
-        if (typeof prop === 'string' && !isNaN(Number(prop))) {
+        if (typeof prop === 'string' && !Number.isNaN(Number(prop))) {
           target._data[Number(prop)] = value;
           return true;
         }

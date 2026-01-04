@@ -39,7 +39,7 @@ export default function FileChangeItem({
 
   return (
     <div
-      className={`rounded border p-2`}
+      className={'rounded border p-2'}
       style={{
         borderColor: colors.border,
         background: colors.cardBg,
@@ -50,7 +50,7 @@ export default function FileChangeItem({
           <div className="flex items-center gap-2 mb-1">
             <FileCode size={14} style={{ color: colors.accent }} />
             <span
-              className={`font-mono font-medium text-xs truncate`}
+              className={'font-mono font-medium text-xs truncate'}
               style={{ color: colors.foreground }}
               title={file.path}
             >
@@ -59,7 +59,7 @@ export default function FileChangeItem({
           </div>
 
           {file.explanation && (
-            <p className={`text-xs mb-1`} style={{ color: colors.mutedFg }}>
+            <p className={'text-xs mb-1'} style={{ color: colors.mutedFg }}>
               {file.explanation}
             </p>
           )}

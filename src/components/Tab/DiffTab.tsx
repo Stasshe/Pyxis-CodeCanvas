@@ -197,7 +197,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
           try {
             const current = diffModel.modified.getValue();
             // 即時反映ハンドラ（タブ全体の isDirty を立てる用途）
-            onImmediateContentChange && onImmediateContentChange(current);
+            onImmediateContentChange?.(current);
             // デバウンス保存
             debouncedSave(current);
           } catch (e) {

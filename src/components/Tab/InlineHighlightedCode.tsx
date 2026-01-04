@@ -731,7 +731,7 @@ const parseShellDoubleQuotedString = (code: string, startIndex: number): string 
     const char = code[j];
 
     if (char === '"') {
-      return result + '"';
+      return `${result}"`;
     }
 
     if (char === '\\' && j + 1 < code.length) {
@@ -854,7 +854,7 @@ const tokenizeShell = (code: string, patterns: PatternDef[]): Token[] => {
     // $"..." localized string
     if (rest.startsWith('$"')) {
       const str = parseShellDoubleQuotedString(code, i + 1);
-      tokens.push({ type: 'templateString', value: '$' + str });
+      tokens.push({ type: 'templateString', value: `$${str}` });
       i += 1 + str.length;
       continue;
     }
@@ -898,7 +898,7 @@ const parseJsTemplateString = (code: string, startIndex: number): string => {
     const char = code[j];
 
     if (char === '`') {
-      return result + '`';
+      return `${result}\``;
     }
 
     if (char === '\\' && j + 1 < code.length) {

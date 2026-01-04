@@ -96,7 +96,7 @@ export default function ChatInput({
   function getIconSrcForFile(name: string) {
     try {
       const iconPath = getIconForFile(name) || getIconForFile('');
-      if (iconPath && iconPath.endsWith('.svg')) {
+      if (iconPath?.endsWith('.svg')) {
         return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
       }
     } catch (e) {
@@ -151,6 +151,7 @@ export default function ChatInput({
                   {activeTabPath.split('/').pop()}
                 </span>
                 <button
+                  type="button"
                   onClick={() => onToggleActiveTabContext?.()}
                   title={t('ai.context.select') || 'Add'}
                   style={{
@@ -229,8 +230,8 @@ export default function ChatInput({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
                 </div>

@@ -104,7 +104,7 @@ export function useGlobalScrollLock() {
         while (cur && cur !== document.documentElement) {
           const cls = getClassName(cur);
           const id = (cur.id || '') as string;
-          const role = cur.getAttribute && cur.getAttribute('role');
+          const role = cur.getAttribute?.('role');
           if (
             cls.includes('monaco') ||
             cls.includes('minimap') ||
@@ -134,7 +134,7 @@ export function useGlobalScrollLock() {
       while (cur && cur !== document.documentElement) {
         const cls = getClassName(cur);
         const id = (cur.id || '') as string;
-        const role = cur.getAttribute && cur.getAttribute('role');
+        const role = cur.getAttribute?.('role');
         if (
           cls.includes('monaco') ||
           cls.includes('minimap') ||

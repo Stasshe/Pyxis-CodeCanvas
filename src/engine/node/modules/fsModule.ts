@@ -320,7 +320,7 @@ export function createFSModule(options: FSModuleOptions) {
     readdir: async (path: string, options?: any): Promise<string[]> => {
       try {
         const { relativePath } = normalizeModulePath(path);
-        const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+        const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
         // Use prefix-based listing to avoid loading all files
         const files =
           typeof fileRepository.getFilesByPrefix === 'function'
@@ -343,7 +343,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     readdirSync: (path: string, options?: any): string[] => {
       const { relativePath } = normalizeModulePath(path);
-      const dirPath = relativePath.endsWith('/') ? relativePath : relativePath + '/';
+      const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
 
       // メモリキャッシュから直接取得
       const keys = Array.from(memoryCache.keys());

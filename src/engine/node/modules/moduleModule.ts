@@ -52,7 +52,7 @@ export function createModuleModule() {
       // However, many tools just check for its existence.
       return (id: string) => {
         throw new Error(
-          `require() created via module.createRequire is not fully supported in this environment yet.`
+          'require() created via module.createRequire is not fully supported in this environment yet.'
         );
       };
     },

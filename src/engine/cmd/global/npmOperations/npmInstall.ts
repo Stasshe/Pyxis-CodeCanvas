@@ -169,7 +169,7 @@ export class NpmInstall {
           }
         }
       } catch (error) {
-        console.warn(`[npmInstall] Failed to execute batch operations:`, error);
+        console.warn('[npmInstall] Failed to execute batch operations:', error);
       }
     }
 
@@ -291,7 +291,7 @@ export class NpmInstall {
           shimLines.push(`  require('${target}');`);
           shimLines.push('} catch (e) {');
           shimLines.push(
-            "  console.error('Failed to run " + name + ":', e && e.message ? e.message : e);"
+            `  console.error('Failed to run ${name}:', e && e.message ? e.message : e);`
           );
           shimLines.push('  process.exit(1);');
           shimLines.push('}');
@@ -772,9 +772,8 @@ export class NpmInstall {
         if (!tarballResponse.ok) {
           if (tarballResponse.status === 404) {
             throw new Error(`Package '${packageName}@${version}' not found`);
-          } else {
-            throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
           }
+          throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -879,7 +878,7 @@ export class NpmInstall {
             try {
               await fileRepository.createFilesBulk(this.projectId, batch as any, true);
             } catch (err) {
-              console.warn(`[npm.downloadAndInstallPackage] createFilesBulk failed:`, err);
+              console.warn('[npm.downloadAndInstallPackage] createFilesBulk failed:', err);
               // フォールバックで個別作成（並列）
               await Promise.all(
                 batch.map(b =>
@@ -1027,7 +1026,7 @@ export class NpmInstall {
           resolve();
         });
         extract.on('error', (error: Error) => {
-          console.error(`[npm.extractPackageFromStream] Tar extraction error:`, error);
+          console.error('[npm.extractPackageFromStream] Tar extraction error:', error);
           reject(error);
         });
       });
@@ -1056,10 +1055,10 @@ export class NpmInstall {
         }
       }
 
-      console.log(`[npm.extractPackageFromStream] Package extraction completed successfully`);
+      console.log('[npm.extractPackageFromStream] Package extraction completed successfully');
       return extractedFiles;
     } catch (error) {
-      console.error(`[npm.extractPackageFromStream] Failed to extract package:`, error);
+      console.error('[npm.extractPackageFromStream] Failed to extract package:', error);
       throw error;
     }
   }
@@ -1127,7 +1126,7 @@ export class NpmInstall {
         );
       } catch (error) {
         // gzip圧縮されていない場合はそのまま使用
-        console.log(`[npm.extractPackage] Not gzip compressed, using raw data`);
+        console.log('[npm.extractPackage] Not gzip compressed, using raw data');
         decompressedData = uint8Array;
       }
 
@@ -1224,7 +1223,7 @@ export class NpmInstall {
         });
 
         extract.on('error', (error: Error) => {
-          console.error(`[npm.extractPackage] Tar extraction error:`, error);
+          console.error('[npm.extractPackage] Tar extraction error:', error);
           reject(error);
         });
 
@@ -1269,10 +1268,10 @@ export class NpmInstall {
         }
       }
 
-      console.log(`[npm.extractPackage] Package extraction completed successfully`);
+      console.log('[npm.extractPackage] Package extraction completed successfully');
       return extractedFiles;
     } catch (error) {
-      console.error(`[npm.extractPackage] Failed to extract package:`, error);
+      console.error('[npm.extractPackage] Failed to extract package:', error);
       throw error;
     }
   }

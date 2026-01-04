@@ -249,7 +249,6 @@ export default function ProjectModal({
                     onChange={e => setNewProjectName(e.target.value)}
                     placeholder={t('projectModal.projectNamePlaceholder')}
                     className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    autoFocus
                   />
                 </div>
                 <div className="mb-3">
@@ -296,7 +295,6 @@ export default function ProjectModal({
                     onChange={e => setCloneUrl(e.target.value)}
                     placeholder={t('projectModal.repoUrlPlaceholder')}
                     className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    autoFocus
                   />
                 </div>
                 <div className="mb-3">

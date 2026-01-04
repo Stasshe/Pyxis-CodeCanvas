@@ -45,7 +45,8 @@ export class GitDiffOperations {
       if (commit1 && commit2) {
         // 2つのコミット間の差分
         return await this.diffCommits(commit1, commit2, filepath);
-      } else if (branchName) {
+      }
+      if (branchName) {
         // git diff <branch> の場合: 現在のHEADとbranchNameのHEADを比較
         let currentBranch = '';
         try {
@@ -64,13 +65,13 @@ export class GitDiffOperations {
           ref: `refs/heads/${branchName}`,
         });
         return await this.diffCommits(head1, head2, filepath);
-      } else if (staged) {
+      }
+      if (staged) {
         // ステージされた変更の差分
         return await this.diffStaged(filepath);
-      } else {
-        // ワーキングディレクトリの変更差分
-        return await this.diffWorkingDirectory(filepath);
       }
+      // ワーキングディレクトリの変更差分
+      return await this.diffWorkingDirectory(filepath);
     } catch (error) {
       throw new Error(`git diff failed: ${(error as Error).message}`);
     }
@@ -379,7 +380,8 @@ export class GitDiffOperations {
       if (stage === 3) {
         // 新規ファイルがステージされた場合
         return this.formatDiff(filepath, '', workContent);
-      } else if (stage === 2) {
+      }
+      if (stage === 2) {
         // 変更されたファイルがステージされた場合
         return this.formatDiff(filepath, headContent, workContent);
       }
@@ -483,17 +485,17 @@ export class GitDiffOperations {
     let result = `diff --git a/${filepath} b/${filepath}\n`;
 
     if (oldContent === '') {
-      result += `new file mode 100644\n`;
+      result += 'new file mode 100644\n';
       result += `index 0000000..${this.generateShortHash(newContent)}\n`;
-      result += `--- /dev/null\n`;
+      result += '--- /dev/null\n';
       result += `+++ b/${filepath}\n`;
       result += `@@ -0,0 +1,${newLines.length} @@\n`;
       newLines.forEach(line => (result += `+${line}\n`));
     } else if (newContent === '') {
-      result += `deleted file mode 100644\n`;
+      result += 'deleted file mode 100644\n';
       result += `index ${this.generateShortHash(oldContent)}..0000000\n`;
       result += `--- a/${filepath}\n`;
-      result += `+++ /dev/null\n`;
+      result += '+++ /dev/null\n';
       result += `@@ -1,${oldLines.length} +0,0 @@\n`;
       oldLines.forEach(line => (result += `-${line}\n`));
     } else {
@@ -596,7 +598,7 @@ export class GitDiffOperations {
       // 各セクションを出力
       diffSections.forEach(section => {
         result += `@@ -${section.start},${section.oldCount} +${section.start},${section.newCount} @@\n`;
-        result += section.lines.join('\n') + '\n';
+        result += `${section.lines.join('\n')}\n`;
       });
     }
 

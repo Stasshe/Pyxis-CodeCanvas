@@ -104,7 +104,7 @@ class KeyBindingsManager {
     if (!this.actions.has(actionId)) {
       this.actions.set(actionId, new Set());
     }
-    this.actions.get(actionId)!.add(callback);
+    this.actions.get(actionId)?.add(callback);
 
     return () => {
       const callbacks = this.actions.get(actionId);
