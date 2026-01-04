@@ -122,6 +122,19 @@ export function useMonacoModels() {
             // the existing model here to avoid racing with setModel()/editor lifecycle.
             monacoModelMap.delete(tabId);
             model = undefined;
+          } else {
+            // Language matches - update content if it differs (fixes external change bug)
+            const currentContent = model!.getValue();
+            if (currentContent !== content) {
+              console.log('[useMonacoModels] Updating cached model content:', {
+                tabId,
+                oldLength: currentContent.length,
+                newLength: content.length
+              });
+              model!.setValue(content);
+            }
+            // Return the updated model
+            return model;
           }
         } catch (e) {
           console.warn('[useMonacoModels] Error while checking cached model language:', e);
