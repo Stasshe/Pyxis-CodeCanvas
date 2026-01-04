@@ -31,9 +31,25 @@ export class GitSwitchOperations {
   }
 
   /**
+   * Helper method to create checkout operations instance
+   */
+  private createCheckoutOperations(): GitCheckoutOperations {
+    return new GitCheckoutOperations(
+      this.fs,
+      this.dir,
+      this.projectId,
+      this.projectName
+    );
+  }
+
+  /**
    * git switch - ブランチまたはコミットに切り替え
    * origin/main, upstream/develop などのリモートブランチや
    * コミットハッシュにも対応
+   * 
+   * Note: The `detach` option is accepted for API compatibility but currently
+   * checkout to commit hashes or remote branches automatically results in
+   * detached HEAD state.
    */
   async switch(
     targetRef: string,
@@ -46,6 +62,8 @@ export class GitSwitchOperations {
 
     try {
       const { createNew = false } = options;
+      // Note: detach option is not explicitly used as checkout to commits/remote refs
+      // automatically enters detached HEAD state
       const normalizedRef = targetRef.trim();
 
       // コミットハッシュかどうかを判定（7文字以上の16進数、短縮系に対応）
@@ -54,13 +72,7 @@ export class GitSwitchOperations {
       if (isCommitHash) {
         // コミットハッシュの場合
         try {
-          const checkoutOperations = new GitCheckoutOperations(
-            this.fs,
-            this.dir,
-            this.projectId,
-            this.projectName
-          );
-          return await checkoutOperations.checkout(normalizedRef, false);
+          return await this.createCheckoutOperations().checkout(normalizedRef, false);
         } catch (error) {
           throw new Error(
             `Failed to checkout commit '${normalizedRef}': ${(error as Error).message}`
@@ -79,33 +91,19 @@ export class GitSwitchOperations {
           }
 
           // detached HEAD状態でチェックアウト
-          const checkoutOperations = new GitCheckoutOperations(
-            this.fs,
-            this.dir,
-            this.projectId,
-            this.projectName
-          );
-
-          return await checkoutOperations.checkout(commitOid, false);
+          return await this.createCheckoutOperations().checkout(commitOid, false);
         } catch (error) {
           throw new Error(`Failed to switch to remote branch: ${(error as Error).message}`);
         }
       }
 
       // ローカルブランチ
-      const checkoutOperations = new GitCheckoutOperations(
-        this.fs,
-        this.dir,
-        this.projectId,
-        this.projectName
-      );
-
       if (createNew) {
         // 新しいブランチを作成して切り替え
-        return await checkoutOperations.checkout(normalizedRef, true);
+        return await this.createCheckoutOperations().checkout(normalizedRef, true);
       } else {
         // 既存のブランチに切り替え
-        return await checkoutOperations.checkout(normalizedRef, false);
+        return await this.createCheckoutOperations().checkout(normalizedRef, false);
       }
     } catch (error) {
       throw new Error(`git switch failed: ${(error as Error).message}`);
