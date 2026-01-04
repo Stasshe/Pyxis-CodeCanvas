@@ -39,15 +39,18 @@ const sharedCurrentModelIdRef: { current: string | null } = { current: null };
 /**
  * モジュールレベルの関数: 既存のモデルのコンテンツを更新
  * TabStoreから呼び出されて、非アクティブなタブのモデルも更新する
+ * @param tabId タブID
+ * @param content 新しいコンテンツ
+ * @param context 呼び出し元のコンテキスト（ログ用）
  */
-export function updateCachedModelContent(tabId: string, content: string): void {
+export function updateCachedModelContent(tabId: string, content: string, context = 'inactive'): void {
   const model = sharedModelMap.get(tabId);
   if (model && typeof model.isDisposed === 'function' && !model.isDisposed()) {
     try {
       const currentValue = model.getValue();
       if (currentValue !== content) {
         model.setValue(content);
-        console.log('[useMonacoModels] Updated cached model content for inactive tab:', tabId);
+        console.log(`[useMonacoModels] Updated cached model content (${context}):`, tabId);
       }
     } catch (e) {
       console.warn('[useMonacoModels] Failed to update cached model content:', e);
@@ -124,15 +127,8 @@ export function useMonacoModels() {
             model = undefined;
           } else {
             // Language matches - update content if it differs (fixes external change bug)
-            const currentContent = model!.getValue();
-            if (currentContent !== content) {
-              console.log('[useMonacoModels] Updating cached model content:', {
-                tabId,
-                oldLength: currentContent.length,
-                newLength: content.length
-              });
-              model!.setValue(content);
-            }
+            // Use existing function to maintain consistency
+            updateCachedModelContent(tabId, content, 'reactivating');
             // Return the updated model
             return model;
           }
