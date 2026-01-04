@@ -776,6 +776,20 @@ export default memo(AIPanel, (prevProps, nextProps) => {
     return false;
   }
   
+  // プロジェクトファイルの内容が変わった場合は再レンダリング
+  // 最初と最後のファイルのIDとパスを比較（完全な深い比較は避ける）
+  if (prevProps.projectFiles.length > 0 && nextProps.projectFiles.length > 0) {
+    const prevFirst = prevProps.projectFiles[0];
+    const nextFirst = nextProps.projectFiles[0];
+    const prevLast = prevProps.projectFiles[prevProps.projectFiles.length - 1];
+    const nextLast = nextProps.projectFiles[nextProps.projectFiles.length - 1];
+    
+    if (prevFirst.id !== nextFirst.id || prevFirst.path !== nextFirst.path ||
+        prevLast.id !== nextLast.id || prevLast.path !== nextLast.path) {
+      return false;
+    }
+  }
+  
   // その他の場合は再レンダリングしない（パフォーマンス最適化）
   return true;
 });

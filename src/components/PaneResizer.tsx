@@ -138,8 +138,10 @@ export default memo(PaneResizer, (prevProps, nextProps) => {
     return false;
   }
   
-  // leftSize/rightSizeの変更は無視（リサイズ中の頻繁な更新を防ぐ）
-  // これらの値は内部状態として管理され、親から再レンダリングを強制する必要はない
+  // 重要: leftSize/rightSizeの変更は意図的に無視
+  // 理由: リサイズ中に親から送られてくる頻繁な更新を無視し、
+  // リサイザー自体のドラッグ操作のみで位置を制御することで
+  // 無限レンダリングループとUIのちらつきを防ぐ
   
   return true;
 });
