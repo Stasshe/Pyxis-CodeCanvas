@@ -174,10 +174,10 @@ export default function ExtensionsPanel() {
   /**
    * 拡張機能の詳細タブを開く
    */
-  const openExtensionInfoTab = (manifest: ExtensionManifest, isEnabled: boolean) => {
+  const openExtensionInfoTab = async (manifest: ExtensionManifest, isEnabled: boolean) => {
     const { openTab } = useTabStore.getState();
 
-    openTab(
+    await openTab(
       {
         kind: 'extension-info',
         name: manifest.name,

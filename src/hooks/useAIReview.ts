@@ -10,7 +10,7 @@ export function useAIReview() {
 
   // [NEW ARCHITECTURE] AIレビュータブを開く
   const openAIReviewTab = useCallback(
-    (filePath: string, originalContent: string, suggestedContent: string, aiEntry?: any) => {
+    async (filePath: string, originalContent: string, suggestedContent: string, aiEntry?: any) => {
       const fileName = filePath.split('/').pop() || 'unknown';
       const fileItem: FileItem = {
         name: `AI Review: ${fileName}`,
@@ -20,7 +20,7 @@ export function useAIReview() {
         type: 'file',
       };
 
-      openTab(fileItem, {
+      await openTab(fileItem, {
         kind: 'ai',
         aiReviewProps: {
           originalContent,
