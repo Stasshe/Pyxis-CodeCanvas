@@ -159,7 +159,7 @@ export function useMonacoModels() {
             // Use existing function to maintain consistency
             updateCachedModelContent(tabId, content, 'reactivating');
             // Return the updated model
-            return model;
+            return model || null;
           }
         } catch (e) {
           console.warn('[useMonacoModels] Error while checking cached model language:', e);
