@@ -137,6 +137,7 @@ export default function MonacoEditor({
 
   // タブ切り替え時のモデル管理
   useEffect(() => {
+    console.log('[MonacoEditor] useEffect triggered:', { tabId, contentLength: content.length });
     if (!isEditorSafe() || !monacoRef.current) return;
 
     const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
@@ -147,6 +148,7 @@ export default function MonacoEditor({
         // marker dump removed in cleanup
         currentModelIdRef.current = tabId;
         onCharCountChange(countCharsNoSpaces(model.getValue()));
+        console.log('[MonacoEditor] setModel for new tab:', tabId);
       } catch (e: any) {
         console.warn('[MonacoEditor] setModel failed:', e?.message);
       }
@@ -155,10 +157,12 @@ export default function MonacoEditor({
     // 内容同期
     if (isModelSafe(model) && model!.getValue() !== content) {
       try {
+        console.log('[MonacoEditor] Syncing content, model has:', model!.getValue().length, 'prop has:', content.length);
         model!.setValue(content);
         if (isEditorSafe()) {
           editorRef.current!.layout();
         }
+        console.log('[MonacoEditor] Content synced successfully');
       } catch (e: any) {
         console.warn('[MonacoEditor] Model setValue failed:', e?.message);
       }
