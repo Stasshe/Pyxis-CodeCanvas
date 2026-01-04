@@ -3,7 +3,7 @@
 'use client';
 
 import { Bot, ChevronDown, Edit2, MessageSquare, Plus, Terminal, Trash2, X } from 'lucide-react';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 
 import FileSelector from './FileSelector';
@@ -32,7 +32,7 @@ interface AIPanelProps {
   currentProjectId?: string;
 }
 
-export default function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProps) {
+function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
@@ -763,3 +763,17 @@ export default function AIPanel({ projectFiles, currentProject, currentProjectId
     </div>
   );
 }
+
+// Memoize AIPanel to prevent unnecessary re-renders
+// Note: projectFiles changes are handled by useEffect internally, so we don't need to
+// trigger re-renders based on projectFiles. Only re-render when project changes.
+export default memo(AIPanel, (prevProps, nextProps) => {
+  // プロジェクトIDが変わった場合のみ再レンダリング
+  // projectFilesの変更はuseEffect内で処理されるため、ここでは検出不要
+  if (prevProps.currentProject?.id !== nextProps.currentProject?.id) {
+    return false;
+  }
+  
+  // その他の場合は再レンダリングしない（パフォーマンス最適化）
+  return true;
+});

@@ -14,11 +14,13 @@ interface ResizeState {
   isResizing: boolean;
   containerStart: number;
   containerSize: number;
+  rafId: number | undefined;
 }
 
 /**
  * ペイン間リサイズ用フック
  * パーセンテージベースで2つの隣接ペインのサイズを調整
+ * requestAnimationFrameによりスムーズなリサイズを実現
  */
 export function usePaneResize(options: UsePaneResizeOptions) {
   const { direction, leftSize, minSize = 10, onResize, containerRef } = options;
@@ -27,6 +29,7 @@ export function usePaneResize(options: UsePaneResizeOptions) {
     isResizing: false,
     containerStart: 0,
     containerSize: 0,
+    rafId: undefined,
   });
 
   // Store handlers in refs for cleanup
@@ -41,6 +44,12 @@ export function usePaneResize(options: UsePaneResizeOptions) {
 
     state.isResizing = false;
     setIsDragging?.(false);
+
+    // Cancel any pending animation frame
+    if (state.rafId !== undefined) {
+      cancelAnimationFrame(state.rafId);
+      state.rafId = undefined;
+    }
 
     // Remove listeners
     if (mouseMoveHandler.current) {
@@ -91,26 +100,38 @@ export function usePaneResize(options: UsePaneResizeOptions) {
       setIsDragging?.(true);
 
       const handleMove = (clientX: number, clientY: number) => {
-        const currentPos = direction === 'vertical' ? clientX : clientY;
-        const relativePos = currentPos - state.containerStart;
-
-        // Calculate min boundary in pixels (extracted for readability)
-        const minBoundaryPx = (minSize * state.containerSize) / 100;
-
-        // Calculate new split position
-        const newSplitPos = Math.max(
-          minBoundaryPx,
-          Math.min(relativePos, state.containerSize - minBoundaryPx)
-        );
-
-        // Convert to percentage
-        const newLeftPercent = (newSplitPos / state.containerSize) * 100;
-        const newRightPercent = 100 - newLeftPercent;
-
-        // Apply if within bounds
-        if (newLeftPercent >= minSize && newRightPercent >= minSize) {
-          onResize(newLeftPercent, newRightPercent);
+        const state = stateRef.current;
+        
+        // Cancel previous animation frame if exists
+        if (state.rafId !== undefined) {
+          cancelAnimationFrame(state.rafId);
         }
+        
+        // Schedule update on next animation frame for smooth 60fps updates
+        state.rafId = requestAnimationFrame(() => {
+          const currentPos = direction === 'vertical' ? clientX : clientY;
+          const relativePos = currentPos - state.containerStart;
+
+          // Calculate min boundary in pixels (extracted for readability)
+          const minBoundaryPx = (minSize * state.containerSize) / 100;
+
+          // Calculate new split position
+          const newSplitPos = Math.max(
+            minBoundaryPx,
+            Math.min(relativePos, state.containerSize - minBoundaryPx)
+          );
+
+          // Convert to percentage
+          const newLeftPercent = (newSplitPos / state.containerSize) * 100;
+          const newRightPercent = 100 - newLeftPercent;
+
+          // Apply if within bounds
+          if (newLeftPercent >= minSize && newRightPercent >= minSize) {
+            onResize(newLeftPercent, newRightPercent);
+          }
+          
+          state.rafId = undefined;
+        });
       };
 
       // Create handlers
