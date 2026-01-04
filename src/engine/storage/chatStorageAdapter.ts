@@ -10,6 +10,34 @@ function makeKey(projectId: string, spaceId: string): string {
 }
 
 /**
+ * デバウンス保存管理
+ * 頻繁な保存を防ぐため、一定時間待機してから保存を実行
+ */
+const debouncedSaves = new Map<string, ReturnType<typeof setTimeout>>();
+const DEBOUNCE_DELAY_MS = 1000; // 1秒
+
+function debouncedSave(key: string, saveFunction: () => Promise<void>): void {
+  // 既存のタイマーをクリア
+  const existingTimer = debouncedSaves.get(key);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  // 新しいタイマーを設定
+  const timer = setTimeout(async () => {
+    try {
+      await saveFunction();
+      debouncedSaves.delete(key);
+    } catch (error) {
+      console.error('[chatStorageAdapter] Debounced save failed:', error);
+      debouncedSaves.delete(key);
+    }
+  }, DEBOUNCE_DELAY_MS);
+
+  debouncedSaves.set(key, timer);
+}
+
+/**
  * プロジェクトのチャットスペース一覧を取得
  */
 export async function getChatSpaces(projectId: string): Promise<ChatSpace[]> {
@@ -62,7 +90,8 @@ export async function createChatSpace(projectId: string, name: string): Promise<
     createdAt: now,
     updatedAt: now,
   };
-  await storageService.set(STORES.CHAT_SPACES, makeKey(projectId, id), space, { cache: false });
+  // 新規作成時は即座に保存（キャッシュ有効）
+  await storageService.set(STORES.CHAT_SPACES, makeKey(projectId, id), space);
   return space;
 }
 
@@ -79,7 +108,11 @@ export async function renameChatSpace(
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) throw new Error('chat space not found');
   const updated = { ...(sp as ChatSpace), name: newName, updatedAt: new Date() } as ChatSpace;
-  await storageService.set(STORES.CHAT_SPACES, key, updated, { cache: false });
+  
+  // デバウンス保存を使用
+  debouncedSave(key, async () => {
+    await storageService.set(STORES.CHAT_SPACES, key, updated);
+  });
 }
 
 export async function addMessageToChatSpace(
@@ -97,7 +130,12 @@ export async function addMessageToChatSpace(
   } as ChatSpaceMessage;
   space.messages = [...space.messages, msg];
   space.updatedAt = new Date();
-  await storageService.set(STORES.CHAT_SPACES, key, space, { cache: false });
+  
+  // デバウンス保存を使用
+  debouncedSave(key, async () => {
+    await storageService.set(STORES.CHAT_SPACES, key, space);
+  });
+  
   return msg;
 }
 
@@ -116,7 +154,12 @@ export async function updateChatSpaceMessage(
   const updated = { ...space.messages[idx], ...patch } as ChatSpaceMessage;
   space.messages[idx] = updated;
   space.updatedAt = new Date();
-  await storageService.set(STORES.CHAT_SPACES, key, space, { cache: false });
+  
+  // デバウンス保存を使用
+  debouncedSave(key, async () => {
+    await storageService.set(STORES.CHAT_SPACES, key, space);
+  });
+  
   return updated;
 }
 
@@ -131,7 +174,11 @@ export async function updateChatSpaceSelectedFiles(
   const space = { ...(sp as ChatSpace) } as ChatSpace;
   space.selectedFiles = selectedFiles;
   space.updatedAt = new Date();
-  await storageService.set(STORES.CHAT_SPACES, key, space, { cache: false });
+  
+  // デバウンス保存を使用
+  debouncedSave(key, async () => {
+    await storageService.set(STORES.CHAT_SPACES, key, space);
+  });
 }
 
 export async function saveChatSpace(space: ChatSpace): Promise<void> {
@@ -139,7 +186,11 @@ export async function saveChatSpace(space: ChatSpace): Promise<void> {
     throw new Error('ChatSpace must have projectId and id');
   }
   const key = makeKey(space.projectId, space.id);
-  await storageService.set(STORES.CHAT_SPACES, key, space, { cache: false });
+  
+  // デバウンス保存を使用
+  debouncedSave(key, async () => {
+    await storageService.set(STORES.CHAT_SPACES, key, space);
+  });
 }
 
 export async function getChatSpace(projectId: string, spaceId: string): Promise<ChatSpace | null> {
@@ -171,7 +222,8 @@ export async function truncateMessagesFromMessage(
   space.messages = space.messages.slice(0, idx);
   space.updatedAt = new Date();
 
-  await storageService.set(STORES.CHAT_SPACES, key, space, { cache: false });
+  // 即座に保存（重要な操作のため）
+  await storageService.set(STORES.CHAT_SPACES, key, space);
 
   return deletedMessages;
 }
