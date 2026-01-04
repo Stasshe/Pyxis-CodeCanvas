@@ -199,7 +199,7 @@ export default function OperationWindow({
 
   // 実際にファイルを開く処理（mdプレビューかどうかを指定）
   // NOTE: Tab system removed — delegate to `onFileSelect(file, preview)` if available.
-  const actuallyOpenFile = (file: FileItem, preview: boolean) => {
+  const actuallyOpenFile = async (file: FileItem, preview: boolean) => {
     if (onFileSelect) {
       try {
         onFileSelect(file, preview);
@@ -221,7 +221,7 @@ export default function OperationWindow({
 
       const store = useTabStore.getState ? useTabStore.getState() : null;
       if (store && typeof store.openTab === 'function') {
-        store.openTab(fileWithEditor, options as any);
+        await store.openTab(fileWithEditor, options as any);
         onClose();
         return;
       }

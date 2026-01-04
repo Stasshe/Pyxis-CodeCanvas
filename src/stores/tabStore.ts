@@ -100,19 +100,11 @@ async function loadAndUpdateTabContent(
   if ((kind === 'editor' || kind === 'binary') && filePath) {
     try {
       const projectId = getCurrentProjectId();
-      console.log('[TabStore.loadAndUpdateTabContent] Loading fresh content for:', { tabId, filePath, projectId });
       if (projectId) {
         const freshFile = await fileRepository.getFileByPath(projectId, filePath);
-        console.log('[TabStore.loadAndUpdateTabContent] Loaded file:', { 
-          path: filePath, 
-          hasContent: !!freshFile, 
-          contentLength: freshFile?.content?.length 
-        });
         if (freshFile && freshFile.content !== undefined) {
           // 既存タブのコンテンツを最新に更新
-          console.log('[TabStore.loadAndUpdateTabContent] Calling updateTabContent for:', tabId);
           get().updateTabContent(tabId, freshFile.content, false);
-          console.log('[TabStore.loadAndUpdateTabContent] updateTabContent completed');
         }
       }
     } catch (e) {
@@ -227,18 +219,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
   setActivePane: paneId => set({ activePane: paneId }),
 
   openTab: async (file, options = {}) => {
-    console.log('[TabStore.openTab] Called with:', { 
-      fileName: file.name, 
-      filePath: file.path, 
-      options 
-    });
     const state = get();
     // 優先順位: options.kind -> file.kind -> (buffer arrayなら'binary') -> 'editor'
     const kind =
       options.kind ||
       file.kind ||
       (file && (file.isBufferArray === true || file.isBufferArray) ? 'binary' : 'editor');
-    console.log('[TabStore.openTab] Determined kind:', kind);
     // 初期は options または global active pane を優先し、まだない場合は null にして
     // 後続のロジックで "leaf pane" の探索や新規作成を正しく行えるようにする
     let targetPaneId = options.paneId || state.activePane || null;
@@ -359,15 +345,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
               
               // 既存タブをアクティブ化
               if (options.makeActive !== false) {
-                console.log('[TabStore.openTab] Activating tab:', tab.id);
                 get().activateTab(searchPane.id, tab.id);
               }
-              console.log(
-                '[TabStore] Reusing existing tab via shouldReuseTab (all panes):',
-                tab.id,
-                'in pane:',
-                searchPane.id
-              );
               return;
             }
           }
@@ -384,7 +363,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
             if (options.makeActive !== false) {
               get().activateTab(targetPaneId, tab.id);
             }
-            console.log('[TabStore] Reusing existing tab via shouldReuseTab:', tab.id);
             return;
           }
         }
@@ -422,18 +400,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     // 新規タブの作成
     // エディタータブの場合、最新のコンテンツをfileRepositoryから取得
-    console.log('[TabStore.openTab] Creating new tab for:', { kind, path: file.path });
     let fileToCreate = file;
     if ((kind === 'editor' || kind === 'binary') && file.path) {
       try {
         const projectId = getCurrentProjectId();
-        console.log('[TabStore.openTab] Loading fresh content for new tab:', { projectId, path: file.path });
         if (projectId) {
           const freshFile = await fileRepository.getFileByPath(projectId, file.path);
-          console.log('[TabStore.openTab] Loaded fresh file:', { 
-            hasFile: !!freshFile, 
-            contentLength: freshFile?.content?.length 
-          });
           if (freshFile) {
             // 最新のコンテンツのみ更新（重要なプロパティは保持）
             fileToCreate = {
@@ -442,7 +414,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
               isBufferArray: freshFile.isBufferArray ?? file.isBufferArray,
               bufferContent: freshFile.bufferContent ?? file.bufferContent,
             };
-            console.log('[TabStore.openTab] Updated fileToCreate with fresh content, length:', freshFile.content?.length);
           }
         }
       } catch (e) {
@@ -451,7 +422,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
       }
     }
 
-    console.log('[TabStore.openTab] Calling createTab with content length:', fileToCreate.content?.length);
     const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
 
     // ペインにタブを追加し、グローバルアクティブタブも同時に更新
@@ -1110,12 +1080,10 @@ export const useTabStore = create<TabStore>((set, get) => ({
   // タブのコンテンツを同期更新（TabRegistryのupdateContentを使用）
   // 拡張性を確保：各タブタイプが自身のupdateContent実装を提供
   updateTabContent: (tabId: string, content: string, isDirty = false) => {
-    console.log('[TabStore.updateTabContent] Called with:', { tabId, contentLength: content.length, isDirty });
     const allTabs = get().getAllTabs();
     const tabInfo = allTabs.find(t => t.id === tabId);
 
     if (!tabInfo) {
-      console.warn('[TabStore.updateTabContent] Tab not found:', tabId);
       return;
     }
 
@@ -1124,18 +1092,14 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     // updateContentメソッドがない場合はスキップ
     if (!tabDef?.updateContent) {
-      console.warn('[TabStore.updateTabContent] No updateContent method for kind:', tabInfo.kind);
       return;
     }
 
     // getContentPathでファイルパスを取得
     const targetPath = tabDef.getContentPath?.(tabInfo) || tabInfo.path || '';
     if (!targetPath) {
-      console.warn('[TabStore.updateTabContent] No target path for tab:', tabId);
       return;
     }
-
-    console.log('[TabStore.updateTabContent] Target path:', targetPath);
 
     // 変更が必要なタブがあるかチェック
     let hasChanges = false;
@@ -1151,13 +1115,11 @@ export const useTabStore = create<TabStore>((set, get) => ({
           const tPath = tDef?.getContentPath?.(t) || t.path || '';
 
           if (tPath === targetPath && tDef?.updateContent) {
-            console.log('[TabStore.updateTabContent] Updating tab:', { tabId: t.id, tPath });
             const updatedTab = tDef.updateContent(t, content, isDirty);
             if (updatedTab !== t) {
               paneChanged = true;
               hasChanges = true;
               updatedTabIds.push(t.id);
-              console.log('[TabStore.updateTabContent] Tab updated:', t.id);
               return updatedTab;
             }
           }
@@ -1177,7 +1139,6 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
     const newPanes = updatePanesRecursive(get().panes);
     if (hasChanges) {
-      console.log('[TabStore.updateTabContent] Setting new panes, updatedTabIds:', updatedTabIds);
       set({ panes: newPanes });
       
       // 非アクティブなタブのMonacoモデルキャッシュも更新
