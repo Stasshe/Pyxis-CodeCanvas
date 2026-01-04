@@ -85,12 +85,12 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
   // ファイルを開くヘルパー関数
   const openFileInPane = React.useCallback(
-    (fileItem: FileItem, targetPaneId?: string) => {
+    async (fileItem: FileItem, targetPaneId?: string) => {
       if (fileItem.type !== 'file') return;
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
       const kind = fileItem.isBufferArray ? 'binary' : 'editor';
-      openTab(
+      await openTab(
         { ...fileItem, isCodeMirror: defaultEditor === 'codemirror' },
         { kind, paneId: targetPaneId || pane.id }
       );
