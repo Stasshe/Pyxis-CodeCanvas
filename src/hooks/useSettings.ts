@@ -73,11 +73,11 @@ export function useSettings(projectId?: string) {
         .replace(/[.+^${}()|[\]\\]/g, '\\$&') // エスケープ
         .replace(/\*\*/g, '.*')
         .replace(/\*/g, '[^/]*');
-      if (!regexStr.startsWith('.*') && pat.startsWith('**')) regexStr = '.*' + regexStr;
-      if (pat.endsWith('/')) regexStr = regexStr + '.*';
-      if (pat.startsWith('*/')) regexStr = '[^/]*' + regexStr.slice(1);
-      if (pat.endsWith('/*')) regexStr = regexStr.slice(0, -2) + '/[^/]*';
-      return new RegExp('^' + regexStr + '$');
+      if (!regexStr.startsWith('.*') && pat.startsWith('**')) regexStr = `.*${regexStr}`;
+      if (pat.endsWith('/')) regexStr = `${regexStr}.*`;
+      if (pat.startsWith('*/')) regexStr = `[^/]*${regexStr.slice(1)}`;
+      if (pat.endsWith('/*')) regexStr = `${regexStr.slice(0, -2)}/[^/]*`;
+      return new RegExp(`^${regexStr}$`);
     });
   }, [settings]);
 

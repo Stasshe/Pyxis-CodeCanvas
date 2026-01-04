@@ -170,7 +170,8 @@ export const AIReviewTabType: TabTypeDefinition = {
   component: AIReviewTabRenderer,
 
   createTab: (file, options): AIReviewTab => {
-    const tabId = `ai:${file.path || file.name || Date.now()}`;
+    const filePath = String(file.path || file.name || '');
+    const tabId = `ai:${filePath || Date.now()}`;
     const aiReviewProps = options?.aiReviewProps;
 
     console.log('[AIReviewTabType] createTab called with:', {
@@ -185,13 +186,13 @@ export const AIReviewTabType: TabTypeDefinition = {
 
     const tab: AIReviewTab = {
       id: tabId,
-      name: `AI Review: ${file.path?.split('/').pop() || 'unknown'}`,
+      name: `AI Review: ${filePath.split('/').pop() || 'unknown'}`,
       kind: 'ai',
-      path: file.path || '',
+      path: filePath,
       paneId: options?.paneId || '',
       originalContent: aiReviewProps?.originalContent || '',
       suggestedContent: aiReviewProps?.suggestedContent || '',
-      filePath: aiReviewProps?.filePath || file.path || '',
+      filePath: aiReviewProps?.filePath || filePath,
       // optional history passed by caller
       history: aiReviewProps?.history,
       // raw aiEntry (contains projectId, originalSnapshot, etc.) if provided

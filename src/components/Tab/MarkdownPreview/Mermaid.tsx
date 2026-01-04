@@ -140,7 +140,7 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
       `;
 
       try {
-        const isDark = !(themeName && themeName.includes('light'));
+        const isDark = !themeName?.includes('light');
         const mermaidConfig: Record<string, unknown> = {
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
@@ -473,7 +473,7 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
     if (!svgElem) return;
     scaleRef.current = 1;
     translateRef.current = { x: 0, y: 0 };
-    svgElem.style.transform = `translate(0px, 0px) scale(1)`;
+    svgElem.style.transform = 'translate(0px, 0px) scale(1)';
     setZoomState({ scale: 1, translate: { x: 0, y: 0 } });
   }, []);
 

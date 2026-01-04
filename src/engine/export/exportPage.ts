@@ -15,7 +15,7 @@ export const exportPage = async (
       return;
     }
     const projectName = parts[1];
-    const relativePath = '/' + parts.slice(2).join('/');
+    const relativePath = `/${parts.slice(2).join('/')}`;
 
     // Lookup projectId from fileRepository
     await fileRepository.init();
@@ -98,7 +98,7 @@ export const exportPage = async (
       if (!htmlFile) {
         htmlFile = childFiles.find((f: string) => f.endsWith('.html'));
       }
-      const htmlPath = htmlFile ? path + '/' + htmlFile : path;
+      const htmlPath = htmlFile ? `${path}/${htmlFile}` : path;
       await writeOutput(`フォルダ内のページが新しいタブのiframe内で開かれました: ${htmlPath}`);
     } else {
       let content: string;

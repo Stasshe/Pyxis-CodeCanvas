@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { updateCachedModelContent } from '@/components/Tab/text-editor/hooks/useMonacoModels';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { DiffTab, EditorPane, OpenTabOptions, Tab } from '@/engine/tabs/types';
+import type { DiffTab, EditorPane, OpenTabOptions, Tab, TabFileInfo } from '@/engine/tabs/types';
 import { getCurrentProjectId } from './projectStore';
 
 // Helper function to flatten all leaf panes (preserving order for pane index priority)
@@ -48,7 +48,7 @@ interface TabStore {
   splitPaneAndOpenFile: (
     paneId: string,
     direction: 'horizontal' | 'vertical',
-    file: any,
+    file: TabFileInfo,
     side: 'before' | 'after'
   ) => void;
   resizePane: (paneId: string, newSize: number) => void;
@@ -59,7 +59,7 @@ interface TabStore {
    * 新規タブ作成時、fileRepositoryから最新のコンテンツを取得
    * 注意: 非同期関数ですが、既存の呼び出し元では await 不要（後方互換性あり）
    */
-  openTab: (file: any, options?: OpenTabOptions) => Promise<void>;
+  openTab: (file: TabFileInfo, options?: OpenTabOptions) => Promise<void>;
   closeTab: (paneId: string, tabId: string) => void;
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
@@ -339,10 +339,15 @@ export const useTabStore = create<TabStore>((set, get) => ({
         for (const searchPane of allLeafPanes) {
           for (const tab of searchPane.tabs) {
             if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
-              console.log('[TabStore.openTab] Found reusable tab (all panes):', tab.id, 'path:', file.path);
+              console.log(
+                '[TabStore.openTab] Found reusable tab (all panes):',
+                tab.id,
+                'path:',
+                file.path
+              );
               // 既存タブを再利用する前に、最新のコンテンツで更新
               await loadAndUpdateTabContent(tab.id, kind, file.path, get);
-              
+
               // 既存タブをアクティブ化
               if (options.makeActive !== false) {
                 get().activateTab(searchPane.id, tab.id);
@@ -358,7 +363,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
           if (tab.kind === kind && tabDef.shouldReuseTab(tab, file, options)) {
             // 既存タブを再利用する前に、最新のコンテンツで更新
             await loadAndUpdateTabContent(tab.id, kind, file.path, get);
-            
+
             // 既存タブをアクティブ化
             if (options.makeActive !== false) {
               get().activateTab(targetPaneId, tab.id);
@@ -380,7 +385,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
       if (existingTab) {
         // 既存タブを再利用する前に、最新のコンテンツで更新
         await loadAndUpdateTabContent(existingTab.id, kind, file.path, get);
-        
+
         // 既存タブをアクティブ化
         if (options.makeActive !== false) {
           get().activateTab(targetPaneId, existingTab.id);
@@ -1011,11 +1016,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const defaultEditor =
       typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
     const kind = file.isBufferArray ? 'binary' : 'editor';
-    const newTabId = `${file.path || file.name}-${Date.now()}`;
+    const filePath = file.path || '';
+    const fileName = file.name || filePath.split('/').pop() || 'untitled';
+    const newTabId = `${filePath || fileName}-${Date.now()}`;
     const newTab: Tab = {
       id: newTabId,
-      name: file.name,
-      path: file.path,
+      name: fileName,
+      path: filePath,
       kind,
       paneId: newPaneId,
       content: file.content || '',
@@ -1140,7 +1147,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
     const newPanes = updatePanesRecursive(get().panes);
     if (hasChanges) {
       set({ panes: newPanes });
-      
+
       // 非アクティブなタブのMonacoモデルキャッシュも更新
       // これにより、タブを開いていない状態でも外部変更が反映される
       for (const updatedTabId of updatedTabIds) {
@@ -1186,8 +1193,8 @@ export const useTabStore = create<TabStore>((set, get) => ({
       console.log('[TabStore] Session restored successfully');
 
       // タブが1つもない場合は即座にコンテンツ復元完了とする
-      const hasAnyTabs = session.tabs.panes.some((pane: any) => {
-        const checkPane = (p: any): boolean => {
+      const hasAnyTabs = session.tabs.panes.some((pane: EditorPane) => {
+        const checkPane = (p: EditorPane): boolean => {
           if (p.tabs && p.tabs.length > 0) return true;
           if (p.children) return p.children.some(checkPane);
           return false;

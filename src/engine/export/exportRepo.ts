@@ -70,7 +70,7 @@ export async function downloadWorkspaceZip({
       } catch {
         stat = null;
       }
-      if (stat && stat.isDirectory()) {
+      if (stat?.isDirectory()) {
         // .git配下のファイルを再帰的に取得
         const getAllGitFiles = async (
           dir: string

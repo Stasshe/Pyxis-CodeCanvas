@@ -135,157 +135,146 @@ export function useAI(props?: UseAIProps) {
 
           await addMessage(response, 'assistant', 'ask');
           return null;
-        } else {
-          // Edit モード
-          const prompt = EDIT_PROMPT_TEMPLATE(
-            selectedFiles,
-            content,
-            previousMessages,
-            customInstructions
-          );
-          const response = await generateCodeEdit(prompt, apiKey);
-
-          // レスポンスのバリデーション
-          const validation = validateResponse(response);
-          if (!validation.isValid) {
-            console.warn('[useAI] Response validation errors:', validation.errors);
-          }
-          if (validation.warnings.length > 0) {
-            console.warn('[useAI] Response validation warnings:', validation.warnings);
-          }
-
-          // レスポンスをパース
-          const responsePaths = extractFilePathsFromResponse(response);
-          console.log(
-            '[useAI] Selected files:',
-            selectedFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
-          );
-          console.log('[useAI] Response paths:', responsePaths);
-
-          // 重複を避けるため、既に selectedFiles に含まれているパスを除外
-          const selectedPathsSet = new Set(selectedFiles.map(f => f.path));
-          const newPaths = responsePaths.filter((path: string) => !selectedPathsSet.has(path));
-
-          console.log('[useAI] New paths (not in selected):', newPaths);
-
-          // Fetch actual content for files not in selectedFiles from the repository
-          const newFilesWithContent = await Promise.all(
-            newPaths.map(async (path: string) => {
-              try {
-                if (props?.projectId) {
-                  await fileRepository.init();
-                  const file = await fileRepository.getFileByPath(props.projectId, path);
-                  if (file && file.content) {
-                    console.log('[useAI] Fetched existing file content for:', path);
-                    return { path, content: file.content, isNewFile: false };
-                  }
-                }
-              } catch (e) {
-                console.warn('[useAI] Could not fetch file content for:', path, e);
-              }
-              // This is a new file that will be created
-              return { path, content: '', isNewFile: true };
-            })
-          );
-
-          // Define proper type for file objects with isNewFile
-          interface OriginalFileWithMeta {
-            path: string;
-            content: string;
-            isNewFile: boolean;
-          }
-
-          const allOriginalFiles: OriginalFileWithMeta[] = [
-            ...selectedFiles.map(f => ({ path: f.path, content: f.content, isNewFile: false })),
-            ...newFilesWithContent,
-          ];
-
-          // Create a map of paths to isNewFile status
-          const newFileMap = new Map(allOriginalFiles.map(f => [f.path, f.isNewFile]));
-
-          console.log(
-            '[useAI] All original files for parsing:',
-            allOriginalFiles.map(f => ({
-              path: f.path,
-              contentLength: f.content.length,
-              isNewFile: f.isNewFile,
-            }))
-          );
-
-          const parseResult = parseEditResponse(response, allOriginalFiles);
-
-          console.log(
-            '[useAI] Parse result:',
-            parseResult.changedFiles.map(f => ({
-              path: f.path,
-              originalLength: f.originalContent.length,
-              suggestedLength: f.suggestedContent.length,
-            }))
-          );
-
-          // AIEditResponse形式に変換 (add isNewFile flag for each file)
-          const editResponse: AIEditResponse = {
-            changedFiles: parseResult.changedFiles.map(f => ({
-              ...f,
-              isNewFile: newFileMap.get(f.path) || false,
-            })),
-            message: parseResult.message,
-          };
-
-          // 詳細メッセージを生成
-          let detailedMessage = editResponse.message;
-          if (editResponse.changedFiles.length > 0) {
-            const usedPatch = parseResult.usedPatchFormat;
-            const formatNote = usedPatch ? ' (using patch format)' : '';
-            detailedMessage = `Edit complete!${formatNote}\n\n**Changed files:** ${editResponse.changedFiles.length}\n\n`;
-            editResponse.changedFiles.forEach((file, index) => {
-              const newLabel = file.isNewFile ? ' (new)' : '';
-              detailedMessage += `${index + 1}. **${file.path}**${newLabel}\n`;
-              if (file.explanation) {
-                detailedMessage += `   - ${file.explanation}\n`;
-              }
-              detailedMessage += '\n';
-            });
-            detailedMessage += editResponse.message;
-          }
-
-          // Append assistant edit message and capture returned message (so we know its id)
-          const assistantMsg = await addMessage(
-            detailedMessage,
-            'assistant',
-            'edit',
-            [],
-            editResponse
-          );
-
-          // Persist AI review metadata / snapshots using storage adapter when projectId provided
-          try {
-            if (
-              props?.projectId &&
-              aiStorage &&
-              typeof aiStorage.saveAIReviewEntry === 'function'
-            ) {
-              for (const f of editResponse.changedFiles) {
-                aiStorage
-                  .saveAIReviewEntry(
-                    props.projectId,
-                    f.path,
-                    f.originalContent,
-                    f.suggestedContent,
-                    {
-                      message: parseResult.message,
-                      parentMessageId: assistantMsg?.id,
-                    }
-                  )
-                  .catch(err => console.warn('[useAI] saveAIReviewEntry failed', err));
-              }
-            }
-          } catch (e) {
-            console.warn('[useAI] AI review storage skipped:', e);
-          }
-
-          return editResponse;
         }
+        // Edit モード
+        const prompt = EDIT_PROMPT_TEMPLATE(
+          selectedFiles,
+          content,
+          previousMessages,
+          customInstructions
+        );
+        const response = await generateCodeEdit(prompt, apiKey);
+
+        // レスポンスのバリデーション
+        const validation = validateResponse(response);
+        if (!validation.isValid) {
+          console.warn('[useAI] Response validation errors:', validation.errors);
+        }
+        if (validation.warnings.length > 0) {
+          console.warn('[useAI] Response validation warnings:', validation.warnings);
+        }
+
+        // レスポンスをパース
+        const responsePaths = extractFilePathsFromResponse(response);
+        console.log(
+          '[useAI] Selected files:',
+          selectedFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
+        );
+        console.log('[useAI] Response paths:', responsePaths);
+
+        // 重複を避けるため、既に selectedFiles に含まれているパスを除外
+        const selectedPathsSet = new Set(selectedFiles.map(f => f.path));
+        const newPaths = responsePaths.filter((path: string) => !selectedPathsSet.has(path));
+
+        console.log('[useAI] New paths (not in selected):', newPaths);
+
+        // Fetch actual content for files not in selectedFiles from the repository
+        const newFilesWithContent = await Promise.all(
+          newPaths.map(async (path: string) => {
+            try {
+              if (props?.projectId) {
+                await fileRepository.init();
+                const file = await fileRepository.getFileByPath(props.projectId, path);
+                if (file?.content) {
+                  console.log('[useAI] Fetched existing file content for:', path);
+                  return { path, content: file.content, isNewFile: false };
+                }
+              }
+            } catch (e) {
+              console.warn('[useAI] Could not fetch file content for:', path, e);
+            }
+            // This is a new file that will be created
+            return { path, content: '', isNewFile: true };
+          })
+        );
+
+        // Define proper type for file objects with isNewFile
+        interface OriginalFileWithMeta {
+          path: string;
+          content: string;
+          isNewFile: boolean;
+        }
+
+        const allOriginalFiles: OriginalFileWithMeta[] = [
+          ...selectedFiles.map(f => ({ path: f.path, content: f.content, isNewFile: false })),
+          ...newFilesWithContent,
+        ];
+
+        // Create a map of paths to isNewFile status
+        const newFileMap = new Map(allOriginalFiles.map(f => [f.path, f.isNewFile]));
+
+        console.log(
+          '[useAI] All original files for parsing:',
+          allOriginalFiles.map(f => ({
+            path: f.path,
+            contentLength: f.content.length,
+            isNewFile: f.isNewFile,
+          }))
+        );
+
+        const parseResult = parseEditResponse(response, allOriginalFiles);
+
+        console.log(
+          '[useAI] Parse result:',
+          parseResult.changedFiles.map(f => ({
+            path: f.path,
+            originalLength: f.originalContent.length,
+            suggestedLength: f.suggestedContent.length,
+          }))
+        );
+
+        // AIEditResponse形式に変換 (add isNewFile flag for each file)
+        const editResponse: AIEditResponse = {
+          changedFiles: parseResult.changedFiles.map(f => ({
+            ...f,
+            isNewFile: newFileMap.get(f.path) || false,
+          })),
+          message: parseResult.message,
+        };
+
+        // 詳細メッセージを生成
+        let detailedMessage = editResponse.message;
+        if (editResponse.changedFiles.length > 0) {
+          const usedPatch = parseResult.usedPatchFormat;
+          const formatNote = usedPatch ? ' (using patch format)' : '';
+          detailedMessage = `Edit complete!${formatNote}\n\n**Changed files:** ${editResponse.changedFiles.length}\n\n`;
+          editResponse.changedFiles.forEach((file, index) => {
+            const newLabel = file.isNewFile ? ' (new)' : '';
+            detailedMessage += `${index + 1}. **${file.path}**${newLabel}\n`;
+            if (file.explanation) {
+              detailedMessage += `   - ${file.explanation}\n`;
+            }
+            detailedMessage += '\n';
+          });
+          detailedMessage += editResponse.message;
+        }
+
+        // Append assistant edit message and capture returned message (so we know its id)
+        const assistantMsg = await addMessage(
+          detailedMessage,
+          'assistant',
+          'edit',
+          [],
+          editResponse
+        );
+
+        // Persist AI review metadata / snapshots using storage adapter when projectId provided
+        try {
+          if (props?.projectId && aiStorage && typeof aiStorage.saveAIReviewEntry === 'function') {
+            for (const f of editResponse.changedFiles) {
+              aiStorage
+                .saveAIReviewEntry(props.projectId, f.path, f.originalContent, f.suggestedContent, {
+                  message: parseResult.message,
+                  parentMessageId: assistantMsg?.id,
+                })
+                .catch(err => console.warn('[useAI] saveAIReviewEntry failed', err));
+            }
+          }
+        } catch (e) {
+          console.warn('[useAI] AI review storage skipped:', e);
+        }
+
+        return editResponse;
       } catch (error) {
         const errorMessage = `Error: ${(error as Error).message}`;
         await addMessage(errorMessage, 'assistant', mode);
@@ -352,9 +341,8 @@ export function useAI(props?: UseAIProps) {
 
       if (mode === 'ask') {
         return ASK_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
-      } else {
-        return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
       }
+      return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
     },
     [fileContexts, props?.messages]
   );

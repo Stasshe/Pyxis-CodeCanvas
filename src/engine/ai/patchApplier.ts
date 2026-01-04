@@ -398,7 +398,7 @@ export function applySearchReplaceBlock(
   return {
     success: false,
     content: normalizedContent,
-    error: `Could not find matching text for search block`,
+    error: 'Could not find matching text for search block',
   };
 }
 

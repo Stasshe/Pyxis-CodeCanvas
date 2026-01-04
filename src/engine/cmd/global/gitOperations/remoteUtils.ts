@@ -159,11 +159,7 @@ export function toShortRemoteRef(ref: string): string {
  * @param ref Remote reference to resolve
  * @returns Commit OID or null if not found
  */
-export async function resolveRemoteRef(
-  fs: FS,
-  dir: string,
-  ref: string
-): Promise<string | null> {
+export async function resolveRemoteRef(fs: FS, dir: string, ref: string): Promise<string | null> {
   try {
     const fullRef = toFullRemoteRef(ref);
     const oid = await git.resolveRef({ fs, dir, ref: fullRef });
@@ -232,7 +228,7 @@ export async function listAllRemoteRefs(fs: FS, dir: string): Promise<string[]> 
 
     for (const remote of remotes) {
       // Skip common remotes (already processed) and hidden files
-      if (COMMON_REMOTES.includes(remote as typeof COMMON_REMOTES[number])) continue;
+      if (COMMON_REMOTES.includes(remote as (typeof COMMON_REMOTES)[number])) continue;
       if (remote.startsWith('.')) continue;
 
       try {
@@ -276,11 +272,7 @@ export async function remoteExists(fs: FS, dir: string, remote: string): Promise
  * @param branch Branch name
  * @returns Remote name or 'origin' as default
  */
-export async function getDefaultRemote(
-  fs: FS,
-  dir: string,
-  _branch?: string
-): Promise<string> {
+export async function getDefaultRemote(fs: FS, dir: string, _branch?: string): Promise<string> {
   try {
     const remotes = await git.listRemotes({ fs, dir });
     if (remotes.length === 0) {

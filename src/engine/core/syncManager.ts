@@ -32,7 +32,7 @@ export class SyncManager {
   // event emitter helpers
   on(event: string, cb: (...args: any[]) => void) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
-    this.listeners.get(event)!.add(cb);
+    this.listeners.get(event)?.add(cb);
   }
 
   off(event: string, cb: (...args: any[]) => void) {

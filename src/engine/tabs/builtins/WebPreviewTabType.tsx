@@ -29,12 +29,13 @@ export const WebPreviewTabType: TabTypeDefinition = {
   component: WebPreviewTabRenderer,
 
   createTab: (file, options): WebPreviewTab => {
-    const tabId = `webPreview:${file.path || file.name || Date.now()}`;
+    const filePath = String(file.path || file.name || Date.now());
+    const tabId = `webPreview:${filePath}`;
     return {
       id: tabId,
-      name: `Preview: ${file.name}`,
+      name: `Preview: ${String(file.name || '')}`,
       kind: 'webPreview',
-      path: file.path || '',
+      path: String(file.path || ''),
       paneId: options?.paneId || '',
       url: options?.webPreviewUrl,
       projectName: options?.projectName as string | undefined,

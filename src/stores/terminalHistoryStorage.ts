@@ -54,7 +54,7 @@ export function clearAllTerminalHistory(): void {
     const keys: string[] = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
-      if (key && key.startsWith(TERMINAL_HISTORY_PREFIX)) {
+      if (key?.startsWith(TERMINAL_HISTORY_PREFIX)) {
         keys.push(key);
       }
     }

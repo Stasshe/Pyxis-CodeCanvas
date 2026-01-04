@@ -81,7 +81,7 @@ export class UnzipCommand extends UnixCommandBase {
           if (parentParts.length > 1) {
             let accum = '';
             for (let i = 0; i < parentParts.length - 1; i++) {
-              accum = accum + '/' + parentParts[i];
+              accum = `${accum}/${parentParts[i]}`;
               if (!addedFolders.has(accum)) {
                 entries.push({ path: accum, content: '', type: 'folder' });
                 addedFolders.add(accum);

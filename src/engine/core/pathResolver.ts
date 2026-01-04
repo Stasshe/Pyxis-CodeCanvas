@@ -61,7 +61,7 @@ export function toAppPath(path: string | null | undefined): AppPath {
 
   // 先頭にスラッシュを追加
   if (!normalized.startsWith('/')) {
-    normalized = '/' + normalized;
+    normalized = `/${normalized}`;
   }
 
   // 末尾のスラッシュを除去（ルート以外）
@@ -154,7 +154,7 @@ export function fsPathToAppPath(fsPath: string, projectName: string): AppPath {
     return '/';
   }
 
-  if (fsPath.startsWith(projectRoot + '/')) {
+  if (fsPath.startsWith(`${projectRoot}/`)) {
     return toAppPath(fsPath.substring(projectRoot.length));
   }
 
@@ -167,7 +167,7 @@ export function fsPathToAppPath(fsPath: string, projectName: string): AppPath {
  */
 export function isWithinProject(fsPath: string, projectName: string): boolean {
   const projectRoot = getProjectRoot(projectName);
-  return fsPath === projectRoot || fsPath.startsWith(projectRoot + '/');
+  return fsPath === projectRoot || fsPath.startsWith(`${projectRoot}/`);
 }
 
 // ========================================
@@ -271,8 +271,6 @@ export function normalizeDotSegments(path: string): AppPath {
 
   for (const segment of segments) {
     if (segment === '.') {
-      // カレントディレクトリ: スキップ
-      continue;
     } else if (segment === '..') {
       // 親ディレクトリ: 1つ戻る（ルートを超えない）
       if (result.length > 0) {
@@ -283,7 +281,7 @@ export function normalizeDotSegments(path: string): AppPath {
     }
   }
 
-  return '/' + result.join('/');
+  return `/${result.join('/')}`;
 }
 
 // ========================================
@@ -321,7 +319,7 @@ export function hasPrefix(path: string, prefix: string): boolean {
 
   if (normalizedPrefix === '/') return true;
 
-  return normalizedPath === normalizedPrefix || normalizedPath.startsWith(normalizedPrefix + '/');
+  return normalizedPath === normalizedPrefix || normalizedPath.startsWith(`${normalizedPrefix}/`);
 }
 
 /**
@@ -339,7 +337,7 @@ export function removePrefix(path: string, prefix: string): AppPath {
 
   if (normalizedPath === normalizedPrefix) return '/';
 
-  if (normalizedPath.startsWith(normalizedPrefix + '/')) {
+  if (normalizedPath.startsWith(`${normalizedPrefix}/`)) {
     return toAppPath(normalizedPath.substring(normalizedPrefix.length));
   }
 

@@ -86,7 +86,7 @@ const FileTreeItem = memo(function FileTreeItem({
       canDrop: (dragItem: DragItem, monitor) => {
         if (item.type !== 'folder') return false;
         if (dragItem.item.id === item.id) return false;
-        if (item.path.startsWith(dragItem.item.path + '/')) return false;
+        if (item.path.startsWith(`${dragItem.item.path}/`)) return false;
         const draggedParent =
           dragItem.item.path.substring(0, dragItem.item.path.lastIndexOf('/')) || '/';
         if (draggedParent === item.path) return false;
@@ -206,7 +206,7 @@ const FileTreeItem = memo(function FileTreeItem({
                   getIconForFolder(item.name) ||
                   getIconForFolder('')
                 : getIconForFolder(item.name) || getIconForFolder('');
-              if (iconPath && iconPath.endsWith('.svg')) {
+              if (iconPath?.endsWith('.svg')) {
                 return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
                   .split('/')
                   .pop()}`;
@@ -224,11 +224,11 @@ const FileTreeItem = memo(function FileTreeItem({
         </>
       ) : (
         <>
-          <div className="w-3.5"></div>
+          <div className="w-3.5" />
           <img
             src={(() => {
               const iconPath = getIconForFile(item.name) || getIconForFile('');
-              if (iconPath && iconPath.endsWith('.svg')) {
+              if (iconPath?.endsWith('.svg')) {
                 return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
                   .split('/')
                   .pop()}`;

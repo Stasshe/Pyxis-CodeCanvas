@@ -116,7 +116,7 @@ export default function ShortcutKeysTab() {
 
       if (isPrefix) {
         pendingFirstPart = normalizedSingle;
-        setPreviewCombo(pendingFirstPart + ' ...');
+        setPreviewCombo(`${pendingFirstPart} ...`);
         pendingTimer.id = window.setTimeout(() => {
           const singleBinding = bindings.find(
             b => normalizeKeyCombo(b.combo) === pendingFirstPart && !b.combo.includes(' ')
@@ -172,7 +172,7 @@ export default function ShortcutKeysTab() {
     for (const binding of filteredBindings) {
       const category = binding.category || 'other';
       if (!groups.has(category)) groups.set(category, []);
-      groups.get(category)!.push(binding);
+      groups.get(category)?.push(binding);
     }
     return Array.from(groups.entries()).sort((a, b) => {
       // Custom sort order if needed, or just alphabetical

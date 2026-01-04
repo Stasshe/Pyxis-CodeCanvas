@@ -14,7 +14,7 @@ import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/m
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
-import type { Tab } from '@/types';
+import type { AIReviewTab as AIReviewTabType, Tab } from '@/types';
 
 interface AIReviewTabProps {
   tab: Tab;
@@ -37,7 +37,7 @@ export default function AIReviewTab({
   console.log('[AIReviewTab] Rendering with tab:', tab);
 
   // AIReviewTab型にキャスト
-  const aiTab = tab as any;
+  const aiTab = tab as AIReviewTabType;
   const originalContent = aiTab.originalContent || '';
   const suggestedContent = aiTab.suggestedContent || '';
   const filePath = aiTab.filePath || aiTab.path || '';
@@ -320,6 +320,7 @@ export default function AIReviewTab({
         </div>
         <div className="flex gap-2 items-center">
           <button
+            type="button"
             className="px-3 py-1.5 text-xs rounded border hover:opacity-80 transition-opacity"
             style={{
               background: colors.mutedBg,
@@ -332,6 +333,7 @@ export default function AIReviewTab({
             {t('aiReviewTab.revert')}
           </button>
           <button
+            type="button"
             className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
             style={{
               background: colors.green,
@@ -345,8 +347,9 @@ export default function AIReviewTab({
             <Check size={16} />
             {t('aiReviewTab.applyAll')}
           </button>
-          {aiEntry && aiEntry.originalSnapshot && (
+          {aiEntry?.originalSnapshot && (
             <button
+              type="button"
               className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
               style={{
                 background: 'transparent',
@@ -360,6 +363,7 @@ export default function AIReviewTab({
             </button>
           )}
           <button
+            type="button"
             className="px-3 py-1.5 text-sm rounded hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
             style={{ background: colors.red, color: '#ffffff' }}
             onClick={handleDiscardAll}

@@ -29,7 +29,7 @@ export default function EditorPlaceholder({ type, message }: EditorPlaceholderPr
       <div className="flex-1 min-h-0 select-none" style={{ height }}>
         <div className="h-full flex items-center justify-center text-muted-foreground select-none">
           <div className="text-center select-none">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
             <p className="select-none">{message || t('editorPlaceholder.loadingFile')}</p>
           </div>
         </div>
@@ -41,7 +41,7 @@ export default function EditorPlaceholder({ type, message }: EditorPlaceholderPr
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
           <p className="text-sm">{t('editorPlaceholder.loadingEditor')}</p>
         </div>
       </div>

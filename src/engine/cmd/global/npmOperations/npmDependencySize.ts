@@ -32,13 +32,12 @@ export async function calculateDependencySize(
         const contentLength = res.headers.get('Content-Length');
         if (contentLength) {
           return Number.parseInt(contentLength, 10);
-        } else {
-          console.warn(`Content-Length missing for ${tarballUrl}, falling back to GET request.`);
-          return fetch(tarballUrl)
-            .then(getRes => getRes.body?.getReader().read())
-            .then(result => result?.value?.length || 0)
-            .catch(() => 0);
         }
+        console.warn(`Content-Length missing for ${tarballUrl}, falling back to GET request.`);
+        return fetch(tarballUrl)
+          .then(getRes => getRes.body?.getReader().read())
+          .then(result => result?.value?.length || 0)
+          .catch(() => 0);
       })
       .catch(error => {
         console.error(`Failed to fetch tarball size for ${tarballUrl}:`, error);

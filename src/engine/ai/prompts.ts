@@ -108,15 +108,15 @@ function formatHistoryMessages(
         const files = msg.editResponse.changedFiles || [];
         if (files.length > 0) {
           const summary = files
-            .map((f: any) => '- ' + f.path + ': ' + (f.explanation || 'modified'))
+            .map((f: any) => `- ${f.path}: ${f.explanation || 'modified'}`)
             .join('\n');
-          return '### ' + role + ' ' + modeLabel + '\nChanged files:\n' + summary;
+          return `### ${role} ${modeLabel}\nChanged files:\n${summary}`;
         }
       }
 
       // Otherwise, include content directly (truncate if too long)
-      const content = msg.content.length > 500 ? msg.content.slice(0, 500) + '...' : msg.content;
-      return '### ' + role + ' ' + modeLabel + '\n' + content;
+      const content = msg.content.length > 500 ? `${msg.content.slice(0, 500)}...` : msg.content;
+      return `### ${role} ${modeLabel}\n${content}`;
     })
     .join('\n\n');
 }
@@ -162,9 +162,9 @@ ${file.content}
 
   return `You are an expert code assistant. Answer the user's question clearly and concisely, referencing the provided files and conversation history as needed. Match the user's language in your response.
 
-${customInstr}${history ? '## Conversation History\n' + history + '\n' : ''}
+${customInstr}${history ? `## Conversation History\n${history}\n` : ''}
 
-${fileContexts ? '## Provided Files\n' + fileContexts + '\n' : ''}
+${fileContexts ? `## Provided Files\n${fileContexts}\n` : ''}
 
 ## Question
 ${question}
@@ -196,7 +196,7 @@ ${file.content}
 
   return `${SYSTEM_PROMPT}
 
-${customInstr}${history ? '## Conversation History\n' + history + '\n' : ''}
+${customInstr}${history ? `## Conversation History\n${history}\n` : ''}
 
 ## Files to Edit (Current State)
 ${fileContexts}
@@ -262,7 +262,7 @@ ${file.content}
 
   return `${LEGACY_SYSTEM_PROMPT}
 
-${customInstr}${history ? '## Conversation History\n' + history + '\n' : ''}
+${customInstr}${history ? `## Conversation History\n${history}\n` : ''}
 
 ## Files to Edit (Current State)
 ${fileContexts}

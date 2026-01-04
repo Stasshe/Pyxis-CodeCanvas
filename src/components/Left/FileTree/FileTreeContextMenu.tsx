@@ -17,7 +17,7 @@ import type { ContextMenuState } from './types';
  */
 function constructPath(basePath: string | undefined, name: string): string {
   if (!basePath) {
-    return name.startsWith('/') ? name : '/' + name;
+    return name.startsWith('/') ? name : `/${name}`;
   }
   const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
   return `${normalizedBase}/${name}`;
@@ -181,7 +181,7 @@ export default function FileTreeContextMenu({
           const parts = folderPath.split('/').filter(Boolean);
           let acc = '';
           for (const part of parts) {
-            acc += '/' + part;
+            acc += `/${part}`;
             try {
               await fileRepository.createFile(projectId, acc, '', 'folder');
             } catch (err) {

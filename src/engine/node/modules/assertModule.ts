@@ -40,13 +40,13 @@ export function createAssertModule() {
       },
       equal(actual: any, expected: any, message?: string): void {
         // eslint-disable-next-line eqeqeq
-        if (actual != expected) {
+        if (actual !== expected) {
           throw new Error(message || `Expected ${actual} to equal ${expected}`);
         }
       },
       notEqual(actual: any, expected: any, message?: string): void {
         // eslint-disable-next-line eqeqeq
-        if (actual == expected) {
+        if (actual === expected) {
           throw new Error(message || `Expected ${actual} to not equal ${expected}`);
         }
       },

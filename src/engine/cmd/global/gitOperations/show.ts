@@ -24,10 +24,9 @@ export async function show(fs: FS, dir: string, args: string[]): Promise<string>
       const filePath = arg.substring(colonIndex + 1);
 
       return await showCommitFile(fs, dir, commitRef, filePath);
-    } else {
-      // 単体のcommit参照（ハッシュまたはブランチ名）
-      return await showCommit(fs, dir, arg);
     }
+    // 単体のcommit参照（ハッシュまたはブランチ名）
+    return await showCommit(fs, dir, arg);
   } catch (error) {
     throw new Error(`git show: ${(error as Error).message}`);
   }

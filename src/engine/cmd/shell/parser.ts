@@ -101,7 +101,7 @@ function extractCommandSubstitutions(line: string): {
       if (/^[0-9+\-*/%()\s]+$/.test(expr)) {
         try {
           // eslint-disable-next-line no-new-func
-          const val = Function('return (' + expr + ')')();
+          const val = Function(`return (${expr})`)();
           out += String(val === undefined || val === null ? '' : val);
         } catch (e) {
           out += '';
@@ -243,7 +243,7 @@ function expandArithmetic(input: string): string {
       }
       if (depth > 0) {
         // unterminated arithmetic; treat literally
-        out += '$((' + buf;
+        out += `$((${buf}`;
         i = j;
         continue;
       }
@@ -258,7 +258,7 @@ function expandArithmetic(input: string): string {
           // evaluate in a very small sandbox by constructing a function
           // expression is validated above so this is reasonably safe
           // eslint-disable-next-line no-new-func
-          const val = Function('return (' + expr + ')')();
+          const val = Function(`return (${expr})`)();
           out += String(val === undefined || val === null ? '' : val);
         } catch (e) {
           out += '';
@@ -454,7 +454,8 @@ export function parseCommandLine(
           const fromFd = fd;
           const toFd = /^\d+$/.test(targetFd) ? Number(targetFd) : Number.NaN;
           cur.fdDup = cur.fdDup || [];
-          if (fromFd !== null && !isNaN(toFd)) cur.fdDup.push({ from: fromFd as number, to: toFd });
+          if (fromFd !== null && !Number.isNaN(toFd))
+            cur.fdDup.push({ from: fromFd as number, to: toFd });
           // set convenience flags for common 1/2 mappings
           if (fromFd === 2 && toFd === 1) cur.stderrToStdout = true;
           if (fromFd === 1 && toFd === 2) cur.stdoutToStderr = true;

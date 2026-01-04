@@ -102,18 +102,18 @@ export const EditorTabType: TabTypeDefinition = {
   component: EditorTabComponent,
 
   createTab: (file, options): EditorTab => {
-    const tabId = file.path || file.name || `editor-${Date.now()}`;
+    const tabId = String(file.path || file.name || `editor-${Date.now()}`);
     return {
       id: tabId,
-      name: file.name,
+      name: String(file.name || ''),
       kind: 'editor',
-      path: file.path || '',
+      path: String(file.path || ''),
       paneId: options?.paneId || '',
-      content: file.content || '',
+      content: String(file.content || ''),
       isDirty: false,
-      isCodeMirror: file.isCodeMirror || false,
-      isBufferArray: file.isBufferArray || false,
-      bufferContent: file.bufferContent,
+      isCodeMirror: Boolean(file.isCodeMirror),
+      isBufferArray: Boolean(file.isBufferArray),
+      bufferContent: file.bufferContent as ArrayBuffer | undefined,
       jumpToLine: options?.jumpToLine,
       jumpToColumn: options?.jumpToColumn,
     };

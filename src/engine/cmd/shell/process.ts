@@ -1,5 +1,5 @@
-import EventEmitter from 'events';
-import { PassThrough, type Readable, type Writable } from 'stream';
+import EventEmitter from 'node:events';
+import { PassThrough, type Readable, type Writable } from 'node:stream';
 
 /**
  * Process - Stream-based process abstraction

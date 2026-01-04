@@ -239,7 +239,7 @@ export class NodeRuntime {
     // Shebangを削除 (#!/usr/bin/env node など)
     // eval/new Function は Shebang をサポートしていないため
     if (code.startsWith('#!')) {
-      code = '//' + code; // コメントアウトして行数を維持
+      code = `//${code}`; // コメントアウトして行数を維持
     }
 
     return `
@@ -265,21 +265,21 @@ export class NodeRuntime {
       // グローバルオブジェクト
       console: {
         log: (...args: unknown[]) => {
-          if (this.debugConsole && this.debugConsole.log) {
+          if (this.debugConsole?.log) {
             this.debugConsole.log(...args);
           } else {
             runtimeInfo(...args);
           }
         },
         error: (...args: unknown[]) => {
-          if (this.debugConsole && this.debugConsole.error) {
+          if (this.debugConsole?.error) {
             this.debugConsole.error(...args);
           } else {
             runtimeError(...args);
           }
         },
         warn: (...args: unknown[]) => {
-          if (this.debugConsole && this.debugConsole.warn) {
+          if (this.debugConsole?.warn) {
             this.debugConsole.warn(...args);
           } else {
             runtimeWarn(...args);
@@ -379,7 +379,7 @@ export class NodeRuntime {
         },
         stdout: {
           write: (data: string) => {
-            if (this.debugConsole && this.debugConsole.log) {
+            if (this.debugConsole?.log) {
               this.debugConsole.log(data);
             } else {
               runtimeInfo(data);
@@ -394,7 +394,7 @@ export class NodeRuntime {
         },
         stderr: {
           write: (data: string) => {
-            if (this.debugConsole && this.debugConsole.error) {
+            if (this.debugConsole?.error) {
               this.debugConsole.error(data);
             } else {
               runtimeError(data);
@@ -495,7 +495,7 @@ export class NodeRuntime {
         }
 
         // If not in cache, try to load synchronously (this will work for built-ins)
-        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', resolvedPath + ')');
+        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', `${resolvedPath})`);
         throw new Error(
           `Module '${moduleName}' not found. Modules must be pre-loaded or be built-in modules.`
         );
@@ -584,7 +584,7 @@ export class NodeRuntime {
       }
     }
 
-    return '/' + parts.join('/');
+    return `/${parts.join('/')}`;
   }
 
   /**

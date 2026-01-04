@@ -123,8 +123,6 @@ export function resolveRelative(basePath: string, relativePath: string): string 
 
   for (const part of relParts) {
     if (part === '.') {
-      // カレントディレクトリ（何もしない）
-      continue;
     } else if (part === '..') {
       // 親ディレクトリ
       parts.pop();
@@ -134,7 +132,7 @@ export function resolveRelative(basePath: string, relativePath: string): string 
     }
   }
 
-  return '/' + parts.join('/');
+  return `/${parts.join('/')}`;
 }
 
 /**

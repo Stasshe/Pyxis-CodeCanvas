@@ -108,7 +108,7 @@ export async function renameChatSpace(
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) throw new Error('chat space not found');
   const updated = { ...(sp as ChatSpace), name: newName, updatedAt: new Date() } as ChatSpace;
-  
+
   // デバウンス保存を使用
   debouncedSave(key, async () => {
     await storageService.set(STORES.CHAT_SPACES, key, updated);
@@ -130,12 +130,12 @@ export async function addMessageToChatSpace(
   } as ChatSpaceMessage;
   space.messages = [...space.messages, msg];
   space.updatedAt = new Date();
-  
+
   // デバウンス保存を使用
   debouncedSave(key, async () => {
     await storageService.set(STORES.CHAT_SPACES, key, space);
   });
-  
+
   return msg;
 }
 
@@ -154,12 +154,12 @@ export async function updateChatSpaceMessage(
   const updated = { ...space.messages[idx], ...patch } as ChatSpaceMessage;
   space.messages[idx] = updated;
   space.updatedAt = new Date();
-  
+
   // デバウンス保存を使用
   debouncedSave(key, async () => {
     await storageService.set(STORES.CHAT_SPACES, key, space);
   });
-  
+
   return updated;
 }
 
@@ -174,7 +174,7 @@ export async function updateChatSpaceSelectedFiles(
   const space = { ...(sp as ChatSpace) } as ChatSpace;
   space.selectedFiles = selectedFiles;
   space.updatedAt = new Date();
-  
+
   // デバウンス保存を使用
   debouncedSave(key, async () => {
     await storageService.set(STORES.CHAT_SPACES, key, space);
@@ -186,7 +186,7 @@ export async function saveChatSpace(space: ChatSpace): Promise<void> {
     throw new Error('ChatSpace must have projectId and id');
   }
   const key = makeKey(space.projectId, space.id);
-  
+
   // デバウンス保存を使用
   debouncedSave(key, async () => {
     await storageService.set(STORES.CHAT_SPACES, key, space);

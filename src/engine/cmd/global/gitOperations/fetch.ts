@@ -114,12 +114,12 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
           `[git fetch] Updated ${remote}/${targetBranch} to ${remoteTrackingRef.slice(0, 7)}`
         );
       } catch {
-        console.warn(`[git fetch] Could not verify remote tracking branch update`);
+        console.warn('[git fetch] Could not verify remote tracking branch update');
       }
     }
 
     if (fetchResult.pruned && fetchResult.pruned.length > 0) {
-      result += `\nPruned references:\n`;
+      result += '\nPruned references:\n';
       fetchResult.pruned.forEach(ref => {
         result += ` - ${ref}\n`;
       });

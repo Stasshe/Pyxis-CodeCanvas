@@ -147,7 +147,7 @@ export class GitMergeOperations {
 
       // 自分自身をマージしようとした場合
       if (currentBranch === branchName) {
-        return `Already up to date.`;
+        return 'Already up to date.';
       }
 
       // マージ対象のブランチが存在するかチェック
@@ -225,16 +225,16 @@ export class GitMergeOperations {
 
           const mergeCommit = result.oid ? result.oid.slice(0, 7) : 'unknown';
           return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
-        } else if (result && result.alreadyMerged) {
-          return `Already up to date.`;
-        } else {
-          // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-          console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
-          await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-          console.log('[NEW ARCHITECTURE] Reverse sync completed');
-
-          return `Merge completed successfully.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
         }
+        if (result?.alreadyMerged) {
+          return 'Already up to date.';
+        }
+        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
+        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+        console.log('[NEW ARCHITECTURE] Reverse sync completed');
+
+        return 'Merge completed successfully.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB';
       } catch (mergeError) {
         const error = mergeError as any;
         // マージコンフリクトの場合
@@ -291,7 +291,7 @@ export class GitMergeOperations {
         await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
         console.log('[NEW ARCHITECTURE] Reverse sync completed');
 
-        return `Merge aborted. Working tree has been reset.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
+        return 'Merge aborted. Working tree has been reset.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB';
       } catch (error) {
         throw new Error(`Failed to abort merge: ${(error as Error).message}`);
       }

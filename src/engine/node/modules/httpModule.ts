@@ -36,8 +36,6 @@ class IncomingMessage {
   private _listeners: { [event: string]: Function[] } = {};
   private _chunks: Uint8Array[] = [];
 
-  constructor() {}
-
   on(event: string, listener: Function): this {
     if (!this._listeners[event]) {
       this._listeners[event] = [];
@@ -234,7 +232,7 @@ class ClientRequest {
     const port = this._options.port || (protocol === 'https:' ? 443 : 80);
     const path = this._options.path || '/';
     const method = this._options.method || 'GET';
-    const url = `${protocol}//${hostname}${port !== 80 && port !== 443 ? ':' + port : ''}${path}`;
+    const url = `${protocol}//${hostname}${port !== 80 && port !== 443 ? `:${port}` : ''}${path}`;
 
     try {
       const response = await fetch(url, {
@@ -300,9 +298,7 @@ export function createHTTPModule() {
         close: () => {},
       };
     },
-    Agent: class Agent {
-      constructor(options?: any) {}
-    },
+    Agent: class Agent {},
     globalAgent: new (class Agent {})(),
     STATUS_CODES: {
       100: 'Continue',
@@ -358,11 +354,7 @@ export function createHTTPSModule() {
       console.warn('https.createServer is not supported in browser environment');
       return httpModule.createServer(requestListener);
     },
-    Agent: class Agent extends httpModule.Agent {
-      constructor(options?: any) {
-        super(options);
-      }
-    },
+    Agent: class Agent extends httpModule.Agent {},
     globalAgent: new (class Agent extends httpModule.Agent {})(),
   };
 }

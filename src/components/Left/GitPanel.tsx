@@ -161,7 +161,7 @@ export default function GitPanel({
         if (hash && hash.length >= 7 && message && author && date) {
           try {
             const timestamp = new Date(date).getTime();
-            if (!isNaN(timestamp)) {
+            if (!Number.isNaN(timestamp)) {
               // 親コミットのハッシュをパース
               const parentHashes =
                 parentHashesStr && parentHashesStr !== ''
@@ -201,7 +201,7 @@ export default function GitPanel({
         if (hash && hash.length >= 7 && message && author && date) {
           try {
             const timestamp = new Date(date).getTime();
-            if (!isNaN(timestamp)) {
+            if (!Number.isNaN(timestamp)) {
               const parentHashes =
                 parentHashesStr && parentHashesStr !== ''
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')
@@ -238,7 +238,7 @@ export default function GitPanel({
         if (hash && hash.length >= 7 && message && author && date) {
           try {
             const timestamp = new Date(date).getTime();
-            if (!isNaN(timestamp)) {
+            if (!Number.isNaN(timestamp)) {
               const parentHashes =
                 parentHashesStr && parentHashesStr !== ''
                   ? parentHashesStr.split(',').filter(h => h.trim() !== '')

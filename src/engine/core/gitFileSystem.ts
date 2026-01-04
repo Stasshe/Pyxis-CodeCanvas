@@ -40,7 +40,7 @@ export class GitFileSystem {
       setTimeout(async () => {
         try {
           coreInfo('[GitFileSystem] Initializing /projects directory...');
-          await this.fs!.promises.mkdir('/projects', { recursive: true } as any);
+          await this.fs?.promises.mkdir('/projects', { recursive: true } as any);
           coreInfo('[GitFileSystem] Successfully initialized /projects directory');
         } catch (error) {
           if ((error as any).code === 'EEXIST') {
@@ -103,7 +103,7 @@ export class GitFileSystem {
     let currentPath = '';
 
     for (const segment of pathSegments) {
-      currentPath += '/' + segment;
+      currentPath += `/${segment}`;
       try {
         await fs.promises.stat(currentPath);
       } catch {

@@ -113,24 +113,24 @@ export class UnixCommands {
   setCurrentDir(dir: string): void {
     this.currentDir = dir;
     // 全コマンドインスタンスの currentDir を更新
-    this.catCmd['currentDir'] = dir;
-    this.cdCmd['currentDir'] = dir;
-    this.cpCmd['currentDir'] = dir;
-    this.echoCmd['currentDir'] = dir;
-    this.findCmd['currentDir'] = dir;
-    this.grepCmd['currentDir'] = dir;
-    this.helpCmd['currentDir'] = dir;
-    this.lsCmd['currentDir'] = dir;
-    this.mkdirCmd['currentDir'] = dir;
-    this.mvCmd['currentDir'] = dir;
-    this.pwdCmd['currentDir'] = dir;
-    this.rmCmd['currentDir'] = dir;
-    this.touchCmd['currentDir'] = dir;
-    this.treeCmd['currentDir'] = dir;
-    this.unzipCmd['currentDir'] = dir;
-    this.headCmd['currentDir'] = dir;
-    this.tailCmd['currentDir'] = dir;
-    this.statCmd['currentDir'] = dir;
+    this.catCmd.currentDir = dir;
+    this.cdCmd.currentDir = dir;
+    this.cpCmd.currentDir = dir;
+    this.echoCmd.currentDir = dir;
+    this.findCmd.currentDir = dir;
+    this.grepCmd.currentDir = dir;
+    this.helpCmd.currentDir = dir;
+    this.lsCmd.currentDir = dir;
+    this.mkdirCmd.currentDir = dir;
+    this.mvCmd.currentDir = dir;
+    this.pwdCmd.currentDir = dir;
+    this.rmCmd.currentDir = dir;
+    this.touchCmd.currentDir = dir;
+    this.treeCmd.currentDir = dir;
+    this.unzipCmd.currentDir = dir;
+    this.headCmd.currentDir = dir;
+    this.tailCmd.currentDir = dir;
+    this.statCmd.currentDir = dir;
   }
 
   /**
@@ -178,11 +178,10 @@ export class UnixCommands {
     if (Array.isArray(arg1)) {
       // rm(args: string[])
       return await this.rmCmd.execute(arg1);
-    } else {
-      // rm(fileName: string, recursive?: boolean)
-      const options = recursive ? ['-r'] : [];
-      return await this.rmCmd.execute([...options, arg1]);
     }
+    // rm(fileName: string, recursive?: boolean)
+    const options = recursive ? ['-r'] : [];
+    return await this.rmCmd.execute([...options, arg1]);
   }
 
   /**

@@ -37,10 +37,10 @@ export async function handleVimCommand(
 
   let entryPath = args[0];
   try {
-    if (unixCommandsRef && unixCommandsRef.current) {
+    if (unixCommandsRef?.current) {
       if (!entryPath.startsWith('/')) {
         const cwd = await unixCommandsRef.current.pwd();
-        const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
+        const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
         entryPath = unixCommandsRef.current.normalizePath(combined);
       } else {
         entryPath = unixCommandsRef.current.normalizePath(entryPath);

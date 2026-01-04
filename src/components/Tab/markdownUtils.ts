@@ -70,7 +70,7 @@ export const loadImageAsDataURL = async (
           stack.push(part);
         }
       }
-      return '/' + stack.join('/');
+      return `/${stack.join('/')}`;
     };
 
     // Build candidate paths to search in the project file tree.
@@ -83,10 +83,10 @@ export const loadImageAsDataURL = async (
     } else {
       if (baseFilePath) {
         const dir = baseFilePath.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
-        candidates.push(normalizeSegments(dir + '/' + imagePath));
+        candidates.push(normalizeSegments(`${dir}/${imagePath}`));
       }
       // fallback: treat as project-root relative
-      candidates.push(normalizeSegments('/' + imagePath));
+      candidates.push(normalizeSegments(`/${imagePath}`));
     }
 
     // Remove duplicates while preserving order
@@ -156,7 +156,7 @@ export const parseYamlConfig = (yamlText: string): any => {
         if (value) {
           let parsedValue: any = value;
           if (value === 'true' || value === 'false') parsedValue = value === 'true';
-          else if (!isNaN(Number(value))) parsedValue = Number(value);
+          else if (!Number.isNaN(Number(value))) parsedValue = Number(value);
           else if (value.startsWith("'") && value.endsWith("'")) parsedValue = value.slice(1, -1);
           currentObject[key] = parsedValue;
         } else {

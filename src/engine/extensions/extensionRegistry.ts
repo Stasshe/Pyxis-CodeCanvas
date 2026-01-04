@@ -7,7 +7,7 @@ import { fetchExtensionManifest } from './extensionLoader';
 import { extensionError, extensionInfo } from './extensionsLogger';
 import type { ExtensionManifest, ExtensionRegistry } from './types';
 
-const REGISTRY_URL = (process.env.NEXT_PUBLIC_BASE_PATH || '') + '/extensions/registry.json';
+const REGISTRY_URL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/extensions/registry.json`;
 
 /**
  * キャッシュされたレジストリ

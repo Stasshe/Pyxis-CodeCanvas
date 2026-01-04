@@ -46,7 +46,7 @@ const PaneItem = memo(function PaneItem({
     <div
       className="flex items-center justify-center rounded-md cursor-pointer select-none"
       style={{
-        background: isSelected ? colors.green : isActive ? colors.green + '25' : colors.cardBg,
+        background: isSelected ? colors.green : isActive ? `${colors.green}25` : colors.cardBg,
         border: isSelected
           ? `2px solid ${colors.green}`
           : isActive
@@ -160,12 +160,11 @@ function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height
       const totalW = childSizes.reduce((sum, s) => sum + s.w, 0) + (childSizes.length - 1) * gap;
       const maxH = Math.max(...childSizes.map(s => s.h));
       return { w: totalW, h: maxH };
-    } else {
-      // Vertical arrangement (stacked)
-      const maxW = Math.max(...childSizes.map(s => s.w));
-      const totalH = childSizes.reduce((sum, s) => sum + s.h, 0) + (childSizes.length - 1) * gap;
-      return { w: maxW, h: totalH };
     }
+    // Vertical arrangement (stacked)
+    const maxW = Math.max(...childSizes.map(s => s.w));
+    const totalH = childSizes.reduce((sum, s) => sum + s.h, 0) + (childSizes.length - 1) * gap;
+    return { w: maxW, h: totalH };
   }
 
   // Root level panes are always arranged horizontally

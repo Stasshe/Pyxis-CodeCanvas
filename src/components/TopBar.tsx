@@ -62,7 +62,9 @@ export default function TopBar({
         />
       </button>
       <button
-        className={`relative right-2 h-6 px-2 flex items-center justify-center border rounded transition-colors`}
+        className={
+          'relative right-2 h-6 px-2 flex items-center justify-center border rounded transition-colors'
+        }
         onClick={toggleBottomPanel}
         title={`${t('topBar.toggleTerminal')}`}
         style={{
@@ -75,7 +77,9 @@ export default function TopBar({
         <Terminal size={14} color={colors.primary} strokeWidth={2.2} />
       </button>
       <button
-        className={`relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors ml-1`}
+        className={
+          'relative right-3 h-6 px-2 flex items-center justify-center border rounded transition-colors ml-1'
+        }
         onClick={toggleRightSidebar}
         title={`${t('topBar.toggleRightPanel')}`}
         style={{

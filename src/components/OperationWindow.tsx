@@ -73,7 +73,7 @@ function scoreMatch(text: string, query: string): number {
 
 function getIconSrcForFile(name: string) {
   const iconPath = getIconForFile(name) || getIconForFile('');
-  if (iconPath && iconPath.endsWith('.svg')) {
+  if (iconPath?.endsWith('.svg')) {
     return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
   }
   return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
@@ -300,9 +300,7 @@ export default function OperationWindow({
 
     // Simple filtering for items
     return items.filter(
-      item =>
-        item.label.toLowerCase().includes(q) ||
-        (item.description && item.description.toLowerCase().includes(q))
+      item => item.label.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q)
     );
   }, [items, searchQuery, viewMode]);
 
@@ -511,10 +509,9 @@ export default function OperationWindow({
                   borderRadius: '4px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
-                  outline: mdDialogSelected === 0 ? '2px solid ' + colors.primary : undefined,
+                  outline: mdDialogSelected === 0 ? `2px solid ${colors.primary}` : undefined,
                 }}
                 tabIndex={0}
-                autoFocus={mdDialogSelected === 0}
                 onClick={() => {
                   actuallyOpenFile(mdPreviewPrompt.file, true);
                   setMdPreviewPrompt(null);
@@ -534,10 +531,9 @@ export default function OperationWindow({
                   borderRadius: '4px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
-                  outline: mdDialogSelected === 1 ? '2px solid ' + colors.primary : undefined,
+                  outline: mdDialogSelected === 1 ? `2px solid ${colors.primary}` : undefined,
                 }}
                 tabIndex={0}
-                autoFocus={mdDialogSelected === 1}
                 onClick={() => {
                   actuallyOpenFile(mdPreviewPrompt.file, false);
                   setMdPreviewPrompt(null);
@@ -796,7 +792,6 @@ export default function OperationWindow({
                             }
                           }}
                           onClick={e => e.stopPropagation()}
-                          autoFocus
                           style={{
                             flex: 1,
                             height: '18px',

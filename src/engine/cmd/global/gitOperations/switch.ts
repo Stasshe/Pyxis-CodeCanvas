@@ -34,19 +34,14 @@ export class GitSwitchOperations {
    * Helper method to create checkout operations instance
    */
   private createCheckoutOperations(): GitCheckoutOperations {
-    return new GitCheckoutOperations(
-      this.fs,
-      this.dir,
-      this.projectId,
-      this.projectName
-    );
+    return new GitCheckoutOperations(this.fs, this.dir, this.projectId, this.projectName);
   }
 
   /**
    * git switch - ブランチまたはコミットに切り替え
    * origin/main, upstream/develop などのリモートブランチや
    * コミットハッシュにも対応
-   * 
+   *
    * Note: The `detach` option is accepted for API compatibility but currently
    * checkout to commit hashes or remote branches automatically results in
    * detached HEAD state.
@@ -101,13 +96,11 @@ export class GitSwitchOperations {
       if (createNew) {
         // 新しいブランチを作成して切り替え
         return await this.createCheckoutOperations().checkout(normalizedRef, true);
-      } else {
-        // 既存のブランチに切り替え
-        return await this.createCheckoutOperations().checkout(normalizedRef, false);
       }
+      // 既存のブランチに切り替え
+      return await this.createCheckoutOperations().checkout(normalizedRef, false);
     } catch (error) {
       throw new Error(`git switch failed: ${(error as Error).message}`);
     }
   }
 }
-

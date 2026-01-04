@@ -190,13 +190,17 @@ export class GitRevertOperations {
 
       if (errorMessage.includes('bad revision')) {
         throw new Error(errorMessage);
-      } else if (errorMessage.includes('cannot revert initial commit')) {
+      }
+      if (errorMessage.includes('cannot revert initial commit')) {
         throw new Error(`error: ${errorMessage}`);
-      } else if (errorMessage.includes('is a merge commit')) {
+      }
+      if (errorMessage.includes('is a merge commit')) {
         throw new Error(`error: ${errorMessage}`);
-      } else if (errorMessage.includes('not a git repository')) {
+      }
+      if (errorMessage.includes('not a git repository')) {
         throw new Error('fatal: not a git repository (or any of the parent directories): .git');
-      } else if (errorMessage.includes('your local changes would be overwritten')) {
+      }
+      if (errorMessage.includes('your local changes would be overwritten')) {
         throw new Error(errorMessage);
       }
 

@@ -58,17 +58,16 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
         cmRef.current?.view?.focus();
       }, 50);
       return () => clearTimeout(timeoutId);
-    } else {
-      // 非アクティブになったらフォーカスを外す
-      // CodeMirrorにはblurメソッドがないため、DOM要素からフォーカスを外す
-      cmRef.current.view.contentDOM?.blur();
     }
+    // 非アクティブになったらフォーカスを外す
+    // CodeMirrorにはblurメソッドがないため、DOM要素からフォーカスを外す
+    cmRef.current.view.contentDOM?.blur();
   }, [isActive]);
 
   return (
     <div
-      tabIndex={0}
       aria-label="codemirror-editor"
+      tabIndex={0}
       style={{
         height: '100%',
         width: '100%',

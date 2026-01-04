@@ -17,16 +17,16 @@ export async function exportFolderZip(folder: FileItem) {
           zip.file(basePath + item.name, item.content ?? '');
         }
       } else if (item.type === 'folder' && item.children) {
-        addToZip(item.children, basePath + item.name + '/');
+        addToZip(item.children, `${basePath + item.name}/`);
       }
     }
   }
-  addToZip(folder.children, folder.name + '/');
+  addToZip(folder.children, `${folder.name}/`);
   const blob = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = folder.name + '.zip';
+  a.download = `${folder.name}.zip`;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {

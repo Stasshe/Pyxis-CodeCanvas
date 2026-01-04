@@ -24,7 +24,7 @@ export function TabIcon({ kind, filename, size = 14, color = 'currentColor' }: T
   // editorの場合はfilenameからアイコンを取得
   if (kind === 'editor' && filename) {
     const iconPath = getIconForFile(filename) || getIconForFile('');
-    if (iconPath && iconPath.endsWith('.svg')) {
+    if (iconPath?.endsWith('.svg')) {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_PATH || '';
       return (
         <img

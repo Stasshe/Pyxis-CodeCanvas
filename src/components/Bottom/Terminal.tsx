@@ -65,11 +65,11 @@ function ClientTerminal({
       term.write('\x1b[?25l');
 
       // Write initial frame in cyan, then reset color
-      term.write('\x1b[36m' + frames[0] + '\x1b[0m');
+      term.write(`\x1b[36m${frames[0]}\x1b[0m`);
 
       spinnerInterval.current = setInterval(() => {
         const next = frames[++i % frames.length];
-        term.write('\b' + '\x1b[36m' + next + '\x1b[0m');
+        term.write(`\b\x1b[36m${next}\x1b[0m`);
       }, 80);
     };
 
@@ -128,7 +128,7 @@ function ClientTerminal({
         npmCommandsRef.current = terminalCommandRegistry.getNpmCommands(
           currentProject,
           currentProjectId,
-          '/projects/' + currentProject
+          `/projects/${currentProject}`
         );
         // create or obtain a StreamShell instance from the shared registry so it's a per-project singleton
         try {
@@ -407,7 +407,7 @@ function ClientTerminal({
 
         // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）
         // But skip for in-place updates which need to stay on the same line
-        const normalizedOutput = isInPlaceUpdate || output.endsWith('\n') ? output : output + '\n';
+        const normalizedOutput = isInPlaceUpdate || output.endsWith('\n') ? output : `${output}\n`;
         capturedOutput += normalizedOutput;
 
         if (!redirect) {
@@ -533,7 +533,7 @@ function ClientTerminal({
                   currentProjectId,
                   relativePath
                 );
-                if (existingFile && existingFile.content) {
+                if (existingFile?.content) {
                   content = existingFile.content + content;
                 }
               } catch (e) {
@@ -736,7 +736,7 @@ function ClientTerminal({
             currentLine = currentLine.slice(0, cursorPos - 1) + currentLine.slice(cursorPos);
             cursorPos--;
             term.write('\b');
-            term.write(currentLine.slice(cursorPos) + ' ');
+            term.write(`${currentLine.slice(cursorPos)} `);
             for (let i = 0; i < currentLine.length - cursorPos + 1; i++) term.write('\b');
           }
           break;

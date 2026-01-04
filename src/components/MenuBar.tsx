@@ -195,7 +195,7 @@ export default function MenuBar({
           );
         })}
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}></div>
+      <div style={{ flex: 1, minHeight: 0 }} />
       <div
         style={{
           display: 'flex',

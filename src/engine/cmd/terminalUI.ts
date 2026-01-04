@@ -184,7 +184,7 @@ export class SpinnerController {
     // Clear the spinner line and show cursor - combine into single write
     // If there's a final message, include it with newline
     if (finalMessage) {
-      await this.write(ANSI.CLEAR_LINE + finalMessage + '\n' + ANSI.CURSOR_SHOW);
+      await this.write(`${ANSI.CLEAR_LINE + finalMessage}\n${ANSI.CURSOR_SHOW}`);
     } else {
       await this.write(ANSI.CLEAR_LINE + ANSI.CURSOR_SHOW);
     }
@@ -381,7 +381,7 @@ export class TerminalUI {
    * Write text followed by newline
    */
   async println(text: string): Promise<void> {
-    await this.write(text + '\n');
+    await this.write(`${text}\n`);
   }
 
   /**

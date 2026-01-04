@@ -236,12 +236,12 @@ export async function handleUnixCommand(
 
             // stream matches to stdout
             if (matchLines.length > 0) {
-              await append(matchLines.join('\n') + '\n');
+              await append(`${matchLines.join('\n')}\n`);
             }
 
             // stream errors to stderr and set appropriate exit code
             if (errorLines.length > 0) {
-              await appendError(errorLines.join('\n') + '\n', 2);
+              await appendError(`${errorLines.join('\n')}\n`, 2);
               // if there were matches as well, overall exit should be 2 (error)
               // otherwise, code already set to 2 by appendError
             } else {

@@ -149,14 +149,14 @@ export function ensureGitignoreContains(
   // Prepare canonical variants we consider equivalent
   const variants = new Set<string>([
     normalizedEntry,
-    normalizedEntry + '/',
-    '/' + normalizedEntry,
-    '/' + normalizedEntry + '/',
+    `${normalizedEntry}/`,
+    `/${normalizedEntry}`,
+    `/${normalizedEntry}/`,
   ]);
 
   if (!content || content.trim() === '') {
-    const header = `# Auto-generated .gitignore by Pyxis\n# Keep common ignores below\n`;
-    const newContent = header + normalizedEntry + '\n';
+    const header = '# Auto-generated .gitignore by Pyxis\n# Keep common ignores below\n';
+    const newContent = `${header + normalizedEntry}\n`;
     return { content: newContent, changed: true };
   }
 
@@ -174,9 +174,9 @@ export function ensureGitignoreContains(
       // e.g. "node_modules/**" or "**/node_modules" -> treat as present
       if (
         line === normalizedEntry ||
-        line.startsWith(normalizedEntry + '/') ||
+        line.startsWith(`${normalizedEntry}/`) ||
         line.includes(`/${normalizedEntry}`) ||
-        line.includes(normalizedEntry + '*')
+        line.includes(`${normalizedEntry}*`)
       ) {
         return { content, changed: false };
       }
@@ -185,6 +185,6 @@ export function ensureGitignoreContains(
 
   // Not found -> append at end (preserve trailing newline behavior)
   const needsTrailingNewline = content.endsWith('\n') || content.endsWith('\r');
-  const appended = (needsTrailingNewline ? content : content + '\n') + normalizedEntry + '\n';
+  const appended = `${(needsTrailingNewline ? content : `${content}\n`) + normalizedEntry}\n`;
   return { content: appended, changed: true };
 }

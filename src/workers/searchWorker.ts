@@ -18,12 +18,37 @@ type SearchOptions = {
   excludeGlobs?: string[];
 };
 
+interface SearchResult {
+  file: { id?: string; path: string; name?: string };
+  line: number;
+  column: number;
+  content: string;
+  matchStart: number;
+  matchEnd: number;
+}
+
+interface SearchResultMessage {
+  type: 'result';
+  searchId: number;
+  results: SearchResult[];
+  error?: string;
+}
+
+// Worker global scope with proper typing
+type WorkerSelf = typeof globalThis & {
+  postMessage(message: SearchResultMessage): void;
+  addEventListener(type: 'message', listener: (ev: MessageEvent) => void): void;
+};
+
+// TypeScript knows `self` exists in worker context
+const workerSelf = self as unknown as WorkerSelf;
+
 function escapeForRegex(s: string) {
-  return s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function globToRegex(pattern: string, caseSensitive: boolean) {
-  const p = pattern.replace(/\\\\/g, '/');
+  const p = pattern.replace(/\\/g, '/');
   let regexStr = '';
   for (let i = 0; i < p.length; ) {
     const c = p[i];
@@ -39,14 +64,14 @@ function globToRegex(pattern: string, caseSensitive: boolean) {
       regexStr += '.';
       i += 1;
     } else {
-      regexStr += c.replace(/[.+^${}()|[\\]\\]/g, '\\$&');
+      regexStr += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
       i += 1;
     }
   }
-  return new RegExp('^' + regexStr + '$', caseSensitive ? '' : 'i');
+  return new RegExp(`^${regexStr}$`, caseSensitive ? '' : 'i');
 }
 
-self.addEventListener('message', (ev: MessageEvent) => {
+workerSelf.addEventListener('message', (ev: MessageEvent) => {
   const msg = ev.data;
   if (!msg || msg.type !== 'search') return;
 
@@ -59,7 +84,11 @@ self.addEventListener('message', (ev: MessageEvent) => {
 
   try {
     if (!query || !query.trim()) {
-      (self as any).postMessage({ type: 'result', searchId, results: [] });
+      workerSelf.postMessage({
+        type: 'result',
+        searchId,
+        results: [],
+      } satisfies SearchResultMessage);
       return;
     }
 
@@ -74,7 +103,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
       searchRegex = new RegExp(pattern, flags);
     }
 
-    const results: any[] = [];
+    const results: SearchResult[] = [];
 
     // Prepare exclude regexes from provided glob patterns (if any).
     const excludePatterns: RegExp[] = (options.excludeGlobs || []).map(g =>
@@ -82,19 +111,27 @@ self.addEventListener('message', (ev: MessageEvent) => {
     );
 
     for (const file of files) {
-      const normalizedPath = (file.path || '').replace(/\\\\/g, '/');
-      // If the path or filename matches any exclude pattern, skip this file.
-      if (
-        excludePatterns.length > 0 &&
-        excludePatterns.some(rx => rx.test(normalizedPath) || (file.name && rx.test(file.name)))
-      ) {
-        continue;
+      const normalizedPath = (file.path || '').replace(/\\/g, '/');
+
+      // Skip if path matches any exclude pattern
+      let excluded = false;
+      for (const regex of excludePatterns) {
+        if (regex.test(normalizedPath)) {
+          excluded = true;
+          break;
+        }
       }
-      if (options.searchInFilenames) {
-        const targetName = `${file.name || ''} ${file.path}`;
+      if (excluded) continue;
+
+      // Skip binary files
+      if (file.isBufferArray) continue;
+
+      const targetName = file.name || file.path.split('/').pop() || '';
+
+      if (options.searchInFilenames && searchRegex.test(targetName)) {
         const localRegex = new RegExp(searchRegex.source, searchRegex.flags);
-        let m: RegExpExecArray | null;
-        while ((m = localRegex.exec(targetName)) !== null) {
+        let m: RegExpExecArray | null = localRegex.exec(targetName);
+        while (m !== null) {
           results.push({
             file: { id: file.id, path: file.path, name: file.name },
             line: 0,
@@ -104,6 +141,7 @@ self.addEventListener('message', (ev: MessageEvent) => {
             matchEnd: m.index + m[0].length,
           });
           if (!localRegex.global) break;
+          m = localRegex.exec(targetName);
         }
       }
 
@@ -113,8 +151,8 @@ self.addEventListener('message', (ev: MessageEvent) => {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         searchRegex.lastIndex = 0;
-        let m: RegExpExecArray | null;
-        while ((m = searchRegex.exec(line)) !== null) {
+        let m: RegExpExecArray | null = searchRegex.exec(line);
+        while (m !== null) {
           results.push({
             file: { id: file.id, path: file.path, name: file.name },
             line: i + 1,
@@ -124,13 +162,19 @@ self.addEventListener('message', (ev: MessageEvent) => {
             matchEnd: m.index + m[0].length,
           });
           if (!searchRegex.global) break;
+          m = searchRegex.exec(line);
         }
       }
     }
 
-    (self as any).postMessage({ type: 'result', searchId, results });
+    workerSelf.postMessage({ type: 'result', searchId, results } satisfies SearchResultMessage);
   } catch (err) {
-    (self as any).postMessage({ type: 'result', searchId, results: [], error: String(err) });
+    workerSelf.postMessage({
+      type: 'result',
+      searchId,
+      results: [],
+      error: String(err),
+    } satisfies SearchResultMessage);
   }
 });
 

@@ -495,10 +495,10 @@ export function parseEditResponse(
     const failureNote =
       'Failed to parse response. Ensure you use the correct SEARCH/REPLACE block format (<<<<<<< SEARCH ... >>>>>>> REPLACE) or legacy file tags (<AI_EDIT_CONTENT_START:...>).';
     const safeResponse = response.replace(/```/g, '```\u200B');
-    const rawBlock = '\n\n---\n\nRaw response:\n\n```text\n' + safeResponse + '\n```';
+    const rawBlock = `\n\n---\n\nRaw response:\n\n\`\`\`text\n${safeResponse}\n\`\`\``;
     message = failureNote + rawBlock;
   } else if (changedFiles.length > 0 && !hasValidMessage) {
-    message = 'Suggested edits for ' + changedFiles.length + ' file(s).';
+    message = `Suggested edits for ${changedFiles.length} file(s).`;
   }
 
   return {
@@ -535,15 +535,11 @@ export function validateResponse(response: string): {
     const newFileEndCount = (response.match(/>>>>>>> NEW_FILE/g) || []).length;
 
     if (searchCount !== replaceCount) {
-      errors.push(
-        'Mismatched SEARCH/REPLACE: ' + searchCount + ' SEARCH vs ' + replaceCount + ' REPLACE'
-      );
+      errors.push(`Mismatched SEARCH/REPLACE: ${searchCount} SEARCH vs ${replaceCount} REPLACE`);
     }
 
     if (newFileStartCount !== newFileEndCount) {
-      errors.push(
-        'Mismatched NEW_FILE tags: ' + newFileStartCount + ' start vs ' + newFileEndCount + ' end'
-      );
+      errors.push(`Mismatched NEW_FILE tags: ${newFileStartCount} start vs ${newFileEndCount} end`);
     }
 
     // Additional validation: Check for well-formed blocks
@@ -556,11 +552,7 @@ export function validateResponse(response: string): {
 
       if (completeBlocks < searchCount && searchCount === replaceCount) {
         warnings.push(
-          'Some SEARCH/REPLACE blocks may be missing the separator (=======). ' +
-            completeBlocks +
-            ' complete blocks found out of ' +
-            searchCount +
-            ' expected.'
+          `Some SEARCH/REPLACE blocks may be missing the separator (=======). ${completeBlocks} complete blocks found out of ${searchCount} expected.`
         );
       }
     }
@@ -574,7 +566,7 @@ export function validateResponse(response: string): {
     const endTags = response.match(/<AI_EDIT_CONTENT_END:[^>]+>/g) || [];
 
     if (startTags.length !== endTags.length) {
-      errors.push('Mismatched tags: ' + startTags.length + ' START vs ' + endTags.length + ' END');
+      errors.push(`Mismatched tags: ${startTags.length} START vs ${endTags.length} END`);
     }
 
     if (startTags.length === 0) {

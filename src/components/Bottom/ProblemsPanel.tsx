@@ -88,7 +88,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     return (tabId: string): string | null => {
       const findPane = (panesList: any[]): string | null => {
         for (const p of panesList) {
-          if (p.tabs && p.tabs.find((t: any) => t.id === tabId)) return p.id;
+          if (p.tabs?.find((t: any) => t.id === tabId)) return p.id;
           if (p.children) {
             const found = findPane(p.children);
             if (found) return found;
@@ -179,7 +179,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     return () => {
       isCancelled = true;
       try {
-        if (disposable && disposable.dispose) {
+        if (disposable?.dispose) {
           disposable.dispose();
         }
       } catch (e) {}
@@ -234,7 +234,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
       if (!grouped.has(key)) {
         grouped.set(key, []);
       }
-      grouped.get(key)!.push(m);
+      grouped.get(key)?.push(m);
     }
     return grouped;
   }, [displayedMarkers]);

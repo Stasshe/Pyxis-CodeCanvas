@@ -1,14 +1,20 @@
 /**
  * StreamShell - Backward compatible wrapper for ShellExecutor
- * 
+ *
  * This is a compatibility layer that wraps the new provider-based ShellExecutor
  * while maintaining the existing StreamShell API for backward compatibility.
  */
 
-import type { UnixCommands } from '../global/unix';
 import type { fileRepository } from '@/engine/core/fileRepository';
-import { ShellExecutor, createShellExecutor, type ShellExecutorOptions, type ShellRunResult, type OutputCallbacks } from './executor';
-import { Process, type ProcExit } from './process';
+import type { UnixCommands } from '../global/unix';
+import {
+  type OutputCallbacks,
+  type ShellExecutor,
+  type ShellExecutorOptions,
+  type ShellRunResult,
+  createShellExecutor,
+} from './executor';
+import { type ProcExit, Process } from './process';
 
 // Re-export for backward compatibility
 export { Process, type ProcExit } from './process';
@@ -28,7 +34,7 @@ export interface ShellOptions {
 
 /**
  * StreamShell - Backward compatible shell interface
- * 
+ *
  * Delegates all operations to the new ShellExecutor while maintaining
  * the existing public API for backward compatibility.
  */
@@ -74,7 +80,7 @@ export class StreamShell {
 
   /**
    * Run a command line
-   * 
+   *
    * @param line - Command line to execute
    * @param onData - Optional callbacks for real-time output
    * @returns Promise with stdout, stderr, and exit code
@@ -86,10 +92,12 @@ export class StreamShell {
       stderr?: (data: string) => void;
     }
   ): Promise<ShellRunResult> {
-    const callbacks: OutputCallbacks | undefined = onData ? {
-      stdout: onData.stdout,
-      stderr: onData.stderr,
-    } : undefined;
+    const callbacks: OutputCallbacks | undefined = onData
+      ? {
+          stdout: onData.stdout,
+          stderr: onData.stderr,
+        }
+      : undefined;
 
     return this.executor.run(line, callbacks);
   }

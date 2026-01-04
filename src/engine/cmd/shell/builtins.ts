@@ -1,4 +1,4 @@
-import type { Readable, Writable } from 'stream';
+import type { Readable, Writable } from 'node:stream';
 
 import handleUnixCommand from '../handlers/unixHandler';
 
@@ -79,11 +79,11 @@ const makeUnixBridge = (name: string) => {
         stream.write(String(result.output));
       }
     } catch (e: any) {
-      if (e && e.__silent) {
+      if (e?.__silent) {
         exitCode = typeof e.code === 'number' ? e.code : 1;
       } else {
-        const msg = e && e.message ? String(e.message) : String(e);
-        ctx.stderr.write(msg + '\n');
+        const msg = e?.message ? String(e.message) : String(e);
+        ctx.stderr.write(`${msg}\n`);
         exitCode = 1;
       }
     }
@@ -213,14 +213,14 @@ export default function adaptUnixToStream(unix: any) {
       ctx.stdout.end();
     } catch (e: any) {
       ctx.stdout.end();
-      if (e && e.__silent) throw e;
+      if (e?.__silent) throw e;
       throw e;
     }
   };
 
   obj['['] = evaluateTest;
-  obj['test'] = evaluateTest;
-  obj['true'] = async (ctx: StreamCtx) => {
+  obj.test = evaluateTest;
+  obj.true = async (ctx: StreamCtx) => {
     ctx.stdout.end();
   };
 
@@ -230,7 +230,7 @@ export default function adaptUnixToStream(unix: any) {
     const names: string[] = [];
 
     for (const a of args) {
-      if (a && a.startsWith('-') && a.length > 1) {
+      if (a?.startsWith('-') && a.length > 1) {
         for (let i = 1; i < a.length; i++) {
           const ch = a[i];
           if (ch === 'a') opts.a = true;
@@ -300,7 +300,7 @@ export default function adaptUnixToStream(unix: any) {
     if (args.length >= 1 && (args[0] === '-v' || args[0] === '--version')) {
       try {
         const ver = 'v18.0.0 (custom build)'; // バージョン番号を適宜設定
-        ctx.stdout.write(String(ver) + '\n');
+        ctx.stdout.write(`${String(ver)}\n`);
       } catch (e) {}
       ctx.stdout.end();
       ctx.stderr.end();
@@ -321,10 +321,9 @@ export default function adaptUnixToStream(unix: any) {
       // デバッグコンソールを設定（即座に出力、バッファリングなし）
       const debugConsole = {
         log: (...args: unknown[]) => {
-          const output =
-            args
-              .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
-              .join(' ') + '\n';
+          const output = `${args
+            .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+            .join(' ')}\n`;
           // 即座にストリームに書き込む（バッファリングなし）
           try {
             ctx.stdout.write(output);
@@ -357,7 +356,7 @@ export default function adaptUnixToStream(unix: any) {
       const onInput = (promptText: string, callback: (input: string) => void) => {
         // streamShellではインタラクティブ入力は未対応
         // エラーを返すか、空文字列でcallback
-        ctx.stderr.write(`node: interactive input not supported in streamShell\n`);
+        ctx.stderr.write('node: interactive input not supported in streamShell\n');
         callback('');
       };
 
@@ -367,7 +366,7 @@ export default function adaptUnixToStream(unix: any) {
         if (unix && typeof unix.pwd === 'function') {
           if (!entryPath.startsWith('/')) {
             const cwd = await unix.pwd();
-            const combined = cwd.replace(/\/$/, '') + '/' + entryPath;
+            const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
             entryPath =
               typeof unix.normalizePath === 'function' ? unix.normalizePath(combined) : combined;
           } else {
@@ -401,7 +400,7 @@ export default function adaptUnixToStream(unix: any) {
       ctx.stdout.end();
       ctx.stderr.end();
     } catch (e: any) {
-      const msg = e && e.message ? String(e.message) : String(e);
+      const msg = e?.message ? String(e.message) : String(e);
       ctx.stderr.write(`node: error: ${msg}\n`);
       ctx.stdout.end();
       ctx.stderr.end();

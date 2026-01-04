@@ -1,27 +1,27 @@
 /**
  * Shell Module - POSIX-compliant Shell Implementation
- * 
+ *
  * This module provides a comprehensive shell implementation for terminal command execution.
- * 
+ *
  * Architecture Overview:
  * =====================
- * 
+ *
  * Direct handler-based command execution:
  * - handlers/gitHandler.ts     - Git commands
  * - handlers/npmHandler.ts     - NPM commands
  * - handlers/pyxisHandler.ts   - Pyxis-specific commands
  * - handlers/unixHandler.ts    - Unix commands
  * - builtins.ts                - Shell builtins via unixHandler
- * 
+ *
  * StreamShell:
  * - Wraps ShellExecutor
  * - Maintains the original API
- * 
+ *
  * ShellExecutor:
  * - Direct handler invocation (no provider abstraction)
  * - POSIX-compliant execution
  * - Alias/env management
- * 
+ *
  * Shell operators supported:
  * - Pipes (|)
  * - Logical operators (&&, ||)
@@ -29,7 +29,7 @@
  * - Command substitution ($(cmd), `cmd`)
  * - Brace/glob expansion
  * - Control flow (if/for/while)
- * 
+ *
  * Files:
  * ======
  * - index.ts              - Module exports and documentation
@@ -46,7 +46,12 @@
 
 // Main shell classes
 export { StreamShell, Process, type ProcExit } from './streamShell';
-export { ShellExecutor, createShellExecutor, type ShellExecutorOptions, type OutputCallbacks } from './executor';
+export {
+  ShellExecutor,
+  createShellExecutor,
+  type ShellExecutorOptions,
+  type OutputCallbacks,
+} from './executor';
 
 // Parser
 export { parseCommandLine } from './parser';

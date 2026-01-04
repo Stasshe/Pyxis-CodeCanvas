@@ -97,10 +97,9 @@ export class LsCommand extends UnixCommandBase {
     let entries = files.filter((f: ProjectFile) => {
       if (relativePath === '/') {
         return f.path.split('/').filter((p: string) => p).length === 1;
-      } else {
-        const childPath = f.path.replace(prefix, '');
-        return f.path.startsWith(prefix) && !childPath.includes('/');
       }
+      const childPath = f.path.replace(prefix, '');
+      return f.path.startsWith(prefix) && !childPath.includes('/');
     });
 
     // .git等のフィルタリング
@@ -143,7 +142,7 @@ export class LsCommand extends UnixCommandBase {
       result += `total ${entries.length}\n`;
       for (const entry of entries) {
         const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
-        result += (await this.formatLongEntry(fullPath, humanReadable)) + '\n';
+        result += `${await this.formatLongEntry(fullPath, humanReadable)}\n`;
       }
     } else {
       result += entries

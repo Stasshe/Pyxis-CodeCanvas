@@ -73,14 +73,14 @@ class TerminalCommandRegistry {
     try {
       const { default: StreamShell } = await import('./shell/streamShell');
       // prefer provided unix from opts, otherwise use registry's unix commands
-      const unix = opts && opts.unix ? opts.unix : this.getUnixCommands(projectName, projectId);
-      const commandRegistry = opts && opts.commandRegistry ? opts.commandRegistry : undefined;
+      const unix = opts?.unix ? opts.unix : this.getUnixCommands(projectName, projectId);
+      const commandRegistry = opts?.commandRegistry ? opts.commandRegistry : undefined;
       entry.shell = new StreamShell({
         projectName,
         projectId,
         unix,
         commandRegistry,
-        fileRepository: opts && opts.fileRepository,
+        fileRepository: opts?.fileRepository,
         terminalColumns: opts?.terminalColumns,
         terminalRows: opts?.terminalRows,
       });

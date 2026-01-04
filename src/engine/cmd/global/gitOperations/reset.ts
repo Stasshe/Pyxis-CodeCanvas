@@ -236,13 +236,15 @@ export class GitResetOperations {
 
       if (errorMessage.includes('not a git repository')) {
         throw new Error('fatal: not a git repository (or any of the parent directories): .git');
-      } else if (
+      }
+      if (
         errorMessage.includes('unknown revision') ||
         errorMessage.includes('ambiguous argument')
       ) {
         throw new Error(errorMessage);
-      } else if (errorMessage.includes('bad revision')) {
-        throw new Error(`fatal: bad revision - commit not found`);
+      }
+      if (errorMessage.includes('bad revision')) {
+        throw new Error('fatal: bad revision - commit not found');
       }
 
       throw new Error(`git reset failed: ${errorMessage}`);

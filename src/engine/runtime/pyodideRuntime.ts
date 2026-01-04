@@ -246,7 +246,7 @@ function createDirectoryRecursive(pyodide: PyodideInterface, path: string): void
   let currentPath = '';
 
   for (const part of parts) {
-    currentPath += '/' + part;
+    currentPath += `/${part}`;
     try {
       pyodide.FS.mkdir(currentPath);
     } catch {

@@ -255,7 +255,7 @@ function interpolate(line: string, localVars: Record<string, string>, args: stri
           const s = String(a);
           // escape single quotes by closing, inserting \"'\", and reopening
           const esc = s.replace(/'/g, "'\\''");
-          return "'" + esc + "'";
+          return `'${esc}'`;
         });
         res += parts.join(' ');
       }
@@ -278,7 +278,7 @@ function interpolate(line: string, localVars: Record<string, string>, args: stri
   });
   // $VAR style (word boundary)
   for (const k of Object.keys(localVars)) {
-    out = out.replace(new RegExp('\\$' + k + '\\b', 'g'), localVars[k]);
+    out = out.replace(new RegExp(`\\$${k}\\b`, 'g'), localVars[k]);
   }
   return out;
 }
@@ -443,8 +443,7 @@ async function runRange(
           if (eRes.stderr) proc.writeStderr(eRes.stderr);
           if (eRes.code === 0) {
             const eThenStart = eIdx + 1;
-            const eThenEnd =
-              k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
+            const eThenEnd = k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
             const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell);
             if (r !== 'ok') return r;
             matched = true;

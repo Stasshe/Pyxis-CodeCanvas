@@ -52,7 +52,7 @@ export function useDiffTabHandlers(currentProject: any) {
           //  正規化されたパスでファイルを検索
           const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
 
-          if (file && file.content) {
+          if (file?.content) {
             latterContent = file.content;
             console.log('[useDiffTabHandlers] Read latterContent from fileRepository');
           } else {
