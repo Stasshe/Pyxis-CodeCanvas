@@ -778,6 +778,8 @@ export default memo(AIPanel, (prevProps, nextProps) => {
   
   // プロジェクトファイルの内容が変わった場合は再レンダリング
   // 最初と最後のファイルのIDとパスを比較（完全な深い比較は避ける）
+  // 注意: 中間要素の変更は検出されないが、パフォーマンスとのトレードオフ
+  // ファイルの追加/削除/先頭末尾の変更は確実に検出される
   if (prevProps.projectFiles.length > 0 && nextProps.projectFiles.length > 0) {
     const prevFirst = prevProps.projectFiles[0];
     const nextFirst = nextProps.projectFiles[0];

@@ -13,7 +13,7 @@ function makeKey(projectId: string, spaceId: string): string {
  * デバウンス保存管理
  * 頻繁な保存を防ぐため、一定時間待機してから保存を実行
  */
-const debouncedSaves = new Map<string, ReturnType<typeof setTimeout>>();
+const debouncedSaves = new Map<string, NodeJS.Timeout>();
 const DEBOUNCE_DELAY_MS = 1000; // 1秒
 
 function debouncedSave(key: string, saveFunction: () => Promise<void>): void {
@@ -29,7 +29,7 @@ function debouncedSave(key: string, saveFunction: () => Promise<void>): void {
       await saveFunction();
       debouncedSaves.delete(key);
     } catch (error) {
-      console.error('[chatStorageAdapter] Debounced save failed:', error);
+      console.error('[chatStorageAdapter] Debounced save failed for key:', key, error);
       debouncedSaves.delete(key);
     }
   }, DEBOUNCE_DELAY_MS);

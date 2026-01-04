@@ -14,7 +14,7 @@ interface ResizeState {
   isResizing: boolean;
   containerStart: number;
   containerSize: number;
-  rafId: number | null;
+  rafId: number | undefined;
 }
 
 /**
@@ -29,7 +29,7 @@ export function usePaneResize(options: UsePaneResizeOptions) {
     isResizing: false,
     containerStart: 0,
     containerSize: 0,
-    rafId: null,
+    rafId: undefined,
   });
 
   // Store handlers in refs for cleanup
@@ -46,9 +46,9 @@ export function usePaneResize(options: UsePaneResizeOptions) {
     setIsDragging?.(false);
 
     // Cancel any pending animation frame
-    if (state.rafId !== null) {
+    if (state.rafId !== undefined) {
       cancelAnimationFrame(state.rafId);
-      state.rafId = null;
+      state.rafId = undefined;
     }
 
     // Remove listeners
@@ -103,7 +103,7 @@ export function usePaneResize(options: UsePaneResizeOptions) {
         const state = stateRef.current;
         
         // Cancel previous animation frame if exists
-        if (state.rafId !== null) {
+        if (state.rafId !== undefined) {
           cancelAnimationFrame(state.rafId);
         }
         
@@ -130,7 +130,7 @@ export function usePaneResize(options: UsePaneResizeOptions) {
             onResize(newLeftPercent, newRightPercent);
           }
           
-          state.rafId = null;
+          state.rafId = undefined;
         });
       };
 
