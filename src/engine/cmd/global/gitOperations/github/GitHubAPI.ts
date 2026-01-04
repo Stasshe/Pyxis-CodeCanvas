@@ -1,6 +1,11 @@
 /**
  * GitHub Git Data API Client
  * https://docs.github.com/en/rest/git
+ *
+ * Optimized for efficient push operations with:
+ * - Batch commit history fetching
+ * - Compare API for divergence detection
+ * - Minimal API calls strategy
  */
 
 export interface GitRef {
@@ -31,6 +36,7 @@ export interface GitUser {
 export interface GitTree {
   sha: string;
   tree: Array<GitTreeEntry>;
+  truncated?: boolean;
 }
 
 export interface GitTreeEntry {
@@ -48,17 +54,48 @@ export interface GitBlob {
   encoding: string;
 }
 
+/**
+ * Commit info from REST API (different from Git Data API)
+ */
+export interface CommitInfo {
+  sha: string;
+  commit: {
+    tree: { sha: string };
+    message: string;
+    author: { name: string; email: string; date: string };
+    committer: { name: string; email: string; date: string };
+  };
+  parents: Array<{ sha: string }>;
+}
+
+/**
+ * Compare API response
+ */
+export interface CompareResult {
+  status: 'diverged' | 'ahead' | 'behind' | 'identical';
+  ahead_by: number;
+  behind_by: number;
+  total_commits: number;
+  base_commit: CommitInfo;
+  merge_base_commit: CommitInfo;
+  commits: CommitInfo[];
+}
+
 export class GitHubAPI {
   private baseUrl: string;
   private token: string;
+  private owner: string;
+  private repo: string;
 
   constructor(token: string, owner: string, repo: string) {
     this.token = token;
+    this.owner = owner;
+    this.repo = repo;
     this.baseUrl = `https://api.github.com/repos/${owner}/${repo}`;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -83,9 +120,10 @@ export class GitHubAPI {
   async getRef(branch: string): Promise<GitRef | null> {
     try {
       return await this.request<GitRef>(`/git/refs/heads/${branch}`);
-    } catch (error: any) {
+    } catch (error) {
       // 404 or 409 = ブランチが存在しない
-      if (error.message.includes('404') || error.message.includes('409')) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('404') || message.includes('409')) {
         return null;
       }
       throw error;
@@ -118,8 +156,9 @@ export class GitHubAPI {
           force,
         }),
       });
-    } catch (error: any) {
-      if (error.message.includes('404')) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('404')) {
         // 参照が存在しない場合は新規作成
         return this.createRef(branch, sha);
       }
@@ -185,7 +224,7 @@ export class GitHubAPI {
   }
 
   /**
-   * コミットを取得
+   * コミットを取得 (Git Data API)
    */
   async getCommit(sha: string): Promise<GitCommit> {
     return this.request<GitCommit>(`/git/commits/${sha}`);
@@ -196,7 +235,6 @@ export class GitHubAPI {
    */
   async treeExists(sha: string): Promise<boolean> {
     try {
-      // HEADリクエストで軽量チェック（ただしGitHub APIはHEADをサポートしていないのでGETを使用）
       const url = `${this.baseUrl}/git/trees/${sha}`;
       const response = await fetch(url, {
         method: 'GET',
@@ -208,7 +246,6 @@ export class GitHubAPI {
 
       return response.ok;
     } catch (error) {
-      // ネットワークエラーなど、本当のエラーのみログ出力
       console.warn('[GitHubAPI] treeExists network error:', error);
       return false;
     }
@@ -227,5 +264,76 @@ export class GitHubAPI {
    */
   async treesAreEqual(treeSha1: string, treeSha2: string): Promise<boolean> {
     return treeSha1 === treeSha2;
+  }
+
+  // ========================================
+  // 高速化用の新しいAPI
+  // ========================================
+
+  /**
+   * コミット履歴をバッチ取得（REST API）
+   * 1回のリクエストで最大100件のコミットを取得
+   *
+   * @param sha - 開始コミットのSHA
+   * @param perPage - 1ページあたりの取得件数（最大100）
+   * @param page - ページ番号（1から開始、将来の拡張用）
+   */
+  async getCommitHistory(sha: string, perPage = 100, page = 1): Promise<CommitInfo[]> {
+    try {
+      return await this.request<CommitInfo[]>(
+        `/commits?sha=${sha}&per_page=${perPage}&page=${page}`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('409')) {
+        // Empty repository
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 2つのコミット間の比較（Compare API）
+   * 効率的に差分情報を取得
+   */
+  async compareCommits(base: string, head: string): Promise<CompareResult | null> {
+    try {
+      return await this.request<CompareResult>(`/compare/${base}...${head}`);
+    } catch (error) {
+      // 404 = 共通の祖先がない（比較不可）
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('404')) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * コミットが存在するかチェック（軽量）
+   */
+  async commitExists(sha: string): Promise<boolean> {
+    try {
+      const url = `${this.baseUrl}/git/commits/${sha}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * コミット情報を取得（REST API - ツリーSHA含む）
+   */
+  async getCommitInfo(sha: string): Promise<CommitInfo> {
+    return this.request<CommitInfo>(`/commits/${sha}`);
   }
 }

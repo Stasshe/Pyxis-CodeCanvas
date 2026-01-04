@@ -6,7 +6,7 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
-import type { GitHubAPI, GitTreeEntry } from './GitHubAPI';
+import type { GitHubAPI, GitTree, GitTreeEntry } from './GitHubAPI';
 
 export class TreeBuilder {
   private fs: FS;
@@ -91,11 +91,12 @@ export class TreeBuilder {
 
     const localTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: localTreeOid });
 
-    let remoteTree;
+    let remoteTree: GitTree;
     try {
       remoteTree = await this.githubAPI.getTree(remoteTreeSha, false);
-    } catch (error: any) {
-      if (error.message.includes('409') || error.message.includes('empty')) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('409') || message.includes('empty')) {
         return this.buildTreeRecursive(localTreeOid, path);
       }
       throw error;
@@ -176,7 +177,7 @@ export class TreeBuilder {
             path: localEntry.path,
             mode: localEntry.mode,
             type: 'tree',
-            sha: remoteEntry.sha!,
+            sha: remoteEntry.sha ?? '',
           });
         }
       }
@@ -216,7 +217,7 @@ export class TreeBuilder {
     // 明示的に削除を指示するには、pathを含めてshaをnullにすることで削除を表現できます。
     // ここでは、リモートに存在してローカルに存在しないエントリをsha:nullとして追加します。
     for (const [remotePath, remoteEntry] of remoteEntries) {
-      const localEntry = localTree.tree.find(e => e.path === remotePath);
+      const localEntry = localTree.tree.find((e: { path: string }) => e.path === remotePath);
       if (!localEntry) {
         // リモートにあるがローカルにないファイル（削除された）
         hasChanges = true;
@@ -334,8 +335,9 @@ export class TreeBuilder {
     }
 
     const cacheKey = `${contentStr}:${encoding}`;
-    if (this.blobCache.has(cacheKey)) {
-      return this.blobCache.get(cacheKey)!;
+    const cachedValue = this.blobCache.get(cacheKey);
+    if (cachedValue) {
+      return cachedValue;
     }
 
     const blobData2 = await this.githubAPI.createBlob(contentStr, encoding);
