@@ -745,9 +745,14 @@ function ClientTerminal({
           // send SIGINT to foreground process if available
           try {
             if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
+              console.log('[Terminal] Ctrl+C detected, killing foreground process');
               shellRef.current.killForeground();
+            } else {
+              console.warn('[Terminal] Ctrl+C detected but no shell or killForeground method available');
             }
-          } catch (e) {}
+          } catch (e) {
+            console.error('[Terminal] Error killing foreground process:', e);
+          }
           currentLine = '';
           cursorPos = 0;
           historyIndex = -1;

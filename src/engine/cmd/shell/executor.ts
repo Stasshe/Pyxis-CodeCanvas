@@ -791,11 +791,16 @@ export class ShellExecutor {
    * Kill the foreground process
    */
   killForeground(signal = 'SIGINT'): void {
+    console.log('[ShellExecutor] killForeground called with signal:', signal, 'foregroundProc:', this.foregroundProc?.pid);
     try {
       if (this.foregroundProc) {
         this.foregroundProc.kill(signal);
+      } else {
+        console.warn('[ShellExecutor] No foreground process to kill');
       }
-    } catch {}
+    } catch (e) {
+      console.error('[ShellExecutor] Error killing foreground process:', e);
+    }
   }
 
   /**

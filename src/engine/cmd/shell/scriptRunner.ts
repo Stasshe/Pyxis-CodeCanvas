@@ -668,7 +668,9 @@ export async function runScript(
   // Note: We only handle SIGINT and SIGTERM as they are the standard termination signals
   // SIGKILL cannot be caught or handled by user processes (it's sent by the OS kernel)
   const signalHandler = (signal: string) => {
+    console.log('[scriptRunner] Signal received:', signal);
     if (signal === 'SIGINT' || signal === 'SIGTERM') {
+      console.log('[scriptRunner] Setting killed flag to true');
       killed.value = true;
     }
   };
