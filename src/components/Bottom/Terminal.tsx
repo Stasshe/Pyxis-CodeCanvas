@@ -714,9 +714,10 @@ function ClientTerminal({
 
       switch (data) {
         case '\r':
-          term.writeln('');
           scrollToBottom();
           if (currentLine.trim()) {
+            // Command entered - add newline and execute
+            outputManager.writeln('');
             const command = currentLine.trim();
             const existingIndex = commandHistory.indexOf(command);
             if (existingIndex !== -1) {
@@ -732,6 +733,8 @@ function ClientTerminal({
               showPrompt();
             });
           } else {
+            // Empty command - just show prompt
+            // ensureNewline() in showPrompt() will handle the newline if needed
             showPrompt();
           }
           currentLine = '';
