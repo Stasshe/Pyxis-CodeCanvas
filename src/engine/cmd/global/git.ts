@@ -161,26 +161,18 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
 
-    // ファイルシステムの同期処理（git_stable.ts方式）
+    // ファイルシステムの同期処理
     if ((this.fs as any).sync) {
       try {
         await (this.fs as any).sync();
-        console.log('[git.status] FileSystem synced successfully');
       } catch (syncError) {
         console.warn('[git.status] FileSystem sync failed:', syncError);
       }
     }
 
-    // git addの後に呼び出される場合、追加の待機時間を設ける
-    await new Promise(resolve => setTimeout(resolve, 200));
-
     let status: Array<[string, number, number, number]> = [];
     try {
       status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      console.log('[git.status] statusMatrix returned', status.length, 'entries');
-      if (status.length > 0) {
-        console.log('[git.status] First few entries:', status.slice(0, 5));
-      }
     } catch (statusError) {
       const error = statusError as Error;
       console.warn('[git.status] statusMatrix failed, using fallback method:', error.message);
@@ -196,9 +188,6 @@ export class GitCommands {
     try {
       // ファイルシステムの同期を確実にする
       await gitFileSystem.flush();
-
-      // 追加の待機時間
-      await new Promise(resolve => setTimeout(resolve, 200));
 
       const files = await this.fs.promises.readdir(this.dir);
       const projectFiles = await this.getProjectFiles(files);
@@ -991,6 +980,19 @@ export class GitCommands {
       return typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
     } catch (e) {
       throw new Error(`Failed to read file at commit ${commitId}: ${(e as Error).message}`);
+    }
+  }
+
+  // コミットの親ハッシュを取得（高速版）
+  async getParentCommitIds(commitId: string): Promise<string[]> {
+    await this.ensureGitRepository();
+    try {
+      const fullOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commitId });
+      const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullOid });
+      return commit.commit.parent || [];
+    } catch (e) {
+      console.warn(`Failed to get parent commits for ${commitId}:`, e);
+      return [];
     }
   }
 

@@ -232,82 +232,105 @@ export class GitDiffOperations {
     }
   }
 
-  // 2つのコミット間の差分
+  // 2つのコミット間の差分（git.walk APIを使用した高速版）
   async diffCommits(commit1: string, commit2: string, filepath?: string): Promise<string> {
     try {
-      console.log('diffCommits called with:', { commit1, commit2, filepath });
-
       // コミットハッシュを正規化
       let fullCommit1: string;
       let fullCommit2: string;
 
       try {
         fullCommit1 = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commit1 });
-        console.log('Expanded commit1:', commit1, '->', fullCommit1);
       } catch (error) {
         throw new Error(`Invalid commit1 '${commit1}': ${(error as Error).message}`);
       }
 
       try {
         fullCommit2 = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commit2 });
-        console.log('Expanded commit2:', commit2, '->', fullCommit2);
       } catch (error) {
         throw new Error(`Invalid commit2 '${commit2}': ${(error as Error).message}`);
       }
 
-      // 各コミットの情報を取得
-      const commit1Obj = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullCommit1 });
-      const commit2Obj = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullCommit2 });
+      // git.walkを使用して両方のツリーを同時に走査し、変更のあるファイルのみを検出
+      const changedFiles: Array<{
+        path: string;
+        type: 'added' | 'deleted' | 'modified';
+        oid1?: string;
+        oid2?: string;
+      }> = [];
 
-      const tree1 = await git.readTree({ fs: this.fs, dir: this.dir, oid: commit1Obj.commit.tree });
-      const tree2 = await git.readTree({ fs: this.fs, dir: this.dir, oid: commit2Obj.commit.tree });
+      await git.walk({
+        fs: this.fs,
+        dir: this.dir,
+        trees: [git.TREE({ ref: fullCommit1 }), git.TREE({ ref: fullCommit2 })],
+        map: async (filepath_walk, [entry1, entry2]) => {
+          // ルートディレクトリはスキップ
+          if (filepath_walk === '.') return;
 
+          // フィルタが指定されている場合はマッチしないファイルをスキップ
+          if (filepath && filepath_walk !== filepath) return;
+
+          // 両方ともディレクトリの場合はスキップ（再帰的に処理される）
+          const type1 = entry1 ? await entry1.type() : null;
+          const type2 = entry2 ? await entry2.type() : null;
+
+          if (type1 === 'tree' && type2 === 'tree') return;
+          if (type1 === 'tree' || type2 === 'tree') return;
+
+          const oid1 = entry1 ? await entry1.oid() : null;
+          const oid2 = entry2 ? await entry2.oid() : null;
+
+          // 両方とも同じoid（変更なし）
+          if (oid1 === oid2) return;
+
+          if (!oid1 && oid2) {
+            // 新規ファイル（commit1になく、commit2にある）
+            changedFiles.push({ path: filepath_walk, type: 'added', oid2 });
+          } else if (oid1 && !oid2) {
+            // 削除ファイル（commit1にあり、commit2にない）
+            changedFiles.push({ path: filepath_walk, type: 'deleted', oid1 });
+          } else if (oid1 && oid2) {
+            // 変更ファイル
+            changedFiles.push({ path: filepath_walk, type: 'modified', oid1, oid2 });
+          }
+        },
+      });
+
+      // 変更がない場合
+      if (changedFiles.length === 0) {
+        return 'No differences between commits';
+      }
+
+      // 変更があったファイルのみdiffを生成
       const diffs: string[] = [];
 
-      // 各ツリーのファイル一覧を取得
-      const files1 = await this.getTreeFilePaths(tree1); // commit1 のファイル一覧
-      const files2 = await this.getTreeFilePaths(tree2); // commit2 のファイル一覧
-      const set1 = new Set(files1);
-      const set2 = new Set(files2);
+      for (const file of changedFiles) {
+        try {
+          let content1 = '';
+          let content2 = '';
 
-      // 削除ファイル: commit1にあってcommit2にない
-      for (const file of files1) {
-        if (filepath && file !== filepath) continue;
-        if (!set2.has(file)) {
-          // 削除されたファイル
-          try {
-            const diff = await this.generateCommitFileDiff(file, fullCommit1, null);
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate commit diff for deleted file ${file}:`, error);
+          if (file.oid1) {
+            const { blob } = await git.readBlob({
+              fs: this.fs,
+              dir: this.dir,
+              oid: file.oid1,
+            });
+            content1 = new TextDecoder().decode(blob);
           }
-        }
-      }
 
-      // 新規ファイル: commit2にあってcommit1にない
-      for (const file of files2) {
-        if (filepath && file !== filepath) continue;
-        if (!set1.has(file)) {
-          // 新規ファイル
-          try {
-            const diff = await this.generateCommitFileDiff(file, null, fullCommit2);
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate commit diff for new file ${file}:`, error);
+          if (file.oid2) {
+            const { blob } = await git.readBlob({
+              fs: this.fs,
+              dir: this.dir,
+              oid: file.oid2,
+            });
+            content2 = new TextDecoder().decode(blob);
           }
-        }
-      }
 
-      // 変更ファイル: 両方に存在し内容が違う
-      for (const file of files1) {
-        if (filepath && file !== filepath) continue;
-        if (set2.has(file)) {
-          try {
-            const diff = await this.generateCommitFileDiff(file, fullCommit1, fullCommit2);
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate commit diff for modified file ${file}:`, error);
-          }
+          const diff = this.formatDiff(file.path, content1, content2);
+          if (diff) diffs.push(diff);
+        } catch (error) {
+          console.warn(`Failed to generate diff for ${file.path}:`, error);
         }
       }
 
@@ -316,30 +339,6 @@ export class GitDiffOperations {
       console.error('diffCommits error:', error);
       throw new Error(`Failed to diff commits: ${(error as Error).message}`);
     }
-  }
-
-  // ツリーからファイルパスを取得（再帰的）
-  private async getTreeFilePaths(tree: any, basePath = ''): Promise<string[]> {
-    const paths: string[] = [];
-
-    for (const entry of tree.tree) {
-      const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
-
-      if (entry.type === 'blob') {
-        paths.push(fullPath);
-      } else if (entry.type === 'tree') {
-        // サブツリーも再帰的に処理
-        try {
-          const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
-          const subPaths = await this.getTreeFilePaths(subTree, fullPath);
-          paths.push(...subPaths);
-        } catch (error) {
-          console.warn(`Failed to read subtree ${fullPath}:`, error);
-        }
-      }
-    }
-
-    return paths;
   }
 
   // ステージされた差分を生成
