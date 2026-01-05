@@ -249,7 +249,7 @@ export default function FileTreeContextMenu({
           const lastSlash = menuItem.path.lastIndexOf('/');
           const oldPath = `/projects/${currentProjectName}${menuItem.path}`;
           const newPath = `/projects/${currentProjectName}${menuItem.path.substring(0, lastSlash + 1)}${newName}`;
-          await unix.rename(oldPath, newPath);
+          await unix.rename([oldPath, newPath]);
           if (onRefresh) setTimeout(onRefresh, 100);
         } catch (error: any) {
           alert(t('fileTree.alert.renameFailed', { params: { error: error.message } }));

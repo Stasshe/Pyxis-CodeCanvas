@@ -324,7 +324,7 @@ export class ShellExecutor {
       } else {
         (async () => {
           try {
-            const content = await unix.cat(seg.stdinFile!).catch(() => '');
+            const content = await unix.cat([seg.stdinFile!]).catch(() => '');
             if (content !== undefined && content !== null) {
               proc.stdin.write(String(content));
             }
@@ -393,7 +393,7 @@ export class ShellExecutor {
       // POSIX Process Isolation: Script execution runs in isolated context
       // Changes to CWD inside script do NOT affect parent shell
       if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
-        const maybeContent = await unix.cat(cmd).catch(() => null);
+        const maybeContent = await unix.cat([cmd]).catch(() => null);
         if (maybeContent !== null) {
           const text = String(maybeContent);
           const firstLine = text.split('\n', 1)[0] || '';
@@ -429,7 +429,7 @@ export class ShellExecutor {
           proc.exit(2);
           return;
         }
-        const content = unix ? await unix.cat(args[0]).catch(() => null) : null;
+        const content = unix ? await unix.cat([args[0]]).catch(() => null) : null;
         if (content === null) {
           proc.writeStderr(`sh: ${args[0]}: No such file\n`);
           proc.endStdout();
