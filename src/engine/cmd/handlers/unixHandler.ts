@@ -47,9 +47,8 @@ export async function handleUnixCommand(
   try {
     switch (cmd) {
       case 'help': {
-        const helpArg = args.length > 0 ? args[0] : undefined;
-        const helpResult = await unix.help(helpArg);
-        await append(helpResult);
+        const result = await unix.help(args);
+        await append(result);
         break;
       }
 
@@ -57,22 +56,18 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('unzip: missing archive file\nUsage: unzip ARCHIVE.zip [DEST_DIR]');
         } else {
-          const archive = args[0];
-          const dest = args[1] || '';
           try {
-            const result = await unix.unzip(archive, dest);
+            const result = await unix.unzip(args);
             await append(result);
           } catch (err) {
-            await append(`unzip: ${archive}: ${(err as Error).message}`);
+            await append(`unzip: ${args[0]}: ${(err as Error).message}`);
           }
         }
         break;
       }
 
       case 'ls': {
-        const lsOptions = args.filter(arg => arg.startsWith('-'));
-        const lsPath = args.find(arg => !arg.startsWith('-'));
-        const lsResult = await unix.ls(lsPath, lsOptions);
+        const lsResult = await unix.ls(args);
         await append(lsResult);
         break;
       }
@@ -81,8 +76,7 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('cd: missing operand\nUsage: cd DIRECTORY');
         } else {
-          const dir = args[0];
-          const result = await unix.cd(dir);
+          const result = await unix.cd(args);
           await append(result);
         }
         break;
@@ -95,9 +89,7 @@ export async function handleUnixCommand(
       }
 
       case 'tree': {
-        const treeOptions = args.filter(arg => arg.startsWith('-'));
-        const treePath = args.find(arg => !arg.startsWith('-'));
-        const treeResult = await unix.tree(treePath, treeOptions);
+        const treeResult = await unix.tree(args);
         await append(treeResult);
         break;
       }
@@ -106,14 +98,8 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('mkdir: missing operand\nUsage: mkdir [OPTION]... DIRECTORY...');
         } else {
-          const recursive = args.includes('-p') || args.includes('--parents');
-          const dirName = args.find(arg => !arg.startsWith('-'));
-          if (dirName) {
-            const result = await unix.mkdir(dirName, recursive);
-            await append(result);
-          } else {
-            await append('mkdir: missing directory name');
-          }
+          const result = await unix.mkdir(args);
+          await append(result);
         }
         break;
       }
@@ -122,7 +108,7 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('touch: missing file operand\nUsage: touch FILE...');
         } else {
-          const result = await unix.touch(args[0]);
+          const result = await unix.touch(args);
           await append(result);
         }
         break;
@@ -142,18 +128,8 @@ export async function handleUnixCommand(
         if (args.length < 2) {
           await append('mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST');
         } else {
-          const options = args.filter(arg => arg.startsWith('-'));
-          const paths = args.filter(arg => !arg.startsWith('-'));
-          if (paths.length < 2) {
-            await append('mv: missing destination file operand after source');
-          } else {
-            // 複数ソースの場合は配列として渡す
-            const dest = paths[paths.length - 1];
-            const sources = paths.slice(0, -1);
-
-            const result = await unix.mv(sources.length === 1 ? sources[0] : sources, dest);
-            await append(result || 'File(s) moved successfully');
-          }
+          const result = await unix.mv(args);
+          await append(result || 'File(s) moved successfully');
         }
         break;
       }
@@ -162,21 +138,8 @@ export async function handleUnixCommand(
         if (args.length < 2) {
           await append('cp: missing file operand\nUsage: cp [OPTION]... SOURCE DEST');
         } else {
-          const options = args.filter(arg => arg.startsWith('-'));
-          const paths = args.filter(arg => !arg.startsWith('-'));
-          if (paths.length < 2) {
-            await append('cp: missing destination file operand after source');
-          } else {
-            const dest = paths[paths.length - 1];
-            const sources = paths.slice(0, -1);
-
-            const result = await unix.cp(
-              sources.length === 1 ? sources[0] : sources,
-              dest,
-              options
-            );
-            await append(result || 'File(s) copied successfully');
-          }
+          const result = await unix.cp(args);
+          await append(result || 'File(s) copied successfully');
         }
         break;
       }
@@ -184,7 +147,7 @@ export async function handleUnixCommand(
         if (args.length < 2) {
           await append('rename: missing file operand\nUsage: rename OLD NEW');
         } else {
-          const result = await unix.rename(args[0], args[1]);
+          const result = await unix.rename(args);
           await append(result || 'File renamed successfully');
         }
         break;
@@ -194,15 +157,14 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('cat: missing file operand\nUsage: cat FILE...');
         } else {
-          const result = await unix.cat(args[0]);
+          const result = await unix.cat(args);
           await append(result);
         }
         break;
       }
 
       case 'echo': {
-        const text = args.join(' ');
-        const result = await unix.echo(text);
+        const result = await unix.echo(args);
         await append(result);
         break;
       }
@@ -220,13 +182,8 @@ export async function handleUnixCommand(
         if (args.length < 1) {
           await append('grep: missing pattern\nUsage: grep [OPTION]... PATTERN [FILE]...');
         } else {
-          const grepOptions = args.filter(arg => arg.startsWith('-'));
-          const grepArgs = args.filter(arg => !arg.startsWith('-'));
-          const pattern = grepArgs[0];
-          const files = grepArgs.slice(1);
-
           try {
-            const result = await unix.grep(pattern, files, grepOptions, stdin);
+            const result = await unix.grep(args, stdin);
             // Separate error lines (those starting with 'grep: ') from normal matches
             const lines = String(result || '')
               .split(/\r?\n/)
@@ -265,15 +222,11 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('head: missing file operand\nUsage: head [OPTION]... [FILE]');
         } else {
-          const options = args.filter(a => a.startsWith('-'));
-          const paths = args.filter(a => !a.startsWith('-'));
-          const file = paths[0];
-          const nOption = options.find(o => o.startsWith('-n'));
-          const n = nOption ? Number.parseInt(nOption.replace('-n', '')) || 10 : 10;
           try {
-            const result = unix.head ? await unix.head(file, n) : await unix.cat(file);
+            const result = await unix.head(args);
             await append(result);
           } catch (err) {
+            const file = args.find(a => !a.startsWith('-')) || args[0];
             await append(`head: ${file}: ${(err as Error).message}`);
           }
         }
@@ -284,15 +237,11 @@ export async function handleUnixCommand(
         if (args.length === 0) {
           await append('tail: missing file operand\nUsage: tail [OPTION]... [FILE]');
         } else {
-          const options = args.filter(a => a.startsWith('-'));
-          const paths = args.filter(a => !a.startsWith('-'));
-          const file = paths[0];
-          const nOption = options.find(o => o.startsWith('-n'));
-          const n = nOption ? Number.parseInt(nOption.replace('-n', '')) || 10 : 10;
           try {
-            const result = unix.tail ? await unix.tail(file, n) : await unix.cat(file);
+            const result = await unix.tail(args);
             await append(result);
           } catch (err) {
+            const file = args.find(a => !a.startsWith('-')) || args[0];
             await append(`tail: ${file}: ${(err as Error).message}`);
           }
         }
@@ -304,12 +253,8 @@ export async function handleUnixCommand(
           await append('stat: missing file operand\nUsage: stat FILE');
         } else {
           try {
-            if (unix.stat) {
-              const result = await unix.stat(args[0]);
-              await append(result);
-            } else {
-              await append('stat: not implemented in this environment');
-            }
+            const result = await unix.stat(args);
+            await append(result);
           } catch (err) {
             await append(`stat: ${args[0]}: ${(err as Error).message}`);
           }

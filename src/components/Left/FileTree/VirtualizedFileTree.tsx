@@ -257,7 +257,7 @@ export default function VirtualizedFileTree({
         const unix = terminalCommandRegistry.getUnixCommands(currentProjectName, currentProjectId);
         const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
         const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
-        await unix.mv(oldPath, newPath);
+        await unix.mv([oldPath, newPath]);
         if (onRefresh) setTimeout(onRefresh, 100);
       } catch (error: any) {
         console.error('[FileTree] Failed to move file:', error);

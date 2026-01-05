@@ -32,7 +32,11 @@ import {
 
 /**
  * Unixコマンドを統合して提供するクラス
- * 各コマンドの実装は unix-commands/ 配下に分割されている
+ * 
+ * 設計原則:
+ * - 全てのコマンドメソッドは args: string[] を受け取る (POSIX準拠)
+ * - 各コマンドの実装は unixOperations/ 配下に分割
+ * - このクラスは薄いファサードとして機能し、execute()に委譲
  *
  * パス形式:
  * - currentDir: FSPath形式（/projects/{projectName}/...）
@@ -97,8 +101,10 @@ export class UnixCommands {
     this.wcCmd = new WcCommand(projectName, this.currentDir, projectId);
   }
 
+  // ==================== 状態管理 ====================
+
   /**
-   * 現在のディレクトリを取得
+   * 現在のディレクトリを取得 (pwd)
    */
   async pwd(): Promise<string> {
     return await this.pwdCmd.execute([]);
@@ -141,159 +147,144 @@ export class UnixCommands {
     this.wcCmd.currentDir = dir;
   }
 
+  // ==================== POSIX準拠コマンド (args: string[]) ====================
+
   /**
-   * ディレクトリを変更
+   * cd - ディレクトリを変更
+   * @param args - [path] または [options..., path]
    */
-  async cd(path: string, options: string[] = []): Promise<string> {
-    const result = await this.cdCmd.execute([...options, path]);
+  async cd(args: string[]): Promise<string> {
+    const result = await this.cdCmd.execute(args);
     // cd成功時、現在のディレクトリを更新
     this.setCurrentDir(result.newDir);
     return result.message || '';
   }
 
   /**
-   * ディレクトリの内容を一覧表示
+   * ls - ディレクトリの内容を一覧表示
+   * @param args - [options..., paths...]
    */
-  async ls(path?: string, options: string[] = []): Promise<string> {
-    const args = [...options];
-    if (path) {
-      args.push(path);
-    }
+  async ls(args: string[] = []): Promise<string> {
     return await this.lsCmd.execute(args);
   }
 
   /**
-   * ディレクトリを作成
+   * mkdir - ディレクトリを作成
+   * @param args - [options..., dirs...]
    */
-  async mkdir(dirName: string, recursive = false): Promise<string> {
-    const options = recursive ? ['-p'] : [];
-    return await this.mkdirCmd.execute([...options, dirName]);
+  async mkdir(args: string[]): Promise<string> {
+    return await this.mkdirCmd.execute(args);
   }
 
   /**
-   * 空のファイルを作成
+   * touch - ファイルを作成/タイムスタンプ更新
+   * @param args - [options..., files...]
    */
-  async touch(fileName: string): Promise<string> {
-    return await this.touchCmd.execute([fileName]);
+  async touch(args: string[]): Promise<string> {
+    return await this.touchCmd.execute(args);
   }
 
   /**
-   * ファイル/ディレクトリを削除（複数ファイル・オプション対応）
+   * rm - ファイル/ディレクトリを削除
+   * @param args - [options..., files...]
    */
-  async rm(args: string[]): Promise<string>;
-  async rm(fileName: string, recursive?: boolean): Promise<string>;
-  async rm(arg1: string | string[], recursive = false): Promise<string> {
-    if (Array.isArray(arg1)) {
-      // rm(args: string[])
-      return await this.rmCmd.execute(arg1);
-    }
-    // rm(fileName: string, recursive?: boolean)
-    const options = recursive ? ['-r'] : [];
-    return await this.rmCmd.execute([...options, arg1]);
+  async rm(args: string[]): Promise<string> {
+    return await this.rmCmd.execute(args);
   }
 
   /**
-   * ファイルの内容を表示
+   * cat - ファイルの内容を表示
+   * @param args - [options..., files...]
    */
-  async cat(fileName: string): Promise<string> {
-    return await this.catCmd.execute([fileName]);
+  async cat(args: string[]): Promise<string> {
+    return await this.catCmd.execute(args);
   }
 
   /**
-   * ファイルの先頭 n 行を返す
+   * head - ファイルの先頭を表示
+   * @param args - [options..., files...]
    */
-  async head(fileName: string, n = 10): Promise<string> {
-    return await this.headCmd.execute([`-n${n}`, fileName]);
+  async head(args: string[]): Promise<string> {
+    return await this.headCmd.execute(args);
   }
 
   /**
-   * ファイルの末尾 n 行を返す
+   * tail - ファイルの末尾を表示
+   * @param args - [options..., files...]
    */
-  async tail(fileName: string, n = 10): Promise<string> {
-    return await this.tailCmd.execute([`-n${n}`, fileName]);
+  async tail(args: string[]): Promise<string> {
+    return await this.tailCmd.execute(args);
   }
 
   /**
-   * ファイルの簡易 stat 情報を返す
+   * stat - ファイル情報を表示
+   * @param args - [options..., files...]
    */
-  async stat(path: string): Promise<string> {
-    return await this.statCmd.execute([path]);
+  async stat(args: string[]): Promise<string> {
+    return await this.statCmd.execute(args);
   }
 
   /**
-   * テキストを出力（リダイレクト処理はTerminal.tsxで処理される）
+   * echo - テキストを出力
+   * @param args - [options..., strings...]
    */
-  async echo(text: string): Promise<string> {
-    return await this.echoCmd.execute([text]);
+  async echo(args: string[]): Promise<string> {
+    return await this.echoCmd.execute(args);
   }
 
   /**
-   * ファイル/ディレクトリを移動またはリネーム（複数ソース対応）
+   * mv - ファイル/ディレクトリを移動
+   * @param args - [options..., sources..., destination]
    */
-  async mv(source: string | string[], destination: string): Promise<string> {
-    // 単一ソースの場合は従来通り
-    if (typeof source === 'string') {
-      return await this.mvCmd.execute([source, destination]);
-    }
-
-    // 複数ソースの場合は配列として渡す
-    return await this.mvCmd.execute([...source, destination]);
+  async mv(args: string[]): Promise<string> {
+    return await this.mvCmd.execute(args);
   }
 
   /**
-   * ファイル/ディレクトリをコピー（複数ソース対応）
+   * cp - ファイル/ディレクトリをコピー
+   * @param args - [options..., sources..., destination]
    */
-  async cp(
-    source: string | string[],
-    destination: string,
-    options: string[] = []
-  ): Promise<string> {
-    if (typeof source === 'string') {
-      return await this.cpCmd.execute([...options, source, destination]);
-    }
-
-    return await this.cpCmd.execute([...options, ...source, destination]);
+  async cp(args: string[]): Promise<string> {
+    return await this.cpCmd.execute(args);
   }
 
   /**
-   * ファイル/ディレクトリをリネーム（mvのエイリアス）
+   * rename - ファイル/ディレクトリをリネーム (mvのエイリアス)
+   * @param args - [oldPath, newPath]
    */
-  async rename(oldPath: string, newPath: string): Promise<string> {
-    return await this.mvCmd.execute([oldPath, newPath]);
+  async rename(args: string[]): Promise<string> {
+    return await this.mvCmd.execute(args);
   }
 
   /**
-   * ディレクトリ構造をツリー表示
+   * tree - ディレクトリ構造をツリー表示
+   * @param args - [options..., path]
    */
-  async tree(path?: string, options: string[] = []): Promise<string> {
-    const args = [...options];
-    if (path) {
-      args.push(path);
-    }
+  async tree(args: string[] = []): Promise<string> {
     return await this.treeCmd.execute(args);
   }
 
   /**
-   * ファイルを検索
+   * find - ファイルを検索
+   * @param args - [path, expressions...]
    */
-  async find(options: string[] = []): Promise<string> {
-    return await this.findCmd.execute(options);
+  async find(args: string[] = []): Promise<string> {
+    return await this.findCmd.execute(args);
   }
 
   /**
-   * ファイル内容を検索
+   * grep - ファイル内容を検索
+   * @param args - [options..., pattern, files...]
+   * @param stdin - 標準入力ストリームまたは文字列
    */
-  async grep(
-    pattern: string,
-    files: string[],
-    options: string[] = [],
-    stdin: NodeJS.ReadableStream | string | null = null
-  ): Promise<string> {
-    return await this.grepCmd.execute([...options, pattern, ...files], stdin);
+  async grep(args: string[], stdin: NodeJS.ReadableStream | string | null = null): Promise<string> {
+    return await this.grepCmd.execute(args, stdin);
   }
 
   /**
-   * 行数、単語数、バイト数をカウント
+   * wc - 行数、単語数、バイト数をカウント
+   * @param args - [options..., files...]
+   * @param stdin - 標準入力ストリームまたは文字列
    */
   async wc(args: string[], stdin: NodeJS.ReadableStream | string | null = null): Promise<string> {
     if (stdin) {
@@ -316,32 +307,36 @@ export class UnixCommands {
   }
 
   /**
-   * test/[ コマンド - 条件式を評価
+   * test/[ - 条件式を評価
+   * @param args - 条件式トークン
    */
   async test(args: string[]): Promise<boolean> {
     return await this.testCmd.evaluate(args);
   }
 
   /**
-   * ヘルプを表示
+   * help - ヘルプを表示
+   * @param args - [command]
    */
-  async help(command?: string): Promise<string> {
-    const args = command ? [command] : [];
+  async help(args: string[] = []): Promise<string> {
     return await this.helpCmd.execute(args);
   }
 
   /**
-   * ZIPファイルを解凍
+   * unzip - ZIPファイルを解凍
+   * @param args - [zipFile, destDir]
+   * @param bufferContent - オプションのバッファ内容
    */
-  async unzip(zipFileName: string, destDir: string, bufferContent?: ArrayBuffer): Promise<string> {
-    // Delegate to the UnzipCommand which uses UnixCommandBase utilities
+  async unzip(args: string[], bufferContent?: ArrayBuffer): Promise<string> {
+    const zipFileName = args[0] || '';
+    const destDir = args[1] || '.';
     if (bufferContent) {
       return await this.unzipCmd.extract(zipFileName, destDir, bufferContent);
     }
     return await this.unzipCmd.extract(zipFileName, destDir);
   }
 
-  // ユーティリティメソッド
+  // ==================== ユーティリティメソッド ====================
 
   /**
    * FSPath（/projects/...）からAppPath（/src/...）を取得
