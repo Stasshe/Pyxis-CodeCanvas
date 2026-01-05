@@ -239,8 +239,16 @@ export class SyncManager {
       // 削除されたファイルをIndexedDBから削除
       for (const dbFile of dbFiles) {
         if (!fsFilePaths.has(dbFile.path)) {
-          coreInfo(`[SyncManager] Deleting file from IndexedDB: ${dbFile.path}`);
-          await fileRepository.deleteFile(dbFile.id);
+          try {
+            coreInfo(`[SyncManager] Deleting file from IndexedDB: ${dbFile.path}`);
+            await fileRepository.deleteFile(dbFile.id);
+          } catch (deleteError) {
+            // ファイルが既に削除されている場合や見つからない場合はスキップ
+            coreWarn(
+              `[SyncManager] Failed to delete file ${dbFile.path} (id: ${dbFile.id}), skipping:`,
+              deleteError
+            );
+          }
         }
       }
 
