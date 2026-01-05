@@ -133,11 +133,13 @@ export class GitCheckoutOperations {
       const beforeFiles = await this.getAllFiles(this.dir);
       console.log('[NEW ARCHITECTURE] Checkout: Before files count:', beforeFiles.length);
 
-      // チェックアウト実行: resolvedFromLocal が true の場合はローカルブランチ名でチェックアウト。
-      // それ以外はコミットOIDでチェックアウト（detached HEAD）することで
-      // "origin/<something>" の誤解釈や、短いOIDがリモート参照として扱われる問題を避ける。
+      // チェックアウト実行:
+      // - createNew が true の場合: 新しく作成したブランチ名でチェックアウト
+      // - resolvedFromLocal が true の場合: ローカルブランチ名でチェックアウト
+      // - それ以外はコミットOIDでチェックアウト（detached HEAD）することで
+      //   "origin/<something>" の誤解釈や、短いOIDがリモート参照として扱われる問題を避ける
       const checkoutRef =
-        resolvedFromLocal && !createNew ? branchName : targetCommitHash || branchName;
+        createNew || resolvedFromLocal ? branchName : targetCommitHash || branchName;
 
       console.log('[NEW ARCHITECTURE] Executing git checkout (ref):', checkoutRef);
       await git.checkout({ fs: this.fs, dir: this.dir, ref: checkoutRef });
