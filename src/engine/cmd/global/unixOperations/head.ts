@@ -1,36 +1,110 @@
 import { UnixCommandBase } from './base';
+import { parseArgs } from '../../lib';
 
+/**
+ * head - ファイルの先頭部分を表示 (POSIX/GNU準拠)
+ *
+ * 使用法:
+ *   head [options] [file...]
+ *
+ * オプション:
+ *   -n, --lines=NUM   先頭NUM行を表示（デフォルト: 10）
+ *   -c, --bytes=NUM   先頭NUMバイトを表示
+ *   -q, --quiet       ファイル名ヘッダを表示しない
+ *   -v, --verbose     常にファイル名ヘッダを表示
+ *
+ * NUM に - が付くと最後のNUM行/バイトを除いて表示
+ */
 export class HeadCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { positional } = this.parseOptions(args);
+    const { flags, values, positional } = parseArgs(args, ['-n', '-c', '--lines', '--bytes']);
+
     if (positional.length === 0) {
       throw new Error('head: missing file operand');
     }
-    const file = positional[0];
-    const nArg = args.find(a => a.startsWith('-n')) || '-n10';
-    const n = Number.parseInt(nArg.replace('-n', '')) || 10;
 
-    const path = this.normalizePath(this.resolvePath(file));
-    const isDir = await this.isDirectory(path);
-    if (isDir) throw new Error('Is a directory');
+    // オプション
+    const linesArg = values.get('-n') || values.get('--lines');
+    const bytesArg = values.get('-c') || values.get('--bytes');
+    const quiet = flags.has('-q') || flags.has('--quiet') || flags.has('--silent');
+    const verbose = flags.has('-v') || flags.has('--verbose');
 
-    try {
-      const relative = this.getRelativePathFromProject(path);
-      const file = await this.getFileFromDB(relative);
-      if (!file) throw new Error('No such file or directory');
+    let numLines = 10;
+    let numBytes: number | null = null;
+    let fromEnd = false;
 
-      let content = '';
-      if (file.isBufferArray && file.bufferContent) {
-        const decoder = new TextDecoder('utf-8');
-        content = decoder.decode(file.bufferContent as ArrayBuffer);
-      } else if (typeof file.content === 'string') {
-        content = file.content;
+    if (linesArg) {
+      if (linesArg.startsWith('-')) {
+        fromEnd = true;
+        numLines = Number.parseInt(linesArg.slice(1), 10) || 10;
+      } else {
+        numLines = Number.parseInt(linesArg, 10) || 10;
+      }
+    }
+
+    if (bytesArg) {
+      if (bytesArg.startsWith('-')) {
+        fromEnd = true;
+        numBytes = Number.parseInt(bytesArg.slice(1), 10) || 0;
+      } else {
+        numBytes = Number.parseInt(bytesArg, 10) || 0;
+      }
+    }
+
+    const showHeader = positional.length > 1 || verbose;
+    const results: string[] = [];
+
+    for (let i = 0; i < positional.length; i++) {
+      const file = positional[i];
+      const path = this.normalizePath(this.resolvePath(file));
+
+      const isDir = await this.isDirectory(path);
+      if (isDir) {
+        results.push(`head: ${file}: Is a directory`);
+        continue;
       }
 
-      const lines = content.split(/\r?\n/);
-      return lines.slice(0, n).join('\n');
-    } catch (e) {
-      throw new Error(`head: ${file}: No such file or directory`);
+      try {
+        const relative = this.getRelativePathFromProject(path);
+        const fileData = await this.getFileFromDB(relative);
+        if (!fileData) throw new Error('No such file or directory');
+
+        let content = '';
+        if (fileData.isBufferArray && fileData.bufferContent) {
+          content = new TextDecoder('utf-8').decode(fileData.bufferContent as ArrayBuffer);
+        } else if (typeof fileData.content === 'string') {
+          content = fileData.content;
+        }
+
+        let output: string;
+
+        if (numBytes !== null) {
+          // バイト単位
+          if (fromEnd) {
+            output = content.slice(0, -numBytes || undefined);
+          } else {
+            output = content.slice(0, numBytes);
+          }
+        } else {
+          // 行単位
+          const lines = content.split(/\r?\n/);
+          if (fromEnd) {
+            output = lines.slice(0, -numLines || undefined).join('\n');
+          } else {
+            output = lines.slice(0, numLines).join('\n');
+          }
+        }
+
+        if (showHeader && !quiet) {
+          if (i > 0) results.push('');
+          results.push(`==> ${file} <==`);
+        }
+        results.push(output);
+      } catch (e) {
+        results.push(`head: ${file}: ${(e as Error).message}`);
+      }
     }
+
+    return results.join('\n');
   }
 }

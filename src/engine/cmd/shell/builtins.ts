@@ -125,6 +125,7 @@ export default function adaptUnixToStream(unix: any) {
     'head',
     'tail',
     'grep',
+    'wc',
   ];
 
   for (const cmd of commands) {

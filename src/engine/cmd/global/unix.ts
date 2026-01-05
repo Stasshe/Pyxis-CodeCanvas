@@ -19,6 +19,7 @@ import {
   TouchCommand,
   TreeCommand,
   UnzipCommand,
+  WcCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -60,6 +61,7 @@ export class UnixCommands {
   private headCmd: HeadCommand;
   private tailCmd: TailCommand;
   private statCmd: StatCommand;
+  private wcCmd: WcCommand;
 
   constructor(projectName: string, projectId?: string) {
     this.currentDir = gitFileSystem.getProjectDir(projectName);
@@ -89,6 +91,7 @@ export class UnixCommands {
     this.headCmd = new HeadCommand(projectName, this.currentDir, projectId);
     this.tailCmd = new TailCommand(projectName, this.currentDir, projectId);
     this.statCmd = new StatCommand(projectName, this.currentDir, projectId);
+    this.wcCmd = new WcCommand(projectName, this.currentDir, projectId);
   }
 
   /**
@@ -131,6 +134,7 @@ export class UnixCommands {
     this.headCmd.currentDir = dir;
     this.tailCmd.currentDir = dir;
     this.statCmd.currentDir = dir;
+    this.wcCmd.currentDir = dir;
   }
 
   /**
@@ -282,6 +286,29 @@ export class UnixCommands {
     stdin: NodeJS.ReadableStream | string | null = null
   ): Promise<string> {
     return await this.grepCmd.execute([...options, pattern, ...files], stdin);
+  }
+
+  /**
+   * 行数、単語数、バイト数をカウント
+   */
+  async wc(args: string[], stdin: NodeJS.ReadableStream | string | null = null): Promise<string> {
+    if (stdin) {
+      // stdinの内容をセット
+      let content = '';
+      if (typeof stdin === 'string') {
+        content = stdin;
+      } else {
+        content = await new Promise<string>(resolve => {
+          let buf = '';
+          stdin.on('data', (c: any) => (buf += String(c)));
+          stdin.on('end', () => resolve(buf));
+          stdin.on('close', () => resolve(buf));
+          setTimeout(() => resolve(buf), 50);
+        });
+      }
+      this.wcCmd.setStdin(content);
+    }
+    return await this.wcCmd.execute(args);
   }
 
   /**

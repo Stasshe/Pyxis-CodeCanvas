@@ -1,35 +1,52 @@
 import { UnixCommandBase } from './base';
+import { parseArgs } from '../../lib';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
 
 /**
- * cat - ファイルの内容を表示
+ * cat - ファイルの内容を表示 (POSIX/GNU準拠)
  *
  * 使用法:
- *   cat [file...]
+ *   cat [options] [file...]
  *
  * オプション:
- *   -n, --number  行番号を表示
+ *   -n, --number         全行に行番号を表示
+ *   -b, --number-nonblank  非空行のみに行番号を表示
+ *   -s, --squeeze-blank  連続する空行を1行に圧縮
+ *   -E, --show-ends      行末に$を表示
+ *   -T, --show-tabs      TABを^Iとして表示
+ *   -v, --show-nonprinting  非表示文字を表示
+ *   -A, --show-all       -vET と同等
+ *   -e                   -vE と同等
+ *   -t                   -vT と同等
  *
  * 動作:
  *   - 複数のファイルを連結して表示
- *   - ファイル名が指定されない場合は標準入力から読み込み（未実装）
+ *   - ファイル名が指定されない場合は空
  *   - ワイルドカード対応
  */
 export class CatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { flags, positional } = parseArgs(args);
 
     if (positional.length === 0) {
-      throw new Error('cat: no files specified\nUsage: cat [OPTION]... [FILE]...');
+      // stdinがない場合は空を返す
+      return '';
     }
 
-    const showLineNumbers = options.has('-n') || options.has('--number');
+    // オプション解析
+    const showAll = flags.has('-A') || flags.has('--show-all');
+    const numberAll = flags.has('-n') || flags.has('--number');
+    const numberNonblank = flags.has('-b') || flags.has('--number-nonblank');
+    const squeezeBlank = flags.has('-s') || flags.has('--squeeze-blank');
+    const showEnds = flags.has('-E') || flags.has('--show-ends') || showAll || flags.has('-e');
+    const showTabs = flags.has('-T') || flags.has('--show-tabs') || showAll || flags.has('-t');
+    const showNonprinting = flags.has('-v') || flags.has('--show-nonprinting') || 
+                           showAll || flags.has('-e') || flags.has('-t');
 
     const results: string[] = [];
 
-    // 各引数に対してワイルドカード展開
     for (const arg of positional) {
       const expanded = await this.expandPathPattern(arg);
 
@@ -39,8 +56,16 @@ export class CatCommand extends UnixCommandBase {
 
       for (const path of expanded) {
         try {
-          const content = await this.readFile(path, showLineNumbers);
-          results.push(content);
+          const content = await this.readFile(path);
+          const processed = this.processContent(content, {
+            numberAll,
+            numberNonblank,
+            squeezeBlank,
+            showEnds,
+            showTabs,
+            showNonprinting,
+          });
+          results.push(processed);
         } catch (error) {
           throw new Error(`cat: ${path}: ${(error as Error).message}`);
         }
@@ -51,46 +76,117 @@ export class CatCommand extends UnixCommandBase {
   }
 
   /**
-   * ファイルの内容を読み取る（IndexedDB の FileRepository を使用）
+   * ファイルの内容を読み取る
    */
-  private async readFile(path: string, showLineNumbers: boolean): Promise<string> {
+  private async readFile(path: string): Promise<string> {
     const normalizedPath = this.normalizePath(path);
 
-    // ディレクトリではないことを確認
     const isDir = await this.isDirectory(normalizedPath);
     if (isDir) {
       throw new Error('Is a directory');
     }
 
-    // プロジェクト内の相対パスに変換して DB から取得
     const relative = this.getRelativePathFromProject(normalizedPath);
-    // Bypass cached getFileFromDB to ensure we read the latest content from DB
     const file: ProjectFile | null = await fileRepository.getFileByPath(this.projectId, relative);
 
     if (!file) {
       throw new Error('No such file or directory');
     }
 
-    // ファイルがバイナリとして保存されている場合は bufferContent を TextDecoder でデコード
-    let contentStr = '';
     if (file.isBufferArray && file.bufferContent) {
-      // UTF-8 デコードを想定（必要ならオプション対応を追加）
-      const decoder = new TextDecoder('utf-8');
-      contentStr = decoder.decode(file.bufferContent as ArrayBuffer);
-    } else if (typeof file.content === 'string') {
-      contentStr = file.content;
-    } else {
-      // その他は空文字列とする
-      contentStr = '';
+      return new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
+    }
+    
+    return typeof file.content === 'string' ? file.content : '';
+  }
+
+  /**
+   * コンテンツを処理
+   */
+  private processContent(
+    content: string,
+    opts: {
+      numberAll: boolean;
+      numberNonblank: boolean;
+      squeezeBlank: boolean;
+      showEnds: boolean;
+      showTabs: boolean;
+      showNonprinting: boolean;
+    }
+  ): string {
+    let lines = content.split('\n');
+    let lineNumber = 1;
+
+    // 連続空行を圧縮
+    if (opts.squeezeBlank) {
+      const squeezed: string[] = [];
+      let prevBlank = false;
+      for (const line of lines) {
+        const isBlank = line.trim() === '';
+        if (isBlank && prevBlank) continue;
+        squeezed.push(line);
+        prevBlank = isBlank;
+      }
+      lines = squeezed;
     }
 
-    if (showLineNumbers) {
-      const lines = contentStr.split('\n');
-      // 行番号幅は行数に応じて算出（最低幅は6）
-      const width = Math.max(6, String(lines.length).length + 1);
-      return lines.map((line, idx) => `${(idx + 1).toString().padStart(width)} ${line}`).join('\n');
-    }
+    const processed = lines.map((line, idx) => {
+      let result = line;
 
-    return contentStr;
+      // 非表示文字を表示
+      if (opts.showNonprinting) {
+        result = this.showNonprinting(result);
+      }
+
+      // TABを表示
+      if (opts.showTabs) {
+        result = result.replace(/\t/g, '^I');
+      }
+
+      // 行末に$を表示
+      if (opts.showEnds) {
+        result += '$';
+      }
+
+      // 行番号
+      if (opts.numberNonblank) {
+        if (line.trim() !== '') {
+          result = `${lineNumber.toString().padStart(6)}  ${result}`;
+          lineNumber++;
+        }
+      } else if (opts.numberAll) {
+        result = `${(idx + 1).toString().padStart(6)}  ${result}`;
+      }
+
+      return result;
+    });
+
+    return processed.join('\n');
+  }
+
+  /**
+   * 非表示文字を表示形式に変換
+   */
+  private showNonprinting(str: string): string {
+    let result = '';
+    for (const char of str) {
+      const code = char.charCodeAt(0);
+      if (code === 9) {
+        // TAB は別途処理
+        result += char;
+      } else if (code < 32) {
+        // 制御文字
+        result += '^' + String.fromCharCode(code + 64);
+      } else if (code === 127) {
+        result += '^?';
+      } else if (code > 127 && code < 160) {
+        result += 'M-^' + String.fromCharCode(code - 128 + 64);
+      } else if (code >= 160 && code < 255) {
+        result += 'M-' + String.fromCharCode(code - 128);
+      } else {
+        result += char;
+      }
+    }
+    return result;
   }
 }
