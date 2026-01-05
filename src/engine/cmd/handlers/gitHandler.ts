@@ -1,16 +1,29 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { TerminalUI, createTerminalUI } from '@/engine/cmd/terminalUI';
 
+/**
+ * Check if operation should be aborted
+ */
+function checkAbort(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error('Operation interrupted');
+  }
+}
+
 export async function handleGitCommand(
   args: string[],
   projectName: string,
   projectId: string,
-  writeOutput: (output: string) => Promise<void>
+  writeOutput: (output: string) => Promise<void>,
+  signal?: AbortSignal
 ) {
   if (!args[0]) {
     await writeOutput('git: missing command');
     return;
   }
+
+  // Check for abort before starting
+  checkAbort(signal);
 
   // Create TerminalUI instance for advanced display features
   const ui = createTerminalUI(writeOutput);
@@ -24,10 +37,12 @@ export async function handleGitCommand(
 
   switch (gitCmd) {
     case 'fetch': {
+      checkAbort(signal);
       const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
       const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
       try {
         const fetchResult = await git.fetch({ remote, branch });
+        checkAbort(signal);
         await writeOutput(fetchResult);
       } catch (error) {
         const msg = (error as Error).message || '';

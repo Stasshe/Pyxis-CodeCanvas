@@ -481,7 +481,25 @@ export class ShellExecutor {
    * Execute a command through appropriate handler
    */
   private async executeCommand(cmd: string, args: string[], proc: Process): Promise<number> {
+    // Create AbortController for interruptible commands
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+    
+    // Listen for SIGINT to abort long-running operations
+    const signalHandler = (sig: string) => {
+      if (sig === 'SIGINT' || sig === 'SIGTERM') {
+        abortController.abort();
+      }
+    };
+    proc.on('signal', signalHandler);
+    
+    // Cleanup function
+    const cleanup = () => {
+      proc.removeListener('signal', signalHandler);
+    };
+
     const writeOutput = async (output: string) => {
+      if (signal.aborted) return;
       proc.writeStdout(output);
       if (!output.endsWith('\n')) {
         proc.writeStdout('\n');
@@ -489,134 +507,147 @@ export class ShellExecutor {
     };
 
     const writeError = async (output: string) => {
+      if (signal.aborted) return;
       proc.writeStderr(output);
       if (!output.endsWith('\n')) {
         proc.writeStderr('\n');
       }
     };
 
-    // 1. Git command
-    if (cmd === 'git') {
-      try {
-        const { handleGitCommand } = await import('../handlers/gitHandler');
-        await handleGitCommand(args, this.context.projectName, this.context.projectId, writeOutput);
-        return 0;
-      } catch (e: any) {
-        await writeError(`git: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 2. NPM command
-    if (cmd === 'npm') {
-      try {
-        const { handleNPMCommand } = await import('../handlers/npmHandler');
-        await handleNPMCommand(
-          args,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput,
-          () => {} // setLoading - no-op in shell context
-        );
-        return 0;
-      } catch (e: any) {
-        await writeError(`npm: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 3. Pyxis command
-    if (cmd === 'pyxis') {
-      try {
-        const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
-
-        if (args.length === 0) {
-          await writeError('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
+    try {
+      // 1. Git command
+      if (cmd === 'git') {
+        try {
+          const { handleGitCommand } = await import('../handlers/gitHandler');
+          await handleGitCommand(args, this.context.projectName, this.context.projectId, writeOutput, signal);
+          return signal.aborted ? 130 : 0;
+        } catch (e: any) {
+          if (signal.aborted) return 130;
+          await writeError(`git: ${e.message}`);
           return 1;
         }
+      }
 
-        const category = args[0];
-        const action = args[1];
-
-        if (!action && !category.startsWith('-')) {
-          await writeError('pyxis: missing action. Usage: pyxis <category> <action> [args]');
+      // 2. NPM command
+      if (cmd === 'npm') {
+        try {
+          const { handleNPMCommand } = await import('../handlers/npmHandler');
+          await handleNPMCommand(
+            args,
+            this.context.projectName,
+            this.context.projectId,
+            writeOutput,
+            () => {}, // setLoading - no-op in shell context
+            signal
+          );
+          return signal.aborted ? 130 : 0;
+        } catch (e: any) {
+          if (signal.aborted) return 130;
+          await writeError(`npm: ${e.message}`);
           return 1;
         }
-
-        let cmdToCall: string;
-        let subArgs: string[];
-
-        if (action?.startsWith('-')) {
-          cmdToCall = category;
-          subArgs = args.slice(1);
-        } else if (action) {
-          cmdToCall = `${category}-${action}`;
-          subArgs = args.slice(2);
-        } else {
-          cmdToCall = category;
-          subArgs = args.slice(1);
-        }
-
-        await handlePyxisCommand(
-          cmdToCall,
-          subArgs,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput
-        );
-        return 0;
-      } catch (e: any) {
-        await writeError(`pyxis: ${e.message}`);
-        return 1;
       }
-    }
 
-    // 4. Extension commands
-    if (this.commandRegistry?.hasCommand(cmd)) {
-      try {
-        const unix = await this.getUnix();
-        const currentDir = unix ? await unix.pwd() : this.context.cwd;
-        const result = await this.commandRegistry.executeCommand(cmd, args, {
+      // 3. Pyxis command
+      if (cmd === 'pyxis') {
+        try {
+          const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
+
+          if (args.length === 0) {
+            await writeError('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
+            return 1;
+          }
+
+          const category = args[0];
+          const action = args[1];
+
+          if (!action && !category.startsWith('-')) {
+            await writeError('pyxis: missing action. Usage: pyxis <category> <action> [args]');
+            return 1;
+          }
+
+          let cmdToCall: string;
+          let subArgs: string[];
+
+          if (action?.startsWith('-')) {
+            cmdToCall = category;
+            subArgs = args.slice(1);
+          } else if (action) {
+            cmdToCall = `${category}-${action}`;
+            subArgs = args.slice(2);
+          } else {
+            cmdToCall = category;
+            subArgs = args.slice(1);
+          }
+
+          await handlePyxisCommand(
+            cmdToCall,
+            subArgs,
+            this.context.projectName,
+            this.context.projectId,
+            writeOutput,
+            signal
+          );
+          return signal.aborted ? 130 : 0;
+        } catch (e: any) {
+          if (signal.aborted) return 130;
+          await writeError(`pyxis: ${e.message}`);
+          return 1;
+        }
+      }
+
+      // 4. Extension commands
+      if (this.commandRegistry?.hasCommand(cmd)) {
+        try {
+          if (signal.aborted) return 130;
+          const unix = await this.getUnix();
+          const currentDir = unix ? await unix.pwd() : this.context.cwd;
+          const result = await this.commandRegistry.executeCommand(cmd, args, {
+            projectName: this.context.projectName,
+            projectId: this.context.projectId,
+            currentDirectory: currentDir,
+          });
+          await writeOutput(result);
+          return signal.aborted ? 130 : 0;
+        } catch (e: any) {
+          if (signal.aborted) return 130;
+          await writeError(`${cmd}: ${e.message}`);
+          return 1;
+        }
+      }
+
+      // 5. Builtin commands (echo, ls, cat, grep, etc.)
+      const builtins = await this.getBuiltins();
+      if (builtins[cmd]) {
+        const ctx: StreamCtx = {
+          stdin: proc.stdinStream,
+          stdout: proc.stdoutStream,
+          stderr: proc.stderrStream,
+          onSignal: fn => proc.on('signal', fn),
           projectName: this.context.projectName,
           projectId: this.context.projectId,
-          currentDirectory: currentDir,
-        });
-        await writeOutput(result);
-        return 0;
-      } catch (e: any) {
-        await writeError(`${cmd}: ${e.message}`);
-        return 1;
-      }
-    }
+          terminalColumns: this.context.terminalColumns,
+          terminalRows: this.context.terminalRows,
+        };
 
-    // 5. Builtin commands (echo, ls, cat, grep, etc.)
-    const builtins = await this.getBuiltins();
-    if (builtins[cmd]) {
-      const ctx: StreamCtx = {
-        stdin: proc.stdinStream,
-        stdout: proc.stdoutStream,
-        stderr: proc.stderrStream,
-        onSignal: fn => proc.on('signal', fn),
-        projectName: this.context.projectName,
-        projectId: this.context.projectId,
-        terminalColumns: this.context.terminalColumns,
-        terminalRows: this.context.terminalRows,
-      };
-
-      try {
-        await builtins[cmd](ctx, args);
-        return 0;
-      } catch (e: any) {
-        if (e?.__silent) {
-          return typeof e.code === 'number' ? e.code : 1;
+        try {
+          await builtins[cmd](ctx, args);
+          return signal.aborted ? 130 : 0;
+        } catch (e: any) {
+          if (signal.aborted) return 130;
+          if (e?.__silent) {
+            return typeof e.code === 'number' ? e.code : 1;
+          }
+          throw e;
         }
-        throw e;
       }
-    }
 
-    // 6. Command not found
-    proc.writeStderr(`${cmd}: command not found\n`);
-    return 127;
+      // 6. Command not found
+      proc.writeStderr(`${cmd}: command not found\n`);
+      return 127;
+    } finally {
+      cleanup();
+    }
   }
 
   /**
