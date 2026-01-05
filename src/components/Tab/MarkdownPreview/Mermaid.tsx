@@ -147,6 +147,27 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
           securityLevel: 'loose',
           themeVariables: {
             fontSize: '8px',
+            // Text colors
+            primaryTextColor: colors.foreground,
+            secondaryTextColor: colors.foreground,
+            tertiaryTextColor: colors.foreground,
+            textColor: colors.foreground,
+            // Background colors
+            primaryColor: colors.accent,
+            primaryBorderColor: colors.border,
+            secondaryColor: colors.mutedBg,
+            secondaryBorderColor: colors.border,
+            tertiaryColor: colors.cardBg,
+            tertiaryBorderColor: colors.border,
+            // Line colors
+            lineColor: colors.foreground,
+            // Node label colors
+            labelTextColor: colors.foreground,
+            nodeBorder: colors.border,
+            clusterBkg: colors.cardBg,
+            clusterBorder: colors.border,
+            // Edge label background
+            edgeLabelBackground: colors.background,
           },
           suppressErrorRendering: true,
           maxTextSize: 100000,
@@ -221,7 +242,7 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
           svgElem.style.height = 'auto';
           svgElem.style.maxHeight = '90vh';
           svgElem.style.overflow = 'visible';
-          svgElem.style.background = colors.mermaidBg || '#eaffea';
+          svgElem.style.background = colors.mermaidBg || colors.background;
           svgElem.style.touchAction = 'none';
           svgElem.style.transformOrigin = '0 0';
 
