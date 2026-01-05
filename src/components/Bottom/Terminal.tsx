@@ -313,8 +313,18 @@ function ClientTerminal({
       }
     };
 
+    // Track cursor position: are we at the start of a line?
+    let atLineStart = true;
+
     // プロンプトを表示する関数
     const showPrompt = async () => {
+      // Ensure we're on a new line before showing the prompt
+      // This prevents prompt overlap with command output that doesn't end with \n
+      if (!atLineStart) {
+        term.write('\r\n');
+        atLineStart = true;
+      }
+
       if (unixCommandsRef.current && gitCommandsRef.current) {
         const relativePath = unixCommandsRef.current.getRelativePath();
         const branch = await gitCommandsRef.current.getCurrentBranch();
@@ -335,10 +345,11 @@ function ClientTerminal({
             ?.map(x => Number.parseInt(x, 16)) || [0, 0, 0];
           branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
         }
-        term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
+        term.write(`/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
       } else {
-        term.write('\r$ ');
+        term.write('$ ');
       }
+      atLineStart = false;
       scrollToBottom();
     };
 
@@ -379,6 +390,10 @@ function ClientTerminal({
       cmdOutputs += output;
       writeQueue.push(normalized);
       flushWriteQueue();
+      
+      // Track if we end at the start of a line
+      // We're at line start if output ends with \n or \r\n
+      atLineStart = output.endsWith('\n');
     };
 
     const processCommand = async (command: string) => {
@@ -421,6 +436,7 @@ function ClientTerminal({
           case 'clear':
             term.clear();
             term.write('\x1b[H\x1b[2J\x1b[3J');
+            atLineStart = true;
             break;
 
           // 履歴表示・削除コマンド
@@ -706,6 +722,7 @@ function ClientTerminal({
       switch (data) {
         case '\r':
           term.writeln('');
+          atLineStart = true;
           scrollToBottom();
           if (currentLine.trim()) {
             const command = currentLine.trim();
@@ -742,6 +759,7 @@ function ClientTerminal({
           break;
         case '\u0003':
           term.writeln('^C');
+          atLineStart = true;
           // send SIGINT to foreground process if available
           try {
             if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
