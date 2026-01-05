@@ -299,14 +299,22 @@ Root
 │   │   │   │       ├── rm.ts
 │   │   │   │       ├── stat.ts
 │   │   │   │       ├── tail.ts
+│   │   │   │       ├── test.ts
 │   │   │   │       ├── touch.ts
 │   │   │   │       ├── tree.ts
-│   │   │   │       └── unzip.ts
+│   │   │   │       ├── unzip.ts
+│   │   │   │       └── wc.ts
 │   │   │   ├── handlers
 │   │   │   │   ├── gitHandler.ts
 │   │   │   │   ├── npmHandler.ts
 │   │   │   │   ├── pyxisHandler.ts
 │   │   │   │   └── unixHandler.ts
+│   │   │   ├── lib
+│   │   │   │   ├── GUIDELINES.md
+│   │   │   │   ├── expr.ts
+│   │   │   │   ├── fnmatch.ts
+│   │   │   │   ├── getopt.ts
+│   │   │   │   └── index.ts
 │   │   │   ├── shell
 │   │   │   │   ├── braceExpand.ts
 │   │   │   │   ├── builtins.ts
@@ -482,7 +490,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-71 directories, 411 files
+72 directories, 418 files
 
 =================================
 
@@ -609,12 +617,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 65646
-合計文字数: 2092321
-合計ファイルサイズ(bytes): 2231651
+合計行数: 67612
+合計文字数: 2141667
+合計ファイルサイズ(bytes): 2286897
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127535
-合計文字数: 26887833
-合計ファイルサイズ(bytes): 29866033
+ビルト済みファイルの行数: 127534
+合計文字数: 26901789
+合計ファイルサイズ(bytes): 29879989
