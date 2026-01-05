@@ -286,10 +286,15 @@ function ClientTerminal({
       }, 50);
     }, 100);
 
-    // 初期メッセージ
-    const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
-    outputManager.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
-    outputManager.writeln('Type "help" for available commands.');
+    // 初期化処理を非同期で実行
+    const initializeMessages = async () => {
+      // 初期メッセージ
+      const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
+      await outputManager.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
+      await outputManager.writeln('Type "help" for available commands.');
+      // 初期プロンプト表示
+      await showPrompt();
+    };
 
     // 確実な自動スクロール関数
     const scrollToBottom = () => {
@@ -351,9 +356,6 @@ function ClientTerminal({
       }
       scrollToBottom();
     };
-
-    // 初期プロンプト表示
-    showPrompt();
 
     let cmdOutputs = '';
 
@@ -823,6 +825,11 @@ function ClientTerminal({
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
+
+    // Initialize terminal messages and prompt asynchronously
+    initializeMessages().catch((err) => {
+      console.error('[Terminal] Failed to initialize messages:', err);
+    });
 
     // クリーンアップ
     return () => {

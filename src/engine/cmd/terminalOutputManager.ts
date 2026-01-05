@@ -34,7 +34,11 @@ export interface IXTermInstance {
  */
 export class TerminalOutputManager {
   private term: IXTermInstance;
-  private writeQueue: Array<{ data: string; callback?: () => void }> = [];
+  private writeQueue: Array<{
+    data: string;
+    callback?: () => void;
+    updateState?: () => void;
+  }> = [];
   private isWriting = false;
   private lastWriteEndedWithNewline = true;
 
@@ -80,9 +84,13 @@ export class TerminalOutputManager {
     }
 
     this.isWriting = true;
-    const { data, callback } = this.writeQueue.shift()!;
+    const { data, callback, updateState } = this.writeQueue.shift()!;
 
     this.term.write(data, () => {
+      // Update newline state AFTER write completes
+      if (updateState) {
+        updateState();
+      }
       this.isWriting = false;
       if (callback) callback();
       this.flushQueue(); // Process next item
@@ -97,11 +105,12 @@ export class TerminalOutputManager {
   write(text: string): Promise<void> {
     return new Promise((resolve) => {
       const normalized = this.normalizeLineEndings(text);
-      this.updateNewlineState(text);
 
       this.writeQueue.push({
         data: normalized,
         callback: resolve,
+        // Update state after write completes
+        updateState: () => this.updateNewlineState(text),
       });
 
       this.flushQueue();
@@ -118,13 +127,23 @@ export class TerminalOutputManager {
   }
 
   /**
-   * Write raw data without normalization (for ANSI sequences, etc)
-   * @param data Raw data to write
+   * Write raw data without normalization (for ANSI sequences, prompts, etc)
+   * 
+   * WARNING: This method does NOT track newline state. Use with caution.
+   * - Best for: ANSI escape sequences, cursor movements, prompts
+   * - Avoid for: Regular text output that may contain newlines
+   * - Recommendation: Use write() or writeln() for normal text
+   * 
+   * If you need to write raw data with newlines and proper tracking,
+   * use write() instead - it handles \n → \r\n conversion automatically.
+   * 
+   * @param data Raw data to write (not normalized, no state tracking)
    * @returns Promise that resolves when write completes
    */
   writeRaw(data: string): Promise<void> {
     return new Promise((resolve) => {
       // Don't normalize, don't track newline state for raw writes
+      // This is intentional for ANSI sequences, but be aware of the limitation
       this.writeQueue.push({
         data,
         callback: resolve,
