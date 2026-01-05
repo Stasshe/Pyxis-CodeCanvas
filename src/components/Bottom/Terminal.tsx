@@ -358,7 +358,15 @@ function ClientTerminal({
       } else {
         await outputManager.writeRaw('$ ');
       }
+      
+      // CRITICAL: Wait for prompt to be written before scrolling
+      await outputManager.flush();
+      
+      // Scroll to bottom after all output and prompt are complete
       scrollToBottom();
+      // Additional scrolls with delay to ensure proper positioning
+      setTimeout(() => scrollToBottom(), 50);
+      setTimeout(() => scrollToBottom(), 150);
     };
 
     let cmdOutputs = '';
