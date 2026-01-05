@@ -11,9 +11,9 @@ import {
   GitBranch,
   GitCommit,
   Hash,
+  Loader2,
 } from 'lucide-react';
-import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -26,6 +26,9 @@ interface GitHistoryProps {
   currentProject?: string;
   currentProjectId?: string;
   currentBranch: string;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 interface CommitChanges {
@@ -265,20 +268,76 @@ function assignLanes(
   return { commitLanes, commitColors, maxLane };
 }
 
-export default function GitHistory({
+// diffOutputをパースしてCommitChangesに変換
+function parseDiffOutput(diffOutput: string): CommitChanges {
+  const changes: CommitChanges = {
+    added: [],
+    modified: [],
+    deleted: [],
+  };
+
+  if (!diffOutput || diffOutput.trim() === '' || diffOutput === 'No differences between commits') {
+    return changes;
+  }
+
+  const lines = diffOutput.split('\n');
+  let currentFile = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('diff --git ')) {
+      const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+      if (match) {
+        currentFile = match[2];
+      } else {
+        currentFile = '';
+      }
+    }
+    if (line.startsWith('deleted file mode')) {
+      if (currentFile && !changes.deleted.includes(currentFile)) {
+        changes.deleted.push(currentFile);
+      }
+      currentFile = '';
+      continue;
+    }
+    if (line.startsWith('new file mode')) {
+      if (currentFile && !changes.added.includes(currentFile)) {
+        changes.added.push(currentFile);
+      }
+      continue;
+    }
+    if (line.startsWith('index ') && currentFile) {
+      if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
+        if (!changes.modified.includes(currentFile)) {
+          changes.modified.push(currentFile);
+        }
+      }
+    }
+  }
+
+  return changes;
+}
+
+function GitHistoryComponent({
   commits,
   currentProject,
   currentProjectId,
   currentBranch,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: GitHistoryProps) {
   const [extendedCommits, setExtendedCommits] = useState<ExtendedCommit[]>([]);
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
   const [commitChanges, setCommitChanges] = useState<Map<string, CommitChanges>>(new Map());
   const svgRef = useRef<SVGSVGElement>(null);
-  const gitCommands =
-    currentProject && currentProjectId
-      ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
-      : null;
+
+  const gitCommands = useMemo(
+    () =>
+      currentProject && currentProjectId
+        ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
+        : null,
+    [currentProject, currentProjectId]
+  );
 
   const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
     name: currentProject,
@@ -287,40 +346,47 @@ export default function GitHistory({
 
   const { colors } = useTheme();
 
-  const branchColors = colors.gitBranchColors || [
-    '#3b82f6',
-    '#10b981',
-    '#f59e0b',
-    '#ef4444',
-    '#8b5cf6',
-    '#06b6d4',
-    '#f97316',
-    '#84cc16',
-  ];
+  const branchColors = useMemo(
+    () =>
+      colors.gitBranchColors || [
+        '#3b82f6',
+        '#10b981',
+        '#f59e0b',
+        '#ef4444',
+        '#8b5cf6',
+        '#06b6d4',
+        '#f97316',
+        '#84cc16',
+      ],
+    [colors.gitBranchColors]
+  );
 
-  const getCommitRowHeight = (commitHash: string): number => {
-    const baseHeight = 28;
-    const FILE_ITEM_HEIGHT = 24;
-    const MAX_FILES_DISPLAY = 10;
-    const HEADER_FOOTER_HEIGHT = 32;
+  const getCommitRowHeight = useCallback(
+    (commitHash: string): number => {
+      const baseHeight = 28;
+      const FILE_ITEM_HEIGHT = 24;
+      const MAX_FILES_DISPLAY = 10;
+      const HEADER_FOOTER_HEIGHT = 32;
 
-    if (!expandedCommits.has(commitHash)) {
-      return baseHeight;
-    }
+      if (!expandedCommits.has(commitHash)) {
+        return baseHeight;
+      }
 
-    const changes = commitChanges.get(commitHash);
-    if (!changes) {
-      return baseHeight + HEADER_FOOTER_HEIGHT;
-    }
+      const changes = commitChanges.get(commitHash);
+      if (!changes) {
+        return baseHeight + HEADER_FOOTER_HEIGHT;
+      }
 
-    const totalFiles = changes.added.length + changes.modified.length + changes.deleted.length;
-    const displayFiles = Math.min(totalFiles, MAX_FILES_DISPLAY);
-    if (displayFiles === 0) {
-      return baseHeight + HEADER_FOOTER_HEIGHT;
-    }
-    const expandedHeight = HEADER_FOOTER_HEIGHT + displayFiles * FILE_ITEM_HEIGHT;
-    return baseHeight + expandedHeight;
-  };
+      const totalFiles = changes.added.length + changes.modified.length + changes.deleted.length;
+      const displayFiles = Math.min(totalFiles, MAX_FILES_DISPLAY);
+      if (displayFiles === 0) {
+        return baseHeight + HEADER_FOOTER_HEIGHT;
+      }
+      const expandedHeight = HEADER_FOOTER_HEIGHT + displayFiles * FILE_ITEM_HEIGHT;
+      return baseHeight + expandedHeight;
+    },
+    [expandedCommits, commitChanges]
+  );
 
   const [svgHeight, setSvgHeight] = useState<number>(0);
 
@@ -354,92 +420,46 @@ export default function GitHistory({
     const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits, commitChanges, branchColors]);
+  }, [commits, expandedCommits, commitChanges, branchColors, getCommitRowHeight]);
 
   // コミットの変更ファイルを取得
-  const getCommitChanges = async (commitHash: string) => {
-    if (!gitCommands || commitChanges.has(commitHash)) return;
+  const getCommitChanges = useCallback(
+    async (commitHash: string) => {
+      if (!gitCommands || commitChanges.has(commitHash)) return;
 
-    try {
-      const currentCommit = commits.find(c => c.hash === commitHash);
-      if (!currentCommit || currentCommit.parentHashes.length === 0) {
-        setCommitChanges(prev =>
-          new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] })
-        );
-        return;
-      }
-
-      const parentHash = currentCommit.parentHashes[0];
-      const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
-      const changes = parseDiffOutput(diffOutput);
-      setCommitChanges(prev => new Map(prev).set(commitHash, changes));
-    } catch (error) {
-      console.error('Failed to get commit changes:', error);
-    }
-  };
-
-  const parseDiffOutput = (diffOutput: string): CommitChanges => {
-    const changes: CommitChanges = {
-      added: [],
-      modified: [],
-      deleted: [],
-    };
-
-    if (
-      !diffOutput ||
-      diffOutput.trim() === '' ||
-      diffOutput === 'No differences between commits'
-    ) {
-      return changes;
-    }
-
-    const lines = diffOutput.split('\n');
-    let currentFile = '';
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith('diff --git ')) {
-        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
-        if (match) {
-          currentFile = match[2];
-        } else {
-          currentFile = '';
+      try {
+        const currentCommit = commits.find(c => c.hash === commitHash);
+        if (!currentCommit || currentCommit.parentHashes.length === 0) {
+          setCommitChanges(prev =>
+            new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] })
+          );
+          return;
         }
-      }
-      if (line.startsWith('deleted file mode')) {
-        if (currentFile && !changes.deleted.includes(currentFile)) {
-          changes.deleted.push(currentFile);
-        }
-        currentFile = '';
-        continue;
-      }
-      if (line.startsWith('new file mode')) {
-        if (currentFile && !changes.added.includes(currentFile)) {
-          changes.added.push(currentFile);
-        }
-        continue;
-      }
-      if (line.startsWith('index ') && currentFile) {
-        if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
-          if (!changes.modified.includes(currentFile)) {
-            changes.modified.push(currentFile);
-          }
-        }
-      }
-    }
 
-    return changes;
-  };
+        const parentHash = currentCommit.parentHashes[0];
+        const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
+        const changes = parseDiffOutput(diffOutput);
+        setCommitChanges(prev => new Map(prev).set(commitHash, changes));
+      } catch (err) {
+        console.error('Failed to get commit changes:', err);
+      }
+    },
+    [gitCommands, commitChanges, commits]
+  );
 
-  const toggleCommitExpansion = async (commitHash: string) => {
-    const newExpanded = new Set(expandedCommits);
-    if (newExpanded.has(commitHash)) {
-      newExpanded.delete(commitHash);
-    } else {
-      newExpanded.add(commitHash);
-      await getCommitChanges(commitHash);
-    }
-    setExpandedCommits(newExpanded);
-  };
+  const toggleCommitExpansion = useCallback(
+    async (commitHash: string) => {
+      const newExpanded = new Set(expandedCommits);
+      if (newExpanded.has(commitHash)) {
+        newExpanded.delete(commitHash);
+      } else {
+        newExpanded.add(commitHash);
+        await getCommitChanges(commitHash);
+      }
+      setExpandedCommits(newExpanded);
+    },
+    [expandedCommits, getCommitChanges]
+  );
 
   const { t } = useTranslation();
   const getRelativeTime = (timestamp: number): string => {
@@ -854,9 +874,47 @@ export default function GitHistory({
                 </div>
               );
             })}
+            {/* もっと読み込むボタン */}
+            {hasMore && onLoadMore && (
+              <div className="pl-8 py-3">
+                <button
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                  className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-md text-xs font-medium transition-colors"
+                  style={{
+                    background: colors.mutedBg,
+                    color: colors.foreground,
+                    opacity: isLoadingMore ? 0.6 : 1,
+                    cursor: isLoadingMore ? 'not-allowed' : 'pointer',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isLoadingMore) {
+                      e.currentTarget.style.background = colors.mutedBg;
+                      e.currentTarget.style.opacity = '0.8';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = colors.mutedBg;
+                    e.currentTarget.style.opacity = isLoadingMore ? '0.6' : '1';
+                  }}
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      {t('gitHistory.loadingMore')}
+                    </>
+                  ) : (
+                    t('gitHistory.loadMore')
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+// React.memoでラップしてエクスポート（propsが変わらない限り再レンダリングを防ぐ）
+export default memo(GitHistoryComponent);

@@ -1,8 +1,7 @@
 'use client';
 
 import { Clock, GitBranch, GitCommit, Minus, Plus, RefreshCw, RotateCcw, X } from 'lucide-react';
-import type React from 'react';
-import { useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import GitHistory from './GitHistory';
 
@@ -19,8 +18,325 @@ interface GitPanelProps {
   currentProjectId?: string;
   onRefresh?: () => void;
   gitRefreshTrigger?: number;
-  onGitStatusChange?: (changesCount: number) => void; // Git変更状態のコールバック
+  onGitStatusChange?: (changesCount: number) => void;
 }
+
+// ========================================
+// パース関数をコンポーネント外に定義（メモ化不要・再生成されない）
+// ========================================
+
+// Git logをパースしてコミット配列に変換（ブランチ情報付き）
+function parseGitLog(logOutput: string): GitCommitType[] {
+  if (!logOutput.trim()) {
+    return [];
+  }
+
+  const lines = logOutput.split('\n').filter(line => line.trim());
+  const commits: GitCommitType[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const parts = line.split('|');
+
+    // 7つのパーツがあることを確認（refs + tree情報を含む）
+    if (parts.length === 7) {
+      const hash = parts[0]?.trim();
+      const message = parts[1]?.trim();
+      const author = parts[2]?.trim();
+      const date = parts[3]?.trim();
+      const parentHashesStr = parts[4]?.trim();
+      const refsStr = parts[5]?.trim();
+      const treeSha = parts[6]?.trim();
+
+      if (hash && hash.length >= 7 && message && author && date) {
+        try {
+          const timestamp = new Date(date).getTime();
+          if (!Number.isNaN(timestamp)) {
+            const parentHashes =
+              parentHashesStr && parentHashesStr !== ''
+                ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                : [];
+
+            const refs =
+              refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
+
+            commits.push({
+              hash,
+              shortHash: hash.substring(0, 7),
+              message: message.replace(/｜/g, '|'),
+              author: author.replace(/｜/g, '|'),
+              date,
+              timestamp,
+              isMerge: parentHashes.length > 1,
+              parentHashes,
+              refs,
+              tree: treeSha || undefined,
+            });
+          }
+        } catch {
+          // Date parsing error, skip this commit
+        }
+      }
+    } else if (parts.length === 6) {
+      const hash = parts[0]?.trim();
+      const message = parts[1]?.trim();
+      const author = parts[2]?.trim();
+      const date = parts[3]?.trim();
+      const parentHashesStr = parts[4]?.trim();
+      const refsStr = parts[5]?.trim();
+
+      if (hash && hash.length >= 7 && message && author && date) {
+        try {
+          const timestamp = new Date(date).getTime();
+          if (!Number.isNaN(timestamp)) {
+            const parentHashes =
+              parentHashesStr && parentHashesStr !== ''
+                ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                : [];
+
+            const refs =
+              refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
+
+            commits.push({
+              hash,
+              shortHash: hash.substring(0, 7),
+              message: message.replace(/｜/g, '|'),
+              author: author.replace(/｜/g, '|'),
+              date,
+              timestamp,
+              isMerge: parentHashes.length > 1,
+              parentHashes,
+              refs,
+              tree: undefined,
+            });
+          }
+        } catch {
+          // Date parsing error, skip this commit
+        }
+      }
+    } else if (parts.length === 5) {
+      const hash = parts[0]?.trim();
+      const message = parts[1]?.trim();
+      const author = parts[2]?.trim();
+      const date = parts[3]?.trim();
+      const parentHashesStr = parts[4]?.trim();
+
+      if (hash && hash.length >= 7 && message && author && date) {
+        try {
+          const timestamp = new Date(date).getTime();
+          if (!Number.isNaN(timestamp)) {
+            const parentHashes =
+              parentHashesStr && parentHashesStr !== ''
+                ? parentHashesStr.split(',').filter(h => h.trim() !== '')
+                : [];
+
+            commits.push({
+              hash,
+              shortHash: hash.substring(0, 7),
+              message: message.replace(/｜/g, '|'),
+              author: author.replace(/｜/g, '|'),
+              date,
+              timestamp,
+              isMerge: parentHashes.length > 1,
+              parentHashes,
+              refs: [],
+            });
+          }
+        } catch {
+          // Date parsing error, skip this commit
+        }
+      }
+    }
+  }
+
+  return commits.sort((a, b) => b.timestamp - a.timestamp);
+}
+
+// Git branchをパース
+function parseGitBranches(branchOutput: string) {
+  return branchOutput
+    .split('\n')
+    .filter(line => line.trim())
+    .map(line => ({
+      name: line.replace(/^\*\s*/, '').trim(),
+      isCurrent: line.startsWith('*'),
+      isRemote: line.includes('remotes/'),
+      lastCommit: undefined,
+    }));
+}
+
+// Git statusをパース
+function parseGitStatus(statusOutput: string): GitStatus {
+  const lines = statusOutput.split('\n');
+  const status: GitStatus = {
+    staged: [],
+    unstaged: [],
+    untracked: [],
+    deleted: [],
+    branch: 'main',
+    ahead: 0,
+    behind: 0,
+  };
+
+  let inChangesToBeCommitted = false;
+  let inChangesNotStaged = false;
+  let inUntrackedFiles = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.includes('On branch')) {
+      status.branch = trimmed.replace('On branch ', '').trim();
+    } else if (trimmed === 'Changes to be committed:') {
+      inChangesToBeCommitted = true;
+      inChangesNotStaged = false;
+      inUntrackedFiles = false;
+    } else if (trimmed === 'Changes not staged for commit:') {
+      inChangesToBeCommitted = false;
+      inChangesNotStaged = true;
+      inUntrackedFiles = false;
+    } else if (trimmed === 'Untracked files:') {
+      inChangesToBeCommitted = false;
+      inChangesNotStaged = false;
+      inUntrackedFiles = true;
+    } else if (
+      trimmed.startsWith('modified:') ||
+      trimmed.startsWith('new file:') ||
+      trimmed.startsWith('deleted:')
+    ) {
+      const fileName = trimmed.split(':')[1]?.trim();
+      if (fileName) {
+        if (inChangesToBeCommitted) {
+          status.staged.push(fileName);
+        } else if (inChangesNotStaged) {
+          if (trimmed.startsWith('deleted:')) {
+            status.deleted.push(fileName);
+          } else {
+            status.unstaged.push(fileName);
+          }
+        }
+      }
+    } else if (
+      inUntrackedFiles &&
+      trimmed &&
+      !trimmed.startsWith('(') &&
+      !trimmed.includes('git add') &&
+      !trimmed.includes('use "git add"') &&
+      !trimmed.includes('to include')
+    ) {
+      if (!trimmed.endsWith('/')) {
+        status.untracked.push(trimmed);
+      }
+    }
+  }
+
+  return status;
+}
+
+// ========================================
+// メモ化されたファイルアイテムコンポーネント
+// ========================================
+
+interface FileItemProps {
+  file: string;
+  color: string;
+  onPrimaryAction: (file: string) => void;
+  onSecondaryAction?: (file: string) => void;
+  onFileClick?: (file: string) => void;
+  primaryIcon: React.ReactNode;
+  secondaryIcon?: React.ReactNode;
+  primaryTitle: string;
+  secondaryTitle?: string;
+  fileClickTitle?: string;
+  colors: {
+    mutedBg: string;
+    primary: string;
+    red: string;
+  };
+}
+
+const FileItem = memo(function FileItem({
+  file,
+  color,
+  onPrimaryAction,
+  onSecondaryAction,
+  onFileClick,
+  primaryIcon,
+  secondaryIcon,
+  primaryTitle,
+  secondaryTitle,
+  fileClickTitle,
+  colors,
+}: FileItemProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: '0.75rem',
+        padding: '0.25rem 0',
+      }}
+    >
+      <span
+        style={{
+          color,
+          flex: 1,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          cursor: onFileClick ? 'pointer' : 'default',
+          textDecoration: onFileClick ? 'underline' : 'none',
+        }}
+        className="select-text"
+        title={fileClickTitle}
+        onClick={onFileClick ? () => onFileClick(file) : undefined}
+      >
+        {file}
+      </span>
+      <div style={{ display: 'flex', gap: '0.25rem' }}>
+        <button
+          onClick={() => onPrimaryAction(file)}
+          style={{
+            padding: '0.25rem',
+            background: 'transparent',
+            borderRadius: '0.375rem',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+          title={primaryTitle}
+          className="select-none"
+          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+          {primaryIcon}
+        </button>
+        {onSecondaryAction && secondaryIcon && (
+          <button
+            onClick={() => onSecondaryAction(file)}
+            style={{
+              padding: '0.25rem',
+              background: 'transparent',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+            title={secondaryTitle}
+            className="select-none"
+            onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            {secondaryIcon}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
+// ========================================
+// メインコンポーネント
+// ========================================
 
 export default function GitPanel({
   currentProject,
@@ -39,385 +355,185 @@ export default function GitPanel({
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [commitDepth, setCommitDepth] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasRemote, setHasRemote] = useState(false);
 
-  // [NEW ARCHITECTURE] Diff タブハンドラー
-  const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
+  const { handleDiffFileClick } = useDiffTabHandlers({
     name: currentProject,
     id: currentProjectId,
   });
 
-  // Git操作用のコマンドインスタンス（新アーキテクチャ）
-  const gitCommands =
-    currentProject && currentProjectId
-      ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
-      : null;
+  const gitCommands = useMemo(
+    () =>
+      currentProject && currentProjectId
+        ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
+        : null,
+    [currentProject, currentProjectId]
+  );
 
   // Git状態を取得
-  const fetchGitStatus = async () => {
-    if (!gitCommands || !currentProject) return;
+  const fetchGitStatus = useCallback(
+    async (depth = 20) => {
+      if (!gitCommands || !currentProject) return;
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const [statusResult, logResult, branchResult, remotesResult] = await Promise.all([
+          gitCommands.status(),
+          gitCommands.getFormattedLog(depth),
+          gitCommands.branch(),
+          gitCommands.listRemotes(),
+        ]);
+
+        const commits = parseGitLog(logResult);
+        const branches = parseGitBranches(branchResult);
+        const status = parseGitStatus(statusResult);
+
+        const hasRemoteRepo = remotesResult.trim() !== '' && !remotesResult.includes('No remotes');
+        setHasRemote(hasRemoteRepo);
+        setCommitDepth(depth);
+
+        setGitRepo({
+          initialized: true,
+          branches,
+          commits,
+          status,
+          currentBranch: status.branch,
+        });
+
+        if (onGitStatusChange) {
+          const changesCount =
+            status.staged.length +
+            status.unstaged.length +
+            status.untracked.length +
+            status.deleted.length;
+          onGitStatusChange(changesCount);
+        }
+      } catch (err) {
+        console.error('Failed to fetch git status:', err);
+        setError(err instanceof Error ? err.message : t('git.operationError'));
+        setGitRepo(null);
+        if (onGitStatusChange) {
+          onGitStatusChange(0);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [gitCommands, currentProject, onGitStatusChange, t]
+  );
+
+  // 履歴をさらに読み込む
+  const loadMoreCommits = useCallback(async () => {
+    if (!gitCommands || !currentProject || isLoadingMore) return;
 
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Git状態を並行して取得（待機時間を削除して高速化）
-      const [statusResult, logResult, branchResult] = await Promise.all([
-        gitCommands.status(),
-        gitCommands.getFormattedLog(20),
-        gitCommands.branch(),
-      ]);
-
-      // コミット履歴をパース
+      setIsLoadingMore(true);
+      const newDepth = commitDepth + 20;
+      const logResult = await gitCommands.getFormattedLog(newDepth);
       const commits = parseGitLog(logResult);
 
-      // ブランチ情報をパース
-      const branches = parseGitBranches(branchResult);
-
-      // ステータス情報をパース
-      const status = parseGitStatus(statusResult);
-
-      setGitRepo({
-        initialized: true,
-        branches,
-        commits,
-        status,
-        currentBranch: status.branch,
-      });
-
-      // 変更ファイル数を計算してコールバックで通知
-      if (onGitStatusChange) {
-        const changesCount =
-          status.staged.length +
-          status.unstaged.length +
-          status.untracked.length +
-          status.deleted.length;
-        onGitStatusChange(changesCount);
-      }
-    } catch (error) {
-      console.error('Failed to fetch git status:', error);
-      setError(error instanceof Error ? error.message : t('git.operationError'));
-      setGitRepo(null);
-      if (onGitStatusChange) {
-        onGitStatusChange(0);
-      }
+      setCommitDepth(newDepth);
+      setGitRepo(prev =>
+        prev
+          ? {
+              ...prev,
+              commits,
+            }
+          : null
+      );
+    } catch (err) {
+      console.error('Failed to load more commits:', err);
     } finally {
-      setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  };
-
-  // Git logをパースしてコミット配列に変換（ブランチ情報付き）
-  const parseGitLog = (logOutput: string): GitCommitType[] => {
-    if (!logOutput.trim()) {
-      return [];
-    }
-
-    const lines = logOutput.split('\n').filter(line => line.trim());
-    const commits: GitCommitType[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const parts = line.split('|');
-
-      // 7つのパーツがあることを確認（refs + tree情報を含む）
-      if (parts.length === 7) {
-        const hash = parts[0]?.trim();
-        const message = parts[1]?.trim();
-        const author = parts[2]?.trim();
-        const date = parts[3]?.trim();
-        const parentHashesStr = parts[4]?.trim();
-        const refsStr = parts[5]?.trim();
-        const treeSha = parts[6]?.trim();
-
-        // 全てのフィールドが有効であることを確認
-        if (hash && hash.length >= 7 && message && author && date) {
-          try {
-            const timestamp = new Date(date).getTime();
-            if (!Number.isNaN(timestamp)) {
-              // 親コミットのハッシュをパース
-              const parentHashes =
-                parentHashesStr && parentHashesStr !== ''
-                  ? parentHashesStr.split(',').filter(h => h.trim() !== '')
-                  : [];
-
-              // refsをカンマ区切りからstring配列に変換
-              const refs =
-                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
-
-              commits.push({
-                hash,
-                shortHash: hash.substring(0, 7),
-                message: message.replace(/｜/g, '|'), // 安全な文字を元に戻す
-                author: author.replace(/｜/g, '|'),
-                date,
-                timestamp,
-                isMerge: parentHashes.length > 1, // 親が2つ以上ならマージコミット
-                parentHashes,
-                refs, // このコミットを指すブランチ名配列
-                tree: treeSha || undefined, // ツリーSHA
-              });
-            }
-          } catch (dateError) {
-            // Date parsing error, skip this commit
-          }
-        }
-      } else if (parts.length === 6) {
-        // 旧フォーマット（tree情報なし）との互換性
-        const hash = parts[0]?.trim();
-        const message = parts[1]?.trim();
-        const author = parts[2]?.trim();
-        const date = parts[3]?.trim();
-        const parentHashesStr = parts[4]?.trim();
-        const refsStr = parts[5]?.trim();
-
-        if (hash && hash.length >= 7 && message && author && date) {
-          try {
-            const timestamp = new Date(date).getTime();
-            if (!Number.isNaN(timestamp)) {
-              const parentHashes =
-                parentHashesStr && parentHashesStr !== ''
-                  ? parentHashesStr.split(',').filter(h => h.trim() !== '')
-                  : [];
-
-              const refs =
-                refsStr && refsStr !== '' ? refsStr.split(',').filter(r => r.trim() !== '') : [];
-
-              commits.push({
-                hash,
-                shortHash: hash.substring(0, 7),
-                message: message.replace(/｜/g, '|'),
-                author: author.replace(/｜/g, '|'),
-                date,
-                timestamp,
-                isMerge: parentHashes.length > 1,
-                parentHashes,
-                refs,
-                tree: undefined,
-              });
-            }
-          } catch (dateError) {
-            // Date parsing error, skip this commit
-          }
-        }
-      } else if (parts.length === 5) {
-        // 古いフォーマット（refs情報なし）との互換性
-        const hash = parts[0]?.trim();
-        const message = parts[1]?.trim();
-        const author = parts[2]?.trim();
-        const date = parts[3]?.trim();
-        const parentHashesStr = parts[4]?.trim();
-
-        if (hash && hash.length >= 7 && message && author && date) {
-          try {
-            const timestamp = new Date(date).getTime();
-            if (!Number.isNaN(timestamp)) {
-              const parentHashes =
-                parentHashesStr && parentHashesStr !== ''
-                  ? parentHashesStr.split(',').filter(h => h.trim() !== '')
-                  : [];
-
-              commits.push({
-                hash,
-                shortHash: hash.substring(0, 7),
-                message: message.replace(/｜/g, '|'),
-                author: author.replace(/｜/g, '|'),
-                date,
-                timestamp,
-                isMerge: parentHashes.length > 1,
-                parentHashes,
-                refs: [], // refsなし
-              });
-            }
-          } catch (dateError) {
-            // Date parsing error, skip this commit
-          }
-        }
-      }
-    }
-
-    return commits.sort((a, b) => b.timestamp - a.timestamp);
-  };
-
-  // Git branchをパース
-  const parseGitBranches = (branchOutput: string) => {
-    return branchOutput
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => ({
-        name: line.replace(/^\*\s*/, '').trim(),
-        isCurrent: line.startsWith('*'),
-        isRemote: line.includes('remotes/'),
-        lastCommit: undefined,
-      }));
-  };
-
-  // Git statusをパース
-  const parseGitStatus = (statusOutput: string): GitStatus => {
-    console.log('[GitPanel] Parsing git status output:', statusOutput);
-    const lines = statusOutput.split('\n');
-    const status: GitStatus = {
-      staged: [],
-      unstaged: [],
-      untracked: [],
-      deleted: [], // 削除されたファイル（未ステージ）
-      branch: 'main',
-      ahead: 0,
-      behind: 0,
-    };
-
-    let inChangesToBeCommitted = false;
-    let inChangesNotStaged = false;
-    let inUntrackedFiles = false;
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (trimmed.includes('On branch')) {
-        status.branch = trimmed.replace('On branch ', '').trim();
-        console.log('[GitPanel] Found branch:', status.branch);
-      } else if (trimmed === 'Changes to be committed:') {
-        inChangesToBeCommitted = true;
-        inChangesNotStaged = false;
-        inUntrackedFiles = false;
-        console.log('[GitPanel] Entering staged files section');
-      } else if (trimmed === 'Changes not staged for commit:') {
-        inChangesToBeCommitted = false;
-        inChangesNotStaged = true;
-        inUntrackedFiles = false;
-        console.log('[GitPanel] Entering unstaged files section');
-      } else if (trimmed === 'Untracked files:') {
-        inChangesToBeCommitted = false;
-        inChangesNotStaged = false;
-        inUntrackedFiles = true;
-        console.log('[GitPanel] Entering untracked files section');
-      } else if (
-        trimmed.startsWith('modified:') ||
-        trimmed.startsWith('new file:') ||
-        trimmed.startsWith('deleted:')
-      ) {
-        const fileName = trimmed.split(':')[1]?.trim();
-        if (fileName) {
-          if (inChangesToBeCommitted) {
-            status.staged.push(fileName);
-            console.log('[GitPanel] Found staged file:', fileName);
-          } else if (inChangesNotStaged) {
-            if (trimmed.startsWith('deleted:')) {
-              status.deleted.push(fileName);
-              console.log('[GitPanel] Found deleted file:', fileName);
-            } else {
-              status.unstaged.push(fileName);
-              console.log('[GitPanel] Found unstaged file:', fileName);
-            }
-          }
-        }
-      } else if (
-        inUntrackedFiles &&
-        trimmed &&
-        !trimmed.startsWith('(') &&
-        !trimmed.includes('git add') &&
-        !trimmed.includes('use "git add"') &&
-        !trimmed.includes('to include')
-      ) {
-        // フォルダ（末尾に/があるもの）は除外
-        if (!trimmed.endsWith('/')) {
-          status.untracked.push(trimmed);
-          console.log('[GitPanel] Found untracked file:', trimmed);
-        }
-      }
-    }
-
-    console.log('[GitPanel] Final parsed status:', {
-      staged: status.staged,
-      unstaged: status.unstaged,
-      untracked: status.untracked,
-      deleted: status.deleted,
-      total:
-        status.staged.length +
-        status.unstaged.length +
-        status.untracked.length +
-        status.deleted.length,
-    });
-
-    return status;
-  };
+  }, [gitCommands, currentProject, isLoadingMore, commitDepth]);
 
   // ファイルをステージング
-  const handleStageFile = async (file: string) => {
-    if (!gitCommands) return;
+  const handleStageFile = useCallback(
+    async (file: string) => {
+      if (!gitCommands) return;
 
-    try {
-      await gitCommands.add(file);
-      // ステージング完了後に即座に状態更新
-      await fetchGitStatus();
-    } catch (error) {
-      console.error('Failed to stage file:', error);
-    }
-  };
+      try {
+        await gitCommands.add(file);
+        await fetchGitStatus(commitDepth);
+      } catch (err) {
+        console.error('Failed to stage file:', err);
+      }
+    },
+    [gitCommands, fetchGitStatus, commitDepth]
+  );
 
   // ファイルをアンステージング
-  const handleUnstageFile = async (file: string) => {
-    if (!gitCommands) return;
+  const handleUnstageFile = useCallback(
+    async (file: string) => {
+      if (!gitCommands) return;
 
-    try {
-      await gitCommands.reset({ filepath: file });
-      await fetchGitStatus();
-    } catch (error) {
-      console.error('Failed to unstage file:', error);
-    }
-  };
+      try {
+        await gitCommands.reset({ filepath: file });
+        await fetchGitStatus(commitDepth);
+      } catch (err) {
+        console.error('Failed to unstage file:', err);
+      }
+    },
+    [gitCommands, fetchGitStatus, commitDepth]
+  );
 
   // 全ファイルをステージング
-  const handleStageAll = async () => {
+  const handleStageAll = useCallback(async () => {
     if (!gitCommands) return;
 
     try {
       await gitCommands.add('.');
-      // ステージング完了後に即座に状態更新
-      await fetchGitStatus();
-    } catch (error) {
-      console.error('Failed to stage all files:', error);
+      await fetchGitStatus(commitDepth);
+    } catch (err) {
+      console.error('Failed to stage all files:', err);
     }
-  };
+  }, [gitCommands, fetchGitStatus, commitDepth]);
 
   // 全ファイルをアンステージング
-  const handleUnstageAll = async () => {
+  const handleUnstageAll = useCallback(async () => {
     if (!gitCommands) return;
     const stagedFiles = gitRepo?.status.staged || [];
 
     try {
-      // 並列でアンステージング
       await Promise.all(stagedFiles.map(file => gitCommands.reset({ filepath: file })));
-      await fetchGitStatus();
-    } catch (error) {
-      console.error('Failed to unstage all files:', error);
+      await fetchGitStatus(commitDepth);
+    } catch (err) {
+      console.error('Failed to unstage all files:', err);
     }
-  };
+  }, [gitCommands, gitRepo?.status.staged, fetchGitStatus, commitDepth]);
 
   // ファイルの変更を破棄
-  const handleDiscardChanges = async (file: string) => {
-    if (!gitCommands) return;
+  const handleDiscardChanges = useCallback(
+    async (file: string) => {
+      if (!gitCommands) return;
 
-    try {
-      await gitCommands.discardChanges(file);
-      await fetchGitStatus();
+      try {
+        await gitCommands.discardChanges(file);
+        await fetchGitStatus(commitDepth);
 
-      // 親コンポーネントにも更新を通知
-      if (onRefresh) {
-        onRefresh();
+        if (onRefresh) {
+          onRefresh();
+        }
+      } catch (err) {
+        console.error('Failed to discard changes:', err);
       }
-    } catch (error) {
-      console.error('Failed to discard changes:', error);
-    }
-  };
+    },
+    [gitCommands, fetchGitStatus, commitDepth, onRefresh]
+  );
 
   // コミット実行
-  const handleCommit = async () => {
+  const handleCommit = useCallback(async () => {
     if (!gitCommands || !commitMessage.trim()) return;
 
     try {
       setIsCommitting(true);
       setError(null);
 
-      // タイムアウト付きでコミット実行
       const commitPromise = gitCommands.commit(commitMessage.trim());
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
@@ -426,23 +542,21 @@ export default function GitPanel({
       await Promise.race([commitPromise, timeoutPromise]);
 
       setCommitMessage('');
-      // コミット完了後に即座に状態更新
-      await fetchGitStatus();
-    } catch (error) {
-      console.error('Failed to commit:', error);
-      setError(error instanceof Error ? error.message : 'コミットに失敗しました');
+      await fetchGitStatus(commitDepth);
+    } catch (err) {
+      console.error('Failed to commit:', err);
+      setError(err instanceof Error ? err.message : 'コミットに失敗しました');
     } finally {
       setIsCommitting(false);
     }
-  };
+  }, [gitCommands, commitMessage, fetchGitStatus, commitDepth]);
 
   // コミットメッセージ自動生成
-  const handleGenerateCommitMessage = async () => {
+  const handleGenerateCommitMessage = useCallback(async () => {
     if (!gitCommands || !apiKey) return;
     setIsGenerating(true);
     setGenerateError(null);
     try {
-      // 実際のdiff内容を取得
       const diffText = await gitCommands.diff({ staged: false });
 
       if (!diffText || diffText.trim() === '') {
@@ -451,13 +565,13 @@ export default function GitPanel({
 
       const message = await generateCommitMessage(diffText, apiKey);
       setCommitMessage(message);
-    } catch (error) {
-      console.error('Failed to generate commit message:', error);
-      setGenerateError(error instanceof Error ? error.message : 'Gemini APIエラー');
+    } catch (err) {
+      console.error('Failed to generate commit message:', err);
+      setGenerateError(err instanceof Error ? err.message : 'Gemini APIエラー');
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [gitCommands, apiKey]);
 
   // APIキーをlocalStorageから初期化
   useEffect(() => {
@@ -468,29 +582,105 @@ export default function GitPanel({
   const hasApiKey = !!apiKey;
 
   // APIキー入力時にlocalStorageへ保存
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleApiKeyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setApiKey(value);
     localStorage.setItem(LOCALSTORAGE_KEY.GEMINI_API_KEY, value);
-  };
+  }, []);
 
   // 初期化とプロジェクト変更時の更新
   useEffect(() => {
     if (currentProject) {
       fetchGitStatus();
     }
-  }, [currentProject]);
+  }, [currentProject, fetchGitStatus]);
 
   // Git更新トリガーが変更されたときの更新
   useEffect(() => {
     if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
-      // 短い遅延で状態更新を実行
       const timer = setTimeout(() => {
-        fetchGitStatus();
+        fetchGitStatus(commitDepth);
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [gitRefreshTrigger]);
+  }, [gitRefreshTrigger, currentProject, fetchGitStatus, commitDepth]);
+
+  // Diffファイルクリックハンドラー（メモ化）
+  const handleStagedFileClick = useCallback(
+    async (file: string) => {
+      if (handleDiffFileClick && gitRepo && gitRepo.commits.length > 0) {
+        const latestCommit = gitRepo.commits[0];
+        await handleDiffFileClick({
+          commitId: latestCommit.hash,
+          filePath: file,
+          editable: false,
+        });
+      }
+    },
+    [handleDiffFileClick, gitRepo]
+  );
+
+  const handleUnstagedFileClick = useCallback(
+    async (file: string) => {
+      if (handleDiffFileClick && gitRepo && gitRepo.commits.length > 0) {
+        const latestCommit = gitRepo.commits[0];
+        await handleDiffFileClick({
+          commitId: latestCommit.hash,
+          filePath: file,
+          editable: true,
+        });
+      }
+    },
+    [handleDiffFileClick, gitRepo]
+  );
+
+  // メモ化されたアイコンスタイル
+  const iconColors = useMemo(
+    () => ({
+      mutedBg: colors.mutedBg,
+      primary: colors.primary,
+      red: colors.red,
+    }),
+    [colors.mutedBg, colors.primary, colors.red]
+  );
+
+  const plusIcon = useMemo(
+    () => (
+      <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
+    ),
+    [colors.primary]
+  );
+
+  const minusIcon = useMemo(
+    () => (
+      <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
+    ),
+    [colors.primary]
+  );
+
+  const discardIcon = useMemo(
+    () => (
+      <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} className="select-none" />
+    ),
+    [colors.red]
+  );
+
+  // hasChanges のメモ化
+  const hasChanges = useMemo(() => {
+    if (!gitRepo) return false;
+    return (
+      gitRepo.status.staged.length > 0 ||
+      gitRepo.status.unstaged.length > 0 ||
+      gitRepo.status.untracked.length > 0 ||
+      gitRepo.status.deleted.length > 0
+    );
+  }, [gitRepo]);
+
+  // hasMore のメモ化
+  const hasMore = useMemo(() => {
+    if (!gitRepo) return false;
+    return hasRemote && gitRepo.commits.length >= commitDepth;
+  }, [hasRemote, gitRepo, commitDepth]);
 
   if (!currentProject) {
     return (
@@ -543,7 +733,7 @@ export default function GitPanel({
         <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>{t('git.errorOccurred')}</p>
         <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{error}</p>
         <button
-          onClick={fetchGitStatus}
+          onClick={() => fetchGitStatus(commitDepth)}
           style={{
             marginTop: '0.5rem',
             padding: '0.5rem 1rem',
@@ -591,12 +781,6 @@ export default function GitPanel({
     );
   }
 
-  const hasChanges =
-    gitRepo.status.staged.length > 0 ||
-    gitRepo.status.unstaged.length > 0 ||
-    gitRepo.status.untracked.length > 0 ||
-    gitRepo.status.deleted.length > 0;
-
   return (
     <div
       style={{
@@ -638,7 +822,7 @@ export default function GitPanel({
             </div>
           </h3>
           <button
-            onClick={fetchGitStatus}
+            onClick={() => fetchGitStatus(commitDepth)}
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -661,7 +845,6 @@ export default function GitPanel({
       {/* コミット */}
       {gitRepo.status.staged.length > 0 && (
         <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
-          {/* APIキー入力欄（未保存時のみ表示） */}
           {!hasApiKey && (
             <input
               type="text"
@@ -772,7 +955,6 @@ export default function GitPanel({
               {isCommitting ? t('git.committing') : t('git.commit')}
             </button>
           </div>
-          {/* エラー表示（インライン） */}
           {generateError && (
             <div
               style={{
@@ -792,7 +974,7 @@ export default function GitPanel({
       )}
 
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* 変更ファイル（スクロール可能・最大高さ45%） */}
+        {/* 変更ファイル */}
         <div
           style={{
             padding: '0.75rem',
@@ -830,10 +1012,7 @@ export default function GitPanel({
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Plus
-                    style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
-                    className="select-none"
-                  />
+                  {plusIcon}
                 </button>
                 <button
                   onClick={handleUnstageAll}
@@ -850,10 +1029,7 @@ export default function GitPanel({
                   onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <Minus
-                    style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
-                    className="select-none"
-                  />
+                  {minusIcon}
                 </button>
               </div>
             )}
@@ -870,64 +1046,17 @@ export default function GitPanel({
                     {t('git.staged')} ({gitRepo.status.staged.length})
                   </p>
                   {gitRepo.status.staged.map(file => (
-                    <div
+                    <FileItem
                       key={`staged-${file}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '0.75rem',
-                        padding: '0.25rem 0',
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: '#22c55e',
-                          flex: 1,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                        }}
-                        className="select-text"
-                        title={t('git.viewDiffReadonly')}
-                        onClick={async () => {
-                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
-                            // 最新コミットのhashを取得
-                            const latestCommit = gitRepo.commits[0];
-                            // ステージング済みファイルは編集不可でdiffを表示
-                            await handleDiffFileClick({
-                              commitId: latestCommit.hash,
-                              filePath: file,
-                              editable: false,
-                            });
-                          }
-                        }}
-                      >
-                        {file}
-                      </span>
-                      <button
-                        onClick={() => handleUnstageFile(file)}
-                        style={{
-                          padding: '0.25rem',
-                          background: 'transparent',
-                          borderRadius: '0.375rem',
-                          marginLeft: '0.25rem',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                        title={t('git.unstage')}
-                        className="select-none"
-                        onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <Minus
-                          style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
-                          className="select-none"
-                        />
-                      </button>
-                    </div>
+                      file={file}
+                      color="#22c55e"
+                      onPrimaryAction={handleUnstageFile}
+                      onFileClick={handleStagedFileClick}
+                      primaryIcon={minusIcon}
+                      primaryTitle={t('git.unstage')}
+                      fileClickTitle={t('git.viewDiffReadonly')}
+                      colors={iconColors}
+                    />
                   ))}
                 </div>
               )}
@@ -939,85 +1068,20 @@ export default function GitPanel({
                     {t('git.unstaged')} ({gitRepo.status.unstaged.length})
                   </p>
                   {gitRepo.status.unstaged.map(file => (
-                    <div
+                    <FileItem
                       key={`unstaged-${file}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '0.75rem',
-                        padding: '0.25rem 0',
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: '#f59e42',
-                          flex: 1,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                        }}
-                        className="select-text"
-                        title={t('git.viewDiffEditable')}
-                        onClick={async () => {
-                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
-                            // 最新コミットのhashを取得
-                            const latestCommit = gitRepo.commits[0];
-                            // 未ステージファイルは編集可能でdiffを表示
-                            await handleDiffFileClick({
-                              commitId: latestCommit.hash,
-                              filePath: file,
-                              editable: true,
-                            });
-                          }
-                        }}
-                      >
-                        {file}
-                      </span>
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button
-                          onClick={() => handleStageFile(file)}
-                          style={{
-                            padding: '0.25rem',
-                            background: 'transparent',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
-                          title={t('git.stage')}
-                          className="select-none"
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <Plus
-                            style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
-                            className="select-none"
-                          />
-                        </button>
-                        <button
-                          onClick={() => handleDiscardChanges(file)}
-                          style={{
-                            padding: '0.25rem',
-                            background: 'transparent',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: colors.red,
-                          }}
-                          title={t('git.discard')}
-                          className="select-none"
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <RotateCcw
-                            style={{ width: '0.75rem', height: '0.75rem', color: colors.red }}
-                            className="select-none"
-                          />
-                        </button>
-                      </div>
-                    </div>
+                      file={file}
+                      color="#f59e42"
+                      onPrimaryAction={handleStageFile}
+                      onSecondaryAction={handleDiscardChanges}
+                      onFileClick={handleUnstagedFileClick}
+                      primaryIcon={plusIcon}
+                      secondaryIcon={discardIcon}
+                      primaryTitle={t('git.stage')}
+                      secondaryTitle={t('git.discard')}
+                      fileClickTitle={t('git.viewDiffEditable')}
+                      colors={iconColors}
+                    />
                   ))}
                 </div>
               )}
@@ -1029,85 +1093,20 @@ export default function GitPanel({
                     {t('git.deleted')} ({gitRepo.status.deleted.length})
                   </p>
                   {gitRepo.status.deleted.map(file => (
-                    <div
+                    <FileItem
                       key={`deleted-${file}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '0.75rem',
-                        padding: '0.25rem 0',
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: colors.red,
-                          flex: 1,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                        }}
-                        className="select-text"
-                        title={t('git.viewDiffEditable')}
-                        onClick={async () => {
-                          if (handleDiffFileClick && gitRepo.commits.length > 0) {
-                            // 最新コミットのhashを取得
-                            const latestCommit = gitRepo.commits[0];
-                            // 削除されたファイルは編集可能でdiffを表示
-                            await handleDiffFileClick({
-                              commitId: latestCommit.hash,
-                              filePath: file,
-                              editable: true,
-                            });
-                          }
-                        }}
-                      >
-                        {file}
-                      </span>
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button
-                          onClick={() => handleStageFile(file)}
-                          style={{
-                            padding: '0.25rem',
-                            background: 'transparent',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
-                          title={t('git.stageDelete')}
-                          className="select-none"
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <Plus
-                            style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
-                            className="select-none"
-                          />
-                        </button>
-                        <button
-                          onClick={() => handleDiscardChanges(file)}
-                          style={{
-                            padding: '0.25rem',
-                            background: 'transparent',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: colors.red,
-                          }}
-                          title={t('git.restore')}
-                          className="select-none"
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <RotateCcw
-                            style={{ width: '0.75rem', height: '0.75rem', color: colors.red }}
-                            className="select-none"
-                          />
-                        </button>
-                      </div>
-                    </div>
+                      file={file}
+                      color={colors.red}
+                      onPrimaryAction={handleStageFile}
+                      onSecondaryAction={handleDiscardChanges}
+                      onFileClick={handleUnstagedFileClick}
+                      primaryIcon={plusIcon}
+                      secondaryIcon={discardIcon}
+                      primaryTitle={t('git.stageDelete')}
+                      secondaryTitle={t('git.restore')}
+                      fileClickTitle={t('git.viewDiffEditable')}
+                      colors={iconColors}
+                    />
                   ))}
                 </div>
               )}
@@ -1121,70 +1120,18 @@ export default function GitPanel({
                     {t('git.untracked')} ({gitRepo.status.untracked.length})
                   </p>
                   {gitRepo.status.untracked.map(file => (
-                    <div
+                    <FileItem
                       key={`untracked-${file}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '0.75rem',
-                        padding: '0.25rem 0',
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: colors.primary,
-                          flex: 1,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                        className="select-text"
-                      >
-                        {file}
-                      </span>
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button
-                          onClick={() => handleStageFile(file)}
-                          style={{
-                            padding: '0.25rem',
-                            background: 'transparent',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
-                          title={t('git.stage')}
-                          className="select-none"
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <Plus
-                            style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
-                            className="select-none"
-                          />
-                        </button>
-                        <button
-                          onClick={() => handleDiscardChanges(file)}
-                          style={{
-                            padding: '0.25rem',
-                            background: 'transparent',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: colors.red,
-                          }}
-                          title={t('git.deleteUntracked')}
-                          className="select-none"
-                          onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <RotateCcw
-                            style={{ width: '0.75rem', height: '0.75rem', color: colors.red }}
-                            className="select-none"
-                          />
-                        </button>
-                      </div>
-                    </div>
+                      file={file}
+                      color={colors.primary}
+                      onPrimaryAction={handleStageFile}
+                      onSecondaryAction={handleDiscardChanges}
+                      primaryIcon={plusIcon}
+                      secondaryIcon={discardIcon}
+                      primaryTitle={t('git.stage')}
+                      secondaryTitle={t('git.deleteUntracked')}
+                      colors={iconColors}
+                    />
                   ))}
                 </div>
               )}
@@ -1219,6 +1166,9 @@ export default function GitPanel({
               currentProject={currentProject}
               currentProjectId={currentProjectId}
               currentBranch={gitRepo.currentBranch}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={loadMoreCommits}
             />
           )}
         </div>
