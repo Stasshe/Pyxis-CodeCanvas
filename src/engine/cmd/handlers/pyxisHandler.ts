@@ -10,19 +10,14 @@ import { exportPage } from '@/engine/export/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
-import { checkAbort } from '@/engine/cmd/lib/abortUtils';
 
 export async function handlePyxisCommand(
   cmd: string,
   args: string[],
   projectName: string,
   projectId: string,
-  writeOutput: (output: string) => Promise<void>,
-  signal?: AbortSignal
+  writeOutput: (output: string) => Promise<void>
 ) {
-  // Check for abort before starting
-  checkAbort(signal);
-
   // Obtain registry instances
   const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(projectName, projectId);
   const gitInst: GitCommands = terminalCommandRegistry.getGitCommands(projectName, projectId);
@@ -35,7 +30,6 @@ export async function handlePyxisCommand(
   try {
     switch (cmd) {
       case 'init': {
-        checkAbort(signal);
         // pyxis init --all --admin: Complete system initialization/reset
         const hasAll = args.includes('--all');
         const hasAdmin = args.includes('--admin');

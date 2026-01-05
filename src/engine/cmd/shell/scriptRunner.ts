@@ -6,43 +6,9 @@ import expandBraces from './braceExpand';
 /**
  * ScriptRunner - Executes shell scripts with control flow support
  * Handles if/elif/else/fi, for loops, while loops, break/continue
- * 
- * Signal Handling:
- * - Scripts can be interrupted via SIGINT (Ctrl+C)
- * - InterruptController tracks interrupt state per script execution
- * - Loops check for interruption at each iteration
  */
 
 const MAX_LOOP = 10000;
-
-/**
- * InterruptController - Manages interrupt state for script execution
- * Allows scripts to be terminated cleanly when SIGINT is received
- */
-class InterruptController {
-  private interrupted = false;
-  private signalHandler: ((sig: string) => void) | null = null;
-
-  constructor(proc: Process) {
-    this.signalHandler = (sig: string) => {
-      if (sig === 'SIGINT' || sig === 'SIGTERM') {
-        this.interrupted = true;
-      }
-    };
-    proc.on('signal', this.signalHandler);
-  }
-
-  isInterrupted(): boolean {
-    return this.interrupted;
-  }
-
-  cleanup(proc: Process): void {
-    if (this.signalHandler) {
-      proc.removeListener('signal', this.signalHandler);
-      this.signalHandler = null;
-    }
-  }
-}
 
 /**
  * Split the script into physical lines while respecting quotes, backticks and $(...)
@@ -364,10 +330,10 @@ async function runCondition(
   return { stdout: res.stdout, stderr: res.stderr, code: finalCode };
 }
 
-export type RunRangeResult = 'ok' | 'break' | 'continue' | 'interrupted' | { exit: number };
+export type RunRangeResult = 'ok' | 'break' | 'continue' | { exit: number };
 
 /**
- * Run a range [start, end) of lines; supports break/continue signaling and interrupt handling
+ * Run a range [start, end) of lines; supports break/continue signaling
  */
 async function runRange(
   lines: string[],
@@ -376,15 +342,9 @@ async function runRange(
   localVars: Record<string, string>,
   args: string[],
   proc: Process,
-  shell: StreamShell,
-  interruptCtrl: InterruptController
+  shell: StreamShell
 ): Promise<RunRangeResult> {
   for (let i = start; i < end; i++) {
-    // Check for interrupt at each iteration
-    if (interruptCtrl.isInterrupted()) {
-      return 'interrupted';
-    }
-
     const raw = lines[i] ?? '';
     const trimmed = raw.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
@@ -462,8 +422,7 @@ async function runRange(
       if (condEval.code === 0) {
         const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
         const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
-        const r = await runRange(lines, thenStart, thenEnd, localVars, args, proc, shell, interruptCtrl);
-        if (r === 'interrupted') return r;
+        const r = await runRange(lines, thenStart, thenEnd, localVars, args, proc, shell);
         if (r !== 'ok') return r;
       } else {
         // check elifs in order
@@ -485,16 +444,14 @@ async function runRange(
           if (eRes.code === 0) {
             const eThenStart = eIdx + 1;
             const eThenEnd = k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
-            const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell, interruptCtrl);
-            if (r === 'interrupted') return r;
+            const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell);
             if (r !== 'ok') return r;
             matched = true;
             break;
           }
         }
         if (!matched && elseIdx !== -1) {
-          const r = await runRange(lines, elseIdx + 1, fiIdx, { ...localVars }, args, proc, shell, interruptCtrl);
-          if (r === 'interrupted') return r;
+          const r = await runRange(lines, elseIdx + 1, fiIdx, { ...localVars }, args, proc, shell);
           if (r !== 'ok') return r;
         }
       }
@@ -550,15 +507,10 @@ async function runRange(
       }
       let iter = 0;
       for (const it of items) {
-        // Check for interrupt at each loop iteration
-        if (interruptCtrl.isInterrupted()) {
-          return 'interrupted';
-        }
         if (++iter > MAX_LOOP) break;
         // set loop variable in localVars
         localVars[varName] = it;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell, interruptCtrl);
-        if (r === 'interrupted') return r;
+        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
         if (r === 'break') break;
         if (r === 'continue') continue;
         if (typeof r === 'object' && r && 'exit' in r) return r;
@@ -599,17 +551,12 @@ async function runRange(
       const bodyEnd = doneIdx;
       let count = 0;
       while (true) {
-        // Check for interrupt at each loop iteration
-        if (interruptCtrl.isInterrupted()) {
-          return 'interrupted';
-        }
         if (++count > MAX_LOOP) break;
         const cres = await runCondition(condLine, localVars, args, shell);
         if (cres.stdout) proc.writeStdout(cres.stdout);
         if (cres.stderr) proc.writeStderr(cres.stderr);
         if (cres.code !== 0) break;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell, interruptCtrl);
-        if (r === 'interrupted') return r;
+        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
         if (r === 'break') break;
         if (r === 'continue') continue;
         if (typeof r === 'object' && r && 'exit' in r) return r;
@@ -657,12 +604,6 @@ async function runRange(
     } catch (e) {
       // ignore evaluation errors and use original execLine
     }
-    
-    // Check for interrupt BEFORE running command
-    if (interruptCtrl.isInterrupted()) {
-      return 'interrupted';
-    }
-    
     // Pass real-time output callbacks to enable streaming output
     const res = await shell.run(execLine, {
       stdout: (data: string) => {
@@ -672,11 +613,6 @@ async function runRange(
         proc.writeStderr(data);
       },
     });
-    
-    // Check for interrupt AFTER command completes
-    if (interruptCtrl.isInterrupted()) {
-      return 'interrupted';
-    }
     // Note: output is already written via callbacks, no need to write again
     // continue even on non-zero exit
   }
@@ -706,32 +642,13 @@ export async function runScript(
     }
   }
 
-  // Create interrupt controller to handle SIGINT during script execution
-  const interruptCtrl = new InterruptController(proc);
+  const result = await runRange(lines, 0, lines.length, {}, args, proc, shell);
 
-  try {
-    const result = await runRange(lines, 0, lines.length, {}, args, proc, shell, interruptCtrl);
-
-    // If script was interrupted, exit with conventional signal exit code
-    // In POSIX shells, exit code for signal termination is 128 + signal_number
-    // SIGINT = 2, so exit code = 128 + 2 = 130
-    // We pass both code and signal to allow callers to detect both
-    if (result === 'interrupted') {
-      try {
-        proc.exit(130, 'SIGINT');
-      } catch (e) {}
-      return;
-    }
-
-    // If an exit object was returned, terminate the script process
-    if (typeof result === 'object' && result && 'exit' in result) {
-      try {
-        proc.exit(result.exit);
-      } catch (e) {}
-      return;
-    }
-  } finally {
-    // Always cleanup the signal handler
-    interruptCtrl.cleanup(proc);
+  // If an exit object was returned, terminate the script process
+  if (typeof result === 'object' && result && 'exit' in result) {
+    try {
+      proc.exit(result.exit);
+    } catch (e) {}
+    return;
   }
 }
