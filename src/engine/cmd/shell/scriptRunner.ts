@@ -701,10 +701,13 @@ export async function runScript(
   try {
     const result = await runRange(lines, 0, lines.length, {}, args, proc, shell, interruptCtrl);
 
-    // If script was interrupted, exit with signal
+    // If script was interrupted, exit with conventional signal exit code
+    // In POSIX shells, exit code for signal termination is 128 + signal_number
+    // SIGINT = 2, so exit code = 128 + 2 = 130
+    // We pass both code and signal to allow callers to detect both
     if (result === 'interrupted') {
       try {
-        proc.exit(130, 'SIGINT'); // 130 is conventional exit code for SIGINT
+        proc.exit(130, 'SIGINT');
       } catch (e) {}
       return;
     }
