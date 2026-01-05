@@ -355,9 +355,37 @@ export default function GitPanel({
   const [apiKey, setApiKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [commitDepth, setCommitDepth] = useState(20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasRemote, setHasRemote] = useState(false);
+
+  // プロジェクトごとのコミット深度をsessionStorageで永続化
+  const getStoredCommitDepth = useCallback(() => {
+    if (!currentProjectId) return 20;
+    const key = `gitCommitDepth_${currentProjectId}`;
+    const stored = sessionStorage.getItem(key);
+    return stored ? parseInt(stored, 10) : 20;
+  }, [currentProjectId]);
+
+  const [commitDepth, setCommitDepthState] = useState(() => 20);
+
+  // commitDepthを更新する際にsessionStorageにも保存
+  const setCommitDepth = useCallback(
+    (depth: number) => {
+      setCommitDepthState(depth);
+      if (currentProjectId) {
+        sessionStorage.setItem(`gitCommitDepth_${currentProjectId}`, String(depth));
+      }
+    },
+    [currentProjectId]
+  );
+
+  // プロジェクト変更時にsessionStorageから復元
+  useEffect(() => {
+    if (currentProjectId) {
+      const storedDepth = getStoredCommitDepth();
+      setCommitDepthState(storedDepth);
+    }
+  }, [currentProjectId, getStoredCommitDepth]);
 
   const { handleDiffFileClick } = useDiffTabHandlers({
     name: currentProject,
@@ -374,8 +402,11 @@ export default function GitPanel({
 
   // Git状態を取得
   const fetchGitStatus = useCallback(
-    async (depth = 20) => {
+    async (depth?: number) => {
       if (!gitCommands || !currentProject) return;
+
+      // depthが指定されていない場合は保存された深度を使用
+      const actualDepth = depth ?? getStoredCommitDepth();
 
       try {
         setIsLoading(true);
@@ -383,7 +414,7 @@ export default function GitPanel({
 
         const [statusResult, logResult, branchResult, remotesResult] = await Promise.all([
           gitCommands.status(),
-          gitCommands.getFormattedLog(depth),
+          gitCommands.getFormattedLog(actualDepth),
           gitCommands.branch(),
           gitCommands.listRemotes(),
         ]);
@@ -396,7 +427,7 @@ export default function GitPanel({
         const hasRemoteRepo =
           remotesResult.trim() !== '' && !remotesResult.startsWith('No remotes');
         setHasRemote(hasRemoteRepo);
-        setCommitDepth(depth);
+        setCommitDepth(actualDepth);
 
         setGitRepo({
           initialized: true,
@@ -425,7 +456,7 @@ export default function GitPanel({
         setIsLoading(false);
       }
     },
-    [gitCommands, currentProject, onGitStatusChange, t]
+    [gitCommands, currentProject, onGitStatusChange, t, getStoredCommitDepth, setCommitDepth]
   );
 
   // 履歴をさらに読み込む
