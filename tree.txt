@@ -440,7 +440,6 @@ Root
 │   │   ├── index.ts
 │   │   ├── path-browserify.d.ts
 │   │   ├── settings.ts
-│   │   ├── shell-quote.d.ts
 │   │   └── vm-browserify.d.ts
 │   └── workers
 │       └── searchWorker.ts
@@ -483,7 +482,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-71 directories, 412 files
+71 directories, 411 files
 
 =================================
 
@@ -610,12 +609,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 65616
-合計文字数: 2099537
-合計ファイルサイズ(bytes): 2239819
+合計行数: 65646
+合計文字数: 2092321
+合計ファイルサイズ(bytes): 2231651
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127464
-合計文字数: 26887063
-合計ファイルサイズ(bytes): 29865241
+ビルト済みファイルの行数: 127535
+合計文字数: 26887833
+合計ファイルサイズ(bytes): 29866033
