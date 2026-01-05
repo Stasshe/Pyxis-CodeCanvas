@@ -9,6 +9,7 @@ import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -38,6 +39,7 @@ function ClientTerminal({
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
+  const outputManagerRef = useRef<TerminalOutputManager | null>(null);
   const unixCommandsRef = useRef<UnixCommands | null>(null);
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
@@ -216,6 +218,10 @@ function ClientTerminal({
     // DOMに接続
     term.open(terminalRef.current);
 
+    // Initialize output manager for centralized output handling
+    const outputManager = new TerminalOutputManager(term);
+    outputManagerRef.current = outputManager;
+
     // タッチスクロール機能を追加
     let startY = 0;
     let scrolling = false;
@@ -280,10 +286,15 @@ function ClientTerminal({
       }, 50);
     }, 100);
 
-    // 初期メッセージ
-    const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
-    term.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
-    term.writeln('Type "help" for available commands.');
+    // 初期化処理を非同期で実行
+    const initializeMessages = async () => {
+      // 初期メッセージ
+      const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
+      await outputManager.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
+      await outputManager.writeln('Type "help" for available commands.');
+      // 初期プロンプト表示
+      await showPrompt();
+    };
 
     // 確実な自動スクロール関数
     const scrollToBottom = () => {
@@ -315,6 +326,14 @@ function ClientTerminal({
 
     // プロンプトを表示する関数
     const showPrompt = async () => {
+      // CRITICAL: Wait for all pending output to complete before checking cursor position
+      // This ensures cursor position is accurate
+      await outputManager.flush();
+      
+      // Ensure we're on a new line - this is the key to preventing prompt overlap
+      // Linux/Windows terminals always ensure prompts start on a new line
+      await outputManager.ensureNewline();
+
       if (unixCommandsRef.current && gitCommandsRef.current) {
         const relativePath = unixCommandsRef.current.getRelativePath();
         const branch = await gitCommandsRef.current.getCurrentBranch();
@@ -335,15 +354,20 @@ function ClientTerminal({
             ?.map(x => Number.parseInt(x, 16)) || [0, 0, 0];
           branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
         }
-        term.write(`\r/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
+        await outputManager.writeRaw(`/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
       } else {
-        term.write('\r$ ');
+        await outputManager.writeRaw('$ ');
       }
+      
+      // CRITICAL: Wait for prompt to be written before scrolling
+      await outputManager.flush();
+      
+      // Scroll to bottom after all output and prompt are complete
       scrollToBottom();
+      // Additional scrolls with delay to ensure proper positioning
+      setTimeout(() => scrollToBottom(), 50);
+      setTimeout(() => scrollToBottom(), 150);
     };
-
-    // 初期プロンプト表示
-    showPrompt();
 
     let cmdOutputs = '';
 
@@ -358,27 +382,10 @@ function ClientTerminal({
       saveTerminalHistory(currentProject, commandHistory);
     };
 
-    // Write lock to prevent concurrent writes causing newlines
-    let isTermWriting = false;
-    const writeQueue: string[] = [];
-
-    const flushWriteQueue = () => {
-      if (isTermWriting || writeQueue.length === 0) return;
-      isTermWriting = true;
-      const output = writeQueue.shift()!;
-      term.write(output, () => {
-        isTermWriting = false;
-        flushWriteQueue(); // Process next in queue
-      });
-    };
-
-    // 長い出力を段階的に処理する関数
+    // 統一された出力関数 - すべての出力はこれを通る
     const writeOutput = async (output: string) => {
-      // \nを\r\nに変換（xtermは\r\nが必要）
-      const normalized = output.replace(/\r?\n/g, '\r\n');
       cmdOutputs += output;
-      writeQueue.push(normalized);
-      flushWriteQueue();
+      await outputManager.write(output);
     };
 
     const processCommand = async (command: string) => {
@@ -481,22 +488,32 @@ function ClientTerminal({
             // All commands (including git, npm, pyxis) are delegated to StreamShell
             // This enables POSIX-compliant pipelines like: git status && ls
             if (shellRef.current) {
+              // Track all async writeOutput promises to ensure they complete before showing prompt
+              const outputPromises: Promise<void>[] = [];
+              
               // delegate entire command to StreamShell which handles pipes/redirection/subst
               // リアルタイム出力コールバックを渡す
               const res = await shellRef.current.run(command, {
                 stdout: (data: string) => {
                   // 即座にTerminalに表示（リアルタイム出力）
                   if (!redirect) {
-                    writeOutput(data).catch(() => {});
+                    const promise = writeOutput(data).catch(() => {});
+                    outputPromises.push(promise);
                   }
                 },
                 stderr: (data: string) => {
                   // stderrも即座に表示
                   if (!redirect) {
-                    writeOutput(data).catch(() => {});
+                    const promise = writeOutput(data).catch(() => {});
+                    outputPromises.push(promise);
                   }
                 },
               });
+              
+              // CRITICAL: Wait for all output to complete before returning
+              // This ensures cursor position is correct before showPrompt() is called
+              await Promise.all(outputPromises);
+              
               // 完了後は何もしない（既にコールバックで出力済み）
               // StreamShell (shellRef) はリダイレクトを内部で処理しているため
               // Terminal側でのファイル書き込みは行わないようにする。
@@ -705,9 +722,10 @@ function ClientTerminal({
 
       switch (data) {
         case '\r':
-          term.writeln('');
           scrollToBottom();
           if (currentLine.trim()) {
+            // Command entered - add newline and execute
+            outputManager.writeln('');
             const command = currentLine.trim();
             const existingIndex = commandHistory.indexOf(command);
             if (existingIndex !== -1) {
@@ -723,6 +741,8 @@ function ClientTerminal({
               showPrompt();
             });
           } else {
+            // Empty command - just show prompt
+            // ensureNewline() in showPrompt() will handle the newline if needed
             showPrompt();
           }
           currentLine = '';
@@ -830,6 +850,11 @@ function ClientTerminal({
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
+
+    // Initialize terminal messages and prompt asynchronously
+    initializeMessages().catch((err) => {
+      console.error('[Terminal] Failed to initialize messages:', err);
+    });
 
     // クリーンアップ
     return () => {
