@@ -243,7 +243,7 @@ export class SyncManager {
             coreInfo(`[SyncManager] Deleting file from IndexedDB: ${dbFile.path}`);
             await fileRepository.deleteFile(dbFile.id);
           } catch (deleteError) {
-            // ファイルが既に削除されている場合や見つからない場合はスキップ
+            // Skip if file is already deleted or not found
             coreWarn(
               `[SyncManager] Failed to delete file ${dbFile.path} (id: ${dbFile.id}), skipping:`,
               deleteError
