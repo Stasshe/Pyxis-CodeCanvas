@@ -142,15 +142,26 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
 }
 
 /**
+ * Swimlane（レーン）の状態を表す型
+ * VSCodeのSCM実装を参考に、各レーンがどのコミットIDを追跡しているかを管理
+ */
+interface Swimlane {
+  id: string; // 追跡しているコミットのハッシュ
+  color: string;
+  lane: number;
+}
+
+/**
  * VSCodeスタイルのレーン割り当てアルゴリズム
  *
  * 新しいコミットから古いコミットへの順序で処理し、
- * 各コミットに適切なレーンを割り当てます。
+ * inputSwimlanes（入力レーン）とoutputSwimlanes（出力レーン）を計算。
  *
  * ルール：
- * 1. 子コミットから見て、第1親はそのレーンを継承
- * 2. マージの第2親以降は新しいレーンに配置
- * 3. ブランチの終端（親を持たないコミット）でレーンを解放
+ * 1. 各コミットは入力レーンから自身のIDを見つけてそのレーンに配置
+ * 2. 第1親は同じレーンを継承し、出力レーンに追加
+ * 3. 第2親以降（マージ元）は新しいレーンを作成して出力レーンに追加
+ * 4. マージコミットでは、マージされたブランチのレーンが収束する
  */
 function assignLanes(
   commits: GitCommitType[],
@@ -159,112 +170,129 @@ function assignLanes(
   const commitLanes = new Map<string, number>();
   const commitColors = new Map<string, string>();
 
-  // アクティブなレーン管理
-  let totalLanes = 0;
-  // 空いているレーンのセット（O(1)でのアクセス用）
-  const availableLanes = new Set<number>();
+  if (commits.length === 0) {
+    return { commitLanes, commitColors, maxLane: 0 };
+  }
 
-  // 各コミットの子を追跡
-  const childrenMap = new Map<string, string[]>();
   const commitMap = new Map<string, GitCommitType>();
-  commits.forEach(c => {
-    commitMap.set(c.hash, c);
-    childrenMap.set(c.hash, []);
-  });
+  commits.forEach(c => commitMap.set(c.hash, c));
 
-  // 子関係を構築
-  commits.forEach(c => {
-    c.parentHashes.forEach(parentHash => {
-      if (childrenMap.has(parentHash)) {
-        childrenMap.get(parentHash)?.push(c.hash);
-      }
-    });
-  });
+  // デフォルトカラー（branchColorsが空の場合のフォールバック）
+  const defaultColor = '#3b82f6';
+  const colors = branchColors.length > 0 ? branchColors : [defaultColor];
 
-  // 予約済みレーン: 親コミットがこのレーンを使う予定
-  const reservedLanes = new Map<string, number>();
+  let colorIndex = 0;
+  let currentSwimlanes: Swimlane[] = [];
+  let maxLane = 0;
 
-  // 空いているレーンを取得するヘルパー関数（excludeを除く）
-  const getAvailableLane = (exclude?: number): number => {
-    for (const lane of availableLanes) {
-      if (lane !== exclude) {
-        return lane;
-      }
+  // 次のカラーを取得
+  const getNextColor = (): string => {
+    const color = colors[colorIndex];
+    colorIndex = (colorIndex + 1) % colors.length;
+    return color;
+  };
+
+  // 空いている最小のレーン番号を取得
+  const getAvailableLane = (usedLanes: Set<number>): number => {
+    let lane = 0;
+    while (usedLanes.has(lane)) {
+      lane++;
     }
-    // 空いているレーンがない場合、新しいレーンを作成
-    return totalLanes;
+    return lane;
   };
 
   for (const commit of commits) {
-    let assignedLane: number;
-    let assignedColor: string;
+    // 入力レーンからこのコミットを見つける
+    const inputIndex = currentSwimlanes.findIndex(s => s.id === commit.hash);
 
-    // このコミットにレーンが予約されているかチェック
-    if (reservedLanes.has(commit.hash)) {
-      assignedLane = reservedLanes.get(commit.hash)!;
-      assignedColor = branchColors[assignedLane % branchColors.length];
-      reservedLanes.delete(commit.hash);
-      // 予約されていたレーンを使用中にする（availableLanesから削除）
-      availableLanes.delete(assignedLane);
+    // このコミットのレーンと色を決定
+    let commitLane: number;
+    let commitColor: string;
+
+    if (inputIndex !== -1) {
+      // 既存のレーンにある場合はそれを使用
+      commitLane = currentSwimlanes[inputIndex].lane;
+      commitColor = currentSwimlanes[inputIndex].color;
     } else {
       // 新しいレーンを割り当て
-      assignedLane = getAvailableLane();
-      if (assignedLane === totalLanes) {
-        totalLanes++;
-      } else {
-        availableLanes.delete(assignedLane);
-      }
-      assignedColor = branchColors[assignedLane % branchColors.length];
+      const usedLanes = new Set(currentSwimlanes.map(s => s.lane));
+      commitLane = getAvailableLane(usedLanes);
+      commitColor = getNextColor();
     }
 
-    commitLanes.set(commit.hash, assignedLane);
-    commitColors.set(commit.hash, assignedColor);
+    commitLanes.set(commit.hash, commitLane);
+    commitColors.set(commit.hash, commitColor);
+    maxLane = Math.max(maxLane, commitLane);
 
-    // 親コミットのレーンを予約
+    // 出力レーンを計算
+    const outputSwimlanes: Swimlane[] = [];
+    let firstParentAdded = false;
+
+    // 親がある場合、出力レーンを構築
     if (commit.parentHashes.length > 0) {
-      // 第1親: このコミットのレーンを継承
-      const firstParent = commit.parentHashes[0];
-      if (commitMap.has(firstParent) && !reservedLanes.has(firstParent)) {
-        reservedLanes.set(firstParent, assignedLane);
+      // 既存のレーンを処理
+      for (const swimlane of currentSwimlanes) {
+        if (swimlane.id === commit.hash) {
+          // このコミットのレーンは第1親に継承される
+          if (!firstParentAdded && commitMap.has(commit.parentHashes[0])) {
+            outputSwimlanes.push({
+              id: commit.parentHashes[0],
+              color: commitColor,
+              lane: commitLane,
+            });
+            firstParentAdded = true;
+          }
+          // このコミット自身のレーンは出力から削除（収束）
+        } else {
+          // 他のレーンはそのまま維持
+          outputSwimlanes.push({ ...swimlane });
+        }
       }
 
-      // 第2親以降: 新しいレーン
+      // 第1親がまだ追加されていない場合（このコミットが入力レーンになかった場合）
+      if (!firstParentAdded && commitMap.has(commit.parentHashes[0])) {
+        outputSwimlanes.push({
+          id: commit.parentHashes[0],
+          color: commitColor,
+          lane: commitLane,
+        });
+        firstParentAdded = true;
+      }
+
+      // 第2親以降を新しいレーンに追加
       for (let i = 1; i < commit.parentHashes.length; i++) {
         const parentHash = commit.parentHashes[i];
-        if (commitMap.has(parentHash) && !reservedLanes.has(parentHash)) {
-          // 空いているレーンを探す（現在のレーン以外）
-          const newLane = getAvailableLane(assignedLane);
-          if (newLane === totalLanes) {
-            totalLanes++;
-          } else {
-            availableLanes.delete(newLane);
-          }
-          reservedLanes.set(parentHash, newLane);
+        if (!commitMap.has(parentHash)) continue;
+
+        // 既に出力レーンに存在するかチェック
+        const existingIndex = outputSwimlanes.findIndex(s => s.id === parentHash);
+        if (existingIndex !== -1) continue;
+
+        // 新しいレーンを割り当て
+        const usedLanes = new Set(outputSwimlanes.map(s => s.lane));
+        const newLane = getAvailableLane(usedLanes);
+        const newColor = getNextColor();
+
+        outputSwimlanes.push({
+          id: parentHash,
+          color: newColor,
+          lane: newLane,
+        });
+        maxLane = Math.max(maxLane, newLane);
+      }
+    } else {
+      // 親がない場合、このコミットのレーンを除いた他のレーンを維持
+      for (const swimlane of currentSwimlanes) {
+        if (swimlane.id !== commit.hash) {
+          outputSwimlanes.push({ ...swimlane });
         }
       }
     }
 
-    // このコミットに子がいなければレーンを解放
-    const childCount = childrenMap.get(commit.hash)?.length || 0;
-    // 子の中でこのコミットを第1親として持つものの数
-    const firstParentChildCount = (childrenMap.get(commit.hash) || []).filter(childHash => {
-      const child = commitMap.get(childHash);
-      return child && child.parentHashes[0] === commit.hash;
-    }).length;
-
-    // 全ての子が処理済みで、もうこのレーンを使う子がいなければ解放
-    if (childCount === 0 || firstParentChildCount === 0) {
-      // ただし、まだ処理されていない親への接続がある場合は解放しない
-      const hasUnprocessedParent = commit.parentHashes.some(
-        p => commitMap.has(p) && !commitLanes.has(p)
-      );
-      if (!hasUnprocessedParent && firstParentChildCount === 0) {
-        availableLanes.add(assignedLane);
-      }
-    }
+    // 次のコミットの入力レーンとして使用
+    currentSwimlanes = outputSwimlanes;
   }
 
-  const maxLane = totalLanes > 0 ? totalLanes - 1 : 0;
   return { commitLanes, commitColors, maxLane };
 }
 
