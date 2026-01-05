@@ -1,14 +1,6 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { TerminalUI, createTerminalUI } from '@/engine/cmd/terminalUI';
-
-/**
- * Check if operation should be aborted
- */
-function checkAbort(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new Error('Operation interrupted');
-  }
-}
+import { checkAbort } from '@/engine/cmd/lib/abortUtils';
 
 export async function handleNPMCommand(
   args: string[],

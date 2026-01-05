@@ -10,15 +10,7 @@ import { exportPage } from '@/engine/export/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
-
-/**
- * Check if operation should be aborted
- */
-function checkAbort(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new Error('Operation interrupted');
-  }
-}
+import { checkAbort } from '@/engine/cmd/lib/abortUtils';
 
 export async function handlePyxisCommand(
   cmd: string,

@@ -11,6 +11,7 @@ import { parseCommandLine } from './parser';
 import { Process } from './process';
 import { runScript } from './scriptRunner';
 import { type Segment, type TokenObj, isDevNull } from './types';
+import { isAborted } from '../lib/abortUtils';
 
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
 import type { UnixCommands } from '../global/unix';
@@ -499,7 +500,7 @@ export class ShellExecutor {
     };
 
     const writeOutput = async (output: string) => {
-      if (signal.aborted) return;
+      if (isAborted(signal)) return;
       proc.writeStdout(output);
       if (!output.endsWith('\n')) {
         proc.writeStdout('\n');
@@ -507,7 +508,7 @@ export class ShellExecutor {
     };
 
     const writeError = async (output: string) => {
-      if (signal.aborted) return;
+      if (isAborted(signal)) return;
       proc.writeStderr(output);
       if (!output.endsWith('\n')) {
         proc.writeStderr('\n');
@@ -520,9 +521,9 @@ export class ShellExecutor {
         try {
           const { handleGitCommand } = await import('../handlers/gitHandler');
           await handleGitCommand(args, this.context.projectName, this.context.projectId, writeOutput, signal);
-          return signal.aborted ? 130 : 0;
+          return isAborted(signal) ? 130 : 0;
         } catch (e: any) {
-          if (signal.aborted) return 130;
+          if (isAborted(signal)) return 130;
           await writeError(`git: ${e.message}`);
           return 1;
         }
@@ -540,9 +541,9 @@ export class ShellExecutor {
             () => {}, // setLoading - no-op in shell context
             signal
           );
-          return signal.aborted ? 130 : 0;
+          return isAborted(signal) ? 130 : 0;
         } catch (e: any) {
-          if (signal.aborted) return 130;
+          if (isAborted(signal)) return 130;
           await writeError(`npm: ${e.message}`);
           return 1;
         }
@@ -588,9 +589,9 @@ export class ShellExecutor {
             writeOutput,
             signal
           );
-          return signal.aborted ? 130 : 0;
+          return isAborted(signal) ? 130 : 0;
         } catch (e: any) {
-          if (signal.aborted) return 130;
+          if (isAborted(signal)) return 130;
           await writeError(`pyxis: ${e.message}`);
           return 1;
         }
@@ -599,7 +600,7 @@ export class ShellExecutor {
       // 4. Extension commands
       if (this.commandRegistry?.hasCommand(cmd)) {
         try {
-          if (signal.aborted) return 130;
+          if (isAborted(signal)) return 130;
           const unix = await this.getUnix();
           const currentDir = unix ? await unix.pwd() : this.context.cwd;
           const result = await this.commandRegistry.executeCommand(cmd, args, {
@@ -608,9 +609,9 @@ export class ShellExecutor {
             currentDirectory: currentDir,
           });
           await writeOutput(result);
-          return signal.aborted ? 130 : 0;
+          return isAborted(signal) ? 130 : 0;
         } catch (e: any) {
-          if (signal.aborted) return 130;
+          if (isAborted(signal)) return 130;
           await writeError(`${cmd}: ${e.message}`);
           return 1;
         }
@@ -632,9 +633,9 @@ export class ShellExecutor {
 
         try {
           await builtins[cmd](ctx, args);
-          return signal.aborted ? 130 : 0;
+          return isAborted(signal) ? 130 : 0;
         } catch (e: any) {
-          if (signal.aborted) return 130;
+          if (isAborted(signal)) return 130;
           if (e?.__silent) {
             return typeof e.code === 'number' ? e.code : 1;
           }
