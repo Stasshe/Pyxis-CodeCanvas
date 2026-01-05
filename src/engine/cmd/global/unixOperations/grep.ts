@@ -91,7 +91,9 @@ export class GrepCommand extends UnixCommandBase {
       if (lineRegexp) {
         pat = `^${pat}$`;
       }
-      regex = new RegExp(pat, ignoreCase ? 'gi' : 'g');
+      // gフラグは-oオプションでのみ使用（複数マッチ取得）
+      // test()での状態問題を避けるため、通常は使用しない
+      regex = new RegExp(pat, ignoreCase ? 'i' : '');
     } catch (e) {
       throw new Error(`grep: invalid regular expression: ${(e as Error).message}`);
     }

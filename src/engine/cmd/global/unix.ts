@@ -16,6 +16,7 @@ import {
   RmCommand,
   StatCommand,
   TailCommand,
+  TestCommand,
   TouchCommand,
   TreeCommand,
   UnzipCommand,
@@ -55,6 +56,7 @@ export class UnixCommands {
   private mvCmd: MvCommand;
   private pwdCmd: PwdCommand;
   private rmCmd: RmCommand;
+  private testCmd: TestCommand;
   private touchCmd: TouchCommand;
   private treeCmd: TreeCommand;
   private unzipCmd: UnzipCommand;
@@ -85,6 +87,7 @@ export class UnixCommands {
     this.mvCmd = new MvCommand(projectName, this.currentDir, projectId);
     this.pwdCmd = new PwdCommand(projectName, this.currentDir, projectId);
     this.rmCmd = new RmCommand(projectName, this.currentDir, projectId);
+    this.testCmd = new TestCommand(projectName, this.currentDir, projectId);
     this.touchCmd = new TouchCommand(projectName, this.currentDir, projectId);
     this.treeCmd = new TreeCommand(projectName, this.currentDir, projectId);
     this.unzipCmd = new UnzipCommand(projectName, this.currentDir, projectId);
@@ -128,6 +131,7 @@ export class UnixCommands {
     this.mvCmd.currentDir = dir;
     this.pwdCmd.currentDir = dir;
     this.rmCmd.currentDir = dir;
+    this.testCmd.currentDir = dir;
     this.touchCmd.currentDir = dir;
     this.treeCmd.currentDir = dir;
     this.unzipCmd.currentDir = dir;
@@ -309,6 +313,13 @@ export class UnixCommands {
       this.wcCmd.setStdin(content);
     }
     return await this.wcCmd.execute(args);
+  }
+
+  /**
+   * test/[ コマンド - 条件式を評価
+   */
+  async test(args: string[]): Promise<boolean> {
+    return await this.testCmd.evaluate(args);
   }
 
   /**

@@ -147,15 +147,15 @@ export class WcCommand extends UnixCommandBase {
     bytes: number;
     chars: number;
   } {
-    // 行数: 改行の数（最終行に改行がない場合も1行としてカウント）
-    let lines = 0;
-    if (content.length > 0) {
-      lines = (content.match(/\n/g) || []).length;
-      // 最終行に改行がない場合は+1しない（POSIXの動作）
-    }
+    // 行数: 改行の数
+    // POSIX wc: 改行文字の数をカウント（最終行に改行がなくてもその行は含まない）
+    const lines = (content.match(/\n/g) || []).length;
 
     // 単語数: 空白で区切られた非空文字列の数
-    const words = content.split(/\s+/).filter(w => w.length > 0).length;
+    // 空文字列やホワイトスペースのみの場合は0
+    const words = content.trim().length === 0 
+      ? 0 
+      : content.trim().split(/\s+/).length;
 
     // バイト数: UTF-8エンコードでのバイト数
     const bytes = new TextEncoder().encode(content).length;

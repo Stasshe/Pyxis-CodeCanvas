@@ -14,6 +14,7 @@ export { PwdCommand } from './pwd';
 export { RmCommand } from './rm';
 export { StatCommand } from './stat';
 export { TailCommand } from './tail';
+export { TestCommand } from './test';
 export { TouchCommand } from './touch';
 export { TreeCommand } from './tree';
 export { UnzipCommand } from './unzip';

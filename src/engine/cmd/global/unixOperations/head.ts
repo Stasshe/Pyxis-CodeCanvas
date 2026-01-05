@@ -81,7 +81,7 @@ export class HeadCommand extends UnixCommandBase {
         if (numBytes !== null) {
           // バイト単位
           if (fromEnd) {
-            output = content.slice(0, -numBytes || undefined);
+            output = numBytes === 0 ? content : content.slice(0, -numBytes);
           } else {
             output = content.slice(0, numBytes);
           }
@@ -89,7 +89,7 @@ export class HeadCommand extends UnixCommandBase {
           // 行単位
           const lines = content.split(/\r?\n/);
           if (fromEnd) {
-            output = lines.slice(0, -numLines || undefined).join('\n');
+            output = numLines === 0 ? lines.join('\n') : lines.slice(0, -numLines).join('\n');
           } else {
             output = lines.slice(0, numLines).join('\n');
           }
