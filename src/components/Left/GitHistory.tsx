@@ -876,31 +876,45 @@ function GitHistoryComponent({
             })}
             {/* もっと読み込むボタン */}
             {hasMore && onLoadMore && (
-              <div className="pl-8 py-3">
+              <div style={{ paddingLeft: '2rem', paddingTop: '0.75rem', paddingBottom: '0.75rem' }}>
                 <button
                   onClick={onLoadMore}
                   disabled={isLoadingMore}
-                  className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-md text-xs font-medium transition-colors"
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    border: 'none',
                     background: colors.mutedBg,
                     color: colors.foreground,
                     opacity: isLoadingMore ? 0.6 : 1,
                     cursor: isLoadingMore ? 'not-allowed' : 'pointer',
+                    transition: 'opacity 0.2s',
                   }}
                   onMouseEnter={e => {
                     if (!isLoadingMore) {
-                      e.currentTarget.style.background = colors.mutedBg;
                       e.currentTarget.style.opacity = '0.8';
                     }
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = colors.mutedBg;
                     e.currentTarget.style.opacity = isLoadingMore ? '0.6' : '1';
                   }}
                 >
                   {isLoadingMore ? (
                     <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <Loader2
+                        style={{
+                          width: '0.75rem',
+                          height: '0.75rem',
+                          animation: 'spin 1s linear infinite',
+                        }}
+                      />
                       {t('gitHistory.loadingMore')}
                     </>
                   ) : (

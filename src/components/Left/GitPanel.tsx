@@ -392,7 +392,9 @@ export default function GitPanel({
         const branches = parseGitBranches(branchResult);
         const status = parseGitStatus(statusResult);
 
-        const hasRemoteRepo = remotesResult.trim() !== '' && !remotesResult.includes('No remotes');
+        // リモートの有無を判定（"No remotes" で始まる場合はリモートなし）
+        const hasRemoteRepo =
+          remotesResult.trim() !== '' && !remotesResult.startsWith('No remotes');
         setHasRemote(hasRemoteRepo);
         setCommitDepth(depth);
 
