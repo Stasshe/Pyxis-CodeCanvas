@@ -326,6 +326,10 @@ function ClientTerminal({
 
     // プロンプトを表示する関数
     const showPrompt = async () => {
+      // CRITICAL: Wait for all pending output to complete before checking cursor position
+      // This ensures cursor position is accurate
+      await outputManager.flush();
+      
       // Ensure we're on a new line - this is the key to preventing prompt overlap
       // Linux/Windows terminals always ensure prompts start on a new line
       await outputManager.ensureNewline();
@@ -476,22 +480,32 @@ function ClientTerminal({
             // All commands (including git, npm, pyxis) are delegated to StreamShell
             // This enables POSIX-compliant pipelines like: git status && ls
             if (shellRef.current) {
+              // Track all async writeOutput promises to ensure they complete before showing prompt
+              const outputPromises: Promise<void>[] = [];
+              
               // delegate entire command to StreamShell which handles pipes/redirection/subst
               // リアルタイム出力コールバックを渡す
               const res = await shellRef.current.run(command, {
                 stdout: (data: string) => {
                   // 即座にTerminalに表示（リアルタイム出力）
                   if (!redirect) {
-                    writeOutput(data).catch(() => {});
+                    const promise = writeOutput(data).catch(() => {});
+                    outputPromises.push(promise);
                   }
                 },
                 stderr: (data: string) => {
                   // stderrも即座に表示
                   if (!redirect) {
-                    writeOutput(data).catch(() => {});
+                    const promise = writeOutput(data).catch(() => {});
+                    outputPromises.push(promise);
                   }
                 },
               });
+              
+              // CRITICAL: Wait for all output to complete before returning
+              // This ensures cursor position is correct before showPrompt() is called
+              await Promise.all(outputPromises);
+              
               // 完了後は何もしない（既にコールバックで出力済み）
               // StreamShell (shellRef) はリダイレクトを内部で処理しているため
               // Terminal側でのファイル書き込みは行わないようにする。
