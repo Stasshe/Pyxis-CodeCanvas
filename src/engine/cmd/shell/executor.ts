@@ -72,6 +72,8 @@ export class ShellExecutor {
   private commandRegistry: any;
   private foregroundProc: Process | null = null;
   private builtins: Record<string, any> | null = null;
+  // Track all active processes for proper signal handling
+  private activeProcs: Set<Process> = new Set();
 
   constructor(options: ShellExecutorOptions) {
     this.context = {
@@ -272,6 +274,12 @@ export class ShellExecutor {
   private async createProcessForSegment(seg: Segment, originalLine: string): Promise<Process> {
     const proc = new Process();
     const unix = await this.getUnix();
+
+    // Track this process for signal handling
+    this.activeProcs.add(proc);
+    proc.on('exit', () => {
+      this.activeProcs.delete(proc);
+    });
 
     // Apply fd duplication
     if ((seg as any).fdDup) {
@@ -830,7 +838,15 @@ export class ShellExecutor {
    */
   killForeground(signal = 'SIGINT'): void {
     try {
-      if (this.foregroundProc) {
+      // Kill all active processes, not just foreground
+      // This ensures scripts with nested commands are properly interrupted
+      for (const proc of this.activeProcs) {
+        try {
+          proc.kill(signal);
+        } catch {}
+      }
+      // Also kill foreground if set (may already be in activeProcs)
+      if (this.foregroundProc && !this.activeProcs.has(this.foregroundProc)) {
         this.foregroundProc.kill(signal);
       }
     } catch {}

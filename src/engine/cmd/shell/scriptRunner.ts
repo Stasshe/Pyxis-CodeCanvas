@@ -657,6 +657,12 @@ async function runRange(
     } catch (e) {
       // ignore evaluation errors and use original execLine
     }
+    
+    // Check for interrupt BEFORE running command
+    if (interruptCtrl.isInterrupted()) {
+      return 'interrupted';
+    }
+    
     // Pass real-time output callbacks to enable streaming output
     const res = await shell.run(execLine, {
       stdout: (data: string) => {
@@ -666,6 +672,11 @@ async function runRange(
         proc.writeStderr(data);
       },
     });
+    
+    // Check for interrupt AFTER command completes
+    if (interruptCtrl.isInterrupted()) {
+      return 'interrupted';
+    }
     // Note: output is already written via callbacks, no need to write again
     // continue even on non-zero exit
   }
