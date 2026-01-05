@@ -48,6 +48,8 @@ Root
 │   ├── SYSTEM-OVERVIEW.md
 │   ├── TWO-LAYER-ARCHITECTURE.md
 │   ├── UI-COMPONENTS.md
+│   ├── architecture
+│   │   └── terminal-output-management.md
 │   ├── en
 │   │   └── NODE-RUNTIME.md
 │   └── pyxis-all.svg.svg
@@ -326,6 +328,7 @@ Root
 │   │   │   │   ├── scriptRunner.ts
 │   │   │   │   ├── streamShell.ts
 │   │   │   │   └── types.ts
+│   │   │   ├── terminalOutputManager.ts
 │   │   │   ├── terminalRegistry.ts
 │   │   │   ├── terminalUI.ts
 │   │   │   └── vim.ts
@@ -490,7 +493,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-72 directories, 418 files
+73 directories, 420 files
 
 =================================
 
@@ -617,12 +620,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 67612
-合計文字数: 2141667
-合計ファイルサイズ(bytes): 2286897
+合計行数: 67801
+合計文字数: 2146549
+合計ファイルサイズ(bytes): 2291789
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127534
-合計文字数: 26901789
-合計ファイルサイズ(bytes): 29879989
+ビルト済みファイルの行数: 127535
+合計文字数: 26901785
+合計ファイルサイズ(bytes): 29879985
