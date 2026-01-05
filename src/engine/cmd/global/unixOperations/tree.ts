@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { fnmatch, FNM_CASEFOLD, parseArgs } from '../../lib';
 
 import type { ProjectFile } from '@/types';
 
@@ -12,7 +13,10 @@ import type { ProjectFile } from '@/types';
  *   -a              .で始まるファイルも表示
  *   -d              ディレクトリのみ表示
  *   -L level        表示する深さを指定
- *   -I pattern      パターンに一致するファイルを除外
+ *   -I pattern      パターンに一致するファイルを除外（パイプ区切り可）
+ *   -P pattern      パターンに一致するファイルのみ表示
+ *   -f              フルパスを表示
+ *   --noreport      ファイル/ディレクトリ数を表示しない
  *
  * 動作:
  *   - IndexedDBから情報取得
@@ -20,33 +24,33 @@ import type { ProjectFile } from '@/types';
  */
 export class TreeCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    // オプションパース
+    const { flags, values, positional } = parseArgs(args, ['-L', '-I', '-P']);
 
-    const showAll = options.has('-a');
-    const dirsOnly = options.has('-d');
+    const showAll = flags.has('-a');
+    const dirsOnly = flags.has('-d');
+    const fullPath = flags.has('-f');
+    const noReport = flags.has('--noreport');
 
-    let maxDepth = 999;
-    if (options.has('-L')) {
-      const levelIndex = args.indexOf('-L');
-      if (levelIndex >= 0 && levelIndex + 1 < args.length) {
-        maxDepth = Number.parseInt(args[levelIndex + 1], 10) || 999;
-      }
+    const maxDepth = values.has('-L') ? Number.parseInt(values.get('-L')!, 10) || 999 : 999;
+
+    // -I: 除外パターン（パイプ区切り対応）
+    const ignorePatterns: string[] = [];
+    if (values.has('-I')) {
+      const pattern = values.get('-I')!;
+      ignorePatterns.push(...pattern.split('|'));
     }
 
-    let ignorePattern: RegExp | null = null;
-    if (options.has('-I')) {
-      const patternIndex = args.indexOf('-I');
-      if (patternIndex >= 0 && patternIndex + 1 < args.length) {
-        const pattern = args[patternIndex + 1];
-        ignorePattern = new RegExp(pattern.replace(/\*/g, '.*'));
-      }
+    // -P: 表示パターン
+    let includePattern: string | null = null;
+    if (values.has('-P')) {
+      includePattern = values.get('-P')!;
     }
 
     const targetDir = positional.length > 0 ? positional[0] : '.';
     const resolvedPath = this.resolvePath(targetDir);
     const normalizedPath = this.normalizePath(resolvedPath);
 
-    // ディレクトリの存在確認（IndexedDBベース）
     const exists = await this.exists(normalizedPath);
     if (!exists) {
       throw new Error(`tree: ${targetDir}: No such file or directory`);
@@ -76,7 +80,7 @@ export class TreeCommand extends UnixCommandBase {
         return f.path.startsWith(dirPrefix) && !childPath.includes('/');
       });
 
-      // フィルタリング
+      // フィルタリング: 隠しファイル
       if (!showAll) {
         entries = entries.filter(f => {
           const name = f.path.split('/').pop() || '';
@@ -84,18 +88,30 @@ export class TreeCommand extends UnixCommandBase {
         });
       }
 
+      // フィルタリング: ディレクトリのみ
       if (dirsOnly) {
         entries = entries.filter(f => f.type === 'folder');
       }
 
-      if (ignorePattern) {
+      // フィルタリング: -I 除外パターン（fnmatch使用）
+      if (ignorePatterns.length > 0) {
         entries = entries.filter(f => {
           const name = f.path.split('/').pop() || '';
-          return !ignorePattern?.test(name);
+          return !ignorePatterns.some(pat => fnmatch(pat, name) === 0);
         });
       }
 
-      // ソート
+      // フィルタリング: -P 表示パターン
+      if (includePattern) {
+        entries = entries.filter(f => {
+          const name = f.path.split('/').pop() || '';
+          // ディレクトリは常に表示（中身を見るため）
+          if (f.type === 'folder') return true;
+          return fnmatch(includePattern!, name) === 0;
+        });
+      }
+
+      // ソート: ディレクトリ優先、名前順
       entries.sort((a, b) => {
         const nameA = a.path.split('/').pop() || '';
         const nameB = b.path.split('/').pop() || '';
@@ -113,7 +129,8 @@ export class TreeCommand extends UnixCommandBase {
         const newPrefix = prefix + (isLast ? '    ' : '│   ');
         const name = entry.path.split('/').pop() || '';
 
-        result += `${prefix}${connector}${name}${entry.type === 'folder' ? '/' : ''}\n`;
+        const displayName = fullPath ? `${dirPath}/${name}` : name;
+        result += `${prefix}${connector}${displayName}${entry.type === 'folder' ? '/' : ''}\n`;
 
         if (entry.type === 'folder') {
           dirCount++;
@@ -127,9 +144,12 @@ export class TreeCommand extends UnixCommandBase {
       return result;
     };
 
-    let result = `${normalizedPath}\n`;
+    let result = `${fullPath ? normalizedPath : targetDir}\n`;
     result += await buildTree(normalizedPath);
-    result += `\n${dirCount} ${dirsOnly ? 'directories' : `directories, ${fileCount} files`}`;
+
+    if (!noReport) {
+      result += `\n${dirCount} ${dirsOnly ? 'directories' : `directories, ${fileCount} files`}`;
+    }
 
     return result;
   }

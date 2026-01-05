@@ -16,9 +16,11 @@ import {
   RmCommand,
   StatCommand,
   TailCommand,
+  TestCommand,
   TouchCommand,
   TreeCommand,
   UnzipCommand,
+  WcCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -54,12 +56,14 @@ export class UnixCommands {
   private mvCmd: MvCommand;
   private pwdCmd: PwdCommand;
   private rmCmd: RmCommand;
+  private testCmd: TestCommand;
   private touchCmd: TouchCommand;
   private treeCmd: TreeCommand;
   private unzipCmd: UnzipCommand;
   private headCmd: HeadCommand;
   private tailCmd: TailCommand;
   private statCmd: StatCommand;
+  private wcCmd: WcCommand;
 
   constructor(projectName: string, projectId?: string) {
     this.currentDir = gitFileSystem.getProjectDir(projectName);
@@ -83,12 +87,14 @@ export class UnixCommands {
     this.mvCmd = new MvCommand(projectName, this.currentDir, projectId);
     this.pwdCmd = new PwdCommand(projectName, this.currentDir, projectId);
     this.rmCmd = new RmCommand(projectName, this.currentDir, projectId);
+    this.testCmd = new TestCommand(projectName, this.currentDir, projectId);
     this.touchCmd = new TouchCommand(projectName, this.currentDir, projectId);
     this.treeCmd = new TreeCommand(projectName, this.currentDir, projectId);
     this.unzipCmd = new UnzipCommand(projectName, this.currentDir, projectId);
     this.headCmd = new HeadCommand(projectName, this.currentDir, projectId);
     this.tailCmd = new TailCommand(projectName, this.currentDir, projectId);
     this.statCmd = new StatCommand(projectName, this.currentDir, projectId);
+    this.wcCmd = new WcCommand(projectName, this.currentDir, projectId);
   }
 
   /**
@@ -125,12 +131,14 @@ export class UnixCommands {
     this.mvCmd.currentDir = dir;
     this.pwdCmd.currentDir = dir;
     this.rmCmd.currentDir = dir;
+    this.testCmd.currentDir = dir;
     this.touchCmd.currentDir = dir;
     this.treeCmd.currentDir = dir;
     this.unzipCmd.currentDir = dir;
     this.headCmd.currentDir = dir;
     this.tailCmd.currentDir = dir;
     this.statCmd.currentDir = dir;
+    this.wcCmd.currentDir = dir;
   }
 
   /**
@@ -282,6 +290,36 @@ export class UnixCommands {
     stdin: NodeJS.ReadableStream | string | null = null
   ): Promise<string> {
     return await this.grepCmd.execute([...options, pattern, ...files], stdin);
+  }
+
+  /**
+   * 行数、単語数、バイト数をカウント
+   */
+  async wc(args: string[], stdin: NodeJS.ReadableStream | string | null = null): Promise<string> {
+    if (stdin) {
+      // stdinの内容をセット
+      let content = '';
+      if (typeof stdin === 'string') {
+        content = stdin;
+      } else {
+        content = await new Promise<string>(resolve => {
+          let buf = '';
+          stdin.on('data', (c: any) => (buf += String(c)));
+          stdin.on('end', () => resolve(buf));
+          stdin.on('close', () => resolve(buf));
+          setTimeout(() => resolve(buf), 50);
+        });
+      }
+      this.wcCmd.setStdin(content);
+    }
+    return await this.wcCmd.execute(args);
+  }
+
+  /**
+   * test/[ コマンド - 条件式を評価
+   */
+  async test(args: string[]): Promise<boolean> {
+    return await this.testCmd.evaluate(args);
   }
 
   /**

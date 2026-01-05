@@ -125,90 +125,31 @@ export default function adaptUnixToStream(unix: any) {
     'head',
     'tail',
     'grep',
+    'wc',
   ];
 
   for (const cmd of commands) {
     obj[cmd] = makeUnixBridge(cmd);
   }
 
-  // test/[ ビルトイン（シェル内部実装が必要）
+  // test/[ ビルトイン - TestCommandに委譲
   const evaluateTest = async (ctx: StreamCtx, args: string[] = []) => {
     try {
-      if (args.length > 0 && args[args.length - 1] === ']') {
-        args = args.slice(0, -1);
-      }
-
-      let ok = false;
-
-      if (args.length === 0) {
-        ok = false;
-      } else if (args.length === 1) {
-        ok = String(args[0]).length > 0;
-      } else if (args.length === 2) {
-        const op = args[0];
-        const val = args[1];
-
-        if (op === '-n') ok = String(val).length > 0;
-        else if (op === '-z') ok = String(val).length === 0;
-        else if (op === '-f' || op === '-d') {
-          if (typeof unix?.stat === 'function') {
-            try {
-              const st = await unix.stat(String(val)).catch(() => null);
-              if (st) {
-                if (op === '-f') {
-                  ok =
-                    typeof st === 'object'
-                      ? !(st as any).isDirectory && (st as any).type !== 'directory'
-                      : true;
-                } else {
-                  ok =
-                    typeof st === 'object'
-                      ? (st as any).isDirectory || (st as any).type === 'directory'
-                      : true;
-                }
-              }
-            } catch (e) {
-              ok = false;
-            }
-          }
+      // unix.testを使用（TestCommandに委譲）
+      if (typeof unix?.test === 'function') {
+        const ok = await unix.test(args);
+        if (!ok) {
+          throw { __silent: true, code: 1 };
         }
-      } else if (args.length >= 3) {
-        const a = args[0];
-        const op = args[1];
-        const b = args[2];
-
-        if (op === '=' || op === '==') ok = String(a) === String(b);
-        else if (op === '!=') ok = String(a) !== String(b);
-        else if (['-eq', '-ne', '-gt', '-lt', '-ge', '-le'].includes(op)) {
-          const na = Number(a);
-          const nb = Number(b);
-          if (!Number.isNaN(na) && !Number.isNaN(nb)) {
-            switch (op) {
-              case '-eq':
-                ok = na === nb;
-                break;
-              case '-ne':
-                ok = na !== nb;
-                break;
-              case '-gt':
-                ok = na > nb;
-                break;
-              case '-lt':
-                ok = na < nb;
-                break;
-              case '-ge':
-                ok = na >= nb;
-                break;
-              case '-le':
-                ok = na <= nb;
-                break;
-            }
-          }
+      } else {
+        // フォールバック: シンプルな評価
+        let tokens = [...args];
+        if (tokens.length > 0 && tokens[tokens.length - 1] === ']') {
+          tokens = tokens.slice(0, -1);
         }
-      }
-
-      if (!ok) {
-        throw { __silent: true, code: 1 };
+        if (tokens.length === 0 || (tokens.length === 1 && tokens[0].length === 0)) {
+          throw { __silent: true, code: 1 };
+        }
       }
       ctx.stdout.end();
     } catch (e: any) {

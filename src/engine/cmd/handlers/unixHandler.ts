@@ -317,6 +317,17 @@ export async function handleUnixCommand(
         break;
       }
 
+      case 'wc': {
+        // wc command - count lines, words, bytes
+        try {
+          const result = await unix.wc(args, stdin);
+          await append(result);
+        } catch (err) {
+          await append(`wc: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
       case 'chmod':
       case 'chown':
         await append(`${cmd}: not supported in browser environment\nOperation skipped.`);
