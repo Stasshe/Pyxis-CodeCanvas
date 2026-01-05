@@ -60,31 +60,12 @@ export default function GitPanel({
       setIsLoading(true);
       setError(null);
 
-      console.log('[GitPanel] Fetching git status...');
-
-      // [重要] git.tsの内部で完全同期が実行されるため、ここでの同期処理は簡素化
-      // ファイルシステムの同期を確実にする
-      const fs = (gitCommands as any).fs;
-      if (fs && (fs as any).sync) {
-        try {
-          await fs.sync();
-          console.log('[GitPanel] FileSystem synced before status check');
-        } catch (syncError) {
-          console.warn('[GitPanel] FileSystem sync failed:', syncError);
-        }
-      }
-
-      // ファイルシステムの変更が確実に反映されるまで待機（短縮）
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Git状態を並行して取得
+      // Git状態を並行して取得（待機時間を削除して高速化）
       const [statusResult, logResult, branchResult] = await Promise.all([
         gitCommands.status(),
         gitCommands.getFormattedLog(20),
         gitCommands.branch(),
       ]);
-
-      console.log('[GitPanel] Git status result:', statusResult);
 
       // コミット履歴をパース
       const commits = parseGitLog(logResult);
@@ -95,18 +76,10 @@ export default function GitPanel({
       // ステータス情報をパース
       const status = parseGitStatus(statusResult);
 
-      console.log('[GitPanel] Parsed status:', {
-        staged: status.staged,
-        unstaged: status.unstaged,
-        untracked: status.untracked,
-        commits: commits.length,
-        branches: branches.length,
-      });
-
       setGitRepo({
         initialized: true,
         branches,
-        commits, // 直接パースしたコミットを使用（ブランチ情報含む）
+        commits,
         status,
         currentBranch: status.branch,
       });
@@ -118,14 +91,12 @@ export default function GitPanel({
           status.unstaged.length +
           status.untracked.length +
           status.deleted.length;
-        console.log('[GitPanel] Notifying changes count:', changesCount);
         onGitStatusChange(changesCount);
       }
     } catch (error) {
       console.error('Failed to fetch git status:', error);
       setError(error instanceof Error ? error.message : t('git.operationError'));
       setGitRepo(null);
-      // エラー時は変更ファイル数を0にリセット
       if (onGitStatusChange) {
         onGitStatusChange(0);
       }
@@ -374,14 +345,9 @@ export default function GitPanel({
     if (!gitCommands) return;
 
     try {
-      console.log('[GitPanel] Staging file:', file);
       await gitCommands.add(file);
-
-      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
-      setTimeout(() => {
-        console.log('[GitPanel] Refreshing status after staging');
-        fetchGitStatus();
-      }, 100);
+      // ステージング完了後に即座に状態更新
+      await fetchGitStatus();
     } catch (error) {
       console.error('Failed to stage file:', error);
     }
@@ -393,7 +359,7 @@ export default function GitPanel({
 
     try {
       await gitCommands.reset({ filepath: file });
-      fetchGitStatus();
+      await fetchGitStatus();
     } catch (error) {
       console.error('Failed to unstage file:', error);
     }
@@ -404,14 +370,9 @@ export default function GitPanel({
     if (!gitCommands) return;
 
     try {
-      console.log('[GitPanel] Staging all files');
       await gitCommands.add('.');
-
-      // ステージング後の状態更新（git.tsで既に同期処理があるため、短い遅延で十分）
-      setTimeout(() => {
-        console.log('[GitPanel] Refreshing status after staging all');
-        fetchGitStatus();
-      }, 150);
+      // ステージング完了後に即座に状態更新
+      await fetchGitStatus();
     } catch (error) {
       console.error('Failed to stage all files:', error);
     }
@@ -423,12 +384,9 @@ export default function GitPanel({
     const stagedFiles = gitRepo?.status.staged || [];
 
     try {
-      console.log('[GitPanel] Unstaging all files');
-      // ステージングされているファイルをすべてアンステージ
-      for (const file of stagedFiles) {
-        await gitCommands.reset({ filepath: file });
-      }
-      fetchGitStatus();
+      // 並列でアンステージング
+      await Promise.all(stagedFiles.map(file => gitCommands.reset({ filepath: file })));
+      await fetchGitStatus();
     } catch (error) {
       console.error('Failed to unstage all files:', error);
     }
@@ -439,21 +397,13 @@ export default function GitPanel({
     if (!gitCommands) return;
 
     try {
-      console.log('[GitPanel] Starting discard changes for file:', file);
-      const result = await gitCommands.discardChanges(file);
-      console.log('[GitPanel] Discard changes result:', result);
+      await gitCommands.discardChanges(file);
+      await fetchGitStatus();
 
-      // 少し待ってからGit状態を更新（ファイルシステムの同期を待つ）
-      setTimeout(async () => {
-        console.log('[GitPanel] Refreshing git status after discard...');
-        await fetchGitStatus();
-
-        // 親コンポーネントにも更新を通知
-        if (onRefresh) {
-          console.log('[GitPanel] Calling onRefresh after discard...');
-          onRefresh();
-        }
-      }, 200);
+      // 親コンポーネントにも更新を通知
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (error) {
       console.error('Failed to discard changes:', error);
     }
@@ -466,7 +416,6 @@ export default function GitPanel({
     try {
       setIsCommitting(true);
       setError(null);
-      console.log('[GitPanel] Starting commit process...');
 
       // タイムアウト付きでコミット実行
       const commitPromise = gitCommands.commit(commitMessage.trim());
@@ -476,14 +425,9 @@ export default function GitPanel({
 
       await Promise.race([commitPromise, timeoutPromise]);
 
-      console.log('[GitPanel] Commit completed successfully');
       setCommitMessage('');
-
-      // コミット成功後、少し待ってからステータスを更新
-      setTimeout(() => {
-        console.log('[GitPanel] Refreshing status after commit...');
-        fetchGitStatus();
-      }, 500);
+      // コミット完了後に即座に状態更新
+      await fetchGitStatus();
     } catch (error) {
       console.error('Failed to commit:', error);
       setError(error instanceof Error ? error.message : 'コミットに失敗しました');
@@ -540,12 +484,10 @@ export default function GitPanel({
   // Git更新トリガーが変更されたときの更新
   useEffect(() => {
     if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
-      console.log('[GitPanel] Git refresh trigger fired:', gitRefreshTrigger);
-      // ファイル同期完了を待つために適度な遅延
+      // 短い遅延で状態更新を実行
       const timer = setTimeout(() => {
-        console.log('[GitPanel] Executing delayed git status fetch');
         fetchGitStatus();
-      }, 200);
+      }, 50);
       return () => clearTimeout(timer);
     }
   }, [gitRefreshTrigger]);

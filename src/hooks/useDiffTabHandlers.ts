@@ -92,26 +92,9 @@ export function useDiffTabHandlers(currentProject: any) {
         return;
       }
 
-      // 通常のコミット間diff
-      const log = await git.getFormattedLog(20);
-      const lines = log.split('\n');
-      const idx = lines.findIndex(line => line.startsWith(commitId));
-      let parentCommitId = '';
-
-      if (idx !== -1) {
-        const parts = lines[idx].split('|');
-        if (parts.length >= 5) {
-          const parentHashes = parts[4].trim();
-          parentCommitId = parentHashes.split(',')[0] || '';
-        }
-      }
-
-      console.log('[useDiffTabHandlers] Commit diff:', {
-        commitId,
-        parentCommitId,
-        normalizedPath,
-        gitPath,
-      });
+      // 通常のコミット間diff - 高速に親コミットを取得
+      const parentHashes = await git.getParentCommitIds(commitId);
+      const parentCommitId = parentHashes[0] || '';
 
       const latterCommitId = commitId;
       const formerCommitId = parentCommitId;
@@ -168,21 +151,13 @@ export function useDiffTabHandlers(currentProject: any) {
       if (!currentProject) return;
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
-      // defensive: parentCommitIdが無い場合は解決を試みる
+      // defensive: parentCommitIdが無い場合は高速に親を取得
       if (!parentCommitId) {
         try {
-          const log = await git.getFormattedLog(20);
-          const lines = log.split('\n');
-          const idx = lines.findIndex(line => line.startsWith(commitId));
-          if (idx !== -1) {
-            const parts = lines[idx].split('|');
-            if (parts.length >= 5) {
-              const parentHashes = parts[4].trim();
-              parentCommitId = parentHashes.split(',')[0] || '';
-            }
-          }
+          const parentHashes = await git.getParentCommitIds(commitId);
+          parentCommitId = parentHashes[0] || '';
         } catch (e) {
-          console.warn('[useDiffTabHandlers] Failed to resolve parentCommitId from log:', e);
+          console.warn('[useDiffTabHandlers] Failed to resolve parentCommitId:', e);
         }
       }
 
@@ -207,10 +182,6 @@ export function useDiffTabHandlers(currentProject: any) {
               gitPath: rawGitPath, // Git API用（スラッシュなし）
               normalizedPath: normalizedFilePath, // fileRepository用（スラッシュあり）
             });
-
-            console.log(
-              `[useDiffTabHandlers] File: Git="${rawGitPath}" → Repo="${normalizedFilePath}"`
-            );
           }
         }
       }

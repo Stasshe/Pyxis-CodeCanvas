@@ -363,7 +363,6 @@ export default function GitHistory({
     try {
       const currentCommit = commits.find(c => c.hash === commitHash);
       if (!currentCommit || currentCommit.parentHashes.length === 0) {
-        console.log('[GitHistory] No parent commits found for:', commitHash);
         setCommitChanges(prev =>
           new Map(prev).set(commitHash, { added: [], modified: [], deleted: [] })
         );
@@ -371,11 +370,7 @@ export default function GitHistory({
       }
 
       const parentHash = currentCommit.parentHashes[0];
-      console.log('[GitHistory] Comparing commits (parent->child):', parentHash, '->', commitHash);
-
       const diffOutput = await gitCommands.diffCommits(parentHash, commitHash);
-      console.log('[GitHistory] Raw diff output:', diffOutput);
-
       const changes = parseDiffOutput(diffOutput);
       setCommitChanges(prev => new Map(prev).set(commitHash, changes));
     } catch (error) {
@@ -432,7 +427,6 @@ export default function GitHistory({
       }
     }
 
-    console.log('[GitHistory] Parsed diff changes:', changes);
     return changes;
   };
 
