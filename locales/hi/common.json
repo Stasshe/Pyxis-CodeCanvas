@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "कोई बदली हुई फाइल नहीं"
+      "noChangedFiles": "कोई बदली हुई फाइल नहीं",
+      "title": "बदली हुई फाइलें",
+      "count": "{count} फाइलें",
+      "expand": "विस्तार करें",
+      "minimize": "छोटा करें"
     },
     "chatContainer": {
       "generating": "AI उत्तर तैयार कर रहा है...",
@@ -24,10 +28,10 @@
       "apply": "लागू करें",
       "confirm": "पुष्टि करें",
       "discard": "खारिज करें",
-      "noHandler": "No handler available"
+      "noHandler": "कोई हैंडलर उपलब्ध नहीं है"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "हटाएं"
     },
     "hints": {
       "enterSend": "Enter: नई पंक्ति / Ctrl+Enter: भेजें",
@@ -41,8 +45,8 @@
     "sendTitle": "भेजें (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "AI से प्रश्न पूछें या कोड के बारे में परामर्श लें...",
+    "edit": "कोड संपादित करने के निर्देश दर्ज करें..."
   },
   "aiReviewTab": {
     "applyAll": "सभी लागू करें",
@@ -52,7 +56,9 @@
     "editRightDirectly": "आप दाएँ संपादक में सीधे संपादित कर सकते हैं",
     "notFound": "AI समीक्षा डेटा नहीं मिला",
     "revert": "वापस करें",
-    "revertSelectionHint": "आप दाहिने क्लिक करके 'Revert selection' चुनकर आंशिक रूप से भी वापस कर सकते हैं।"
+    "revertSelectionHint": "आप दाहिने क्लिक करके 'Revert selection' चुनकर आंशिक रूप से भी वापस कर सकते हैं।",
+    "revertApplied": "लागू किए गए को वापस करें",
+    "revertButton": "वापस करें"
   },
   "auth": {
     "authFailed": "GitHub प्रमाणिकरण विफल",
@@ -77,9 +83,10 @@
       "clearTooltip": "वर्तमान में प्रदर्शित आउटपुट साफ़ करें",
       "contextLabel": "संदर्भ",
       "empty": "कोई आउटपुट नहीं",
-      "typeLabel": "प्रकार"
+      "typeLabel": "प्रकार",
+      "partiallyHidden": "कुछ आइटम छिपे हुए हैं"
     },
-    "problems": "Problems",
+    "problems": "समस्याएं",
     "terminal": "टर्मिनल",
     "terminalInitializing": "टर्मिनल आरंभ हो रहा है..."
   },
@@ -105,7 +112,7 @@
     "create": "नया स्पेस बनाएं",
     "delete": "हटाएं",
     "rename": "नाम बदलें",
-    "title": "Chat spaces"
+    "title": "चैट स्पेस"
   },
   "confirmation": {
     "title": "पुष्टि"
@@ -117,7 +124,7 @@
     "suggested": "प्रस्तावित"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "बाइनरी फाइल: diff प्रदर्शित नहीं हो सकता",
     "fileList": "फाइल सूची",
     "noDiffFiles": "कोई diff फाइल नहीं"
   },
@@ -135,8 +142,8 @@
       "createFolder": "फ़ोल्डर बनाएं",
       "delete": "हटाएं",
       "download": "डाउनलोड",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "फाइलें आयात करें",
+      "importFolder": "फ़ोल्डर आयात करें",
       "open": "खोलें",
       "openCodeMirror": "CodeMirror में खोलें",
       "openPreview": "पूर्वावलोकन खोलें",
@@ -194,7 +201,10 @@
     "noChangedFiles": "कोई बदली हुई फाइल नहीं मिली",
     "showAllFilesDiff": "इस कमिट के लिए सभी फाइल diffs दिखाएँ",
     "showDuplicates": "डुप्लिकेट दिखाएँ",
-    "showFileDiff": "इस फाइल के लिए diff दिखाएँ"
+    "showFileDiff": "इस फाइल के लिए diff दिखाएँ",
+    "allFiles": "सभी {count} फाइलें",
+    "loadMore": "और लोड करें",
+    "loadingMore": "लोड हो रहा है..."
   },
   "highlightedCode": {
     "copyCode": "कोड कॉपी करें"
@@ -217,7 +227,7 @@
     "zoomOut": "ज़ूम आउट"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "एक्सटेंशन",
     "files": "फाइलें",
     "git": "Git",
     "project": "प्रोजेक्ट प्रबंधन",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "स्विच के लिए Tab/←→, पुष्टि के लिए Enter, बंद करने के लिए ESC",
     "mdPreviewPrompt": "Markdown पूर्वावलोकन में खोलें?",
     "noFilesFound": "कोई फाइल नहीं मिली",
-    "noItemsFound": "No items found",
+    "noItemsFound": "कोई आइटम नहीं मिला",
     "openInEditor": "संपादक में खोलें",
     "openInPreview": "पूर्वावलोकन में खोलें",
-    "quickOpen": "Quick open",
+    "quickOpen": "त्वरित खोलें",
     "searchPlaceholder": "फाइल/फ़ोल्डर नाम या पथ से खोजें..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "डिफ़ॉल्ट संपादक",
       "fontSize": "फ़ॉन्ट साइज",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "प्री-लोड करने के लिए मॉडल की संख्या",
+      "preloadModelCountHint": "तेज़ स्टार्टअप के लिए कितने मॉडल प्री-लोड रखें",
       "savedToLocalStorage": "LocalStorage में सहेजा गया",
       "tabSize": "Tab साइज",
       "title": "संपादक",
@@ -318,16 +328,16 @@
     },
     "files": {
       "excludeHint": "एक्सप्लोरर में छिपी फाइलें/फ़ोल्डर",
-      "excludePattern": "Exclude Pattern",
+      "excludePattern": "बहिष्करण पैटर्न",
       "title": "फाइलें"
     },
     "loading": "लोड हो रहा है...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "गणित विभाजक",
+      "mathDelimiterHint": "इनलाइन और ब्लॉक गणित के लिए उपयोग किया जाने वाला विभाजक (जैसे $ $ या $$ $$)"
     },
     "search": {
-      "excludePattern": "Exclude Pattern",
+      "excludePattern": "बहिष्करण पैटर्न",
       "globPatternHint": "प्रति लाइन एक glob pattern लिखें",
       "title": "खोज",
       "useIgnoreFiles": ".gitignore जैसे ignore फाइलें उपयोग करें"
@@ -337,19 +347,20 @@
       "colorTheme": "रंग थीम",
       "highlightTheme": "कोड हाइलाइट थीम",
       "title": "थीम"
-    }
+    },
+    "shortcutKeys": "शॉर्टकट कुंजियाँ"
   },
   "tabBar": {
     "closeTab": "टैब बंद करें",
     "moveToPane": "पेन में स्थानांतरित करें",
-    "openPreview": "Open Preview",
+    "openPreview": "पूर्वावलोकन खोलें",
     "paneMenu": "पेन मेनू",
     "removeAllTabs": "सभी टैब हटाएँ",
     "removePane": "पेन हटाएँ",
     "saveRestart": "सहेजें और पुनरारंभ करें",
     "splitHorizontal": "क्षैतिज विभाजन",
     "splitVertical": "ऊर्ध्वाधर विभाजन",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "असहेजे गए परिवर्तन"
   },
   "tabCloseConfirmation": {
     "cancel": "रद्द करें",
@@ -367,5 +378,36 @@
     "emptyDirectory": "डायरेक्टरी खाली है",
     "inlineHtmlFailed": "HTML एसेट इनलाइन करना विफल हुआ",
     "notFound": "फ़ाइल या फ़ोल्डर नहीं मिला"
+  },
+  "paneNavigator": {
+    "activate": "सक्रिय करें",
+    "close": "बंद करें",
+    "deletePane": "पेन हटाएं",
+    "emptyPane": "खाली",
+    "navigate": "नेविगेट करें",
+    "splitHorizontal": "क्षैतिज विभाजन",
+    "splitVertical": "ऊर्ध्वाधर विभाजन",
+    "tab": "टैब",
+    "tabs": "टैब्स",
+    "title": "पेन नेविगेटर"
+  },
+  "shortcutKeys": {
+    "title": "शॉर्टकट कुंजियाँ",
+    "searchPlaceholder": "खोजें (फ़ंक्शन, कुंजी)...",
+    "resetDefaults": "डिफ़ॉल्ट पर रीसेट करें",
+    "noResults": "कोई मिलान शॉर्टकट नहीं मिला",
+    "clickToEdit": "संपादित करने के लिए क्लिक करें",
+    "enterNewKey": "नई कुंजी दर्ज करें",
+    "shortcutFor": "के लिए शॉर्टकट",
+    "pressKey": "एक कुंजी दबाएं...",
+    "escToCancel": "रद्द करने के लिए Esc",
+    "autoSaved": "स्वचालित रूप से सहेजा गया"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ आप विकास सर्वर (Render) देख रहे हैं।",
+      "stableVersion": "स्थिर अनुभव के लिए, कृपया देखें",
+      "officialSite": "आधिकारिक साइट (GitHub Pages)"
+    }
   }
 }

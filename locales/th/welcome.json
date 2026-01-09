@@ -26,6 +26,6 @@
       "title": "ขอขอบคุณเป็นพิเศษ"
     },
     "title": "ยินดีต้อนรับ!",
-    "githubNote": "GitHub integration has no known bugs to our knowledge, but avoid extreme actions such as using it on very large repositories or closing the browser mid-operation."
+    "githubNote": "เท่าที่เราทราบ การเชื่อมต่อ GitHub ไม่มีข้อบกพร่องที่ทราบ แต่หลีกเลี่ยงการกระทำที่รุนแรง เช่น การใช้กับ repository ขนาดใหญ่มากหรือปิดเบราว์เซอร์ระหว่างการดำเนินการ"
   }
 }

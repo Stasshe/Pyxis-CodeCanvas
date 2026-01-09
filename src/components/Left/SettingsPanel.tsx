@@ -249,7 +249,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               }}
             >
               <Keyboard size={14} />
-              <span>ショートカットキー設定</span>
+              <span>{t('settingsPanel.shortcutKeys')}</span>
             </button>
           </div>
 

@@ -372,7 +372,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             );
           })}
           {displayedMarkers.length !== allMarkers.length && (
-            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>一部非表示中</div>
+            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>{t('bottom.outputPanel.partiallyHidden')}</div>
           )}
         </div>
       ) : (

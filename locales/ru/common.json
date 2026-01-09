@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Нет изменённых файлов"
+      "noChangedFiles": "Нет изменённых файлов",
+      "title": "Изменённые файлы",
+      "count": "{count} файлов",
+      "expand": "Развернуть",
+      "minimize": "Свернуть"
     },
     "chatContainer": {
       "generating": "ИИ генерирует ответ...",
@@ -24,10 +28,10 @@
       "apply": "Применить",
       "confirm": "Подтвердить",
       "discard": "Отменить",
-      "noHandler": "No handler available"
+      "noHandler": "Обработчик недоступен"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "Удалить"
     },
     "hints": {
       "enterSend": "Enter: новая строка / Ctrl+Enter: отправить",
@@ -41,8 +45,8 @@
     "sendTitle": "Отправить (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "Задайте ИИ вопросы или проконсультируйтесь по коду...",
+    "edit": "Введите инструкции для редактирования кода..."
   },
   "aiReviewTab": {
     "applyAll": "Применить все",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Вы можете редактировать прямо в правом редакторе",
     "notFound": "Данные AI-обзора не найдены",
     "revert": "Восстановить",
-    "revertSelectionHint": "Вы также можете частично восстановить, щёлкнув правой кнопкой и выбрав 'Восстановить выбор'."
+    "revertSelectionHint": "Вы также можете частично восстановить, щёлкнув правой кнопкой и выбрав 'Восстановить выбор'.",
+    "revertApplied": "Отменить примененные",
+    "revertButton": "Отменить"
   },
   "auth": {
     "authFailed": "Аутентификация GitHub не удалась",
@@ -77,9 +83,10 @@
       "clearTooltip": "Очистить текущий отображаемый вывод",
       "contextLabel": "Контекст",
       "empty": "Нет вывода",
-      "typeLabel": "Тип"
+      "typeLabel": "Тип",
+      "partiallyHidden": "Некоторые элементы скрыты"
     },
-    "problems": "Problems",
+    "problems": "Проблемы",
     "terminal": "Терминал",
     "terminalInitializing": "Инициализация терминала..."
   },
@@ -105,7 +112,7 @@
     "create": "Создать новое пространство",
     "delete": "Удалить",
     "rename": "Переименовать",
-    "title": "Chat spaces"
+    "title": "Чат-пространства"
   },
   "confirmation": {
     "title": "Подтверждение"
@@ -117,7 +124,7 @@
     "suggested": "Предложенный"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "Бинарный файл: невозможно отобразить различия",
     "fileList": "Список файлов",
     "noDiffFiles": "Нет файлов с различиями"
   },
@@ -135,8 +142,8 @@
       "createFolder": "Создать папку",
       "delete": "Удалить",
       "download": "Скачать",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "Импортировать файлы",
+      "importFolder": "Импортировать папку",
       "open": "Открыть",
       "openCodeMirror": "Открыть в CodeMirror",
       "openPreview": "Открыть предпросмотр",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Не найдено изменённых файлов",
     "showAllFilesDiff": "Показать различия для всех файлов этого коммита",
     "showDuplicates": "Показать дубликаты",
-    "showFileDiff": "Показать различия для этого файла"
+    "showFileDiff": "Показать различия для этого файла",
+    "allFiles": "Все {count} файлов",
+    "loadMore": "Загрузить ещё",
+    "loadingMore": "Загрузка..."
   },
   "highlightedCode": {
     "copyCode": "Копировать код"
@@ -217,7 +227,7 @@
     "zoomOut": "Уменьшить"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "Расширения",
     "files": "Файлы",
     "git": "Git",
     "project": "Управление проектом",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ для переключения, Enter для подтверждения, ESC для закрытия",
     "mdPreviewPrompt": "Открыть в Markdown предпросмотре?",
     "noFilesFound": "Файлы не найдены",
-    "noItemsFound": "No items found",
+    "noItemsFound": "Элементы не найдены",
     "openInEditor": "Открыть в редакторе",
     "openInPreview": "Открыть в предпросмотре",
-    "quickOpen": "Quick open",
+    "quickOpen": "Быстрое открытие",
     "searchPlaceholder": "Поиск по имени файла/папки или пути..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "Редактор по умолчанию",
       "fontSize": "Размер шрифта",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "Количество моделей для предзагрузки",
+      "preloadModelCountHint": "Сколько моделей держать предзагруженными для быстрого запуска",
       "savedToLocalStorage": "Сохранено в LocalStorage",
       "tabSize": "Размер таба",
       "title": "Редактор",
@@ -323,8 +333,8 @@
     },
     "loading": "Загрузка настроек...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "Разделитель формул",
+      "mathDelimiterHint": "Разделитель для встроенных и блочных формул (например, $ $ или $$ $$)"
     },
     "search": {
       "excludePattern": "Шаблон исключения",
@@ -337,19 +347,20 @@
       "colorTheme": "Тема цвета",
       "highlightTheme": "Тема подсветки",
       "title": "Тема"
-    }
+    },
+    "shortcutKeys": "Горячие клавиши"
   },
   "tabBar": {
     "closeTab": "Закрыть вкладку",
     "moveToPane": "Переместить в панель",
-    "openPreview": "Open Preview",
+    "openPreview": "Открыть предпросмотр",
     "paneMenu": "Меню панели",
     "removeAllTabs": "Закрыть все вкладки",
     "removePane": "Удалить панель",
     "saveRestart": "Сохранить и перезапустить",
     "splitHorizontal": "Разделить горизонтально",
     "splitVertical": "Разделить вертикально",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Несохранённые изменения"
   },
   "tabCloseConfirmation": {
     "cancel": "Отмена",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Папка пуста",
     "inlineHtmlFailed": "Не удалось встроить HTML-ресурсы",
     "notFound": "Файл или папка не найдены"
+  },
+  "paneNavigator": {
+    "activate": "Активировать",
+    "close": "Закрыть",
+    "deletePane": "Удалить панель",
+    "emptyPane": "Пусто",
+    "navigate": "Навигация",
+    "splitHorizontal": "Разделить горизонтально",
+    "splitVertical": "Разделить вертикально",
+    "tab": "вкладка",
+    "tabs": "вкладки",
+    "title": "Навигатор панелей"
+  },
+  "shortcutKeys": {
+    "title": "Горячие клавиши",
+    "searchPlaceholder": "Поиск (функция, клавиша)...",
+    "resetDefaults": "Сбросить настройки",
+    "noResults": "Подходящие горячие клавиши не найдены",
+    "clickToEdit": "Нажмите для редактирования",
+    "enterNewKey": "Введите новую клавишу",
+    "shortcutFor": "горячая клавиша для",
+    "pressKey": "Нажмите клавишу...",
+    "escToCancel": "Esc для отмены",
+    "autoSaved": "Автосохранение"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Вы просматриваете сервер разработки (Render).",
+      "stableVersion": "Для стабильной работы посетите",
+      "officialSite": "официальный сайт (GitHub Pages)"
+    }
   }
 }

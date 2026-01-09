@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Nenhum arquivo modificado"
+      "noChangedFiles": "Nenhum arquivo modificado",
+      "title": "Arquivos alterados",
+      "count": "{count} arquivos",
+      "expand": "Expandir",
+      "minimize": "Minimizar"
     },
     "chatContainer": {
       "generating": "A IA está gerando uma resposta...",
@@ -24,10 +28,10 @@
       "apply": "Aplicar",
       "confirm": "Confirmar",
       "discard": "Descartar",
-      "noHandler": "No handler available"
+      "noHandler": "Nenhum manipulador disponível"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "Remover"
     },
     "hints": {
       "enterSend": "Enter: nova linha / Ctrl+Enter: enviar",
@@ -41,8 +45,8 @@
     "sendTitle": "Enviar (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "Pergunte à IA ou consulte sobre código...",
+    "edit": "Digite instruções para editar o código..."
   },
   "aiReviewTab": {
     "applyAll": "Aplicar tudo",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Você pode editar diretamente no editor à direita",
     "notFound": "Dados de revisão da IA não encontrados",
     "revert": "Reverter",
-    "revertSelectionHint": "Também é possível reverter parcialmente clicando com o botão direito e selecionando 'Reverter seleção'."
+    "revertSelectionHint": "Também é possível reverter parcialmente clicando com o botão direito e selecionando 'Reverter seleção'.",
+    "revertApplied": "Reverter aplicados",
+    "revertButton": "Reverter"
   },
   "auth": {
     "authFailed": "Autenticação do GitHub falhou",
@@ -77,9 +83,10 @@
       "clearTooltip": "Limpar a saída atualmente exibida",
       "contextLabel": "Contexto",
       "empty": "Sem saída",
-      "typeLabel": "Tipo"
+      "typeLabel": "Tipo",
+      "partiallyHidden": "Alguns itens ocultos"
     },
-    "problems": "Problems",
+    "problems": "Problemas",
     "terminal": "Terminal",
     "terminalInitializing": "Inicializando terminal..."
   },
@@ -105,7 +112,7 @@
     "create": "Criar novo espaço",
     "delete": "Excluir",
     "rename": "Renomear",
-    "title": "Chat spaces"
+    "title": "Espaços de chat"
   },
   "confirmation": {
     "title": "Confirmação"
@@ -117,7 +124,7 @@
     "suggested": "Sugerido"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "Arquivo binário: não é possível exibir diff",
     "fileList": "Lista de arquivos",
     "noDiffFiles": "Nenhum arquivo de diff"
   },
@@ -135,8 +142,8 @@
       "createFolder": "Criar pasta",
       "delete": "Excluir",
       "download": "Baixar",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "Importar arquivos",
+      "importFolder": "Importar pasta",
       "open": "Abrir",
       "openCodeMirror": "Abrir no CodeMirror",
       "openPreview": "Abrir visualização",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Nenhum arquivo modificado encontrado",
     "showAllFilesDiff": "Mostrar diffs de todos os arquivos deste commit",
     "showDuplicates": "Mostrar commits duplicados",
-    "showFileDiff": "Mostrar diff deste arquivo"
+    "showFileDiff": "Mostrar diff deste arquivo",
+    "allFiles": "Todos {count} arquivos",
+    "loadMore": "Carregar mais",
+    "loadingMore": "Carregando..."
   },
   "highlightedCode": {
     "copyCode": "Copiar código"
@@ -217,7 +227,7 @@
     "zoomOut": "Afastar"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "Extensões",
     "files": "Arquivos",
     "git": "Git",
     "project": "Gerenciamento de projeto",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ para alternar, Enter para confirmar, ESC para fechar",
     "mdPreviewPrompt": "Abrir na pré-visualização Markdown?",
     "noFilesFound": "Nenhum arquivo encontrado",
-    "noItemsFound": "No items found",
+    "noItemsFound": "Nenhum item encontrado",
     "openInEditor": "Abrir no Editor",
     "openInPreview": "Abrir na Pré-visualização",
-    "quickOpen": "Quick open",
+    "quickOpen": "Abertura rápida",
     "searchPlaceholder": "Pesquisar por nome de arquivo/pasta ou caminho..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "Editor padrão",
       "fontSize": "Tamanho da fonte",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "Número de modelos para pré-carregar",
+      "preloadModelCountHint": "Quantos modelos manter pré-carregados para início mais rápido",
       "savedToLocalStorage": "Salvo no LocalStorage",
       "tabSize": "Tamanho da tab",
       "title": "Editor",
@@ -323,8 +333,8 @@
     },
     "loading": "Carregando configurações...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "Delimitador matemático",
+      "mathDelimiterHint": "Delimitador usado para matemática inline e em bloco (ex: $ $ ou $$ $$)"
     },
     "search": {
       "excludePattern": "Padrão de exclusão",
@@ -337,19 +347,20 @@
       "colorTheme": "Tema de cores",
       "highlightTheme": "Destaque de código",
       "title": "Tema"
-    }
+    },
+    "shortcutKeys": "Atalhos de teclado"
   },
   "tabBar": {
     "closeTab": "Fechar aba",
     "moveToPane": "Mover para painel",
-    "openPreview": "Open Preview",
+    "openPreview": "Abrir visualização",
     "paneMenu": "Menu de painel",
     "removeAllTabs": "Remover todas as abas",
     "removePane": "Remover painel",
     "saveRestart": "Salvar e reiniciar",
     "splitHorizontal": "Dividir horizontalmente",
     "splitVertical": "Dividir verticalmente",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Alterações não salvas"
   },
   "tabCloseConfirmation": {
     "cancel": "Cancelar",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Diretório vazio",
     "inlineHtmlFailed": "Falha ao inserir ativos HTML",
     "notFound": "Arquivo ou pasta não encontrado"
+  },
+  "paneNavigator": {
+    "activate": "Ativar",
+    "close": "Fechar",
+    "deletePane": "Excluir painel",
+    "emptyPane": "Vazio",
+    "navigate": "Navegar",
+    "splitHorizontal": "Dividir horizontalmente",
+    "splitVertical": "Dividir verticalmente",
+    "tab": "aba",
+    "tabs": "abas",
+    "title": "Navegador de painéis"
+  },
+  "shortcutKeys": {
+    "title": "Atalhos de teclado",
+    "searchPlaceholder": "Pesquisar (função, tecla)...",
+    "resetDefaults": "Restaurar padrões",
+    "noResults": "Nenhum atalho correspondente encontrado",
+    "clickToEdit": "Clique para editar",
+    "enterNewKey": "Digite uma nova tecla",
+    "shortcutFor": "atalho para",
+    "pressKey": "Pressione uma tecla...",
+    "escToCancel": "Esc para cancelar",
+    "autoSaved": "Salvo automaticamente"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Você está visualizando o servidor de desenvolvimento (Render).",
+      "stableVersion": "Para uma experiência estável, visite",
+      "officialSite": "o site oficial (GitHub Pages)"
+    }
   }
 }

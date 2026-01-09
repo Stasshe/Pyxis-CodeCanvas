@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "변경된 파일이 없습니다"
+      "noChangedFiles": "변경된 파일이 없습니다",
+      "title": "변경된 파일",
+      "count": "{count} 개",
+      "expand": "펼치기",
+      "minimize": "최소화"
     },
     "chatContainer": {
       "generating": "AI가 응답을 생성 중입니다...",
@@ -24,10 +28,10 @@
       "apply": "적용",
       "confirm": "확인",
       "discard": "버리기",
-      "noHandler": "No handler available"
+      "noHandler": "사용 가능한 핸들러가 없습니다"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "제거"
     },
     "hints": {
       "enterSend": "Enter: 줄바꿈 / Ctrl+Enter: 전송",
@@ -41,8 +45,8 @@
     "sendTitle": "전송 (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "AI에게 질문하거나 코드 상담을 하세요...",
+    "edit": "코드 수정을 위한 지시를 입력하세요..."
   },
   "aiReviewTab": {
     "applyAll": "모두 적용",
@@ -52,7 +56,9 @@
     "editRightDirectly": "오른쪽 에디터에서 직접 편집할 수 있습니다",
     "notFound": "AI 리뷰 데이터를 찾을 수 없습니다",
     "revert": "되돌리기",
-    "revertSelectionHint": "오른쪽 클릭 후 '선택 항목 되돌리기'로 부분 되돌리기도 가능합니다."
+    "revertSelectionHint": "오른쪽 클릭 후 '선택 항목 되돌리기'로 부분 되돌리기도 가능합니다.",
+    "revertApplied": "적용된 항목 되돌리기",
+    "revertButton": "되돌리기"
   },
   "auth": {
     "authFailed": "GitHub 인증에 실패했습니다",
@@ -77,9 +83,10 @@
       "clearTooltip": "현재 표시된 출력을 지웁니다",
       "contextLabel": "컨텍스트",
       "empty": "출력이 없습니다",
-      "typeLabel": "타입"
+      "typeLabel": "타입",
+      "partiallyHidden": "일부 항목이 숨겨짐"
     },
-    "problems": "Problems",
+    "problems": "문제",
     "terminal": "터미널",
     "terminalInitializing": "터미널 초기화 중..."
   },
@@ -105,7 +112,7 @@
     "create": "새 스페이스 생성",
     "delete": "삭제",
     "rename": "이름 변경",
-    "title": "Chat spaces"
+    "title": "채팅 공간"
   },
   "confirmation": {
     "title": "확인"
@@ -117,7 +124,7 @@
     "suggested": "제안됨"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "바이너리 파일: diff 표시 불가",
     "fileList": "파일 목록",
     "noDiffFiles": "차이 파일이 없습니다"
   },
@@ -135,8 +142,8 @@
       "createFolder": "폴더 생성",
       "delete": "삭제",
       "download": "다운로드",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "파일 가져오기",
+      "importFolder": "폴더 가져오기",
       "open": "열기",
       "openCodeMirror": "CodeMirror로 열기",
       "openPreview": "미리보기 열기",
@@ -194,7 +201,10 @@
     "noChangedFiles": "변경된 파일을 찾을 수 없습니다",
     "showAllFilesDiff": "이 커밋의 모든 파일 차이 보기",
     "showDuplicates": "중복 보기",
-    "showFileDiff": "이 파일의 차이 보기"
+    "showFileDiff": "이 파일의 차이 보기",
+    "allFiles": "전체 {count} 파일",
+    "loadMore": "더 불러오기",
+    "loadingMore": "로딩 중..."
   },
   "highlightedCode": {
     "copyCode": "코드 복사"
@@ -217,7 +227,7 @@
     "zoomOut": "축소"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "확장",
     "files": "파일",
     "git": "Git",
     "project": "프로젝트 관리",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→로 전환, Enter로 확인, ESC로 닫기",
     "mdPreviewPrompt": "Markdown 미리보기로 열겠습니까?",
     "noFilesFound": "파일을 찾을 수 없습니다",
-    "noItemsFound": "No items found",
+    "noItemsFound": "항목을 찾을 수 없습니다",
     "openInEditor": "에디터에서 열기",
     "openInPreview": "미리보기에서 열기",
-    "quickOpen": "Quick open",
+    "quickOpen": "빠른 열기",
     "searchPlaceholder": "파일/폴더 이름 또는 경로로 검색..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "기본 에디터",
       "fontSize": "글꼴 크기",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "미리 로드할 모델 수",
+      "preloadModelCountHint": "더 빠른 시작을 위해 미리 로드할 모델 수",
       "savedToLocalStorage": "LocalStorage에 저장됨",
       "tabSize": "탭 크기",
       "title": "에디터",
@@ -323,8 +333,8 @@
     },
     "loading": "설정 로딩 중...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "수학 구분 기호",
+      "mathDelimiterHint": "인라인 및 블록 수식에 사용되는 구분 기호 (예: $ $ 또는 $$ $$)"
     },
     "search": {
       "excludePattern": "제외 패턴",
@@ -337,19 +347,20 @@
       "colorTheme": "컬러 테마",
       "highlightTheme": "코드 하이라이트",
       "title": "테마"
-    }
+    },
+    "shortcutKeys": "단축키 설정"
   },
   "tabBar": {
     "closeTab": "탭 닫기",
     "moveToPane": "팬으로 이동",
-    "openPreview": "Open Preview",
+    "openPreview": "미리보기 열기",
     "paneMenu": "팬 메뉴",
     "removeAllTabs": "모든 탭 제거",
     "removePane": "팬 제거",
     "saveRestart": "저장 및 재시작",
     "splitHorizontal": "가로 분할",
     "splitVertical": "세로 분할",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "저장되지 않은 변경사항"
   },
   "tabCloseConfirmation": {
     "cancel": "취소",
@@ -367,5 +378,36 @@
     "emptyDirectory": "디렉토리가 비어 있습니다",
     "inlineHtmlFailed": "HTML 자산 인라인 실패",
     "notFound": "파일 또는 폴더를 찾을 수 없습니다"
+  },
+  "paneNavigator": {
+    "activate": "활성화",
+    "close": "닫기",
+    "deletePane": "패인 삭제",
+    "emptyPane": "비어 있음",
+    "navigate": "탐색",
+    "splitHorizontal": "가로 분할",
+    "splitVertical": "세로 분할",
+    "tab": "탭",
+    "tabs": "탭",
+    "title": "패인 탐색기"
+  },
+  "shortcutKeys": {
+    "title": "단축키",
+    "searchPlaceholder": "검색 (기능, 키)...",
+    "resetDefaults": "기본값으로 복원",
+    "noResults": "일치하는 단축키를 찾을 수 없습니다",
+    "clickToEdit": "클릭하여 편집",
+    "enterNewKey": "새 키 입력",
+    "shortcutFor": "의 단축키",
+    "pressKey": "키를 누르세요...",
+    "escToCancel": "Esc로 취소",
+    "autoSaved": "자동 저장됨"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ 개발 서버(Render)를 보고 있습니다.",
+      "stableVersion": "안정적인 환경을 위해",
+      "officialSite": "공식 사이트(GitHub Pages)"
+    }
   }
 }

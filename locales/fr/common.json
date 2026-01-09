@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Aucun fichier modifié"
+      "noChangedFiles": "Aucun fichier modifié",
+      "title": "Fichiers modifiés",
+      "count": "{count} fichiers",
+      "expand": "Développer",
+      "minimize": "Réduire"
     },
     "chatContainer": {
       "generating": "L'IA génère une réponse...",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Vous pouvez éditer directement dans l'éditeur de droite",
     "notFound": "Données de revue IA introuvables",
     "revert": "Rétablir",
-    "revertSelectionHint": "Vous pouvez aussi restaurer partiellement en faisant un clic droit et en choisissant 'Rétablir la sélection'."
+    "revertSelectionHint": "Vous pouvez aussi restaurer partiellement en faisant un clic droit et en choisissant 'Rétablir la sélection'.",
+    "revertApplied": "Annuler les applications",
+    "revertButton": "Annuler"
   },
   "auth": {
     "authFailed": "Échec de l'authentification GitHub",
@@ -77,9 +83,10 @@
       "clearTooltip": "Effacer la sortie affichée actuellement",
       "contextLabel": "Contexte",
       "empty": "Aucune sortie",
-      "typeLabel": "Type"
+      "typeLabel": "Type",
+      "partiallyHidden": "Certains éléments masqués"
     },
-    "problems": "Problems",
+    "problems": "Problèmes",
     "terminal": "Terminal",
     "terminalInitializing": "Initialisation du terminal..."
   },
@@ -194,7 +201,10 @@
     "noChangedFiles": "Aucun fichier modifié trouvé",
     "showAllFilesDiff": "Afficher tous les diffs de fichiers pour ce commit",
     "showDuplicates": "Afficher les commits dupliqués",
-    "showFileDiff": "Afficher le diff pour ce fichier"
+    "showFileDiff": "Afficher le diff pour ce fichier",
+    "allFiles": "Tous les {count} fichiers",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement..."
   },
   "highlightedCode": {
     "copyCode": "Copier le code"
@@ -337,7 +347,8 @@
       "colorTheme": "Thème de couleurs",
       "highlightTheme": "Thème de surlignage",
       "title": "Thème"
-    }
+    },
+    "shortcutKeys": "Raccourcis clavier"
   },
   "tabBar": {
     "closeTab": "Fermer l'onglet",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Le dossier est vide",
     "inlineHtmlFailed": "Échec de l'inclusion des assets HTML",
     "notFound": "Fichier ou dossier introuvable"
+  },
+  "paneNavigator": {
+    "activate": "Activer",
+    "close": "Fermer",
+    "deletePane": "Supprimer le volet",
+    "emptyPane": "Vide",
+    "navigate": "Naviguer",
+    "splitHorizontal": "Diviser horizontalement",
+    "splitVertical": "Diviser verticalement",
+    "tab": "onglet",
+    "tabs": "onglets",
+    "title": "Navigateur de volets"
+  },
+  "shortcutKeys": {
+    "title": "Raccourcis clavier",
+    "searchPlaceholder": "Rechercher (fonction, touche)...",
+    "resetDefaults": "Réinitialiser par défaut",
+    "noResults": "Aucun raccourci correspondant trouvé",
+    "clickToEdit": "Cliquez pour modifier",
+    "enterNewKey": "Entrez une nouvelle touche",
+    "shortcutFor": "raccourci pour",
+    "pressKey": "Appuyez sur une touche...",
+    "escToCancel": "Échap pour annuler",
+    "autoSaved": "Sauvegarde automatique"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Vous consultez le serveur de développement (Render).",
+      "stableVersion": "Pour une version stable, veuillez visiter",
+      "officialSite": "le site officiel (GitHub Pages)"
+    }
   }
 }

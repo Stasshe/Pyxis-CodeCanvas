@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Keine geänderten Dateien"
+      "noChangedFiles": "Keine geänderten Dateien",
+      "title": "Geänderte Dateien",
+      "count": "{count} Dateien",
+      "expand": "Erweitern",
+      "minimize": "Minimieren"
     },
     "chatContainer": {
       "generating": "Die KI erstellt eine Antwort...",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Sie können direkt im rechten Editor bearbeiten",
     "notFound": "AI-Review-Daten nicht gefunden",
     "revert": "Zurücksetzen",
-    "revertSelectionHint": "Sie können auch teilweise zurücksetzen, indem Sie mit der rechten Maustaste klicken und 'Auswahl zurücksetzen' wählen."
+    "revertSelectionHint": "Sie können auch teilweise zurücksetzen, indem Sie mit der rechten Maustaste klicken und 'Auswahl zurücksetzen' wählen.",
+    "revertApplied": "Angewendete zurücksetzen",
+    "revertButton": "Zurücksetzen"
   },
   "auth": {
     "authFailed": "GitHub-Authentifizierung fehlgeschlagen",
@@ -77,9 +83,10 @@
       "clearTooltip": "Aktuell angezeigte Ausgabe löschen",
       "contextLabel": "Kontext",
       "empty": "Keine Ausgabe",
-      "typeLabel": "Typ"
+      "typeLabel": "Typ",
+      "partiallyHidden": "Einige Elemente ausgeblendet"
     },
-    "problems": "Problems",
+    "problems": "Probleme",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal wird initialisiert..."
   },
@@ -194,7 +201,10 @@
     "noChangedFiles": "Keine geänderten Dateien gefunden",
     "showAllFilesDiff": "Alle Dateidiffs für diesen Commit anzeigen",
     "showDuplicates": "Duplikate anzeigen",
-    "showFileDiff": "Diff für diese Datei anzeigen"
+    "showFileDiff": "Diff für diese Datei anzeigen",
+    "allFiles": "Alle {count} Dateien",
+    "loadMore": "Mehr laden",
+    "loadingMore": "Laden..."
   },
   "highlightedCode": {
     "copyCode": "Code kopieren"
@@ -337,7 +347,8 @@
       "colorTheme": "Farbschema",
       "highlightTheme": "Code-Highlight",
       "title": "Theme"
-    }
+    },
+    "shortcutKeys": "Tastenkombinationen"
   },
   "tabBar": {
     "closeTab": "Tab schließen",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Verzeichnis ist leer",
     "inlineHtmlFailed": "Einbetten von HTML-Assets fehlgeschlagen",
     "notFound": "Datei oder Ordner nicht gefunden"
+  },
+  "paneNavigator": {
+    "activate": "Aktivieren",
+    "close": "Schließen",
+    "deletePane": "Bereich löschen",
+    "emptyPane": "Leer",
+    "navigate": "Navigieren",
+    "splitHorizontal": "Horizontal teilen",
+    "splitVertical": "Vertikal teilen",
+    "tab": "Tab",
+    "tabs": "Tabs",
+    "title": "Bereich-Navigator"
+  },
+  "shortcutKeys": {
+    "title": "Tastenkombinationen",
+    "searchPlaceholder": "Suchen (Funktion, Taste)...",
+    "resetDefaults": "Auf Standard zurücksetzen",
+    "noResults": "Keine passenden Tastenkombinationen gefunden",
+    "clickToEdit": "Klicken zum Bearbeiten",
+    "enterNewKey": "Neue Taste eingeben",
+    "shortcutFor": "Tastenkombination für",
+    "pressKey": "Taste drücken...",
+    "escToCancel": "Esc zum Abbrechen",
+    "autoSaved": "Automatisch gespeichert"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Sie sehen den Entwicklungsserver (Render).",
+      "stableVersion": "Für eine stabile Version besuchen Sie",
+      "officialSite": "die offizielle Website (GitHub Pages)"
+    }
   }
 }

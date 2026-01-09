@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Değişen dosya yok"
+      "noChangedFiles": "Değişen dosya yok",
+      "title": "Değişen dosyalar",
+      "count": "{count} dosya",
+      "expand": "Genişlet",
+      "minimize": "Küçült"
     },
     "chatContainer": {
       "generating": "Yapay zeka cevap üretiyor...",
@@ -24,10 +28,10 @@
       "apply": "Uygula",
       "confirm": "Onayla",
       "discard": "İptal et",
-      "noHandler": "No handler available"
+      "noHandler": "İşleyici mevcut değil"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "Kaldır"
     },
     "hints": {
       "enterSend": "Enter: yeni satır / Ctrl+Enter: gönder",
@@ -41,8 +45,8 @@
     "sendTitle": "Gönder (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "Yapay zekaya soru sorun veya kod hakkında danışın...",
+    "edit": "Kod düzenleme talimatlarını girin..."
   },
   "aiReviewTab": {
     "applyAll": "Tümünü uygula",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Sağ editörde doğrudan düzenleyebilirsiniz",
     "notFound": "AI inceleme verisi bulunamadı",
     "revert": "Geri al",
-    "revertSelectionHint": "Ayrıca sağ tıklayıp 'Seçimi geri al' ile kısmi geri alabilirsiniz."
+    "revertSelectionHint": "Ayrıca sağ tıklayıp 'Seçimi geri al' ile kısmi geri alabilirsiniz.",
+    "revertApplied": "Uygulananları geri al",
+    "revertButton": "Geri al"
   },
   "auth": {
     "authFailed": "GitHub kimlik doğrulaması başarısız",
@@ -77,9 +83,10 @@
       "clearTooltip": "Şu an gösterilen çıktıyı temizle",
       "contextLabel": "Bağlam",
       "empty": "Çıktı yok",
-      "typeLabel": "Tür"
+      "typeLabel": "Tür",
+      "partiallyHidden": "Bazı öğeler gizli"
     },
-    "problems": "Problems",
+    "problems": "Sorunlar",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal başlatılıyor..."
   },
@@ -105,7 +112,7 @@
     "create": "Yeni alan oluştur",
     "delete": "Sil",
     "rename": "Yeniden adlandır",
-    "title": "Chat spaces"
+    "title": "Sohbet alanları"
   },
   "confirmation": {
     "title": "Onay"
@@ -117,7 +124,7 @@
     "suggested": "Önerilen"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "İkili dosya: diff görüntülenemiyor",
     "fileList": "Dosya Listesi",
     "noDiffFiles": "Farklı dosya yok"
   },
@@ -135,8 +142,8 @@
       "createFolder": "Klasör oluştur",
       "delete": "Sil",
       "download": "İndir",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "Dosyaları içe aktar",
+      "importFolder": "Klasörü içe aktar",
       "open": "Aç",
       "openCodeMirror": "CodeMirror'da aç",
       "openPreview": "Önizlemeyi aç",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Hiç değişen dosya bulunamadı",
     "showAllFilesDiff": "Bu commit için tüm dosya farklarını göster",
     "showDuplicates": "Tekrar edenleri göster",
-    "showFileDiff": "Bu dosya için farkı göster"
+    "showFileDiff": "Bu dosya için farkı göster",
+    "allFiles": "Tüm {count} dosya",
+    "loadMore": "Daha fazla yükle",
+    "loadingMore": "Yükleniyor..."
   },
   "highlightedCode": {
     "copyCode": "Kodu kopyala"
@@ -217,7 +227,7 @@
     "zoomOut": "Uzaklaştır"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "Uzantılar",
     "files": "Dosyalar",
     "git": "Git",
     "project": "Proje Yönetimi",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Geçiş için Tab/←→, onay için Enter, kapatmak için ESC",
     "mdPreviewPrompt": "Markdown önizlemede açılsın mı?",
     "noFilesFound": "Dosya bulunamadı",
-    "noItemsFound": "No items found",
+    "noItemsFound": "Öğe bulunamadı",
     "openInEditor": "Editörde aç",
     "openInPreview": "Önizlemede aç",
-    "quickOpen": "Quick open",
+    "quickOpen": "Hızlı aç",
     "searchPlaceholder": "Dosya/klasör adı veya yolu ile ara..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "Varsayılan Editör",
       "fontSize": "Yazı Boyutu",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "Önceden yüklenecek model sayısı",
+      "preloadModelCountHint": "Daha hızlı başlangıç için kaç model önceden yüklensin",
       "savedToLocalStorage": "LocalStorage'a kaydedildi",
       "tabSize": "Tab Boyutu",
       "title": "Editör",
@@ -323,8 +333,8 @@
     },
     "loading": "Ayarlar yükleniyor...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "Matematik ayırıcı",
+      "mathDelimiterHint": "Satır içi ve blok matematik için kullanılan ayırıcı (örn. $ $ veya $$ $$)"
     },
     "search": {
       "excludePattern": "Hariç Tutma Deseni",
@@ -337,19 +347,20 @@
       "colorTheme": "Renk Teması",
       "highlightTheme": "Kod Vurgulama",
       "title": "Tema"
-    }
+    },
+    "shortcutKeys": "Kısayol tuşları"
   },
   "tabBar": {
     "closeTab": "Sekmeyi kapat",
     "moveToPane": "Panel'e taşı",
-    "openPreview": "Open Preview",
+    "openPreview": "Önizlemeyi aç",
     "paneMenu": "Panel menüsü",
     "removeAllTabs": "Tüm sekmeleri kaldır",
     "removePane": "Paneli kaldır",
     "saveRestart": "Kaydet ve yeniden başlat",
     "splitHorizontal": "Yatay böl",
     "splitVertical": "Dikey böl",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Kaydedilmemiş değişiklikler"
   },
   "tabCloseConfirmation": {
     "cancel": "İptal",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Dizin boş",
     "inlineHtmlFailed": "HTML varlıkları inline yapma başarısız",
     "notFound": "Dosya veya klasör bulunamadı"
+  },
+  "paneNavigator": {
+    "activate": "Etkinleştir",
+    "close": "Kapat",
+    "deletePane": "Paneli sil",
+    "emptyPane": "Boş",
+    "navigate": "Gezin",
+    "splitHorizontal": "Yatay böl",
+    "splitVertical": "Dikey böl",
+    "tab": "sekme",
+    "tabs": "sekmeler",
+    "title": "Panel gezgini"
+  },
+  "shortcutKeys": {
+    "title": "Kısayol tuşları",
+    "searchPlaceholder": "Ara (fonksiyon, tuş)...",
+    "resetDefaults": "Varsayılanlara sıfırla",
+    "noResults": "Eşleşen kısayol bulunamadı",
+    "clickToEdit": "Düzenlemek için tıklayın",
+    "enterNewKey": "Yeni tuş girin",
+    "shortcutFor": "kısayolu",
+    "pressKey": "Bir tuşa basın...",
+    "escToCancel": "İptal için Esc",
+    "autoSaved": "Otomatik kaydedildi"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Geliştirme sunucusunu (Render) görüntülüyorsunuz.",
+      "stableVersion": "Kararlı bir deneyim için lütfen ziyaret edin",
+      "officialSite": "resmi siteyi (GitHub Pages)"
+    }
   }
 }

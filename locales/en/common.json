@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "No changed files"
+      "noChangedFiles": "No changed files",
+      "title": "Changed files",
+      "count": "{count} files",
+      "expand": "Expand",
+      "minimize": "Minimize"
     },
     "chatContainer": {
       "generating": "AI is generating a response...",
@@ -52,7 +56,9 @@
     "editRightDirectly": "You can edit directly in the right editor",
     "notFound": "AI review data not found",
     "revert": "Revert",
-    "revertSelectionHint": "You can also partially revert by right-clicking and selecting 'Revert selection'."
+    "revertSelectionHint": "You can also partially revert by right-clicking and selecting 'Revert selection'.",
+    "revertApplied": "Revert applied",
+    "revertButton": "Revert"
   },
   "auth": {
     "authFailed": "GitHub authentication failed",
@@ -77,7 +83,8 @@
       "clearTooltip": "Clear currently displayed output",
       "contextLabel": "Context",
       "empty": "No output",
-      "typeLabel": "Type"
+      "typeLabel": "Type",
+      "partiallyHidden": "Some items hidden"
     },
     "problems": "Problems",
     "terminal": "Terminal",
@@ -351,7 +358,8 @@
       "colorTheme": "Color Theme",
       "highlightTheme": "Code Highlight",
       "title": "Theme"
-    }
+    },
+    "shortcutKeys": "Shortcut Keys"
   },
   "tabBar": {
     "closeTab": "Close tab",
@@ -381,5 +389,24 @@
     "emptyDirectory": "Directory is empty",
     "inlineHtmlFailed": "Failed to inline HTML assets",
     "notFound": "File or folder not found"
+  },
+  "shortcutKeys": {
+    "title": "Shortcut Keys",
+    "searchPlaceholder": "Search (function, key)...",
+    "resetDefaults": "Reset to defaults",
+    "noResults": "No matching shortcuts found",
+    "clickToEdit": "Click to edit",
+    "enterNewKey": "Enter new key",
+    "shortcutFor": "shortcut for",
+    "pressKey": "Press a key...",
+    "escToCancel": "Esc to cancel",
+    "autoSaved": "Auto-saved"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ You are viewing the development server (Render).",
+      "stableVersion": "For a stable experience, please visit",
+      "officialSite": "the official site (GitHub Pages)"
+    }
   }
 }
