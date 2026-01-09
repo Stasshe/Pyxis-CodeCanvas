@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "変更されたファイルはありません"
+      "noChangedFiles": "変更されたファイルはありません",
+      "title": "変更ファイル",
+      "count": "{count} 個",
+      "expand": "展開する",
+      "minimize": "最小化する"
     },
     "chatContainer": {
       "generating": "AIが応答を生成中...",
@@ -52,7 +56,9 @@
     "editRightDirectly": "右側のエディタで直接編集できます",
     "notFound": "AIレビューデータが見つかりません",
     "revert": "元に戻す",
-    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。"
+    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。",
+    "revertApplied": "適用済みを元に戻す",
+    "revertButton": "元に戻す"
   },
   "auth": {
     "authFailed": "GitHub認証に失敗しました",
@@ -77,7 +83,8 @@
       "clearTooltip": "現在表示されている出力をクリア",
       "contextLabel": "処理名",
       "empty": "出力はありません",
-      "typeLabel": "タイプ"
+      "typeLabel": "タイプ",
+      "partiallyHidden": "一部非表示中"
     },
     "problems": "問題",
     "terminal": "ターミナル",
@@ -351,7 +358,8 @@
       "colorTheme": "カラーテーマ",
       "highlightTheme": "コードハイライト",
       "title": "テーマ"
-    }
+    },
+    "shortcutKeys": "ショートカットキー設定"
   },
   "tabBar": {
     "closeTab": "タブを閉じる",
@@ -381,5 +389,24 @@
     "emptyDirectory": "ディレクトリが空です",
     "inlineHtmlFailed": "HTMLアセットのインライン化に失敗しました",
     "notFound": "ファイルまたはフォルダが見つかりません"
+  },
+  "shortcutKeys": {
+    "title": "ショートカットキー",
+    "searchPlaceholder": "検索 (機能名, キー)...",
+    "resetDefaults": "初期設定に戻す",
+    "noResults": "該当するショートカットが見つかりません",
+    "clickToEdit": "クリックして編集",
+    "enterNewKey": "新しいキーを入力",
+    "shortcutFor": "のショートカット",
+    "pressKey": "キーを押してください...",
+    "escToCancel": "Esc でキャンセル",
+    "autoSaved": "自動保存されます"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ 現在、開発用サーバー（Render）で動作しています。",
+      "stableVersion": "安定版は",
+      "officialSite": "公式サイト（GitHub Pages）"
+    }
   }
 }

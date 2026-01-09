@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Không có tệp nào thay đổi"
+      "noChangedFiles": "Không có tệp nào thay đổi",
+      "title": "Tệp đã thay đổi",
+      "count": "{count} tệp",
+      "expand": "Mở rộng",
+      "minimize": "Thu nhỏ"
     },
     "chatContainer": {
       "generating": "AI đang tạo phản hồi...",
@@ -24,10 +28,10 @@
       "apply": "Áp dụng",
       "confirm": "Xác nhận",
       "discard": "Bỏ",
-      "noHandler": "No handler available"
+      "noHandler": "Không có trình xử lý"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "Xóa"
     },
     "hints": {
       "enterSend": "Enter: xuống dòng / Ctrl+Enter: gửi",
@@ -41,8 +45,8 @@
     "sendTitle": "Gửi (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "Hỏi AI các câu hỏi hoặc tư vấn về mã...",
+    "edit": "Nhập hướng dẫn để chỉnh sửa mã..."
   },
   "aiReviewTab": {
     "applyAll": "Áp dụng tất cả",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Bạn có thể chỉnh sửa trực tiếp ở trình soạn thảo bên phải",
     "notFound": "Dữ liệu xem xét AI không tìm thấy",
     "revert": "Hoàn tác",
-    "revertSelectionHint": "Bạn cũng có thể hoàn tác một phần bằng cách nhấp phải và chọn 'Hoàn tác lựa chọn'."
+    "revertSelectionHint": "Bạn cũng có thể hoàn tác một phần bằng cách nhấp phải và chọn 'Hoàn tác lựa chọn'.",
+    "revertApplied": "Hoàn tác đã áp dụng",
+    "revertButton": "Hoàn tác"
   },
   "auth": {
     "authFailed": "Xác thực GitHub thất bại",
@@ -77,9 +83,10 @@
       "clearTooltip": "Xóa kết quả đang hiển thị",
       "contextLabel": "Ngữ cảnh",
       "empty": "Không có kết quả",
-      "typeLabel": "Loại"
+      "typeLabel": "Loại",
+      "partiallyHidden": "Một số mục ẩn"
     },
-    "problems": "Problems",
+    "problems": "Sự cố",
     "terminal": "Terminal",
     "terminalInitializing": "Đang khởi tạo terminal..."
   },
@@ -105,19 +112,19 @@
     "create": "Tạo không gian mới",
     "delete": "Xóa",
     "rename": "Đổi tên",
-    "title": "Chat spaces"
+    "title": "Không gian trò chuyện"
   },
   "confirmation": {
     "title": "Xác nhận"
   },
   "diff": {
-    "diff": "Diff",
+    "diff": "So sánh",
     "lines": "dòng",
     "original": "Nguyên bản",
     "suggested": "Gợi ý"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "Tệp nhị phân: không thể hiển thị diff",
     "fileList": "Danh sách tệp",
     "noDiffFiles": "Không có tệp diff"
   },
@@ -135,8 +142,8 @@
       "createFolder": "Tạo thư mục",
       "delete": "Xóa",
       "download": "Tải xuống",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "Nhập tệp",
+      "importFolder": "Nhập thư mục",
       "open": "Mở",
       "openCodeMirror": "Mở trong CodeMirror",
       "openPreview": "Mở xem trước",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Không tìm thấy tệp đã thay đổi",
     "showAllFilesDiff": "Hiện diff tất cả tệp cho commit này",
     "showDuplicates": "Hiện commit trùng lặp",
-    "showFileDiff": "Hiện diff cho tệp này"
+    "showFileDiff": "Hiện diff cho tệp này",
+    "allFiles": "Tất cả {count} tệp",
+    "loadMore": "Tải thêm",
+    "loadingMore": "Đang tải..."
   },
   "highlightedCode": {
     "copyCode": "Sao chép mã"
@@ -217,7 +227,7 @@
     "zoomOut": "Thu nhỏ"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "Tiện ích mở rộng",
     "files": "Tệp",
     "git": "Git",
     "project": "Quản lý dự án",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ để chuyển, Enter để xác nhận, ESC để đóng",
     "mdPreviewPrompt": "Mở trong Markdown preview?",
     "noFilesFound": "Không tìm thấy tệp",
-    "noItemsFound": "No items found",
+    "noItemsFound": "Không tìm thấy mục nào",
     "openInEditor": "Mở trong Editor",
     "openInPreview": "Mở trong Preview",
-    "quickOpen": "Quick open",
+    "quickOpen": "Mở nhanh",
     "searchPlaceholder": "Tìm theo tên tệp/thư mục hoặc đường dẫn..."
   },
   "projectModal": {
@@ -280,9 +290,9 @@
     "noProject": "Mở một dự án để thực thi mã Node.js",
     "outputHint": "Khi bạn thực thi JavaScript/Node.js/Python, kết quả sẽ hiển thị ở đây. Node.js và js có thể chạy trong cùng tệp.",
     "runtimeNotReady": "Runtime Python chưa khởi tạo",
-    "searchFile": "Search for a file to execute...",
-    "stop": "Stop",
-    "title": "Execution Environment"
+    "searchFile": "Tìm tệp để thực thi...",
+    "stop": "Dừng",
+    "title": "Môi trường thực thi"
   },
   "searchPanel": {
     "caseSensitive": "Phân biệt hoa thường",
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "Trình soạn thảo mặc định",
       "fontSize": "Kích thước font",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "Số lượng mô hình tải trước",
+      "preloadModelCountHint": "Số lượng mô hình giữ sẵn để khởi động nhanh hơn",
       "savedToLocalStorage": "Đã lưu vào LocalStorage",
       "tabSize": "Kích thước tab",
       "title": "Editor",
@@ -323,8 +333,8 @@
     },
     "loading": "Đang tải cài đặt...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "Dấu phân cách toán",
+      "mathDelimiterHint": "Dấu phân cách cho toán inline và khối (vd: $ $ hoặc $$ $$)"
     },
     "search": {
       "excludePattern": "Mẫu loại trừ",
@@ -337,19 +347,20 @@
       "colorTheme": "Giao diện màu",
       "highlightTheme": "Giao diện tô sáng",
       "title": "Giao diện"
-    }
+    },
+    "shortcutKeys": "Phím tắt"
   },
   "tabBar": {
     "closeTab": "Đóng tab",
     "moveToPane": "Di chuyển sang pane",
-    "openPreview": "Open Preview",
+    "openPreview": "Mở xem trước",
     "paneMenu": "Menu pane",
     "removeAllTabs": "Đóng tất cả tab",
     "removePane": "Xóa pane",
     "saveRestart": "Lưu và khởi động lại",
     "splitHorizontal": "Chia ngang",
     "splitVertical": "Chia dọc",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Thay đổi chưa lưu"
   },
   "tabCloseConfirmation": {
     "cancel": "Hủy",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Thư mục rỗng",
     "inlineHtmlFailed": "Không thể nhúng tài sản HTML",
     "notFound": "Không tìm thấy tệp hoặc thư mục"
+  },
+  "paneNavigator": {
+    "activate": "Kích hoạt",
+    "close": "Đóng",
+    "deletePane": "Xóa bảng điều khiển",
+    "emptyPane": "Trống",
+    "navigate": "Điều hướng",
+    "splitHorizontal": "Chia ngang",
+    "splitVertical": "Chia dọc",
+    "tab": "thẻ",
+    "tabs": "các thẻ",
+    "title": "Điều hướng bảng điều khiển"
+  },
+  "shortcutKeys": {
+    "title": "Phím tắt",
+    "searchPlaceholder": "Tìm kiếm (chức năng, phím)...",
+    "resetDefaults": "Đặt lại mặc định",
+    "noResults": "Không tìm thấy phím tắt phù hợp",
+    "clickToEdit": "Nhấp để chỉnh sửa",
+    "enterNewKey": "Nhập phím mới",
+    "shortcutFor": "phím tắt cho",
+    "pressKey": "Nhấn một phím...",
+    "escToCancel": "Esc để hủy",
+    "autoSaved": "Tự động lưu"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Bạn đang xem máy chủ phát triển (Render).",
+      "stableVersion": "Để có trải nghiệm ổn định, vui lòng truy cập",
+      "officialSite": "trang chính thức (GitHub Pages)"
+    }
   }
 }

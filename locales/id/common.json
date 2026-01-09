@@ -1,13 +1,17 @@
 {
   "action": {
-    "authenticating": "Authenticating...",
+    "authenticating": "Mengautentikasi...",
     "cancel": "Batal",
     "refresh": "Muat ulang",
     "retry": "Coba lagi"
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Tidak ada file yang berubah"
+      "noChangedFiles": "Tidak ada file yang berubah",
+      "title": "File yang berubah",
+      "count": "{count} file",
+      "expand": "Perluas",
+      "minimize": "Perkecil"
     },
     "chatContainer": {
       "generating": "AI sedang membuat respon...",
@@ -24,10 +28,10 @@
       "apply": "Terapkan",
       "confirm": "Konfirmasi",
       "discard": "Buang",
-      "noHandler": "No handler available"
+      "noHandler": "Tidak ada handler"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "Hapus"
     },
     "hints": {
       "enterSend": "Enter: baris baru / Ctrl+Enter: kirim",
@@ -41,8 +45,8 @@
     "sendTitle": "Kirim (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "Tanyakan kepada AI atau konsultasikan tentang kode...",
+    "edit": "Masukkan instruksi untuk mengedit kode..."
   },
   "aiReviewTab": {
     "applyAll": "Terapkan semua",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Anda dapat mengedit langsung di editor kanan",
     "notFound": "Data tinjauan AI tidak ditemukan",
     "revert": "Kembalikan",
-    "revertSelectionHint": "Anda juga bisa mengembalikan sebagian dengan klik kanan dan pilih 'Revert selection'."
+    "revertSelectionHint": "Anda juga bisa mengembalikan sebagian dengan klik kanan dan pilih 'Revert selection'.",
+    "revertApplied": "Batalkan yang diterapkan",
+    "revertButton": "Batalkan"
   },
   "auth": {
     "authFailed": "Autentikasi GitHub gagal",
@@ -69,7 +75,7 @@
     "unsupportedFormat": "Format file ini tidak bisa ditampilkan"
   },
   "bottom": {
-    "debugConsole": "Debug Console",
+    "debugConsole": "Konsol Debug",
     "output": "Output",
     "outputPanel": {
       "all": "Semua",
@@ -77,9 +83,10 @@
       "clearTooltip": "Bersihkan output yang sedang ditampilkan",
       "contextLabel": "Konteks",
       "empty": "Tidak ada output",
-      "typeLabel": "Tipe"
+      "typeLabel": "Tipe",
+      "partiallyHidden": "Beberapa item tersembunyi"
     },
-    "problems": "Problems",
+    "problems": "Masalah",
     "terminal": "Terminal",
     "terminalInitializing": "Menginisialisasi terminal..."
   },
@@ -105,7 +112,7 @@
     "create": "Buat space baru",
     "delete": "Hapus",
     "rename": "Ubah nama",
-    "title": "Chat spaces"
+    "title": "Ruang obrolan"
   },
   "confirmation": {
     "title": "Konfirmasi"
@@ -117,7 +124,7 @@
     "suggested": "Disarankan"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "File biner: tidak dapat menampilkan diff",
     "fileList": "Daftar File",
     "noDiffFiles": "Tidak ada file diff"
   },
@@ -135,8 +142,8 @@
       "createFolder": "Buat folder",
       "delete": "Hapus",
       "download": "Unduh",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "Impor file",
+      "importFolder": "Impor folder",
       "open": "Buka",
       "openCodeMirror": "Buka di CodeMirror",
       "openPreview": "Buka pratinjau",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Tidak ditemukan file yang berubah",
     "showAllFilesDiff": "Tampilkan semua diff file untuk commit ini",
     "showDuplicates": "Tampilkan duplikat",
-    "showFileDiff": "Tampilkan diff untuk file ini"
+    "showFileDiff": "Tampilkan diff untuk file ini",
+    "allFiles": "Semua {count} file",
+    "loadMore": "Muat lebih banyak",
+    "loadingMore": "Memuat..."
   },
   "highlightedCode": {
     "copyCode": "Salin kode"
@@ -212,12 +222,12 @@
     "loadingImage": "Memuat gambar...",
     "mermaidPlaceholder": "Gulir untuk melihat diagram Mermaid",
     "preview": "Pratinjau",
-    "reset": "Reset",
+    "reset": "Atur ulang",
     "zoomIn": "Perbesar",
     "zoomOut": "Perkecil"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "Ekstensi",
     "files": "File",
     "git": "Git",
     "project": "Manajemen Proyek",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ untuk berganti, Enter untuk konfirmasi, ESC untuk tutup",
     "mdPreviewPrompt": "Buka di pratinjau Markdown?",
     "noFilesFound": "Tidak ada file ditemukan",
-    "noItemsFound": "No items found",
+    "noItemsFound": "Tidak ada item yang ditemukan",
     "openInEditor": "Buka di Editor",
     "openInPreview": "Buka di Pratinjau",
-    "quickOpen": "Quick open",
+    "quickOpen": "Buka cepat",
     "searchPlaceholder": "Cari nama file/folder atau path..."
   },
   "projectModal": {
@@ -281,11 +291,11 @@
     "outputHint": "Saat Anda menjalankan JavaScript/Node.js/Python, hasil akan ditampilkan di sini. Node.js dan js dapat dijalankan di file yang sama.",
     "runtimeNotReady": "Runtime Python belum diinisialisasi",
     "searchFile": "Cari file untuk dijalankan...",
-    "stop": "Stop",
+    "stop": "Berhenti",
     "title": "Lingkungan Eksekusi"
   },
   "searchPanel": {
-    "caseSensitive": "Case sensitive",
+    "caseSensitive": "Peka huruf besar/kecil",
     "noResults": "Tidak ditemukan hasil",
     "resultCount": "{count} hasil",
     "searchInFiles": "Cari di file...",
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "Editor Default",
       "fontSize": "Ukuran Font",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "Jumlah model untuk dimuat sebelumnya",
+      "preloadModelCountHint": "Berapa model untuk dimuat sebelumnya agar startup lebih cepat",
       "savedToLocalStorage": "Tersimpan di LocalStorage",
       "tabSize": "Ukuran Tab",
       "title": "Editor",
@@ -323,8 +333,8 @@
     },
     "loading": "Memuat pengaturan...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "Pemisah matematika",
+      "mathDelimiterHint": "Pemisah untuk matematika inline dan blok (mis. $ $ atau $$ $$)"
     },
     "search": {
       "excludePattern": "Pola Exclude",
@@ -337,19 +347,20 @@
       "colorTheme": "Tema Warna",
       "highlightTheme": "Highlight Kode",
       "title": "Tema"
-    }
+    },
+    "shortcutKeys": "Pintasan keyboard"
   },
   "tabBar": {
     "closeTab": "Tutup tab",
     "moveToPane": "Pindah ke pane",
-    "openPreview": "Open Preview",
+    "openPreview": "Buka pratinjau",
     "paneMenu": "Menu pane",
     "removeAllTabs": "Hapus semua tab",
     "removePane": "Hapus pane",
     "saveRestart": "Simpan dan restart",
     "splitHorizontal": "Bagi horizontal",
     "splitVertical": "Bagi vertikal",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Perubahan belum disimpan"
   },
   "tabCloseConfirmation": {
     "cancel": "Batal",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Direktori kosong",
     "inlineHtmlFailed": "Gagal menyisipkan aset HTML",
     "notFound": "File atau folder tidak ditemukan"
+  },
+  "paneNavigator": {
+    "activate": "Aktifkan",
+    "close": "Tutup",
+    "deletePane": "Hapus panel",
+    "emptyPane": "Kosong",
+    "navigate": "Navigasi",
+    "splitHorizontal": "Bagi horizontal",
+    "splitVertical": "Bagi vertikal",
+    "tab": "tab",
+    "tabs": "tab",
+    "title": "Navigasi panel"
+  },
+  "shortcutKeys": {
+    "title": "Pintasan keyboard",
+    "searchPlaceholder": "Cari (fungsi, tombol)...",
+    "resetDefaults": "Reset ke default",
+    "noResults": "Tidak ada pintasan yang cocok",
+    "clickToEdit": "Klik untuk mengedit",
+    "enterNewKey": "Masukkan tombol baru",
+    "shortcutFor": "pintasan untuk",
+    "pressKey": "Tekan tombol...",
+    "escToCancel": "Esc untuk membatalkan",
+    "autoSaved": "Tersimpan otomatis"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Anda sedang melihat server pengembangan (Render).",
+      "stableVersion": "Untuk pengalaman yang stabil, silakan kunjungi",
+      "officialSite": "situs resmi (GitHub Pages)"
+    }
   }
 }

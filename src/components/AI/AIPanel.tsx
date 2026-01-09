@@ -535,15 +535,15 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
                 color: colors.foreground,
               }}
             >
-              <div className="text-xs font-medium">変更ファイル</div>
+              <div className="text-xs font-medium">{t('ai.changedFilesList.title')}</div>
               <div className="flex items-center gap-2">
                 <div className="text-xs opacity-80">
-                  {latestEditResponse.changedFiles.filter(f => !f.applied).length} 個
+                  {t('ai.changedFilesList.count', { count: latestEditResponse.changedFiles.filter(f => !f.applied).length })}
                 </div>
                 <button
                   type="button"
-                  aria-label={isChangedFilesMinimized ? '展開する' : '最小化する'}
-                  title={isChangedFilesMinimized ? '展開する' : '最小化する'}
+                  aria-label={isChangedFilesMinimized ? t('ai.changedFilesList.expand') : t('ai.changedFilesList.minimize')}
+                  title={isChangedFilesMinimized ? t('ai.changedFilesList.expand') : t('ai.changedFilesList.minimize')}
                   className="p-1 rounded hover:opacity-80"
                   onClick={() => setIsChangedFilesMinimized(prev => !prev)}
                   style={{ color: colors.foreground }}

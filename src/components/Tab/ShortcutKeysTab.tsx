@@ -20,11 +20,13 @@ import {
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useTranslation } from '@/context/I18nContext';
 import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
 import { type Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils';
 import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings';
 
 export default function ShortcutKeysTab() {
+  const { t } = useTranslation();
   const { bindings, updateBindings } = useKeyBindings();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -218,7 +220,7 @@ export default function ShortcutKeysTab() {
             <div className="p-1 bg-primary/10 rounded text-primary">
               <Command size={16} />
             </div>
-            <h2 className="text-sm font-semibold tracking-tight">ショートカットキー</h2>
+            <h2 className="text-sm font-semibold tracking-tight">{t('shortcutKeys.title')}</h2>
           </div>
 
           <div className="flex-1 max-w-sm relative">
@@ -228,7 +230,7 @@ export default function ShortcutKeysTab() {
             />
             <input
               type="text"
-              placeholder="検索 (機能名, キー)..."
+              placeholder={t('shortcutKeys.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1 bg-secondary/50 border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
@@ -238,10 +240,10 @@ export default function ShortcutKeysTab() {
           <button
             className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
             onClick={resetDefaults}
-            title="Reset to defaults"
+            title={t('shortcutKeys.resetDefaults')}
           >
             <RefreshCw size={12} />
-            初期設定に戻す
+            {t('shortcutKeys.resetDefaults')}
           </button>
         </div>
       </div>
@@ -252,7 +254,7 @@ export default function ShortcutKeysTab() {
           {groupedBindings.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground">
               <Search size={48} className="mx-auto mb-4 opacity-20" />
-              <p>該当するショートカットが見つかりません</p>
+              <p>{t('shortcutKeys.noResults')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -289,7 +291,7 @@ export default function ShortcutKeysTab() {
                         <button
                           onClick={() => startCapture(b.id)}
                           className="flex items-center gap-2 group-hover:bg-background rounded px-1 py-0.5 transition-all border border-transparent group-hover:border-border"
-                          title="クリックして編集"
+                          title={t('shortcutKeys.clickToEdit')}
                         >
                           <div className="flex gap-1">
                             {formatKeyComboForDisplay(b.combo)
@@ -330,12 +332,12 @@ export default function ShortcutKeysTab() {
                 <Keyboard size={20} />
               </div>
 
-              <h3 className="text-sm font-semibold mb-1">新しいキーを入力</h3>
+              <h3 className="text-sm font-semibold mb-1">{t('shortcutKeys.enterNewKey')}</h3>
               <p className="text-xs text-muted-foreground mb-4">
                 <span className="font-medium text-foreground">
                   {bindings.find(b => b.id === editingId)?.name}
                 </span>{' '}
-                のショートカット
+                {t('shortcutKeys.shortcutFor')}
               </p>
 
               <div className="w-full bg-muted/50 border-2 border-dashed border-border rounded-lg p-4 mb-4 flex items-center justify-center min-h-[72px]">
@@ -352,7 +354,7 @@ export default function ShortcutKeysTab() {
                   </div>
                 ) : (
                   <span className="text-muted-foreground animate-pulse text-xs">
-                    キーを押してください...
+                    {t('shortcutKeys.pressKey')}
                   </span>
                 )}
               </div>
@@ -368,14 +370,14 @@ export default function ShortcutKeysTab() {
                   className="flex-1 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-md text-xs font-medium transition-colors"
                   onClick={stopCapture}
                 >
-                  キャンセル
+                  {t('action.cancel')}
                 </button>
               </div>
             </div>
 
             <div className="bg-muted/30 px-4 py-2 text-xs text-muted-foreground border-t border-border flex justify-between">
-              <span>Esc でキャンセル</span>
-              <span>自動保存されます</span>
+              <span>{t('shortcutKeys.escToCancel')}</span>
+              <span>{t('shortcutKeys.autoSaved')}</span>
             </div>
           </div>
         </div>

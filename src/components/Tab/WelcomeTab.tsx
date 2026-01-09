@@ -5,7 +5,6 @@ import { useTranslation } from '@/context/I18nContext';
 export default function WelcomeTab() {
   const { t } = useTranslation();
   const [isDevServer, setIsDevServer] = useState(false);
-  const [lang, setLang] = useState<'en' | 'ja'>('en');
   return (
     <div
       className="h-full flex flex-col items-center text-muted-foreground overflow-hidden"
@@ -27,43 +26,21 @@ export default function WelcomeTab() {
           {/* 🟡 onrender.com向け注意表示 */}
           {process.env.NEXT_PUBLIC_IS_DEV_SERVER && (
             <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg shadow mb-8 border border-yellow-300">
-              {lang === 'ja' ? (
-                <>
-                  <p className="font-semibold mb-1">
-                    ⚠️ 現在、開発用サーバー（Render）で動作しています。
-                  </p>
-                  <p>
-                    安定版は{' '}
-                    <a
-                      href="https://stasshe.github.io/Pyxis-CodeCanvas"
-                      className="underline text-blue-600"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      公式サイト（GitHub Pages）
-                    </a>{' '}
-                    をご利用ください。
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="font-semibold mb-1">
-                    ⚠️ You are viewing the development server (Render).
-                  </p>
-                  <p>
-                    For a stable experience, please visit{' '}
-                    <a
-                      href="https://stasshe.github.io/Pyxis-CodeCanvas"
-                      className="underline text-blue-600"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      the official site (GitHub Pages)
-                    </a>
-                    .
-                  </p>
-                </>
-              )}
+              <p className="font-semibold mb-1">
+                {t('welcome.devServer.warning')}
+              </p>
+              <p>
+                {t('welcome.devServer.stableVersion')}{' '}
+                <a
+                  href="https://stasshe.github.io/Pyxis-CodeCanvas"
+                  className="underline text-blue-600"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t('welcome.devServer.officialSite')}
+                </a>
+                .
+              </p>
             </div>
           )}
 

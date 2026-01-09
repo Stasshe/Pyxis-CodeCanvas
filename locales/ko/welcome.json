@@ -26,6 +26,6 @@
       "title": "특별 감사"
     },
     "title": "환영합니다!",
-    "githubNote": "GitHub integration has no known bugs to our knowledge, but avoid extreme actions such as using it on very large repositories or closing the browser mid-operation."
+    "githubNote": "GitHub 연동에 알려진 버그는 없지만, 매우 큰 저장소에서 사용하거나 작업 중 브라우저를 닫는 등의 극단적인 행동은 피하십시오."
   }
 }

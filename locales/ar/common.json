@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "لا توجد ملفات مُعدلة"
+      "noChangedFiles": "لا توجد ملفات مُعدلة",
+      "title": "الملفات المُعدلة",
+      "count": "{count} ملفات",
+      "expand": "توسيع",
+      "minimize": "تصغير"
     },
     "chatContainer": {
       "generating": "الذكاء الاصطناعي يقوم بإنشاء استجابة...",
@@ -24,10 +28,10 @@
       "apply": "تطبيق",
       "confirm": "تأكيد",
       "discard": "تجاهل",
-      "noHandler": "No handler available"
+      "noHandler": "لا يوجد معالج متاح"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "إزالة"
     },
     "hints": {
       "enterSend": "Enter: سطر جديد / Ctrl+Enter: إرسال",
@@ -41,8 +45,8 @@
     "sendTitle": "إرسال (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "اسأل الذكاء الاصطناعي أو استشر حول الشيفرة...",
+    "edit": "أدخل تعليمات لتحرير الشيفرة..."
   },
   "aiReviewTab": {
     "applyAll": "تطبيق الكل",
@@ -52,7 +56,9 @@
     "editRightDirectly": "يمكنك التحرير مباشرة في المحرر الأيمن",
     "notFound": "بيانات مراجعة AI غير موجودة",
     "revert": "استعادة",
-    "revertSelectionHint": "يمكنك أيضًا التراجع جزئيًا بالنقر بزر الماوس الأيمن واختيار 'استعادة التحديد'."
+    "revertSelectionHint": "يمكنك أيضًا التراجع جزئيًا بالنقر بزر الماوس الأيمن واختيار 'استعادة التحديد'.",
+    "revertApplied": "استعادة المطبقة",
+    "revertButton": "استعادة"
   },
   "auth": {
     "authFailed": "فشل مصادقة GitHub",
@@ -77,9 +83,10 @@
       "clearTooltip": "مسح المخرجات المعروضة حاليًا",
       "contextLabel": "السياق",
       "empty": "لا توجد مخرجات",
-      "typeLabel": "النوع"
+      "typeLabel": "النوع",
+      "partiallyHidden": "بعض العناصر مخفية"
     },
-    "problems": "Problems",
+    "problems": "المشاكل",
     "terminal": "الطرفية",
     "terminalInitializing": "جاري تهيئة الطرفية..."
   },
@@ -105,7 +112,7 @@
     "create": "إنشاء مساحة جديدة",
     "delete": "حذف",
     "rename": "إعادة التسمية",
-    "title": "Chat spaces"
+    "title": "مساحات الدردشة"
   },
   "confirmation": {
     "title": "تأكيد"
@@ -117,7 +124,7 @@
     "suggested": "المقترح"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "ملف ثنائي: لا يمكن عرض الفرق",
     "fileList": "قائمة الملفات",
     "noDiffFiles": "لا توجد ملفات فرق"
   },
@@ -135,8 +142,8 @@
       "createFolder": "إنشاء مجلد",
       "delete": "حذف",
       "download": "تنزيل",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "استيراد الملفات",
+      "importFolder": "استيراد المجلد",
       "open": "فتح",
       "openCodeMirror": "فتح في CodeMirror",
       "openPreview": "فتح المعاينة",
@@ -194,7 +201,10 @@
     "noChangedFiles": "لم يتم العثور على ملفات مُعدلة",
     "showAllFilesDiff": "عرض جميع فروق الملفات لهذا الالتزام",
     "showDuplicates": "إظهار الالتزامات المكررة",
-    "showFileDiff": "عرض الفرق لهذا الملف"
+    "showFileDiff": "عرض الفرق لهذا الملف",
+    "allFiles": "جميع {count} الملفات",
+    "loadMore": "تحميل المزيد",
+    "loadingMore": "جارٍ التحميل..."
   },
   "highlightedCode": {
     "copyCode": "نسخ الشيفرة"
@@ -217,7 +227,7 @@
     "zoomOut": "تصغير"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "الإضافات",
     "files": "الملفات",
     "git": "Git",
     "project": "إدارة المشروع",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ للتبديل، Enter للتأكيد، ESC للإغلاق",
     "mdPreviewPrompt": "فتح في معاينة Markdown؟",
     "noFilesFound": "لم يتم العثور على ملفات",
-    "noItemsFound": "No items found",
+    "noItemsFound": "لم يتم العثور على عناصر",
     "openInEditor": "فتح في المحرر",
     "openInPreview": "فتح في المعاينة",
-    "quickOpen": "Quick open",
+    "quickOpen": "فتح سريع",
     "searchPlaceholder": "ابحث باسم الملف/المجلد أو المسار..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "المحرر الافتراضي",
       "fontSize": "حجم الخط",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "عدد النماذج للتحميل المسبق",
+      "preloadModelCountHint": "كم عدد النماذج للتحميل المسبق لبدء أسرع",
       "savedToLocalStorage": "تم الحفظ في LocalStorage",
       "tabSize": "حجم التبويب",
       "title": "المحرر",
@@ -323,8 +333,8 @@
     },
     "loading": "جارٍ تحميل الإعدادات...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "فاصل الرياضيات",
+      "mathDelimiterHint": "الفاصل المستخدم للرياضيات المضمنة والكتلة (مثل $ $ أو $$ $$)"
     },
     "search": {
       "excludePattern": "نمط الاستبعاد",
@@ -337,19 +347,20 @@
       "colorTheme": "سمة الألوان",
       "highlightTheme": "سمة التمييز",
       "title": "السمة"
-    }
+    },
+    "shortcutKeys": "اختصارات لوحة المفاتيح"
   },
   "tabBar": {
     "closeTab": "إغلاق التبويب",
     "moveToPane": "نقل إلى اللوحة",
-    "openPreview": "Open Preview",
+    "openPreview": "فتح المعاينة",
     "paneMenu": "قائمة اللوحة",
     "removeAllTabs": "إزالة كل التبويبات",
     "removePane": "إزالة اللوحة",
     "saveRestart": "حفظ وإعادة تشغيل",
     "splitHorizontal": "تقسيم أفقي",
     "splitVertical": "تقسيم عمودي",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "تغييرات غير محفوظة"
   },
   "tabCloseConfirmation": {
     "cancel": "إلغاء",
@@ -367,5 +378,36 @@
     "emptyDirectory": "المجلد فارغ",
     "inlineHtmlFailed": "فشل تضمين أصول HTML",
     "notFound": "الملف أو المجلد غير موجود"
+  },
+  "paneNavigator": {
+    "activate": "تفعيل",
+    "close": "إغلاق",
+    "deletePane": "حذف اللوحة",
+    "emptyPane": "فارغ",
+    "navigate": "تنقل",
+    "splitHorizontal": "تقسيم أفقي",
+    "splitVertical": "تقسيم عمودي",
+    "tab": "تبويب",
+    "tabs": "تبويبات",
+    "title": "متصفح اللوحات"
+  },
+  "shortcutKeys": {
+    "title": "اختصارات لوحة المفاتيح",
+    "searchPlaceholder": "بحث (الوظيفة، المفتاح)...",
+    "resetDefaults": "إعادة التعيين للافتراضي",
+    "noResults": "لم يتم العثور على اختصارات مطابقة",
+    "clickToEdit": "انقر للتحرير",
+    "enterNewKey": "أدخل مفتاح جديد",
+    "shortcutFor": "اختصار لـ",
+    "pressKey": "اضغط على مفتاح...",
+    "escToCancel": "Esc للإلغاء",
+    "autoSaved": "حفظ تلقائي"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ أنت تستعرض خادم التطوير (Render).",
+      "stableVersion": "للحصول على تجربة مستقرة، يرجى زيارة",
+      "officialSite": "الموقع الرسمي (GitHub Pages)"
+    }
   }
 }

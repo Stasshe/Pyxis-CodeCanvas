@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Geen gewijzigde bestanden"
+      "noChangedFiles": "Geen gewijzigde bestanden",
+      "title": "Gewijzigde bestanden",
+      "count": "{count} bestanden",
+      "expand": "Uitvouwen",
+      "minimize": "Minimaliseren"
     },
     "chatContainer": {
       "generating": "De AI genereert een antwoord...",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Je kunt direct in de rechter editor bewerken",
     "notFound": "AI reviewgegevens niet gevonden",
     "revert": "Terugdraaien",
-    "revertSelectionHint": "Je kunt ook gedeeltelijk terugdraaien door rechts te klikken en 'Terugdraai selectie' te kiezen."
+    "revertSelectionHint": "Je kunt ook gedeeltelijk terugdraaien door rechts te klikken en 'Terugdraai selectie' te kiezen.",
+    "revertApplied": "Toegepaste terugdraaien",
+    "revertButton": "Terugdraaien"
   },
   "auth": {
     "authFailed": "GitHub-authenticatie mislukt",
@@ -70,14 +76,15 @@
   },
   "bottom": {
     "debugConsole": "Debugconsole",
-    "output": "Output",
+    "output": "Uitvoer",
     "outputPanel": {
       "all": "Alles",
       "clear": "Wissen",
       "clearTooltip": "Wissen van huidige weergave",
       "contextLabel": "Context",
       "empty": "Geen output",
-      "typeLabel": "Type"
+      "typeLabel": "Type",
+      "partiallyHidden": "Sommige items verborgen"
     },
     "problems": "Problemen",
     "terminal": "Terminal",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Geen gewijzigde bestanden gevonden",
     "showAllFilesDiff": "Toon alle bestandsdiffs voor deze commit",
     "showDuplicates": "Toon duplicaten",
-    "showFileDiff": "Toon diff voor dit bestand"
+    "showFileDiff": "Toon diff voor dit bestand",
+    "allFiles": "Alle {count} bestanden",
+    "loadMore": "Meer laden",
+    "loadingMore": "Laden..."
   },
   "highlightedCode": {
     "copyCode": "Code kopiëren"
@@ -281,7 +291,7 @@
     "outputHint": "Wanneer je JavaScript/Node.js/Python-code uitvoert, worden de resultaten hier weergegeven. Node.js en js kunnen in hetzelfde bestand worden uitgevoerd.",
     "runtimeNotReady": "Python-runtime is niet geïnitialiseerd",
     "searchFile": "Zoek een bestand om uit te voeren...",
-    "stop": "Stop",
+    "stop": "Stoppen",
     "title": "Uitvoeringsomgeving"
   },
   "searchPanel": {
@@ -337,7 +347,8 @@
       "colorTheme": "Kleurthema",
       "highlightTheme": "Highlight-thema",
       "title": "Thema"
-    }
+    },
+    "shortcutKeys": "Sneltoetsen"
   },
   "tabBar": {
     "closeTab": "Tab sluiten",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Map is leeg",
     "inlineHtmlFailed": "Inline HTML-assets mislukt",
     "notFound": "Bestand of map niet gevonden"
+  },
+  "paneNavigator": {
+    "activate": "Activeren",
+    "close": "Sluiten",
+    "deletePane": "Paneel verwijderen",
+    "emptyPane": "Leeg",
+    "navigate": "Navigeren",
+    "splitHorizontal": "Horizontaal splitsen",
+    "splitVertical": "Verticaal splitsen",
+    "tab": "tabblad",
+    "tabs": "tabbladen",
+    "title": "Paneelnavigator"
+  },
+  "shortcutKeys": {
+    "title": "Sneltoetsen",
+    "searchPlaceholder": "Zoeken (functie, toets)...",
+    "resetDefaults": "Standaardinstellingen herstellen",
+    "noResults": "Geen overeenkomende sneltoetsen gevonden",
+    "clickToEdit": "Klik om te bewerken",
+    "enterNewKey": "Voer nieuwe toets in",
+    "shortcutFor": "sneltoets voor",
+    "pressKey": "Druk op een toets...",
+    "escToCancel": "Esc om te annuleren",
+    "autoSaved": "Automatisch opgeslagen"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ U bekijkt de ontwikkelserver (Render).",
+      "stableVersion": "Voor een stabiele ervaring, bezoek",
+      "officialSite": "de officiële site (GitHub Pages)"
+    }
   }
 }

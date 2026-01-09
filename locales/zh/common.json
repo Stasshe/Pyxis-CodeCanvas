@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "无更改的文件"
+      "noChangedFiles": "无更改的文件",
+      "title": "已更改的文件",
+      "count": "{count} 个",
+      "expand": "展开",
+      "minimize": "最小化"
     },
     "chatContainer": {
       "generating": "AI 正在生成回复...",
@@ -24,10 +28,10 @@
       "apply": "应用",
       "confirm": "确认",
       "discard": "放弃",
-      "noHandler": "No handler available"
+      "noHandler": "没有可用的处理程序"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "移除"
     },
     "hints": {
       "enterSend": "Enter：换行 / Ctrl+Enter：发送",
@@ -41,8 +45,8 @@
     "sendTitle": "发送 (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "向 AI 提问或咨询代码...",
+    "edit": "输入指示以编辑代码..."
   },
   "aiReviewTab": {
     "applyAll": "全部应用",
@@ -52,7 +56,9 @@
     "editRightDirectly": "你可以直接在右侧编辑器中编辑",
     "notFound": "未找到 AI 审查数据",
     "revert": "还原",
-    "revertSelectionHint": "你也可以右键选择并选择“还原所选项”。"
+    "revertSelectionHint": "你也可以右键选择并选择“还原所选项”。",
+    "revertApplied": "撤销已应用的更改",
+    "revertButton": "撤销"
   },
   "auth": {
     "authFailed": "GitHub 验证失败",
@@ -77,9 +83,10 @@
       "clearTooltip": "清除当前显示的输出",
       "contextLabel": "上下文",
       "empty": "无输出",
-      "typeLabel": "类型"
+      "typeLabel": "类型",
+      "partiallyHidden": "部分内容已隐藏"
     },
-    "problems": "Problems",
+    "problems": "问题",
     "terminal": "终端",
     "terminalInitializing": "终端初始化中..."
   },
@@ -105,7 +112,7 @@
     "create": "创建新空间",
     "delete": "删除",
     "rename": "重命名",
-    "title": "Chat spaces"
+    "title": "聊天空间"
   },
   "confirmation": {
     "title": "确认"
@@ -117,7 +124,7 @@
     "suggested": "建议"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "二进制文件：无法显示差异",
     "fileList": "文件列表",
     "noDiffFiles": "无差异文件"
   },
@@ -135,8 +142,8 @@
       "createFolder": "创建文件夹",
       "delete": "删除",
       "download": "下载",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "导入文件",
+      "importFolder": "导入文件夹",
       "open": "打开",
       "openCodeMirror": "在 CodeMirror 中打开",
       "openPreview": "打开预览",
@@ -194,7 +201,10 @@
     "noChangedFiles": "未找到更改文件",
     "showAllFilesDiff": "显示此提交的所有文件差异",
     "showDuplicates": "显示重复提交",
-    "showFileDiff": "显示此文件的差异"
+    "showFileDiff": "显示此文件的差异",
+    "allFiles": "全部 {count} 个文件",
+    "loadMore": "加载更多",
+    "loadingMore": "加载中..."
   },
   "highlightedCode": {
     "copyCode": "复制代码"
@@ -217,7 +227,7 @@
     "zoomOut": "缩小"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "扩展",
     "files": "文件",
     "git": "Git",
     "project": "项目管理",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ 切换，Enter 确定，ESC 关闭",
     "mdPreviewPrompt": "在 Markdown 预览中打开？",
     "noFilesFound": "未找到文件",
-    "noItemsFound": "No items found",
+    "noItemsFound": "未找到项目",
     "openInEditor": "在编辑器中打开",
     "openInPreview": "在预览中打开",
-    "quickOpen": "Quick open",
+    "quickOpen": "快速打开",
     "searchPlaceholder": "按文件/文件夹名或路径搜索..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "默认编辑器",
       "fontSize": "字体大小",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "预加载模型数量",
+      "preloadModelCountHint": "为加快启动速度，预加载多少个模型",
       "savedToLocalStorage": "已保存到 LocalStorage",
       "tabSize": "制表符宽度",
       "title": "编辑器",
@@ -323,8 +333,8 @@
     },
     "loading": "正在加载设置...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "数学分隔符",
+      "mathDelimiterHint": "用于行内和块数学的分隔符（例如 $ $ 或 $$ $$）"
     },
     "search": {
       "excludePattern": "排除模式",
@@ -337,19 +347,20 @@
       "colorTheme": "配色主题",
       "highlightTheme": "代码高亮主题",
       "title": "主题"
-    }
+    },
+    "shortcutKeys": "快捷键设置"
   },
   "tabBar": {
     "closeTab": "关闭标签",
     "moveToPane": "移动到面板",
-    "openPreview": "Open Preview",
+    "openPreview": "打开预览",
     "paneMenu": "面板菜单",
     "removeAllTabs": "关闭所有标签",
     "removePane": "移除面板",
     "saveRestart": "保存并重启",
     "splitHorizontal": "水平拆分",
     "splitVertical": "垂直拆分",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "未保存的更改"
   },
   "tabCloseConfirmation": {
     "cancel": "取消",
@@ -367,5 +378,36 @@
     "emptyDirectory": "目录为空",
     "inlineHtmlFailed": "内联 HTML 资源失败",
     "notFound": "未找到文件或文件夹"
+  },
+  "paneNavigator": {
+    "activate": "激活",
+    "close": "关闭",
+    "deletePane": "删除窗格",
+    "emptyPane": "空",
+    "navigate": "导航",
+    "splitHorizontal": "水平拆分",
+    "splitVertical": "垂直拆分",
+    "tab": "标签页",
+    "tabs": "标签页",
+    "title": "窗格导航"
+  },
+  "shortcutKeys": {
+    "title": "快捷键",
+    "searchPlaceholder": "搜索（功能名、按键）...",
+    "resetDefaults": "重置为默认值",
+    "noResults": "未找到匹配的快捷键",
+    "clickToEdit": "点击编辑",
+    "enterNewKey": "输入新的按键",
+    "shortcutFor": "的快捷键",
+    "pressKey": "请按下按键...",
+    "escToCancel": "Esc 取消",
+    "autoSaved": "自动保存"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ 您正在使用开发服务器（Render）。",
+      "stableVersion": "如需稳定版本，请访问",
+      "officialSite": "官方网站（GitHub Pages）"
+    }
   }
 }

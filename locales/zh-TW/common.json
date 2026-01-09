@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "沒有變更的檔案"
+      "noChangedFiles": "沒有變更的檔案",
+      "title": "已變更的檔案",
+      "count": "{count} 個",
+      "expand": "展開",
+      "minimize": "最小化"
     },
     "chatContainer": {
       "generating": "AI 正在產生回應...",
@@ -24,10 +28,10 @@
       "apply": "套用",
       "confirm": "確認",
       "discard": "捨棄",
-      "noHandler": "No handler available"
+      "noHandler": "沒有可用的處理程式"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "移除"
     },
     "hints": {
       "enterSend": "Enter: 換行 / Ctrl+Enter: 傳送",
@@ -41,8 +45,8 @@
     "sendTitle": "傳送 (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "向 AI 詢問問題或諮詢程式碼...",
+    "edit": "輸入編輯程式碼的指示..."
   },
   "aiReviewTab": {
     "applyAll": "全部套用",
@@ -52,7 +56,9 @@
     "editRightDirectly": "你可以直接在右側編輯器編輯",
     "notFound": "找不到 AI 審查資料",
     "revert": "還原",
-    "revertSelectionHint": "你也可以右鍵點擊選取項目並選擇「還原選取」。"
+    "revertSelectionHint": "你也可以右鍵點擊選取項目並選擇「還原選取」。",
+    "revertApplied": "撤銷已套用的變更",
+    "revertButton": "撤銷"
   },
   "auth": {
     "authFailed": "GitHub 驗證失敗",
@@ -77,9 +83,10 @@
       "clearTooltip": "清除目前顯示的輸出",
       "contextLabel": "上下文",
       "empty": "沒有輸出",
-      "typeLabel": "類型"
+      "typeLabel": "類型",
+      "partiallyHidden": "部分內容已隱藏"
     },
-    "problems": "Problems",
+    "problems": "問題",
     "terminal": "終端機",
     "terminalInitializing": "終端機初始化中..."
   },
@@ -105,7 +112,7 @@
     "create": "建立新空間",
     "delete": "刪除",
     "rename": "重新命名",
-    "title": "Chat spaces"
+    "title": "聊天空間"
   },
   "confirmation": {
     "title": "確認"
@@ -117,7 +124,7 @@
     "suggested": "建議"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "二進位檔案：無法顯示差異",
     "fileList": "檔案清單",
     "noDiffFiles": "沒有差異檔案"
   },
@@ -135,8 +142,8 @@
       "createFolder": "建立資料夾",
       "delete": "刪除",
       "download": "下載",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "匯入檔案",
+      "importFolder": "匯入資料夾",
       "open": "開啟",
       "openCodeMirror": "在 CodeMirror 開啟",
       "openPreview": "開啟預覽",
@@ -194,7 +201,10 @@
     "noChangedFiles": "找不到已變更的檔案",
     "showAllFilesDiff": "顯示此提交的所有檔案差異",
     "showDuplicates": "顯示重複提交",
-    "showFileDiff": "顯示此檔案的差異"
+    "showFileDiff": "顯示此檔案的差異",
+    "allFiles": "全部 {count} 個檔案",
+    "loadMore": "載入更多",
+    "loadingMore": "載入中..."
   },
   "highlightedCode": {
     "copyCode": "複製程式碼"
@@ -217,7 +227,7 @@
     "zoomOut": "縮小"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "擴充功能",
     "files": "檔案",
     "git": "Git",
     "project": "專案管理",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ 切換，Enter 確認，ESC 關閉",
     "mdPreviewPrompt": "要在 Markdown 預覽中開啟嗎？",
     "noFilesFound": "找不到檔案",
-    "noItemsFound": "No items found",
+    "noItemsFound": "找不到項目",
     "openInEditor": "在編輯器開啟",
     "openInPreview": "在預覽中開啟",
-    "quickOpen": "Quick open",
+    "quickOpen": "快速開啟",
     "searchPlaceholder": "依檔案/資料夾名稱或路徑搜尋..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "預設編輯器",
       "fontSize": "字型大小",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "預載模型數量",
+      "preloadModelCountHint": "為加快啟動速度，預載多少個模型",
       "savedToLocalStorage": "已儲存到 LocalStorage",
       "tabSize": "Tab 寬度",
       "title": "編輯器",
@@ -323,8 +333,8 @@
     },
     "loading": "載入設定中...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "數學分隔符",
+      "mathDelimiterHint": "用於行內和區塊數學的分隔符（例如 $ $ 或 $$ $$）"
     },
     "search": {
       "excludePattern": "排除模式",
@@ -337,19 +347,20 @@
       "colorTheme": "配色主題",
       "highlightTheme": "語法主題",
       "title": "主題"
-    }
+    },
+    "shortcutKeys": "快捷鍵設定"
   },
   "tabBar": {
     "closeTab": "關閉分頁",
     "moveToPane": "移到面板",
-    "openPreview": "Open Preview",
+    "openPreview": "開啟預覽",
     "paneMenu": "面板選單",
     "removeAllTabs": "移除所有分頁",
     "removePane": "移除面板",
     "saveRestart": "儲存並重新啟動",
     "splitHorizontal": "水平分割",
     "splitVertical": "垂直分割",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "未儲存的變更"
   },
   "tabCloseConfirmation": {
     "cancel": "取消",
@@ -367,5 +378,36 @@
     "emptyDirectory": "目錄為空",
     "inlineHtmlFailed": "內嵌 HTML 資產失敗",
     "notFound": "找不到檔案或資料夾"
+  },
+  "paneNavigator": {
+    "activate": "啟用",
+    "close": "關閉",
+    "deletePane": "刪除窗格",
+    "emptyPane": "空",
+    "navigate": "導航",
+    "splitHorizontal": "水平分割",
+    "splitVertical": "垂直分割",
+    "tab": "分頁",
+    "tabs": "分頁",
+    "title": "窗格導航器"
+  },
+  "shortcutKeys": {
+    "title": "快捷鍵",
+    "searchPlaceholder": "搜尋（功能名、按鍵）...",
+    "resetDefaults": "重置為預設值",
+    "noResults": "找不到符合的快捷鍵",
+    "clickToEdit": "點擊編輯",
+    "enterNewKey": "輸入新的按鍵",
+    "shortcutFor": "的快捷鍵",
+    "pressKey": "請按下按鍵...",
+    "escToCancel": "Esc 取消",
+    "autoSaved": "自動儲存"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ 您正在使用開發伺服器（Render）。",
+      "stableVersion": "如需穩定版本，請訪問",
+      "officialSite": "官方網站（GitHub Pages）"
+    }
   }
 }

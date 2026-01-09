@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Inga ändrade filer"
+      "noChangedFiles": "Inga ändrade filer",
+      "title": "Ändrade filer",
+      "count": "{count} filer",
+      "expand": "Expandera",
+      "minimize": "Minimera"
     },
     "chatContainer": {
       "generating": "AI genererar ett svar...",
@@ -24,10 +28,10 @@
       "apply": "Tillämpa",
       "confirm": "Bekräfta",
       "discard": "Förkasta",
-      "noHandler": "No handler available"
+      "noHandler": "Ingen hanterare tillgänglig"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "Ta bort"
     },
     "hints": {
       "enterSend": "Enter: ny rad / Ctrl+Enter: skicka",
@@ -41,8 +45,8 @@
     "sendTitle": "Skicka (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "Ställ AI frågor eller be om hjälp med kod...",
+    "edit": "Ange instruktioner för att redigera kod..."
   },
   "aiReviewTab": {
     "applyAll": "Tillämpa alla",
@@ -52,7 +56,9 @@
     "editRightDirectly": "Du kan redigera direkt i den högra editorn",
     "notFound": "AI-granskningsdata hittades inte",
     "revert": "Återställ",
-    "revertSelectionHint": "Du kan också delvis återställa genom att högerklicka och välja 'Återställ val'."
+    "revertSelectionHint": "Du kan också delvis återställa genom att högerklicka och välja 'Återställ val'.",
+    "revertApplied": "Återställ tillämpade",
+    "revertButton": "Återställ"
   },
   "auth": {
     "authFailed": "GitHub-autentisering misslyckades",
@@ -77,9 +83,10 @@
       "clearTooltip": "Rensa visade utdata",
       "contextLabel": "Kontext",
       "empty": "Inga utdata",
-      "typeLabel": "Typ"
+      "typeLabel": "Typ",
+      "partiallyHidden": "Vissa objekt dolda"
     },
-    "problems": "Problems",
+    "problems": "Problem",
     "terminal": "Terminal",
     "terminalInitializing": "Initierar terminal..."
   },
@@ -105,7 +112,7 @@
     "create": "Skapa nytt utrymme",
     "delete": "Ta bort",
     "rename": "Byt namn",
-    "title": "Chat spaces"
+    "title": "Chattutrymmen"
   },
   "confirmation": {
     "title": "Bekräftelse"
@@ -117,7 +124,7 @@
     "suggested": "Föreslagen"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "Binärfil: kan inte visa diff",
     "fileList": "Fillista",
     "noDiffFiles": "Inga diff-filer"
   },
@@ -135,8 +142,8 @@
       "createFolder": "Skapa mapp",
       "delete": "Ta bort",
       "download": "Ladda ner",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "Importera filer",
+      "importFolder": "Importera mapp",
       "open": "Öppna",
       "openCodeMirror": "Öppna i CodeMirror",
       "openPreview": "Öppna förhandsvisning",
@@ -194,7 +201,10 @@
     "noChangedFiles": "Inga ändrade filer hittades",
     "showAllFilesDiff": "Visa alla fildiffar för denna commit",
     "showDuplicates": "Visa dubbletter",
-    "showFileDiff": "Visa diff för denna fil"
+    "showFileDiff": "Visa diff för denna fil",
+    "allFiles": "Alla {count} filer",
+    "loadMore": "Ladda mer",
+    "loadingMore": "Laddar..."
   },
   "highlightedCode": {
     "copyCode": "Kopiera kod"
@@ -217,7 +227,7 @@
     "zoomOut": "Zooma ut"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "Tillägg",
     "files": "Filer",
     "git": "Git",
     "project": "Projekt",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ för att växla, Enter för att bekräfta, ESC för att stänga",
     "mdPreviewPrompt": "Öppna i Markdown-förhandsvisning?",
     "noFilesFound": "Inga filer hittades",
-    "noItemsFound": "No items found",
+    "noItemsFound": "Inga objekt hittades",
     "openInEditor": "Öppna i editor",
     "openInPreview": "Öppna i förhandsvisning",
-    "quickOpen": "Quick open",
+    "quickOpen": "Snabböppna",
     "searchPlaceholder": "Sök efter fil-/mappnamn eller sökväg..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "Standardeditor",
       "fontSize": "Teckenstorlek",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "Antal modeller att förladda",
+      "preloadModelCountHint": "Hur många modeller att hålla förladdade för snabbare start",
       "savedToLocalStorage": "Sparat i LocalStorage",
       "tabSize": "Tabbstorlek",
       "title": "Editor",
@@ -323,8 +333,8 @@
     },
     "loading": "Laddar inställningar...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "Matematisk avgränsare",
+      "mathDelimiterHint": "Avgränsare för inline- och blockmatematik (t.ex. $ $ eller $$ $$)"
     },
     "search": {
       "excludePattern": "Exkludera-mönster",
@@ -337,19 +347,20 @@
       "colorTheme": "Färgtema",
       "highlightTheme": "Kodmarkerings-tema",
       "title": "Tema"
-    }
+    },
+    "shortcutKeys": "Kortkommandon"
   },
   "tabBar": {
     "closeTab": "Stäng flik",
     "moveToPane": "Flytta till panel",
-    "openPreview": "Open Preview",
+    "openPreview": "Öppna förhandsvisning",
     "paneMenu": "Panelmeny",
     "removeAllTabs": "Ta bort alla flikar",
     "removePane": "Ta bort panel",
     "saveRestart": "Spara och starta om",
     "splitHorizontal": "Dela horisontellt",
     "splitVertical": "Dela vertikalt",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "Osparade ändringar"
   },
   "tabCloseConfirmation": {
     "cancel": "Avbryt",
@@ -367,5 +378,36 @@
     "emptyDirectory": "Mappen är tom",
     "inlineHtmlFailed": "Misslyckades med att inlinea HTML-resurser",
     "notFound": "Fil eller mapp hittades inte"
+  },
+  "paneNavigator": {
+    "activate": "Aktivera",
+    "close": "Stäng",
+    "deletePane": "Ta bort panel",
+    "emptyPane": "Tom",
+    "navigate": "Navigera",
+    "splitHorizontal": "Dela horisontellt",
+    "splitVertical": "Dela vertikalt",
+    "tab": "flik",
+    "tabs": "flikar",
+    "title": "Panelnavigator"
+  },
+  "shortcutKeys": {
+    "title": "Kortkommandon",
+    "searchPlaceholder": "Sök (funktion, tangent)...",
+    "resetDefaults": "Återställ till standard",
+    "noResults": "Inga matchande kortkommandon hittades",
+    "clickToEdit": "Klicka för att redigera",
+    "enterNewKey": "Ange ny tangent",
+    "shortcutFor": "kortkommando för",
+    "pressKey": "Tryck på en tangent...",
+    "escToCancel": "Esc för att avbryta",
+    "autoSaved": "Sparat automatiskt"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ Du tittar på utvecklingsservern (Render).",
+      "stableVersion": "För en stabil upplevelse, besök",
+      "officialSite": "den officiella webbplatsen (GitHub Pages)"
+    }
   }
 }

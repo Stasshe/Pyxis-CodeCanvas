@@ -7,7 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "ไม่มีไฟล์ที่เปลี่ยนแปลง"
+      "noChangedFiles": "ไม่มีไฟล์ที่เปลี่ยนแปลง",
+      "title": "ไฟล์ที่เปลี่ยนแปลง",
+      "count": "{count} ไฟล์",
+      "expand": "ขยาย",
+      "minimize": "ย่อ"
     },
     "chatContainer": {
       "generating": "AI กำลังสร้างคำตอบ...",
@@ -24,10 +28,10 @@
       "apply": "ใช้",
       "confirm": "ยืนยัน",
       "discard": "ยกเลิก",
-      "noHandler": "No handler available"
+      "noHandler": "ไม่มีตัวจัดการ"
     },
     "fileContextBar": {
-      "remove": "Remove"
+      "remove": "ลบ"
     },
     "hints": {
       "enterSend": "Enter: ขึ้นบรรทัดใหม่ / Ctrl+Enter: ส่ง",
@@ -41,8 +45,8 @@
     "sendTitle": "ส่ง (Ctrl+Enter)"
   },
   "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "ask": "ถาม AI หรือปรึกษาเกี่ยวกับโค้ด...",
+    "edit": "ใส่คำสั่งเพื่อแก้ไขโค้ด..."
   },
   "aiReviewTab": {
     "applyAll": "ใช้ทั้งหมด",
@@ -52,7 +56,9 @@
     "editRightDirectly": "คุณสามารถแก้ไขโดยตรงในตัวแก้ไขด้านขวา",
     "notFound": "ไม่พบข้อมูลการตรวจสอบโดย AI",
     "revert": "คืนค่ากลับ",
-    "revertSelectionHint": "คุณยังสามารถคืนค่าบางส่วนได้โดยคลิกขวาแล้วเลือก 'คืนค่าที่เลือก'"
+    "revertSelectionHint": "คุณยังสามารถคืนค่าบางส่วนได้โดยคลิกขวาแล้วเลือก 'คืนค่าที่เลือก'",
+    "revertApplied": "ยกเลิกที่ใช้แล้ว",
+    "revertButton": "ยกเลิก"
   },
   "auth": {
     "authFailed": "การยืนยันตัวตน GitHub ล้มเหลว",
@@ -77,9 +83,10 @@
       "clearTooltip": "ล้างผลลัพธ์ที่แสดงอยู่",
       "contextLabel": "บริบท",
       "empty": "ไม่มีผลลัพธ์",
-      "typeLabel": "ประเภท"
+      "typeLabel": "ประเภท",
+      "partiallyHidden": "ซ่อนบางรายการ"
     },
-    "problems": "Problems",
+    "problems": "ปัญหา",
     "terminal": "เทอร์มินัล",
     "terminalInitializing": "กำลังเริ่มต้นเทอร์มินัล..."
   },
@@ -105,7 +112,7 @@
     "create": "สร้างพื้นที่ใหม่",
     "delete": "ลบ",
     "rename": "เปลี่ยนชื่อ",
-    "title": "Chat spaces"
+    "title": "พื้นที่แชท"
   },
   "confirmation": {
     "title": "ยืนยัน"
@@ -117,7 +124,7 @@
     "suggested": "ข้อเสนอ"
   },
   "diffTab": {
-    "binaryFile": "Binary file: cannot display diff",
+    "binaryFile": "ไฟล์ไบนารี: ไม่สามารถแสดงความแตกต่างได้",
     "fileList": "รายการไฟล์",
     "noDiffFiles": "ไม่มีไฟล์ที่ต่างกัน"
   },
@@ -135,8 +142,8 @@
       "createFolder": "สร้างโฟลเดอร์",
       "delete": "ลบ",
       "download": "ดาวน์โหลด",
-      "importFiles": "Import files",
-      "importFolder": "Import folder",
+      "importFiles": "นำเข้าไฟล์",
+      "importFolder": "นำเข้าโฟลเดอร์",
       "open": "เปิด",
       "openCodeMirror": "เปิดใน CodeMirror",
       "openPreview": "เปิดตัวอย่าง",
@@ -194,7 +201,10 @@
     "noChangedFiles": "ไม่พบไฟล์ที่เปลี่ยนแปลง",
     "showAllFilesDiff": "แสดง diff ของไฟล์ทั้งหมดสำหรับคอมมิตนี้",
     "showDuplicates": "แสดงคอมมิตซ้ำ",
-    "showFileDiff": "แสดง diff สำหรับไฟล์นี้"
+    "showFileDiff": "แสดง diff สำหรับไฟล์นี้",
+    "allFiles": "ทั้งหมด {count} ไฟล์",
+    "loadMore": "โหลดเพิ่มเติม",
+    "loadingMore": "กำลังโหลด..."
   },
   "highlightedCode": {
     "copyCode": "คัดลอกโค้ด"
@@ -217,7 +227,7 @@
     "zoomOut": "ซูมออก"
   },
   "menu": {
-    "extensions": "Extensions",
+    "extensions": "ส่วนขยาย",
     "files": "ไฟล์",
     "git": "Git",
     "project": "การจัดการโปรเจกต์",
@@ -231,10 +241,10 @@
     "mdPreviewDialogHelp": "Tab/←→ เพื่อสลับ, Enter เพื่อยืนยัน, ESC เพื่อปิด",
     "mdPreviewPrompt": "เปิดในตัวดู Markdown?",
     "noFilesFound": "ไม่พบไฟล์",
-    "noItemsFound": "No items found",
+    "noItemsFound": "ไม่พบรายการ",
     "openInEditor": "เปิดในตัวแก้ไข",
     "openInPreview": "เปิดตัวอย่าง",
-    "quickOpen": "Quick open",
+    "quickOpen": "เปิดด่วน",
     "searchPlaceholder": "ค้นหาชื่อไฟล์/โฟลเดอร์หรือเส้นทาง..."
   },
   "projectModal": {
@@ -303,8 +313,8 @@
     "editor": {
       "defaultEditor": "ตัวแก้ไขเริ่มต้น",
       "fontSize": "ขนาดฟอนต์",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
+      "preloadModelCount": "จำนวนโมเดลที่จะโหลดล่วงหน้า",
+      "preloadModelCountHint": "จำนวนโมเดลที่จะโหลดไว้ล่วงหน้าเพื่อเริ่มต้นเร็วขึ้น",
       "savedToLocalStorage": "บันทึกใน LocalStorage",
       "tabSize": "ขนาด Tab",
       "title": "ตัวแก้ไข",
@@ -323,8 +333,8 @@
     },
     "loading": "กำลังโหลดการตั้งค่า...",
     "markdown": {
-      "mathDelimiter": "Math delimiter",
-      "mathDelimiterHint": "Delimiter used for inline and block math (e.g. $ $ or $$ $$)"
+      "mathDelimiter": "ตัวคั่นคณิตศาสตร์",
+      "mathDelimiterHint": "ตัวคั่นสำหรับคณิตศาสตร์แบบอินไลน์และบล็อก (เช่น $ $ หรือ $$ $$)"
     },
     "search": {
       "excludePattern": "แพตเทิร์นที่ยกเว้น",
@@ -337,19 +347,20 @@
       "colorTheme": "ธีมสี",
       "highlightTheme": "ธีมการเน้นโค้ด",
       "title": "ธีม"
-    }
+    },
+    "shortcutKeys": "ปุ่มลัด"
   },
   "tabBar": {
     "closeTab": "ปิดแท็บ",
     "moveToPane": "ย้ายไปยัง pane",
-    "openPreview": "Open Preview",
+    "openPreview": "เปิดตัวอย่าง",
     "paneMenu": "เมนู pane",
     "removeAllTabs": "ปิดแท็บทั้งหมด",
     "removePane": "ลบ pane",
     "saveRestart": "บันทึกและรีสตาร์ท",
     "splitHorizontal": "แยกแนวนอน",
     "splitVertical": "แยกแนวตั้ง",
-    "unsavedChanges": "Unsaved changes"
+    "unsavedChanges": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก"
   },
   "tabCloseConfirmation": {
     "cancel": "ยกเลิก",
@@ -367,5 +378,36 @@
     "emptyDirectory": "โฟลเดอร์ว่าง",
     "inlineHtmlFailed": "แทรกทรัพยากร HTML ไม่สำเร็จ",
     "notFound": "ไม่พบไฟล์หรือโฟลเดอร์"
+  },
+  "paneNavigator": {
+    "activate": "เปิดใช้งาน",
+    "close": "ปิด",
+    "deletePane": "ลบแผงควบคุม",
+    "emptyPane": "ว่าง",
+    "navigate": "นำทาง",
+    "splitHorizontal": "แบ่งแนวนอน",
+    "splitVertical": "แบ่งแนวตั้ง",
+    "tab": "แท็บ",
+    "tabs": "แท็บ",
+    "title": "ตัวนำทางแผงควบคุม"
+  },
+  "shortcutKeys": {
+    "title": "ปุ่มลัด",
+    "searchPlaceholder": "ค้นหา (ฟังก์ชัน, คีย์)...",
+    "resetDefaults": "รีเซ็ตเป็นค่าเริ่มต้น",
+    "noResults": "ไม่พบปุ่มลัดที่ตรงกัน",
+    "clickToEdit": "คลิกเพื่อแก้ไข",
+    "enterNewKey": "ป้อนคีย์ใหม่",
+    "shortcutFor": "ปุ่มลัดสำหรับ",
+    "pressKey": "กดคีย์...",
+    "escToCancel": "Esc เพื่อยกเลิก",
+    "autoSaved": "บันทึกอัตโนมัติ"
+  },
+  "welcome": {
+    "devServer": {
+      "warning": "⚠️ คุณกำลังดูเซิร์ฟเวอร์พัฒนา (Render)",
+      "stableVersion": "สำหรับประสบการณ์ที่มั่นคง กรุณาเยี่ยมชม",
+      "officialSite": "เว็บไซต์ทางการ (GitHub Pages)"
+    }
   }
 }

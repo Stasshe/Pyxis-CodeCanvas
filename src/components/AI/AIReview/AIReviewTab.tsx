@@ -357,9 +357,9 @@ export default function AIReviewTab({
                 borderColor: colors.border,
               }}
               onClick={handleRevertApplied}
-              title="適用済みを元に戻す"
+              title={t('aiReviewTab.revertApplied')}
             >
-              元に戻す
+              {t('aiReviewTab.revertButton')}
             </button>
           )}
           <button
