@@ -99,12 +99,16 @@ function getByPath(obj, path) {
   return cur;
 }
 
-// Helper to set value at nested path
+// Helper to set value at nested path (with prototype pollution guard)
 function setByPath(obj, path, value) {
   const parts = path.split('.');
   let cur = obj;
   for (let i = 0; i < parts.length; i++) {
     const k = parts[i];
+    // Guard against prototype pollution
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') {
+      return;
+    }
     if (i === parts.length - 1) {
       cur[k] = value;
     } else {

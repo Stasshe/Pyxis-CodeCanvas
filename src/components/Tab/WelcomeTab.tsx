@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 
 export default function WelcomeTab() {
   const { t } = useTranslation();
-  const [isDevServer, setIsDevServer] = useState(false);
   return (
     <div
       className="h-full flex flex-col items-center text-muted-foreground overflow-hidden"
