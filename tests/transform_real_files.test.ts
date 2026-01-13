@@ -15,17 +15,17 @@ describe('normalizeCjsEsm real files', () => {
     // Write artifacts for final manual inspection
     const artifactsDir = 'tests/__artifacts__';
     if (!existsSync(artifactsDir)) mkdirSync(artifactsDir, { recursive: true });
-    writeFileSync(`${artifactsDir}/math.transformed.ts`, outMath, 'utf8');
-    writeFileSync(`${artifactsDir}/use-math.transformed.ts`, outUse, 'utf8');
+    writeFileSync(`${artifactsDir}/math.transformed.ts`, outMath.code, 'utf8');
+    writeFileSync(`${artifactsDir}/use-math.transformed.ts`, outUse.code, 'utf8');
 
     // Find class Calculator in transformed math and ensure module.exports isn't inside it
-    const classMatch = outMath.match(/class\s+Calculator[\s\S]*?\}/);
+    const classMatch = outMath.code.match(/class\s+Calculator[\s\S]*?\}/);
     expect(classMatch).not.toBeNull();
     if (classMatch) {
       expect(classMatch[0]).not.toContain('module.exports');
     }
 
-    // Ensure use-math import lines were converted to __require__ calls
-    expect(outUse).toContain("await __require__('./math')");
+    // Ensure use-math import lines were converted to require() calls (synchronous)
+    expect(outUse.code).toContain("require('./math')");
   });
 });
