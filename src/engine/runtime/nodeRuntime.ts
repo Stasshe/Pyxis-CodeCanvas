@@ -508,8 +508,12 @@ export class NodeRuntime {
 
   /**
    * ビルトインモジュールを解決
+   * `node:` プレフィックス付きのモジュール名もサポート
    */
   private resolveBuiltInModule(moduleName: string): unknown | null {
+    // `node:` プレフィックスを削除して正規化
+    const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
+
     const builtIns: Record<string, unknown> = {
       fs: this.builtInModules.fs,
       'fs/promises': this.builtInModules.fs,
@@ -525,9 +529,20 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
+      // process と timers, console はグローバルを返す
+      process: null, // process is injected via globals, not a separate module
+      timers: {
+        setTimeout: globalThis.setTimeout,
+        clearTimeout: globalThis.clearTimeout,
+        setInterval: globalThis.setInterval,
+        clearInterval: globalThis.clearInterval,
+        setImmediate: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+        clearImmediate: (id: any) => clearTimeout(id),
+      },
+      console: globalThis.console,
     };
 
-    return builtIns[moduleName] || null;
+    return builtIns[normalizedName] ?? null;
   }
 
   /**

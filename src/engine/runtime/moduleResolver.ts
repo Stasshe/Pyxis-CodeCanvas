@@ -139,8 +139,12 @@ export class ModuleResolver {
 
   /**
    * ビルトインモジュールかどうかを判定
+   * `node:` プレフィックス付きのモジュール名もサポート
    */
   private isBuiltInModule(moduleName: string): boolean {
+    // `node:` プレフィックスを削除
+    const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
+
     const builtIns = [
       'fs',
       'fs/promises',
@@ -166,9 +170,20 @@ export class ModuleResolver {
       'tls',
       'tty',
       'zlib',
+      'module',
+      'process',
+      'timers',
+      'console',
+      'constants',
+      'punycode',
+      'string_decoder',
+      'sys',
+      'v8',
+      'vm',
+      'repl',
     ];
 
-    return builtIns.includes(moduleName);
+    return builtIns.includes(normalizedName);
   }
 
   /**

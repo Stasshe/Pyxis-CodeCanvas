@@ -18,6 +18,58 @@ import { transpileManager } from './transpileManager';
 import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
+ * Node.js ビルトインモジュールのリスト
+ * `node:` プレフィックス付きもサポート
+ */
+const NODE_BUILTIN_MODULES = [
+  'assert',
+  'buffer',
+  'child_process',
+  'cluster',
+  'console',
+  'constants',
+  'crypto',
+  'dgram',
+  'dns',
+  'domain',
+  'events',
+  'fs',
+  'fs/promises',
+  'http',
+  'https',
+  'module',
+  'net',
+  'os',
+  'path',
+  'process',
+  'punycode',
+  'querystring',
+  'readline',
+  'repl',
+  'stream',
+  'string_decoder',
+  'sys',
+  'timers',
+  'tls',
+  'tty',
+  'url',
+  'util',
+  'v8',
+  'vm',
+  'zlib',
+];
+
+/**
+ * ビルトインモジュールかどうかを判定
+ * `node:` プレフィックス付きモジュールもサポート
+ */
+function isBuiltInModule(moduleName: string): boolean {
+  // `node:` プレフィックスを削除して正規化
+  const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
+  return NODE_BUILTIN_MODULES.includes(normalizedName);
+}
+
+/**
  * モジュール実行キャッシュ（循環参照対策）
  */
 interface ModuleExecutionCache {
@@ -145,26 +197,8 @@ export class ModuleLoader {
         runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
         for (const dep of dependencies) {
           try {
-            // ビルトインモジュールはスキップ
-            const builtIns = [
-              'fs',
-              'fs/promises',
-              'path',
-              'os',
-              'util',
-              'http',
-              'https',
-              'buffer',
-              'readline',
-              'events',
-              'child_process',
-              'assert',
-              'crypto',
-              'stream',
-              'url',
-              'zlib',
-            ];
-            if (builtIns.includes(dep)) {
+            // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
+            if (isBuiltInModule(dep)) {
               continue;
             }
 
@@ -377,25 +411,8 @@ export class ModuleLoader {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
       for (const dep of dependencies) {
         try {
-          const builtIns = [
-            'fs',
-            'fs/promises',
-            'path',
-            'os',
-            'util',
-            'http',
-            'https',
-            'buffer',
-            'readline',
-            'events',
-            'child_process',
-            'assert',
-            'crypto',
-            'stream',
-            'url',
-            'zlib',
-          ];
-          if (builtIns.includes(dep)) {
+          // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
+          if (isBuiltInModule(dep)) {
             continue;
           }
 
@@ -432,47 +449,8 @@ export class ModuleLoader {
       // Simple synchronous resolution for pre-loaded modules
       let resolvedPath: string | null = null;
 
-      // Try built-in modules first
-      // Expanded list of built-ins
-      const builtIns = [
-        'assert',
-        'buffer',
-        'child_process',
-        'cluster',
-        'console',
-        'constants',
-        'crypto',
-        'dgram',
-        'dns',
-        'domain',
-        'events',
-        'fs',
-        'fs/promises',
-        'http',
-        'https',
-        'module',
-        'net',
-        'os',
-        'path',
-        'process',
-        'punycode',
-        'querystring',
-        'readline',
-        'repl',
-        'stream',
-        'string_decoder',
-        'sys',
-        'timers',
-        'tls',
-        'tty',
-        'url',
-        'util',
-        'v8',
-        'vm',
-        'zlib',
-      ];
-
-      if (builtIns.includes(moduleName)) {
+      // Try built-in modules first (including node: prefix)
+      if (isBuiltInModule(moduleName)) {
         if (this.builtinResolver) {
           const builtIn = this.builtinResolver(moduleName);
           if (builtIn) {
