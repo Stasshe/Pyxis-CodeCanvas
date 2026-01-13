@@ -12,7 +12,7 @@ import { runtimeRegistry } from './RuntimeRegistry';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
 import { dirname, normalizePath } from './pathUtils';
-import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
+import { createModuleNotFoundError, runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 import { transpileManager } from './transpileManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -142,7 +142,7 @@ export class ModuleLoader {
     // モジュールパスを解決
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
     if (!resolved) {
-      throw new Error(`Cannot find module '${moduleName}'`);
+      throw createModuleNotFoundError(moduleName, currentFilePath);
     }
 
     // ビルトインモジュールは特殊なマーカーを返す
@@ -177,7 +177,9 @@ export class ModuleLoader {
       // ファイルを読み込み
       const fileContent = await this.readFile(resolvedPath);
       if (fileContent === null) {
-        throw new Error(`File not found: ${resolvedPath}`);
+        const err = new Error(`ENOENT: no such file or directory, open '${resolvedPath}'`);
+        err.name = 'Error [ERR_FS_ENOENT]';
+        throw err;
       }
 
       // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
@@ -387,7 +389,7 @@ export class ModuleLoader {
     // モジュールパスを解決
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
     if (!resolved) {
-      throw new Error(`Cannot find module '${moduleName}'`);
+      throw createModuleNotFoundError(moduleName, currentFilePath);
     }
 
     if (resolved.isBuiltIn) {
@@ -399,7 +401,9 @@ export class ModuleLoader {
     // ファイルを読み込み
     const fileContent = await this.readFile(resolvedPath);
     if (fileContent === null) {
-      throw new Error(`File not found: ${resolvedPath}`);
+      const err = new Error(`ENOENT: no such file or directory, open '${resolvedPath}'`);
+      err.name = 'Error [ERR_FS_ENOENT]';
+      throw err;
     }
 
     // トランスパイル済みコードと依存関係を取得
@@ -541,13 +545,13 @@ export class ModuleLoader {
         }
       }
 
-      // Module not found in cache
-      runtimeError('❌ Module not pre-loaded:', moduleName, 'resolved:', resolvedPath);
-      runtimeError('Available modules in cache:', Object.keys(this.executionCache));
-      runtimeError('ModuleNameMap:', this.moduleNameMap);
-      throw new Error(
-        `Module '${moduleName}' not pre-loaded. Available modules: ${Object.keys(this.executionCache).join(', ')}`
-      );
+      // Module not found in cache - create Node.js style error
+      runtimeError(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
+      if (resolvedPath) {
+        runtimeError(`  Resolved path: ${resolvedPath}`);
+      }
+      runtimeError(`  Required from: ${filePath}`);
+      throw createModuleNotFoundError(moduleName, filePath);
     };
 
     // Prepare a sandboxed console that forwards to the ModuleLoader's debugConsole

@@ -11,7 +11,7 @@
  */
 
 import { ModuleLoader } from './moduleLoader';
-import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
+import { createModuleNotFoundError, formatNodeError, runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, toAppPath } from '@/engine/core/pathResolver';
@@ -136,7 +136,9 @@ export class NodeRuntime {
       // ファイルを読み込み
       const fileContent = await this.readFile(filePath);
       if (fileContent === null) {
-        throw new Error(`File not found: ${filePath}`);
+        const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+        err.name = 'Error [ERR_FS_ENOENT]';
+        throw err;
       }
 
       // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
@@ -150,12 +152,9 @@ export class NodeRuntime {
       executeFunc(...Object.values(sandbox)); // No await - synchronous execution
       runtimeInfo('✅ Execution completed');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : '';
-      runtimeError('❌ Execution failed:', errorMessage);
-      if (errorStack) {
-        runtimeError('Stack trace:', errorStack);
-      }
+      // Format error in Node.js style
+      const formattedError = formatNodeError(error, { filePath });
+      runtimeError(formattedError);
       throw error;
     }
   }
@@ -494,13 +493,18 @@ export class NodeRuntime {
           }
         }
 
-        // If not in cache, try to load synchronously (this will work for built-ins)
-        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', `${resolvedPath})`);
-        throw new Error(
-          `Module '${moduleName}' not found. Modules must be pre-loaded or be built-in modules.`
-        );
+        // If not in cache - create Node.js style error
+        runtimeError(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
+        if (resolvedPath) {
+          runtimeError(`  Resolved path: ${resolvedPath}`);
+        }
+        runtimeError(`  Required from: ${currentFilePath}`);
+        throw createModuleNotFoundError(moduleName, currentFilePath);
       } catch (error) {
-        runtimeError('❌ Failed to require module:', moduleName, error);
+        if (error instanceof Error && error.name.includes('ERR_MODULE_NOT_FOUND')) {
+          throw error;
+        }
+        runtimeError(formatNodeError(error, { moduleName }));
         throw error;
       }
     };
