@@ -11,6 +11,7 @@
  */
 
 import { ModuleLoader } from './moduleLoader';
+import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -136,7 +137,9 @@ export class NodeRuntime {
       // ファイルを読み込み
       const fileContent = await this.readFile(filePath);
       if (fileContent === null) {
-        throw new Error(`File not found: ${filePath}`);
+        const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+        err.name = 'Error [ERR_FS_ENOENT]';
+        throw err;
       }
 
       // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
@@ -150,12 +153,9 @@ export class NodeRuntime {
       executeFunc(...Object.values(sandbox)); // No await - synchronous execution
       runtimeInfo('✅ Execution completed');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : '';
-      runtimeError('❌ Execution failed:', errorMessage);
-      if (errorStack) {
-        runtimeError('Stack trace:', errorStack);
-      }
+      // Format error in Node.js style
+      const formattedError = formatNodeError(error, { filePath });
+      runtimeError(formattedError);
       throw error;
     }
   }
@@ -258,6 +258,72 @@ export class NodeRuntime {
   }
 
   /**
+   * processオブジェクトを作成
+   * @param currentFilePath 現在のファイルパス（argvに使用）
+   * @param argv コマンドライン引数
+   */
+  private createProcessObject(currentFilePath?: string, argv: string[] = []): Record<string, any> {
+    return {
+      env: {
+        LANG: 'en',
+        // chalk, colors, etc. color libraries check these environment variables
+        TERM: 'xterm-256color',
+        COLORTERM: 'truecolor',
+        FORCE_COLOR: '3', // Force color level 3 (truecolor)
+      },
+      argv: ['node', currentFilePath || '/'].concat(argv),
+      cwd: () => this.projectDir,
+      platform: 'browser',
+      version: 'v18.0.0',
+      versions: {
+        node: '18.0.0',
+        v8: '10.0.0',
+      },
+      exit: () => {},
+      nextTick: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+      stdin: {
+        on: () => {},
+        once: () => {},
+        removeListener: () => {},
+        setRawMode: () => {},
+        pause: () => {},
+        resume: () => {},
+        isTTY: true,
+      },
+      stdout: {
+        write: (data: string) => {
+          if (this.debugConsole?.log) {
+            this.debugConsole.log(data);
+          } else {
+            runtimeInfo(data);
+          }
+          return true;
+        },
+        isTTY: true,
+        columns: this.terminalColumns,
+        rows: this.terminalRows,
+        getColorDepth: () => 24, // 24-bit color (truecolor)
+        hasColors: (count?: number) => count === undefined || count <= 16777216,
+      },
+      stderr: {
+        write: (data: string) => {
+          if (this.debugConsole?.error) {
+            this.debugConsole.error(data);
+          } else {
+            runtimeError(data);
+          }
+          return true;
+        },
+        isTTY: true,
+        columns: this.terminalColumns,
+        rows: this.terminalRows,
+        getColorDepth: () => 24,
+        hasColors: (count?: number) => count === undefined || count <= 16777216,
+      },
+    };
+  }
+
+  /**
    * グローバルオブジェクトを作成
    */
   private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
@@ -352,62 +418,7 @@ export class NodeRuntime {
           },
         },
       },
-      process: {
-        env: {
-          LANG: 'en',
-          // chalk, colors, etc. color libraries check these environment variables
-          TERM: 'xterm-256color',
-          COLORTERM: 'truecolor',
-          FORCE_COLOR: '3', // Force color level 3 (truecolor)
-        },
-        argv: ['node', currentFilePath].concat(argv || []),
-        cwd: () => this.projectDir,
-        platform: 'browser',
-        version: 'v18.0.0',
-        versions: {
-          node: '18.0.0',
-          v8: '10.0.0',
-        },
-        stdin: {
-          on: () => {},
-          once: () => {},
-          removeListener: () => {},
-          setRawMode: () => {},
-          pause: () => {},
-          resume: () => {},
-          isTTY: true,
-        },
-        stdout: {
-          write: (data: string) => {
-            if (this.debugConsole?.log) {
-              this.debugConsole.log(data);
-            } else {
-              runtimeInfo(data);
-            }
-            return true;
-          },
-          isTTY: true,
-          columns: this.terminalColumns,
-          rows: this.terminalRows,
-          getColorDepth: () => 24, // 24-bit color (truecolor)
-          hasColors: (count?: number) => count === undefined || count <= 16777216,
-        },
-        stderr: {
-          write: (data: string) => {
-            if (this.debugConsole?.error) {
-              this.debugConsole.error(data);
-            } else {
-              runtimeError(data);
-            }
-            return true;
-          },
-          isTTY: true,
-          columns: this.terminalColumns,
-          rows: this.terminalRows,
-          getColorDepth: () => 24,
-          hasColors: (count?: number) => count === undefined || count <= 16777216,
-        },
-      },
+      process: this.createProcessObject(currentFilePath, argv),
       Buffer: this.builtInModules.Buffer,
     };
   }
@@ -494,13 +505,18 @@ export class NodeRuntime {
           }
         }
 
-        // If not in cache, try to load synchronously (this will work for built-ins)
-        runtimeError('❌ Module not pre-loaded:', moduleName, '(resolved:', `${resolvedPath})`);
-        throw new Error(
-          `Module '${moduleName}' not found. Modules must be pre-loaded or be built-in modules.`
-        );
+        // If not in cache - create Node.js style error
+        runtimeError(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
+        if (resolvedPath) {
+          runtimeError(`  Resolved path: ${resolvedPath}`);
+        }
+        runtimeError(`  Required from: ${currentFilePath}`);
+        throw createModuleNotFoundError(moduleName, currentFilePath);
       } catch (error) {
-        runtimeError('❌ Failed to require module:', moduleName, error);
+        if (error instanceof Error && error.name.includes('ERR_MODULE_NOT_FOUND')) {
+          throw error;
+        }
+        runtimeError(formatNodeError(error, { moduleName }));
         throw error;
       }
     };
@@ -508,8 +524,12 @@ export class NodeRuntime {
 
   /**
    * ビルトインモジュールを解決
+   * `node:` プレフィックス付きのモジュール名もサポート
    */
   private resolveBuiltInModule(moduleName: string): unknown | null {
+    // `node:` プレフィックスを削除して正規化
+    const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
+
     const builtIns: Record<string, unknown> = {
       fs: this.builtInModules.fs,
       'fs/promises': this.builtInModules.fs,
@@ -525,9 +545,20 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
+      // process モジュール - createProcessObjectで統一
+      process: this.createProcessObject(),
+      timers: {
+        setTimeout: globalThis.setTimeout,
+        clearTimeout: globalThis.clearTimeout,
+        setInterval: globalThis.setInterval,
+        clearInterval: globalThis.clearInterval,
+        setImmediate: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+        clearImmediate: (id: any) => clearTimeout(id),
+      },
+      console: globalThis.console,
     };
 
-    return builtIns[moduleName] || null;
+    return builtIns[normalizedName] ?? null;
   }
 
   /**

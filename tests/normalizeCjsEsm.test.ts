@@ -6,20 +6,27 @@ describe('normalizeCjsEsm', () => {
   it('import default', () => {
     const input = "import foo from 'bar'";
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('bar')");
+    expect(out.code).toContain("require('bar')");
     expect(out.code).toContain('const foo');
+    expect(out.dependencies).toContain('bar');
   });
   it('import named', () => {
     const input = "import {foo, bar} from 'baz'";
-    expect(normalizeCjsEsm(input).code).toBe("const {foo, bar} = await __require__('baz')");
+    const out = normalizeCjsEsm(input);
+    expect(out.code).toBe("const {foo, bar} = require('baz')");
+    expect(out.dependencies).toContain('baz');
   });
   it('import * as ns', () => {
     const input = "import * as MathModule from './math'";
-    expect(normalizeCjsEsm(input).code).toBe("const MathModule = await __require__('./math')");
+    const out = normalizeCjsEsm(input);
+    expect(out.code).toBe("const MathModule = require('./math')");
+    expect(out.dependencies).toContain('./math');
   });
   it('import side effect', () => {
     const input = "import 'side-effect'";
-    expect(normalizeCjsEsm(input).code).toBe("await __require__('side-effect')");
+    const out = normalizeCjsEsm(input);
+    expect(out.code).toBe("require('side-effect')");
+    expect(out.dependencies).toContain('side-effect');
   });
   it('export default', () => {
     const input = "export default foo";
@@ -32,33 +39,39 @@ describe('normalizeCjsEsm', () => {
   });
   it('require', () => {
     const input = "const x = require('y')";
-    expect(normalizeCjsEsm(input).code).toBe("const x = await __require__('y')");
+    const out = normalizeCjsEsm(input);
+    // require is kept as-is (synchronous)
+    expect(out.code).toBe("const x = require('y')");
+    expect(out.dependencies).toContain('y');
   });
   it('import default + named', () => {
     const input = "import foo, {bar, baz} from 'lib'";
     // 本来は default/named両方対応だが、現状は正規表現の都合で全部一括になる
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('lib')");
+    expect(out.code).toContain("require('lib')");
     expect(out.code).toContain('const');
     expect(out.code).toContain('bar');
     expect(out.code).toContain('baz');
+    expect(out.dependencies).toContain('lib');
   });
   it('multiple imports and exports', () => {
     const input = `import foo from 'a';\nimport * as ns from 'b';\nimport {x, y} from 'c';\nexport default foo;\nexport const bar = 1;`;
     const out = normalizeCjsEsm(input);
-  expect(out.code).toContain("await __require__('a')");
-    expect(out.code).toContain("const ns = await __require__('b')");
-    expect(out.code).toContain("const {x, y} = await __require__('c')");
+    expect(out.code).toContain("require('a')");
+    expect(out.code).toContain("const ns = require('b')");
+    expect(out.code).toContain("const {x, y} = require('c')");
     expect(out.code).toContain("module.exports.default = foo");
     expect(out.code).toContain("const bar = 1;");
     expect(out.code).toContain("module.exports.bar = bar;");
+    expect(out.dependencies).toEqual(expect.arrayContaining(['a', 'b', 'c']));
   });
   it('import/require/export in one file', () => {
     const input = `import foo from 'a';\nconst x = require('b');\nexport default foo;`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('a')");
-    expect(out.code).toContain("await __require__('b')");
+    expect(out.code).toContain("require('a')");
+    expect(out.code).toContain("require('b')");
     expect(out.code).toContain("module.exports.default = foo");
+    expect(out.dependencies).toEqual(expect.arrayContaining(['a', 'b']));
   });
   it('export default function', () => {
     const input = `export default function test() {}`;
@@ -94,15 +107,15 @@ describe('normalizeCjsEsm', () => {
   });
   it('export default anonymous function/class', () => {
     const inputFn = `export default function() {}`;
-    expect(normalizeCjsEsm(inputFn)).toBe("module.exports.default = function() {}");
+    expect(normalizeCjsEsm(inputFn).code).toBe("module.exports.default = function() {}");
     const inputCls = `export default class {}`;
-    expect(normalizeCjsEsm(inputCls)).toBe("module.exports.default = class {}");
+    expect(normalizeCjsEsm(inputCls).code).toBe("module.exports.default = class {}");
   });
   it('do not duplicate existing module.exports', () => {
     const input = `export function once(){}\nmodule.exports.once = once;`;
     const out = normalizeCjsEsm(input);
     // should not append a second module.exports.once
-    expect(out.split('module.exports.once').length).toBe(2); // one in original, one in split yields 2
+    expect(out.code.split('module.exports.once').length).toBe(2); // one in original, one in split yields 2
   });
   it('nested function should not be exported', () => {
     const input = `export function outer(){ function inner(){} return inner }`;
@@ -114,8 +127,9 @@ describe('normalizeCjsEsm', () => {
   it('import with semicolons and whitespace', () => {
     const input = ` import foo from 'a' ; \n import { bar } from 'b';`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('a')");
-    expect(out.code).toContain("await __require__('b')");
+    expect(out.code).toContain("require('a')");
+    expect(out.code).toContain("require('b')");
+    expect(out.dependencies).toEqual(expect.arrayContaining(['a', 'b']));
   });
   it('export list with aliases', () => {
     const input = `export { a as b, c }`;
@@ -127,8 +141,9 @@ describe('normalizeCjsEsm', () => {
     const input = `export { x } from 'm'`;
     const out = normalizeCjsEsm(input);
     // new behavior: module is required and named export is assigned from the imported module
-    expect(out.code).toContain("await __require__('m')");
+    expect(out.code).toContain("require('m')");
     expect(out.code).toContain('module.exports.x =');
+    expect(out.dependencies).toContain('m');
   });
   it('export const with destructuring should keep destructure and not export members', () => {
     const input = `export const {a, b} = obj;`;
@@ -140,20 +155,22 @@ describe('normalizeCjsEsm', () => {
   });
   it('export default arrow/async functions', () => {
     const input1 = `export default () => {}`;
-    expect(normalizeCjsEsm(input1)).toBe("module.exports.default = () => {}");
+    expect(normalizeCjsEsm(input1).code).toBe("module.exports.default = () => {}");
     const input2 = `export default async function() {}`;
-    expect(normalizeCjsEsm(input2)).toBe("module.exports.default = async function() {}");
+    expect(normalizeCjsEsm(input2).code).toBe("module.exports.default = async function() {}");
   });
   it('require followed by method chain should not auto-export', () => {
     const input = `const x = require('y')\n  .chain()`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("const x = await __require__('y')\n  .chain()");
+    expect(out.code).toContain("const x = require('y')\n  .chain()");
     expect(out.code).not.toContain('module.exports.x = x;');
+    expect(out.dependencies).toContain('y');
   });
   it('import with comments and trailing comments', () => {
     const input = `// header\nimport foo from 'a' // trailing`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('a')");
+    expect(out.code).toContain("require('a')");
+    expect(out.dependencies).toContain('a');
   });
   it('export multiple let declarations', () => {
     const input = `export let x=1, y=2;`;
@@ -165,8 +182,9 @@ describe('normalizeCjsEsm', () => {
   it('named import with alias', () => {
     const input = `import { foo as bar } from 'm'`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('m')");
-    expect(out.code).toContain('foo as bar');
+    expect(out.code).toContain("require('m')");
+    expect(out.code).toContain('foo: bar');
+    expect(out.dependencies).toContain('m');
   });
   it('export async function remains (not handled)', () => {
     const input = `export async function fetchData() {}`;
@@ -176,10 +194,11 @@ describe('normalizeCjsEsm', () => {
   it('export star from other module is transformed to copy exports', () => {
     const input = `export * from 'mod'`;
     const out = normalizeCjsEsm(input);
-    // should await the module and copy non-default keys to module.exports
-    expect(out.code).toContain("await __require__('mod')");
+    // should require the module and copy non-default keys to module.exports
+    expect(out.code).toContain("require('mod')");
     expect(out.code).toMatch(/for \(const k in __rexp_[a-z0-9]+\)/);
     expect(out.code).toContain('module.exports[k] =');
+    expect(out.dependencies).toContain('mod');
   });
   it('export interface/type remains (TS-only)', () => {
     const input = `export interface I { a: number }`;
@@ -191,8 +210,9 @@ describe('normalizeCjsEsm', () => {
     const input = `export { default as Main } from 'lib'`;
     const out = normalizeCjsEsm(input);
     // current logic will produce assignment for alias
-    expect(out.code).toContain("await __require__('lib')");
+    expect(out.code).toContain("require('lib')");
     expect(out.code).toContain('module.exports.Main =');
+    expect(out.dependencies).toContain('lib');
   });
   it('multiline destructured export const should not export members', () => {
     const input = `export const {\n  a,\n  b\n} = obj;`;
@@ -207,16 +227,19 @@ describe('normalizeCjsEsm', () => {
     // regex-based replace does not respect strings, so export default inside template is replaced
     expect(out.code).toContain('`module.exports.default = foo`');
   });
-  it('dynamic import remains untouched', () => {
+  it('dynamic import is transformed to Promise.resolve(require(...))', () => {
     const input = `const mod = import('dyn')`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toBe(input);
+    // dynamic imports are transformed to work in the emulated environment
+    expect(out.code).toBe("const mod = Promise.resolve(require('dyn'))");
+    expect(out.dependencies).toContain('dyn');
   });
   it('multiline import with newlines inside braces', () => {
     const input = `import {\n  a,\n  b\n} from 'm'`;
     const out = normalizeCjsEsm(input);
-    expect(out.code).toContain("await __require__('m')");
+    expect(out.code).toContain("require('m')");
     expect(out.code).toContain('const {');
+    expect(out.dependencies).toContain('m');
   });
   it('export default wrapped in parentheses', () => {
     const input = `export default (function(){})`;
@@ -238,9 +261,10 @@ describe('normalizeCjsEsm', () => {
   it('require followed by property access should not export', () => {
     const input = `const x = require('y').prop`;
     const out = normalizeCjsEsm(input);
-    // require(...) is replaced but then const auto-export logic skips because value begins with await __require__
-    expect(out.code).toContain("const x = await __require__('y').prop");
+    // require(...) is kept as-is (synchronous)
+    expect(out.code).toContain("const x = require('y').prop");
     expect(out.code).not.toContain('module.exports.x');
+    expect(out.dependencies).toContain('y');
   });
   it('export default class extends', () => {
     const input = `export default class A extends B {}`;
@@ -344,5 +368,24 @@ describe('normalizeCjsEsm', () => {
     expect(out.code).toContain('const { a: aa = defaultVal, b: { c: cc = 2 } } = obj;');
     expect(out.code).toContain('module.exports.aa = aa;');
     expect(out.code).toContain('module.exports.cc = cc;');
+  });
+  // New tests for node: protocol support
+  it('import with node: protocol prefix', () => {
+    const input = `import fs from 'node:fs'`;
+    const out = normalizeCjsEsm(input);
+    expect(out.code).toContain("require('node:fs')");
+    expect(out.dependencies).toContain('node:fs');
+  });
+  it('import named with node: protocol prefix', () => {
+    const input = `import { createServer } from 'node:http'`;
+    const out = normalizeCjsEsm(input);
+    expect(out.code).toContain("require('node:http')");
+    expect(out.dependencies).toContain('node:http');
+  });
+  it('require with node: protocol prefix', () => {
+    const input = `const path = require('node:path')`;
+    const out = normalizeCjsEsm(input);
+    expect(out.code).toBe("const path = require('node:path')");
+    expect(out.dependencies).toContain('node:path');
   });
 });
