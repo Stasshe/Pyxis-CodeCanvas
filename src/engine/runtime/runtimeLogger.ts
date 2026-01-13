@@ -41,6 +41,11 @@ export function runtimeError(...args: unknown[]): void {
 }
 
 /**
+ * Maximum number of stack frames to include in formatted errors
+ */
+const MAX_STACK_FRAMES = 10;
+
+/**
  * Format an error in Node.js style
  * Creates error messages similar to Node.js's format
  */
@@ -79,7 +84,7 @@ export function formatNodeError(
         if (trimmed.includes('new Function')) return false;
         return true;
       })
-      .slice(0, 10); // Limit to 10 stack frames
+      .slice(0, MAX_STACK_FRAMES);
 
     if (filteredStack.length > 0) {
       lines.push(...filteredStack);

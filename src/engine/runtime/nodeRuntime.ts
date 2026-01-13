@@ -533,8 +533,17 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
-      // process と timers, console はグローバルを返す
-      process: null, // process is injected via globals, not a separate module
+      // process モジュール - 基本的なプロパティを提供
+      process: {
+        env: {},
+        argv: [],
+        cwd: () => this.projectDir,
+        platform: 'browser',
+        version: 'v18.0.0',
+        versions: { node: '18.0.0' },
+        exit: () => {},
+        nextTick: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+      },
       timers: {
         setTimeout: globalThis.setTimeout,
         clearTimeout: globalThis.clearTimeout,
