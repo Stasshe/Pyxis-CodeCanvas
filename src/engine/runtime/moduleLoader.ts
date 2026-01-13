@@ -11,8 +11,9 @@
 import { runtimeRegistry } from './RuntimeRegistry';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
+import { createModuleNotFoundError } from './nodeErrors';
 import { dirname, normalizePath } from './pathUtils';
-import { createModuleNotFoundError, runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
+import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 import { transpileManager } from './transpileManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';

@@ -11,7 +11,8 @@
  */
 
 import { ModuleLoader } from './moduleLoader';
-import { createModuleNotFoundError, formatNodeError, runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
+import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
+import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, toAppPath } from '@/engine/core/pathResolver';
@@ -257,6 +258,72 @@ export class NodeRuntime {
   }
 
   /**
+   * processオブジェクトを作成
+   * @param currentFilePath 現在のファイルパス（argvに使用）
+   * @param argv コマンドライン引数
+   */
+  private createProcessObject(currentFilePath?: string, argv: string[] = []): Record<string, any> {
+    return {
+      env: {
+        LANG: 'en',
+        // chalk, colors, etc. color libraries check these environment variables
+        TERM: 'xterm-256color',
+        COLORTERM: 'truecolor',
+        FORCE_COLOR: '3', // Force color level 3 (truecolor)
+      },
+      argv: ['node', currentFilePath || '/'].concat(argv),
+      cwd: () => this.projectDir,
+      platform: 'browser',
+      version: 'v18.0.0',
+      versions: {
+        node: '18.0.0',
+        v8: '10.0.0',
+      },
+      exit: () => {},
+      nextTick: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+      stdin: {
+        on: () => {},
+        once: () => {},
+        removeListener: () => {},
+        setRawMode: () => {},
+        pause: () => {},
+        resume: () => {},
+        isTTY: true,
+      },
+      stdout: {
+        write: (data: string) => {
+          if (this.debugConsole?.log) {
+            this.debugConsole.log(data);
+          } else {
+            runtimeInfo(data);
+          }
+          return true;
+        },
+        isTTY: true,
+        columns: this.terminalColumns,
+        rows: this.terminalRows,
+        getColorDepth: () => 24, // 24-bit color (truecolor)
+        hasColors: (count?: number) => count === undefined || count <= 16777216,
+      },
+      stderr: {
+        write: (data: string) => {
+          if (this.debugConsole?.error) {
+            this.debugConsole.error(data);
+          } else {
+            runtimeError(data);
+          }
+          return true;
+        },
+        isTTY: true,
+        columns: this.terminalColumns,
+        rows: this.terminalRows,
+        getColorDepth: () => 24,
+        hasColors: (count?: number) => count === undefined || count <= 16777216,
+      },
+    };
+  }
+
+  /**
    * グローバルオブジェクトを作成
    */
   private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
@@ -351,62 +418,7 @@ export class NodeRuntime {
           },
         },
       },
-      process: {
-        env: {
-          LANG: 'en',
-          // chalk, colors, etc. color libraries check these environment variables
-          TERM: 'xterm-256color',
-          COLORTERM: 'truecolor',
-          FORCE_COLOR: '3', // Force color level 3 (truecolor)
-        },
-        argv: ['node', currentFilePath].concat(argv || []),
-        cwd: () => this.projectDir,
-        platform: 'browser',
-        version: 'v18.0.0',
-        versions: {
-          node: '18.0.0',
-          v8: '10.0.0',
-        },
-        stdin: {
-          on: () => {},
-          once: () => {},
-          removeListener: () => {},
-          setRawMode: () => {},
-          pause: () => {},
-          resume: () => {},
-          isTTY: true,
-        },
-        stdout: {
-          write: (data: string) => {
-            if (this.debugConsole?.log) {
-              this.debugConsole.log(data);
-            } else {
-              runtimeInfo(data);
-            }
-            return true;
-          },
-          isTTY: true,
-          columns: this.terminalColumns,
-          rows: this.terminalRows,
-          getColorDepth: () => 24, // 24-bit color (truecolor)
-          hasColors: (count?: number) => count === undefined || count <= 16777216,
-        },
-        stderr: {
-          write: (data: string) => {
-            if (this.debugConsole?.error) {
-              this.debugConsole.error(data);
-            } else {
-              runtimeError(data);
-            }
-            return true;
-          },
-          isTTY: true,
-          columns: this.terminalColumns,
-          rows: this.terminalRows,
-          getColorDepth: () => 24,
-          hasColors: (count?: number) => count === undefined || count <= 16777216,
-        },
-      },
+      process: this.createProcessObject(currentFilePath, argv),
       Buffer: this.builtInModules.Buffer,
     };
   }
@@ -533,17 +545,8 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
-      // process モジュール - 基本的なプロパティを提供
-      process: {
-        env: {},
-        argv: [],
-        cwd: () => this.projectDir,
-        platform: 'browser',
-        version: 'v18.0.0',
-        versions: { node: '18.0.0' },
-        exit: () => {},
-        nextTick: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
-      },
+      // process モジュール - createProcessObjectで統一
+      process: this.createProcessObject(),
       timers: {
         setTimeout: globalThis.setTimeout,
         clearTimeout: globalThis.clearTimeout,
