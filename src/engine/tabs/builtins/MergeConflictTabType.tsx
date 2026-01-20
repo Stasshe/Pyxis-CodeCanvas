@@ -10,6 +10,7 @@ import type {
 } from '../types';
 
 import MergeConflictResolutionTab from '@/components/Tab/MergeConflictResolutionTab';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
 import { useTabStore } from '@/stores/tabStore';
@@ -31,7 +32,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       try {
         console.log('[MergeConflictTabType] Resolving merge conflicts:', resolvedFiles.length);
 
-        // Save each file
+        // Save each file to IndexedDB via fileRepository
         for (const file of resolvedFiles) {
           await fileRepository.saveFileByPath(
             mergeTab.projectId,
@@ -45,11 +46,32 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         await syncManager.syncFromIndexedDBToFS(mergeTab.projectId, mergeTab.projectName);
         console.log('[MergeConflictTabType] Synced to filesystem');
 
+        // Get git commands instance
+        const git = terminalCommandRegistry.getGitCommands(
+          mergeTab.projectName,
+          mergeTab.projectId
+        );
+
+        // Stage all resolved files
+        console.log('[MergeConflictTabType] Staging resolved files...');
+        for (const file of resolvedFiles) {
+          // Remove leading slash for git add
+          const gitPath = file.filePath.startsWith('/') ? file.filePath.slice(1) : file.filePath;
+          await git.add(gitPath);
+        }
+
+        // Create merge commit
+        console.log('[MergeConflictTabType] Creating merge commit...');
+        const commitMessage = `Merge branch '${mergeTab.theirsBranch}' into ${mergeTab.oursBranch}`;
+        await git.commit(commitMessage);
+        console.log('[MergeConflictTabType] Merge commit created successfully');
+
         // Close tab
         closeTab(mergeTab.paneId, mergeTab.id);
       } catch (error) {
         console.error('[MergeConflictTabType] Failed to resolve conflicts:', error);
         // TODO: Error notification
+        alert(`Failed to complete merge: ${(error as Error).message}`);
       }
     },
     [mergeTab, closeTab]
@@ -70,7 +92,9 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       const updatedConflicts = mergeTab.conflicts.map(c =>
         c.filePath === filePath ? { ...c, resolvedContent: content } : c
       );
-      updateTab(mergeTab.paneId, mergeTab.id, { conflicts: updatedConflicts } as Partial<MergeConflictTab>);
+      updateTab(mergeTab.paneId, mergeTab.id, {
+        conflicts: updatedConflicts,
+      } as Partial<MergeConflictTab>);
     },
     [mergeTab, updateTab]
   );
@@ -83,7 +107,9 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       const updatedConflicts = mergeTab.conflicts.map(c =>
         c.filePath === filePath ? { ...c, isResolved } : c
       );
-      updateTab(mergeTab.paneId, mergeTab.id, { conflicts: updatedConflicts } as Partial<MergeConflictTab>);
+      updateTab(mergeTab.paneId, mergeTab.id, {
+        conflicts: updatedConflicts,
+      } as Partial<MergeConflictTab>);
     },
     [mergeTab, updateTab]
   );
