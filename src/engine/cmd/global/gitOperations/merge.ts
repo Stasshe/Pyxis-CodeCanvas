@@ -238,15 +238,15 @@ export class GitMergeOperations {
 
         return 'Merge completed successfully.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB';
       } catch (mergeError) {
-        const error = mergeError as any;
+        const error = mergeError as Error & { code?: string };
         // マージコンフリクトの場合
         if (error.code === 'MergeNotSupportedError' || error.message?.includes('conflict')) {
           console.log('[NEW ARCHITECTURE] Merge conflict detected, opening resolution tab');
-          
+
           // Detect conflicts
           const detector = new MergeConflictDetector(this.fs, this.dir);
           const conflicts = await detector.detectConflicts(currentBranch, branchName);
-          
+
           if (conflicts.length > 0) {
             // Open merge conflict tab
             const { openTab } = useTabStore.getState();
@@ -262,11 +262,11 @@ export class GitMergeOperations {
                 kind: 'merge-conflict',
               }
             );
-            
+
             return `CONFLICT: Automatic merge failed.\n${conflicts.length} conflicting file(s) detected.\nMerge conflict resolution tab has been opened.`;
           }
-          
-          return `CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected but could not extract conflict details.`;
+
+          return 'CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected but could not extract conflict details.';
         }
         // その他のマージエラー
         throw new Error(`Merge failed: ${error.message}`);

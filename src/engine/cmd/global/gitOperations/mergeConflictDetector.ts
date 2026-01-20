@@ -100,7 +100,11 @@ export class MergeConflictDetector {
       await git.walk({
         fs: this.fs,
         dir: this.dir,
-        trees: [git.TREE({ ref: baseOid }), git.TREE({ ref: oursOid }), git.TREE({ ref: theirsOid })],
+        trees: [
+          git.TREE({ ref: baseOid }),
+          git.TREE({ ref: oursOid }),
+          git.TREE({ ref: theirsOid }),
+        ],
         map: async (filepath, [baseEntry, oursEntry, theirsEntry]) => {
           if (filepath === '.') return;
 
@@ -134,15 +138,9 @@ export class MergeConflictDetector {
 
       // Read content for each conflicting file
       for (const [filepath, oids] of Array.from(changedFiles.entries())) {
-        const baseContent = oids.baseOid
-          ? await this.readBlobContent(oids.baseOid)
-          : '';
-        const oursContent = oids.oursOid
-          ? await this.readBlobContent(oids.oursOid)
-          : '';
-        const theirsContent = oids.theirsOid
-          ? await this.readBlobContent(oids.theirsOid)
-          : '';
+        const baseContent = oids.baseOid ? await this.readBlobContent(oids.baseOid) : '';
+        const oursContent = oids.oursOid ? await this.readBlobContent(oids.oursOid) : '';
+        const theirsContent = oids.theirsOid ? await this.readBlobContent(oids.theirsOid) : '';
 
         conflicts.push({
           filePath: `/${filepath}`,
@@ -191,10 +189,7 @@ export class MergeConflictDetector {
         // stage === 1 means unmerged (conflict state)
         if (stage === 1 || workdir === 1) {
           try {
-            const content = await this.fs.promises.readFile(
-              `${this.dir}/${filepath}`,
-              'utf8'
-            );
+            const content = await this.fs.promises.readFile(`${this.dir}/${filepath}`, 'utf8');
             if (
               typeof content === 'string' &&
               (content.includes('<<<<<<<') ||
