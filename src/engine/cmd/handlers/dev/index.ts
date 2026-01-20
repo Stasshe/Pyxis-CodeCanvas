@@ -1,8 +1,8 @@
 /**
- * 開発・テスト用コマンドのエクスポート
+ * Development/Testing Command Exports
  *
- * テストコマンドはプロダクション環境でも実行可能。
- * 開発時のデバッグや機能テストを容易にするためのコマンド群。
+ * Test commands are available in all environments (production included).
+ * Used for debugging and feature testing during development.
  */
 
 export { handleDevCommand, devCommandRegistry } from './devHandler';

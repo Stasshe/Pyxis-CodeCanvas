@@ -130,42 +130,42 @@ export interface ExtensionInfoTab extends BaseTab {
 }
 
 /**
- * マージコンフリクトのファイルエントリ
+ * Merge conflict file entry
  */
 export interface MergeConflictFileEntry {
-  /** ファイルパス */
+  /** File path */
   filePath: string;
-  /** ベース(共通祖先)の内容 */
+  /** Base (common ancestor) content */
   baseContent: string;
-  /** OURS(現在のブランチ)の内容 */
+  /** OURS (current branch) content */
   oursContent: string;
-  /** THEIRS(マージ元ブランチ)の内容 */
+  /** THEIRS (branch being merged) content */
   theirsContent: string;
-  /** 解決後の内容（ユーザーが編集） */
+  /** Resolved content (user edited) */
   resolvedContent: string;
-  /** コンフリクトが解決済みかどうか */
+  /** Whether the conflict is resolved */
   isResolved: boolean;
 }
 
 /**
- * マージコンフリクト解決タブ
+ * Merge conflict resolution tab
  */
 export interface MergeConflictTab extends BaseTab {
   kind: 'merge-conflict';
-  /** コンフリクトのあるファイル一覧 */
+  /** List of conflicting files */
   conflicts: MergeConflictFileEntry[];
-  /** OURSのブランチ名/コミットID */
+  /** OURS branch name/commit ID */
   oursBranch: string;
-  /** THEIRSのブランチ名/コミットID */
+  /** THEIRS branch name/commit ID */
   theirsBranch: string;
-  /** プロジェクトID */
+  /** Project ID */
   projectId: string;
-  /** プロジェクト名 */
+  /** Project name */
   projectName: string;
 }
 
 /**
- * すべてのタブ型のユニオン
+ * Union of all tab types
  */
 export type Tab =
   | EditorTab

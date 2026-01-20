@@ -1,8 +1,8 @@
 /**
- * マージコンフリクトシナリオ作成コマンド
+ * Merge Conflict Scenario Commands
  *
- * テスト用にマージコンフリクト状態を即座に作成し、
- * 解決タブを開くことができる。
+ * Create merge conflict states for testing purposes.
+ * Opens the resolution tab with generated test data.
  */
 
 import type { DevCommandContext, DevCommandInfo } from './types';
@@ -12,17 +12,17 @@ import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
- * サンプルのマージコンフリクトデータを生成
+ * Generate sample merge conflict data
  */
 function generateSampleConflict(filePath: string): MergeConflictFileEntry {
   const fileName = filePath.split('/').pop() || 'sample.ts';
 
-  // ベース（共通祖先）の内容
-  const baseContent = `// ${fileName}
+  // Base (common ancestor) content
+  const baseContent = \`// \${fileName}
 // Version: 1.0.0
 
 export function greet(name: string): string {
-  return \`Hello, \${name}!\`;
+  return \\\`Hello, \\\${name}!\\\`;
 }
 
 export function add(a: number, b: number): number {
@@ -30,14 +30,14 @@ export function add(a: number, b: number): number {
 }
 
 export const VERSION = '1.0.0';
-`;
+\`;
 
-  // OURS（現在のブランチ）の内容 - greet関数を変更
-  const oursContent = `// ${fileName}
+  // OURS (current branch) content - modified greet function
+  const oursContent = \`// \${fileName}
 // Version: 1.1.0 - Feature A
 
 export function greet(name: string, greeting: string = 'Hello'): string {
-  return \`\${greeting}, \${name}!\`;
+  return \\\`\\\${greeting}, \\\${name}!\\\`;
 }
 
 export function add(a: number, b: number): number {
@@ -49,14 +49,14 @@ export function multiply(a: number, b: number): number {
 }
 
 export const VERSION = '1.1.0';
-`;
+\`;
 
-  // THEIRS（マージ元ブランチ）の内容 - add関数を変更
-  const theirsContent = `// ${fileName}
+  // THEIRS (branch being merged) content - modified add function
+  const theirsContent = \`// \${fileName}
 // Version: 1.1.0 - Feature B
 
 export function greet(name: string): string {
-  return \`Hello, \${name}!\`;
+  return \\\`Hello, \\\${name}!\\\`;
 }
 
 export function add(a: number, b: number, c: number = 0): number {
@@ -68,9 +68,9 @@ export function subtract(a: number, b: number): number {
 }
 
 export const VERSION = '1.1.0';
-`;
+\`;
 
-  // 初期の解決内容（OURSをベースに）
+  // Initial resolved content (based on OURS)
   const resolvedContent = oursContent;
 
   return {
@@ -84,7 +84,7 @@ export const VERSION = '1.1.0';
 }
 
 /**
- * マージコンフリクトシナリオを作成してタブを開く
+ * Create merge conflict scenario and open tab
  */
 async function createMergeConflict(
   args: string[],
@@ -99,10 +99,10 @@ async function createMergeConflict(
 
   await writeOutput('Creating merge conflict scenario...\n');
 
-  // コンフリクトファイルの生成
+  // Generate conflict files
   const conflictFiles: MergeConflictFileEntry[] = [];
 
-  // デフォルトのファイルパス、または引数で指定されたパス
+  // Default file paths, or paths specified in args
   const filePaths =
     args.length > 0
       ? args
@@ -111,10 +111,10 @@ async function createMergeConflict(
   for (const path of filePaths) {
     const conflict = generateSampleConflict(path);
     conflictFiles.push(conflict);
-    await writeOutput(`  Created conflict for: ${path}`);
+    await writeOutput(\`  Created conflict for: \${path}\`);
   }
 
-  // merge-conflictタブを開く
+  // Open merge-conflict tab
   const { openTab } = useTabStore.getState();
 
   await openTab(
@@ -131,12 +131,12 @@ async function createMergeConflict(
   );
 
   await writeOutput('\n✓ Merge conflict resolution tab opened.');
-  await writeOutput(`  Conflicting files: ${conflictFiles.length}`);
+  await writeOutput(\`  Conflicting files: \${conflictFiles.length}\`);
   await writeOutput('  Branches: feature-a ← feature-b');
 }
 
 /**
- * マージコンフリクトタブを直接開く（既存データで）
+ * Open merge conflict tab with existing data
  */
 async function openMergeConflictTab(
   args: string[],
@@ -149,7 +149,7 @@ async function openMergeConflictTab(
     return;
   }
 
-  // シンプルな1ファイルコンフリクト
+  // Simple single-file conflict
   const conflict = generateSampleConflict('/test/conflict.ts');
 
   const { openTab } = useTabStore.getState();
@@ -171,7 +171,7 @@ async function openMergeConflictTab(
 }
 
 /**
- * 複雑なマージコンフリクトシナリオを作成
+ * Create complex merge conflict scenario
  */
 async function createComplexMergeConflict(
   args: string[],
@@ -186,14 +186,14 @@ async function createComplexMergeConflict(
 
   await writeOutput('Creating complex merge conflict scenario...\n');
 
-  // 複数の異なるタイプのコンフリクトを生成
+  // Generate multiple conflict types
   const conflicts: MergeConflictFileEntry[] = [
-    // TypeScriptファイル
+    // TypeScript file
     generateSampleConflict('/src/services/api.ts'),
-    // Reactコンポーネント
+    // React component
     {
       filePath: '/src/components/Header.tsx',
-      baseContent: `import React from 'react';
+      baseContent: \`import React from 'react';
 
 export const Header: React.FC = () => {
   return (
@@ -202,8 +202,8 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-`,
-      oursContent: `import React from 'react';
+\`,
+      oursContent: \`import React from 'react';
 import { Logo } from './Logo';
 
 export const Header: React.FC = () => {
@@ -214,8 +214,8 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-`,
-      theirsContent: `import React from 'react';
+\`,
+      theirsContent: \`import React from 'react';
 import { Navigation } from './Navigation';
 
 export const Header: React.FC = () => {
@@ -226,21 +226,21 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-`,
+\`,
       resolvedContent: '',
       isResolved: false,
     },
-    // 設定ファイル
+    // Config file
     {
       filePath: '/config/settings.json',
-      baseContent: `{
+      baseContent: \`{
   "version": "1.0.0",
   "api": {
     "endpoint": "https://api.example.com"
   }
 }
-`,
-      oursContent: `{
+\`,
+      oursContent: \`{
   "version": "1.1.0",
   "api": {
     "endpoint": "https://api.example.com",
@@ -250,8 +250,8 @@ export const Header: React.FC = () => {
     "darkMode": true
   }
 }
-`,
-      theirsContent: `{
+\`,
+      theirsContent: \`{
   "version": "1.1.0",
   "api": {
     "endpoint": "https://api-v2.example.com"
@@ -260,13 +260,13 @@ export const Header: React.FC = () => {
     "analytics": true
   }
 }
-`,
+\`,
       resolvedContent: '',
       isResolved: false,
     },
   ];
 
-  // resolvedContentをoursContentで初期化
+  // Initialize resolvedContent with oursContent
   for (const conflict of conflicts) {
     if (!conflict.resolvedContent) {
       conflict.resolvedContent = conflict.oursContent;
@@ -288,15 +288,15 @@ export const Header: React.FC = () => {
     }
   );
 
-  await writeOutput(`✓ Created ${conflicts.length} conflicting files:`);
+  await writeOutput(\`✓ Created \${conflicts.length} conflicting files:\`);
   for (const c of conflicts) {
-    await writeOutput(`  - ${c.filePath}`);
+    await writeOutput(\`  - \${c.filePath}\`);
   }
   await writeOutput('\nMerge conflict resolution tab opened.');
 }
 
 /**
- * エクスポートするコマンド一覧
+ * Exported commands
  */
 export const mergeConflictCommands: DevCommandInfo[] = [
   {

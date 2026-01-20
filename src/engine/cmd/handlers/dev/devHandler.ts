@@ -1,35 +1,35 @@
 /**
- * 開発・テスト用コマンドハンドラー
+ * Development/Testing Command Handler
  *
- * `dev` コマンドのメインエントリポイント。
- * サブコマンドを各専門ハンドラーにルーティングする。
+ * Main entry point for the \`dev\` command.
+ * Routes subcommands to specialized handlers.
  *
- * 使用例:
- *   dev merge-conflict create  - マージコンフリクトシナリオを作成
- *   dev help                   - 利用可能なコマンド一覧を表示
+ * Usage:
+ *   dev merge-conflict create  - Create a merge conflict scenario
+ *   dev help                   - Show available commands
  */
 
 import type { DevCommandContext, DevCommandInfo } from './types';
 
-// サブコマンドのインポート
+// Subcommand imports
 import { mergeConflictCommands } from './mergeConflictScenario';
 import { tabCommands } from './tabScenario';
 
 /**
- * 開発コマンドレジストリ
+ * Development Command Registry
  */
 class DevCommandRegistry {
   private commands: Map<string, DevCommandInfo> = new Map();
 
   /**
-   * コマンドを登録
+   * Register a command
    */
   register(info: DevCommandInfo): void {
     this.commands.set(info.name, info);
   }
 
   /**
-   * 複数のコマンドを一括登録
+   * Register multiple commands at once
    */
   registerAll(infos: DevCommandInfo[]): void {
     for (const info of infos) {
@@ -38,21 +38,21 @@ class DevCommandRegistry {
   }
 
   /**
-   * コマンドを取得
+   * Get a command by name
    */
   get(name: string): DevCommandInfo | undefined {
     return this.commands.get(name);
   }
 
   /**
-   * 全コマンドを取得
+   * Get all commands
    */
   getAll(): DevCommandInfo[] {
     return Array.from(this.commands.values());
   }
 
   /**
-   * コマンドが存在するか確認
+   * Check if a command exists
    */
   has(name: string): boolean {
     return this.commands.has(name);
@@ -61,12 +61,12 @@ class DevCommandRegistry {
 
 export const devCommandRegistry = new DevCommandRegistry();
 
-// コマンドを登録
+// Register commands
 devCommandRegistry.registerAll(mergeConflictCommands);
 devCommandRegistry.registerAll(tabCommands);
 
 /**
- * ヘルプコマンド
+ * Help command
  */
 async function showHelp(context: DevCommandContext): Promise<void> {
   const commands = devCommandRegistry.getAll();
@@ -76,7 +76,7 @@ async function showHelp(context: DevCommandContext): Promise<void> {
   await context.writeOutput('\nAvailable commands:\n');
 
   for (const cmd of commands) {
-    await context.writeOutput(`  ${cmd.name.padEnd(25)} ${cmd.description}`);
+    await context.writeOutput(\`  \${cmd.name.padEnd(25)} \${cmd.description}\`);
   }
 
   await context.writeOutput('\nFor detailed usage of a command:');
@@ -84,7 +84,7 @@ async function showHelp(context: DevCommandContext): Promise<void> {
 }
 
 /**
- * メインハンドラー
+ * Main handler
  */
 export async function handleDevCommand(
   args: string[],
@@ -98,7 +98,7 @@ export async function handleDevCommand(
     writeOutput,
   };
 
-  // 引数がない場合またはhelpの場合はヘルプを表示
+  // Show help if no arguments or help flag
   if (args.length === 0 || args[0] === 'help' || args[0] === '--help' || args[0] === '-h') {
     await showHelp(context);
     return;
@@ -107,26 +107,26 @@ export async function handleDevCommand(
   const subCommand = args[0];
   const subArgs = args.slice(1);
 
-  // コマンドを検索
+  // Find command
   const commandInfo = devCommandRegistry.get(subCommand);
 
   if (!commandInfo) {
-    await writeOutput(`dev: unknown command '${subCommand}'`);
+    await writeOutput(\`dev: unknown command '\${subCommand}'\`);
     await writeOutput('Run "dev help" to see available commands.');
     return;
   }
 
-  // --help オプションの処理
+  // Handle --help option
   if (subArgs.includes('--help') || subArgs.includes('-h')) {
-    await writeOutput(`${commandInfo.name}: ${commandInfo.description}\n`);
-    await writeOutput(`Usage: ${commandInfo.usage}`);
+    await writeOutput(\`\${commandInfo.name}: \${commandInfo.description}\n\`);
+    await writeOutput(\`Usage: \${commandInfo.usage}\`);
     return;
   }
 
-  // コマンドを実行
+  // Execute command
   try {
     await commandInfo.handler(subArgs, context);
   } catch (error) {
-    await writeOutput(`dev ${subCommand}: ${(error as Error).message}`);
+    await writeOutput(\`dev \${subCommand}: \${(error as Error).message}\`);
   }
 }

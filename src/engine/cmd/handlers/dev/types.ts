@@ -1,9 +1,9 @@
 /**
- * 開発・テスト用コマンドの型定義
+ * Types for development/testing commands
  */
 
 /**
- * 開発コマンドのコンテキスト
+ * Development command context
  */
 export interface DevCommandContext {
   projectName: string;
@@ -12,7 +12,7 @@ export interface DevCommandContext {
 }
 
 /**
- * 開発コマンドハンドラーの型
+ * Development command handler type
  */
 export type DevCommandHandler = (
   args: string[],
@@ -20,7 +20,7 @@ export type DevCommandHandler = (
 ) => Promise<void>;
 
 /**
- * 開発コマンドの登録情報
+ * Development command registration info
  */
 export interface DevCommandInfo {
   name: string;

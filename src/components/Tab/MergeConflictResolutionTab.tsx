@@ -1,8 +1,8 @@
 /**
- * マージコンフリクト解決タブのUIコンポーネント
+ * Merge Conflict Resolution Tab UI Component
  *
- * 3方向マージ（base, ours, theirs）を表示し、
- * ユーザーがコンフリクトを解決できるインターフェースを提供
+ * Displays 3-way merge (base, ours, theirs) and allows
+ * users to resolve conflicts interactively.
  */
 import { DiffEditor, Editor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
@@ -23,13 +23,13 @@ interface MergeConflictResolutionTabProps {
   theirsBranch: string;
   projectId: string;
   projectName: string;
-  /** コンフリクト解決を確定して保存 */
+  /** Confirm conflict resolution and save */
   onResolve: (resolvedFiles: MergeConflictFileEntry[]) => void;
-  /** マージをキャンセル */
+  /** Cancel merge */
   onCancel: () => void;
-  /** 解決内容の更新 */
+  /** Update resolved content */
   onUpdateResolvedContent: (filePath: string, content: string) => void;
-  /** ファイルの解決状態を切り替え */
+  /** Toggle file resolution state */
   onToggleResolved: (filePath: string, isResolved: boolean) => void;
 }
 
@@ -56,7 +56,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
   const selectedFile = conflicts[selectedFileIndex];
   const allResolved = conflicts.every(f => f.isResolved);
 
-  // テーマを適用
+  // Apply theme
   const handleEditorMount = useCallback(
     (editor: monacoEditor.editor.IStandaloneCodeEditor, monaco: Monaco) => {
       editorRef.current = editor;
@@ -80,7 +80,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
     [colors, themeName]
   );
 
-  // 解決エディタの内容変更
+  // Resolved content change handler
   const handleResolvedContentChange = useCallback(
     (value: string | undefined) => {
       if (value !== undefined && selectedFile) {
@@ -90,36 +90,36 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
     [selectedFile, onUpdateResolvedContent]
   );
 
-  // Accept Ours - OURSの内容で解決
+  // Accept Ours - resolve with OURS content
   const handleAcceptOurs = useCallback(() => {
     if (selectedFile) {
       onUpdateResolvedContent(selectedFile.filePath, selectedFile.oursContent);
     }
   }, [selectedFile, onUpdateResolvedContent]);
 
-  // Accept Theirs - THEIRSの内容で解決
+  // Accept Theirs - resolve with THEIRS content
   const handleAcceptTheirs = useCallback(() => {
     if (selectedFile) {
       onUpdateResolvedContent(selectedFile.filePath, selectedFile.theirsContent);
     }
   }, [selectedFile, onUpdateResolvedContent]);
 
-  // Accept Both - 両方を結合
+  // Accept Both - combine both
   const handleAcceptBoth = useCallback(() => {
     if (selectedFile) {
-      const combined = `${selectedFile.oursContent}\n${selectedFile.theirsContent}`;
+      const combined = \`\${selectedFile.oursContent}\n\${selectedFile.theirsContent}\`;
       onUpdateResolvedContent(selectedFile.filePath, combined);
     }
   }, [selectedFile, onUpdateResolvedContent]);
 
-  // 解決フラグのトグル
+  // Toggle resolved flag
   const handleToggleResolved = useCallback(() => {
     if (selectedFile) {
       onToggleResolved(selectedFile.filePath, !selectedFile.isResolved);
     }
   }, [selectedFile, onToggleResolved]);
 
-  // ファイルの展開/折りたたみ
+  // File expand/collapse
   const toggleFileExpanded = useCallback((index: number) => {
     setExpandedFiles(prev => {
       const next = new Set(prev);
@@ -132,13 +132,13 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
     });
   }, []);
 
-  // ファイル選択
+  // File selection
   const handleSelectFile = useCallback((index: number) => {
     setSelectedFileIndex(index);
     setExpandedFiles(prev => new Set(prev).add(index));
   }, []);
 
-  // 最終確定
+  // Final resolution
   const handleFinalResolve = useCallback(() => {
     if (allResolved) {
       onResolve(conflicts);
@@ -148,22 +148,22 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
   if (conflicts.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        {t('mergeConflict.noConflicts') || 'コンフリクトはありません'}
+        {t('mergeConflict.noConflicts') || 'No conflicts'}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full bg-[#1e1e1e]">
-      {/* ヘッダー */}
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-[#3c3c3c]">
         <div className="flex items-center gap-2">
           <GitMerge className="w-5 h-5 text-yellow-500" />
           <span className="font-medium text-white">
-            {t('mergeConflict.title') || 'マージコンフリクト解決'}
+            {t('mergeConflict.title') || 'Merge Conflict Resolution'}
           </span>
           <span className="text-sm text-gray-400">
-            ({conflicts.filter(f => f.isResolved).length}/{conflicts.length} {t('mergeConflict.resolved') || '解決済み'})
+            ({conflicts.filter(f => f.isResolved).length}/{conflicts.length} {t('mergeConflict.resolved') || 'resolved'})
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -175,38 +175,38 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
             onClick={onCancel}
             className="px-3 py-1 text-sm text-gray-300 hover:bg-[#3c3c3c] rounded"
           >
-            {t('common.cancel') || 'キャンセル'}
+            {t('common.cancel') || 'Cancel'}
           </button>
           <button
             type="button"
             onClick={handleFinalResolve}
             disabled={!allResolved}
-            className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
+            className={\`px-3 py-1 text-sm rounded flex items-center gap-1 \${
               allResolved
                 ? 'bg-green-600 hover:bg-green-700 text-white'
                 : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            }\`}
           >
             <Check className="w-4 h-4" />
-            {t('mergeConflict.completeResolve') || '解決完了'}
+            {t('mergeConflict.completeResolve') || 'Complete Resolution'}
           </button>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* ファイルリスト */}
+        {/* File list */}
         <div className="w-64 bg-[#252526] border-r border-[#3c3c3c] overflow-y-auto">
           <div className="p-2 text-xs text-gray-400 border-b border-[#3c3c3c]">
-            {t('mergeConflict.conflictFiles') || 'コンフリクトファイル'}
+            {t('mergeConflict.conflictFiles') || 'Conflict Files'}
           </div>
           {conflicts.map((conflict, index) => (
             <div key={conflict.filePath}>
               <button
                 type="button"
                 onClick={() => handleSelectFile(index)}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-[#2a2d2e] ${
+                className={\`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-[#2a2d2e] \${
                   selectedFileIndex === index ? 'bg-[#37373d]' : ''
-                }`}
+                }\`}
               >
                 <button
                   type="button"
@@ -223,9 +223,9 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                   )}
                 </button>
                 <span
-                  className={`flex-1 truncate ${
+                  className={\`flex-1 truncate \${
                     conflict.isResolved ? 'text-green-400' : 'text-yellow-400'
-                  }`}
+                  }\`}
                 >
                   {conflict.filePath.split('/').pop()}
                 </span>
@@ -244,9 +244,9 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
           ))}
         </div>
 
-        {/* メインエディタエリア */}
+        {/* Main editor area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* ビューモード切り替え + アクション */}
+          {/* View mode switch + actions */}
           <div className="flex items-center justify-between px-4 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c]">
             <div className="flex items-center gap-2">
               <select
@@ -254,9 +254,9 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                 onChange={e => setViewMode(e.target.value as ViewMode)}
                 className="px-2 py-1 text-sm bg-[#3c3c3c] text-white rounded border border-[#555]"
               >
-                <option value="three-way">{t('mergeConflict.threeWayView') || '3方向表示'}</option>
+                <option value="three-way">{t('mergeConflict.threeWayView') || '3-Way View'}</option>
                 <option value="ours-vs-theirs">{t('mergeConflict.oursVsTheirs') || 'Ours vs Theirs'}</option>
-                <option value="result">{t('mergeConflict.resultView') || '結果のみ'}</option>
+                <option value="result">{t('mergeConflict.resultView') || 'Result Only'}</option>
               </select>
             </div>
             <div className="flex items-center gap-2">
@@ -265,44 +265,44 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                 onClick={handleAcceptOurs}
                 className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
               >
-                {t('mergeConflict.acceptOurs') || 'Oursを採用'}
+                {t('mergeConflict.acceptOurs') || 'Accept Ours'}
               </button>
               <button
                 type="button"
                 onClick={handleAcceptTheirs}
                 className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded"
               >
-                {t('mergeConflict.acceptTheirs') || 'Theirsを採用'}
+                {t('mergeConflict.acceptTheirs') || 'Accept Theirs'}
               </button>
               <button
                 type="button"
                 onClick={handleAcceptBoth}
                 className="px-2 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded"
               >
-                {t('mergeConflict.acceptBoth') || '両方採用'}
+                {t('mergeConflict.acceptBoth') || 'Accept Both'}
               </button>
               <button
                 type="button"
                 onClick={handleToggleResolved}
-                className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                className={\`px-2 py-1 text-xs rounded flex items-center gap-1 \${
                   selectedFile?.isResolved
                     ? 'bg-green-600 hover:bg-green-700 text-white'
                     : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                }`}
+                }\`}
               >
                 {selectedFile?.isResolved ? (
                   <>
                     <Check className="w-3 h-3" />
-                    {t('mergeConflict.resolved') || '解決済み'}
+                    {t('mergeConflict.resolved') || 'Resolved'}
                   </>
                 ) : (
-                  <>{t('mergeConflict.markAsResolved') || '解決済みにする'}</>
+                  <>{t('mergeConflict.markAsResolved') || 'Mark as Resolved'}</>
                 )}
               </button>
             </div>
           </div>
 
-          {/* エディタ表示エリア */}
+          {/* Editor display area */}
           <div className="flex-1 overflow-hidden">
             {selectedFile && viewMode === 'three-way' && (
               <ThreeWayView
@@ -362,8 +362,8 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
 };
 
 /**
- * 3方向表示コンポーネント
- * Base, Ours, Theirs, 解決結果を表示
+ * Three-way view component
+ * Displays Base, Ours, Theirs, and resolved result
  */
 interface ThreeWayViewProps {
   file: MergeConflictFileEntry;
@@ -398,7 +398,7 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* 上部: Base vs Ours / Base vs Theirs */}
+      {/* Top: Base vs Ours / Base vs Theirs */}
       <div className="flex-1 flex overflow-hidden border-b border-[#3c3c3c]">
         {/* Base vs Ours */}
         <div className="flex-1 flex flex-col border-r border-[#3c3c3c]">
@@ -449,10 +449,10 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
           </div>
         </div>
       </div>
-      {/* 下部: 解決結果エディタ */}
+      {/* Bottom: Resolved result editor */}
       <div className="flex-1 flex flex-col">
         <div className="px-2 py-1 text-xs bg-[#2d2d2d] text-green-400 border-b border-[#3c3c3c]">
-          {t('mergeConflict.resolvedResult') || '解決結果'} ({t('common.editable') || '編集可能'})
+          {t('mergeConflict.resolvedResult') || 'Resolved Result'} ({t('common.editable') || 'Editable'})
         </div>
         <div className="flex-1">
           <Editor

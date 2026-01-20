@@ -1,7 +1,7 @@
 /**
- * タブ操作テスト用コマンド
+ * Tab Operation Test Commands
  *
- * 各種タブタイプを即座に開いてテストできる。
+ * Open various tab types with test data for quick testing.
  */
 
 import type { DevCommandContext, DevCommandInfo } from './types';
@@ -9,7 +9,7 @@ import type { DevCommandContext, DevCommandInfo } from './types';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
- * Diffタブをテストデータで開く
+ * Open diff tab with test data
  */
 async function openTestDiffTab(
   args: string[],
@@ -19,24 +19,24 @@ async function openTestDiffTab(
 
   const { openTab } = useTabStore.getState();
 
-  const originalContent = `function hello(name) {
+  const originalContent = \`function hello(name) {
   console.log("Hello, " + name);
 }
 
 hello("World");
-`;
+\`;
 
-  const modifiedContent = `function hello(name: string): void {
-  console.log(\`Hello, \${name}!\`);
+  const modifiedContent = \`function hello(name: string): void {
+  console.log(\\\`Hello, \\\${name}!\\\`);
 }
 
 function goodbye(name: string): void {
-  console.log(\`Goodbye, \${name}!\`);
+  console.log(\\\`Goodbye, \\\${name}!\\\`);
 }
 
 hello("World");
 goodbye("World");
-`;
+\`;
 
   await openTab(
     {
@@ -61,7 +61,7 @@ goodbye("World");
 }
 
 /**
- * 編集可能なDiffタブを開く
+ * Open editable diff tab
  */
 async function openEditableDiffTab(
   args: string[],
@@ -76,16 +76,16 @@ async function openEditableDiffTab(
 
   const { openTab } = useTabStore.getState();
 
-  const originalContent = `// Original content
+  const originalContent = \`// Original content
 const message = "Hello";
 console.log(message);
-`;
+\`;
 
-  const modifiedContent = `// Modified content - you can edit this
+  const modifiedContent = \`// Modified content - you can edit this
 const message = "Hello, World!";
 const greeting = "Welcome!";
 console.log(message, greeting);
-`;
+\`;
 
   await openTab(
     {
@@ -111,7 +111,7 @@ console.log(message, greeting);
 }
 
 /**
- * 複数ファイルのDiffタブを開く
+ * Open multi-file diff tab
  */
 async function openMultiFileDiffTab(
   args: string[],
@@ -159,11 +159,11 @@ async function openMultiFileDiffTab(
     }
   );
 
-  await writeOutput(`✓ Multi-file diff tab opened with ${files.length} files.`);
+  await writeOutput(\`✓ Multi-file diff tab opened with \${files.length} files.\`);
 }
 
 /**
- * Welcomeタブを開く
+ * Open welcome tab
  */
 async function openWelcomeTab(
   args: string[],
@@ -187,7 +187,7 @@ async function openWelcomeTab(
 }
 
 /**
- * 設定タブを開く
+ * Open settings tab
  */
 async function openSettingsTab(
   args: string[],
@@ -200,7 +200,7 @@ async function openSettingsTab(
 
   await openTab(
     {
-      path: `settings:${settingsType}`,
+      path: \`settings:\${settingsType}\`,
       name: 'Settings',
       settingsType,
     },
@@ -209,11 +209,11 @@ async function openSettingsTab(
     }
   );
 
-  await writeOutput(`✓ Settings tab opened (type: ${settingsType}).`);
+  await writeOutput(\`✓ Settings tab opened (type: \${settingsType}).\`);
 }
 
 /**
- * 現在開いているタブ一覧を表示
+ * List all open tabs
  */
 async function listTabs(
   args: string[],
@@ -229,14 +229,14 @@ async function listTabs(
     const prefix = '  '.repeat(indent);
 
     if (pane.tabs && pane.tabs.length > 0) {
-      await writeOutput(`${prefix}Pane: ${pane.id} (${pane.tabs.length} tabs)`);
+      await writeOutput(\`\${prefix}Pane: \${pane.id} (\${pane.tabs.length} tabs)\`);
       for (const tab of pane.tabs) {
         const isActive = tab.id === globalActiveTab ? ' [ACTIVE]' : '';
         const isDirty = tab.isDirty ? ' [*]' : '';
-        await writeOutput(`${prefix}  - [${tab.kind}] ${tab.name}${isDirty}${isActive}`);
-        await writeOutput(`${prefix}    id: ${tab.id}`);
+        await writeOutput(\`\${prefix}  - [\${tab.kind}] \${tab.name}\${isDirty}\${isActive}\`);
+        await writeOutput(\`\${prefix}    id: \${tab.id}\`);
         if (tab.path) {
-          await writeOutput(`${prefix}    path: ${tab.path}`);
+          await writeOutput(\`\${prefix}    path: \${tab.path}\`);
         }
       }
     }
@@ -258,7 +258,7 @@ async function listTabs(
 }
 
 /**
- * エクスポートするコマンド一覧
+ * Exported commands
  */
 export const tabCommands: DevCommandInfo[] = [
   {

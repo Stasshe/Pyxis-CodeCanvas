@@ -15,7 +15,7 @@ import { syncManager } from '@/engine/core/syncManager';
 import { useTabStore } from '@/stores/tabStore';
 
 /**
- * マージコンフリクト解決タブのレンダラー
+ * Merge Conflict Resolution Tab Renderer
  */
 const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const mergeTab = tab as MergeConflictTab;
@@ -23,15 +23,15 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const updateTab = useTabStore(state => state.updateTab);
 
   /**
-   * 解決完了ハンドラー
-   * 全ての解決済みファイルを保存し、マージを完了する
+   * Resolve handler
+   * Saves all resolved files and completes the merge
    */
   const handleResolve = useCallback(
     async (resolvedFiles: MergeConflictFileEntry[]) => {
       try {
         console.log('[MergeConflictTabType] Resolving merge conflicts:', resolvedFiles.length);
 
-        // 各ファイルを保存
+        // Save each file
         for (const file of resolvedFiles) {
           await fileRepository.saveFileByPath(
             mergeTab.projectId,
@@ -41,29 +41,29 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
           console.log('[MergeConflictTabType] Saved resolved file:', file.filePath);
         }
 
-        // IndexedDB → GitFileSystemへ同期
+        // Sync IndexedDB → GitFileSystem
         await syncManager.syncFromIndexedDBToFS(mergeTab.projectId, mergeTab.projectName);
         console.log('[MergeConflictTabType] Synced to filesystem');
 
-        // タブを閉じる
+        // Close tab
         closeTab(mergeTab.paneId, mergeTab.id);
       } catch (error) {
         console.error('[MergeConflictTabType] Failed to resolve conflicts:', error);
-        // TODO: エラー通知
+        // TODO: Error notification
       }
     },
     [mergeTab, closeTab]
   );
 
   /**
-   * キャンセルハンドラー
+   * Cancel handler
    */
   const handleCancel = useCallback(() => {
     closeTab(mergeTab.paneId, mergeTab.id);
   }, [mergeTab, closeTab]);
 
   /**
-   * 解決内容の更新
+   * Update resolved content
    */
   const handleUpdateResolvedContent = useCallback(
     (filePath: string, content: string) => {
@@ -76,7 +76,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   );
 
   /**
-   * 解決状態のトグル
+   * Toggle resolved state
    */
   const handleToggleResolved = useCallback(
     (filePath: string, isResolved: boolean) => {
@@ -104,7 +104,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 };
 
 /**
- * マージコンフリクト解決タブタイプの定義
+ * Merge Conflict Resolution Tab Type Definition
  */
 export const MergeConflictTabType: TabTypeDefinition = {
   kind: 'merge-conflict',
@@ -121,8 +121,8 @@ export const MergeConflictTabType: TabTypeDefinition = {
     const projectId = (data.projectId as string) || '';
     const projectName = (data.projectName as string) || '';
 
-    const tabId = `merge-conflict:${oursBranch}-${theirsBranch}-${Date.now()}`;
-    const tabName = `Merge: ${theirsBranch} → ${oursBranch}`;
+    const tabId = \`merge-conflict:\${oursBranch}-\${theirsBranch}-\${Date.now()}\`;
+    const tabName = \`Merge: \${theirsBranch} → \${oursBranch}\`;
 
     return {
       id: tabId,
@@ -139,7 +139,7 @@ export const MergeConflictTabType: TabTypeDefinition = {
   },
 
   shouldReuseTab: (existingTab, newFile, options) => {
-    // 同じブランチ間のマージコンフリクトタブは再利用
+    // Reuse merge conflict tab for same branch pairs
     const mergeTab = existingTab as MergeConflictTab;
     const oursBranch = (newFile.oursBranch as string) || '';
     const theirsBranch = (newFile.theirsBranch as string) || '';
