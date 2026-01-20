@@ -198,7 +198,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
 
       <div className="flex flex-1 overflow-hidden">
         {/* File list */}
-        <div className="w-64 bg-[#252526] border-r border-[#3c3c3c] overflow-y-auto">
+        <div className="w-48 bg-[#252526] border-r border-[#3c3c3c] overflow-y-auto flex-shrink-0">
           <div className="p-2 text-xs text-gray-400 border-b border-[#3c3c3c]">
             {t('mergeConflict.conflictFiles') || 'Conflict Files'}
           </div>
