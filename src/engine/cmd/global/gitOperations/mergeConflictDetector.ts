@@ -16,25 +16,6 @@ export class MergeConflictDetector {
   }
 
   /**
-   * Read content from a specific git ref (branch/commit)
-   */
-  private async readFileFromRef(filepath: string, ref: string): Promise<string> {
-    try {
-      const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref });
-      const { blob } = await git.readBlob({
-        fs: this.fs,
-        dir: this.dir,
-        oid,
-        filepath,
-      });
-      return new TextDecoder().decode(blob);
-    } catch (error) {
-      console.warn(`[MergeConflictDetector] Failed to read ${filepath} from ${ref}:`, error);
-      return '';
-    }
-  }
-
-  /**
    * Find the merge base (common ancestor) between two branches
    */
   private async findMergeBase(ours: string, theirs: string): Promise<string | null> {
@@ -164,49 +145,22 @@ export class MergeConflictDetector {
    */
   private async readBlobContent(oid: string): Promise<string> {
     try {
-      const { object } = await git.readObject({
+      const { object, type } = await git.readObject({
         fs: this.fs,
         dir: this.dir,
         oid,
       });
+
+      // Ensure it's a blob type
+      if (type !== 'blob') {
+        console.warn(`[MergeConflictDetector] Object ${oid} is not a blob (type: ${type})`);
+        return '';
+      }
+
       return new TextDecoder().decode(object as Uint8Array);
     } catch (error) {
       console.warn(`[MergeConflictDetector] Failed to read blob ${oid}:`, error);
       return '';
     }
-  }
-
-  /**
-   * Check if there are any files with conflict markers in the working directory
-   */
-  async hasConflictMarkers(): Promise<string[]> {
-    const conflictedFiles: string[] = [];
-
-    try {
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-
-      for (const [filepath, HEAD, workdir, stage] of status) {
-        // stage === 1 means unmerged (conflict state)
-        if (stage === 1 || workdir === 1) {
-          try {
-            const content = await this.fs.promises.readFile(`${this.dir}/${filepath}`, 'utf8');
-            if (
-              typeof content === 'string' &&
-              (content.includes('<<<<<<<') ||
-                content.includes('=======') ||
-                content.includes('>>>>>>>'))
-            ) {
-              conflictedFiles.push(filepath);
-            }
-          } catch (error) {
-            // Ignore read errors
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[MergeConflictDetector] Error checking conflict markers:', error);
-    }
-
-    return conflictedFiles;
   }
 }
