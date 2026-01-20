@@ -21,6 +21,8 @@ export type {
   AIReviewTab,
   DiffTab,
   SettingsTab,
+  MergeConflictTab,
+  MergeConflictFileEntry,
   TabKind,
   OpenTabOptions,
   TabComponentProps,

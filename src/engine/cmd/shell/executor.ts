@@ -571,7 +571,24 @@ export class ShellExecutor {
       }
     }
 
-    // 4. Extension commands
+    // 4. Dev command (development/testing utilities)
+    if (cmd === 'dev') {
+      try {
+        const { handleDevCommand } = await import('../handlers/dev');
+        await handleDevCommand(
+          args,
+          this.context.projectName,
+          this.context.projectId,
+          writeOutput
+        );
+        return 0;
+      } catch (e: any) {
+        await writeError(`dev: ${e.message}`);
+        return 1;
+      }
+    }
+
+    // 5. Extension commands
     if (this.commandRegistry?.hasCommand(cmd)) {
       try {
         const unix = await this.getUnix();
@@ -589,7 +606,7 @@ export class ShellExecutor {
       }
     }
 
-    // 5. Builtin commands (echo, ls, cat, grep, etc.)
+    // 6. Builtin commands (echo, ls, cat, grep, etc.)
     const builtins = await this.getBuiltins();
     if (builtins[cmd]) {
       const ctx: StreamCtx = {
@@ -614,7 +631,7 @@ export class ShellExecutor {
       }
     }
 
-    // 6. Command not found
+    // 7. Command not found
     proc.writeStderr(`${cmd}: command not found\n`);
     return 127;
   }

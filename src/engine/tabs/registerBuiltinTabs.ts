@@ -6,6 +6,7 @@ import {
   DiffTabType,
   EditorTabType,
   ExtensionInfoTabType,
+  MergeConflictTabType,
   PreviewTabType,
   SettingsTabType,
   WebPreviewTabType,
@@ -25,6 +26,7 @@ export function registerBuiltinTabs() {
   tabRegistry.register(PreviewTabType);
   tabRegistry.register(BinaryTabType);
   tabRegistry.register(ExtensionInfoTabType);
+  tabRegistry.register(MergeConflictTabType);
 
   console.log('[TabRegistry] Builtin tab types registered');
 }

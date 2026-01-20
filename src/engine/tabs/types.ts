@@ -15,6 +15,7 @@ export type TabKind =
   | 'diff'
   | 'settings'
   | 'extension-info'
+  | 'merge-conflict'
   | string;
 
 /**
@@ -129,6 +130,41 @@ export interface ExtensionInfoTab extends BaseTab {
 }
 
 /**
+ * マージコンフリクトのファイルエントリ
+ */
+export interface MergeConflictFileEntry {
+  /** ファイルパス */
+  filePath: string;
+  /** ベース(共通祖先)の内容 */
+  baseContent: string;
+  /** OURS(現在のブランチ)の内容 */
+  oursContent: string;
+  /** THEIRS(マージ元ブランチ)の内容 */
+  theirsContent: string;
+  /** 解決後の内容（ユーザーが編集） */
+  resolvedContent: string;
+  /** コンフリクトが解決済みかどうか */
+  isResolved: boolean;
+}
+
+/**
+ * マージコンフリクト解決タブ
+ */
+export interface MergeConflictTab extends BaseTab {
+  kind: 'merge-conflict';
+  /** コンフリクトのあるファイル一覧 */
+  conflicts: MergeConflictFileEntry[];
+  /** OURSのブランチ名/コミットID */
+  oursBranch: string;
+  /** THEIRSのブランチ名/コミットID */
+  theirsBranch: string;
+  /** プロジェクトID */
+  projectId: string;
+  /** プロジェクト名 */
+  projectName: string;
+}
+
+/**
  * すべてのタブ型のユニオン
  */
 export type Tab =
@@ -140,7 +176,8 @@ export type Tab =
   | SettingsTab
   | WelcomeTab
   | BinaryTab
-  | ExtensionInfoTab;
+  | ExtensionInfoTab
+  | MergeConflictTab;
 
 /**
  * タブを開くときのオプション
