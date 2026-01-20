@@ -3,6 +3,7 @@
 /*
  * CSS Reset for markdown content
  * Prevents Pyxis application styles from affecting markdown rendering
+ * Uses targeted resets instead of `all: revert` to avoid unexpected issues
  */
 .markdown-body,
 .markdown-body * {
@@ -10,9 +11,6 @@
 }
 
 .markdown-body {
-  /* Reset inherited styles */
-  all: revert;
-  
   /* Base styles */
   background: var(--markdown-background, #18181b);
   color: var(--markdown-foreground, #e4e4e7);
@@ -22,8 +20,15 @@
   word-break: break-word;
   padding: 0.5rem 0;
   
-  /* Ensure box-sizing is set correctly after reset */
-  box-sizing: border-box;
+  /* Reset common inherited properties */
+  text-align: left;
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: normal;
+  word-spacing: normal;
+  white-space: normal;
+  font-weight: normal;
+  font-style: normal;
 }
 
 .markdown-body h1,
