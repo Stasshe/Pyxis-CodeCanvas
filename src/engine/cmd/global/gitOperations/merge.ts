@@ -2,8 +2,10 @@ import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
+import { MergeConflictDetector } from './mergeConflictDetector';
 
 import { syncManager } from '@/engine/core/syncManager';
+import { useTabStore } from '@/stores/tabStore';
 
 /**
  * [NEW ARCHITECTURE] Git merge操作を管理するクラス
@@ -236,10 +238,35 @@ export class GitMergeOperations {
 
         return 'Merge completed successfully.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB';
       } catch (mergeError) {
-        const error = mergeError as any;
+        const error = mergeError as Error & { code?: string };
         // マージコンフリクトの場合
         if (error.code === 'MergeNotSupportedError' || error.message?.includes('conflict')) {
-          return `CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected in the following files. This CLI doesn't support conflict resolution yet.`;
+          console.log('[NEW ARCHITECTURE] Merge conflict detected, opening resolution tab');
+
+          // Detect conflicts
+          const detector = new MergeConflictDetector(this.fs, this.dir);
+          const conflicts = await detector.detectConflicts(currentBranch, branchName);
+
+          if (conflicts.length > 0) {
+            // Open merge conflict tab
+            const { openTab } = useTabStore.getState();
+            await openTab(
+              {
+                conflicts,
+                oursBranch: currentBranch,
+                theirsBranch: branchName,
+                projectId: this.projectId,
+                projectName: this.projectName,
+              },
+              {
+                kind: 'merge-conflict',
+              }
+            );
+
+            return `CONFLICT: Automatic merge failed.\n${conflicts.length} conflicting file(s) detected.\nMerge conflict resolution tab has been opened.`;
+          }
+
+          return 'CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected but could not extract conflict details.';
         }
         // その他のマージエラー
         throw new Error(`Merge failed: ${error.message}`);
