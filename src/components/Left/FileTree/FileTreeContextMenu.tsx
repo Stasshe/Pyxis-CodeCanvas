@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -6,6 +6,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { exportFolderZip } from '@/engine/export/exportFolderZip';
 import { exportSingleFile } from '@/engine/export/exportSingleFile';
+import { explorerMenuRegistry } from '@/engine/extensions/system-api/ExplorerMenuAPI';
 import { importSingleFile } from '@/engine/import/importSingleFile';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
@@ -43,6 +44,15 @@ export default function FileTreeContextMenu({
   const { openTab } = useTabStore();
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
+  const [, forceUpdate] = useState(0);
+
+  // Listen for extension menu changes
+  useEffect(() => {
+    const unsubscribe = explorerMenuRegistry.addChangeListener(() => {
+      forceUpdate(n => n + 1);
+    });
+    return unsubscribe;
+  }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -69,7 +79,13 @@ export default function FileTreeContextMenu({
     }
   };
 
-  const menuItems: Array<{ key: string; label: string }> =
+  // Get extension menu items for the current file
+  const extensionMenuItems = useMemo(() => {
+    return explorerMenuRegistry.getMenuItemsForFile(contextMenu.item);
+  }, [contextMenu.item]);
+
+  // Build menu items
+  const menuItems: Array<{ key: string; label: string; isExtension?: boolean; extensionHandler?: (item: FileItem) => void | Promise<void> }> =
     contextMenu.item == null
       ? [
           { key: 'createFile', label: t('fileTree.menu.createFile') },
@@ -85,6 +101,18 @@ export default function FileTreeContextMenu({
           contextMenu.item.type === 'file'
             ? { key: 'openCodeMirror', label: t('fileTree.menu.openCodeMirror') }
             : null,
+          // Extension menu items (inserted after open options, before download)
+          ...extensionMenuItems.map(extItem => ({
+            key: `ext:${extItem.extensionId}:${extItem.definition.id}`,
+            label: extItem.definition.label,
+            isExtension: true,
+            extensionHandler: (item: FileItem) => {
+              return extItem.definition.handler(item, {
+                projectName: currentProjectName,
+                projectId: currentProjectId || '',
+              });
+            },
+          })),
           { key: 'download', label: t('fileTree.menu.download') },
           { key: 'importFiles', label: t('fileTree.menu.importFiles') },
           { key: 'importFolder', label: t('fileTree.menu.importFolder') },
@@ -97,10 +125,21 @@ export default function FileTreeContextMenu({
             ? { key: 'createFile', label: t('fileTree.menu.createFile') }
             : null,
           { key: 'webPreview', label: t('fileTree.menu.webPreview') },
-        ].filter(Boolean) as Array<{ key: string; label: string }>);
+        ].filter(Boolean) as Array<{ key: string; label: string; isExtension?: boolean; extensionHandler?: (item: FileItem) => void | Promise<void> }>);
 
-  const handleMenuAction = async (key: string, menuItem: FileItem | null) => {
+  const handleMenuAction = async (key: string, menuItem: FileItem | null, extHandler?: (item: FileItem) => void | Promise<void>) => {
     setContextMenu(null);
+
+    // Handle extension menu items
+    if (extHandler && menuItem) {
+      try {
+        await extHandler(menuItem);
+      } catch (error) {
+        console.error('[FileTreeContextMenu] Extension menu action failed:', error);
+      }
+      return;
+    }
+
     const unix = terminalCommandRegistry.getUnixCommands(
       currentProjectName,
       currentProjectId || ''
@@ -290,7 +329,7 @@ export default function FileTreeContextMenu({
               cursor: 'pointer',
               fontSize: '0.75rem',
               background: menuHoveredIdx === idx ? colors.accentBg : 'transparent',
-              color: colors.foreground,
+              color: mi.isExtension ? colors.accent : colors.foreground,
               borderTop: idx === 2 ? `1px solid ${colors.border}` : undefined,
               lineHeight: '1.2',
               minHeight: '24px',
@@ -305,7 +344,7 @@ export default function FileTreeContextMenu({
             onMouseLeave={() => setMenuHoveredIdx(null)}
             onTouchStart={() => setMenuHoveredIdx(idx)}
             onTouchEnd={() => setMenuHoveredIdx(null)}
-            onClick={() => void handleMenuAction(mi.key, contextMenu.item)}
+            onClick={() => void handleMenuAction(mi.key, contextMenu.item, mi.extensionHandler)}
           >
             {mi.label}
           </li>

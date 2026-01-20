@@ -166,6 +166,67 @@ export interface ExtensionCommandsAPI {
 }
 
 /**
+ * ファイルアイテムの型定義（拡張機能用）
+ * Explorer Menu APIで使用されるファイル/フォルダ情報
+ */
+export interface FileItemForExtension {
+  /** ファイルの一意ID */
+  id: string;
+  /** ファイル名 */
+  name: string;
+  /** ファイルパス */
+  path: string;
+  /** ファイルタイプ */
+  type: 'file' | 'folder';
+  /** ファイル内容（テキストファイルの場合） */
+  content?: string;
+  /** バイナリファイルかどうか */
+  isBufferArray?: boolean;
+  /** バイナリ内容（バイナリファイルの場合） */
+  bufferContent?: ArrayBuffer;
+}
+
+/**
+ * Explorerコンテキストメニュー項目の定義
+ */
+export interface ExplorerMenuItemDefinition {
+  /** メニュー項目ID（拡張機能内で一意） */
+  id: string;
+  /** 表示ラベル */
+  label: string;
+  /** アイコン（Lucide Reactアイコン名、オプション） */
+  icon?: string;
+  /** 表示条件: ファイルのみ、フォルダのみ、両方 */
+  when?: 'file' | 'folder' | 'both';
+  /** ファイル拡張子でフィルタ（例: ['.bin', '.png']）。whenがfileの場合のみ有効 */
+  fileExtensions?: string[];
+  /** バイナリファイルの場合のみ表示するか */
+  binaryOnly?: boolean;
+  /** メニュー項目の順序（小さいほど上） */
+  order?: number;
+  /** クリック時に実行されるハンドラ */
+  handler: (item: FileItemForExtension, context: MenuActionContext) => void | Promise<void>;
+}
+
+/**
+ * メニュー項目のアクションコンテキスト
+ */
+export interface MenuActionContext {
+  /** 現在のプロジェクト名 */
+  projectName: string;
+  /** 現在のプロジェクトID */
+  projectId: string;
+}
+
+/**
+ * Explorer Menu API - 拡張機能がExplorerコンテキストメニューに項目を追加
+ */
+export interface ExtensionExplorerMenuAPI {
+  addMenuItem: (definition: ExplorerMenuItemDefinition) => void;
+  removeMenuItem: (itemId: string) => void;
+}
+
+/**
  * 拡張機能の実行コンテキスト
  * The execution context passed to extension entrypoints (activate).
  * This is what extension authors should type their `context` parameter as.
@@ -229,6 +290,9 @@ export interface ExtensionContext {
 
   /** Commands API */
   commands: ExtensionCommandsAPI;
+
+  /** Explorer Menu API - Explorerコンテキストメニューに項目を追加 */
+  explorerMenu: ExtensionExplorerMenuAPI;
 }
 
 /**

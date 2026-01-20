@@ -637,6 +637,7 @@ graph TB
     ExtensionContext -->|Direct API| TabAPI
     ExtensionContext -->|Direct API| SidebarAPI
     ExtensionContext -->|Direct API| CommandsAPI
+    ExtensionContext -->|Direct API| ExplorerMenuAPI
     ExtensionContext -->|Direct API| Logger
     
     ExtensionContext -->|getSystemModule| SystemModules
@@ -651,6 +652,8 @@ graph TB
     SidebarAPI -->|Internal| SidebarRegistry
     
     CommandsAPI -->|Internal| CommandRegistry
+    
+    ExplorerMenuAPI -->|Internal| ExplorerMenuRegistry
 ```
 
 ### レイヤー1: Direct API
@@ -662,6 +665,7 @@ Direct APIは`ExtensionContext`の直接のプロパティとして提供され�
 | `tabs` | タブ管理 | 拡張機能がUIタブを作成・制御 |
 | `sidebar` | サイドバー管理 | 拡張機能がサイドバーパネルを追加 |
 | `commands` | コマンド管理 | ターミナルコマンドの登録 |
+| `explorerMenu` | Explorerメニュー管理 | コンテキストメニューに項目を追加 |
 | `logger` | ロギング | 拡張機能IDプレフィックス付きログ |
 
 **APIインスタンスの作成**

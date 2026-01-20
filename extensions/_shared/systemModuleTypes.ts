@@ -30,6 +30,9 @@ export interface FileRepository {
   getFilesByPrefix(projectId: string, prefix: string): Promise<any[]>;
   updateFileContent(fileId: string, content: string): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
+  // ファイル保存（バイナリ対応）
+  saveFile(file: any): Promise<void>;
+  saveFileByPath(projectId: string, path: string, content: string): Promise<void>;
 
   // 変更リスナー
   addChangeListener(listener: (event: any) => void): () => void;
