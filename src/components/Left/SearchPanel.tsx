@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -64,12 +64,15 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const lastSearchOptionsRef = useRef<string>('');
   const lastSearchQueryRef = useRef<string>('');
   const lastSearchResultsRef = useRef<SearchResult[]>([]);
+  
+  // per-file collapsed state
+  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
 
-  // 全ファイルを再帰的に取得（isExcludedを適用）
-  const getAllFiles = useCallback((items: FileItem[]): FileItem[] => {
+  // 全ファイルを再帰的に取得（isExcludedを適用）- memoized
+  const allFiles = useMemo(() => {
     const result: FileItem[] = [];
-    const traverse = (fileItems: FileItem[]) => {
-      for (const item of fileItems) {
+    const traverse = (items: FileItem[]) => {
+      for (const item of items) {
         if (item.type === 'file') {
           if (!isExcluded || !isExcluded(item.path)) {
             result.push(item);
@@ -79,37 +82,34 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         }
       }
     };
-    traverse(items);
+    traverse(files);
     return result;
-  }, [isExcluded]);
+  }, [files, isExcluded]);
 
-  // ファイル数（memoized）
-  const fileCount = useMemo(() => getAllFiles(files).length, [files, getAllFiles]);
+  // ファイル数
+  const fileCount = allFiles.length;
   
   // リアルタイム検索を行うかどうか
   const isRealtimeSearch = fileCount <= REALTIME_FILE_THRESHOLD;
 
-  // ファイルのバージョン計算（キャッシュ判定用）
-  const computeFilesVersion = useCallback((items: FileItem[]): string => {
-    const allFiles = getAllFiles(items);
-    // ファイル数とパスのハッシュ的な文字列
+  // ファイルのバージョン計算（キャッシュ判定用）- memoized
+  const filesVersion = useMemo(() => {
     return `${allFiles.length}:${allFiles.map(f => f.path).join(',')}`;
-  }, [getAllFiles]);
+  }, [allFiles]);
 
   // 検索オプションキー
-  const searchOptionsKey = `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}`;
+  const searchOptionsKey = useMemo(() => {
+    return `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}`;
+  }, [caseSensitive, wholeWord, useRegex, searchInFilenames]);
 
-  // ファイルペイロードのキャッシュを構築
-  const getCachedFilePayloads = useCallback((): FilePayload[] => {
-    const currentVersion = computeFilesVersion(files);
-    
+  // ファイルペイロード - memoized
+  const filePayloads = useMemo((): FilePayload[] => {
     // キャッシュが有効な場合は再利用
-    if (cachedFilesRef.current && lastFilesVersionRef.current === currentVersion) {
+    if (cachedFilesRef.current && lastFilesVersionRef.current === filesVersion) {
       return cachedFilesRef.current;
     }
     
     // 新しいペイロードを構築
-    const allFiles = getAllFiles(files);
     const payloads: FilePayload[] = allFiles.map(f => ({
       id: f.id,
       path: f.path,
@@ -120,13 +120,16 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     
     // キャッシュを更新
     cachedFilesRef.current = payloads;
-    lastFilesVersionRef.current = currentVersion;
+    lastFilesVersionRef.current = filesVersion;
     
     return payloads;
-  }, [files, getAllFiles, computeFilesVersion]);
+  }, [allFiles, filesVersion]);
 
-  // 検索実行
-  const performSearch = useCallback((query: string) => {
+  // 検索実行関数をrefで保持（useEffectの依存関係からステートを分離するため）
+  // このパターンは最新のステート値を参照しつつ、useEffectの再実行を防ぐ
+  const performSearchRef = useRef<(query: string) => void>(() => {});
+  
+  performSearchRef.current = (query: string) => {
     if (!query || !query.trim()) {
       setSearchResults([]);
       setIsSearching(false);
@@ -134,10 +137,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
 
     // 同じクエリ・オプションの場合はキャッシュを返す
-    const currentOptionsKey = searchOptionsKey;
     if (
       query === lastSearchQueryRef.current &&
-      currentOptionsKey === lastSearchOptionsRef.current &&
+      searchOptionsKey === lastSearchOptionsRef.current &&
       lastSearchResultsRef.current.length > 0
     ) {
       setSearchResults(lastSearchResultsRef.current);
@@ -179,10 +181,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     
     // キャッシュを更新
     lastSearchQueryRef.current = query;
-    lastSearchOptionsRef.current = currentOptionsKey;
-
-    // キャッシュされたファイルペイロードを取得
-    const filePayloads = getCachedFilePayloads();
+    lastSearchOptionsRef.current = searchOptionsKey;
 
     try {
       workerRef.current?.postMessage({
@@ -196,7 +195,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       console.error('Worker postMessage failed', err);
       setIsSearching(false);
     }
-  }, [caseSensitive, wholeWord, useRegex, searchInFilenames, searchOptionsKey, getCachedFilePayloads]);
+  };
 
   // 検索クエリ変更時の処理
   useEffect(() => {
@@ -217,7 +216,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     if (isRealtimeSearch) {
       setIsSearching(true);
       searchTimer.current = window.setTimeout(() => {
-        performSearch(searchQuery);
+        performSearchRef.current(searchQuery);
       }, debounceDelay);
     }
 
@@ -227,7 +226,16 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         searchTimer.current = null;
       }
     };
-  }, [searchQuery, caseSensitive, wholeWord, useRegex, searchInFilenames, isRealtimeSearch, performSearch, minQueryLength]);
+  }, [searchQuery, isRealtimeSearch, minQueryLength, debounceDelay]);
+
+  // 検索オプション変更時にリアルタイム検索を再実行
+  useEffect(() => {
+    if (isRealtimeSearch && searchQuery && searchQuery.length >= minQueryLength) {
+      // キャッシュをクリアして検索
+      lastSearchResultsRef.current = [];
+      performSearchRef.current(searchQuery);
+    }
+  }, [caseSensitive, wholeWord, useRegex, searchInFilenames, isRealtimeSearch, searchQuery, minQueryLength]);
 
   // Workerのクリーンアップ
   useEffect(() => {
@@ -241,13 +249,10 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   // ファイルが変更された場合、キャッシュをクリア
   useEffect(() => {
-    const currentVersion = computeFilesVersion(files);
-    if (lastFilesVersionRef.current !== currentVersion) {
-      // ファイルが変更されたのでキャッシュをクリア
-      lastSearchResultsRef.current = [];
-      lastSearchQueryRef.current = '';
-    }
-  }, [files, computeFilesVersion]);
+    // ファイルが変更されたのでキャッシュをクリア
+    lastSearchResultsRef.current = [];
+    lastSearchQueryRef.current = '';
+  }, [filesVersion]);
 
   // flattened results for keyboard navigation
   const flatResults = searchResults;
@@ -258,7 +263,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     if (selectedIndex >= flatResults.length) {
       setSelectedIndex(Math.max(0, flatResults.length - 1));
     }
-  }, [flatResults.length, selectedIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flatResults.length]);
 
   const handleResultClick = async (result: SearchResult) => {
     try {
@@ -315,7 +321,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
       // キャッシュをクリアして再検索
       lastSearchResultsRef.current = [];
-      performSearch(searchQuery);
+      performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace error', e);
     }
@@ -335,7 +341,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       
       // キャッシュをクリアして再検索
       lastSearchResultsRef.current = [];
-      performSearch(searchQuery);
+      performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace all error', e);
     }
@@ -361,7 +367,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
       // キャッシュをクリアして再検索
       lastSearchResultsRef.current = [];
-      performSearch(searchQuery);
+      performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace all results error', e);
     }
@@ -379,7 +385,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         // キャッシュをクリアして強制検索
         lastSearchResultsRef.current = [];
         setIsSearching(true);
-        performSearch(searchQuery);
+        performSearchRef.current(searchQuery);
       }
     }
   };
@@ -431,9 +437,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     lastSearchResultsRef.current = [];
     lastSearchQueryRef.current = '';
   };
-
-  // per-file collapsed state
-  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
 
   const toggleFileCollapse = (key: string) => {
     setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }));
