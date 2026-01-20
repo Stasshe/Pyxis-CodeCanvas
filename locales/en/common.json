@@ -408,5 +408,23 @@
       "stableVersion": "For a stable experience, please visit",
       "officialSite": "the official site (GitHub Pages)"
     }
+  },
+  "common": {
+    "editable": "Editable"
+  },
+  "mergeConflict": {
+    "title": "Merge Conflict Resolution",
+    "conflictFiles": "Conflict Files",
+    "noConflicts": "No conflicts",
+    "resolved": "Resolved",
+    "completeResolve": "Complete Resolution",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "acceptBoth": "Accept Both",
+    "markAsResolved": "Mark as Resolved",
+    "threeWayView": "3-Way View",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resultView": "Result Only",
+    "resolvedResult": "Resolved Result"
   }
 }

@@ -409,5 +409,23 @@
       "stableVersion": "如需稳定版本，请访问",
       "officialSite": "官方网站（GitHub Pages）"
     }
+  },
+  "common": {
+    "editable": "Editable"
+  },
+  "mergeConflict": {
+    "title": "Merge Conflict Resolution",
+    "conflictFiles": "Conflict Files",
+    "noConflicts": "No conflicts",
+    "resolved": "Resolved",
+    "completeResolve": "Complete Resolution",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "acceptBoth": "Accept Both",
+    "markAsResolved": "Mark as Resolved",
+    "threeWayView": "3-Way View",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resultView": "Result Only",
+    "resolvedResult": "Resolved Result"
   }
 }

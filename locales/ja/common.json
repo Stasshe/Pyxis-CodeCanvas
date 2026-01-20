@@ -408,5 +408,23 @@
       "stableVersion": "安定版は",
       "officialSite": "公式サイト（GitHub Pages）"
     }
+  },
+  "common": {
+    "editable": "編集可能"
+  },
+  "mergeConflict": {
+    "title": "マージコンフリクト解決",
+    "conflictFiles": "コンフリクトファイル",
+    "noConflicts": "コンフリクトはありません",
+    "resolved": "解決済み",
+    "completeResolve": "解決完了",
+    "acceptOurs": "自分を採用",
+    "acceptTheirs": "相手を採用",
+    "acceptBoth": "両方採用",
+    "markAsResolved": "解決済みにする",
+    "threeWayView": "3方向表示",
+    "oursVsTheirs": "自分 vs 相手",
+    "resultView": "結果のみ",
+    "resolvedResult": "解決結果"
   }
 }
