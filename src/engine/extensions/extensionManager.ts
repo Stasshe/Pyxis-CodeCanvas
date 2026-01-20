@@ -455,7 +455,7 @@ class ExtensionManager {
         return false;
       }
 
-      // TabAPIとSidebarAPIをクリーンアップ
+      // TabAPI, SidebarAPI, ExplorerMenuAPIをクリーンアップ
       const context = (active as any)._context;
       if (context) {
         if ((context as any)._tabAPI) {
@@ -463,6 +463,9 @@ class ExtensionManager {
         }
         if ((context as any)._sidebarAPI) {
           (context as any)._sidebarAPI.dispose();
+        }
+        if ((context as any)._explorerMenuAPI) {
+          (context as any)._explorerMenuAPI.dispose();
         }
       }
 
@@ -591,6 +594,7 @@ class ExtensionManager {
     // we can create a fully-typed `ExtensionContext` literal (no `as` cast).
     const { TabAPI } = await import('./system-api/TabAPI');
     const { SidebarAPI } = await import('./system-api/SidebarAPI');
+    const { ExplorerMenuAPI } = await import('./system-api/ExplorerMenuAPI');
     const { commandRegistry } = await import('./commandRegistry');
 
     // Helper used for strict initial stubs: if a consumer calls an API too
@@ -738,12 +742,17 @@ class ExtensionManager {
           return commandRegistry.registerCommand(extensionId, commandName, wrappedHandler);
         },
       },
+      explorerMenu: {
+        addMenuItem: notInitialized('explorerMenu.addMenuItem'),
+        removeMenuItem: notInitialized('explorerMenu.removeMenuItem'),
+      },
     };
 
     // Initialize real API instances and overwrite the strict stubs with
     // concrete implementations.
     const tabAPI = new TabAPI(context);
     const sidebarAPI = new SidebarAPI(context);
+    const explorerMenuAPI = new ExplorerMenuAPI(context);
 
     context.tabs = {
       registerTabType: (component: any) => tabAPI.registerTabType(component),
@@ -763,12 +772,18 @@ class ExtensionManager {
         sidebarAPI.onPanelActivate(panelId, callback),
     };
 
+    context.explorerMenu = {
+      addMenuItem: (definition: any) => explorerMenuAPI.addMenuItem(definition),
+      removeMenuItem: (itemId: string) => explorerMenuAPI.removeMenuItem(itemId),
+    };
+
     // commands was created above with a working implementation that uses the
     // imported commandRegistry — nothing more to do here.
 
     // APIインスタンスを保存（dispose用）
     (context as any)._tabAPI = tabAPI;
     (context as any)._sidebarAPI = sidebarAPI;
+    (context as any)._explorerMenuAPI = explorerMenuAPI;
 
     return context;
   }

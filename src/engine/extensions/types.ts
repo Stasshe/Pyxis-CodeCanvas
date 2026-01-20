@@ -16,6 +16,7 @@
  */
 
 import type { CommandHandler } from './commandRegistry';
+import type { ExplorerMenuItemDefinition } from './system-api/ExplorerMenuAPI';
 import type {
   CreateTabOptions,
   ExtensionTabData,
@@ -243,6 +244,12 @@ export interface ExtensionContext {
   /** Commands API - 拡張機能がターミナルコマンドを追加 */
   commands: {
     registerCommand: (commandName: string, handler: CommandHandler) => () => void;
+  };
+
+  /** Explorer Menu API - 拡張機能がExplorerコンテキストメニューに項目を追加 */
+  explorerMenu: {
+    addMenuItem: (definition: ExplorerMenuItemDefinition) => void;
+    removeMenuItem: (itemId: string) => void;
   };
 }
 
