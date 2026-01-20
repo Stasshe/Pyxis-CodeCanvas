@@ -125,12 +125,16 @@ Root
 │   │   └── update-readmes-version.js
 │   ├── i18n
 │   │   ├── README.md
+│   │   ├── add-all-translations.js
+│   │   ├── add-hardcoded-translations.js
+│   │   ├── add-remaining-translations.js
 │   │   ├── apply_missing_keys.js
 │   │   ├── compare_locale_keys.sh
 │   │   ├── flatten_json_keys.pl
 │   │   ├── format_json.js
 │   │   ├── format_locales.sh
 │   │   ├── i18n-auto-add-missing.js
+│   │   ├── i18n-comprehensive-check.js
 │   │   ├── i18n-detect.sh
 │   │   ├── i18n-exclude.txt
 │   │   ├── i18n-missing-keys.sh
@@ -211,6 +215,7 @@ Root
 │   │   │   │   ├── index.ts
 │   │   │   │   └── useIntersectionObserver.ts
 │   │   │   ├── MarkdownPreviewTab.tsx
+│   │   │   ├── MergeConflictResolutionTab.tsx
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── TabIcon.tsx
@@ -271,6 +276,7 @@ Root
 │   │   │   │   │   │   └── utils.ts
 │   │   │   │   │   ├── log.ts
 │   │   │   │   │   ├── merge.ts
+│   │   │   │   │   ├── mergeConflictDetector.ts
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
@@ -307,6 +313,12 @@ Root
 │   │   │   │       ├── unzip.ts
 │   │   │   │       └── wc.ts
 │   │   │   ├── handlers
+│   │   │   │   ├── dev
+│   │   │   │   │   ├── devHandler.ts
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── mergeConflictScenario.ts
+│   │   │   │   │   ├── tabScenario.ts
+│   │   │   │   │   └── types.ts
 │   │   │   │   ├── gitHandler.ts
 │   │   │   │   ├── npmHandler.ts
 │   │   │   │   ├── pyxisHandler.ts
@@ -388,6 +400,7 @@ Root
 │   │   │   ├── moduleCache.ts
 │   │   │   ├── moduleLoader.ts
 │   │   │   ├── moduleResolver.ts
+│   │   │   ├── nodeErrors.ts
 │   │   │   ├── nodeRuntime.ts
 │   │   │   ├── normalizeCjsEsm.ts
 │   │   │   ├── pathUtils.ts
@@ -410,6 +423,7 @@ Root
 │   │   │   │   ├── DiffTabType.tsx
 │   │   │   │   ├── EditorTabType.tsx
 │   │   │   │   ├── ExtensionInfoTabType.tsx
+│   │   │   │   ├── MergeConflictTabType.tsx
 │   │   │   │   ├── PreviewTabType.tsx
 │   │   │   │   ├── SettingsTabType.tsx
 │   │   │   │   ├── WebPreviewTabType.tsx
@@ -493,7 +507,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-73 directories, 420 files
+74 directories, 433 files
 
 =================================
 
@@ -504,6 +518,9 @@ extensions/ 以下のディレクトリ構造:
 │   ├── README.md
 │   ├── systemModuleTypes.ts
 │   └── types.ts
+├── binary-editor
+│   ├── index.tsx
+│   └── manifest.json
 ├── calc
 │   ├── README.md
 │   ├── index.tsx
@@ -614,18 +631,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-40 directories, 75 files
+41 directories, 77 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 67832
-合計文字数: 2147789
-合計ファイルサイズ(bytes): 2293071
+合計行数: 70035
+合計文字数: 2211069
+合計ファイルサイズ(bytes): 2358279
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 127535
-合計文字数: 26902309
-合計ファイルサイズ(bytes): 29880509
+ビルト済みファイルの行数: 129500
+合計文字数: 27001818
+合計ファイルサイズ(bytes): 29989105
