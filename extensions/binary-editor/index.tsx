@@ -47,12 +47,12 @@ function parseHexString(hex: string): number[] | null {
   if (cleaned.length === 0 || cleaned.length % 2 !== 0) return null;
   const bytes: number[] = [];
   for (let i = 0; i < cleaned.length; i += 2) {
-    bytes.push(parseInt(cleaned.substr(i, 2), 16));
+    bytes.push(parseInt(cleaned.substring(i, i + 2), 16));
   }
   return bytes;
 }
 
-// グローバルコンテキスト参照
+// グローバルコンテキスト参照（拡張機能はコンポーネント外からコンテキストにアクセスする必要があるため）
 let globalContext: ExtensionContext | null = null;
 
 // ==========================================
@@ -352,10 +352,10 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
     newData.set(binaryData.slice(offset + searchBytes.length), offset + replaceBytes.length);
     
     setBinaryData(newData);
-    
-    // 再検索
-    setTimeout(() => handleSearch(), 0);
-  }, [currentSearchIndex, searchResults, replaceQuery, searchQuery, binaryData, handleSearch]);
+    // 検索結果をクリア（次回検索で再計算）
+    setSearchResults([]);
+    setCurrentSearchIndex(-1);
+  }, [currentSearchIndex, searchResults, replaceQuery, searchQuery, binaryData]);
 
   // 全置換
   const handleReplaceAll = useCallback(() => {
