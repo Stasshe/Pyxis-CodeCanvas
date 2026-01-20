@@ -307,7 +307,9 @@
   },
   "searchPanel": {
     "caseSensitive": "大文字小文字を区別",
+    "enterToSearch": "Enterキーで検索",
     "noResults": "結果が見つかりませんでした",
+    "realtimeMode": "リアルタイム",
     "resultCount": "{count} 件の結果",
     "searchInFiles": "ファイル内を検索...",
     "searching": "検索中...",
