@@ -123,8 +123,11 @@ export class MergeConflictDetector {
         const oursContent = oids.oursOid ? await this.readBlobContent(oids.oursOid) : '';
         const theirsContent = oids.theirsOid ? await this.readBlobContent(oids.theirsOid) : '';
 
+        // Normalize path - ensure it starts with '/' but avoid double slashes
+        const normalizedPath = filepath.startsWith('/') ? filepath : `/${filepath}`;
+
         conflicts.push({
-          filePath: `/${filepath}`,
+          filePath: normalizedPath,
           baseContent,
           oursContent,
           theirsContent,
