@@ -41,47 +41,137 @@ function parseHexInput(value: string): number | null {
   return num;
 }
 
+function parseHexString(hex: string): number[] | null {
+  const cleaned = hex.replace(/\s/g, '');
+  if (!/^[0-9a-fA-F]*$/.test(cleaned)) return null;
+  if (cleaned.length === 0 || cleaned.length % 2 !== 0) return null;
+  const bytes: number[] = [];
+  for (let i = 0; i < cleaned.length; i += 2) {
+    bytes.push(parseInt(cleaned.substr(i, 2), 16));
+  }
+  return bytes;
+}
+
+// グローバルコンテキスト参照
+let globalContext: ExtensionContext | null = null;
+
 // ==========================================
 // バイナリエディタータブコンポーネント
 // ==========================================
 function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boolean }) {
   const tabData = (tab as any).data || {};
   const [binaryData, setBinaryData] = useState<Uint8Array>(new Uint8Array(0));
+  const [originalData, setOriginalData] = useState<Uint8Array>(new Uint8Array(0));
   const [selectedOffset, setSelectedOffset] = useState<number | null>(null);
   const [editingOffset, setEditingOffset] = useState<number | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [scrollTop, setScrollTop] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [replaceQuery, setReplaceQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const [isModified, setIsModified] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showReplace, setShowReplace] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ファイルデータの読み込み
   useEffect(() => {
     if (tabData.bufferContent) {
-      // ArrayBufferをUint8Arrayに変換
       const buffer = tabData.bufferContent;
+      let data: Uint8Array;
       if (buffer instanceof ArrayBuffer) {
-        setBinaryData(new Uint8Array(buffer));
+        data = new Uint8Array(buffer);
       } else if (buffer instanceof Uint8Array) {
-        setBinaryData(buffer);
+        data = new Uint8Array(buffer);
       } else if (typeof buffer === 'string') {
-        // Base64文字列の場合
         try {
           const binary = atob(buffer);
-          const bytes = new Uint8Array(binary.length);
+          data = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
+            data[i] = binary.charCodeAt(i);
           }
-          setBinaryData(bytes);
         } catch (e) {
           console.error('Failed to decode base64:', e);
+          data = new Uint8Array(0);
         }
+      } else {
+        data = new Uint8Array(0);
       }
+      setBinaryData(data);
+      setOriginalData(new Uint8Array(data));
     }
   }, [tabData.bufferContent]);
+
+  // 変更検出
+  useEffect(() => {
+    if (binaryData.length !== originalData.length) {
+      setIsModified(true);
+      return;
+    }
+    for (let i = 0; i < binaryData.length; i++) {
+      if (binaryData[i] !== originalData[i]) {
+        setIsModified(true);
+        return;
+      }
+    }
+    setIsModified(false);
+  }, [binaryData, originalData]);
+
+  // 保存機能
+  const handleSave = useCallback(async () => {
+    if (!globalContext || !tabData.filePath || !tabData.projectId) {
+      console.error('Cannot save: missing context or file info');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const fileRepo = await globalContext.getSystemModule('fileRepository');
+      
+      // 既存のファイルを取得
+      const existingFile = await fileRepo.getFileByPath(tabData.projectId, tabData.filePath);
+      if (!existingFile) {
+        throw new Error('File not found');
+      }
+      
+      // バイナリデータで更新
+      const updatedFile = {
+        ...existingFile,
+        content: '',
+        isBufferArray: true,
+        bufferContent: binaryData.buffer.slice(
+          binaryData.byteOffset,
+          binaryData.byteOffset + binaryData.byteLength
+        ),
+        updatedAt: new Date(),
+      };
+      
+      await fileRepo.saveFile(updatedFile);
+      
+      setOriginalData(new Uint8Array(binaryData));
+      setIsModified(false);
+      globalContext.logger.info(`Saved: ${tabData.filePath}`);
+    } catch (error) {
+      console.error('Failed to save:', error);
+      globalContext?.logger.error(`Failed to save: ${error}`);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [binaryData, tabData.filePath, tabData.projectId]);
+
+  // Ctrl+Sで保存
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && isActive) {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave, isActive]);
 
   // スクロールハンドラー
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -89,7 +179,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
   }, []);
 
   // 仮想化されたレンダリング計算
-  const { visibleRows, totalHeight, startRow, endRow } = useMemo(() => {
+  const { visibleRows, totalHeight } = useMemo(() => {
     const totalRows = Math.ceil(binaryData.length / BYTES_PER_ROW);
     const totalHeight = totalRows * ROW_HEIGHT;
     
@@ -103,7 +193,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
       rows.push(i);
     }
     
-    return { visibleRows: rows, totalHeight, startRow, endRow };
+    return { visibleRows: rows, totalHeight };
   }, [binaryData.length, scrollTop]);
 
   // バイトクリックハンドラー
@@ -127,7 +217,6 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
       const newData = new Uint8Array(binaryData);
       newData[editingOffset] = newValue;
       setBinaryData(newData);
-      setIsModified(true);
     }
     
     setEditingOffset(null);
@@ -174,7 +263,6 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
     
     setSelectedOffset(newOffset);
     
-    // 選択バイトが見えるようにスクロール
     const rowIndex = Math.floor(newOffset / BYTES_PER_ROW);
     const targetScrollTop = rowIndex * ROW_HEIGHT;
     const containerHeight = containerRef.current?.clientHeight || 600;
@@ -198,31 +286,28 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
       return;
     }
 
-    const query = searchQuery.toLowerCase();
-    const results: number[] = [];
+    const searchBytes = parseHexString(searchQuery);
+    if (!searchBytes || searchBytes.length === 0) {
+      setSearchResults([]);
+      setCurrentSearchIndex(-1);
+      return;
+    }
 
-    // Hex検索（例: "FF 00"）
-    if (/^[0-9a-f\s]+$/i.test(query)) {
-      const hexBytes = query.replace(/\s/g, '').match(/.{1,2}/g);
-      if (hexBytes) {
-        const searchBytes = hexBytes.map(h => parseInt(h, 16));
-        for (let i = 0; i <= binaryData.length - searchBytes.length; i++) {
-          let match = true;
-          for (let j = 0; j < searchBytes.length; j++) {
-            if (binaryData[i + j] !== searchBytes[j]) {
-              match = false;
-              break;
-            }
-          }
-          if (match) results.push(i);
+    const results: number[] = [];
+    for (let i = 0; i <= binaryData.length - searchBytes.length; i++) {
+      let match = true;
+      for (let j = 0; j < searchBytes.length; j++) {
+        if (binaryData[i + j] !== searchBytes[j]) {
+          match = false;
+          break;
         }
       }
+      if (match) results.push(i);
     }
 
     setSearchResults(results);
     setCurrentSearchIndex(results.length > 0 ? 0 : -1);
     
-    // 最初の結果にジャンプ
     if (results.length > 0) {
       const offset = results[0];
       setSelectedOffset(offset);
@@ -245,6 +330,57 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
       scrollContainerRef.current.scrollTop = rowIndex * ROW_HEIGHT;
     }
   }, [searchResults, currentSearchIndex]);
+
+  // 置換機能
+  const handleReplace = useCallback(() => {
+    if (currentSearchIndex < 0 || searchResults.length === 0) return;
+    
+    const replaceBytes = parseHexString(replaceQuery);
+    if (!replaceBytes) return;
+    
+    const searchBytes = parseHexString(searchQuery);
+    if (!searchBytes) return;
+    
+    const offset = searchResults[currentSearchIndex];
+    const newData = new Uint8Array(binaryData.length - searchBytes.length + replaceBytes.length);
+    
+    // コピー：置換前
+    newData.set(binaryData.slice(0, offset), 0);
+    // コピー：置換データ
+    newData.set(replaceBytes, offset);
+    // コピー：置換後
+    newData.set(binaryData.slice(offset + searchBytes.length), offset + replaceBytes.length);
+    
+    setBinaryData(newData);
+    
+    // 再検索
+    setTimeout(() => handleSearch(), 0);
+  }, [currentSearchIndex, searchResults, replaceQuery, searchQuery, binaryData, handleSearch]);
+
+  // 全置換
+  const handleReplaceAll = useCallback(() => {
+    const searchBytes = parseHexString(searchQuery);
+    const replaceBytes = parseHexString(replaceQuery);
+    if (!searchBytes || !replaceBytes || searchResults.length === 0) return;
+    
+    // 後ろから置換（オフセットがずれないように）
+    let newData = new Uint8Array(binaryData);
+    const sortedResults = [...searchResults].sort((a, b) => b - a);
+    
+    for (const offset of sortedResults) {
+      const before = newData.slice(0, offset);
+      const after = newData.slice(offset + searchBytes.length);
+      const temp = new Uint8Array(before.length + replaceBytes.length + after.length);
+      temp.set(before, 0);
+      temp.set(replaceBytes, before.length);
+      temp.set(after, before.length + replaceBytes.length);
+      newData = temp;
+    }
+    
+    setBinaryData(newData);
+    setSearchResults([]);
+    setCurrentSearchIndex(-1);
+  }, [searchQuery, replaceQuery, searchResults, binaryData]);
 
   // 行のレンダリング
   const renderRow = useCallback((rowIndex: number) => {
@@ -282,6 +418,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
             color: '#888',
             paddingLeft: '8px',
             flexShrink: 0,
+            userSelect: 'none',
           }}
         >
           {formatAddress(startOffset)}
@@ -322,6 +459,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
                   color: isSelected || isEditing ? '#fff' : '#d4d4d4',
                   borderRadius: '2px',
                   marginLeft: i === 8 ? '8px' : '0',
+                  userSelect: 'text',
                 }}
               >
                 {isEditing ? (
@@ -357,7 +495,6 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
               </div>
             );
           })}
-          {/* 空のセルで行を埋める */}
           {Array.from({ length: BYTES_PER_ROW - rowBytes.length }).map((_, i) => (
             <div
               key={`empty-${i}`}
@@ -375,6 +512,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
             display: 'flex',
             borderLeft: '1px solid #333',
             paddingLeft: '16px',
+            userSelect: 'none',
           }}
         >
           {rowBytes.map((byte, i) => {
@@ -427,14 +565,16 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '16px',
+          gap: '8px',
           padding: '8px 16px',
           borderBottom: '1px solid #333',
           background: '#252526',
+          flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: '#888', fontSize: '12px' }}>Search (Hex):</span>
+        {/* 検索 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ color: '#888', fontSize: '12px' }}>Find:</span>
           <input
             type="text"
             value={searchQuery}
@@ -443,9 +583,9 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
               if (e.key === 'Enter') handleSearch();
               e.stopPropagation();
             }}
-            placeholder="FF 00 AB..."
+            placeholder="FF 00..."
             style={{
-              width: '150px',
+              width: '100px',
               padding: '4px 8px',
               background: '#3c3c3c',
               border: '1px solid #555',
@@ -458,7 +598,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
           <button
             onClick={handleSearch}
             style={{
-              padding: '4px 12px',
+              padding: '4px 8px',
               background: '#0e639c',
               border: 'none',
               borderRadius: '4px',
@@ -467,12 +607,12 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
               cursor: 'pointer',
             }}
           >
-            Search
+            Find
           </button>
           {searchResults.length > 0 && (
             <>
               <span style={{ color: '#888', fontSize: '12px' }}>
-                {currentSearchIndex + 1} / {searchResults.length}
+                {currentSearchIndex + 1}/{searchResults.length}
               </span>
               <button
                 onClick={goToNextResult}
@@ -490,15 +630,83 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
               </button>
             </>
           )}
+          <button
+            onClick={() => setShowReplace(!showReplace)}
+            style={{
+              padding: '4px 8px',
+              background: showReplace ? '#0e639c' : '#333',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#d4d4d4',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Replace
+          </button>
         </div>
+
+        {/* 置換（展開時のみ） */}
+        {showReplace && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ color: '#888', fontSize: '12px' }}>With:</span>
+            <input
+              type="text"
+              value={replaceQuery}
+              onChange={(e) => setReplaceQuery(e.target.value)}
+              placeholder="00 FF..."
+              style={{
+                width: '100px',
+                padding: '4px 8px',
+                background: '#3c3c3c',
+                border: '1px solid #555',
+                borderRadius: '4px',
+                color: '#d4d4d4',
+                fontSize: '12px',
+                fontFamily: 'monospace',
+              }}
+            />
+            <button
+              onClick={handleReplace}
+              disabled={currentSearchIndex < 0}
+              style={{
+                padding: '4px 8px',
+                background: currentSearchIndex >= 0 ? '#0e639c' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+                color: currentSearchIndex >= 0 ? '#fff' : '#666',
+                fontSize: '12px',
+                cursor: currentSearchIndex >= 0 ? 'pointer' : 'default',
+              }}
+            >
+              Replace
+            </button>
+            <button
+              onClick={handleReplaceAll}
+              disabled={searchResults.length === 0}
+              style={{
+                padding: '4px 8px',
+                background: searchResults.length > 0 ? '#0e639c' : '#333',
+                border: 'none',
+                borderRadius: '4px',
+                color: searchResults.length > 0 ? '#fff' : '#666',
+                fontSize: '12px',
+                cursor: searchResults.length > 0 ? 'pointer' : 'default',
+              }}
+            >
+              Replace All
+            </button>
+          </div>
+        )}
         
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {/* ステータス & 保存 */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ color: '#888', fontSize: '12px' }}>
-            Size: {binaryData.length.toLocaleString()} bytes
+            {binaryData.length.toLocaleString()} bytes
           </span>
           {selectedOffset !== null && (
             <span style={{ color: '#888', fontSize: '12px' }}>
-              Offset: 0x{formatAddress(selectedOffset)} ({selectedOffset})
+              @ 0x{formatAddress(selectedOffset)}
             </span>
           )}
           {isModified && (
@@ -506,6 +714,21 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
               Modified
             </span>
           )}
+          <button
+            onClick={handleSave}
+            disabled={!isModified || isSaving}
+            style={{
+              padding: '4px 12px',
+              background: isModified && !isSaving ? '#0e639c' : '#333',
+              border: 'none',
+              borderRadius: '4px',
+              color: isModified && !isSaving ? '#fff' : '#666',
+              fontSize: '12px',
+              cursor: isModified && !isSaving ? 'pointer' : 'default',
+            }}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
         </div>
       </div>
 
@@ -520,6 +743,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
           fontFamily: 'monospace',
           fontSize: '11px',
           color: '#888',
+          userSelect: 'none',
         }}
       >
         <div style={{ width: '80px', paddingLeft: '8px' }}>Offset</div>
@@ -554,7 +778,6 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
           position: 'relative',
         }}
       >
-        {/* 仮想化コンテンツ */}
         <div style={{ height: totalHeight, position: 'relative' }}>
           {visibleRows.map((rowIndex) => renderRow(rowIndex))}
         </div>
@@ -570,6 +793,7 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
           background: '#007acc',
           color: '#fff',
           fontSize: '11px',
+          userSelect: 'none',
         }}
       >
         <span>Binary Editor</span>
@@ -582,64 +806,17 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: any; isActive: boole
 }
 
 // ==========================================
-// サイドバーパネル
-// ==========================================
-function createBinaryEditorPanel(context: ExtensionContext) {
-  return function BinaryEditorPanel({ extensionId, panelId, isActive, state }: any) {
-    return (
-      <div
-        style={{
-          padding: '16px',
-          color: '#d4d4d4',
-          height: '100%',
-          background: '#1e1e1e',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '20px' }}>01</span>
-          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Binary Editor</h3>
-        </div>
-        
-        <div style={{ color: '#888', fontSize: '12px', lineHeight: 1.6 }}>
-          <p style={{ marginBottom: '12px' }}>
-            Hex editor for binary files.
-          </p>
-          <p style={{ marginBottom: '12px' }}>
-            Right-click or long-press a binary file in Explorer to open it with Binary Editor.
-          </p>
-          <div style={{ marginTop: '16px', padding: '12px', background: '#2d2d2d', borderRadius: '4px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Keyboard shortcuts:</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '11px' }}>
-              <span>Arrow keys</span><span>Navigate</span>
-              <span>Enter</span><span>Edit byte</span>
-              <span>Escape</span><span>Cancel edit</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-}
-
-// ==========================================
 // 拡張機能のアクティベーション
 // ==========================================
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger.info('Binary Editor Extension activated!');
+  
+  // グローバルコンテキストを保存
+  globalContext = context;
 
   // タブコンポーネントを登録
   context.tabs.registerTabType(BinaryEditorTabComponent);
   context.logger.info('Binary editor tab component registered');
-
-  // サイドバーパネルを登録
-  const BinaryEditorPanelWithContext = createBinaryEditorPanel(context);
-  context.sidebar.createPanel({
-    id: 'binary-editor-panel',
-    title: 'Binary Editor',
-    icon: 'Binary',
-    component: BinaryEditorPanelWithContext,
-  });
-  context.logger.info('Binary editor sidebar panel registered');
 
   // Explorerコンテキストメニューに「Open with Binary Editor」項目を追加
   context.explorerMenu.addMenuItem({
@@ -652,7 +829,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     handler: async (file, menuContext) => {
       context.logger.info(`Opening file with Binary Editor: ${file.path}`);
       
-      // バイナリエディタータブを開く
       context.tabs.createTab({
         id: file.id,
         title: `Binary: ${file.name}`,
@@ -675,5 +851,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 }
 
 export async function deactivate(): Promise<void> {
+  globalContext = null;
   console.log('[Binary Editor] Extension deactivated');
 }
