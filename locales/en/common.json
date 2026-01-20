@@ -307,7 +307,9 @@
   },
   "searchPanel": {
     "caseSensitive": "Case sensitive",
+    "enterToSearch": "Press Enter to search",
     "noResults": "No results found",
+    "realtimeMode": "Realtime",
     "resultCount": "{count} results",
     "searchInFiles": "Search in files...",
     "searching": "Searching...",

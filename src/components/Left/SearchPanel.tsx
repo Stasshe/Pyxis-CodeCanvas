@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -10,7 +10,7 @@ import type { FileItem } from '@/types';
 
 interface SearchPanelProps {
   files: FileItem[];
-  projectId: string; // 設定読み込み用
+  projectId: string;
 }
 
 interface SearchResult {
@@ -21,6 +21,18 @@ interface SearchResult {
   matchStart: number;
   matchEnd: number;
 }
+
+// シンプルなファイルペイロード型（Workerへ送信用）
+interface FilePayload {
+  id: string;
+  path: string;
+  name: string;
+  content: string | undefined;
+  isBufferArray: boolean | undefined;
+}
+
+// ファイル数閾値：この数以下ならリアルタイム検索
+const REALTIME_FILE_THRESHOLD = 50;
 
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
@@ -36,15 +48,28 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const [replaceQuery, setReplaceQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { isExcluded } = useSettings(projectId);
-  const minQueryLength = 2; // 最低何文字で検索を開始するか
-  const debounceDelay = 400; // ms
+  
+  // 1文字から検索可能に
+  const minQueryLength = 1;
+  const debounceDelay = 300;
+  
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const searchIdRef = useRef(0);
+  
+  // キャッシュ用ref
+  const cachedFilesRef = useRef<FilePayload[] | null>(null);
+  const lastFilesVersionRef = useRef<string>('');
+  const lastSearchOptionsRef = useRef<string>('');
+  const lastSearchQueryRef = useRef<string>('');
+  const lastSearchResultsRef = useRef<SearchResult[]>([]);
+  
+  // per-file collapsed state
+  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
 
-  // 全ファイルを再帰的に取得（isExcludedを適用）
-  const getAllFiles = (items: FileItem[]): FileItem[] => {
+  // 全ファイルを再帰的に取得（isExcludedを適用）- memoized
+  const allFiles = useMemo(() => {
     const result: FileItem[] = [];
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
@@ -57,26 +82,78 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         }
       }
     };
-    traverse(items);
+    traverse(files);
     return result;
-  };
+  }, [files, isExcluded]);
 
-  // 検索実行
-  const performSearch = (query: string) => {
+  // ファイル数
+  const fileCount = allFiles.length;
+  
+  // リアルタイム検索を行うかどうか
+  const isRealtimeSearch = fileCount <= REALTIME_FILE_THRESHOLD;
+
+  // ファイルのバージョン計算（キャッシュ判定用）- memoized
+  const filesVersion = useMemo(() => {
+    return `${allFiles.length}:${allFiles.map(f => f.path).join(',')}`;
+  }, [allFiles]);
+
+  // 検索オプションキー
+  const searchOptionsKey = useMemo(() => {
+    return `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}`;
+  }, [caseSensitive, wholeWord, useRegex, searchInFilenames]);
+
+  // ファイルペイロード - memoized
+  const filePayloads = useMemo((): FilePayload[] => {
+    // キャッシュが有効な場合は再利用
+    if (cachedFilesRef.current && lastFilesVersionRef.current === filesVersion) {
+      return cachedFilesRef.current;
+    }
+    
+    // 新しいペイロードを構築
+    const payloads: FilePayload[] = allFiles.map(f => ({
+      id: f.id,
+      path: f.path,
+      name: f.name,
+      content: f.content,
+      isBufferArray: f.isBufferArray,
+    }));
+    
+    // キャッシュを更新
+    cachedFilesRef.current = payloads;
+    lastFilesVersionRef.current = filesVersion;
+    
+    return payloads;
+  }, [allFiles, filesVersion]);
+
+  // 検索実行関数をrefで保持（useEffectの依存関係からステートを分離するため）
+  // このパターンは最新のステート値を参照しつつ、useEffectの再実行を防ぐ
+  const performSearchRef = useRef<(query: string) => void>(() => {});
+  
+  performSearchRef.current = (query: string) => {
     if (!query || !query.trim()) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
-    // initialize worker if needed
+    // 同じクエリ・オプションの場合はキャッシュを返す
+    if (
+      query === lastSearchQueryRef.current &&
+      searchOptionsKey === lastSearchOptionsRef.current &&
+      lastSearchResultsRef.current.length > 0
+    ) {
+      setSearchResults(lastSearchResultsRef.current);
+      setIsSearching(false);
+      return;
+    }
+
+    // Worker初期化
     if (!workerRef.current) {
       try {
-        // path relative to this file: ../../workers/searchWorker.ts
-        // use import.meta.url to create module worker
-        // eslint-disable-next-line no-undef
-        workerRef.current = new Worker(new URL('../../workers/searchWorker.ts', import.meta.url), {
-          type: 'module',
-        });
+        workerRef.current = new Worker(
+          new URL('../../workers/searchWorker.ts', import.meta.url),
+          { type: 'module' }
+        );
 
         workerRef.current.onmessage = e => {
           const msg = e.data;
@@ -84,27 +161,27 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
           if (msg.type === 'result') {
             const id = msg.searchId;
             if (id !== searchIdRef.current) return; // stale
-            setSearchResults(msg.results || []);
+            const results = msg.results || [];
+            setSearchResults(results);
             setIsSearching(false);
+            
+            // キャッシュを更新
+            lastSearchResultsRef.current = results;
           }
         };
       } catch (err) {
         console.error('Failed to create search worker', err);
-        // fallback to in-thread search (not implemented here)
+        setIsSearching(false);
+        return;
       }
     }
 
     setIsSearching(true);
-    // bump searchId
     const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
-
-    const allFiles = getAllFiles(files).map(f => ({
-      id: f.id,
-      path: f.path,
-      name: f.name,
-      content: f.content,
-      isBufferArray: f.isBufferArray,
-    }));
+    
+    // キャッシュを更新
+    lastSearchQueryRef.current = query;
+    lastSearchOptionsRef.current = searchOptionsKey;
 
     try {
       workerRef.current?.postMessage({
@@ -112,7 +189,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         searchId: sid,
         query,
         options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
-        files: allFiles,
+        files: filePayloads,
       });
     } catch (err) {
       console.error('Worker postMessage failed', err);
@@ -120,38 +197,62 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   };
 
-  // 検索クエリが変更された時の処理（デバウンス + min length）
+  // 検索クエリ変更時の処理
   useEffect(() => {
-    // clear any existing timer
+    // タイマーをクリア
     if (searchTimer.current) {
       window.clearTimeout(searchTimer.current);
       searchTimer.current = null;
     }
 
+    // クエリが空または短すぎる場合
     if (!searchQuery || searchQuery.length < minQueryLength) {
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
 
-    setIsSearching(true);
-    // schedule search after debounceDelay
-    searchTimer.current = window.setTimeout(() => {
-      performSearch(searchQuery);
-    }, debounceDelay);
+    // リアルタイム検索モードの場合のみ自動検索
+    if (isRealtimeSearch) {
+      setIsSearching(true);
+      searchTimer.current = window.setTimeout(() => {
+        performSearchRef.current(searchQuery);
+      }, debounceDelay);
+    }
 
     return () => {
       if (searchTimer.current) {
         window.clearTimeout(searchTimer.current);
         searchTimer.current = null;
       }
-      // cleanup worker
+    };
+  }, [searchQuery, isRealtimeSearch, minQueryLength, debounceDelay]);
+
+  // 検索オプション変更時にリアルタイム検索を再実行
+  useEffect(() => {
+    if (isRealtimeSearch && searchQuery && searchQuery.length >= minQueryLength) {
+      // キャッシュをクリアして検索
+      lastSearchResultsRef.current = [];
+      performSearchRef.current(searchQuery);
+    }
+  }, [caseSensitive, wholeWord, useRegex, searchInFilenames, isRealtimeSearch, searchQuery, minQueryLength]);
+
+  // Workerのクリーンアップ
+  useEffect(() => {
+    return () => {
       if (workerRef.current) {
         workerRef.current.terminate();
         workerRef.current = null;
       }
     };
-  }, [searchQuery, caseSensitive, wholeWord, useRegex, files]);
+  }, []);
+
+  // ファイルが変更された場合、キャッシュをクリア
+  useEffect(() => {
+    // ファイルが変更されたのでキャッシュをクリア
+    lastSearchResultsRef.current = [];
+    lastSearchQueryRef.current = '';
+  }, [filesVersion]);
 
   // flattened results for keyboard navigation
   const flatResults = searchResults;
@@ -162,15 +263,14 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     if (selectedIndex >= flatResults.length) {
       setSelectedIndex(Math.max(0, flatResults.length - 1));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flatResults.length]);
 
   const handleResultClick = async (result: SearchResult) => {
     try {
-      // fetch full file from repository to ensure content is available
       const projId = projectId;
       const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
 
-      // localStorageのpyxis-defaultEditorを参照しisCodeMirrorを明示的に付与
       let isCodeMirror = false;
       if (typeof window !== 'undefined') {
         const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
@@ -186,7 +286,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
           : (result.file as any).bufferContent,
       };
 
-      // バイナリファイルの場合は binary タブで開く
       const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
       await openTab(fileWithJump, {
         kind,
@@ -199,13 +298,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   };
 
   const handleReplaceResult = async (result: SearchResult, replacement: string) => {
-    // allow empty replacement (deletion)
     try {
       const projId = projectId;
       const filePath = result.file.path;
 
       if (result.line === 0) {
-        // Skip filename/path replacement — renaming is not supported from search panel
         console.info('Skipping filename replace from SearchPanel');
         return;
       }
@@ -222,14 +319,15 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
       await fileRepository.saveFile(updated);
 
-      performSearch(searchQuery);
+      // キャッシュをクリアして再検索
+      lastSearchResultsRef.current = [];
+      performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace error', e);
     }
   };
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
-    // allow empty replacement (deletion)
     try {
       const projId = projectId;
       const fileEntry = await fileRepository.getFileByPath(projId, file.path);
@@ -240,7 +338,10 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       const updatedContent = fileEntry.content.replace(regex, replacement);
       const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
       await fileRepository.saveFile(updated);
-      performSearch(searchQuery);
+      
+      // キャッシュをクリアして再検索
+      lastSearchResultsRef.current = [];
+      performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace all error', e);
     }
@@ -264,9 +365,28 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         filesUpdated.add(filePath);
       }
 
-      performSearch(searchQuery);
+      // キャッシュをクリアして再検索
+      lastSearchResultsRef.current = [];
+      performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace all results error', e);
+    }
+  };
+
+  // Enterキーでの検索確定
+  const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (searchTimer.current) {
+        window.clearTimeout(searchTimer.current);
+        searchTimer.current = null;
+      }
+      if (searchQuery && searchQuery.length >= minQueryLength) {
+        // キャッシュをクリアして強制検索
+        lastSearchResultsRef.current = [];
+        setIsSearching(true);
+        performSearchRef.current(searchQuery);
+      }
     }
   };
 
@@ -314,14 +434,18 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
+    lastSearchResultsRef.current = [];
+    lastSearchQueryRef.current = '';
   };
-
-  // per-file collapsed state
-  const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
 
   const toggleFileCollapse = (key: string) => {
     setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  // 検索モードの表示用テキスト
+  const searchModeText = isRealtimeSearch
+    ? t('searchPanel.realtimeMode') || 'Realtime'
+    : t('searchPanel.enterToSearch') || 'Press Enter to search';
 
   return (
     <div
@@ -348,19 +472,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  // immediate search on Enter if query long enough
-                  if (searchTimer.current) {
-                    window.clearTimeout(searchTimer.current);
-                    searchTimer.current = null;
-                  }
-                  if (searchQuery && searchQuery.length >= minQueryLength) {
-                    setIsSearching(true);
-                    performSearch(searchQuery);
-                  }
-                }
-              }}
+              onKeyDown={handleSearchInputKeyDown}
               placeholder={t('searchPanel.searchInFiles')}
               style={{
                 width: '100%',
@@ -393,6 +505,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                 <X size={14} />
               </button>
             )}
+          </div>
+
+          {/* 検索モード表示 */}
+          <div style={{ fontSize: '0.58rem', color: colors.mutedFg, marginTop: '0.08rem' }}>
+            {searchModeText} ({fileCount} files)
           </div>
 
           {/* 検索オプション - コンパクトなボタン形式 */}
