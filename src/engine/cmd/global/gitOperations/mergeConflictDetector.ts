@@ -133,7 +133,7 @@ export class MergeConflictDetector {
       console.log('[MergeConflictDetector] Detected conflicts:', changedFiles.size);
 
       // Read content for each conflicting file
-      for (const [filepath, oids] of changedFiles) {
+      for (const [filepath, oids] of Array.from(changedFiles.entries())) {
         const baseContent = oids.baseOid
           ? await this.readBlobContent(oids.baseOid)
           : '';
@@ -166,13 +166,12 @@ export class MergeConflictDetector {
    */
   private async readBlobContent(oid: string): Promise<string> {
     try {
-      const { blob } = await git.readObject({
+      const { object } = await git.readObject({
         fs: this.fs,
         dir: this.dir,
         oid,
-        format: 'content',
       });
-      return new TextDecoder().decode(blob as Uint8Array);
+      return new TextDecoder().decode(object as Uint8Array);
     } catch (error) {
       console.warn(`[MergeConflictDetector] Failed to read blob ${oid}:`, error);
       return '';
