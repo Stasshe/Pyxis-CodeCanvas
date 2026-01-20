@@ -819,6 +819,207 @@ context.sidebar.onPanelActivate('my-panel', async (panelId) => {
 
 ---
 
+## Explorer Menu APIの使い方
+
+### 概要
+
+Explorer Menu APIを使用すると、拡張機能がファイルエクスプローラーの右クリック（コンテキスト）メニューに独自のメニュー項目を追加できます。バイナリファイル専用のエディターや、特定のファイル形式に対するカスタムアクションを実装する際に便利です。
+
+### メニュー項目の追加フロー
+
+```mermaid
+graph LR
+    A[activate呼び出し] --> B[addMenuItem]
+    B --> C[MenuRegistryに登録]
+    C --> D[ユーザーが右クリック]
+    D --> E[メニュー項目表示]
+    E --> F[クリック時にhandler実行]
+```
+
+### ステップ1: メニュー項目を追加
+
+`activate`関数内で`context.explorerMenu.addMenuItem()`を呼び出します:
+
+```typescript
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  context.explorerMenu.addMenuItem({
+    id: 'open-with-my-editor',
+    label: 'Open with My Editor',
+    icon: 'FileEdit',
+    when: 'file',           // 'file', 'folder', 'both'
+    binaryOnly: true,       // バイナリファイルのみ表示（オプション）
+    fileExtensions: ['.bin', '.dat'],  // 特定の拡張子のみ（オプション）
+    order: 10,              // 表示順序（小さいほど上）
+    handler: async (file, menuContext) => {
+      // file: FileItem オブジェクト
+      // menuContext: { projectName, projectId }
+      
+      context.logger.info(`Opening file: ${file.path}`);
+      
+      // カスタムタブを開く
+      context.tabs.createTab({
+        id: file.id,
+        title: `My Editor: ${file.name}`,
+        icon: 'FileEdit',
+        closable: true,
+        activateAfterCreate: true,
+        data: {
+          fileName: file.name,
+          filePath: file.path,
+          bufferContent: file.bufferContent,
+          projectName: menuContext.projectName,
+        },
+      });
+    },
+  });
+  
+  return {};
+}
+```
+
+### Explorer Menu API メソッド一覧
+
+#### `addMenuItem(definition: ExplorerMenuItemDefinition): void`
+
+コンテキストメニューに項目を追加します。
+
+**パラメータ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|----------|---|------|-----------|------|
+| `id` | string | ✅ | - | メニュー項目ID（拡張機能内で一意） |
+| `label` | string | ✅ | - | 表示ラベル |
+| `icon` | string | ❌ | undefined | Lucide Reactアイコン名 |
+| `when` | string | ❌ | 'both' | 表示条件: `'file'`, `'folder'`, `'both'` |
+| `fileExtensions` | string[] | ❌ | undefined | ファイル拡張子フィルタ（例: `['.bin', '.png']`） |
+| `binaryOnly` | boolean | ❌ | false | バイナリファイルのみ表示 |
+| `order` | number | ❌ | 100 | 表示順序（小さいほど上） |
+| `handler` | function | ✅ | - | クリック時のハンドラー |
+
+**例:**
+
+```typescript
+// バイナリファイル専用メニュー
+context.explorerMenu.addMenuItem({
+  id: 'open-hex-editor',
+  label: 'Open in Hex Editor',
+  icon: 'Binary',
+  when: 'file',
+  binaryOnly: true,
+  order: 10,
+  handler: async (file, ctx) => {
+    // ファイルをHexエディターで開く
+  },
+});
+
+// 特定の拡張子のみ
+context.explorerMenu.addMenuItem({
+  id: 'preview-image',
+  label: 'Preview Image',
+  icon: 'Image',
+  when: 'file',
+  fileExtensions: ['.png', '.jpg', '.gif', '.webp'],
+  order: 20,
+  handler: async (file, ctx) => {
+    // 画像をプレビュー
+  },
+});
+
+// フォルダ専用メニュー
+context.explorerMenu.addMenuItem({
+  id: 'analyze-folder',
+  label: 'Analyze Folder',
+  icon: 'FolderSearch',
+  when: 'folder',
+  order: 30,
+  handler: async (folder, ctx) => {
+    // フォルダを分析
+  },
+});
+```
+
+#### `removeMenuItem(itemId: string): void`
+
+メニュー項目を削除します。
+
+**パラメータ:**
+- `itemId` (string): 削除するメニュー項目のID
+
+**例:**
+
+```typescript
+context.explorerMenu.removeMenuItem('open-hex-editor');
+```
+
+### handlerの引数
+
+#### file (FileItem)
+
+クリックされたファイル/フォルダの情報:
+
+| プロパティ | 型 | 説明 |
+|-----------|---|------|
+| `id` | string | ファイルの一意ID |
+| `name` | string | ファイル名 |
+| `path` | string | ファイルパス |
+| `type` | string | `'file'` または `'folder'` |
+| `content` | string | ファイル内容（テキストファイル） |
+| `isBufferArray` | boolean | バイナリファイルかどうか |
+| `bufferContent` | ArrayBuffer | バイナリ内容（バイナリファイル） |
+
+#### menuContext (MenuActionContext)
+
+現在のプロジェクト情報:
+
+| プロパティ | 型 | 説明 |
+|-----------|---|------|
+| `projectName` | string | プロジェクト名 |
+| `projectId` | string | プロジェクトID |
+
+### 実践例: Binary Editor拡張機能
+
+`extensions/binary-editor/` に実装例があります。この拡張機能は:
+
+- ✅ バイナリファイル専用のコンテキストメニュー項目を追加
+- ✅ Hexエディタータブでファイルを開く
+- ✅ Monaco風の仮想化スクロール
+- ✅ バイト編集・検索機能
+
+```typescript
+// binary-editor/index.tsx
+export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
+  // タブコンポーネントを登録
+  context.tabs.registerTabType(BinaryEditorTabComponent);
+  
+  // コンテキストメニューに項目を追加
+  context.explorerMenu.addMenuItem({
+    id: 'open-binary-editor',
+    label: 'Open with Binary Editor',
+    icon: 'Binary',
+    when: 'file',
+    binaryOnly: true,
+    order: 10,
+    handler: async (file, menuContext) => {
+      context.tabs.createTab({
+        id: file.id,
+        title: `Binary: ${file.name}`,
+        icon: 'Binary',
+        closable: true,
+        activateAfterCreate: true,
+        data: {
+          fileName: file.name,
+          bufferContent: file.bufferContent,
+        },
+      });
+    },
+  });
+  
+  return {};
+}
+```
+
+---
+
 ## 実践例: Note Tab拡張機能
 
 実際に動作する`note-tab`拡張機能の実装を見てみましょう。この拡張機能は:
@@ -1348,10 +1549,12 @@ export async function activate(context: ExtensionContext) {
 1. **サンプルを参考にする**
    - `extensions/note-tab/` - シンプルなメモ帳
    - `extensions/todo-panel/` - TODOリスト
+   - `extensions/binary-editor/` - バイナリエディター
 
 2. **APIリファレンスを読む**
    - `src/engine/extensions/system-api/TabAPI.ts`
    - `src/engine/extensions/system-api/SidebarAPI.ts`
+   - `src/engine/extensions/system-api/ExplorerMenuAPI.ts`
 
 3. **独自の拡張機能を作成**
    - アイデアを実装
@@ -1365,6 +1568,7 @@ export async function activate(context: ExtensionContext) {
 
 - **TabAPI**: `src/engine/extensions/system-api/TabAPI.ts`
 - **SidebarAPI**: `src/engine/extensions/system-api/SidebarAPI.ts`
+- **ExplorerMenuAPI**: `src/engine/extensions/system-api/ExplorerMenuAPI.ts`
 - **型定義**: `extensions/_shared/types.ts`
 
 ### サンプル拡張機能
@@ -1373,6 +1577,7 @@ export async function activate(context: ExtensionContext) {
 |---------|------|------|
 | **Note Tab** | シンプルなメモ帳タブ | `extensions/note-tab/` |
 | **TODO Panel** | TODOリスト管理 | `extensions/todo-panel/` |
+| **Binary Editor** | Hexバイナリエディター | `extensions/binary-editor/` |
 | **TypeScript Runtime** | TypeScriptトランスパイラ | `extensions/typescript-runtime/` |
 
 ### 外部リソース
