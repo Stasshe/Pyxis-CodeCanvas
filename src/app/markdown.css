@@ -1,12 +1,29 @@
 /* markdown.css - GitHub風Markdownスタイル（ダーク背景対応） */
 
+/*
+ * CSS Reset for markdown content
+ * Prevents Pyxis application styles from affecting markdown rendering
+ */
+.markdown-body,
+.markdown-body * {
+  box-sizing: border-box;
+}
+
 .markdown-body {
+  /* Reset inherited styles */
+  all: revert;
+  
+  /* Base styles */
   background: var(--markdown-background, #18181b);
+  color: var(--markdown-foreground, #e4e4e7);
   font-family: "Segoe UI", "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
   font-size: 1rem;
   line-height: 1.7;
   word-break: break-word;
   padding: 0.5rem 0;
+  
+  /* Ensure box-sizing is set correctly after reset */
+  box-sizing: border-box;
 }
 
 .markdown-body h1,
@@ -18,6 +35,7 @@
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 700;
+  color: var(--markdown-foreground, #e4e4e7);
 }
 
 .markdown-body h1 {
@@ -36,6 +54,7 @@
 
 .markdown-body p {
   margin: 1em 0;
+  color: var(--markdown-foreground, #e4e4e7);
 }
 
 .markdown-body ul,
@@ -150,12 +169,23 @@
 
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid #333;
+  border: 1px solid #444;
   padding: 0.5em 1em;
+  color: var(--markdown-foreground, #e4e4e7);
+}
+
+.markdown-body th {
+  background: var(--markdown-th-bg, #2d2d30);
+  color: var(--markdown-foreground, #e4e4e7);
+  font-weight: 600;
 }
 
 .markdown-body tr {
   background: var(--markdown-tr-bg, #18181b);
+}
+
+.markdown-body tr:nth-child(2n) {
+  background: var(--markdown-tr-alt-bg, #1e1e21);
 }
 
 .markdown-body img {
@@ -194,6 +224,192 @@
 .markdown-body .katex .katex-html,
 .markdown-body .katex .katex-html * {
   color: inherit !important;
+}
+
+/*
+ * HTML elements embedded in markdown
+ * Support for raw HTML like <div align="center">, badges, shields, etc.
+ */
+.markdown-body div {
+  color: var(--markdown-foreground, #e4e4e7);
+}
+
+.markdown-body div[align="center"],
+.markdown-body div[align="left"],
+.markdown-body div[align="right"] {
+  text-align: inherit;
+}
+
+.markdown-body div[align="center"] {
+  text-align: center;
+}
+
+.markdown-body div[align="left"] {
+  text-align: left;
+}
+
+.markdown-body div[align="right"] {
+  text-align: right;
+}
+
+/* Badge images (shields.io, etc.) - ensure proper display */
+.markdown-body img[src*="shields.io"],
+.markdown-body img[src*="badge"],
+.markdown-body img[src*="img.shields.io"] {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0.125em 0.25em;
+  background: transparent;
+  border-radius: 3px;
+}
+
+/* Ensure link-wrapped badges are properly spaced */
+.markdown-body a > img[src*="shields.io"],
+.markdown-body a > img[src*="badge"],
+.markdown-body a > img[src*="img.shields.io"] {
+  background: transparent;
+}
+
+/* Span elements for inline styling */
+.markdown-body span {
+  color: inherit;
+}
+
+/* Strong and emphasis */
+.markdown-body strong,
+.markdown-body b {
+  font-weight: 700;
+  color: inherit;
+}
+
+.markdown-body em,
+.markdown-body i {
+  font-style: italic;
+  color: inherit;
+}
+
+/* Strikethrough */
+.markdown-body del,
+.markdown-body s {
+  text-decoration: line-through;
+  color: inherit;
+}
+
+/* Subscript and superscript */
+.markdown-body sub,
+.markdown-body sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  color: inherit;
+}
+
+.markdown-body sup {
+  top: -0.5em;
+}
+
+.markdown-body sub {
+  bottom: -0.25em;
+}
+
+/* Definition lists */
+.markdown-body dl {
+  margin: 1em 0;
+  padding: 0;
+}
+
+.markdown-body dt {
+  font-weight: 700;
+  margin-top: 1em;
+  color: var(--markdown-foreground, #e4e4e7);
+}
+
+.markdown-body dd {
+  margin-left: 2em;
+  margin-bottom: 0.5em;
+  color: var(--markdown-foreground, #e4e4e7);
+}
+
+/* Keyboard input */
+.markdown-body kbd {
+  display: inline-block;
+  padding: 0.2em 0.4em;
+  font-size: 0.85em;
+  line-height: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  background: var(--markdown-kbd-bg, #2d2d30);
+  border: 1px solid #444;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #333;
+  color: var(--markdown-foreground, #e4e4e7);
+}
+
+/* Mark/highlight */
+.markdown-body mark {
+  background: #665c00;
+  color: var(--markdown-foreground, #e4e4e7);
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+/* Abbreviations */
+.markdown-body abbr {
+  text-decoration: underline dotted;
+  cursor: help;
+  color: inherit;
+}
+
+/* Details/summary (collapsible sections) */
+.markdown-body details {
+  margin: 1em 0;
+  padding: 0.5em;
+  background: var(--markdown-details-bg, #1e1e21);
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+
+.markdown-body summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--markdown-foreground, #e4e4e7);
+  padding: 0.25em 0;
+}
+
+.markdown-body details > *:not(summary) {
+  margin-left: 1em;
+}
+
+/* Ensure lists inside markdown inherit colors */
+.markdown-body li {
+  color: var(--markdown-foreground, #e4e4e7);
+}
+
+/* Blockquote styling with explicit colors */
+.markdown-body blockquote {
+  border-left: 4px solid #444;
+  background: var(--markdown-blockquote-bg, rgba(255, 255, 255, 0.03));
+  color: var(--markdown-foreground-muted, #a1a1aa);
+}
+
+/* Links with explicit colors */
+.markdown-body a {
+  color: var(--markdown-link, #58a6ff);
+}
+
+.markdown-body a:hover {
+  color: var(--markdown-link-hover, #79b8ff);
+}
+
+/* Code styling with explicit colors */
+.markdown-body code {
+  background: var(--markdown-code-bg, #2d2d30);
+  color: var(--markdown-code-fg, #e06c75);
+}
+
+.markdown-body pre {
+  background: var(--markdown-pre-bg, #1e1e21);
+  color: var(--markdown-foreground, #e4e4e7);
 }
 
 /* [id^="dmermaid-svg-"] {

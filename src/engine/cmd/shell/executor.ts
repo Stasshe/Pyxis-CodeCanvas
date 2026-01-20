@@ -13,6 +13,7 @@ import { runScript } from './scriptRunner';
 import { type Segment, type TokenObj, isDevNull } from './types';
 
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, resolvePath } from '@/engine/core/pathResolver';
 import type { UnixCommands } from '../global/unix';
 
 /**
@@ -724,9 +725,28 @@ export class ShellExecutor {
     const writes: Record<string, string> = {};
     const appendMap: Record<string, boolean> = {};
 
+    // Get current working directory for resolving relative paths
+    const unix = await this.getUnix();
+    const cwd = unix ? await unix.pwd() : this.context.cwd;
+
+    // Helper to resolve path relative to CWD and convert to AppPath
+    const resolveRedirectPath = (path: string): string => {
+      if (!path || isDevNull(path)) return path;
+      
+      // If absolute path (within project), use it
+      if (path.startsWith('/')) {
+        return path;
+      }
+      
+      // Resolve relative path against CWD, then convert to AppPath
+      const resolvedFsPath = resolvePath(cwd, path);
+      return fsPathToAppPath(resolvedFsPath, this.context.projectName);
+    };
+
     const add = (path: string | undefined | null, content: string, append = false) => {
       if (!path || isDevNull(path)) return;
-      const key = path.startsWith('/') ? path : `/${path}`;
+      const key = resolveRedirectPath(path);
+      if (!key || isDevNull(key)) return;
       writes[key] = (writes[key] || '') + content;
       appendMap[key] = appendMap[key] || append;
     };
