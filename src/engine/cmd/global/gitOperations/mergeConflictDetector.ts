@@ -160,7 +160,15 @@ export class MergeConflictDetector {
         return '';
       }
 
-      return new TextDecoder().decode(object as Uint8Array);
+      // Try to decode as text, handle binary files gracefully
+      try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(object as Uint8Array);
+      } catch (decodeError) {
+        console.warn(
+          `[MergeConflictDetector] File ${oid} appears to be binary, cannot decode as text`
+        );
+        return '[Binary file - cannot display content]';
+      }
     } catch (error) {
       console.warn(`[MergeConflictDetector] Failed to read blob ${oid}:`, error);
       return '';
