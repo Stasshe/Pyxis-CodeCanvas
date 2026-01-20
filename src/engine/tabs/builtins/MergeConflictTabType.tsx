@@ -121,8 +121,8 @@ export const MergeConflictTabType: TabTypeDefinition = {
     const projectId = (data.projectId as string) || '';
     const projectName = (data.projectName as string) || '';
 
-    const tabId = \`merge-conflict:\${oursBranch}-\${theirsBranch}-\${Date.now()}\`;
-    const tabName = \`Merge: \${theirsBranch} → \${oursBranch}\`;
+    const tabId = `merge-conflict:${oursBranch}-${theirsBranch}-${Date.now()}`;
+    const tabName = `Merge: ${theirsBranch} → ${oursBranch}`;
 
     return {
       id: tabId,

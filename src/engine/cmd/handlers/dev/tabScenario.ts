@@ -19,24 +19,24 @@ async function openTestDiffTab(
 
   const { openTab } = useTabStore.getState();
 
-  const originalContent = \`function hello(name) {
+  const originalContent = `function hello(name) {
   console.log("Hello, " + name);
 }
 
 hello("World");
-\`;
+`;
 
-  const modifiedContent = \`function hello(name: string): void {
-  console.log(\\\`Hello, \\\${name}!\\\`);
+  const modifiedContent = `function hello(name: string): void {
+  console.log(\`Hello, \${name}!\`);
 }
 
 function goodbye(name: string): void {
-  console.log(\\\`Goodbye, \\\${name}!\\\`);
+  console.log(\`Goodbye, \${name}!\`);
 }
 
 hello("World");
 goodbye("World");
-\`;
+`;
 
   await openTab(
     {
@@ -76,16 +76,16 @@ async function openEditableDiffTab(
 
   const { openTab } = useTabStore.getState();
 
-  const originalContent = \`// Original content
+  const originalContent = `// Original content
 const message = "Hello";
 console.log(message);
-\`;
+`;
 
-  const modifiedContent = \`// Modified content - you can edit this
+  const modifiedContent = `// Modified content - you can edit this
 const message = "Hello, World!";
 const greeting = "Welcome!";
 console.log(message, greeting);
-\`;
+`;
 
   await openTab(
     {
@@ -159,7 +159,7 @@ async function openMultiFileDiffTab(
     }
   );
 
-  await writeOutput(\`✓ Multi-file diff tab opened with \${files.length} files.\`);
+  await writeOutput(`✓ Multi-file diff tab opened with ${files.length} files.`);
 }
 
 /**
@@ -200,7 +200,7 @@ async function openSettingsTab(
 
   await openTab(
     {
-      path: \`settings:\${settingsType}\`,
+      path: `settings:${settingsType}`,
       name: 'Settings',
       settingsType,
     },
@@ -209,7 +209,7 @@ async function openSettingsTab(
     }
   );
 
-  await writeOutput(\`✓ Settings tab opened (type: \${settingsType}).\`);
+  await writeOutput(`✓ Settings tab opened (type: ${settingsType}).`);
 }
 
 /**
@@ -229,14 +229,14 @@ async function listTabs(
     const prefix = '  '.repeat(indent);
 
     if (pane.tabs && pane.tabs.length > 0) {
-      await writeOutput(\`\${prefix}Pane: \${pane.id} (\${pane.tabs.length} tabs)\`);
+      await writeOutput(`${prefix}Pane: ${pane.id} (${pane.tabs.length} tabs)`);
       for (const tab of pane.tabs) {
         const isActive = tab.id === globalActiveTab ? ' [ACTIVE]' : '';
         const isDirty = tab.isDirty ? ' [*]' : '';
-        await writeOutput(\`\${prefix}  - [\${tab.kind}] \${tab.name}\${isDirty}\${isActive}\`);
-        await writeOutput(\`\${prefix}    id: \${tab.id}\`);
+        await writeOutput(`${prefix}  - [${tab.kind}] ${tab.name}${isDirty}${isActive}`);
+        await writeOutput(`${prefix}    id: ${tab.id}`);
         if (tab.path) {
-          await writeOutput(\`\${prefix}    path: \${tab.path}\`);
+          await writeOutput(`${prefix}    path: ${tab.path}`);
         }
       }
     }

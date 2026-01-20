@@ -7,7 +7,6 @@
 
 import type { DevCommandContext, DevCommandInfo } from './types';
 
-import { fileRepository } from '@/engine/core/fileRepository';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 import { useTabStore } from '@/stores/tabStore';
 
@@ -18,11 +17,11 @@ function generateSampleConflict(filePath: string): MergeConflictFileEntry {
   const fileName = filePath.split('/').pop() || 'sample.ts';
 
   // Base (common ancestor) content
-  const baseContent = \`// \${fileName}
+  const baseContent = `// ${fileName}
 // Version: 1.0.0
 
 export function greet(name: string): string {
-  return \\\`Hello, \\\${name}!\\\`;
+  return \`Hello, \${name}!\`;
 }
 
 export function add(a: number, b: number): number {
@@ -30,14 +29,14 @@ export function add(a: number, b: number): number {
 }
 
 export const VERSION = '1.0.0';
-\`;
+`;
 
   // OURS (current branch) content - modified greet function
-  const oursContent = \`// \${fileName}
+  const oursContent = `// ${fileName}
 // Version: 1.1.0 - Feature A
 
 export function greet(name: string, greeting: string = 'Hello'): string {
-  return \\\`\\\${greeting}, \\\${name}!\\\`;
+  return \`\${greeting}, \${name}!\`;
 }
 
 export function add(a: number, b: number): number {
@@ -49,14 +48,14 @@ export function multiply(a: number, b: number): number {
 }
 
 export const VERSION = '1.1.0';
-\`;
+`;
 
   // THEIRS (branch being merged) content - modified add function
-  const theirsContent = \`// \${fileName}
+  const theirsContent = `// ${fileName}
 // Version: 1.1.0 - Feature B
 
 export function greet(name: string): string {
-  return \\\`Hello, \\\${name}!\\\`;
+  return \`Hello, \${name}!\`;
 }
 
 export function add(a: number, b: number, c: number = 0): number {
@@ -68,7 +67,7 @@ export function subtract(a: number, b: number): number {
 }
 
 export const VERSION = '1.1.0';
-\`;
+`;
 
   // Initial resolved content (based on OURS)
   const resolvedContent = oursContent;
@@ -111,7 +110,7 @@ async function createMergeConflict(
   for (const path of filePaths) {
     const conflict = generateSampleConflict(path);
     conflictFiles.push(conflict);
-    await writeOutput(\`  Created conflict for: \${path}\`);
+    await writeOutput(`  Created conflict for: ${path}`);
   }
 
   // Open merge-conflict tab
@@ -131,7 +130,7 @@ async function createMergeConflict(
   );
 
   await writeOutput('\n✓ Merge conflict resolution tab opened.');
-  await writeOutput(\`  Conflicting files: \${conflictFiles.length}\`);
+  await writeOutput(`  Conflicting files: ${conflictFiles.length}`);
   await writeOutput('  Branches: feature-a ← feature-b');
 }
 
@@ -193,7 +192,7 @@ async function createComplexMergeConflict(
     // React component
     {
       filePath: '/src/components/Header.tsx',
-      baseContent: \`import React from 'react';
+      baseContent: `import React from 'react';
 
 export const Header: React.FC = () => {
   return (
@@ -202,8 +201,8 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-\`,
-      oursContent: \`import React from 'react';
+`,
+      oursContent: `import React from 'react';
 import { Logo } from './Logo';
 
 export const Header: React.FC = () => {
@@ -214,8 +213,8 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-\`,
-      theirsContent: \`import React from 'react';
+`,
+      theirsContent: `import React from 'react';
 import { Navigation } from './Navigation';
 
 export const Header: React.FC = () => {
@@ -226,21 +225,21 @@ export const Header: React.FC = () => {
     </header>
   );
 };
-\`,
+`,
       resolvedContent: '',
       isResolved: false,
     },
     // Config file
     {
       filePath: '/config/settings.json',
-      baseContent: \`{
+      baseContent: `{
   "version": "1.0.0",
   "api": {
     "endpoint": "https://api.example.com"
   }
 }
-\`,
-      oursContent: \`{
+`,
+      oursContent: `{
   "version": "1.1.0",
   "api": {
     "endpoint": "https://api.example.com",
@@ -250,8 +249,8 @@ export const Header: React.FC = () => {
     "darkMode": true
   }
 }
-\`,
-      theirsContent: \`{
+`,
+      theirsContent: `{
   "version": "1.1.0",
   "api": {
     "endpoint": "https://api-v2.example.com"
@@ -260,7 +259,7 @@ export const Header: React.FC = () => {
     "analytics": true
   }
 }
-\`,
+`,
       resolvedContent: '',
       isResolved: false,
     },
@@ -288,9 +287,9 @@ export const Header: React.FC = () => {
     }
   );
 
-  await writeOutput(\`✓ Created \${conflicts.length} conflicting files:\`);
+  await writeOutput(`✓ Created ${conflicts.length} conflicting files:`);
   for (const c of conflicts) {
-    await writeOutput(\`  - \${c.filePath}\`);
+    await writeOutput(`  - ${c.filePath}`);
   }
   await writeOutput('\nMerge conflict resolution tab opened.');
 }

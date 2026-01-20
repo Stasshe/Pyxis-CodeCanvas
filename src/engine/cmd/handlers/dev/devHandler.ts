@@ -76,7 +76,7 @@ async function showHelp(context: DevCommandContext): Promise<void> {
   await context.writeOutput('\nAvailable commands:\n');
 
   for (const cmd of commands) {
-    await context.writeOutput(\`  \${cmd.name.padEnd(25)} \${cmd.description}\`);
+    await context.writeOutput(`  ${cmd.name.padEnd(25)} ${cmd.description}`);
   }
 
   await context.writeOutput('\nFor detailed usage of a command:');
@@ -111,15 +111,15 @@ export async function handleDevCommand(
   const commandInfo = devCommandRegistry.get(subCommand);
 
   if (!commandInfo) {
-    await writeOutput(\`dev: unknown command '\${subCommand}'\`);
+    await writeOutput(`dev: unknown command '${subCommand}'`);
     await writeOutput('Run "dev help" to see available commands.');
     return;
   }
 
   // Handle --help option
   if (subArgs.includes('--help') || subArgs.includes('-h')) {
-    await writeOutput(\`\${commandInfo.name}: \${commandInfo.description}\n\`);
-    await writeOutput(\`Usage: \${commandInfo.usage}\`);
+    await writeOutput(`${commandInfo.name}: ${commandInfo.description}\n`);
+    await writeOutput(`Usage: ${commandInfo.usage}`);
     return;
   }
 
@@ -127,6 +127,6 @@ export async function handleDevCommand(
   try {
     await commandInfo.handler(subArgs, context);
   } catch (error) {
-    await writeOutput(\`dev \${subCommand}: \${(error as Error).message}\`);
+    await writeOutput(`dev ${subCommand}: ${(error as Error).message}`);
   }
 }
