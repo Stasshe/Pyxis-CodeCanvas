@@ -67,7 +67,6 @@ describe('Redirection with pwd tests', () => {
     
     // The file should be created at /projects/test-project/src/out
     const files = await mockFileRepo.getProjectFiles(projectId);
-    console.log('Created files:', files.map((f: any) => f.path));
     const outFile = files.find((f: any) => f.path === `/projects/${projectName}/src/out`);
     
     expect(outFile).toBeDefined();

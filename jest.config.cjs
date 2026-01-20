@@ -21,7 +21,6 @@ module.exports = {
         module: 'commonjs',
         moduleResolution: 'node',
         resolveJsonModule: true,
-        isolatedModules: true,
         jsx: 'react-jsx',
         paths: {
           '@/*': ['./src/*']
