@@ -137,7 +137,7 @@ export class ShellExecutor {
   private async restoreCwd(unix: UnixCommands, savedCwd: string | null): Promise<void> {
     if (!savedCwd) return;
     try {
-      await unix.cd(savedCwd);
+      await unix.cd([savedCwd]);
     } catch (e) {
       // Non-fatal: CWD restore failed, may affect subsequent commands
       console.warn('[ShellExecutor] Failed to restore CWD after script execution:', e);
@@ -724,11 +724,23 @@ export class ShellExecutor {
     const writes: Record<string, string> = {};
     const appendMap: Record<string, boolean> = {};
 
+    // Get current working directory for resolving relative paths
+    const unix = await this.getUnix();
+    const cwd = unix ? await unix.pwd() : this.context.cwd;
+
     const add = (path: string | undefined | null, content: string, append = false) => {
       if (!path || isDevNull(path)) return;
-      const key = path.startsWith('/') ? path : `/${path}`;
-      writes[key] = (writes[key] || '') + content;
-      appendMap[key] = appendMap[key] || append;
+      // Resolve relative paths against current working directory
+      let resolvedPath: string;
+      if (path.startsWith('/')) {
+        resolvedPath = path;
+      } else {
+        // Remove trailing slash from cwd if present, then append the relative path
+        const normalizedCwd = cwd.replace(/\/$/, '');
+        resolvedPath = `${normalizedCwd}/${path}`;
+      }
+      writes[resolvedPath] = (writes[resolvedPath] || '') + content;
+      appendMap[resolvedPath] = appendMap[resolvedPath] || append;
     };
 
     // Handle fdFiles
