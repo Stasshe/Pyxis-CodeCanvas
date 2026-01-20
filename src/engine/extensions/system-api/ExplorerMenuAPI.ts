@@ -133,7 +133,10 @@ class ExplorerMenuRegistry {
 
       // fileExtensions 条件をチェック
       if (def.fileExtensions && def.fileExtensions.length > 0 && file.type === 'file') {
-        const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        const dotIndex = file.name.lastIndexOf('.');
+        // ファイル名にドットがない場合、または先頭のドットのみの場合はスキップ
+        if (dotIndex <= 0) continue;
+        const ext = file.name.substring(dotIndex).toLowerCase();
         if (!def.fileExtensions.some(e => e.toLowerCase() === ext)) continue;
       }
 

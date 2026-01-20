@@ -166,6 +166,27 @@ export interface ExtensionCommandsAPI {
 }
 
 /**
+ * ファイルアイテムの型定義（拡張機能用）
+ * Explorer Menu APIで使用されるファイル/フォルダ情報
+ */
+export interface FileItemForExtension {
+  /** ファイルの一意ID */
+  id: string;
+  /** ファイル名 */
+  name: string;
+  /** ファイルパス */
+  path: string;
+  /** ファイルタイプ */
+  type: 'file' | 'folder';
+  /** ファイル内容（テキストファイルの場合） */
+  content?: string;
+  /** バイナリファイルかどうか */
+  isBufferArray?: boolean;
+  /** バイナリ内容（バイナリファイルの場合） */
+  bufferContent?: ArrayBuffer;
+}
+
+/**
  * Explorerコンテキストメニュー項目の定義
  */
 export interface ExplorerMenuItemDefinition {
@@ -184,7 +205,7 @@ export interface ExplorerMenuItemDefinition {
   /** メニュー項目の順序（小さいほど上） */
   order?: number;
   /** クリック時に実行されるハンドラ */
-  handler: (item: any, context: MenuActionContext) => void | Promise<void>;
+  handler: (item: FileItemForExtension, context: MenuActionContext) => void | Promise<void>;
 }
 
 /**
