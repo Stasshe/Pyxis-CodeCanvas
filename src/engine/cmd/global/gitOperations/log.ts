@@ -7,14 +7,13 @@ import { listAllRemoteRefs, toFullRemoteRef } from './remoteUtils';
 /**
  * ブランチフィルタモード
  * - auto: HEADからのコミットのみ（現行の動作）
- * - all: 全ブランチからのコミットを表示
- * - branches: 指定したブランチのみ
+ * - all: 全ブランチからのコミットを表示（branches指定時はそのブランチのみ）
  */
 export type BranchFilterMode = 'auto' | 'all';
 
 export interface BranchFilterOptions {
   mode: BranchFilterMode;
-  branches?: string[]; // mode === 'branches' 時に使用する特定のブランチ名リスト
+  branches?: string[]; // mode === 'all' 時に特定のブランチのみ表示する場合に使用
 }
 
 /**

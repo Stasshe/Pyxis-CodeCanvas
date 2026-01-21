@@ -820,6 +820,17 @@ export default function GitPanel({
     return hasRemote && gitRepo.commits.length >= commitDepth;
   }, [hasRemote, gitRepo, commitDepth]);
 
+  // ブランチフィルタのラベルをメモ化
+  const branchFilterLabel = useMemo(() => {
+    if (branchFilterMode === 'auto') {
+      return t('git.branchFilter.auto') || 'Auto';
+    }
+    if (selectedBranches.length > 0) {
+      return `${selectedBranches.length} ${t('git.branchFilter.selected') || 'selected'}`;
+    }
+    return t('git.branchFilter.all') || 'All';
+  }, [branchFilterMode, selectedBranches, t]);
+
   if (!currentProject) {
     return (
       <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
@@ -1320,11 +1331,7 @@ export default function GitPanel({
             >
               <GitBranch style={{ width: '0.75rem', height: '0.75rem', flexShrink: 0 }} />
               <span className="truncate" style={{ maxWidth: '100px', display: 'inline-block' }}>
-                {branchFilterMode === 'auto'
-                  ? t('git.branchFilter.auto') || 'Auto'
-                  : selectedBranches.length > 0
-                    ? `${selectedBranches.length} ${t('git.branchFilter.selected') || 'selected'}`
-                    : t('git.branchFilter.all') || 'All'}
+                {branchFilterLabel}
               </span>
               <ChevronDown style={{ width: '0.75rem', height: '0.75rem', flexShrink: 0 }} />
             </button>
