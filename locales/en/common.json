@@ -185,7 +185,22 @@
     "unstaged": "Unstaged",
     "untracked": "Untracked",
     "viewDiffEditable": "View diff (editable)",
-    "viewDiffReadonly": "View diff (read-only)"
+    "viewDiffReadonly": "View diff (read-only)",
+    "branchFilter": {
+      "tooltip": "Branch filter",
+      "title": "Branch Filter",
+      "auto": "Auto",
+      "all": "All",
+      "selected": "selected",
+      "autoMode": "Auto (HEAD only)",
+      "autoModeDesc": "Show commits from current branch only",
+      "allMode": "All Branches",
+      "allModeDesc": "Show commits from all branches",
+      "selectBranches": "Select Branches",
+      "selectBranchesDesc": "Choose specific branches",
+      "localBranch": "Local branch",
+      "remoteBranch": "Remote branch"
+    }
   },
   "gitHistory": {
     "allFiles": "All {count} files",

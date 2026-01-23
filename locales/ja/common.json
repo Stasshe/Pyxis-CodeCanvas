@@ -185,7 +185,22 @@
     "unstaged": "未ステージング",
     "untracked": "未追跡",
     "viewDiffEditable": "差分を表示（編集可能）",
-    "viewDiffReadonly": "差分を表示（編集不可）"
+    "viewDiffReadonly": "差分を表示（編集不可）",
+    "branchFilter": {
+      "tooltip": "ブランチフィルタ",
+      "title": "ブランチフィルタ",
+      "auto": "自動",
+      "all": "すべて",
+      "selected": "件選択",
+      "autoMode": "自動（HEADのみ）",
+      "autoModeDesc": "現在のブランチのコミットのみ表示",
+      "allMode": "すべてのブランチ",
+      "allModeDesc": "すべてのブランチのコミットを表示",
+      "selectBranches": "ブランチを選択",
+      "selectBranchesDesc": "特定のブランチを選択",
+      "localBranch": "ローカルブランチ",
+      "remoteBranch": "リモートブランチ"
+    }
   },
   "gitHistory": {
     "allFiles": "全{count}ファイル",

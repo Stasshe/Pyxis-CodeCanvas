@@ -1,13 +1,26 @@
 'use client';
 
-import { Clock, GitBranch, GitCommit, Minus, Plus, RefreshCw, RotateCcw, X } from 'lucide-react';
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Check,
+  ChevronDown,
+  Clock,
+  GitBranch,
+  GitCommit,
+  Minus,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  X,
+} from 'lucide-react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GitHistory from './GitHistory';
 
+import OperationWindow, { type OperationListItem } from '@/components/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';
+import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
@@ -358,6 +371,60 @@ export default function GitPanel({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasRemote, setHasRemote] = useState(false);
 
+  // ブランチフィルタ関連の状態
+  const [branchFilterMode, setBranchFilterModeState] = useState<BranchFilterMode>('auto');
+  const [selectedBranches, setSelectedBranchesState] = useState<string[]>([]);
+  const [availableBranches, setAvailableBranches] = useState<{ local: string[]; remote: string[] }>(
+    { local: [], remote: [] }
+  );
+  const [showBranchSelector, setShowBranchSelector] = useState(false);
+  const branchButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // ブランチフィルタのsessionStorage永続化
+  const getStoredBranchFilter = useCallback(() => {
+    if (!currentProjectId) return { mode: 'auto' as BranchFilterMode, branches: [] as string[] };
+    const modeKey = `gitBranchFilterMode_${currentProjectId}`;
+    const branchesKey = `gitBranchFilterBranches_${currentProjectId}`;
+    const storedMode = sessionStorage.getItem(modeKey) as BranchFilterMode | null;
+    const storedBranches = sessionStorage.getItem(branchesKey);
+    return {
+      mode: storedMode || 'auto',
+      branches: storedBranches ? JSON.parse(storedBranches) : [],
+    };
+  }, [currentProjectId]);
+
+  const setBranchFilterMode = useCallback(
+    (mode: BranchFilterMode) => {
+      setBranchFilterModeState(mode);
+      if (currentProjectId) {
+        sessionStorage.setItem(`gitBranchFilterMode_${currentProjectId}`, mode);
+      }
+    },
+    [currentProjectId]
+  );
+
+  const setSelectedBranches = useCallback(
+    (branches: string[]) => {
+      setSelectedBranchesState(branches);
+      if (currentProjectId) {
+        sessionStorage.setItem(
+          `gitBranchFilterBranches_${currentProjectId}`,
+          JSON.stringify(branches)
+        );
+      }
+    },
+    [currentProjectId]
+  );
+
+  // プロジェクト変更時にsessionStorageから復元
+  useEffect(() => {
+    if (currentProjectId) {
+      const { mode, branches } = getStoredBranchFilter();
+      setBranchFilterModeState(mode);
+      setSelectedBranchesState(branches);
+    }
+  }, [currentProjectId, getStoredBranchFilter]);
+
   // プロジェクトごとのコミット深度をsessionStorageで永続化
   const getStoredCommitDepth = useCallback(() => {
     if (!currentProjectId) return 20;
@@ -402,22 +469,41 @@ export default function GitPanel({
 
   // Git状態を取得
   const fetchGitStatus = useCallback(
-    async (depth?: number) => {
+    async (depth?: number, filterMode?: BranchFilterMode, filterBranches?: string[]) => {
       if (!gitCommands || !currentProject) return;
 
       // depthが指定されていない場合は保存された深度を使用
       const actualDepth = depth ?? getStoredCommitDepth();
+      const actualFilterMode = filterMode ?? branchFilterMode;
+      const actualFilterBranches = filterBranches ?? selectedBranches;
 
       try {
         setIsLoading(true);
         setError(null);
 
-        const [statusResult, logResult, branchResult, remotesResult] = await Promise.all([
-          gitCommands.status(),
-          gitCommands.getFormattedLog(actualDepth),
-          gitCommands.branch(),
-          gitCommands.listRemotes(),
-        ]);
+        // ブランチ情報を先に取得（フィルタで使用）
+        const [statusResult, branchResult, remotesResult, availableBranchesResult] =
+          await Promise.all([
+            gitCommands.status(),
+            gitCommands.branch(),
+            gitCommands.listRemotes(),
+            gitCommands.getAvailableBranches(),
+          ]);
+
+        // 利用可能なブランチを更新
+        setAvailableBranches(availableBranchesResult);
+
+        // ブランチフィルタを適用してログ取得
+        const branchFilter =
+          actualFilterMode === 'all'
+            ? {
+                mode: 'all' as const,
+                branches:
+                  actualFilterBranches.length > 0 ? actualFilterBranches : undefined,
+              }
+            : { mode: 'auto' as const };
+
+        const logResult = await gitCommands.getFormattedLog(actualDepth, branchFilter);
 
         const commits = parseGitLog(logResult);
         const branches = parseGitBranches(branchResult);
@@ -456,7 +542,16 @@ export default function GitPanel({
         setIsLoading(false);
       }
     },
-    [gitCommands, currentProject, onGitStatusChange, t, getStoredCommitDepth, setCommitDepth]
+    [
+      gitCommands,
+      currentProject,
+      onGitStatusChange,
+      t,
+      getStoredCommitDepth,
+      setCommitDepth,
+      branchFilterMode,
+      selectedBranches,
+    ]
   );
 
   // 履歴をさらに読み込む
@@ -466,7 +561,17 @@ export default function GitPanel({
     try {
       setIsLoadingMore(true);
       const newDepth = commitDepth + 20;
-      const logResult = await gitCommands.getFormattedLog(newDepth);
+
+      // ブランチフィルタを適用
+      const branchFilter =
+        branchFilterMode === 'all'
+          ? {
+              mode: 'all' as const,
+              branches: selectedBranches.length > 0 ? selectedBranches : undefined,
+            }
+          : { mode: 'auto' as const };
+
+      const logResult = await gitCommands.getFormattedLog(newDepth, branchFilter);
       const commits = parseGitLog(logResult);
 
       setCommitDepth(newDepth);
@@ -483,7 +588,7 @@ export default function GitPanel({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [gitCommands, currentProject, isLoadingMore, commitDepth]);
+  }, [gitCommands, currentProject, isLoadingMore, commitDepth, branchFilterMode, selectedBranches]);
 
   // ファイルをステージング
   const handleStageFile = useCallback(
@@ -714,6 +819,17 @@ export default function GitPanel({
     if (!gitRepo) return false;
     return hasRemote && gitRepo.commits.length >= commitDepth;
   }, [hasRemote, gitRepo, commitDepth]);
+
+  // ブランチフィルタのラベルをメモ化
+  const branchFilterLabel = useMemo(() => {
+    if (branchFilterMode === 'auto') {
+      return t('git.branchFilter.auto') || 'Auto';
+    }
+    if (selectedBranches.length > 0) {
+      return `${selectedBranches.length} ${t('git.branchFilter.selected') || 'selected'}`;
+    }
+    return t('git.branchFilter.all') || 'All';
+  }, [branchFilterMode, selectedBranches, t]);
 
   if (!currentProject) {
     return (
@@ -1174,20 +1290,153 @@ export default function GitPanel({
 
         {/* コミット履歴 */}
         <div style={{ padding: '0.75rem', borderBottom: `1px solid ${colors.border}` }}>
-          <h4
+          <div
             style={{
-              fontSize: '0.875rem',
-              fontWeight: 500,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
-              color: colors.foreground,
+              justifyContent: 'space-between',
             }}
           >
-            <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
-            {t('git.history')} ({gitRepo.commits.length})
-          </h4>
+            <h4
+              style={{
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: colors.foreground,
+              }}
+            >
+              <Clock style={{ width: '1rem', height: '1rem', color: colors.mutedFg }} />
+              {t('git.history')} ({gitRepo.commits.length})
+            </h4>
+            {/* ブランチフィルタセレクター */}
+            <button
+              ref={branchButtonRef}
+              type="button"
+              className="flex items-center gap-1 px-2 py-1 rounded-md hover:opacity-80 transition-all text-xs"
+              style={{
+                background: colors.mutedBg,
+                color: colors.foreground,
+                border: `1px solid ${colors.border}`,
+                maxWidth: '140px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+              onClick={() => setShowBranchSelector(prev => !prev)}
+              title={t('git.branchFilter.tooltip') || 'Branch filter'}
+            >
+              <GitBranch style={{ width: '0.75rem', height: '0.75rem', flexShrink: 0 }} />
+              <span className="truncate" style={{ maxWidth: '100px', display: 'inline-block' }}>
+                {branchFilterLabel}
+              </span>
+              <ChevronDown style={{ width: '0.75rem', height: '0.75rem', flexShrink: 0 }} />
+            </button>
+          </div>
         </div>
+
+        {/* ブランチセレクタ OperationWindow */}
+        {showBranchSelector && (
+          <OperationWindow
+            isVisible={showBranchSelector}
+            onClose={() => setShowBranchSelector(false)}
+            projectFiles={[]}
+            items={(() => {
+              const items: OperationListItem[] = [];
+
+              // Auto mode option
+              items.push({
+                id: 'mode-auto',
+                label: t('git.branchFilter.autoMode') || 'Auto (HEAD only)',
+                description:
+                  t('git.branchFilter.autoModeDesc') || 'Show commits from current branch only',
+                icon: branchFilterMode === 'auto' ? <Check size={14} /> : undefined,
+                isActive: branchFilterMode === 'auto',
+                onClick: () => {
+                  setBranchFilterMode('auto');
+                  setSelectedBranches([]);
+                  fetchGitStatus(commitDepth, 'auto', []);
+                  setShowBranchSelector(false);
+                },
+              });
+
+              // All branches mode option
+              items.push({
+                id: 'mode-all',
+                label: t('git.branchFilter.allMode') || 'All Branches',
+                description:
+                  t('git.branchFilter.allModeDesc') || 'Show commits from all branches',
+                icon: branchFilterMode === 'all' && selectedBranches.length === 0 ? (
+                  <Check size={14} />
+                ) : undefined,
+                isActive: branchFilterMode === 'all' && selectedBranches.length === 0,
+                onClick: () => {
+                  setBranchFilterMode('all');
+                  setSelectedBranches([]);
+                  fetchGitStatus(commitDepth, 'all', []);
+                  setShowBranchSelector(false);
+                },
+              });
+
+              // Separator-like item
+              if (availableBranches.local.length > 0 || availableBranches.remote.length > 0) {
+                items.push({
+                  id: 'separator',
+                  label: `── ${t('git.branchFilter.selectBranches') || 'Select Branches'} ──`,
+                  description: t('git.branchFilter.selectBranchesDesc') || 'Choose specific branches',
+                });
+              }
+
+              // Local branches
+              for (const branch of availableBranches.local) {
+                const isSelected = selectedBranches.includes(branch);
+                items.push({
+                  id: `local-${branch}`,
+                  label: branch,
+                  description: t('git.branchFilter.localBranch') || 'Local branch',
+                  icon: isSelected ? <Check size={14} /> : <GitBranch size={14} />,
+                  isActive: isSelected,
+                  onClick: () => {
+                    const newSelected = isSelected
+                      ? selectedBranches.filter(b => b !== branch)
+                      : [...selectedBranches, branch];
+                    setSelectedBranches(newSelected);
+                    setBranchFilterMode('all');
+                    fetchGitStatus(commitDepth, 'all', newSelected);
+                  },
+                });
+              }
+
+              // Remote branches
+              for (const branch of availableBranches.remote) {
+                const isSelected = selectedBranches.includes(branch);
+                items.push({
+                  id: `remote-${branch}`,
+                  label: branch,
+                  description: t('git.branchFilter.remoteBranch') || 'Remote branch',
+                  icon: isSelected ? <Check size={14} /> : <GitBranch size={14} />,
+                  isActive: isSelected,
+                  onClick: () => {
+                    const newSelected = isSelected
+                      ? selectedBranches.filter(b => b !== branch)
+                      : [...selectedBranches, branch];
+                    setSelectedBranches(newSelected);
+                    setBranchFilterMode('all');
+                    fetchGitStatus(commitDepth, 'all', newSelected);
+                  },
+                });
+              }
+
+              return items;
+            })()}
+            listTitle={t('git.branchFilter.title') || 'Branch Filter'}
+            initialView="list"
+          />
+        )}
+
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {gitRepo.commits.length === 0 ? (
             <div style={{ padding: '0.75rem' }}>

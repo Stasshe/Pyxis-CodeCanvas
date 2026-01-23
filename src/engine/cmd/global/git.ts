@@ -5,7 +5,7 @@ import { GitCheckoutOperations } from './gitOperations/checkout';
 import { GitCloneOperations } from './gitOperations/clone';
 import { GitDiffOperations } from './gitOperations/diff';
 import { GitFileSystemHelper } from './gitOperations/fileSystemHelper';
-import { GitLogOperations } from './gitOperations/log';
+import { type BranchFilterOptions, GitLogOperations } from './gitOperations/log';
 import { GitMergeOperations } from './gitOperations/merge';
 import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils';
 import { GitResetOperations } from './gitOperations/reset';
@@ -691,9 +691,18 @@ export class GitCommands {
   }
 
   // UI用のGitログを取得（パイプ区切り形式、ブランチ情報付き）
-  async getFormattedLog(depth = 20): Promise<string> {
+  async getFormattedLog(
+    depth = 20,
+    branchFilter: BranchFilterOptions = { mode: 'auto' }
+  ): Promise<string> {
     const logOperations = new GitLogOperations(this.fs, this.dir);
-    return await logOperations.getFormattedLog(depth);
+    return await logOperations.getFormattedLog(depth, branchFilter);
+  }
+
+  // 利用可能なブランチ一覧を取得
+  async getAvailableBranches(): Promise<{ local: string[]; remote: string[] }> {
+    const logOperations = new GitLogOperations(this.fs, this.dir);
+    return await logOperations.getAvailableBranches();
   }
 
   // git checkout - ブランチ切り替え/作成
