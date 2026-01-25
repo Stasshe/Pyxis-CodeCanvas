@@ -19,7 +19,7 @@
   line-height: 1.7;
   word-break: break-word;
   padding: 0.5rem 0;
-  
+
   /* Reset common inherited properties */
   text-align: left;
   text-decoration: none;
@@ -48,11 +48,13 @@
   border-bottom: 1px solid #333;
   padding-bottom: 0.3em;
 }
+
 .markdown-body h2 {
   font-size: 1.5em;
   border-bottom: 1px solid #333;
   padding-bottom: 0.3em;
 }
+
 .markdown-body h3 {
   font-size: 1.2em;
 }
@@ -65,7 +67,7 @@
 .markdown-body ul,
 .markdown-body ol {
   margin: 1em 0 1em 1.25rem;
-  padding-left: 1.25rem; /* base indent for lists */
+  padding-left: 1.25rem;
   list-style-position: outside;
 }
 
@@ -73,7 +75,7 @@
   margin-bottom: 0.25em;
 }
 
-/* Improve nested list spacing and bullet alignment (handles '*' and '-') */
+/* Improve nested list spacing and bullet alignment */
 .markdown-body ul ul,
 .markdown-body ol ol,
 .markdown-body ul ol,
@@ -88,33 +90,30 @@
 .markdown-body li.task-list-item {
   list-style: none;
 }
+
 .markdown-body input[type="checkbox"] {
   margin: 0 0.5rem 0 0;
   vertical-align: text-bottom;
   transform: translateY(1px);
 }
 
-/* Use ::marker to control bullet appearance (works in modern browsers) */
-.markdown-body ul > li::marker {
+.markdown-body ul>li::marker {
   font-size: 1em;
 }
 
-/* Tighter control for first-level list left offset to match preview */
-.markdown-body > ul,
-.markdown-body > ol {
+.markdown-body>ul,
+.markdown-body>ol {
   padding-left: 1rem;
   margin-left: 0;
 }
 
-/* Ensure nested list markers align vertically with parent text */
-.markdown-body li > ul,
-.markdown-body li > ol {
+.markdown-body li>ul,
+.markdown-body li>ol {
   margin-top: 0.25em;
   margin-bottom: 0.25em;
 }
 
-/* Align bullets for single-star lists and tighter nesting */
-.markdown-body ul > li {
+.markdown-body ul>li {
   padding-left: 0.25rem;
 }
 
@@ -122,9 +121,11 @@
   padding: 0.5em 1em;
   margin: 1em 0;
   font-style: italic;
+  border-left: 4px solid #444;
+  background: var(--markdown-blockquote-bg, rgba(255, 255, 255, 0.03));
+  color: var(--markdown-foreground-muted, #a1a1aa);
 }
 
-/* Make blockquote content spacing closer to GitHub style */
 .markdown-body blockquote p {
   margin: 0.35em 0;
 }
@@ -139,15 +140,18 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono",
     monospace;
   font-size: 0.9em;
+  background: var(--markdown-pre-bg, #1e1e21);
+  color: var(--markdown-foreground, #e4e4e7);
 }
 
 .markdown-body code {
   border-radius: 4px;
   padding: 0.2em 0.4em;
   font-size: 0.95em;
+  background: var(--markdown-code-bg, #2d2d30);
+  color: var(--markdown-code-fg, #e06c75);
 }
 
-/* Inline code should wrap if long, and code blocks should use pre > code */
 .markdown-body pre code {
   background: transparent;
   padding: 0;
@@ -163,7 +167,12 @@
 }
 
 .markdown-body a {
+  color: var(--markdown-link, #58a6ff);
   text-decoration: underline;
+}
+
+.markdown-body a:hover {
+  color: var(--markdown-link-hover, #79b8ff);
 }
 
 .markdown-body table {
@@ -193,24 +202,49 @@
   background: var(--markdown-tr-alt-bg, #1e1e21);
 }
 
+/* 通常の画像: inline-block にして親の text-align に従う */
 .markdown-body img {
   max-width: 100%;
-  background: var(--markdown-img-bg, #222);
-  border-radius: 4px;
-  margin: 0.5em 0;
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  background: transparent;
+  border-radius: 3px;
 }
 
-/* Make images inside links slightly visible and centered if block-level */
-.markdown-body a > img {
-  border: none;
+/* バッジ画像: より具体的なセレクタで横並びを強制 */
+.markdown-body img[src*="shields.io"],
+.markdown-body img[src*="badge"],
+.markdown-body img[src*="img.shields.io"],
+.markdown-body img[src*="camo.githubusercontent.com"] {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 2px;
+  background: transparent;
+  border-radius: 3px;
 }
 
-/* Horizontal rule closer to GitHub */
-.markdown-body hr {
+/* リンク内のバッジも同様 */
+.markdown-body a>img[src*="shields.io"],
+.markdown-body a>img[src*="badge"],
+.markdown-body a>img[src*="img.shields.io"],
+.markdown-body a>img[src*="camo.githubusercontent.com"] {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 2px;
+  background: transparent;
+}
+
+/* 中央寄せなどの align 属性に対応 */
+.markdown-body div[align="center"] img,
+.markdown-body p[align="center"] img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.markdown-body a>img {
   border: none;
-  height: 1px;
-  background: #333;
-  margin: 2em 0;
 }
 
 .markdown-body hr {
@@ -219,13 +253,12 @@
   margin: 2em 0;
 }
 
-/* Ensure KaTeX output and other generated math markup inherit the markdown foreground color */
+/* KaTeX output color inheritance */
 .markdown-body .katex,
 .markdown-body .katex * {
   color: inherit !important;
 }
 
-/* Some KaTeX output wraps content in .katex-html and similar; ensure inheritance */
 .markdown-body .katex .katex-html,
 .markdown-body .katex .katex-html * {
   color: inherit !important;
@@ -233,16 +266,9 @@
 
 /*
  * HTML elements embedded in markdown
- * Support for raw HTML like <div align="center">, badges, shields, etc.
  */
 .markdown-body div {
   color: var(--markdown-foreground, #e4e4e7);
-}
-
-.markdown-body div[align="center"],
-.markdown-body div[align="left"],
-.markdown-body div[align="right"] {
-  text-align: inherit;
 }
 
 .markdown-body div[align="center"] {
@@ -257,30 +283,10 @@
   text-align: right;
 }
 
-/* Badge images (shields.io, etc.) - ensure proper display */
-.markdown-body img[src*="shields.io"],
-.markdown-body img[src*="badge"],
-.markdown-body img[src*="img.shields.io"] {
-  display: inline-block;
-  vertical-align: middle;
-  margin: 0.125em 0.25em;
-  background: transparent;
-  border-radius: 3px;
-}
-
-/* Ensure link-wrapped badges are properly spaced */
-.markdown-body a > img[src*="shields.io"],
-.markdown-body a > img[src*="badge"],
-.markdown-body a > img[src*="img.shields.io"] {
-  background: transparent;
-}
-
-/* Span elements for inline styling */
 .markdown-body span {
   color: inherit;
 }
 
-/* Strong and emphasis */
 .markdown-body strong,
 .markdown-body b {
   font-weight: 700;
@@ -293,14 +299,12 @@
   color: inherit;
 }
 
-/* Strikethrough */
 .markdown-body del,
 .markdown-body s {
   text-decoration: line-through;
   color: inherit;
 }
 
-/* Subscript and superscript */
 .markdown-body sub,
 .markdown-body sup {
   font-size: 0.75em;
@@ -318,7 +322,6 @@
   bottom: -0.25em;
 }
 
-/* Definition lists */
 .markdown-body dl {
   margin: 1em 0;
   padding: 0;
@@ -336,7 +339,6 @@
   color: var(--markdown-foreground, #e4e4e7);
 }
 
-/* Keyboard input */
 .markdown-body kbd {
   display: inline-block;
   padding: 0.2em 0.4em;
@@ -350,7 +352,6 @@
   color: var(--markdown-foreground, #e4e4e7);
 }
 
-/* Mark/highlight */
 .markdown-body mark {
   background: #665c00;
   color: var(--markdown-foreground, #e4e4e7);
@@ -358,14 +359,12 @@
   border-radius: 2px;
 }
 
-/* Abbreviations */
 .markdown-body abbr {
   text-decoration: underline dotted;
   cursor: help;
   color: inherit;
 }
 
-/* Details/summary (collapsible sections) */
 .markdown-body details {
   margin: 1em 0;
   padding: 0.5em;
@@ -381,42 +380,10 @@
   padding: 0.25em 0;
 }
 
-.markdown-body details > *:not(summary) {
+.markdown-body details>*:not(summary) {
   margin-left: 1em;
 }
 
-/* Ensure lists inside markdown inherit colors */
 .markdown-body li {
   color: var(--markdown-foreground, #e4e4e7);
 }
-
-/* Blockquote styling with explicit colors */
-.markdown-body blockquote {
-  border-left: 4px solid #444;
-  background: var(--markdown-blockquote-bg, rgba(255, 255, 255, 0.03));
-  color: var(--markdown-foreground-muted, #a1a1aa);
-}
-
-/* Links with explicit colors */
-.markdown-body a {
-  color: var(--markdown-link, #58a6ff);
-}
-
-.markdown-body a:hover {
-  color: var(--markdown-link-hover, #79b8ff);
-}
-
-/* Code styling with explicit colors */
-.markdown-body code {
-  background: var(--markdown-code-bg, #2d2d30);
-  color: var(--markdown-code-fg, #e06c75);
-}
-
-.markdown-body pre {
-  background: var(--markdown-pre-bg, #1e1e21);
-  color: var(--markdown-foreground, #e4e4e7);
-}
-
-/* [id^="dmermaid-svg-"] {
-  display: none !important;
-} */
