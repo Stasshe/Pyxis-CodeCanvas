@@ -50,7 +50,7 @@ Commands:
       case 'status':
         return 'usage: git status\nShow the working tree status.';
       case 'fetch':
-        return 'usage: git fetch [<remote>] [<branch>]\nDownload objects and refs from another repository.';
+        return 'usage: git fetch [<remote>] [<branch>] [--prune|-p] [--depth <n>]\n       git fetch --all [-p|--prune]\nDownload objects and refs from a remote repository. Use --all to fetch from all remotes (same as native git).';
       case 'pull':
         return 'usage: git pull [<remote>] [<branch>]\nFetch from and integrate with another repository or a local branch.';
       case 'init':
@@ -102,14 +102,12 @@ Commands:
 
   switch (gitCmd) {
     case 'fetch': {
-      const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
-      const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
       try {
-        const fetchResult = await git.fetch({ remote, branch });
+        // Forward remaining args (after 'fetch') to git.fetch and let fetch.ts parse them
+        const fetchResult = await git.fetch(args.slice(1));
         await writeOutput(fetchResult);
       } catch (error) {
-        const msg = (error as Error).message || '';
-        await writeOutput(`git fetch: ${msg}`);
+        await writeOutput(`git fetch: ${(error as Error).message}`);
       }
       break;
     }

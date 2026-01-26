@@ -9,6 +9,7 @@ import { type BranchFilterOptions, GitLogOperations } from './gitOperations/log'
 import { GitMergeOperations } from './gitOperations/merge';
 import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils';
 import { GitResetOperations } from './gitOperations/reset';
+import type { FetchOptions } from './gitOperations/fetch';
 import { GitRevertOperations } from './gitOperations/revert';
 import { formatStatusResult } from './gitOperations/status';
 
@@ -547,15 +548,15 @@ export class GitCommands {
    * git fetch - リモートから変更を取得
    */
   async fetch(
-    options: {
-      remote?: string;
-      branch?: string;
-      depth?: number;
-      prune?: boolean;
-      tags?: boolean;
-    } = {}
+    options: FetchOptions | string[] = {}
   ): Promise<string> {
     await this.ensureGitRepository();
+
+    if (Array.isArray(options)) {
+      // args array passed, delegate parsing to fetchFromArgs
+      const { fetchFromArgs } = await import('./gitOperations/fetch');
+      return fetchFromArgs(this.fs, this.dir, options);
+    }
 
     const { fetch } = await import('./gitOperations/fetch');
     return fetch(this.fs, this.dir, options);

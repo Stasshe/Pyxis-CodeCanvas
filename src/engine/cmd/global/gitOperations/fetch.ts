@@ -162,6 +162,33 @@ export async function fetchAll(
 }
 
 /**
+ * Parse raw `git fetch` args and delegate to fetch / fetchAll
+ */
+import { parseArgs } from '../../lib/getopt';
+
+export async function fetchFromArgs(fs: FS, dir: string, args: string[]): Promise<string> {
+  // Use centralized parser to handle options consistently
+  // Options with values: --depth, -d
+  const { flags, values, positional } = parseArgs(args, ['--depth', '-d']);
+
+  const all = flags.has('--all') || flags.has('-a');
+  const prune = flags.has('--prune') || flags.has('-p');
+  const tags = flags.has('--tags');
+
+  const depthVal = values.get('--depth') || values.get('-d');
+  const depth = depthVal !== undefined ? Number(depthVal) : undefined;
+
+  const remote = positional[0] && positional[0].trim() !== '' ? positional[0] : undefined;
+  const branch = positional[1] && positional[1].trim() !== '' ? positional[1] : undefined;
+
+  if (all) {
+    return await fetchAll(fs, dir, { depth, prune, tags });
+  }
+
+  return await fetch(fs, dir, { remote, branch, depth, prune, tags });
+}
+
+/**
  * リモートブランチ一覧を取得
  */
 export async function listRemoteBranches(
