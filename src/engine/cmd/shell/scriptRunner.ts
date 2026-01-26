@@ -475,31 +475,42 @@ async function runRange(
         const trailing = parts.slice(1).join('do').trim();
         if (trailing) lines.splice(i + 1, 0, trailing);
       }
-      // find do and matching done (handle nested loops)
+      // find 'do' for this for-header first
       let doIdx = -1;
       let doneIdx = -1;
-      // depth tracks nested for/done pairs; start at 1 for this for-block
-      let depth = 1;
       for (let j = i + 1; j < lines.length; j++) {
         const t = (lines[j] || '').trim();
-        // record the first 'do' encountered for this for-header
-        if (/^do\b/.test(t) && doIdx === -1) {
+        if (/^do\b/.test(t)) {
           const trailing = t.replace(/^do\b/, '').trim();
           if (trailing) lines.splice(j + 1, 0, trailing);
           doIdx = j;
-          continue;
+          break;
         }
-        // increase depth when encountering nested 'for'
-        if (/^for\b/.test(t)) {
-          depth++;
-          continue;
-        }
-        // decrease depth when encountering 'done' and stop when matching
-        if (/^done\b/.test(t)) {
-          depth--;
-          if (depth === 0) {
+      }
+
+      if (doIdx === -1) {
+        // no 'do' found: skip to end or next 'done'
+        for (let j = i + 1; j < lines.length; j++) {
+          if (/^done\b/.test((lines[j] || '').trim())) {
             doneIdx = j;
             break;
+          }
+        }
+      } else {
+        // find matching 'done' from doIdx+1, tracking nested loop/while/until/select depth
+        let depth = 1;
+        for (let j = doIdx + 1; j < lines.length; j++) {
+          const t = (lines[j] || '').trim();
+          if (/^(for|while|until|select)\b/.test(t)) {
+            depth++;
+            continue;
+          }
+          if (/^done\b/.test(t)) {
+            depth--;
+            if (depth === 0) {
+              doneIdx = j;
+              break;
+            }
           }
         }
       }
