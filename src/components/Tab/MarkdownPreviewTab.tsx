@@ -12,7 +12,7 @@ import 'github-markdown-css/github-markdown.css';
 
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
-import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf';
+import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
 import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useTabStore } from '@/stores/tabStore';

@@ -6,7 +6,7 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { exportPage } from '@/engine/export/exportPage';
+import { exportPage } from '@/engine/in-ex/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
@@ -571,7 +571,7 @@ export async function handlePyxisCommand(
             await writeOutput('about:blankの新規タブを開けませんでした。');
             break;
           }
-          const mod = await import('@/engine/export/exportIndexeddb');
+          const mod = await import('@/engine/in-ex/exportIndexeddb');
           mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
         } else {
           await writeOutput(

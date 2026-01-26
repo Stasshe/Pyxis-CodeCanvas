@@ -6,7 +6,7 @@ import { useTranslation } from '@/context/I18nContext';
 
 // Lightning-FSの仮想ファイルシステム取得関数
 import { fileRepository } from '@/engine/core/fileRepository';
-import { inlineHtmlAssets } from '@/engine/export/inlineHtmlAssets';
+import { inlineHtmlAssets } from '@/engine/in-ex/inlineHtmlAssets';
 
 interface WebPreviewTabProps {
   filePath: string;
