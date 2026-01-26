@@ -49,6 +49,9 @@ export default function Home() {
   const [bottomPanelHeight, setBottomPanelHeight] = useState(200);
   const [rightSidebarWidth, setRightSidebarWidth] = useState(240);
   const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
+  const [bottomPanelActiveTab, setBottomPanelActiveTab] = useState<
+    'output' | 'terminal' | 'debug' | 'problems'
+  >('terminal');
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -571,6 +574,8 @@ export default function Home() {
                   currentProjectId={currentProject?.id || ''}
                   projectFiles={projectFiles}
                   onResize={handleBottomResize}
+                  activeTab={bottomPanelActiveTab}
+                  onActiveTabChange={setBottomPanelActiveTab}
                 />
               )}
             </div>
