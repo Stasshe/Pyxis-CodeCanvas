@@ -513,7 +513,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
       <ChatContainer
         messages={messages}
         isProcessing={isProcessing}
-        emptyMessage={mode === 'ask' ? t('AI.ask') : t('AI.edit')}
+        emptyMessage={mode === 'ask' ? t('AI.mode.ask') : t('AI.mode.edit')}
         onRevert={async (message: ChatSpaceMessage) => {
           // Show confirmation dialog instead of executing immediately
           setRevertConfirmation({ open: true, message });

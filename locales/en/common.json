@@ -33,7 +33,7 @@
       "enterSend": "Enter: newline / Ctrl+Enter: send",
       "history": "Alt+↑↓: history"
     },
-    "input": {
+    "mode": {
       "ask": "Ask the AI questions or consult about code...",
       "edit": "Enter instructions to edit code..."
     },
@@ -53,8 +53,6 @@
     },
     "revertTooltip": "Revert this change",
     "sendTitle": "Send (Ctrl+Enter)",
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code...",
     "showPrompt": "Show prompt"
   },
   "aiReviewTab": {
