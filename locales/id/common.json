@@ -6,6 +6,7 @@
     "retry": "Coba lagi"
   },
   "ai": {
+    "applied": "Telah diterapkan",
     "changedFilesList": {
       "count": "{count} file",
       "expand": "Perluas",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: baris baru / Ctrl+Enter: kirim",
       "history": "Alt+↑↓: riwayat"
     },
-    "input": {
-      "ask": "Tanyakan kepada AI atau konsultasikan tentang kode...",
+    "mode": {
+      "ask": "Tanyakan ke AI atau konsultasikan tentang kode...",
       "edit": "Masukkan instruksi untuk mengedit kode..."
     },
-    "sendTitle": "Kirim (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Tanyakan kepada AI atau konsultasikan tentang kode...",
-    "edit": "Masukkan instruksi untuk mengedit kode..."
+    "pending": "Tertunda",
+    "promptDebug": {
+      "close": "Tutup",
+      "copy": "Salin",
+      "sampleInput": "Contoh input",
+      "title": "Debug prompt"
+    },
+    "revert": {
+      "cancel": "Batal",
+      "confirm": "Konfirmasi",
+      "confirmMessage": "Apakah Anda yakin ingin membatalkan perubahan ini?",
+      "confirmTitle": "Kembalikan perubahan",
+      "label": "Kembalikan"
+    },
+    "revertTooltip": "Kembalikan perubahan ini",
+    "sendTitle": "Kirim (Ctrl+Enter)",
+    "showPrompt": "Tampilkan prompt"
   },
   "aiReviewTab": {
     "applyAll": "Terapkan semua",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Konsol Debug",
+    "escButton": "ESC",
     "output": "Output",
     "outputPanel": {
       "all": "Semua",
@@ -98,7 +112,9 @@
     "title": "Ruang obrolan"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Batal",
+    "editable": "Editable",
+    "save": "Simpan"
   },
   "confirmation": {
     "title": "Konfirmasi"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Masukkan kunci API Gemini",
+    "branchFilter": {
+      "all": "Semua",
+      "allMode": "Semua Cabang",
+      "allModeDesc": "Tampilkan commit dari semua cabang",
+      "auto": "Otomatis",
+      "autoMode": "Otomatis (hanya HEAD)",
+      "autoModeDesc": "Tampilkan commit hanya dari cabang saat ini",
+      "localBranch": "Cabang lokal",
+      "remoteBranch": "Cabang jarak jauh",
+      "selectBranches": "Pilih cabang",
+      "selectBranchesDesc": "Pilih cabang tertentu",
+      "selected": "dipilih",
+      "title": "Filter Cabang",
+      "tooltip": "Filter cabang"
+    },
     "changes": "Perubahan",
     "commit": "Commit",
     "commitMessagePlaceholder": "Masukkan pesan commit...",
@@ -151,8 +182,10 @@
     "discard": "Buang",
     "discardAll": "Buang semua",
     "discardAllAndRevert": "Buang semua perubahan dan kembalikan",
+    "discardChangesMessage": "Apakah Anda ingin membuang perubahan ini?",
+    "discardChangesTitle": "Buang perubahan?",
     "errorOccurred": "Terjadi kesalahan",
-    "generateCommitMessage": "Buat pesan commit dengan AI",
+    "generateCommitMessage": "Buat pesan commit dengan AI"},{
     "history": "Riwayat",
     "infoNotAvailable": "Tidak dapat mengambil informasi git",
     "loadingStatus": "Memuat status git...",
@@ -279,12 +312,15 @@
     "noProject": "Buka proyek untuk menjalankan Node.js",
     "outputHint": "Saat Anda menjalankan JavaScript/Node.js/Python, hasil akan ditampilkan di sini. Node.js dan js dapat dijalankan di file yang sama.",
     "runtimeNotReady": "Runtime Python belum diinisialisasi",
+    "selectFile": "#######Select file",
     "stop": "Berhenti",
     "title": "Lingkungan Eksekusi"
   },
   "searchPanel": {
     "caseSensitive": "Peka huruf besar/kecil",
+    "enterToSearch": "#######Press Enter to search",
     "noResults": "Tidak ditemukan hasil",
+    "realtimeMode": "#######Realtime",
     "resultCount": "{count} hasil",
     "searchInFiles": "Cari di file...",
     "searching": "Mencari...",

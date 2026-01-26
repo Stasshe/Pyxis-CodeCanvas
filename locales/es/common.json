@@ -6,6 +6,7 @@
     "retry": "Reintentar"
   },
   "ai": {
+    "applied": "Aplicado",
     "changedFilesList": {
       "count": "{count} archivos",
       "expand": "Expandir",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: nueva línea / Ctrl+Enter: enviar",
       "history": "Alt+↑↓: historial"
     },
-    "input": {
-      "ask": "Pregunte al asistente AI o consulte sobre código...",
-      "edit": "Introduzca instrucciones para editar código..."
+    "mode": {
+      "ask": "Haga preguntas a la IA o consulte sobre el código...",
+      "edit": "Ingrese instrucciones para editar el código..."
     },
-    "sendTitle": "Enviar (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Pregunte al asistente AI o consulte sobre código...",
-    "edit": "Introduzca instrucciones para editar el código..."
+    "pending": "Pendiente",
+    "promptDebug": {
+      "close": "Cerrar",
+      "copy": "Copiar",
+      "sampleInput": "Ejemplo de entrada",
+      "title": "Depuración del prompt"
+    },
+    "revert": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "confirmMessage": "¿Está seguro de que desea revertir el cambio?",
+      "confirmTitle": "Revertir cambio",
+      "label": "Revertir"
+    },
+    "revertTooltip": "Revertir este cambio",
+    "sendTitle": "Enviar (Ctrl+Enter)",
+    "showPrompt": "Mostrar prompt"
   },
   "aiReviewTab": {
     "applyAll": "Aplicar todo",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Consola de depuración",
+    "escButton": "ESC",
     "output": "Salida",
     "outputPanel": {
       "all": "Todo",
@@ -98,7 +112,9 @@
     "title": "Espacios de chat"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Cancelar",
+    "editable": "Editable",
+    "save": "Guardar"
   },
   "confirmation": {
     "title": "Confirmación"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Introduzca la clave de Gemini",
+    "branchFilter": {
+      "all": "Todo",
+      "allMode": "Todas las ramas",
+      "allModeDesc": "Mostrar commits de todas las ramas",
+      "auto": "Automático",
+      "autoMode": "Automático (solo HEAD)",
+      "autoModeDesc": "Mostrar commits solo de la rama actual",
+      "localBranch": "Rama local",
+      "remoteBranch": "Rama remota",
+      "selectBranches": "Seleccionar ramas",
+      "selectBranchesDesc": "Elegir ramas específicas",
+      "selected": "seleccionado",
+      "title": "Filtro de ramas",
+      "tooltip": "Filtro de ramas"
+    },
     "changes": "Cambios",
     "commit": "Confirmar",
     "commitMessagePlaceholder": "Introduzca el mensaje del commit...",
@@ -151,6 +182,8 @@
     "discard": "Descartar",
     "discardAll": "Descartar todo",
     "discardAllAndRevert": "Descartar todos los cambios y revertir",
+    "discardChangesMessage": "¿Desea descartar estos cambios?:",
+    "discardChangesTitle": "Descartar cambios?",
     "errorOccurred": "Ocurrió un error",
     "generateCommitMessage": "Generar con AI",
     "history": "Historial",
@@ -279,12 +312,15 @@
     "noProject": "Abra un proyecto para ejecutar código Node.js",
     "outputHint": "Al ejecutar JavaScript/Node.js/Python, los resultados se mostrarán aquí. Node.js y js se pueden ejecutar en el mismo archivo.",
     "runtimeNotReady": "El runtime de Python no está inicializado",
+    "selectFile": "Seleccionar archivo",
     "stop": "Detener",
     "title": "Entorno de ejecución"
   },
   "searchPanel": {
     "caseSensitive": "Sensible a mayúsculas",
+    "enterToSearch": "Presione Enter para buscar",
     "noResults": "No se encontraron resultados",
+    "realtimeMode": "Tiempo real",
     "resultCount": "{count} resultados",
     "searchInFiles": "Buscar en archivos...",
     "searching": "Buscando...",

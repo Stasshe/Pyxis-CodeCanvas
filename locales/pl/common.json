@@ -6,6 +6,7 @@
     "retry": "Spróbuj ponownie"
   },
   "ai": {
+    "applied": "Zastosowano",
     "changedFilesList": {
       "count": "{count} plików",
       "expand": "Rozwiń",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: nowa linia / Ctrl+Enter: wyślij",
       "history": "Alt+↑↓: historia"
     },
-    "input": {
-      "ask": "Zadaj AI pytanie lub skonsultuj kod...",
-      "edit": "Wprowadź instrukcje do edycji kodu..."
+    "mode": {
+      "ask": "Zadaj pytania AI lub skonsultuj się w sprawie kodu",
+      "edit": "Wpisz instrukcje, aby edytować kod"
     },
-    "sendTitle": "Wyślij (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Zadaj AI pytanie lub skonsultuj kod...",
-    "edit": "Wprowadź instrukcje do edycji kodu..."
+    "pending": "Oczekujące",
+    "promptDebug": {
+      "close": "Fermer",
+      "copy": "Kopiuj",
+      "sampleInput": "Przykładowe wejście",
+      "title": "Debugowanie promptu"
+    },
+    "revert": {
+      "cancel": "Anuluj",
+      "confirm": "Potwierdź",
+      "confirmMessage": "Czy na pewno chcesz cofnąć zmianę?",
+      "confirmTitle": "Cofnij zmianę",
+      "label": "Cofnij"
+    },
+    "revertTooltip": "Cofnij tę zmianę",
+    "sendTitle": "Wyślij (Ctrl+Enter)",
+    "showPrompt": "Pokaż prompt"
   },
   "aiReviewTab": {
     "applyAll": "Zastosuj wszystko",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Konsola debugowania",
+    "escButton": "ESC",
     "output": "Wyjście",
     "outputPanel": {
       "all": "Wszystko",
@@ -98,7 +112,9 @@
     "title": "Przestrzenie czatu"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Anuluj",
+    "editable": "Editable",
+    "save": "Zapisz"
   },
   "confirmation": {
     "title": "Potwierdzenie"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Wprowadź klucz API Gemini",
+    "branchFilter": {
+      "all": "Wszystkie",
+      "allMode": "Wszystkie gałęzie",
+      "allModeDesc": "Pokaż commity ze wszystkich gałęzi",
+      "auto": "Auto",
+      "autoMode": "Auto (tylko HEAD)",
+      "autoModeDesc": "Pokaż commity tylko z aktualnej gałęzi",
+      "localBranch": "Gałąź lokalna",
+      "remoteBranch": "Zdalna gałąź",
+      "selectBranches": "Wybierz gałęzie",
+      "selectBranchesDesc": "Wybierz określone gałęzie",
+      "selected": "wybrane",
+      "title": "Filtr gałęzi",
+      "tooltip": "Filtr gałęzi"
+    },
     "changes": "Zmiany",
     "commit": "Commit",
     "commitMessagePlaceholder": "Wprowadź wiadomość commita...",
@@ -151,6 +182,8 @@
     "discard": "Odrzuć",
     "discardAll": "Odrzuć wszystko",
     "discardAllAndRevert": "Odrzuć wszystko i przywróć",
+    "discardChangesMessage": "Czy chcesz odrzucić te zmiany?",
+    "discardChangesTitle": "Odrzuć zmiany?",
     "errorOccurred": "Wystąpił błąd",
     "generateCommitMessage": "Wygeneruj za pomocą AI",
     "history": "Historia",
@@ -279,12 +312,15 @@
     "noProject": "Otwórz projekt aby uruchomić Node.js",
     "outputHint": "Wyniki wykonania kodu JavaScript/Node.js/Python będą wyświetlane tutaj. Node.js i js mogą być uruchamiane w tym samym pliku.",
     "runtimeNotReady": "Środowisko Python nie zostało zainicjowane",
+    "selectFile": "Wybierz plik",
     "stop": "Zatrzymaj",
     "title": "Środowisko wykonawcze"
   },
   "searchPanel": {
     "caseSensitive": "Rozróżnia wielkość liter",
+    "enterToSearch": "Naciśnij Enter, aby wyszukać",
     "noResults": "Brak wyników",
+    "realtimeMode": "Na żywo",
     "resultCount": "{count} wyników",
     "searchInFiles": "Szukaj w plikach...",
     "searching": "Szukam...",

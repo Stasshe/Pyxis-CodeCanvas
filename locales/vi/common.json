@@ -6,6 +6,7 @@
     "retry": "Thử lại"
   },
   "ai": {
+    "applied": "Đã áp dụng",
     "changedFilesList": {
       "count": "{count} tệp",
       "expand": "Mở rộng",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: xuống dòng / Ctrl+Enter: gửi",
       "history": "Alt+↑↓: lịch sử"
     },
-    "input": {
-      "ask": "Hỏi AI các câu hỏi hoặc tư vấn về mã...",
+    "mode": {
+      "ask": "Hỏi AI hoặc tư vấn về mã...",
       "edit": "Nhập hướng dẫn để chỉnh sửa mã..."
     },
-    "sendTitle": "Gửi (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Hỏi AI các câu hỏi hoặc tư vấn về mã...",
-    "edit": "Nhập hướng dẫn để chỉnh sửa mã..."
+    "pending": "Đang chờ",
+    "promptDebug": {
+      "close": "Đóng",
+      "copy": "Sao chép",
+      "sampleInput": "Ví dụ nhập",
+      "title": "Gỡ lỗi prompt"
+    },
+    "revert": {
+      "cancel": "Hủy",
+      "confirm": "Xác nhận",
+      "confirmMessage": "Bạn có chắc muốn hoàn tác thay đổi này không?",
+      "confirmTitle": "Hoàn tác thay đổi",
+      "label": "Hoàn tác"
+    },
+    "revertTooltip": "Hoàn tác thay đổi này",
+    "sendTitle": "Gửi (Ctrl+Enter)",
+    "showPrompt": "Hiển thị prompt"
   },
   "aiReviewTab": {
     "applyAll": "Áp dụng tất cả",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Bảng điều khiển gỡ lỗi",
+    "escButton": "ESC",
     "output": "Kết quả",
     "outputPanel": {
       "all": "Tất cả",
@@ -98,7 +112,9 @@
     "title": "Không gian trò chuyện"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Hủy",
+    "editable": "Editable",
+    "save": "Lưu"
   },
   "confirmation": {
     "title": "Xác nhận"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Nhập Gemini API key",
+    "branchFilter": {
+      "all": "Tất cả",
+      "allMode": "Tất cả nhánh",
+      "allModeDesc": "Hiển thị commit từ tất cả các nhánh",
+      "auto": "Tự động",
+      "autoMode": "Tự động (chỉ HEAD)",
+      "autoModeDesc": "Hiển thị commit chỉ từ nhánh hiện tại",
+      "localBranch": "Nhánh cục bộ",
+      "remoteBranch": "Nhánh từ xa",
+      "selectBranches": "Chọn nhánh",
+      "selectBranchesDesc": "Chọn nhánh cụ thể",
+      "selected": "đã chọn",
+      "title": "Bộ lọc nhánh",
+      "tooltip": "Bộ lọc nhánh"
+    },
     "changes": "Thay đổi",
     "commit": "Commit",
     "commitMessagePlaceholder": "Nhập thông điệp commit...",
@@ -151,6 +182,8 @@
     "discard": "Bỏ",
     "discardAll": "Bỏ tất cả",
     "discardAllAndRevert": "Bỏ tất cả thay đổi và hoàn tác",
+    "discardChangesMessage": "Bạn có muốn bỏ các thay đổi này không?",
+    "discardChangesTitle": "Bỏ thay đổi?",
     "errorOccurred": "Đã xảy ra lỗi",
     "generateCommitMessage": "Tạo message bằng AI",
     "history": "Lịch sử",
@@ -279,12 +312,15 @@
     "noProject": "Mở một dự án để thực thi mã Node.js",
     "outputHint": "Khi bạn thực thi JavaScript/Node.js/Python, kết quả sẽ hiển thị ở đây. Node.js và js có thể chạy trong cùng tệp.",
     "runtimeNotReady": "Runtime Python chưa khởi tạo",
+    "selectFile": "Chọn tệp",
     "stop": "Dừng",
     "title": "Môi trường thực thi"
   },
   "searchPanel": {
     "caseSensitive": "Phân biệt hoa thường",
+    "enterToSearch": "Nhấn Enter để tìm",
     "noResults": "Không tìm thấy kết quả",
+    "realtimeMode": "Thời gian thực",
     "resultCount": "{count} kết quả",
     "searchInFiles": "Tìm trong tệp...",
     "searching": "Đang tìm...",

@@ -6,6 +6,7 @@
     "retry": "重試"
   },
   "ai": {
+    "applied": "已套用",
     "changedFilesList": {
       "count": "{count} 個",
       "expand": "展開",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: 換行 / Ctrl+Enter: 傳送",
       "history": "Alt+↑↓: 歷史紀錄"
     },
-    "input": {
-      "ask": "向 AI 詢問問題或諮詢程式碼...",
-      "edit": "輸入編輯程式碼的指示..."
+    "mode": {
+      "ask": "向 AI 提問或請教程式碼問題...",
+      "edit": "輸入指示以編輯程式碼..."
     },
-    "sendTitle": "傳送 (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "向 AI 詢問問題或諮詢程式碼...",
-    "edit": "輸入編輯程式碼的指示..."
+    "pending": "等待中",
+    "promptDebug": {
+      "close": "關閉",
+      "copy": "複製",
+      "sampleInput": "輸入範例",
+      "title": "Prompt 偵錯"
+    },
+    "revert": {
+      "cancel": "取消",
+      "confirm": "確認",
+      "confirmMessage": "確定要還原該變更嗎？",
+      "confirmTitle": "還原變更",
+      "label": "還原"
+    },
+    "revertTooltip": "還原此變更",
+    "sendTitle": "傳送 (Ctrl+Enter)",
+    "showPrompt": "顯示提示"
   },
   "aiReviewTab": {
     "applyAll": "全部套用",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "偵錯主控台",
+    "escButton": "ESC",
     "output": "輸出",
     "outputPanel": {
       "all": "全部",
@@ -98,7 +112,9 @@
     "title": "聊天空間"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "取消",
+    "editable": "Editable",
+    "save": "儲存"
   },
   "confirmation": {
     "title": "確認"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "輸入 Gemini API 金鑰",
+    "branchFilter": {
+      "all": "全部",
+      "allMode": "所有分支",
+      "allModeDesc": "顯示來自所有分支的提交",
+      "auto": "自動",
+      "autoMode": "自動（僅 HEAD）",
+      "autoModeDesc": "僅顯示當前分支的提交",
+      "localBranch": "本地分支",
+      "remoteBranch": "遠端分支",
+      "selectBranches": "選擇分支",
+      "selectBranchesDesc": "選擇特定分支",
+      "selected": "已選取",
+      "title": "分支篩選",
+      "tooltip": "分支篩選"
+    },
     "changes": "變更",
     "commit": "提交",
     "commitMessagePlaceholder": "輸入提交訊息...",
@@ -151,8 +182,10 @@
     "discard": "捨棄",
     "discardAll": "全部放棄",
     "discardAllAndRevert": "放棄所有變更並還原",
+    "discardChangesMessage": "您要捨棄這些變更嗎？",
+    "discardChangesTitle": "捨棄變更？",
     "errorOccurred": "發生錯誤",
-    "generateCommitMessage": "用 AI 產生",
+    "generateCommitMessage": "用 AI 產生"},{
     "history": "歷史",
     "infoNotAvailable": "無法取得 git 資訊",
     "loadingStatus": "載入 git 狀態...",
@@ -279,12 +312,15 @@
     "noProject": "請開啟專案以執行 Node.js 程式碼",
     "outputHint": "當你執行 JavaScript/Node.js/Python 程式碼時，結果會顯示在此處。Node.js 與 js 可以在同一檔案執行。",
     "runtimeNotReady": "Python 執行環境尚未初始化",
+    "selectFile": "#######Select file",
     "stop": "停止",
     "title": "執行環境"
   },
   "searchPanel": {
     "caseSensitive": "區分大小寫",
+    "enterToSearch": "#######Press Enter to search",
     "noResults": "找不到結果",
+    "realtimeMode": "#######Realtime",
     "resultCount": "{count} 個結果",
     "searchInFiles": "在檔案中搜尋...",
     "searching": "搜尋中...",

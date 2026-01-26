@@ -6,6 +6,7 @@
     "retry": "重试"
   },
   "ai": {
+    "applied": "已应用",
     "changedFilesList": {
       "count": "{count} 个",
       "expand": "展开",
@@ -32,15 +33,27 @@
       "enterSend": "Enter：换行 / Ctrl+Enter：发送",
       "history": "Alt+↑↓：历史"
     },
-    "input": {
-      "ask": "向 AI 提问或咨询代码...",
+    "mode": {
+      "ask": "向 AI 提问或请教代码相关问题...",
       "edit": "输入指示以编辑代码..."
     },
-    "sendTitle": "发送 (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "向 AI 提问或咨询代码...",
-    "edit": "输入指示以编辑代码..."
+    "pending": "等待中",
+    "promptDebug": {
+      "close": "关闭",
+      "copy": "复制",
+      "sampleInput": "输入示例",
+      "title": "Prompt 调试"
+    },
+    "revert": {
+      "cancel": "取消",
+      "confirm": "确认",
+      "confirmMessage": "确定要还原这些更改吗？",
+      "confirmTitle": "还原更改",
+      "label": "还原"
+    },
+    "revertTooltip": "还原此更改",
+    "sendTitle": "发送 (Ctrl+Enter)",
+    "showPrompt": "显示提示"
   },
   "aiReviewTab": {
     "applyAll": "全部应用",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "调试控制台",
+    "escButton": "ESC",
     "output": "输出",
     "outputPanel": {
       "all": "全部",
@@ -98,7 +112,9 @@
     "title": "聊天空间"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "取消",
+    "editable": "Editable",
+    "save": "保存"
   },
   "confirmation": {
     "title": "确认"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "输入 Gemini API 密钥",
+    "branchFilter": {
+      "all": "全部",
+      "allMode": "所有分支",
+      "allModeDesc": "显示来自所有分支的提交",
+      "auto": "自动",
+      "autoMode": "自动（仅 HEAD）",
+      "autoModeDesc": "仅显示当前分支的提交",
+      "localBranch": "本地分支",
+      "remoteBranch": "远程分支",
+      "selectBranches": "选择分支",
+      "selectBranchesDesc": "选择特定分支",
+      "selected": "已选择",
+      "title": "分支筛选",
+      "tooltip": "分支筛选"
+    },
     "changes": "更改",
     "commit": "提交",
     "commitMessagePlaceholder": "输入提交信息...",
@@ -151,6 +182,8 @@
     "discard": "放弃",
     "discardAll": "全部放弃",
     "discardAllAndRevert": "放弃所有更改并还原",
+    "discardChangesMessage": "您要放弃这些更改吗？",
+    "discardChangesTitle": "放弃更改？",
     "errorOccurred": "发生错误",
     "generateCommitMessage": "用 AI 生成提交信息",
     "history": "历史",
@@ -279,12 +312,15 @@
     "noProject": "打开项目以执行 Node.js 代码",
     "outputHint": "当你执行 JavaScript/Node.js/Python 代码时，结果会显示在此处。Node.js 和 js 可以在同一个文件中执行。",
     "runtimeNotReady": "Python 运行时未初始化",
+    "selectFile": "选择文件",
     "stop": "停止",
     "title": "执行环境"
   },
   "searchPanel": {
     "caseSensitive": "区分大小写",
+    "enterToSearch": "按 Enter 搜索",
     "noResults": "未找到结果",
+    "realtimeMode": "实时",
     "resultCount": "{count} 个结果",
     "searchInFiles": "在文件中搜索...",
     "searching": "搜索中...",
