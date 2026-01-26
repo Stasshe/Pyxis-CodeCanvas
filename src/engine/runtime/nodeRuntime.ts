@@ -15,7 +15,7 @@ import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, toAppPath } from '@/engine/core/pathUtils';
+import { fsPathToAppPath, toAppPath, resolvePath, getParentPath } from '@/engine/core/pathUtils';
 import { type BuiltInModules, createBuiltInModules } from '@/engine/node/builtInModule';
 
 /**
@@ -128,7 +128,7 @@ export class NodeRuntime {
         module: { exports: {} },
         exports: {},
         __filename: filePath,
-        __dirname: this.dirname(filePath),
+        __dirname: getParentPath(filePath),
       };
 
       // module.exportsへの参照を維持
@@ -248,7 +248,7 @@ export class NodeRuntime {
         const module = { exports: {} };
         const exports = module.exports;
         const __filename = ${JSON.stringify(filePath)};
-        const __dirname = ${JSON.stringify(this.dirname(filePath))};
+        const __dirname = ${JSON.stringify(getParentPath(filePath))};
         
         ${code}
         
@@ -451,8 +451,8 @@ export class NodeRuntime {
         }
         // Relative paths
         else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
-          const currentDir = this.dirname(currentFilePath);
-          resolvedPath = this.resolvePath(currentDir, moduleName);
+          const currentDir = getParentPath(currentFilePath);
+          resolvedPath = resolvePath(currentDir, moduleName);
         }
         // Alias (@/)
         else if (moduleName.startsWith('@/')) {
@@ -587,32 +587,6 @@ export class NodeRuntime {
     }
   }
 
-  /**
-   * パスを解決（相対パスを絶対パスに変換）
-   */
-  private resolvePath(basePath: string, relativePath: string): string {
-    const parts = basePath.split('/').filter(Boolean);
-    const relParts = relativePath.split('/').filter(Boolean);
-
-    for (const part of relParts) {
-      if (part === '..') {
-        parts.pop();
-      } else if (part !== '.') {
-        parts.push(part);
-      }
-    }
-
-    return `/${parts.join('/')}`;
-  }
-
-  /**
-   * ディレクトリパスを取得
-   */
-  private dirname(filePath: string): string {
-    const parts = filePath.split('/');
-    parts.pop();
-    return parts.join('/') || '/';
-  }
 
   /**
    * ログ出力
