@@ -27,6 +27,10 @@ export class WcCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { flags, positional } = parseArgs(args);
 
+    if (flags.has('--help')) {
+      return `Usage: wc [options] [file...]\n\nOptions:\n  -l\tlines\n  -w\twords\n  -c\tbytes\n  -m\tchars`;
+    }
+
     // オプション: なければ全部表示
     const showLines = flags.has('-l');
     const showWords = flags.has('-w');

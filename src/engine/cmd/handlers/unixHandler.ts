@@ -73,7 +73,9 @@ export async function handleUnixCommand(
       }
 
       case 'cd': {
-        if (args.length === 0) {
+        if (args.includes('--help') || args.includes('-h')) {
+          await append('Usage: cd [directory]\nChange the shell working directory');
+        } else if (args.length === 0) {
           await append('cd: missing operand\nUsage: cd DIRECTORY');
         } else {
           const result = await unix.cd(args);

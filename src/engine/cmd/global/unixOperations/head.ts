@@ -19,6 +19,10 @@ export class HeadCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { flags, values, positional } = parseArgs(args, ['-n', '-c', '--lines', '--bytes']);
 
+    if (flags.has('--help')) {
+      return `Usage: head [options] [file...]\n\nOptions:\n  -n, --lines=NUM\tshow first NUM lines (default 10)\n  -c, --bytes=NUM\tshow first NUM bytes`;
+    }
+
     if (positional.length === 0) {
       throw new Error('head: missing file operand');
     }

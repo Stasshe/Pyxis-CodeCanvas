@@ -27,6 +27,11 @@ export class TreeCommand extends UnixCommandBase {
     // オプションパース
     const { flags, values, positional } = parseArgs(args, ['-L', '-I', '-P']);
 
+    // --help サポート
+    if (flags.has('--help')) {
+      return `Usage: tree [options] [directory]\n\nOptions:\n  -a\t\tshow all files including those starting with .\n  -d\t\tdirectories only\n  -L level\tmax display depth\n  -I pattern\texclude pattern (pipe-separated)\n  -P pattern\tinclude only files matching pattern\n  -f\t\tprint full path\n  --noreport\tdo not display file/directory count`;
+    }
+
     const showAll = flags.has('-a');
     const dirsOnly = flags.has('-d');
     const fullPath = flags.has('-f');

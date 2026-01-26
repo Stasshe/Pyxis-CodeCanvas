@@ -30,6 +30,10 @@ export class CatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { flags, positional } = parseArgs(args);
 
+    if (flags.has('--help')) {
+      return `Usage: cat [options] [file...]\n\nConcatenate FILE(s) to standard output. Common options: -n, -b, -s, -E, -T`;
+    }
+
     if (positional.length === 0) {
       // stdinがない場合は空を返す
       return '';

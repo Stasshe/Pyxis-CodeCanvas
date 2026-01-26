@@ -30,6 +30,11 @@ export class LsCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { flags, positional } = parseArgs(args);
 
+    // --help (do not override -h which is human-readable)
+    if (flags.has('--help')) {
+      return `Usage: ls [options] [file...]\n\nOptions:\n  -a, --all\t\tshow hidden files\n  -l\t\tshow long listing format\n  -h, --human-readable\tprint sizes in human readable format\n  -R, --recursive\tlist subdirectories recursively\n  -r, --reverse\treverse order while sorting`;
+    }
+
     const showAll = flags.has('-a') || flags.has('--all');
     const almostAll = flags.has('-A') || flags.has('--almost-all');
     const longFormat = flags.has('-l');

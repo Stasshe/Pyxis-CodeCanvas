@@ -20,6 +20,10 @@ export class TailCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { flags, values, positional } = parseArgs(args, ['-n', '-c', '--lines', '--bytes']);
 
+    if (flags.has('--help')) {
+      return `Usage: tail [options] [file...]\n\nOptions:\n  -n, --lines=NUM\tshow last NUM lines (default 10)\n  -c, --bytes=NUM\tshow last NUM bytes`;
+    }
+
     if (positional.length === 0) {
       throw new Error('tail: missing file operand');
     }

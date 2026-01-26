@@ -193,6 +193,11 @@ function shouldPrune(expr: Expression | null, ctx: FindContext): boolean {
 
 export class FindCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
+    // --help support
+    if (args.includes('--help') || args.includes('-h')) {
+      return `Usage: find [path...] [expression]\n\nSearch for files in a directory hierarchy. See man/find for supported expressions and predicates.`;
+    }
+
     // パスと式を分離
     const paths: string[] = [];
     let exprStart = 0;

@@ -11,8 +11,14 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class UnzipCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const archive = args[0];
-    const dest = args[1] || '';
+    const { options, positional } = this.parseOptions(args);
+
+    if (options.has('--help') || options.has('-h')) {
+      return `Usage: unzip ARCHIVE.zip [DEST_DIR]\nExtract files from a ZIP archive into the project.`;
+    }
+
+    const archive = positional[0] || args[0];
+    const dest = positional[1] || '';
     return await this.extract(archive, dest);
   }
 
