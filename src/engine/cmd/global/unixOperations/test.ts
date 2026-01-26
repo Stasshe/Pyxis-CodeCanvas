@@ -1,5 +1,5 @@
+import { type EvalContext, ExprBuilder, ExprParser, type Expression, evaluate } from '../../lib';
 import { UnixCommandBase } from './base';
-import { ExprParser, ExprBuilder, evaluate, type Expression, type EvalContext } from '../../lib';
 
 /**
  * test - 条件式を評価 (POSIX準拠)
@@ -43,14 +43,18 @@ import { ExprParser, ExprBuilder, evaluate, type Expression, type EvalContext } 
  */
 
 interface TestContext extends EvalContext {
-  checkFile: (path: string) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
+  checkFile: (
+    path: string
+  ) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
 }
 
 /**
  * test用の式パーサー
  */
 class TestExprParser extends ExprParser<TestContext> {
-  private checkFile: (path: string) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
+  private checkFile: (
+    path: string
+  ) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
 
   constructor(tokens: string[], checkFile: TestContext['checkFile']) {
     super(tokens);
@@ -87,16 +91,25 @@ class TestExprParser extends ExprParser<TestContext> {
         if (!cached) return false;
 
         switch (tok) {
-          case '-e': return cached.exists;
-          case '-f': return cached.exists && cached.isFile;
-          case '-d': return cached.exists && cached.isDir;
-          case '-r': return cached.exists; // 常に読み取り可能と仮定
-          case '-w': return cached.exists; // 常に書き込み可能と仮定
-          case '-x': return cached.exists; // 常に実行可能と仮定
-          case '-s': return cached.exists && cached.size > 0;
+          case '-e':
+            return cached.exists;
+          case '-f':
+            return cached.exists && cached.isFile;
+          case '-d':
+            return cached.exists && cached.isDir;
+          case '-r':
+            return cached.exists; // 常に読み取り可能と仮定
+          case '-w':
+            return cached.exists; // 常に書き込み可能と仮定
+          case '-x':
+            return cached.exists; // 常に実行可能と仮定
+          case '-s':
+            return cached.exists && cached.size > 0;
           case '-L':
-          case '-h': return false; // シンボリックリンクは非サポート
-          default: return false;
+          case '-h':
+            return false; // シンボリックリンクは非サポート
+          default:
+            return false;
         }
       });
     }
@@ -127,11 +140,16 @@ class TestExprParser extends ExprParser<TestContext> {
         return ExprBuilder.predicate(op, [left, right], () => {
           switch (op) {
             case '=':
-            case '==': return left === right;
-            case '!=': return left !== right;
-            case '<': return left < right;
-            case '>': return left > right;
-            default: return false;
+            case '==':
+              return left === right;
+            case '!=':
+              return left !== right;
+            case '<':
+              return left < right;
+            case '>':
+              return left > right;
+            default:
+              return false;
           }
         });
       }
@@ -146,13 +164,20 @@ class TestExprParser extends ExprParser<TestContext> {
         return ExprBuilder.predicate(op, [left, right], () => {
           if (Number.isNaN(nl) || Number.isNaN(nr)) return false;
           switch (op) {
-            case '-eq': return nl === nr;
-            case '-ne': return nl !== nr;
-            case '-gt': return nl > nr;
-            case '-ge': return nl >= nr;
-            case '-lt': return nl < nr;
-            case '-le': return nl <= nr;
-            default: return false;
+            case '-eq':
+              return nl === nr;
+            case '-ne':
+              return nl !== nr;
+            case '-gt':
+              return nl > nr;
+            case '-ge':
+              return nl >= nr;
+            case '-lt':
+              return nl < nr;
+            case '-le':
+              return nl <= nr;
+            default:
+              return false;
           }
         });
       }

@@ -438,7 +438,11 @@ export default function OperationWindow({
 
   // VSCode風のハイライト関数 - 複数トークンをサポート（スペースで区切られた検索語をハイライト）
   function highlightMatch(text: string, query: string | string[], isSelected: boolean) {
-    const tokens = Array.isArray(query) ? query.filter(Boolean) : String(query || '').split(/\s+/).filter(Boolean);
+    const tokens = Array.isArray(query)
+      ? query.filter(Boolean)
+      : String(query || '')
+          .split(/\s+/)
+          .filter(Boolean);
     if (tokens.length === 0) return <>{text}</>;
 
     // Escape tokens for regex and split text keeping matches

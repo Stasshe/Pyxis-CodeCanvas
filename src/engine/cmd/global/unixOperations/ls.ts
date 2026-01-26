@@ -1,5 +1,5 @@
+import { fnmatch, parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { parseArgs, fnmatch } from '../../lib';
 
 import type { ProjectFile } from '@/types';
 
@@ -162,7 +162,7 @@ export class LsCommand extends UnixCommandBase {
 
       for (const entry of entries) {
         const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
-        result += await this.formatLongEntry(fullPath, opts) + '\n';
+        result += (await this.formatLongEntry(fullPath, opts)) + '\n';
       }
     } else {
       const names = entries.map(e => {
@@ -195,11 +195,14 @@ export class LsCommand extends UnixCommandBase {
   /**
    * エントリをソート
    */
-  private sortEntries(entries: ProjectFile[], opts: {
-    sortByTime: boolean;
-    sortBySize: boolean;
-    reverseSort: boolean;
-  }): ProjectFile[] {
+  private sortEntries(
+    entries: ProjectFile[],
+    opts: {
+      sortByTime: boolean;
+      sortBySize: boolean;
+      reverseSort: boolean;
+    }
+  ): ProjectFile[] {
     const sorted = [...entries];
 
     if (opts.sortByTime) {
@@ -235,10 +238,14 @@ export class LsCommand extends UnixCommandBase {
   /**
    * 名前をフォーマット
    */
-  private formatName(name: string, isDir: boolean, opts: {
-    classify: boolean;
-    slashDir: boolean;
-  }): string {
+  private formatName(
+    name: string,
+    isDir: boolean,
+    opts: {
+      classify: boolean;
+      slashDir: boolean;
+    }
+  ): string {
     let result = name;
     if (isDir && (opts.classify || opts.slashDir)) {
       result += '/';
@@ -258,7 +265,8 @@ export class LsCommand extends UnixCommandBase {
     const rows: string[] = [];
 
     for (let i = 0; i < names.length; i += cols) {
-      const row = names.slice(i, i + cols)
+      const row = names
+        .slice(i, i + cols)
         .map(n => n.padEnd(maxLen))
         .join('');
       rows.push(row.trimEnd());
@@ -295,7 +303,9 @@ export class LsCommand extends UnixCommandBase {
       prefix += `${(Math.random() * 1000000).toFixed(0).padStart(8)} `;
     }
     if (opts.showBlocks) {
-      prefix += `${Math.ceil(size / 512).toString().padStart(4)} `;
+      prefix += `${Math.ceil(size / 512)
+        .toString()
+        .padStart(4)} `;
     }
 
     return `${prefix}${type}${perms} 1 user user ${sizeStr} ${this.formatDate(date)} ${name}${file.type === 'folder' ? '/' : ''}`;
@@ -305,8 +315,20 @@ export class LsCommand extends UnixCommandBase {
    * 日付をフォーマット
    */
   private formatDate(date: Date): string {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const now = new Date();
     const month = months[date.getMonth()];
     const day = date.getDate().toString().padStart(2);

@@ -11,10 +11,7 @@ import { useTabStore } from '@/stores/tabStore';
 /**
  * Open diff tab with test data
  */
-async function openTestDiffTab(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function openTestDiffTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
   const { openTab } = useTabStore.getState();
@@ -63,10 +60,7 @@ goodbye("World");
 /**
  * Open editable diff tab
  */
-async function openEditableDiffTab(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function openEditableDiffTab(args: string[], context: DevCommandContext): Promise<void> {
   const { projectId, writeOutput } = context;
 
   if (!projectId) {
@@ -113,10 +107,7 @@ console.log(message, greeting);
 /**
  * Open multi-file diff tab
  */
-async function openMultiFileDiffTab(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function openMultiFileDiffTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
   const { openTab } = useTabStore.getState();
@@ -165,10 +156,7 @@ async function openMultiFileDiffTab(
 /**
  * Open welcome tab
  */
-async function openWelcomeTab(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function openWelcomeTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
   const { openTab } = useTabStore.getState();
@@ -189,10 +177,7 @@ async function openWelcomeTab(
 /**
  * Open settings tab
  */
-async function openSettingsTab(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function openSettingsTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
   const settingsType = args[0] || 'general';
 
@@ -215,10 +200,7 @@ async function openSettingsTab(
 /**
  * List all open tabs
  */
-async function listTabs(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function listTabs(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
   const { panes, globalActiveTab } = useTabStore.getState();
@@ -252,7 +234,10 @@ async function listTabs(
     await printPane(pane);
   }
 
-  if (panes.length === 0 || panes.every((p: any) => (!p.tabs || p.tabs.length === 0) && !p.children)) {
+  if (
+    panes.length === 0 ||
+    panes.every((p: any) => (!p.tabs || p.tabs.length === 0) && !p.children)
+  ) {
     await writeOutput('No tabs open.');
   }
 }

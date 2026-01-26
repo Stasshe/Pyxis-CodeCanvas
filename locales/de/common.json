@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Keine geänderten Dateien",
-      "title": "Geänderte Dateien",
       "count": "{count} Dateien",
       "expand": "Erweitern",
-      "minimize": "Minimieren"
+      "minimize": "Minimieren",
+      "noChangedFiles": "Keine geänderten Dateien",
+      "title": "Geänderte Dateien"
     },
     "chatContainer": {
       "generating": "Die KI erstellt eine Antwort...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Sie können direkt im rechten Editor bearbeiten",
     "notFound": "AI-Review-Daten nicht gefunden",
     "revert": "Zurücksetzen",
-    "revertSelectionHint": "Sie können auch teilweise zurücksetzen, indem Sie mit der rechten Maustaste klicken und 'Auswahl zurücksetzen' wählen.",
     "revertApplied": "Angewendete zurücksetzen",
-    "revertButton": "Zurücksetzen"
+    "revertButton": "Zurücksetzen",
+    "revertSelectionHint": "Sie können auch teilweise zurücksetzen, indem Sie mit der rechten Maustaste klicken und 'Auswahl zurücksetzen' wählen."
   },
   "auth": {
     "authFailed": "GitHub-Authentifizierung fehlgeschlagen",
@@ -83,8 +83,8 @@
       "clearTooltip": "Aktuell angezeigte Ausgabe löschen",
       "contextLabel": "Kontext",
       "empty": "Keine Ausgabe",
-      "typeLabel": "Typ",
-      "partiallyHidden": "Einige Elemente ausgeblendet"
+      "partiallyHidden": "Einige Elemente ausgeblendet",
+      "typeLabel": "Typ"
     },
     "problems": "Probleme",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Löschen",
     "rename": "Umbenennen",
     "title": "Chat-Bereiche"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Bestätigung"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Diff anzeigen (schreibgeschützt)"
   },
   "gitHistory": {
+    "allFiles": "Alle {count} Dateien",
     "allFilesFiles": "Alle {count} Dateien",
     "allFilesScrollable": "Alle {count} Dateien (scrollbar)",
     "changedFiles": "Geänderte Dateien:",
@@ -197,14 +201,13 @@
     "hoursAgo": "vor {hours} Stunden",
     "justNow": "gerade eben",
     "loadingChanges": "Änderungsinformationen werden geladen...",
+    "loadingMore": "Laden...",
+    "loadMore": "Mehr laden",
     "minutesAgo": "vor {minutes} Minuten",
     "noChangedFiles": "Keine geänderten Dateien gefunden",
     "showAllFilesDiff": "Alle Dateidiffs für diesen Commit anzeigen",
     "showDuplicates": "Duplikate anzeigen",
-    "showFileDiff": "Diff für diese Datei anzeigen",
-    "allFiles": "Alle {count} Dateien",
-    "loadMore": "Mehr laden",
-    "loadingMore": "Laden..."
+    "showFileDiff": "Diff für diese Datei anzeigen"
   },
   "highlightedCode": {
     "copyCode": "Code kopieren"
@@ -235,6 +238,21 @@
     "search": "Suchen",
     "settings": "Einstellungen"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Mit ESC schließen",
     "footerHelp": "Verwenden Sie ↑↓ zum Auswählen, Enter zum Öffnen",
@@ -246,6 +264,18 @@
     "openInPreview": "In Vorschau öffnen",
     "quickOpen": "Schnell öffnen",
     "searchPlaceholder": "Nach Datei/Ordnername oder Pfad suchen..."
+  },
+  "paneNavigator": {
+    "activate": "Aktivieren",
+    "close": "Schließen",
+    "deletePane": "Bereich löschen",
+    "emptyPane": "Leer",
+    "navigate": "Navigieren",
+    "splitHorizontal": "Horizontal teilen",
+    "splitVertical": "Vertikal teilen",
+    "tab": "Tab",
+    "tabs": "Tabs",
+    "title": "Bereich-Navigator"
   },
   "projectModal": {
     "cancel": "Abbrechen",
@@ -342,13 +372,25 @@
       "title": "Suche",
       "useIgnoreFiles": "Ignore-Dateien wie .gitignore verwenden"
     },
+    "shortcutKeys": "Tastenkombinationen",
     "theme": {
       "colorCustomize": "Farbanpassung",
       "colorTheme": "Farbschema",
       "highlightTheme": "Code-Highlight",
       "title": "Theme"
-    },
-    "shortcutKeys": "Tastenkombinationen"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Automatisch gespeichert",
+    "clickToEdit": "Klicken zum Bearbeiten",
+    "enterNewKey": "Neue Taste eingeben",
+    "escToCancel": "Esc zum Abbrechen",
+    "noResults": "Keine passenden Tastenkombinationen gefunden",
+    "pressKey": "Taste drücken...",
+    "resetDefaults": "Auf Standard zurücksetzen",
+    "searchPlaceholder": "Suchen (Funktion, Taste)...",
+    "shortcutFor": "Tastenkombination für",
+    "title": "Tastenkombinationen"
   },
   "tabBar": {
     "closeTab": "Tab schließen",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Einbetten von HTML-Assets fehlgeschlagen",
     "notFound": "Datei oder Ordner nicht gefunden"
   },
-  "paneNavigator": {
-    "activate": "Aktivieren",
-    "close": "Schließen",
-    "deletePane": "Bereich löschen",
-    "emptyPane": "Leer",
-    "navigate": "Navigieren",
-    "splitHorizontal": "Horizontal teilen",
-    "splitVertical": "Vertikal teilen",
-    "tab": "Tab",
-    "tabs": "Tabs",
-    "title": "Bereich-Navigator"
-  },
-  "shortcutKeys": {
-    "title": "Tastenkombinationen",
-    "searchPlaceholder": "Suchen (Funktion, Taste)...",
-    "resetDefaults": "Auf Standard zurücksetzen",
-    "noResults": "Keine passenden Tastenkombinationen gefunden",
-    "clickToEdit": "Klicken zum Bearbeiten",
-    "enterNewKey": "Neue Taste eingeben",
-    "shortcutFor": "Tastenkombination für",
-    "pressKey": "Taste drücken...",
-    "escToCancel": "Esc zum Abbrechen",
-    "autoSaved": "Automatisch gespeichert"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Sie sehen den Entwicklungsserver (Render).",
+      "officialSite": "die offizielle Website (GitHub Pages)",
       "stableVersion": "Für eine stabile Version besuchen Sie",
-      "officialSite": "die offizielle Website (GitHub Pages)"
+      "warning": "⚠️ Sie sehen den Entwicklungsserver (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

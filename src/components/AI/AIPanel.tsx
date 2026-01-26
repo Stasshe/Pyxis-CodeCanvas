@@ -538,12 +538,24 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
               <div className="text-xs font-medium">{t('ai.changedFilesList.title')}</div>
               <div className="flex items-center gap-2">
                 <div className="text-xs opacity-80">
-                  {t('ai.changedFilesList.count', { params: { count: latestEditResponse.changedFiles.filter(f => !f.applied).length } })}
+                  {t('ai.changedFilesList.count', {
+                    params: {
+                      count: latestEditResponse.changedFiles.filter(f => !f.applied).length,
+                    },
+                  })}
                 </div>
                 <button
                   type="button"
-                  aria-label={isChangedFilesMinimized ? t('ai.changedFilesList.expand') : t('ai.changedFilesList.minimize')}
-                  title={isChangedFilesMinimized ? t('ai.changedFilesList.expand') : t('ai.changedFilesList.minimize')}
+                  aria-label={
+                    isChangedFilesMinimized
+                      ? t('ai.changedFilesList.expand')
+                      : t('ai.changedFilesList.minimize')
+                  }
+                  title={
+                    isChangedFilesMinimized
+                      ? t('ai.changedFilesList.expand')
+                      : t('ai.changedFilesList.minimize')
+                  }
                   className="p-1 rounded hover:opacity-80"
                   onClick={() => setIsChangedFilesMinimized(prev => !prev)}
                   style={{ color: colors.foreground }}

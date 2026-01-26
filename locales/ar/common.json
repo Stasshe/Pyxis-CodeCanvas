@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "لا توجد ملفات مُعدلة",
-      "title": "الملفات المُعدلة",
       "count": "{count} ملفات",
       "expand": "توسيع",
-      "minimize": "تصغير"
+      "minimize": "تصغير",
+      "noChangedFiles": "لا توجد ملفات مُعدلة",
+      "title": "الملفات المُعدلة"
     },
     "chatContainer": {
       "generating": "الذكاء الاصطناعي يقوم بإنشاء استجابة...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "يمكنك التحرير مباشرة في المحرر الأيمن",
     "notFound": "بيانات مراجعة AI غير موجودة",
     "revert": "استعادة",
-    "revertSelectionHint": "يمكنك أيضًا التراجع جزئيًا بالنقر بزر الماوس الأيمن واختيار 'استعادة التحديد'.",
     "revertApplied": "استعادة المطبقة",
-    "revertButton": "استعادة"
+    "revertButton": "استعادة",
+    "revertSelectionHint": "يمكنك أيضًا التراجع جزئيًا بالنقر بزر الماوس الأيمن واختيار 'استعادة التحديد'."
   },
   "auth": {
     "authFailed": "فشل مصادقة GitHub",
@@ -83,8 +83,8 @@
       "clearTooltip": "مسح المخرجات المعروضة حاليًا",
       "contextLabel": "السياق",
       "empty": "لا توجد مخرجات",
-      "typeLabel": "النوع",
-      "partiallyHidden": "بعض العناصر مخفية"
+      "partiallyHidden": "بعض العناصر مخفية",
+      "typeLabel": "النوع"
     },
     "problems": "المشاكل",
     "terminal": "الطرفية",
@@ -113,6 +113,9 @@
     "delete": "حذف",
     "rename": "إعادة التسمية",
     "title": "مساحات الدردشة"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "تأكيد"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "عرض الفرق (للقراءة فقط)"
   },
   "gitHistory": {
+    "allFiles": "جميع {count} الملفات",
     "allFilesFiles": "جميع {count} الملفات",
     "allFilesScrollable": "جميع {count} الملفات (قابلة للتمرير)",
     "changedFiles": "الملفات المُعدلة:",
@@ -197,14 +201,13 @@
     "hoursAgo": "منذ {hours} ساعات",
     "justNow": "الآن",
     "loadingChanges": "جارٍ تحميل معلومات التغيير...",
+    "loadingMore": "جارٍ التحميل...",
+    "loadMore": "تحميل المزيد",
     "minutesAgo": "منذ {minutes} دقائق",
     "noChangedFiles": "لم يتم العثور على ملفات مُعدلة",
     "showAllFilesDiff": "عرض جميع فروق الملفات لهذا الالتزام",
     "showDuplicates": "إظهار الالتزامات المكررة",
-    "showFileDiff": "عرض الفرق لهذا الملف",
-    "allFiles": "جميع {count} الملفات",
-    "loadMore": "تحميل المزيد",
-    "loadingMore": "جارٍ التحميل..."
+    "showFileDiff": "عرض الفرق لهذا الملف"
   },
   "highlightedCode": {
     "copyCode": "نسخ الشيفرة"
@@ -235,6 +238,21 @@
     "search": "بحث",
     "settings": "الإعدادات"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "إغلاق بزر ESC",
     "footerHelp": "استخدم ↑↓ للاختيار، Enter للفتح",
@@ -246,6 +264,18 @@
     "openInPreview": "فتح في المعاينة",
     "quickOpen": "فتح سريع",
     "searchPlaceholder": "ابحث باسم الملف/المجلد أو المسار..."
+  },
+  "paneNavigator": {
+    "activate": "تفعيل",
+    "close": "إغلاق",
+    "deletePane": "حذف اللوحة",
+    "emptyPane": "فارغ",
+    "navigate": "تنقل",
+    "splitHorizontal": "تقسيم أفقي",
+    "splitVertical": "تقسيم عمودي",
+    "tab": "تبويب",
+    "tabs": "تبويبات",
+    "title": "متصفح اللوحات"
   },
   "projectModal": {
     "cancel": "إلغاء",
@@ -342,13 +372,25 @@
       "title": "البحث",
       "useIgnoreFiles": "استخدام ملفات التجاهل مثل .gitignore"
     },
+    "shortcutKeys": "اختصارات لوحة المفاتيح",
     "theme": {
       "colorCustomize": "تخصيص الألوان",
       "colorTheme": "سمة الألوان",
       "highlightTheme": "سمة التمييز",
       "title": "السمة"
-    },
-    "shortcutKeys": "اختصارات لوحة المفاتيح"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "حفظ تلقائي",
+    "clickToEdit": "انقر للتحرير",
+    "enterNewKey": "أدخل مفتاح جديد",
+    "escToCancel": "Esc للإلغاء",
+    "noResults": "لم يتم العثور على اختصارات مطابقة",
+    "pressKey": "اضغط على مفتاح...",
+    "resetDefaults": "إعادة التعيين للافتراضي",
+    "searchPlaceholder": "بحث (الوظيفة، المفتاح)...",
+    "shortcutFor": "اختصار لـ",
+    "title": "اختصارات لوحة المفاتيح"
   },
   "tabBar": {
     "closeTab": "إغلاق التبويب",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "فشل تضمين أصول HTML",
     "notFound": "الملف أو المجلد غير موجود"
   },
-  "paneNavigator": {
-    "activate": "تفعيل",
-    "close": "إغلاق",
-    "deletePane": "حذف اللوحة",
-    "emptyPane": "فارغ",
-    "navigate": "تنقل",
-    "splitHorizontal": "تقسيم أفقي",
-    "splitVertical": "تقسيم عمودي",
-    "tab": "تبويب",
-    "tabs": "تبويبات",
-    "title": "متصفح اللوحات"
-  },
-  "shortcutKeys": {
-    "title": "اختصارات لوحة المفاتيح",
-    "searchPlaceholder": "بحث (الوظيفة، المفتاح)...",
-    "resetDefaults": "إعادة التعيين للافتراضي",
-    "noResults": "لم يتم العثور على اختصارات مطابقة",
-    "clickToEdit": "انقر للتحرير",
-    "enterNewKey": "أدخل مفتاح جديد",
-    "shortcutFor": "اختصار لـ",
-    "pressKey": "اضغط على مفتاح...",
-    "escToCancel": "Esc للإلغاء",
-    "autoSaved": "حفظ تلقائي"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ أنت تستعرض خادم التطوير (Render).",
+      "officialSite": "الموقع الرسمي (GitHub Pages)",
       "stableVersion": "للحصول على تجربة مستقرة، يرجى زيارة",
-      "officialSite": "الموقع الرسمي (GitHub Pages)"
+      "warning": "⚠️ أنت تستعرض خادم التطوير (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

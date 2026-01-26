@@ -1,6 +1,6 @@
+import { authRepository } from '@/engine/user/authRepository';
 // src/engine/cmd/global/gitOperations/commit.ts
 import git from 'isomorphic-git';
-import { authRepository } from '@/engine/user/authRepository';
 
 export async function commit(
   fs: any,
@@ -41,7 +41,13 @@ export async function commit(
       console.warn('[git commit] Failed to get GitHub user info, using default:', error);
     }
 
-    const sha = await git.commit({ fs, dir, message, author: commitAuthor, committer: commitAuthor });
+    const sha = await git.commit({
+      fs,
+      dir,
+      message,
+      author: commitAuthor,
+      committer: commitAuthor,
+    });
 
     return `[main ${sha.slice(0, 7)}] ${message}`;
   } catch (error) {

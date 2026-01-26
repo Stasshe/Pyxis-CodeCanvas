@@ -66,7 +66,7 @@ Commands:
       case 'checkout':
         return 'usage: git checkout [-b <new-branch>] <branch>\nSwitch branches or restore working tree files.';
       case 'switch':
-        return 'usage: git switch [-c|--create] <branch>\nSwitch branches (experimental).' ;
+        return 'usage: git switch [-c|--create] <branch>\nSwitch branches (experimental).';
       case 'branch':
         return 'usage: git branch [-d|-D] [name]\nList, create, or delete branches.';
       case 'revert':

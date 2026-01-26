@@ -1,9 +1,9 @@
 'use client';
 
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
 import { loader } from '@monaco-editor/react';
-import { useTranslation } from '@/context/I18nContext';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -372,7 +372,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             );
           })}
           {displayedMarkers.length !== allMarkers.length && (
-            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>{t('bottom.outputPanel.partiallyHidden')}</div>
+            <div style={{ fontSize: 10, color: colors.mutedFg, marginTop: 4 }}>
+              {t('bottom.outputPanel.partiallyHidden')}
+            </div>
           )}
         </div>
       ) : (

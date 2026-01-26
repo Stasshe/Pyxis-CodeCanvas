@@ -1,6 +1,6 @@
+import type { ProjectFile } from '@/types';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import type { ProjectFile } from '@/types';
 
 import { useTranslation } from '@/context/I18nContext';
 

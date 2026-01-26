@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Inga ändrade filer",
-      "title": "Ändrade filer",
       "count": "{count} filer",
       "expand": "Expandera",
-      "minimize": "Minimera"
+      "minimize": "Minimera",
+      "noChangedFiles": "Inga ändrade filer",
+      "title": "Ändrade filer"
     },
     "chatContainer": {
       "generating": "AI genererar ett svar...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Du kan redigera direkt i den högra editorn",
     "notFound": "AI-granskningsdata hittades inte",
     "revert": "Återställ",
-    "revertSelectionHint": "Du kan också delvis återställa genom att högerklicka och välja 'Återställ val'.",
     "revertApplied": "Återställ tillämpade",
-    "revertButton": "Återställ"
+    "revertButton": "Återställ",
+    "revertSelectionHint": "Du kan också delvis återställa genom att högerklicka och välja 'Återställ val'."
   },
   "auth": {
     "authFailed": "GitHub-autentisering misslyckades",
@@ -83,8 +83,8 @@
       "clearTooltip": "Rensa visade utdata",
       "contextLabel": "Kontext",
       "empty": "Inga utdata",
-      "typeLabel": "Typ",
-      "partiallyHidden": "Vissa objekt dolda"
+      "partiallyHidden": "Vissa objekt dolda",
+      "typeLabel": "Typ"
     },
     "problems": "Problem",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Ta bort",
     "rename": "Byt namn",
     "title": "Chattutrymmen"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Bekräftelse"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Visa diff (skrivskyddad)"
   },
   "gitHistory": {
+    "allFiles": "Alla {count} filer",
     "allFilesFiles": "Alla {count} filer",
     "allFilesScrollable": "Alla {count} filer (rullningsbar)",
     "changedFiles": "Ändrade filer:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} timmar sedan",
     "justNow": "precis nu",
     "loadingChanges": "Laddar ändringsinfo...",
+    "loadingMore": "Laddar...",
+    "loadMore": "Ladda mer",
     "minutesAgo": "{minutes} minuter sedan",
     "noChangedFiles": "Inga ändrade filer hittades",
     "showAllFilesDiff": "Visa alla fildiffar för denna commit",
     "showDuplicates": "Visa dubbletter",
-    "showFileDiff": "Visa diff för denna fil",
-    "allFiles": "Alla {count} filer",
-    "loadMore": "Ladda mer",
-    "loadingMore": "Laddar..."
+    "showFileDiff": "Visa diff för denna fil"
   },
   "highlightedCode": {
     "copyCode": "Kopiera kod"
@@ -235,6 +238,21 @@
     "search": "Sök",
     "settings": "Inställningar"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Stäng med ESC",
     "footerHelp": "Använd ↑↓ för att välja, Enter för att öppna",
@@ -246,6 +264,18 @@
     "openInPreview": "Öppna i förhandsvisning",
     "quickOpen": "Snabböppna",
     "searchPlaceholder": "Sök efter fil-/mappnamn eller sökväg..."
+  },
+  "paneNavigator": {
+    "activate": "Aktivera",
+    "close": "Stäng",
+    "deletePane": "Ta bort panel",
+    "emptyPane": "Tom",
+    "navigate": "Navigera",
+    "splitHorizontal": "Dela horisontellt",
+    "splitVertical": "Dela vertikalt",
+    "tab": "flik",
+    "tabs": "flikar",
+    "title": "Panelnavigator"
   },
   "projectModal": {
     "cancel": "Avbryt",
@@ -342,13 +372,25 @@
       "title": "Sök",
       "useIgnoreFiles": "Använd ignore-filer som .gitignore"
     },
+    "shortcutKeys": "Kortkommandon",
     "theme": {
       "colorCustomize": "Anpassa färger",
       "colorTheme": "Färgtema",
       "highlightTheme": "Kodmarkerings-tema",
       "title": "Tema"
-    },
-    "shortcutKeys": "Kortkommandon"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Sparat automatiskt",
+    "clickToEdit": "Klicka för att redigera",
+    "enterNewKey": "Ange ny tangent",
+    "escToCancel": "Esc för att avbryta",
+    "noResults": "Inga matchande kortkommandon hittades",
+    "pressKey": "Tryck på en tangent...",
+    "resetDefaults": "Återställ till standard",
+    "searchPlaceholder": "Sök (funktion, tangent)...",
+    "shortcutFor": "kortkommando för",
+    "title": "Kortkommandon"
   },
   "tabBar": {
     "closeTab": "Stäng flik",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Misslyckades med att inlinea HTML-resurser",
     "notFound": "Fil eller mapp hittades inte"
   },
-  "paneNavigator": {
-    "activate": "Aktivera",
-    "close": "Stäng",
-    "deletePane": "Ta bort panel",
-    "emptyPane": "Tom",
-    "navigate": "Navigera",
-    "splitHorizontal": "Dela horisontellt",
-    "splitVertical": "Dela vertikalt",
-    "tab": "flik",
-    "tabs": "flikar",
-    "title": "Panelnavigator"
-  },
-  "shortcutKeys": {
-    "title": "Kortkommandon",
-    "searchPlaceholder": "Sök (funktion, tangent)...",
-    "resetDefaults": "Återställ till standard",
-    "noResults": "Inga matchande kortkommandon hittades",
-    "clickToEdit": "Klicka för att redigera",
-    "enterNewKey": "Ange ny tangent",
-    "shortcutFor": "kortkommando för",
-    "pressKey": "Tryck på en tangent...",
-    "escToCancel": "Esc för att avbryta",
-    "autoSaved": "Sparat automatiskt"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Du tittar på utvecklingsservern (Render).",
+      "officialSite": "den officiella webbplatsen (GitHub Pages)",
       "stableVersion": "För en stabil upplevelse, besök",
-      "officialSite": "den officiella webbplatsen (GitHub Pages)"
+      "warning": "⚠️ Du tittar på utvecklingsservern (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

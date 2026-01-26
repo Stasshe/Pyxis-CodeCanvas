@@ -25,9 +25,7 @@ export default function WelcomeTab() {
           {/* 🟡 onrender.com向け注意表示 */}
           {process.env.NEXT_PUBLIC_IS_DEV_SERVER && (
             <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg shadow mb-8 border border-yellow-300">
-              <p className="font-semibold mb-1">
-                {t('welcome.devServer.warning')}
-              </p>
+              <p className="font-semibold mb-1">{t('welcome.devServer.warning')}</p>
               <p>
                 {t('welcome.devServer.stableVersion')}{' '}
                 <a

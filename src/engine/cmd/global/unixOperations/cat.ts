@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
@@ -46,8 +46,12 @@ export class CatCommand extends UnixCommandBase {
     const squeezeBlank = flags.has('-s') || flags.has('--squeeze-blank');
     const showEnds = flags.has('-E') || flags.has('--show-ends') || showAll || flags.has('-e');
     const showTabs = flags.has('-T') || flags.has('--show-tabs') || showAll || flags.has('-t');
-    const showNonprinting = flags.has('-v') || flags.has('--show-nonprinting') || 
-                           showAll || flags.has('-e') || flags.has('-t');
+    const showNonprinting =
+      flags.has('-v') ||
+      flags.has('--show-nonprinting') ||
+      showAll ||
+      flags.has('-e') ||
+      flags.has('-t');
 
     const results: string[] = [];
 
@@ -100,7 +104,7 @@ export class CatCommand extends UnixCommandBase {
     if (file.isBufferArray && file.bufferContent) {
       return new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
     }
-    
+
     return typeof file.content === 'string' ? file.content : '';
   }
 

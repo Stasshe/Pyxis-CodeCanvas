@@ -72,7 +72,12 @@ export function createModuleNotFoundError(moduleName: string, parent?: string): 
 /**
  * Create a Node.js-style syntax error with code location
  */
-export function createSyntaxError(message: string, filePath?: string, line?: number, column?: number): SyntaxError {
+export function createSyntaxError(
+  message: string,
+  filePath?: string,
+  line?: number,
+  column?: number
+): SyntaxError {
   let fullMessage = message;
   if (filePath) {
     fullMessage = `${filePath}${line ? `:${line}` : ''}${column ? `:${column}` : ''}\n${message}`;

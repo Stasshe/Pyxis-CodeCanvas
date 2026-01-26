@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
+import { UnixCommandBase } from './base';
 
 /**
  * head - ファイルの先頭部分を表示 (POSIX/GNU準拠)

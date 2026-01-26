@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "沒有變更的檔案",
-      "title": "已變更的檔案",
       "count": "{count} 個",
       "expand": "展開",
-      "minimize": "最小化"
+      "minimize": "最小化",
+      "noChangedFiles": "沒有變更的檔案",
+      "title": "已變更的檔案"
     },
     "chatContainer": {
       "generating": "AI 正在產生回應...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "你可以直接在右側編輯器編輯",
     "notFound": "找不到 AI 審查資料",
     "revert": "還原",
-    "revertSelectionHint": "你也可以右鍵點擊選取項目並選擇「還原選取」。",
     "revertApplied": "撤銷已套用的變更",
-    "revertButton": "撤銷"
+    "revertButton": "撤銷",
+    "revertSelectionHint": "你也可以右鍵點擊選取項目並選擇「還原選取」。"
   },
   "auth": {
     "authFailed": "GitHub 驗證失敗",
@@ -83,8 +83,8 @@
       "clearTooltip": "清除目前顯示的輸出",
       "contextLabel": "上下文",
       "empty": "沒有輸出",
-      "typeLabel": "類型",
-      "partiallyHidden": "部分內容已隱藏"
+      "partiallyHidden": "部分內容已隱藏",
+      "typeLabel": "類型"
     },
     "problems": "問題",
     "terminal": "終端機",
@@ -113,6 +113,9 @@
     "delete": "刪除",
     "rename": "重新命名",
     "title": "聊天空間"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "確認"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "查看差異（唯讀）"
   },
   "gitHistory": {
+    "allFiles": "全部 {count} 個檔案",
     "allFilesFiles": "全部 {count} 檔案（可捲動）",
     "allFilesScrollable": "全部 {count} 檔案（可捲動）",
     "changedFiles": "已變更的檔案：",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} 小時前",
     "justNow": "剛剛",
     "loadingChanges": "載入變更資訊...",
+    "loadingMore": "載入中...",
+    "loadMore": "載入更多",
     "minutesAgo": "{minutes} 分鐘前",
     "noChangedFiles": "找不到已變更的檔案",
     "showAllFilesDiff": "顯示此提交的所有檔案差異",
     "showDuplicates": "顯示重複提交",
-    "showFileDiff": "顯示此檔案的差異",
-    "allFiles": "全部 {count} 個檔案",
-    "loadMore": "載入更多",
-    "loadingMore": "載入中..."
+    "showFileDiff": "顯示此檔案的差異"
   },
   "highlightedCode": {
     "copyCode": "複製程式碼"
@@ -235,6 +238,21 @@
     "search": "搜尋",
     "settings": "設定"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "按 ESC 關閉",
     "footerHelp": "使用 ↑↓ 選擇，Enter 開啟",
@@ -246,6 +264,18 @@
     "openInPreview": "在預覽中開啟",
     "quickOpen": "快速開啟",
     "searchPlaceholder": "依檔案/資料夾名稱或路徑搜尋..."
+  },
+  "paneNavigator": {
+    "activate": "啟用",
+    "close": "關閉",
+    "deletePane": "刪除窗格",
+    "emptyPane": "空",
+    "navigate": "導航",
+    "splitHorizontal": "水平分割",
+    "splitVertical": "垂直分割",
+    "tab": "分頁",
+    "tabs": "分頁",
+    "title": "窗格導航器"
   },
   "projectModal": {
     "cancel": "取消",
@@ -342,13 +372,25 @@
       "title": "搜尋",
       "useIgnoreFiles": "使用如 .gitignore 的忽略檔案"
     },
+    "shortcutKeys": "快捷鍵設定",
     "theme": {
       "colorCustomize": "自訂色彩",
       "colorTheme": "配色主題",
       "highlightTheme": "語法主題",
       "title": "主題"
-    },
-    "shortcutKeys": "快捷鍵設定"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "自動儲存",
+    "clickToEdit": "點擊編輯",
+    "enterNewKey": "輸入新的按鍵",
+    "escToCancel": "Esc 取消",
+    "noResults": "找不到符合的快捷鍵",
+    "pressKey": "請按下按鍵...",
+    "resetDefaults": "重置為預設值",
+    "searchPlaceholder": "搜尋（功能名、按鍵）...",
+    "shortcutFor": "的快捷鍵",
+    "title": "快捷鍵"
   },
   "tabBar": {
     "closeTab": "關閉分頁",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "內嵌 HTML 資產失敗",
     "notFound": "找不到檔案或資料夾"
   },
-  "paneNavigator": {
-    "activate": "啟用",
-    "close": "關閉",
-    "deletePane": "刪除窗格",
-    "emptyPane": "空",
-    "navigate": "導航",
-    "splitHorizontal": "水平分割",
-    "splitVertical": "垂直分割",
-    "tab": "分頁",
-    "tabs": "分頁",
-    "title": "窗格導航器"
-  },
-  "shortcutKeys": {
-    "title": "快捷鍵",
-    "searchPlaceholder": "搜尋（功能名、按鍵）...",
-    "resetDefaults": "重置為預設值",
-    "noResults": "找不到符合的快捷鍵",
-    "clickToEdit": "點擊編輯",
-    "enterNewKey": "輸入新的按鍵",
-    "shortcutFor": "的快捷鍵",
-    "pressKey": "請按下按鍵...",
-    "escToCancel": "Esc 取消",
-    "autoSaved": "自動儲存"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ 您正在使用開發伺服器（Render）。",
+      "officialSite": "官方網站（GitHub Pages）",
       "stableVersion": "如需穩定版本，請訪問",
-      "officialSite": "官方網站（GitHub Pages）"
+      "warning": "⚠️ 您正在使用開發伺服器（Render）。"
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

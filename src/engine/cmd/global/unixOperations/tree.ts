@@ -1,5 +1,5 @@
+import { FNM_CASEFOLD, fnmatch, parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fnmatch, FNM_CASEFOLD, parseArgs } from '../../lib';
 
 import type { ProjectFile } from '@/types';
 

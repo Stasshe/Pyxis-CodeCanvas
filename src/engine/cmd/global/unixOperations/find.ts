@@ -1,16 +1,16 @@
-import { UnixCommandBase } from './base';
 import {
-  fnmatch,
-  fnmatchPath,
-  FNM_CASEFOLD,
-  FNM_PATHNAME,
-  parseArgs,
+  type EvalContext,
   ExprBuilder,
   ExprParser,
-  evaluate,
   type Expression,
-  type EvalContext,
+  FNM_CASEFOLD,
+  FNM_PATHNAME,
+  evaluate,
+  fnmatch,
+  fnmatchPath,
+  parseArgs,
 } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import type { ProjectFile } from '@/types';
 
@@ -149,7 +149,12 @@ class FindExprParser extends ExprParser<FindContext> {
         if (tok.startsWith('-')) {
           this.stream.consume();
           const next = this.stream.peek();
-          if (next && !next.startsWith('-') && !this.isOpenGroup(next) && !this.isCloseGroup(next)) {
+          if (
+            next &&
+            !next.startsWith('-') &&
+            !this.isOpenGroup(next) &&
+            !this.isCloseGroup(next)
+          ) {
             this.stream.consume();
           }
           return null;
@@ -181,7 +186,9 @@ function shouldPrune(expr: Expression | null, ctx: FindContext): boolean {
       return false;
 
     case 'or':
-      return shouldPrune(expr.left as Expression, ctx) || shouldPrune(expr.right as Expression, ctx);
+      return (
+        shouldPrune(expr.left as Expression, ctx) || shouldPrune(expr.right as Expression, ctx)
+      );
 
     case 'not':
       return false;

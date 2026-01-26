@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Değişen dosya yok",
-      "title": "Değişen dosyalar",
       "count": "{count} dosya",
       "expand": "Genişlet",
-      "minimize": "Küçült"
+      "minimize": "Küçült",
+      "noChangedFiles": "Değişen dosya yok",
+      "title": "Değişen dosyalar"
     },
     "chatContainer": {
       "generating": "Yapay zeka cevap üretiyor...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Sağ editörde doğrudan düzenleyebilirsiniz",
     "notFound": "AI inceleme verisi bulunamadı",
     "revert": "Geri al",
-    "revertSelectionHint": "Ayrıca sağ tıklayıp 'Seçimi geri al' ile kısmi geri alabilirsiniz.",
     "revertApplied": "Uygulananları geri al",
-    "revertButton": "Geri al"
+    "revertButton": "Geri al",
+    "revertSelectionHint": "Ayrıca sağ tıklayıp 'Seçimi geri al' ile kısmi geri alabilirsiniz."
   },
   "auth": {
     "authFailed": "GitHub kimlik doğrulaması başarısız",
@@ -83,8 +83,8 @@
       "clearTooltip": "Şu an gösterilen çıktıyı temizle",
       "contextLabel": "Bağlam",
       "empty": "Çıktı yok",
-      "typeLabel": "Tür",
-      "partiallyHidden": "Bazı öğeler gizli"
+      "partiallyHidden": "Bazı öğeler gizli",
+      "typeLabel": "Tür"
     },
     "problems": "Sorunlar",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Sil",
     "rename": "Yeniden adlandır",
     "title": "Sohbet alanları"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Onay"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Farkı görüntüle (salt okunur)"
   },
   "gitHistory": {
+    "allFiles": "Tüm {count} dosya",
     "allFilesFiles": "Tüm {count} dosya",
     "allFilesScrollable": "Tüm {count} dosya (kaydırılabilir)",
     "changedFiles": "Değişen dosyalar:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} saat önce",
     "justNow": "az önce",
     "loadingChanges": "Değişiklik bilgileri yükleniyor...",
+    "loadingMore": "Yükleniyor...",
+    "loadMore": "Daha fazla yükle",
     "minutesAgo": "{minutes} dakika önce",
     "noChangedFiles": "Hiç değişen dosya bulunamadı",
     "showAllFilesDiff": "Bu commit için tüm dosya farklarını göster",
     "showDuplicates": "Tekrar edenleri göster",
-    "showFileDiff": "Bu dosya için farkı göster",
-    "allFiles": "Tüm {count} dosya",
-    "loadMore": "Daha fazla yükle",
-    "loadingMore": "Yükleniyor..."
+    "showFileDiff": "Bu dosya için farkı göster"
   },
   "highlightedCode": {
     "copyCode": "Kodu kopyala"
@@ -235,6 +238,21 @@
     "search": "Ara",
     "settings": "Ayarlar"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "ESC ile kapat",
     "footerHelp": "Seçmek için ↑↓, açmak için Enter kullanın",
@@ -246,6 +264,18 @@
     "openInPreview": "Önizlemede aç",
     "quickOpen": "Hızlı aç",
     "searchPlaceholder": "Dosya/klasör adı veya yolu ile ara..."
+  },
+  "paneNavigator": {
+    "activate": "Etkinleştir",
+    "close": "Kapat",
+    "deletePane": "Paneli sil",
+    "emptyPane": "Boş",
+    "navigate": "Gezin",
+    "splitHorizontal": "Yatay böl",
+    "splitVertical": "Dikey böl",
+    "tab": "sekme",
+    "tabs": "sekmeler",
+    "title": "Panel gezgini"
   },
   "projectModal": {
     "cancel": "İptal",
@@ -342,13 +372,25 @@
       "title": "Arama",
       "useIgnoreFiles": ".gitignore gibi ignore dosyalarını kullan"
     },
+    "shortcutKeys": "Kısayol tuşları",
     "theme": {
       "colorCustomize": "Renk Özelleştirme",
       "colorTheme": "Renk Teması",
       "highlightTheme": "Kod Vurgulama",
       "title": "Tema"
-    },
-    "shortcutKeys": "Kısayol tuşları"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Otomatik kaydedildi",
+    "clickToEdit": "Düzenlemek için tıklayın",
+    "enterNewKey": "Yeni tuş girin",
+    "escToCancel": "İptal için Esc",
+    "noResults": "Eşleşen kısayol bulunamadı",
+    "pressKey": "Bir tuşa basın...",
+    "resetDefaults": "Varsayılanlara sıfırla",
+    "searchPlaceholder": "Ara (fonksiyon, tuş)...",
+    "shortcutFor": "kısayolu",
+    "title": "Kısayol tuşları"
   },
   "tabBar": {
     "closeTab": "Sekmeyi kapat",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "HTML varlıkları inline yapma başarısız",
     "notFound": "Dosya veya klasör bulunamadı"
   },
-  "paneNavigator": {
-    "activate": "Etkinleştir",
-    "close": "Kapat",
-    "deletePane": "Paneli sil",
-    "emptyPane": "Boş",
-    "navigate": "Gezin",
-    "splitHorizontal": "Yatay böl",
-    "splitVertical": "Dikey böl",
-    "tab": "sekme",
-    "tabs": "sekmeler",
-    "title": "Panel gezgini"
-  },
-  "shortcutKeys": {
-    "title": "Kısayol tuşları",
-    "searchPlaceholder": "Ara (fonksiyon, tuş)...",
-    "resetDefaults": "Varsayılanlara sıfırla",
-    "noResults": "Eşleşen kısayol bulunamadı",
-    "clickToEdit": "Düzenlemek için tıklayın",
-    "enterNewKey": "Yeni tuş girin",
-    "shortcutFor": "kısayolu",
-    "pressKey": "Bir tuşa basın...",
-    "escToCancel": "İptal için Esc",
-    "autoSaved": "Otomatik kaydedildi"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Geliştirme sunucusunu (Render) görüntülüyorsunuz.",
+      "officialSite": "resmi siteyi (GitHub Pages)",
       "stableVersion": "Kararlı bir deneyim için lütfen ziyaret edin",
-      "officialSite": "resmi siteyi (GitHub Pages)"
+      "warning": "⚠️ Geliştirme sunucusunu (Render) görüntülüyorsunuz."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

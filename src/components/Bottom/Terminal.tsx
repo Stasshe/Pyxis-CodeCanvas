@@ -8,8 +8,8 @@ import { useTheme } from '@/context/ThemeContext';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -329,7 +329,7 @@ function ClientTerminal({
       // CRITICAL: Wait for all pending output to complete before checking cursor position
       // This ensures cursor position is accurate
       await outputManager.flush();
-      
+
       // Ensure we're on a new line - this is the key to preventing prompt overlap
       // Linux/Windows terminals always ensure prompts start on a new line
       await outputManager.ensureNewline();
@@ -354,14 +354,16 @@ function ClientTerminal({
             ?.map(x => Number.parseInt(x, 16)) || [0, 0, 0];
           branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
         }
-        await outputManager.writeRaw(`/workspaces/${currentProject}${relativePath}${branchDisplay} $ `);
+        await outputManager.writeRaw(
+          `/workspaces/${currentProject}${relativePath}${branchDisplay} $ `
+        );
       } else {
         await outputManager.writeRaw('$ ');
       }
-      
+
       // CRITICAL: Wait for prompt to be written before scrolling
       await outputManager.flush();
-      
+
       // Scroll to bottom after all output and prompt are complete
       scrollToBottom();
       // Additional scrolls with delay to ensure proper positioning
@@ -490,7 +492,7 @@ function ClientTerminal({
             if (shellRef.current) {
               // Track all async writeOutput promises to ensure they complete before showing prompt
               const outputPromises: Promise<void>[] = [];
-              
+
               // delegate entire command to StreamShell which handles pipes/redirection/subst
               // リアルタイム出力コールバックを渡す
               const res = await shellRef.current.run(command, {
@@ -509,11 +511,11 @@ function ClientTerminal({
                   }
                 },
               });
-              
+
               // CRITICAL: Wait for all output to complete before returning
               // This ensures cursor position is correct before showPrompt() is called
               await Promise.all(outputPromises);
-              
+
               // 完了後は何もしない（既にコールバックで出力済み）
               // StreamShell (shellRef) はリダイレクトを内部で処理しているため
               // Terminal側でのファイル書き込みは行わないようにする。
@@ -852,7 +854,7 @@ function ClientTerminal({
     fitAddonRef.current = fitAddon;
 
     // Initialize terminal messages and prompt asynchronously
-    initializeMessages().catch((err) => {
+    initializeMessages().catch(err => {
       console.error('[Terminal] Failed to initialize messages:', err);
     });
 

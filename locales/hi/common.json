@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "कोई बदली हुई फाइल नहीं",
-      "title": "बदली हुई फाइलें",
       "count": "{count} फाइलें",
       "expand": "विस्तार करें",
-      "minimize": "छोटा करें"
+      "minimize": "छोटा करें",
+      "noChangedFiles": "कोई बदली हुई फाइल नहीं",
+      "title": "बदली हुई फाइलें"
     },
     "chatContainer": {
       "generating": "AI उत्तर तैयार कर रहा है...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "आप दाएँ संपादक में सीधे संपादित कर सकते हैं",
     "notFound": "AI समीक्षा डेटा नहीं मिला",
     "revert": "वापस करें",
-    "revertSelectionHint": "आप दाहिने क्लिक करके 'Revert selection' चुनकर आंशिक रूप से भी वापस कर सकते हैं।",
     "revertApplied": "लागू किए गए को वापस करें",
-    "revertButton": "वापस करें"
+    "revertButton": "वापस करें",
+    "revertSelectionHint": "आप दाहिने क्लिक करके 'Revert selection' चुनकर आंशिक रूप से भी वापस कर सकते हैं।"
   },
   "auth": {
     "authFailed": "GitHub प्रमाणिकरण विफल",
@@ -83,8 +83,8 @@
       "clearTooltip": "वर्तमान में प्रदर्शित आउटपुट साफ़ करें",
       "contextLabel": "संदर्भ",
       "empty": "कोई आउटपुट नहीं",
-      "typeLabel": "प्रकार",
-      "partiallyHidden": "कुछ आइटम छिपे हुए हैं"
+      "partiallyHidden": "कुछ आइटम छिपे हुए हैं",
+      "typeLabel": "प्रकार"
     },
     "problems": "समस्याएं",
     "terminal": "टर्मिनल",
@@ -113,6 +113,9 @@
     "delete": "हटाएं",
     "rename": "नाम बदलें",
     "title": "चैट स्पेस"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "पुष्टि"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Diff देखें (सिर्फ़ पढ़ें)"
   },
   "gitHistory": {
+    "allFiles": "सभी {count} फाइलें",
     "allFilesFiles": "सभी {count} फाइलें",
     "allFilesScrollable": "सभी {count} फाइलें (स्क्रोल करने योग्य)",
     "changedFiles": "बदली हुई फाइलें:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} घंटे पहले",
     "justNow": "अभी अभी",
     "loadingChanges": "परिवर्तन जानकारी लोड हो रही है...",
+    "loadingMore": "लोड हो रहा है...",
+    "loadMore": "और लोड करें",
     "minutesAgo": "{minutes} मिनट पहले",
     "noChangedFiles": "कोई बदली हुई फाइल नहीं मिली",
     "showAllFilesDiff": "इस कमिट के लिए सभी फाइल diffs दिखाएँ",
     "showDuplicates": "डुप्लिकेट दिखाएँ",
-    "showFileDiff": "इस फाइल के लिए diff दिखाएँ",
-    "allFiles": "सभी {count} फाइलें",
-    "loadMore": "और लोड करें",
-    "loadingMore": "लोड हो रहा है..."
+    "showFileDiff": "इस फाइल के लिए diff दिखाएँ"
   },
   "highlightedCode": {
     "copyCode": "कोड कॉपी करें"
@@ -235,6 +238,21 @@
     "search": "खोज",
     "settings": "सेटिंग्स"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "ESC से बंद करें",
     "footerHelp": "खोलने के लिए Enter, चुनने के लिए ↑↓ का उपयोग करें",
@@ -246,6 +264,18 @@
     "openInPreview": "पूर्वावलोकन में खोलें",
     "quickOpen": "त्वरित खोलें",
     "searchPlaceholder": "फाइल/फ़ोल्डर नाम या पथ से खोजें..."
+  },
+  "paneNavigator": {
+    "activate": "सक्रिय करें",
+    "close": "बंद करें",
+    "deletePane": "पेन हटाएं",
+    "emptyPane": "खाली",
+    "navigate": "नेविगेट करें",
+    "splitHorizontal": "क्षैतिज विभाजन",
+    "splitVertical": "ऊर्ध्वाधर विभाजन",
+    "tab": "टैब",
+    "tabs": "टैब्स",
+    "title": "पेन नेविगेटर"
   },
   "projectModal": {
     "cancel": "रद्द करें",
@@ -342,13 +372,25 @@
       "title": "खोज",
       "useIgnoreFiles": ".gitignore जैसे ignore फाइलें उपयोग करें"
     },
+    "shortcutKeys": "शॉर्टकट कुंजियाँ",
     "theme": {
       "colorCustomize": "रंग अनुकूलित करें",
       "colorTheme": "रंग थीम",
       "highlightTheme": "कोड हाइलाइट थीम",
       "title": "थीम"
-    },
-    "shortcutKeys": "शॉर्टकट कुंजियाँ"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "स्वचालित रूप से सहेजा गया",
+    "clickToEdit": "संपादित करने के लिए क्लिक करें",
+    "enterNewKey": "नई कुंजी दर्ज करें",
+    "escToCancel": "रद्द करने के लिए Esc",
+    "noResults": "कोई मिलान शॉर्टकट नहीं मिला",
+    "pressKey": "एक कुंजी दबाएं...",
+    "resetDefaults": "डिफ़ॉल्ट पर रीसेट करें",
+    "searchPlaceholder": "खोजें (फ़ंक्शन, कुंजी)...",
+    "shortcutFor": "के लिए शॉर्टकट",
+    "title": "शॉर्टकट कुंजियाँ"
   },
   "tabBar": {
     "closeTab": "टैब बंद करें",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "HTML एसेट इनलाइन करना विफल हुआ",
     "notFound": "फ़ाइल या फ़ोल्डर नहीं मिला"
   },
-  "paneNavigator": {
-    "activate": "सक्रिय करें",
-    "close": "बंद करें",
-    "deletePane": "पेन हटाएं",
-    "emptyPane": "खाली",
-    "navigate": "नेविगेट करें",
-    "splitHorizontal": "क्षैतिज विभाजन",
-    "splitVertical": "ऊर्ध्वाधर विभाजन",
-    "tab": "टैब",
-    "tabs": "टैब्स",
-    "title": "पेन नेविगेटर"
-  },
-  "shortcutKeys": {
-    "title": "शॉर्टकट कुंजियाँ",
-    "searchPlaceholder": "खोजें (फ़ंक्शन, कुंजी)...",
-    "resetDefaults": "डिफ़ॉल्ट पर रीसेट करें",
-    "noResults": "कोई मिलान शॉर्टकट नहीं मिला",
-    "clickToEdit": "संपादित करने के लिए क्लिक करें",
-    "enterNewKey": "नई कुंजी दर्ज करें",
-    "shortcutFor": "के लिए शॉर्टकट",
-    "pressKey": "एक कुंजी दबाएं...",
-    "escToCancel": "रद्द करने के लिए Esc",
-    "autoSaved": "स्वचालित रूप से सहेजा गया"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ आप विकास सर्वर (Render) देख रहे हैं।",
+      "officialSite": "आधिकारिक साइट (GitHub Pages)",
       "stableVersion": "स्थिर अनुभव के लिए, कृपया देखें",
-      "officialSite": "आधिकारिक साइट (GitHub Pages)"
+      "warning": "⚠️ आप विकास सर्वर (Render) देख रहे हैं।"
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "변경된 파일이 없습니다",
-      "title": "변경된 파일",
       "count": "{count} 개",
       "expand": "펼치기",
-      "minimize": "최소화"
+      "minimize": "최소화",
+      "noChangedFiles": "변경된 파일이 없습니다",
+      "title": "변경된 파일"
     },
     "chatContainer": {
       "generating": "AI가 응답을 생성 중입니다...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "오른쪽 에디터에서 직접 편집할 수 있습니다",
     "notFound": "AI 리뷰 데이터를 찾을 수 없습니다",
     "revert": "되돌리기",
-    "revertSelectionHint": "오른쪽 클릭 후 '선택 항목 되돌리기'로 부분 되돌리기도 가능합니다.",
     "revertApplied": "적용된 항목 되돌리기",
-    "revertButton": "되돌리기"
+    "revertButton": "되돌리기",
+    "revertSelectionHint": "오른쪽 클릭 후 '선택 항목 되돌리기'로 부분 되돌리기도 가능합니다."
   },
   "auth": {
     "authFailed": "GitHub 인증에 실패했습니다",
@@ -83,8 +83,8 @@
       "clearTooltip": "현재 표시된 출력을 지웁니다",
       "contextLabel": "컨텍스트",
       "empty": "출력이 없습니다",
-      "typeLabel": "타입",
-      "partiallyHidden": "일부 항목이 숨겨짐"
+      "partiallyHidden": "일부 항목이 숨겨짐",
+      "typeLabel": "타입"
     },
     "problems": "문제",
     "terminal": "터미널",
@@ -113,6 +113,9 @@
     "delete": "삭제",
     "rename": "이름 변경",
     "title": "채팅 공간"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "확인"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "차이 보기(읽기 전용)"
   },
   "gitHistory": {
+    "allFiles": "전체 {count} 파일",
     "allFilesFiles": "전체 {count} 파일(스크롤 가능)",
     "allFilesScrollable": "전체 {count} 파일(스크롤 가능)",
     "changedFiles": "변경된 파일:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours}시간 전",
     "justNow": "방금 전",
     "loadingChanges": "변경 정보 로딩 중...",
+    "loadingMore": "로딩 중...",
+    "loadMore": "더 불러오기",
     "minutesAgo": "{minutes}분 전",
     "noChangedFiles": "변경된 파일을 찾을 수 없습니다",
     "showAllFilesDiff": "이 커밋의 모든 파일 차이 보기",
     "showDuplicates": "중복 보기",
-    "showFileDiff": "이 파일의 차이 보기",
-    "allFiles": "전체 {count} 파일",
-    "loadMore": "더 불러오기",
-    "loadingMore": "로딩 중..."
+    "showFileDiff": "이 파일의 차이 보기"
   },
   "highlightedCode": {
     "copyCode": "코드 복사"
@@ -235,6 +238,21 @@
     "search": "검색",
     "settings": "설정"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "ESC로 닫기",
     "footerHelp": "↑↓로 선택, Enter로 열기",
@@ -246,6 +264,18 @@
     "openInPreview": "미리보기에서 열기",
     "quickOpen": "빠른 열기",
     "searchPlaceholder": "파일/폴더 이름 또는 경로로 검색..."
+  },
+  "paneNavigator": {
+    "activate": "활성화",
+    "close": "닫기",
+    "deletePane": "패인 삭제",
+    "emptyPane": "비어 있음",
+    "navigate": "탐색",
+    "splitHorizontal": "가로 분할",
+    "splitVertical": "세로 분할",
+    "tab": "탭",
+    "tabs": "탭",
+    "title": "패인 탐색기"
   },
   "projectModal": {
     "cancel": "취소",
@@ -342,13 +372,25 @@
       "title": "검색",
       "useIgnoreFiles": ".gitignore 같은 파일 사용"
     },
+    "shortcutKeys": "단축키 설정",
     "theme": {
       "colorCustomize": "색상 사용자화",
       "colorTheme": "컬러 테마",
       "highlightTheme": "코드 하이라이트",
       "title": "테마"
-    },
-    "shortcutKeys": "단축키 설정"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "자동 저장됨",
+    "clickToEdit": "클릭하여 편집",
+    "enterNewKey": "새 키 입력",
+    "escToCancel": "Esc로 취소",
+    "noResults": "일치하는 단축키를 찾을 수 없습니다",
+    "pressKey": "키를 누르세요...",
+    "resetDefaults": "기본값으로 복원",
+    "searchPlaceholder": "검색 (기능, 키)...",
+    "shortcutFor": "의 단축키",
+    "title": "단축키"
   },
   "tabBar": {
     "closeTab": "탭 닫기",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "HTML 자산 인라인 실패",
     "notFound": "파일 또는 폴더를 찾을 수 없습니다"
   },
-  "paneNavigator": {
-    "activate": "활성화",
-    "close": "닫기",
-    "deletePane": "패인 삭제",
-    "emptyPane": "비어 있음",
-    "navigate": "탐색",
-    "splitHorizontal": "가로 분할",
-    "splitVertical": "세로 분할",
-    "tab": "탭",
-    "tabs": "탭",
-    "title": "패인 탐색기"
-  },
-  "shortcutKeys": {
-    "title": "단축키",
-    "searchPlaceholder": "검색 (기능, 키)...",
-    "resetDefaults": "기본값으로 복원",
-    "noResults": "일치하는 단축키를 찾을 수 없습니다",
-    "clickToEdit": "클릭하여 편집",
-    "enterNewKey": "새 키 입력",
-    "shortcutFor": "의 단축키",
-    "pressKey": "키를 누르세요...",
-    "escToCancel": "Esc로 취소",
-    "autoSaved": "자동 저장됨"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ 개발 서버(Render)를 보고 있습니다.",
+      "officialSite": "공식 사이트(GitHub Pages)",
       "stableVersion": "안정적인 환경을 위해",
-      "officialSite": "공식 사이트(GitHub Pages)"
+      "warning": "⚠️ 개발 서버(Render)를 보고 있습니다."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

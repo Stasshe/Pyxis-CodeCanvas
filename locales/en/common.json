@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "No changed files",
-      "title": "Changed files",
       "count": "{count} files",
       "expand": "Expand",
-      "minimize": "Minimize"
+      "minimize": "Minimize",
+      "noChangedFiles": "No changed files",
+      "title": "Changed files"
     },
     "chatContainer": {
       "generating": "AI is generating a response...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "You can edit directly in the right editor",
     "notFound": "AI review data not found",
     "revert": "Revert",
-    "revertSelectionHint": "You can also partially revert by right-clicking and selecting 'Revert selection'.",
     "revertApplied": "Revert applied",
-    "revertButton": "Revert"
+    "revertButton": "Revert",
+    "revertSelectionHint": "You can also partially revert by right-clicking and selecting 'Revert selection'."
   },
   "auth": {
     "authFailed": "GitHub authentication failed",
@@ -83,8 +83,8 @@
       "clearTooltip": "Clear currently displayed output",
       "contextLabel": "Context",
       "empty": "No output",
-      "typeLabel": "Type",
-      "partiallyHidden": "Some items hidden"
+      "partiallyHidden": "Some items hidden",
+      "typeLabel": "Type"
     },
     "problems": "Problems",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Delete",
     "rename": "Rename",
     "title": "Chat spaces"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Confirmation"
@@ -158,6 +161,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Enter Gemini API key",
+    "branchFilter": {
+      "all": "All",
+      "allMode": "All Branches",
+      "allModeDesc": "Show commits from all branches",
+      "auto": "Auto",
+      "autoMode": "Auto (HEAD only)",
+      "autoModeDesc": "Show commits from current branch only",
+      "localBranch": "Local branch",
+      "remoteBranch": "Remote branch",
+      "selectBranches": "Select Branches",
+      "selectBranchesDesc": "Choose specific branches",
+      "selected": "selected",
+      "title": "Branch Filter",
+      "tooltip": "Branch filter"
+    },
     "changes": "Changes",
     "commit": "Commit",
     "commitMessagePlaceholder": "Enter commit message...",
@@ -185,22 +203,7 @@
     "unstaged": "Unstaged",
     "untracked": "Untracked",
     "viewDiffEditable": "View diff (editable)",
-    "viewDiffReadonly": "View diff (read-only)",
-    "branchFilter": {
-      "tooltip": "Branch filter",
-      "title": "Branch Filter",
-      "auto": "Auto",
-      "all": "All",
-      "selected": "selected",
-      "autoMode": "Auto (HEAD only)",
-      "autoModeDesc": "Show commits from current branch only",
-      "allMode": "All Branches",
-      "allModeDesc": "Show commits from all branches",
-      "selectBranches": "Select Branches",
-      "selectBranchesDesc": "Choose specific branches",
-      "localBranch": "Local branch",
-      "remoteBranch": "Remote branch"
-    }
+    "viewDiffReadonly": "View diff (read-only)"
   },
   "gitHistory": {
     "allFiles": "All {count} files",
@@ -211,9 +214,9 @@
     "hideDuplicates": "Hide duplicate commits",
     "hoursAgo": "{hours} hours ago",
     "justNow": "just now",
-    "loadMore": "Load more",
     "loadingChanges": "Loading change info...",
     "loadingMore": "Loading...",
+    "loadMore": "Load more",
     "minutesAgo": "{minutes} minutes ago",
     "noChangedFiles": "No changed files found",
     "showAllFilesDiff": "Show all file diffs for this commit",
@@ -248,6 +251,21 @@
     "run": "Run",
     "search": "Search",
     "settings": "Settings"
+  },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
   },
   "operationWindow": {
     "closeByEsc": "Close with ESC",
@@ -370,13 +388,25 @@
       "title": "Search",
       "useIgnoreFiles": "Use ignore files like .gitignore"
     },
+    "shortcutKeys": "Shortcut Keys",
     "theme": {
       "colorCustomize": "Color Customize",
       "colorTheme": "Color Theme",
       "highlightTheme": "Code Highlight",
       "title": "Theme"
-    },
-    "shortcutKeys": "Shortcut Keys"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Auto-saved",
+    "clickToEdit": "Click to edit",
+    "enterNewKey": "Enter new key",
+    "escToCancel": "Esc to cancel",
+    "noResults": "No matching shortcuts found",
+    "pressKey": "Press a key...",
+    "resetDefaults": "Reset to defaults",
+    "searchPlaceholder": "Search (function, key)...",
+    "shortcutFor": "shortcut for",
+    "title": "Shortcut Keys"
   },
   "tabBar": {
     "closeTab": "Close tab",
@@ -407,41 +437,11 @@
     "inlineHtmlFailed": "Failed to inline HTML assets",
     "notFound": "File or folder not found"
   },
-  "shortcutKeys": {
-    "title": "Shortcut Keys",
-    "searchPlaceholder": "Search (function, key)...",
-    "resetDefaults": "Reset to defaults",
-    "noResults": "No matching shortcuts found",
-    "clickToEdit": "Click to edit",
-    "enterNewKey": "Enter new key",
-    "shortcutFor": "shortcut for",
-    "pressKey": "Press a key...",
-    "escToCancel": "Esc to cancel",
-    "autoSaved": "Auto-saved"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ You are viewing the development server (Render).",
+      "officialSite": "the official site (GitHub Pages)",
       "stableVersion": "For a stable experience, please visit",
-      "officialSite": "the official site (GitHub Pages)"
+      "warning": "⚠️ You are viewing the development server (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

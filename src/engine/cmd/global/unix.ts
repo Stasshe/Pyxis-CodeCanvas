@@ -32,7 +32,7 @@ import {
 
 /**
  * Unixコマンドを統合して提供するクラス
- * 
+ *
  * 設計原則:
  * - 全てのコマンドメソッドは args: string[] を受け取る (POSIX準拠)
  * - 各コマンドの実装は unixOperations/ 配下に分割

@@ -1,7 +1,7 @@
+import { syncManager } from '@/engine/core/syncManager';
 // src/engine/cmd/global/gitOperations/pull.ts
 import git from 'isomorphic-git';
 import { GitMergeOperations } from './merge';
-import { syncManager } from '@/engine/core/syncManager';
 
 export async function pull(
   fs: any,
@@ -69,7 +69,13 @@ export async function pull(
     // Fast-forward
     console.log('[git pull] Fast-forwarding...');
 
-    await git.writeRef({ fs, dir, ref: `refs/heads/${targetBranch}`, value: remoteCommitOid, force: true });
+    await git.writeRef({
+      fs,
+      dir,
+      ref: `refs/heads/${targetBranch}`,
+      value: remoteCommitOid,
+      force: true,
+    });
 
     await git.checkout({ fs, dir, ref: targetBranch, force: true });
 

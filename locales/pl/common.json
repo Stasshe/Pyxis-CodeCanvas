@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Brak zmienionych plików",
-      "title": "Zmienione pliki",
       "count": "{count} plików",
       "expand": "Rozwiń",
-      "minimize": "Minimalizuj"
+      "minimize": "Minimalizuj",
+      "noChangedFiles": "Brak zmienionych plików",
+      "title": "Zmienione pliki"
     },
     "chatContainer": {
       "generating": "AI generuje odpowiedź...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Możesz edytować bezpośrednio w prawym edytorze",
     "notFound": "Dane przeglądu AI nie znalezione",
     "revert": "Przywróć",
-    "revertSelectionHint": "Możesz częściowo przywrócić, klikając prawym przyciskiem i wybierając 'Przywróć zaznaczenie'.",
     "revertApplied": "Cofnij zastosowane",
-    "revertButton": "Cofnij"
+    "revertButton": "Cofnij",
+    "revertSelectionHint": "Możesz częściowo przywrócić, klikając prawym przyciskiem i wybierając 'Przywróć zaznaczenie'."
   },
   "auth": {
     "authFailed": "Uwierzytelnianie GitHub nie powiodło się",
@@ -83,8 +83,8 @@
       "clearTooltip": "Wyczyść aktualnie wyświetlane wyjście",
       "contextLabel": "Kontekst",
       "empty": "Brak wyjścia",
-      "typeLabel": "Typ",
-      "partiallyHidden": "Niektóre elementy ukryte"
+      "partiallyHidden": "Niektóre elementy ukryte",
+      "typeLabel": "Typ"
     },
     "problems": "Problemy",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Usuń",
     "rename": "Zmień nazwę",
     "title": "Przestrzenie czatu"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Potwierdzenie"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Pokaż różnice (tylko do odczytu)"
   },
   "gitHistory": {
+    "allFiles": "Wszystkie {count} pliki",
     "allFilesFiles": "Wszystkie {count} pliki",
     "allFilesScrollable": "Wszystkie {count} pliki (przewijane)",
     "changedFiles": "Zmienione pliki:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} godzin temu",
     "justNow": "właśnie teraz",
     "loadingChanges": "Ładowanie informacji o zmianach...",
+    "loadingMore": "Ładowanie...",
+    "loadMore": "Załaduj więcej",
     "minutesAgo": "{minutes} minut temu",
     "noChangedFiles": "Nie znaleziono zmienionych plików",
     "showAllFilesDiff": "Pokaż różnice wszystkich plików dla tego commita",
     "showDuplicates": "Pokaż duplikaty",
-    "showFileDiff": "Pokaż różnice dla tego pliku",
-    "allFiles": "Wszystkie {count} pliki",
-    "loadMore": "Załaduj więcej",
-    "loadingMore": "Ładowanie..."
+    "showFileDiff": "Pokaż różnice dla tego pliku"
   },
   "highlightedCode": {
     "copyCode": "Kopiuj kod"
@@ -235,6 +238,21 @@
     "search": "Szukaj",
     "settings": "Ustawienia"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Zamknij ESC",
     "footerHelp": "Użyj ↑↓ aby wybrać, Enter aby otworzyć",
@@ -246,6 +264,18 @@
     "openInPreview": "Otwórz w podglądzie",
     "quickOpen": "Szybkie otwieranie",
     "searchPlaceholder": "Szukaj po nazwie pliku/folderu lub ścieżce..."
+  },
+  "paneNavigator": {
+    "activate": "Aktywuj",
+    "close": "Zamknij",
+    "deletePane": "Usuń panel",
+    "emptyPane": "Pusty",
+    "navigate": "Nawiguj",
+    "splitHorizontal": "Podziel poziomo",
+    "splitVertical": "Podziel pionowo",
+    "tab": "karta",
+    "tabs": "karty",
+    "title": "Nawigator paneli"
   },
   "projectModal": {
     "cancel": "Anuluj",
@@ -342,13 +372,25 @@
       "title": "Szukaj",
       "useIgnoreFiles": "Użyj plików ignorujących jak .gitignore"
     },
+    "shortcutKeys": "Skróty klawiaturowe",
     "theme": {
       "colorCustomize": "Dostosuj kolory",
       "colorTheme": "Motyw kolorów",
       "highlightTheme": "Motyw podświetlania",
       "title": "Motyw"
-    },
-    "shortcutKeys": "Skróty klawiaturowe"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Automatycznie zapisano",
+    "clickToEdit": "Kliknij, aby edytować",
+    "enterNewKey": "Wprowadź nowy klawisz",
+    "escToCancel": "Esc, aby anulować",
+    "noResults": "Nie znaleziono pasujących skrótów",
+    "pressKey": "Naciśnij klawisz...",
+    "resetDefaults": "Przywróć domyślne",
+    "searchPlaceholder": "Szukaj (funkcja, klawisz)...",
+    "shortcutFor": "skrót dla",
+    "title": "Skróty klawiaturowe"
   },
   "tabBar": {
     "closeTab": "Zamknij kartę",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Błąd podczas wstawiania zasobów HTML",
     "notFound": "Plik lub folder nie znaleziony"
   },
-  "paneNavigator": {
-    "activate": "Aktywuj",
-    "close": "Zamknij",
-    "deletePane": "Usuń panel",
-    "emptyPane": "Pusty",
-    "navigate": "Nawiguj",
-    "splitHorizontal": "Podziel poziomo",
-    "splitVertical": "Podziel pionowo",
-    "tab": "karta",
-    "tabs": "karty",
-    "title": "Nawigator paneli"
-  },
-  "shortcutKeys": {
-    "title": "Skróty klawiaturowe",
-    "searchPlaceholder": "Szukaj (funkcja, klawisz)...",
-    "resetDefaults": "Przywróć domyślne",
-    "noResults": "Nie znaleziono pasujących skrótów",
-    "clickToEdit": "Kliknij, aby edytować",
-    "enterNewKey": "Wprowadź nowy klawisz",
-    "shortcutFor": "skrót dla",
-    "pressKey": "Naciśnij klawisz...",
-    "escToCancel": "Esc, aby anulować",
-    "autoSaved": "Automatycznie zapisano"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Przeglądasz serwer deweloperski (Render).",
+      "officialSite": "oficjalną stronę (GitHub Pages)",
       "stableVersion": "Dla stabilnej wersji odwiedź",
-      "officialSite": "oficjalną stronę (GitHub Pages)"
+      "warning": "⚠️ Przeglądasz serwer deweloperski (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

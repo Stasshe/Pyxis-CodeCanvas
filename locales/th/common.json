@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "ไม่มีไฟล์ที่เปลี่ยนแปลง",
-      "title": "ไฟล์ที่เปลี่ยนแปลง",
       "count": "{count} ไฟล์",
       "expand": "ขยาย",
-      "minimize": "ย่อ"
+      "minimize": "ย่อ",
+      "noChangedFiles": "ไม่มีไฟล์ที่เปลี่ยนแปลง",
+      "title": "ไฟล์ที่เปลี่ยนแปลง"
     },
     "chatContainer": {
       "generating": "AI กำลังสร้างคำตอบ...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "คุณสามารถแก้ไขโดยตรงในตัวแก้ไขด้านขวา",
     "notFound": "ไม่พบข้อมูลการตรวจสอบโดย AI",
     "revert": "คืนค่ากลับ",
-    "revertSelectionHint": "คุณยังสามารถคืนค่าบางส่วนได้โดยคลิกขวาแล้วเลือก 'คืนค่าที่เลือก'",
     "revertApplied": "ยกเลิกที่ใช้แล้ว",
-    "revertButton": "ยกเลิก"
+    "revertButton": "ยกเลิก",
+    "revertSelectionHint": "คุณยังสามารถคืนค่าบางส่วนได้โดยคลิกขวาแล้วเลือก 'คืนค่าที่เลือก'"
   },
   "auth": {
     "authFailed": "การยืนยันตัวตน GitHub ล้มเหลว",
@@ -83,8 +83,8 @@
       "clearTooltip": "ล้างผลลัพธ์ที่แสดงอยู่",
       "contextLabel": "บริบท",
       "empty": "ไม่มีผลลัพธ์",
-      "typeLabel": "ประเภท",
-      "partiallyHidden": "ซ่อนบางรายการ"
+      "partiallyHidden": "ซ่อนบางรายการ",
+      "typeLabel": "ประเภท"
     },
     "problems": "ปัญหา",
     "terminal": "เทอร์มินัล",
@@ -113,6 +113,9 @@
     "delete": "ลบ",
     "rename": "เปลี่ยนชื่อ",
     "title": "พื้นที่แชท"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "ยืนยัน"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "ดู diff (อ่านอย่างเดียว)"
   },
   "gitHistory": {
+    "allFiles": "ทั้งหมด {count} ไฟล์",
     "allFilesFiles": "ทั้งหมด {count} ไฟล์",
     "allFilesScrollable": "ทั้งหมด {count} ไฟล์ (เลื่อนดูได้)",
     "changedFiles": "ไฟล์ที่เปลี่ยนแปลง:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} ชั่วโมงที่แล้ว",
     "justNow": "เมื่อสักครู่",
     "loadingChanges": "กำลังโหลดข้อมูลการเปลี่ยนแปลง...",
+    "loadingMore": "กำลังโหลด...",
+    "loadMore": "โหลดเพิ่มเติม",
     "minutesAgo": "{minutes} นาทีที่แล้ว",
     "noChangedFiles": "ไม่พบไฟล์ที่เปลี่ยนแปลง",
     "showAllFilesDiff": "แสดง diff ของไฟล์ทั้งหมดสำหรับคอมมิตนี้",
     "showDuplicates": "แสดงคอมมิตซ้ำ",
-    "showFileDiff": "แสดง diff สำหรับไฟล์นี้",
-    "allFiles": "ทั้งหมด {count} ไฟล์",
-    "loadMore": "โหลดเพิ่มเติม",
-    "loadingMore": "กำลังโหลด..."
+    "showFileDiff": "แสดง diff สำหรับไฟล์นี้"
   },
   "highlightedCode": {
     "copyCode": "คัดลอกโค้ด"
@@ -235,6 +238,21 @@
     "search": "ค้นหา",
     "settings": "การตั้งค่า"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "ปิดด้วย ESC",
     "footerHelp": "ใช้ ↑↓ เพื่อเลือก, Enter เพื่อเปิด",
@@ -246,6 +264,18 @@
     "openInPreview": "เปิดตัวอย่าง",
     "quickOpen": "เปิดด่วน",
     "searchPlaceholder": "ค้นหาชื่อไฟล์/โฟลเดอร์หรือเส้นทาง..."
+  },
+  "paneNavigator": {
+    "activate": "เปิดใช้งาน",
+    "close": "ปิด",
+    "deletePane": "ลบแผงควบคุม",
+    "emptyPane": "ว่าง",
+    "navigate": "นำทาง",
+    "splitHorizontal": "แบ่งแนวนอน",
+    "splitVertical": "แบ่งแนวตั้ง",
+    "tab": "แท็บ",
+    "tabs": "แท็บ",
+    "title": "ตัวนำทางแผงควบคุม"
   },
   "projectModal": {
     "cancel": "ยกเลิก",
@@ -342,13 +372,25 @@
       "title": "ค้นหา",
       "useIgnoreFiles": "ใช้ไฟล์ ignore เช่น .gitignore"
     },
+    "shortcutKeys": "ปุ่มลัด",
     "theme": {
       "colorCustomize": "ปรับแต่งสี",
       "colorTheme": "ธีมสี",
       "highlightTheme": "ธีมการเน้นโค้ด",
       "title": "ธีม"
-    },
-    "shortcutKeys": "ปุ่มลัด"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "บันทึกอัตโนมัติ",
+    "clickToEdit": "คลิกเพื่อแก้ไข",
+    "enterNewKey": "ป้อนคีย์ใหม่",
+    "escToCancel": "Esc เพื่อยกเลิก",
+    "noResults": "ไม่พบปุ่มลัดที่ตรงกัน",
+    "pressKey": "กดคีย์...",
+    "resetDefaults": "รีเซ็ตเป็นค่าเริ่มต้น",
+    "searchPlaceholder": "ค้นหา (ฟังก์ชัน, คีย์)...",
+    "shortcutFor": "ปุ่มลัดสำหรับ",
+    "title": "ปุ่มลัด"
   },
   "tabBar": {
     "closeTab": "ปิดแท็บ",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "แทรกทรัพยากร HTML ไม่สำเร็จ",
     "notFound": "ไม่พบไฟล์หรือโฟลเดอร์"
   },
-  "paneNavigator": {
-    "activate": "เปิดใช้งาน",
-    "close": "ปิด",
-    "deletePane": "ลบแผงควบคุม",
-    "emptyPane": "ว่าง",
-    "navigate": "นำทาง",
-    "splitHorizontal": "แบ่งแนวนอน",
-    "splitVertical": "แบ่งแนวตั้ง",
-    "tab": "แท็บ",
-    "tabs": "แท็บ",
-    "title": "ตัวนำทางแผงควบคุม"
-  },
-  "shortcutKeys": {
-    "title": "ปุ่มลัด",
-    "searchPlaceholder": "ค้นหา (ฟังก์ชัน, คีย์)...",
-    "resetDefaults": "รีเซ็ตเป็นค่าเริ่มต้น",
-    "noResults": "ไม่พบปุ่มลัดที่ตรงกัน",
-    "clickToEdit": "คลิกเพื่อแก้ไข",
-    "enterNewKey": "ป้อนคีย์ใหม่",
-    "shortcutFor": "ปุ่มลัดสำหรับ",
-    "pressKey": "กดคีย์...",
-    "escToCancel": "Esc เพื่อยกเลิก",
-    "autoSaved": "บันทึกอัตโนมัติ"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ คุณกำลังดูเซิร์ฟเวอร์พัฒนา (Render)",
+      "officialSite": "เว็บไซต์ทางการ (GitHub Pages)",
       "stableVersion": "สำหรับประสบการณ์ที่มั่นคง กรุณาเยี่ยมชม",
-      "officialSite": "เว็บไซต์ทางการ (GitHub Pages)"
+      "warning": "⚠️ คุณกำลังดูเซิร์ฟเวอร์พัฒนา (Render)"
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

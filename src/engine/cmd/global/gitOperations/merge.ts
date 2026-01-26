@@ -108,7 +108,9 @@ export class GitMergeOperations {
       const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
       return oid;
     } catch (error) {
-      throw new Error(`Failed to resolve branch ref for '${branchName}': ${(error as Error).message}`);
+      throw new Error(
+        `Failed to resolve branch ref for '${branchName}': ${(error as Error).message}`
+      );
     }
   }
 

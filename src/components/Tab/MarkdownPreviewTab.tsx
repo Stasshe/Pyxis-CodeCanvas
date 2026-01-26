@@ -1,6 +1,6 @@
+import { fileRepository } from '@/engine/core/fileRepository';
 import type React from 'react';
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fileRepository } from '@/engine/core/fileRepository';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -193,7 +193,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
                   // Determine if markdown
                   const fileName = file.name || '';
-                  const isMarkdown = fileName.toLowerCase().endsWith('.md') || cand.toLowerCase().endsWith('.md');
+                  const isMarkdown =
+                    fileName.toLowerCase().endsWith('.md') || cand.toLowerCase().endsWith('.md');
 
                   if (isMarkdown) {
                     // Decode content if buffer
@@ -481,7 +482,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       </div>
       <div
         className={`markdown-body prose prose-github max-w-none ${
-          themeName && themeName.toLowerCase().includes('light') ? 'markdown-light' : 'markdown-dark'
+          themeName && themeName.toLowerCase().includes('light')
+            ? 'markdown-light'
+            : 'markdown-dark'
         }`}
         style={
           {

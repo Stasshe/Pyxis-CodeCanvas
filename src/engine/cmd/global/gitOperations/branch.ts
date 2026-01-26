@@ -29,7 +29,9 @@ export async function branch(
           const localBranches = await git.listBranches({ fs, dir });
           for (let i = 0; i < localBranches.length; i++) {
             const b = localBranches[i];
-            result += (b === currentBranch ? `* ${b}` : `  ${b}`) + (i === localBranches.length - 1 ? '' : '\n');
+            result +=
+              (b === currentBranch ? `* ${b}` : `  ${b}`) +
+              (i === localBranches.length - 1 ? '' : '\n');
           }
           if (localBranches.length > 0 && remoteBranches.length > 0) {
             result += '\n';
@@ -47,7 +49,8 @@ export async function branch(
         const branches = await git.listBranches({ fs, dir });
         for (let i = 0; i < branches.length; i++) {
           const b = branches[i];
-          result += (b === currentBranch ? `* ${b}` : `  ${b}`) + (i === branches.length - 1 ? '' : '\n');
+          result +=
+            (b === currentBranch ? `* ${b}` : `  ${b}`) + (i === branches.length - 1 ? '' : '\n');
         }
       }
 

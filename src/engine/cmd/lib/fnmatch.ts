@@ -183,11 +183,7 @@ function matchBracket(
     first = false;
 
     // 範囲指定 a-z
-    if (
-      pi + 2 < pattern.length &&
-      pattern[pi + 1] === '-' &&
-      pattern[pi + 2] !== ']'
-    ) {
+    if (pi + 2 < pattern.length && pattern[pi + 1] === '-' && pattern[pi + 2] !== ']') {
       const start = c;
       const end = pattern[pi + 2];
       if (char >= start && char <= end) {

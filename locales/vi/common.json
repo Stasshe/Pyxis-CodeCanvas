@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Không có tệp nào thay đổi",
-      "title": "Tệp đã thay đổi",
       "count": "{count} tệp",
       "expand": "Mở rộng",
-      "minimize": "Thu nhỏ"
+      "minimize": "Thu nhỏ",
+      "noChangedFiles": "Không có tệp nào thay đổi",
+      "title": "Tệp đã thay đổi"
     },
     "chatContainer": {
       "generating": "AI đang tạo phản hồi...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Bạn có thể chỉnh sửa trực tiếp ở trình soạn thảo bên phải",
     "notFound": "Dữ liệu xem xét AI không tìm thấy",
     "revert": "Hoàn tác",
-    "revertSelectionHint": "Bạn cũng có thể hoàn tác một phần bằng cách nhấp phải và chọn 'Hoàn tác lựa chọn'.",
     "revertApplied": "Hoàn tác đã áp dụng",
-    "revertButton": "Hoàn tác"
+    "revertButton": "Hoàn tác",
+    "revertSelectionHint": "Bạn cũng có thể hoàn tác một phần bằng cách nhấp phải và chọn 'Hoàn tác lựa chọn'."
   },
   "auth": {
     "authFailed": "Xác thực GitHub thất bại",
@@ -83,8 +83,8 @@
       "clearTooltip": "Xóa kết quả đang hiển thị",
       "contextLabel": "Ngữ cảnh",
       "empty": "Không có kết quả",
-      "typeLabel": "Loại",
-      "partiallyHidden": "Một số mục ẩn"
+      "partiallyHidden": "Một số mục ẩn",
+      "typeLabel": "Loại"
     },
     "problems": "Sự cố",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Xóa",
     "rename": "Đổi tên",
     "title": "Không gian trò chuyện"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Xác nhận"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Xem diff (chỉ đọc)"
   },
   "gitHistory": {
+    "allFiles": "Tất cả {count} tệp",
     "allFilesFiles": "Tất cả {count} tệp",
     "allFilesScrollable": "Tất cả {count} tệp (có thể cuộn)",
     "changedFiles": "Tệp đã thay đổi:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} giờ trước",
     "justNow": "vừa xong",
     "loadingChanges": "Đang tải thông tin thay đổi...",
+    "loadingMore": "Đang tải...",
+    "loadMore": "Tải thêm",
     "minutesAgo": "{minutes} phút trước",
     "noChangedFiles": "Không tìm thấy tệp đã thay đổi",
     "showAllFilesDiff": "Hiện diff tất cả tệp cho commit này",
     "showDuplicates": "Hiện commit trùng lặp",
-    "showFileDiff": "Hiện diff cho tệp này",
-    "allFiles": "Tất cả {count} tệp",
-    "loadMore": "Tải thêm",
-    "loadingMore": "Đang tải..."
+    "showFileDiff": "Hiện diff cho tệp này"
   },
   "highlightedCode": {
     "copyCode": "Sao chép mã"
@@ -235,6 +238,21 @@
     "search": "Tìm kiếm",
     "settings": "Cài đặt"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Đóng bằng ESC",
     "footerHelp": "Dùng ↑↓ để chọn, Enter để mở",
@@ -246,6 +264,18 @@
     "openInPreview": "Mở trong Preview",
     "quickOpen": "Mở nhanh",
     "searchPlaceholder": "Tìm theo tên tệp/thư mục hoặc đường dẫn..."
+  },
+  "paneNavigator": {
+    "activate": "Kích hoạt",
+    "close": "Đóng",
+    "deletePane": "Xóa bảng điều khiển",
+    "emptyPane": "Trống",
+    "navigate": "Điều hướng",
+    "splitHorizontal": "Chia ngang",
+    "splitVertical": "Chia dọc",
+    "tab": "thẻ",
+    "tabs": "các thẻ",
+    "title": "Điều hướng bảng điều khiển"
   },
   "projectModal": {
     "cancel": "Hủy",
@@ -342,13 +372,25 @@
       "title": "Tìm kiếm",
       "useIgnoreFiles": "Dùng các ignore file như .gitignore"
     },
+    "shortcutKeys": "Phím tắt",
     "theme": {
       "colorCustomize": "Tùy chỉnh màu",
       "colorTheme": "Giao diện màu",
       "highlightTheme": "Giao diện tô sáng",
       "title": "Giao diện"
-    },
-    "shortcutKeys": "Phím tắt"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Tự động lưu",
+    "clickToEdit": "Nhấp để chỉnh sửa",
+    "enterNewKey": "Nhập phím mới",
+    "escToCancel": "Esc để hủy",
+    "noResults": "Không tìm thấy phím tắt phù hợp",
+    "pressKey": "Nhấn một phím...",
+    "resetDefaults": "Đặt lại mặc định",
+    "searchPlaceholder": "Tìm kiếm (chức năng, phím)...",
+    "shortcutFor": "phím tắt cho",
+    "title": "Phím tắt"
   },
   "tabBar": {
     "closeTab": "Đóng tab",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Không thể nhúng tài sản HTML",
     "notFound": "Không tìm thấy tệp hoặc thư mục"
   },
-  "paneNavigator": {
-    "activate": "Kích hoạt",
-    "close": "Đóng",
-    "deletePane": "Xóa bảng điều khiển",
-    "emptyPane": "Trống",
-    "navigate": "Điều hướng",
-    "splitHorizontal": "Chia ngang",
-    "splitVertical": "Chia dọc",
-    "tab": "thẻ",
-    "tabs": "các thẻ",
-    "title": "Điều hướng bảng điều khiển"
-  },
-  "shortcutKeys": {
-    "title": "Phím tắt",
-    "searchPlaceholder": "Tìm kiếm (chức năng, phím)...",
-    "resetDefaults": "Đặt lại mặc định",
-    "noResults": "Không tìm thấy phím tắt phù hợp",
-    "clickToEdit": "Nhấp để chỉnh sửa",
-    "enterNewKey": "Nhập phím mới",
-    "shortcutFor": "phím tắt cho",
-    "pressKey": "Nhấn một phím...",
-    "escToCancel": "Esc để hủy",
-    "autoSaved": "Tự động lưu"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Bạn đang xem máy chủ phát triển (Render).",
+      "officialSite": "trang chính thức (GitHub Pages)",
       "stableVersion": "Để có trải nghiệm ổn định, vui lòng truy cập",
-      "officialSite": "trang chính thức (GitHub Pages)"
+      "warning": "⚠️ Bạn đang xem máy chủ phát triển (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

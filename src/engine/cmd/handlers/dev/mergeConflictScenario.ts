@@ -85,10 +85,7 @@ export const VERSION = '1.1.0';
 /**
  * Create merge conflict scenario and open tab
  */
-async function createMergeConflict(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function createMergeConflict(args: string[], context: DevCommandContext): Promise<void> {
   const { projectName, projectId, writeOutput } = context;
 
   if (!projectId || !projectName) {
@@ -137,10 +134,7 @@ async function createMergeConflict(
 /**
  * Open merge conflict tab with existing data
  */
-async function openMergeConflictTab(
-  args: string[],
-  context: DevCommandContext
-): Promise<void> {
+async function openMergeConflictTab(args: string[], context: DevCommandContext): Promise<void> {
   const { projectName, projectId, writeOutput } = context;
 
   if (!projectId || !projectName) {

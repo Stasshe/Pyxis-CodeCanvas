@@ -576,12 +576,7 @@ export class ShellExecutor {
     if (cmd === 'dev') {
       try {
         const { handleDevCommand } = await import('../handlers/dev');
-        await handleDevCommand(
-          args,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput
-        );
+        await handleDevCommand(args, this.context.projectName, this.context.projectId, writeOutput);
         return 0;
       } catch (e: any) {
         await writeError(`dev: ${e.message}`);
@@ -732,12 +727,12 @@ export class ShellExecutor {
     // Helper to resolve path relative to CWD and convert to AppPath
     const resolveRedirectPath = (path: string): string => {
       if (!path || isDevNull(path)) return path;
-      
+
       // If absolute path (within project), use it
       if (path.startsWith('/')) {
         return path;
       }
-      
+
       // Resolve relative path against CWD, then convert to AppPath
       const resolvedFsPath = resolvePath(cwd, path);
       return fsPathToAppPath(resolvedFsPath, this.context.projectName);

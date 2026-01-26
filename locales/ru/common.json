@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Нет изменённых файлов",
-      "title": "Изменённые файлы",
       "count": "{count} файлов",
       "expand": "Развернуть",
-      "minimize": "Свернуть"
+      "minimize": "Свернуть",
+      "noChangedFiles": "Нет изменённых файлов",
+      "title": "Изменённые файлы"
     },
     "chatContainer": {
       "generating": "ИИ генерирует ответ...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Вы можете редактировать прямо в правом редакторе",
     "notFound": "Данные AI-обзора не найдены",
     "revert": "Восстановить",
-    "revertSelectionHint": "Вы также можете частично восстановить, щёлкнув правой кнопкой и выбрав 'Восстановить выбор'.",
     "revertApplied": "Отменить примененные",
-    "revertButton": "Отменить"
+    "revertButton": "Отменить",
+    "revertSelectionHint": "Вы также можете частично восстановить, щёлкнув правой кнопкой и выбрав 'Восстановить выбор'."
   },
   "auth": {
     "authFailed": "Аутентификация GitHub не удалась",
@@ -83,8 +83,8 @@
       "clearTooltip": "Очистить текущий отображаемый вывод",
       "contextLabel": "Контекст",
       "empty": "Нет вывода",
-      "typeLabel": "Тип",
-      "partiallyHidden": "Некоторые элементы скрыты"
+      "partiallyHidden": "Некоторые элементы скрыты",
+      "typeLabel": "Тип"
     },
     "problems": "Проблемы",
     "terminal": "Терминал",
@@ -113,6 +113,9 @@
     "delete": "Удалить",
     "rename": "Переименовать",
     "title": "Чат-пространства"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Подтверждение"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Просмотр различий (только чтение)"
   },
   "gitHistory": {
+    "allFiles": "Все {count} файлов",
     "allFilesFiles": "Все {count} файлов",
     "allFilesScrollable": "Все {count} файлов (прокручиваемо)",
     "changedFiles": "Изменённые файлы:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} часов назад",
     "justNow": "только что",
     "loadingChanges": "Загрузка информации об изменениях...",
+    "loadingMore": "Загрузка...",
+    "loadMore": "Загрузить ещё",
     "minutesAgo": "{minutes} минут назад",
     "noChangedFiles": "Не найдено изменённых файлов",
     "showAllFilesDiff": "Показать различия для всех файлов этого коммита",
     "showDuplicates": "Показать дубликаты",
-    "showFileDiff": "Показать различия для этого файла",
-    "allFiles": "Все {count} файлов",
-    "loadMore": "Загрузить ещё",
-    "loadingMore": "Загрузка..."
+    "showFileDiff": "Показать различия для этого файла"
   },
   "highlightedCode": {
     "copyCode": "Копировать код"
@@ -235,6 +238,21 @@
     "search": "Поиск",
     "settings": "Настройки"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Закрыть ESC",
     "footerHelp": "Используйте ↑↓ для выбора, Enter для открытия",
@@ -246,6 +264,18 @@
     "openInPreview": "Открыть в предпросмотре",
     "quickOpen": "Быстрое открытие",
     "searchPlaceholder": "Поиск по имени файла/папки или пути..."
+  },
+  "paneNavigator": {
+    "activate": "Активировать",
+    "close": "Закрыть",
+    "deletePane": "Удалить панель",
+    "emptyPane": "Пусто",
+    "navigate": "Навигация",
+    "splitHorizontal": "Разделить горизонтально",
+    "splitVertical": "Разделить вертикально",
+    "tab": "вкладка",
+    "tabs": "вкладки",
+    "title": "Навигатор панелей"
   },
   "projectModal": {
     "cancel": "Отмена",
@@ -342,13 +372,25 @@
       "title": "Поиск",
       "useIgnoreFiles": "Использовать файлы игнорирования, такие как .gitignore"
     },
+    "shortcutKeys": "Горячие клавиши",
     "theme": {
       "colorCustomize": "Настройка цвета",
       "colorTheme": "Тема цвета",
       "highlightTheme": "Тема подсветки",
       "title": "Тема"
-    },
-    "shortcutKeys": "Горячие клавиши"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Автосохранение",
+    "clickToEdit": "Нажмите для редактирования",
+    "enterNewKey": "Введите новую клавишу",
+    "escToCancel": "Esc для отмены",
+    "noResults": "Подходящие горячие клавиши не найдены",
+    "pressKey": "Нажмите клавишу...",
+    "resetDefaults": "Сбросить настройки",
+    "searchPlaceholder": "Поиск (функция, клавиша)...",
+    "shortcutFor": "горячая клавиша для",
+    "title": "Горячие клавиши"
   },
   "tabBar": {
     "closeTab": "Закрыть вкладку",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Не удалось встроить HTML-ресурсы",
     "notFound": "Файл или папка не найдены"
   },
-  "paneNavigator": {
-    "activate": "Активировать",
-    "close": "Закрыть",
-    "deletePane": "Удалить панель",
-    "emptyPane": "Пусто",
-    "navigate": "Навигация",
-    "splitHorizontal": "Разделить горизонтально",
-    "splitVertical": "Разделить вертикально",
-    "tab": "вкладка",
-    "tabs": "вкладки",
-    "title": "Навигатор панелей"
-  },
-  "shortcutKeys": {
-    "title": "Горячие клавиши",
-    "searchPlaceholder": "Поиск (функция, клавиша)...",
-    "resetDefaults": "Сбросить настройки",
-    "noResults": "Подходящие горячие клавиши не найдены",
-    "clickToEdit": "Нажмите для редактирования",
-    "enterNewKey": "Введите новую клавишу",
-    "shortcutFor": "горячая клавиша для",
-    "pressKey": "Нажмите клавишу...",
-    "escToCancel": "Esc для отмены",
-    "autoSaved": "Автосохранение"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Вы просматриваете сервер разработки (Render).",
+      "officialSite": "официальный сайт (GitHub Pages)",
       "stableVersion": "Для стабильной работы посетите",
-      "officialSite": "официальный сайт (GitHub Pages)"
+      "warning": "⚠️ Вы просматриваете сервер разработки (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

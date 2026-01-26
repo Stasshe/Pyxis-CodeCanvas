@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Tidak ada file yang berubah",
-      "title": "File yang berubah",
       "count": "{count} file",
       "expand": "Perluas",
-      "minimize": "Perkecil"
+      "minimize": "Perkecil",
+      "noChangedFiles": "Tidak ada file yang berubah",
+      "title": "File yang berubah"
     },
     "chatContainer": {
       "generating": "AI sedang membuat respon...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Anda dapat mengedit langsung di editor kanan",
     "notFound": "Data tinjauan AI tidak ditemukan",
     "revert": "Kembalikan",
-    "revertSelectionHint": "Anda juga bisa mengembalikan sebagian dengan klik kanan dan pilih 'Revert selection'.",
     "revertApplied": "Batalkan yang diterapkan",
-    "revertButton": "Batalkan"
+    "revertButton": "Batalkan",
+    "revertSelectionHint": "Anda juga bisa mengembalikan sebagian dengan klik kanan dan pilih 'Revert selection'."
   },
   "auth": {
     "authFailed": "Autentikasi GitHub gagal",
@@ -83,8 +83,8 @@
       "clearTooltip": "Bersihkan output yang sedang ditampilkan",
       "contextLabel": "Konteks",
       "empty": "Tidak ada output",
-      "typeLabel": "Tipe",
-      "partiallyHidden": "Beberapa item tersembunyi"
+      "partiallyHidden": "Beberapa item tersembunyi",
+      "typeLabel": "Tipe"
     },
     "problems": "Masalah",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Hapus",
     "rename": "Ubah nama",
     "title": "Ruang obrolan"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Konfirmasi"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Lihat diff (hanya baca)"
   },
   "gitHistory": {
+    "allFiles": "Semua {count} file",
     "allFilesFiles": "Semua {count} file",
     "allFilesScrollable": "Semua {count} file (dapat digulir)",
     "changedFiles": "File yang diubah:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} jam yang lalu",
     "justNow": "baru saja",
     "loadingChanges": "Memuat info perubahan...",
+    "loadingMore": "Memuat...",
+    "loadMore": "Muat lebih banyak",
     "minutesAgo": "{minutes} menit yang lalu",
     "noChangedFiles": "Tidak ditemukan file yang berubah",
     "showAllFilesDiff": "Tampilkan semua diff file untuk commit ini",
     "showDuplicates": "Tampilkan duplikat",
-    "showFileDiff": "Tampilkan diff untuk file ini",
-    "allFiles": "Semua {count} file",
-    "loadMore": "Muat lebih banyak",
-    "loadingMore": "Memuat..."
+    "showFileDiff": "Tampilkan diff untuk file ini"
   },
   "highlightedCode": {
     "copyCode": "Salin kode"
@@ -235,6 +238,21 @@
     "search": "Cari",
     "settings": "Pengaturan"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Tutup dengan ESC",
     "footerHelp": "Gunakan ↑↓ untuk pilih, Enter untuk buka",
@@ -246,6 +264,18 @@
     "openInPreview": "Buka di Pratinjau",
     "quickOpen": "Buka cepat",
     "searchPlaceholder": "Cari nama file/folder atau path..."
+  },
+  "paneNavigator": {
+    "activate": "Aktifkan",
+    "close": "Tutup",
+    "deletePane": "Hapus panel",
+    "emptyPane": "Kosong",
+    "navigate": "Navigasi",
+    "splitHorizontal": "Bagi horizontal",
+    "splitVertical": "Bagi vertikal",
+    "tab": "tab",
+    "tabs": "tab",
+    "title": "Navigasi panel"
   },
   "projectModal": {
     "cancel": "Batal",
@@ -342,13 +372,25 @@
       "title": "Cari",
       "useIgnoreFiles": "Gunakan file ignore seperti .gitignore"
     },
+    "shortcutKeys": "Pintasan keyboard",
     "theme": {
       "colorCustomize": "Kustomisasi Warna",
       "colorTheme": "Tema Warna",
       "highlightTheme": "Highlight Kode",
       "title": "Tema"
-    },
-    "shortcutKeys": "Pintasan keyboard"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Tersimpan otomatis",
+    "clickToEdit": "Klik untuk mengedit",
+    "enterNewKey": "Masukkan tombol baru",
+    "escToCancel": "Esc untuk membatalkan",
+    "noResults": "Tidak ada pintasan yang cocok",
+    "pressKey": "Tekan tombol...",
+    "resetDefaults": "Reset ke default",
+    "searchPlaceholder": "Cari (fungsi, tombol)...",
+    "shortcutFor": "pintasan untuk",
+    "title": "Pintasan keyboard"
   },
   "tabBar": {
     "closeTab": "Tutup tab",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Gagal menyisipkan aset HTML",
     "notFound": "File atau folder tidak ditemukan"
   },
-  "paneNavigator": {
-    "activate": "Aktifkan",
-    "close": "Tutup",
-    "deletePane": "Hapus panel",
-    "emptyPane": "Kosong",
-    "navigate": "Navigasi",
-    "splitHorizontal": "Bagi horizontal",
-    "splitVertical": "Bagi vertikal",
-    "tab": "tab",
-    "tabs": "tab",
-    "title": "Navigasi panel"
-  },
-  "shortcutKeys": {
-    "title": "Pintasan keyboard",
-    "searchPlaceholder": "Cari (fungsi, tombol)...",
-    "resetDefaults": "Reset ke default",
-    "noResults": "Tidak ada pintasan yang cocok",
-    "clickToEdit": "Klik untuk mengedit",
-    "enterNewKey": "Masukkan tombol baru",
-    "shortcutFor": "pintasan untuk",
-    "pressKey": "Tekan tombol...",
-    "escToCancel": "Esc untuk membatalkan",
-    "autoSaved": "Tersimpan otomatis"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Anda sedang melihat server pengembangan (Render).",
+      "officialSite": "situs resmi (GitHub Pages)",
       "stableVersion": "Untuk pengalaman yang stabil, silakan kunjungi",
-      "officialSite": "situs resmi (GitHub Pages)"
+      "warning": "⚠️ Anda sedang melihat server pengembangan (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

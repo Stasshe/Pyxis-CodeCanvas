@@ -12,7 +12,8 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GitHistory from './GitHistory';
 
@@ -430,7 +431,7 @@ export default function GitPanel({
     if (!currentProjectId) return 20;
     const key = `gitCommitDepth_${currentProjectId}`;
     const stored = sessionStorage.getItem(key);
-    return stored ? parseInt(stored, 10) : 20;
+    return stored ? Number.parseInt(stored, 10) : 20;
   }, [currentProjectId]);
 
   const [commitDepth, setCommitDepthState] = useState(() => 20);
@@ -498,8 +499,7 @@ export default function GitPanel({
           actualFilterMode === 'all'
             ? {
                 mode: 'all' as const,
-                branches:
-                  actualFilterBranches.length > 0 ? actualFilterBranches : undefined,
+                branches: actualFilterBranches.length > 0 ? actualFilterBranches : undefined,
               }
             : { mode: 'auto' as const };
 
@@ -784,21 +784,30 @@ export default function GitPanel({
 
   const plusIcon = useMemo(
     () => (
-      <Plus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
+      <Plus
+        style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
+        className="select-none"
+      />
     ),
     [colors.primary]
   );
 
   const minusIcon = useMemo(
     () => (
-      <Minus style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }} className="select-none" />
+      <Minus
+        style={{ width: '0.75rem', height: '0.75rem', color: colors.primary }}
+        className="select-none"
+      />
     ),
     [colors.primary]
   );
 
   const discardIcon = useMemo(
     () => (
-      <RotateCcw style={{ width: '0.75rem', height: '0.75rem', color: colors.red }} className="select-none" />
+      <RotateCcw
+        style={{ width: '0.75rem', height: '0.75rem', color: colors.red }}
+        className="select-none"
+      />
     ),
     [colors.red]
   );
@@ -1367,11 +1376,11 @@ export default function GitPanel({
               items.push({
                 id: 'mode-all',
                 label: t('git.branchFilter.allMode') || 'All Branches',
-                description:
-                  t('git.branchFilter.allModeDesc') || 'Show commits from all branches',
-                icon: branchFilterMode === 'all' && selectedBranches.length === 0 ? (
-                  <Check size={14} />
-                ) : undefined,
+                description: t('git.branchFilter.allModeDesc') || 'Show commits from all branches',
+                icon:
+                  branchFilterMode === 'all' && selectedBranches.length === 0 ? (
+                    <Check size={14} />
+                  ) : undefined,
                 isActive: branchFilterMode === 'all' && selectedBranches.length === 0,
                 onClick: () => {
                   setBranchFilterMode('all');
@@ -1386,7 +1395,8 @@ export default function GitPanel({
                 items.push({
                   id: 'separator',
                   label: `── ${t('git.branchFilter.selectBranches') || 'Select Branches'} ──`,
-                  description: t('git.branchFilter.selectBranchesDesc') || 'Choose specific branches',
+                  description:
+                    t('git.branchFilter.selectBranchesDesc') || 'Choose specific branches',
                 });
               }
 

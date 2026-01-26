@@ -48,23 +48,23 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const [replaceQuery, setReplaceQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { isExcluded } = useSettings(projectId);
-  
+
   // 1文字から検索可能に
   const minQueryLength = 1;
   const debounceDelay = 300;
-  
+
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const searchIdRef = useRef(0);
-  
+
   // キャッシュ用ref
   const cachedFilesRef = useRef<FilePayload[] | null>(null);
   const lastFilesVersionRef = useRef<string>('');
   const lastSearchOptionsRef = useRef<string>('');
   const lastSearchQueryRef = useRef<string>('');
   const lastSearchResultsRef = useRef<SearchResult[]>([]);
-  
+
   // per-file collapsed state
   const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
 
@@ -88,7 +88,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   // ファイル数
   const fileCount = allFiles.length;
-  
+
   // リアルタイム検索を行うかどうか
   const isRealtimeSearch = fileCount <= REALTIME_FILE_THRESHOLD;
 
@@ -108,7 +108,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     if (cachedFilesRef.current && lastFilesVersionRef.current === filesVersion) {
       return cachedFilesRef.current;
     }
-    
+
     // 新しいペイロードを構築
     const payloads: FilePayload[] = allFiles.map(f => ({
       id: f.id,
@@ -117,18 +117,18 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       content: f.content,
       isBufferArray: f.isBufferArray,
     }));
-    
+
     // キャッシュを更新
     cachedFilesRef.current = payloads;
     lastFilesVersionRef.current = filesVersion;
-    
+
     return payloads;
   }, [allFiles, filesVersion]);
 
   // 検索実行関数をrefで保持（useEffectの依存関係からステートを分離するため）
   // このパターンは最新のステート値を参照しつつ、useEffectの再実行を防ぐ
   const performSearchRef = useRef<(query: string) => void>(() => {});
-  
+
   performSearchRef.current = (query: string) => {
     if (!query || !query.trim()) {
       setSearchResults([]);
@@ -150,10 +150,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // Worker初期化
     if (!workerRef.current) {
       try {
-        workerRef.current = new Worker(
-          new URL('../../workers/searchWorker.ts', import.meta.url),
-          { type: 'module' }
-        );
+        workerRef.current = new Worker(new URL('../../workers/searchWorker.ts', import.meta.url), {
+          type: 'module',
+        });
 
         workerRef.current.onmessage = e => {
           const msg = e.data;
@@ -164,7 +163,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
             const results = msg.results || [];
             setSearchResults(results);
             setIsSearching(false);
-            
+
             // キャッシュを更新
             lastSearchResultsRef.current = results;
           }
@@ -178,7 +177,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
     setIsSearching(true);
     const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
-    
+
     // キャッシュを更新
     lastSearchQueryRef.current = query;
     lastSearchOptionsRef.current = searchOptionsKey;
@@ -235,7 +234,15 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       lastSearchResultsRef.current = [];
       performSearchRef.current(searchQuery);
     }
-  }, [caseSensitive, wholeWord, useRegex, searchInFilenames, isRealtimeSearch, searchQuery, minQueryLength]);
+  }, [
+    caseSensitive,
+    wholeWord,
+    useRegex,
+    searchInFilenames,
+    isRealtimeSearch,
+    searchQuery,
+    minQueryLength,
+  ]);
 
   // Workerのクリーンアップ
   useEffect(() => {
@@ -338,7 +345,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       const updatedContent = fileEntry.content.replace(regex, replacement);
       const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
       await fileRepository.saveFile(updated);
-      
+
       // キャッシュをクリアして再検索
       lastSearchResultsRef.current = [];
       performSearchRef.current(searchQuery);

@@ -1,7 +1,7 @@
+import { fileRepository } from '@/engine/core/fileRepository';
 // src/engine/cmd/global/gitOperations/discardChanges.ts
 import git from 'isomorphic-git';
 import { GitFileSystemHelper } from './fileSystemHelper';
-import { fileRepository } from '@/engine/core/fileRepository';
 
 export async function discardChanges(
   fs: any,
@@ -32,7 +32,12 @@ export async function discardChanges(
 
     // ファイルの内容をHEADから読み取る
     try {
-      const { blob } = await git.readBlob({ fs, dir, oid: headCommit.oid, filepath: normalizedPath });
+      const { blob } = await git.readBlob({
+        fs,
+        dir,
+        oid: headCommit.oid,
+        filepath: normalizedPath,
+      });
 
       // 親ディレクトリを確認し、存在しなければ作成
       const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
@@ -45,7 +50,8 @@ export async function discardChanges(
       await fs.promises.writeFile(`${dir}/${normalizedPath}`, blob);
 
       // IndexedDBにも同期（親フォルダも作成）- fileRepository.createFile を使用
-      const content = typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
+      const content =
+        typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
 
       const filePath = `/${normalizedPath}`;
 
@@ -62,7 +68,9 @@ export async function discardChanges(
       const notFoundInHead =
         err.message.includes('not found') ||
         err.message.includes('Could not find file') ||
-        (headCommit && err.message.includes(headCommit.oid) && err.message.includes(`:${normalizedPath}`));
+        (headCommit &&
+          err.message.includes(headCommit.oid) &&
+          err.message.includes(`:${normalizedPath}`));
 
       if (notFoundInHead) {
         // ファイルがHEADに存在しない場合（新規追加されたファイル）は削除

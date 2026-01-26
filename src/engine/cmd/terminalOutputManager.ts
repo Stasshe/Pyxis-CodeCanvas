@@ -103,7 +103,7 @@ export class TerminalOutputManager {
    * @returns Promise that resolves when write completes
    */
   write(text: string): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const normalized = this.normalizeLineEndings(text);
 
       this.writeQueue.push({
@@ -128,20 +128,20 @@ export class TerminalOutputManager {
 
   /**
    * Write raw data without normalization (for ANSI sequences, prompts, etc)
-   * 
+   *
    * WARNING: This method does NOT track newline state. Use with caution.
    * - Best for: ANSI escape sequences, cursor movements, prompts
    * - Avoid for: Regular text output that may contain newlines
    * - Recommendation: Use write() or writeln() for normal text
-   * 
+   *
    * If you need to write raw data with newlines and proper tracking,
    * use write() instead - it handles \n → \r\n conversion automatically.
-   * 
+   *
    * @param data Raw data to write (not normalized, no state tracking)
    * @returns Promise that resolves when write completes
    */
   writeRaw(data: string): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // Don't normalize, don't track newline state for raw writes
       // This is intentional for ANSI sequences, but be aware of the limitation
       this.writeQueue.push({
@@ -197,7 +197,7 @@ export class TerminalOutputManager {
    * Wait for all pending writes to complete
    */
   async flush(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       if (this.writeQueue.length === 0 && !this.isWriting) {
         resolve();
         return;

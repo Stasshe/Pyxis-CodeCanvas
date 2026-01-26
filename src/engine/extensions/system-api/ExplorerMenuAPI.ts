@@ -61,7 +61,9 @@ class ExplorerMenuRegistry {
     const fullId = `${extensionId}.${definition.id}`;
 
     if (this.items.has(fullId)) {
-      console.warn(`[ExplorerMenuRegistry] Menu item ${fullId} is already registered. Overwriting.`);
+      console.warn(
+        `[ExplorerMenuRegistry] Menu item ${fullId} is already registered. Overwriting.`
+      );
     }
 
     this.items.set(fullId, {

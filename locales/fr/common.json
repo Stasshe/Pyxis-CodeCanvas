@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Aucun fichier modifié",
-      "title": "Fichiers modifiés",
       "count": "{count} fichiers",
       "expand": "Développer",
-      "minimize": "Réduire"
+      "minimize": "Réduire",
+      "noChangedFiles": "Aucun fichier modifié",
+      "title": "Fichiers modifiés"
     },
     "chatContainer": {
       "generating": "L'IA génère une réponse...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Vous pouvez éditer directement dans l'éditeur de droite",
     "notFound": "Données de revue IA introuvables",
     "revert": "Rétablir",
-    "revertSelectionHint": "Vous pouvez aussi restaurer partiellement en faisant un clic droit et en choisissant 'Rétablir la sélection'.",
     "revertApplied": "Annuler les applications",
-    "revertButton": "Annuler"
+    "revertButton": "Annuler",
+    "revertSelectionHint": "Vous pouvez aussi restaurer partiellement en faisant un clic droit et en choisissant 'Rétablir la sélection'."
   },
   "auth": {
     "authFailed": "Échec de l'authentification GitHub",
@@ -83,8 +83,8 @@
       "clearTooltip": "Effacer la sortie affichée actuellement",
       "contextLabel": "Contexte",
       "empty": "Aucune sortie",
-      "typeLabel": "Type",
-      "partiallyHidden": "Certains éléments masqués"
+      "partiallyHidden": "Certains éléments masqués",
+      "typeLabel": "Type"
     },
     "problems": "Problèmes",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Supprimer",
     "rename": "Renommer",
     "title": "Espaces de chat"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Confirmation"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Voir le diff (lecture seule)"
   },
   "gitHistory": {
+    "allFiles": "Tous les {count} fichiers",
     "allFilesFiles": "Tous les {count} fichiers",
     "allFilesScrollable": "Tous les {count} fichiers (défilable)",
     "changedFiles": "Fichiers modifiés :",
@@ -197,14 +201,13 @@
     "hoursAgo": "Il y a {hours} heures",
     "justNow": "à l'instant",
     "loadingChanges": "Chargement des informations de modification...",
+    "loadingMore": "Chargement...",
+    "loadMore": "Charger plus",
     "minutesAgo": "Il y a {minutes} minutes",
     "noChangedFiles": "Aucun fichier modifié trouvé",
     "showAllFilesDiff": "Afficher tous les diffs de fichiers pour ce commit",
     "showDuplicates": "Afficher les commits dupliqués",
-    "showFileDiff": "Afficher le diff pour ce fichier",
-    "allFiles": "Tous les {count} fichiers",
-    "loadMore": "Charger plus",
-    "loadingMore": "Chargement..."
+    "showFileDiff": "Afficher le diff pour ce fichier"
   },
   "highlightedCode": {
     "copyCode": "Copier le code"
@@ -235,6 +238,21 @@
     "search": "Rechercher",
     "settings": "Paramètres"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Fermer avec ESC",
     "footerHelp": "Utilisez ↑↓ pour sélectionner, Entrée pour ouvrir",
@@ -246,6 +264,18 @@
     "openInPreview": "Ouvrir dans l'aperçu",
     "quickOpen": "Ouverture rapide",
     "searchPlaceholder": "Rechercher par nom ou chemin de fichier/dossier..."
+  },
+  "paneNavigator": {
+    "activate": "Activer",
+    "close": "Fermer",
+    "deletePane": "Supprimer le volet",
+    "emptyPane": "Vide",
+    "navigate": "Naviguer",
+    "splitHorizontal": "Diviser horizontalement",
+    "splitVertical": "Diviser verticalement",
+    "tab": "onglet",
+    "tabs": "onglets",
+    "title": "Navigateur de volets"
   },
   "projectModal": {
     "cancel": "Annuler",
@@ -342,13 +372,25 @@
       "title": "Recherche",
       "useIgnoreFiles": "Utiliser les fichiers d'ignore comme .gitignore"
     },
+    "shortcutKeys": "Raccourcis clavier",
     "theme": {
       "colorCustomize": "Personnalisation des couleurs",
       "colorTheme": "Thème de couleurs",
       "highlightTheme": "Thème de surlignage",
       "title": "Thème"
-    },
-    "shortcutKeys": "Raccourcis clavier"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Sauvegarde automatique",
+    "clickToEdit": "Cliquez pour modifier",
+    "enterNewKey": "Entrez une nouvelle touche",
+    "escToCancel": "Échap pour annuler",
+    "noResults": "Aucun raccourci correspondant trouvé",
+    "pressKey": "Appuyez sur une touche...",
+    "resetDefaults": "Réinitialiser par défaut",
+    "searchPlaceholder": "Rechercher (fonction, touche)...",
+    "shortcutFor": "raccourci pour",
+    "title": "Raccourcis clavier"
   },
   "tabBar": {
     "closeTab": "Fermer l'onglet",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Échec de l'inclusion des assets HTML",
     "notFound": "Fichier ou dossier introuvable"
   },
-  "paneNavigator": {
-    "activate": "Activer",
-    "close": "Fermer",
-    "deletePane": "Supprimer le volet",
-    "emptyPane": "Vide",
-    "navigate": "Naviguer",
-    "splitHorizontal": "Diviser horizontalement",
-    "splitVertical": "Diviser verticalement",
-    "tab": "onglet",
-    "tabs": "onglets",
-    "title": "Navigateur de volets"
-  },
-  "shortcutKeys": {
-    "title": "Raccourcis clavier",
-    "searchPlaceholder": "Rechercher (fonction, touche)...",
-    "resetDefaults": "Réinitialiser par défaut",
-    "noResults": "Aucun raccourci correspondant trouvé",
-    "clickToEdit": "Cliquez pour modifier",
-    "enterNewKey": "Entrez une nouvelle touche",
-    "shortcutFor": "raccourci pour",
-    "pressKey": "Appuyez sur une touche...",
-    "escToCancel": "Échap pour annuler",
-    "autoSaved": "Sauvegarde automatique"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ Vous consultez le serveur de développement (Render).",
+      "officialSite": "le site officiel (GitHub Pages)",
       "stableVersion": "Pour une version stable, veuillez visiter",
-      "officialSite": "le site officiel (GitHub Pages)"
+      "warning": "⚠️ Vous consultez le serveur de développement (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

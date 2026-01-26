@@ -85,7 +85,12 @@ export default function FileTreeContextMenu({
   }, [contextMenu.item]);
 
   // Build menu items
-  const menuItems: Array<{ key: string; label: string; isExtension?: boolean; extensionHandler?: (item: FileItem) => void | Promise<void> }> =
+  const menuItems: Array<{
+    key: string;
+    label: string;
+    isExtension?: boolean;
+    extensionHandler?: (item: FileItem) => void | Promise<void>;
+  }> =
     contextMenu.item == null
       ? [
           { key: 'createFile', label: t('fileTree.menu.createFile') },
@@ -125,9 +130,18 @@ export default function FileTreeContextMenu({
             ? { key: 'createFile', label: t('fileTree.menu.createFile') }
             : null,
           { key: 'webPreview', label: t('fileTree.menu.webPreview') },
-        ].filter(Boolean) as Array<{ key: string; label: string; isExtension?: boolean; extensionHandler?: (item: FileItem) => void | Promise<void> }>);
+        ].filter(Boolean) as Array<{
+          key: string;
+          label: string;
+          isExtension?: boolean;
+          extensionHandler?: (item: FileItem) => void | Promise<void>;
+        }>);
 
-  const handleMenuAction = async (key: string, menuItem: FileItem | null, extHandler?: (item: FileItem) => void | Promise<void>) => {
+  const handleMenuAction = async (
+    key: string,
+    menuItem: FileItem | null,
+    extHandler?: (item: FileItem) => void | Promise<void>
+  ) => {
     setContextMenu(null);
 
     // Handle extension menu items

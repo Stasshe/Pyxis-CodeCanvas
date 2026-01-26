@@ -14,10 +14,7 @@ export interface DevCommandContext {
 /**
  * Development command handler type
  */
-export type DevCommandHandler = (
-  args: string[],
-  context: DevCommandContext
-) => Promise<void>;
+export type DevCommandHandler = (args: string[], context: DevCommandContext) => Promise<void>;
 
 /**
  * Development command registration info

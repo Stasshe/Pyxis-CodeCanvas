@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "Geen gewijzigde bestanden",
-      "title": "Gewijzigde bestanden",
       "count": "{count} bestanden",
       "expand": "Uitvouwen",
-      "minimize": "Minimaliseren"
+      "minimize": "Minimaliseren",
+      "noChangedFiles": "Geen gewijzigde bestanden",
+      "title": "Gewijzigde bestanden"
     },
     "chatContainer": {
       "generating": "De AI genereert een antwoord...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "Je kunt direct in de rechter editor bewerken",
     "notFound": "AI reviewgegevens niet gevonden",
     "revert": "Terugdraaien",
-    "revertSelectionHint": "Je kunt ook gedeeltelijk terugdraaien door rechts te klikken en 'Terugdraai selectie' te kiezen.",
     "revertApplied": "Toegepaste terugdraaien",
-    "revertButton": "Terugdraaien"
+    "revertButton": "Terugdraaien",
+    "revertSelectionHint": "Je kunt ook gedeeltelijk terugdraaien door rechts te klikken en 'Terugdraai selectie' te kiezen."
   },
   "auth": {
     "authFailed": "GitHub-authenticatie mislukt",
@@ -83,8 +83,8 @@
       "clearTooltip": "Wissen van huidige weergave",
       "contextLabel": "Context",
       "empty": "Geen output",
-      "typeLabel": "Type",
-      "partiallyHidden": "Sommige items verborgen"
+      "partiallyHidden": "Sommige items verborgen",
+      "typeLabel": "Type"
     },
     "problems": "Problemen",
     "terminal": "Terminal",
@@ -113,6 +113,9 @@
     "delete": "Verwijderen",
     "rename": "Naam wijzigen",
     "title": "Chatruimtes"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "Bevestiging"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "Bekijk diff (alleen-lezen)"
   },
   "gitHistory": {
+    "allFiles": "Alle {count} bestanden",
     "allFilesFiles": "Alle {count} bestanden",
     "allFilesScrollable": "Alle {count} bestanden (scrollbaar)",
     "changedFiles": "Gewijzigde bestanden:",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} uren geleden",
     "justNow": "zojuist",
     "loadingChanges": "Wijzigingsinformatie laden...",
+    "loadingMore": "Laden...",
+    "loadMore": "Meer laden",
     "minutesAgo": "{minutes} minuten geleden",
     "noChangedFiles": "Geen gewijzigde bestanden gevonden",
     "showAllFilesDiff": "Toon alle bestandsdiffs voor deze commit",
     "showDuplicates": "Toon duplicaten",
-    "showFileDiff": "Toon diff voor dit bestand",
-    "allFiles": "Alle {count} bestanden",
-    "loadMore": "Meer laden",
-    "loadingMore": "Laden..."
+    "showFileDiff": "Toon diff voor dit bestand"
   },
   "highlightedCode": {
     "copyCode": "Code kopiëren"
@@ -235,6 +238,21 @@
     "search": "Zoeken",
     "settings": "Instellingen"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "Sluiten met ESC",
     "footerHelp": "Gebruik ↑↓ om te selecteren, Enter om te openen",
@@ -246,6 +264,18 @@
     "openInPreview": "Openen in voorbeeld",
     "quickOpen": "Snel openen",
     "searchPlaceholder": "Zoeken op bestands-/mapnaam of pad..."
+  },
+  "paneNavigator": {
+    "activate": "Activeren",
+    "close": "Sluiten",
+    "deletePane": "Paneel verwijderen",
+    "emptyPane": "Leeg",
+    "navigate": "Navigeren",
+    "splitHorizontal": "Horizontaal splitsen",
+    "splitVertical": "Verticaal splitsen",
+    "tab": "tabblad",
+    "tabs": "tabbladen",
+    "title": "Paneelnavigator"
   },
   "projectModal": {
     "cancel": "Annuleren",
@@ -342,13 +372,25 @@
       "title": "Zoeken",
       "useIgnoreFiles": "Gebruik negeerbestanden zoals .gitignore"
     },
+    "shortcutKeys": "Sneltoetsen",
     "theme": {
       "colorCustomize": "Kleur aanpassen",
       "colorTheme": "Kleurthema",
       "highlightTheme": "Highlight-thema",
       "title": "Thema"
-    },
-    "shortcutKeys": "Sneltoetsen"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "Automatisch opgeslagen",
+    "clickToEdit": "Klik om te bewerken",
+    "enterNewKey": "Voer nieuwe toets in",
+    "escToCancel": "Esc om te annuleren",
+    "noResults": "Geen overeenkomende sneltoetsen gevonden",
+    "pressKey": "Druk op een toets...",
+    "resetDefaults": "Standaardinstellingen herstellen",
+    "searchPlaceholder": "Zoeken (functie, toets)...",
+    "shortcutFor": "sneltoets voor",
+    "title": "Sneltoetsen"
   },
   "tabBar": {
     "closeTab": "Tab sluiten",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "Inline HTML-assets mislukt",
     "notFound": "Bestand of map niet gevonden"
   },
-  "paneNavigator": {
-    "activate": "Activeren",
-    "close": "Sluiten",
-    "deletePane": "Paneel verwijderen",
-    "emptyPane": "Leeg",
-    "navigate": "Navigeren",
-    "splitHorizontal": "Horizontaal splitsen",
-    "splitVertical": "Verticaal splitsen",
-    "tab": "tabblad",
-    "tabs": "tabbladen",
-    "title": "Paneelnavigator"
-  },
-  "shortcutKeys": {
-    "title": "Sneltoetsen",
-    "searchPlaceholder": "Zoeken (functie, toets)...",
-    "resetDefaults": "Standaardinstellingen herstellen",
-    "noResults": "Geen overeenkomende sneltoetsen gevonden",
-    "clickToEdit": "Klik om te bewerken",
-    "enterNewKey": "Voer nieuwe toets in",
-    "shortcutFor": "sneltoets voor",
-    "pressKey": "Druk op een toets...",
-    "escToCancel": "Esc om te annuleren",
-    "autoSaved": "Automatisch opgeslagen"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ U bekijkt de ontwikkelserver (Render).",
+      "officialSite": "de officiële site (GitHub Pages)",
       "stableVersion": "Voor een stabiele ervaring, bezoek",
-      "officialSite": "de officiële site (GitHub Pages)"
+      "warning": "⚠️ U bekijkt de ontwikkelserver (Render)."
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

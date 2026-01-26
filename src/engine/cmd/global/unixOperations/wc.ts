@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
+import { UnixCommandBase } from './base';
 
 /**
  * wc - 行数、単語数、バイト数をカウント (POSIX準拠)
@@ -157,9 +157,7 @@ export class WcCommand extends UnixCommandBase {
 
     // 単語数: 空白で区切られた非空文字列の数
     // 空文字列やホワイトスペースのみの場合は0
-    const words = content.trim().length === 0 
-      ? 0 
-      : content.trim().split(/\s+/).length;
+    const words = content.trim().length === 0 ? 0 : content.trim().split(/\s+/).length;
 
     // バイト数: UTF-8エンコードでのバイト数
     const bytes = new TextEncoder().encode(content).length;

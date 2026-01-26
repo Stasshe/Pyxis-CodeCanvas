@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "无更改的文件",
-      "title": "已更改的文件",
       "count": "{count} 个",
       "expand": "展开",
-      "minimize": "最小化"
+      "minimize": "最小化",
+      "noChangedFiles": "无更改的文件",
+      "title": "已更改的文件"
     },
     "chatContainer": {
       "generating": "AI 正在生成回复...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "你可以直接在右侧编辑器中编辑",
     "notFound": "未找到 AI 审查数据",
     "revert": "还原",
-    "revertSelectionHint": "你也可以右键选择并选择“还原所选项”。",
     "revertApplied": "撤销已应用的更改",
-    "revertButton": "撤销"
+    "revertButton": "撤销",
+    "revertSelectionHint": "你也可以右键选择并选择“还原所选项”。"
   },
   "auth": {
     "authFailed": "GitHub 验证失败",
@@ -83,8 +83,8 @@
       "clearTooltip": "清除当前显示的输出",
       "contextLabel": "上下文",
       "empty": "无输出",
-      "typeLabel": "类型",
-      "partiallyHidden": "部分内容已隐藏"
+      "partiallyHidden": "部分内容已隐藏",
+      "typeLabel": "类型"
     },
     "problems": "问题",
     "terminal": "终端",
@@ -113,6 +113,9 @@
     "delete": "删除",
     "rename": "重命名",
     "title": "聊天空间"
+  },
+  "common": {
+    "editable": "Editable"
   },
   "confirmation": {
     "title": "确认"
@@ -188,6 +191,7 @@
     "viewDiffReadonly": "查看差异（只读）"
   },
   "gitHistory": {
+    "allFiles": "全部 {count} 个文件",
     "allFilesFiles": "全部 {count} 个文件（可滚动）",
     "allFilesScrollable": "全部 {count} 个文件（可滚动）",
     "changedFiles": "更改的文件：",
@@ -197,14 +201,13 @@
     "hoursAgo": "{hours} 小时前",
     "justNow": "刚刚",
     "loadingChanges": "加载更改信息...",
+    "loadingMore": "加载中...",
+    "loadMore": "加载更多",
     "minutesAgo": "{minutes} 分钟前",
     "noChangedFiles": "未找到更改文件",
     "showAllFilesDiff": "显示此提交的所有文件差异",
     "showDuplicates": "显示重复提交",
-    "showFileDiff": "显示此文件的差异",
-    "allFiles": "全部 {count} 个文件",
-    "loadMore": "加载更多",
-    "loadingMore": "加载中..."
+    "showFileDiff": "显示此文件的差异"
   },
   "highlightedCode": {
     "copyCode": "复制代码"
@@ -235,6 +238,21 @@
     "search": "搜索",
     "settings": "设置"
   },
+  "mergeConflict": {
+    "acceptBoth": "Accept Both",
+    "acceptOurs": "Accept Ours",
+    "acceptTheirs": "Accept Theirs",
+    "completeResolve": "Complete Resolution",
+    "conflictFiles": "Conflict Files",
+    "markAsResolved": "Mark as Resolved",
+    "noConflicts": "No conflicts",
+    "oursVsTheirs": "Ours vs Theirs",
+    "resolved": "Resolved",
+    "resolvedResult": "Resolved Result",
+    "resultView": "Result Only",
+    "threeWayView": "3-Way View",
+    "title": "Merge Conflict Resolution"
+  },
   "operationWindow": {
     "closeByEsc": "按 ESC 关闭",
     "footerHelp": "使用 ↑↓ 选择，Enter 打开",
@@ -246,6 +264,18 @@
     "openInPreview": "在预览中打开",
     "quickOpen": "快速打开",
     "searchPlaceholder": "按文件/文件夹名或路径搜索..."
+  },
+  "paneNavigator": {
+    "activate": "激活",
+    "close": "关闭",
+    "deletePane": "删除窗格",
+    "emptyPane": "空",
+    "navigate": "导航",
+    "splitHorizontal": "水平拆分",
+    "splitVertical": "垂直拆分",
+    "tab": "标签页",
+    "tabs": "标签页",
+    "title": "窗格导航"
   },
   "projectModal": {
     "cancel": "取消",
@@ -342,13 +372,25 @@
       "title": "搜索",
       "useIgnoreFiles": "使用 .gitignore 等忽略文件"
     },
+    "shortcutKeys": "快捷键设置",
     "theme": {
       "colorCustomize": "颜色自定义",
       "colorTheme": "配色主题",
       "highlightTheme": "代码高亮主题",
       "title": "主题"
-    },
-    "shortcutKeys": "快捷键设置"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "自动保存",
+    "clickToEdit": "点击编辑",
+    "enterNewKey": "输入新的按键",
+    "escToCancel": "Esc 取消",
+    "noResults": "未找到匹配的快捷键",
+    "pressKey": "请按下按键...",
+    "resetDefaults": "重置为默认值",
+    "searchPlaceholder": "搜索（功能名、按键）...",
+    "shortcutFor": "的快捷键",
+    "title": "快捷键"
   },
   "tabBar": {
     "closeTab": "关闭标签",
@@ -379,53 +421,11 @@
     "inlineHtmlFailed": "内联 HTML 资源失败",
     "notFound": "未找到文件或文件夹"
   },
-  "paneNavigator": {
-    "activate": "激活",
-    "close": "关闭",
-    "deletePane": "删除窗格",
-    "emptyPane": "空",
-    "navigate": "导航",
-    "splitHorizontal": "水平拆分",
-    "splitVertical": "垂直拆分",
-    "tab": "标签页",
-    "tabs": "标签页",
-    "title": "窗格导航"
-  },
-  "shortcutKeys": {
-    "title": "快捷键",
-    "searchPlaceholder": "搜索（功能名、按键）...",
-    "resetDefaults": "重置为默认值",
-    "noResults": "未找到匹配的快捷键",
-    "clickToEdit": "点击编辑",
-    "enterNewKey": "输入新的按键",
-    "shortcutFor": "的快捷键",
-    "pressKey": "请按下按键...",
-    "escToCancel": "Esc 取消",
-    "autoSaved": "自动保存"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ 您正在使用开发服务器（Render）。",
+      "officialSite": "官方网站（GitHub Pages）",
       "stableVersion": "如需稳定版本，请访问",
-      "officialSite": "官方网站（GitHub Pages）"
+      "warning": "⚠️ 您正在使用开发服务器（Render）。"
     }
-  },
-  "common": {
-    "editable": "Editable"
-  },
-  "mergeConflict": {
-    "title": "Merge Conflict Resolution",
-    "conflictFiles": "Conflict Files",
-    "noConflicts": "No conflicts",
-    "resolved": "Resolved",
-    "completeResolve": "Complete Resolution",
-    "acceptOurs": "Accept Ours",
-    "acceptTheirs": "Accept Theirs",
-    "acceptBoth": "Accept Both",
-    "markAsResolved": "Mark as Resolved",
-    "threeWayView": "3-Way View",
-    "oursVsTheirs": "Ours vs Theirs",
-    "resultView": "Result Only",
-    "resolvedResult": "Resolved Result"
   }
 }

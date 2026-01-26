@@ -7,11 +7,11 @@
   },
   "ai": {
     "changedFilesList": {
-      "noChangedFiles": "変更されたファイルはありません",
-      "title": "変更ファイル",
       "count": "{count} 個",
       "expand": "展開する",
-      "minimize": "最小化する"
+      "minimize": "最小化する",
+      "noChangedFiles": "変更されたファイルはありません",
+      "title": "変更ファイル"
     },
     "chatContainer": {
       "generating": "AIが応答を生成中...",
@@ -56,9 +56,9 @@
     "editRightDirectly": "右側のエディタで直接編集できます",
     "notFound": "AIレビューデータが見つかりません",
     "revert": "元に戻す",
-    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。",
     "revertApplied": "適用済みを元に戻す",
-    "revertButton": "元に戻す"
+    "revertButton": "元に戻す",
+    "revertSelectionHint": "右クリックメニューから「選択範囲を元に戻す」で部分的に元に戻すこともできます。"
   },
   "auth": {
     "authFailed": "GitHub認証に失敗しました",
@@ -83,8 +83,8 @@
       "clearTooltip": "現在表示されている出力をクリア",
       "contextLabel": "処理名",
       "empty": "出力はありません",
-      "typeLabel": "タイプ",
-      "partiallyHidden": "一部非表示中"
+      "partiallyHidden": "一部非表示中",
+      "typeLabel": "タイプ"
     },
     "problems": "問題",
     "terminal": "ターミナル",
@@ -113,6 +113,9 @@
     "delete": "削除",
     "rename": "名前を変更",
     "title": "チャットスペース"
+  },
+  "common": {
+    "editable": "編集可能"
   },
   "confirmation": {
     "title": "確認"
@@ -158,6 +161,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Gemini APIキーを入力",
+    "branchFilter": {
+      "all": "すべて",
+      "allMode": "すべてのブランチ",
+      "allModeDesc": "すべてのブランチのコミットを表示",
+      "auto": "自動",
+      "autoMode": "自動（HEADのみ）",
+      "autoModeDesc": "現在のブランチのコミットのみ表示",
+      "localBranch": "ローカルブランチ",
+      "remoteBranch": "リモートブランチ",
+      "selectBranches": "ブランチを選択",
+      "selectBranchesDesc": "特定のブランチを選択",
+      "selected": "件選択",
+      "title": "ブランチフィルタ",
+      "tooltip": "ブランチフィルタ"
+    },
     "changes": "変更",
     "commit": "コミット",
     "commitMessagePlaceholder": "コミットメッセージを入力...",
@@ -185,22 +203,7 @@
     "unstaged": "未ステージング",
     "untracked": "未追跡",
     "viewDiffEditable": "差分を表示（編集可能）",
-    "viewDiffReadonly": "差分を表示（編集不可）",
-    "branchFilter": {
-      "tooltip": "ブランチフィルタ",
-      "title": "ブランチフィルタ",
-      "auto": "自動",
-      "all": "すべて",
-      "selected": "件選択",
-      "autoMode": "自動（HEADのみ）",
-      "autoModeDesc": "現在のブランチのコミットのみ表示",
-      "allMode": "すべてのブランチ",
-      "allModeDesc": "すべてのブランチのコミットを表示",
-      "selectBranches": "ブランチを選択",
-      "selectBranchesDesc": "特定のブランチを選択",
-      "localBranch": "ローカルブランチ",
-      "remoteBranch": "リモートブランチ"
-    }
+    "viewDiffReadonly": "差分を表示（編集不可）"
   },
   "gitHistory": {
     "allFiles": "全{count}ファイル",
@@ -211,9 +214,9 @@
     "hideDuplicates": "重複コミットを非表示",
     "hoursAgo": "{hours}時間前",
     "justNow": "たった今",
-    "loadMore": "さらに読み込む",
     "loadingChanges": "変更情報を読み込み中...",
     "loadingMore": "読み込み中...",
+    "loadMore": "さらに読み込む",
     "minutesAgo": "{minutes}分前",
     "noChangedFiles": "変更ファイルが見つかりません",
     "showAllFilesDiff": "このコミットの全ファイルdiffを表示",
@@ -248,6 +251,21 @@
     "run": "実行",
     "search": "検索",
     "settings": "設定"
+  },
+  "mergeConflict": {
+    "acceptBoth": "両方採用",
+    "acceptOurs": "自分を採用",
+    "acceptTheirs": "相手を採用",
+    "completeResolve": "解決完了",
+    "conflictFiles": "コンフリクトファイル",
+    "markAsResolved": "解決済みにする",
+    "noConflicts": "コンフリクトはありません",
+    "oursVsTheirs": "自分 vs 相手",
+    "resolved": "解決済み",
+    "resolvedResult": "解決結果",
+    "resultView": "結果のみ",
+    "threeWayView": "3方向表示",
+    "title": "マージコンフリクト解決"
   },
   "operationWindow": {
     "closeByEsc": "ESC で閉じる",
@@ -370,13 +388,25 @@
       "title": "検索",
       "useIgnoreFiles": ".gitignoreなどの無視ファイルを使用"
     },
+    "shortcutKeys": "ショートカットキー設定",
     "theme": {
       "colorCustomize": "カラーカスタマイズ",
       "colorTheme": "カラーテーマ",
       "highlightTheme": "コードハイライト",
       "title": "テーマ"
-    },
-    "shortcutKeys": "ショートカットキー設定"
+    }
+  },
+  "shortcutKeys": {
+    "autoSaved": "自動保存されます",
+    "clickToEdit": "クリックして編集",
+    "enterNewKey": "新しいキーを入力",
+    "escToCancel": "Esc でキャンセル",
+    "noResults": "該当するショートカットが見つかりません",
+    "pressKey": "キーを押してください...",
+    "resetDefaults": "初期設定に戻す",
+    "searchPlaceholder": "検索 (機能名, キー)...",
+    "shortcutFor": "のショートカット",
+    "title": "ショートカットキー"
   },
   "tabBar": {
     "closeTab": "タブを閉じる",
@@ -407,41 +437,11 @@
     "inlineHtmlFailed": "HTMLアセットのインライン化に失敗しました",
     "notFound": "ファイルまたはフォルダが見つかりません"
   },
-  "shortcutKeys": {
-    "title": "ショートカットキー",
-    "searchPlaceholder": "検索 (機能名, キー)...",
-    "resetDefaults": "初期設定に戻す",
-    "noResults": "該当するショートカットが見つかりません",
-    "clickToEdit": "クリックして編集",
-    "enterNewKey": "新しいキーを入力",
-    "shortcutFor": "のショートカット",
-    "pressKey": "キーを押してください...",
-    "escToCancel": "Esc でキャンセル",
-    "autoSaved": "自動保存されます"
-  },
   "welcome": {
     "devServer": {
-      "warning": "⚠️ 現在、開発用サーバー（Render）で動作しています。",
+      "officialSite": "公式サイト（GitHub Pages）",
       "stableVersion": "安定版は",
-      "officialSite": "公式サイト（GitHub Pages）"
+      "warning": "⚠️ 現在、開発用サーバー（Render）で動作しています。"
     }
-  },
-  "common": {
-    "editable": "編集可能"
-  },
-  "mergeConflict": {
-    "title": "マージコンフリクト解決",
-    "conflictFiles": "コンフリクトファイル",
-    "noConflicts": "コンフリクトはありません",
-    "resolved": "解決済み",
-    "completeResolve": "解決完了",
-    "acceptOurs": "自分を採用",
-    "acceptTheirs": "相手を採用",
-    "acceptBoth": "両方採用",
-    "markAsResolved": "解決済みにする",
-    "threeWayView": "3方向表示",
-    "oursVsTheirs": "自分 vs 相手",
-    "resultView": "結果のみ",
-    "resolvedResult": "解決結果"
   }
 }

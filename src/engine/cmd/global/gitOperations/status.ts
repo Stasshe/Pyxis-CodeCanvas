@@ -1,8 +1,6 @@
 // src/engine/cmd/global/gitOperations/status.ts
 
-export function categorizeStatusFiles(
-  status: Array<[string, number, number, number]>
-): {
+export function categorizeStatusFiles(status: Array<[string, number, number, number]>): {
   untracked: string[];
   modified: string[];
   staged: string[];

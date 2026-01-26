@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import type { ProjectFile } from '@/types';
 
@@ -40,7 +40,13 @@ export class GrepCommand extends UnixCommandBase {
     stdin: NodeJS.ReadableStream | string | null = null
   ): Promise<string> {
     const { flags, values, positional } = parseArgs(args, [
-      '-A', '-B', '-C', '-e', '-f', '--include', '--exclude',
+      '-A',
+      '-B',
+      '-C',
+      '-e',
+      '-f',
+      '--include',
+      '--exclude',
     ]);
 
     // --help only (we don't override -h behavior)
@@ -112,8 +118,14 @@ export class GrepCommand extends UnixCommandBase {
     if (files.length === 0 && stdin !== null) {
       const content = await this.readStdin(stdin);
       const result = this.grepContent(
-        content, regex, invertMatch, showLineNumber, onlyMatching,
-        showAfter, showBefore, ''
+        content,
+        regex,
+        invertMatch,
+        showLineNumber,
+        onlyMatching,
+        showAfter,
+        showBefore,
+        ''
       );
       if (quiet) return result.matchCount > 0 ? '' : '';
       if (countOnly) return String(result.matchCount);
@@ -136,10 +148,20 @@ export class GrepCommand extends UnixCommandBase {
           if (isDir) {
             if (recursive) {
               const dirResults = await this.grepDirectory(
-                normalizedPath, regex, invertMatch, showLineNumber, 
-                filesWithMatches, filesWithoutMatch, countOnly, onlyMatching,
-                showFilename, showAfter, showBefore, quiet,
-                includePattern, excludePattern
+                normalizedPath,
+                regex,
+                invertMatch,
+                showLineNumber,
+                filesWithMatches,
+                filesWithoutMatch,
+                countOnly,
+                onlyMatching,
+                showFilename,
+                showAfter,
+                showBefore,
+                quiet,
+                includePattern,
+                excludePattern
               );
               if (dirResults.anyMatch) anyMatch = true;
               results.push(...dirResults.lines);
@@ -153,9 +175,17 @@ export class GrepCommand extends UnixCommandBase {
             if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
 
             const fileResult = await this.grepFile(
-              normalizedPath, regex, invertMatch, showLineNumber,
-              filesWithMatches, filesWithoutMatch, countOnly, onlyMatching,
-              showFilename, showAfter, showBefore
+              normalizedPath,
+              regex,
+              invertMatch,
+              showLineNumber,
+              filesWithMatches,
+              filesWithoutMatch,
+              countOnly,
+              onlyMatching,
+              showFilename,
+              showAfter,
+              showBefore
             );
             if (fileResult.matchCount > 0) anyMatch = true;
             if (fileResult.output) results.push(fileResult.output);
@@ -294,8 +324,14 @@ export class GrepCommand extends UnixCommandBase {
 
     const prefix = showFilename ? `${path}:` : '';
     const result = this.grepContent(
-      content, regex, invertMatch, showLineNumber, onlyMatching,
-      afterContext, beforeContext, prefix
+      content,
+      regex,
+      invertMatch,
+      showLineNumber,
+      onlyMatching,
+      afterContext,
+      beforeContext,
+      prefix
     );
 
     if (filesWithMatches) {
@@ -352,9 +388,17 @@ export class GrepCommand extends UnixCommandBase {
 
       try {
         const result = await this.grepFile(
-          fullPath, regex, invertMatch, showLineNumber,
-          filesWithMatches, filesWithoutMatch, countOnly, onlyMatching,
-          true, afterContext, beforeContext
+          fullPath,
+          regex,
+          invertMatch,
+          showLineNumber,
+          filesWithMatches,
+          filesWithoutMatch,
+          countOnly,
+          onlyMatching,
+          true,
+          afterContext,
+          beforeContext
         );
         if (result.matchCount > 0) anyMatch = true;
         if (result.output && !quiet) results.push(result.output);

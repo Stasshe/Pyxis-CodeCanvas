@@ -241,9 +241,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                 )}
               </button>
               {expandedFiles.has(index) && (
-                <div className="pl-6 text-xs text-gray-500 py-1">
-                  {conflict.filePath}
-                </div>
+                <div className="pl-6 text-xs text-gray-500 py-1">{conflict.filePath}</div>
               )}
             </div>
           ))}
@@ -260,7 +258,9 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                 className="px-2 py-1 text-sm bg-[#3c3c3c] text-white rounded border border-[#555]"
               >
                 <option value="three-way">{t('mergeConflict.threeWayView') || '3-Way View'}</option>
-                <option value="ours-vs-theirs">{t('mergeConflict.oursVsTheirs') || 'Ours vs Theirs'}</option>
+                <option value="ours-vs-theirs">
+                  {t('mergeConflict.oursVsTheirs') || 'Ours vs Theirs'}
+                </option>
                 <option value="result">{t('mergeConflict.resultView') || 'Result Only'}</option>
               </select>
             </div>
@@ -458,7 +458,8 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
       {/* Bottom: Resolved result editor */}
       <div className="flex-1 flex flex-col">
         <div className="px-2 py-1 text-xs bg-[#2d2d2d] text-green-400 border-b border-[#3c3c3c]">
-          {t('mergeConflict.resolvedResult') || 'Resolved Result'} ({t('common.editable') || 'Editable'})
+          {t('mergeConflict.resolvedResult') || 'Resolved Result'} (
+          {t('common.editable') || 'Editable'})
         </div>
         <div className="flex-1">
           <Editor
