@@ -126,7 +126,6 @@ Root
 │   │   └── update-readmes-version.js
 │   ├── i18n
 │   │   ├── README.md
-│   │   ├── add-all-translations.js
 │   │   ├── add-hardcoded-translations.js
 │   │   ├── add-remaining-translations.js
 │   │   ├── apply_missing_keys.js
@@ -310,6 +309,7 @@ Root
 │   │   │   │       ├── cat.ts
 │   │   │   │       ├── cd.ts
 │   │   │   │       ├── cp.ts
+│   │   │   │       ├── date.ts
 │   │   │   │       ├── echo.ts
 │   │   │   │       ├── find.ts
 │   │   │   │       ├── grep.ts
@@ -373,14 +373,6 @@ Root
 │   │   │   ├── EditorMemoryManager.ts
 │   │   │   ├── index.ts
 │   │   │   └── useEditorMemory.ts
-│   │   ├── export
-│   │   │   ├── exportFolderZip.ts
-│   │   │   ├── exportIndexeddb.ts
-│   │   │   ├── exportPage.ts
-│   │   │   ├── exportPdf.ts
-│   │   │   ├── exportRepo.ts
-│   │   │   ├── exportSingleFile.ts
-│   │   │   └── inlineHtmlAssets.ts
 │   │   ├── helper
 │   │   │   ├── isBufferArray.ts
 │   │   │   ├── resize.ts
@@ -391,8 +383,15 @@ Root
 │   │   │   ├── storage-adapter.ts
 │   │   │   ├── translator.ts
 │   │   │   └── types.ts
-│   │   ├── import
-│   │   │   └── importSingleFile.ts
+│   │   ├── in-ex
+│   │   │   ├── exportFolderZip.ts
+│   │   │   ├── exportIndexeddb.ts
+│   │   │   ├── exportPage.ts
+│   │   │   ├── exportPdf.ts
+│   │   │   ├── exportRepo.ts
+│   │   │   ├── exportSingleFile.ts
+│   │   │   ├── importSingleFile.ts
+│   │   │   └── inlineHtmlAssets.ts
 │   │   ├── initialFileContents.ts
 │   │   ├── node
 │   │   │   ├── builtInModule.ts
@@ -522,13 +521,11 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
-├── tsconfig.extensions.json
 ├── tsconfig.json
-├── tsconfig.tsbuildinfo
 └── types
     └── esbuild-cdn.d.ts
 
-80 directories, 448 files
+79 directories, 446 files
 
 =================================
 
@@ -543,7 +540,6 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   └── manifest.json
 ├── calc
-│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
@@ -555,17 +551,6 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
-│   │   ├── @kurkle
-│   │   │   └── color
-│   │   │       ├── LICENSE.md
-│   │   │       ├── README.md
-│   │   │       ├── dist
-│   │   │       │   ├── color.cjs
-│   │   │       │   ├── color.d.ts
-│   │   │       │   ├── color.esm.js
-│   │   │       │   ├── color.min.js
-│   │   │       │   └── color.min.js.map
-│   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
@@ -639,7 +624,6 @@ extensions/ 以下のディレクトリ構造:
 │   │   └── pyodide -> ../../../node_modules/.pnpm/pyodide@0.29.0/node_modules/pyodide
 │   └── package.json
 ├── react-preview
-│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── _build.js
 │   ├── index.tsx
@@ -665,14 +649,18 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-44 directories, 87 files
+41 directories, 77 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 70794
-合計文字数: 2235808
-合計ファイルサイズ(bytes): 2380968
+合計行数: 71238
+合計文字数: 2253778
+合計ファイルサイズ(bytes): 2398868
 
-開発時のdev container全体のサイズ(bytes): 2.4G	.
+開発時のdev container全体のサイズ(bytes): 1.2G	.
+==========
+ビルト済みファイルの行数: 129379
+合計文字数: 27021426
+合計ファイルサイズ(bytes): 30007508
