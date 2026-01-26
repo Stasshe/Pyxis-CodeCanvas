@@ -2,7 +2,6 @@
 /* xterm.js styles */
 @import "@xterm/xterm/css/xterm.css";
 @import "./markdown.css";
-@import "./Toast.css";
 
 @tailwind base;
 @tailwind components;
