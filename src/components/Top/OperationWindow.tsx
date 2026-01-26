@@ -3,9 +3,9 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { flattenFileItems, scoreMatch } from '@/components/OperationWindow.helpers';
+import { flattenFileItems, scoreMatch } from '@/components/Top/OperationUtils';
 import OperationList from '@/components/Top/OperationList';
-import MdPreviewDialog from '@/components/MdPreviewDialog';
+import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -15,8 +15,6 @@ import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 
-// helpers moved to '@/components/OperationWindow.helpers'
-// helpers moved to '@/components/OperationWindow.helpers' (scoreMatch / getIconSrcForFile)
 export interface OperationListItem {
   id: string;
   label: string;
