@@ -538,7 +538,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
               <div className="text-xs font-medium">{t('ai.changedFilesList.title')}</div>
               <div className="flex items-center gap-2">
                 <div className="text-xs opacity-80">
-                  {t('ai.changedFilesList.count', { count: latestEditResponse.changedFiles.filter(f => !f.applied).length })}
+                  {t('ai.changedFilesList.count', { params: { count: latestEditResponse.changedFiles.filter(f => !f.applied).length } })}
                 </div>
                 <button
                   type="button"
