@@ -72,7 +72,7 @@ for (const k of keys){
   if (existing !== undefined) continue; // already present
   const baseVal = getByPath(base, parts);
   // When applying missing keys, set a placeholder so translators can find it easily.
-  const toSet = '#######';
+  const toSet = '#######' + baseVal;
   setByPath(target, parts, toSet);
   applied++;
   console.log(`applied: ${k} (set to "#######")`);

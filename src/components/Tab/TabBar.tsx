@@ -620,12 +620,12 @@ export default function TabBar({ paneId }: TabBarProps) {
                 setPaneMenuOpen(false);
                 triggerAction('saveFile');
               }}
-              title={t('save')}
+              title={t('common.save')}
               onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
               <Save size={16} color={colors.primary} />
-              <span style={{ color: colors.foreground }}>{t('save')}</span>
+              <span style={{ color: colors.foreground }}>{t('common.save')}</span>
             </button>
           </div>
         )}

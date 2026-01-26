@@ -257,7 +257,7 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
                   title={t('ai.revertTooltip') || 'この変更を元に戻す'}
                 >
                   <RotateCcw size={10} />
-                  <span>{t('ai.revert') || 'リバート'}</span>
+                  <span>{t('ai.revert.label') || 'リバート'}</span>
                 </button>
               )}
             </div>
