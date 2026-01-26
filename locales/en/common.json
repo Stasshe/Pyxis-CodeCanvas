@@ -164,6 +164,8 @@
     "commitMessagePlaceholder": "Enter commit message...",
     "deleted": "Deleted",
     "discard": "Discard",
+    "discardAll": "Discard all",
+    "discardAllAndRevert": "Discard all changes and revert",
     "errorOccurred": "An error occurred",
     "generateCommitMessage": "Generate with AI",
     "history": "History",

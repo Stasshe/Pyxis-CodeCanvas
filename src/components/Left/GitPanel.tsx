@@ -41,16 +41,6 @@ import CommitBox from './GitPanel/CommitBox';
 import { useGitPanel } from './GitPanel/useGitPanel';
 import ChangesList from './GitPanel/ChangesList';
 
-// ========================================
-// メモ化されたファイルアイテムコンポーネント
-// ========================================
-
-// FileItem moved to `./GitPanel/FileItem` to keep this file focused and smaller.
-
-// ========================================
-// メインコンポーネント
-// ========================================
-
 export default function GitPanel({
   currentProject,
   currentProjectId,

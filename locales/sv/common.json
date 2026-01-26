@@ -165,6 +165,8 @@
     "unstageAll": "Unstagea alla",
     "unstaged": "Unstaged",
     "untracked": "Untracked",
+    "discardAll": "Kassera allt",
+    "discardAllAndRevert": "Kassera alla ändringar och återställ",
     "viewDiffEditable": "Visa diff (redigerbar)",
     "viewDiffReadonly": "Visa diff (skrivskyddad)"
   },

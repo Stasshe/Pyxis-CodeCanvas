@@ -165,6 +165,8 @@
     "unstageAll": "Unstage semua",
     "unstaged": "Belum ter-stage",
     "untracked": "Belum dilacak",
+    "discardAll": "Buang semua",
+    "discardAllAndRevert": "Buang semua perubahan dan kembalikan",
     "viewDiffEditable": "Lihat diff (dapat diedit)",
     "viewDiffReadonly": "Lihat diff (hanya baca)"
   },

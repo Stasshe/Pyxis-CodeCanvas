@@ -165,6 +165,8 @@
     "unstageAll": "Unstage wszystko",
     "unstaged": "Nie-stage'owane",
     "untracked": "Nieśledzone",
+    "discardAll": "Odrzuć wszystko",
+    "discardAllAndRevert": "Odrzuć wszystko i przywróć",
     "viewDiffEditable": "Pokaż różnice (edytowalne)",
     "viewDiffReadonly": "Pokaż różnice (tylko do odczytu)"
   },

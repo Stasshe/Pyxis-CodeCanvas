@@ -165,6 +165,8 @@
     "unstageAll": "Retirer tout de l'index",
     "unstaged": "Non indexé",
     "untracked": "Non suivi",
+    "discardAll": "Tout supprimer",
+    "discardAllAndRevert": "Tout supprimer et restaurer",
     "viewDiffEditable": "Voir le diff (modifiable)",
     "viewDiffReadonly": "Voir le diff (lecture seule)"
   },

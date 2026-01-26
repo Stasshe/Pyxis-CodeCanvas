@@ -164,6 +164,8 @@
     "commitMessagePlaceholder": "コミットメッセージを入力...",
     "deleted": "削除済み",
     "discard": "破棄",
+    "discardAll": "全て破棄",
+    "discardAllAndRevert": "全ての変更を破棄して元に戻す",
     "errorOccurred": "エラーが発生しました",
     "generateCommitMessage": "AIで生成",
     "history": "履歴",

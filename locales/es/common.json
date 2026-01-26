@@ -165,6 +165,8 @@
     "unstageAll": "Quitar todo de staging",
     "unstaged": "Sin staging",
     "untracked": "No rastreado",
+    "discardAll": "Descartar todo",
+    "discardAllAndRevert": "Descartar todos los cambios y revertir",
     "viewDiffEditable": "Ver diff (editable)",
     "viewDiffReadonly": "Ver diff (solo lectura)"
   },

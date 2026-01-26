@@ -165,6 +165,8 @@
     "unstageAll": "ยกเลิก staging ทั้งหมด",
     "unstaged": "ยังไม่ถูก staged",
     "untracked": "ยังไม่ถูกติดตาม",
+    "discardAll": "ยกเลิกทั้งหมด",
+    "discardAllAndRevert": "ยกเลิกการเปลี่ยนแปลงทั้งหมดและคืนค่า",
     "viewDiffEditable": "ดู diff (แก้ไขได้)",
     "viewDiffReadonly": "ดู diff (อ่านอย่างเดียว)"
   },

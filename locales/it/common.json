@@ -165,6 +165,8 @@
     "unstageAll": "Rimuovi tutte le aggiunte",
     "unstaged": "Non aggiunto",
     "untracked": "Non tracciato",
+    "discardAll": "Scarta tutto",
+    "discardAllAndRevert": "Scarta tutte le modifiche e ripristina",
     "viewDiffEditable": "Vedi diff (modificabile)",
     "viewDiffReadonly": "Vedi diff (sola lettura)"
   },

@@ -164,8 +164,8 @@
     "unstage": "Unstage",
     "unstageAll": "Alles unstage'en",
     "unstaged": "Niet gestaged",
-    "untracked": "Niet gevolgd",
-    "viewDiffEditable": "Bekijk diff (bewerkbaar)",
+    "untracked": "Niet gevolgd",    "discardAll": "Alles verwijderen",
+    "discardAllAndRevert": "Alle wijzigingen verwijderen en terugzetten",    "viewDiffEditable": "Bekijk diff (bewerkbaar)",
     "viewDiffReadonly": "Bekijk diff (alleen-lezen)"
   },
   "gitHistory": {

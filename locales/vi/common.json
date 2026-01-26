@@ -165,6 +165,8 @@
     "unstageAll": "Unstage tất cả",
     "unstaged": "Chưa stage",
     "untracked": "Không theo dõi",
+    "discardAll": "Bỏ tất cả",
+    "discardAllAndRevert": "Bỏ tất cả thay đổi và hoàn tác",
     "viewDiffEditable": "Xem diff (có thể chỉnh sửa)",
     "viewDiffReadonly": "Xem diff (chỉ đọc)"
   },

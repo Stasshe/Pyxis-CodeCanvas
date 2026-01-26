@@ -165,6 +165,8 @@
     "unstageAll": "सभी अनस्टेज करें",
     "unstaged": "अनस्टेज्ड",
     "untracked": "अनट्रैक्ड",
+    "discardAll": "सभी खारिज करें",
+    "discardAllAndRevert": "सभी परिवर्तन खारिज करें और पुनर्स्थापित करें",
     "viewDiffEditable": "Diff देखें (संपादन योग्य)",
     "viewDiffReadonly": "Diff देखें (सिर्फ़ पढ़ें)"
   },

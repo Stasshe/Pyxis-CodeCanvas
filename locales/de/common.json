@@ -165,6 +165,8 @@
     "unstageAll": "Alle unstage",
     "unstaged": "Nicht gestaged",
     "untracked": "Untracked",
+    "discardAll": "Alle verwerfen",
+    "discardAllAndRevert": "Alle Änderungen verwerfen und zurücksetzen",
     "viewDiffEditable": "Diff anzeigen (bearbeitbar)",
     "viewDiffReadonly": "Diff anzeigen (schreibgeschützt)"
   },

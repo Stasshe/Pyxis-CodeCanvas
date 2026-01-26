@@ -165,6 +165,8 @@
     "unstageAll": "全部取消暫存",
     "unstaged": "未暫存",
     "untracked": "未追蹤",
+    "discardAll": "全部放棄",
+    "discardAllAndRevert": "放棄所有變更並還原",
     "viewDiffEditable": "查看差異（可編輯）",
     "viewDiffReadonly": "查看差異（唯讀）"
   },

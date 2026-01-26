@@ -165,6 +165,8 @@
     "unstageAll": "إزالة الكل من المرحلة",
     "unstaged": "غير مضمن",
     "untracked": "غير متتبع",
+    "discardAll": "تجاهل الكل",
+    "discardAllAndRevert": "تجاهل جميع التغييرات واسترجاع",
     "viewDiffEditable": "عرض الفرق (قابل للتحرير)",
     "viewDiffReadonly": "عرض الفرق (للقراءة فقط)"
   },

@@ -165,6 +165,8 @@
     "unstageAll": "Tümünü stage'den çıkar",
     "unstaged": "Stage'de değil",
     "untracked": "Takip dışı",
+    "discardAll": "Tümünü at",
+    "discardAllAndRevert": "Tüm değişiklikleri at ve geri al",
     "viewDiffEditable": "Farkı görüntüle (düzenlenebilir)",
     "viewDiffReadonly": "Farkı görüntüle (salt okunur)"
   },
