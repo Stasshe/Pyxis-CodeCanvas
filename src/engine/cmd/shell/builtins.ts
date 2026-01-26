@@ -1,6 +1,7 @@
 import type { Readable, Writable } from 'node:stream';
 
 import handleUnixCommand from '../handlers/unixHandler';
+import { ANSI } from '../terminalUI';
 
 export type StreamCtx = {
   stdin: Readable;
@@ -57,7 +58,7 @@ const makeUnixBridge = (name: string) => {
       const writeError = async (s: string) => {
         try {
           if (s === undefined || s === null) return;
-          ctx.stderr.write(String(s));
+          ctx.stderr.write(`${ANSI.FG.RED}${String(s)}${ANSI.RESET}`);
         } catch (e) {}
       };
 
@@ -83,7 +84,7 @@ const makeUnixBridge = (name: string) => {
         exitCode = typeof e.code === 'number' ? e.code : 1;
       } else {
         const msg = e?.message ? String(e.message) : String(e);
-        ctx.stderr.write(`${msg}\n`);
+        ctx.stderr.write(`${ANSI.FG.RED}${msg}${ANSI.RESET}\n`);
         exitCode = 1;
       }
     }
@@ -269,7 +270,7 @@ export default function adaptUnixToStream(unix: any) {
             .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ');
           try {
-            ctx.stderr.write(`\x1b[31m${output}\x1b[0m\n`);
+            ctx.stderr.write(`${ANSI.FG.RED}${output}${ANSI.RESET}\n`);
           } catch (e) {}
         },
         warn: (...args: unknown[]) => {
@@ -277,7 +278,7 @@ export default function adaptUnixToStream(unix: any) {
             .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ');
           try {
-            ctx.stdout.write(`\x1b[33m${output}\x1b[0m\n`);
+            ctx.stdout.write(`${ANSI.FG.YELLOW}${output}${ANSI.RESET}\n`);
           } catch (e) {}
         },
         clear: () => {
@@ -285,11 +286,12 @@ export default function adaptUnixToStream(unix: any) {
         },
       };
 
+      // TODO: stdinに統合
       // 入力インターフェース（シンプルなダミー実装、将来的にstdin統合可能）
       const onInput = (promptText: string, callback: (input: string) => void) => {
         // streamShellではインタラクティブ入力は未対応
         // エラーを返すか、空文字列でcallback
-        ctx.stderr.write('node: interactive input not supported in streamShell\n');
+        ctx.stderr.write(`${ANSI.FG.YELLOW}node: interactive input not supported in streamShell${ANSI.RESET}\n`);
         callback('');
       };
 
@@ -334,7 +336,7 @@ export default function adaptUnixToStream(unix: any) {
       ctx.stderr.end();
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      ctx.stderr.write(`node: error: ${msg}\n`);
+      ctx.stderr.write(`${ANSI.FG.RED}node: error: ${msg}${ANSI.RESET}\n`);
       ctx.stdout.end();
       ctx.stderr.end();
       throw { __silent: true, code: 1 };

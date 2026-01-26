@@ -472,7 +472,7 @@ export class ShellExecutor {
       }
 
       const msg = error?.message ?? String(error);
-      proc.writeStderr(msg);
+      proc.writeStderr(`${ANSI.FG.RED}${msg}${ANSI.RESET}\n`);
       proc.endStdout();
       proc.endStderr();
       proc.exit(1);
@@ -491,7 +491,8 @@ export class ShellExecutor {
     };
 
     const writeError = async (output: string) => {
-      proc.writeStderr(output);
+      const colored = `${ANSI.FG.RED}${output}${ANSI.RESET}`;
+      proc.writeStderr(colored);
       if (!output.endsWith('\n')) {
         proc.writeStderr('\n');
       }
