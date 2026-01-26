@@ -20,6 +20,11 @@ export class TouchCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
+    // Help flag handling
+    if (options.has('--help') || options.has('-h')) {
+      return `Usage: touch [OPTION]... FILE...\nCreate empty files or update file timestamps.\n\nOptions:\n  -c, --no-create\tdo not create any files\n  -h, --help\t\tshow this help message`;
+    }
+
     if (positional.length === 0) {
       throw new Error('touch: missing file operand\nUsage: touch [OPTION]... FILE...');
     }

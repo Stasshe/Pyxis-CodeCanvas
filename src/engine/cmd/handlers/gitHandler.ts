@@ -22,6 +22,84 @@ export async function handleGitCommand(
 
   const gitCmd = args[0];
 
+  function getGitUsage(cmd?: string) {
+    const general = `usage: git <command> [<args>]
+
+Commands:
+  clone <url> [dir]      Clone a repository
+  status                 Show the working tree status
+  add <file>             Add file contents to the index
+  commit -m <msg>        Record changes to the repository
+  push [remote] [branch] Push commits to remote
+  pull [remote] [branch] Fetch and merge from remote
+  branch [name]          List or create branches
+  checkout <branch>      Switch branches or restore working tree files
+  log                    Show commit logs
+  diff [options]         Show changes
+  reset [--hard <c>]     Reset current HEAD
+  merge <branch>         Join two development histories
+  revert <commit>        Revert a commit
+  remote [--v]           Manage set of tracked repositories
+  show <commit|file>     Show various types of objects
+`;
+    if (!cmd) return general;
+
+    switch (cmd) {
+      case 'clone':
+        return 'usage: git clone <repository-url> [directory]\nClone a repository into a new directory.';
+      case 'status':
+        return 'usage: git status\nShow the working tree status.';
+      case 'fetch':
+        return 'usage: git fetch [<remote>] [<branch>]\nDownload objects and refs from another repository.';
+      case 'pull':
+        return 'usage: git pull [<remote>] [<branch>]\nFetch from and integrate with another repository or a local branch.';
+      case 'init':
+        return 'usage: git init\nCreate an empty Git repository or reinitialize an existing one.';
+      case 'clone':
+        return 'usage: git clone <url> [dir]';
+      case 'add':
+        return 'usage: git add <pathspec>\nAdd file contents to the index.';
+      case 'commit':
+        return 'usage: git commit -m <message>\nRecord changes to the repository.';
+      case 'log':
+        return 'usage: git log\nShow commit logs.';
+      case 'checkout':
+        return 'usage: git checkout [-b <new-branch>] <branch>\nSwitch branches or restore working tree files.';
+      case 'switch':
+        return 'usage: git switch [-c|--create] <branch>\nSwitch branches (experimental).' ;
+      case 'branch':
+        return 'usage: git branch [-d|-D] [name]\nList, create, or delete branches.';
+      case 'revert':
+        return 'usage: git revert <commit>\nCreate a new commit that undoes the changes of an earlier commit.';
+      case 'reset':
+        return 'usage: git reset [--hard <commit>|<file>]\nReset current HEAD to the specified state.';
+      case 'diff':
+        return 'usage: git diff [--staged|<commit> [<commit>]] [<file>]\nShow changes between commits, commit and working tree, etc.';
+      case 'merge':
+        return 'usage: git merge [--no-ff] <branch>\nJoin two development histories together.';
+      case 'push':
+        return 'usage: git push [<remote>] [<branch>] [--force]\nUpdate remote refs along with associated objects.';
+      case 'remote':
+        return 'usage: git remote [-v] | git remote add <name> <url> | git remote remove <name>\nManage set of tracked repositories.';
+      case 'show':
+        return 'usage: git show <object>\nShow various types of objects.';
+      default:
+        return general;
+    }
+  }
+
+  // Handle top-level `git help` or subcommand --help/-h
+  if (gitCmd === 'help') {
+    const sub = args[1];
+    await writeOutput(getGitUsage(sub));
+    return;
+  }
+
+  if (args.includes('--help') || args.includes('-h')) {
+    await writeOutput(getGitUsage(gitCmd));
+    return;
+  }
+
   switch (gitCmd) {
     case 'fetch': {
       const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;

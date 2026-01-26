@@ -43,6 +43,11 @@ export class GrepCommand extends UnixCommandBase {
       '-A', '-B', '-C', '-e', '-f', '--include', '--exclude',
     ]);
 
+    // --help only (we don't override -h behavior)
+    if (flags.has('--help')) {
+      return `Usage: grep [OPTION]... PATTERN [FILE]...\nSearch for PATTERN in each FILE or standard input.\n\nCommon options:\n  -i, --ignore-case\t\tignore case distinctions\n  -v, --invert-match\t\tselect non-matching lines\n  -n, --line-number\t\tprint line number with output lines\n  -r, --recursive\t\tread all files under each directory, recursively\n  -H, --with-filename\t\tprint filename with matches\n  -h, --no-filename\t\tdo not print filename`;
+    }
+
     if (positional.length === 0) {
       throw new Error('grep: no pattern specified\nUsage: grep [OPTION]... PATTERN [FILE]...');
     }

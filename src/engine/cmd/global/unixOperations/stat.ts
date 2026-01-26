@@ -4,7 +4,12 @@ import type { ProjectFile } from '@/types';
 
 export class StatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { positional } = this.parseOptions(args);
+    const { options, positional } = this.parseOptions(args);
+
+    if (options.has('--help') || options.has('-h')) {
+      return `Usage: stat FILE\n\nDisplay file or file system status for each FILE.`;
+    }
+
     if (positional.length === 0) {
       throw new Error('stat: missing file operand');
     }

@@ -20,6 +20,10 @@ export class MkdirCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
+    if (options.has('--help') || options.has('-h')) {
+      return `Usage: mkdir [OPTION]... DIRECTORY...\n\nOptions:\n  -p, --parents\tcreate parent directories as needed\n  -m, --mode\tset file mode (not fully supported)`;
+    }
+
     if (positional.length === 0) {
       throw new Error('mkdir: missing operand\nUsage: mkdir [OPTION]... DIRECTORY...');
     }

@@ -24,6 +24,10 @@ export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options, positional } = this.parseOptions(args);
 
+    if (options.has('--help') || options.has('-h')) {
+      return `Usage: rm [OPTION]... FILE...\n\nOptions:\n  -r, -R, --recursive\tremove directories and their contents recursively\n  -f, --force\t\tignore nonexistent files and arguments, never prompt\n  -i, --interactive\tprompt before every removal\n  -v, --verbose\t\texplain what is being done`;
+    }
+
     if (positional.length === 0) {
       throw new Error('rm: missing operand\nUsage: rm [OPTION]... FILE...');
     }
