@@ -216,6 +216,45 @@ export function useGitPanel({
     [gitCommands, fetchGitStatus, commitDepth]
   );
 
+  // discard all unstaged (includes unstaged, deleted and untracked)
+  const discardAllUnstaged = useCallback(async () => {
+    if (!gitCommands) return;
+    const unstaged = [
+      ...(gitRepo?.status?.unstaged || []),
+      ...(gitRepo?.status?.deleted || []),
+      ...(gitRepo?.status?.untracked || []),
+    ];
+    if (unstaged.length === 0) return;
+    try {
+      await Promise.all(unstaged.map(f => gitCommands.discardChanges(f)));
+      await fetchGitStatus(commitDepth);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [gitCommands, gitRepo?.status, fetchGitStatus, commitDepth]);
+
+  // discard all staged: first unstage, then try to discard changes
+  const discardAllStaged = useCallback(async () => {
+    if (!gitCommands) return;
+    const staged = gitRepo?.status?.staged || [];
+    if (staged.length === 0) return;
+    try {
+      await Promise.all(
+        staged.map(async f => {
+          await gitCommands.reset({ filepath: f });
+          try {
+            await gitCommands.discardChanges(f);
+          } catch (e) {
+            // ignore individual discard errors
+          }
+        })
+      );
+      await fetchGitStatus(commitDepth);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [gitCommands, gitRepo?.status, fetchGitStatus, commitDepth]);
+
   const commit = useCallback(
     async (message: string) => {
       if (!gitCommands || !message.trim()) return;
@@ -271,6 +310,9 @@ export function useGitPanel({
     stageAll,
     unstageAll,
     discardChanges,
+    // group operations
+    discardAllUnstaged,
+    discardAllStaged,
     commit,
     getDiff,
   } as const;

@@ -90,9 +90,32 @@ export default function GitPanel({
     stageAll,
     unstageAll,
     discardChanges,
+    // group discard helpers
+    discardAllUnstaged,
+    discardAllStaged,
     commit: commitOp,
     getDiff,
   } = useGitPanel({ currentProject, currentProjectId, onGitStatusChange });
+
+  const handleDiscardAllUnstaged = useCallback(async () => {
+    try {
+      await discardAllUnstaged();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Failed to discard all unstaged:', err);
+      setUiError(err instanceof Error ? err.message : 'Failed to discard changes');
+    }
+  }, [discardAllUnstaged, onRefresh]);
+
+  const handleDiscardAllStaged = useCallback(async () => {
+    try {
+      await discardAllStaged();
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Failed to discard all staged:', err);
+      setUiError(err instanceof Error ? err.message : 'Failed to discard changes');
+    }
+  }, [discardAllStaged, onRefresh]);
 
   // Branch filter persistence restored from sessionStorage
   const getStoredBranchFilter = useCallback(() => {
@@ -466,6 +489,8 @@ export default function GitPanel({
           handleStageFile={handleStageFile}
           handleUnstageFile={handleUnstageFile}
           handleDiscardChanges={handleDiscardChanges}
+          handleDiscardAllUnstaged={handleDiscardAllUnstaged}
+          handleDiscardAllStaged={handleDiscardAllStaged}
           handleStagedFileClick={handleStagedFileClick}
           handleUnstagedFileClick={handleUnstagedFileClick}
           colors={colors}
