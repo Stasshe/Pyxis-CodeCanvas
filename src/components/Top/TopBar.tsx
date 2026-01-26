@@ -1,7 +1,6 @@
 import { Search, Terminal } from 'lucide-react';
 import React from 'react';
 
-import KeyComboClient from '@/components/KeyComboClient';
 import PanelRightIcon from '@/components/Right/PanelRightIcon';
 import { useTranslation } from '@/context/I18nContext';
 
@@ -56,10 +55,6 @@ export default function TopBar({
         <span className="ml-2 truncate">
           {currentProjectName} [{t('topBar.searchLabel')}]
         </span>
-        <KeyComboClient
-          combo="Ctrl+P"
-          style={{ fontSize: '10px', marginLeft: '8px', opacity: 0.7 }}
-        />
       </button>
       <button
         className={

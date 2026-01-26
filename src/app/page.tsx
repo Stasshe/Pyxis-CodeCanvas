@@ -7,7 +7,7 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { useTheme } from '../context/ThemeContext';
 
 import BottomPanel from '@/components/Bottom/BottomPanel';
-import BottomStatusBar from '@/components/BottomStatusBar';
+import BottomStatusBar from '@/components/Bottom/BottomStatusBar';
 import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
