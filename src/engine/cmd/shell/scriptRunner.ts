@@ -435,7 +435,18 @@ async function runRange(
           if (m) {
             eCond = eCond.slice(0, m.index).trim();
             const trailing = m[1] ? m[1].trim() : '';
-            if (trailing) lines.splice(eIdx + 1, 0, trailing);
+            if (trailing) {
+              // insert the trailing inline statements right after this elif
+              lines.splice(eIdx + 1, 0, trailing);
+              // Adjust stored indices because we've mutated `lines`.
+              // Subsequent `elifs` indices (those after the current one) must be incremented.
+              for (let t = k + 1; t < elifs.length; t++) {
+                elifs[t] = elifs[t] + 1;
+              }
+              // If else/fi were recorded and come after this insert point, shift them too.
+              if (elseIdx !== -1 && elseIdx > eIdx) elseIdx += 1;
+              if (fiIdx !== -1 && fiIdx > eIdx) fiIdx += 1;
+            }
           }
           const eRes = await runCondition(eCond, localVars, args, shell);
 
@@ -475,19 +486,43 @@ async function runRange(
         const trailing = parts.slice(1).join('do').trim();
         if (trailing) lines.splice(i + 1, 0, trailing);
       }
-      // find do and matching done
+      // find 'do' for this for-header first
       let doIdx = -1;
       let doneIdx = -1;
       for (let j = i + 1; j < lines.length; j++) {
         const t = (lines[j] || '').trim();
-        if (/^do\b/.test(t) && doIdx === -1) {
+        if (/^do\b/.test(t)) {
           const trailing = t.replace(/^do\b/, '').trim();
           if (trailing) lines.splice(j + 1, 0, trailing);
           doIdx = j;
-        }
-        if (/^done\b/.test(t)) {
-          doneIdx = j;
           break;
+        }
+      }
+
+      if (doIdx === -1) {
+        // no 'do' found: skip to end or next 'done'
+        for (let j = i + 1; j < lines.length; j++) {
+          if (/^done\b/.test((lines[j] || '').trim())) {
+            doneIdx = j;
+            break;
+          }
+        }
+      } else {
+        // find matching 'done' from doIdx+1, tracking nested loop/while/until/select depth
+        let depth = 1;
+        for (let j = doIdx + 1; j < lines.length; j++) {
+          const t = (lines[j] || '').trim();
+          if (/^(for|while|until|select)\b/.test(t)) {
+            depth++;
+            continue;
+          }
+          if (/^done\b/.test(t)) {
+            depth--;
+            if (depth === 0) {
+              doneIdx = j;
+              break;
+            }
+          }
         }
       }
       if (doIdx === -1 || doneIdx === -1) {
