@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import type { ProjectFile } from '@/types';
 
 import { useTranslation } from '@/context/I18nContext';
 
@@ -66,11 +67,12 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
             const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
             const f = await fileRepository.getFileByPath(project.id, rel);
             if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
-            if ((f as any).isBufferArray && (f as any).bufferContent) {
+            const file = f as ProjectFile;
+            if (file.isBufferArray && file.bufferContent) {
               const decoder = new TextDecoder('utf-8');
-              return decoder.decode((f as any).bufferContent as ArrayBuffer);
+              return decoder.decode(file.bufferContent as ArrayBuffer);
             }
-            return (f as any).content || '';
+            return file.content || '';
           };
 
           const inlinedContent = await inlineHtmlAssets(files, resolvedPath, read);
@@ -84,10 +86,11 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         try {
           const f = await fileRepository.getFileByPath(project.id, targetRel);
           if (!f) throw new Error(`ファイルが見つかりません: ${targetRel}`);
+          const file = f as ProjectFile;
           const content =
-            (f as any).isBufferArray && (f as any).bufferContent
-              ? new TextDecoder('utf-8').decode((f as any).bufferContent as ArrayBuffer)
-              : (f as any).content || '';
+            file.isBufferArray && file.bufferContent
+              ? new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer)
+              : file.content || '';
           console.log('[DEBUG] ファイル内容を取得しました:', content);
           setFileContent(content);
         } catch (e) {

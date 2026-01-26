@@ -1,4 +1,6 @@
+import type React from 'react';
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fileRepository } from '@/engine/core/fileRepository';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -13,7 +15,7 @@ import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportP
 import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/useSettings';
 import { useTabStore } from '@/stores/tabStore';
-import type { Project } from '@/types';
+import type { Project, ProjectFile } from '@/types';
 
 import InlineHighlightedCode from './InlineHighlightedCode';
 import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';
@@ -48,6 +50,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // Use editor tab content if available (for real-time updates), otherwise use preview tab content
   const contentSource = editorTabContent ?? activeTab.content ?? '';
+
+  // Tab opening helper from store (used by link handler)
+  const openTab = useTabStore(state => state.openTab);
 
   useEffect(() => {
     let mounted = true;
@@ -104,8 +109,146 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
           />
         );
       },
+      a: ({ href, children, ...props }) => {
+        const hrefString = typeof href === 'string' ? href : '';
+
+        // Normalize and handle clicks for local links (open in preview tab)
+        const handleClick = async (e: React.MouseEvent) => {
+          try {
+            if (!hrefString) return;
+
+            // Hash-only links - scroll within current preview
+            if (hrefString.startsWith('#')) {
+              e.preventDefault();
+              const anchor = decodeURIComponent(hrefString.substring(1));
+              const el = markdownContainerRef.current?.querySelector(`#${CSS.escape(anchor)}`);
+              if (el && el instanceof HTMLElement) el.scrollIntoView({ behavior: 'smooth' });
+              return;
+            }
+
+            // External or protocol links - open in new tab
+            if (
+              hrefString.startsWith('http://') ||
+              hrefString.startsWith('https://') ||
+              hrefString.startsWith('mailto:') ||
+              hrefString.startsWith('tel:') ||
+              hrefString.startsWith('data:')
+            ) {
+              e.preventDefault();
+              window.open(hrefString, '_blank', 'noopener');
+              return;
+            }
+
+            // At this point, treat as a project-local link. Resolve relative to activeTab.path
+            e.preventDefault();
+            if (!currentProject || !currentProject.id) {
+              // fallback: open in new tab
+              window.open(hrefString, '_blank', 'noopener');
+              return;
+            }
+
+            // Helper to normalize path segments and remove ./ and ..
+            const normalizeSegments = (p: string) => {
+              const parts = p.split('/');
+              const stack: string[] = [];
+              for (const part of parts) {
+                if (!part || part === '.') continue;
+                if (part === '..') {
+                  if (stack.length) stack.pop();
+                } else {
+                  stack.push(part);
+                }
+              }
+              return `/${stack.join('/')}`;
+            };
+
+            // Remove any search/query/hash from href for file lookup
+            const hrefNoHash = hrefString.split('#')[0].split('?')[0];
+
+            // Build candidate paths: relative to current file and root-relative
+            const candidates: string[] = [];
+            if (hrefNoHash.startsWith('/')) {
+              candidates.push(normalizeSegments(hrefNoHash));
+            } else {
+              const base = activeTab.path || '/';
+              const dir = base.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
+              candidates.push(normalizeSegments(`${dir}/${hrefNoHash}`));
+              candidates.push(normalizeSegments(`/${hrefNoHash}`));
+            }
+
+            // Try candidates and also try adding .md if missing
+            const tryCandidates: string[] = [];
+            for (const c of candidates) {
+              tryCandidates.push(c);
+              if (!c.toLowerCase().endsWith('.md')) tryCandidates.push(`${c}.md`);
+            }
+
+            // Query fileRepository for existence
+            for (const cand of Array.from(new Set(tryCandidates))) {
+              try {
+                const f = await fileRepository.getFileByPath(currentProject.id, cand);
+                if (f && f.type === 'file') {
+                  const file = f as ProjectFile;
+
+                  // Determine if markdown
+                  const fileName = file.name || '';
+                  const isMarkdown = fileName.toLowerCase().endsWith('.md') || cand.toLowerCase().endsWith('.md');
+
+                  if (isMarkdown) {
+                    // Decode content if buffer
+                    let content = file.content || '';
+                    if (file.isBufferArray && file.bufferContent) {
+                      content = new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
+                    }
+
+                    await openTab(
+                      {
+                        name: fileName || cand.replace(/^\//, ''),
+                        path: cand,
+                        content,
+                        kind: 'preview',
+                      },
+                      { kind: 'preview', makeActive: true }
+                    );
+                    return;
+                  }
+
+                  // Non-markdown file - open with web preview
+                  await openTab(
+                    {
+                      name: fileName || cand.replace(/^\//, ''),
+                      path: cand,
+                      content: file.content || '',
+                      kind: 'webPreview',
+                      webPreviewUrl: undefined,
+                    },
+                    { kind: 'webPreview', makeActive: true }
+                  );
+                  return;
+                }
+              } catch (err) {
+                // ignore and try next
+              }
+            }
+
+            // Fallback: open in new tab
+            window.open(hrefString, '_blank', 'noopener');
+          } catch (err) {
+            console.warn('[MarkdownPreviewTab] link handler failed:', err);
+            // Last resort: follow the link
+            window.open(hrefString, '_blank', 'noopener');
+          }
+        };
+
+        return (
+          // eslint-disable-next-line jsx-a11y/anchor-has-content
+          <a href={hrefString} onClick={handleClick} {...props}>
+            {children}
+          </a>
+        );
+      },
     }),
-    [colors, currentProject?.name, currentProject?.id, activeTab]
+    [colors, currentProject?.name, currentProject?.id, activeTab, openTab]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters

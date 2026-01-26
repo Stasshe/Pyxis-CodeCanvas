@@ -1,6 +1,7 @@
 import { inlineHtmlAssets } from './inlineHtmlAssets';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 
 export const exportPage = async (
   path: string,
@@ -36,11 +37,12 @@ export const exportPage = async (
       // Prefer indexed single-file lookup for each read
       const f = await fileRepository.getFileByPath(projectId, rel);
       if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
-      if ((f as any).isBufferArray && (f as any).bufferContent) {
+      const file = f as ProjectFile;
+      if (file.isBufferArray && file.bufferContent) {
         const decoder = new TextDecoder('utf-8');
-        return decoder.decode((f as any).bufferContent as ArrayBuffer);
+        return decoder.decode(file.bufferContent as ArrayBuffer);
       }
-      return (f as any).content || '';
+      return file.content || '';
     };
     const newWindow = window.open('about:blank', '_blank');
     if (!newWindow) {
