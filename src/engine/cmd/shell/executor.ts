@@ -15,6 +15,7 @@ import { type Segment, type TokenObj, isDevNull } from './types';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
+import { ANSI } from '@/engine/cmd/terminalUI';
 
 /**
  * Shell Executor Options
@@ -679,14 +680,21 @@ export class ShellExecutor {
         }
 
         stream.on('data', (chunk: Buffer | string) => {
-          const s = String(chunk);
-          fdBuffers[fd].push(s);
+          const sRaw = String(chunk);
+          // Store raw output for internal buffers / redirection (no ANSI)
+          fdBuffers[fd].push(sRaw);
 
-          // Real-time callbacks
+          // Avoid double-coloring if output already contains ANSI escapes
+          const hasAnsi = /\x1b\[[0-9;]*m/.test(sRaw);
+
+          // Prepare display output (color stderr red if not already colored)
+          const display = fd === 2 && !hasAnsi ? `${ANSI.FG.RED}${sRaw}${ANSI.RESET}` : sRaw;
+
+          // Real-time callbacks (provide colored output for terminal, raw for files)
           if (fd === 1 && callbacks?.stdout) {
-            callbacks.stdout(s);
+            callbacks.stdout(display);
           } else if (fd === 2 && callbacks?.stderr) {
-            callbacks.stderr(s);
+            callbacks.stderr(display);
           }
         });
       } catch {}
