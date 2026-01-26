@@ -435,7 +435,18 @@ async function runRange(
           if (m) {
             eCond = eCond.slice(0, m.index).trim();
             const trailing = m[1] ? m[1].trim() : '';
-            if (trailing) lines.splice(eIdx + 1, 0, trailing);
+            if (trailing) {
+              // insert the trailing inline statements right after this elif
+              lines.splice(eIdx + 1, 0, trailing);
+              // Adjust stored indices because we've mutated `lines`.
+              // Subsequent `elifs` indices (those after the current one) must be incremented.
+              for (let t = k + 1; t < elifs.length; t++) {
+                elifs[t] = elifs[t] + 1;
+              }
+              // If else/fi were recorded and come after this insert point, shift them too.
+              if (elseIdx !== -1 && elseIdx > eIdx) elseIdx += 1;
+              if (fiIdx !== -1 && fiIdx > eIdx) fiIdx += 1;
+            }
           }
           const eRes = await runCondition(eCond, localVars, args, shell);
 
