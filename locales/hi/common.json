@@ -6,6 +6,7 @@
     "retry": "पुनः प्रयास करें"
   },
   "ai": {
+    "applied": "लागू किया गया",
     "changedFilesList": {
       "count": "{count} फाइलें",
       "expand": "विस्तार करें",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: नई पंक्ति / Ctrl+Enter: भेजें",
       "history": "Alt+↑↓: इतिहास"
     },
-    "input": {
-      "ask": "AI से प्रश्न पूछें या कोड के बारे में परामर्श लें...",
+    "mode": {
+      "ask": "AI से प्रश्न पूछें या कोड के बारे में सलाह लें...",
       "edit": "कोड संपादित करने के निर्देश दर्ज करें..."
     },
-    "sendTitle": "भेजें (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "AI से प्रश्न पूछें या कोड के बारे में परामर्श लें...",
-    "edit": "कोड संपादित करने के निर्देश दर्ज करें..."
+    "pending": "लंबित",
+    "promptDebug": {
+      "close": "बंद करें",
+      "copy": "कॉपी करें",
+      "sampleInput": "उदाहरण इनपुट",
+      "title": "प्रॉम्प्ट डिबग"
+    },
+    "revert": {
+      "cancel": "रद्द करें",
+      "confirm": "पुष्टि करें",
+      "confirmMessage": "क्या आप निश्चित रूप से इस परिवर्तन को पूर्ववत करना चाहते हैं?",
+      "confirmTitle": "बदलाव पूर्ववत करें",
+      "label": "पूर्ववत करें"
+    },
+    "revertTooltip": "इस परिवर्तन को पूर्ववत करें",
+    "sendTitle": "भेजें (Ctrl+Enter)",
+    "showPrompt": "प्रॉम्प्ट दिखाएँ"
   },
   "aiReviewTab": {
     "applyAll": "सभी लागू करें",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "डिबग कंसोल",
+    "escButton": "ESC",
     "output": "आउटपुट",
     "outputPanel": {
       "all": "सब",
@@ -98,7 +112,9 @@
     "title": "चैट स्पेस"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "रद्द करें",
+    "editable": "Editable",
+    "save": "सहेजें"
   },
   "confirmation": {
     "title": "पुष्टि"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Gemini API key दर्ज करें",
+    "branchFilter": {
+      "all": "सभी",
+      "allMode": "सभी ब्रांच",
+      "allModeDesc": "सभी ब्रांच से कमिट दिखाएँ",
+      "auto": "ऑटो",
+      "autoMode": "ऑटो (केवल HEAD)",
+      "autoModeDesc": "केवल वर्तमान ब्रांच के कमिट दिखाएँ",
+      "localBranch": "लोकल ब्रांच",
+      "remoteBranch": "रिमोट ब्रांच",
+      "selectBranches": "ब्रांच चुनें",
+      "selectBranchesDesc": "निर्दिष्ट ब्रांच चुनें",
+      "selected": "चयनित",
+      "title": "ब्रांच फ़िल्टर",
+      "tooltip": "ब्रांच फ़िल्टर"
+    },
     "changes": "परिवर्तन",
     "commit": "Commit",
     "commitMessagePlaceholder": "कमिट संदेश दर्ज करें...",
@@ -151,6 +182,8 @@
     "discard": "खारिज करें",
     "discardAll": "सभी खारिज करें",
     "discardAllAndRevert": "सभी परिवर्तन खारिज करें और पुनर्स्थापित करें",
+    "discardChangesMessage": "#######Do you want to discard these changes? :",
+    "discardChangesTitle": "परिवर्तन रद्द करें?",
     "errorOccurred": "एक त्रुटि हुई",
     "generateCommitMessage": "AI के साथ संदेश जेनरेट करें",
     "history": "इतिहास",
@@ -279,12 +312,15 @@
     "noProject": "Node.js को चलाने के लिए एक प्रोजेक्ट खोलें",
     "outputHint": "जब आप JavaScript/Node.js/Python कोड चलाते हैं, परिणाम यहाँ दिखेंगे। Node.js और js एक ही फाइल में चल सकते हैं।",
     "runtimeNotReady": "Python रनटाइम आरंभ नहीं हुआ है",
+    "selectFile": "फ़ाइल चुनें",
     "stop": "रोकें",
     "title": "निष्पादन वातावरण"
   },
   "searchPanel": {
     "caseSensitive": "केस सेंसिटिव",
+    "enterToSearch": "खोजने के लिए Enter दबाएँ",
     "noResults": "कोई परिणाम नहीं मिला",
+    "realtimeMode": "रीयलटाइम",
     "resultCount": "{count} परिणाम",
     "searchInFiles": "फाइलों में खोजें...",
     "searching": "खोज रहा है...",

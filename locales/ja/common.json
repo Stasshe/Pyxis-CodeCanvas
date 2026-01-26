@@ -6,6 +6,7 @@
     "retry": "再試行"
   },
   "ai": {
+    "applied": "適用済み",
     "changedFilesList": {
       "count": "{count} 個",
       "expand": "展開する",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: 改行 / Ctrl+Enter: 送信",
       "history": "Alt+↑↓: 履歴"
     },
-    "input": {
-      "ask": "AIに質問やコード相談をしてください...",
-      "edit": "コードの編集指示を入力してください..."
+    "mode": {
+      "ask": "AIに質問するか、コードについて相談してください...",
+      "edit": "コードを編集する指示を入力してください..."
     },
-    "sendTitle": "送信 (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "AIに質問やコード相談をしてください...",
-    "edit": "コードの編集指示を入力してください..."
+    "pending": "保留",
+    "promptDebug": {
+      "close": "閉じる",
+      "copy": "コピー",
+      "sampleInput": "サンプル入力",
+      "title": "プロンプトデバッグ"
+    },
+    "revert": {
+      "cancel": "キャンセル",
+      "confirm": "確認",
+      "confirmMessage": "この変更を元に戻してもよろしいですか？",
+      "confirmTitle": "変更を元に戻す",
+      "label": "元に戻す"
+    },
+    "revertTooltip": "この変更を元に戻す",
+    "sendTitle": "送信 (Ctrl+Enter)",
+    "showPrompt": "プロンプトを表示"
   },
   "aiReviewTab": {
     "applyAll": "全て適用",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "デバッグコンソール",
+    "escButton": "ESC",
     "output": "出力",
     "outputPanel": {
       "all": "全て",
@@ -98,7 +112,9 @@
     "title": "チャットスペース"
   },
   "common": {
-    "editable": "編集可能"
+    "cancel": "キャンセル",
+    "editable": "編集可能",
+    "save": "保存"
   },
   "confirmation": {
     "title": "確認"
@@ -166,6 +182,8 @@
     "discard": "破棄",
     "discardAll": "全て破棄",
     "discardAllAndRevert": "全ての変更を破棄して元に戻す",
+    "discardChangesMessage": "これらの変更を破棄しますか?:",
+    "discardChangesTitle": "変更を破棄しますか?",
     "errorOccurred": "エラーが発生しました",
     "generateCommitMessage": "AIで生成",
     "history": "履歴",
@@ -294,6 +312,7 @@
     "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
     "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
     "runtimeNotReady": "Pythonランタイムが初期化されていません",
+    "selectFile": "ファイルを選択",
     "stop": "停止",
     "title": "実行環境"
   },

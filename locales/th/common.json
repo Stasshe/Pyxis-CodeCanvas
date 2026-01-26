@@ -6,6 +6,7 @@
     "retry": "ลองใหม่"
   },
   "ai": {
+    "applied": "ถูกนำไปใช้",
     "changedFilesList": {
       "count": "{count} ไฟล์",
       "expand": "ขยาย",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: ขึ้นบรรทัดใหม่ / Ctrl+Enter: ส่ง",
       "history": "Alt+↑↓: ประวัติ"
     },
-    "input": {
-      "ask": "ถาม AI หรือปรึกษาเกี่ยวกับโค้ด...",
-      "edit": "ใส่คำสั่งเพื่อแก้ไขโค้ด..."
+    "mode": {
+      "ask": "ถาม AI หรือตรวจสอบเกี่ยวกับโค้ด...",
+      "edit": "ป้อนคำสั่งเพื่อแก้ไขโค้ด..."
     },
-    "sendTitle": "ส่ง (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "ถาม AI หรือปรึกษาเกี่ยวกับโค้ด...",
-    "edit": "ใส่คำสั่งเพื่อแก้ไขโค้ด..."
+    "pending": "รอดำเนินการ",
+    "promptDebug": {
+      "close": "ปิด",
+      "copy": "คัดลอก",
+      "sampleInput": "ตัวอย่างการป้อนข้อมูล",
+      "title": "ดีบักพรอมต์"
+    },
+    "revert": {
+      "cancel": "ยกเลิก",
+      "confirm": "ยืนยัน",
+      "confirmMessage": "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการเปลี่ยนแปลงนี้?",
+      "confirmTitle": "ยกเลิกการเปลี่ยนแปลง",
+      "label": "ยกเลิก"
+    },
+    "revertTooltip": "ยกเลิกการเปลี่ยนแปลงนี้",
+    "sendTitle": "ส่ง (Ctrl+Enter)",
+    "showPrompt": "แสดงพรอมต์"
   },
   "aiReviewTab": {
     "applyAll": "ใช้ทั้งหมด",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "คอนโซลดีบัก",
+    "escButton": "ESC",
     "output": "ผลลัพธ์",
     "outputPanel": {
       "all": "ทั้งหมด",
@@ -98,7 +112,9 @@
     "title": "พื้นที่แชท"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "ยกเลิก",
+    "editable": "Editable",
+    "save": "บันทึก"
   },
   "confirmation": {
     "title": "ยืนยัน"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "ใส่คีย์ API ของ Gemini",
+    "branchFilter": {
+      "all": "ทั้งหมด",
+      "allMode": "ทุกสาขา",
+      "allModeDesc": "แสดง commit จากทุกสาขา",
+      "auto": "อัตโนมัติ",
+      "autoMode": "อัตโนมัติ (เฉพาะ HEAD)",
+      "autoModeDesc": "แสดง commit เฉพาะจากสาขาปัจจุบัน",
+      "localBranch": "สาขาในเครื่อง",
+      "remoteBranch": "สาขาจากระยะไกล",
+      "selectBranches": "เลือกสาขา",
+      "selectBranchesDesc": "เลือกสาขาที่ต้องการ",
+      "selected": "ถูกเลือก",
+      "title": "ตัวกรองสาขา",
+      "tooltip": "ตัวกรองสาขา"
+    },
     "changes": "การเปลี่ยนแปลง",
     "commit": "คอมมิต",
     "commitMessagePlaceholder": "ใส่ข้อความคอมมิต...",
@@ -151,6 +182,8 @@
     "discard": "ยกเลิก",
     "discardAll": "ยกเลิกทั้งหมด",
     "discardAllAndRevert": "ยกเลิกการเปลี่ยนแปลงทั้งหมดและคืนค่า",
+    "discardChangesMessage": "คุณต้องการยกเลิกการเปลี่ยนแปลงเหล่านี้หรือไม่?",
+    "discardChangesTitle": "ยกเลิกการเปลี่ยนแปลง?",
     "errorOccurred": "เกิดข้อผิดพลาด",
     "generateCommitMessage": "สร้างโดย AI",
     "history": "ประวัติ",
@@ -279,12 +312,15 @@
     "noProject": "เปิดโปรเจกต์เพื่อรัน Node.js",
     "outputHint": "เมื่อรัน JavaScript/Node.js/Python ผลลัพธ์จะแสดงที่นี่ Node.js และ js สามารถรันในไฟล์เดียวกันได้",
     "runtimeNotReady": "สภาพแวดล้อม Python ยังไม่ถูกเริ่ม",
+    "selectFile": "เลือกไฟล์",
     "stop": "หยุด",
     "title": "สภาพแวดล้อมการรัน"
   },
   "searchPanel": {
     "caseSensitive": "ตรงตัวพิมพ์ใหญ่/เล็ก",
+    "enterToSearch": "กด Enter เพื่อค้นหา",
     "noResults": "ไม่พบผลลัพธ์",
+    "realtimeMode": "เวลาจริง",
     "resultCount": "{count} ผลลัพธ์",
     "searchInFiles": "ค้นหาในไฟล์...",
     "searching": "กำลังค้นหา...",

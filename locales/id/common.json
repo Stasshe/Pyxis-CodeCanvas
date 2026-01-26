@@ -312,15 +312,15 @@
     "noProject": "Buka proyek untuk menjalankan Node.js",
     "outputHint": "Saat Anda menjalankan JavaScript/Node.js/Python, hasil akan ditampilkan di sini. Node.js dan js dapat dijalankan di file yang sama.",
     "runtimeNotReady": "Runtime Python belum diinisialisasi",
-    "selectFile": "#######Select file",
+    "selectFile": "Pilih file",
     "stop": "Berhenti",
     "title": "Lingkungan Eksekusi"
   },
   "searchPanel": {
     "caseSensitive": "Peka huruf besar/kecil",
-    "enterToSearch": "#######Press Enter to search",
+    "enterToSearch": "Tekan Enter untuk mencari",
     "noResults": "Tidak ditemukan hasil",
-    "realtimeMode": "#######Realtime",
+    "realtimeMode": "Waktu nyata",
     "resultCount": "{count} hasil",
     "searchInFiles": "Cari di file...",
     "searching": "Mencari...",
