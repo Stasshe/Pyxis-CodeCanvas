@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Commit-Nachricht eingeben...",
     "deleted": "Gelöscht",
     "discard": "Verwerfen",
+    "discardAll": "Alle verwerfen",
+    "discardAllAndRevert": "Alle Änderungen verwerfen und zurücksetzen",
     "errorOccurred": "Ein Fehler ist aufgetreten",
     "generateCommitMessage": "Mit KI erzeugen",
     "history": "Verlauf",
@@ -165,8 +167,6 @@
     "unstageAll": "Alle unstage",
     "unstaged": "Nicht gestaged",
     "untracked": "Untracked",
-    "discardAll": "Alle verwerfen",
-    "discardAllAndRevert": "Alle Änderungen verwerfen und zurücksetzen",
     "viewDiffEditable": "Diff anzeigen (bearbeitbar)",
     "viewDiffReadonly": "Diff anzeigen (schreibgeschützt)"
   },

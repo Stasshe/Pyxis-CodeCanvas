@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Wprowadź wiadomość commita...",
     "deleted": "Usunięto",
     "discard": "Odrzuć",
+    "discardAll": "Odrzuć wszystko",
+    "discardAllAndRevert": "Odrzuć wszystko i przywróć",
     "errorOccurred": "Wystąpił błąd",
     "generateCommitMessage": "Wygeneruj za pomocą AI",
     "history": "Historia",
@@ -165,8 +167,6 @@
     "unstageAll": "Unstage wszystko",
     "unstaged": "Nie-stage'owane",
     "untracked": "Nieśledzone",
-    "discardAll": "Odrzuć wszystko",
-    "discardAllAndRevert": "Odrzuć wszystko i przywróć",
     "viewDiffEditable": "Pokaż różnice (edytowalne)",
     "viewDiffReadonly": "Pokaż różnice (tylko do odczytu)"
   },

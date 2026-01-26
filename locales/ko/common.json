@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "커밋 메시지 입력...",
     "deleted": "삭제됨",
     "discard": "버리기",
+    "discardAll": "모두 폐기",
+    "discardAllAndRevert": "모든 변경 사항을 폐기하고 복원",
     "errorOccurred": "오류가 발생했습니다",
     "generateCommitMessage": "AI로 커밋 메시지 생성",
     "history": "히스토리",
@@ -165,8 +167,6 @@
     "unstageAll": "모두 언스테이지",
     "unstaged": "언스테이징됨",
     "untracked": "추적되지 않음",
-    "discardAll": "모두 폐기",
-    "discardAllAndRevert": "모든 변경 사항을 폐기하고 복원",
     "viewDiffEditable": "차이 보기(편집 가능)",
     "viewDiffReadonly": "차이 보기(읽기 전용)"
   },

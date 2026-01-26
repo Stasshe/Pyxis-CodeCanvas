@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Digite a mensagem do commit...",
     "deleted": "Excluído",
     "discard": "Descartar",
+    "discardAll": "Descartar tudo",
+    "discardAllAndRevert": "Descartar todas as alterações e reverter",
     "errorOccurred": "Ocorreu um erro",
     "generateCommitMessage": "Gerar com IA",
     "history": "Histórico",
@@ -165,8 +167,6 @@
     "unstageAll": "Remover preparação de tudo",
     "unstaged": "Não preparado",
     "untracked": "Não rastreado",
-    "discardAll": "Descartar tudo",
-    "discardAllAndRevert": "Descartar todas as alterações e reverter",
     "viewDiffEditable": "Ver diff (editável)",
     "viewDiffReadonly": "Ver diff (somente leitura)"
   },

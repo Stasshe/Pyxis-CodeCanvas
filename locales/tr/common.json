@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Commit mesajını girin...",
     "deleted": "Silindi",
     "discard": "İptal et",
+    "discardAll": "Tümünü at",
+    "discardAllAndRevert": "Tüm değişiklikleri at ve geri al",
     "errorOccurred": "Bir hata oluştu",
     "generateCommitMessage": "AI ile mesaj oluştur",
     "history": "Geçmiş",
@@ -165,8 +167,6 @@
     "unstageAll": "Tümünü stage'den çıkar",
     "unstaged": "Stage'de değil",
     "untracked": "Takip dışı",
-    "discardAll": "Tümünü at",
-    "discardAllAndRevert": "Tüm değişiklikleri at ve geri al",
     "viewDiffEditable": "Farkı görüntüle (düzenlenebilir)",
     "viewDiffReadonly": "Farkı görüntüle (salt okunur)"
   },

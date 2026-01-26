@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Voer commitbericht in...",
     "deleted": "Verwijderd",
     "discard": "Verwerpen",
+    "discardAll": "Alles verwijderen",
+    "discardAllAndRevert": "Alle wijzigingen verwijderen en terugzetten",
     "errorOccurred": "Er is een fout opgetreden",
     "generateCommitMessage": "Genereer met AI",
     "history": "Geschiedenis",
@@ -164,8 +166,8 @@
     "unstage": "Unstage",
     "unstageAll": "Alles unstage'en",
     "unstaged": "Niet gestaged",
-    "untracked": "Niet gevolgd",    "discardAll": "Alles verwijderen",
-    "discardAllAndRevert": "Alle wijzigingen verwijderen en terugzetten",    "viewDiffEditable": "Bekijk diff (bewerkbaar)",
+    "untracked": "Niet gevolgd",
+    "viewDiffEditable": "Bekijk diff (bewerkbaar)",
     "viewDiffReadonly": "Bekijk diff (alleen-lezen)"
   },
   "gitHistory": {

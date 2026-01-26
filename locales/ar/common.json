@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "أدخل رسالة الالتزام...",
     "deleted": "محذوف",
     "discard": "تجاهل",
+    "discardAll": "تجاهل الكل",
+    "discardAllAndRevert": "تجاهل جميع التغييرات واسترجاع",
     "errorOccurred": "حدث خطأ",
     "generateCommitMessage": "توليد بواسطة AI",
     "history": "السجل",
@@ -165,8 +167,6 @@
     "unstageAll": "إزالة الكل من المرحلة",
     "unstaged": "غير مضمن",
     "untracked": "غير متتبع",
-    "discardAll": "تجاهل الكل",
-    "discardAllAndRevert": "تجاهل جميع التغييرات واسترجاع",
     "viewDiffEditable": "عرض الفرق (قابل للتحرير)",
     "viewDiffReadonly": "عرض الفرق (للقراءة فقط)"
   },

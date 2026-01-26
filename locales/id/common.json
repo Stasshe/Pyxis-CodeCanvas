@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Masukkan pesan commit...",
     "deleted": "Dihapus",
     "discard": "Buang",
+    "discardAll": "Buang semua",
+    "discardAllAndRevert": "Buang semua perubahan dan kembalikan",
     "errorOccurred": "Terjadi kesalahan",
     "generateCommitMessage": "Buat pesan commit dengan AI",
     "history": "Riwayat",
@@ -165,8 +167,6 @@
     "unstageAll": "Unstage semua",
     "unstaged": "Belum ter-stage",
     "untracked": "Belum dilacak",
-    "discardAll": "Buang semua",
-    "discardAllAndRevert": "Buang semua perubahan dan kembalikan",
     "viewDiffEditable": "Lihat diff (dapat diedit)",
     "viewDiffReadonly": "Lihat diff (hanya baca)"
   },

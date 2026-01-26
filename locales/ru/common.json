@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Введите сообщение коммита...",
     "deleted": "Удалено",
     "discard": "Отменить",
+    "discardAll": "Отменить все",
+    "discardAllAndRevert": "Отменить все изменения и восстановить",
     "errorOccurred": "Произошла ошибка",
     "generateCommitMessage": "Сгенерировать с помощью ИИ",
     "history": "История",
@@ -165,8 +167,6 @@
     "unstageAll": "Удалить всё из индекса",
     "unstaged": "Не в индексe",
     "untracked": "Неотслеживаемый",
-    "discardAll": "Отменить все",
-    "discardAllAndRevert": "Отменить все изменения и восстановить",
     "viewDiffEditable": "Просмотр различий (редактируемо)",
     "viewDiffReadonly": "Просмотр различий (только чтение)"
   },

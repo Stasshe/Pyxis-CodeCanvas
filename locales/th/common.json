@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "ใส่ข้อความคอมมิต...",
     "deleted": "ถูกลบ",
     "discard": "ยกเลิก",
+    "discardAll": "ยกเลิกทั้งหมด",
+    "discardAllAndRevert": "ยกเลิกการเปลี่ยนแปลงทั้งหมดและคืนค่า",
     "errorOccurred": "เกิดข้อผิดพลาด",
     "generateCommitMessage": "สร้างโดย AI",
     "history": "ประวัติ",
@@ -165,8 +167,6 @@
     "unstageAll": "ยกเลิก staging ทั้งหมด",
     "unstaged": "ยังไม่ถูก staged",
     "untracked": "ยังไม่ถูกติดตาม",
-    "discardAll": "ยกเลิกทั้งหมด",
-    "discardAllAndRevert": "ยกเลิกการเปลี่ยนแปลงทั้งหมดและคืนค่า",
     "viewDiffEditable": "ดู diff (แก้ไขได้)",
     "viewDiffReadonly": "ดู diff (อ่านอย่างเดียว)"
   },

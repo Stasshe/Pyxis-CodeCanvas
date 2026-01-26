@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Nhập thông điệp commit...",
     "deleted": "Đã xóa",
     "discard": "Bỏ",
+    "discardAll": "Bỏ tất cả",
+    "discardAllAndRevert": "Bỏ tất cả thay đổi và hoàn tác",
     "errorOccurred": "Đã xảy ra lỗi",
     "generateCommitMessage": "Tạo message bằng AI",
     "history": "Lịch sử",
@@ -165,8 +167,6 @@
     "unstageAll": "Unstage tất cả",
     "unstaged": "Chưa stage",
     "untracked": "Không theo dõi",
-    "discardAll": "Bỏ tất cả",
-    "discardAllAndRevert": "Bỏ tất cả thay đổi và hoàn tác",
     "viewDiffEditable": "Xem diff (có thể chỉnh sửa)",
     "viewDiffReadonly": "Xem diff (chỉ đọc)"
   },

@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "输入提交信息...",
     "deleted": "已删除",
     "discard": "放弃",
+    "discardAll": "全部放弃",
+    "discardAllAndRevert": "放弃所有更改并还原",
     "errorOccurred": "发生错误",
     "generateCommitMessage": "用 AI 生成提交信息",
     "history": "历史",
@@ -165,8 +167,6 @@
     "unstageAll": "全部取消暂存",
     "unstaged": "未暂存",
     "untracked": "未跟踪",
-    "discardAll": "全部放弃",
-    "discardAllAndRevert": "放弃所有更改并还原",
     "viewDiffEditable": "查看差异（可编辑）",
     "viewDiffReadonly": "查看差异（只读）"
   },

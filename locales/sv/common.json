@@ -149,6 +149,8 @@
     "commitMessagePlaceholder": "Ange commit-meddelande...",
     "deleted": "Borttagen",
     "discard": "Förkasta",
+    "discardAll": "Kassera allt",
+    "discardAllAndRevert": "Kassera alla ändringar och återställ",
     "errorOccurred": "Ett fel uppstod",
     "generateCommitMessage": "Generera med AI",
     "history": "Historik",
@@ -165,8 +167,6 @@
     "unstageAll": "Unstagea alla",
     "unstaged": "Unstaged",
     "untracked": "Untracked",
-    "discardAll": "Kassera allt",
-    "discardAllAndRevert": "Kassera alla ändringar och återställ",
     "viewDiffEditable": "Visa diff (redigerbar)",
     "viewDiffReadonly": "Visa diff (skrivskyddad)"
   },
