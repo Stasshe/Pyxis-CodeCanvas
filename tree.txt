@@ -61,25 +61,25 @@ Root
 │   │   ├── docs_git-commands.md
 │   │   ├── getting-started.md
 │   │   └── unix-commands.md
-│   ├── homepage
-│   │   ├── index.html
-│   │   ├── main.js
-│   │   └── style.css
-│   ├── react
-│   │   ├── App.css
-│   │   ├── App.jsx
-│   │   └── sample.jsx
-│   ├── run-test.sh
-│   ├── src
-│   │   ├── fibonacci.py
-│   │   ├── fileOperationg.js
-│   │   ├── index.js
-│   │   ├── math.js
-│   │   └── readline_test.js
-│   └── typescript
-│       ├── hello.ts
-│       ├── math.ts
-│       └── use-math.ts
+│   └── src
+│       ├── fibonacci.py
+│       ├── fileOperationg.js
+│       ├── homepage
+│       │   ├── index.html
+│       │   ├── main.js
+│       │   └── style.css
+│       ├── index.js
+│       ├── math.js
+│       ├── react
+│       │   ├── App.css
+│       │   ├── App.jsx
+│       │   └── sample.jsx
+│       ├── readline_test.js
+│       ├── run-test.sh
+│       └── typescript
+│           ├── hello.ts
+│           ├── math.ts
+│           └── use-math.ts
 ├── jest.config.cjs
 ├── jest.setup.js
 ├── next-env.d.ts
@@ -121,6 +121,7 @@ Root
 │   ├── build
 │   │   ├── build-extensions.js
 │   │   └── initial_files_to_ts.js
+│   ├── check-pnpm.js
 │   ├── chore
 │   │   └── update-readmes-version.js
 │   ├── i18n
@@ -145,7 +146,6 @@ Root
 │       └── analyze-metafiles.js
 ├── src
 │   ├── app
-│   │   ├── Toast.css
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -164,19 +164,18 @@ Root
 │   │   │   └── review
 │   │   │       ├── ChangedFilesPanel.tsx
 │   │   │       └── FileChangeItem.tsx
+│   │   ├── AppInitializer.tsx
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
+│   │   │   ├── BottomStatusBar.tsx
 │   │   │   ├── DebugConsole.tsx
 │   │   │   ├── DebugConsoleAPI.ts
 │   │   │   ├── OutputPanel.tsx
 │   │   │   ├── ProblemsPanel.tsx
 │   │   │   └── Terminal.tsx
-│   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
 │   │   ├── DnD
 │   │   │   └── CustomDragLayer.tsx
-│   │   ├── ExtensionInitializer.tsx
-│   │   ├── KeyComboClient.tsx
 │   │   ├── Left
 │   │   │   ├── ExtensionPanelRenderer.tsx
 │   │   │   ├── ExtensionsPanel.tsx
@@ -187,16 +186,24 @@ Root
 │   │   │   │   ├── index.tsx
 │   │   │   │   └── types.ts
 │   │   │   ├── GitHistory.tsx
+│   │   │   ├── GitPanel
+│   │   │   │   ├── ChangesList.tsx
+│   │   │   │   ├── CommitBox.tsx
+│   │   │   │   ├── ErrorState.tsx
+│   │   │   │   ├── FileItem.tsx
+│   │   │   │   ├── LoadingState.tsx
+│   │   │   │   ├── gitUtils.ts
+│   │   │   │   └── useGitPanel.ts
 │   │   │   ├── GitPanel.tsx
 │   │   │   ├── LeftSidebar.tsx
 │   │   │   ├── RunPanel.tsx
 │   │   │   ├── SearchPanel.tsx
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
-│   │   ├── OperationWindow.tsx
-│   │   ├── PaneContainer.tsx
-│   │   ├── PaneNavigator.tsx
-│   │   ├── PaneResizer.tsx
+│   │   ├── Pane
+│   │   │   ├── PaneContainer.tsx
+│   │   │   ├── PaneNavigator.tsx
+│   │   │   └── PaneResizer.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
 │   │   │   ├── PanelRightIcon.tsx
@@ -240,18 +247,21 @@ Root
 │   │   │   │   └── utils
 │   │   │   │       └── CharCountDetails.tsx
 │   │   │   └── useTabCloseConfirmation.tsx
-│   │   ├── TabInitializer.tsx
-│   │   ├── Toast.tsx
-│   │   └── TopBar.tsx
+│   │   └── Top
+│   │       ├── MdPreviewDialog.tsx
+│   │       ├── OperationList.tsx
+│   │       ├── OperationUtils.tsx
+│   │       ├── OperationWindow.tsx
+│   │       └── TopBar.tsx
 │   ├── constants
+│   │   ├── config.ts
 │   │   └── dndTypes.ts
 │   ├── context
 │   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
 │   │   ├── TabContext.tsx
-│   │   ├── ThemeContext.tsx
-│   │   └── config.ts
+│   │   └── ThemeContext.tsx
 │   ├── engine
 │   │   ├── ai
 │   │   │   ├── contextBuilder.ts
@@ -265,9 +275,13 @@ Root
 │   │   │   ├── global
 │   │   │   │   ├── git.ts
 │   │   │   │   ├── gitOperations
+│   │   │   │   │   ├── add.ts
+│   │   │   │   │   ├── branch.ts
 │   │   │   │   │   ├── checkout.ts
 │   │   │   │   │   ├── clone.ts
+│   │   │   │   │   ├── commit.ts
 │   │   │   │   │   ├── diff.ts
+│   │   │   │   │   ├── discardChanges.ts
 │   │   │   │   │   ├── fetch.ts
 │   │   │   │   │   ├── fileSystemHelper.ts
 │   │   │   │   │   ├── github
@@ -277,11 +291,13 @@ Root
 │   │   │   │   │   ├── log.ts
 │   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── mergeConflictDetector.ts
+│   │   │   │   │   ├── pull.ts
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
 │   │   │   │   │   ├── show.ts
+│   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── switch.ts
 │   │   │   │   │   └── tree.ts
 │   │   │   │   ├── npm.ts
@@ -438,23 +454,25 @@ Root
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
+│   │   │   ├── useAIReview.ts
 │   │   │   ├── useChatSpace.ts
 │   │   │   └── useInputHistory.ts
-│   │   ├── defaultKeybindings.ts
-│   │   ├── gitHooks.ts
-│   │   ├── keybindingUtils.ts
-│   │   ├── useAIReview.ts
-│   │   ├── useDiffTabHandlers.ts
-│   │   ├── useExtensionPanels.ts
-│   │   ├── useFileDeleteTabSync.ts
-│   │   ├── useGlobalScrollLock.ts
-│   │   ├── useKeyBindings.ts
-│   │   ├── useOptimizedUIStateSave.ts
-│   │   ├── usePaneResize.ts
-│   │   ├── useProjectWelcome.ts
-│   │   ├── useResize.ts
-│   │   ├── useSettings.ts
-│   │   └── useTabContentRestore.ts
+│   │   ├── keybindings
+│   │   │   ├── defaultKeybindings.ts
+│   │   │   ├── keybindingUtils.ts
+│   │   │   └── useKeyBindings.ts
+│   │   ├── state
+│   │   │   ├── useFileDeleteTabSync.ts
+│   │   │   ├── useProjectWelcome.ts
+│   │   │   └── useSettings.ts
+│   │   └── ui
+│   │       ├── useDiffTabHandlers.ts
+│   │       ├── useExtensionPanels.ts
+│   │       ├── useGlobalScrollLock.ts
+│   │       ├── useOptimizedUIStateSave.ts
+│   │       ├── usePaneResize.ts
+│   │       ├── useResize.ts
+│   │       └── useTabContentRestore.ts
 │   ├── stores
 │   │   ├── projectStore.ts
 │   │   ├── sessionStorage.ts
@@ -475,6 +493,7 @@ Root
 │   ├── aiResponseParser.test.ts
 │   ├── aiResponseParserEdgeCases.test.ts
 │   ├── all-sh.test.ts
+│   ├── debug-if-inline.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── findCommand.posix.test.ts
 │   ├── fsRequirePromise.test.ts
@@ -496,6 +515,7 @@ Root
 │   ├── script.args.test.ts
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
+│   ├── scriptRunner.test.ts
 │   ├── shell.operators.test.ts
 │   ├── shell.script.streaming.test.ts
 │   ├── shell.stream.test.ts
@@ -503,11 +523,13 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
+├── tsconfig.extensions.json
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 └── types
     └── esbuild-cdn.d.ts
 
-74 directories, 433 files
+80 directories, 449 files
 
 =================================
 
@@ -522,6 +544,7 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   └── manifest.json
 ├── calc
+│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
@@ -533,6 +556,17 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
+│   │   ├── @kurkle
+│   │   │   └── color
+│   │   │       ├── LICENSE.md
+│   │   │       ├── README.md
+│   │   │       ├── dist
+│   │   │       │   ├── color.cjs
+│   │   │       │   ├── color.d.ts
+│   │   │       │   ├── color.esm.js
+│   │   │       │   ├── color.min.js
+│   │   │       │   └── color.min.js.map
+│   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
@@ -606,6 +640,7 @@ extensions/ 以下のディレクトリ構造:
 │   │   └── pyodide -> ../../../node_modules/.pnpm/pyodide@0.29.0/node_modules/pyodide
 │   └── package.json
 ├── react-preview
+│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── _build.js
 │   ├── index.tsx
@@ -631,18 +666,14 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-41 directories, 77 files
+44 directories, 87 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 70035
-合計文字数: 2211069
-合計ファイルサイズ(bytes): 2358279
+合計行数: 70957
+合計文字数: 2239182
+合計ファイルサイズ(bytes): 2384940
 
-開発時のdev container全体のサイズ(bytes): 1.2G	.
-==========
-ビルト済みファイルの行数: 129500
-合計文字数: 27001818
-合計ファイルサイズ(bytes): 29989105
+開発時のdev container全体のサイズ(bytes): 2.4G	.

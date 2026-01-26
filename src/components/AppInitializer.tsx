@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
 import { initializeExtensions } from '@/engine/extensions/autoInstaller';
 import { initializeBuiltinRuntimes } from '@/engine/runtime/builtinRuntimes';
+import { pushMsgOutPanel } from './Bottom/BottomPanel';
 
 /**
  * アプリケーション全体の初期化をまとめたコンポーネント
@@ -28,7 +29,8 @@ export default function AppInitializer() {
         await initializeExtensions();
 
         if (mounted) {
-          // noop: initialization complete
+          console.log('[AppInitializer] initialized');
+          pushMsgOutPanel('initialized', 'info', 'Initializer');
         }
       } catch (err) {
         // don't throw in client render path

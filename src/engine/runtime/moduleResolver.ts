@@ -7,7 +7,7 @@
  * - package.jsonの解析とエントリーポイント決定
  */
 
-import { dirname, normalizePath } from './pathUtils';
+import { getParentPath, toAppPath, fsPathToAppPath } from '@/engine/core/pathResolver';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -324,7 +324,7 @@ export class ModuleResolver {
     runtimeInfo('📦 Import resolved:', moduleName, '→', importPath);
 
     // 相対パスを絶対パスに変換（パッケージルートから）
-    let packageDir = dirname(currentFilePath);
+    let packageDir = this.dirname(currentFilePath);
 
     // node_modules内のファイルの場合、パッケージルートを取得
     if (packageDir.includes('/node_modules/')) {
@@ -352,7 +352,7 @@ export class ModuleResolver {
    * 現在のファイルが属するパッケージのpackage.jsonを探す
    */
   private async findPackageJson(filePath: string): Promise<PackageJson | null> {
-    let currentDir = dirname(filePath);
+    let currentDir = this.dirname(filePath);
 
     // node_modules内のファイルの場合、そのパッケージのpackage.jsonを探す
     if (currentDir.includes('/node_modules/')) {
@@ -373,7 +373,7 @@ export class ModuleResolver {
       if (packageJson) {
         return packageJson;
       }
-      currentDir = dirname(currentDir);
+      currentDir = this.dirname(currentDir);
     }
 
     return null;
@@ -487,7 +487,10 @@ export class ModuleResolver {
 
     try {
       await fileRepository.init();
-      const normalizedPath = normalizePath(path, this.projectName);
+      // Normalize: if FSPath under /projects/{project}, convert to AppPath; otherwise treat as AppPath
+      const normalizedPath = path.startsWith(`/projects/${this.projectName}`)
+        ? fsPathToAppPath(path, this.projectName)
+        : toAppPath(path);
       runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
 
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
@@ -562,7 +565,9 @@ export class ModuleResolver {
 
     try {
       await fileRepository.init();
-      const normalizedPath = normalizePath(path, this.projectName);
+      const normalizedPath = path.startsWith(`/projects/${this.projectName}`)
+        ? fsPathToAppPath(path, this.projectName)
+        : toAppPath(path);
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
       const exists = !!file;
 
@@ -596,7 +601,8 @@ export class ModuleResolver {
    * ディレクトリパスを取得
    */
   private dirname(filePath: string): string {
-    return dirname(filePath);
+    // Use core getParentPath directly to maintain consistent semantics
+    return getParentPath(filePath);
   }
 
   /**

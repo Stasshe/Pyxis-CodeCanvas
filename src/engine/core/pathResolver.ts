@@ -284,6 +284,32 @@ export function normalizeDotSegments(path: string): AppPath {
   return `/${result.join('/')}`;
 }
 
+/**
+ * パスの拡張子を取得
+ *
+ * @example
+ * getExtension('/src/index.js') // → '.js'
+ * getExtension('/src/component.tsx') // → '.tsx'
+ */
+export function getExtension(path: string): string {
+  const match = path.match(/\.[^./]+$/);
+  return match ? match[0] : '';
+}
+
+/**
+ * パスの拡張子を変更
+ *
+ * @example
+ * replaceExtension('/src/index.ts', '.js') // → '/src/index.js'
+ */
+export function replaceExtension(path: string, newExt: string): string {
+  const ext = getExtension(path);
+  if (ext) {
+    return path.slice(0, -ext.length) + newExt;
+  }
+  return path + newExt;
+}
+
 // ========================================
 // 後方互換性のためのエイリアス
 // ========================================
