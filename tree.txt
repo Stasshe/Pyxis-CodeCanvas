@@ -80,25 +80,6 @@ Root
 │           ├── hello.ts
 │           ├── math.ts
 │           └── use-math.ts
-│   └── src
-│       ├── fibonacci.py
-│       ├── fileOperationg.js
-│       ├── homepage
-│       │   ├── index.html
-│       │   ├── main.js
-│       │   └── style.css
-│       ├── index.js
-│       ├── math.js
-│       ├── react
-│       │   ├── App.css
-│       │   ├── App.jsx
-│       │   └── sample.jsx
-│       ├── readline_test.js
-│       ├── run-test.sh
-│       └── typescript
-│           ├── hello.ts
-│           ├── math.ts
-│           └── use-math.ts
 ├── jest.config.cjs
 ├── jest.setup.js
 ├── next-env.d.ts
@@ -140,7 +121,6 @@ Root
 │   ├── build
 │   │   ├── build-extensions.js
 │   │   └── initial_files_to_ts.js
-│   ├── check-pnpm.js
 │   ├── check-pnpm.js
 │   ├── chore
 │   │   └── update-readmes-version.js
@@ -206,14 +186,6 @@ Root
 │   │   │   │   ├── index.tsx
 │   │   │   │   └── types.ts
 │   │   │   ├── GitHistory.tsx
-│   │   │   ├── GitPanel
-│   │   │   │   ├── ChangesList.tsx
-│   │   │   │   ├── CommitBox.tsx
-│   │   │   │   ├── ErrorState.tsx
-│   │   │   │   ├── FileItem.tsx
-│   │   │   │   ├── LoadingState.tsx
-│   │   │   │   ├── gitUtils.ts
-│   │   │   │   └── useGitPanel.ts
 │   │   │   ├── GitPanel
 │   │   │   │   ├── ChangesList.tsx
 │   │   │   │   ├── CommitBox.tsx
@@ -305,14 +277,10 @@ Root
 │   │   │   │   ├── gitOperations
 │   │   │   │   │   ├── add.ts
 │   │   │   │   │   ├── branch.ts
-│   │   │   │   │   ├── add.ts
-│   │   │   │   │   ├── branch.ts
 │   │   │   │   │   ├── checkout.ts
 │   │   │   │   │   ├── clone.ts
 │   │   │   │   │   ├── commit.ts
-│   │   │   │   │   ├── commit.ts
 │   │   │   │   │   ├── diff.ts
-│   │   │   │   │   ├── discardChanges.ts
 │   │   │   │   │   ├── discardChanges.ts
 │   │   │   │   │   ├── fetch.ts
 │   │   │   │   │   ├── fileSystemHelper.ts
@@ -324,13 +292,11 @@ Root
 │   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── mergeConflictDetector.ts
 │   │   │   │   │   ├── pull.ts
-│   │   │   │   │   ├── pull.ts
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
 │   │   │   │   │   ├── show.ts
-│   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── switch.ts
 │   │   │   │   │   └── tree.ts
@@ -400,7 +366,7 @@ Root
 │   │   │   ├── fileRepository.ts
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── gitignore.ts
-│   │   │   ├── pathResolver.ts
+│   │   │   ├── pathUtils.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
 │   │   ├── editor
@@ -453,7 +419,6 @@ Root
 │   │   │   ├── nodeErrors.ts
 │   │   │   ├── nodeRuntime.ts
 │   │   │   ├── normalizeCjsEsm.ts
-│   │   │   ├── pathUtils.ts
 │   │   │   ├── providers
 │   │   │   │   ├── ExtensionTranspilerProvider.ts
 │   │   │   │   └── NodeRuntimeProvider.ts
@@ -481,10 +446,12 @@ Root
 │   │   │   │   └── index.ts
 │   │   │   ├── registerBuiltinTabs.ts
 │   │   │   └── types.ts
-│   │   └── user
-│   │       ├── authRepository.ts
-│   │       ├── crypto.ts
-│   │       └── githubUserManager.ts
+│   │   ├── user
+│   │   │   ├── authRepository.ts
+│   │   │   ├── crypto.ts
+│   │   │   └── githubUserManager.ts
+│   │   └── workers
+│   │       └── searchWorker.ts
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
@@ -512,14 +479,12 @@ Root
 │   │   ├── sessionStorage.ts
 │   │   ├── tabStore.ts
 │   │   └── terminalHistoryStorage.ts
-│   ├── types
-│   │   ├── git.ts
-│   │   ├── index.ts
-│   │   ├── path-browserify.d.ts
-│   │   ├── settings.ts
-│   │   └── vm-browserify.d.ts
-│   └── workers
-│       └── searchWorker.ts
+│   └── types
+│       ├── git.ts
+│       ├── index.ts
+│       ├── path-browserify.d.ts
+│       ├── settings.ts
+│       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
 │   ├── aiMultiEditComplexScenarios.test.ts
@@ -527,7 +492,6 @@ Root
 │   ├── aiResponseParser.test.ts
 │   ├── aiResponseParserEdgeCases.test.ts
 │   ├── all-sh.test.ts
-│   ├── debug-if-inline.test.ts
 │   ├── debug-if-inline.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── findCommand.posix.test.ts
@@ -551,7 +515,6 @@ Root
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
 │   ├── scriptRunner.test.ts
-│   ├── scriptRunner.test.ts
 │   ├── shell.operators.test.ts
 │   ├── shell.script.streaming.test.ts
 │   ├── shell.stream.test.ts
@@ -565,7 +528,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-80 directories, 449 files
+80 directories, 448 files
 
 =================================
 
@@ -708,8 +671,8 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 70957
-合計文字数: 2239182
-合計ファイルサイズ(bytes): 2384940
+合計行数: 70794
+合計文字数: 2235808
+合計ファイルサイズ(bytes): 2380968
 
 開発時のdev container全体のサイズ(bytes): 2.4G	.
