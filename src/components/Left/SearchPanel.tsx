@@ -150,7 +150,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // Worker初期化
     if (!workerRef.current) {
       try {
-        workerRef.current = new Worker(new URL('../../workers/searchWorker.ts', import.meta.url), {
+        workerRef.current = new Worker(new URL('../../engine/workers/searchWorker.ts', import.meta.url), {
           type: 'module',
         });
 
