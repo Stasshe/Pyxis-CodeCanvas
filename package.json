@@ -3,6 +3,7 @@
   "version": "0.22.0",
   "private": true,
   "scripts": {
+    "preinstall": "node ./scripts/check-pnpm.js",
     "dev": "pnpm run setup-build && next dev --turbopack",
     "build": "pnpm run setup-build && next build",
     "start": "pnpm run setup-build && next start",
@@ -73,7 +74,8 @@
     "vm-browserify": "^1.1.2",
     "vscode-icons-js": "^11.6.1",
     "yaml": "^2.8.2",
-    "zustand": "^5.0.9"
+    "zustand": "^5.0.9",
+    "github-markdown-css": "^5.2.0"
   },
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.27.1",

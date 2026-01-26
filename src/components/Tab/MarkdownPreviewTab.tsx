@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import type { PluggableList } from 'unified';
 import 'katex/dist/katex.min.css';
+import 'github-markdown-css/github-markdown.css';
 
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
@@ -479,11 +480,15 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         </button>
       </div>
       <div
-        className="markdown-body prose prose-github max-w-none"
-        style={{
-          background: colors.background,
-          color: colors.foreground,
-        }}
+        className={`markdown-body prose prose-github max-w-none ${
+          themeName && themeName.toLowerCase().includes('light') ? 'markdown-light' : 'markdown-dark'
+        }`}
+        style={
+          {
+            ['--markdown-background' as any]: colors.background,
+            ['--markdown-foreground' as any]: colors.foreground,
+          } as React.CSSProperties
+        }
       >
         {markdownContent}
       </div>
