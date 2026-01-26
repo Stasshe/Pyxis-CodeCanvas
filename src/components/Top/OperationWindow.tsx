@@ -10,8 +10,8 @@ import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { formatKeyComboForDisplay } from '@/hooks/useKeyBindings';
-import { useSettings } from '@/hooks/useSettings';
+import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
+import { useSettings } from '@/hooks/state/useSettings';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 

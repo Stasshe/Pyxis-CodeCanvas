@@ -23,7 +23,7 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 
 import { generateCommitMessage } from '@/engine/commitMsgAI';
-import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
+import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
 import type { GitCommit, GitRepository, GitStatus } from '@/types/git';
 
 interface GitPanelProps {

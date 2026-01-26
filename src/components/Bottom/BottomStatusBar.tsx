@@ -1,5 +1,5 @@
 'use client';
-import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings';
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 import { CheckCircle2, Loader2Icon } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
 

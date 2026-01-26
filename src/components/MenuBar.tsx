@@ -8,8 +8,8 @@ import type { MenuTab } from '../types';
 import { useGitHubUser } from '@/context/GitHubUserContext';
 import { useTranslation } from '@/context/I18nContext';
 import { authRepository } from '@/engine/user/authRepository';
-import { useExtensionPanels } from '@/hooks/useExtensionPanels';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
+import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 
 interface MenuBarProps {
   activeMenuTab: MenuTab;

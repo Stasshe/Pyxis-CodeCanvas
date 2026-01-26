@@ -36,7 +36,7 @@ await storageService.delete(STORES.KEYBINDINGS, 'my-key');
 await storageService.clear(STORES.KEYBINDINGS);
 ```
 
-### 2. キーバインディングシステム (`src/hooks/useKeyBindings.ts`)
+### 2. キーバインディングシステム (`src/hooks/keybindings/useKeyBindings.ts`)
 
 **特徴:**
 - **プラットフォーム自動対応**: Mac (Cmd) / Windows/Linux (Ctrl) を自動判定
@@ -60,7 +60,7 @@ await storageService.clear(STORES.KEYBINDINGS);
 **使用例:**
 
 ```typescript
-import { useKeyBinding, useKeyBindings } from '@/hooks/useKeyBindings';
+import { useKeyBinding, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 
 // 方法1: シンプルなアクション登録
 function MyComponent() {
@@ -92,7 +92,7 @@ function MyComponent() {
 わずか数行で完全なキーボードショートカット対応:
 
 ```typescript
-import { useKeyBinding } from '@/hooks/useKeyBindings';
+import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 
 // 新しいタブ (Ctrl/Cmd+T)
 useKeyBinding('newTab', () => {
@@ -187,7 +187,7 @@ export const STORES = {
 ### 新しいキーバインディングの追加
 
 ```typescript
-// src/hooks/useKeyBindings.ts
+// src/hooks/keybindings/useKeyBindings.ts
 export const DEFAULT_BINDINGS: Binding[] = [
   // ... existing bindings
   { id: 'toggleTerminal', name: 'Toggle Terminal', combo: 'Ctrl+`', category: 'view' },

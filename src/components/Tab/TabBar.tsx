@@ -21,7 +21,7 @@ import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { triggerAction, useKeyBinding } from '@/hooks/useKeyBindings';
+import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useTabStore } from '@/stores/tabStore';
 
 interface TabBarProps {

@@ -19,7 +19,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
+import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
 import type { GitCommit as GitCommitType } from '@/types/git';
 
 interface GitHistoryProps {

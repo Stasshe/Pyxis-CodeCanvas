@@ -22,7 +22,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { editorMemoryManager } from '@/engine/editor';
 import { useAI } from '@/hooks/ai/useAI';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { useAIReview } from '@/hooks/useAIReview';
+import { useAIReview } from '@/hooks/ai/useAIReview';
 import { useTabStore } from '@/stores/tabStore';
 import type { ChatSpaceMessage, FileItem, Project } from '@/types';
 

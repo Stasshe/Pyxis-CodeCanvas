@@ -7,8 +7,8 @@ import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } fro
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
 import { editorMemoryManager } from '@/engine/editor';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { useSettings } from '@/hooks/useSettings';
+import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
+import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectStore } from '@/stores/projectStore';
 
 /**

@@ -25,12 +25,12 @@ import {
   useRightSidebarResize,
 } from '@/engine/helper/resize';
 import type { EditorPane } from '@/engine/tabs/types';
-import { useFileDeleteTabSync } from '@/hooks/useFileDeleteTabSync';
-import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
-import { useProjectWelcome } from '@/hooks/useProjectWelcome';
-import { useTabContentRestore } from '@/hooks/useTabContentRestore';
+import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
+import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
+import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
+import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
+import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
+import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { useProjectStore } from '@/stores/projectStore';
 import { sessionStorage } from '@/stores/sessionStorage';
 import { useTabStore } from '@/stores/tabStore';
