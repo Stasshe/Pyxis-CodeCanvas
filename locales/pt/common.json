@@ -6,6 +6,7 @@
     "retry": "Tentar novamente"
   },
   "ai": {
+    "applied": "Aplicado",
     "changedFilesList": {
       "count": "{count} arquivos",
       "expand": "Expandir",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: nova linha / Ctrl+Enter: enviar",
       "history": "Alt+↑↓: histórico"
     },
-    "input": {
-      "ask": "Pergunte à IA ou consulte sobre código...",
+    "mode": {
+      "ask": "Faça perguntas para a IA ou consulte sobre o código...",
       "edit": "Digite instruções para editar o código..."
     },
-    "sendTitle": "Enviar (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Pergunte à IA ou consulte sobre código...",
-    "edit": "Digite instruções para editar o código..."
+    "pending": "Pendente",
+    "promptDebug": {
+      "close": "Fechar",
+      "copy": "Copiar",
+      "sampleInput": "Exemplo de entrada",
+      "title": "Depuração de prompt"
+    },
+    "revert": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "confirmMessage": "Tem certeza de que deseja reverter a alteração?",
+      "confirmTitle": "Reverter alteração",
+      "label": "Reverter"
+    },
+    "revertTooltip": "Reverter esta alteração",
+    "sendTitle": "Enviar (Ctrl+Enter)",
+    "showPrompt": "Mostrar prompt"
   },
   "aiReviewTab": {
     "applyAll": "Aplicar tudo",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Console de Depuração",
+    "escButton": "ESC",
     "output": "Saída",
     "outputPanel": {
       "all": "Tudo",
@@ -98,7 +112,9 @@
     "title": "Espaços de chat"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Cancelar",
+    "editable": "Editable",
+    "save": "Salvar"
   },
   "confirmation": {
     "title": "Confirmação"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Insira a chave da API do Gemini",
+    "branchFilter": {
+      "all": "Todos",
+      "allMode": "Todos os ramos",
+      "allModeDesc": "Mostrar commits de todos os ramos",
+      "auto": "Automático",
+      "autoMode": "Automático (apenas HEAD)",
+      "autoModeDesc": "Mostrar commits apenas do ramo atual",
+      "localBranch": "Ramo local",
+      "remoteBranch": "Ramo remoto",
+      "selectBranches": "Selecionar ramos",
+      "selectBranchesDesc": "Escolha ramos específicos",
+      "selected": "selecionado",
+      "title": "Filtro de ramos",
+      "tooltip": "Filtro de ramos"
+    },
     "changes": "Alterações",
     "commit": "Commit",
     "commitMessagePlaceholder": "Digite a mensagem do commit...",
@@ -151,8 +182,10 @@
     "discard": "Descartar",
     "discardAll": "Descartar tudo",
     "discardAllAndRevert": "Descartar todas as alterações e reverter",
+    "discardChangesMessage": "Deseja descartar essas alterações?",
+    "discardChangesTitle": "Descartar alterações?",
     "errorOccurred": "Ocorreu um erro",
-    "generateCommitMessage": "Gerar com IA",
+    "generateCommitMessage": "Gerar mensagem com IA", 
     "history": "Histórico",
     "infoNotAvailable": "Não foi possível obter informações do git",
     "loadingStatus": "Carregando status do git...",
@@ -279,12 +312,15 @@
     "noProject": "Abra um projeto para executar código Node.js",
     "outputHint": "Ao executar JavaScript/Node.js/Python, os resultados serão exibidos aqui. Node.js e js podem ser executados no mesmo arquivo.",
     "runtimeNotReady": "O runtime Python não está inicializado",
+    "selectFile": "Selecionar arquivo",
     "stop": "Parar",
     "title": "Ambiente de Execução"
   },
   "searchPanel": {
     "caseSensitive": "Diferenciar maiúsculas/minúsculas",
-    "noResults": "Nenhum resultado encontrado",
+    "enterToSearch": "Pressione Enter para pesquisar",
+    "noResults": "Nenhum resultado",
+    "realtimeMode": "Tempo real",
     "resultCount": "{count} resultados",
     "searchInFiles": "Pesquisar em arquivos...",
     "searching": "Pesquisando...",

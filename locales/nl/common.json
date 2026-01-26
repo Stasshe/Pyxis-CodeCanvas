@@ -6,6 +6,7 @@
     "retry": "Opnieuw proberen"
   },
   "ai": {
+    "applied": "Toegepast",
     "changedFilesList": {
       "count": "{count} bestanden",
       "expand": "Uitvouwen",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: nieuwe regel / Ctrl+Enter: verzenden",
       "history": "Alt+↑↓: geschiedenis"
     },
-    "input": {
-      "ask": "Stel de AI vragen of vraag om advies over code...",
-      "edit": "Voer instructies in om code te bewerken..."
+    "mode": {
+      "ask": "Stel vragen aan de AI of vraag advies over code...",
+      "edit": "Voer instructies in om de code te bewerken..."
     },
-    "sendTitle": "Verzenden (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Stel de AI vragen of vraag om advies over code...",
-    "edit": "Voer instructies in om code te bewerken..."
+    "pending": "In afwachting",
+    "promptDebug": {
+      "close": "Sluiten",
+      "copy": "Kopiëren",
+      "sampleInput": "Voorbeeldinvoer",
+      "title": "Prompt-debug"
+    },
+    "revert": {
+      "cancel": "Annuleren",
+      "confirm": "Bevestigen",
+      "confirmMessage": "Weet u zeker dat u de wijziging wilt terugdraaien?",
+      "confirmTitle": "Wijziging terugdraaien",
+      "label": "Terugdraaien"
+    },
+    "revertTooltip": "Draai deze wijziging terug",
+    "sendTitle": "Verzenden (Ctrl+Enter)",
+    "showPrompt": "Prompt tonen"
   },
   "aiReviewTab": {
     "applyAll": "Alles toepassen",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Debugconsole",
+    "escButton": "ESC",
     "output": "Uitvoer",
     "outputPanel": {
       "all": "Alles",
@@ -98,7 +112,9 @@
     "title": "Chatruimtes"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Annuleren",
+    "editable": "Editable",
+    "save": "Opslaan"
   },
   "confirmation": {
     "title": "Bevestiging"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Voer Gemini API-sleutel in",
+    "branchFilter": {
+      "all": "Alles",
+      "allMode": "Alle branches",
+      "allModeDesc": "Toon commits van alle branches",
+      "auto": "Automatisch",
+      "autoMode": "Automatisch (alleen HEAD)",
+      "autoModeDesc": "Toon commits alleen van de huidige branch",
+      "localBranch": "Lokale branch",
+      "remoteBranch": "Remote branch",
+      "selectBranches": "Branches selecteren",
+      "selectBranchesDesc": "Kies specifieke branches",
+      "selected": "geselecteerd",
+      "title": "Branch-filter",
+      "tooltip": "Branch-filter"
+    },
     "changes": "Wijzigingen",
     "commit": "Commit",
     "commitMessagePlaceholder": "Voer commitbericht in...",
@@ -151,6 +182,8 @@
     "discard": "Verwerpen",
     "discardAll": "Alles verwijderen",
     "discardAllAndRevert": "Alle wijzigingen verwijderen en terugzetten",
+    "discardChangesMessage": "Wilt u deze wijzigingen verwerpen?:",
+    "discardChangesTitle": "Wijzigingen verwerpen?",
     "errorOccurred": "Er is een fout opgetreden",
     "generateCommitMessage": "Genereer met AI",
     "history": "Geschiedenis",
@@ -279,12 +312,15 @@
     "noProject": "Open een project om Node.js-code uit te voeren",
     "outputHint": "Wanneer je JavaScript/Node.js/Python-code uitvoert, worden de resultaten hier weergegeven. Node.js en js kunnen in hetzelfde bestand worden uitgevoerd.",
     "runtimeNotReady": "Python-runtime is niet geïnitialiseerd",
+    "selectFile": "Bestand selecteren",
     "stop": "Stoppen",
     "title": "Uitvoeringsomgeving"
   },
   "searchPanel": {
     "caseSensitive": "Hoofdlettergevoelig",
+    "enterToSearch": "Druk op Enter om te zoeken",
     "noResults": "Geen resultaten gevonden",
+    "realtimeMode": "Realtime",
     "resultCount": "{count} resultaten",
     "searchInFiles": "Zoeken in bestanden...",
     "searching": "Bezig met zoeken...",

@@ -312,15 +312,15 @@
     "noProject": "Node.js kodu çalıştırmak için bir proje açın",
     "outputHint": "JavaScript/Node.js/Python kodu çalıştırdığınızda sonuçlar burada gösterilecektir. Node.js ve js aynı dosyada çalıştırılabilir.",
     "runtimeNotReady": "Python runtime başlatılmadı",
-    "selectFile": "#######Select file",
+    "selectFile": "Dosya seç",
     "stop": "Durdur",
     "title": "Çalıştırma Ortamı"
   },
   "searchPanel": {
     "caseSensitive": "Büyük/küçük harf duyarlı",
-    "enterToSearch": "#######Press Enter to search",
+    "enterToSearch": "Aramak için Enter'a basın",
     "noResults": "Sonuç bulunamadı",
-    "realtimeMode": "#######Realtime",
+    "realtimeMode": "Gerçek zamanlı",
     "resultCount": "{count} sonuç",
     "searchInFiles": "Dosyalarda ara...",
     "searching": "Aranıyor...",

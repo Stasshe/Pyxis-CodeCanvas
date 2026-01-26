@@ -6,6 +6,7 @@
     "retry": "Försök igen"
   },
   "ai": {
+    "applied": "Tillämpat",
     "changedFilesList": {
       "count": "{count} filer",
       "expand": "Expandera",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: ny rad / Ctrl+Enter: skicka",
       "history": "Alt+↑↓: historik"
     },
-    "input": {
-      "ask": "Ställ AI frågor eller be om hjälp med kod...",
+    "mode": {
+      "ask": "Ställ frågor till AI eller rådgör om kod...",
       "edit": "Ange instruktioner för att redigera kod..."
     },
-    "sendTitle": "Skicka (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Ställ AI frågor eller be om hjälp med kod...",
-    "edit": "Ange instruktioner för att redigera kod..."
+    "pending": "Väntar",
+    "promptDebug": {
+      "close": "Stäng",
+      "copy": "Kopiera",
+      "sampleInput": "Exempelinmatning",
+      "title": "Prompt-felsökning"
+    },
+    "revert": {
+      "cancel": "Avbryt",
+      "confirm": "Bekräfta",
+      "confirmMessage": "Är du säker på att du vill återställa ändringen?",
+      "confirmTitle": "Återställ ändring",
+      "label": "Återställ"
+    },
+    "revertTooltip": "Återställ denna ändring",
+    "sendTitle": "Skicka (Ctrl+Enter)",
+    "showPrompt": "Visa prompt"
   },
   "aiReviewTab": {
     "applyAll": "Tillämpa alla",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Debug-konsol",
+    "escButton": "ESC",
     "output": "Utdata",
     "outputPanel": {
       "all": "Allt",
@@ -98,7 +112,9 @@
     "title": "Chattutrymmen"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Avbryt",
+    "editable": "Editable",
+    "save": "Spara"
   },
   "confirmation": {
     "title": "Bekräftelse"
@@ -144,6 +160,21 @@
   },
   "git": {
     "apiKeyPlaceholder": "Ange Gemini API-nyckel",
+    "branchFilter": {
+      "all": "Alla",
+      "allMode": "Alla grenar",
+      "allModeDesc": "Visa commits från alla grenar",
+      "auto": "Auto",
+      "autoMode": "Auto (endast HEAD)",
+      "autoModeDesc": "Visa commits endast från nuvarande gren",
+      "localBranch": "Lokal gren",
+      "remoteBranch": "Fjärrgren",
+      "selectBranches": "Välj grenar",
+      "selectBranchesDesc": "Välj specifika grenar",
+      "selected": "vald",
+      "title": "Grenfilter",
+      "tooltip": "Filter för grenar"
+    },
     "changes": "Ändringar",
     "commit": "Commit",
     "commitMessagePlaceholder": "Ange commit-meddelande...",
@@ -151,8 +182,10 @@
     "discard": "Förkasta",
     "discardAll": "Kassera allt",
     "discardAllAndRevert": "Kassera alla ändringar och återställ",
+    "discardChangesMessage": "Vill du kassera dessa ändringar?",
+    "discardChangesTitle": "Kassera ändringar?",
     "errorOccurred": "Ett fel uppstod",
-    "generateCommitMessage": "Generera med AI",
+    "generateCommitMessage": "Skapa med AI",
     "history": "Historik",
     "infoNotAvailable": "Kunde inte hämta git-information",
     "loadingStatus": "Laddar git-status...",
@@ -279,12 +312,15 @@
     "noProject": "Öppna ett projekt för att köra Node.js-kod",
     "outputHint": "När du kör JavaScript/Node.js/Python-kod visas resultaten här. Node.js och js kan köras i samma fil.",
     "runtimeNotReady": "Python-runtime är inte initierad",
+    "selectFile": "Välj fil",
     "stop": "Stoppa",
     "title": "Körningsmiljö"
   },
   "searchPanel": {
     "caseSensitive": "Skiftlägeskänslig",
-    "noResults": "Inga resultat hittades",
+    "enterToSearch": "Tryck Enter för att söka",
+    "noResults": "Inga resultat",
+    "realtimeMode": "Realtid",
     "resultCount": "{count} resultat",
     "searchInFiles": "Sök i filer...",
     "searching": "Söker...",

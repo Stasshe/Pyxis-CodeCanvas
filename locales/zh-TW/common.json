@@ -185,7 +185,7 @@
     "discardChangesMessage": "您要捨棄這些變更嗎？",
     "discardChangesTitle": "捨棄變更？",
     "errorOccurred": "發生錯誤",
-    "generateCommitMessage": "用 AI 產生"},{
+    "generateCommitMessage": "用 AI 產生",
     "history": "歷史",
     "infoNotAvailable": "無法取得 git 資訊",
     "loadingStatus": "載入 git 狀態...",
@@ -312,15 +312,15 @@
     "noProject": "請開啟專案以執行 Node.js 程式碼",
     "outputHint": "當你執行 JavaScript/Node.js/Python 程式碼時，結果會顯示在此處。Node.js 與 js 可以在同一檔案執行。",
     "runtimeNotReady": "Python 執行環境尚未初始化",
-    "selectFile": "#######Select file",
+    "selectFile": "選擇檔案",
     "stop": "停止",
     "title": "執行環境"
   },
   "searchPanel": {
     "caseSensitive": "區分大小寫",
-    "enterToSearch": "#######Press Enter to search",
+    "enterToSearch": "按 Enter 搜尋",
     "noResults": "找不到結果",
-    "realtimeMode": "#######Realtime",
+    "realtimeMode": "即時",
     "resultCount": "{count} 個結果",
     "searchInFiles": "在檔案中搜尋...",
     "searching": "搜尋中...",

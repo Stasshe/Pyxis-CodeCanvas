@@ -182,7 +182,7 @@
     "discard": "खारिज करें",
     "discardAll": "सभी खारिज करें",
     "discardAllAndRevert": "सभी परिवर्तन खारिज करें और पुनर्स्थापित करें",
-    "discardChangesMessage": "#######Do you want to discard these changes? :",
+    "discardChangesMessage": "क्या आप इन परिवर्तनों को रद्द करना चाहते हैं?",
     "discardChangesTitle": "परिवर्तन रद्द करें?",
     "errorOccurred": "एक त्रुटि हुई",
     "generateCommitMessage": "AI के साथ संदेश जेनरेट करें",
