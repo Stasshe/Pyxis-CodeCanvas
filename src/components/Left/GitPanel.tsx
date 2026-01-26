@@ -35,6 +35,7 @@ interface GitPanelProps {
 }
 
 import LoadingState from './GitPanel/LoadingState';
+import { Confirmation } from '@/components/Confirmation';
 import ErrorState from './GitPanel/ErrorState';
 import CommitBox from './GitPanel/CommitBox';
 import { useGitPanel } from './GitPanel/useGitPanel';
@@ -186,6 +187,73 @@ export default function GitPanel({
     },
     [discardChanges, onRefresh]
   );
+
+  // confirmation dialog state for destructive actions
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState<string | undefined>(undefined);
+  const [confirmMessage, setConfirmMessage] = useState<string | undefined>(undefined);
+  const confirmActionRef = useRef<(() => Promise<void> | void) | null>(null);
+
+  const openConfirm = (title: string | undefined, message: string | undefined, action: () => Promise<void> | void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    confirmActionRef.current = action;
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    setConfirmOpen(false);
+    const action = confirmActionRef.current;
+    confirmActionRef.current = null;
+    if (action) {
+      try {
+        await action();
+      } catch (err) {
+        console.error('Confirmed action failed:', err);
+        setUiError(err instanceof Error ? err.message : '操作に失敗しました');
+      }
+    }
+  };
+
+  const handleCancelConfirm = () => {
+    confirmActionRef.current = null;
+    setConfirmOpen(false);
+  };
+
+  // request wrappers that show confirmation before executing
+  const handleRequestDiscardChanges = useCallback(
+    async (file: string) => {
+      const title = t('discardChangesTitle') || t('git.discard') || 'Discard changes?';
+      const message = `${t('discardChangesMessage') || 'この変更を破棄しますか？'} ${file}`;
+      openConfirm(title, message, async () => handleDiscardChanges(file));
+    },
+    [handleDiscardChanges, t]
+  );
+
+  const handleRequestDiscardAllUnstaged = useCallback(async () => {
+    const count =
+      (gitRepo?.status?.unstaged?.length || 0) +
+      (gitRepo?.status?.deleted?.length || 0) +
+      (gitRepo?.status?.untracked?.length || 0);
+    if (count === 0) return;
+    const title = t('discardChangesTitle') || t('git.discardAll') || 'Discard changes?';
+    const message = `${t('git.discardAllAndRevert') || '全ての変更を破棄して元に戻しますか？'} (${count})`;
+    openConfirm(title, message, async () => {
+      await discardAllUnstaged();
+      if (onRefresh) onRefresh();
+    });
+  }, [gitRepo?.status, discardAllUnstaged, onRefresh, t]);
+
+  const handleRequestDiscardAllStaged = useCallback(async () => {
+    const count = gitRepo?.status?.staged?.length || 0;
+    if (count === 0) return;
+    const title = t('discardChangesTitle') || t('git.discardAll') || 'Discard changes?';
+    const message = `${t('git.discardAllAndRevert') || '全ての変更を破棄して元に戻しますか？'} (${count})`;
+    openConfirm(title, message, async () => {
+      await discardAllStaged();
+      if (onRefresh) onRefresh();
+    });
+  }, [gitRepo?.status, discardAllStaged, onRefresh, t]);
 
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim()) return;
@@ -488,12 +556,23 @@ export default function GitPanel({
           handleUnstageAll={handleUnstageAll}
           handleStageFile={handleStageFile}
           handleUnstageFile={handleUnstageFile}
-          handleDiscardChanges={handleDiscardChanges}
-          handleDiscardAllUnstaged={handleDiscardAllUnstaged}
-          handleDiscardAllStaged={handleDiscardAllStaged}
+          // pass the request wrappers that show confirmation dialog
+          handleDiscardChanges={handleRequestDiscardChanges}
+          handleDiscardAllUnstaged={handleRequestDiscardAllUnstaged}
+          handleDiscardAllStaged={handleRequestDiscardAllStaged}
           handleStagedFileClick={handleStagedFileClick}
           handleUnstagedFileClick={handleUnstagedFileClick}
           colors={colors}
+        />
+
+        <Confirmation
+          open={confirmOpen}
+          title={confirmTitle}
+          message={confirmMessage}
+          confirmText={t('git.discard')}
+          cancelText={t('cancel')}
+          onConfirm={handleConfirm}
+          onCancel={handleCancelConfirm}
         />
 
         {/* コミット履歴 */}
