@@ -724,10 +724,8 @@ export class ModuleLoader {
     try {
       await fileRepository.init();
       // パスを正規化して検索
-      // Normalize: if FSPath under /projects/{project}, convert to AppPath; otherwise treat as AppPath
-      const normalizedPath = filePath.startsWith(`/projects/${this.projectName}`)
-        ? fsPathToAppPath(filePath, this.projectName)
-        : toAppPath(filePath);
+      // Normalize using pathUtils: convert FSPath to AppPath (handles fallback internally)
+      const normalizedPath = fsPathToAppPath(filePath, this.projectName);
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
 
       if (!file) {

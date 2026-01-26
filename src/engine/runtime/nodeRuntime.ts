@@ -567,7 +567,7 @@ export class NodeRuntime {
   private async readFile(filePath: string): Promise<string | null> {
     try {
       await fileRepository.init();
-      const normalizedPath = this.normalizePath(filePath);
+      const normalizedPath = fsPathToAppPath(filePath, this.projectName);
 
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
       if (!file) {
@@ -585,19 +585,6 @@ export class NodeRuntime {
       this.error('❌ Failed to read file:', filePath, error);
       return null;
     }
-  }
-
-  /**
-   * パスを正規化
-   * pathResolverを使用
-   */
-  private normalizePath(filePath: string): string {
-    // プロジェクトディレクトリで始まる場合はFSPath→AppPath変換
-    if (filePath.startsWith(this.projectDir)) {
-      return fsPathToAppPath(filePath, this.projectName);
-    }
-    // それ以外はAppPath形式に正規化
-    return toAppPath(filePath);
   }
 
   /**
