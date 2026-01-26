@@ -10,16 +10,11 @@
       "count": "{count} plików",
       "expand": "Rozwiń",
       "minimize": "Minimalizuj",
-      "noChangedFiles": "Brak zmienionych plików",
       "title": "Zmienione pliki"
     },
     "chatContainer": {
       "generating": "AI generuje odpowiedź...",
       "suggest": "Zadaj pytanie lub poproś o kod."
-    },
-    "chatMessage": {
-      "copyCode": "Kopiuj kod",
-      "reference": "Źródło:"
     },
     "context": {
       "select": "Wybierz pliki"
@@ -41,7 +36,6 @@
       "ask": "Zadaj AI pytanie lub skonsultuj kod...",
       "edit": "Wprowadź instrukcje do edycji kodu..."
     },
-    "selectedLabel": "Wybrane:",
     "sendTitle": "Wyślij (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problemy",
     "terminal": "Terminal",
     "terminalInitializing": "Inicjalizowanie terminala..."
-  },
-  "changedFilesList": {
-    "apply": "Zastosuj",
-    "applyAll": "Zastosuj wszystko",
-    "changedFiles": "Zmienione pliki",
-    "discard": "Odrzuć",
-    "discardAll": "Odrzuć wszystko",
-    "others": "inne",
-    "preview": "Podgląd",
-    "reason": "Powód",
-    "review": "Przegląd"
   },
   "charCountDisplay": {
     "clickForDetails": "Kliknij, aby zobaczyć szczegóły",
@@ -164,21 +147,16 @@
     "changes": "Zmiany",
     "commit": "Commit",
     "commitMessagePlaceholder": "Wprowadź wiadomość commita...",
-    "committing": "Commitowanie...",
     "deleted": "Usunięto",
-    "deleteUntracked": "Usuń plik",
     "discard": "Odrzuć",
     "errorOccurred": "Wystąpił błąd",
     "generateCommitMessage": "Wygeneruj za pomocą AI",
-    "generating": "Generowanie...",
     "history": "Historia",
     "infoNotAvailable": "Nie można pobrać informacji o git",
     "loadingStatus": "Ładowanie statusu git...",
     "noChanges": "Brak zmian",
     "noHistory": "Brak historii commitów",
-    "operationError": "Wystąpił błąd podczas dostępu do git",
     "projectSelect": "Wybierz projekt",
-    "restore": "Przywróć plik",
     "stage": "Stage",
     "stageAll": "Stage wszystko",
     "staged": "Zastage'owane",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Wszystkie {count} pliki",
-    "allFilesFiles": "Wszystkie {count} pliki",
-    "allFilesScrollable": "Wszystkie {count} pliki (przewijane)",
     "changedFiles": "Zmienione pliki:",
     "daysAgo": "{days} dni temu",
-    "duplicateGroupsHidden": "({count} zduplikowane grupy ukryte)",
-    "hideDuplicates": "Ukryj duplikaty commitów",
     "hoursAgo": "{hours} godzin temu",
     "justNow": "właśnie teraz",
     "loadingChanges": "Ładowanie informacji o zmianach...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} minut temu",
     "noChangedFiles": "Nie znaleziono zmienionych plików",
     "showAllFilesDiff": "Pokaż różnice wszystkich plików dla tego commita",
-    "showDuplicates": "Pokaż duplikaty",
     "showFileDiff": "Pokaż różnice dla tego pliku"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Szybkie otwieranie",
     "searchPlaceholder": "Szukaj po nazwie pliku/folderu lub ścieżce..."
   },
-  "paneNavigator": {
-    "activate": "Aktywuj",
-    "close": "Zamknij",
-    "deletePane": "Usuń panel",
-    "emptyPane": "Pusty",
-    "navigate": "Nawiguj",
-    "splitHorizontal": "Podziel poziomo",
-    "splitVertical": "Podziel pionowo",
-    "tab": "karta",
-    "tabs": "karty",
-    "title": "Nawigator paneli"
-  },
   "projectModal": {
     "cancel": "Anuluj",
     "clone": "Klonuj z GitHub",
@@ -312,15 +273,10 @@
     "execute": "Wykonaj",
     "executeHint": "Naciśnij Ctrl+Enter (Cmd+Enter) aby wykonać",
     "executionStopped": "Wykonanie zatrzymane",
-    "fileContentError": "Nie można pobrać zawartości pliku",
     "inputPlaceholder": "Wprowadź kod Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Brak wyjścia",
     "noProject": "Otwórz projekt aby uruchomić Node.js",
     "outputHint": "Wyniki wykonania kodu JavaScript/Node.js/Python będą wyświetlane tutaj. Node.js i js mogą być uruchamiane w tym samym pliku.",
     "runtimeNotReady": "Środowisko Python nie zostało zainicjowane",
-    "searchFile": "Szukaj pliku do uruchomienia...",
     "stop": "Zatrzymaj",
     "title": "Środowisko wykonawcze"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Domyślny edytor",
       "fontSize": "Rozmiar czcionki",
-      "preloadModelCount": "Liczba modeli do wstępnego załadowania",
-      "preloadModelCountHint": "Ile modeli utrzymywać wstępnie załadowanych dla szybszego startu",
       "savedToLocalStorage": "Zapisano do LocalStorage",
       "tabSize": "Wielkość tabulacji",
       "title": "Edytor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Dostosuj kolory",
       "colorTheme": "Motyw kolorów",
-      "highlightTheme": "Motyw podświetlania",
       "title": "Motyw"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Menu panelu",
     "removeAllTabs": "Usuń wszystkie karty",
     "removePane": "Usuń panel",
-    "saveRestart": "Zapisz i uruchom ponownie",
     "splitHorizontal": "Podział poziomy",
     "splitVertical": "Podział pionowy",
     "unsavedChanges": "Niezapisane zmiany"

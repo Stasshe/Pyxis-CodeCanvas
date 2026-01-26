@@ -10,16 +10,11 @@
       "count": "{count} dosya",
       "expand": "Genişlet",
       "minimize": "Küçült",
-      "noChangedFiles": "Değişen dosya yok",
       "title": "Değişen dosyalar"
     },
     "chatContainer": {
       "generating": "Yapay zeka cevap üretiyor...",
       "suggest": "Lütfen soru veya kod isteği yazın."
-    },
-    "chatMessage": {
-      "copyCode": "Kodu kopyala",
-      "reference": "Referans:"
     },
     "context": {
       "select": "Dosyaları seç"
@@ -41,7 +36,6 @@
       "ask": "Yapay zekaya soru sorun veya kod hakkında danışın...",
       "edit": "Kod düzenleme talimatlarını girin..."
     },
-    "selectedLabel": "Seçili:",
     "sendTitle": "Gönder (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Sorunlar",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal başlatılıyor..."
-  },
-  "changedFilesList": {
-    "apply": "Uygula",
-    "applyAll": "Tümünü uygula",
-    "changedFiles": "Değişen dosyalar",
-    "discard": "İptal et",
-    "discardAll": "Tümünü iptal et",
-    "others": "diğerler",
-    "preview": "Önizleme",
-    "reason": "Sebep",
-    "review": "İncele"
   },
   "charCountDisplay": {
     "clickForDetails": "Detaylar için tıklayın",
@@ -164,21 +147,16 @@
     "changes": "Değişiklikler",
     "commit": "Commit",
     "commitMessagePlaceholder": "Commit mesajını girin...",
-    "committing": "Commit ediliyor...",
     "deleted": "Silindi",
-    "deleteUntracked": "Dosyayı sil",
     "discard": "İptal et",
     "errorOccurred": "Bir hata oluştu",
     "generateCommitMessage": "AI ile mesaj oluştur",
-    "generating": "Oluşturuluyor...",
     "history": "Geçmiş",
     "infoNotAvailable": "Git bilgisi alınamadı",
     "loadingStatus": "Git durumu yükleniyor...",
     "noChanges": "Değişiklik yok",
     "noHistory": "Commit geçmişi yok",
-    "operationError": "Git erişimi sırasında hata oluştu",
     "projectSelect": "Lütfen bir proje seçin",
-    "restore": "Dosyayı geri yükle",
     "stage": "Stage",
     "stageAll": "Tümünü stage'e al",
     "staged": "Stage'e alındı",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Tüm {count} dosya",
-    "allFilesFiles": "Tüm {count} dosya",
-    "allFilesScrollable": "Tüm {count} dosya (kaydırılabilir)",
     "changedFiles": "Değişen dosyalar:",
     "daysAgo": "{days} gün önce",
-    "duplicateGroupsHidden": "({count} tekrar eden grup gizlendi)",
-    "hideDuplicates": "Tekrar edenleri gizle",
     "hoursAgo": "{hours} saat önce",
     "justNow": "az önce",
     "loadingChanges": "Değişiklik bilgileri yükleniyor...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} dakika önce",
     "noChangedFiles": "Hiç değişen dosya bulunamadı",
     "showAllFilesDiff": "Bu commit için tüm dosya farklarını göster",
-    "showDuplicates": "Tekrar edenleri göster",
     "showFileDiff": "Bu dosya için farkı göster"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Hızlı aç",
     "searchPlaceholder": "Dosya/klasör adı veya yolu ile ara..."
   },
-  "paneNavigator": {
-    "activate": "Etkinleştir",
-    "close": "Kapat",
-    "deletePane": "Paneli sil",
-    "emptyPane": "Boş",
-    "navigate": "Gezin",
-    "splitHorizontal": "Yatay böl",
-    "splitVertical": "Dikey böl",
-    "tab": "sekme",
-    "tabs": "sekmeler",
-    "title": "Panel gezgini"
-  },
   "projectModal": {
     "cancel": "İptal",
     "clone": "GitHub'dan klonla",
@@ -312,15 +273,10 @@
     "execute": "Çalıştır",
     "executeHint": "Çalıştırmak için Ctrl+Enter (Cmd+Enter) basın",
     "executionStopped": "Çalıştırma durduruldu",
-    "fileContentError": "Dosya içeriği alınamıyor",
     "inputPlaceholder": "Node.js kodu girin...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Çıktı yok",
     "noProject": "Node.js kodu çalıştırmak için bir proje açın",
     "outputHint": "JavaScript/Node.js/Python kodu çalıştırdığınızda sonuçlar burada gösterilecektir. Node.js ve js aynı dosyada çalıştırılabilir.",
     "runtimeNotReady": "Python runtime başlatılmadı",
-    "searchFile": "Çalıştırmak için bir dosya ara...",
     "stop": "Durdur",
     "title": "Çalıştırma Ortamı"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Varsayılan Editör",
       "fontSize": "Yazı Boyutu",
-      "preloadModelCount": "Önceden yüklenecek model sayısı",
-      "preloadModelCountHint": "Daha hızlı başlangıç için kaç model önceden yüklensin",
       "savedToLocalStorage": "LocalStorage'a kaydedildi",
       "tabSize": "Tab Boyutu",
       "title": "Editör",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Renk Özelleştirme",
       "colorTheme": "Renk Teması",
-      "highlightTheme": "Kod Vurgulama",
       "title": "Tema"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Panel menüsü",
     "removeAllTabs": "Tüm sekmeleri kaldır",
     "removePane": "Paneli kaldır",
-    "saveRestart": "Kaydet ve yeniden başlat",
     "splitHorizontal": "Yatay böl",
     "splitVertical": "Dikey böl",
     "unsavedChanges": "Kaydedilmemiş değişiklikler"

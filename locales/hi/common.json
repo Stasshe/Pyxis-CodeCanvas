@@ -10,16 +10,11 @@
       "count": "{count} फाइलें",
       "expand": "विस्तार करें",
       "minimize": "छोटा करें",
-      "noChangedFiles": "कोई बदली हुई फाइल नहीं",
       "title": "बदली हुई फाइलें"
     },
     "chatContainer": {
       "generating": "AI उत्तर तैयार कर रहा है...",
       "suggest": "कृपया प्रश्न या कोड अनुरोध पूछें।"
-    },
-    "chatMessage": {
-      "copyCode": "कोड कॉपी करें",
-      "reference": "संदर्भ:"
     },
     "context": {
       "select": "फाइलें चुनें"
@@ -41,7 +36,6 @@
       "ask": "AI से प्रश्न पूछें या कोड के बारे में परामर्श लें...",
       "edit": "कोड संपादित करने के निर्देश दर्ज करें..."
     },
-    "selectedLabel": "चयनित:",
     "sendTitle": "भेजें (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "समस्याएं",
     "terminal": "टर्मिनल",
     "terminalInitializing": "टर्मिनल आरंभ हो रहा है..."
-  },
-  "changedFilesList": {
-    "apply": "लागू करें",
-    "applyAll": "सभी लागू करें",
-    "changedFiles": "बदली हुई फाइलें",
-    "discard": "खारिज करें",
-    "discardAll": "सभी खारिज करें",
-    "others": "अन्य",
-    "preview": "पूर्वावलोकन",
-    "reason": "कारण",
-    "review": "समीक्षा"
   },
   "charCountDisplay": {
     "clickForDetails": "विवरण के लिए क्लिक करें",
@@ -164,21 +147,16 @@
     "changes": "परिवर्तन",
     "commit": "Commit",
     "commitMessagePlaceholder": "कमिट संदेश दर्ज करें...",
-    "committing": "कमिट किया जा रहा है...",
     "deleted": "हटाया गया",
-    "deleteUntracked": "फाइल हटाएं",
     "discard": "खारिज करें",
     "errorOccurred": "एक त्रुटि हुई",
     "generateCommitMessage": "AI के साथ संदेश जेनरेट करें",
-    "generating": "जेनरेट किया जा रहा है...",
     "history": "इतिहास",
     "infoNotAvailable": "git जानकारी प्राप्त नहीं हो सकी",
     "loadingStatus": "git स्थिति लोड हो रही है...",
     "noChanges": "कोई परिवर्तन नहीं",
     "noHistory": "कोई कमिट इतिहास नहीं",
-    "operationError": "git तक पहुँचते समय एक त्रुटि हुई",
     "projectSelect": "कृपया एक प्रोजेक्ट चुनें",
-    "restore": "फ़ाइल पुनर्स्थापित करें",
     "stage": "स्टेज",
     "stageAll": "सभी स्टेज करें",
     "staged": "स्टेज्ड",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "सभी {count} फाइलें",
-    "allFilesFiles": "सभी {count} फाइलें",
-    "allFilesScrollable": "सभी {count} फाइलें (स्क्रोल करने योग्य)",
     "changedFiles": "बदली हुई फाइलें:",
     "daysAgo": "{days} दिन पहले",
-    "duplicateGroupsHidden": "({count} डुप्लिकेट समूह छिपाए गए)",
-    "hideDuplicates": "डुप्लिकेट छिपाएँ",
     "hoursAgo": "{hours} घंटे पहले",
     "justNow": "अभी अभी",
     "loadingChanges": "परिवर्तन जानकारी लोड हो रही है...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} मिनट पहले",
     "noChangedFiles": "कोई बदली हुई फाइल नहीं मिली",
     "showAllFilesDiff": "इस कमिट के लिए सभी फाइल diffs दिखाएँ",
-    "showDuplicates": "डुप्लिकेट दिखाएँ",
     "showFileDiff": "इस फाइल के लिए diff दिखाएँ"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "त्वरित खोलें",
     "searchPlaceholder": "फाइल/फ़ोल्डर नाम या पथ से खोजें..."
   },
-  "paneNavigator": {
-    "activate": "सक्रिय करें",
-    "close": "बंद करें",
-    "deletePane": "पेन हटाएं",
-    "emptyPane": "खाली",
-    "navigate": "नेविगेट करें",
-    "splitHorizontal": "क्षैतिज विभाजन",
-    "splitVertical": "ऊर्ध्वाधर विभाजन",
-    "tab": "टैब",
-    "tabs": "टैब्स",
-    "title": "पेन नेविगेटर"
-  },
   "projectModal": {
     "cancel": "रद्द करें",
     "clone": "GitHub से क्लोन करें",
@@ -312,15 +273,10 @@
     "execute": "चालन करें",
     "executeHint": "Ctrl+Enter (Cmd+Enter) दबाएँ",
     "executionStopped": "निष्पादन रोका गया",
-    "fileContentError": "फ़ाइल सामग्री प्राप्त करने में असमर्थ",
     "inputPlaceholder": "Node.js कोड दर्ज करें...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "कोई आउटपुट नहीं",
     "noProject": "Node.js को चलाने के लिए एक प्रोजेक्ट खोलें",
     "outputHint": "जब आप JavaScript/Node.js/Python कोड चलाते हैं, परिणाम यहाँ दिखेंगे। Node.js और js एक ही फाइल में चल सकते हैं।",
     "runtimeNotReady": "Python रनटाइम आरंभ नहीं हुआ है",
-    "searchFile": "चालने के लिए एक फाइल खोजें...",
     "stop": "रोकें",
     "title": "निष्पादन वातावरण"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "डिफ़ॉल्ट संपादक",
       "fontSize": "फ़ॉन्ट साइज",
-      "preloadModelCount": "प्री-लोड करने के लिए मॉडल की संख्या",
-      "preloadModelCountHint": "तेज़ स्टार्टअप के लिए कितने मॉडल प्री-लोड रखें",
       "savedToLocalStorage": "LocalStorage में सहेजा गया",
       "tabSize": "Tab साइज",
       "title": "संपादक",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "रंग अनुकूलित करें",
       "colorTheme": "रंग थीम",
-      "highlightTheme": "कोड हाइलाइट थीम",
       "title": "थीम"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "पेन मेनू",
     "removeAllTabs": "सभी टैब हटाएँ",
     "removePane": "पेन हटाएँ",
-    "saveRestart": "सहेजें और पुनरारंभ करें",
     "splitHorizontal": "क्षैतिज विभाजन",
     "splitVertical": "ऊर्ध्वाधर विभाजन",
     "unsavedChanges": "असहेजे गए परिवर्तन"

@@ -10,16 +10,11 @@
       "count": "{count} ไฟล์",
       "expand": "ขยาย",
       "minimize": "ย่อ",
-      "noChangedFiles": "ไม่มีไฟล์ที่เปลี่ยนแปลง",
       "title": "ไฟล์ที่เปลี่ยนแปลง"
     },
     "chatContainer": {
       "generating": "AI กำลังสร้างคำตอบ...",
       "suggest": "กรุณาถามคำถามหรือต้องการให้เขียนโค้ด"
-    },
-    "chatMessage": {
-      "copyCode": "คัดลอกโค้ด",
-      "reference": "อ้างอิง:"
     },
     "context": {
       "select": "เลือกไฟล์"
@@ -41,7 +36,6 @@
       "ask": "ถาม AI หรือปรึกษาเกี่ยวกับโค้ด...",
       "edit": "ใส่คำสั่งเพื่อแก้ไขโค้ด..."
     },
-    "selectedLabel": "ที่เลือก:",
     "sendTitle": "ส่ง (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "ปัญหา",
     "terminal": "เทอร์มินัล",
     "terminalInitializing": "กำลังเริ่มต้นเทอร์มินัล..."
-  },
-  "changedFilesList": {
-    "apply": "ใช้",
-    "applyAll": "ใช้ทั้งหมด",
-    "changedFiles": "ไฟล์ที่เปลี่ยนแปลง",
-    "discard": "ยกเลิก",
-    "discardAll": "ยกเลิกทั้งหมด",
-    "others": "คนอื่นๆ",
-    "preview": "แสดงตัวอย่าง",
-    "reason": "เหตุผล",
-    "review": "ตรวจสอบ"
   },
   "charCountDisplay": {
     "clickForDetails": "คลิกเพื่อดูรายละเอียด",
@@ -164,21 +147,16 @@
     "changes": "การเปลี่ยนแปลง",
     "commit": "คอมมิต",
     "commitMessagePlaceholder": "ใส่ข้อความคอมมิต...",
-    "committing": "กำลังคอมมิต...",
     "deleted": "ถูกลบ",
-    "deleteUntracked": "ลบไฟล์",
     "discard": "ยกเลิก",
     "errorOccurred": "เกิดข้อผิดพลาด",
     "generateCommitMessage": "สร้างโดย AI",
-    "generating": "กำลังสร้าง...",
     "history": "ประวัติ",
     "infoNotAvailable": "ไม่สามารถดึงข้อมูล git ได้",
     "loadingStatus": "กำลังโหลดสถานะ git...",
     "noChanges": "ไม่มีการเปลี่ยนแปลง",
     "noHistory": "ไม่มีประวัติการคอมมิต",
-    "operationError": "เกิดข้อผิดพลาดขณะเข้าถึง git",
     "projectSelect": "กรุณาเลือกโปรเจกต์",
-    "restore": "คืนค่าไฟล์",
     "stage": "เพิ่มเข้า staging",
     "stageAll": "เพิ่มทั้งหมด",
     "staged": "อยู่ใน staging",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "ทั้งหมด {count} ไฟล์",
-    "allFilesFiles": "ทั้งหมด {count} ไฟล์",
-    "allFilesScrollable": "ทั้งหมด {count} ไฟล์ (เลื่อนดูได้)",
     "changedFiles": "ไฟล์ที่เปลี่ยนแปลง:",
     "daysAgo": "{days} วันที่ผ่านมา",
-    "duplicateGroupsHidden": "({count} กลุ่มซ้ำถูกซ่อน)",
-    "hideDuplicates": "ซ่อนคอมมิตซ้ำ",
     "hoursAgo": "{hours} ชั่วโมงที่แล้ว",
     "justNow": "เมื่อสักครู่",
     "loadingChanges": "กำลังโหลดข้อมูลการเปลี่ยนแปลง...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} นาทีที่แล้ว",
     "noChangedFiles": "ไม่พบไฟล์ที่เปลี่ยนแปลง",
     "showAllFilesDiff": "แสดง diff ของไฟล์ทั้งหมดสำหรับคอมมิตนี้",
-    "showDuplicates": "แสดงคอมมิตซ้ำ",
     "showFileDiff": "แสดง diff สำหรับไฟล์นี้"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "เปิดด่วน",
     "searchPlaceholder": "ค้นหาชื่อไฟล์/โฟลเดอร์หรือเส้นทาง..."
   },
-  "paneNavigator": {
-    "activate": "เปิดใช้งาน",
-    "close": "ปิด",
-    "deletePane": "ลบแผงควบคุม",
-    "emptyPane": "ว่าง",
-    "navigate": "นำทาง",
-    "splitHorizontal": "แบ่งแนวนอน",
-    "splitVertical": "แบ่งแนวตั้ง",
-    "tab": "แท็บ",
-    "tabs": "แท็บ",
-    "title": "ตัวนำทางแผงควบคุม"
-  },
   "projectModal": {
     "cancel": "ยกเลิก",
     "clone": "โคลนจาก GitHub",
@@ -312,15 +273,10 @@
     "execute": "รัน",
     "executeHint": "กด Ctrl+Enter (Cmd+Enter) เพื่อรัน",
     "executionStopped": "การรันหยุดลง",
-    "fileContentError": "ไม่สามารถดึงเนื้อหาไฟล์ได้",
     "inputPlaceholder": "ใส่โค้ด Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "ไม่มีผลลัพธ์",
     "noProject": "เปิดโปรเจกต์เพื่อรัน Node.js",
     "outputHint": "เมื่อรัน JavaScript/Node.js/Python ผลลัพธ์จะแสดงที่นี่ Node.js และ js สามารถรันในไฟล์เดียวกันได้",
     "runtimeNotReady": "สภาพแวดล้อม Python ยังไม่ถูกเริ่ม",
-    "searchFile": "ค้นหาไฟล์เพื่อรัน...",
     "stop": "หยุด",
     "title": "สภาพแวดล้อมการรัน"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "ตัวแก้ไขเริ่มต้น",
       "fontSize": "ขนาดฟอนต์",
-      "preloadModelCount": "จำนวนโมเดลที่จะโหลดล่วงหน้า",
-      "preloadModelCountHint": "จำนวนโมเดลที่จะโหลดไว้ล่วงหน้าเพื่อเริ่มต้นเร็วขึ้น",
       "savedToLocalStorage": "บันทึกใน LocalStorage",
       "tabSize": "ขนาด Tab",
       "title": "ตัวแก้ไข",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "ปรับแต่งสี",
       "colorTheme": "ธีมสี",
-      "highlightTheme": "ธีมการเน้นโค้ด",
       "title": "ธีม"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "เมนู pane",
     "removeAllTabs": "ปิดแท็บทั้งหมด",
     "removePane": "ลบ pane",
-    "saveRestart": "บันทึกและรีสตาร์ท",
     "splitHorizontal": "แยกแนวนอน",
     "splitVertical": "แยกแนวตั้ง",
     "unsavedChanges": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก"

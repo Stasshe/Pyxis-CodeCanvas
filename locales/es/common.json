@@ -10,16 +10,11 @@
       "count": "{count} archivos",
       "expand": "Expandir",
       "minimize": "Minimizar",
-      "noChangedFiles": "No hay archivos modificados",
       "title": "Archivos modificados"
     },
     "chatContainer": {
       "generating": "El asistente AI está generando una respuesta...",
       "suggest": "Por favor, haga preguntas o solicite código."
-    },
-    "chatMessage": {
-      "copyCode": "Copiar código",
-      "reference": "Referencia:"
     },
     "context": {
       "select": "Seleccionar archivos"
@@ -41,7 +36,6 @@
       "ask": "Pregunte al asistente AI o consulte sobre código...",
       "edit": "Introduzca instrucciones para editar código..."
     },
-    "selectedLabel": "Seleccionado:",
     "sendTitle": "Enviar (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problemas",
     "terminal": "Terminal",
     "terminalInitializing": "Inicializando terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Aplicar",
-    "applyAll": "Aplicar todo",
-    "changedFiles": "Archivos modificados",
-    "discard": "Descartar",
-    "discardAll": "Descartar todo",
-    "others": "otros",
-    "preview": "Vista previa",
-    "reason": "Razón",
-    "review": "Revisar"
   },
   "charCountDisplay": {
     "clickForDetails": "Haga clic para detalles",
@@ -164,21 +147,16 @@
     "changes": "Cambios",
     "commit": "Confirmar",
     "commitMessagePlaceholder": "Introduzca el mensaje del commit...",
-    "committing": "Confirmando...",
     "deleted": "Eliminado",
-    "deleteUntracked": "Eliminar archivo",
     "discard": "Descartar",
     "errorOccurred": "Ocurrió un error",
     "generateCommitMessage": "Generar con AI",
-    "generating": "Generando...",
     "history": "Historial",
     "infoNotAvailable": "No se pudo obtener información de git",
     "loadingStatus": "Cargando estado de git...",
     "noChanges": "Sin cambios",
     "noHistory": "Sin historial de commits",
-    "operationError": "Ocurrió un error al acceder a git",
     "projectSelect": "Por favor seleccione un proyecto",
-    "restore": "Restaurar archivo",
     "stage": "Poner en staging",
     "stageAll": "Poner todo en staging",
     "staged": "En staging",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Todos los {count} archivos",
-    "allFilesFiles": "Todos los {count} archivos",
-    "allFilesScrollable": "Todos los {count} archivos (desplazable)",
     "changedFiles": "Archivos modificados:",
     "daysAgo": "hace {days} días",
-    "duplicateGroupsHidden": "({count} grupos duplicados ocultos)",
-    "hideDuplicates": "Ocultar commits duplicados",
     "hoursAgo": "hace {hours} horas",
     "justNow": "justo ahora",
     "loadingChanges": "Cargando información de cambios...",
@@ -206,7 +180,6 @@
     "minutesAgo": "hace {minutes} minutos",
     "noChangedFiles": "No se encontraron archivos modificados",
     "showAllFilesDiff": "Mostrar diffs de todos los archivos para este commit",
-    "showDuplicates": "Mostrar commits duplicados",
     "showFileDiff": "Mostrar diff de este archivo"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Apertura rápida",
     "searchPlaceholder": "Buscar por nombre de archivo/carpeta o ruta..."
   },
-  "paneNavigator": {
-    "activate": "Activar",
-    "close": "Cerrar",
-    "deletePane": "Eliminar panel",
-    "emptyPane": "Vacío",
-    "navigate": "Navegar",
-    "splitHorizontal": "Dividir horizontalmente",
-    "splitVertical": "Dividir verticalmente",
-    "tab": "pestaña",
-    "tabs": "pestañas",
-    "title": "Navegador de paneles"
-  },
   "projectModal": {
     "cancel": "Cancelar",
     "clone": "Clonar desde GitHub",
@@ -312,15 +273,10 @@
     "execute": "Ejecutar",
     "executeHint": "Presione Ctrl+Enter (Cmd+Enter) para ejecutar",
     "executionStopped": "Ejecución detenida",
-    "fileContentError": "No se puede obtener el contenido del archivo",
     "inputPlaceholder": "Introduzca código Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Sin salida",
     "noProject": "Abra un proyecto para ejecutar código Node.js",
     "outputHint": "Al ejecutar JavaScript/Node.js/Python, los resultados se mostrarán aquí. Node.js y js se pueden ejecutar en el mismo archivo.",
     "runtimeNotReady": "El runtime de Python no está inicializado",
-    "searchFile": "Buscar un archivo para ejecutar...",
     "stop": "Detener",
     "title": "Entorno de ejecución"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Editor predeterminado",
       "fontSize": "Tamaño de fuente",
-      "preloadModelCount": "Número de modelos a precargar",
-      "preloadModelCountHint": "Cuántos modelos precargar para un inicio más rápido",
       "savedToLocalStorage": "Guardado en LocalStorage",
       "tabSize": "Tamaño de tabulación",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Personalizar color",
       "colorTheme": "Tema de color",
-      "highlightTheme": "Resaltado de código",
       "title": "Tema"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Menú del panel",
     "removeAllTabs": "Cerrar todas las pestañas",
     "removePane": "Eliminar panel",
-    "saveRestart": "Guardar y reiniciar",
     "splitHorizontal": "Dividir horizontalmente",
     "splitVertical": "Dividir verticalmente",
     "unsavedChanges": "Cambios sin guardar"

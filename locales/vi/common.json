@@ -10,16 +10,11 @@
       "count": "{count} tệp",
       "expand": "Mở rộng",
       "minimize": "Thu nhỏ",
-      "noChangedFiles": "Không có tệp nào thay đổi",
       "title": "Tệp đã thay đổi"
     },
     "chatContainer": {
       "generating": "AI đang tạo phản hồi...",
       "suggest": "Vui lòng đặt câu hỏi hoặc yêu cầu mã."
-    },
-    "chatMessage": {
-      "copyCode": "Sao chép mã",
-      "reference": "Tham khảo:"
     },
     "context": {
       "select": "Chọn tệp"
@@ -41,7 +36,6 @@
       "ask": "Hỏi AI các câu hỏi hoặc tư vấn về mã...",
       "edit": "Nhập hướng dẫn để chỉnh sửa mã..."
     },
-    "selectedLabel": "Đã chọn:",
     "sendTitle": "Gửi (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Sự cố",
     "terminal": "Terminal",
     "terminalInitializing": "Đang khởi tạo terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Áp dụng",
-    "applyAll": "Áp dụng tất cả",
-    "changedFiles": "Tệp đã thay đổi",
-    "discard": "Bỏ",
-    "discardAll": "Bỏ tất cả",
-    "others": "khác",
-    "preview": "Xem trước",
-    "reason": "Lý do",
-    "review": "Xem lại"
   },
   "charCountDisplay": {
     "clickForDetails": "Nhấp để xem chi tiết",
@@ -164,21 +147,16 @@
     "changes": "Thay đổi",
     "commit": "Commit",
     "commitMessagePlaceholder": "Nhập thông điệp commit...",
-    "committing": "Đang commit...",
     "deleted": "Đã xóa",
-    "deleteUntracked": "Xóa tệp",
     "discard": "Bỏ",
     "errorOccurred": "Đã xảy ra lỗi",
     "generateCommitMessage": "Tạo message bằng AI",
-    "generating": "Đang tạo...",
     "history": "Lịch sử",
     "infoNotAvailable": "Không thể lấy thông tin git",
     "loadingStatus": "Đang tải trạng thái git...",
     "noChanges": "Không có thay đổi",
     "noHistory": "Không có lịch sử commit",
-    "operationError": "Lỗi khi truy cập git",
     "projectSelect": "Vui lòng chọn một dự án",
-    "restore": "Khôi phục tệp",
     "stage": "Stage",
     "stageAll": "Stage tất cả",
     "staged": "Đã stage",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Tất cả {count} tệp",
-    "allFilesFiles": "Tất cả {count} tệp",
-    "allFilesScrollable": "Tất cả {count} tệp (có thể cuộn)",
     "changedFiles": "Tệp đã thay đổi:",
     "daysAgo": "{days} ngày trước",
-    "duplicateGroupsHidden": "({count} nhóm trùng lặp ẩn)",
-    "hideDuplicates": "Ẩn commit trùng lặp",
     "hoursAgo": "{hours} giờ trước",
     "justNow": "vừa xong",
     "loadingChanges": "Đang tải thông tin thay đổi...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} phút trước",
     "noChangedFiles": "Không tìm thấy tệp đã thay đổi",
     "showAllFilesDiff": "Hiện diff tất cả tệp cho commit này",
-    "showDuplicates": "Hiện commit trùng lặp",
     "showFileDiff": "Hiện diff cho tệp này"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Mở nhanh",
     "searchPlaceholder": "Tìm theo tên tệp/thư mục hoặc đường dẫn..."
   },
-  "paneNavigator": {
-    "activate": "Kích hoạt",
-    "close": "Đóng",
-    "deletePane": "Xóa bảng điều khiển",
-    "emptyPane": "Trống",
-    "navigate": "Điều hướng",
-    "splitHorizontal": "Chia ngang",
-    "splitVertical": "Chia dọc",
-    "tab": "thẻ",
-    "tabs": "các thẻ",
-    "title": "Điều hướng bảng điều khiển"
-  },
   "projectModal": {
     "cancel": "Hủy",
     "clone": "Clone từ GitHub",
@@ -312,15 +273,10 @@
     "execute": "Thực thi",
     "executeHint": "Nhấn Ctrl+Enter (Cmd+Enter) để thực thi",
     "executionStopped": "Thực thi đã dừng",
-    "fileContentError": "Không thể lấy nội dung tệp",
     "inputPlaceholder": "Nhập mã Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Không có kết quả",
     "noProject": "Mở một dự án để thực thi mã Node.js",
     "outputHint": "Khi bạn thực thi JavaScript/Node.js/Python, kết quả sẽ hiển thị ở đây. Node.js và js có thể chạy trong cùng tệp.",
     "runtimeNotReady": "Runtime Python chưa khởi tạo",
-    "searchFile": "Tìm tệp để thực thi...",
     "stop": "Dừng",
     "title": "Môi trường thực thi"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Trình soạn thảo mặc định",
       "fontSize": "Kích thước font",
-      "preloadModelCount": "Số lượng mô hình tải trước",
-      "preloadModelCountHint": "Số lượng mô hình giữ sẵn để khởi động nhanh hơn",
       "savedToLocalStorage": "Đã lưu vào LocalStorage",
       "tabSize": "Kích thước tab",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Tùy chỉnh màu",
       "colorTheme": "Giao diện màu",
-      "highlightTheme": "Giao diện tô sáng",
       "title": "Giao diện"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Menu pane",
     "removeAllTabs": "Đóng tất cả tab",
     "removePane": "Xóa pane",
-    "saveRestart": "Lưu và khởi động lại",
     "splitHorizontal": "Chia ngang",
     "splitVertical": "Chia dọc",
     "unsavedChanges": "Thay đổi chưa lưu"

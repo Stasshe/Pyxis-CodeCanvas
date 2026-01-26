@@ -10,16 +10,11 @@
       "count": "{count} Dateien",
       "expand": "Erweitern",
       "minimize": "Minimieren",
-      "noChangedFiles": "Keine geänderten Dateien",
       "title": "Geänderte Dateien"
     },
     "chatContainer": {
       "generating": "Die KI erstellt eine Antwort...",
       "suggest": "Bitte stellen Sie Fragen oder Code-Anfragen."
-    },
-    "chatMessage": {
-      "copyCode": "Code kopieren",
-      "reference": "Referenz:"
     },
     "context": {
       "select": "Dateien auswählen"
@@ -41,7 +36,6 @@
       "ask": "Stellen Sie der KI Fragen oder konsultieren Sie Code...",
       "edit": "Geben Sie Anweisungen zum Bearbeiten des Codes ein..."
     },
-    "selectedLabel": "Ausgewählt:",
     "sendTitle": "Senden (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Probleme",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal wird initialisiert..."
-  },
-  "changedFilesList": {
-    "apply": "Anwenden",
-    "applyAll": "Alle anwenden",
-    "changedFiles": "Geänderte Dateien",
-    "discard": "Verwerfen",
-    "discardAll": "Alle verwerfen",
-    "others": "andere",
-    "preview": "Vorschau",
-    "reason": "Grund",
-    "review": "Überprüfen"
   },
   "charCountDisplay": {
     "clickForDetails": "Für Details klicken",
@@ -164,21 +147,16 @@
     "changes": "Änderungen",
     "commit": "Commit",
     "commitMessagePlaceholder": "Commit-Nachricht eingeben...",
-    "committing": "Wird committet...",
     "deleted": "Gelöscht",
-    "deleteUntracked": "Datei löschen",
     "discard": "Verwerfen",
     "errorOccurred": "Ein Fehler ist aufgetreten",
     "generateCommitMessage": "Mit KI erzeugen",
-    "generating": "Wird generiert...",
     "history": "Verlauf",
     "infoNotAvailable": "Git-Informationen konnten nicht abgerufen werden",
     "loadingStatus": "Git-Status wird geladen...",
     "noChanges": "Keine Änderungen",
     "noHistory": "Kein Commit-Verlauf",
-    "operationError": "Fehler beim Zugriff auf Git",
     "projectSelect": "Bitte wählen Sie ein Projekt",
-    "restore": "Datei wiederherstellen",
     "stage": "Stagen",
     "stageAll": "Alle stagen",
     "staged": "Gestaged",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Alle {count} Dateien",
-    "allFilesFiles": "Alle {count} Dateien",
-    "allFilesScrollable": "Alle {count} Dateien (scrollbar)",
     "changedFiles": "Geänderte Dateien:",
     "daysAgo": "vor {days} Tagen",
-    "duplicateGroupsHidden": "({count} doppelte Gruppen ausgeblendet)",
-    "hideDuplicates": "Duplikate verbergen",
     "hoursAgo": "vor {hours} Stunden",
     "justNow": "gerade eben",
     "loadingChanges": "Änderungsinformationen werden geladen...",
@@ -206,7 +180,6 @@
     "minutesAgo": "vor {minutes} Minuten",
     "noChangedFiles": "Keine geänderten Dateien gefunden",
     "showAllFilesDiff": "Alle Dateidiffs für diesen Commit anzeigen",
-    "showDuplicates": "Duplikate anzeigen",
     "showFileDiff": "Diff für diese Datei anzeigen"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Schnell öffnen",
     "searchPlaceholder": "Nach Datei/Ordnername oder Pfad suchen..."
   },
-  "paneNavigator": {
-    "activate": "Aktivieren",
-    "close": "Schließen",
-    "deletePane": "Bereich löschen",
-    "emptyPane": "Leer",
-    "navigate": "Navigieren",
-    "splitHorizontal": "Horizontal teilen",
-    "splitVertical": "Vertikal teilen",
-    "tab": "Tab",
-    "tabs": "Tabs",
-    "title": "Bereich-Navigator"
-  },
   "projectModal": {
     "cancel": "Abbrechen",
     "clone": "Von GitHub klonen",
@@ -312,15 +273,10 @@
     "execute": "Ausführen",
     "executeHint": "Drücken Sie Ctrl+Enter (Cmd+Enter), um auszuführen",
     "executionStopped": "Ausführung gestoppt",
-    "fileContentError": "Dateiinhalt konnte nicht abgerufen werden",
     "inputPlaceholder": "Node.js-Code eingeben...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Keine Ausgabe",
     "noProject": "Öffnen Sie ein Projekt, um Node.js-Code auszuführen",
     "outputHint": "Wenn Sie JavaScript/Node.js/Python-Code ausführen, werden die Ergebnisse hier angezeigt. Node.js und js können in derselben Datei ausgeführt werden.",
     "runtimeNotReady": "Python-Laufzeit ist nicht initialisiert",
-    "searchFile": "Suchen Sie eine Datei zum Ausführen...",
     "stop": "Stoppen",
     "title": "Ausführungsumgebung"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Standard-Editor",
       "fontSize": "Schriftgröße",
-      "preloadModelCount": "Anzahl der vorzuladenden Modelle",
-      "preloadModelCountHint": "Wie viele Modelle vorab geladen werden sollen, um den Start zu beschleunigen",
       "savedToLocalStorage": "In LocalStorage gespeichert",
       "tabSize": "Tab-Größe",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Farbanpassung",
       "colorTheme": "Farbschema",
-      "highlightTheme": "Code-Highlight",
       "title": "Theme"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Bereichsmenü",
     "removeAllTabs": "Alle Tabs entfernen",
     "removePane": "Bereich entfernen",
-    "saveRestart": "Speichern und neu starten",
     "splitHorizontal": "Horizontal teilen",
     "splitVertical": "Vertikal teilen",
     "unsavedChanges": "Ungespeicherte Änderungen"

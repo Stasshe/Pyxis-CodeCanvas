@@ -10,16 +10,11 @@
       "count": "{count} file",
       "expand": "Perluas",
       "minimize": "Perkecil",
-      "noChangedFiles": "Tidak ada file yang berubah",
       "title": "File yang berubah"
     },
     "chatContainer": {
       "generating": "AI sedang membuat respon...",
       "suggest": "Silakan tanyakan pertanyaan atau permintaan kode."
-    },
-    "chatMessage": {
-      "copyCode": "Salin kode",
-      "reference": "Referensi:"
     },
     "context": {
       "select": "Pilih file"
@@ -41,7 +36,6 @@
       "ask": "Tanyakan kepada AI atau konsultasikan tentang kode...",
       "edit": "Masukkan instruksi untuk mengedit kode..."
     },
-    "selectedLabel": "Terpilih:",
     "sendTitle": "Kirim (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Masalah",
     "terminal": "Terminal",
     "terminalInitializing": "Menginisialisasi terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Terapkan",
-    "applyAll": "Terapkan semua",
-    "changedFiles": "File yang berubah",
-    "discard": "Buang",
-    "discardAll": "Buang semua",
-    "others": "lainnya",
-    "preview": "Pratinjau",
-    "reason": "Alasan",
-    "review": "Tinjau"
   },
   "charCountDisplay": {
     "clickForDetails": "Klik untuk detail",
@@ -164,21 +147,16 @@
     "changes": "Perubahan",
     "commit": "Commit",
     "commitMessagePlaceholder": "Masukkan pesan commit...",
-    "committing": "Melakukan commit...",
     "deleted": "Dihapus",
-    "deleteUntracked": "Hapus file",
     "discard": "Buang",
     "errorOccurred": "Terjadi kesalahan",
     "generateCommitMessage": "Buat pesan commit dengan AI",
-    "generating": "Membuat...",
     "history": "Riwayat",
     "infoNotAvailable": "Tidak dapat mengambil informasi git",
     "loadingStatus": "Memuat status git...",
     "noChanges": "Tidak ada perubahan",
     "noHistory": "Tidak ada riwayat commit",
-    "operationError": "Terjadi kesalahan saat mengakses git",
     "projectSelect": "Silakan pilih proyek",
-    "restore": "Pulihkan file",
     "stage": "Stage",
     "stageAll": "Stage semua",
     "staged": "Teredang",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Semua {count} file",
-    "allFilesFiles": "Semua {count} file",
-    "allFilesScrollable": "Semua {count} file (dapat digulir)",
     "changedFiles": "File yang diubah:",
     "daysAgo": "{days} hari yang lalu",
-    "duplicateGroupsHidden": "({count} grup duplikat disembunyikan)",
-    "hideDuplicates": "Sembunyikan commit duplikat",
     "hoursAgo": "{hours} jam yang lalu",
     "justNow": "baru saja",
     "loadingChanges": "Memuat info perubahan...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} menit yang lalu",
     "noChangedFiles": "Tidak ditemukan file yang berubah",
     "showAllFilesDiff": "Tampilkan semua diff file untuk commit ini",
-    "showDuplicates": "Tampilkan duplikat",
     "showFileDiff": "Tampilkan diff untuk file ini"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Buka cepat",
     "searchPlaceholder": "Cari nama file/folder atau path..."
   },
-  "paneNavigator": {
-    "activate": "Aktifkan",
-    "close": "Tutup",
-    "deletePane": "Hapus panel",
-    "emptyPane": "Kosong",
-    "navigate": "Navigasi",
-    "splitHorizontal": "Bagi horizontal",
-    "splitVertical": "Bagi vertikal",
-    "tab": "tab",
-    "tabs": "tab",
-    "title": "Navigasi panel"
-  },
   "projectModal": {
     "cancel": "Batal",
     "clone": "Clone dari GitHub",
@@ -312,15 +273,10 @@
     "execute": "Jalankan",
     "executeHint": "Tekan Ctrl+Enter (Cmd+Enter) untuk menjalankan",
     "executionStopped": "Eksekusi dihentikan",
-    "fileContentError": "Tidak dapat mengambil isi file",
     "inputPlaceholder": "Masukkan kode Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Tidak ada output",
     "noProject": "Buka proyek untuk menjalankan Node.js",
     "outputHint": "Saat Anda menjalankan JavaScript/Node.js/Python, hasil akan ditampilkan di sini. Node.js dan js dapat dijalankan di file yang sama.",
     "runtimeNotReady": "Runtime Python belum diinisialisasi",
-    "searchFile": "Cari file untuk dijalankan...",
     "stop": "Berhenti",
     "title": "Lingkungan Eksekusi"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Editor Default",
       "fontSize": "Ukuran Font",
-      "preloadModelCount": "Jumlah model untuk dimuat sebelumnya",
-      "preloadModelCountHint": "Berapa model untuk dimuat sebelumnya agar startup lebih cepat",
       "savedToLocalStorage": "Tersimpan di LocalStorage",
       "tabSize": "Ukuran Tab",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Kustomisasi Warna",
       "colorTheme": "Tema Warna",
-      "highlightTheme": "Highlight Kode",
       "title": "Tema"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Menu pane",
     "removeAllTabs": "Hapus semua tab",
     "removePane": "Hapus pane",
-    "saveRestart": "Simpan dan restart",
     "splitHorizontal": "Bagi horizontal",
     "splitVertical": "Bagi vertikal",
     "unsavedChanges": "Perubahan belum disimpan"

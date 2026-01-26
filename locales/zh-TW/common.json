@@ -10,16 +10,11 @@
       "count": "{count} 個",
       "expand": "展開",
       "minimize": "最小化",
-      "noChangedFiles": "沒有變更的檔案",
       "title": "已變更的檔案"
     },
     "chatContainer": {
       "generating": "AI 正在產生回應...",
       "suggest": "請提出問題或程式碼請求。"
-    },
-    "chatMessage": {
-      "copyCode": "複製程式碼",
-      "reference": "參考："
     },
     "context": {
       "select": "選擇檔案"
@@ -41,7 +36,6 @@
       "ask": "向 AI 詢問問題或諮詢程式碼...",
       "edit": "輸入編輯程式碼的指示..."
     },
-    "selectedLabel": "已選：",
     "sendTitle": "傳送 (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "問題",
     "terminal": "終端機",
     "terminalInitializing": "終端機初始化中..."
-  },
-  "changedFilesList": {
-    "apply": "套用",
-    "applyAll": "全部套用",
-    "changedFiles": "變更的檔案",
-    "discard": "捨棄",
-    "discardAll": "全部捨棄",
-    "others": "其他",
-    "preview": "預覽",
-    "reason": "原因",
-    "review": "審查"
   },
   "charCountDisplay": {
     "clickForDetails": "點擊查看詳細",
@@ -164,21 +147,16 @@
     "changes": "變更",
     "commit": "提交",
     "commitMessagePlaceholder": "輸入提交訊息...",
-    "committing": "提交中...",
     "deleted": "已刪除",
-    "deleteUntracked": "刪除檔案",
     "discard": "捨棄",
     "errorOccurred": "發生錯誤",
     "generateCommitMessage": "用 AI 產生",
-    "generating": "產生中...",
     "history": "歷史",
     "infoNotAvailable": "無法取得 git 資訊",
     "loadingStatus": "載入 git 狀態...",
     "noChanges": "沒有變更",
     "noHistory": "沒有提交歷史",
-    "operationError": "存取 git 時發生錯誤",
     "projectSelect": "請選擇專案",
-    "restore": "還原檔案",
     "stage": "暫存",
     "stageAll": "全部暫存",
     "staged": "已暫存",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "全部 {count} 個檔案",
-    "allFilesFiles": "全部 {count} 檔案（可捲動）",
-    "allFilesScrollable": "全部 {count} 檔案（可捲動）",
     "changedFiles": "已變更的檔案：",
     "daysAgo": "{days} 天前",
-    "duplicateGroupsHidden": "（隱藏 {count} 個重複群組）",
-    "hideDuplicates": "隱藏重複提交",
     "hoursAgo": "{hours} 小時前",
     "justNow": "剛剛",
     "loadingChanges": "載入變更資訊...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} 分鐘前",
     "noChangedFiles": "找不到已變更的檔案",
     "showAllFilesDiff": "顯示此提交的所有檔案差異",
-    "showDuplicates": "顯示重複提交",
     "showFileDiff": "顯示此檔案的差異"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "快速開啟",
     "searchPlaceholder": "依檔案/資料夾名稱或路徑搜尋..."
   },
-  "paneNavigator": {
-    "activate": "啟用",
-    "close": "關閉",
-    "deletePane": "刪除窗格",
-    "emptyPane": "空",
-    "navigate": "導航",
-    "splitHorizontal": "水平分割",
-    "splitVertical": "垂直分割",
-    "tab": "分頁",
-    "tabs": "分頁",
-    "title": "窗格導航器"
-  },
   "projectModal": {
     "cancel": "取消",
     "clone": "從 GitHub 克隆",
@@ -312,15 +273,10 @@
     "execute": "執行",
     "executeHint": "按 Ctrl+Enter（Cmd+Enter）執行",
     "executionStopped": "執行已停止",
-    "fileContentError": "無法取得檔案內容",
     "inputPlaceholder": "輸入 Node.js 程式碼...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "無輸出",
     "noProject": "請開啟專案以執行 Node.js 程式碼",
     "outputHint": "當你執行 JavaScript/Node.js/Python 程式碼時，結果會顯示在此處。Node.js 與 js 可以在同一檔案執行。",
     "runtimeNotReady": "Python 執行環境尚未初始化",
-    "searchFile": "搜尋要執行的檔案...",
     "stop": "停止",
     "title": "執行環境"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "預設編輯器",
       "fontSize": "字型大小",
-      "preloadModelCount": "預載模型數量",
-      "preloadModelCountHint": "為加快啟動速度，預載多少個模型",
       "savedToLocalStorage": "已儲存到 LocalStorage",
       "tabSize": "Tab 寬度",
       "title": "編輯器",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "自訂色彩",
       "colorTheme": "配色主題",
-      "highlightTheme": "語法主題",
       "title": "主題"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "面板選單",
     "removeAllTabs": "移除所有分頁",
     "removePane": "移除面板",
-    "saveRestart": "儲存並重新啟動",
     "splitHorizontal": "水平分割",
     "splitVertical": "垂直分割",
     "unsavedChanges": "未儲存的變更"

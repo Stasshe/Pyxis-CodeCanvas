@@ -10,16 +10,11 @@
       "count": "{count} 个",
       "expand": "展开",
       "minimize": "最小化",
-      "noChangedFiles": "无更改的文件",
       "title": "已更改的文件"
     },
     "chatContainer": {
       "generating": "AI 正在生成回复...",
       "suggest": "请提问或提出代码请求。"
-    },
-    "chatMessage": {
-      "copyCode": "复制代码",
-      "reference": "参考："
     },
     "context": {
       "select": "选择文件"
@@ -41,7 +36,6 @@
       "ask": "向 AI 提问或咨询代码...",
       "edit": "输入指示以编辑代码..."
     },
-    "selectedLabel": "已选择：",
     "sendTitle": "发送 (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "问题",
     "terminal": "终端",
     "terminalInitializing": "终端初始化中..."
-  },
-  "changedFilesList": {
-    "apply": "应用",
-    "applyAll": "全部应用",
-    "changedFiles": "更改的文件",
-    "discard": "放弃",
-    "discardAll": "全部放弃",
-    "others": "其他",
-    "preview": "预览",
-    "reason": "原因",
-    "review": "审查"
   },
   "charCountDisplay": {
     "clickForDetails": "点击查看详情",
@@ -164,21 +147,16 @@
     "changes": "更改",
     "commit": "提交",
     "commitMessagePlaceholder": "输入提交信息...",
-    "committing": "提交中...",
     "deleted": "已删除",
-    "deleteUntracked": "删除文件",
     "discard": "放弃",
     "errorOccurred": "发生错误",
     "generateCommitMessage": "用 AI 生成提交信息",
-    "generating": "生成中...",
     "history": "历史",
     "infoNotAvailable": "无法获取 git 信息",
     "loadingStatus": "加载 git 状态...",
     "noChanges": "无更改",
     "noHistory": "无提交历史",
-    "operationError": "访问 git 时发生错误",
     "projectSelect": "请选择项目",
-    "restore": "恢复文件",
     "stage": "暂存",
     "stageAll": "全部暂存",
     "staged": "已暂存",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "全部 {count} 个文件",
-    "allFilesFiles": "全部 {count} 个文件（可滚动）",
-    "allFilesScrollable": "全部 {count} 个文件（可滚动）",
     "changedFiles": "更改的文件：",
     "daysAgo": "{days} 天前",
-    "duplicateGroupsHidden": "（隐藏 {count} 个重复分组）",
-    "hideDuplicates": "隐藏重复提交",
     "hoursAgo": "{hours} 小时前",
     "justNow": "刚刚",
     "loadingChanges": "加载更改信息...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} 分钟前",
     "noChangedFiles": "未找到更改文件",
     "showAllFilesDiff": "显示此提交的所有文件差异",
-    "showDuplicates": "显示重复提交",
     "showFileDiff": "显示此文件的差异"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "快速打开",
     "searchPlaceholder": "按文件/文件夹名或路径搜索..."
   },
-  "paneNavigator": {
-    "activate": "激活",
-    "close": "关闭",
-    "deletePane": "删除窗格",
-    "emptyPane": "空",
-    "navigate": "导航",
-    "splitHorizontal": "水平拆分",
-    "splitVertical": "垂直拆分",
-    "tab": "标签页",
-    "tabs": "标签页",
-    "title": "窗格导航"
-  },
   "projectModal": {
     "cancel": "取消",
     "clone": "从 GitHub 克隆",
@@ -312,15 +273,10 @@
     "execute": "执行",
     "executeHint": "按 Ctrl+Enter（Cmd+Enter）执行",
     "executionStopped": "执行已停止",
-    "fileContentError": "无法获取文件内容",
     "inputPlaceholder": "输入 Node.js 代码...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "无输出",
     "noProject": "打开项目以执行 Node.js 代码",
     "outputHint": "当你执行 JavaScript/Node.js/Python 代码时，结果会显示在此处。Node.js 和 js 可以在同一个文件中执行。",
     "runtimeNotReady": "Python 运行时未初始化",
-    "searchFile": "搜索要执行的文件...",
     "stop": "停止",
     "title": "执行环境"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "默认编辑器",
       "fontSize": "字体大小",
-      "preloadModelCount": "预加载模型数量",
-      "preloadModelCountHint": "为加快启动速度，预加载多少个模型",
       "savedToLocalStorage": "已保存到 LocalStorage",
       "tabSize": "制表符宽度",
       "title": "编辑器",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "颜色自定义",
       "colorTheme": "配色主题",
-      "highlightTheme": "代码高亮主题",
       "title": "主题"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "面板菜单",
     "removeAllTabs": "关闭所有标签",
     "removePane": "移除面板",
-    "saveRestart": "保存并重启",
     "splitHorizontal": "水平拆分",
     "splitVertical": "垂直拆分",
     "unsavedChanges": "未保存的更改"

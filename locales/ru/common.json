@@ -10,16 +10,11 @@
       "count": "{count} файлов",
       "expand": "Развернуть",
       "minimize": "Свернуть",
-      "noChangedFiles": "Нет изменённых файлов",
       "title": "Изменённые файлы"
     },
     "chatContainer": {
       "generating": "ИИ генерирует ответ...",
       "suggest": "Пожалуйста, задавайте вопросы или просьбы по коду."
-    },
-    "chatMessage": {
-      "copyCode": "Копировать код",
-      "reference": "Ссылка:"
     },
     "context": {
       "select": "Выбрать файлы"
@@ -41,7 +36,6 @@
       "ask": "Задайте ИИ вопросы или проконсультируйтесь по коду...",
       "edit": "Введите инструкции для редактирования кода..."
     },
-    "selectedLabel": "Выбрано:",
     "sendTitle": "Отправить (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Проблемы",
     "terminal": "Терминал",
     "terminalInitializing": "Инициализация терминала..."
-  },
-  "changedFilesList": {
-    "apply": "Применить",
-    "applyAll": "Применить все",
-    "changedFiles": "Изменённые файлы",
-    "discard": "Отменить",
-    "discardAll": "Отменить все",
-    "others": "другие",
-    "preview": "Предпросмотр",
-    "reason": "Причина",
-    "review": "Обзор"
   },
   "charCountDisplay": {
     "clickForDetails": "Кликните для деталей",
@@ -164,21 +147,16 @@
     "changes": "Изменения",
     "commit": "Коммит",
     "commitMessagePlaceholder": "Введите сообщение коммита...",
-    "committing": "Выполняется коммит...",
     "deleted": "Удалено",
-    "deleteUntracked": "Удалить файл",
     "discard": "Отменить",
     "errorOccurred": "Произошла ошибка",
     "generateCommitMessage": "Сгенерировать с помощью ИИ",
-    "generating": "Генерация...",
     "history": "История",
     "infoNotAvailable": "Не удалось получить информацию git",
     "loadingStatus": "Загрузка статуса git...",
     "noChanges": "Нет изменений",
     "noHistory": "Нет истории коммитов",
-    "operationError": "Ошибка при доступе к git",
     "projectSelect": "Пожалуйста, выберите проект",
-    "restore": "Восстановить файл",
     "stage": "Добавить в индекс",
     "stageAll": "Добавить всё",
     "staged": "В индексe",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Все {count} файлов",
-    "allFilesFiles": "Все {count} файлов",
-    "allFilesScrollable": "Все {count} файлов (прокручиваемо)",
     "changedFiles": "Изменённые файлы:",
     "daysAgo": "{days} дней назад",
-    "duplicateGroupsHidden": "({count} скрытых повторяющихся групп)",
-    "hideDuplicates": "Скрыть дубликаты",
     "hoursAgo": "{hours} часов назад",
     "justNow": "только что",
     "loadingChanges": "Загрузка информации об изменениях...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} минут назад",
     "noChangedFiles": "Не найдено изменённых файлов",
     "showAllFilesDiff": "Показать различия для всех файлов этого коммита",
-    "showDuplicates": "Показать дубликаты",
     "showFileDiff": "Показать различия для этого файла"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Быстрое открытие",
     "searchPlaceholder": "Поиск по имени файла/папки или пути..."
   },
-  "paneNavigator": {
-    "activate": "Активировать",
-    "close": "Закрыть",
-    "deletePane": "Удалить панель",
-    "emptyPane": "Пусто",
-    "navigate": "Навигация",
-    "splitHorizontal": "Разделить горизонтально",
-    "splitVertical": "Разделить вертикально",
-    "tab": "вкладка",
-    "tabs": "вкладки",
-    "title": "Навигатор панелей"
-  },
   "projectModal": {
     "cancel": "Отмена",
     "clone": "Клонировать из GitHub",
@@ -312,15 +273,10 @@
     "execute": "Выполнить",
     "executeHint": "Нажмите Ctrl+Enter (Cmd+Enter) для выполнения",
     "executionStopped": "Выполнение остановлено",
-    "fileContentError": "Невозможно получить содержимое файла",
     "inputPlaceholder": "Введите код Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Нет вывода",
     "noProject": "Откройте проект для выполнения Node.js кода",
     "outputHint": "Когда вы выполняете JavaScript/Node.js/Python код, результаты будут отображаться здесь. Node.js и js можно запускать в одном файле.",
     "runtimeNotReady": "Python runtime не инициализирован",
-    "searchFile": "Найдите файл для выполнения...",
     "stop": "Остановить",
     "title": "Среда выполнения"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Редактор по умолчанию",
       "fontSize": "Размер шрифта",
-      "preloadModelCount": "Количество моделей для предзагрузки",
-      "preloadModelCountHint": "Сколько моделей держать предзагруженными для быстрого запуска",
       "savedToLocalStorage": "Сохранено в LocalStorage",
       "tabSize": "Размер таба",
       "title": "Редактор",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Настройка цвета",
       "colorTheme": "Тема цвета",
-      "highlightTheme": "Тема подсветки",
       "title": "Тема"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Меню панели",
     "removeAllTabs": "Закрыть все вкладки",
     "removePane": "Удалить панель",
-    "saveRestart": "Сохранить и перезапустить",
     "splitHorizontal": "Разделить горизонтально",
     "splitVertical": "Разделить вертикально",
     "unsavedChanges": "Несохранённые изменения"

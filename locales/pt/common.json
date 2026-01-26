@@ -10,16 +10,11 @@
       "count": "{count} arquivos",
       "expand": "Expandir",
       "minimize": "Minimizar",
-      "noChangedFiles": "Nenhum arquivo modificado",
       "title": "Arquivos alterados"
     },
     "chatContainer": {
       "generating": "A IA está gerando uma resposta...",
       "suggest": "Faça perguntas ou pedidos de código."
-    },
-    "chatMessage": {
-      "copyCode": "Copiar código",
-      "reference": "Referência:"
     },
     "context": {
       "select": "Selecionar arquivos"
@@ -41,7 +36,6 @@
       "ask": "Pergunte à IA ou consulte sobre código...",
       "edit": "Digite instruções para editar o código..."
     },
-    "selectedLabel": "Selecionado:",
     "sendTitle": "Enviar (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problemas",
     "terminal": "Terminal",
     "terminalInitializing": "Inicializando terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Aplicar",
-    "applyAll": "Aplicar tudo",
-    "changedFiles": "Arquivos modificados",
-    "discard": "Descartar",
-    "discardAll": "Descartar tudo",
-    "others": "outros",
-    "preview": "Pré-visualizar",
-    "reason": "Motivo",
-    "review": "Revisar"
   },
   "charCountDisplay": {
     "clickForDetails": "Clique para detalhes",
@@ -164,21 +147,16 @@
     "changes": "Alterações",
     "commit": "Commit",
     "commitMessagePlaceholder": "Digite a mensagem do commit...",
-    "committing": "Realizando commit...",
     "deleted": "Excluído",
-    "deleteUntracked": "Excluir arquivo",
     "discard": "Descartar",
     "errorOccurred": "Ocorreu um erro",
     "generateCommitMessage": "Gerar com IA",
-    "generating": "Gerando...",
     "history": "Histórico",
     "infoNotAvailable": "Não foi possível obter informações do git",
     "loadingStatus": "Carregando status do git...",
     "noChanges": "Sem alterações",
     "noHistory": "Sem histórico de commits",
-    "operationError": "Ocorreu um erro ao acessar o git",
     "projectSelect": "Por favor selecione um projeto",
-    "restore": "Restaurar arquivo",
     "stage": "Preparar",
     "stageAll": "Preparar tudo",
     "staged": "Preparado",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Todos {count} arquivos",
-    "allFilesFiles": "Todos {count} arquivos",
-    "allFilesScrollable": "Todos {count} arquivos (rolável)",
     "changedFiles": "Arquivos modificados:",
     "daysAgo": "{days} dias atrás",
-    "duplicateGroupsHidden": "({count} grupos duplicados ocultos)",
-    "hideDuplicates": "Ocultar commits duplicados",
     "hoursAgo": "{hours} horas atrás",
     "justNow": "agora mesmo",
     "loadingChanges": "Carregando informações de alteração...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} minutos atrás",
     "noChangedFiles": "Nenhum arquivo modificado encontrado",
     "showAllFilesDiff": "Mostrar diffs de todos os arquivos deste commit",
-    "showDuplicates": "Mostrar commits duplicados",
     "showFileDiff": "Mostrar diff deste arquivo"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Abertura rápida",
     "searchPlaceholder": "Pesquisar por nome de arquivo/pasta ou caminho..."
   },
-  "paneNavigator": {
-    "activate": "Ativar",
-    "close": "Fechar",
-    "deletePane": "Excluir painel",
-    "emptyPane": "Vazio",
-    "navigate": "Navegar",
-    "splitHorizontal": "Dividir horizontalmente",
-    "splitVertical": "Dividir verticalmente",
-    "tab": "aba",
-    "tabs": "abas",
-    "title": "Navegador de painéis"
-  },
   "projectModal": {
     "cancel": "Cancelar",
     "clone": "Clonar do GitHub",
@@ -312,15 +273,10 @@
     "execute": "Executar",
     "executeHint": "Pressione Ctrl+Enter (Cmd+Enter) para executar",
     "executionStopped": "Execução interrompida",
-    "fileContentError": "Não foi possível obter o conteúdo do arquivo",
     "inputPlaceholder": "Digite código Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Sem saída",
     "noProject": "Abra um projeto para executar código Node.js",
     "outputHint": "Ao executar JavaScript/Node.js/Python, os resultados serão exibidos aqui. Node.js e js podem ser executados no mesmo arquivo.",
     "runtimeNotReady": "O runtime Python não está inicializado",
-    "searchFile": "Procure um arquivo para executar...",
     "stop": "Parar",
     "title": "Ambiente de Execução"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Editor padrão",
       "fontSize": "Tamanho da fonte",
-      "preloadModelCount": "Número de modelos para pré-carregar",
-      "preloadModelCountHint": "Quantos modelos manter pré-carregados para início mais rápido",
       "savedToLocalStorage": "Salvo no LocalStorage",
       "tabSize": "Tamanho da tab",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Personalizar cores",
       "colorTheme": "Tema de cores",
-      "highlightTheme": "Destaque de código",
       "title": "Tema"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Menu de painel",
     "removeAllTabs": "Remover todas as abas",
     "removePane": "Remover painel",
-    "saveRestart": "Salvar e reiniciar",
     "splitHorizontal": "Dividir horizontalmente",
     "splitVertical": "Dividir verticalmente",
     "unsavedChanges": "Alterações não salvas"

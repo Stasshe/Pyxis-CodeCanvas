@@ -10,16 +10,11 @@
       "count": "{count} bestanden",
       "expand": "Uitvouwen",
       "minimize": "Minimaliseren",
-      "noChangedFiles": "Geen gewijzigde bestanden",
       "title": "Gewijzigde bestanden"
     },
     "chatContainer": {
       "generating": "De AI genereert een antwoord...",
       "suggest": "Stel vragen of vraag om code-ondersteuning."
-    },
-    "chatMessage": {
-      "copyCode": "Code kopiëren",
-      "reference": "Referentie:"
     },
     "context": {
       "select": "Bestanden selecteren"
@@ -41,7 +36,6 @@
       "ask": "Stel de AI vragen of vraag om advies over code...",
       "edit": "Voer instructies in om code te bewerken..."
     },
-    "selectedLabel": "Geselecteerd:",
     "sendTitle": "Verzenden (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problemen",
     "terminal": "Terminal",
     "terminalInitializing": "Terminal initialiseren..."
-  },
-  "changedFilesList": {
-    "apply": "Toepassen",
-    "applyAll": "Alles toepassen",
-    "changedFiles": "Gewijzigde bestanden",
-    "discard": "Verwerpen",
-    "discardAll": "Alles verwerpen",
-    "others": "anderen",
-    "preview": "Voorbeeld",
-    "reason": "Reden",
-    "review": "Beoordelen"
   },
   "charCountDisplay": {
     "clickForDetails": "Klik voor details",
@@ -164,21 +147,16 @@
     "changes": "Wijzigingen",
     "commit": "Commit",
     "commitMessagePlaceholder": "Voer commitbericht in...",
-    "committing": "Committen...",
     "deleted": "Verwijderd",
-    "deleteUntracked": "Bestand verwijderen",
     "discard": "Verwerpen",
     "errorOccurred": "Er is een fout opgetreden",
     "generateCommitMessage": "Genereer met AI",
-    "generating": "Genereren...",
     "history": "Geschiedenis",
     "infoNotAvailable": "Kan git-informatie niet ophalen",
     "loadingStatus": "Git-status laden...",
     "noChanges": "Geen wijzigingen",
     "noHistory": "Geen commit-geschiedenis",
-    "operationError": "Fout bij toegang tot git",
     "projectSelect": "Selecteer een project",
-    "restore": "Bestand herstellen",
     "stage": "Stage",
     "stageAll": "Alles stage'en",
     "staged": "Gestaged",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Alle {count} bestanden",
-    "allFilesFiles": "Alle {count} bestanden",
-    "allFilesScrollable": "Alle {count} bestanden (scrollbaar)",
     "changedFiles": "Gewijzigde bestanden:",
     "daysAgo": "{days} dagen geleden",
-    "duplicateGroupsHidden": "({count} dubbele groepen verborgen)",
-    "hideDuplicates": "Verberg duplicaten",
     "hoursAgo": "{hours} uren geleden",
     "justNow": "zojuist",
     "loadingChanges": "Wijzigingsinformatie laden...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} minuten geleden",
     "noChangedFiles": "Geen gewijzigde bestanden gevonden",
     "showAllFilesDiff": "Toon alle bestandsdiffs voor deze commit",
-    "showDuplicates": "Toon duplicaten",
     "showFileDiff": "Toon diff voor dit bestand"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Snel openen",
     "searchPlaceholder": "Zoeken op bestands-/mapnaam of pad..."
   },
-  "paneNavigator": {
-    "activate": "Activeren",
-    "close": "Sluiten",
-    "deletePane": "Paneel verwijderen",
-    "emptyPane": "Leeg",
-    "navigate": "Navigeren",
-    "splitHorizontal": "Horizontaal splitsen",
-    "splitVertical": "Verticaal splitsen",
-    "tab": "tabblad",
-    "tabs": "tabbladen",
-    "title": "Paneelnavigator"
-  },
   "projectModal": {
     "cancel": "Annuleren",
     "clone": "Klonen van GitHub",
@@ -312,15 +273,10 @@
     "execute": "Uitvoeren",
     "executeHint": "Druk op Ctrl+Enter (Cmd+Enter) om uit te voeren",
     "executionStopped": "Uitvoering gestopt",
-    "fileContentError": "Kan bestandsinhoud niet ophalen",
     "inputPlaceholder": "Voer Node.js code in...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Geen output",
     "noProject": "Open een project om Node.js-code uit te voeren",
     "outputHint": "Wanneer je JavaScript/Node.js/Python-code uitvoert, worden de resultaten hier weergegeven. Node.js en js kunnen in hetzelfde bestand worden uitgevoerd.",
     "runtimeNotReady": "Python-runtime is niet geïnitialiseerd",
-    "searchFile": "Zoek een bestand om uit te voeren...",
     "stop": "Stoppen",
     "title": "Uitvoeringsomgeving"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Standaard editor",
       "fontSize": "Lettergrootte",
-      "preloadModelCount": "Aantal modellen om vooraf te laden",
-      "preloadModelCountHint": "Hoeveel modellen vooraf geladen moeten blijven voor snellere start",
       "savedToLocalStorage": "Opgeslagen in LocalStorage",
       "tabSize": "Tabgrootte",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Kleur aanpassen",
       "colorTheme": "Kleurthema",
-      "highlightTheme": "Highlight-thema",
       "title": "Thema"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Pane-menu",
     "removeAllTabs": "Alle tabs verwijderen",
     "removePane": "Pane verwijderen",
-    "saveRestart": "Opslaan en herstarten",
     "splitHorizontal": "Horizontaal splitsen",
     "splitVertical": "Verticaal splitsen",
     "unsavedChanges": "Niet-opgeslagen wijzigingen"

@@ -10,16 +10,11 @@
       "count": "{count} files",
       "expand": "Expand",
       "minimize": "Minimize",
-      "noChangedFiles": "No changed files",
       "title": "Changed files"
     },
     "chatContainer": {
       "generating": "AI is generating a response...",
       "suggest": "Please ask questions or code requests."
-    },
-    "chatMessage": {
-      "copyCode": "Copy code",
-      "reference": "Reference:"
     },
     "context": {
       "select": "Select files"
@@ -41,7 +36,6 @@
       "ask": "Ask the AI questions or consult about code...",
       "edit": "Enter instructions to edit code..."
     },
-    "selectedLabel": "Selected:",
     "sendTitle": "Send (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problems",
     "terminal": "Terminal",
     "terminalInitializing": "Initializing terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Apply",
-    "applyAll": "Apply all",
-    "changedFiles": "Changed files",
-    "discard": "Discard",
-    "discardAll": "Discard all",
-    "others": "others",
-    "preview": "Preview",
-    "reason": "Reason",
-    "review": "Review"
   },
   "charCountDisplay": {
     "clickForDetails": "Click for details",
@@ -179,21 +162,16 @@
     "changes": "Changes",
     "commit": "Commit",
     "commitMessagePlaceholder": "Enter commit message...",
-    "committing": "Committing...",
     "deleted": "Deleted",
-    "deleteUntracked": "Delete file",
     "discard": "Discard",
     "errorOccurred": "An error occurred",
     "generateCommitMessage": "Generate with AI",
-    "generating": "Generating...",
     "history": "History",
     "infoNotAvailable": "Could not fetch git information",
     "loadingStatus": "Loading git status...",
     "noChanges": "No changes",
     "noHistory": "No commit history",
-    "operationError": "An error occurred while accessing git",
     "projectSelect": "Please select a project",
-    "restore": "Restore file",
     "stage": "Stage",
     "stageAll": "Stage all",
     "staged": "Staged",
@@ -207,11 +185,8 @@
   },
   "gitHistory": {
     "allFiles": "All {count} files",
-    "allFilesScrollable": "All {count} files (scrollable)",
     "changedFiles": "Changed files:",
     "daysAgo": "{days} days ago",
-    "duplicateGroupsHidden": "({count} duplicate groups hidden)",
-    "hideDuplicates": "Hide duplicate commits",
     "hoursAgo": "{hours} hours ago",
     "justNow": "just now",
     "loadingChanges": "Loading change info...",
@@ -220,7 +195,6 @@
     "minutesAgo": "{minutes} minutes ago",
     "noChangedFiles": "No changed files found",
     "showAllFilesDiff": "Show all file diffs for this commit",
-    "showDuplicates": "Show duplicate commits",
     "showFileDiff": "Show diff for this file"
   },
   "highlightedCode": {
@@ -279,18 +253,6 @@
     "quickOpen": "Quick open",
     "searchPlaceholder": "Search by file/folder name or path..."
   },
-  "paneNavigator": {
-    "activate": "Activate",
-    "close": "Close",
-    "deletePane": "Delete Pane",
-    "emptyPane": "Empty",
-    "navigate": "Navigate",
-    "splitHorizontal": "Split Horizontal",
-    "splitVertical": "Split Vertical",
-    "tab": "tab",
-    "tabs": "tabs",
-    "title": "Pane Navigator"
-  },
   "projectModal": {
     "cancel": "Cancel",
     "clone": "Clone from GitHub",
@@ -326,15 +288,10 @@
     "execute": "Execute",
     "executeHint": "Press Ctrl+Enter (Cmd+Enter) to execute",
     "executionStopped": "Execution stopped",
-    "fileContentError": "Unable to get file content",
     "inputPlaceholder": "Enter Node.js code...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "No output",
     "noProject": "Open a project to execute Node.js code",
     "outputHint": "When you execute JavaScript/Node.js/Python code, the results will be displayed here. Node.js and js can be executed in the same file.",
     "runtimeNotReady": "Python runtime is not initialized",
-    "searchFile": "Search for a file to execute...",
     "stop": "Stop",
     "title": "Execution Environment"
   },
@@ -359,8 +316,6 @@
     "editor": {
       "defaultEditor": "Default Editor",
       "fontSize": "Font Size",
-      "preloadModelCount": "Number of models to preload",
-      "preloadModelCountHint": "How many models to keep preloaded for faster startup",
       "savedToLocalStorage": "Saved to LocalStorage",
       "tabSize": "Tab Size",
       "title": "Editor",
@@ -392,7 +347,6 @@
     "theme": {
       "colorCustomize": "Color Customize",
       "colorTheme": "Color Theme",
-      "highlightTheme": "Code Highlight",
       "title": "Theme"
     }
   },
@@ -415,7 +369,6 @@
     "paneMenu": "Pane menu",
     "removeAllTabs": "Remove all tabs",
     "removePane": "Remove pane",
-    "saveRestart": "Save and restart",
     "splitHorizontal": "Split horizontally",
     "splitVertical": "Split vertically",
     "unsavedChanges": "Unsaved changes"

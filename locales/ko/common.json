@@ -10,16 +10,11 @@
       "count": "{count} 개",
       "expand": "펼치기",
       "minimize": "최소화",
-      "noChangedFiles": "변경된 파일이 없습니다",
       "title": "변경된 파일"
     },
     "chatContainer": {
       "generating": "AI가 응답을 생성 중입니다...",
       "suggest": "질문이나 코드 요청을 해보세요."
-    },
-    "chatMessage": {
-      "copyCode": "코드 복사",
-      "reference": "참고:"
     },
     "context": {
       "select": "파일 선택"
@@ -41,7 +36,6 @@
       "ask": "AI에게 질문하거나 코드 관련 상담을 하세요...",
       "edit": "코드 수정을 위한 지시를 입력하세요..."
     },
-    "selectedLabel": "선택됨:",
     "sendTitle": "전송 (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "문제",
     "terminal": "터미널",
     "terminalInitializing": "터미널 초기화 중..."
-  },
-  "changedFilesList": {
-    "apply": "적용",
-    "applyAll": "모두 적용",
-    "changedFiles": "변경된 파일",
-    "discard": "버리기",
-    "discardAll": "모두 버리기",
-    "others": "기타",
-    "preview": "미리보기",
-    "reason": "사유",
-    "review": "검토"
   },
   "charCountDisplay": {
     "clickForDetails": "자세히 보기 클릭",
@@ -164,21 +147,16 @@
     "changes": "변경사항",
     "commit": "커밋",
     "commitMessagePlaceholder": "커밋 메시지 입력...",
-    "committing": "커밋 중...",
     "deleted": "삭제됨",
-    "deleteUntracked": "파일 삭제",
     "discard": "버리기",
     "errorOccurred": "오류가 발생했습니다",
     "generateCommitMessage": "AI로 커밋 메시지 생성",
-    "generating": "생성 중...",
     "history": "히스토리",
     "infoNotAvailable": "Git 정보를 가져올 수 없습니다",
     "loadingStatus": "Git 상태 로딩 중...",
     "noChanges": "변경사항이 없습니다",
     "noHistory": "커밋 히스토리가 없습니다",
-    "operationError": "git 접근 중 오류가 발생했습니다",
     "projectSelect": "프로젝트를 선택하세요",
-    "restore": "파일 복원",
     "stage": "스테이지",
     "stageAll": "모두 스테이지",
     "staged": "스테이징됨",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "전체 {count} 파일",
-    "allFilesFiles": "전체 {count} 파일(스크롤 가능)",
-    "allFilesScrollable": "전체 {count} 파일(스크롤 가능)",
     "changedFiles": "변경된 파일:",
     "daysAgo": "{days}일 전",
-    "duplicateGroupsHidden": "({count}개의 중복 그룹 숨김)",
-    "hideDuplicates": "중복 숨기기",
     "hoursAgo": "{hours}시간 전",
     "justNow": "방금 전",
     "loadingChanges": "변경 정보 로딩 중...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes}분 전",
     "noChangedFiles": "변경된 파일을 찾을 수 없습니다",
     "showAllFilesDiff": "이 커밋의 모든 파일 차이 보기",
-    "showDuplicates": "중복 보기",
     "showFileDiff": "이 파일의 차이 보기"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "빠른 열기",
     "searchPlaceholder": "파일/폴더 이름 또는 경로로 검색..."
   },
-  "paneNavigator": {
-    "activate": "활성화",
-    "close": "닫기",
-    "deletePane": "패인 삭제",
-    "emptyPane": "비어 있음",
-    "navigate": "탐색",
-    "splitHorizontal": "가로 분할",
-    "splitVertical": "세로 분할",
-    "tab": "탭",
-    "tabs": "탭",
-    "title": "패인 탐색기"
-  },
   "projectModal": {
     "cancel": "취소",
     "clone": "GitHub에서 클론",
@@ -312,15 +273,10 @@
     "execute": "실행",
     "executeHint": "Ctrl+Enter (Cmd+Enter)로 실행",
     "executionStopped": "실행 중지",
-    "fileContentError": "파일 내용을 가져올 수 없습니다",
     "inputPlaceholder": "Node.js 코드를 입력하세요...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "출력이 없습니다",
     "noProject": "실행할 프로젝트를 열어주세요",
     "outputHint": "JavaScript/Node.js/Python 코드를 실행하면 결과가 여기 표시됩니다. Node.js와 js는 동일 파일에서 실행할 수 있습니다.",
     "runtimeNotReady": "Python 런타임이 초기화되지 않았습니다",
-    "searchFile": "실행할 파일을 검색하세요...",
     "stop": "중지",
     "title": "실행 환경"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "기본 에디터",
       "fontSize": "글꼴 크기",
-      "preloadModelCount": "미리 로드할 모델 수",
-      "preloadModelCountHint": "더 빠른 시작을 위해 미리 로드할 모델 수",
       "savedToLocalStorage": "LocalStorage에 저장됨",
       "tabSize": "탭 크기",
       "title": "에디터",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "색상 사용자화",
       "colorTheme": "컬러 테마",
-      "highlightTheme": "코드 하이라이트",
       "title": "테마"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "팬 메뉴",
     "removeAllTabs": "모든 탭 제거",
     "removePane": "팬 제거",
-    "saveRestart": "저장 및 재시작",
     "splitHorizontal": "가로 분할",
     "splitVertical": "세로 분할",
     "unsavedChanges": "저장되지 않은 변경사항"

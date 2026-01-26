@@ -10,16 +10,11 @@
       "count": "{count} filer",
       "expand": "Expandera",
       "minimize": "Minimera",
-      "noChangedFiles": "Inga ändrade filer",
       "title": "Ändrade filer"
     },
     "chatContainer": {
       "generating": "AI genererar ett svar...",
       "suggest": "Ställ frågor eller be om kod."
-    },
-    "chatMessage": {
-      "copyCode": "Kopiera kod",
-      "reference": "Referens:"
     },
     "context": {
       "select": "Välj filer"
@@ -41,7 +36,6 @@
       "ask": "Ställ AI frågor eller be om hjälp med kod...",
       "edit": "Ange instruktioner för att redigera kod..."
     },
-    "selectedLabel": "Vald:",
     "sendTitle": "Skicka (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problem",
     "terminal": "Terminal",
     "terminalInitializing": "Initierar terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Tillämpa",
-    "applyAll": "Tillämpa alla",
-    "changedFiles": "Ändrade filer",
-    "discard": "Förkasta",
-    "discardAll": "Förkasta alla",
-    "others": "andra",
-    "preview": "Förhandsgranska",
-    "reason": "Orsak",
-    "review": "Granska"
   },
   "charCountDisplay": {
     "clickForDetails": "Klicka för detaljer",
@@ -164,21 +147,16 @@
     "changes": "Ändringar",
     "commit": "Commit",
     "commitMessagePlaceholder": "Ange commit-meddelande...",
-    "committing": "Committar...",
     "deleted": "Borttagen",
-    "deleteUntracked": "Ta bort fil",
     "discard": "Förkasta",
     "errorOccurred": "Ett fel uppstod",
     "generateCommitMessage": "Generera med AI",
-    "generating": "Genererar...",
     "history": "Historik",
     "infoNotAvailable": "Kunde inte hämta git-information",
     "loadingStatus": "Laddar git-status...",
     "noChanges": "Inga ändringar",
     "noHistory": "Ingen commit-historik",
-    "operationError": "Ett fel uppstod vid åtkomst till git",
     "projectSelect": "Välj ett projekt",
-    "restore": "Återställ fil",
     "stage": "Stage",
     "stageAll": "Stagea alla",
     "staged": "Staged",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Alla {count} filer",
-    "allFilesFiles": "Alla {count} filer",
-    "allFilesScrollable": "Alla {count} filer (rullningsbar)",
     "changedFiles": "Ändrade filer:",
     "daysAgo": "{days} dagar sedan",
-    "duplicateGroupsHidden": "({count} dubblettgrupper dolda)",
-    "hideDuplicates": "Dölj dubbletter",
     "hoursAgo": "{hours} timmar sedan",
     "justNow": "precis nu",
     "loadingChanges": "Laddar ändringsinfo...",
@@ -206,7 +180,6 @@
     "minutesAgo": "{minutes} minuter sedan",
     "noChangedFiles": "Inga ändrade filer hittades",
     "showAllFilesDiff": "Visa alla fildiffar för denna commit",
-    "showDuplicates": "Visa dubbletter",
     "showFileDiff": "Visa diff för denna fil"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Snabböppna",
     "searchPlaceholder": "Sök efter fil-/mappnamn eller sökväg..."
   },
-  "paneNavigator": {
-    "activate": "Aktivera",
-    "close": "Stäng",
-    "deletePane": "Ta bort panel",
-    "emptyPane": "Tom",
-    "navigate": "Navigera",
-    "splitHorizontal": "Dela horisontellt",
-    "splitVertical": "Dela vertikalt",
-    "tab": "flik",
-    "tabs": "flikar",
-    "title": "Panelnavigator"
-  },
   "projectModal": {
     "cancel": "Avbryt",
     "clone": "Klona från GitHub",
@@ -312,15 +273,10 @@
     "execute": "Kör",
     "executeHint": "Tryck Ctrl+Enter (Cmd+Enter) för att köra",
     "executionStopped": "Körning stoppad",
-    "fileContentError": "Kan inte hämta filinnehåll",
     "inputPlaceholder": "Ange Node.js-kod...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Inga utdata",
     "noProject": "Öppna ett projekt för att köra Node.js-kod",
     "outputHint": "När du kör JavaScript/Node.js/Python-kod visas resultaten här. Node.js och js kan köras i samma fil.",
     "runtimeNotReady": "Python-runtime är inte initierad",
-    "searchFile": "Sök efter en fil att köra...",
     "stop": "Stoppa",
     "title": "Körningsmiljö"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Standardeditor",
       "fontSize": "Teckenstorlek",
-      "preloadModelCount": "Antal modeller att förladda",
-      "preloadModelCountHint": "Hur många modeller att hålla förladdade för snabbare start",
       "savedToLocalStorage": "Sparat i LocalStorage",
       "tabSize": "Tabbstorlek",
       "title": "Editor",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Anpassa färger",
       "colorTheme": "Färgtema",
-      "highlightTheme": "Kodmarkerings-tema",
       "title": "Tema"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Panelmeny",
     "removeAllTabs": "Ta bort alla flikar",
     "removePane": "Ta bort panel",
-    "saveRestart": "Spara och starta om",
     "splitHorizontal": "Dela horisontellt",
     "splitVertical": "Dela vertikalt",
     "unsavedChanges": "Osparade ändringar"

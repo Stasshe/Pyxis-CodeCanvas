@@ -10,16 +10,11 @@
       "count": "{count} ملفات",
       "expand": "توسيع",
       "minimize": "تصغير",
-      "noChangedFiles": "لا توجد ملفات مُعدلة",
       "title": "الملفات المُعدلة"
     },
     "chatContainer": {
       "generating": "الذكاء الاصطناعي يقوم بإنشاء استجابة...",
       "suggest": "يرجى طرح الأسئلة أو طلبات الشيفرة."
-    },
-    "chatMessage": {
-      "copyCode": "نسخ الشيفرة",
-      "reference": "مرجع:"
     },
     "context": {
       "select": "اختر ملفات"
@@ -41,7 +36,6 @@
       "ask": "اسأل الذكاء الاصطناعي أو استشر حول الشيفرة...",
       "edit": "أدخل تعليمات لتحرير الشيفرة..."
     },
-    "selectedLabel": "المحدد:",
     "sendTitle": "إرسال (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "المشاكل",
     "terminal": "الطرفية",
     "terminalInitializing": "جاري تهيئة الطرفية..."
-  },
-  "changedFilesList": {
-    "apply": "تطبيق",
-    "applyAll": "تطبيق الكل",
-    "changedFiles": "الملفات المُعدلة",
-    "discard": "تجاهل",
-    "discardAll": "تجاهل الكل",
-    "others": "الآخرون",
-    "preview": "معاينة",
-    "reason": "السبب",
-    "review": "مراجعة"
   },
   "charCountDisplay": {
     "clickForDetails": "انقر للتفاصيل",
@@ -164,21 +147,16 @@
     "changes": "التغييرات",
     "commit": "التزام",
     "commitMessagePlaceholder": "أدخل رسالة الالتزام...",
-    "committing": "جارٍ الالتزام...",
     "deleted": "محذوف",
-    "deleteUntracked": "حذف الملف",
     "discard": "تجاهل",
     "errorOccurred": "حدث خطأ",
     "generateCommitMessage": "توليد بواسطة AI",
-    "generating": "جارٍ الإنشاء...",
     "history": "السجل",
     "infoNotAvailable": "تعذر جلب معلومات git",
     "loadingStatus": "جارٍ تحميل حالة git...",
     "noChanges": "لا توجد تغييرات",
     "noHistory": "لا يوجد تاريخ التزامات",
-    "operationError": "حدث خطأ أثناء الوصول إلى git",
     "projectSelect": "يرجى اختيار مشروع",
-    "restore": "استعادة الملف",
     "stage": "وضع على المرحلة",
     "stageAll": "تضمين الكل",
     "staged": "تم التضمين",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "جميع {count} الملفات",
-    "allFilesFiles": "جميع {count} الملفات",
-    "allFilesScrollable": "جميع {count} الملفات (قابلة للتمرير)",
     "changedFiles": "الملفات المُعدلة:",
     "daysAgo": "منذ {days} أيام",
-    "duplicateGroupsHidden": "({count} مجموعات مكررة مخفية)",
-    "hideDuplicates": "إخفاء الالتزامات المكررة",
     "hoursAgo": "منذ {hours} ساعات",
     "justNow": "الآن",
     "loadingChanges": "جارٍ تحميل معلومات التغيير...",
@@ -206,7 +180,6 @@
     "minutesAgo": "منذ {minutes} دقائق",
     "noChangedFiles": "لم يتم العثور على ملفات مُعدلة",
     "showAllFilesDiff": "عرض جميع فروق الملفات لهذا الالتزام",
-    "showDuplicates": "إظهار الالتزامات المكررة",
     "showFileDiff": "عرض الفرق لهذا الملف"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "فتح سريع",
     "searchPlaceholder": "ابحث باسم الملف/المجلد أو المسار..."
   },
-  "paneNavigator": {
-    "activate": "تفعيل",
-    "close": "إغلاق",
-    "deletePane": "حذف اللوحة",
-    "emptyPane": "فارغ",
-    "navigate": "تنقل",
-    "splitHorizontal": "تقسيم أفقي",
-    "splitVertical": "تقسيم عمودي",
-    "tab": "تبويب",
-    "tabs": "تبويبات",
-    "title": "متصفح اللوحات"
-  },
   "projectModal": {
     "cancel": "إلغاء",
     "clone": "استنساخ من GitHub",
@@ -312,15 +273,10 @@
     "execute": "تنفيذ",
     "executeHint": "اضغط Ctrl+Enter (Cmd+Enter) للتنفيذ",
     "executionStopped": "توقف التنفيذ",
-    "fileContentError": "تعذر الحصول على محتوى الملف",
     "inputPlaceholder": "أدخل شيفرة Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "لا توجد مخرجات",
     "noProject": "افتح مشروعًا لتنفيذ Node.js",
     "outputHint": "عند تنفيذ JavaScript/Node.js/Python، ستعرض النتائج هنا. يمكن تنفيذ Node.js و js في نفس الملف.",
     "runtimeNotReady": "بيئة Python غير مُهيأة",
-    "searchFile": "ابحث عن ملف للتنفيذ...",
     "stop": "إيقاف",
     "title": "بيئة التنفيذ"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "المحرر الافتراضي",
       "fontSize": "حجم الخط",
-      "preloadModelCount": "عدد النماذج للتحميل المسبق",
-      "preloadModelCountHint": "كم عدد النماذج للتحميل المسبق لبدء أسرع",
       "savedToLocalStorage": "تم الحفظ في LocalStorage",
       "tabSize": "حجم التبويب",
       "title": "المحرر",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "تخصيص الألوان",
       "colorTheme": "سمة الألوان",
-      "highlightTheme": "سمة التمييز",
       "title": "السمة"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "قائمة اللوحة",
     "removeAllTabs": "إزالة كل التبويبات",
     "removePane": "إزالة اللوحة",
-    "saveRestart": "حفظ وإعادة تشغيل",
     "splitHorizontal": "تقسيم أفقي",
     "splitVertical": "تقسيم عمودي",
     "unsavedChanges": "تغييرات غير محفوظة"

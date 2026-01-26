@@ -10,16 +10,11 @@
       "count": "{count} 個",
       "expand": "展開する",
       "minimize": "最小化する",
-      "noChangedFiles": "変更されたファイルはありません",
       "title": "変更ファイル"
     },
     "chatContainer": {
       "generating": "AIが応答を生成中...",
       "suggest": "質問やコードの相談、編集指示をしてください"
-    },
-    "chatMessage": {
-      "copyCode": "コードをコピー",
-      "reference": "参照:"
     },
     "context": {
       "select": "ファイルを選択"
@@ -41,7 +36,6 @@
       "ask": "AIに質問やコード相談をしてください...",
       "edit": "コードの編集指示を入力してください..."
     },
-    "selectedLabel": "選択中:",
     "sendTitle": "送信 (Ctrl+Enter)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "問題",
     "terminal": "ターミナル",
     "terminalInitializing": "ターミナルを初期化中..."
-  },
-  "changedFilesList": {
-    "apply": "適用",
-    "applyAll": "全て適用",
-    "changedFiles": "変更されたファイル",
-    "discard": "破棄",
-    "discardAll": "全て破棄",
-    "others": "他",
-    "preview": "変更プレビュー",
-    "reason": "変更理由",
-    "review": "レビュー"
   },
   "charCountDisplay": {
     "clickForDetails": "クリックで詳細表示",
@@ -179,21 +162,16 @@
     "changes": "変更",
     "commit": "コミット",
     "commitMessagePlaceholder": "コミットメッセージを入力...",
-    "committing": "コミット中...",
     "deleted": "削除済み",
-    "deleteUntracked": "ファイルを削除",
     "discard": "破棄",
     "errorOccurred": "エラーが発生しました",
     "generateCommitMessage": "AIで生成",
-    "generating": "生成中...",
     "history": "履歴",
     "infoNotAvailable": "Git情報を取得できませんでした",
     "loadingStatus": "Git状態を読み込み中...",
     "noChanges": "変更はありません",
     "noHistory": "コミット履歴がありません",
-    "operationError": "Git操作でエラーが発生しました",
     "projectSelect": "プロジェクトを選択してください",
-    "restore": "ファイルを復元",
     "stage": "ステージング",
     "stageAll": "全てステージング",
     "staged": "ステージング済み",
@@ -207,11 +185,8 @@
   },
   "gitHistory": {
     "allFiles": "全{count}ファイル",
-    "allFilesScrollable": "全{count}ファイル (スクロール可能)",
     "changedFiles": "変更されたファイル:",
     "daysAgo": "{days}日前",
-    "duplicateGroupsHidden": "（{count}件の重複グループを非表示中）",
-    "hideDuplicates": "重複コミットを非表示",
     "hoursAgo": "{hours}時間前",
     "justNow": "たった今",
     "loadingChanges": "変更情報を読み込み中...",
@@ -220,7 +195,6 @@
     "minutesAgo": "{minutes}分前",
     "noChangedFiles": "変更ファイルが見つかりません",
     "showAllFilesDiff": "このコミットの全ファイルdiffを表示",
-    "showDuplicates": "重複コミットも表示",
     "showFileDiff": "このファイルの差分を表示"
   },
   "highlightedCode": {
@@ -279,18 +253,6 @@
     "quickOpen": "クイックオープン",
     "searchPlaceholder": "ファイル名・フォルダ名・パス いずれかで検索..."
   },
-  "paneNavigator": {
-    "activate": "選択",
-    "close": "閉じる",
-    "deletePane": "ペインを削除",
-    "emptyPane": "空",
-    "navigate": "移動",
-    "splitHorizontal": "横に分割",
-    "splitVertical": "縦に分割",
-    "tab": "タブ",
-    "tabs": "タブ",
-    "title": "ペインナビゲーター"
-  },
   "projectModal": {
     "cancel": "キャンセル",
     "clone": "GitHubからクローン",
@@ -326,15 +288,10 @@
     "execute": "実行",
     "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
     "executionStopped": "実行が停止しました",
-    "fileContentError": "ファイル内容が取得できません",
     "inputPlaceholder": "Node.jsコードを入力してください...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "出力はありません",
     "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
     "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
     "runtimeNotReady": "Pythonランタイムが初期化されていません",
-    "searchFile": "実行するファイル名を検索...",
     "stop": "停止",
     "title": "実行環境"
   },
@@ -359,8 +316,6 @@
     "editor": {
       "defaultEditor": "デフォルトエディター",
       "fontSize": "フォントサイズ",
-      "preloadModelCount": "事前読み込みするモデル数",
-      "preloadModelCountHint": "起動を高速化するために事前に読み込んでおくモデルの数",
       "savedToLocalStorage": "LocalStorageに保存されます",
       "tabSize": "タブサイズ",
       "title": "エディター",
@@ -392,7 +347,6 @@
     "theme": {
       "colorCustomize": "カラーカスタマイズ",
       "colorTheme": "カラーテーマ",
-      "highlightTheme": "コードハイライト",
       "title": "テーマ"
     }
   },
@@ -415,7 +369,6 @@
     "paneMenu": "ペインメニュー",
     "removeAllTabs": "全て閉じる",
     "removePane": "ペインを削除",
-    "saveRestart": "保存して再起動",
     "splitHorizontal": "横に分割",
     "splitVertical": "縦に分割",
     "unsavedChanges": "未保存の変更"

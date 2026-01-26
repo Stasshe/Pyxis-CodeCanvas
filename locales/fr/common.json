@@ -10,16 +10,11 @@
       "count": "{count} fichiers",
       "expand": "Développer",
       "minimize": "Réduire",
-      "noChangedFiles": "Aucun fichier modifié",
       "title": "Fichiers modifiés"
     },
     "chatContainer": {
       "generating": "L'IA génère une réponse...",
       "suggest": "Veuillez poser des questions ou demander du code."
-    },
-    "chatMessage": {
-      "copyCode": "Copier le code",
-      "reference": "Référence :"
     },
     "context": {
       "select": "Sélectionner des fichiers"
@@ -41,7 +36,6 @@
       "ask": "Posez des questions à l'IA ou demandez des conseils sur le code...",
       "edit": "Saisissez les instructions pour modifier le code..."
     },
-    "selectedLabel": "Sélectionné :",
     "sendTitle": "Envoyer (Ctrl+Entrée)"
   },
   "AI": {
@@ -89,17 +83,6 @@
     "problems": "Problèmes",
     "terminal": "Terminal",
     "terminalInitializing": "Initialisation du terminal..."
-  },
-  "changedFilesList": {
-    "apply": "Appliquer",
-    "applyAll": "Tout appliquer",
-    "changedFiles": "Fichiers modifiés",
-    "discard": "Abandonner",
-    "discardAll": "Tout abandonner",
-    "others": "autres",
-    "preview": "Aperçu",
-    "reason": "Raison",
-    "review": "Relecture"
   },
   "charCountDisplay": {
     "clickForDetails": "Cliquez pour détails",
@@ -164,21 +147,16 @@
     "changes": "Modifications",
     "commit": "Valider",
     "commitMessagePlaceholder": "Entrez le message de commit...",
-    "committing": "Validation en cours...",
     "deleted": "Supprimé",
-    "deleteUntracked": "Supprimer le fichier",
     "discard": "Abandonner",
     "errorOccurred": "Une erreur est survenue",
     "generateCommitMessage": "Générer avec l'IA",
-    "generating": "Génération en cours...",
     "history": "Historique",
     "infoNotAvailable": "Impossible de récupérer les informations git",
     "loadingStatus": "Chargement du statut git...",
     "noChanges": "Aucune modification",
     "noHistory": "Aucun historique de commit",
-    "operationError": "Une erreur est survenue lors de l'accès à git",
     "projectSelect": "Veuillez sélectionner un projet",
-    "restore": "Restaurer le fichier",
     "stage": "Index",
     "stageAll": "Indexez tout",
     "staged": "Indexé",
@@ -192,12 +170,8 @@
   },
   "gitHistory": {
     "allFiles": "Tous les {count} fichiers",
-    "allFilesFiles": "Tous les {count} fichiers",
-    "allFilesScrollable": "Tous les {count} fichiers (défilable)",
     "changedFiles": "Fichiers modifiés :",
     "daysAgo": "Il y a {days} jours",
-    "duplicateGroupsHidden": "({count} groupes dupliqués masqués)",
-    "hideDuplicates": "Masquer les commits dupliqués",
     "hoursAgo": "Il y a {hours} heures",
     "justNow": "à l'instant",
     "loadingChanges": "Chargement des informations de modification...",
@@ -206,7 +180,6 @@
     "minutesAgo": "Il y a {minutes} minutes",
     "noChangedFiles": "Aucun fichier modifié trouvé",
     "showAllFilesDiff": "Afficher tous les diffs de fichiers pour ce commit",
-    "showDuplicates": "Afficher les commits dupliqués",
     "showFileDiff": "Afficher le diff pour ce fichier"
   },
   "highlightedCode": {
@@ -265,18 +238,6 @@
     "quickOpen": "Ouverture rapide",
     "searchPlaceholder": "Rechercher par nom ou chemin de fichier/dossier..."
   },
-  "paneNavigator": {
-    "activate": "Activer",
-    "close": "Fermer",
-    "deletePane": "Supprimer le volet",
-    "emptyPane": "Vide",
-    "navigate": "Naviguer",
-    "splitHorizontal": "Diviser horizontalement",
-    "splitVertical": "Diviser verticalement",
-    "tab": "onglet",
-    "tabs": "onglets",
-    "title": "Navigateur de volets"
-  },
   "projectModal": {
     "cancel": "Annuler",
     "clone": "Cloner depuis GitHub",
@@ -312,15 +273,10 @@
     "execute": "Exécuter",
     "executeHint": "Appuyez sur Ctrl+Entrée (Cmd+Entrée) pour exécuter",
     "executionStopped": "Exécution arrêtée",
-    "fileContentError": "Impossible d'obtenir le contenu du fichier",
     "inputPlaceholder": "Entrez du code Node.js...",
-    "languageNode": "Node.js",
-    "languagePython": "Python",
-    "noOutput": "Aucune sortie",
     "noProject": "Ouvrez un projet pour exécuter du code Node.js",
     "outputHint": "Lorsque vous exécutez du code JavaScript/Node.js/Python, les résultats seront affichés ici. Node.js et js peuvent être exécutés dans le même fichier.",
     "runtimeNotReady": "L'environnement Python n'est pas initialisé",
-    "searchFile": "Rechercher un fichier à exécuter...",
     "stop": "Arrêter",
     "title": "Environnement d'exécution"
   },
@@ -343,8 +299,6 @@
     "editor": {
       "defaultEditor": "Éditeur par défaut",
       "fontSize": "Taille de la police",
-      "preloadModelCount": "Nombre de modèles à précharger",
-      "preloadModelCountHint": "Nombre de modèles à garder préchargés pour un démarrage plus rapide",
       "savedToLocalStorage": "Enregistré dans LocalStorage",
       "tabSize": "Taille de tabulation",
       "title": "Éditeur",
@@ -376,7 +330,6 @@
     "theme": {
       "colorCustomize": "Personnalisation des couleurs",
       "colorTheme": "Thème de couleurs",
-      "highlightTheme": "Thème de surlignage",
       "title": "Thème"
     }
   },
@@ -399,7 +352,6 @@
     "paneMenu": "Menu du volet",
     "removeAllTabs": "Fermer tous les onglets",
     "removePane": "Supprimer le volet",
-    "saveRestart": "Enregistrer et redémarrer",
     "splitHorizontal": "Diviser horizontalement",
     "splitVertical": "Diviser verticalement",
     "unsavedChanges": "Modifications non enregistrées"
