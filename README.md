@@ -51,7 +51,7 @@
 </div>
 
 
-###StackblitzやWebContainerとの違い・Pyxisの設計思想
+### StackblitzやWebContainerとの違い・Pyxisの設計思想
 
 StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxisは**「VSCodeのようなエディタ・便利なファイルシステム・実行環境をWeb/iPadで実現する」**ことを目的としています。
 
