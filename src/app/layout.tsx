@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
-import ExtensionInitializer from '@/components/ExtensionInitializer';
-import TabInitializer from '@/components/TabInitializer';
+import AppInitializer from '@/components/AppInitializer';
 import { FileSelectorProvider } from '@/context/FileSelectorContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
@@ -134,8 +133,7 @@ export default function RootLayout({
               <TabProvider>
                 <FileSelectorProvider>
                   {children}
-                  <TabInitializer />
-                  <ExtensionInitializer /> 
+                  <AppInitializer />
                 </FileSelectorProvider>
               </TabProvider>
             </GitHubUserProvider>
