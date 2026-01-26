@@ -150,6 +150,8 @@ export default function OperationWindow({
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
   const { isExcluded } = useSettings();
+  // 検索クエリをスペースで分割してトークンにする（スペースは区切り）
+  const queryTokens = useMemo(() => searchQuery.trim().split(/\s+/).filter(Boolean), [searchQuery]);
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
   const ITEM_HEIGHT = 20; // slightly more compact
 
@@ -259,28 +261,41 @@ export default function OperationWindow({
     return true;
   });
 
-  // Enhanced VSCode-style filtering + scoring for FILES
+  // Enhanced VSCode-style filtering + scoring for FILES (support multi-token search where space is a separator)
   const filteredFiles: FileItem[] = useMemo(() => {
     if (viewMode !== 'files') return [];
-    if (!searchQuery) return allFiles;
-    const q = searchQuery.trim();
+    if (!queryTokens || queryTokens.length === 0) return allFiles;
+
     const scored: Array<{ file: FileItem; score: number }> = [];
 
     for (const file of allFiles) {
-      const fileName = file.name;
-      const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-      const pathParts = file.path.split('/');
+      let totalScore = 0;
+      let matchedAll = true;
 
-      const nameScore = scoreMatch(fileName, q);
-      const nameNoExtScore = scoreMatch(fileNameNoExt, q);
-      const pathScore = scoreMatch(file.path, q);
-      const partScores = pathParts.map(part => scoreMatch(part, q));
-      const bestPartScore = Math.max(...partScores, 0);
+      for (const token of queryTokens) {
+        const fileName = file.name;
+        const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+        const pathParts = file.path.split('/');
 
-      const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
+        const nameScore = scoreMatch(fileName, token);
+        const nameNoExtScore = scoreMatch(fileNameNoExt, token);
+        const pathScore = scoreMatch(file.path, token);
+        const partScores = pathParts.map(part => scoreMatch(part, token));
+        const bestPartScore = Math.max(...partScores, 0);
 
-      if (best > 0) {
-        scored.push({ file, score: best });
+        const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
+
+        if (best <= 0) {
+          matchedAll = false;
+          break;
+        }
+
+        totalScore += best;
+      }
+
+      if (matchedAll) {
+        // average score across tokens for stable sorting
+        scored.push({ file, score: totalScore / queryTokens.length });
       }
     }
 
@@ -290,19 +305,22 @@ export default function OperationWindow({
     });
 
     return scored.map(s => s.file);
-  }, [allFiles, searchQuery, viewMode]);
+  }, [allFiles, queryTokens, viewMode]);
 
-  // Filtering for GENERIC ITEMS
+  // Filtering for GENERIC ITEMS (support multi-token AND search)
   const filteredItems: OperationListItem[] = useMemo(() => {
     if (viewMode !== 'list' || !items) return [];
-    if (!searchQuery) return items;
-    const q = searchQuery.toLowerCase();
+    if (!queryTokens || queryTokens.length === 0) return items;
 
-    // Simple filtering for items
-    return items.filter(
-      item => item.label.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q)
-    );
-  }, [items, searchQuery, viewMode]);
+    const lowerTokens = queryTokens.map(t => t.toLowerCase());
+
+    return items.filter(item => {
+      const label = item.label.toLowerCase();
+      const desc = item.description?.toLowerCase() ?? '';
+      // require every token to be found in either label or description
+      return lowerTokens.every(tok => label.includes(tok) || desc.includes(tok));
+    });
+  }, [items, queryTokens, viewMode]);
 
   const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
 
@@ -418,31 +436,37 @@ export default function OperationWindow({
     }
   }, [searchQuery, viewMode]);
 
-  // VSCode風のハイライト関数
-  function highlightMatch(text: string, query: string, isSelected: boolean) {
-    if (!query) return <>{text}</>;
+  // VSCode風のハイライト関数 - 複数トークンをサポート（スペースで区切られた検索語をハイライト）
+  function highlightMatch(text: string, query: string | string[], isSelected: boolean) {
+    const tokens = Array.isArray(query) ? query.filter(Boolean) : String(query || '').split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return <>{text}</>;
 
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    const idx = lowerText.indexOf(lowerQuery);
-
-    if (idx === -1) return <>{text}</>;
+    // Escape tokens for regex and split text keeping matches
+    const escaped = tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const re = new RegExp(`(${escaped.join('|')})`, 'ig');
+    const parts = text.split(re);
 
     return (
       <>
-        {text.slice(0, idx)}
-        <span
-          style={{
-            background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
-            color: isSelected ? colors.cardBg : colors.primary,
-            fontWeight: 'bold',
-            borderRadius: '2px',
-            padding: '0 1px',
-          }}
-        >
-          {text.slice(idx, idx + query.length)}
-        </span>
-        {text.slice(idx + query.length)}
+        {parts.map((part, i) => {
+          if (tokens.some(tok => part.toLowerCase() === tok.toLowerCase())) {
+            return (
+              <span
+                key={i}
+                style={{
+                  background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
+                  color: isSelected ? colors.cardBg : colors.primary,
+                  fontWeight: 'bold',
+                  borderRadius: '2px',
+                  padding: '0 1px',
+                }}
+              >
+                {part}
+              </span>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        })}
       </>
     );
   }
@@ -702,7 +726,7 @@ export default function OperationWindow({
                           maxWidth: '200px',
                         }}
                       >
-                        {highlightMatch(file.name, searchQuery, isSelected)}
+                        {highlightMatch(file.name, queryTokens, isSelected)}
                       </span>
                       {dirPath && (
                         <span
@@ -717,7 +741,7 @@ export default function OperationWindow({
                             textAlign: 'right',
                           }}
                         >
-                          {highlightMatch(dirPath, searchQuery, isSelected)}
+                          {highlightMatch(dirPath, queryTokens, isSelected)}
                         </span>
                       )}
                     </div>
@@ -817,7 +841,7 @@ export default function OperationWindow({
                             flex: 1,
                           }}
                         >
-                          {highlightMatch(item.label, searchQuery, isSelected)}
+                          {highlightMatch(item.label, queryTokens, isSelected)}
                         </span>
                         {item.description && (
                           <span
@@ -827,7 +851,7 @@ export default function OperationWindow({
                               marginLeft: '8px',
                             }}
                           >
-                            {highlightMatch(item.description, searchQuery, isSelected)}
+                            {highlightMatch(item.description, queryTokens, isSelected)}
                           </span>
                         )}
                       </>
