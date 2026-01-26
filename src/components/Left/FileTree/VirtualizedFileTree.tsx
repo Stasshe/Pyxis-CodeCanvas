@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { importSingleFile } from '@/engine/import/importSingleFile';
+import { importSingleFile } from '@/engine/in-ex/importSingleFile';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 

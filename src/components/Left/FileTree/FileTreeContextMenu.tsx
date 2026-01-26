@@ -7,7 +7,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { exportFolderZip } from '@/engine/in-ex/exportFolderZip';
 import { exportSingleFile } from '@/engine/in-ex/exportSingleFile';
 import { explorerMenuRegistry } from '@/engine/extensions/system-api/ExplorerMenuAPI';
-import { importSingleFile } from '@/engine/import/importSingleFile';
+import { importSingleFile } from '@/engine/in-ex/importSingleFile';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 import type { ContextMenuState } from './types';
