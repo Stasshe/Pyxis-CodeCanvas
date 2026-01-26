@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
-import { useGitContext } from '@/components/PaneContainer';
+import { useGitContext } from '@/components/Pane/PaneContainer';
 import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
 import { editorMemoryManager } from '@/engine/editor';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';

@@ -4,7 +4,7 @@ import { useCallback, useEffect } from 'react';
 
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
 
-import { useGitContext } from '@/components/PaneContainer';
+import { useGitContext } from '@/components/Pane/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { editorMemoryManager } from '@/engine/editor';
 import { useSettings } from '@/hooks/useSettings';

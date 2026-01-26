@@ -12,11 +12,11 @@ import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
 import OperationWindow from '@/components/Top/OperationWindow';
-import PaneContainer from '@/components/PaneContainer';
-import PaneNavigator from '@/components/PaneNavigator';
+import PaneContainer from '@/components/Pane/PaneContainer';
+import PaneNavigator from '@/components/Pane/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
-import TopBar from '@/components/TopBar';
+import TopBar from '@/components/Top/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
 import {

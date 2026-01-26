@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
-import { useGitContext } from '@/components/PaneContainer';
+import { useGitContext } from '@/components/Pane/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
 import { editorMemoryManager } from '@/engine/editor';
 import { useKeyBinding } from '@/hooks/useKeyBindings';

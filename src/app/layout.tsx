@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ExtensionInitializer from '@/components/ExtensionInitializer';
 import TabInitializer from '@/components/TabInitializer';
-import { ToastContainer } from '@/components/Toast';
 import { FileSelectorProvider } from '@/context/FileSelectorContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
@@ -136,8 +135,7 @@ export default function RootLayout({
                 <FileSelectorProvider>
                   {children}
                   <TabInitializer />
-                  <ExtensionInitializer />
-                  <ToastContainer />
+                  <ExtensionInitializer /> 
                 </FileSelectorProvider>
               </TabProvider>
             </GitHubUserProvider>
