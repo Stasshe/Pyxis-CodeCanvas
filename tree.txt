@@ -80,6 +80,25 @@ Root
 │           ├── hello.ts
 │           ├── math.ts
 │           └── use-math.ts
+│   └── src
+│       ├── fibonacci.py
+│       ├── fileOperationg.js
+│       ├── homepage
+│       │   ├── index.html
+│       │   ├── main.js
+│       │   └── style.css
+│       ├── index.js
+│       ├── math.js
+│       ├── react
+│       │   ├── App.css
+│       │   ├── App.jsx
+│       │   └── sample.jsx
+│       ├── readline_test.js
+│       ├── run-test.sh
+│       └── typescript
+│           ├── hello.ts
+│           ├── math.ts
+│           └── use-math.ts
 ├── jest.config.cjs
 ├── jest.setup.js
 ├── next-env.d.ts
@@ -121,6 +140,7 @@ Root
 │   ├── build
 │   │   ├── build-extensions.js
 │   │   └── initial_files_to_ts.js
+│   ├── check-pnpm.js
 │   ├── check-pnpm.js
 │   ├── chore
 │   │   └── update-readmes-version.js
@@ -186,6 +206,14 @@ Root
 │   │   │   │   ├── index.tsx
 │   │   │   │   └── types.ts
 │   │   │   ├── GitHistory.tsx
+│   │   │   ├── GitPanel
+│   │   │   │   ├── ChangesList.tsx
+│   │   │   │   ├── CommitBox.tsx
+│   │   │   │   ├── ErrorState.tsx
+│   │   │   │   ├── FileItem.tsx
+│   │   │   │   ├── LoadingState.tsx
+│   │   │   │   ├── gitUtils.ts
+│   │   │   │   └── useGitPanel.ts
 │   │   │   ├── GitPanel
 │   │   │   │   ├── ChangesList.tsx
 │   │   │   │   ├── CommitBox.tsx
@@ -277,10 +305,14 @@ Root
 │   │   │   │   ├── gitOperations
 │   │   │   │   │   ├── add.ts
 │   │   │   │   │   ├── branch.ts
+│   │   │   │   │   ├── add.ts
+│   │   │   │   │   ├── branch.ts
 │   │   │   │   │   ├── checkout.ts
 │   │   │   │   │   ├── clone.ts
 │   │   │   │   │   ├── commit.ts
+│   │   │   │   │   ├── commit.ts
 │   │   │   │   │   ├── diff.ts
+│   │   │   │   │   ├── discardChanges.ts
 │   │   │   │   │   ├── discardChanges.ts
 │   │   │   │   │   ├── fetch.ts
 │   │   │   │   │   ├── fileSystemHelper.ts
@@ -292,11 +324,13 @@ Root
 │   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── mergeConflictDetector.ts
 │   │   │   │   │   ├── pull.ts
+│   │   │   │   │   ├── pull.ts
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
 │   │   │   │   │   ├── show.ts
+│   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── switch.ts
 │   │   │   │   │   └── tree.ts
@@ -494,6 +528,7 @@ Root
 │   ├── aiResponseParserEdgeCases.test.ts
 │   ├── all-sh.test.ts
 │   ├── debug-if-inline.test.ts
+│   ├── debug-if-inline.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── findCommand.posix.test.ts
 │   ├── fsRequirePromise.test.ts
@@ -515,6 +550,7 @@ Root
 │   ├── script.args.test.ts
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
+│   ├── scriptRunner.test.ts
 │   ├── scriptRunner.test.ts
 │   ├── shell.operators.test.ts
 │   ├── shell.script.streaming.test.ts
