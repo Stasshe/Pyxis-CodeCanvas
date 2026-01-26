@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings } from '@/hooks/state/useSettings';
 import { useTabStore } from '@/stores/tabStore';
 import type { FileItem } from '@/types';
 
@@ -150,7 +150,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // Worker初期化
     if (!workerRef.current) {
       try {
-        workerRef.current = new Worker(new URL('../../workers/searchWorker.ts', import.meta.url), {
+        workerRef.current = new Worker(new URL('../../engine/workers/searchWorker.ts', import.meta.url), {
           type: 'module',
         });
 

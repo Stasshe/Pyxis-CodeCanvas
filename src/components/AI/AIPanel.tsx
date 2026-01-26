@@ -13,16 +13,16 @@ import ModeSelector from './chat/ModeSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 
 import { Confirmation } from '@/components/Confirmation';
-import OperationWindow, { type OperationListItem } from '@/components/OperationWindow';
+import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { editorMemoryManager } from '@/engine/editor';
 import { useAI } from '@/hooks/ai/useAI';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { useAIReview } from '@/hooks/useAIReview';
+import { useAIReview } from '@/hooks/ai/useAIReview';
 import { useTabStore } from '@/stores/tabStore';
 import type { ChatSpaceMessage, FileItem, Project } from '@/types';
 

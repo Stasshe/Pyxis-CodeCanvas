@@ -7,16 +7,16 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { useTheme } from '../context/ThemeContext';
 
 import BottomPanel from '@/components/Bottom/BottomPanel';
-import BottomStatusBar from '@/components/BottomStatusBar';
+import BottomStatusBar from '@/components/Bottom/BottomStatusBar';
 import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
-import OperationWindow from '@/components/OperationWindow';
-import PaneContainer from '@/components/PaneContainer';
-import PaneNavigator from '@/components/PaneNavigator';
+import OperationWindow from '@/components/Top/OperationWindow';
+import PaneContainer from '@/components/Pane/PaneContainer';
+import PaneNavigator from '@/components/Pane/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
-import TopBar from '@/components/TopBar';
+import TopBar from '@/components/Top/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
 import {
@@ -25,12 +25,12 @@ import {
   useRightSidebarResize,
 } from '@/engine/helper/resize';
 import type { EditorPane } from '@/engine/tabs/types';
-import { useFileDeleteTabSync } from '@/hooks/useFileDeleteTabSync';
-import useGlobalScrollLock from '@/hooks/useGlobalScrollLock';
-import { useKeyBinding } from '@/hooks/useKeyBindings';
-import { useOptimizedUIStateSave } from '@/hooks/useOptimizedUIStateSave';
-import { useProjectWelcome } from '@/hooks/useProjectWelcome';
-import { useTabContentRestore } from '@/hooks/useTabContentRestore';
+import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
+import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
+import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
+import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
+import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
+import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { useProjectStore } from '@/stores/projectStore';
 import { sessionStorage } from '@/stores/sessionStorage';
 import { useTabStore } from '@/stores/tabStore';

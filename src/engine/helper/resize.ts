@@ -6,7 +6,7 @@
  * 新しい実装では useResize フックを使用して、コードの重複を排除。
  */
 
-import { useResize } from '@/hooks/useResize';
+import { useResize } from '@/hooks/ui/useResize';
 
 // 右サイドバー用リサイズフック
 export const useRightSidebarResize = (

@@ -21,9 +21,9 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { DEFAULT_BINDINGS } from '@/hooks/defaultKeybindings';
-import { type Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindingUtils';
-import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/useKeyBindings';
+import { DEFAULT_BINDINGS } from '@/hooks/keybindings/defaultKeybindings';
+import { type Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindings/keybindingUtils';
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 
 export default function ShortcutKeysTab() {
   const { t } = useTranslation();

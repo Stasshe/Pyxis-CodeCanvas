@@ -16,7 +16,7 @@ import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { joinPath, toAppPath } from '@/engine/core/pathResolver';
+import { joinPath, toAppPath } from '@/engine/core/pathUtils';
 import { authRepository } from '@/engine/user/authRepository';
 
 export interface CloneOptions {

@@ -14,7 +14,7 @@ import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/export/exportPdf';
 import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings } from '@/hooks/state/useSettings';
 import { useTabStore } from '@/stores/tabStore';
 import type { Project, ProjectFile } from '@/types';
 

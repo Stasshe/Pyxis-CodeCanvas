@@ -16,14 +16,14 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GitHistory from './GitHistory';
 
-import OperationWindow, { type OperationListItem } from '@/components/OperationWindow';
+import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 
 import { generateCommitMessage } from '@/engine/commitMsgAI';
-import { useDiffTabHandlers } from '@/hooks/useDiffTabHandlers';
+import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
 import type { GitCommit, GitRepository, GitStatus } from '@/types/git';
 
 interface GitPanelProps {

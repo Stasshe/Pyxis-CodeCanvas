@@ -11,7 +11,7 @@ import SettingsPanel from './SettingsPanel';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { useExtensionPanels } from '@/hooks/useExtensionPanels';
+import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
 import type { Project } from '@/types';
 import type { FileItem, MenuTab } from '@/types';
 

@@ -12,7 +12,7 @@ import {
   normalizeDotSegments,
   toAppPath,
   toFSPath,
-} from '@/engine/core/pathResolver';
+} from '@/engine/core/pathUtils';
 
 export interface FSModuleOptions {
   projectDir: string;

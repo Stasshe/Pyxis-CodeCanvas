@@ -4,10 +4,10 @@ import { useCallback, useEffect } from 'react';
 
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
 
-import { useGitContext } from '@/components/PaneContainer';
+import { useGitContext } from '@/components/Pane/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { editorMemoryManager } from '@/engine/editor';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectStore } from '@/stores/projectStore';
 
 /**

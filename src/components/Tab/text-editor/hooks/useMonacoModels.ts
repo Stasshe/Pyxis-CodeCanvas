@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 import { getLanguage } from '../editors/editor-utils';
 import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-language';
 
-import { MONACO_CONFIG } from '@/context/config';
+import { MONACO_CONFIG } from '@/constants/config';
 
 /**
  * Monaco Model Management Architecture

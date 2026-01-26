@@ -13,7 +13,7 @@ import { runScript } from './scriptRunner';
 import { type Segment, type TokenObj, isDevNull } from './types';
 
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, resolvePath } from '@/engine/core/pathResolver';
+import { fsPathToAppPath, resolvePath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
 
 /**

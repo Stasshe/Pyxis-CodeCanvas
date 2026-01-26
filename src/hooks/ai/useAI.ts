@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
 import { generateChatResponse, generateCodeEdit } from '@/engine/ai/fetchAI';
 import { ASK_PROMPT_TEMPLATE, EDIT_PROMPT_TEMPLATE } from '@/engine/ai/prompts';

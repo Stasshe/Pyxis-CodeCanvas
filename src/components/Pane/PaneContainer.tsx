@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 
-import PaneResizer from '@/components/PaneResizer';
+import PaneResizer from '@/components/Pane/PaneResizer';
 import { Breadcrumb } from '@/components/Tab/Breadcrumb';
 import TabBar from '@/components/Tab/TabBar';
 import {

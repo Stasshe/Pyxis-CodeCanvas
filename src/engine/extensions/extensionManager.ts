@@ -638,7 +638,7 @@ class ExtensionManager {
           }
           case 'pathUtils': {
             const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } =
-              await import('@/engine/core/pathResolver');
+              await import('@/engine/core/pathUtils');
             return {
               normalizePath,
               toAppPath,

@@ -12,7 +12,7 @@ import { runtimeRegistry } from './RuntimeRegistry';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
 import { createModuleNotFoundError } from './nodeErrors';
-import { dirname, normalizePath } from './pathUtils';
+import { getParentPath, toAppPath, fsPathToAppPath } from '@/engine/core/pathUtils';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 import { transpileManager } from './transpileManager';
 
@@ -724,7 +724,8 @@ export class ModuleLoader {
     try {
       await fileRepository.init();
       // パスを正規化して検索
-      const normalizedPath = normalizePath(filePath, this.projectName);
+      // Normalize using pathUtils: convert FSPath to AppPath (handles fallback internally)
+      const normalizedPath = fsPathToAppPath(filePath, this.projectName);
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
 
       if (!file) {
@@ -748,7 +749,8 @@ export class ModuleLoader {
    * ディレクトリパスを取得
    */
   private dirname(filePath: string): string {
-    return dirname(filePath);
+    // Use core getParentPath directly to maintain consistent semantics
+    return getParentPath(filePath);
   }
 
   /**

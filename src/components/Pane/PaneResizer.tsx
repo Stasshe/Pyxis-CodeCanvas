@@ -5,7 +5,7 @@ import type React from 'react';
 import { memo, useCallback, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
-import { usePaneResize } from '@/hooks/usePaneResize';
+import { usePaneResize } from '@/hooks/ui/usePaneResize';
 
 interface PaneResizerProps {
   direction: 'horizontal' | 'vertical';

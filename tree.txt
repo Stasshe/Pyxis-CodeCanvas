@@ -146,7 +146,6 @@ Root
 │       └── analyze-metafiles.js
 ├── src
 │   ├── app
-│   │   ├── Toast.css
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── markdown.css
@@ -165,19 +164,18 @@ Root
 │   │   │   └── review
 │   │   │       ├── ChangedFilesPanel.tsx
 │   │   │       └── FileChangeItem.tsx
+│   │   ├── AppInitializer.tsx
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
+│   │   │   ├── BottomStatusBar.tsx
 │   │   │   ├── DebugConsole.tsx
 │   │   │   ├── DebugConsoleAPI.ts
 │   │   │   ├── OutputPanel.tsx
 │   │   │   ├── ProblemsPanel.tsx
 │   │   │   └── Terminal.tsx
-│   │   ├── BottomStatusBar.tsx
 │   │   ├── Confirmation.tsx
 │   │   ├── DnD
 │   │   │   └── CustomDragLayer.tsx
-│   │   ├── ExtensionInitializer.tsx
-│   │   ├── KeyComboClient.tsx
 │   │   ├── Left
 │   │   │   ├── ExtensionPanelRenderer.tsx
 │   │   │   ├── ExtensionsPanel.tsx
@@ -202,10 +200,10 @@ Root
 │   │   │   ├── SearchPanel.tsx
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
-│   │   ├── OperationWindow.tsx
-│   │   ├── PaneContainer.tsx
-│   │   ├── PaneNavigator.tsx
-│   │   ├── PaneResizer.tsx
+│   │   ├── Pane
+│   │   │   ├── PaneContainer.tsx
+│   │   │   ├── PaneNavigator.tsx
+│   │   │   └── PaneResizer.tsx
 │   │   ├── ProjectModal.tsx
 │   │   ├── Right
 │   │   │   ├── PanelRightIcon.tsx
@@ -249,18 +247,21 @@ Root
 │   │   │   │   └── utils
 │   │   │   │       └── CharCountDetails.tsx
 │   │   │   └── useTabCloseConfirmation.tsx
-│   │   ├── TabInitializer.tsx
-│   │   ├── Toast.tsx
-│   │   └── TopBar.tsx
+│   │   └── Top
+│   │       ├── MdPreviewDialog.tsx
+│   │       ├── OperationList.tsx
+│   │       ├── OperationUtils.tsx
+│   │       ├── OperationWindow.tsx
+│   │       └── TopBar.tsx
 │   ├── constants
+│   │   ├── config.ts
 │   │   └── dndTypes.ts
 │   ├── context
 │   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
 │   │   ├── TabContext.tsx
-│   │   ├── ThemeContext.tsx
-│   │   └── config.ts
+│   │   └── ThemeContext.tsx
 │   ├── engine
 │   │   ├── ai
 │   │   │   ├── contextBuilder.ts
@@ -365,7 +366,7 @@ Root
 │   │   │   ├── fileRepository.ts
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── gitignore.ts
-│   │   │   ├── pathResolver.ts
+│   │   │   ├── pathUtils.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
 │   │   ├── editor
@@ -418,7 +419,6 @@ Root
 │   │   │   ├── nodeErrors.ts
 │   │   │   ├── nodeRuntime.ts
 │   │   │   ├── normalizeCjsEsm.ts
-│   │   │   ├── pathUtils.ts
 │   │   │   ├── providers
 │   │   │   │   ├── ExtensionTranspilerProvider.ts
 │   │   │   │   └── NodeRuntimeProvider.ts
@@ -446,43 +446,45 @@ Root
 │   │   │   │   └── index.ts
 │   │   │   ├── registerBuiltinTabs.ts
 │   │   │   └── types.ts
-│   │   └── user
-│   │       ├── authRepository.ts
-│   │       ├── crypto.ts
-│   │       └── githubUserManager.ts
+│   │   ├── user
+│   │   │   ├── authRepository.ts
+│   │   │   ├── crypto.ts
+│   │   │   └── githubUserManager.ts
+│   │   └── workers
+│   │       └── searchWorker.ts
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
+│   │   │   ├── useAIReview.ts
 │   │   │   ├── useChatSpace.ts
 │   │   │   └── useInputHistory.ts
-│   │   ├── defaultKeybindings.ts
-│   │   ├── gitHooks.ts
-│   │   ├── keybindingUtils.ts
-│   │   ├── useAIReview.ts
-│   │   ├── useDiffTabHandlers.ts
-│   │   ├── useExtensionPanels.ts
-│   │   ├── useFileDeleteTabSync.ts
-│   │   ├── useGlobalScrollLock.ts
-│   │   ├── useKeyBindings.ts
-│   │   ├── useOptimizedUIStateSave.ts
-│   │   ├── usePaneResize.ts
-│   │   ├── useProjectWelcome.ts
-│   │   ├── useResize.ts
-│   │   ├── useSettings.ts
-│   │   └── useTabContentRestore.ts
+│   │   ├── keybindings
+│   │   │   ├── defaultKeybindings.ts
+│   │   │   ├── keybindingUtils.ts
+│   │   │   └── useKeyBindings.ts
+│   │   ├── state
+│   │   │   ├── useFileDeleteTabSync.ts
+│   │   │   ├── useProjectWelcome.ts
+│   │   │   └── useSettings.ts
+│   │   └── ui
+│   │       ├── useDiffTabHandlers.ts
+│   │       ├── useExtensionPanels.ts
+│   │       ├── useGlobalScrollLock.ts
+│   │       ├── useOptimizedUIStateSave.ts
+│   │       ├── usePaneResize.ts
+│   │       ├── useResize.ts
+│   │       └── useTabContentRestore.ts
 │   ├── stores
 │   │   ├── projectStore.ts
 │   │   ├── sessionStorage.ts
 │   │   ├── tabStore.ts
 │   │   └── terminalHistoryStorage.ts
-│   ├── types
-│   │   ├── git.ts
-│   │   ├── index.ts
-│   │   ├── path-browserify.d.ts
-│   │   ├── settings.ts
-│   │   └── vm-browserify.d.ts
-│   └── workers
-│       └── searchWorker.ts
+│   └── types
+│       ├── git.ts
+│       ├── index.ts
+│       ├── path-browserify.d.ts
+│       ├── settings.ts
+│       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
 │   ├── aiMultiEditComplexScenarios.test.ts
@@ -520,11 +522,13 @@ Root
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
+├── tsconfig.extensions.json
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 └── types
     └── esbuild-cdn.d.ts
 
-75 directories, 449 files
+80 directories, 448 files
 
 =================================
 
@@ -539,6 +543,7 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   └── manifest.json
 ├── calc
+│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── index.tsx
 │   ├── manifest.json
@@ -550,6 +555,17 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   ├── manifest.json
 │   ├── node_modules
+│   │   ├── @kurkle
+│   │   │   └── color
+│   │   │       ├── LICENSE.md
+│   │   │       ├── README.md
+│   │   │       ├── dist
+│   │   │       │   ├── color.cjs
+│   │   │       │   ├── color.d.ts
+│   │   │       │   ├── color.esm.js
+│   │   │       │   ├── color.min.js
+│   │   │       │   └── color.min.js.map
+│   │   │       └── package.json
 │   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
 │   └── package.json
 ├── lang-packs
@@ -623,6 +639,7 @@ extensions/ 以下のディレクトリ構造:
 │   │   └── pyodide -> ../../../node_modules/.pnpm/pyodide@0.29.0/node_modules/pyodide
 │   └── package.json
 ├── react-preview
+│   ├── PNPM-GUIDE.md
 │   ├── README.md
 │   ├── _build.js
 │   ├── index.tsx
@@ -648,18 +665,14 @@ extensions/ 以下のディレクトリ構造:
     ├── manifest.json
     └── transpile.worker.ts
 
-41 directories, 77 files
+44 directories, 87 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 71052
-合計文字数: 2245242
-合計ファイルサイズ(bytes): 2391082
+合計行数: 70794
+合計文字数: 2235808
+合計ファイルサイズ(bytes): 2380968
 
-開発時のdev container全体のサイズ(bytes): 1.2G	.
-==========
-ビルト済みファイルの行数: 129631
-合計文字数: 27046000
-合計ファイルサイズ(bytes): 30033479
+開発時のdev container全体のサイズ(bytes): 2.4G	.
