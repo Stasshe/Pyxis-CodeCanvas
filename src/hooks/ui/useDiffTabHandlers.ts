@@ -4,6 +4,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { normalizePath, toGitPath } from '@/engine/core/fileRepository'; //  toGitPath 追加
 import { useTabStore } from '@/stores/tabStore';
 import type { SingleFileDiff } from '@/types';
+import { getWorkdirContent, getStagedContent, getCommitContent } from './diffUtils';
 
 /**
  * [NEW ARCHITECTURE] Git Diff タブを開くための Hook
@@ -18,10 +19,12 @@ export function useDiffTabHandlers(currentProject: any) {
       commitId,
       filePath,
       editable,
+      staged,
     }: {
       commitId: string;
       filePath: string;
       editable?: boolean;
+      staged?: boolean;
     }) => {
       if (!currentProject) return;
 
@@ -36,6 +39,86 @@ export function useDiffTabHandlers(currentProject: any) {
 
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
 
+      // NOTE: diff 操作用のヘルパは分割されたユーティリティへ移動しました（diffUtils）
+
+      // ---------- staged な比較を優先するケース ----------
+      if (staged === true) {
+        // edited==true の場合は (STAGED) vs (WORKDIR)
+        // edited==false の場合は (HEAD commit) vs (STAGED)
+        // commitId は HEAD のコミットを渡す前提
+        const headCommitId = commitId;
+
+        // HEAD の内容を取得（存在しない場合は空文字）
+        let headContent = '';
+        try {
+          headContent = await getCommitContent(git, headCommitId, gitPath);
+          console.log('[useDiffTabHandlers] Head content length:', headContent.length);
+        } catch (e) {
+          console.warn('[useDiffTabHandlers] Failed to read head content for staged diff', e);
+          headContent = '';
+        }
+
+        // staged のコンテンツを復元（HEAD に staged の diff を適用）
+        let stagedContent = '';
+        try {
+          stagedContent = await getStagedContent(git, headCommitId, gitPath);
+          console.log('[useDiffTabHandlers] Reconstructed staged content length:', stagedContent.length);
+        } catch (e) {
+          console.warn('[useDiffTabHandlers] Failed to reconstruct staged content from diff', e);
+          stagedContent = '';
+        }
+
+        if (editable === true) {
+          // STAGED vs WORKDIR
+          const formerCommitId = 'STAGED';
+          const latterCommitId = 'WORKDIR';
+
+          const latterContent = await getWorkdirContent(currentProject, normalizedPath, gitPath);
+
+          const diffData: SingleFileDiff = {
+            formerFullPath: normalizedPath,
+            formerCommitId,
+            latterFullPath: normalizedPath,
+            latterCommitId,
+            formerContent: stagedContent,
+            latterContent,
+          };
+
+          openTab(
+            {
+              files: diffData,
+              editable: true,
+            },
+            { kind: 'diff', searchAllPanesForReuse: true }
+          );
+          return;
+        }
+
+        // read-only: HEAD vs STAGED
+        const formerCommitId = headCommitId || '';
+        const latterCommitId = 'STAGED';
+
+        const diffData: SingleFileDiff = {
+          formerFullPath: normalizedPath,
+          formerCommitId,
+          latterFullPath: normalizedPath,
+          latterCommitId,
+          formerContent: headContent,
+          latterContent: stagedContent,
+        };
+
+        openTab(
+          {
+            files: diffData,
+            editable: false,
+          },
+          { kind: 'diff', searchAllPanesForReuse: true }
+        );
+
+        return;
+      }
+
+      // ---------- 既存のワーキングディレクトリ比較（editable==true） ----------
       // working directory vs コミット のdiff（editableがtrueの場合）
       if (editable === true && commitId && commitId.length >= 6 && commitId !== 'WORKDIR') {
         const formerCommitId = commitId;

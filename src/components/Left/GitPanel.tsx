@@ -314,12 +314,14 @@ export default function GitPanel({
   // Diffファイルクリックハンドラー（メモ化）
   const handleStagedFileClick = useCallback(
     async (file: string) => {
+      // ステージ済みファイルをクリック -> HEAD vs STAGED（読み取り専用）を表示
       if (handleDiffFileClick && gitRepo && gitRepo.commits.length > 0) {
         const latestCommit = gitRepo.commits[0];
         await handleDiffFileClick({
           commitId: latestCommit.hash,
           filePath: file,
           editable: false,
+          staged: true,
         });
       }
     },
@@ -328,13 +330,30 @@ export default function GitPanel({
 
   const handleUnstagedFileClick = useCallback(
     async (file: string) => {
+      // 未ステージの差分をクリック -> ファイルが同時にステージ済みかを判定
+      // (1) ステージ済みかつ未ステージの両方に存在する場合: STAGED vs WORKDIR を表示（editable）
+      // (2) そうでない場合: HEAD vs WORKDIR を表示（editable）
       if (handleDiffFileClick && gitRepo && gitRepo.commits.length > 0) {
         const latestCommit = gitRepo.commits[0];
-        await handleDiffFileClick({
-          commitId: latestCommit.hash,
-          filePath: file,
-          editable: true,
-        });
+        const isStaged = (gitRepo.status?.staged || []).includes(file);
+        const isUnstaged = (gitRepo.status?.unstaged || []).includes(file);
+
+        if (isStaged && isUnstaged) {
+          // STAGED vs WORKDIR
+          await handleDiffFileClick({
+            commitId: latestCommit.hash,
+            filePath: file,
+            editable: true,
+            staged: true,
+          });
+        } else {
+          // HEAD vs WORKDIR
+          await handleDiffFileClick({
+            commitId: latestCommit.hash,
+            filePath: file,
+            editable: true,
+          });
+        }
       }
     },
     [handleDiffFileClick, gitRepo]
