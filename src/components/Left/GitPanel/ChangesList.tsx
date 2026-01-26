@@ -42,7 +42,16 @@ export default function ChangesList({
           marginBottom: '0.25rem',
         }}
       >
-        <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.foreground, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <h4
+          style={{
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: colors.foreground,
+            display: 'flex',
+            gap: '0.5rem',
+            alignItems: 'center',
+          }}
+        >
           {t('git.staged')} ({gitRepo?.status?.staged?.length || 0})
         </h4>
         <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -108,11 +117,27 @@ export default function ChangesList({
           marginBottom: '0.25rem',
         }}
       >
-        <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.foreground, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {t('git.changes')} ({(gitRepo?.status?.unstaged?.length || 0) + (gitRepo?.status?.deleted?.length || 0) + (gitRepo?.status?.untracked?.length || 0)})
+        <h4
+          style={{
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: colors.foreground,
+            display: 'flex',
+            gap: '0.5rem',
+            alignItems: 'center',
+          }}
+        >
+          {t('git.changes')} (
+          {(gitRepo?.status?.unstaged?.length || 0) +
+            (gitRepo?.status?.deleted?.length || 0) +
+            (gitRepo?.status?.untracked?.length || 0)}
+          )
         </h4>
         <div style={{ display: 'flex', gap: '0.25rem' }}>
-          {((gitRepo?.status?.unstaged?.length || 0) + (gitRepo?.status?.deleted?.length || 0) + (gitRepo?.status?.untracked?.length || 0)) > 0 && (
+          {(gitRepo?.status?.unstaged?.length || 0) +
+            (gitRepo?.status?.deleted?.length || 0) +
+            (gitRepo?.status?.untracked?.length || 0) >
+            0 && (
             <>
               <button
                 onClick={handleStageAll}
@@ -147,7 +172,10 @@ export default function ChangesList({
         </div>
       </div>
 
-      {((gitRepo?.status?.unstaged?.length || 0) + (gitRepo?.status?.deleted?.length || 0) + (gitRepo?.status?.untracked?.length || 0)) === 0 && (gitRepo?.status?.staged?.length || 0) === 0 ? (
+      {(gitRepo?.status?.unstaged?.length || 0) +
+        (gitRepo?.status?.deleted?.length || 0) +
+        (gitRepo?.status?.untracked?.length || 0) ===
+        0 && (gitRepo?.status?.staged?.length || 0) === 0 ? (
         <p style={{ fontSize: '0.75rem', color: colors.mutedFg }}>{t('git.noChanges')}</p>
       ) : (
         <div>
