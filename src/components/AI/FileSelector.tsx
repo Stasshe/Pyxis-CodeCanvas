@@ -2,9 +2,7 @@
 
 'use client';
 
-import React from 'react';
-
-import OperationWindow from '@/components/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow';
 import type { FileItem } from '@/types';
 
 interface FileSelectorProps {

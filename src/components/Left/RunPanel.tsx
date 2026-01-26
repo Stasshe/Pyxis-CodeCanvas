@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import { Code, Play, Square, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import OperationWindow from '@/components/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';

@@ -11,7 +11,7 @@ import BottomStatusBar from '@/components/BottomStatusBar';
 import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
-import OperationWindow from '@/components/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow';
 import PaneContainer from '@/components/PaneContainer';
 import PaneNavigator from '@/components/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';

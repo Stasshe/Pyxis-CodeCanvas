@@ -16,7 +16,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GitHistory from './GitHistory';
 
-import OperationWindow, { type OperationListItem } from '@/components/OperationWindow';
+import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { LOCALSTORAGE_KEY } from '@/context/config';
