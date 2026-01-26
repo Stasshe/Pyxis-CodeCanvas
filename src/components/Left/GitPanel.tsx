@@ -19,7 +19,7 @@ import GitHistory from './GitHistory';
 import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 
 import { generateCommitMessage } from '@/engine/commitMsgAI';

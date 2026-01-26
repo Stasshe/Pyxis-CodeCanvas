@@ -12,7 +12,7 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from './config';
+import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from '@/constants/config';
 
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { clearAllCacheForLocale, loadTranslations } from '@/engine/i18n/loader';

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { downloadWorkspaceZip } from '@/engine/export/exportRepo';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import { useTabStore } from '@/stores/tabStore';

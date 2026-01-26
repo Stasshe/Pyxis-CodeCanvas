@@ -9,7 +9,7 @@ import Terminal from './Terminal';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { OUTPUT_CONFIG } from '@/context/config';
+import { OUTPUT_CONFIG } from '@/constants/config';
 import type { FileItem } from '@/types';
 
 interface BottomPanelProps {

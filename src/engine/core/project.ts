@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 
 import { fileRepository } from './fileRepository';
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { createChatSpace } from '@/engine/storage/chatStorageAdapter';
 import type { FileItem } from '@/types';

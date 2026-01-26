@@ -1,4 +1,4 @@
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
 import type { NpmCommands } from '@/engine/cmd/global/npm';

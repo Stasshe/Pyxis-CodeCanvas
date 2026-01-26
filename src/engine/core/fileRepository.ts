@@ -17,7 +17,7 @@ import {
   toAppPath,
 } from './pathResolver';
 
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
 import { initialFileContents } from '@/engine/initialFileContents';
 import {
@@ -462,8 +462,6 @@ export class FileRepository {
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [
-        `${LOCALSTORAGE_KEY.TERMINAL_HISTORY}${projectId}`,
-        `${LOCALSTORAGE_KEY.EDITOR_LAYOUT}${projectId}`,
         LOCALSTORAGE_KEY.LAST_EXECUTE_FILE,
       ];
       keysToRemove.forEach(key => localStorage.removeItem(key));

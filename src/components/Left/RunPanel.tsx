@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import OperationWindow from '@/components/Top/OperationWindow';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/context/config';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry';
 import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
