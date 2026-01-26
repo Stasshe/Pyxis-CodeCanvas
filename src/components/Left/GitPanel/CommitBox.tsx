@@ -76,7 +76,7 @@ export default function CommitBox({
           }}
           className="select-none"
         >
-          {t('git.generateCommit')}
+          {t('git.generateCommitMessage')}
         </button>
         <button
           onClick={handleCommit}
