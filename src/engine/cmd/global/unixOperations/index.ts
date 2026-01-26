@@ -19,3 +19,4 @@ export { TouchCommand } from './touch';
 export { TreeCommand } from './tree';
 export { UnzipCommand } from './unzip';
 export { WcCommand } from './wc';
+export { DateCommand } from './date';

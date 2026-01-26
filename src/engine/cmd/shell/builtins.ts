@@ -104,52 +104,24 @@ const makeUnixBridge = (name: string) => {
 export default function adaptUnixToStream(unix: any) {
   const obj: Record<string, any> = {};
 
-  // 全てunixHandlerに統一委譲
-  const commands = [
-    'echo',
-    'pwd',
-    'ls',
-    'cd',
-    'mkdir',
-    'touch',
-    'rm',
-    'cp',
-    'mv',
-    'rename',
-    'tree',
-    'find',
-    'help',
-    'unzip',
-    'stat',
-    'cat',
-    'head',
-    'tail',
-    'grep',
-    'wc',
-  ];
+  // unix のエクスポート関数を自動検出して登録
+  const unixCommands =
+    unix && typeof unix === 'object'
+      ? Object.keys(unix).filter(k => typeof (unix as any)[k] === 'function')
+      : [];
 
-  for (const cmd of commands) {
+  for (const cmd of unixCommands) {
+    if (!cmd || typeof cmd !== 'string') continue;
+    // 後続で定義されるシェル内ビルトイン（例: test, type, node）は上書きされる
     obj[cmd] = makeUnixBridge(cmd);
   }
 
   // test/[ ビルトイン - TestCommandに委譲
   const evaluateTest = async (ctx: StreamCtx, args: string[] = []) => {
     try {
-      // unix.testを使用（TestCommandに委譲）
-      if (typeof unix?.test === 'function') {
-        const ok = await unix.test(args);
-        if (!ok) {
-          throw { __silent: true, code: 1 };
-        }
-      } else {
-        // フォールバック: シンプルな評価
-        let tokens = [...args];
-        if (tokens.length > 0 && tokens[tokens.length - 1] === ']') {
-          tokens = tokens.slice(0, -1);
-        }
-        if (tokens.length === 0 || (tokens.length === 1 && tokens[0].length === 0)) {
-          throw { __silent: true, code: 1 };
-        }
+      const ok = await unix.test(args);
+      if (!ok) {
+        throw { __silent: true, code: 1 };
       }
       ctx.stdout.end();
     } catch (e: any) {

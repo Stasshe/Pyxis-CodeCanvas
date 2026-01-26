@@ -284,9 +284,15 @@ export async function handleUnixCommand(
         await append('ln: linking not supported in this environment');
         break;
 
-      case 'date':
-        await append(new Date().toLocaleString('ja-JP'));
+      case 'date': {
+        try {
+          const result = await unix.date(args);
+          await append(result);
+        } catch (err) {
+          await append(`date: ${(err as Error).message}`);
+        }
         break;
+      }
 
       case 'whoami':
         await append('user');

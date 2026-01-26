@@ -21,6 +21,7 @@ import {
   TreeCommand,
   UnzipCommand,
   WcCommand,
+  DateCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -68,6 +69,7 @@ export class UnixCommands {
   private tailCmd: TailCommand;
   private statCmd: StatCommand;
   private wcCmd: WcCommand;
+  private dateCmd: DateCommand;
 
   constructor(projectName: string, projectId?: string) {
     this.currentDir = gitFileSystem.getProjectDir(projectName);
@@ -99,6 +101,7 @@ export class UnixCommands {
     this.tailCmd = new TailCommand(projectName, this.currentDir, projectId);
     this.statCmd = new StatCommand(projectName, this.currentDir, projectId);
     this.wcCmd = new WcCommand(projectName, this.currentDir, projectId);
+    this.dateCmd = new DateCommand(projectName, this.currentDir, projectId);
   }
 
   // ==================== 状態管理 ====================
@@ -145,6 +148,7 @@ export class UnixCommands {
     this.tailCmd.currentDir = dir;
     this.statCmd.currentDir = dir;
     this.wcCmd.currentDir = dir;
+    this.dateCmd.currentDir = dir;
   }
 
   // ==================== POSIX準拠コマンド (args: string[]) ====================
@@ -320,6 +324,14 @@ export class UnixCommands {
    */
   async help(args: string[] = []): Promise<string> {
     return await this.helpCmd.execute(args);
+  }
+
+  /**
+   * date - 日付表示（POSIXライク）
+   * @param args - [options..., +FORMAT]
+   */
+  async date(args: string[] = []): Promise<string> {
+    return await this.dateCmd.execute(args);
   }
 
   /**
