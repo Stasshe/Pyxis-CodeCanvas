@@ -3,8 +3,8 @@
 import { useTheme } from '@/context/ThemeContext';
 import { useTabStore } from '@/stores/tabStore';
 import { loader } from '@monaco-editor/react';
+import { useTranslation } from '@/context/I18nContext';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface ProblemsPanelProps {
@@ -73,7 +73,7 @@ function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
 
 export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) {
   const { colors } = useTheme();
-  const globalActiveTab = useTabStore(state => state.globalActiveTab);
+  const { t } = useTranslation();
   const panes = useTabStore(state => state.panes);
   const updateTab = useTabStore(state => state.updateTab);
   const activateTab = useTabStore(state => state.activateTab);

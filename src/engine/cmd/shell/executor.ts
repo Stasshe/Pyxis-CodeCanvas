@@ -138,7 +138,7 @@ export class ShellExecutor {
   private async restoreCwd(unix: UnixCommands, savedCwd: string | null): Promise<void> {
     if (!savedCwd) return;
     try {
-      await unix.cd(savedCwd);
+      await unix.cd([savedCwd]);
     } catch (e) {
       // Non-fatal: CWD restore failed, may affect subsequent commands
       console.warn('[ShellExecutor] Failed to restore CWD after script execution:', e);

@@ -84,25 +84,45 @@ export class GitMergeOperations {
     return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
   }
 
+  // Resolve a branch name which may be local or remote into a commit OID
+  private async resolveBranchCommit(branchName: string): Promise<string> {
+    // Try multiple possible refs: heads, remotes, full ref
+    const tryRefs = [
+      `refs/heads/${branchName}`,
+      `refs/remotes/${branchName}`,
+      branchName, // allow full refs
+    ];
+
+    for (let i = 0; i < tryRefs.length; i++) {
+      try {
+        const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: tryRefs[i] });
+        return oid;
+      } catch {
+        // try next
+      }
+    }
+
+    // As a fallback, attempt to interpret branchName like 'origin/main' -> refs/remotes/origin/main
+    try {
+      const remoteRef = `refs/remotes/${branchName}`;
+      const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
+      return oid;
+    } catch (error) {
+      throw new Error(`Failed to resolve branch ref for '${branchName}': ${(error as Error).message}`);
+    }
+  }
+
   // Fast-forward マージかチェック
   private async canFastForward(
     sourceBranch: string,
     targetBranch: string
   ): Promise<{ canFF: boolean; sourceCommit: string; targetCommit: string }> {
     try {
-      const sourceCommit = await git.resolveRef({
-        fs: this.fs,
-        dir: this.dir,
-        ref: `refs/heads/${sourceBranch}`,
-      });
-      const targetCommit = await git.resolveRef({
-        fs: this.fs,
-        dir: this.dir,
-        ref: `refs/heads/${targetBranch}`,
-      });
+      const sourceCommit = await this.resolveBranchCommit(sourceBranch);
+      const targetCommit = await this.resolveBranchCommit(targetBranch);
 
-      // targetBranchがsourceBranchの祖先かチェック（bがaの祖先か？）
-      const isAncestor = await git.isDescendent({
+      // targetCommit が sourceCommit の子孫（descendent）であれば fast-forward 可能
+      const isDescendent = await git.isDescendent({
         fs: this.fs,
         dir: this.dir,
         oid: targetCommit,
@@ -110,7 +130,7 @@ export class GitMergeOperations {
       });
 
       return {
-        canFF: isAncestor,
+        canFF: isDescendent,
         sourceCommit,
         targetCommit,
       };

@@ -10,6 +10,7 @@ import { GitMergeOperations } from './gitOperations/merge';
 import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils';
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
+import { formatStatusResult } from './gitOperations/status';
 
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -179,8 +180,9 @@ export class GitCommands {
       return this.getStatusFallback();
     }
 
-    // 結果をフォーマット
-    return await this.formatStatusResult(status);
+    // 結果をフォーマット (moved to gitOperations/status.ts)
+    const currentBranch = await this.getCurrentBranch();
+    return await formatStatusResult(status, currentBranch);
   }
 
   // ステータス取得のフォールバック処理
@@ -200,7 +202,9 @@ export class GitCommands {
       let result = `On branch ${currentBranch}\n`;
       result += '\nUntracked files:\n';
       result += '  (use "git add <file>..." to include in what will be committed)\n\n';
-      projectFiles.forEach(file => (result += `\t${file}\n`));
+      for (let i = 0; i < projectFiles.length; i++) {
+        result += `\t${projectFiles[i]}\n`;
+      }
       result += '\nnothing added to commit but untracked files present (use "git add" to track)';
 
       return result;
@@ -262,132 +266,8 @@ export class GitCommands {
     return projectFiles;
   }
 
-  // ステータス結果をフォーマット（git_stable.tsベース）
-  private async formatStatusResult(
-    status: Array<[string, number, number, number]>
-  ): Promise<string> {
-    const currentBranch = await this.getCurrentBranch();
-
-    if (status.length === 0) {
-      return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
-    }
-
-    const { untracked, modified, staged, deleted } = this.categorizeStatusFiles(status);
-
-    let result = `On branch ${currentBranch}\n`;
-
-    if (staged.length > 0) {
-      result += '\nChanges to be committed:\n';
-      staged.forEach(file => (result += `  new file:   ${file}\n`));
-    }
-
-    if (modified.length > 0) {
-      result += '\nChanges not staged for commit:\n';
-      modified.forEach(file => (result += `  modified:   ${file}\n`));
-    }
-
-    if (deleted.length > 0) {
-      if (modified.length === 0) {
-        result += '\nChanges not staged for commit:\n';
-      }
-      deleted.forEach(file => (result += `  deleted:    ${file}\n`));
-    }
-
-    if (untracked.length > 0) {
-      result += '\nUntracked files:\n';
-      untracked.forEach(file => (result += `  ${file}\n`));
-      result += '\nnothing added to commit but untracked files present (use "git add" to track)';
-    }
-
-    if (
-      staged.length === 0 &&
-      modified.length === 0 &&
-      untracked.length === 0 &&
-      deleted.length === 0
-    ) {
-      result = `On branch ${currentBranch}\nnothing to commit, working tree clean`;
-    }
-
-    return result;
-  }
-
-  // ファイルのステータスを分類（git_stable.tsベース）
-  private categorizeStatusFiles(status: Array<[string, number, number, number]>): {
-    untracked: string[];
-    modified: string[];
-    staged: string[];
-    deleted: string[];
-  } {
-    const untracked: string[] = [];
-    const modified: string[] = [];
-    const staged: string[] = [];
-    const deleted: string[] = [];
-
-    console.log('[categorizeStatusFiles] Processing', status.length, 'files');
-
-    status.forEach(([filepath, HEAD, workdir, stage]) => {
-      // isomorphic-gitのstatusMatrixの値の意味:
-      // HEAD: 0=ファイルなし, 1=ファイルあり
-      // workdir: 0=ファイルなし, 1=ファイルあり, 2=変更あり
-      // stage: 0=ステージなし, 1=ステージ済み（変更なし）, 2=ステージ済み（変更あり）, 3=ステージ済み（新規）
-
-      if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
-        // 新しいファイル（未追跡）- workdir が 1 または 2 の場合
-        untracked.push(filepath);
-        console.log('[categorizeStatusFiles]  -> untracked');
-      } else if (HEAD === 0 && stage === 3) {
-        // 新しくステージされたファイル（stage=3の場合）
-        staged.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged (new, stage=3)');
-      } else if (HEAD === 0 && stage === 2) {
-        // 新しくステージされたファイル（stage=2の場合）
-        staged.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged (new, stage=2)');
-      } else if (HEAD === 1 && workdir === 2 && stage === 1) {
-        // 変更されたファイル（未ステージ）
-        modified.push(filepath);
-        console.log('[categorizeStatusFiles]  -> modified (unstaged)');
-      } else if (HEAD === 1 && workdir === 2 && stage === 2) {
-        // 変更されてステージされたファイル
-        staged.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged (modified)');
-      } else if (HEAD === 1 && workdir === 2 && stage === 3) {
-        // ステージ済みファイルが再度変更された場合
-        // staged（ステージされた変更）とmodified（追加の未ステージ変更）の両方に追加
-        staged.push(filepath);
-        modified.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged + modified (staged file was modified)');
-      } else if (HEAD === 1 && workdir === 1 && stage === 3) {
-        // ステージ済み（stage=3）でworkdirがHEADと同じ場合
-        staged.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged (stage=3, workdir unchanged)');
-      } else if (HEAD === 1 && workdir === 0 && stage === 1) {
-        // 削除されたファイル（未ステージ）- unstaged deletion
-        deleted.push(filepath);
-        console.log('[categorizeStatusFiles]  -> deleted (unstaged)');
-      } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-        // 削除されたファイル（ステージ済み）- staged deletion
-        staged.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged (deleted)');
-      } else if (HEAD === 1 && workdir === 0 && stage === 3) {
-        // 削除されてステージされたファイル
-        staged.push(filepath);
-        console.log('[categorizeStatusFiles]  -> staged (deleted, stage=3)');
-      } else {
-        console.log('[categorizeStatusFiles]  -> no change or unhandled case');
-      }
-      // その他のケース（HEAD === 1 && workdir === 1 && stage === 1など）は変更なし
-    });
-
-    console.log('[categorizeStatusFiles] Result:', {
-      untracked: untracked.length,
-      modified: modified.length,
-      staged: staged.length,
-      deleted: deleted.length,
-    });
-
-    return { untracked, modified, staged, deleted };
-  }
+  // Status formatting and categorization have been moved to ./gitOperations/status.ts
+  // See `formatStatusResult` and `categorizeStatusFiles` there.
 
   // ========================================
   // ファイルの追加・コミット操作
@@ -395,158 +275,9 @@ export class GitCommands {
 
   // [NEW ARCHITECTURE] git add - ファイルをステージング（削除ファイル対応強化版）
   async add(filepath: string): Promise<string> {
-    try {
-      await this.ensureProjectDirectory();
-
-      // ファイルシステムの同期処理（git_stable.ts方式）
-      if ((this.fs as any).sync) {
-        try {
-          await (this.fs as any).sync();
-        } catch (syncError) {
-          console.warn('[git.add] FileSystem sync failed:', syncError);
-        }
-      }
-
-      if (filepath === '.') {
-        // すべてのファイルを追加（削除されたファイルも含む）
-        return await this.addAll();
-      }
-      if (filepath === '*' || filepath.includes('*')) {
-        // ワイルドカードパターン
-        const matchingFiles = await this.getMatchingFiles(this.dir, filepath);
-
-        // 削除されたファイルも含めてステージング対象を取得
-        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-        const deletedFiles: string[] = [];
-
-        // 削除されたファイルを特定
-        for (const [file, head, workdir, stage] of status) {
-          if (head === 1 && workdir === 0 && stage === 1) {
-            // 削除されたファイル（未ステージ）
-            deletedFiles.push(file);
-          }
-        }
-
-        if (matchingFiles.length === 0 && deletedFiles.length === 0) {
-          return `No files matching pattern: ${filepath}`;
-        }
-
-        let addedCount = 0;
-        let deletedCount = 0;
-        const errors: string[] = [];
-
-        // 通常のファイルを追加
-        for (const file of matchingFiles) {
-          try {
-            const relativePath = file.replace(`${this.dir}/`, '');
-            await git.add({ fs: this.fs, dir: this.dir, filepath: relativePath });
-            addedCount++;
-          } catch (error) {
-            errors.push(`Failed to add ${file}: ${(error as Error).message}`);
-          }
-        }
-
-        // 削除されたファイルをステージング
-        for (const file of deletedFiles) {
-          try {
-            await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
-            deletedCount++;
-          } catch (error) {
-            errors.push(`Failed to stage deleted file ${file}: ${(error as Error).message}`);
-          }
-        }
-
-        if (errors.length > 0) {
-          console.warn(`[git add ${filepath}] Some files failed to add:`, errors);
-        }
-
-        const totalFiles = addedCount + deletedCount;
-        return `Added ${addedCount} file(s), staged ${deletedCount} deletion(s) (${totalFiles} total)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
-      }
-      // 単一ファイルまたはディレクトリ
-      const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
-
-      // まずステータスマトリックスから該当ファイルの状態を確認
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      const fileStatus = status.find(([path]) => path === normalizedPath);
-
-      if (fileStatus) {
-        const [path, HEAD, workdir, stage] = fileStatus;
-
-        // 削除されたファイル (HEAD=1, workdir=0, stage=1) の場合
-        if (HEAD === 1 && workdir === 0 && stage === 1) {
-          console.log(`[git.add] Staging deleted file: ${path}`);
-          await git.remove({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
-          return `Staged deletion of ${filepath}`;
-        }
-        // 新規・変更されたファイル (workdir=1 or workdir=2) の場合
-        if (workdir === 1 || workdir === 2) {
-          console.log(`[git.add] Processing new/modified file: ${path} (workdir=${workdir})`);
-          await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
-          return `Added ${filepath} to staging area`;
-        }
-        // 既にステージング済み
-        if (stage === 2 || stage === 3) {
-          return `'${filepath}' is already staged`;
-        }
-      }
-
-      // ステータスマトリックスにない場合は直接ファイルシステムで確認
-      const fullPath = `${this.dir}/${normalizedPath}`;
-
-      try {
-        const stat = await this.fs.promises.stat(fullPath);
-
-        if (stat.isDirectory()) {
-          // ディレクトリの場合、再帰的に追加
-          const filesInDir = await this.getAllFilesInDirectory(fullPath);
-          let addedCount = 0;
-          const errors: string[] = [];
-
-          for (const file of filesInDir) {
-            try {
-              const relativePath = file.replace(`${this.dir}/`, '');
-              await git.add({ fs: this.fs, dir: this.dir, filepath: relativePath });
-              addedCount++;
-            } catch (error) {
-              errors.push(`Failed to add ${file}: ${(error as Error).message}`);
-            }
-          }
-
-          if (errors.length > 0) {
-            console.warn(`[git add ${filepath}] Some files failed to add:`, errors);
-          }
-
-          return `Added ${addedCount} file(s) from directory${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
-        }
-        // 通常のファイル追加
-        console.log(`[git.add] Adding file directly: ${normalizedPath}`);
-        await git.add({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
-        return `Added ${filepath} to staging area`;
-      } catch (error) {
-        const err = error as Error;
-        if (err.message.includes('ENOENT')) {
-          // ファイルが存在しない場合は削除されたファイルの可能性があるので、
-          // ステータスを再確認
-          const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-          const fileStatus = status.find(([path]) => path === normalizedPath);
-
-          if (fileStatus && fileStatus[1] === 1 && fileStatus[2] === 0) {
-            // 削除されたファイル
-            console.log(
-              `[git.add] File not found but exists in git, staging deletion: ${normalizedPath}`
-            );
-            await git.remove({ fs: this.fs, dir: this.dir, filepath: normalizedPath });
-            return `Staged deletion of ${filepath}`;
-          }
-
-          throw new Error(`pathspec '${filepath}' did not match any files`);
-        }
-        throw error;
-      }
-    } catch (error) {
-      throw new Error(`git add failed: ${(error as Error).message}`);
-    }
+    await this.ensureProjectDirectory();
+    const { add } = await import('./gitOperations/add');
+    return await add(this.fs, this.dir, filepath);
   }
 
   // すべてのファイルを取得（再帰的）
@@ -559,116 +290,16 @@ export class GitCommands {
     return await GitFileSystemHelper.getMatchingFiles(this.fs, dirPath, pattern);
   }
 
-  // [NEW ARCHITECTURE] すべてのファイルを追加（削除されたファイルも含む）- git_stable.tsベース
-  private async addAll(): Promise<string> {
-    try {
-      console.log('[git.add] Processing all files in current directory');
-
-      // [重要] ファイルシステムの同期を確実にする（git_stable.tsと同様）
-      if ((this.fs as any).sync) {
-        try {
-          await (this.fs as any).sync();
-        } catch (syncError) {
-          console.warn('[git.add] FileSystem sync failed:', syncError);
-        }
-      }
-
-      // ステータスマトリックスから全ファイルの状態を取得
-      const statusMatrix = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
-      console.log(`[git.add] Project directory: ${this.dir}`);
-
-      // デバッグ: statusMatrixの内容を詳しくログ
-      statusMatrix.forEach(([file, head, workdir, stage]) => {
-        console.log(`[git.add] File: ${file}, HEAD=${head}, workdir=${workdir}, stage=${stage}`);
-      });
-
-      let newCount = 0;
-      let modifiedCount = 0;
-      let deletedCount = 0;
-
-      // 全ファイルの状態に応じて適切な操作を実行
-      // isomorphic-gitのsnippets実装に基づく: worktreeStatus ? git.add : git.remove
-      for (const [file, head, workdir, stage] of statusMatrix) {
-        try {
-          if (workdir === 0 && head === 1 && stage === 1) {
-            // 削除されたファイル（未ステージ）: HEAD=1, WORKDIR=0, STAGE=1
-            // console.log(`[git.add] Staging deleted file: ${file}`);
-            await git.remove({ fs: this.fs, dir: this.dir, filepath: file });
-            deletedCount++;
-          } else if (head === 0 && workdir > 0 && stage === 0) {
-            // 新規ファイル（未追跡）: HEAD=0, WORKDIR>0, STAGE=0
-            // console.log(`[git.add] Adding new file: ${file}`);
-            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-            newCount++;
-          } else if (head === 1 && workdir === 2 && stage === 1) {
-            // 変更されたファイル（未ステージ）: HEAD=1, WORKDIR=2, STAGE=1
-            // console.log(`[git.add] Adding modified file: ${file}`);
-            await git.add({ fs: this.fs, dir: this.dir, filepath: file });
-            modifiedCount++;
-          }
-          // 既にステージ済みのファイル（stage === 2, 0 など）はスキップ
-        } catch (operationError) {
-          console.warn(`[git.add] Failed to process ${file}:`, operationError);
-        }
-      }
-
-      // 件数ごとに出力
-      console.log(
-        `[git.add] Completed: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted`
-      );
-      return `Added: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted files to staging area`;
-    } catch (error) {
-      console.error('[git.add] Failed:', error);
-      throw new Error(`Failed to add all files: ${(error as Error).message}`);
-    }
-  }
+  // addAll implementation moved to ./gitOperations/add.ts (exported as addAll).
 
   // git commit - コミット（git_stable.tsベース）
   async commit(
     message: string,
     author = { name: 'User', email: 'user@pyxis.dev' }
   ): Promise<string> {
-    return this.executeGitOperation(async () => {
-      await this.ensureGitRepository();
-
-      // GitHubにログイン済みの場合は、その情報を使用
-      let commitAuthor = author;
-      try {
-        const token = await authRepository.getAccessToken();
-        if (token) {
-          // GitHub APIでユーザー情報を取得
-          const response = await fetch('https://api.github.com/user', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/vnd.github.v3+json',
-            },
-          });
-
-          if (response.ok) {
-            const userData = await response.json();
-            commitAuthor = {
-              name: userData.name || userData.login,
-              email: userData.email || `${userData.login}@users.noreply.github.com`,
-            };
-            console.log('[git commit] Using GitHub user:', commitAuthor);
-          }
-        }
-      } catch (error) {
-        console.warn('[git commit] Failed to get GitHub user info, using default:', error);
-        // エラーが発生してもデフォルトのauthorで続行
-      }
-
-      const sha = await git.commit({
-        fs: this.fs,
-        dir: this.dir,
-        message,
-        author: commitAuthor,
-        committer: commitAuthor,
-      });
-
-      return `[main ${sha.slice(0, 7)}] ${message}`;
-    }, 'git commit failed');
+    await this.ensureGitRepository();
+    const { commit } = await import('./gitOperations/commit');
+    return await commit(this.fs, this.dir, message, author);
   }
 
   // git reset - ファイルをアンステージング、またはハードリセット
@@ -781,61 +412,9 @@ export class GitCommands {
     branchName?: string,
     options: { delete?: boolean; remote?: boolean; all?: boolean } = {}
   ): Promise<string> {
-    try {
-      await this.ensureProjectDirectory();
-      // Gitリポジトリが初期化されているかチェック
-      try {
-        await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
-        throw new Error('not a git repository (or any of the parent directories): .git');
-      }
-
-      const { delete: deleteFlag = false, remote = false, all = false } = options;
-
-      if (!branchName) {
-        // ブランチ一覧を表示
-        const currentBranch = await this.getCurrentBranch();
-        let result = '';
-
-        if (remote || all) {
-          // Use remoteUtils to get remote branches
-          const remoteBranches = await listAllRemoteRefs(this.fs, this.dir);
-
-          if (all && !remote) {
-            // -a: ローカルブランチも表示
-            const localBranches = await git.listBranches({ fs: this.fs, dir: this.dir });
-            result += localBranches
-              .map(b => (b === currentBranch ? `* ${b}` : `  ${b}`))
-              .join('\n');
-            if (localBranches.length > 0 && remoteBranches.length > 0) {
-              result += '\n';
-            }
-          }
-
-          if (remoteBranches.length > 0) {
-            result += remoteBranches.map(b => `  ${b}`).join('\n');
-          } else if (!all) {
-            return 'No remote branches found. Use "git fetch" first.';
-          }
-        } else {
-          // ローカルブランチのみ
-          const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
-          result = branches.map(b => (b === currentBranch ? `* ${b}` : `  ${b}`)).join('\n');
-        }
-
-        return result || 'No branches found.';
-      }
-      if (deleteFlag) {
-        // ブランチ削除
-        await git.deleteBranch({ fs: this.fs, dir: this.dir, ref: branchName });
-        return `Deleted branch ${branchName}`;
-      }
-      // ブランチ作成
-      await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
-      return `Created branch ${branchName}`;
-    } catch (error) {
-      throw new Error(`git branch failed: ${(error as Error).message}`);
-    }
+    await this.ensureProjectDirectory();
+    const { branch } = await import('./gitOperations/branch');
+    return await branch(this.fs, this.dir, branchName, options);
   }
 
   // git diff - 変更差分を表示
@@ -879,101 +458,9 @@ export class GitCommands {
 
   // ワーキングディレクトリの変更を破棄
   async discardChanges(filepath: string): Promise<string> {
-    try {
-      await this.ensureGitRepository();
-
-      const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
-
-      // HEADから最新のコミットを取得
-      const commits = await git.log({ fs: this.fs, dir: this.dir, depth: 1 });
-      if (commits.length === 0) {
-        throw new Error('No commits found. Cannot discard changes.');
-      }
-
-      const headCommit = commits[0];
-
-      // ファイルが現在のワーキングディレクトリに存在するかチェック
-      let fileExists = false;
-      try {
-        await this.fs.promises.stat(`${this.dir}/${normalizedPath}`);
-        fileExists = true;
-      } catch {
-        fileExists = false;
-      }
-
-      // ファイルの内容をHEADから読み取る
-      try {
-        const { blob } = await git.readBlob({
-          fs: this.fs,
-          dir: this.dir,
-          oid: headCommit.oid,
-          filepath: normalizedPath,
-        });
-
-        // 親ディレクトリを確認し、存在しなければ作成
-        const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
-        if (parentDir) {
-          const fullParentPath = `${this.dir}/${parentDir}`;
-          await GitFileSystemHelper.ensureDirectory(fullParentPath);
-        }
-
-        // ファイルをワーキングディレクトリに書き戻す
-        await this.fs.promises.writeFile(`${this.dir}/${normalizedPath}`, blob);
-
-        // IndexedDBにも同期（親フォルダも作成）- fileRepository.createFile を使用
-        const content =
-          typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
-
-        const filePath = `/${normalizedPath}`;
-
-        // createFile は自動的に親ディレクトリを作成し、既存ファイルの場合は更新する
-        // これにより、fileRepository の体系的なエラーハンドリングとイベントシステムを活用できる
-        await fileRepository.createFile(this.projectId, filePath, content, 'file');
-
-        if (!fileExists) {
-          return `Restored deleted file ${filepath}`;
-        }
-        return `Discarded changes in ${filepath}`;
-      } catch (readError) {
-        const err = readError as Error;
-
-        // isomorphic-git のエラーメッセージは環境やバージョンで文言が異なるため柔軟に判定する。
-        // 例: "Could not find file or directory found at \"<oid>:path\"" や "not found" など。
-        const notFoundInHead =
-          err.message.includes('not found') ||
-          err.message.includes('Could not find file') ||
-          (headCommit &&
-            err.message.includes(headCommit.oid) &&
-            err.message.includes(`:${normalizedPath}`));
-
-        if (notFoundInHead) {
-          // ファイルがHEADに存在しない場合（新規追加されたファイル）は削除
-          if (fileExists) {
-            try {
-              await this.fs.promises.unlink(`${this.dir}/${normalizedPath}`);
-
-              // IndexedDBからも削除
-              const files = await fileRepository.getProjectFiles(this.projectId);
-              const file = files.find(f => f.path === `/${normalizedPath}`);
-              if (file) {
-                await fileRepository.deleteFile(file.id);
-              }
-
-              return `Removed untracked file ${filepath}`;
-            } catch (unlinkError) {
-              throw new Error(`Failed to remove file: ${(unlinkError as Error).message}`);
-            }
-          } else {
-            return `File ${filepath} is already removed`;
-          }
-        }
-
-        // 上のいずれでもない場合は想定外のエラーなので再スロー
-        throw readError;
-      }
-    } catch (error) {
-      throw new Error(`Failed to discard changes: ${(error as Error).message}`);
-    }
+    await this.ensureGitRepository();
+    const { discardChanges } = await import('./gitOperations/discardChanges');
+    return await discardChanges(this.fs, this.dir, this.projectId, filepath);
   }
 
   // 指定コミット・ファイルの内容を取得 (git show 相当)
@@ -1121,113 +608,8 @@ export class GitCommands {
     } = {}
   ): Promise<string> {
     await this.ensureGitRepository();
-
-    const { remote = 'origin', branch, rebase = false } = options;
-
-    try {
-      // 現在のブランチを取得
-      let targetBranch = branch;
-      if (!targetBranch) {
-        const currentBranch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-        if (!currentBranch) {
-          throw new Error('No branch checked out');
-        }
-        targetBranch = currentBranch;
-      }
-
-      // 1. fetch実行
-      console.log(`[git pull] Fetching from ${remote}/${targetBranch}...`);
-      const { fetch } = await import('./gitOperations/fetch');
-      await fetch(this.fs, this.dir, { remote, branch: targetBranch });
-
-      // 2. リモート追跡ブランチのコミットIDを取得
-      const remoteBranchRef = `refs/remotes/${remote}/${targetBranch}`;
-      let remoteCommitOid: string;
-
-      try {
-        remoteCommitOid = await git.resolveRef({
-          fs: this.fs,
-          dir: this.dir,
-          ref: remoteBranchRef,
-        });
-      } catch {
-        throw new Error(`Remote branch '${remote}/${targetBranch}' not found after fetch`);
-      }
-
-      // 3. ローカルのコミットIDを取得
-      const localCommitOid = await git.resolveRef({
-        fs: this.fs,
-        dir: this.dir,
-        ref: `refs/heads/${targetBranch}`,
-      });
-
-      // 4. すでに最新の場合
-      if (localCommitOid === remoteCommitOid) {
-        return 'Already up to date.';
-      }
-
-      console.log(`[git pull] Merging ${remote}/${targetBranch} into ${targetBranch}...`);
-
-      if (rebase) {
-        // Rebase（未実装）
-        throw new Error('git pull --rebase is not yet supported. Use merge instead.');
-      }
-      // 5. Fast-forward可能かチェック
-      const localLog = await git.log({
-        fs: this.fs,
-        dir: this.dir,
-        depth: 100,
-        ref: targetBranch,
-      });
-      const isAncestor = localLog.some(c => c.oid === remoteCommitOid);
-
-      if (!isAncestor) {
-        // Fast-forwardできない場合はマージ
-        // まずリモートブランチをdetached HEADでチェックアウト
-        const mergeOperations = new GitMergeOperations(
-          this.fs,
-          this.dir,
-          this.projectId,
-          this.projectName
-        );
-
-        // マージ実行（リモートコミットをマージ）
-        const mergeResult = await mergeOperations.merge(remoteBranchRef, {
-          message: `Merge branch '${remote}/${targetBranch}'`,
-        });
-
-        return `From ${remote}\n${mergeResult}`;
-      }
-      // Fast-forward可能
-      console.log('[git pull] Fast-forwarding...');
-
-      // HEADを更新
-      await git.writeRef({
-        fs: this.fs,
-        dir: this.dir,
-        ref: `refs/heads/${targetBranch}`,
-        value: remoteCommitOid,
-        force: true,
-      });
-
-      // ワーキングディレクトリを更新
-      await git.checkout({
-        fs: this.fs,
-        dir: this.dir,
-        ref: targetBranch,
-        force: true,
-      });
-
-      // IndexedDBに同期
-      await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-
-      const shortLocal = localCommitOid.slice(0, 7);
-      const shortRemote = remoteCommitOid.slice(0, 7);
-
-      return `Updating ${shortLocal}..${shortRemote}\nFast-forward`;
-    } catch (error) {
-      throw new Error(`git pull failed: ${(error as Error).message}`);
-    }
+    const { pull } = await import('./gitOperations/pull');
+    return await pull(this.fs, this.dir, this.projectId, this.projectName, options);
   }
 
   /**
