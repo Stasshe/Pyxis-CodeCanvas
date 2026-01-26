@@ -104,15 +104,35 @@ const makeUnixBridge = (name: string) => {
 export default function adaptUnixToStream(unix: any) {
   const obj: Record<string, any> = {};
 
-  // unix のエクスポート関数を自動検出して登録
-  const unixCommands =
-    unix && typeof unix === 'object'
-      ? Object.keys(unix).filter(k => typeof (unix as any)[k] === 'function')
-      : [];
+  // 全てunixHandlerに統一委譲
+  const commands = [
+    'echo',
+    'pwd',
+    'ls',
+    'cd',
+    'mkdir',
+    'touch',
+    'rm',
+    'cp',
+    'mv',
+    'rename',
+    'tree',
+    'find',
+    'help',
+    'unzip',
+    'stat',
+    'cat',
+    'head',
+    'tail',
+    'grep',
+    'wc',
+    'date',
+    'whoami',
+    'chmod',
+    'chown',
+  ];
 
-  for (const cmd of unixCommands) {
-    if (!cmd || typeof cmd !== 'string') continue;
-    // 後続で定義されるシェル内ビルトイン（例: test, type, node）は上書きされる
+  for (const cmd of commands) {
     obj[cmd] = makeUnixBridge(cmd);
   }
 
