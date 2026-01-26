@@ -155,11 +155,12 @@ export default function LeftSidebar({
               </div>
             </div>
           )}
-          {activeMenuTab === 'search' && (
-            <div className="h-full">
-              <SearchPanel files={files} projectId={currentProject.id} />
-            </div>
-          )}
+          <div 
+            className="h-full"
+            style={{ display: activeMenuTab === 'search' ? 'block' : 'none' }}
+          >
+            <SearchPanel files={files} projectId={currentProject.id} />
+          </div>
           {activeMenuTab === 'git' && (
             <div className="h-full">
               <GitPanel
@@ -171,11 +172,12 @@ export default function LeftSidebar({
               />
             </div>
           )}
-          {activeMenuTab === 'run' && (
-            <div className="h-full">
-              <RunPanel currentProject={currentProject} files={files} />
-            </div>
-          )}
+          <div
+            className="h-full"
+            style={{ display: activeMenuTab === 'run' ? 'block' : 'none' }}
+          >
+            <RunPanel currentProject={currentProject} files={files} />
+          </div>
           {activeMenuTab === 'extensions' && (
             <div className="h-full">
               <ExtensionsPanel />
