@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { FileItem } from '@/types';
+import { useTranslation } from '@/context/I18nContext';
 
 interface Props {
   prompt: { file: FileItem } | null;
@@ -10,7 +11,6 @@ interface Props {
   actuallyOpenFile: (file: FileItem, preview: boolean) => void;
   setMdPreviewPrompt: (v: null | { file: FileItem }) => void;
   colors: any;
-  t: (k: string) => string;
 }
 
 export default function MdPreviewDialog({
@@ -20,8 +20,8 @@ export default function MdPreviewDialog({
   actuallyOpenFile,
   setMdPreviewPrompt,
   colors,
-  t,
 }: Props) {
+  const { t } = useTranslation();
   if (!prompt) return null;
 
   return (
@@ -55,17 +55,29 @@ export default function MdPreviewDialog({
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: colors.foreground }}>
+        <div
+          style={{
+            fontSize: '16px',
+            fontWeight: 'bold',
+            marginBottom: '8px',
+            color: colors.foreground,
+          }}
+        >
           {t('operationWindow.mdPreviewPrompt')}
         </div>
-        <div style={{ color: colors.mutedFg, fontSize: '13px', marginBottom: '12px' }}>{prompt.file.name}</div>
+        <div style={{ color: colors.mutedFg, fontSize: '13px', marginBottom: '12px' }}>
+          {prompt.file.name}
+        </div>
         <div style={{ display: 'flex', gap: '16px' }}>
           <button
             style={{
               padding: '8px 18px',
               background: mdDialogSelected === 0 ? colors.primary : colors.background,
               color: mdDialogSelected === 0 ? colors.cardBg : colors.foreground,
-              border: mdDialogSelected === 0 ? `2px solid ${colors.accentBg}` : `1px solid ${colors.border}`,
+              border:
+                mdDialogSelected === 0
+                  ? `2px solid ${colors.accentBg}`
+                  : `1px solid ${colors.border}`,
               borderRadius: '4px',
               fontWeight: 'bold',
               cursor: 'pointer',
@@ -84,7 +96,10 @@ export default function MdPreviewDialog({
               padding: '8px 18px',
               background: mdDialogSelected === 1 ? colors.primary : colors.background,
               color: mdDialogSelected === 1 ? colors.cardBg : colors.foreground,
-              border: mdDialogSelected === 1 ? `2px solid ${colors.accentBg}` : `1px solid ${colors.border}`,
+              border:
+                mdDialogSelected === 1
+                  ? `2px solid ${colors.accentBg}`
+                  : `1px solid ${colors.border}`,
               borderRadius: '4px',
               fontWeight: 'bold',
               cursor: 'pointer',
@@ -99,7 +114,9 @@ export default function MdPreviewDialog({
             {t('operationWindow.openInEditor')}
           </button>
         </div>
-        <div style={{ fontSize: '12px', color: colors.mutedFg, marginTop: '8px' }}>{t('operationWindow.mdPreviewDialogHelp')}</div>
+        <div style={{ fontSize: '12px', color: colors.mutedFg, marginTop: '8px' }}>
+          {t('operationWindow.mdPreviewDialogHelp')}
+        </div>
       </div>
     </div>
   );

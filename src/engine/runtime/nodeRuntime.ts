@@ -587,7 +587,6 @@ export class NodeRuntime {
     }
   }
 
-
   /**
    * ログ出力
    */

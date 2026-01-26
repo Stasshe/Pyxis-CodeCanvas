@@ -1,18 +1,18 @@
 'use client';
 import React from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from '@/context/I18nContext';
 
 export default function ErrorState({
   message,
   onRetry,
   colors,
-  t,
 }: {
   message: string | null;
   onRetry: () => void;
   colors: any;
-  t: (k: string) => string;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={{ padding: '1rem', textAlign: 'center', color: colors.red }}>
       <X

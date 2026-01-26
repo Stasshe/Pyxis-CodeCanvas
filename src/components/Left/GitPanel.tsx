@@ -34,7 +34,6 @@ interface GitPanelProps {
   onGitStatusChange?: (changesCount: number) => void;
 }
 
-
 import LoadingState from './GitPanel/LoadingState';
 import ErrorState from './GitPanel/ErrorState';
 import CommitBox from './GitPanel/CommitBox';
@@ -109,15 +108,25 @@ export default function GitPanel({
   }, [currentProjectId]);
 
   // setters that persist
-  const setBranchFilterModeAndPersist = useCallback((mode: BranchFilterMode) => {
-    setBranchFilterMode(mode);
-    if (currentProjectId) sessionStorage.setItem(`gitBranchFilterMode_${currentProjectId}`, mode);
-  }, [currentProjectId, setBranchFilterMode]);
+  const setBranchFilterModeAndPersist = useCallback(
+    (mode: BranchFilterMode) => {
+      setBranchFilterMode(mode);
+      if (currentProjectId) sessionStorage.setItem(`gitBranchFilterMode_${currentProjectId}`, mode);
+    },
+    [currentProjectId, setBranchFilterMode]
+  );
 
-  const setSelectedBranchesAndPersist = useCallback((branches: string[]) => {
-    setSelectedBranches(branches);
-    if (currentProjectId) sessionStorage.setItem(`gitBranchFilterBranches_${currentProjectId}`, JSON.stringify(branches));
-  }, [currentProjectId, setSelectedBranches]);
+  const setSelectedBranchesAndPersist = useCallback(
+    (branches: string[]) => {
+      setSelectedBranches(branches);
+      if (currentProjectId)
+        sessionStorage.setItem(
+          `gitBranchFilterBranches_${currentProjectId}`,
+          JSON.stringify(branches)
+        );
+    },
+    [currentProjectId, setSelectedBranches]
+  );
 
   // プロジェクト変更時にsessionStorageから復元
   useEffect(() => {
@@ -147,10 +156,13 @@ export default function GitPanel({
   const handleUnstageFile = unstageFile;
   const handleStageAll = stageAll;
   const handleUnstageAll = unstageAll;
-  const handleDiscardChanges = useCallback(async (file: string) => {
-    await discardChanges(file);
-    if (onRefresh) onRefresh();
-  }, [discardChanges, onRefresh]);
+  const handleDiscardChanges = useCallback(
+    async (file: string) => {
+      await discardChanges(file);
+      if (onRefresh) onRefresh();
+    },
+    [discardChanges, onRefresh]
+  );
 
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim()) return;
@@ -402,7 +414,7 @@ export default function GitPanel({
       ) : null}
 
       {!showProjectMissing && showError ? (
-        <ErrorState message={error} onRetry={() => fetchGitStatus(commitDepth)} colors={colors} t={t} />
+        <ErrorState message={error} onRetry={() => fetchGitStatus(commitDepth)} colors={colors} />
       ) : null}
 
       {!showProjectMissing && showNoRepo ? (
@@ -457,7 +469,6 @@ export default function GitPanel({
           handleStagedFileClick={handleStagedFileClick}
           handleUnstagedFileClick={handleUnstagedFileClick}
           colors={colors}
-          t={t}
         />
 
         {/* コミット履歴 */}

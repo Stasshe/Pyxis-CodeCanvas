@@ -104,7 +104,10 @@ export function useGitPanel({
 
         if (onGitStatusChange) {
           const changesCount =
-            status.staged.length + status.unstaged.length + status.untracked.length + status.deleted.length;
+            status.staged.length +
+            status.unstaged.length +
+            status.untracked.length +
+            status.deleted.length;
           onGitStatusChange(changesCount);
         }
       } catch (err) {
@@ -115,7 +118,14 @@ export function useGitPanel({
         setIsLoading(false);
       }
     },
-    [gitCommands, currentProject, onGitStatusChange, getStoredCommitDepth, branchFilterMode, selectedBranches]
+    [
+      gitCommands,
+      currentProject,
+      onGitStatusChange,
+      getStoredCommitDepth,
+      branchFilterMode,
+      selectedBranches,
+    ]
   );
 
   const loadMoreCommits = useCallback(async () => {
@@ -146,25 +156,31 @@ export function useGitPanel({
   }, [gitCommands, currentProject, isLoadingMore, commitDepth, branchFilterMode, selectedBranches]);
 
   // staging operations
-  const stageFile = useCallback(async (file: string) => {
-    if (!gitCommands) return;
-    try {
-      await gitCommands.add(file);
-      await fetchGitStatus(commitDepth);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [gitCommands, fetchGitStatus, commitDepth]);
+  const stageFile = useCallback(
+    async (file: string) => {
+      if (!gitCommands) return;
+      try {
+        await gitCommands.add(file);
+        await fetchGitStatus(commitDepth);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [gitCommands, fetchGitStatus, commitDepth]
+  );
 
-  const unstageFile = useCallback(async (file: string) => {
-    if (!gitCommands) return;
-    try {
-      await gitCommands.reset({ filepath: file });
-      await fetchGitStatus(commitDepth);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [gitCommands, fetchGitStatus, commitDepth]);
+  const unstageFile = useCallback(
+    async (file: string) => {
+      if (!gitCommands) return;
+      try {
+        await gitCommands.reset({ filepath: file });
+        await fetchGitStatus(commitDepth);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [gitCommands, fetchGitStatus, commitDepth]
+  );
 
   const stageAll = useCallback(async () => {
     if (!gitCommands) return;
@@ -187,39 +203,48 @@ export function useGitPanel({
     }
   }, [gitCommands, gitRepo?.status.staged, fetchGitStatus, commitDepth]);
 
-  const discardChanges = useCallback(async (file: string) => {
-    if (!gitCommands) return;
-    try {
-      await gitCommands.discardChanges(file);
-      await fetchGitStatus(commitDepth);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [gitCommands, fetchGitStatus, commitDepth]);
+  const discardChanges = useCallback(
+    async (file: string) => {
+      if (!gitCommands) return;
+      try {
+        await gitCommands.discardChanges(file);
+        await fetchGitStatus(commitDepth);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [gitCommands, fetchGitStatus, commitDepth]
+  );
 
-  const commit = useCallback(async (message: string) => {
-    if (!gitCommands || !message.trim()) return;
-    try {
-      const commitPromise = gitCommands.commit(message.trim());
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
-      );
-      await Promise.race([commitPromise, timeoutPromise]);
-      await fetchGitStatus(commitDepth);
-    } catch (err) {
-      throw err;
-    }
-  }, [gitCommands, fetchGitStatus, commitDepth]);
+  const commit = useCallback(
+    async (message: string) => {
+      if (!gitCommands || !message.trim()) return;
+      try {
+        const commitPromise = gitCommands.commit(message.trim());
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
+        );
+        await Promise.race([commitPromise, timeoutPromise]);
+        await fetchGitStatus(commitDepth);
+      } catch (err) {
+        throw err;
+      }
+    },
+    [gitCommands, fetchGitStatus, commitDepth]
+  );
 
-  const getDiff = useCallback(async ({ staged = false } = {}) => {
-    if (!gitCommands) return '';
-    try {
-      return await gitCommands.diff({ staged });
-    } catch (err) {
-      console.error('Failed to get diff:', err);
-      return '';
-    }
-  }, [gitCommands]);
+  const getDiff = useCallback(
+    async ({ staged = false } = {}) => {
+      if (!gitCommands) return '';
+      try {
+        return await gitCommands.diff({ staged });
+      } catch (err) {
+        console.error('Failed to get diff:', err);
+        return '';
+      }
+    },
+    [gitCommands]
+  );
 
   // initial load
   useEffect(() => {

@@ -22,7 +22,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { DEFAULT_BINDINGS } from '@/hooks/keybindings/defaultKeybindings';
-import { type Binding, formatKeyEvent, normalizeKeyCombo } from '@/hooks/keybindings/keybindingUtils';
+import {
+  type Binding,
+  formatKeyEvent,
+  normalizeKeyCombo,
+} from '@/hooks/keybindings/keybindingUtils';
 import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 
 export default function ShortcutKeysTab() {

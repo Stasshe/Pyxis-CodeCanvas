@@ -1,6 +1,7 @@
 'use client';
 import React, { memo } from 'react';
 import FileItem from './FileItem';
+import { useTranslation } from '@/context/I18nContext';
 
 export default function ChangesList({
   gitRepo,
@@ -17,8 +18,9 @@ export default function ChangesList({
   handleStagedFileClick,
   handleUnstagedFileClick,
   colors,
-  t,
 }: any) {
+  const { t } = useTranslation();
+
   return (
     <div
       style={{
@@ -44,7 +46,14 @@ export default function ChangesList({
           <div style={{ display: 'flex', gap: '0.25rem' }}>
             <button
               onClick={handleStageAll}
-              style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
+              style={{
+                padding: '0.25rem',
+                background: 'transparent',
+                borderRadius: '0.375rem',
+                border: 'none',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
               title={t('git.stageAll')}
               className="select-none"
             >
@@ -52,7 +61,14 @@ export default function ChangesList({
             </button>
             <button
               onClick={handleUnstageAll}
-              style={{ padding: '0.25rem', background: 'transparent', borderRadius: '0.375rem', border: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
+              style={{
+                padding: '0.25rem',
+                background: 'transparent',
+                borderRadius: '0.375rem',
+                border: 'none',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
               title={t('git.unstageAll')}
               className="select-none"
             >

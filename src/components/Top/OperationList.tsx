@@ -34,7 +34,9 @@ export default function OperationList({
     <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}>
       {viewMode === 'files' ? (
         filteredFiles.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>{t('operationWindow.noFilesFound')}</div>
+          <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
+            {t('operationWindow.noFilesFound')}
+          </div>
         ) : (
           filteredFiles.map((file, index) => {
             const isSelected = index === selectedIndex;
@@ -59,7 +61,11 @@ export default function OperationList({
                 onClick={() => handleFileSelectInOperation(file)}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
-                <img src={getIconSrcForFile(file.name)} alt="icon" style={{ width: 16, height: 16, flex: '0 0 16px' }} />
+                <img
+                  src={getIconSrcForFile(file.name)}
+                  alt="icon"
+                  style={{ width: 16, height: 16, flex: '0 0 16px' }}
+                />
                 <span
                   style={{
                     fontSize: '13px',
@@ -94,7 +100,9 @@ export default function OperationList({
           })
         )
       ) : filteredItems.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>{t('operationWindow.noItemsFound') || 'No items found'}</div>
+        <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
+          {t('operationWindow.noItemsFound') || 'No items found'}
+        </div>
       ) : (
         filteredItems.map((item, index) => {
           const isSelected = index === selectedIndex;
@@ -120,8 +128,21 @@ export default function OperationList({
               onMouseEnter={() => setSelectedIndex(index)}
             >
               {item.icon && (
-                <div style={{ width: 16, height: 16, flex: '0 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {typeof item.icon === 'string' ? <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} /> : item.icon}
+                <div
+                  style={{
+                    width: 16,
+                    height: 16,
+                    flex: '0 0 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {typeof item.icon === 'string' ? (
+                    <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
+                  ) : (
+                    item.icon
+                  )}
                 </div>
               )}
 
@@ -156,11 +177,26 @@ export default function OperationList({
                 </div>
               ) : (
                 <>
-                  <span style={{ fontSize: '13px', fontWeight: isSelected || item.isActive ? '600' : '400', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: isSelected || item.isActive ? '600' : '400',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      flex: 1,
+                    }}
+                  >
                     {highlightMatch(item.label, queryTokens, isSelected, colors)}
                   </span>
                   {item.description && (
-                    <span style={{ fontSize: '11px', color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg, marginLeft: '8px' }}>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                        marginLeft: '8px',
+                      }}
+                    >
                       {highlightMatch(item.description, queryTokens, isSelected, colors)}
                     </span>
                   )}
@@ -168,7 +204,9 @@ export default function OperationList({
               )}
 
               {!item.isEditing && item.actions && item.actions.length > 0 && (
-                <div style={{ display: isSelected ? 'flex' : 'none', gap: '4px', marginLeft: 'auto' }}>
+                <div
+                  style={{ display: isSelected ? 'flex' : 'none', gap: '4px', marginLeft: 'auto' }}
+                >
                   {item.actions.map(action => (
                     <button
                       key={action.id}
@@ -180,14 +218,22 @@ export default function OperationList({
                       style={{
                         background: 'transparent',
                         border: 'none',
-                        color: action.danger ? (isSelected ? '#ffcccc' : colors.destructive) : isSelected ? 'white' : colors.foreground,
+                        color: action.danger
+                          ? isSelected
+                            ? '#ffcccc'
+                            : colors.destructive
+                          : isSelected
+                            ? 'white'
+                            : colors.foreground,
                         cursor: 'pointer',
                         padding: '2px',
                         display: 'flex',
                         alignItems: 'center',
                         borderRadius: '3px',
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                      onMouseEnter={e =>
+                        (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')
+                      }
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       {action.icon}

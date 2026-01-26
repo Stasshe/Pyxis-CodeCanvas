@@ -372,7 +372,6 @@ export default function OperationWindow({
     }
   }, [searchQuery, viewMode]);
 
-    // highlight helper moved to '@/components/OperationWindow.helpers'
   if (!isVisible) return null;
 
   const jsx = (
@@ -384,7 +383,6 @@ export default function OperationWindow({
         actuallyOpenFile={actuallyOpenFile}
         setMdPreviewPrompt={setMdPreviewPrompt}
         colors={colors}
-        t={t}
       />
 
       {/* Main Window Overlay */}
