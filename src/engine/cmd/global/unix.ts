@@ -28,7 +28,7 @@ import {
   fsPathToAppPath,
   normalizeDotSegments,
   resolvePath as pathResolvePath,
-} from '@/engine/core/pathResolver';
+} from '@/engine/core/pathUtils';
 
 /**
  * Unixコマンドを統合して提供するクラス

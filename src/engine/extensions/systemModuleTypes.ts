@@ -15,7 +15,7 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { FileRepository } from '@/engine/core/fileRepository';
-import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathResolver';
+import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
 import type { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 
 /**

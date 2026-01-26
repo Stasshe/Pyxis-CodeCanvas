@@ -6,7 +6,7 @@ import {
   isWithinProject as pathIsWithinProject,
   resolvePath as pathResolvePath,
   toAppPath,
-} from '@/engine/core/pathResolver';
+} from '@/engine/core/pathUtils';
 import type { ProjectFile } from '@/types';
 
 /**

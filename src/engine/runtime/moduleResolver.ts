@@ -7,7 +7,7 @@
  * - package.jsonの解析とエントリーポイント決定
  */
 
-import { getParentPath, toAppPath, fsPathToAppPath } from '@/engine/core/pathResolver';
+import { getParentPath, toAppPath, fsPathToAppPath } from '@/engine/core/pathUtils';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';

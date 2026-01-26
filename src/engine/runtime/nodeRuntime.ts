@@ -15,7 +15,7 @@ import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, toAppPath } from '@/engine/core/pathResolver';
+import { fsPathToAppPath, toAppPath } from '@/engine/core/pathUtils';
 import { type BuiltInModules, createBuiltInModules } from '@/engine/node/builtInModule';
 
 /**

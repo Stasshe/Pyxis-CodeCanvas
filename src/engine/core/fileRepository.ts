@@ -15,7 +15,7 @@ import {
   getParentPath as pathGetParentPath,
   toGitPath as pathToGitPath,
   toAppPath,
-} from './pathResolver';
+} from './pathUtils';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
@@ -1468,4 +1468,4 @@ export const fileRepository = FileRepository.getInstance();
 export { normalizePath, getParentPath, toGitPath, fromGitPath };
 
 // 新しいパス解決モジュールを再エクスポート
-export * from './pathResolver';
+export * from './pathUtils';
