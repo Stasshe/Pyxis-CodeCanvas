@@ -6,6 +6,7 @@
     "retry": "أعد المحاولة"
   },
   "ai": {
+    "applied": "مطبق",
     "changedFilesList": {
       "count": "{count} ملفات",
       "expand": "توسيع",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: سطر جديد / Ctrl+Enter: إرسال",
       "history": "Alt+↑↓: السجل"
     },
-    "input": {
-      "ask": "اسأل الذكاء الاصطناعي أو استشر حول الشيفرة...",
+    "mode": {
+      "ask": "اطرح أسئلة على الذكاء الاصطناعي أو استشر حول الشيفرة...",
       "edit": "أدخل تعليمات لتحرير الشيفرة..."
     },
-    "sendTitle": "إرسال (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "اسأل الذكاء الاصطناعي أو استشر حول الشيفرة...",
-    "edit": "أدخل تعليمات لتحرير الشيفرة..."
+    "pending": "قيد الانتظار",
+    "promptDebug": {
+      "close": "إغلاق",
+      "copy": "نسخ",
+      "sampleInput": "مثال للإدخال",
+      "title": "تصحيح الموجه"
+    },
+    "revert": {
+      "cancel": "إلغاء",
+      "confirm": "تأكيد",
+      "confirmMessage": "هل أنت متأكد أنك تريد التراجع عن هذا التغيير؟",
+      "confirmTitle": "استعادة التغيير",
+      "label": "استعادة"
+    },
+    "revertTooltip": "استعادة هذا التغيير",
+    "sendTitle": "إرسال (Ctrl+Enter)",
+    "showPrompt": "عرض الموجه"
   },
   "aiReviewTab": {
     "applyAll": "تطبيق الكل",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "وحدة تحكم التصحيح",
+    "escButton": "ESC",
     "output": "المخرجات",
     "outputPanel": {
       "all": "الكل",
@@ -98,7 +112,9 @@
     "title": "مساحات الدردشة"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "إلغاء",
+    "editable": "Editable",
+    "save": "حفظ"
   },
   "confirmation": {
     "title": "تأكيد"
@@ -144,11 +160,30 @@
   },
   "git": {
     "apiKeyPlaceholder": "أدخل مفتاح Gemini API",
+    "branchFilter": {
+      "all": "الكل",
+      "allMode": "جميع الفروع",
+      "allModeDesc": "عرض الالتزامات من جميع الفروع",
+      "auto": "تلقائي",
+      "autoMode": "تلقائي (HEAD فقط)",
+      "autoModeDesc": "عرض الالتزامات من الفرع الحالي فقط",
+      "localBranch": "فرع محلي",
+      "remoteBranch": "فرع بعيد",
+      "selectBranches": "اختر الفروع",
+      "selectBranchesDesc": "اختر فروعًا محددة",
+      "selected": "محدد",
+      "title": "مرشح الفروع",
+      "tooltip": "مرشح الفروع"
+    },
     "changes": "التغييرات",
     "commit": "التزام",
     "commitMessagePlaceholder": "أدخل رسالة الالتزام...",
     "deleted": "محذوف",
     "discard": "تجاهل",
+    "discardAll": "تجاهل الكل",
+    "discardAllAndRevert": "تجاهل جميع التغييرات واسترجاع",
+    "discardChangesMessage": "هل تريد تجاهل هذه التغييرات؟",
+    "discardChangesTitle": "تجاهل التغييرات؟",
     "errorOccurred": "حدث خطأ",
     "generateCommitMessage": "توليد بواسطة AI",
     "history": "السجل",
@@ -277,12 +312,15 @@
     "noProject": "افتح مشروعًا لتنفيذ Node.js",
     "outputHint": "عند تنفيذ JavaScript/Node.js/Python، ستعرض النتائج هنا. يمكن تنفيذ Node.js و js في نفس الملف.",
     "runtimeNotReady": "بيئة Python غير مُهيأة",
+    "selectFile": "اختر ملفًا",
     "stop": "إيقاف",
     "title": "بيئة التنفيذ"
   },
   "searchPanel": {
     "caseSensitive": "حساسية حالة الأحرف",
+    "enterToSearch": "اضغط Enter للبحث",
     "noResults": "لم يتم العثور على نتائج",
+    "realtimeMode": "في الوقت الحقيقي",
     "resultCount": "{count} نتائج",
     "searchInFiles": "ابحث في الملفات...",
     "searching": "جارٍ البحث...",

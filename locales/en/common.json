@@ -6,6 +6,7 @@
     "retry": "Retry"
   },
   "ai": {
+    "applied": "Applied",
     "changedFilesList": {
       "count": "{count} files",
       "expand": "Expand",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: newline / Ctrl+Enter: send",
       "history": "Alt+↑↓: history"
     },
-    "input": {
+    "mode": {
       "ask": "Ask the AI questions or consult about code...",
       "edit": "Enter instructions to edit code..."
     },
-    "sendTitle": "Send (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Ask the AI questions or consult about code...",
-    "edit": "Enter instructions to edit code..."
+    "pending": "Pending",
+    "promptDebug": {
+      "close": "Close",
+      "copy": "Copy",
+      "sampleInput": "Sample input",
+      "title": "Prompt Debug"
+    },
+    "revert": {
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "confirmMessage": "Are you sure you want to revert the change?",
+      "confirmTitle": "Revert change",
+      "label": "Revert"
+    },
+    "revertTooltip": "Revert this change",
+    "sendTitle": "Send (Ctrl+Enter)",
+    "showPrompt": "Show prompt"
   },
   "aiReviewTab": {
     "applyAll": "Apply all",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Debug Console",
+    "escButton": "ESC",
     "output": "Output",
     "outputPanel": {
       "all": "All",
@@ -98,7 +112,9 @@
     "title": "Chat spaces"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Cancel",
+    "editable": "Editable",
+    "save": "Save"
   },
   "confirmation": {
     "title": "Confirmation"
@@ -164,6 +180,10 @@
     "commitMessagePlaceholder": "Enter commit message...",
     "deleted": "Deleted",
     "discard": "Discard",
+    "discardAll": "Discard all",
+    "discardAllAndRevert": "Discard all changes and revert",
+    "discardChangesMessage": "Do you want to discard these changes? :",
+    "discardChangesTitle": "Discard changes?",
     "errorOccurred": "An error occurred",
     "generateCommitMessage": "Generate with AI",
     "history": "History",
@@ -292,6 +312,7 @@
     "noProject": "Open a project to execute Node.js code",
     "outputHint": "When you execute JavaScript/Node.js/Python code, the results will be displayed here. Node.js and js can be executed in the same file.",
     "runtimeNotReady": "Python runtime is not initialized",
+    "selectFile": "Select file",
     "stop": "Stop",
     "title": "Execution Environment"
   },

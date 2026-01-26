@@ -41,16 +41,6 @@ import CommitBox from './GitPanel/CommitBox';
 import { useGitPanel } from './GitPanel/useGitPanel';
 import ChangesList from './GitPanel/ChangesList';
 
-// ========================================
-// メモ化されたファイルアイテムコンポーネント
-// ========================================
-
-// FileItem moved to `./GitPanel/FileItem` to keep this file focused and smaller.
-
-// ========================================
-// メインコンポーネント
-// ========================================
-
 export default function GitPanel({
   currentProject,
   currentProjectId,
@@ -223,8 +213,8 @@ export default function GitPanel({
   // request wrappers that show confirmation before executing
   const handleRequestDiscardChanges = useCallback(
     async (file: string) => {
-      const title = t('discardChangesTitle') || t('git.discard') || 'Discard changes?';
-      const message = `${t('discardChangesMessage') || 'この変更を破棄しますか？'} ${file}`;
+      const title = t('git.discardChangesTitle');
+      const message = `${t('git.discardChangesMessage')} ${file}`;
       openConfirm(title, message, async () => handleDiscardChanges(file));
     },
     [handleDiscardChanges, t]
@@ -236,8 +226,8 @@ export default function GitPanel({
       (gitRepo?.status?.deleted?.length || 0) +
       (gitRepo?.status?.untracked?.length || 0);
     if (count === 0) return;
-    const title = t('discardChangesTitle') || t('git.discardAll') || 'Discard changes?';
-    const message = `${t('git.discardAllAndRevert') || '全ての変更を破棄して元に戻しますか？'} (${count})`;
+    const title = t('git.discardChangesTitle');
+    const message = `${t('git.discardAllAndRevert')} (${count})`;
     openConfirm(title, message, async () => {
       await discardAllUnstaged();
       if (onRefresh) onRefresh();
@@ -247,8 +237,8 @@ export default function GitPanel({
   const handleRequestDiscardAllStaged = useCallback(async () => {
     const count = gitRepo?.status?.staged?.length || 0;
     if (count === 0) return;
-    const title = t('discardChangesTitle') || t('git.discardAll') || 'Discard changes?';
-    const message = `${t('git.discardAllAndRevert') || '全ての変更を破棄して元に戻しますか？'} (${count})`;
+    const title = t('git.discardChangesTitle');
+    const message = `${t('git.discardAllAndRevert')} (${count})`;
     openConfirm(title, message, async () => {
       await discardAllStaged();
       if (onRefresh) onRefresh();
@@ -570,7 +560,7 @@ export default function GitPanel({
           title={confirmTitle}
           message={confirmMessage}
           confirmText={t('git.discard')}
-          cancelText={t('cancel')}
+          cancelText={t('common.cancel')}
           onConfirm={handleConfirm}
           onCancel={handleCancelConfirm}
         />

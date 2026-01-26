@@ -6,6 +6,7 @@
     "retry": "Tekrar dene"
   },
   "ai": {
+    "applied": "Uygulandı",
     "changedFilesList": {
       "count": "{count} dosya",
       "expand": "Genişlet",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: yeni satır / Ctrl+Enter: gönder",
       "history": "Alt+↑↓: geçmiş"
     },
-    "input": {
-      "ask": "Yapay zekaya soru sorun veya kod hakkında danışın...",
-      "edit": "Kod düzenleme talimatlarını girin..."
+    "mode": {
+      "ask": "AI'ye soru sorun veya kod hakkında danışın...",
+      "edit": "Kodu düzenlemek için talimat girin..."
     },
-    "sendTitle": "Gönder (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Yapay zekaya soru sorun veya kod hakkında danışın...",
-    "edit": "Kod düzenleme talimatlarını girin..."
+    "pending": "Beklemede",
+    "promptDebug": {
+      "close": "Kapat",
+      "copy": "Kopyala",
+      "sampleInput": "Örnek girdi",
+      "title": "Prompt Hata Ayıklama"
+    },
+    "revert": {
+      "cancel": "İptal",
+      "confirm": "Onayla",
+      "confirmMessage": "Değişikliği geri almak istediğinize emin misiniz?",
+      "confirmTitle": "Değişikliği geri al",
+      "label": "Geri al"
+    },
+    "revertTooltip": "Bu değişikliği geri al",
+    "sendTitle": "Gönder (Ctrl+Enter)",
+    "showPrompt": "Promptu göster"
   },
   "aiReviewTab": {
     "applyAll": "Tümünü uygula",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Hata Ayıklama Konsolu",
+    "escButton": "ESC",
     "output": "Çıktı",
     "outputPanel": {
       "all": "Tümü",
@@ -98,7 +112,9 @@
     "title": "Sohbet alanları"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "İptal",
+    "editable": "Editable",
+    "save": "Kaydet"
   },
   "confirmation": {
     "title": "Onay"
@@ -144,11 +160,30 @@
   },
   "git": {
     "apiKeyPlaceholder": "Gemini API anahtarını girin",
+    "branchFilter": {
+      "all": "Tümü",
+      "allMode": "Tüm Dallar",
+      "allModeDesc": "Tüm dallardaki commitleri göster",
+      "auto": "Otomatik",
+      "autoMode": "Otomatik (sadece HEAD)",
+      "autoModeDesc": "Sadece mevcut daldaki commitleri göster",
+      "localBranch": "Yerel dal",
+      "remoteBranch": "Uzak dal",
+      "selectBranches": "Dalları seç",
+      "selectBranchesDesc": "Belirli dalları seçin",
+      "selected": "seçildi",
+      "title": "Dal Filtresi",
+      "tooltip": "Dal filtresi"
+    },
     "changes": "Değişiklikler",
     "commit": "Commit",
     "commitMessagePlaceholder": "Commit mesajını girin...",
     "deleted": "Silindi",
     "discard": "İptal et",
+    "discardAll": "Tümünü at",
+    "discardAllAndRevert": "Tüm değişiklikleri at ve geri al",
+    "discardChangesMessage": "Bu değişiklikleri iptal etmek istiyor musunuz?",
+    "discardChangesTitle": "Değişiklikleri iptal et?",
     "errorOccurred": "Bir hata oluştu",
     "generateCommitMessage": "AI ile mesaj oluştur",
     "history": "Geçmiş",
@@ -277,12 +312,15 @@
     "noProject": "Node.js kodu çalıştırmak için bir proje açın",
     "outputHint": "JavaScript/Node.js/Python kodu çalıştırdığınızda sonuçlar burada gösterilecektir. Node.js ve js aynı dosyada çalıştırılabilir.",
     "runtimeNotReady": "Python runtime başlatılmadı",
+    "selectFile": "Dosya seç",
     "stop": "Durdur",
     "title": "Çalıştırma Ortamı"
   },
   "searchPanel": {
     "caseSensitive": "Büyük/küçük harf duyarlı",
+    "enterToSearch": "Aramak için Enter'a basın",
     "noResults": "Sonuç bulunamadı",
+    "realtimeMode": "Gerçek zamanlı",
     "resultCount": "{count} sonuç",
     "searchInFiles": "Dosyalarda ara...",
     "searching": "Aranıyor...",

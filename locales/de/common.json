@@ -6,6 +6,7 @@
     "retry": "Erneut versuchen"
   },
   "ai": {
+    "applied": "Angewendet",
     "changedFilesList": {
       "count": "{count} Dateien",
       "expand": "Erweitern",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: neue Zeile / Ctrl+Enter: senden",
       "history": "Alt+↑↓: Verlauf"
     },
-    "input": {
-      "ask": "Stellen Sie der KI Fragen oder konsultieren Sie Code...",
-      "edit": "Geben Sie Anweisungen zum Bearbeiten des Codes ein..."
+    "mode": {
+      "ask": "Stellen Sie Fragen an die KI oder holen Sie Rat zum Code ein...",
+      "edit": "Geben Sie Anweisungen ein, um den Code zu bearbeiten..."
     },
-    "sendTitle": "Senden (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Stellen Sie der KI Fragen oder konsultieren Sie Code...",
-    "edit": "Geben Sie Anweisungen zum Bearbeiten des Codes ein..."
+    "pending": "Ausstehend",
+    "promptDebug": {
+      "close": "Schließen",
+      "copy": "Kopieren",
+      "sampleInput": "Beispiel-Eingabe",
+      "title": "Prompt-Debug"
+    },
+    "revert": {
+      "cancel": "Abbrechen",
+      "confirm": "Bestätigen",
+      "confirmMessage": "Sind Sie sicher, dass Sie diese Änderung rückgängig machen möchten?",
+      "confirmTitle": "Änderung rückgängig machen",
+      "label": "Zurücksetzen"
+    },
+    "revertTooltip": "Diese Änderung rückgängig machen",
+    "sendTitle": "Senden (Ctrl+Enter)",
+    "showPrompt": "Prompt anzeigen"
   },
   "aiReviewTab": {
     "applyAll": "Alle anwenden",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Debug-Konsole",
+    "escButton": "ESC",
     "output": "Ausgabe",
     "outputPanel": {
       "all": "Alle",
@@ -98,7 +112,9 @@
     "title": "Chat-Bereiche"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Abbrechen",
+    "editable": "Editable",
+    "save": "Speichern"
   },
   "confirmation": {
     "title": "Bestätigung"
@@ -144,11 +160,30 @@
   },
   "git": {
     "apiKeyPlaceholder": "Geben Sie den Gemini API-Schlüssel ein",
+    "branchFilter": {
+      "all": "Alle",
+      "allMode": "Alle Branches",
+      "allModeDesc": "Commits aus allen Branches anzeigen",
+      "auto": "Automatisch",
+      "autoMode": "Automatisch (nur HEAD)",
+      "autoModeDesc": "Commits des aktuellen Branches anzeigen",
+      "localBranch": "Lokaler Branch",
+      "remoteBranch": "Remote-Branch",
+      "selectBranches": "Branches auswählen",
+      "selectBranchesDesc": "Wählen Sie bestimmte Branches",
+      "selected": "ausgewählt",
+      "title": "Branch-Filter",
+      "tooltip": "Branch-Filter"
+    },
     "changes": "Änderungen",
     "commit": "Commit",
     "commitMessagePlaceholder": "Commit-Nachricht eingeben...",
     "deleted": "Gelöscht",
     "discard": "Verwerfen",
+    "discardAll": "Alle verwerfen",
+    "discardAllAndRevert": "Alle Änderungen verwerfen und zurücksetzen",
+    "discardChangesMessage": "Möchten Sie diese Änderungen verwerfen?",
+    "discardChangesTitle": "Änderungen verwerfen?",
     "errorOccurred": "Ein Fehler ist aufgetreten",
     "generateCommitMessage": "Mit KI erzeugen",
     "history": "Verlauf",
@@ -277,12 +312,15 @@
     "noProject": "Öffnen Sie ein Projekt, um Node.js-Code auszuführen",
     "outputHint": "Wenn Sie JavaScript/Node.js/Python-Code ausführen, werden die Ergebnisse hier angezeigt. Node.js und js können in derselben Datei ausgeführt werden.",
     "runtimeNotReady": "Python-Laufzeit ist nicht initialisiert",
+    "selectFile": "Datei auswählen",
     "stop": "Stoppen",
     "title": "Ausführungsumgebung"
   },
   "searchPanel": {
     "caseSensitive": "Groß-/Kleinschreibung beachten",
+    "enterToSearch": "Drücken Sie Enter, um zu suchen",
     "noResults": "Keine Ergebnisse gefunden",
+    "realtimeMode": "Echtzeit",
     "resultCount": "{count} Ergebnisse",
     "searchInFiles": "In Dateien suchen...",
     "searching": "Suche...",

@@ -47,6 +47,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const [searchInFilenames, setSearchInFilenames] = useState(false);
   const [replaceQuery, setReplaceQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [hoveredFileKey, setHoveredFileKey] = useState<string | null>(null);
+  const [hoveredResultKey, setHoveredResultKey] = useState<string | null>(null);
   const { isExcluded } = useSettings(projectId);
 
   // 1文字から検索可能に
@@ -666,7 +668,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       </div>
 
       {/* 検索結果 */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {searchQuery && !isSearching && searchResults.length === 0 && (
           <div style={{ padding: '0.5rem', textAlign: 'center', color: colors.mutedFg }}>
             <Search
@@ -704,6 +706,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     borderRadius: '0.28rem',
                     borderBottom: `1px solid ${colors.border}`,
                     marginBottom: '0.125rem',
+                    overflow: 'hidden',
+                    minWidth: 0,
                   }}
                 >
                   <div
@@ -716,6 +720,10 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                         toggleFileCollapse(key);
                       }
                     }}
+                    onMouseEnter={() => setHoveredFileKey(key)}
+                    onMouseLeave={() => setHoveredFileKey(null)}
+                    onFocus={() => setHoveredFileKey(key)}
+                    onBlur={() => setHoveredFileKey(null)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -723,6 +731,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                       marginBottom: '0.1rem',
                       cursor: 'pointer',
                       userSelect: 'none',
+                      minWidth: 0,
                     }}
                   >
                     {isCollapsed ? (
@@ -739,6 +748,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         maxWidth: '40%',
+                        minWidth: 0,
                       }}
                     >
                       {first.file.name}
@@ -757,35 +767,38 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         maxWidth: '35%',
+                        minWidth: 0,
                       }}
                     >
                       {first.file.path}
                     </span>
 
-                    {/* Replace all in file button */}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleReplaceAllInFile(first.file, replaceQuery);
-                      }}
-                      title="Replace all in file"
-                      style={{
-                        marginLeft: 'auto',
-                        padding: '0.12rem 0.3rem',
-                        borderRadius: '0.28rem',
-                        border: `1px solid ${colors.border}`,
-                        background: colors.mutedBg,
-                        color: colors.mutedFg,
-                        fontSize: '0.6rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                      }}
-                    >
-                      <Repeat size={12} />
-                      All
-                    </button>
+                    {/* Replace all in file button (show on hover/selection like VSCode) */}
+                    {(hoveredFileKey === key || group.some(r => flatResults[selectedIndex] === r)) && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleReplaceAllInFile(first.file, replaceQuery);
+                        }}
+                        title="Replace all in file"
+                        style={{
+                          marginLeft: 'auto',
+                          padding: '0.12rem 0.3rem',
+                          borderRadius: '0.28rem',
+                          border: `1px solid ${colors.border}`,
+                          background: colors.mutedBg,
+                          color: colors.mutedFg,
+                          fontSize: '0.6rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <Repeat size={12} />
+                        All
+                      </button>
+                    )}
                   </div>
 
                   {!isCollapsed && (
@@ -800,6 +813,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                       {group.map((result, idx) => {
                         const globalIndex = flatResults.indexOf(result);
                         const isSelected = globalIndex === selectedIndex;
+                        const resultKey = `${result.file.id}-${result.line}-${idx}`;
+                        const showResultReplace = result.line !== 0 && (isSelected || hoveredResultKey === resultKey);
                         return (
                           <div
                             key={`${result.file.id}-${result.line}-${idx}`}
@@ -816,12 +831,16 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                               alignItems: 'center',
                               gap: '0.32rem',
                             }}
-                            onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-                            onMouseLeave={e =>
-                              (e.currentTarget.style.background = isSelected
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = colors.accentBg;
+                              setHoveredResultKey(resultKey);
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = isSelected
                                 ? colors.accentBg
-                                : 'transparent')
-                            }
+                                : 'transparent';
+                              setHoveredResultKey(null);
+                            }}
                           >
                             <div
                               style={{
@@ -829,6 +848,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                                 gap: '0.32rem',
                                 alignItems: 'center',
                                 flex: 1,
+                                minWidth: 0,
                               }}
                             >
                               <span
@@ -859,32 +879,29 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                               </code>
                             </div>
 
-                            {/* per-result replace button (VSCode-like) */}
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                if (result.line !== 0) handleReplaceResult(result, replaceQuery);
-                              }}
-                              title={
-                                result.line === 0
-                                  ? 'Replace not available for filename matches'
-                                  : 'Replace'
-                              }
-                              disabled={result.line === 0}
-                              style={{
-                                padding: '0.08rem',
-                                borderRadius: '0.22rem',
-                                border: `1px solid ${colors.border}`,
-                                background: colors.mutedBg,
-                                color: colors.foreground,
-                                cursor: result.line === 0 ? 'not-allowed' : 'pointer',
-                                fontSize: '0.6rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Edit3 size={12} />
-                            </button>
+                            {/* per-result replace button (VSCode-like: show on hover/selection) */}
+                            {showResultReplace && (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleReplaceResult(result, replaceQuery);
+                                }}
+                                title="Replace"
+                                style={{
+                                  padding: '0.08rem',
+                                  borderRadius: '0.22rem',
+                                  border: `1px solid ${colors.border}`,
+                                  background: colors.mutedBg,
+                                  color: colors.foreground,
+                                  cursor: 'pointer',
+                                  fontSize: '0.6rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <Edit3 size={12} />
+                              </button>
+                            )}
                           </div>
                         );
                       })}

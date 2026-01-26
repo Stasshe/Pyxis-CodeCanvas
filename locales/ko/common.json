@@ -6,6 +6,7 @@
     "retry": "다시 시도"
   },
   "ai": {
+    "applied": "적용됨",
     "changedFilesList": {
       "count": "{count} 개",
       "expand": "펼치기",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: 줄바꿈 / Ctrl+Enter: 전송",
       "history": "Alt+↑↓: 히스토리"
     },
-    "input": {
-      "ask": "AI에게 질문하거나 코드 관련 상담을 하세요...",
-      "edit": "코드 수정을 위한 지시를 입력하세요..."
+    "mode": {
+      "ask": "AI에게 질문하거나 코드에 대해 상담해 보세요...",
+      "edit": "코드를 편집하기 위한 지침을 입력하세요..."
     },
-    "sendTitle": "전송 (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "AI에게 질문하거나 코드 상담을 하세요...",
-    "edit": "코드 수정을 위한 지시를 입력하세요..."
+    "pending": "대기 중",
+    "promptDebug": {
+      "close": "닫기",
+      "copy": "복사",
+      "sampleInput": "샘플 입력",
+      "title": "프롬프트 디버그"
+    },
+    "revert": {
+      "cancel": "취소",
+      "confirm": "확인",
+      "confirmMessage": "이 변경을 되돌리시겠습니까?",
+      "confirmTitle": "변경 되돌리기",
+      "label": "되돌리기"
+    },
+    "revertTooltip": "이 변경을 되돌리기",
+    "sendTitle": "전송 (Ctrl+Enter)",
+    "showPrompt": "프롬프트 표시"
   },
   "aiReviewTab": {
     "applyAll": "모두 적용",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "디버그 콘솔",
+    "escButton": "ESC",
     "output": "출력",
     "outputPanel": {
       "all": "전체",
@@ -98,7 +112,9 @@
     "title": "채팅 공간"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "취소",
+    "editable": "Editable",
+    "save": "저장"
   },
   "confirmation": {
     "title": "확인"
@@ -144,11 +160,30 @@
   },
   "git": {
     "apiKeyPlaceholder": "Gemini API 키 입력",
+    "branchFilter": {
+      "all": "모두",
+      "allMode": "모든 브랜치",
+      "allModeDesc": "모든 브랜치의 커밋을 표시",
+      "auto": "자동",
+      "autoMode": "자동 (HEAD만)",
+      "autoModeDesc": "현재 브랜치의 커밋만 표시",
+      "localBranch": "로컬 브랜치",
+      "remoteBranch": "원격 브랜치",
+      "selectBranches": "브랜치 선택",
+      "selectBranchesDesc": "특정 브랜치를 선택하세요",
+      "selected": "선택됨",
+      "title": "브랜치 필터",
+      "tooltip": "브랜치 필터"
+    },
     "changes": "변경사항",
     "commit": "커밋",
     "commitMessagePlaceholder": "커밋 메시지 입력...",
     "deleted": "삭제됨",
     "discard": "버리기",
+    "discardAll": "모두 폐기",
+    "discardAllAndRevert": "모든 변경 사항을 폐기하고 복원",
+    "discardChangesMessage": "이 변경사항을 폐기하시겠습니까?:",
+    "discardChangesTitle": "변경사항 폐기?",
     "errorOccurred": "오류가 발생했습니다",
     "generateCommitMessage": "AI로 커밋 메시지 생성",
     "history": "히스토리",
@@ -277,12 +312,16 @@
     "noProject": "실행할 프로젝트를 열어주세요",
     "outputHint": "JavaScript/Node.js/Python 코드를 실행하면 결과가 여기 표시됩니다. Node.js와 js는 동일 파일에서 실행할 수 있습니다.",
     "runtimeNotReady": "Python 런타임이 초기화되지 않았습니다",
+    "selectFile": "파일 선택",
     "stop": "중지",
     "title": "실행 환경"
   },
   "searchPanel": {
     "caseSensitive": "대소문자 구분",
+    "enterToSearch": "검색하려면 Enter 키를 누르세요",
     "noResults": "결과가 없습니다",
+    "realtimeMode": "실시간", 
+    "expected_replacements": "예상 교체: {count}",
     "resultCount": "{count}개의 결과",
     "searchInFiles": "파일에서 검색...",
     "searching": "검색 중...",

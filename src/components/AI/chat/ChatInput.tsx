@@ -105,7 +105,7 @@ export default function ChatInput({
     return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
   }
 
-  const placeholder = mode === 'ask' ? t('ai.input.ask') : t('ai.input.edit');
+  const placeholder = mode === 'ask' ? t('ai.mode.ask') : t('ai.mode.edit');
 
   return (
     <div

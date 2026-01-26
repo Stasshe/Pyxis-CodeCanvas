@@ -6,6 +6,7 @@
     "retry": "Повторить"
   },
   "ai": {
+    "applied": "Применено",
     "changedFilesList": {
       "count": "{count} файлов",
       "expand": "Развернуть",
@@ -32,15 +33,27 @@
       "enterSend": "Enter: новая строка / Ctrl+Enter: отправить",
       "history": "Alt+↑↓: история"
     },
-    "input": {
-      "ask": "Задайте ИИ вопросы или проконсультируйтесь по коду...",
+    "mode": {
+      "ask": "Задайте вопрос ИИ или проконсультируйтесь по коду...",
       "edit": "Введите инструкции для редактирования кода..."
     },
-    "sendTitle": "Отправить (Ctrl+Enter)"
-  },
-  "AI": {
-    "ask": "Задайте ИИ вопросы или проконсультируйтесь по коду...",
-    "edit": "Введите инструкции для редактирования кода..."
+    "pending": "В ожидании",
+    "promptDebug": {
+      "close": "Закрыть",
+      "copy": "Копировать",
+      "sampleInput": "Пример ввода",
+      "title": "Отладка prompt"
+    },
+    "revert": {
+      "cancel": "Отмена",
+      "confirm": "Подтвердить",
+      "confirmMessage": "Вы уверены, что хотите отменить изменение?",
+      "confirmTitle": "Отменить изменение",
+      "label": "Отменить"
+    },
+    "revertTooltip": "Отменить это изменение",
+    "sendTitle": "Отправить (Ctrl+Enter)",
+    "showPrompt": "Показать подсказку"
   },
   "aiReviewTab": {
     "applyAll": "Применить все",
@@ -70,6 +83,7 @@
   },
   "bottom": {
     "debugConsole": "Консоль отладки",
+    "escButton": "ESC",
     "output": "Вывод",
     "outputPanel": {
       "all": "Все",
@@ -98,7 +112,9 @@
     "title": "Чат-пространства"
   },
   "common": {
-    "editable": "Editable"
+    "cancel": "Отмена",
+    "editable": "Editable",
+    "save": "Сохранить"
   },
   "confirmation": {
     "title": "Подтверждение"
@@ -144,11 +160,30 @@
   },
   "git": {
     "apiKeyPlaceholder": "Введите ключ Gemini API",
+    "branchFilter": {
+      "all": "Все",
+      "allMode": "Все ветки",
+      "allModeDesc": "Показать коммиты из всех веток",
+      "auto": "Авто",
+      "autoMode": "Авто (только HEAD)",
+      "autoModeDesc": "Показать коммиты только из текущей ветки",
+      "localBranch": "Локальная ветка",
+      "remoteBranch": "Удалённая ветка",
+      "selectBranches": "Выбрать ветки",
+      "selectBranchesDesc": "Выберите конкретные ветки",
+      "selected": "выбрано",
+      "title": "Фильтр веток",
+      "tooltip": "Фильтр веток"
+    },
     "changes": "Изменения",
     "commit": "Коммит",
     "commitMessagePlaceholder": "Введите сообщение коммита...",
     "deleted": "Удалено",
     "discard": "Отменить",
+    "discardAll": "Отменить все",
+    "discardAllAndRevert": "Отменить все изменения и восстановить",
+    "discardChangesMessage": "Вы хотите отменить эти изменения?",
+    "discardChangesTitle": "Отменить изменения?",
     "errorOccurred": "Произошла ошибка",
     "generateCommitMessage": "Сгенерировать с помощью ИИ",
     "history": "История",
@@ -277,12 +312,15 @@
     "noProject": "Откройте проект для выполнения Node.js кода",
     "outputHint": "Когда вы выполняете JavaScript/Node.js/Python код, результаты будут отображаться здесь. Node.js и js можно запускать в одном файле.",
     "runtimeNotReady": "Python runtime не инициализирован",
+    "selectFile": "Выбрать файл",
     "stop": "Остановить",
     "title": "Среда выполнения"
   },
   "searchPanel": {
     "caseSensitive": "Чувствительность к регистру",
+    "enterToSearch": "Нажмите Enter для поиска",
     "noResults": "Результаты не найдены",
+    "realtimeMode": "В реальном времени",
     "resultCount": "{count} результатов",
     "searchInFiles": "Поиск в файлах...",
     "searching": "Поиск...",
