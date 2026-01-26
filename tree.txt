@@ -61,25 +61,25 @@ Root
 │   │   ├── docs_git-commands.md
 │   │   ├── getting-started.md
 │   │   └── unix-commands.md
-│   ├── homepage
-│   │   ├── index.html
-│   │   ├── main.js
-│   │   └── style.css
-│   ├── react
-│   │   ├── App.css
-│   │   ├── App.jsx
-│   │   └── sample.jsx
-│   ├── run-test.sh
-│   ├── src
-│   │   ├── fibonacci.py
-│   │   ├── fileOperationg.js
-│   │   ├── index.js
-│   │   ├── math.js
-│   │   └── readline_test.js
-│   └── typescript
-│       ├── hello.ts
-│       ├── math.ts
-│       └── use-math.ts
+│   └── src
+│       ├── fibonacci.py
+│       ├── fileOperationg.js
+│       ├── homepage
+│       │   ├── index.html
+│       │   ├── main.js
+│       │   └── style.css
+│       ├── index.js
+│       ├── math.js
+│       ├── react
+│       │   ├── App.css
+│       │   ├── App.jsx
+│       │   └── sample.jsx
+│       ├── readline_test.js
+│       ├── run-test.sh
+│       └── typescript
+│           ├── hello.ts
+│           ├── math.ts
+│           └── use-math.ts
 ├── jest.config.cjs
 ├── jest.setup.js
 ├── next-env.d.ts
@@ -121,6 +121,7 @@ Root
 │   ├── build
 │   │   ├── build-extensions.js
 │   │   └── initial_files_to_ts.js
+│   ├── check-pnpm.js
 │   ├── chore
 │   │   └── update-readmes-version.js
 │   ├── i18n
@@ -187,6 +188,14 @@ Root
 │   │   │   │   ├── index.tsx
 │   │   │   │   └── types.ts
 │   │   │   ├── GitHistory.tsx
+│   │   │   ├── GitPanel
+│   │   │   │   ├── ChangesList.tsx
+│   │   │   │   ├── CommitBox.tsx
+│   │   │   │   ├── ErrorState.tsx
+│   │   │   │   ├── FileItem.tsx
+│   │   │   │   ├── LoadingState.tsx
+│   │   │   │   ├── gitUtils.ts
+│   │   │   │   └── useGitPanel.ts
 │   │   │   ├── GitPanel.tsx
 │   │   │   ├── LeftSidebar.tsx
 │   │   │   ├── RunPanel.tsx
@@ -265,9 +274,13 @@ Root
 │   │   │   ├── global
 │   │   │   │   ├── git.ts
 │   │   │   │   ├── gitOperations
+│   │   │   │   │   ├── add.ts
+│   │   │   │   │   ├── branch.ts
 │   │   │   │   │   ├── checkout.ts
 │   │   │   │   │   ├── clone.ts
+│   │   │   │   │   ├── commit.ts
 │   │   │   │   │   ├── diff.ts
+│   │   │   │   │   ├── discardChanges.ts
 │   │   │   │   │   ├── fetch.ts
 │   │   │   │   │   ├── fileSystemHelper.ts
 │   │   │   │   │   ├── github
@@ -277,11 +290,13 @@ Root
 │   │   │   │   │   ├── log.ts
 │   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── mergeConflictDetector.ts
+│   │   │   │   │   ├── pull.ts
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
 │   │   │   │   │   ├── show.ts
+│   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── switch.ts
 │   │   │   │   │   └── tree.ts
 │   │   │   │   ├── npm.ts
@@ -475,6 +490,7 @@ Root
 │   ├── aiResponseParser.test.ts
 │   ├── aiResponseParserEdgeCases.test.ts
 │   ├── all-sh.test.ts
+│   ├── debug-if-inline.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── findCommand.posix.test.ts
 │   ├── fsRequirePromise.test.ts
@@ -496,6 +512,7 @@ Root
 │   ├── script.args.test.ts
 │   ├── script.control.inline.test.ts
 │   ├── script.control.test.ts
+│   ├── scriptRunner.test.ts
 │   ├── shell.operators.test.ts
 │   ├── shell.script.streaming.test.ts
 │   ├── shell.stream.test.ts
@@ -507,7 +524,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-74 directories, 433 files
+75 directories, 449 files
 
 =================================
 
@@ -637,12 +654,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 70035
-合計文字数: 2211069
-合計ファイルサイズ(bytes): 2358279
+合計行数: 71052
+合計文字数: 2245242
+合計ファイルサイズ(bytes): 2391082
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 129500
-合計文字数: 27001818
-合計ファイルサイズ(bytes): 29989105
+ビルト済みファイルの行数: 129631
+合計文字数: 27046000
+合計ファイルサイズ(bytes): 30033479
