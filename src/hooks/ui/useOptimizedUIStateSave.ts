@@ -27,7 +27,7 @@ export function useOptimizedUIStateSave() {
     }
 
     try {
-      await sessionStorage.saveUIState(uiState);
+      await sessionStore.saveUIState(uiState);
       lastSaveRef.current = Date.now();
       console.log('[useOptimizedUIStateSave] UI state saved to storage');
     } catch (error) {

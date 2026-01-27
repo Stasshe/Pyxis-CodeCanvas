@@ -133,7 +133,7 @@ export default function Home() {
   useEffect(() => {
     const restoreUIState = async () => {
       try {
-        const uiState = await sessionStorage.loadUIState();
+        const uiState = await sessionStore.loadUIState();
         setLeftSidebarWidth(uiState.leftSidebarWidth);
         setRightSidebarWidth(uiState.rightSidebarWidth);
         setBottomPanelHeight(uiState.bottomPanelHeight);
