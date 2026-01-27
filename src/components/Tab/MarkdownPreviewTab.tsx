@@ -127,9 +127,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
               return;
             }
 
-            // External or protocol links - open in new tab
             if (
-              hrefString.startsWith('http://') ||
               hrefString.startsWith('https://') ||
               hrefString.startsWith('mailto:') ||
               hrefString.startsWith('tel:') ||
@@ -484,12 +482,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         className={`markdown-body prose prose-github max-w-none ${
           themeName?.toLowerCase().includes('light') ? 'markdown-light' : 'markdown-dark'
         }`}
-        style={
-          {
-            ['--markdown-background' as any]: colors.background,
-            ['--markdown-foreground' as any]: colors.foreground,
-          } as React.CSSProperties
-        }
+        style={{ color: colors.foreground, backgroundColor: colors.background }}
       >
         {markdownContent}
       </div>
