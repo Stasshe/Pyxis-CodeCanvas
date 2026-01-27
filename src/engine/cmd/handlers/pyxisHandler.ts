@@ -44,7 +44,7 @@ export async function handlePyxisCommand(
         await writeOutput('⚠️  WARNING: This will DELETE ALL DATA including:');
         await writeOutput('  - All IndexedDB databases (pyxis-global, pyxisproject, lightning-fs)');
         await writeOutput('  - localStorage (except recent projects and language settings)');
-        await writeOutput('  - sessionStorage (terminal history)');
+        await writeOutput('  - session-scoped preferences (terminal history)');
         await writeOutput('');
         await writeOutput('Type "yes" to confirm or "no" to cancel:');
 
@@ -158,11 +158,11 @@ export async function handlePyxisCommand(
               `  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`
             );
 
-            // 4. Clear sessionStorage
-            await writeOutput('[4/5] Clearing sessionStorage...');
-            clearAllTerminalHistory();
-            sessionStorage.clear();
-            await writeOutput('  ✓ Cleared sessionStorage');
+            // 4. Clear session-scoped data (migrated to IndexedDB user_preferences)
+            await writeOutput('[4/5] Clearing session-scoped preferences...');
+            await clearAllTerminalHistory();
+            await storageService.clear(STORES.USER_PREFERENCES);
+            await writeOutput('  ✓ Cleared session-scoped preferences');
 
             // 5. Reload page to reinitialize
             await writeOutput('[5/5] Reloading application...');

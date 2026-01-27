@@ -1,18 +1,19 @@
-/**
- * Terminal History Storage
- * sessionStorageを使用したターミナルコマンド履歴管理
- * ブラウザセッション内でのみデータを保持
- */
+import { STORES, storageService } from '@/engine/storage';
 
-const TERMINAL_HISTORY_PREFIX = 'pyxis_terminal_history_';
+/**
+ * Terminal History Storage (migrated)
+ * - Previously used sessionStorage. Now persisted in IndexedDB via storageService under USER_PREFERENCES.
+ * - All APIs are async and return Promises.
+ */
+const TERMINAL_HISTORY_KEY_PREFIX = 'terminalHistory_';
 
 /**
  * ターミナルコマンド履歴を保存
  */
-export function saveTerminalHistory(projectName: string, history: string[]): void {
+export async function saveTerminalHistory(projectName: string, history: string[]): Promise<void> {
   try {
-    const key = `${TERMINAL_HISTORY_PREFIX}${projectName}`;
-    sessionStorage.setItem(key, JSON.stringify(history));
+    const key = `${TERMINAL_HISTORY_KEY_PREFIX}${projectName}`;
+    await storageService.set(STORES.USER_PREFERENCES, key, history);
   } catch (error) {
     console.warn('[terminalHistoryStorage] Failed to save terminal history:', error);
   }
@@ -21,26 +22,24 @@ export function saveTerminalHistory(projectName: string, history: string[]): voi
 /**
  * ターミナルコマンド履歴を取得
  */
-export function getTerminalHistory(projectName: string): string[] {
+export async function getTerminalHistory(projectName: string): Promise<string[]> {
   try {
-    const key = `${TERMINAL_HISTORY_PREFIX}${projectName}`;
-    const saved = sessionStorage.getItem(key);
-    if (saved) {
-      return JSON.parse(saved);
-    }
+    const key = `${TERMINAL_HISTORY_KEY_PREFIX}${projectName}`;
+    const saved = await storageService.get<string[]>(STORES.USER_PREFERENCES, key);
+    return saved || [];
   } catch (error) {
     console.warn('[terminalHistoryStorage] Failed to load terminal history:', error);
+    return [];
   }
-  return [];
 }
 
 /**
  * ターミナルコマンド履歴を削除
  */
-export function clearTerminalHistory(projectName: string): void {
+export async function clearTerminalHistory(projectName: string): Promise<void> {
   try {
-    const key = `${TERMINAL_HISTORY_PREFIX}${projectName}`;
-    sessionStorage.removeItem(key);
+    const key = `${TERMINAL_HISTORY_KEY_PREFIX}${projectName}`;
+    await storageService.delete(STORES.USER_PREFERENCES, key);
   } catch (error) {
     console.warn('[terminalHistoryStorage] Failed to clear terminal history:', error);
   }
@@ -49,16 +48,16 @@ export function clearTerminalHistory(projectName: string): void {
 /**
  * 全てのターミナルコマンド履歴を削除
  */
-export function clearAllTerminalHistory(): void {
+export async function clearAllTerminalHistory(): Promise<void> {
   try {
-    const keys: string[] = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key?.startsWith(TERMINAL_HISTORY_PREFIX)) {
-        keys.push(key);
-      }
-    }
-    keys.forEach(key => sessionStorage.removeItem(key));
+    const all = await storageService.getAll(STORES.USER_PREFERENCES);
+    const keysToDelete = all
+      .map(e => e.id)
+      .filter(id => id.startsWith(TERMINAL_HISTORY_KEY_PREFIX));
+
+    await Promise.all(
+      keysToDelete.map(k => storageService.delete(STORES.USER_PREFERENCES, k))
+    );
   } catch (error) {
     console.warn('[terminalHistoryStorage] Failed to clear all terminal history:', error);
   }
