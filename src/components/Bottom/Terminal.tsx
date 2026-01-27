@@ -198,6 +198,13 @@ function ClientTerminal({
     const terminalUI = new TerminalUI(outputManager);
     terminalUIRef.current = terminalUI;
 
+    // Register UI with the shared terminal registry so command classes can access it
+    try {
+      terminalCommandRegistry.setTerminalUI(currentProjectId, terminalUI);
+    } catch (e) {
+      console.warn('[Terminal] failed to register TerminalUI with registry', e);
+    }
+
     // タッチスクロール機能を追加
     let startY = 0;
     let scrolling = false;

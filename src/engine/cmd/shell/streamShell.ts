@@ -7,6 +7,7 @@
 
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { UnixCommands } from '../global/unix';
+import type TerminalUI from '@/engine/cmd/terminalUI';
 import {
   type OutputCallbacks,
   type ShellExecutor,
@@ -30,6 +31,7 @@ export interface ShellOptions {
   commandRegistry?: any;
   terminalColumns?: number;
   terminalRows?: number;
+  terminalUI?: TerminalUI; // Optional TerminalUI instance
 }
 
 /**
@@ -53,6 +55,7 @@ export class StreamShell {
       commandRegistry: opts.commandRegistry,
       terminalColumns: opts.terminalColumns ?? 80,
       terminalRows: opts.terminalRows ?? 24,
+      terminalUI: opts.terminalUI,
       isInteractive: true,
     };
 

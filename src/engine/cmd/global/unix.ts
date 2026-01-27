@@ -30,6 +30,8 @@ import {
   ZipCommand,
 } from './unixOperations';
 
+import type TerminalUI from '@/engine/cmd/terminalUI';
+
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import {
   fsPathToAppPath,
@@ -116,6 +118,8 @@ export class UnixCommands {
   private gzipCmd: GzipCommand;
   private zipCmd: ZipCommand;
 
+  private terminalUI?: TerminalUI;
+
   constructor(projectName: string, projectId?: string) {
     this.currentDir = gitFileSystem.getProjectDir(projectName);
     this.projectId = projectId || '';
@@ -155,6 +159,46 @@ export class UnixCommands {
     this.tarCmd = new TarCommand(projectName, this.currentDir, projectId);
     this.gzipCmd = new GzipCommand(projectName, this.currentDir, projectId);
     this.zipCmd = new ZipCommand(projectName, this.currentDir, projectId);
+  }
+
+  /**
+   * Inject TerminalUI instance into UnixCommands and propagate to all child command instances
+   */
+  setTerminalUI(ui: TerminalUI): void {
+    this.terminalUI = ui;
+
+    // propagate to individual commands if they support it
+    this.catCmd.setTerminalUI?.(ui);
+    this.cdCmd.setTerminalUI?.(ui);
+    this.cpCmd.setTerminalUI?.(ui);
+    this.echoCmd.setTerminalUI?.(ui);
+    this.findCmd.setTerminalUI?.(ui);
+    this.grepCmd.setTerminalUI?.(ui);
+    this.helpCmd.setTerminalUI?.(ui);
+    this.lsCmd.setTerminalUI?.(ui);
+    this.mkdirCmd.setTerminalUI?.(ui);
+    this.mvCmd.setTerminalUI?.(ui);
+    this.pwdCmd.setTerminalUI?.(ui);
+    this.rmCmd.setTerminalUI?.(ui);
+    this.testCmd.setTerminalUI?.(ui);
+    this.touchCmd.setTerminalUI?.(ui);
+    this.treeCmd.setTerminalUI?.(ui);
+    this.unzipCmd.setTerminalUI?.(ui);
+    this.headCmd.setTerminalUI?.(ui);
+    this.tailCmd.setTerminalUI?.(ui);
+    this.statCmd.setTerminalUI?.(ui);
+    this.wcCmd.setTerminalUI?.(ui);
+    this.dateCmd.setTerminalUI?.(ui);
+    this.duCmd.setTerminalUI?.(ui);
+    this.dfCmd.setTerminalUI?.(ui);
+    this.sortCmd.setTerminalUI?.(ui);
+    this.tarCmd.setTerminalUI?.(ui);
+    this.gzipCmd.setTerminalUI?.(ui);
+    this.zipCmd.setTerminalUI?.(ui);
+  }
+
+  getTerminalUI(): TerminalUI | undefined {
+    return this.terminalUI;
   }
 
   // ==================== 状態管理 ====================
@@ -212,125 +256,64 @@ export class UnixCommands {
 
   // ==================== POSIX準拠コマンド (args: string[]) ====================
 
-  /**
-   * cd - ディレクトリを変更
-   * @param args - [path] または [options..., path]
-   */
   async cd(args: string[]): Promise<string> {
     const result = await this.cdCmd.execute(args);
-    // cd成功時、現在のディレクトリを更新
     this.setCurrentDir(result.newDir);
     return result.message || '';
   }
 
-  /**
-   * ls - ディレクトリの内容を一覧表示
-   * @param args - [options..., paths...]
-   */
   async ls(args: string[] = []): Promise<string> {
     return await this.lsCmd.execute(args);
   }
 
-  /**
-   * mkdir - ディレクトリを作成
-   * @param args - [options..., dirs...]
-   */
   async mkdir(args: string[]): Promise<string> {
     return await this.mkdirCmd.execute(args);
   }
 
-  /**
-   * touch - ファイルを作成/タイムスタンプ更新
-   * @param args - [options..., files...]
-   */
   async touch(args: string[]): Promise<string> {
     return await this.touchCmd.execute(args);
   }
 
-  /**
-   * rm - ファイル/ディレクトリを削除
-   * @param args - [options..., files...]
-   */
   async rm(args: string[]): Promise<string> {
     return await this.rmCmd.execute(args);
   }
 
-  /**
-   * cat - ファイルの内容を表示
-   * @param args - [options..., files...]
-   */
   async cat(args: string[]): Promise<string> {
     return await this.catCmd.execute(args);
   }
 
-  /**
-   * head - ファイルの先頭を表示
-   * @param args - [options..., files...]
-   */
   async head(args: string[]): Promise<string> {
     return await this.headCmd.execute(args);
   }
 
-  /**
-   * tail - ファイルの末尾を表示
-   * @param args - [options..., files...]
-   */
   async tail(args: string[]): Promise<string> {
     return await this.tailCmd.execute(args);
   }
 
-  /**
-   * stat - ファイル情報を表示
-   * @param args - [options..., files...]
-   */
   async stat(args: string[]): Promise<string> {
     return await this.statCmd.execute(args);
   }
 
-  /**
-   * echo - テキストを出力
-   * @param args - [options..., strings...]
-   */
   async echo(args: string[]): Promise<string> {
     return await this.echoCmd.execute(args);
   }
 
-  /**
-   * mv - ファイル/ディレクトリを移動
-   * @param args - [options..., sources..., destination]
-   */
   async mv(args: string[]): Promise<string> {
     return await this.mvCmd.execute(args);
   }
 
-  /**
-   * cp - ファイル/ディレクトリをコピー
-   * @param args - [options..., sources..., destination]
-   */
   async cp(args: string[]): Promise<string> {
     return await this.cpCmd.execute(args);
   }
 
-  /**
-   * rename - ファイル/ディレクトリをリネーム (mvのエイリアス)
-   * @param args - [oldPath, newPath]
-   */
   async rename(args: string[]): Promise<string> {
     return await this.mvCmd.execute(args);
   }
 
-  /**
-   * tree - ディレクトリ構造をツリー表示
-   * @param args - [options..., path]
-   */
   async tree(args: string[] = []): Promise<string> {
     return await this.treeCmd.execute(args);
   }
 
-  /**
-   * find - ファイルを検索
-   * @param args - [path, expressions...]
-   */
   async find(args: string[] = []): Promise<string> {
     return await this.findCmd.execute(args);
   }
@@ -369,47 +352,26 @@ export class UnixCommands {
     return await this.wcCmd.execute(args);
   }
 
-  /**
-   * test/[ - 条件式を評価
-   * @param args - 条件式トークン
-   */
   async test(args: string[]): Promise<boolean> {
     return await this.testCmd.evaluate(args);
   }
 
-  /**
-   * help - ヘルプを表示
-   * @param args - [command]
-   */
   async help(args: string[] = []): Promise<string> {
     return await this.helpCmd.execute(args);
   }
 
-  /**
-   * date - 日付表示（POSIXライク）
-   * @param args - [options..., +FORMAT]
-   */
   async date(args: string[] = []): Promise<string> {
     return await this.dateCmd.execute(args);
   }
 
-  /**
-   * du - ディスク使用量を表示
-   */
   async du(args: string[] = []): Promise<string> {
     return await this.duCmd.execute(args);
   }
 
-  /**
-   * df - ファイルシステム使用量を表示
-   */
   async df(args: string[] = []): Promise<string> {
     return await this.dfCmd.execute(args);
   }
 
-  /**
-   * sort - 行をソート（stdin サポート）
-   */
   async sort(args: string[], stdin: NodeJS.ReadableStream | string | null = null): Promise<string> {
     if (stdin) {
       let content = '';

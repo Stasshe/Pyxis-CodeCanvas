@@ -25,23 +25,37 @@ export class GzipCommand extends UnixCommandBase {
     if (!target) throw new Error(`gzip: ${fileArg}: No such file`);
 
     if (decompress) {
-      if (!target.isBufferArray || !target.bufferContent) {
-        throw new Error(`gzip: ${fileArg}: not in compressed format`);
+      if (this.terminalUI) await this.terminalUI.spinner.start('Decompressing gzip file...');
+      try {
+        if (!target.isBufferArray || !target.bufferContent) {
+          throw new Error(`gzip: ${fileArg}: not in compressed format`);
+        }
+        const inBuf = new Uint8Array(target.bufferContent);
+        const out = pako.ungzip(inBuf);
+        // save as original name without .gz
+        let outName = fileArg;
+        if (outName.endsWith('.gz')) outName = outName.slice(0, -3);
+        await fileRepository.createFile(this.projectId, outName, '', 'file', true, out.buffer as ArrayBuffer);
+        if (this.terminalUI) await this.terminalUI.spinner.success('Decompression completed');
+        return `decompressed: ${outName}`;
+      } catch (err: any) {
+        if (this.terminalUI) await this.terminalUI.spinner.error(`Decompression failed: ${err?.message || String(err)}`);
+        throw err;
       }
-      const inBuf = new Uint8Array(target.bufferContent);
-      const out = pako.ungzip(inBuf);
-      // save as original name without .gz
-      let outName = fileArg;
-      if (outName.endsWith('.gz')) outName = outName.slice(0, -3);
-      await fileRepository.createFile(this.projectId, outName, '', 'file', true, out.buffer as ArrayBuffer);
-      return `decompressed: ${outName}`;
     } else {
       // compress
-      const contentArray = target.bufferContent ? new Uint8Array(target.bufferContent) : new TextEncoder().encode(target.content || '');
-      const gz = pako.gzip(contentArray);
-      const outName = fileArg.endsWith('.gz') ? fileArg : `${fileArg}.gz`;
-      await fileRepository.createFile(this.projectId, outName, '', 'file', true, gz.buffer as ArrayBuffer);
-      return `created: ${outName}`;
+      if (this.terminalUI) await this.terminalUI.spinner.start('Compressing file...');
+      try {
+        const contentArray = target.bufferContent ? new Uint8Array(target.bufferContent) : new TextEncoder().encode(target.content || '');
+        const gz = pako.gzip(contentArray);
+        const outName = fileArg.endsWith('.gz') ? fileArg : `${fileArg}.gz`;
+        await fileRepository.createFile(this.projectId, outName, '', 'file', true, gz.buffer as ArrayBuffer);
+        if (this.terminalUI) await this.terminalUI.spinner.success('Compression completed');
+        return `created: ${outName}`;
+      } catch (err: any) {
+        if (this.terminalUI) await this.terminalUI.spinner.error(`Compression failed: ${err?.message || String(err)}`);
+        throw err;
+      }
     }
   }
 }

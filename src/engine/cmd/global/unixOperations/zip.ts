@@ -36,8 +36,15 @@ export class ZipCommand extends UnixCommandBase {
       }
     }
 
-    const arrayBuffer = await zip.generateAsync({ type: 'arraybuffer' });
-    await fileRepository.createFile(this.projectId, archive, '', 'file', true, arrayBuffer as ArrayBuffer);
-    return `created ${archive}`;
+    if (this.terminalUI) await this.terminalUI.spinner.start('Creating zip archive...');
+    try {
+      const arrayBuffer = await zip.generateAsync({ type: 'arraybuffer' });
+      await fileRepository.createFile(this.projectId, archive, '', 'file', true, arrayBuffer as ArrayBuffer);
+      if (this.terminalUI) await this.terminalUI.spinner.success('Archive operation completed');
+      return `created ${archive}`;
+    } catch (err: any) {
+      if (this.terminalUI) await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+      throw err;
+    }
   }
 }

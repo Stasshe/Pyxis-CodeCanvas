@@ -17,10 +17,13 @@ import type { ProjectFile } from '@/types';
  * - currentDir: FSPath形式（/projects/{projectName}/...）
  * - DB操作: AppPath形式（/src/hello.ts）
  */
+import type TerminalUI from '@/engine/cmd/terminalUI';
+
 export abstract class UnixCommandBase {
   protected _currentDir: string;
   protected projectId: string;
   protected projectName: string;
+  protected terminalUI?: TerminalUI;
 
   constructor(projectName: string, currentDir: string, projectId?: string) {
     this.projectName = projectName;
@@ -30,6 +33,14 @@ export abstract class UnixCommandBase {
     if (!this.projectId) {
       console.warn('[UnixCommandBase] projectId is empty! DB operations will fail.');
     }
+  }
+
+  /**
+   * Optional injection point for TerminalUI advanced display features.
+   * Commands can override or rely on the base implementation.
+   */
+  setTerminalUI(ui: TerminalUI): void {
+    this.terminalUI = ui;
   }
 
   /** Get current directory */

@@ -15,6 +15,7 @@ import { type Segment, type TokenObj, isDevNull } from './types';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
+import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 
 /**
@@ -28,6 +29,7 @@ export interface ShellExecutorOptions {
   commandRegistry?: any;
   terminalColumns?: number;
   terminalRows?: number;
+  terminalUI?: TerminalUI; // Optional UI instance for advanced display
   env?: Record<string, string>;
   isInteractive?: boolean;
 }
@@ -71,6 +73,7 @@ export class ShellExecutor {
   private unix: UnixCommands | null = null;
   private fileRepository: typeof FileRepository | undefined;
   private commandRegistry: any;
+  private terminalUI?: TerminalUI;
   private foregroundProc: Process | null = null;
   private builtins: Record<string, any> | null = null;
 
@@ -88,6 +91,7 @@ export class ShellExecutor {
     this.unix = options.unix ?? null;
     this.fileRepository = options.fileRepository;
     this.commandRegistry = options.commandRegistry;
+    this.terminalUI = options.terminalUI;
   }
 
   /**

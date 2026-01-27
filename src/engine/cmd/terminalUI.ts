@@ -184,11 +184,11 @@ export class SpinnerController {
   }
 
   async warn(message: string): Promise<void> {
-    await this.stop(`${ANSI.FG.YELLOW}⚠${ANSI.RESET} ${message}`);
+    await this.stop(`${ANSI.FG.YELLOW}warn: ${ANSI.RESET} ${message}`);
   }
 
   async info(message: string): Promise<void> {
-    await this.stop(`${ANSI.FG.CYAN}ℹ${ANSI.RESET} ${message}`);
+    await this.stop(`${ANSI.FG.CYAN}info: ${ANSI.RESET} ${message}`);
   }
 
   get running(): boolean {

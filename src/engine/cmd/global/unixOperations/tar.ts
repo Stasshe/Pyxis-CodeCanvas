@@ -28,39 +28,46 @@ export class TarCommand extends UnixCommandBase {
 
     if (c) {
       // create
-      const files = positional.slice();
-      // if -f present, remove archive name from positional
-      if (files[0] === archive) files.shift();
-      const pack = tar.pack();
-      const chunks: Uint8Array[] = [];
+      if (this.terminalUI) await this.terminalUI.spinner.start('Creating tar archive...');
+      try {
+        const files = positional.slice();
+        // if -f present, remove archive name from positional
+        if (files[0] === archive) files.shift();
+        const pack = tar.pack();
+        const chunks: Uint8Array[] = [];
 
-      for (const name of files) {
-        const resolved = this.normalizePath(this.resolvePath(name));
-        const rel = this.getRelativePathFromProject(resolved);
-        const file = await fileRepository.getFileByPath(this.projectId, rel);
-        if (!file) throw new Error(`tar: ${name}: No such file or directory`);
-        if (file.type === 'folder') {
-          // create directory entry
-          pack.entry({ name: name.replace(/^\//, '') + '/' }, '', () => {});
-        } else {
-          // Ensure we pass a Buffer (not Uint8Array) to tar-stream
-          const contentBuf = file.bufferContent ? Buffer.from(file.bufferContent) : Buffer.from(file.content || '', 'utf8');
-          pack.entry({ name: name.replace(/^\//, '') }, contentBuf, () => {});
+        for (const name of files) {
+          const resolved = this.normalizePath(this.resolvePath(name));
+          const rel = this.getRelativePathFromProject(resolved);
+          const file = await fileRepository.getFileByPath(this.projectId, rel);
+          if (!file) throw new Error(`tar: ${name}: No such file or directory`);
+          if (file.type === 'folder') {
+            // create directory entry
+            pack.entry({ name: name.replace(/^\//, '') + '/' }, '', () => {});
+          } else {
+            // Ensure we pass a Buffer (not Uint8Array) to tar-stream
+            const contentBuf = file.bufferContent ? Buffer.from(file.bufferContent) : Buffer.from(file.content || '', 'utf8');
+            pack.entry({ name: name.replace(/^\//, '') }, contentBuf, () => {});
+          }
         }
+
+        pack.finalize();
+
+        // collect pack stream
+        await new Promise<void>((resolve, reject) => {
+          pack.on('data', (c: any) => chunks.push(Buffer.from(c)));
+          pack.on('end', () => resolve());
+          pack.on('error', (e: any) => reject(e));
+        });
+
+        const total = Buffer.concat(chunks);
+        await fileRepository.createFile(this.projectId, archive, '', 'file', true, total.buffer as ArrayBuffer);
+        if (this.terminalUI) await this.terminalUI.spinner.success('Archive operation completed');
+        return `Created ${archive}`;
+      } catch (err: any) {
+        if (this.terminalUI) await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+        throw err;
       }
-
-      pack.finalize();
-
-      // collect pack stream
-      await new Promise<void>((resolve, reject) => {
-        pack.on('data', (c: any) => chunks.push(Buffer.from(c)));
-        pack.on('end', () => resolve());
-        pack.on('error', (e: any) => reject(e));
-      });
-
-      const total = Buffer.concat(chunks);
-      await fileRepository.createFile(this.projectId, archive, '', 'file', true, total.buffer as ArrayBuffer);
-      return `Created ${archive}`;
     } else if (t) {
       // list
       const resolved = this.normalizePath(this.resolvePath(archive));
@@ -87,44 +94,51 @@ export class TarCommand extends UnixCommandBase {
     } else if (x) {
       // extract
       const dest = '.';
-      const resolved = this.normalizePath(this.resolvePath(archive));
-      const rel = this.getRelativePathFromProject(resolved);
-      const file = await fileRepository.getFileByPath(this.projectId, rel);
-      if (!file) throw new Error(`tar: ${archive}: No such file or directory`);
-      const buf = file.bufferContent ? file.bufferContent : new TextEncoder().encode(file.content || '').buffer;
+      if (this.terminalUI) await this.terminalUI.spinner.start('Extracting tar archive...');
+      try {
+        const resolved = this.normalizePath(this.resolvePath(archive));
+        const rel = this.getRelativePathFromProject(resolved);
+        const file = await fileRepository.getFileByPath(this.projectId, rel);
+        if (!file) throw new Error(`tar: ${archive}: No such file or directory`);
+        const buf = file.bufferContent ? file.bufferContent : new TextEncoder().encode(file.content || '').buffer;
 
-      const extract = tar.extract();
-      const entries: any[] = [];
+        const extract = tar.extract();
+        const entries: any[] = [];
 
-      extract.on('entry', (header, stream, next) => {
-        // remove trailing slash if present
-        const name = header.name.replace(/\/$/, '');
-        if (header.type === 'directory' || header.name.endsWith('/')) {
-          entries.push({ path: `/${name}`, content: '', type: 'folder' });
-          stream.resume();
-          next();
-          return;
-        }
-        const chunks: Uint8Array[] = [];
-        stream.on('data', (c: any) => chunks.push(Buffer.from(c)));
-        stream.on('end', () => {
-          const buf = Buffer.concat(chunks);
-          entries.push({ path: `/${name}`, content: '', type: 'file', isBufferArray: true, bufferContent: buf.buffer as ArrayBuffer });
-          next();
+        extract.on('entry', (header, stream, next) => {
+          // remove trailing slash if present
+          const name = header.name.replace(/\/$/, '');
+          if (header.type === 'directory' || header.name.endsWith('/')) {
+            entries.push({ path: `/${name}`, content: '', type: 'folder' });
+            stream.resume();
+            next();
+            return;
+          }
+          const chunks: Uint8Array[] = [];
+          stream.on('data', (c: any) => chunks.push(Buffer.from(c)));
+          stream.on('end', () => {
+            const buf = Buffer.concat(chunks);
+            entries.push({ path: `/${name}`, content: '', type: 'file', isBufferArray: true, bufferContent: buf.buffer as ArrayBuffer });
+            next();
+          });
         });
-      });
 
-      await new Promise<void>((resolve, reject) => {
-        extract.on('finish', () => resolve());
-        extract.on('error', (e: any) => reject(e));
-        extract.end(Buffer.from(buf));
-      });
+        await new Promise<void>((resolve, reject) => {
+          extract.on('finish', () => resolve());
+          extract.on('error', (e: any) => reject(e));
+          extract.end(Buffer.from(buf));
+        });
 
-      if (entries.length > 0) {
-        await fileRepository.createFilesBulk(this.projectId, entries);
+        if (entries.length > 0) {
+          await fileRepository.createFilesBulk(this.projectId, entries);
+        }
+
+        if (this.terminalUI) await this.terminalUI.spinner.success('Archive operation completed');
+        return `Extracted ${entries.length} entries to ${dest}`;
+      } catch (err: any) {
+        if (this.terminalUI) await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+        throw err;
       }
-
-      return `Extracted ${entries.length} entries to ${dest}`;
     }
 
     throw new Error('tar: invalid option. Use -c, -t or -x with -f ARCHIVE');

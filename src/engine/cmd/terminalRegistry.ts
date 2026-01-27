@@ -2,6 +2,7 @@ import { GitCommands } from './global/git';
 import { NpmCommands } from './global/npm';
 import { UnixCommands } from './global/unix';
 import type StreamShell from './shell/streamShell';
+import type TerminalUI from './terminalUI';
 
 import type { fileRepository } from '@/engine/core/fileRepository';
 
@@ -10,6 +11,7 @@ type ProjectEntry = {
   git?: GitCommands;
   npm?: NpmCommands;
   shell?: StreamShell;
+  terminalUI?: TerminalUI; // TerminalUI instance per-project
   createdAt: number;
 };
 
@@ -31,11 +33,32 @@ class TerminalCommandRegistry {
     return entry;
   }
 
+  /**
+   * Register a TerminalUI instance for a project and propagate it to existing command instances
+   */
+  setTerminalUI(projectId: string, ui: TerminalUI): void {
+    const entry = this.getOrCreateEntry(projectId);
+    entry.terminalUI = ui;
+
+    // Propagate to existing instances immediately
+    if (entry.git) entry.git.setTerminalUI?.(ui);
+    if (entry.npm) entry.npm.setTerminalUI?.(ui);
+    if (entry.unix) entry.unix.setTerminalUI?.(ui);
+  }
+
+  /**
+   * Retrieve the TerminalUI instance for a project (may be undefined)
+   */
+  getTerminalUI(projectId: string): TerminalUI | undefined {
+    return this.projects.get(projectId)?.terminalUI;
+  }
+
   getUnixCommands(projectName: string, projectId: string): UnixCommands {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.unix) {
       // Construct UnixCommands using the existing constructor signature
       entry.unix = new UnixCommands(projectName, projectId);
+      if (entry.terminalUI) entry.unix.setTerminalUI(entry.terminalUI);
     }
     return entry.unix!;
   }
@@ -44,6 +67,7 @@ class TerminalCommandRegistry {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.git) {
       entry.git = new GitCommands(projectName, projectId);
+      if (entry.terminalUI) entry.git.setTerminalUI(entry.terminalUI);
     }
     return entry.git!;
   }
@@ -52,6 +76,7 @@ class TerminalCommandRegistry {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.npm) {
       entry.npm = new NpmCommands(projectName, projectId, currentDir);
+      if (entry.terminalUI) entry.npm.setTerminalUI(entry.terminalUI);
     }
     return entry.npm!;
   }
