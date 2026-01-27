@@ -46,59 +46,7 @@ export default function OperationVirtualList({
     overscan: 5,
   });
 
-  // Avoid calling virtualizer.getVirtualItems() directly in render (may trigger internal flushSync).
-  // Instead, maintain local state and update it asynchronously on scroll/resize/count changes.
-  const [virtualItems, setVirtualItems] = React.useState(() => virtualizer.getVirtualItems());
-
-  useEffect(() => {
-    let mounted = true;
-
-    const sync = () => {
-      if (!mounted) return;
-      try {
-        const items = virtualizer.getVirtualItems();
-        setVirtualItems(prev => {
-          if (!prev || prev.length !== items.length) return items;
-          for (let i = 0; i < prev.length; i++) {
-            const p = prev[i];
-            const n = items[i];
-            if (!n) return items;
-            if (p.index !== n.index || p.start !== n.start || p.size !== n.size) return items;
-          }
-          return prev;
-        });
-      } catch (e) {
-        // ignore errors
-      }
-    };
-
-    // initial sync on next microtask to avoid calling during render
-    Promise.resolve().then(sync);
-
-    const el = parentRef.current;
-    if (el) {
-      el.addEventListener('scroll', sync, { passive: true });
-    }
-    window.addEventListener('resize', sync);
-
-    let ro: ResizeObserver | null = null;
-    try {
-      ro = new ResizeObserver(sync);
-      if (el) ro.observe(el);
-    } catch (e) {
-      // ResizeObserver might not be available in test envs
-    }
-
-    // Also resync when count or ITEM_HEIGHT changes
-    // (these are included in deps below)
-
-    return () => {
-      mounted = false;
-      if (el) el.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
-      if (ro) ro.disconnect();
-    };
-  }, [virtualizer, count, ITEM_HEIGHT, parentRef]);
+  const virtualItems = virtualizer.getVirtualItems();
 
   // Ensure the virtualized list scrolls to the selected index when it changes.
   useEffect(() => {
