@@ -22,6 +22,12 @@ import {
   UnzipCommand,
   WcCommand,
   DateCommand,
+  DuCommand,
+  DfCommand,
+  SortCommand,
+  TarCommand,
+  GzipCommand,
+  ZipCommand,
 } from './unixOperations';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -43,6 +49,39 @@ import {
  * - currentDir: FSPath形式（/projects/{projectName}/...）
  * - 外部API: AppPath形式（/src/hello.ts）
  */
+export const UNIX_COMMANDS = [
+  'echo',
+  'pwd',
+  'ls',
+  'cd',
+  'mkdir',
+  'touch',
+  'rm',
+  'cp',
+  'mv',
+  'rename',
+  'tree',
+  'find',
+  'help',
+  'unzip',
+  'stat',
+  'cat',
+  'head',
+  'tail',
+  'grep',
+  'wc',
+  'date',
+  'whoami',
+  'chmod',
+  'chown',
+  'du',
+  'df',
+  'sort',
+  'tar',
+  'gzip',
+  'zip',
+] as const;
+
 export class UnixCommands {
   private currentDir: string;
   private projectId: string;
@@ -70,6 +109,12 @@ export class UnixCommands {
   private statCmd: StatCommand;
   private wcCmd: WcCommand;
   private dateCmd: DateCommand;
+  private duCmd: DuCommand;
+  private dfCmd: DfCommand;
+  private sortCmd: SortCommand;
+  private tarCmd: TarCommand;
+  private gzipCmd: GzipCommand;
+  private zipCmd: ZipCommand;
 
   constructor(projectName: string, projectId?: string) {
     this.currentDir = gitFileSystem.getProjectDir(projectName);
@@ -102,6 +147,14 @@ export class UnixCommands {
     this.statCmd = new StatCommand(projectName, this.currentDir, projectId);
     this.wcCmd = new WcCommand(projectName, this.currentDir, projectId);
     this.dateCmd = new DateCommand(projectName, this.currentDir, projectId);
+
+    // new commands
+    this.duCmd = new DuCommand(projectName, this.currentDir, projectId);
+    this.dfCmd = new DfCommand(projectName, this.currentDir, projectId);
+    this.sortCmd = new SortCommand(projectName, this.currentDir, projectId);
+    this.tarCmd = new TarCommand(projectName, this.currentDir, projectId);
+    this.gzipCmd = new GzipCommand(projectName, this.currentDir, projectId);
+    this.zipCmd = new ZipCommand(projectName, this.currentDir, projectId);
   }
 
   // ==================== 状態管理 ====================
@@ -149,6 +202,12 @@ export class UnixCommands {
     this.statCmd.currentDir = dir;
     this.wcCmd.currentDir = dir;
     this.dateCmd.currentDir = dir;
+    this.duCmd.currentDir = dir;
+    this.dfCmd.currentDir = dir;
+    this.sortCmd.currentDir = dir;
+    this.tarCmd.currentDir = dir;
+    this.gzipCmd.currentDir = dir;
+    this.zipCmd.currentDir = dir;
   }
 
   // ==================== POSIX準拠コマンド (args: string[]) ====================
@@ -332,6 +391,62 @@ export class UnixCommands {
    */
   async date(args: string[] = []): Promise<string> {
     return await this.dateCmd.execute(args);
+  }
+
+  /**
+   * du - ディスク使用量を表示
+   */
+  async du(args: string[] = []): Promise<string> {
+    return await this.duCmd.execute(args);
+  }
+
+  /**
+   * df - ファイルシステム使用量を表示
+   */
+  async df(args: string[] = []): Promise<string> {
+    return await this.dfCmd.execute(args);
+  }
+
+  /**
+   * sort - 行をソート（stdin サポート）
+   */
+  async sort(args: string[], stdin: NodeJS.ReadableStream | string | null = null): Promise<string> {
+    if (stdin) {
+      let content = '';
+      if (typeof stdin === 'string') content = stdin;
+      else {
+        content = await new Promise<string>(resolve => {
+          let buf = '';
+          stdin.on('data', (c: any) => (buf += String(c)));
+          stdin.on('end', () => resolve(buf));
+          stdin.on('close', () => resolve(buf));
+          setTimeout(() => resolve(buf), 50);
+        });
+      }
+      this.sortCmd.setStdin(content);
+    }
+    return await this.sortCmd.execute(args);
+  }
+
+  /**
+   * tar - tar archive create/list/extract
+   */
+  async tar(args: string[] = []): Promise<string> {
+    return await this.tarCmd.execute(args);
+  }
+
+  /**
+   * gzip - compress/decompress
+   */
+  async gzip(args: string[] = []): Promise<string> {
+    return await this.gzipCmd.execute(args);
+  }
+
+  /**
+   * zip - create zip archive
+   */
+  async zip(args: string[] = []): Promise<string> {
+    return await this.zipCmd.execute(args);
   }
 
   /**

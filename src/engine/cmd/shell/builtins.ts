@@ -1,6 +1,7 @@
 import type { Readable, Writable } from 'node:stream';
 
 import handleUnixCommand from '../handlers/unixHandler';
+import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
 
 export type StreamCtx = {
   stdin: Readable;
@@ -104,35 +105,7 @@ const makeUnixBridge = (name: string) => {
 export default function adaptUnixToStream(unix: any) {
   const obj: Record<string, any> = {};
 
-  // 全てunixHandlerに統一委譲
-  const commands = [
-    'echo',
-    'pwd',
-    'ls',
-    'cd',
-    'mkdir',
-    'touch',
-    'rm',
-    'cp',
-    'mv',
-    'rename',
-    'tree',
-    'find',
-    'help',
-    'unzip',
-    'stat',
-    'cat',
-    'head',
-    'tail',
-    'grep',
-    'wc',
-    'date',
-    'whoami',
-    'chmod',
-    'chown',
-  ];
-
-  for (const cmd of commands) {
+  for (const cmd of UNIX_COMMANDS) {
     obj[cmd] = makeUnixBridge(cmd);
   }
 

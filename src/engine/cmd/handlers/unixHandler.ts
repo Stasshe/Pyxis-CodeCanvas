@@ -40,7 +40,7 @@ export async function handleUnixCommand(
   };
 
   if (!unix) {
-    await append('Error: Unix commands not initialized\n', 1);
+    await appendError('Error: Unix commands not initialized\n', 1);
     return { code: exitCode, output: out };
   }
 
@@ -54,13 +54,13 @@ export async function handleUnixCommand(
 
       case 'unzip': {
         if (args.length === 0) {
-          await append('unzip: missing archive file\nUsage: unzip ARCHIVE.zip [DEST_DIR]');
+          await appendError('unzip: missing archive file\nUsage: unzip ARCHIVE.zip [DEST_DIR]', 2);
         } else {
           try {
             const result = await unix.unzip(args);
             await append(result);
           } catch (err) {
-            await append(`unzip: ${args[0]}: ${(err as Error).message}`);
+            await appendError(`unzip: ${args[0]}: ${(err as Error).message}`, 1);
           }
         }
         break;
@@ -76,7 +76,7 @@ export async function handleUnixCommand(
         if (args.includes('--help') || args.includes('-h')) {
           await append('Usage: cd [directory]\nChange the shell working directory');
         } else if (args.length === 0) {
-          await append('cd: missing operand\nUsage: cd DIRECTORY');
+          await appendError('cd: missing operand\nUsage: cd DIRECTORY', 2);
         } else {
           const result = await unix.cd(args);
           await append(result);
@@ -98,7 +98,7 @@ export async function handleUnixCommand(
 
       case 'mkdir': {
         if (args.length === 0) {
-          await append('mkdir: missing operand\nUsage: mkdir [OPTION]... DIRECTORY...');
+          await appendError('mkdir: missing operand\nUsage: mkdir [OPTION]... DIRECTORY...', 2);
         } else {
           const result = await unix.mkdir(args);
           await append(result);
@@ -108,7 +108,7 @@ export async function handleUnixCommand(
 
       case 'touch': {
         if (args.length === 0) {
-          await append('touch: missing file operand\nUsage: touch FILE...');
+          await appendError('touch: missing file operand\nUsage: touch FILE...', 2);
         } else {
           const result = await unix.touch(args);
           await append(result);
@@ -118,7 +118,7 @@ export async function handleUnixCommand(
 
       case 'rm': {
         if (args.length === 0) {
-          await append('rm: missing operand\nUsage: rm [OPTION]... FILE...');
+          await appendError('rm: missing operand\nUsage: rm [OPTION]... FILE...', 2);
         } else {
           const result = await unix.rm(args);
           await append(result);
@@ -128,7 +128,7 @@ export async function handleUnixCommand(
 
       case 'mv': {
         if (args.length < 2) {
-          await append('mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST');
+          await appendError('mv: missing file operand\nUsage: mv [OPTION]... SOURCE DEST', 2);
         } else {
           const result = await unix.mv(args);
           await append(result || 'File(s) moved successfully');
@@ -138,7 +138,7 @@ export async function handleUnixCommand(
 
       case 'cp': {
         if (args.length < 2) {
-          await append('cp: missing file operand\nUsage: cp [OPTION]... SOURCE DEST');
+          await appendError('cp: missing file operand\nUsage: cp [OPTION]... SOURCE DEST', 2);
         } else {
           const result = await unix.cp(args);
           await append(result || 'File(s) copied successfully');
@@ -147,7 +147,7 @@ export async function handleUnixCommand(
       }
       case 'rename': {
         if (args.length < 2) {
-          await append('rename: missing file operand\nUsage: rename OLD NEW');
+          await appendError('rename: missing file operand\nUsage: rename OLD NEW', 2);
         } else {
           const result = await unix.rename(args);
           await append(result || 'File renamed successfully');
@@ -157,7 +157,7 @@ export async function handleUnixCommand(
 
       case 'cat': {
         if (args.length === 0) {
-          await append('cat: missing file operand\nUsage: cat FILE...');
+          await appendError('cat: missing file operand\nUsage: cat FILE...', 2);
         } else {
           const result = await unix.cat(args);
           await append(result);
@@ -182,7 +182,7 @@ export async function handleUnixCommand(
 
       case 'grep': {
         if (args.length < 1) {
-          await append('grep: missing pattern\nUsage: grep [OPTION]... PATTERN [FILE]...');
+          await appendError('grep: missing pattern\nUsage: grep [OPTION]... PATTERN [FILE]...', 2);
         } else {
           try {
             const result = await unix.grep(args, stdin);
@@ -222,14 +222,14 @@ export async function handleUnixCommand(
 
       case 'head': {
         if (args.length === 0) {
-          await append('head: missing file operand\nUsage: head [OPTION]... [FILE]');
+          await appendError('head: missing file operand\nUsage: head [OPTION]... [FILE]', 2);
         } else {
           try {
             const result = await unix.head(args);
             await append(result);
           } catch (err) {
             const file = args.find(a => !a.startsWith('-')) || args[0];
-            await append(`head: ${file}: ${(err as Error).message}`);
+            await appendError(`head: ${file}: ${(err as Error).message}`, 1);
           }
         }
         break;
@@ -237,14 +237,14 @@ export async function handleUnixCommand(
 
       case 'tail': {
         if (args.length === 0) {
-          await append('tail: missing file operand\nUsage: tail [OPTION]... [FILE]');
+          await appendError('tail: missing file operand\nUsage: tail [OPTION]... [FILE]', 2);
         } else {
           try {
             const result = await unix.tail(args);
             await append(result);
           } catch (err) {
             const file = args.find(a => !a.startsWith('-')) || args[0];
-            await append(`tail: ${file}: ${(err as Error).message}`);
+            await appendError(`tail: ${file}: ${(err as Error).message}`, 1);
           }
         }
         break;
@@ -252,13 +252,13 @@ export async function handleUnixCommand(
 
       case 'stat': {
         if (args.length === 0) {
-          await append('stat: missing file operand\nUsage: stat FILE');
+          await appendError('stat: missing file operand\nUsage: stat FILE', 2);
         } else {
           try {
             const result = await unix.stat(args);
             await append(result);
           } catch (err) {
-            await append(`stat: ${args[0]}: ${(err as Error).message}`);
+            await appendError(`stat: ${args[0]}: ${(err as Error).message}`, 1);
           }
         }
         break;
@@ -270,7 +270,67 @@ export async function handleUnixCommand(
           const result = await unix.wc(args, stdin);
           await append(result);
         } catch (err) {
-          await append(`wc: ${(err as Error).message}`, 1);
+          await appendError(`wc: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
+      case 'du': {
+        try {
+          const result = await unix.du(args);
+          await append(result);
+        } catch (err) {
+          await appendError(`du: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
+      case 'df': {
+        try {
+          const result = await unix.df(args);
+          await append(result);
+        } catch (err) {
+          await appendError(`df: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
+      case 'sort': {
+        try {
+          const result = await unix.sort(args, stdin);
+          await append(result);
+        } catch (err) {
+          await appendError(`sort: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
+      case 'tar': {
+        try {
+          const result = await unix.tar(args);
+          await append(result);
+        } catch (err) {
+          await appendError(`tar: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
+      case 'gzip': {
+        try {
+          const result = await unix.gzip(args);
+          await append(result);
+        } catch (err) {
+          await appendError(`gzip: ${(err as Error).message}`, 1);
+        }
+        break;
+      }
+
+      case 'zip': {
+        try {
+          const result = await unix.zip(args);
+          await append(result);
+        } catch (err) {
+          await appendError(`zip: ${(err as Error).message}`, 1);
         }
         break;
       }
@@ -289,7 +349,7 @@ export async function handleUnixCommand(
           const result = await unix.date(args);
           await append(result);
         } catch (err) {
-          await append(`date: ${(err as Error).message}`);
+          await appendError(`date: ${(err as Error).message}`, 1);
         }
         break;
       }
@@ -299,10 +359,10 @@ export async function handleUnixCommand(
         break;
 
       default:
-        await append(`Command not found: ${cmd}\nType 'help' for available commands.\n`, 127);
+        await appendError(`Command not found: ${cmd}\nType 'help' for available commands.\n`, 127);
     }
   } catch (error) {
-    await append(`Error: ${(error as Error).message}\n`, 1);
+    await appendError(`Error: ${(error as Error).message}\n`, 1);
   }
 
   return { code: exitCode, output: streamed ? '' : out };
