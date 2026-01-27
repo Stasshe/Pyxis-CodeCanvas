@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, {useRef, useEffect, useState } from 'react';
 import type { OperationListItem } from './OperationWindow';
 import type { FileItem } from '@/types';
 import OperationFileRow from './OperationFileRow';
