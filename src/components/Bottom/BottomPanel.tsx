@@ -113,6 +113,7 @@ export default function BottomPanel({
       {/* Bottom Panel (Tabs) */}
       <div
         className="flex flex-col bottom-panel-container"
+        data-panel="bottom"
         style={{
           height,
           background: colors.cardBg,
