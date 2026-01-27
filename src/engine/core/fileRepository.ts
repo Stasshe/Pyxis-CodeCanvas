@@ -1288,40 +1288,6 @@ export class FileRepository {
   }
 
   /**
-   * 指定プレフィックス（ディレクトリ）に一致するファイルを一括削除
-   * @deprecated deleteFile を使用してください（フォルダを渡せば自動的に再帰削除されます）
-   */
-  async deleteFilesByPrefix(projectId: string, prefix: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    const deletedFiles: ProjectFile[] = [];
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['files'], 'readwrite');
-      const store = transaction.objectStore('files');
-      const index = store.index('projectId');
-      const request = index.getAll(projectId);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const files = request.result as ProjectFile[];
-        for (const f of files) {
-          if (f.path === prefix || f.path.startsWith(prefix + '/')) {
-            store.delete(f.id);
-            deletedFiles.push(f);
-          }
-        }
-      };
-
-      transaction.onerror = () => reject(transaction.error);
-      transaction.oncomplete = async () => {
-        await this.handlePostDeletion(projectId, deletedFiles, true);
-        resolve();
-      };
-    });
-  }
-
-  /**
    * AIレビュー状態をクリア
    * NOTE: filePathは自動的にAppPath形式に正規化される
    */
