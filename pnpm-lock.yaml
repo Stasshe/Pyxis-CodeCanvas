@@ -207,6 +207,9 @@ importers:
       '@types/tar-stream':
         specifier: ^3.1.4
         version: 3.1.4
+      '@welldone-software/why-did-you-render':
+        specifier: ^10.0.1
+        version: 10.0.1(react@19.2.3)
       boxen:
         specifier: ^5.1.2
         version: 5.1.2
@@ -1755,6 +1758,11 @@ packages:
 
   '@vue/shared@3.5.26':
     resolution: {integrity: sha512-7Z6/y3uFI5PRoKeorTOSXKcDj0MSasfNNltcslbFrPpcw6aXRUALq4IfJlaTRspiWIUOEZbrpM+iQGmCOiWe4A==}
+
+  '@welldone-software/why-did-you-render@10.0.1':
+    resolution: {integrity: sha512-tMgGkt30iVYeLMUKExNmtm019QgyjLtA7lwB0QAizYNEuihlCG2eoAWBBaz/bDeI7LeqAJ9msC6hY3vX+JB97g==}
+    peerDependencies:
+      react: ^19
 
   '@xterm/addon-fit@0.10.0':
     resolution: {integrity: sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ==}
@@ -6678,6 +6686,11 @@ snapshots:
       '@vue/shared': 3.5.26
 
   '@vue/shared@3.5.26': {}
+
+  '@welldone-software/why-did-you-render@10.0.1(react@19.2.3)':
+    dependencies:
+      lodash: 4.17.21
+      react: 19.2.3
 
   '@xterm/addon-fit@0.10.0(@xterm/xterm@5.5.0)':
     dependencies:

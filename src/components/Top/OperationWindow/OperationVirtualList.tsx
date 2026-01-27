@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import type { OperationListItem } from './OperationWindow';
 import type { FileItem } from '@/types';
 import OperationFileRow from './OperationFileRow';
@@ -46,7 +46,32 @@ export default function OperationVirtualList({
     overscan: 5,
   });
 
-  const virtualItems = virtualizer.getVirtualItems();
+  const [virtualItems, setVirtualItems] = useState<any[]>([]);
+  const [totalSize, setTotalSize] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const update = () => {
+      // schedule on a microtask to avoid calling into React while it is rendering
+      Promise.resolve().then(() => {
+        if (!mounted) return;
+        setVirtualItems(virtualizer.getVirtualItems());
+        setTotalSize(virtualizer.getTotalSize());
+      });
+    };
+
+    update();
+
+    const el = parentRef.current;
+    if (el) el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+
+    return () => {
+      mounted = false;
+      if (el) el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [virtualizer, count]);
 
   // Ensure the virtualized list scrolls to the selected index when it changes.
   useEffect(() => {
@@ -81,7 +106,7 @@ export default function OperationVirtualList({
       ref={parentRef as React.RefObject<HTMLDivElement>}
       style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
     >
-      <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+      <div style={{ height: `${totalSize}px`, width: '100%', position: 'relative' }}>
         {virtualItems.map(virtualItem => {
           const index = virtualItem.index;
           const top = virtualItem.start;
