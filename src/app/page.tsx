@@ -127,6 +127,19 @@ export default function Home() {
   // グローバルスクロールロック
   useGlobalScrollLock();
 
+  // Stable callbacks for refresh handlers to avoid passing new function refs each render
+  const handleGitRefresh = useCallback(() => {
+    if (currentProject && loadProject) {
+      loadProject(currentProject);
+    }
+  }, [currentProject, loadProject]);
+
+  const handleFilesRefresh = useCallback(() => {
+    if (refreshProjectFiles) {
+      refreshProjectFiles().then(() => setGitRefreshTrigger(prev => prev + 1));
+    }
+  }, [refreshProjectFiles]);
+
   // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
   // UI状態の復元（sessionStorage統合）
@@ -467,20 +480,10 @@ export default function Home() {
               files={projectFiles}
               currentProject={currentProject}
               onResize={handleLeftResize}
-              onGitRefresh={() => {
-                if (currentProject && loadProject) {
-                  loadProject(currentProject);
-                }
-              }}
+              onGitRefresh={handleGitRefresh}
               gitRefreshTrigger={gitRefreshTrigger}
               onGitStatusChange={setGitChangesCount}
-              onRefresh={() => {
-                if (refreshProjectFiles) {
-                  refreshProjectFiles().then(() => {
-                    setGitRefreshTrigger(prev => prev + 1);
-                  });
-                }
-              }}
+              onRefresh={handleFilesRefresh}
             />
           )}
 
