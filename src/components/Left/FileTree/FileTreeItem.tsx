@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
@@ -17,7 +17,6 @@ const FileTreeItem = memo(function FileTreeItem({
   level,
   isExpanded,
   isIgnored,
-  hoveredItemId,
   colors,
   currentProjectName,
   currentProjectId,
@@ -27,13 +26,13 @@ const FileTreeItem = memo(function FileTreeItem({
   onTouchStart,
   onTouchEnd,
   onTouchMove,
-  setHoveredItemId,
   handleNativeFileDrop,
   handleDragOver,
   onInternalFileDrop,
 }: FileTreeItemProps) {
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
   const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  const [hovered, setHovered] = useState<boolean>(false);
   const isDev = process.env.NEXT_PUBLIC_IS_DEV_SERVER === 'true';
 
   useEffect(() => {
@@ -139,57 +138,56 @@ const FileTreeItem = memo(function FileTreeItem({
     setDropIndicator(isOver && canDrop);
   }, [isOver, canDrop]);
 
+  // Use local hover state and containment to avoid parent-driven re-renders and limit paint scope
+  const rootStyle = useMemo<React.CSSProperties>(() => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    padding: '0.15rem 0.2rem',
+    cursor: isTouchDevice ? 'pointer' : isDragging ? 'grabbing' : 'grab',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    WebkitTouchCallout: 'none',
+    MozUserSelect: 'none',
+    msUserSelect: 'none',
+    position: 'relative',
+    background: dropIndicator ? colors.accentBg : hovered ? colors.accentBg : 'transparent',
+    marginLeft: `${level * 12}px`,
+    touchAction: 'pan-y', // Allow vertical scrolling on touch devices
+    opacity: isDragging ? 0.5 : 1,
+    border: dropIndicator ? `1px dashed ${colors.primary || '#007acc'}` : '1px solid transparent',
+    height: '24px',
+    boxSizing: 'border-box',
+    // Limit paint/layout scope for this list item
+    contain: 'paint',
+  } as React.CSSProperties), [dropIndicator, hovered, isDragging, level, isTouchDevice, colors]);
+
   return (
     <div
       ref={attachRef}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        padding: '0.15rem 0.2rem',
-        cursor: isTouchDevice ? 'pointer' : isDragging ? 'grabbing' : 'grab',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-        MozUserSelect: 'none',
-        msUserSelect: 'none',
-        position: 'relative',
-        background: dropIndicator
-          ? colors.accentBg
-          : hoveredItemId === item.id
-            ? colors.accentBg
-            : 'transparent',
-        marginLeft: `${level * 12}px`,
-        touchAction: 'pan-y', // Allow vertical scrolling on touch devices
-        opacity: isDragging ? 0.5 : 1,
-        border: dropIndicator
-          ? `1px dashed ${colors.primary || '#007acc'}`
-          : '1px solid transparent',
-        height: '24px',
-        boxSizing: 'border-box',
-      }}
+      style={rootStyle}
       onClick={() => onItemClick(item)}
       onContextMenu={e => onContextMenu(e, item)}
-      onMouseEnter={() => setHoveredItemId(item.id)}
-      onMouseLeave={() => setHoveredItemId(null)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onTouchStart={e => {
         const target = e.target as HTMLElement;
         if (!target.closest('[data-grab-handle]')) {
           onTouchStart(e, item);
         }
-        setHoveredItemId(item.id);
+        setHovered(true);
       }}
       onTouchEnd={() => {
         onTouchEnd();
-        setHoveredItemId(null);
+        setHovered(false);
       }}
       onTouchMove={() => {
         onTouchMove();
-        setHoveredItemId(null);
+        setHovered(false);
       }}
       onTouchCancel={() => {
         onTouchEnd();
-        setHoveredItemId(null);
+        setHovered(false);
       }}
     >
       {item.type === 'folder' ? (

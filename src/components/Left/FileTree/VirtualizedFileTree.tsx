@@ -69,7 +69,6 @@ export default function VirtualizedFileTree({
   // State
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
 
@@ -317,7 +316,6 @@ export default function VirtualizedFileTree({
                   level={flatItem.level}
                   isExpanded={flatItem.isExpanded}
                   isIgnored={flatItem.isIgnored}
-                  hoveredItemId={hoveredItemId}
                   colors={colors}
                   currentProjectName={currentProjectName}
                   currentProjectId={currentProjectId}
@@ -327,7 +325,6 @@ export default function VirtualizedFileTree({
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchMove={handleTouchMove}
-                  setHoveredItemId={setHoveredItemId}
                   handleNativeFileDrop={handleNativeFileDrop}
                   handleDragOver={handleDragOver}
                   onInternalFileDrop={internalDropHandler}
