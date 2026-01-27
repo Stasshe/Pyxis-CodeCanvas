@@ -15,7 +15,7 @@ import PaneContainer from '@/components/Pane/PaneContainer';
 import PaneNavigator from '@/components/Pane/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
-import OperationWindow from '@/components/Top/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import TopBar from '@/components/Top/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';

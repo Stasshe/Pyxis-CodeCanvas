@@ -1,8 +1,8 @@
 'use client';
 
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
-import OperationList from '@/components/Top/OperationList';
-import { flattenFileItems, scoreMatch } from '@/components/Top/OperationUtils';
+import OperationList from '@/components/Top/OperationWindow/OperationList';
+import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -260,25 +260,6 @@ export default function OperationWindow({
 
   const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
 
-  // 選択されたアイテムにスクロールする関数
-  const scrollToSelectedItem = (index: number) => {
-    if (!listRef.current) return;
-
-    const listElement = listRef.current;
-    const itemHeight = ITEM_HEIGHT;
-    const containerHeight = listElement.clientHeight;
-    const scrollTop = listElement.scrollTop;
-
-    const itemTop = index * itemHeight;
-    const itemBottom = itemTop + itemHeight;
-
-    if (itemTop < scrollTop) {
-      listElement.scrollTop = itemTop;
-    } else if (itemBottom > scrollTop + containerHeight) {
-      listElement.scrollTop = itemBottom - containerHeight;
-    }
-  };
-
   // ESCキーで閉じる、上下キーで選択、Enterで開く
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -316,19 +297,11 @@ export default function OperationWindow({
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex(prev => {
-            const newIndex = prev > 0 ? prev - 1 : currentListLength - 1;
-            setTimeout(() => scrollToSelectedItem(newIndex), 0);
-            return newIndex;
-          });
+          setSelectedIndex(prev => (prev > 0 ? prev - 1 : currentListLength - 1));
           break;
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex(prev => {
-            const newIndex = prev < currentListLength - 1 ? prev + 1 : 0;
-            setTimeout(() => scrollToSelectedItem(newIndex), 0);
-            return newIndex;
-          });
+          setSelectedIndex(prev => (prev < currentListLength - 1 ? prev + 1 : 0));
           break;
         case 'Enter':
           // If we are in the search input, or just navigating
@@ -491,7 +464,9 @@ export default function OperationWindow({
             colors={colors}
             queryTokens={queryTokens}
             t={t}
+            listRef={listRef}
           />
+
           {/* Footer */}
           <div
             style={{

@@ -13,7 +13,7 @@ import ModeSelector from './chat/ModeSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 
 import { Confirmation } from '@/components/Confirmation';
-import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
+import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
