@@ -32,7 +32,7 @@ import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { useProjectStore } from '@/stores/projectStore';
-import { sessionStorage } from '@/stores/sessionStorage';
+import { sessionStore } from '@/stores/sessionStore';
 import { useTabStore } from '@/stores/tabStore';
 import type { Project } from '@/types';
 import type { MenuTab } from '@/types';

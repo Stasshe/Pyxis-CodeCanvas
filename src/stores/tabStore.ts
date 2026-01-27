@@ -1162,7 +1162,7 @@ export const useTabStore = create<TabStore>((set, get) => ({
 
   saveSession: async () => {
     const state = get();
-    const { sessionStorage, DEFAULT_SESSION } = await import('@/stores/sessionStorage');
+    const { sessionStore, DEFAULT_SESSION } = await import('@/stores/sessionStore');
 
     // UI状態は含めない（page.tsxが管理）
     const session = {
@@ -1176,14 +1176,14 @@ export const useTabStore = create<TabStore>((set, get) => ({
       ui: DEFAULT_SESSION.ui, // デフォルト値を使用
     };
 
-    await sessionStorage.save(session);
+    await sessionStore.save(session);
   },
 
   loadSession: async () => {
     try {
-      const { sessionStorage } = await import('@/stores/sessionStorage');
+      const { sessionStore } = await import('@/stores/sessionStore');
       console.log('[TabStore] Loading session from IndexedDB...');
-      const session = await sessionStorage.load();
+      const session = await sessionStore.load();
 
       set({
         panes: session.tabs.panes,

@@ -1,4 +1,4 @@
-// src/stores/sessionStorage.ts
+// src/stores/SessionStore.ts
 /**
  * Pyxis Session Storage
  *
@@ -65,7 +65,7 @@ const UI_STATE_KEY = 'ui-state'; // UI状態専用キー
 /**
  * セッションストレージ管理クラス
  */
-class SessionStorageManager {
+class SessionStoreManager {
   /**
    * セッションを保存
    */
@@ -80,9 +80,9 @@ class SessionStorageManager {
       const cleanedSession = this.cleanSessionForStorage(sessionToSave);
 
       await storageService.set(STORES.USER_PREFERENCES, SESSION_KEY, cleanedSession);
-      console.log('[SessionStorage] Session saved successfully');
+      console.log('[SessionStore] Session saved successfully');
     } catch (error) {
-      console.error('[SessionStorage] Failed to save session:', error);
+      console.error('[SessionStore] Failed to save session:', error);
       throw error;
     }
   }
@@ -95,17 +95,17 @@ class SessionStorageManager {
       const session = await storageService.get<PyxisSession>(STORES.USER_PREFERENCES, SESSION_KEY);
 
       if (!session) {
-        console.log('[SessionStorage] No saved session found, using default');
+        console.log('[SessionStore] No saved session found, using default');
         return DEFAULT_SESSION;
       }
 
       // 復元後にneedsContentRestoreフラグを設定
       const restoredSession = this.prepareSessionForRestore(session);
 
-      console.log('[SessionStorage] Session loaded successfully');
+      console.log('[SessionStore] Session loaded successfully');
       return restoredSession;
     } catch (error) {
-      console.error('[SessionStorage] Failed to load session:', error);
+      console.error('[SessionStore] Failed to load session:', error);
       return DEFAULT_SESSION;
     }
   }
@@ -119,9 +119,9 @@ class SessionStorageManager {
         ...uiState,
         lastSaved: Date.now(),
       });
-      console.log('[SessionStorage] UI state saved successfully');
+      console.log('[SessionStore] UI state saved successfully');
     } catch (error) {
-      console.error('[SessionStorage] Failed to save UI state:', error);
+      console.error('[SessionStore] Failed to save UI state:', error);
       throw error;
     }
   }
@@ -136,13 +136,13 @@ class SessionStorageManager {
         UI_STATE_KEY
       );
       if (saved) {
-        console.log('[SessionStorage] UI state loaded successfully');
+        console.log('[SessionStore] UI state loaded successfully');
         return saved;
       }
-      console.log('[SessionStorage] No saved UI state found, using default');
+      console.log('[SessionStore] No saved UI state found, using default');
       return DEFAULT_SESSION.ui;
     } catch (error) {
-      console.error('[SessionStorage] Failed to load UI state:', error);
+      console.error('[SessionStore] Failed to load UI state:', error);
       return DEFAULT_SESSION.ui;
     }
   }
@@ -153,9 +153,9 @@ class SessionStorageManager {
   async clear(): Promise<void> {
     try {
       await storageService.delete(STORES.USER_PREFERENCES, SESSION_KEY);
-      console.log('[SessionStorage] Session cleared');
+      console.log('[SessionStore] Session cleared');
     } catch (error) {
-      console.error('[SessionStorage] Failed to clear session:', error);
+      console.error('[SessionStore] Failed to clear session:', error);
       throw error;
     }
   }
@@ -223,4 +223,4 @@ class SessionStorageManager {
 /**
  * グローバルインスタンス
  */
-export const sessionStorage = new SessionStorageManager();
+export const sessionStore = new SessionStoreManager();
