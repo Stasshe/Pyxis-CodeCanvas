@@ -1,3 +1,4 @@
+import { ReactScan } from '@/lib/ReactScan';
 import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
@@ -81,6 +82,7 @@ export default function RootLayout({
   const manifestPath = `${basePath}/manifest.json`;
   return (
     <html lang="en" className="h-full" translate="no">
+      <ReactScan />
       <head>
         <meta name="google" content="notranslate" />
         <link rel="icon" href={`${basePath}/favicon.ico`} sizes="any" />
