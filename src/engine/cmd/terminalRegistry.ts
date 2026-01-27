@@ -108,6 +108,7 @@ class TerminalCommandRegistry {
         fileRepository: opts?.fileRepository,
         terminalColumns: opts?.terminalColumns,
         terminalRows: opts?.terminalRows,
+        terminalUI: entry.terminalUI,
       });
       return entry.shell;
     } catch (e) {
