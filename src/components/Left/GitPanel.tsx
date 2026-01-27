@@ -160,7 +160,8 @@ export default function GitPanel({
   }, [currentProjectId]);
 
   // commit depth, fetch and history logic moved to `useGitPanel` hook
-  const { handleDiffFileClick } = useDiffTabHandlers({
+  // VSCode-style diff handlers: staged = HEAD vs INDEX, unstaged = INDEX vs WORKDIR
+  const { handleStagedFileDiff, handleUnstagedFileDiff } = useDiffTabHandlers({
     name: currentProject,
     id: currentProjectId,
   });
@@ -316,32 +317,27 @@ export default function GitPanel({
   }, [gitRefreshTrigger, currentProject, fetchGitStatus, commitDepth]);
 
   // Diffファイルクリックハンドラー（メモ化）
+  // VSCode-style: ステージ済みファイルは HEAD vs INDEX を比較
   const handleStagedFileClick = useCallback(
     async (file: string) => {
-      if (handleDiffFileClick && gitRepo && gitRepo.commits.length > 0) {
-        const latestCommit = gitRepo.commits[0];
-        await handleDiffFileClick({
-          commitId: latestCommit.hash,
-          filePath: file,
-          editable: false,
-        });
+      if (handleStagedFileDiff) {
+        await handleStagedFileDiff(file);
       }
     },
-    [handleDiffFileClick, gitRepo]
+    [handleStagedFileDiff]
   );
 
+  // VSCode-style: 未ステージファイルは INDEX vs WORKDIR を比較（ファイルがステージ済みの場合）
+  // そうでなければ HEAD vs WORKDIR
   const handleUnstagedFileClick = useCallback(
     async (file: string) => {
-      if (handleDiffFileClick && gitRepo && gitRepo.commits.length > 0) {
-        const latestCommit = gitRepo.commits[0];
-        await handleDiffFileClick({
-          commitId: latestCommit.hash,
-          filePath: file,
-          editable: true,
-        });
+      if (handleUnstagedFileDiff) {
+        // ステージ済みファイルのリストを渡して、適切な比較元を選択
+        const stagedFiles = gitRepo?.status?.staged || [];
+        await handleUnstagedFileDiff(file, stagedFiles);
       }
     },
-    [handleDiffFileClick, gitRepo]
+    [handleUnstagedFileDiff, gitRepo?.status?.staged]
   );
 
   // メモ化されたアイコンスタイル
