@@ -91,13 +91,17 @@ Root
 ├── public
 │   ├── apple-touch-icon-precomposed.png
 │   ├── apple-touch-icon.png
+│   ├── base-path-init.js
+│   ├── eruda-init.js
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
+│   ├── ga-init.js
 │   ├── globe.svg
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── manifest.json
+│   ├── sw-register.js
 │   ├── sw.js
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
@@ -310,9 +314,12 @@ Root
 │   │   │   │       ├── cd.ts
 │   │   │   │       ├── cp.ts
 │   │   │   │       ├── date.ts
+│   │   │   │       ├── df.ts
+│   │   │   │       ├── du.ts
 │   │   │   │       ├── echo.ts
 │   │   │   │       ├── find.ts
 │   │   │   │       ├── grep.ts
+│   │   │   │       ├── gzip.ts
 │   │   │   │       ├── head.ts
 │   │   │   │       ├── help.ts
 │   │   │   │       ├── index.ts
@@ -321,13 +328,16 @@ Root
 │   │   │   │       ├── mv.ts
 │   │   │   │       ├── pwd.ts
 │   │   │   │       ├── rm.ts
+│   │   │   │       ├── sort.ts
 │   │   │   │       ├── stat.ts
 │   │   │   │       ├── tail.ts
+│   │   │   │       ├── tar.ts
 │   │   │   │       ├── test.ts
 │   │   │   │       ├── touch.ts
 │   │   │   │       ├── tree.ts
 │   │   │   │       ├── unzip.ts
-│   │   │   │       └── wc.ts
+│   │   │   │       ├── wc.ts
+│   │   │   │       └── zip.ts
 │   │   │   ├── handlers
 │   │   │   │   ├── dev
 │   │   │   │   │   ├── devHandler.ts
@@ -517,7 +527,8 @@ Root
 │   ├── shell.operators.test.ts
 │   ├── shell.script.streaming.test.ts
 │   ├── shell.stream.test.ts
-│   └── transform_real_files.test.ts
+│   ├── transform_real_files.test.ts
+│   └── unixExtra.test.ts
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
@@ -525,7 +536,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-79 directories, 446 files
+79 directories, 457 files
 
 =================================
 
@@ -655,12 +666,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 71238
-合計文字数: 2253778
-合計ファイルサイズ(bytes): 2398868
+合計行数: 71979
+合計文字数: 2281411
+合計ファイルサイズ(bytes): 2426357
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 129379
-合計文字数: 27021426
-合計ファイルサイズ(bytes): 30007508
+ビルト済みファイルの行数: 129252
+合計文字数: 27026598
+合計ファイルサイズ(bytes): 30012668
