@@ -15,8 +15,9 @@ import {
 } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, FileItem } from '@/types';
+import { useSnapshot } from 'valtio';
 
 interface PaneContainerProps {
   pane: EditorPane;
@@ -59,6 +60,7 @@ function flattenPanes(paneList: EditorPane[]): EditorPane[] {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
+<<<<<<< Updated upstream
   const globalActiveTab = useTabStore(state => state.globalActiveTab);
   const activePane = useTabStore(state => state.activePane);
   const setPanes = useTabStore(state => state.setPanes);
@@ -67,6 +69,10 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const splitPaneAndMoveTab = useTabStore(state => state.splitPaneAndMoveTab);
   const openTab = useTabStore(state => state.openTab);
   const splitPaneAndOpenFile = useTabStore(state => state.splitPaneAndOpenFile);
+=======
+  const { globalActiveTab, activePane, panes: allPanes } = useSnapshot(tabState);
+  const { setPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = tabActions;
+>>>>>>> Stashed changes
 
   // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
   const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);

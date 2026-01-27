@@ -12,7 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 
 export interface OperationListItem {
@@ -157,9 +157,8 @@ export default function OperationWindow({
         ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
         : { kind: preview ? 'preview' : 'editor' };
 
-      const store = useTabStore.getState ? useTabStore.getState() : null;
-      if (store && typeof store.openTab === 'function') {
-        await store.openTab(fileWithEditor, options as any);
+      if (typeof tabActions.openTab === 'function') {
+        await tabActions.openTab(fileWithEditor, options as any);
         onClose();
         return;
       }

@@ -1,15 +1,8 @@
 /**
- * Editor Memory Management
+ * Editor 関連エクスポート
  *
- * 統一的なエディターメモリ管理システム
- * - EditorMemoryManager: シングルトンでコンテンツを一元管理
- * - useEditorMemory: Reactコンポーネントから使用するフック
+ * - useEditorMemory: React から使用するフック（tabState 利用）
+ * - useEditorSaveShortcut: Ctrl+S 用即時保存フック
  */
 
-export { editorMemoryManager } from './EditorMemoryManager';
-export type {
-  ContentChangeListener,
-  EditorMemoryManagerOptions,
-  SaveCompleteListener,
-} from './EditorMemoryManager';
 export { useEditorMemory, useEditorSaveShortcut } from './useEditorMemory';

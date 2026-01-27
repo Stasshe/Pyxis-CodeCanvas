@@ -15,7 +15,7 @@
 import { useEffect, useRef } from 'react';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 
 /**
  * デバウンス時間（ミリ秒）
@@ -26,8 +26,7 @@ import { useTabStore } from '@/stores/tabStore';
 const DEBOUNCE_MS = 100;
 
 export function useFileDeleteTabSync() {
-  const handleFileDeleted = useTabStore(state => state.handleFileDeleted);
-  const handleFilesDeleted = useTabStore(state => state.handleFilesDeleted);
+  const { handleFileDeleted, handleFilesDeleted } = tabActions;
   const pendingDeletesRef = useRef<Set<string>>(new Set());
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 

@@ -2,27 +2,23 @@
 'use client';
 import type React from 'react';
 import { type ReactNode, useEffect, useMemo } from 'react';
+import { useSnapshot } from 'valtio';
 
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 
 /**
  * TabProvider
  * TabStoreの初期化とセッション管理のみを担当
  *
- * @deprecated useTabContext は削除されました。直接 useTabStore を使用してください。
+ * @deprecated useTabContext は削除されました。useSnapshot(tabState) と tabActions を直接使用してください。
  */
 interface TabProviderProps {
   children: ReactNode;
 }
 
 export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
-  const loadSession = useTabStore(state => state.loadSession);
-  const saveSession = useTabStore(state => state.saveSession);
-  const isLoading = useTabStore(state => state.isLoading);
-  const panes = useTabStore(state => state.panes);
-  const activePane = useTabStore(state => state.activePane);
-  const globalActiveTab = useTabStore(state => state.globalActiveTab);
-  const setIsContentRestored = useTabStore(state => state.setIsContentRestored);
+  const { loadSession, saveSession, setIsContentRestored } = tabActions;
+  const { isLoading, panes, activePane, globalActiveTab } = useSnapshot(tabState);
 
   // IndexedDBからセッションを復元
   useEffect(() => {
@@ -86,15 +82,9 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
 
 /**
  * @deprecated useTabContext は削除されました。
- * 直接 useTabStore() を使用してください。
- *
- * 移行例:
- * ```tsx
- * // 旧: const { openTab, closeTab } = useTabContext();
- * // 新: const { openTab, closeTab } = useTabStore();
- * ```
+ * useSnapshot(tabState) と tabActions を直接使用してください。
  */
 export const useTabContext = () => {
-  console.warn('[useTabContext] This hook is deprecated. Use useTabStore() directly.');
-  return useTabStore();
+  console.warn('[useTabContext] This hook is deprecated. Use useSnapshot(tabState) and tabActions.');
+  return { ...useSnapshot(tabState), ...tabActions };
 };

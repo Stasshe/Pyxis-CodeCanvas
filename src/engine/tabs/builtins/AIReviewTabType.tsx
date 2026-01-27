@@ -7,44 +7,37 @@ import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
-import { editorMemoryManager } from '@/engine/editor';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { useTabStore } from '@/stores/tabStore';
+import {
+  addChangeListener,
+  initTabSaveSync,
+  tabActions,
+  updateFromExternal,
+} from '@/stores/tabState';
 
 /**
  * AIレビュータブのコンポーネント
  *
- * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
- * - AI適用時にEditorMemoryManager経由でコンテンツを更新
- * - 他のエディタータブとの同期は自動的に行われる
- * - ワーキングディレクトリのファイル変更を検知してoriginalContentを更新
+ * tabState (Valtio) でコンテンツ・外部変更検知を管理。
+ * ワーキングディレクトリのファイル変更を originalContent に反映。
  */
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
-  const closeTab = useTabStore(state => state.closeTab);
-  const updateTab = useTabStore(state => state.updateTab);
   const { setGitRefreshTrigger } = useGitContext();
   const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
 
-  // EditorMemoryManagerを初期化し、外部変更を監視
   useEffect(() => {
-    const initMemory = async () => {
-      await editorMemoryManager.init();
-    };
-    initMemory();
-
-    // 外部変更リスナーを追加（WDファイルの変更をoriginalContentに反映）
+    initTabSaveSync();
     const normalizedFilePath = toAppPath(aiTab.filePath);
-    const unsubscribe = editorMemoryManager.addChangeListener((changedPath, newContent, source) => {
-      // 外部更新（他のエディタでの保存など）を検知してoriginalContentを更新
+    const unsubscribe = addChangeListener((changedPath, newContent, source) => {
       if (source === 'external' && toAppPath(changedPath) === normalizedFilePath) {
-        console.log('[AIReviewTabRenderer] Detected external change for:', changedPath);
-        updateTab(aiTab.paneId, aiTab.id, { originalContent: newContent } as Partial<AIReviewTab>);
+        tabActions.updateTab(aiTab.paneId, aiTab.id, {
+          originalContent: newContent,
+        } as Partial<AIReviewTab>);
       }
     });
-
     return unsubscribe;
-  }, [aiTab.filePath, aiTab.paneId, aiTab.id, updateTab]);
+  }, [aiTab.filePath, aiTab.paneId, aiTab.id]);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     const projectId = aiTab.aiEntry?.projectId;
@@ -55,12 +48,8 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     }
 
     try {
-      // fileRepositoryを直接使用してファイルを保存
       await fileRepository.saveFileByPath(projectId, filePath, content);
-
-      // EditorMemoryManagerを通じて他のタブに変更を通知
-      // 外部更新として扱い、同一ファイルを開いている全タブに即時反映
-      editorMemoryManager.updateFromExternal(filePath, content);
+      updateFromExternal(filePath, content);
 
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);
@@ -95,7 +84,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       }
     }
 
-    closeTab(aiTab.paneId, aiTab.id);
+    tabActions.closeTab(aiTab.paneId, aiTab.id);
   };
 
   const handleDiscardChanges = async (filePath: string) => {
@@ -130,30 +119,14 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       }
     }
 
-    closeTab(aiTab.paneId, aiTab.id);
+    tabActions.closeTab(aiTab.paneId, aiTab.id);
   };
-
-  const handleCloseTab = (filePath: string) => {
-    closeTab(aiTab.paneId, aiTab.id);
-  };
-
-  const handleUpdateSuggestedContent = (tabId: string, newContent: string) => {
-    updateTab(aiTab.paneId, tabId, { suggestedContent: newContent } as Partial<AIReviewTab>);
-  };
-
-  console.log('[AIReviewTabRenderer] Rendering AIReviewTab with:', {
-    originalContent: aiTab.originalContent?.length,
-    suggestedContent: aiTab.suggestedContent?.length,
-    filePath: aiTab.filePath,
-  });
 
   return (
     <AIReviewTabComponent
       tab={aiTab}
       onApplyChanges={handleApplyChanges}
       onDiscardChanges={handleDiscardChanges}
-      onCloseTab={handleCloseTab}
-      onUpdateSuggestedContent={handleUpdateSuggestedContent}
     />
   );
 };

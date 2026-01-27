@@ -14,7 +14,8 @@ import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 
 interface PaneNavigatorProps {
   isOpen: boolean;
@@ -189,7 +190,8 @@ function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height
  */
 export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const { colors } = useTheme();
-  const { panes, activePane, setActivePane, splitPane, removePane } = useTabStore();
+  const { panes, activePane } = useSnapshot(tabState);
+  const { setActivePane, splitPane, removePane } = tabActions;
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
 
   // Flatten panes for navigation
@@ -223,12 +225,12 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
       if (pane?.activeTabId) {
         // ペインにアクティブなタブがある場合は、そのタブをアクティブ化
         // activateTab内部でsetActivePaneも実行されるが、明示的に呼ぶ
-        useTabStore.getState().activateTab(id, pane.activeTabId);
+        tabActions.activateTab(id, pane.activeTabId);
       } else {
         // ペインにタブがない場合でも、移動元のペインからフォーカスを外すために
         // アクティブペインを更新し、グローバルアクティブタブをクリア
         setActivePane(id);
-        useTabStore.setState({ globalActiveTab: null });
+        (tabState.globalActiveTab = null);
       }
       onClose();
     },
@@ -247,7 +249,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
             if (p.children) traverse(p.children);
           }
         };
-        traverse(useTabStore.getState().panes);
+        traverse(tabState.panes);
         const newPane = newFlat.find(p => !flattenedPanes.some(fp => fp.id === p.id));
         if (newPane) setSelectedPaneId(newPane.id);
       });

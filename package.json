@@ -75,6 +75,7 @@
     "vm-browserify": "^1.1.2",
     "vscode-icons-js": "^11.6.1",
     "yaml": "^2.8.2",
+    "valtio": "^2.1.2",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

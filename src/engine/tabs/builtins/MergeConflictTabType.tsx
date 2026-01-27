@@ -13,15 +13,14 @@ import MergeConflictResolutionTab from '@/components/Tab/MergeConflictResolution
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 
 /**
  * Merge Conflict Resolution Tab Renderer
  */
 const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const mergeTab = tab as MergeConflictTab;
-  const closeTab = useTabStore(state => state.closeTab);
-  const updateTab = useTabStore(state => state.updateTab);
+  const { closeTab, updateTab } = tabActions;
 
   /**
    * Resolve handler

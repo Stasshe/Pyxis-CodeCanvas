@@ -6,7 +6,7 @@
 
 import type { DevCommandContext, DevCommandInfo } from './types';
 
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 
 /**
  * Open diff tab with test data
@@ -14,7 +14,7 @@ import { useTabStore } from '@/stores/tabStore';
 async function openTestDiffTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   const originalContent = `function hello(name) {
   console.log("Hello, " + name);
@@ -68,7 +68,7 @@ async function openEditableDiffTab(args: string[], context: DevCommandContext): 
     return;
   }
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   const originalContent = `// Original content
 const message = "Hello";
@@ -110,7 +110,7 @@ console.log(message, greeting);
 async function openMultiFileDiffTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   const files = [
     {
@@ -159,7 +159,7 @@ async function openMultiFileDiffTab(args: string[], context: DevCommandContext):
 async function openWelcomeTab(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   await openTab(
     {
@@ -181,7 +181,7 @@ async function openSettingsTab(args: string[], context: DevCommandContext): Prom
   const { writeOutput } = context;
   const settingsType = args[0] || 'general';
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   await openTab(
     {
@@ -203,7 +203,7 @@ async function openSettingsTab(args: string[], context: DevCommandContext): Prom
 async function listTabs(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
-  const { panes, globalActiveTab } = useTabStore.getState();
+  const { panes, globalActiveTab } = { panes: tabState.panes, globalActiveTab: tabState.globalActiveTab };
 
   await writeOutput('=== Open Tabs ===\n');
 

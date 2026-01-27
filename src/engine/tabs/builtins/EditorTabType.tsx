@@ -6,22 +6,22 @@ import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
-import { editorMemoryManager } from '@/engine/editor';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectStore } from '@/stores/projectStore';
+import {
+  addSaveListener,
+  initTabSaveSync,
+  setContent as setTabContent,
+} from '@/stores/tabState';
 
 /**
  * エディタタブのコンポーネント
  *
- * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
- * - コンテンツ変更はEditorMemoryManagerを通じて行う
- * - デバウンス保存、タブ間同期は自動的に処理される
- * - Git状態更新は保存完了時に自動実行
+ * tabState (Valtio) でコンテンツ・デバウンス保存・タブ間同期を管理。
  */
 const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
 
-  // グローバルストアからプロジェクト情報を取得
   const currentProject = useProjectStore(state => state.currentProject);
   const projectId = currentProject?.id;
 
@@ -30,47 +30,30 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
 
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
-  // EditorMemoryManagerを初期化し、初期コンテンツを登録
   useEffect(() => {
-    const initMemory = async () => {
-      await editorMemoryManager.init();
-      if (editorTab.path && editorTab.content !== undefined) {
-        editorMemoryManager.registerInitialContent(editorTab.path, editorTab.content);
-      }
-    };
-    initMemory();
-  }, [editorTab.path, editorTab.content]);
+    initTabSaveSync();
+  }, []);
 
-  // 保存完了時にGit状態を更新
   useEffect(() => {
     if (!editorTab.path) return;
-
-    const unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
-      if (success) {
-        setGitRefreshTrigger(prev => prev + 1);
-      }
+    const unsubscribe = addSaveListener((_path, success) => {
+      if (success) setGitRefreshTrigger(prev => prev + 1);
     });
-
     return unsubscribe;
   }, [editorTab.path, setGitRefreshTrigger]);
 
-  // デバウンス保存付きのコンテンツ変更ハンドラー
   const handleContentChange = useCallback(
-    async (tabId: string, content: string) => {
+    async (_tabId: string, content: string) => {
       if (!editorTab.path) return;
-      // EditorMemoryManagerを通じてコンテンツを更新
-      // デバウンス保存、タブ間同期は自動的に処理される
-      editorMemoryManager.setContent(editorTab.path, content);
+      setTabContent(editorTab.path, content);
     },
     [editorTab.path]
   );
 
-  // 即時反映ハンドラー（UIのみ、デバウンス保存をトリガー）
   const handleImmediateContentChange = useCallback(
-    (tabId: string, content: string) => {
+    (_tabId: string, content: string) => {
       if (!editorTab.path) return;
-      // EditorMemoryManagerを通じて即時反映
-      editorMemoryManager.setContent(editorTab.path, content);
+      setTabContent(editorTab.path, content);
     },
     [editorTab.path]
   );

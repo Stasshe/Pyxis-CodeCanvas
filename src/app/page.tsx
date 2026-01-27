@@ -33,8 +33,9 @@ import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { useProjectStore } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
+import { useSnapshot } from 'valtio';
 import type { MenuTab } from '@/types';
 
 /**
@@ -61,20 +62,23 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
+  const snap = useSnapshot(tabState);
   const {
     panes,
     isLoading: isTabsLoading,
     isRestored,
     isContentRestored,
+    activePane,
+  } = snap;
+  const {
     openTab,
     setPanes,
-    activePane,
     setActivePane,
     splitPane,
     removePane,
     moveTab,
     activateTab,
-  } = useTabStore();
+  } = tabActions;
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,

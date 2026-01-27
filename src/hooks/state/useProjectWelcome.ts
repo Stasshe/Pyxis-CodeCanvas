@@ -1,14 +1,20 @@
 // src/hooks/useProjectWelcome.ts
 import { useEffect } from 'react';
 
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 import type { Project } from '@/types';
 
 /**
  * プロジェクト読み込み時にWelcomeタブを開くカスタムフック
  */
 export function useProjectWelcome(currentProject: Project | null) {
+<<<<<<< Updated upstream
   const openTab = useTabStore(state => state.openTab);
+=======
+  const { panes } = useSnapshot(tabState);
+  const { openTab } = tabActions;
+>>>>>>> Stashed changes
 
   useEffect(() => {
     if (!currentProject) {

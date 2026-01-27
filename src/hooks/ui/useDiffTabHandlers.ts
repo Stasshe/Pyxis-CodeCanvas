@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { normalizePath, toGitPath } from '@/engine/core/fileRepository'; //  toGitPath 追加
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { SingleFileDiff } from '@/types';
 
 /**
@@ -14,7 +14,11 @@ import type { SingleFileDiff } from '@/types';
  * - Unstaged files: INDEX vs WORKDIR (if file is also staged), otherwise HEAD vs WORKDIR
  */
 export function useDiffTabHandlers(currentProject: any) {
+<<<<<<< Updated upstream
   const openTab = useTabStore(state => state.openTab);
+=======
+  const { openTab } = tabActions;
+>>>>>>> Stashed changes
 
   /**
    * [VSCode-style] ステージ済みファイルのdiffを開く

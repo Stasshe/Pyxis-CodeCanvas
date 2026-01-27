@@ -8,7 +8,7 @@ import { explorerMenuRegistry } from '@/engine/extensions/system-api/ExplorerMen
 import { exportFolderZip } from '@/engine/in-ex/exportFolderZip';
 import { exportSingleFile } from '@/engine/in-ex/exportSingleFile';
 import { importSingleFile } from '@/engine/in-ex/importSingleFile';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 import type { ContextMenuState } from './types';
 
@@ -41,7 +41,11 @@ export default function FileTreeContextMenu({
 }: FileTreeContextMenuProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
+<<<<<<< Updated upstream
   const openTab = useTabStore(state => state.openTab);
+=======
+  const { openTab } = tabActions;
+>>>>>>> Stashed changes
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [, forceUpdate] = useState(0);

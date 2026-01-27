@@ -24,7 +24,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
 import type { ExtensionManifest, InstalledExtension } from '@/engine/extensions/types';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 
 interface ExtensionPack {
   id: string;
@@ -175,7 +175,7 @@ export default function ExtensionsPanel() {
    * 拡張機能の詳細タブを開く
    */
   const openExtensionInfoTab = async (manifest: ExtensionManifest, isEnabled: boolean) => {
-    const { openTab } = useTabStore.getState();
+    const { openTab } = tabActions;
 
     await openTab(
       {

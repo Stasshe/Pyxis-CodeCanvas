@@ -23,7 +23,8 @@ import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 
 interface TabBarProps {
   paneId: string;
@@ -52,17 +53,9 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   const { openFileSelector } = useFileSelector();
 
-  const {
-    getPane,
-    activateTab,
-    closeTab,
-    openTab,
-    removePane,
-    moveTab,
-    moveTabToIndex,
-    splitPane,
-    panes,
-  } = useTabStore();
+  const { getPane, activateTab, closeTab, openTab, removePane, moveTab, moveTabToIndex, splitPane } =
+    tabActions;
+  const { panes } = useSnapshot(tabState);
 
   const pane = getPane(paneId);
   if (!pane) return null;
@@ -229,7 +222,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'closeTab',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       if (activeTabId) handleTabClose(activeTabId);
     },
     [activeTabId, paneId]
@@ -238,7 +231,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'removeAllTabs',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       handleRemoveAllTabs();
     },
     [tabs, paneId]
@@ -247,7 +240,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'nextTab',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       if (tabs.length === 0) return;
       const currentIndex = tabs.findIndex(t => t.id === activeTabId);
       const nextIndex = (currentIndex + 1) % tabs.length;
@@ -259,7 +252,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'prevTab',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       if (tabs.length === 0) return;
       const currentIndex = tabs.findIndex(t => t.id === activeTabId);
       const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
@@ -271,7 +264,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'openMdPreview',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       const activeTab = tabs.find(t => t.id === activeTabId);
       if (!activeTab) return;
 

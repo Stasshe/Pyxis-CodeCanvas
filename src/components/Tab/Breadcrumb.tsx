@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from '@/context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type React from 'react';
 
 interface BreadcrumbProps {
@@ -9,7 +9,11 @@ interface BreadcrumbProps {
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
+<<<<<<< Updated upstream
   const pane = useTabStore(state => state.getPane(paneId));
+=======
+  const { getPane } = tabActions;
+>>>>>>> Stashed changes
   const { colors } = useTheme();
   if (!pane) return null;
 

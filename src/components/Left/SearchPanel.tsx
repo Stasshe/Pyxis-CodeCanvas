@@ -5,7 +5,7 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 import ResultRow from './ResultRow';
 
@@ -53,7 +53,7 @@ export type ResultRowProps = {
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const openTab = useTabStore(state => state.openTab);
+  const { openTab } = useTabStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);

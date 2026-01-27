@@ -6,7 +6,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { importSingleFile } from '@/engine/in-ex/importSingleFile';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 
 import FileTreeContextMenu from './FileTreeContextMenu';
@@ -63,7 +63,11 @@ export default function VirtualizedFileTree({
   onInternalFileDrop,
 }: FileTreeProps) {
   const { colors } = useTheme();
+<<<<<<< Updated upstream
   const openTab = useTabStore(state => state.openTab);
+=======
+  const { openTab } = tabActions;
+>>>>>>> Stashed changes
   const parentRef = useRef<HTMLDivElement>(null);
 
   // State

@@ -2,7 +2,8 @@
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -74,9 +75,8 @@ function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
 export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const panes = useTabStore(state => state.panes);
-  const updateTab = useTabStore(state => state.updateTab);
-  const activateTab = useTabStore(state => state.activateTab);
+  const { panes } = useSnapshot(tabState);
+  const { updateTab, activateTab } = tabActions;
 
   const [allMarkers, setAllMarkers] = useState<MarkerWithFile[]>([]);
   const [showImportErrors, setShowImportErrors] = useState<boolean>(false);
