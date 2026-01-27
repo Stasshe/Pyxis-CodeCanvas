@@ -63,7 +63,7 @@ export default function VirtualizedFileTree({
   onInternalFileDrop,
 }: FileTreeProps) {
   const { colors } = useTheme();
-  const { openTab } = useTabStore();
+  const openTab = useTabStore(state => state.openTab);
   const parentRef = useRef<HTMLDivElement>(null);
 
   // State

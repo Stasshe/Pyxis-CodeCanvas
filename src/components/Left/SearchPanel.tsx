@@ -53,7 +53,7 @@ export type ResultRowProps = {
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { openTab } = useTabStore();
+  const openTab = useTabStore(state => state.openTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);

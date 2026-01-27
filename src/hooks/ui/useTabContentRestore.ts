@@ -57,7 +57,6 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
  * ファイル変更イベントの処理はEditorMemoryManagerが担当する。
  */
 export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
-  const store = useTabStore();
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
 
@@ -75,11 +74,12 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    if (!isRestored || !store.panes.length) {
-      return;
-    }
+    if (!isRestored) return;
 
-    const flatPanes = flattenPanes(store.panes);
+    const state = useTabStore.getState();
+    if (!state.panes.length) return;
+
+    const flatPanes = flattenPanes(state.panes);
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
       pane.tabs.filter((tab: any) => tab.needsContentRestore)
     );
@@ -167,7 +167,9 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
           });
         };
 
-        store.setPanes(updatePaneRecursive(store.panes));
+        // Use a snapshot of the store to avoid subscribing to the whole store
+        const state = useTabStore.getState();
+        state.setPanes(updatePaneRecursive(state.panes));
 
         // 復元完了をマーク
         restorationCompleted.current = true;
@@ -187,7 +189,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         restorationCompleted.current = true;
       }
     });
-  }, [isRestored, store, projectFiles, normalizePath]);
+  }, [isRestored, projectFiles, normalizePath]);
 
   // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {

@@ -59,16 +59,14 @@ function flattenPanes(paneList: EditorPane[]): EditorPane[] {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const {
-    globalActiveTab,
-    activePane,
-    setPanes,
-    panes: allPanes,
-    moveTab,
-    splitPaneAndMoveTab,
-    openTab,
-    splitPaneAndOpenFile,
-  } = useTabStore();
+  const globalActiveTab = useTabStore(state => state.globalActiveTab);
+  const activePane = useTabStore(state => state.activePane);
+  const setPanes = useTabStore(state => state.setPanes);
+  const allPanes = useTabStore(state => state.panes);
+  const moveTab = useTabStore(state => state.moveTab);
+  const splitPaneAndMoveTab = useTabStore(state => state.splitPaneAndMoveTab);
+  const openTab = useTabStore(state => state.openTab);
+  const splitPaneAndOpenFile = useTabStore(state => state.splitPaneAndOpenFile);
 
   // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
   const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);

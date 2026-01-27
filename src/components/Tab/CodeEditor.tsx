@@ -56,7 +56,7 @@ export default function CodeEditor({
     currentProject?.id ||
     (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
   const { settings, updateSettings } = useSettings(projectId);
-  const { isContentRestored } = useTabStore();
+  const isContentRestored = useTabStore(state => state.isContentRestored);
 
   // コンテンツ復元中かどうかを判定
   const isRestoringContent =

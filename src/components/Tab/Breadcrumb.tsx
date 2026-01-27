@@ -9,10 +9,8 @@ interface BreadcrumbProps {
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
-  const { getPane } = useTabStore();
+  const pane = useTabStore(state => state.getPane(paneId));
   const { colors } = useTheme();
-
-  const pane = getPane(paneId);
   if (!pane) return null;
 
   const activeTab = pane.tabs.find(t => t.id === pane.activeTabId);

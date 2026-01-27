@@ -14,7 +14,7 @@ import type { SingleFileDiff } from '@/types';
  * - Unstaged files: INDEX vs WORKDIR (if file is also staged), otherwise HEAD vs WORKDIR
  */
 export function useDiffTabHandlers(currentProject: any) {
-  const { openTab } = useTabStore();
+  const openTab = useTabStore(state => state.openTab);
 
   /**
    * [VSCode-style] ステージ済みファイルのdiffを開く

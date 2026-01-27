@@ -25,7 +25,7 @@ interface Props {
 function DraggableTabInner({ tab, tabIndex, paneId, onClick, onContextMenu, onTouchStart, onTouchEnd, onTouchMove, onClose }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { moveTabToIndex } = useTabStore();
+  const moveTabToIndex = useTabStore(state => state.moveTabToIndex);
 
   const isActive = useMemo(() => {
     const pane = useTabStore.getState().getPane(paneId);
