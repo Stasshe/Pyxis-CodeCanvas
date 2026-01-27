@@ -116,14 +116,12 @@ export class TreeCommand extends UnixCommandBase {
         });
       }
 
-      // ソート: ディレクトリ優先、名前順
+      // ソート: 名前順（POSIX準拠、ディレクトリ/ファイルを区別せずアルファベット順）
       entries.sort((a, b) => {
         const nameA = a.path.split('/').pop() || '';
         const nameB = b.path.split('/').pop() || '';
-        if (a.type !== b.type) {
-          return a.type === 'folder' ? -1 : 1;
-        }
-        return nameA.localeCompare(nameB);
+        // default locale with 'variant' sensitivity approximates POSIX collation: case-sensitive and accent-aware
+        return nameA.localeCompare(nameB, undefined, { sensitivity: 'variant' });
       });
 
       let result = '';

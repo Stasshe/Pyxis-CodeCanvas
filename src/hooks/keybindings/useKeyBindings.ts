@@ -314,9 +314,18 @@ if (typeof window !== 'undefined') {
       return;
     }
 
+    // Allow native clipboard shortcuts (copy/cut/paste/select all) to pass through in inputs
+    const isClipboardShortcut =
+      (e.ctrlKey || e.metaKey) && ['c', 'x', 'v', 'a'].includes((e.key || '').toLowerCase());
+
     // Allow shortcuts with modifiers even in text inputs
     // This includes cmd/ctrl key shortcuts even when Japanese IME is active
     const hasModifier = modifierActive;
+
+    // If we're in a text input and it's a clipboard shortcut, don't intercept so native behavior works
+    if (isTextInput && isClipboardShortcut) {
+      return;
+    }
 
     if (isTextInput && !hasModifier) {
       return;
@@ -332,6 +341,7 @@ if (typeof window !== 'undefined') {
 
   const onBeforeInput = (ev: InputEvent) => {
     // Prevent text insertion when a modifier key is active or a chord is pending.
+    // Exception: allow paste operations (e.g., Ctrl/Cmd+V) to proceed so clipboard paste works in inputs.
     const target = ev.target as HTMLElement | null;
     if (!target) return;
     const isTextInput =
@@ -339,7 +349,24 @@ if (typeof window !== 'undefined') {
 
     if (!isTextInput) return;
 
-    if (modifierActive || keyBindingsManager.getActiveChord()) {
+    // Always block when a chord is pending
+    if (keyBindingsManager.getActiveChord()) {
+      try {
+        ev.preventDefault();
+        ev.stopPropagation();
+      } catch (err) {
+        // ignore
+      }
+      return;
+    }
+
+    // When modifier is active, allow paste operations to proceed.
+    if (modifierActive) {
+      const inputType = (ev as InputEvent).inputType || '';
+      if (inputType && inputType.toString().startsWith('insertFromPaste')) {
+        // allow paste
+        return;
+      }
       try {
         ev.preventDefault();
         // stopPropagation may be needed depending on environment
