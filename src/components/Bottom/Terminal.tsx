@@ -9,8 +9,8 @@ import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
-import TerminalUI from '@/engine/cmd/terminalUI';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
@@ -492,9 +492,13 @@ function ClientTerminal({
                     const trimmed = data.trim();
                     let promise: Promise<void>;
                     if (/^warning:/i.test(trimmed)) {
-                      promise = outputManagerRef.current?.writeWarning(`${trimmed}\n`)?.catch(() => {}) ?? Promise.resolve();
+                      promise =
+                        outputManagerRef.current?.writeWarning(`${trimmed}\n`)?.catch(() => {}) ??
+                        Promise.resolve();
                     } else {
-                      promise = outputManagerRef.current?.writeError(`${trimmed}\n`)?.catch(() => {}) ?? Promise.resolve();
+                      promise =
+                        outputManagerRef.current?.writeError(`${trimmed}\n`)?.catch(() => {}) ??
+                        Promise.resolve();
                     }
                     outputPromises.push(promise as Promise<void>);
                   }

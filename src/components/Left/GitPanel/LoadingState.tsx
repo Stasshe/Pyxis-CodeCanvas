@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
 import { RefreshCw } from 'lucide-react';
+import React from 'react';
 
 export default function LoadingState({ message, colors }: { message: string; colors: any }) {
   return (

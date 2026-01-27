@@ -185,7 +185,7 @@
     "discardChangesMessage": "Deseja descartar essas alterações?",
     "discardChangesTitle": "Descartar alterações?",
     "errorOccurred": "Ocorreu um erro",
-    "generateCommitMessage": "Gerar mensagem com IA", 
+    "generateCommitMessage": "Gerar mensagem com IA",
     "history": "Histórico",
     "infoNotAvailable": "Não foi possível obter informações do git",
     "loadingStatus": "Carregando status do git...",

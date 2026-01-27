@@ -1,7 +1,7 @@
 'use client';
-import React from 'react';
-import { X } from 'lucide-react';
 import { useTranslation } from '@/context/I18nContext';
+import { X } from 'lucide-react';
+import React from 'react';
 
 export default function ErrorState({
   message,

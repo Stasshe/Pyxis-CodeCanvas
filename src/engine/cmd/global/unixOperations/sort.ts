@@ -48,8 +48,8 @@ Options:
 
     const cmp = (a: string, b: string) => {
       if (numeric) {
-        const na = parseFloat(a) || 0;
-        const nb = parseFloat(b) || 0;
+        const na = Number.parseFloat(a) || 0;
+        const nb = Number.parseFloat(b) || 0;
         return na - nb;
       }
       return a.localeCompare(b);

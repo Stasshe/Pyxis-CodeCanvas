@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react';
 
-import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
 import { initializeExtensions } from '@/engine/extensions/autoInstaller';
 import { initializeBuiltinRuntimes } from '@/engine/runtime/builtinRuntimes';
+import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
 import { pushMsgOutPanel } from './Bottom/BottomPanel';
 
 /**

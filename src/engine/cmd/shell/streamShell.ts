@@ -5,9 +5,9 @@
  * while maintaining the existing StreamShell API for backward compatibility.
  */
 
+import type TerminalUI from '@/engine/cmd/terminalUI';
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { UnixCommands } from '../global/unix';
-import type TerminalUI from '@/engine/cmd/terminalUI';
 import {
   type OutputCallbacks,
   type ShellExecutor,

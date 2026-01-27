@@ -4,12 +4,12 @@ import git from 'isomorphic-git';
 import { GitCheckoutOperations } from './gitOperations/checkout';
 import { GitCloneOperations } from './gitOperations/clone';
 import { GitDiffOperations } from './gitOperations/diff';
+import type { FetchOptions } from './gitOperations/fetch';
 import { GitFileSystemHelper } from './gitOperations/fileSystemHelper';
 import { type BranchFilterOptions, GitLogOperations } from './gitOperations/log';
 import { GitMergeOperations } from './gitOperations/merge';
 import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils';
 import { GitResetOperations } from './gitOperations/reset';
-import type { FetchOptions } from './gitOperations/fetch';
 import { GitRevertOperations } from './gitOperations/revert';
 import { formatStatusResult } from './gitOperations/status';
 
@@ -547,9 +547,7 @@ export class GitCommands {
   /**
    * git fetch - リモートから変更を取得
    */
-  async fetch(
-    options: FetchOptions | string[] = {}
-  ): Promise<string> {
+  async fetch(options: FetchOptions | string[] = {}): Promise<string> {
     await this.ensureGitRepository();
 
     if (Array.isArray(options)) {

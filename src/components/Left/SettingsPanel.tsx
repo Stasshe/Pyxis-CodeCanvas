@@ -2,11 +2,11 @@ import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/constants/config';
-import { downloadWorkspaceZip } from '@/engine/in-ex/exportRepo';
 import { settingsManager } from '@/engine/helper/settingsManager';
+import { downloadWorkspaceZip } from '@/engine/in-ex/exportRepo';
 import { useTabStore } from '@/stores/tabStore';
 import type { Project } from '@/types';
 import type { PyxisSettings } from '@/types/settings';

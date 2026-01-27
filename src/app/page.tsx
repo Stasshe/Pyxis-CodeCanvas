@@ -11,11 +11,11 @@ import BottomStatusBar from '@/components/Bottom/BottomStatusBar';
 import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
-import OperationWindow from '@/components/Top/OperationWindow';
 import PaneContainer from '@/components/Pane/PaneContainer';
 import PaneNavigator from '@/components/Pane/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
+import OperationWindow from '@/components/Top/OperationWindow';
 import TopBar from '@/components/Top/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
@@ -25,11 +25,11 @@ import {
   useRightSidebarResize,
 } from '@/engine/helper/resize';
 import type { EditorPane } from '@/engine/tabs/types';
-import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
-import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
-import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
+import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
 import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
+import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
+import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { useProjectStore } from '@/stores/projectStore';
 import { sessionStorage } from '@/stores/sessionStorage';

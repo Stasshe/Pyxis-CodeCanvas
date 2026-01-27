@@ -1,5 +1,6 @@
 'use client';
-import React, { memo } from 'react';
+import type React from 'react';
+import { memo } from 'react';
 
 interface FileItemProps {
   file: string;

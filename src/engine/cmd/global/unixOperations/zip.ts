@@ -1,6 +1,6 @@
+import { fileRepository } from '@/engine/core/fileRepository';
 import JSZip from 'jszip';
 import { UnixCommandBase } from './base';
-import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * zip - create zip archive (minimal)
@@ -39,11 +39,19 @@ export class ZipCommand extends UnixCommandBase {
     if (this.terminalUI) await this.terminalUI.spinner.start('Creating zip archive...');
     try {
       const arrayBuffer = await zip.generateAsync({ type: 'arraybuffer' });
-      await fileRepository.createFile(this.projectId, archive, '', 'file', true, arrayBuffer as ArrayBuffer);
+      await fileRepository.createFile(
+        this.projectId,
+        archive,
+        '',
+        'file',
+        true,
+        arrayBuffer as ArrayBuffer
+      );
       if (this.terminalUI) await this.terminalUI.spinner.success('Archive operation completed');
       return `created ${archive}`;
     } catch (err: any) {
-      if (this.terminalUI) await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+      if (this.terminalUI)
+        await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
       throw err;
     }
   }

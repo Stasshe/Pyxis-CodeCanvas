@@ -7,9 +7,9 @@ import OutputPanel, { type OutputMessage } from './OutputPanel';
 import ProblemsPanel from './ProblemsPanel';
 import Terminal from './Terminal';
 
+import { OUTPUT_CONFIG } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { OUTPUT_CONFIG } from '@/constants/config';
 import type { FileItem } from '@/types';
 
 interface BottomPanelProps {

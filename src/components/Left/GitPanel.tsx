@@ -17,9 +17,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import GitHistory from './GitHistory';
 
 import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
+import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { LOCALSTORAGE_KEY } from '@/constants/config';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 
 import { generateCommitMessage } from '@/engine/commitMsgAI';
@@ -34,12 +34,12 @@ interface GitPanelProps {
   onGitStatusChange?: (changesCount: number) => void;
 }
 
-import LoadingState from './GitPanel/LoadingState';
 import { Confirmation } from '@/components/Confirmation';
-import ErrorState from './GitPanel/ErrorState';
-import CommitBox from './GitPanel/CommitBox';
-import { useGitPanel } from './GitPanel/useGitPanel';
 import ChangesList from './GitPanel/ChangesList';
+import CommitBox from './GitPanel/CommitBox';
+import ErrorState from './GitPanel/ErrorState';
+import LoadingState from './GitPanel/LoadingState';
+import { useGitPanel } from './GitPanel/useGitPanel';
 
 export default function GitPanel({
   currentProject,
@@ -184,7 +184,11 @@ export default function GitPanel({
   const [confirmMessage, setConfirmMessage] = useState<string | undefined>(undefined);
   const confirmActionRef = useRef<(() => Promise<void> | void) | null>(null);
 
-  const openConfirm = (title: string | undefined, message: string | undefined, action: () => Promise<void> | void) => {
+  const openConfirm = (
+    title: string | undefined,
+    message: string | undefined,
+    action: () => Promise<void> | void
+  ) => {
     setConfirmTitle(title);
     setConfirmMessage(message);
     confirmActionRef.current = action;

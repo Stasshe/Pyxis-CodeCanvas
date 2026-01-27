@@ -155,7 +155,7 @@ export default function LeftSidebar({
               </div>
             </div>
           )}
-          <div 
+          <div
             className="h-full"
             style={{ display: activeMenuTab === 'search' ? 'block' : 'none' }}
           >
@@ -172,10 +172,7 @@ export default function LeftSidebar({
               />
             </div>
           )}
-          <div
-            className="h-full"
-            style={{ display: activeMenuTab === 'run' ? 'block' : 'none' }}
-          >
+          <div className="h-full" style={{ display: activeMenuTab === 'run' ? 'block' : 'none' }}>
             <RunPanel currentProject={currentProject} files={files} />
           </div>
           {activeMenuTab === 'extensions' && (

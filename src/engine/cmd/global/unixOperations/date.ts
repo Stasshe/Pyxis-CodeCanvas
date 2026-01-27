@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib/getopt';
+import { UnixCommandBase } from './base';
 
 function pad(n: number, width = 2) {
   return String(n).padStart(width, '0');
@@ -85,7 +85,20 @@ export class DateCommand extends UnixCommandBase {
     if (flags.has('-R') || flags.has('--rfc-2822')) {
       // Example: Tue, 26 Jan 2026 12:34:56 +0900
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       const day = useUTC ? dateObj.getUTCDay() : dateObj.getDay();
       const date = useUTC ? dateObj.getUTCDate() : dateObj.getDate();
       const month = useUTC ? dateObj.getUTCMonth() : dateObj.getMonth();

@@ -320,7 +320,8 @@ export async function handleUnixCommand(
           if (terminalUI) await terminalUI.spinner.success('Archive operation completed');
           await append(result);
         } catch (err: any) {
-          if (terminalUI) await terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+          if (terminalUI)
+            await terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
           await appendError(`tar: ${(err as Error).message}`, 1);
         }
         break;
@@ -339,7 +340,8 @@ export async function handleUnixCommand(
           if (terminalUI) await terminalUI.spinner.success('Operation completed');
           await append(result);
         } catch (err: any) {
-          if (terminalUI) await terminalUI.spinner.error(`Operation failed: ${err?.message || String(err)}`);
+          if (terminalUI)
+            await terminalUI.spinner.error(`Operation failed: ${err?.message || String(err)}`);
           await appendError(`gzip: ${(err as Error).message}`, 1);
         }
         break;
@@ -353,7 +355,8 @@ export async function handleUnixCommand(
           if (terminalUI) await terminalUI.spinner.success('Archive operation completed');
           await append(result);
         } catch (err: any) {
-          if (terminalUI) await terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+          if (terminalUI)
+            await terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
           await appendError(`zip: ${(err as Error).message}`, 1);
         }
         break;

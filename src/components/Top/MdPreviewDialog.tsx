@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import type { FileItem } from '@/types';
 import { useTranslation } from '@/context/I18nContext';
+import type { FileItem } from '@/types';
+import React from 'react';
 
 interface Props {
   prompt: { file: FileItem } | null;

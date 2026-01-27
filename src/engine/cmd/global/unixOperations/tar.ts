@@ -1,6 +1,6 @@
+import { fileRepository } from '@/engine/core/fileRepository';
 import * as tar from 'tar-stream';
 import { UnixCommandBase } from './base';
-import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * tar - tar archive create/list/extract (minimal)
@@ -46,7 +46,9 @@ export class TarCommand extends UnixCommandBase {
             pack.entry({ name: name.replace(/^\//, '') + '/' }, '', () => {});
           } else {
             // Ensure we pass a Buffer (not Uint8Array) to tar-stream
-            const contentBuf = file.bufferContent ? Buffer.from(file.bufferContent) : Buffer.from(file.content || '', 'utf8');
+            const contentBuf = file.bufferContent
+              ? Buffer.from(file.bufferContent)
+              : Buffer.from(file.content || '', 'utf8');
             pack.entry({ name: name.replace(/^\//, '') }, contentBuf, () => {});
           }
         }
@@ -61,11 +63,19 @@ export class TarCommand extends UnixCommandBase {
         });
 
         const total = Buffer.concat(chunks);
-        await fileRepository.createFile(this.projectId, archive, '', 'file', true, total.buffer as ArrayBuffer);
+        await fileRepository.createFile(
+          this.projectId,
+          archive,
+          '',
+          'file',
+          true,
+          total.buffer as ArrayBuffer
+        );
         if (this.terminalUI) await this.terminalUI.spinner.success('Archive operation completed');
         return `Created ${archive}`;
       } catch (err: any) {
-        if (this.terminalUI) await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+        if (this.terminalUI)
+          await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
         throw err;
       }
     } else if (t) {
@@ -74,7 +84,9 @@ export class TarCommand extends UnixCommandBase {
       const rel = this.getRelativePathFromProject(resolved);
       const file = await fileRepository.getFileByPath(this.projectId, rel);
       if (!file) throw new Error(`tar: ${archive}: No such file or directory`);
-      const buf = file.bufferContent ? file.bufferContent : new TextEncoder().encode(file.content || '').buffer;
+      const buf = file.bufferContent
+        ? file.bufferContent
+        : new TextEncoder().encode(file.content || '').buffer;
 
       const extract = tar.extract();
       const names: string[] = [];
@@ -100,7 +112,9 @@ export class TarCommand extends UnixCommandBase {
         const rel = this.getRelativePathFromProject(resolved);
         const file = await fileRepository.getFileByPath(this.projectId, rel);
         if (!file) throw new Error(`tar: ${archive}: No such file or directory`);
-        const buf = file.bufferContent ? file.bufferContent : new TextEncoder().encode(file.content || '').buffer;
+        const buf = file.bufferContent
+          ? file.bufferContent
+          : new TextEncoder().encode(file.content || '').buffer;
 
         const extract = tar.extract();
         const entries: any[] = [];
@@ -118,7 +132,13 @@ export class TarCommand extends UnixCommandBase {
           stream.on('data', (c: any) => chunks.push(Buffer.from(c)));
           stream.on('end', () => {
             const buf = Buffer.concat(chunks);
-            entries.push({ path: `/${name}`, content: '', type: 'file', isBufferArray: true, bufferContent: buf.buffer as ArrayBuffer });
+            entries.push({
+              path: `/${name}`,
+              content: '',
+              type: 'file',
+              isBufferArray: true,
+              bufferContent: buf.buffer as ArrayBuffer,
+            });
             next();
           });
         });
@@ -136,7 +156,8 @@ export class TarCommand extends UnixCommandBase {
         if (this.terminalUI) await this.terminalUI.spinner.success('Archive operation completed');
         return `Extracted ${entries.length} entries to ${dest}`;
       } catch (err: any) {
-        if (this.terminalUI) await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
+        if (this.terminalUI)
+          await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
         throw err;
       }
     }

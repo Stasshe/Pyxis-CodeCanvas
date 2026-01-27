@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { parseGitLog, parseGitBranches, parseGitStatus } from './gitUtils';
 import type { GitRepository } from '@/types/git';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { parseGitBranches, parseGitLog, parseGitStatus } from './gitUtils';
 
 export function useGitPanel({
   currentProject,

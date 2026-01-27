@@ -185,7 +185,7 @@
     "discardChangesMessage": "Apakah Anda ingin membuang perubahan ini?",
     "discardChangesTitle": "Buang perubahan?",
     "errorOccurred": "Terjadi kesalahan",
-    "generateCommitMessage": "Buat pesan commit dengan AI"},{
+    "generateCommitMessage": "Buat pesan commit dengan AI",
     "history": "Riwayat",
     "infoNotAvailable": "Tidak dapat mengambil informasi git",
     "loadingStatus": "Memuat status git...",

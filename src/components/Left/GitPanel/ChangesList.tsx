@@ -1,7 +1,7 @@
 'use client';
+import { useTranslation } from '@/context/I18nContext';
 import React, { memo } from 'react';
 import FileItem from './FileItem';
-import { useTranslation } from '@/context/I18nContext';
 
 export default function ChangesList({
   gitRepo,

@@ -319,9 +319,9 @@
   "searchPanel": {
     "caseSensitive": "대소문자 구분",
     "enterToSearch": "검색하려면 Enter 키를 누르세요",
-    "noResults": "결과가 없습니다",
-    "realtimeMode": "실시간", 
     "expected_replacements": "예상 교체: {count}",
+    "noResults": "결과가 없습니다",
+    "realtimeMode": "실시간",
     "resultCount": "{count}개의 결과",
     "searchInFiles": "파일에서 검색...",
     "searching": "검색 중...",

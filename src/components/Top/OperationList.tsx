@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
-import type { FileItem } from '@/types';
-import type { OperationListItem } from '@/components/Top/OperationWindow';
 import { getIconSrcForFile, highlightMatch } from '@/components/Top/OperationUtils';
+import type { OperationListItem } from '@/components/Top/OperationWindow';
+import type { FileItem } from '@/types';
+import React from 'react';
 
 interface Props {
   viewMode: 'files' | 'list';

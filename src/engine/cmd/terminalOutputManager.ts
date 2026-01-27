@@ -137,7 +137,7 @@ export class TerminalOutputManager {
    * - Progress bars (in-place updates)
    * - Shell prompts (no newline tracking needed)
    *
-   * WARNING: This method does NOT track newline state. 
+   * WARNING: This method does NOT track newline state.
    * For normal text output, use write() or writeln().
    *
    * @param data Raw data to write (not normalized, no state tracking)

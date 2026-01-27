@@ -774,7 +774,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     </span>
 
                     {/* Replace all in file button (show on hover/selection like VSCode) */}
-                    {(hoveredFileKey === key || group.some(r => flatResults[selectedIndex] === r)) && (
+                    {(hoveredFileKey === key ||
+                      group.some(r => flatResults[selectedIndex] === r)) && (
                       <button
                         onClick={e => {
                           e.stopPropagation();
@@ -814,7 +815,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                         const globalIndex = flatResults.indexOf(result);
                         const isSelected = globalIndex === selectedIndex;
                         const resultKey = `${result.file.id}-${result.line}-${idx}`;
-                        const showResultReplace = result.line !== 0 && (isSelected || hoveredResultKey === resultKey);
+                        const showResultReplace =
+                          result.line !== 0 && (isSelected || hoveredResultKey === resultKey);
                         return (
                           <div
                             key={`${result.file.id}-${result.line}-${idx}`}

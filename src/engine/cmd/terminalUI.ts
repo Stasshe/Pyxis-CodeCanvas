@@ -209,12 +209,7 @@ export class ProgressBar {
   private emptyChar: string;
   private isActive = false;
 
-  constructor(
-    outputManager: TerminalOutputManager,
-    width = 30,
-    filledChar = '█',
-    emptyChar = '░'
-  ) {
+  constructor(outputManager: TerminalOutputManager, width = 30, filledChar = '█', emptyChar = '░') {
     this.outputManager = outputManager;
     this.width = width;
     this.filledChar = filledChar;
@@ -303,7 +298,7 @@ export class StatusLine {
 
 /**
  * Main TerminalUI class - High-level terminal output API
- * 
+ *
  * All output goes through TerminalOutputManager to ensure:
  * - Proper queueing and ordering
  * - Cursor position tracking

@@ -6,8 +6,8 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { exportPage } from '@/engine/in-ex/exportPage';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
+import { exportPage } from '@/engine/in-ex/exportPage';
 import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
 

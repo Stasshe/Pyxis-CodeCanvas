@@ -8,11 +8,11 @@
  * - 循環参照の検出
  */
 
+import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from './RuntimeRegistry';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
 import { createModuleNotFoundError } from './nodeErrors';
-import { getParentPath, toAppPath, fsPathToAppPath } from '@/engine/core/pathUtils';
 import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
 import { transpileManager } from './transpileManager';
 

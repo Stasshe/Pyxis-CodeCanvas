@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { getIconForFile } from 'vscode-icons-js';
 import type { FileItem } from '@/types';
+import type React from 'react';
+import { getIconForFile } from 'vscode-icons-js';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 export function flattenFileItems(items: FileItem[]): FileItem[] {
