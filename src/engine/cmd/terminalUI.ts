@@ -353,11 +353,11 @@ export class TerminalUI {
   }
 
   async warn(message: string): Promise<void> {
-    await this.outputManager.writeWarning(`⚠ ${message}\n`);
+    await this.outputManager.writeWarning(`warn:  ${message}\n`);
   }
 
   async info(message: string): Promise<void> {
-    await this.outputManager.writeInfo(`ℹ ${message}\n`);
+    await this.outputManager.writeInfo(`info:  ${message}\n`);
   }
 
   // ===== Formatted Output =====

@@ -52,8 +52,7 @@ const makeUnixBridge = (name: string) => {
       // stdin内容を事前に読み取り（grep等で必要）
       // Pass the stdin stream directly to the handler so commands like grep
       // can read from stdin interactively (block until data) if needed.
-      const stdinStream =
-        ctx.stdin && typeof (ctx.stdin as any).on === 'function' ? ctx.stdin : null;
+      const stdinStream = ctx.stdin
 
       const writeError = async (s: string) => {
         try {
