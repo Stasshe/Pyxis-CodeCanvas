@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import type { OperationListItem } from './OperationWindow';
 import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 
@@ -13,15 +13,8 @@ interface Props {
 }
 
 function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, queryTokens }: Props) {
-  const highlightedLabel = useMemo(
-    () => highlightMatch(item.label, queryTokens, isSelected, colors),
-    [item.label, queryTokens, isSelected, colors]
-  );
-
-  const highlightedDesc = useMemo(
-    () => (item.description ? highlightMatch(item.description, queryTokens, isSelected, colors) : null),
-    [item.description, queryTokens, isSelected, colors]
-  );
+  const highlightedLabel = highlightMatch(item.label, queryTokens, isSelected, colors);
+  const highlightedDesc = item.description ? highlightMatch(item.description, queryTokens, isSelected, colors) : null;
 
   return (
     <div
@@ -121,16 +114,4 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
   );
 }
 
-export default React.memo(OperationGenericRowInner, (prev, next) => {
-  if (prev.isSelected !== next.isSelected) return false;
-  if (prev.ITEM_HEIGHT !== next.ITEM_HEIGHT) return false;
-  if (prev.colors !== next.colors) return false;
-  if (prev.item.id !== next.item.id) return false;
-  if (prev.item.label !== next.item.label) return false;
-  if (prev.item.description !== next.item.description) return false;
-  const a = prev.queryTokens || [];
-  const b = next.queryTokens || [];
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-});
+export default OperationGenericRowInner;
