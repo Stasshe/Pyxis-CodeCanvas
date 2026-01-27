@@ -493,6 +493,66 @@ export class GitCommands {
     }
   }
 
+  /**
+   * Get file content from the staging area (index)
+   * Returns the staged version of a file (what would be committed)
+   * VSCode-style: INDEX content for staged files
+   */
+  async getStagedFileContent(filePath: string): Promise<string | null> {
+    await this.ensureGitRepository();
+
+    let stagedContent: string | null = null;
+
+    try {
+      await git.walk({
+        fs: this.fs,
+        dir: this.dir,
+        trees: [git.STAGE()],
+        map: async (filepath, [entry]) => {
+          if (filepath === filePath && entry) {
+            const oid = await entry.oid();
+            if (oid) {
+              const { blob } = await git.readBlob({
+                fs: this.fs,
+                dir: this.dir,
+                oid,
+              });
+              stagedContent = new TextDecoder().decode(blob);
+            }
+          }
+          return undefined;
+        },
+      });
+    } catch (e) {
+      console.warn(`Failed to get staged content for ${filePath}:`, e);
+      return null;
+    }
+
+    return stagedContent;
+  }
+
+  /**
+   * Get HEAD commit content for a file
+   * Returns the content of a file at HEAD commit
+   */
+  async getHeadFileContent(filePath: string): Promise<string | null> {
+    await this.ensureGitRepository();
+
+    try {
+      const headCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
+      const { blob } = await git.readBlob({
+        fs: this.fs,
+        dir: this.dir,
+        oid: headCommitHash,
+        filepath: filePath,
+      });
+      return new TextDecoder().decode(blob);
+    } catch (e) {
+      // File might not exist in HEAD (new file)
+      return null;
+    }
+  }
+
   // ========================================
   // リモート操作
   // ========================================

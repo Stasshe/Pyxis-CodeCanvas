@@ -368,7 +368,7 @@ function GitHistoryComponent({
     [currentProject, currentProjectId]
   );
 
-  const { handleDiffFileClick, handleDiffAllFilesClick } = useDiffTabHandlers({
+  const { handleCommitsDiff, handleDiffAllFilesClick } = useDiffTabHandlers({
     name: currentProject,
     id: currentProjectId,
   });
@@ -867,8 +867,8 @@ function GitHistoryComponent({
                                       key={index}
                                       className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
                                       onClick={async () => {
-                                        if (handleDiffFileClick) {
-                                          await handleDiffFileClick({
+                                        if (handleCommitsDiff) {
+                                          await handleCommitsDiff({
                                             commitId: commit.hash,
                                             filePath: file,
                                           });
