@@ -100,78 +100,65 @@ export type SpinnerType = keyof typeof SPINNERS;
 /**
  * Write callback type - function to write directly to the terminal
  */
+import type TerminalOutputManager from './terminalOutputManager';
+
 export type WriteCallback = (text: string) => Promise<void> | void;
 
+// ... ANSI, SPINNERS定数は変更なし ...
+
 /**
- * Spinner controller for animated loading indicators
+ * Spinner controller using TerminalOutputManager
  */
 export class SpinnerController {
   private frames: string[];
   private frameIndex = 0;
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private message = '';
-  private write: WriteCallback;
+  private outputManager: TerminalOutputManager;
   private color: string;
   private interval: number;
   private isRunning = false;
 
   constructor(
-    write: WriteCallback,
+    outputManager: TerminalOutputManager,
     type: SpinnerType = 'BRAILLE',
     color: string = ANSI.FG.CYAN,
     interval = 80
   ) {
-    this.write = write;
+    this.outputManager = outputManager;
     this.frames = [...SPINNERS[type]];
     this.color = color;
     this.interval = interval;
   }
 
-  /**
-   * Get the current spinner frame with color
-   */
   private getFrame(): string {
     const frame = this.frames[this.frameIndex % this.frames.length];
     return `${this.color}${frame}${ANSI.RESET}`;
   }
 
-  /**
-   * Start the spinner with an optional message
-   */
   async start(message = ''): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
     this.message = message;
     this.frameIndex = 0;
 
-    // Hide cursor and write initial frame in single write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.write(ANSI.CURSOR_HIDE + display);
+    await this.outputManager.writeRaw(ANSI.CURSOR_HIDE + display);
 
-    // Start animation
     this.intervalId = setInterval(async () => {
       this.frameIndex++;
-      // Clear line and rewrite in single write to avoid newline issues
       const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-      await this.write(ANSI.CLEAR_LINE + display);
+      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
     }, this.interval);
   }
 
-  /**
-   * Update the spinner message while running
-   */
   async update(message: string): Promise<void> {
     this.message = message;
     if (!this.isRunning) return;
-
-    // Immediately update display - combine clear and write to avoid newline issues
     const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.write(ANSI.CLEAR_LINE + display);
+    await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
   }
 
-  /**
-   * Stop the spinner and optionally show a final message
-   */
   async stop(finalMessage?: string): Promise<void> {
     if (!this.isRunning) return;
     this.isRunning = false;
@@ -181,56 +168,39 @@ export class SpinnerController {
       this.intervalId = null;
     }
 
-    // Clear the spinner line and show cursor - combine into single write
-    // If there's a final message, include it with newline
     if (finalMessage) {
-      await this.write(`${ANSI.CLEAR_LINE + finalMessage}\n${ANSI.CURSOR_SHOW}`);
+      await this.outputManager.writeRaw(`${ANSI.CLEAR_LINE}${finalMessage}\n${ANSI.CURSOR_SHOW}`);
     } else {
-      await this.write(ANSI.CLEAR_LINE + ANSI.CURSOR_SHOW);
+      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + ANSI.CURSOR_SHOW);
     }
   }
 
-  /**
-   * Stop with success indicator
-   */
   async success(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.GREEN}✓${ANSI.RESET} ${message}`);
   }
 
-  /**
-   * Stop with error indicator
-   */
   async error(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.RED}✗${ANSI.RESET} ${message}`);
   }
 
-  /**
-   * Stop with warning indicator
-   */
   async warn(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.YELLOW}⚠${ANSI.RESET} ${message}`);
   }
 
-  /**
-   * Stop with info indicator
-   */
   async info(message: string): Promise<void> {
     await this.stop(`${ANSI.FG.CYAN}ℹ${ANSI.RESET} ${message}`);
   }
 
-  /**
-   * Check if spinner is currently running
-   */
   get running(): boolean {
     return this.isRunning;
   }
 }
 
 /**
- * Progress bar for showing completion percentage
+ * Progress bar using TerminalOutputManager
  */
 export class ProgressBar {
-  private write: WriteCallback;
+  private outputManager: TerminalOutputManager;
   private width: number;
   private current = 0;
   private total = 100;
@@ -239,29 +209,27 @@ export class ProgressBar {
   private emptyChar: string;
   private isActive = false;
 
-  constructor(write: WriteCallback, width = 30, filledChar = '█', emptyChar = '░') {
-    this.write = write;
+  constructor(
+    outputManager: TerminalOutputManager,
+    width = 30,
+    filledChar = '█',
+    emptyChar = '░'
+  ) {
+    this.outputManager = outputManager;
     this.width = width;
     this.filledChar = filledChar;
     this.emptyChar = emptyChar;
   }
 
-  /**
-   * Start the progress bar
-   */
   async start(total = 100, message = ''): Promise<void> {
     this.total = total;
     this.current = 0;
     this.message = message;
     this.isActive = true;
-
-    await this.write(ANSI.CURSOR_HIDE);
+    await this.outputManager.writeRaw(ANSI.CURSOR_HIDE);
     await this.render();
   }
 
-  /**
-   * Update progress
-   */
   async update(current: number, message?: string): Promise<void> {
     if (!this.isActive) return;
     this.current = Math.min(current, this.total);
@@ -271,16 +239,10 @@ export class ProgressBar {
     await this.render();
   }
 
-  /**
-   * Increment progress by a step
-   */
   async increment(step = 1, message?: string): Promise<void> {
     await this.update(this.current + step, message);
   }
 
-  /**
-   * Render the progress bar
-   */
   private async render(): Promise<void> {
     const percent = Math.round((this.current / this.total) * 100);
     const filled = Math.round((this.current / this.total) * this.width);
@@ -288,193 +250,155 @@ export class ProgressBar {
 
     const bar = `${ANSI.FG.GREEN}${this.filledChar.repeat(filled)}${ANSI.FG.GRAY}${this.emptyChar.repeat(empty)}${ANSI.RESET}`;
     const percentStr = `${percent}%`.padStart(4);
-
     const display = this.message ? `${bar} ${percentStr} ${this.message}` : `${bar} ${percentStr}`;
 
-    await this.write(ANSI.CLEAR_LINE + display);
+    await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
   }
 
-  /**
-   * Complete the progress bar
-   */
   async complete(message?: string): Promise<void> {
     this.current = this.total;
     if (message !== undefined) {
       this.message = message;
     }
     await this.render();
-    await this.write('\n');
-    await this.write(ANSI.CURSOR_SHOW);
+    await this.outputManager.write('\n');
+    await this.outputManager.writeRaw(ANSI.CURSOR_SHOW);
     this.isActive = false;
   }
 }
 
 /**
- * Status line for updating in-place status messages
+ * Status line using TerminalOutputManager
  */
 export class StatusLine {
-  private write: WriteCallback;
+  private outputManager: TerminalOutputManager;
   private isActive = false;
 
-  constructor(write: WriteCallback) {
-    this.write = write;
+  constructor(outputManager: TerminalOutputManager) {
+    this.outputManager = outputManager;
   }
 
-  /**
-   * Start status line mode
-   */
   async start(): Promise<void> {
     this.isActive = true;
-    await this.write(ANSI.CURSOR_HIDE);
+    await this.outputManager.writeRaw(ANSI.CURSOR_HIDE);
   }
 
-  /**
-   * Update status text (replaces current line)
-   */
   async update(text: string): Promise<void> {
     if (!this.isActive) {
-      await this.write(text);
+      await this.outputManager.write(text);
       return;
     }
-    await this.write(ANSI.CLEAR_LINE + text);
+    await this.outputManager.writeRaw(ANSI.CLEAR_LINE + text);
   }
 
-  /**
-   * End status line mode and move to new line
-   */
   async end(finalText?: string): Promise<void> {
     if (finalText) {
-      await this.write(ANSI.CLEAR_LINE + finalText);
+      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + finalText);
     }
-    await this.write('\n');
-    await this.write(ANSI.CURSOR_SHOW);
+    await this.outputManager.write('\n');
+    await this.outputManager.writeRaw(ANSI.CURSOR_SHOW);
     this.isActive = false;
   }
 }
 
 /**
- * Main TerminalUI class - provides access to all terminal UI components
+ * Main TerminalUI class - High-level terminal output API
+ * 
+ * All output goes through TerminalOutputManager to ensure:
+ * - Proper queueing and ordering
+ * - Cursor position tracking
+ * - Newline handling
+ * - No race conditions
  */
 export class TerminalUI {
-  private write: WriteCallback;
+  private outputManager: TerminalOutputManager;
 
-  // UI components
   public spinner: SpinnerController;
   public progress: ProgressBar;
   public status: StatusLine;
 
-  constructor(write: WriteCallback, spinnerType: SpinnerType = 'BRAILLE') {
-    this.write = write;
-    this.spinner = new SpinnerController(write, spinnerType);
-    this.progress = new ProgressBar(write);
-    this.status = new StatusLine(write);
+  constructor(outputManager: TerminalOutputManager, spinnerType: SpinnerType = 'BRAILLE') {
+    this.outputManager = outputManager;
+    this.spinner = new SpinnerController(outputManager, spinnerType);
+    this.progress = new ProgressBar(outputManager);
+    this.status = new StatusLine(outputManager);
   }
 
-  /**
-   * Write raw text to terminal
-   */
+  // ===== Basic Output =====
+
   async print(text: string): Promise<void> {
-    await this.write(text);
+    await this.outputManager.write(text);
   }
 
-  /**
-   * Write text followed by newline
-   */
   async println(text: string): Promise<void> {
-    await this.write(`${text}\n`);
+    await this.outputManager.writeln(text);
   }
 
-  /**
-   * Clear the current line
-   */
   async clearLine(): Promise<void> {
-    await this.write(ANSI.CLEAR_LINE);
+    await this.outputManager.writeRaw(ANSI.CLEAR_LINE);
   }
 
-  /**
-   * Write colored text
-   */
+  // ===== Colored Output =====
+
   async colored(text: string, color: string): Promise<void> {
-    await this.write(`${color}${text}${ANSI.RESET}`);
+    await this.outputManager.write(`${color}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Write success message (green checkmark)
-   */
   async success(message: string): Promise<void> {
-    await this.write(`${ANSI.FG.GREEN}✓${ANSI.RESET} ${message}\n`);
+    await this.outputManager.writeSuccess(`✓ ${message}\n`);
   }
 
-  /**
-   * Write error message (red X)
-   */
   async error(message: string): Promise<void> {
-    await this.write(`${ANSI.FG.RED}✗${ANSI.RESET} ${message}\n`);
+    await this.outputManager.writeError(`✗ ${message}\n`);
   }
 
-  /**
-   * Write warning message (yellow triangle)
-   */
   async warn(message: string): Promise<void> {
-    await this.write(`${ANSI.FG.YELLOW}⚠${ANSI.RESET} ${message}\n`);
+    await this.outputManager.writeWarning(`⚠ ${message}\n`);
   }
 
-  /**
-   * Write info message (cyan info icon)
-   */
   async info(message: string): Promise<void> {
-    await this.write(`${ANSI.FG.CYAN}ℹ${ANSI.RESET} ${message}\n`);
+    await this.outputManager.writeInfo(`ℹ ${message}\n`);
   }
 
-  /**
-   * Write a tree item (for directory listings, etc)
-   */
+  // ===== Formatted Output =====
+
   async treeItem(text: string, isLast = false, indent = 0): Promise<void> {
     const prefix = '  '.repeat(indent) + (isLast ? '└── ' : '├── ');
-    await this.write(`${ANSI.FG.GRAY}${prefix}${ANSI.RESET}${text}\n`);
+    await this.outputManager.writeDim(prefix);
+    await this.outputManager.write(`${text}\n`);
   }
 
-  /**
-   * Write a dimmed/secondary text
-   */
   async dim(text: string): Promise<void> {
-    await this.write(`${ANSI.FG.GRAY}${text}${ANSI.RESET}`);
+    await this.outputManager.writeDim(text);
   }
 
-  /**
-   * Write bold text
-   */
   async bold(text: string): Promise<void> {
-    await this.write(`${ANSI.BOLD}${text}${ANSI.RESET}`);
+    await this.outputManager.write(`${ANSI.BOLD}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Create a new spinner with custom settings
-   */
+  // ===== Component Factories =====
+
   createSpinner(
     type: SpinnerType = 'BRAILLE',
     color: string = ANSI.FG.CYAN,
     interval = 80
   ): SpinnerController {
-    return new SpinnerController(this.write, type, color, interval);
+    return new SpinnerController(this.outputManager, type, color, interval);
   }
 
-  /**
-   * Create a new progress bar with custom settings
-   */
   createProgressBar(width = 30, filledChar = '█', emptyChar = '░'): ProgressBar {
-    return new ProgressBar(this.write, width, filledChar, emptyChar);
+    return new ProgressBar(this.outputManager, width, filledChar, emptyChar);
+  }
+
+  // ===== Direct Manager Access (for advanced use) =====
+
+  get manager(): TerminalOutputManager {
+    return this.outputManager;
   }
 }
 
 /**
- * Create a TerminalUI instance from a write callback
+ * Create a TerminalUI instance
  */
-export function createTerminalUI(
-  write: WriteCallback,
-  spinnerType: SpinnerType = 'BRAILLE'
-): TerminalUI {
-  return new TerminalUI(write, spinnerType);
-}
 
 export default TerminalUI;

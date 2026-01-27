@@ -9,6 +9,7 @@ import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
+import TerminalUI from '@/engine/cmd/terminalUI';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -40,6 +41,7 @@ function ClientTerminal({
   const xtermRef = useRef<any>(null);
   const fitAddonRef = useRef<any>(null);
   const outputManagerRef = useRef<TerminalOutputManager | null>(null);
+  const terminalUIRef = useRef<any | null>(null);
   const unixCommandsRef = useRef<UnixCommands | null>(null);
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
@@ -54,44 +56,14 @@ function ClientTerminal({
     pushMsgOutPanel('Terminal initializing', 'info', 'Terminal');
 
     // ファイルシステムとFileRepositoryの初期化
-    const startSpinner = () => {
-      if (spinnerInterval.current) return;
-      const term = xtermRef.current;
-      if (!term) return;
-
-      // npm-like braille spinner (matches modern npm CLI appearance)
-      const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-      let i = 0;
-
-      // Hide cursor
-      term.write('\x1b[?25l');
-
-      // Write initial frame in cyan, then reset color
-      term.write(`\x1b[36m${frames[0]}\x1b[0m`);
-
-      spinnerInterval.current = setInterval(() => {
-        const next = frames[++i % frames.length];
-        term.write(`\b\x1b[36m${next}\x1b[0m`);
-      }, 80);
-    };
-
-    const stopSpinner = () => {
-      if (spinnerInterval.current) {
-        clearInterval(spinnerInterval.current);
-        spinnerInterval.current = null;
-        const term = xtermRef.current;
-        if (term) {
-          // Clear spinner char, reset color and show cursor
-          term.write('\b \b');
-          term.write('\x1b[0m');
-          term.write('\x1b[?25h');
-        }
-      }
-    };
-
     const setLoading = (isLoading: boolean) => {
-      if (isLoading) startSpinner();
-      else stopSpinner();
+      try {
+        if (isLoading) {
+          terminalUIRef.current?.spinner.start('Loading...');
+        } else {
+          terminalUIRef.current?.spinner.stop();
+        }
+      } catch (e) {}
     };
 
     const initializeTerminal = async () => {
@@ -222,6 +194,10 @@ function ClientTerminal({
     const outputManager = new TerminalOutputManager(term);
     outputManagerRef.current = outputManager;
 
+    // Initialize TerminalUI
+    const terminalUI = new TerminalUI(outputManager);
+    terminalUIRef.current = terminalUI;
+
     // タッチスクロール機能を追加
     let startY = 0;
     let scrolling = false;
@@ -288,10 +264,10 @@ function ClientTerminal({
 
     // 初期化処理を非同期で実行
     const initializeMessages = async () => {
-      // 初期メッセージ
+      // 初期メッセージ via TerminalUI
       const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
-      await outputManager.writeln(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
-      await outputManager.writeln('Type "help" for available commands.');
+      await terminalUI.info(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
+      await terminalUI.println('Type "help" for available commands.');
       // 初期プロンプト表示
       await showPrompt();
     };
@@ -387,7 +363,7 @@ function ClientTerminal({
     // 統一された出力関数 - すべての出力はこれを通る
     const writeOutput = async (output: string) => {
       cmdOutputs += output;
-      await outputManager.write(output);
+      await outputManagerRef.current?.write(output);
     };
 
     const processCommand = async (command: string) => {
@@ -504,10 +480,16 @@ function ClientTerminal({
                   }
                 },
                 stderr: (data: string) => {
-                  // stderrも即座に表示
                   if (!redirect) {
-                    const promise = writeOutput(data).catch(() => {});
-                    outputPromises.push(promise);
+                    // Warning detection (case-insensitive)
+                    const trimmed = data.trim();
+                    let promise: Promise<void>;
+                    if (/^warning:/i.test(trimmed)) {
+                      promise = outputManagerRef.current?.writeWarning(`${trimmed}\n`)?.catch(() => {}) ?? Promise.resolve();
+                    } else {
+                      promise = outputManagerRef.current?.writeError(`${trimmed}\n`)?.catch(() => {}) ?? Promise.resolve();
+                    }
+                    outputPromises.push(promise as Promise<void>);
                   }
                 },
               });
@@ -727,7 +709,7 @@ function ClientTerminal({
           scrollToBottom();
           if (currentLine.trim()) {
             // Command entered - add newline and execute
-            outputManager.writeln('');
+            outputManagerRef.current?.writeln('');
             const command = currentLine.trim();
             const existingIndex = commandHistory.indexOf(command);
             if (existingIndex !== -1) {
@@ -763,7 +745,7 @@ function ClientTerminal({
           }
           break;
         case '\u0003':
-          term.writeln('^C');
+          outputManagerRef.current?.writeln('^C');
           // send SIGINT to foreground process if available
           try {
             if (shellRef.current && typeof shellRef.current.killForeground === 'function') {

@@ -472,7 +472,7 @@ export class ShellExecutor {
       }
 
       const msg = error?.message ?? String(error);
-      proc.writeStderr(`${ANSI.FG.RED}${msg}${ANSI.RESET}\n`);
+      proc.writeStderr(`${msg}\n`);
       proc.endStdout();
       proc.endStderr();
       proc.exit(1);
@@ -491,8 +491,7 @@ export class ShellExecutor {
     };
 
     const writeError = async (output: string) => {
-      const colored = `${ANSI.FG.RED}${output}${ANSI.RESET}`;
-      proc.writeStderr(colored);
+      proc.writeStderr(output);
       if (!output.endsWith('\n')) {
         proc.writeStderr('\n');
       }
@@ -685,17 +684,11 @@ export class ShellExecutor {
           // Store raw output for internal buffers / redirection (no ANSI)
           fdBuffers[fd].push(sRaw);
 
-          // Avoid double-coloring if output already contains ANSI escapes
-          const hasAnsi = /\x1b\[[0-9;]*m/.test(sRaw);
-
-          // Prepare display output (color stderr red if not already colored)
-          const display = fd === 2 && !hasAnsi ? `${ANSI.FG.RED}${sRaw}${ANSI.RESET}` : sRaw;
-
-          // Real-time callbacks (provide colored output for terminal, raw for files)
+          // Real-time callbacks (provide raw output; coloring is handled in Terminal layer)
           if (fd === 1 && callbacks?.stdout) {
-            callbacks.stdout(display);
+            callbacks.stdout(sRaw);
           } else if (fd === 2 && callbacks?.stderr) {
-            callbacks.stderr(display);
+            callbacks.stderr(sRaw);
           }
         });
       } catch {}

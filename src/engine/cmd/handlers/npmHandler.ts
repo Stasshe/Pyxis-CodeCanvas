@@ -1,5 +1,5 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { TerminalUI, createTerminalUI } from '@/engine/cmd/terminalUI';
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
 
 export async function handleNPMCommand(
   args: string[],
@@ -13,18 +13,11 @@ export async function handleNPMCommand(
     return;
   }
 
-  // Create TerminalUI instance for advanced display features
-  const ui = createTerminalUI(writeOutput);
-
   const npm = terminalCommandRegistry.getNpmCommands(
     projectName,
     projectId,
     `/projects/${projectName}`
   );
-
-  // Pass the TerminalUI to npm commands for advanced output
-  npm.setTerminalUI(ui);
-
   if (setLoading) {
     npm.setLoadingHandler(setLoading);
   }
