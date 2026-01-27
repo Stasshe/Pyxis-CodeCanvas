@@ -626,6 +626,15 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
             className="fixed inset-0 flex items-center justify-center"
             style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
             onClick={() => setShowPromptDebug(false)}
+            tabIndex={0}
+            role="button"
+            onKeyDown={e => {
+              if (e.key === 'Escape') setShowPromptDebug(false);
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowPromptDebug(false);
+              }
+            }}
           >
             <div
               className="rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-hidden flex flex-col"
@@ -636,6 +645,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
                 width: '90vw',
               }}
               onClick={e => e.stopPropagation()}
+              onKeyDown={e => e.stopPropagation()}
             >
               <div
                 className="flex items-center justify-between px-4 py-3 border-b"

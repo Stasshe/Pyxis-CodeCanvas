@@ -89,16 +89,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#18181b" />
         {/* Google Analytics */}
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-7K55SSBCPF" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-7K55SSBCPF');
-            `,
-          }}
-        />
+        <script src={`${basePath}/ga-init.js`} />
         {/* PWA manifest & service worker */}
         <link rel="manifest" href={manifestPath} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -114,19 +105,16 @@ export default function RootLayout({
           process.env.NEXT_PUBLIC_IS_DEV_SERVER) && (
           <>
             <script src="https://cdn.jsdelivr.net/npm/eruda" />
-            <script dangerouslySetInnerHTML={{ __html: 'eruda.init();' }} />
+            <script src={`${basePath}/eruda-init.js`} />
           </>
         )}
         {/* Pyodide (Python in browser) */}
         <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js" />
       </head>
       <body className="antialiased h-full font-sans">
-        {/* Set base path for runtime access */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__NEXT_PUBLIC_BASE_PATH__ = '${basePath}';`,
-          }}
-        />
+        {/* Set base path for runtime access (exposed via meta + external initializer) */}
+        <meta name="pyxis-base-path" content={basePath} />
+        <script src={`${basePath}/base-path-init.js`} />
         <I18nProvider>
           <ThemeProvider>
             <GitHubUserProvider>
@@ -140,25 +128,7 @@ export default function RootLayout({
           </ThemeProvider>
         </I18nProvider>
         {/* Register service worker to enable icon caching (only on client/runtime) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-            if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker
-                  .register('${swPath}')
-                  .then(function(reg) {
-                    // registration successful
-                    // console.log('ServiceWorker registration successful with scope: ', reg.scope);
-                  })
-                  .catch(function(err) {
-                    console.error('ServiceWorker registration failed: ', err);
-                  });
-              });
-            }
-          `,
-          }}
-        />
+        <script src={`${basePath}/sw-register.js`} />
       </body>
     </html>
   );

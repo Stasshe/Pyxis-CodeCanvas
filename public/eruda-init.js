@@ -1,0 +1,1 @@
+eruda.init();
