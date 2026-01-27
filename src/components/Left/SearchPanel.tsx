@@ -63,6 +63,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   // キャッシュ用ref
   const cachedFilesRef = useRef<FilePayload[] | null>(null);
   const lastFilesVersionRef = useRef<string>('');
+  const lastFilesSentVersionRef = useRef<string | null>(null);
   const lastSearchOptionsRef = useRef<string>('');
   const lastSearchQueryRef = useRef<string>('');
   const lastSearchResultsRef = useRef<SearchResult[]>([]);
@@ -188,12 +189,22 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     lastSearchOptionsRef.current = searchOptionsKey;
 
     try {
+      // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
+      if (lastFilesSentVersionRef.current !== filesVersion) {
+        workerRef.current?.postMessage({
+          type: 'updateFiles',
+          files: filePayloads,
+          filesVersion,
+        });
+        lastFilesSentVersionRef.current = filesVersion;
+      }
+
+      // then send the actual search request without files (worker will reuse cached files)
       workerRef.current?.postMessage({
         type: 'search',
         searchId: sid,
         query,
         options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
-        files: filePayloads,
       });
     } catch (err) {
       console.error('Worker postMessage failed', err);
@@ -269,6 +280,18 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   // flattened results for keyboard navigation
   const flatResults = searchResults;
   const currentSelected = flatResults[selectedIndex] || null;
+
+  // Grouped results by file (memoized to avoid recomputing groups every render)
+  const groupedResults = useMemo(() => {
+    return Object.values(
+      searchResults.reduce((acc: Record<string, SearchResult[]>, r) => {
+        const key = r.file.id || r.file.path;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(r);
+        return acc;
+      }, {})
+    );
+  }, [searchResults]);
 
   useEffect(() => {
     // keep selection within bounds
@@ -686,15 +709,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
         {searchResults.length > 0 && (
           <div style={{ padding: '0.14rem' }}>
-            {/* Group results by file */}
-            {Object.values(
-              searchResults.reduce((acc: Record<string, SearchResult[]>, r) => {
-                const key = r.file.id || r.file.path;
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(r);
-                return acc;
-              }, {})
-            ).map((group: SearchResult[], gIdx) => {
+            {/* Group results by file (memoized) */}
+            {groupedResults.map((group: SearchResult[], gIdx) => {
               const first = group[0];
               const key = first.file.id || first.file.path;
               const isCollapsed = !!collapsedFiles[key];

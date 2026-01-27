@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useTransition } from 'react';
 
 import DebugConsole from './DebugConsole';
 import OutputPanel, { type OutputMessage } from './OutputPanel';
@@ -89,9 +89,17 @@ export default function BottomPanel({
 
   const activeTab = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
 
+  const [isPending, startTransition] = useTransition();
+
   const setActiveTab = (tab: 'output' | 'terminal' | 'debug' | 'problems') => {
-    if (onActiveTabChange) onActiveTabChange(tab);
-    else setInternalActiveTab(tab);
+    const current = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
+    if (current === tab) return; // avoid unnecessary state updates
+
+    if (onActiveTabChange) {
+      startTransition(() => onActiveTabChange(tab));
+    } else {
+      startTransition(() => setInternalActiveTab(tab));
+    }
   };
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
@@ -154,11 +162,6 @@ export default function BottomPanel({
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('problems')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'problems' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.problems')}
           </button>
@@ -182,11 +185,6 @@ export default function BottomPanel({
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('output')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'output' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.output')}
           </button>
@@ -210,11 +208,6 @@ export default function BottomPanel({
               marginLeft: '2px',
             }}
             onClick={() => setActiveTab('debug')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'debug' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.debugConsole')}
           </button>
@@ -238,11 +231,6 @@ export default function BottomPanel({
               marginLeft: '2px',
             }}
             onClick={() => setActiveTab('terminal')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'terminal' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.terminal')}
           </button>
