@@ -25,7 +25,7 @@ const getTypeColor = (colors: any): Record<OutputType, string> => ({
   check: colors.green,
 });
 
-export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
+export function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [contextFilter, setContextFilter] = useState('');
@@ -245,3 +245,5 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
     </div>
   );
 }
+
+export default React.memo(OutputPanel);

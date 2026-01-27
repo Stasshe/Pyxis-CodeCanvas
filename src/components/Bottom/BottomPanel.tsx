@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 import DebugConsole from './DebugConsole';
 import OutputPanel, { type OutputMessage } from './OutputPanel';
@@ -96,6 +96,11 @@ export default function BottomPanel({
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
   outputMessagesRef.set = setOutputMessages;
+
+  const handleClearDisplayed = useCallback((toClear: OutputMessage[]) => {
+    // Remove the currently displayed (filtered) messages from the full messages list
+    setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
+  }, [setOutputMessages]);
 
   return (
     <>
@@ -305,10 +310,7 @@ export default function BottomPanel({
           >
             <OutputPanel
               messages={outputMessages}
-              onClearDisplayed={toClear => {
-                // Remove the currently displayed (filtered) messages from the full messages list
-                setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
-              }}
+              onClearDisplayed={handleClearDisplayed}
             />
           </div>
           <div
