@@ -1,7 +1,7 @@
 'use client';
 
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
-import OperationList from '@/components/Top/OperationWindow/OperationList';
+import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
 import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -571,7 +571,7 @@ export default function OperationWindow({
             />
           </div>
 
-          <OperationList
+          <OperationVirtualList
             viewMode={viewMode}
             filteredFiles={filteredFiles}
             filteredItems={filteredItems}

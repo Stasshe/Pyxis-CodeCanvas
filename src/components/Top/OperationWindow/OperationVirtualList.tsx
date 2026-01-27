@@ -18,7 +18,7 @@ interface Props {
   colors: any;
   queryTokens: string[];
   t: (k: string) => string;
-  listRef?: React.RefObject<HTMLDivElement>;
+  listRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function OperationVirtualList({
