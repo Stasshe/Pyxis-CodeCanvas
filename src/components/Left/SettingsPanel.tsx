@@ -18,11 +18,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { t } = useTranslation();
-<<<<<<< Updated upstream
-  const openTab = useTabStore(state => state.openTab);
-=======
   const { openTab } = tabActions;
->>>>>>> Stashed changes
   const { colors, setColor, themeName, setTheme, themeList } = useTheme();
 
   // 設定状態

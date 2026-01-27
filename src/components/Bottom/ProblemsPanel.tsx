@@ -96,7 +96,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         }
         return null;
       };
-      return findPane(panes);
+      return findPane(panes as any);
     };
   }, [panes]);
 

@@ -60,22 +60,11 @@ function flattenPanes(paneList: EditorPane[]): EditorPane[] {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-<<<<<<< Updated upstream
-  const globalActiveTab = useTabStore(state => state.globalActiveTab);
-  const activePane = useTabStore(state => state.activePane);
-  const setPanes = useTabStore(state => state.setPanes);
-  const allPanes = useTabStore(state => state.panes);
-  const moveTab = useTabStore(state => state.moveTab);
-  const splitPaneAndMoveTab = useTabStore(state => state.splitPaneAndMoveTab);
-  const openTab = useTabStore(state => state.openTab);
-  const splitPaneAndOpenFile = useTabStore(state => state.splitPaneAndOpenFile);
-=======
   const { globalActiveTab, activePane, panes: allPanes } = useSnapshot(tabState);
   const { setPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = tabActions;
->>>>>>> Stashed changes
 
   // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
-  const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
+  const leafPaneCount = useMemo(() => flattenPanes(allPanes as any).length, [allPanes]);
   const [dropZone, setDropZone] = React.useState<
     'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null
   >(null);
@@ -265,7 +254,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                       });
                     };
 
-                    setPanes(updatePaneRecursive(allPanes));
+                    setPanes(updatePaneRecursive(allPanes as any));
                   }}
                 />
               </div>

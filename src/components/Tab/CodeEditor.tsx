@@ -55,11 +55,7 @@ export default function CodeEditor({
     currentProject?.id ||
     (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
   const { settings, updateSettings } = useSettings(projectId);
-<<<<<<< Updated upstream
-  const isContentRestored = useTabStore(state => state.isContentRestored);
-=======
   const { isContentRestored } = useSnapshot(tabState);
->>>>>>> Stashed changes
 
   // コンテンツ復元中かどうかを判定
   const isRestoringContent =

@@ -197,13 +197,13 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   // Flatten panes for navigation
   const flattenedPanes = useMemo(() => {
     const result: EditorPane[] = [];
-    const traverse = (list: EditorPane[]) => {
+    const traverse = (list: any[]) => {
       for (const p of list) {
         if (!p.children || p.children.length === 0) result.push(p);
         if (p.children) traverse(p.children);
       }
     };
-    traverse(panes);
+    traverse(panes as any);
     return result;
   }, [panes]);
 
@@ -230,7 +230,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         // ペインにタブがない場合でも、移動元のペインからフォーカスを外すために
         // アクティブペインを更新し、グローバルアクティブタブをクリア
         setActivePane(id);
-        (tabState.globalActiveTab = null);
+        tabState.globalActiveTab = null;
       }
       onClose();
     },
@@ -243,13 +243,13 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
       splitPane(selectedPaneId, dir);
       requestAnimationFrame(() => {
         const newFlat: EditorPane[] = [];
-        const traverse = (list: EditorPane[]) => {
+        const traverse = (list: any[]) => {
           for (const p of list) {
             if (!p.children || p.children.length === 0) newFlat.push(p);
             if (p.children) traverse(p.children);
           }
         };
-        traverse(tabState.panes);
+        traverse(tabState.panes as any);
         const newPane = newFlat.find(p => !flattenedPanes.some(fp => fp.id === p.id));
         if (newPane) setSelectedPaneId(newPane.id);
       });
@@ -323,7 +323,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
-  const { width, height } = calculateLayoutDimensions(panes);
+  const { width, height } = calculateLayoutDimensions(panes as any);
 
   return (
     <div
@@ -344,7 +344,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         {panes.map(pane => (
           <div key={pane.id} className="flex-1" style={{ minWidth: 0, minHeight: 0 }}>
             <RecursivePaneView
-              pane={pane}
+              pane={pane as any}
               selectedPaneId={selectedPaneId}
               activePane={activePane}
               onSelect={handleSelect}

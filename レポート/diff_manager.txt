@@ -1,0 +1,219 @@
+﻿diff --git a/src/engine/editor/EditorMemoryManager.ts b/src/engine/editor/EditorMemoryManager.ts
+index 9a1e7d17..6ab90f7d 100644
+--- a/src/engine/editor/EditorMemoryManager.ts
++++ b/src/engine/editor/EditorMemoryManager.ts
+@@ -7,10 +7,11 @@
+  * 3. 繝輔ぃ繧､繝ｫ繝代せ縺斐→縺ｮ菫晏ｭ倡憾諷狗ｮ｡逅・  * 4. DB・・ndexedDB/fileRepository・峨∈縺ｮ菫晏ｭ伜宛蠕｡
+  *
+- * 險ｭ險域婿驥・
++ * 險ｭ險域婿驥晢ｼ・2 - 蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ譛驕ｩ蛹厄ｼ・
+  * - 繧ｷ繝ｳ繧ｰ繝ｫ繝医Φ繝代ち繝ｼ繝ｳ縺ｧ蜈ｨ繧｢繝励Μ繧ｱ繝ｼ繧ｷ繝ｧ繝ｳ縺ｧ1縺､縺ｮ繧､繝ｳ繧ｹ繧ｿ繝ｳ繧ｹ繧貞・譛・- * - **繧ｳ繝ｳ繝・Φ繝・・tabStore縺ｫ蟋碑ｭｲ** - 莠碁㍾菫晄戟繧帝∩縺代ｋ・医Γ繝｢繝ｪ蜉ｹ邇・喧・・- * - metadataMap: 繝代せ縺斐→縺ｮ繝｡繧ｿ繝・・繧ｿ・井ｿ晏ｭ倥ち繧､繝槭・遲会ｼ峨・縺ｿ菫晄戟
++ * - **繧ｳ繝ｳ繝・Φ繝・・contentMap縺ｧ菫晄戟** - tabStore.panes縺九ｉ蛻・屬縺励※蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ繧帝亟豁｢
++ * - metadataMap: 繝代せ縺斐→縺ｮ繝｡繧ｿ繝・・繧ｿ・井ｿ晏ｭ倥ち繧､繝槭・遲会ｼ峨ｒ菫晄戟
++ * - tabStore縺ｫ縺ｯisDirty縺ｮ縺ｿ蜷梧悄・・ontent縺ｯ蜷梧悄縺励↑縺・ｼ・  * - fileRepository縺ｮ繧､繝吶Φ繝医す繧ｹ繝・Β繧呈ｴｻ逕ｨ縺励※螟画峩繧呈､懃衍
+  */
+ 
+@@ -54,12 +55,16 @@ const DEFAULT_OPTIONS: EditorMemoryManagerOptions = {
+ /**
+  * EditorMemoryManager - 邨ｱ荳逧・↑繧ｨ繝・ぅ繧ｿ繝ｼ繝｡繝｢繝ｪ邂｡逅・  *
+- * 繝｡繝｢繝ｪ蜉ｹ邇・喧: 繧ｳ繝ｳ繝・Φ繝・・tabStore縺ｮ縺ｿ縺ｧ菫晄戟縺励∽ｺ碁㍾菫晄戟繧帝∩縺代ｋ
++ * v2: 繧ｳ繝ｳ繝・Φ繝・ｒcontentMap縺ｧ菫晄戟縺励》abStore.panes縺ｨ縺ｯ蛻・屬
++ * 縺薙ｌ縺ｫ繧医ｊ縲√く繝ｼ繧ｹ繝医Ο繝ｼ繧ｯ譎ゅ↓panes縺梧峩譁ｰ縺輔ｌ縺壹｝age.tsx縺ｮ蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ繧帝亟豁｢
+  */
+ class EditorMemoryManager {
+   private static instance: EditorMemoryManager | null = null;
+ 
+-  /** 繝代せ縺斐→縺ｮ繝｡繧ｿ繝・・繧ｿ・医ち繧､繝槭・遲会ｼ・ 繧ｳ繝ｳ繝・Φ繝・・菫晄戟縺励↑縺・*/
++  /** 繝代せ縺斐→縺ｮ繧ｳ繝ｳ繝・Φ繝・ｒ菫晄戟・亥・繝ｬ繝ｳ繝繝ｪ繝ｳ繧ｰ譛驕ｩ蛹悶・縺溘ａ蛻・屬・・*/
++  private contentMap: Map<string, string> = new Map();
++
++  /** 繝代せ縺斐→縺ｮ繝｡繧ｿ繝・・繧ｿ・医ち繧､繝槭・遲会ｼ・*/
+   private metadataMap: Map<string, MetadataEntry> = new Map();
+ 
+   /** 繧ｳ繝ｳ繝・Φ繝・､画峩繝ｪ繧ｹ繝翫・ */
+@@ -132,7 +137,8 @@ class EditorMemoryManager {
+     this.changeListeners.clear();
+     this.saveListeners.clear();
+ 
+-    // 繝｡繧ｿ繝・・繧ｿ繝槭ャ繝励ｒ繧ｯ繝ｪ繧｢
++    // 繧ｳ繝ｳ繝・Φ繝・・繝・・縺ｨ繝｡繧ｿ繝・・繧ｿ繝槭ャ繝励ｒ繧ｯ繝ｪ繧｢
++    this.contentMap.clear();
+     this.metadataMap.clear();
+ 
+     this.initialized = false;
+@@ -142,17 +148,13 @@ class EditorMemoryManager {
+   // ==================== 繧ｳ繝ｳ繝・Φ繝・桃菴・====================
+ 
+   /**
+-   * 繝代せ縺ｫ蟇ｾ蠢懊☆繧九さ繝ｳ繝・Φ繝・ｒ蜿門ｾ暦ｼ・abStore縺九ｉ蜿門ｾ暦ｼ・+   * 繝代せ縺ｫ蟇ｾ蠢懊☆繧九さ繝ｳ繝・Φ繝・ｒ蜿門ｾ暦ｼ・ontentMap縺九ｉ蜿門ｾ暦ｼ・    * @param path 繝輔ぃ繧､繝ｫ繝代せ・・ppPath蠖｢蠑擾ｼ・-   * @returns 繧ｳ繝ｳ繝・Φ繝・枚蟄怜・縲√∪縺溘・繧ｿ繝悶′縺ｪ縺・ｴ蜷医・undefined
++   * @returns 繧ｳ繝ｳ繝・Φ繝・枚蟄怜・縲√∪縺溘・縺ｪ縺・ｴ蜷医・undefined
+    */
+   getContent(path: string): string | undefined {
+     const normalizedPath = toAppPath(path);
+-    const tabInfo = useTabStore.getState().findTabByPath(normalizedPath, 'editor');
+-    if (tabInfo) {
+-      return (tabInfo.tab as any).content;
+-    }
+-    return undefined;
++    return this.contentMap.get(normalizedPath);
+   }
+ 
+   /**
+@@ -173,14 +175,17 @@ class EditorMemoryManager {
+       clearTimeout(existing.saveTimerId);
+     }
+ 
++    // 繧ｳ繝ｳ繝・Φ繝・ｒcontentMap縺ｫ菫晏ｭ假ｼ・abStore縺ｧ縺ｯ縺ｪ縺上％縺薙〒菫晄戟・・+    this.contentMap.set(normalizedPath, content);
++
+     // 繝｡繧ｿ繝・・繧ｿ繧呈峩譁ｰ
+     const entry: MetadataEntry = {
+       lastModified: Date.now(),
+     };
+     this.metadataMap.set(normalizedPath, entry);
+ 
+-    // tabStore縺ｮ蜈ｨ蜷御ｸ繝代せ繧ｿ繝悶ｒ譖ｴ譁ｰ・・sDirty=true・・-    this.syncToTabStore(normalizedPath, content, true);
++    // tabStore縺ｮisDirty縺ｮ縺ｿ繧呈峩譁ｰ・・ontent縺ｯ譖ｴ譁ｰ縺励↑縺・竊・panes縺ｮ蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ髦ｲ豁｢・・+    this.syncDirtyFlagToTabStore(normalizedPath, true);
+ 
+     // 螟画峩繝ｪ繧ｹ繝翫・縺ｫ騾夂衍
+     this.notifyChangeListeners(normalizedPath, content, 'editor');
+@@ -189,8 +194,6 @@ class EditorMemoryManager {
+     if (!skipDebounce) {
+       this.scheduleSave(normalizedPath);
+     }
+-
+-    console.log('[EditorMemoryManager] Content set:', { path: normalizedPath });
+   }
+ 
+   /**
+@@ -211,8 +214,8 @@ class EditorMemoryManager {
+       entry.saveTimerId = undefined;
+     }
+ 
+-    // tabStore縺九ｉ迴ｾ蝨ｨ縺ｮ繧ｳ繝ｳ繝・Φ繝・ｒ蜿門ｾ・-    const content = this.getContentFromTabStore(normalizedPath);
++    // contentMap縺九ｉ迴ｾ蝨ｨ縺ｮ繧ｳ繝ｳ繝・Φ繝・ｒ蜿門ｾ・+    const content = this.getContentFromStore(normalizedPath);
+     if (content === undefined) {
+       console.warn('[EditorMemoryManager] No tab found for path:', normalizedPath);
+       return false;
+@@ -223,7 +226,7 @@ class EditorMemoryManager {
+ 
+   /**
+    * 謖・ｮ壹ヱ繧ｹ縺ｮ繧ｳ繝ｳ繝・Φ繝・ｒ螟夜Κ縺九ｉ譖ｴ譁ｰ・・it謫堺ｽ懊、I驕ｩ逕ｨ蠕後↑縺ｩ・・-   * - tabStore繧呈峩譁ｰ
++   * - contentMap繧呈峩譁ｰ
+    * - isDirty縺ｯfalse・亥､夜Κ縺九ｉ縺ｮ譖ｴ譁ｰ縺ｯ菫晏ｭ俶ｸ医∩縺ｨ縺ｿ縺ｪ縺呻ｼ・    *
+    * @param path 繝輔ぃ繧､繝ｫ繝代せ
+@@ -238,14 +241,17 @@ class EditorMemoryManager {
+       clearTimeout(existing.saveTimerId);
+     }
+ 
++    // 繧ｳ繝ｳ繝・Φ繝・ｒcontentMap縺ｫ菫晏ｭ・+    this.contentMap.set(normalizedPath, content);
++
+     // 繝｡繧ｿ繝・・繧ｿ繧呈峩譁ｰ
+     const entry: MetadataEntry = {
+       lastModified: Date.now(),
+     };
+     this.metadataMap.set(normalizedPath, entry);
+ 
+-    // tabStore縺ｮ蜈ｨ蜷御ｸ繝代せ繧ｿ繝悶ｒ譖ｴ譁ｰ・・sDirty=false・・-    this.syncToTabStore(normalizedPath, content, false);
++    // tabStore縺ｮisDirty繧断alse縺ｫ譖ｴ譁ｰ
++    this.syncDirtyFlagToTabStore(normalizedPath, false);
+ 
+     // 螟画峩繝ｪ繧ｹ繝翫・縺ｫ騾夂衍
+     this.notifyChangeListeners(normalizedPath, content, 'external');
+@@ -302,7 +308,7 @@ class EditorMemoryManager {
+         entry.saveTimerId = undefined;
+       }
+ 
+-      const content = this.getContentFromTabStore(path);
++      const content = this.getContentFromStore(path);
+       if (content !== undefined) {
+         savePromises.push(this.executeSave(path, content));
+       }
+@@ -314,19 +320,22 @@ class EditorMemoryManager {
+ 
+   /**
+    * 蛻晄悄繧ｳ繝ｳ繝・Φ繝・ｒ逋ｻ骭ｲ・医ち繝悶ｒ髢九＞縺滓凾縺ｫ蜻ｼ縺ｳ蜃ｺ縺暦ｼ・-   * 繝｡繧ｿ繝・・繧ｿ縺ｮ縺ｿ逋ｻ骭ｲ・医さ繝ｳ繝・Φ繝・・tabStore縺御ｿ晄戟・・+   * contentMap縺ｨ繝｡繧ｿ繝・・繧ｿ繧堤匳骭ｲ
+    *
+    * @param path 繝輔ぃ繧､繝ｫ繝代せ
+-   * @param _content 蛻晄悄繧ｳ繝ｳ繝・Φ繝・ｼ井ｺ呈鋤諤ｧ縺ｮ縺溘ａ蠑墓焚縺ｯ谿九☆縺御ｽｿ逕ｨ縺励↑縺・ｼ・+   * @param content 蛻晄悄繧ｳ繝ｳ繝・Φ繝・    */
+-  registerInitialContent(path: string, _content: string): void {
++  registerInitialContent(path: string, content: string): void {
+     const normalizedPath = toAppPath(path);
+ 
+-    // 譌｢縺ｫ繧ｨ繝ｳ繝医Μ縺後≠繧後・菴輔ｂ縺励↑縺・-    if (this.metadataMap.has(normalizedPath)) {
++    // 譌｢縺ｫ繧ｳ繝ｳ繝・Φ繝・′縺ゅｌ縺ｰ菴輔ｂ縺励↑縺・+    if (this.contentMap.has(normalizedPath)) {
+       return;
+     }
+ 
++    // 繧ｳ繝ｳ繝・Φ繝・ｒcontentMap縺ｫ菫晏ｭ・+    this.contentMap.set(normalizedPath, content);
++
+     const entry: MetadataEntry = {
+       lastModified: Date.now(),
+     };
+@@ -356,9 +365,16 @@ class EditorMemoryManager {
+   // ==================== 蜀・Κ繝｡繧ｽ繝・ラ ====================
+ 
+   /**
+-   * tabStore縺九ｉ繧ｳ繝ｳ繝・Φ繝・ｒ蜿門ｾ・+   * 繧ｳ繝ｳ繝・Φ繝・ｒ蜿門ｾ暦ｼ・ontentMap縺九ｉ蜆ｪ蜈医√↑縺代ｌ縺ｰtabStore縺九ｉ・・    */
+-  private getContentFromTabStore(path: string): string | undefined {
++  private getContentFromStore(path: string): string | undefined {
++    // 縺ｾ縺喞ontentMap縺九ｉ蜿門ｾ・+    const content = this.contentMap.get(path);
++    if (content !== undefined) {
++      return content;
++    }
++
++    // 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ: tabStore縺九ｉ蜿門ｾ・     const tabs = useTabStore.getState().getAllTabs();
+ 
+     // editor繧ｿ繝悶ｒ蜆ｪ蜈・@@ -403,7 +419,7 @@ class EditorMemoryManager {
+       }
+ 
+       // tabStore縺ｮ迴ｾ蝨ｨ縺ｮ繧ｳ繝ｳ繝・Φ繝・→豈碑ｼ・-      const currentContent = this.getContentFromTabStore(filePath);
++      const currentContent = this.getContentFromStore(filePath);
+       if (currentContent === newContent) {
+         // 蜀・ｮｹ縺悟酔縺倥↑繧峨せ繧ｭ繝・・
+         return;
+@@ -416,9 +432,10 @@ class EditorMemoryManager {
+   }
+ 
+   /**
+-   * tabStore縺ｮ隧ｲ蠖薙ヱ繧ｹ繧呈戟縺､蜈ｨ繧ｿ繝悶ｒ譖ｴ譁ｰ
++   * tabStore縺ｮ隧ｲ蠖薙ヱ繧ｹ繧呈戟縺､蜈ｨ繧ｿ繝悶・isDirty繝輔Λ繧ｰ縺ｮ縺ｿ繧呈峩譁ｰ
++   * content縺ｯ譖ｴ譁ｰ縺励↑縺・ｼ・anes縺ｮ蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ繧帝亟豁｢・・    */
+-  private syncToTabStore(path: string, content: string, isDirty: boolean): void {
++  private syncDirtyFlagToTabStore(path: string, isDirty: boolean): void {
+     const tabStore = useTabStore.getState();
+     const tabs = tabStore.getAllTabs();
+ 
+@@ -430,15 +447,9 @@ class EditorMemoryManager {
+ 
+     if (matchingTabs.length === 0) return;
+ 
+-    // updateTabContent繧剃ｽｿ逕ｨ縺励※蜈ｨ繧ｿ繝悶ｒ譖ｴ譁ｰ
++    // isDirty縺ｮ縺ｿ繧呈峩譁ｰ・・ontent縺ｯ譖ｴ譁ｰ縺励↑縺・ｼ・     const firstTab = matchingTabs[0];
+-    tabStore.updateTabContent(firstTab.id, content, isDirty);
+-
+-    console.log('[EditorMemoryManager] Synced to tabStore:', {
+-      path,
+-      tabCount: matchingTabs.length,
+-      isDirty,
+-    });
++    tabStore.updateTabDirtyFlag(firstTab.id, isDirty);
+   }
+ 
+   /**
+@@ -455,8 +466,8 @@ class EditorMemoryManager {
+ 
+     // 譁ｰ縺励＞繧ｿ繧､繝槭・繧定ｨｭ螳・     entry.saveTimerId = setTimeout(async () => {
+-      // 繧ｿ繧､繝槭・逋ｺ轣ｫ譎ゅ↓tabStore縺九ｉ譛譁ｰ縺ｮ繧ｳ繝ｳ繝・Φ繝・ｒ蜿門ｾ・-      const content = this.getContentFromTabStore(path);
++      // 繧ｿ繧､繝槭・逋ｺ轣ｫ譎ゅ↓contentMap縺九ｉ譛譁ｰ縺ｮ繧ｳ繝ｳ繝・Φ繝・ｒ蜿門ｾ・+      const content = this.getContentFromStore(path);
+       if (content !== undefined) {
+         try {
+           await this.executeSave(path, content);
+@@ -502,7 +513,7 @@ class EditorMemoryManager {
+       }
+ 
+       // tabStore縺ｮisDirty繧偵け繝ｪ繧｢
+-      this.syncToTabStore(path, content, false);
++      this.syncDirtyFlagToTabStore(path, false);
+ 
+       // 菫晏ｭ伜ｮ御ｺ・Μ繧ｹ繝翫・縺ｫ騾夂衍
+       this.notifySaveListeners(path, true);

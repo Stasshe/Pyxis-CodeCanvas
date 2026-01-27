@@ -52,7 +52,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       }
       return null;
     };
-    return find(panes);
+    return find(panes as any);
   }, [panes, activeTab.path]);
 
   const contentSource = editorTabContent ?? activeTab.content ?? '';

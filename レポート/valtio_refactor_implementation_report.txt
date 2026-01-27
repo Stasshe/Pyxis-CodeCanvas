@@ -1,0 +1,144 @@
+================================================================================
+【実装レポート】Zustand から Valtio への移行（リファクタリング）
+================================================================================
+作成日: 2026-01-27
+元計画: レポート/implementation_plan_valtio_refactor.txt
+
+--------------------------------------------------------------------------------
+1. 実装の概要
+--------------------------------------------------------------------------------
+
+■ 目的
+  - Zustand の tabStore と EditorMemoryManager を廃止
+  - Valtio による状態管理に一本化
+  - content を Tab 内に直接保持し、タブ間同期の不具合要因を排除
+
+■ 主な変更
+
+  (1) 新規: src/stores/tabState.ts
+      - proxy による状態: panes, activePane, globalActiveTab, isLoading,
+        isRestored, isContentRestored
+      - 旧 EditorMemoryManager の責務を統合:
+        ・デバウンス保存 (DEBOUNCE_MS=5000)
+        ・即時保存 (saveImmediately)
+        ・外部変更検知 (fileRepository.addChangeListener → updateFromExternal)
+        ・setContent, getContent, isDirty, addSaveListener, addChangeListener,
+          removeSaveTimerForPath, initTabSaveSync
+      - tabActions: openTab, closeTab, activateTab, updateTab, updateTabContent,
+        setPanes, addPane, removePane, updatePane, setActivePane, getPane, getTab,
+        getAllTabs, findTabByPath, moveTab, moveTabToIndex, handleFileDeleted,
+        handleFilesDeleted, splitPane, splitPaneAndMoveTab, splitPaneAndOpenFile,
+        resizePane, saveSession, loadSession
+
+  (2) パッケージ
+      - package.json: dependencies に "valtio": "^2.1.2" を追加
+
+  (3) 削除
+      - src/stores/tabStore.ts (Zustand 版)
+      - src/engine/editor/EditorMemoryManager.ts
+
+  (4) 変更パターン
+      - useTabStore() → useSnapshot(tabState) で状態、tabActions でアクション
+      - useTabStore.getState() → tabState（読み） / tabActions（操作）
+      - editorMemoryManager.* → setContent, saveImmediately, updateFromExternal,
+        initTabSaveSync, addSaveListener, addChangeListener 等（tabState から）
+
+--------------------------------------------------------------------------------
+2. 変更ファイル一覧
+--------------------------------------------------------------------------------
+
+■ ストア・エンジン
+  - src/stores/tabState.ts                    新規
+  - src/engine/editor/index.ts                EditorMemoryManager 削除、useEditorMemory のみ export
+  - src/engine/editor/useEditorMemory.ts      tabState 利用に全面書き換え
+
+■ アプリ・コンテキスト
+  - src/app/page.tsx                          useSnapshot(tabState) + tabActions
+  - src/context/TabContext.tsx                useSnapshot(tabState) + tabActions
+
+■ ペイン・タブ UI
+  - src/components/Pane/PaneContainer.tsx     useSnapshot(tabState) + tabActions
+  - src/components/Pane/PaneNavigator.tsx     useSnapshot(tabState) + tabActions、tabState.globalActiveTab 代入
+  - src/components/Tab/TabBar.tsx             useSnapshot(tabState) + tabActions、tabState.activePane 参照
+  - src/components/Tab/CodeEditor.tsx         useSnapshot(tabState)、saveImmediately
+  - src/components/Tab/Breadcrumb.tsx         tabActions
+  - src/components/Tab/MarkdownPreviewTab.tsx useSnapshot(tabState) + tabActions、panes から editor 内容を useMemo で取得
+
+■ タブタイプ（builtins）
+  - src/engine/tabs/builtins/EditorTabType.tsx   initTabSaveSync, addSaveListener, setContent
+  - src/engine/tabs/builtins/DiffTabType.tsx     initTabSaveSync, addSaveListener, saveImmediately, setContent
+  - src/engine/tabs/builtins/AIReviewTabType.tsx initTabSaveSync, addChangeListener, updateFromExternal, tabActions
+  - src/engine/tabs/builtins/MergeConflictTabType.tsx  tabActions (closeTab, updateTab)
+
+■ 左サイドバー・その他 UI
+  - src/components/Left/SettingsPanel.tsx     tabActions
+  - src/components/Left/SearchPanel.tsx       tabActions
+  - src/components/Left/FileTree/VirtualizedFileTree.tsx  tabActions
+  - src/components/Left/FileTree/FileTreeContextMenu.tsx  tabActions
+  - src/components/Left/ExtensionsPanel.tsx   tabActions
+  - src/components/Bottom/ProblemsPanel.tsx   useSnapshot(tabState) + tabActions
+  - src/components/Top/OperationWindow.tsx    tabActions
+  - src/components/AI/AIPanel.tsx             useSnapshot(tabState) + tabActions, updateFromExternal
+
+■ フック
+  - src/hooks/ui/useTabContentRestore.ts      initTabSaveSync, tabActions.setPanes, useSnapshot(tabState), snapshot(tabState).panes
+  - src/hooks/ui/useDiffTabHandlers.ts        tabActions
+  - src/hooks/state/useProjectWelcome.ts      useSnapshot(tabState) + tabActions
+  - src/hooks/state/useFileDeleteTabSync.ts   tabActions (handleFileDeleted, handleFilesDeleted)
+  - src/hooks/ai/useAIReview.ts               tabActions (getAllTabs 含む)
+
+■ 拡張・コマンド
+  - src/engine/extensions/system-api/TabAPI.ts       tabState + tabActions（getState 相当を置換）
+  - src/engine/cmd/handlers/dev/tabScenario.ts       tabActions + tabState
+  - src/engine/cmd/handlers/dev/mergeConflictScenario.ts  tabActions
+  - src/engine/cmd/global/gitOperations/merge.ts     tabActions
+
+■ その他
+  - package.json                              valtio 追加
+  - src/hooks/ui/useTabContentRestore.ts      コメント修正（EditorMemoryManager → tabState）
+
+--------------------------------------------------------------------------------
+3. 非変更（意図的にそのまま）
+--------------------------------------------------------------------------------
+
+  - useMonacoModels.ts
+    ・updateCachedModelContent は tabState の updateTabContent から引き続き利用
+    ・キャッシュ／LRU ロジックは計画どおり「必要に応じて」のため手を入れず維持
+
+  - TabContext の useTabContext
+    ・@deprecated のまま。useSnapshot(tabState) と tabActions の併用を推奨
+
+--------------------------------------------------------------------------------
+4. 検証のすすめ方（implementation_plan より）
+--------------------------------------------------------------------------------
+
+  1) 基本動作
+     - ファイルを開ける
+     - タブの切り替え
+     - ペイン分割
+
+  2) 同期（今回の不具合解消の確認）
+     - 左右に分割して同一ファイルを開く
+     - 片方の入力がもう片方に即時反映する
+     - 可能なら React DevTools で TabBar / PaneContainer の不要な再レンダーがないか確認
+
+  3) isDirty
+     - 編集で未保存マークが出る
+     - Ctrl+S でマークが消える
+
+  実行例:
+    pnpm install
+    pnpm run build
+    pnpm run dev
+
+--------------------------------------------------------------------------------
+5. 注意事項・残件
+--------------------------------------------------------------------------------
+
+  - valtio は pnpm install で取得。未導入の場合は先に pnpm install を実行すること。
+  - initTabSaveSync は EditorTabType / DiffTabType / AIReviewTabType / useTabContentRestore 等で
+    呼ばれる。重複呼び出しは idempotent である。
+  - TabContext の useTabContext は「useTabStore を直接」との @deprecated 文のまま。
+    実態は useSnapshot(tabState) + tabActions を返す互換レイヤー。
+
+================================================================================

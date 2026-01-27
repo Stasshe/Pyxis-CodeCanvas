@@ -35,9 +35,9 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
 }
 
 // ペインをフラット化する関数（再帰的に全てのリーフペインを収集）
-function flattenPanes(panes: EditorPane[]): EditorPane[] {
+function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   const result: EditorPane[] = [];
-  function traverse(panes: EditorPane[]) {
+  function traverse(panes: readonly EditorPane[]) {
     panes.forEach(pane => {
       if (pane.children && pane.children.length > 0) {
         traverse(pane.children);
@@ -57,10 +57,7 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
  * ファイル変更・リアルタイム同期は tabState (initTabSaveSync) が担当する。
  */
 export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
-<<<<<<< Updated upstream
-=======
   const { panes } = useSnapshot(tabState);
->>>>>>> Stashed changes
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
 
@@ -78,20 +75,11 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-<<<<<<< Updated upstream
-    if (!isRestored) return;
-
-    const state = useTabStore.getState();
-    if (!state.panes.length) return;
-
-    const flatPanes = flattenPanes(state.panes);
-=======
     if (!isRestored || !panes.length) {
       return;
     }
 
-    const flatPanes = flattenPanes(panes);
->>>>>>> Stashed changes
+    const flatPanes = flattenPanes(panes as any);
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
       pane.tabs.filter((tab: any) => tab.needsContentRestore)
     );
@@ -126,7 +114,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       try {
         await initTabSaveSync();
 
-        const updatePaneRecursive = (paneList: EditorPane[]): EditorPane[] => {
+        const updatePaneRecursive = (paneList: readonly EditorPane[]): EditorPane[] => {
           return paneList.map(pane => {
             if (pane.children && pane.children.length > 0) {
               return {
@@ -164,13 +152,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
           });
         };
 
-<<<<<<< Updated upstream
-        // Use a snapshot of the store to avoid subscribing to the whole store
-        const state = useTabStore.getState();
-        state.setPanes(updatePaneRecursive(state.panes));
-=======
-        tabActions.setPanes(updatePaneRecursive(snapshot(tabState).panes));
->>>>>>> Stashed changes
+        tabActions.setPanes(updatePaneRecursive(snapshot(tabState).panes as any));
 
         // 復元完了をマーク
         restorationCompleted.current = true;
@@ -190,11 +172,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         restorationCompleted.current = true;
       }
     });
-<<<<<<< Updated upstream
   }, [isRestored, projectFiles, normalizePath]);
-=======
-  }, [isRestored, panes, projectFiles, normalizePath]);
->>>>>>> Stashed changes
 
   // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {

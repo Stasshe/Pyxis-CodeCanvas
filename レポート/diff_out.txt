@@ -1,0 +1,96 @@
+﻿diff --git a/src/components/Pane/PaneContainer.tsx b/src/components/Pane/PaneContainer.tsx
+index 6cf672dc..88d30523 100644
+--- a/src/components/Pane/PaneContainer.tsx
++++ b/src/components/Pane/PaneContainer.tsx
+@@ -59,16 +59,14 @@ function flattenPanes(paneList: EditorPane[]): EditorPane[] {
+  */
+ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
+   const { colors } = useTheme();
+-  const {
+-    globalActiveTab,
+-    activePane,
+-    setPanes,
+-    panes: allPanes,
+-    moveTab,
+-    splitPaneAndMoveTab,
+-    openTab,
+-    splitPaneAndOpenFile,
+-  } = useTabStore();
++  const globalActiveTab = useTabStore(state => state.globalActiveTab);
++  const activePane = useTabStore(state => state.activePane);
++  const setPanes = useTabStore(state => state.setPanes);
++  const allPanes = useTabStore(state => state.panes);
++  const moveTab = useTabStore(state => state.moveTab);
++  const splitPaneAndMoveTab = useTabStore(state => state.splitPaneAndMoveTab);
++  const openTab = useTabStore(state => state.openTab);
++  const splitPaneAndOpenFile = useTabStore(state => state.splitPaneAndOpenFile);
+ 
+   // 繝ｪ繝ｼ繝輔・繧､繝ｳ縺ｮ謨ｰ繧定ｨ育ｮ暦ｼ域棧邱夊｡ｨ遉ｺ縺ｮ蛻､螳壹↓菴ｿ逕ｨ・・ 繝代ヵ繧ｩ繝ｼ繝槭Φ繧ｹ縺ｮ縺溘ａ繝｡繝｢蛹・   const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
+diff --git a/src/stores/tabStore.ts b/src/stores/tabStore.ts
+index 3f42a447..d9fe757a 100644
+--- a/src/stores/tabStore.ts
++++ b/src/stores/tabStore.ts
+@@ -64,6 +64,11 @@ interface TabStore {
+   activateTab: (paneId: string, tabId: string) => void;
+   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
+   updateTabContent: (tabId: string, content: string, isDirty?: boolean) => void;
++  /**
++   * 繧ｿ繝悶・isDirty繝輔Λ繧ｰ縺ｮ縺ｿ繧呈峩譁ｰ・・ontent縺ｯ譖ｴ譁ｰ縺励↑縺・ｼ・+   * 蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ譛驕ｩ蛹厄ｼ喞ontent繧呈峩譁ｰ縺励↑縺・％縺ｨ縺ｧpanes縺ｮ螟画峩繧呈怙蟆丞喧
++   */
++  updateTabDirtyFlag: (tabId: string, isDirty: boolean) => void;
+   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
+   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
+ 
+@@ -1160,6 +1165,56 @@ export const useTabStore = create<TabStore>((set, get) => ({
+     }
+   },
+ 
++  // 繧ｿ繝悶・isDirty繝輔Λ繧ｰ縺ｮ縺ｿ繧呈峩譁ｰ・・ontent縺ｯ譖ｴ譁ｰ縺励↑縺・ｼ・+  // 蜀阪Ξ繝ｳ繝繝ｪ繝ｳ繧ｰ譛驕ｩ蛹厄ｼ喞ontent繧呈峩譁ｰ縺励↑縺・％縺ｨ縺ｧpanes縺ｮ螟画峩繧呈怙蟆丞喧
++  updateTabDirtyFlag: (tabId: string, isDirty: boolean) => {
++    const allTabs = get().getAllTabs();
++    const tabInfo = allTabs.find(t => t.id === tabId);
++
++    if (!tabInfo) {
++      return;
++    }
++
++    // 迴ｾ蝨ｨ縺ｮisDirty縺ｨ蜷後§縺ｪ繧我ｽ輔ｂ縺励↑縺・+    if ((tabInfo as any).isDirty === isDirty) {
++      return;
++    }
++
++    // 繧ｿ繝悶・繝輔ぃ繧､繝ｫ繝代せ繧貞叙蠕・+    const targetPath = tabInfo.path || '';
++    if (!targetPath) {
++      return;
++    }
++
++    // 蜈ｨ縺ｦ縺ｮ繝壹う繝ｳ繧貞ｷ｡蝗槭＠縺ｦ縲｝ath縺御ｸ閾ｴ縺吶ｋ繧ｿ繝悶・isDirty縺ｮ縺ｿ繧呈峩譁ｰ
++    const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
++      return panes.map(pane => {
++        let paneChanged = false;
++        const newTabs = pane.tabs.map(t => {
++          const tPath = t.path || '';
++          if (tPath === targetPath && (t as any).isDirty !== isDirty) {
++            paneChanged = true;
++            return { ...t, isDirty };
++          }
++          return t;
++        });
++
++        if (pane.children) {
++          const newChildren = updatePanesRecursive(pane.children);
++          if (paneChanged || newChildren !== pane.children) {
++            return { ...pane, tabs: newTabs, children: newChildren };
++          }
++        }
++
++        return paneChanged ? { ...pane, tabs: newTabs } : pane;
++      });
++    };
++
++    const newPanes = updatePanesRecursive(get().panes);
++    // isDirty縺ｮ螟画峩縺ｯpanes繧呈峩譁ｰ縺吶ｋ縺後…ontent縺ｯ螟画峩縺励↑縺・・縺ｧ霆ｽ驥・+    set({ panes: newPanes });
++  },
++
+   saveSession: async () => {
+     const state = get();
+     const { sessionStore, DEFAULT_SESSION } = await import('@/stores/sessionStore');

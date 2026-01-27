@@ -1,7 +1,8 @@
 'use client';
 
 import { useTheme } from '@/context/ThemeContext';
-import { tabActions } from '@/stores/tabState';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 import type React from 'react';
 
 interface BreadcrumbProps {
@@ -9,15 +10,12 @@ interface BreadcrumbProps {
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
-<<<<<<< Updated upstream
-  const pane = useTabStore(state => state.getPane(paneId));
-=======
-  const { getPane } = tabActions;
->>>>>>> Stashed changes
+  const { panes } = useSnapshot(tabState);
+  const pane = panes.find((p: any) => p.id === paneId);
   const { colors } = useTheme();
   if (!pane) return null;
 
-  const activeTab = pane.tabs.find(t => t.id === pane.activeTabId);
+  const activeTab = pane.tabs.find((t: any) => t.id === pane.activeTabId);
 
   if (!activeTab) return null;
 

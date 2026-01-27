@@ -41,11 +41,7 @@ export default function FileTreeContextMenu({
 }: FileTreeContextMenuProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-<<<<<<< Updated upstream
-  const openTab = useTabStore(state => state.openTab);
-=======
   const { openTab } = tabActions;
->>>>>>> Stashed changes
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [menuHoveredIdx, setMenuHoveredIdx] = useState<number | null>(null);
   const [, forceUpdate] = useState(0);

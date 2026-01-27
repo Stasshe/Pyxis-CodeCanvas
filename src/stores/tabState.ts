@@ -172,7 +172,7 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
     });
   };
 
-  const next = updatePanesRecursive(current.panes);
+  const next = updatePanesRecursive(current.panes as any);
   if (next !== current.panes) tabState.panes = next;
 }
 
@@ -339,7 +339,7 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
     });
   };
 
-  const next = updatePanesRecursive(current.panes);
+  const next = updatePanesRecursive(current.panes as any);
   if (next !== current.panes) {
     tabState.panes = next;
     for (const id of updatedIds) {

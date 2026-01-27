@@ -57,7 +57,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
       }));
 
     try {
-      return JSON.stringify(strip(panes));
+      return JSON.stringify(strip(panes as any));
     } catch (e) {
       try {
         return JSON.stringify(panes);

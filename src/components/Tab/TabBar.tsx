@@ -129,7 +129,7 @@ export default function TabBar({ paneId }: TabBarProps) {
 
   // ペインを削除
   const handleRemovePane = useCallback(() => {
-    const flatPanes = flattenPanes(panes);
+    const flatPanes = flattenPanes(panes as any);
     if (flatPanes.length <= 1) return;
     removePane(paneId);
   }, [panes, removePane, paneId]);
@@ -271,7 +271,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
       if (!(ext === 'md' || ext === 'mdx')) return;
 
-      const leafPanes = flattenPanes(panes);
+      const leafPanes = flattenPanes(panes as any);
 
       if (leafPanes.length === 1) {
         splitPane(paneId, 'vertical');
@@ -304,7 +304,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   );
 
   // ペインリスト（タブ移動用）
-  const flatPanes = flattenPanes(panes);
+  const flatPanes = flattenPanes(panes as any);
   const availablePanes = flatPanes.map((p, idx) => ({
     id: p.id,
     name: `Pane ${idx + 1}`,

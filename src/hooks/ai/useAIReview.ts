@@ -6,7 +6,7 @@ import { tabActions } from '@/stores/tabState';
 import type { AIReviewEntry, FileItem, Project } from '@/types';
 
 export function useAIReview() {
-  const { openTab, closeTab } = useTabStore();
+  const { openTab, closeTab } = tabActions;
 
   // [NEW ARCHITECTURE] AIレビュータブを開く
   const openAIReviewTab = useCallback(
