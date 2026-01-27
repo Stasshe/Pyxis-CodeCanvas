@@ -7,7 +7,7 @@ export class StatCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: stat FILE\n\nDisplay file or file system status for each FILE.`;
+      return 'Usage: stat FILE\n\nDisplay file or file system status for each FILE.';
     }
 
     if (positional.length === 0) {

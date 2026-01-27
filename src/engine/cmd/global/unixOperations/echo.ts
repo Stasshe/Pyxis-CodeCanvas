@@ -23,7 +23,7 @@ export class EchoCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: echo [string...]\n\nOptions:\n  -n\tdo not output trailing newline\n  -e\tinterpret backslash escapes`;
+      return 'Usage: echo [string...]\n\nOptions:\n  -n\tdo not output trailing newline\n  -e\tinterpret backslash escapes';
     }
 
     const noNewline = options.has('-n');

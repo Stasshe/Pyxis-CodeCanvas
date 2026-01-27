@@ -12,7 +12,7 @@ export class GzipCommand extends UnixCommandBase {
     const positional = args.filter(a => !a.startsWith('-'));
 
     if (args.includes('--help') || flags.has('-h')) {
-      return `Usage: gzip [-d] FILE\n-d decompress`;
+      return 'Usage: gzip [-d] FILE\n-d decompress';
     }
 
     const decompress = flags.has('-d');

@@ -22,7 +22,7 @@ export class TouchCommand extends UnixCommandBase {
 
     // Help flag handling
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: touch [OPTION]... FILE...\nCreate empty files or update file timestamps.\n\nOptions:\n  -c, --no-create\tdo not create any files\n  -h, --help\t\tshow this help message`;
+      return 'Usage: touch [OPTION]... FILE...\nCreate empty files or update file timestamps.\n\nOptions:\n  -c, --no-create\tdo not create any files\n  -h, --help\t\tshow this help message';
     }
 
     if (positional.length === 0) {

@@ -14,7 +14,7 @@ export class TarCommand extends UnixCommandBase {
     const positional = args.filter(a => !a.startsWith('-'));
 
     if (args.includes('--help') || flags.has('-h')) {
-      return `Usage: tar -c|-t|-x -f ARCHIVE [files...]\n-c create, -t list, -x extract, -f archive`;
+      return 'Usage: tar -c|-t|-x -f ARCHIVE [files...]\n-c create, -t list, -x extract, -f archive';
     }
 
     const c = flags.has('-c');
@@ -43,7 +43,7 @@ export class TarCommand extends UnixCommandBase {
           if (!file) throw new Error(`tar: ${name}: No such file or directory`);
           if (file.type === 'folder') {
             // create directory entry
-            pack.entry({ name: name.replace(/^\//, '') + '/' }, '', () => {});
+            pack.entry({ name: `${name.replace(/^\//, '')}/` }, '', () => {});
           } else {
             // Ensure we pass a Buffer (not Uint8Array) to tar-stream
             const contentBuf = file.bufferContent

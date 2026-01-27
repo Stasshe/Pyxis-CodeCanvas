@@ -17,7 +17,7 @@ export class PwdCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     const { options } = this.parseOptions(args);
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: pwd [-L | -P]\n\nPrint the name of the current working directory.`;
+      return 'Usage: pwd [-L | -P]\n\nPrint the name of the current working directory.';
     }
 
     // オプションは無視（シンボリックリンク未実装のため-L/-Pは同じ）

@@ -281,7 +281,8 @@ export function parseArgs(
           if (j + 1 < arg.length) {
             values.set(opt, arg.slice(j + 1));
             break;
-          } else if (i + 1 < args.length) {
+          }
+          if (i + 1 < args.length) {
             values.set(opt, args[++i]);
           }
         } else {

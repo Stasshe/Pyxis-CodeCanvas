@@ -262,7 +262,7 @@ export default function adaptUnixToStream(unix: any) {
       const onInput = (promptText: string, callback: (input: string) => void) => {
         // streamShellではインタラクティブ入力は未対応
         // エラーを返すか、空文字列でcallback
-        ctx.stderr.write(`node: interactive input not supported in streamShell\n`);
+        ctx.stderr.write('node: interactive input not supported in streamShell\n');
         callback('');
       };
 

@@ -107,7 +107,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
   // Accept Both - combine both
   const handleAcceptBoth = useCallback(() => {
     if (selectedFile) {
-      const combined = selectedFile.oursContent + '\n' + selectedFile.theirsContent;
+      const combined = `${selectedFile.oursContent}\n${selectedFile.theirsContent}`;
       onUpdateResolvedContent(selectedFile.filePath, combined);
     }
   }, [selectedFile, onUpdateResolvedContent]);
@@ -183,12 +183,11 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
             type="button"
             onClick={handleFinalResolve}
             disabled={!allResolved}
-            className={
-              'px-3 py-1 text-sm rounded flex items-center gap-1 ' +
-              (allResolved
+            className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
+              allResolved
                 ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed')
-            }
+                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+            }`}
           >
             <Check className="w-4 h-4" />
             {t('mergeConflict.completeResolve') || 'Complete Resolution'}
@@ -207,10 +206,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
               <button
                 type="button"
                 onClick={() => handleSelectFile(index)}
-                className={
-                  'w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-[#2a2d2e] ' +
-                  (selectedFileIndex === index ? 'bg-[#37373d]' : '')
-                }
+                className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-[#2a2d2e] ${selectedFileIndex === index ? 'bg-[#37373d]' : ''}`}
               >
                 <button
                   type="button"
@@ -227,10 +223,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                   )}
                 </button>
                 <span
-                  className={
-                    'flex-1 truncate ' +
-                    (conflict.isResolved ? 'text-green-400' : 'text-yellow-400')
-                  }
+                  className={`flex-1 truncate ${conflict.isResolved ? 'text-green-400' : 'text-yellow-400'}`}
                 >
                   {conflict.filePath.split('/').pop()}
                 </span>
@@ -289,12 +282,11 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
               <button
                 type="button"
                 onClick={handleToggleResolved}
-                className={
-                  'px-2 py-1 text-xs rounded flex items-center gap-1 ' +
-                  (selectedFile?.isResolved
+                className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                  selectedFile?.isResolved
                     ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-yellow-600 hover:bg-yellow-700 text-white')
-                }
+                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                }`}
               >
                 {selectedFile?.isResolved ? (
                   <>

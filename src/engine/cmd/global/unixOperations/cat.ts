@@ -31,7 +31,7 @@ export class CatCommand extends UnixCommandBase {
     const { flags, positional } = parseArgs(args);
 
     if (flags.has('--help')) {
-      return `Usage: cat [options] [file...]\n\nConcatenate FILE(s) to standard output. Common options: -n, -b, -s, -E, -T`;
+      return 'Usage: cat [options] [file...]\n\nConcatenate FILE(s) to standard output. Common options: -n, -b, -s, -E, -T';
     }
 
     if (positional.length === 0) {
@@ -184,13 +184,13 @@ export class CatCommand extends UnixCommandBase {
         result += char;
       } else if (code < 32) {
         // 制御文字
-        result += '^' + String.fromCharCode(code + 64);
+        result += `^${String.fromCharCode(code + 64)}`;
       } else if (code === 127) {
         result += '^?';
       } else if (code > 127 && code < 160) {
-        result += 'M-^' + String.fromCharCode(code - 128 + 64);
+        result += `M-^${String.fromCharCode(code - 128 + 64)}`;
       } else if (code >= 160 && code < 255) {
-        result += 'M-' + String.fromCharCode(code - 128);
+        result += `M-${String.fromCharCode(code - 128)}`;
       } else {
         result += char;
       }

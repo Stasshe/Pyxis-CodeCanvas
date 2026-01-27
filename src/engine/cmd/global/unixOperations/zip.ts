@@ -9,7 +9,7 @@ import { UnixCommandBase } from './base';
 export class ZipCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
     if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-      return `Usage: zip ARCHIVE.zip files...\nCreates or updates a zip archive containing the specified files`;
+      return 'Usage: zip ARCHIVE.zip files...\nCreates or updates a zip archive containing the specified files';
     }
 
     const archive = args[0];

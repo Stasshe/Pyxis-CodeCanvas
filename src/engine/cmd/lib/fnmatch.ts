@@ -251,7 +251,7 @@ export function fnmatchToRegExp(pattern: string, flags = 0): RegExp {
         while (j < pattern.length && pattern[j] !== ']') {
           const bc = pattern[j];
           if (!noescape && bc === '\\' && j + 1 < pattern.length) {
-            bracket += '\\' + pattern[j + 1];
+            bracket += `\\${pattern[j + 1]}`;
             j += 2;
           } else {
             // 正規表現で特殊な文字をエスケープ
@@ -271,7 +271,7 @@ export function fnmatchToRegExp(pattern: string, flags = 0): RegExp {
       case '\\':
         if (!noescape && i + 1 < pattern.length) {
           i++;
-          regex += '\\' + escapeRegex(pattern[i]);
+          regex += `\\${escapeRegex(pattern[i])}`;
         } else {
           regex += '\\\\';
         }
@@ -292,7 +292,7 @@ export function fnmatchToRegExp(pattern: string, flags = 0): RegExp {
  */
 function escapeRegex(char: string): string {
   if ('.+^${}()|[]\\'.includes(char)) {
-    return '\\' + char;
+    return `\\${char}`;
   }
   return char;
 }

@@ -40,7 +40,7 @@ export async function branch(
 
         if (remoteBranches.length > 0) {
           for (let i = 0; i < remoteBranches.length; i++) {
-            result += `  ${remoteBranches[i]}` + (i === remoteBranches.length - 1 ? '' : '\n');
+            result += `  ${remoteBranches[i]}${i === remoteBranches.length - 1 ? '' : '\n'}`;
           }
         } else if (!all) {
           return 'No remote branches found. Use "git fetch" first.';

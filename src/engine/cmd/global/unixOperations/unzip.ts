@@ -14,7 +14,7 @@ export class UnzipCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: unzip ARCHIVE.zip [DEST_DIR]\nExtract files from a ZIP archive into the project.`;
+      return 'Usage: unzip ARCHIVE.zip [DEST_DIR]\nExtract files from a ZIP archive into the project.';
     }
 
     const archive = positional[0] || args[0];

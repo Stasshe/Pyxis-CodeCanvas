@@ -25,7 +25,7 @@ export class CpCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: cp [OPTION]... SOURCE DEST\n   or: cp [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -r, -R, --recursive\tcopy directories recursively\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tprompt before overwrite\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done`;
+      return 'Usage: cp [OPTION]... SOURCE DEST\n   or: cp [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -r, -R, --recursive\tcopy directories recursively\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tprompt before overwrite\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done';
     }
 
     if (positional.length < 2) {

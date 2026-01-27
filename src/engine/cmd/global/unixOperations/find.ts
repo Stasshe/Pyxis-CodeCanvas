@@ -202,7 +202,7 @@ export class FindCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     // --help support
     if (args.includes('--help') || args.includes('-h')) {
-      return `Usage: find [path...] [expression]\n\nSearch for files in a directory hierarchy. See man/find for supported expressions and predicates.`;
+      return 'Usage: find [path...] [expression]\n\nSearch for files in a directory hierarchy. See man/find for supported expressions and predicates.';
     }
 
     // パスと式を分離
@@ -321,7 +321,7 @@ export class FindCommand extends UnixCommandBase {
       // pruneチェック
       let isPruned = false;
       for (const p of pruned) {
-        if (fullPath.startsWith(p + '/')) {
+        if (fullPath.startsWith(`${p}/`)) {
           isPruned = true;
           break;
         }

@@ -45,7 +45,7 @@ export class DateCommand extends UnixCommandBase {
     const dval = values.get('--date') || values.get('-d');
     if (dval) {
       const parsed = new Date(dval);
-      if (isNaN(parsed.getTime())) {
+      if (Number.isNaN(parsed.getTime())) {
         return `date: invalid date '${dval}'`;
       }
       dateObj = parsed;

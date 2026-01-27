@@ -28,7 +28,7 @@ export class WcCommand extends UnixCommandBase {
     const { flags, positional } = parseArgs(args);
 
     if (flags.has('--help')) {
-      return `Usage: wc [options] [file...]\n\nOptions:\n  -l\tlines\n  -w\twords\n  -c\tbytes\n  -m\tchars`;
+      return 'Usage: wc [options] [file...]\n\nOptions:\n  -l\tlines\n  -w\twords\n  -c\tbytes\n  -m\tchars';
     }
 
     // オプション: なければ全部表示
@@ -60,27 +60,22 @@ export class WcCommand extends UnixCommandBase {
     } else {
       // 各ファイルを処理
       for (const filePath of positional) {
-        try {
-          const resolvedPath = this.resolvePath(filePath);
-          const normalizedPath = this.normalizePath(resolvedPath);
-          const relativePath = this.getRelativePathFromProject(normalizedPath);
+        const resolvedPath = this.resolvePath(filePath);
+        const normalizedPath = this.normalizePath(resolvedPath);
+        const relativePath = this.getRelativePathFromProject(normalizedPath);
 
-          const file = await this.cachedGetFile(relativePath);
-          if (!file) {
-            throw new Error(`wc: ${filePath}: No such file or directory`);
-          }
-
-          if (file.type === 'folder') {
-            throw new Error(`wc: ${filePath}: Is a directory`);
-          }
-
-          const content = file.content || '';
-          const stats = this.countStats(content);
-          results.push({ ...stats, name: filePath });
-        } catch (e: any) {
-          // エラーメッセージを出力して継続
-          throw e;
+        const file = await this.cachedGetFile(relativePath);
+        if (!file) {
+          throw new Error(`wc: ${filePath}: No such file or directory`);
         }
+
+        if (file.type === 'folder') {
+          throw new Error(`wc: ${filePath}: Is a directory`);
+        }
+
+        const content = file.content || '';
+        const stats = this.countStats(content);
+        results.push({ ...stats, name: filePath });
       }
     }
 

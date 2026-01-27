@@ -32,7 +32,7 @@ export class LsCommand extends UnixCommandBase {
 
     // --help (do not override -h which is human-readable)
     if (flags.has('--help')) {
-      return `Usage: ls [options] [file...]\n\nOptions:\n  -a, --all\t\tshow hidden files\n  -l\t\tshow long listing format\n  -h, --human-readable\tprint sizes in human readable format\n  -R, --recursive\tlist subdirectories recursively\n  -r, --reverse\treverse order while sorting`;
+      return 'Usage: ls [options] [file...]\n\nOptions:\n  -a, --all\t\tshow hidden files\n  -l\t\tshow long listing format\n  -h, --human-readable\tprint sizes in human readable format\n  -R, --recursive\tlist subdirectories recursively\n  -r, --reverse\treverse order while sorting';
     }
 
     const showAll = flags.has('-a') || flags.has('--all');
@@ -162,7 +162,7 @@ export class LsCommand extends UnixCommandBase {
 
       for (const entry of entries) {
         const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
-        result += (await this.formatLongEntry(fullPath, opts)) + '\n';
+        result += `${await this.formatLongEntry(fullPath, opts)}\n`;
       }
     } else {
       const names = entries.map(e => {

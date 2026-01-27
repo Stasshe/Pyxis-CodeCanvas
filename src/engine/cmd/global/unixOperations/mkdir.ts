@@ -21,7 +21,7 @@ export class MkdirCommand extends UnixCommandBase {
     const { options, positional } = this.parseOptions(args);
 
     if (options.has('--help') || options.has('-h')) {
-      return `Usage: mkdir [OPTION]... DIRECTORY...\n\nOptions:\n  -p, --parents\tcreate parent directories as needed\n  -m, --mode\tset file mode (not fully supported)`;
+      return 'Usage: mkdir [OPTION]... DIRECTORY...\n\nOptions:\n  -p, --parents\tcreate parent directories as needed\n  -m, --mode\tset file mode (not fully supported)';
     }
 
     if (positional.length === 0) {

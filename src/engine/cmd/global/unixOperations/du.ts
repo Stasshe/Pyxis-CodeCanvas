@@ -13,7 +13,7 @@ export class DuCommand extends UnixCommandBase {
     const { flags, positional } = parseArgs(args);
 
     if (flags.has('--help')) {
-      return `Usage: du [options] [file...]\nOptions:\n  -h, --human-readable\n  -s\tshow only a total for each argument`;
+      return 'Usage: du [options] [file...]\nOptions:\n  -h, --human-readable\n  -s\tshow only a total for each argument';
     }
 
     const human = flags.has('-h') || flags.has('--human-readable');

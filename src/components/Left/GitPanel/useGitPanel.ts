@@ -258,16 +258,12 @@ export function useGitPanel({
   const commit = useCallback(
     async (message: string) => {
       if (!gitCommands || !message.trim()) return;
-      try {
-        const commitPromise = gitCommands.commit(message.trim());
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
-        );
-        await Promise.race([commitPromise, timeoutPromise]);
-        await fetchGitStatus(commitDepth);
-      } catch (err) {
-        throw err;
-      }
+      const commitPromise = gitCommands.commit(message.trim());
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
+      );
+      await Promise.race([commitPromise, timeoutPromise]);
+      await fetchGitStatus(commitDepth);
     },
     [gitCommands, fetchGitStatus, commitDepth]
   );

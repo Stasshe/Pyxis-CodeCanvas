@@ -482,9 +482,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       </div>
       <div
         className={`markdown-body prose prose-github max-w-none ${
-          themeName && themeName.toLowerCase().includes('light')
-            ? 'markdown-light'
-            : 'markdown-dark'
+          themeName?.toLowerCase().includes('light') ? 'markdown-light' : 'markdown-dark'
         }`}
         style={
           {
