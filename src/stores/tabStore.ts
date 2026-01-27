@@ -64,6 +64,11 @@ interface TabStore {
   activateTab: (paneId: string, tabId: string) => void;
   updateTab: (paneId: string, tabId: string, updates: Partial<Tab>) => void;
   updateTabContent: (tabId: string, content: string, isDirty?: boolean) => void;
+  /**
+   * タブのisDirtyフラグのみを更新（contentは更新しない）
+   * 再レンダリング最適化：contentを更新しないことでpanesの変更を最小化
+   */
+  updateTabDirtyFlag: (tabId: string, isDirty: boolean) => void;
   moveTab: (fromPaneId: string, toPaneId: string, tabId: string) => void;
   moveTabToIndex: (fromPaneId: string, toPaneId: string, tabId: string, index: number) => void;
 
@@ -1158,6 +1163,56 @@ export const useTabStore = create<TabStore>((set, get) => ({
         }
       }
     }
+  },
+
+  // タブのisDirtyフラグのみを更新（contentは更新しない）
+  // 再レンダリング最適化：contentを更新しないことでpanesの変更を最小化
+  updateTabDirtyFlag: (tabId: string, isDirty: boolean) => {
+    const allTabs = get().getAllTabs();
+    const tabInfo = allTabs.find(t => t.id === tabId);
+
+    if (!tabInfo) {
+      return;
+    }
+
+    // 現在のisDirtyと同じなら何もしない
+    if ((tabInfo as any).isDirty === isDirty) {
+      return;
+    }
+
+    // タブのファイルパスを取得
+    const targetPath = tabInfo.path || '';
+    if (!targetPath) {
+      return;
+    }
+
+    // 全てのペインを巡回して、pathが一致するタブのisDirtyのみを更新
+    const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+      return panes.map(pane => {
+        let paneChanged = false;
+        const newTabs = pane.tabs.map(t => {
+          const tPath = t.path || '';
+          if (tPath === targetPath && (t as any).isDirty !== isDirty) {
+            paneChanged = true;
+            return { ...t, isDirty };
+          }
+          return t;
+        });
+
+        if (pane.children) {
+          const newChildren = updatePanesRecursive(pane.children);
+          if (paneChanged || newChildren !== pane.children) {
+            return { ...pane, tabs: newTabs, children: newChildren };
+          }
+        }
+
+        return paneChanged ? { ...pane, tabs: newTabs } : pane;
+      });
+    };
+
+    const newPanes = updatePanesRecursive(get().panes);
+    // isDirtyの変更はpanesを更新するが、contentは変更しないので軽量
+    set({ panes: newPanes });
   },
 
   saveSession: async () => {
