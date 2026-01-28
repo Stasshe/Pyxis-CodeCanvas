@@ -1,6 +1,7 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import * as tar from 'tar-stream';
 import { UnixCommandBase } from './base';
+import { resolvePath as pathResolve, fsPathToAppPath } from '@/engine/core/pathUtils';
 import { parseArgs } from '../../lib';
 
 /**
@@ -74,10 +75,9 @@ export class TarCommand extends UnixCommandBase {
       throw new Error('tar: Cowardly refusing to create an empty archive');
     }
 
-    // Resolve archive path (FSPath) and convert to AppPath for DB operations
-    const archiveResolved = this.resolvePath(archiveName);
-    const archiveRel = this.getRelativePathFromProject(archiveResolved);
-    const archiveAppPath = archiveRel; // AppPath used when saving the archive
+    // Resolve archive path (AppPath) using pathUtils
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const archiveAppPath = pathResolve(baseApp, archiveName);
 
     if (this.terminalUI) {
       await this.terminalUI.spinner.start('Creating tar archive...');
@@ -91,12 +91,11 @@ export class TarCommand extends UnixCommandBase {
 
       // ファイルを順次追加
       for (const fileName of files) {
-        // Resolve file path relative to current dir and convert to AppPath
-        const resolved = this.resolvePath(fileName);
-        const rel = this.getRelativePathFromProject(resolved);
+        // Resolve file path relative to current dir (AppPath)
+        const rel = pathResolve(baseApp, fileName);
 
         // アーカイブ自身は含めない
-        if (rel === archiveRel) {
+        if (rel === archiveAppPath) {
           // skip archive file
           if (verbose) console.log(`Skipping archive file ${fileName}`);
           continue;
@@ -192,8 +191,8 @@ export class TarCommand extends UnixCommandBase {
    * アーカイブ一覧表示
    */
   private async listArchive(archiveName: string, verbose: boolean): Promise<string> {
-    const resolved = this.resolvePath(archiveName);
-    const rel = this.getRelativePathFromProject(resolved);
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const rel = pathResolve(baseApp, archiveName);
     const file = await this.getFileFromDB(rel);
 
     if (!file) {
@@ -240,8 +239,8 @@ export class TarCommand extends UnixCommandBase {
     }
 
     try {
-      const resolved = this.resolvePath(archiveName);
-      const rel = this.getRelativePathFromProject(resolved);
+      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+      const rel = pathResolve(baseApp, archiveName);
       const file = await this.getFileFromDB(rel);
 
       if (!file) {
