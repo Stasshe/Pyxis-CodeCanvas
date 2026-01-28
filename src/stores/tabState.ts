@@ -17,11 +17,11 @@ import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { DiffTab, EditorPane, OpenTabOptions, Tab, TabFileInfo } from '@/engine/tabs/types';
 import { getCurrentProjectId } from '@/stores/projectStore';
 import {
-  setTabContent,
-  getTabContent,
-  clearTabContent,
   clearDirtyFlag,
+  clearTabContent,
+  getTabContent,
   setBufferContent,
+  setTabContent,
 } from '@/stores/tabContentStore';
 
 // ---------------------------------------------------------------------------

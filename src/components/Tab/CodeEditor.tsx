@@ -22,8 +22,8 @@ import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { saveImmediately, tabState } from '@/stores/tabState';
 import { useTabContent } from '@/stores/tabContentStore';
+import { saveImmediately, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
 
 interface CodeEditorProps {

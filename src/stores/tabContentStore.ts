@@ -8,7 +8,7 @@
  * トリガーしなくなる。
  */
 
-import { proxy, subscribe, snapshot } from 'valtio';
+import { proxy, snapshot, subscribe } from 'valtio';
 
 // タブIDをキーとしてコンテンツを保持
 interface TabContentState {
@@ -85,8 +85,8 @@ export function setBufferContent(tabId: string, buffer: ArrayBuffer): void {
 // Hooks for React components
 // ---------------------------------------------------------------------------
 
-import { useSnapshot } from 'valtio';
 import { useMemo } from 'react';
+import { useSnapshot } from 'valtio';
 
 /**
  * 特定タブのコンテンツのみを購読するhook

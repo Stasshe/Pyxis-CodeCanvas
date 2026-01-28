@@ -1,5 +1,6 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
-import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 

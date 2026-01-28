@@ -1,7 +1,7 @@
 'use client';
 import type React from 'react';
-import { type ReactNode, useEffect, useState, useRef } from 'react';
-import { useSnapshot, snapshot } from 'valtio';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { snapshot, useSnapshot } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 
 import type { EditorPane, Tab } from '@/engine/tabs/types';
