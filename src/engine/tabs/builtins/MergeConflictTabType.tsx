@@ -27,7 +27,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
    * Saves all resolved files and completes the merge
    */
   const handleResolve = useCallback(
-    async (resolvedFiles: MergeConflictFileEntry[]) => {
+    async (resolvedFiles: ReadonlyArray<MergeConflictFileEntry>) => {
       try {
         console.log('[MergeConflictTabType] Resolving merge conflicts:', resolvedFiles.length);
 

@@ -8,7 +8,8 @@ import { TabIcon } from './TabIcon';
 import { DND_TAB } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 
 interface Props {
   tab: any;
@@ -35,21 +36,22 @@ function DraggableTabInner({
 }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const moveTabToIndex = useTabStore(state => state.moveTabToIndex);
+  const { moveTabToIndex } = tabActions;
+  const { panes } = useSnapshot(tabState);
 
   const isActive = useMemo(() => {
-    const pane = useTabStore.getState().getPane(paneId);
+    const pane = panes.find(p => p.id === paneId);
     return !!pane && pane.activeTabId === tab.id;
-  }, [paneId, tab.id]);
+  }, [panes, paneId, tab.id]);
 
   // duplicate name detection
   const nameCount = useMemo(() => {
-    const pane = useTabStore.getState().getPane(paneId);
+    const pane = panes.find(p => p.id === paneId);
     const tabs = pane?.tabs || [];
     const counts: Record<string, number> = {};
     tabs.forEach((t: any) => (counts[t.name] = (counts[t.name] || 0) + 1));
     return counts;
-  }, [paneId]);
+  }, [panes, paneId]);
 
   const isDuplicate = nameCount[tab.name] > 1;
   const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;

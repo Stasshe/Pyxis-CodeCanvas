@@ -18,13 +18,13 @@ import { useTheme } from '@/context/ThemeContext';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 
 interface MergeConflictResolutionTabProps {
-  conflicts: MergeConflictFileEntry[];
+  conflicts: ReadonlyArray<MergeConflictFileEntry>;
   oursBranch: string;
   theirsBranch: string;
   projectId: string;
   projectName: string;
   /** Confirm conflict resolution and save */
-  onResolve: (resolvedFiles: MergeConflictFileEntry[]) => void;
+  onResolve: (resolvedFiles: ReadonlyArray<MergeConflictFileEntry>) => void;
   /** Cancel merge */
   onCancel: () => void;
   /** Update resolved content */

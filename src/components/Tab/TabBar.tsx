@@ -25,6 +25,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';
+import { hasContent, EditorPane } from '@/engine/tabs/types';
 
 interface TabBarProps {
   paneId: string;
@@ -136,8 +137,20 @@ export default function TabBar({ paneId }: TabBarProps) {
   }, [openFileSelector, paneId]);
 
   // ペインを削除
+  const flattenPanesLocal = (list: readonly EditorPane[]): EditorPane[] => {
+    const result: EditorPane[] = [];
+    const traverse = (items: readonly EditorPane[]) => {
+      for (const p of items) {
+        if (!p.children || p.children.length === 0) result.push(p);
+        if (p.children) traverse(p.children);
+      }
+    };
+    traverse(list);
+    return result;
+  };
+
   const handleRemovePane = useCallback(() => {
-    const flatPanes = flattenPanes(panes);
+    const flatPanes = flattenPanesLocal(panes);
     if (flatPanes.length <= 1) return;
     removePane(paneId);
   }, [panes, removePane, paneId]);
@@ -278,7 +291,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
       if (!(ext === 'md' || ext === 'mdx')) return;
 
-      const leafPanes = flattenPanes(panes);
+      const leafPanes = flattenPanesLocal(panes);
 
       if (leafPanes.length === 1) {
         splitPane(paneId, 'vertical');
@@ -291,7 +304,7 @@ export default function TabBar({ paneId }: TabBarProps) {
           parent.children[0];
         if (newPane) {
           openTab(
-            { name: activeTab.name, path: activeTab.path, content: activeTab.content },
+            { name: activeTab.name, path: activeTab.path, content: hasContent(activeTab) ? activeTab.content : undefined },
             { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
           );
         }
@@ -303,7 +316,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
       const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
       openTab(
-        { name: activeTab.name, path: activeTab.path, content: (activeTab as any).content },
+        { name: activeTab.name, path: activeTab.path, content: hasContent(activeTab) ? activeTab.content : undefined },
         { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
       );
     },
@@ -311,7 +324,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   );
 
   // ペインリスト（タブ移動用）
-  const flatPanes = flattenPanes(panes as any);
+  const flatPanes = flattenPanes(panes);
   const availablePanes = flatPanes.map((p, idx) => ({
     id: p.id,
     name: `Pane ${idx + 1}`,
@@ -565,10 +578,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 }
 
 // ペインをフラット化
-function flattenPanes(panes: any[]): any[] {
-  const result: any[] = [];
-  const traverse = (panes: any[]) => {
-    for (const pane of panes) {
+function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
+  const result: EditorPane[] = [];
+  const traverse = (items: readonly EditorPane[]) => {
+    for (const pane of items) {
       if (!pane.children || pane.children.length === 0) result.push(pane);
       if (pane.children) traverse(pane.children);
     }

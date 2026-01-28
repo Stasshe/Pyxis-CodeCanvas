@@ -22,7 +22,7 @@ interface SingleFileDiff {
 // Use shared getLanguage utility from editor-utils to infer Monaco language ids.
 
 interface DiffTabProps {
-  diffs: SingleFileDiff[];
+  diffs: ReadonlyArray<SingleFileDiff>;
   editable?: boolean; // 編集可能かどうか（true: 編集可能, false: 読み取り専用）
   onContentChange?: (content: string) => void; // 編集内容の保存用（デバウンス後）
   // 即時反映用ハンドラ: 編集が発生したら即座に呼ばれる（isDirty フラグ立てに使用）
