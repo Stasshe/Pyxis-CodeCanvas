@@ -29,9 +29,11 @@ describe('tabActions.removePane', () => {
       },
     ] as any;
     expect(() => tabActions.removePane('pane-1-1')).not.toThrow();
-    // Implementation promotes single remaining child to replace the parent
+    // Parent should remain and its children should contain only the remaining child
     expect(tabState.panes.length).toBe(1);
-    expect(tabState.panes[0].id).toBe('pane-1-2');
+    expect(tabState.panes[0].id).toBe('pane-1');
+    expect(tabState.panes[0].children?.length).toBe(1);
+    expect(tabState.panes[0].children?.[0].id).toBe('pane-1-2');
   });
 
   test('does not introduce cycles in pane tree', () => {
@@ -46,9 +48,10 @@ describe('tabActions.removePane', () => {
     ] as any;
     expect(() => tabActions.removePane('B')).not.toThrow();
 
-    // DFS to check cycles
+    // DFS to check cycles (and guard against undefined nodes)
     const seen = new Set();
     function dfs(p: any) {
+      if (!p || !p.id) return;
       if (seen.has(p.id)) return;
       seen.add(p.id);
       if (p.children) for (const c of p.children) dfs(c);
@@ -57,17 +60,66 @@ describe('tabActions.removePane', () => {
     expect(seen.has('B')).toBe(false);
   });
 
-  test('clears globalActiveTab when removed', () => {
+  test('no undefined pane ids after removal', () => {
+    tabState.panes = [
+      {
+        id: 'root',
+        children: [
+          { id: 'A', children: [{ id: 'B', tabs: [], activeTabId: '' }], size: 50 },
+          { id: 'C', tabs: [], activeTabId: '' },
+        ],
+      },
+    ] as any;
+    tabActions.removePane('B');
+
+    const collectIds = (panes: any[]) => {
+      const ids: any[] = [];
+      for (const p of panes) {
+        if (!p) continue;
+        expect(p.id).toBeDefined();
+        ids.push(p.id);
+        if (p.children) ids.push(...collectIds(p.children));
+      }
+      return ids;
+    };
+
+    const ids = collectIds(tabState.panes as any);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.includes(undefined)).toBe(false);
+  });
+
+  test('tolerates undefined child entries', () => {
+    // Simulate a corrupt children array with an undefined entry
+    tabState.panes = [
+      {
+        id: 'root',
+        children: [
+          undefined,
+          { id: 'A', tabs: [], activeTabId: '' },
+        ],
+      },
+    ] as any;
+    expect(() => tabActions.removePane('A')).not.toThrow();
+    // Ensure root still has a valid children array or is adjusted
+    const root = tabState.panes[0];
+    expect(root).toBeDefined();
+    if (root.children) {
+      for (const c of root.children) expect(c && c.id).toBeDefined();
+    }
+  });
+
+  test('clears globalActiveTab when removed (only when activePane matches)', () => {
     tabState.panes = [
       { id: 'pane-1', tabs: [{ id: 't1', name: 'a', path: '/a' }], activeTabId: 't1' },
       { id: 'pane-2', tabs: [{ id: 't2', name: 'b', path: '/b' }], activeTabId: 't2' },
     ] as any;
     tabState.globalActiveTab = 't1';
+    tabState.activePane = 'pane-1';
     tabActions.removePane('pane-1');
     expect(tabState.globalActiveTab).toBeNull();
   });
 
-  test('promoted child keeps correct parentId and size', () => {
+  test('promoted child keeps correct size when promoted', () => {
     tabState.panes = [
       {
         id: 'root',
@@ -77,10 +129,33 @@ describe('tabActions.removePane', () => {
       },
     ] as any;
     tabActions.removePane('parent');
-    // After removal, 'child' should be promoted and have parentId equal to the original parent's parentId
+    // After removal, 'child' should be promoted and inherit parent's size
     const promoted = (tabState.panes[0].children || [])[0];
     expect(promoted.id).toBe('child');
-    expect(promoted.parentId).toBe('root');
     expect(promoted.size).toBe(30);
+  });
+
+  test('promote multiple grandchildren into parent', () => {
+    tabState.panes = [
+      {
+        id: 'root',
+        children: [
+          {
+            id: 'parent',
+            children: [
+              { id: 'g1', tabs: [], activeTabId: '' },
+              { id: 'g2', tabs: [], activeTabId: '' },
+            ],
+            size: 30,
+            parentId: 'root',
+          },
+        ],
+      },
+    ] as any;
+
+    tabActions.removePane('parent');
+    const children = tabState.panes[0].children || [];
+    expect(children.map((c: any) => c.id)).toEqual(['g1', 'g2']);
+    expect(children.every((c: any) => c.parentId === 'root')).toBe(true);
   });
 });

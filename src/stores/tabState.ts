@@ -397,11 +397,15 @@ export const tabActions = {
     tabState.panes = [...tabState.panes, pane];
   },
   removePane(paneId: string) {
+    // Work with a filtered snapshot to avoid errors from falsy entries in the array
+    const currentPanes = tabState.panes.filter(Boolean) as EditorPane[];
+
     // Collect tabs that will be removed so we can clean up timers and global state
     const removedTabs: Array<{ paneId: string; tab: Tab }> = [];
 
     const findAndCollect = (panes: readonly EditorPane[]): boolean => {
       for (const p of panes) {
+        if (!p) continue;
         if (p.id === paneId) {
           // collect all tabs in this subtree
           const collectTabs = (node: EditorPane) => {
@@ -416,10 +420,7 @@ export const tabActions = {
       return false;
     };
 
-    // Run collection on current panes (do not mutate state here)
-    findAndCollect(tabState.panes);
-
-    // If we found nothing, fall back to behavior below (no-op collection)
+    findAndCollect(currentPanes);
 
     // If any removed tabs reference a path with pending save timers, clear them
     for (const { tab } of removedTabs) {
@@ -430,13 +431,12 @@ export const tabActions = {
       }
     }
 
-    // Update globalActiveTab if it pointed to a tab that will be removed
     if (tabState.globalActiveTab && removedTabs.some(r => r.tab.id === tabState.globalActiveTab)) {
       tabState.globalActiveTab = null;
     }
 
-    const rootFiltered = tabState.panes.filter(p => p.id !== paneId);
-    if (rootFiltered.length !== tabState.panes.length) {
+    const rootFiltered = currentPanes.filter(p => p.id !== paneId);
+    if (rootFiltered.length !== currentPanes.length) {
       if (rootFiltered.length > 0) {
         const size = 100 / rootFiltered.length;
         tabState.panes = rootFiltered.map(p => ({ ...p, size }));
@@ -450,24 +450,77 @@ export const tabActions = {
       return;
     }
 
-    const removeRecursive = (pane: EditorPane): EditorPane => {
+    const removeRecursive = (pane: EditorPane | null): EditorPane | null => {
+      if (!pane) return null;
       if (!pane.children) return pane;
-      const ch = pane.children
-        .map(c => (c.id === paneId ? null : removeRecursive(c)))
-        .filter(Boolean) as EditorPane[];
-      if (ch.length === 1) return { ...ch[0], size: pane.size, parentId: pane.parentId };
-      if (ch.length > 0) {
-        const s = 100 / ch.length;
-        return { ...pane, children: ch.map(c => ({ ...c, size: s, parentId: pane.id })) };
+
+      // Build a new children array by iterating and handling the case where
+      // a direct child matches `paneId` — in that case, splice in its children
+      // (promote grandchildren) rather than simply removing the node.
+      const resultChildren: EditorPane[] = [];
+
+      for (const child of pane.children) {
+        if (!child) continue;
+        if (child.id === paneId) {
+          // remove this child and insert its children in its place
+          const grand = (child.children ?? []).filter(Boolean) as EditorPane[];
+          if (grand.length === 0) {
+            // nothing to insert
+            continue;
+          }
+          if (grand.length === 1) {
+            // promote single grandchild
+            resultChildren.push({ ...grand[0], parentId: pane.id, size: pane.size });
+            continue;
+          }
+          // multiple grandchildren: adopt them under current pane
+          for (const g of grand) resultChildren.push({ ...g, parentId: pane.id });
+          continue;
+        }
+
+        const r = removeRecursive(child as EditorPane);
+        if (r) resultChildren.push(r);
       }
-      return { ...pane, children: ch };
+
+      // Normalize sizes and parentId
+      if (resultChildren.length === 1) {
+        // Keep the parent pane and make the single remaining child the only child.
+        const single = { ...resultChildren[0], parentId: pane.id, size: pane.size };
+        return { ...pane, children: [single] };
+      }
+      if (resultChildren.length > 0) {
+        const s = 100 / resultChildren.length;
+        return {
+          ...pane,
+          children: resultChildren.map(c => ({ ...c, size: s, parentId: pane.id })),
+        };
+      }
+
+      return { ...pane, children: [] };
     };
-    tabState.panes = tabState.panes.map(removeRecursive);
+
+    const newPanes = currentPanes.map(p => removeRecursive(p)).filter(Boolean) as EditorPane[];
+
+    // Final sanitize pass: remove falsy nodes and ensure parentId for children matches their parent
+    const sanitize = (panes: readonly EditorPane[]): EditorPane[] =>
+      panes
+        .filter(Boolean)
+        .map(p => {
+          const children = p.children ? sanitize(p.children) : undefined;
+          return {
+            ...p,
+            children: children && children.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
+          } as EditorPane;
+        });
+
+    tabState.panes = sanitize(newPanes);
+
     if (tabState.activePane === paneId) {
       tabState.activePane = null;
       tabState.globalActiveTab = null;
     }
   },
+
   updatePane(paneId: string, updates: Partial<EditorPane>) {
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
