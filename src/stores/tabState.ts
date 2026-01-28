@@ -68,15 +68,26 @@ function collectAllTabs(panes: readonly EditorPane[]): Tab[] {
   return tabs;
 }
 
+/**
+ * 指定されたパスに対応するタブをペイン階層から検索する。
+ *
+ * - path は toAppPath で正規化して比較する。
+ * - kind を指定した場合: その kind と完全一致するタブのみを対象とする。
+ * - kind を省略/undefined の場合: kind は問わず、パスが一致するタブであればよい。
+ */
 function findInPanes(
   panes: readonly EditorPane[],
   path: string,
   kind?: string
 ): { paneId: string; tab: Tab } | null {
+  const normalizedPath = toAppPath(path);
+
   for (const pane of panes) {
-    const tab = pane.tabs.find(
-      t => toAppPath(t.path || '') === toAppPath(path) && (kind === undefined || t.kind === kind)
-    );
+    const tab = pane.tabs.find(t => {
+      const samePath = toAppPath(t.path || '') === normalizedPath;
+      const matchesKind = kind === undefined || t.kind === kind;
+      return samePath && matchesKind;
+    });
     if (tab) return { paneId: pane.id, tab };
     if (pane.children) {
       const found = findInPanes(pane.children, path, kind);
