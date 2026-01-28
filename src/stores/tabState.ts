@@ -23,7 +23,7 @@ const saveListeners = new Set<(path: string, success: boolean, error?: Error) =>
 const changeListeners = new Set<
   (path: string, content: string, source: 'editor' | 'external') => void
 >();
-const DEBOUNCE_MS = 5000;
+const DEBOUNCE_MS = 1000;
 let saveSyncInitialized = false;
 let unsubscribeFileRepository: (() => void) | null = null;
 
@@ -347,6 +347,17 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
         updateCachedModelContent(id, content, 'tabState');
       } catch (e) {
         console.warn('[tabState] updateCachedModelContent failed:', id, e);
+      }
+    }
+
+    // If this update marks content as dirty, ensure a debounced save is scheduled.
+    // This covers code paths that call `updateTabContent` directly (e.g. editor components)
+    // instead of using `setContent` which already schedules saves.
+    if (isDirty && targetPath) {
+      try {
+        scheduleSave(targetPath, () => tabState.panes);
+      } catch (e) {
+        console.warn('[tabState] scheduleSave failed:', e);
       }
     }
   }

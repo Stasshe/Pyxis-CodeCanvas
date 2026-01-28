@@ -216,8 +216,7 @@ function DraggableTabInner({
 }
 
 export default memo(DraggableTabInner, (prev, next) => {
-  // Only re-render if the tab identity or index changed (cheap comparison)
-  return (
-    prev.tab.id === next.tab.id && prev.tabIndex === next.tabIndex && prev.paneId === next.paneId
-  );
+  // Re-render when the tab object changed (not just the id), or when index/pane changed.
+  // Using reference equality on `tab` ensures updates that replace the tab object are reflected.
+  return prev.tab === next.tab && prev.tabIndex === next.tabIndex && prev.paneId === next.paneId;
 });
