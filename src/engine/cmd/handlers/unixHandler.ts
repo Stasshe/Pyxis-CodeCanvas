@@ -306,57 +306,30 @@ export async function handleUnixCommand(
       }
 
       case 'tar': {
-        const terminalUI = terminalCommandRegistry.getTerminalUI(projectId);
-        const createFlag = args.includes('-c') || args.includes('--create');
-        const extractFlag = args.includes('-x') || args.includes('--extract');
-
-        if (terminalUI) {
-          if (createFlag) await terminalUI.spinner.start('Creating archive...');
-          else if (extractFlag) await terminalUI.spinner.start('Extracting archive...');
-        }
-
         try {
           const result = await unix.tar(args);
-          if (terminalUI) await terminalUI.spinner.success('Archive operation completed');
           await append(result);
         } catch (err: any) {
-          if (terminalUI)
-            await terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
           await appendError(`tar: ${(err as Error).message}`, 1);
         }
         break;
       }
 
       case 'gzip': {
-        // Use terminal UI if available to show compression/decompression spinner
-        const terminalUI = terminalCommandRegistry.getTerminalUI(projectId);
-        const decompress = args.includes('-d') || args.includes('--decompress');
-        if (terminalUI) {
-          if (decompress) await terminalUI.spinner.start('Decompressing gzip file...');
-          else await terminalUI.spinner.start('Compressing file...');
-        }
         try {
           const result = await unix.gzip(args);
-          if (terminalUI) await terminalUI.spinner.success('Operation completed');
           await append(result);
         } catch (err: any) {
-          if (terminalUI)
-            await terminalUI.spinner.error(`Operation failed: ${err?.message || String(err)}`);
           await appendError(`gzip: ${(err as Error).message}`, 1);
         }
         break;
       }
 
       case 'zip': {
-        const terminalUI = terminalCommandRegistry.getTerminalUI(projectId);
-        if (terminalUI) await terminalUI.spinner.start('Creating zip archive...');
         try {
           const result = await unix.zip(args);
-          if (terminalUI) await terminalUI.spinner.success('Archive operation completed');
           await append(result);
         } catch (err: any) {
-          if (terminalUI)
-            await terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
           await appendError(`zip: ${(err as Error).message}`, 1);
         }
         break;
