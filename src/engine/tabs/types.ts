@@ -153,7 +153,7 @@ export interface MergeConflictFileEntry {
 export interface MergeConflictTab extends BaseTab {
   kind: 'merge-conflict';
   /** List of conflicting files */
-  conflicts: MergeConflictFileEntry[];
+  conflicts: readonly MergeConflictFileEntry[];
   /** OURS branch name/commit ID */
   oursBranch: string;
   /** THEIRS branch name/commit ID */
