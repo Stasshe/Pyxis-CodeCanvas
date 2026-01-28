@@ -7,6 +7,14 @@ import { parseArgs } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
 
 /**
+ * tarエントリ名を正規化（先頭スラッシュ除去、空文字列は'.'に変換）
+ */
+function normalizeTarEntryName(p: string): string {
+  const normalized = p.replace(/^\/+/, '');
+  return normalized || '.';
+}
+
+/**
  * tar - POSIX準拠のtarアーカイブ作成/一覧/展開
  * 
  * Usage:
@@ -111,7 +119,8 @@ export class TarCommand extends UnixCommandBase {
         }
 
         // アーカイブ内のパス名は AppPath から先頭スラッシュを除去して格納
-        const entryName = fileAppPath.replace(/^\/+/, '');
+        // CRITICAL: tar-streamに渡す前に必ずスラッシュを除去すること
+        const entryName = normalizeTarEntryName(fileAppPath);
 
         if (file.type === 'folder') {
           // フォルダの場合は再帰的に中身を取得して追加する
@@ -120,23 +129,25 @@ export class TarCommand extends UnixCommandBase {
 
           // 先にディレクトリエントリ自身を追加
           await new Promise<void>((resolve, reject) => {
-            pack.entry({ name: `${entryName}/`, type: 'directory' }, '', (err) => {
+            const dirName = entryName.endsWith('/') ? entryName : `${entryName}/`;
+            pack.entry({ name: dirName, type: 'directory' }, '', (err) => {
               if (err) reject(err);
               else resolve();
             });
           });
 
           for (const child of children) {
-            const childEntryName = child.path.replace(/^\\+/, '');
+            let childEntryName = normalizeTarEntryName(child.path);
 
             if (child.type === 'folder') {
+              const childDirName = childEntryName.endsWith('/') ? childEntryName : `${childEntryName}/`;
               await new Promise<void>((resolve, reject) => {
-                pack.entry({ name: `${childEntryName}/`, type: 'directory' }, '', err => {
+                pack.entry({ name: childDirName, type: 'directory' }, '', err => {
                   if (err) reject(err);
                   else resolve();
                 });
               });
-              if (verbose) console.log(`${childEntryName}/`);
+              if (verbose) console.log(`${childDirName}`);
             } else {
               const contentBuf = child.bufferContent
                 ? Buffer.from(child.bufferContent as ArrayBuffer)
