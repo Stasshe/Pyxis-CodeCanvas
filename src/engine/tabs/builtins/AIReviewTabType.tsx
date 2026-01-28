@@ -32,7 +32,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   // fallbackとして、タブ作成時のoriginalContentを使用
   const storeContent = useTabContent(aiTab.id);
   const currentOriginalContent = storeContent ?? aiTab.originalContent;
-  
+
   // AIReviewTabComponent用にオブジェクトを再作成（originalContentのみ差し替え）
   const tabWithContent = {
     ...aiTab,

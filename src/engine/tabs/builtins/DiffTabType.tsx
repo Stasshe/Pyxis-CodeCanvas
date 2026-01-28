@@ -35,7 +35,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   // tabContentStoreから最新コンテンツを取得
   const storeContent = useTabContent(diffTab.id);
-  
+
   // コンテンツをマージした新しいdiffsを作成
   const mergedDiffs = useMemo(() => {
     if (!diffTab.diffs || diffTab.diffs.length === 0) return diffTab.diffs;

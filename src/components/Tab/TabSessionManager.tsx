@@ -48,7 +48,8 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
         size: p.size,
         layout: p.layout,
         activeTabId: p.activeTabId,
-        tabs: p.tabs?.map((t: Tab) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
+        tabs:
+          p.tabs?.map((t: Tab) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
         children: p.children ? strip(p.children) : undefined,
       }));
 
@@ -63,7 +64,9 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
     }
   };
 
-  const [structuralKey, setStructuralKey] = useState(() => computeStructuralKey(snapshot(tabState).panes));
+  const [structuralKey, setStructuralKey] = useState(() =>
+    computeStructuralKey(snapshot(tabState).panes)
+  );
   const structuralKeyRef = useRef(structuralKey);
 
   useEffect(() => {
@@ -88,8 +91,6 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
     window.addEventListener('pyxis-content-restored', handleContentRestored);
     return () => window.removeEventListener('pyxis-content-restored', handleContentRestored);
   }, [setIsContentRestored]);
-
-
 
   useEffect(() => {
     if (isLoading) return; // 初期ロード中は保存しない

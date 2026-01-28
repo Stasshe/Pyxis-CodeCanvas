@@ -4,7 +4,7 @@
  * タブの構造（ID、名前、パス等）はこのモジュールで管理し、
  * 実際のファイルコンテンツは tabContentStore で管理する。
  * これにより、コンテンツ変更が page.tsx の再レンダリングをトリガーしない。
- * 
+ *
  * EditorMemoryManager の責務（デバウンス保存、外部変更検知、保存制御）も統合。
  */
 
@@ -137,25 +137,25 @@ function findInPanes(
 function getContentFromPanes(panes: readonly EditorPane[], path: string): string | undefined {
   const tabs = collectAllTabs(panes);
   const p = toAppPath(path);
-  
+
   // tabContentStoreからコンテンツを取得
   const editorTab = tabs.find(t => t.kind === 'editor' && toAppPath(t.path || '') === p);
   if (editorTab) {
     return getTabContent(editorTab.id);
   }
-  
+
   // diffタブの場合（コンテンツはtabContentStoreに）
   const diffTab = tabs.find(t => t.kind === 'diff' && toAppPath(t.path || '') === p);
   if (diffTab) {
     return getTabContent(diffTab.id);
   }
-  
+
   // aiタブの場合
   const aiTab = tabs.find(t => t.kind === 'ai' && toAppPath(t.path || '') === p);
   if (aiTab) {
     return getTabContent(aiTab.id);
   }
-  
+
   return undefined;
 }
 
@@ -221,20 +221,20 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
     if (tPath === targetPath) {
       const prev = getTabContent(t.id);
       const currentDirty = t.isDirty ?? false;
-      
+
       // Update if content changed OR dirty flag needs update
       // We check both current content and current dirty status
-      const shouldUpdate = (prev !== content) || (currentDirty !== isDirty);
+      const shouldUpdate = prev !== content || currentDirty !== isDirty;
 
       if (shouldUpdate) {
         setTabContent(t.id, content, isDirty);
-        
+
         // Only schedule model update if content CHANGED
         if (prev !== content) {
           pendingModelUpdates.set(t.id, content);
           scheduleModelUpdateFlush();
         }
-        
+
         // Update tabState dirty flag directly on the proxy
         if (currentDirty !== isDirty) {
           t.isDirty = isDirty;
