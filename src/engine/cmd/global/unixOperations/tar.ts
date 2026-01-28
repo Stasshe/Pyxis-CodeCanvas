@@ -1,8 +1,10 @@
+// src/engine/cmd/global/unixOperations/tar.ts
+
 import { fileRepository } from '@/engine/core/fileRepository';
 import * as tar from 'tar-stream';
 import { UnixCommandBase } from './base';
-import { resolvePath as pathResolve, fsPathToAppPath } from '@/engine/core/pathUtils';
 import { parseArgs } from '../../lib';
+import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
 
 /**
  * tar - POSIX準拠のtarアーカイブ作成/一覧/展開
@@ -75,64 +77,74 @@ export class TarCommand extends UnixCommandBase {
       throw new Error('tar: Cowardly refusing to create an empty archive');
     }
 
-    // Resolve archive path (AppPath) using pathUtils
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const archiveAppPath = pathResolve(baseApp, archiveName);
-
     if (this.terminalUI) {
       await this.terminalUI.spinner.start('Creating tar archive...');
     }
 
     try {
       const pack = tar.pack();
-      const chunks: Uint8Array[] = [];
+      const chunks: Buffer[] = [];
+
+      // ストリームからデータ収集を開始
+      pack.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+
+      const packFinished = new Promise<void>((resolve, reject) => {
+        pack.on('end', () => resolve());
+        pack.on('error', (err: Error) => reject(err));
+      });
 
       let addedCount = 0;
 
       // ファイルを順次追加
+      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+
       for (const fileName of files) {
-        // Resolve file path relative to current dir (AppPath)
-        const rel = pathResolve(baseApp, fileName);
+        // パス解決: AppPath ベースから解決
+        const fileAppPath = pathResolve(baseApp, fileName);
 
-        // アーカイブ自身は含めない
-        if (rel === archiveAppPath) {
-          // skip archive file
-          if (verbose) console.log(`Skipping archive file ${fileName}`);
-          continue;
-        }
-
-        const file = await this.getFileFromDB(rel);
+        const file = await this.getFileFromDB(fileAppPath);
 
         if (!file) {
           throw new Error(`tar: ${fileName}: Cannot stat: No such file or directory`);
         }
 
         // アーカイブ内のパス名は AppPath から先頭スラッシュを除去して格納
-        const entryName = rel.replace(/^\/+/, '');
+        const entryName = fileAppPath.replace(/^\/+/, '');
 
         if (file.type === 'folder') {
           // ディレクトリエントリ（末尾にスラッシュ）
-          pack.entry({ name: `${entryName}/`, type: 'directory' }, '', () => {});
+          await new Promise<void>((resolve, reject) => {
+            pack.entry({ name: `${entryName}/`, type: 'directory' }, '', (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+
           if (verbose) {
             console.log(`${entryName}/`);
           }
-
-          // TODO: ディレクトリ配下のファイルを再帰的に追加（-rオプション実装時）
         } else {
           // ファイルエントリ
           const contentBuf = file.bufferContent
             ? Buffer.from(file.bufferContent)
             : Buffer.from(file.content || '', 'utf8');
 
-          pack.entry(
-            {
-              name: entryName,
-              type: 'file',
-              size: contentBuf.length,
-            },
-            contentBuf,
-            () => {}
-          );
+          await new Promise<void>((resolve, reject) => {
+            pack.entry(
+              {
+                name: entryName,
+                type: 'file',
+                size: contentBuf.length,
+              },
+              contentBuf,
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
 
           if (verbose) {
             console.log(entryName);
@@ -146,33 +158,32 @@ export class TarCommand extends UnixCommandBase {
         throw new Error('tar: Cowardly refusing to create an empty archive');
       }
 
+      // アーカイブを確定
       pack.finalize();
 
-      // ストリームからデータ収集
-      await new Promise<void>((resolve, reject) => {
-        pack.on('data', (chunk: any) => chunks.push(Buffer.from(chunk)));
-        pack.on('end', () => resolve());
-        pack.on('error', (err: any) => reject(err));
-      });
+      // ストリーム終了を待つ
+      await packFinished;
 
+      // バッファを結合
       const tarBuffer = Buffer.concat(chunks);
 
-      // ArrayBuffer を正確な長さで切り出して保存（Buffer.buffer は underlying ArrayBuffer 全体を返すので
-      // byteOffset/length を考慮する必要がある）
+      console.log(`[TarCommand] Created tar buffer: ${tarBuffer.length} bytes`);
+      console.log(`[TarCommand] First 100 bytes:`, tarBuffer.slice(0, 100));
+
+      // ArrayBuffer を正確な長さで作成
       const archiveArrayBuffer = tarBuffer.buffer.slice(
         tarBuffer.byteOffset,
         tarBuffer.byteOffset + tarBuffer.length
       );
 
-      // アーカイブを保存（AppPathで渡す。archiveNameそのままだとカレントディレクトリが反映されない）
-      await fileRepository.createFile(
-        this.projectId,
-        archiveAppPath,
-        '',
-        'file',
-        true,
-        archiveArrayBuffer
-      );
+      console.log(`[TarCommand] ArrayBuffer size: ${archiveArrayBuffer.byteLength} bytes`);
+
+      // アーカイブを保存（AppPath形式で）
+      const archiveAppPath = pathResolve(baseApp, archiveName);
+
+      console.log(`[TarCommand] Saving to: ${archiveAppPath}`);
+
+      await fileRepository.createFile(this.projectId, archiveAppPath, '', 'file', true, archiveArrayBuffer);
 
       if (this.terminalUI) {
         await this.terminalUI.spinner.success('Archive created successfully');
@@ -192,8 +203,8 @@ export class TarCommand extends UnixCommandBase {
    */
   private async listArchive(archiveName: string, verbose: boolean): Promise<string> {
     const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const rel = pathResolve(baseApp, archiveName);
-    const file = await this.getFileFromDB(rel);
+    const archiveAppPath = pathResolve(baseApp, archiveName);
+    const file = await this.getFileFromDB(archiveAppPath);
 
     if (!file) {
       throw new Error(`tar: ${archiveName}: Cannot open: No such file or directory`);
@@ -240,8 +251,8 @@ export class TarCommand extends UnixCommandBase {
 
     try {
       const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-      const rel = pathResolve(baseApp, archiveName);
-      const file = await this.getFileFromDB(rel);
+      const archiveAppPath = pathResolve(baseApp, archiveName);
+      const file = await this.getFileFromDB(archiveAppPath);
 
       if (!file) {
         throw new Error(`tar: ${archiveName}: Cannot open: No such file or directory`);
@@ -275,11 +286,11 @@ export class TarCommand extends UnixCommandBase {
           return;
         }
 
-        const chunks: Uint8Array[] = [];
-        stream.on('data', (chunk: any) => chunks.push(Buffer.from(chunk)));
+        const chunks: Buffer[] = [];
+        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
         stream.on('end', () => {
           const fileBuf = Buffer.concat(chunks);
-          // 正確な長さの ArrayBuffer を作る（Buffer.buffer は underlying ArrayBuffer 全体を返す）
+          // 正確な長さの ArrayBuffer を作る
           const fileArrayBuffer = fileBuf.buffer.slice(
             fileBuf.byteOffset,
             fileBuf.byteOffset + fileBuf.length
