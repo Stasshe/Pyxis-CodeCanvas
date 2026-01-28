@@ -62,8 +62,12 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
-  const snap = useSnapshot(tabState);
-  const { panes, isLoading: isTabsLoading, isRestored, isContentRestored, activePane } = snap;
+  const isTabsLoading = useSnapshot(tabState).isLoading;
+  const isRestored = useSnapshot(tabState).isRestored;
+  const isContentRestored = useSnapshot(tabState).isContentRestored;
+  const activePane = useSnapshot(tabState).activePane;
+  // Subscribe to pane metadata only (id/size/activeTabId) to avoid re-renders on tab content changes
+  const paneMeta = useSnapshot(tabState).panes.map(p => ({ id: p.id, size: p.size, activeTabId: p.activeTabId }));
   const { openTab, setPanes, setActivePane, splitPane, removePane, moveTab, activateTab } =
     tabActions;
   const {
@@ -71,6 +75,7 @@ export default function Home() {
     targetPaneId: operationWindowTargetPaneId,
     closeFileSelector,
   } = useFileSelector();
+  const getPanes = React.useCallback(() => tabState.panes as EditorPane[], []);
 
   // Helper function to flatten panes
   const flattenPanes = useCallback((paneList: readonly EditorPane[]): readonly EditorPane[] => {
@@ -212,7 +217,8 @@ export default function Home() {
       closeFileSelector();
     } else {
       // アクティブなペインを使用（tabStoreのactivePaneを優先）
-      const targetPaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
+      const pm = paneMeta;
+      const targetPaneId = activePane || pm.find(p => p.activeTabId)?.id || pm[0]?.id;
       if (targetPaneId) {
         openFileSelector(targetPaneId);
       }
@@ -238,7 +244,7 @@ export default function Home() {
   };
 
   // ショートカットキーの登録
-  useKeyBinding('quickOpen', toggleOperationWindow, [panes, activePane]);
+  useKeyBinding('quickOpen', toggleOperationWindow, [paneMeta, activePane]);
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
@@ -309,31 +315,31 @@ export default function Home() {
   useKeyBinding(
     'splitPaneVertical',
     () => {
-      const flatPanes = flattenPanes(panes);
+      const flatPanes = flattenPanes(getPanes());
       const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
       if (currentPane) {
         splitPane(currentPane.id, 'vertical');
       }
     },
-    [panes, activePane, flattenPanes, splitPane]
+    [activePane, flattenPanes, splitPane, getPanes]
   );
 
   useKeyBinding(
     'splitPaneHorizontal',
     () => {
-      const flatPanes = flattenPanes(panes);
+      const flatPanes = flattenPanes(getPanes());
       const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
       if (currentPane) {
         splitPane(currentPane.id, 'horizontal');
       }
     },
-    [panes, activePane, flattenPanes, splitPane]
+    [activePane, flattenPanes, splitPane, getPanes]
   );
 
   useKeyBinding(
     'closePane',
     () => {
-      const flatPanes = flattenPanes(panes);
+      const flatPanes = flattenPanes(getPanes());
       if (flatPanes.length <= 1) return; // Don't close the last pane
       const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
       if (currentPane) {
@@ -348,13 +354,13 @@ export default function Home() {
         }
       }
     },
-    [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]
+    [activePane, flattenPanes, removePane, setActivePane, activateTab, getPanes]
   );
 
   useKeyBinding(
     'focusNextPane',
     () => {
-      const flatPanes = flattenPanes(panes);
+      const flatPanes = flattenPanes(getPanes());
       if (flatPanes.length <= 1) return;
       const currentIndex = flatPanes.findIndex(p => p.id === activePane);
       const nextIndex = (currentIndex + 1) % flatPanes.length;
@@ -364,13 +370,13 @@ export default function Home() {
         activateTab(nextPane.id, nextPane.activeTabId);
       }
     },
-    [panes, activePane, flattenPanes, setActivePane, activateTab]
+    [activePane, flattenPanes, setActivePane, activateTab, getPanes]
   );
 
   useKeyBinding(
     'focusPrevPane',
     () => {
-      const flatPanes = flattenPanes(panes);
+      const flatPanes = flattenPanes(getPanes());
       if (flatPanes.length <= 1) return;
       const currentIndex = flatPanes.findIndex(p => p.id === activePane);
       const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
@@ -380,13 +386,13 @@ export default function Home() {
         activateTab(prevPane.id, prevPane.activeTabId);
       }
     },
-    [panes, activePane, flattenPanes, setActivePane, activateTab]
+    [activePane, flattenPanes, setActivePane, activateTab, getPanes]
   );
 
   useKeyBinding(
     'moveTabToNextPane',
     () => {
-      const flatPanes = flattenPanes(panes);
+      const flatPanes = flattenPanes(getPanes());
       if (flatPanes.length <= 1) return;
       const currentPane = flatPanes.find(p => p.id === activePane);
       if (!currentPane || !currentPane.activeTabId) return;
@@ -397,7 +403,7 @@ export default function Home() {
 
       moveTab(currentPane.id, nextPane.id, currentPane.activeTabId);
     },
-    [panes, activePane, flattenPanes, moveTab]
+    [activePane, flattenPanes, moveTab, getPanes]
   );
 
   // TouchBackendオプション: enableMouseEventsでマウスとタッチ両方をサポート
@@ -485,77 +491,81 @@ export default function Home() {
                 className="flex-1 overflow-hidden flex flex-row"
                 style={{ position: 'relative' }}
               >
-                {panes.map((pane, idx) => (
-                  <React.Fragment key={pane.id}>
-                    <div
-                      style={{
-                        width: panes.length > 1 ? `${pane.size || 100 / panes.length}%` : '100%',
-                        height: '100%',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        flexGrow: 0,
-                      }}
-                    >
-                      <PaneContainer pane={pane} setGitRefreshTrigger={setGitRefreshTrigger} />
-                    </div>
-
-                    {/* ルートレベルペイン間のリサイザー */}
-                    {idx < panes.length - 1 && (
+                {paneMeta.map((pm, idx) => {
+                  // Resolve current pane data non-reactively for layout properties
+                  const pane = getPanes().find(p => p.id === pm.id) || ({ id: pm.id, size: pm.size } as EditorPane);
+                  return (
+                    <React.Fragment key={pane.id}>
                       <div
                         style={{
-                          position: 'relative',
-                          width: '6px',
+                          width: paneMeta.length > 1 ? `${pane.size || 100 / paneMeta.length}%` : '100%',
                           height: '100%',
+                          position: 'relative',
+                          overflow: 'hidden',
                           flexShrink: 0,
                           flexGrow: 0,
-                          cursor: 'col-resize',
-                          background: colors.border,
-                          zIndex: 10,
                         }}
-                        onMouseDown={e => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startLeftSize = pane.size || 100 / panes.length;
-                          const startRightSize = panes[idx + 1]?.size || 100 / panes.length;
+                      >
+                        <PaneContainer paneId={pane.id} setGitRefreshTrigger={setGitRefreshTrigger} />
+                      </div>
 
-                          const handleMouseMove = (moveEvent: MouseEvent) => {
-                            const container = e.currentTarget.parentElement;
-                            if (!container) return;
+                      {/* ルートレベルペイン間のリサイザー */}
+                      {idx < paneMeta.length - 1 && (
+                        <div
+                          style={{
+                            position: 'relative',
+                            width: '6px',
+                            height: '100%',
+                            flexShrink: 0,
+                            flexGrow: 0,
+                            cursor: 'col-resize',
+                            background: colors.border,
+                            zIndex: 10,
+                          }}
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startLeftSize = pane.size || 100 / paneMeta.length;
+                            const startRightSize = getPanes()[idx + 1]?.size || 100 / paneMeta.length;
 
-                            const containerWidth = container.clientWidth;
-                            const delta = moveEvent.clientX - startX;
-                            const deltaPercent = (delta / containerWidth) * 100;
-                            const newLeftSize = Math.max(
-                              10,
-                              Math.min(90, startLeftSize + deltaPercent)
-                            );
-                            const newRightSize = Math.max(
-                              10,
-                              Math.min(90, startRightSize - deltaPercent)
-                            );
+                            const handleMouseMove = (moveEvent: MouseEvent) => {
+                              const container = e.currentTarget.parentElement;
+                              if (!container) return;
 
-                            const updatedPanes = [...panes];
-                            updatedPanes[idx] = { ...pane, size: newLeftSize };
-                            updatedPanes[idx + 1] = {
-                              ...updatedPanes[idx + 1],
-                              size: newRightSize,
+                              const containerWidth = container.clientWidth;
+                              const delta = moveEvent.clientX - startX;
+                              const deltaPercent = (delta / containerWidth) * 100;
+                              const newLeftSize = Math.max(
+                                10,
+                                Math.min(90, startLeftSize + deltaPercent)
+                              );
+                              const newRightSize = Math.max(
+                                10,
+                                Math.min(90, startRightSize - deltaPercent)
+                              );
+
+                              const updatedPanes = [...getPanes()];
+                              updatedPanes[idx] = { ...pane, size: newLeftSize };
+                              updatedPanes[idx + 1] = {
+                                ...updatedPanes[idx + 1],
+                                size: newRightSize,
+                              };
+                              setPanes(updatedPanes);
                             };
-                            setPanes(updatedPanes);
-                          };
 
-                          const handleMouseUp = () => {
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUp);
-                          };
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove);
+                              document.removeEventListener('mouseup', handleMouseUp);
+                            };
 
-                          document.addEventListener('mousemove', handleMouseMove);
-                          document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                      />
-                    )}
-                  </React.Fragment>
-                ))}
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                          }}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
               {isBottomPanelVisible && (
