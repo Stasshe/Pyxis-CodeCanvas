@@ -13,7 +13,8 @@ import 'github-markdown-css/github-markdown.css';
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
-import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
+import type { EditorTab, PreviewTab, Tab } from '@/engine/tabs/types';
+import { hasContent } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';
@@ -43,8 +44,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const editorTabContent = useMemo(() => {
     const find = (paneList: readonly any[]): string | null => {
       for (const p of paneList) {
-        const t = p.tabs?.find((x: any) => x.path === activeTab.path && x.kind === 'editor');
-        if (t?.content) return t.content;
+        const t = p.tabs?.find((x: Tab) => x.path === activeTab.path);
+        if (t && hasContent(t)) return t.content;
         if (p.children) {
           const r = find(p.children);
           if (r) return r;

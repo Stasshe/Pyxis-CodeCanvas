@@ -55,14 +55,14 @@ class Interface {
   }
 
   once(event: string, listener: Function): this {
-    const onceWrapper = (...args: any[]) => {
+    const onceWrapper = (...args: unknown[]) => {
       listener(...args);
       this.removeListener(event, onceWrapper);
     };
     return this.on(event, onceWrapper);
   }
 
-  emit(event: string, ...args: any[]): boolean {
+  emit(event: string, ...args: unknown[]): boolean {
     const listeners = this.listeners[event];
     if (listeners && listeners.length > 0) {
       for (const listener of listeners) {

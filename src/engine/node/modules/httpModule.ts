@@ -45,14 +45,14 @@ class IncomingMessage {
   }
 
   once(event: string, listener: Function): this {
-    const onceWrapper = (...args: any[]) => {
+    const onceWrapper = (...args: unknown[]) => {
       listener(...args);
       this.removeListener(event, onceWrapper);
     };
     return this.on(event, onceWrapper);
   }
 
-  emit(event: string, ...args: any[]): boolean {
+  emit(event: string, ...args: unknown[]): boolean {
     const listeners = this._listeners[event];
     if (listeners) {
       for (const listener of listeners) {
@@ -155,14 +155,14 @@ class ClientRequest {
   }
 
   once(event: string, listener: Function): this {
-    const onceWrapper = (...args: any[]) => {
+    const onceWrapper = (...args: unknown[]) => {
       listener(...args);
       this.removeListener(event, onceWrapper);
     };
     return this.on(event, onceWrapper);
   }
 
-  emit(event: string, ...args: any[]): boolean {
+  emit(event: string, ...args: unknown[]): boolean {
     const listeners = this._listeners[event];
     if (listeners) {
       for (const listener of listeners) {

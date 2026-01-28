@@ -40,9 +40,9 @@ export const useGitContext = () => {
 };
 
 // ペインをフラット化してリーフペインの数をカウント
-function flattenPanes(paneList: readonly any[]): readonly any[] {
-  const result: any[] = [];
-  const traverse = (items: readonly any[]) => {
+function flattenPanes(paneList: readonly EditorPane[]): readonly EditorPane[] {
+  const result: EditorPane[] = [];
+  const traverse = (items: readonly EditorPane[]) => {
     for (const p of items) {
       if (!p.children || p.children.length === 0) result.push(p);
       if (p.children) traverse(p.children);
@@ -242,8 +242,8 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                     };
 
                     // 親ペインを更新（再帰的にペインツリーを更新）
-                    const updatePaneRecursive = (panes: readonly any[]): readonly Readonly<EditorPane>[] => {
-                      return panes.map((p: any) => {
+                    const updatePaneRecursive = (panes: readonly EditorPane[]): readonly Readonly<EditorPane>[] => {
+                      return panes.map((p: EditorPane) => {
                         if (p.id === pane.id) {
                           return { ...p, children: updatedChildren } as Readonly<EditorPane>;
                         }

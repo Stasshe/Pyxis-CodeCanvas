@@ -3,6 +3,7 @@
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { tabActions, tabState } from '@/stores/tabState';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
 import { useSnapshot } from 'valtio';
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
@@ -86,9 +87,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   // Helper to find paneId for a tabId
   const findPaneIdForTab = useMemo(() => {
     return (tabId: string): string | null => {
-      const findPane = (panesList: readonly any[]): string | null => {
+      const findPane = (panesList: readonly EditorPane[]): string | null => {
         for (const p of panesList) {
-          if (p.tabs?.find((t: any) => t.id === tabId)) return p.id;
+          if (p.tabs?.find((t: Tab) => t.id === tabId)) return p.id;
           if (p.children) {
             const found = findPane(p.children);
             if (found) return found;

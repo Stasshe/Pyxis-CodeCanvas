@@ -280,7 +280,7 @@ export class NodeRuntime {
         v8: '10.0.0',
       },
       exit: () => {},
-      nextTick: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+      nextTick: (fn: Function, ...args: unknown[]) => setTimeout(() => fn(...args), 0),
       stdin: {
         on: () => {},
         once: () => {},
@@ -354,7 +354,7 @@ export class NodeRuntime {
         clear: () => this.debugConsole?.clear(),
       },
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
-      setTimeout: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
+      setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
         const timerId = setTimeout(() => {
           this.activeTimers.delete(timerId);
           if (typeof handler === 'function') {
@@ -365,7 +365,7 @@ export class NodeRuntime {
         this.activeTimers.add(timerId);
         return timerId as number;
       },
-      setInterval: (handler: TimerHandler, timeout?: number, ...args: any[]): number => {
+      setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
         const intervalId = setInterval(() => {
           if (typeof handler === 'function') {
             handler(...args);
@@ -552,7 +552,7 @@ export class NodeRuntime {
         clearTimeout: globalThis.clearTimeout,
         setInterval: globalThis.setInterval,
         clearInterval: globalThis.clearInterval,
-        setImmediate: (fn: Function, ...args: any[]) => setTimeout(() => fn(...args), 0),
+        setImmediate: (fn: Function, ...args: unknown[]) => setTimeout(() => fn(...args), 0),
         clearImmediate: (id: any) => clearTimeout(id),
       },
       console: globalThis.console,

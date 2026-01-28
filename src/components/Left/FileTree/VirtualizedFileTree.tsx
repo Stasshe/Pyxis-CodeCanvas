@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
@@ -265,7 +265,7 @@ export default function VirtualizedFileTree({
     [currentProjectId, currentProjectName, onRefresh]
   );
 
-  const [virtualItems, setVirtualItems] = useState<any[]>([]);
+  const [virtualItems, setVirtualItems] = useState<VirtualItem[]>([]);
   const [totalSize, setTotalSize] = useState(0);
 
   useEffect(() => {

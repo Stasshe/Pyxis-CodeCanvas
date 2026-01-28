@@ -42,8 +42,8 @@ export async function exportIndexeddbHtml(): Promise<string> {
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
       const getAllReq = store.getAll();
-      const items = await new Promise<any[]>((resolve, reject) => {
-        getAllReq.onsuccess = () => resolve(getAllReq.result);
+      const items = await new Promise<unknown[]>((resolve, reject) => {
+        getAllReq.onsuccess = () => resolve(getAllReq.result as unknown[]);
         getAllReq.onerror = () => reject(getAllReq.error);
       });
       dbDump.stores.push({ name: storeName, items });
@@ -298,5 +298,5 @@ export async function exportIndexeddbHtml(): Promise<string> {
 }
 
 // IndexedDBの全データを取得してHTML文字列として返すユーティリティ
-export type StoreDump = { name: string; items: any[] };
+export type StoreDump = { name: string; items: unknown[] };
 export type DbDump = { name: string; version: number; stores: StoreDump[] };

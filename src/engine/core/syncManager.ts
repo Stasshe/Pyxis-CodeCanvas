@@ -15,7 +15,7 @@ export class SyncManager {
   private static instance: SyncManager | null = null;
 
   // simple event listeners map
-  private listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
+  private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
 
   private constructor() {}
 
@@ -30,16 +30,16 @@ export class SyncManager {
   }
 
   // event emitter helpers
-  on(event: string, cb: (...args: any[]) => void) {
+  on(event: string, cb: (...args: unknown[]) => void) {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
     this.listeners.get(event)?.add(cb);
   }
 
-  off(event: string, cb: (...args: any[]) => void) {
+  off(event: string, cb: (...args: unknown[]) => void) {
     this.listeners.get(event)?.delete(cb);
   }
 
-  private emit(event: string, ...args: any[]) {
+  private emit(event: string, ...args: unknown[]) {
     const s = this.listeners.get(event);
     if (!s) return;
     for (const cb of Array.from(s)) {

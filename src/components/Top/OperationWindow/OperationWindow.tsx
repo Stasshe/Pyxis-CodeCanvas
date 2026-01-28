@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
@@ -170,14 +170,14 @@ export default function OperationWindow({
   };
 
   // 設定から除外パターンを取得
-  const gitignoreRules = useMemo(() => {
+  const gitignoreRules = useMemo((): GitIgnoreRule[] => {
     try {
       const flat = flattenFileItems(projectFiles);
       const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');
-      if (!git || !git.content) return [] as any[];
+      if (!git || !git.content) return [];
       return parseGitignore(git.content);
     } catch (err) {
-      return [] as any[];
+      return [];
     }
   }, [projectFiles]);
 

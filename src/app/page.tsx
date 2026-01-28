@@ -73,9 +73,9 @@ export default function Home() {
   } = useFileSelector();
 
   // Helper function to flatten panes
-  const flattenPanes = useCallback((paneList: readonly any[]): readonly any[] => {
-    const result: any[] = [];
-    const traverse = (list: readonly any[]) => {
+  const flattenPanes = useCallback((paneList: readonly EditorPane[]): readonly EditorPane[] => {
+    const result: EditorPane[] = [];
+    const traverse = (list: readonly EditorPane[]) => {
       for (const pane of list) {
         if (!pane.children || pane.children.length === 0) {
           result.push(pane);

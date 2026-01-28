@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { Code, Play, Square, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { FileItem } from '@/types';
 
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
@@ -12,7 +13,7 @@ import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runt
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
-  files: any[];
+  files: FileItem[];
 }
 
 interface OutputEntry {
@@ -72,7 +73,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       });
     });
 
-    const flattenFiles = (items: any[], parentPath = ''): any[] => {
+    const flattenFiles = (items: FileItem[], parentPath = ''): Array<FileItem & { path: string; uniqueKey: string; lang: string }> => {
       return items.reduce((acc, item) => {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
         if (item.type === 'file') {
@@ -92,11 +93,11 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
           acc.push(...flattenFiles(item.children, fullPath));
         }
         return acc;
-      }, []);
+      }, [] as Array<FileItem & { path: string; uniqueKey: string; lang: string }>);
     };
 
     // .gitignore をプロジェクトツリーから探してパースする
-    const findGitignoreContent = (items: any[], parentPath = ''): string | null => {
+    const findGitignoreContent = (items: FileItem[], parentPath = ''): string | null => {
       for (const item of items) {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
         if (item.type === 'file' && item.name === '.gitignore') {
