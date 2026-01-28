@@ -37,6 +37,33 @@ const DEBOUNCE_MS = 1000;
 let saveSyncInitialized = false;
 let unsubscribeFileRepository: (() => void) | null = null;
 
+// Deferred Monaco model update batching to reduce main-thread jank when many
+// tab contents are updated in quick succession. We batch updates and flush
+// them in an idle callback (or setTimeout fallback).
+const pendingModelUpdates = new Map<string, string>();
+let modelUpdateScheduled = false;
+function scheduleModelUpdateFlush(): void {
+  if (modelUpdateScheduled) return;
+  modelUpdateScheduled = true;
+  const flush = () => {
+    modelUpdateScheduled = false;
+    const entries = Array.from(pendingModelUpdates.entries());
+    pendingModelUpdates.clear();
+    for (const [id, content] of entries) {
+      try {
+        updateCachedModelContent(id, content, 'tabState');
+      } catch (e) {
+        console.warn('[tabState] updateCachedModelContent failed:', id, e);
+      }
+    }
+  };
+  if (typeof window !== 'undefined' && (window as any).requestIdleCallback) {
+    (window as any).requestIdleCallback(flush, { timeout: 500 });
+  } else {
+    setTimeout(flush, 0);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ヘルパー
 // ---------------------------------------------------------------------------
@@ -192,13 +219,13 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
     const tDef = tabRegistry.get(t.kind);
     const tPath = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
     if (tPath === targetPath) {
-      setTabContent(t.id, content, isDirty);
-      
-      // Monaco キャッシュを更新
-      try {
-        updateCachedModelContent(t.id, content, 'tabState');
-      } catch (e) {
-        console.warn('[tabState] updateCachedModelContent failed:', t.id, e);
+      const prev = getTabContent(t.id);
+      // Only update tab content and schedule model update when necessary
+      if (prev !== content || isDirty) {
+        setTabContent(t.id, content, isDirty);
+        // schedule Monaco model update in idle to avoid blocking the main thread
+        pendingModelUpdates.set(t.id, content);
+        scheduleModelUpdateFlush();
       }
     }
   }
@@ -352,13 +379,12 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
 
   // tabContentStoreにコンテンツを保存（panes更新なし = page再レンダリングなし）
   for (const id of affectedTabIds) {
-    setTabContent(id, content, isDirty);
-    
-    // Monaco キャッシュを更新
-    try {
-      updateCachedModelContent(id, content, 'tabState');
-    } catch (e) {
-      console.warn('[tabState] updateCachedModelContent failed:', id, e);
+    const prev = getTabContent(id);
+    if (prev !== content || isDirty) {
+      setTabContent(id, content, isDirty);
+      // schedule Monaco model update in idle to avoid blocking the main thread
+      pendingModelUpdates.set(id, content);
+      scheduleModelUpdateFlush();
     }
   }
 

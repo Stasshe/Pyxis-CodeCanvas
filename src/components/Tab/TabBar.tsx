@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 
 import DraggableTab from './DraggableTab';
@@ -64,7 +64,8 @@ export default function TabBar({ paneId }: TabBarProps) {
     moveTabToIndex,
     splitPane,
   } = tabActions;
-  const { panes } = useSnapshot(tabState);
+  const snap = useSnapshot(tabState);
+  const panes = snap.panes as EditorPane[];
 
   const pane = getPane(paneId);
   if (!pane) return null;
@@ -116,9 +117,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
-  tabs.forEach(tab => {
+  for (let i = 0; i < tabs.length; i++) {
+    const tab = tabs[i];
     nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
-  });
+  }
 
   // タブを閉じる
   const handleTabClose = useCallback(
