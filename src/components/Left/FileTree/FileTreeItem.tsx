@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { memo, useEffect, useMemo, useState, useCallback } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
@@ -12,22 +12,36 @@ import type { DragItem, FileTreeItemProps } from './types';
  * Individual file tree item component with drag-and-drop support.
  * Handles both desktop (full row draggable) and mobile (grab handle) interactions.
  */
-const FileTreeItem = memo(function FileTreeItem({
+
+function getFolderIconSrc(name: string, isExpanded: boolean) {
+  const iconPath = isExpanded
+    ? getIconForOpenFolder(name) || getIconForFolder(name) || getIconForFolder('')
+    : getIconForFolder(name) || getIconForFolder('');
+  if (iconPath?.endsWith('.svg')) {
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+  }
+  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
+}
+
+function getFileIconSrc(name: string) {
+  const iconPath = getIconForFile(name) || getIconForFile('');
+  if (iconPath?.endsWith('.svg')) {
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+  }
+  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+}
+
+export default function FileTreeItem({
   item,
   level,
   isExpanded,
   isIgnored,
   colors,
-  currentProjectName,
-  currentProjectId,
-  onRefresh,
   onItemClick,
   onContextMenu,
   onTouchStart,
   onTouchEnd,
   onTouchMove,
-  handleNativeFileDrop,
-  handleDragOver,
   onInternalFileDrop,
 }: FileTreeItemProps) {
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
@@ -120,34 +134,28 @@ const FileTreeItem = memo(function FileTreeItem({
     [item, onInternalFileDrop, isDev]
   );
 
-  // Combine drag and drop refs (stable ref callbacks to avoid re-creations)
-  const attachRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      drop(el);
-      if (!isTouchDevice) {
-        drag(el);
-      }
-    },
-    [drop, drag, isTouchDevice]
-  );
+  // Combine drag and drop refs
+  const attachRef = (el: HTMLDivElement | null) => {
+    drop(el);
+    if (!isTouchDevice) {
+      drag(el);
+    }
+  };
 
-  const grabHandleRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (isTouchDevice && el) {
-        drag(el);
-      }
-    },
-    [drag, isTouchDevice]
-  );
+  const grabHandleRef = (el: HTMLDivElement | null) => {
+    if (isTouchDevice && el) {
+      drag(el);
+    }
+  };
 
   useEffect(() => {
     setDropIndicator(isOver && canDrop);
   }, [isOver, canDrop]);
 
-  // Use local hover state and containment to avoid parent-driven re-renders and limit paint scope
-  const rootStyle = useMemo<React.CSSProperties>(
-    () =>
-      ({
+  return (
+    <div
+      ref={attachRef}
+      style={{
         display: 'flex',
         alignItems: 'center',
         gap: '0.25rem',
@@ -168,37 +176,7 @@ const FileTreeItem = memo(function FileTreeItem({
           : '1px solid transparent',
         height: '24px',
         boxSizing: 'border-box',
-        // Limit paint/layout scope for this list item
-        contain: 'paint',
-      }) as React.CSSProperties,
-    [dropIndicator, hovered, isDragging, level, isTouchDevice, colors]
-  );
-
-  // Memoize the icon src so the string computation and path parsing is not done on every render
-  const iconSrc = useMemo(() => {
-    if (item.type === 'folder') {
-      const iconPath = isExpanded
-        ? getIconForOpenFolder(item.name) || getIconForFolder(item.name) || getIconForFolder('')
-        : getIconForFolder(item.name) || getIconForFolder('');
-      if (iconPath?.endsWith('.svg')) {
-        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath
-          .split('/')
-          .pop()}`;
-      }
-      return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
-    }
-
-    const iconPath = getIconForFile(item.name) || getIconForFile('');
-    if (iconPath?.endsWith('.svg')) {
-      return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
-    }
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
-  }, [item.name, item.type, isExpanded]);
-
-  return (
-    <div
-      ref={attachRef}
-      style={rootStyle}
+      }}
       onClick={() => onItemClick(item)}
       onContextMenu={e => onContextMenu(e, item)}
       onMouseEnter={() => setHovered(true)}
@@ -231,7 +209,7 @@ const FileTreeItem = memo(function FileTreeItem({
             <ChevronRight size={14} color={colors.mutedFg} />
           )}
           <img
-            src={iconSrc}
+            src={getFolderIconSrc(item.name, isExpanded)}
             alt="folder"
             style={{
               width: 16,
@@ -245,7 +223,7 @@ const FileTreeItem = memo(function FileTreeItem({
         <>
           <div className="w-3.5" />
           <img
-            src={iconSrc}
+            src={getFileIconSrc(item.name)}
             alt="file"
             style={{
               width: 16,
@@ -294,6 +272,4 @@ const FileTreeItem = memo(function FileTreeItem({
       )}
     </div>
   );
-});
-
-export default FileTreeItem;
+}
