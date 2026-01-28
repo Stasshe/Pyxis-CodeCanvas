@@ -8,7 +8,7 @@ import { useGitContext } from '@/components/Pane/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectSnapshot } from '@/stores/projectStore';
 import {
   addSaveListener,
   initTabSaveSync,
@@ -26,7 +26,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
   const { setGitRefreshTrigger } = useGitContext();
 
-  const currentProject = useProjectStore(state => state.currentProject);
+  const { currentProject } = useProjectSnapshot();
   const projectId = currentProject?.id;
 
   const { settings } = useSettings(projectId);

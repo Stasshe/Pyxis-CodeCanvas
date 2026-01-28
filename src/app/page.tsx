@@ -31,7 +31,7 @@ import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
 import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
-import { useProjectStore } from '@/stores/projectStore';
+import { setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
@@ -94,12 +94,9 @@ export default function Home() {
     useProject();
 
   // グローバルプロジェクトストアを同期
-  // NOTE: useProject()は各コンポーネントで独立したステートを持つため、
-  // ここでグローバルストアに同期することで、全コンポーネントが一貫したプロジェクト情報にアクセスできる
-  const setCurrentProjectToStore = useProjectStore(state => state.setCurrentProject);
   useEffect(() => {
-    setCurrentProjectToStore(currentProject);
-  }, [currentProject, setCurrentProjectToStore]);
+    setCurrentProject(currentProject);
+  }, [currentProject]);
 
   // タブコンテンツの復元と自動更新
   useTabContentRestore(projectFiles, isRestored);

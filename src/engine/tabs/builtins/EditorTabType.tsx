@@ -6,7 +6,7 @@ import { useGitContext } from '@/components/Pane/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { initTabSaveSync, addSaveListener, tabActions } from '@/stores/tabState';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectSnapshot } from '@/stores/projectStore';
 
 /**
  * エディタタブのコンポーネント
@@ -18,7 +18,7 @@ import { useProjectStore } from '@/stores/projectStore';
 const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
   // グローバルストアからプロジェクト情報を取得
-  const currentProject = useProjectStore(state => state.currentProject);
+  const { currentProject } = useProjectSnapshot();
   const projectId = currentProject?.id;
   const { settings } = useSettings(projectId);
   const { setGitRefreshTrigger } = useGitContext();

@@ -75,8 +75,7 @@
     "valtio": "^2.3.0",
     "vm-browserify": "^1.1.2",
     "vscode-icons-js": "^11.6.1",
-    "yaml": "^2.8.2",
-    "zustand": "^5.0.9"
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.27.1",
