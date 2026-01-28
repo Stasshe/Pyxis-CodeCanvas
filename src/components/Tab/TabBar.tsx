@@ -136,21 +136,9 @@ export default function TabBar({ paneId }: TabBarProps) {
     openFileSelector(paneId);
   }, [openFileSelector, paneId]);
 
-  // ペインを削除
-  const flattenPanesLocal = (list: readonly EditorPane[]): EditorPane[] => {
-    const result: EditorPane[] = [];
-    const traverse = (items: readonly EditorPane[]) => {
-      for (const p of items) {
-        if (!p.children || p.children.length === 0) result.push(p);
-        if (p.children) traverse(p.children);
-      }
-    };
-    traverse(list);
-    return result;
-  };
 
   const handleRemovePane = useCallback(() => {
-    const flatPanes = flattenPanesLocal(panes);
+    const flatPanes = flattenPanes(panes);
     if (flatPanes.length <= 1) return;
     removePane(paneId);
   }, [panes, removePane, paneId]);
@@ -291,7 +279,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
       if (!(ext === 'md' || ext === 'mdx')) return;
 
-      const leafPanes = flattenPanesLocal(panes);
+      const leafPanes = flattenPanes(panes);
 
       if (leafPanes.length === 1) {
         splitPane(paneId, 'vertical');
