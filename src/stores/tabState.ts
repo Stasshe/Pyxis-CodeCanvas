@@ -474,8 +474,7 @@ export const tabActions = {
         const children = p.children ? sanitize(p.children) : undefined;
         return {
           ...p,
-          children:
-            children && children.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
+          children: children?.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
         } as EditorPane;
       });
 
@@ -929,7 +928,7 @@ export const tabActions = {
         const leaves = flattenLeafPanes(tabState.panes);
         for (const sp of leaves) {
           for (const t of sp.tabs) {
-            if (t.kind === kind && tabDef.shouldReuseTab!(t, file, options)) {
+            if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
               await loadAndUpdateTabContent(t.id, kind, file.path);
               if (options.makeActive !== false) tabActions.activateTab(sp.id, t.id);
               return;
@@ -938,7 +937,7 @@ export const tabActions = {
         }
       } else {
         for (const t of pane.tabs) {
-          if (t.kind === kind && tabDef.shouldReuseTab!(t, file, options)) {
+          if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
             await loadAndUpdateTabContent(t.id, kind, file.path);
             if (options.makeActive !== false) tabActions.activateTab(targetPaneId, t.id);
             return;
