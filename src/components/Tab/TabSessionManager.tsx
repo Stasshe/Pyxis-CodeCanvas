@@ -1,4 +1,3 @@
-// src/context/TabContext.tsx
 'use client';
 import type React from 'react';
 import { type ReactNode, useEffect, useMemo } from 'react';
@@ -8,16 +7,19 @@ import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane } from '@/engine/tabs/types';
 
 /**
- * TabProvider
- * TabStoreの初期化とセッション管理のみを担当
+ * TabSessionManager
+ * - セッションの初期化 / 自動保存
+ * - コンテンツ復元完了イベントのリスナー登録
  *
- * @deprecated useTabContext は削除されました。useSnapshot(tabState) と tabActions を直接使用してください。
+ * 以前の `TabProvider` にあった副作用をここに移植しました。
+ * これにより、コンテキストの公開（useTabContext）は廃止され、
+ * タブ状態は `useSnapshot(tabState)` と `tabActions` を直接使用してください。
  */
-interface TabProviderProps {
-  children: ReactNode;
+interface Props {
+  children?: ReactNode;
 }
 
-export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
+export const TabSessionManager: React.FC<Props> = ({ children }) => {
   const { loadSession, saveSession, setIsContentRestored } = tabActions;
   const { isLoading, panes, activePane, globalActiveTab } = useSnapshot(tabState);
 
@@ -29,22 +31,15 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   // コンテンツ復元完了イベントのリスナー
   useEffect(() => {
     const handleContentRestored = () => {
-      console.log('[TabProvider] Content restoration completed');
+      console.log('[TabSessionManager] Content restoration completed');
       setIsContentRestored(true);
     };
 
     window.addEventListener('pyxis-content-restored', handleContentRestored);
-    return () => {
-      window.removeEventListener('pyxis-content-restored', handleContentRestored);
-    };
+    return () => window.removeEventListener('pyxis-content-restored', handleContentRestored);
   }, [setIsContentRestored]);
 
-  // TabStore の変更を監視して自動保存
-  // panes は大きな構造で中に content が含まれるため、
-  // コンテンツ変更（頻繁）による再レンダーで自動保存が走らないよう、
-  // 保存トリガーは「構造情報（id/size/children/tabs のメタ情報）」のみを監視する。
-  // 派生: panes の「構造情報」を JSON にしてキー化する。
-  // これにより content のみの変更では文字列が変わらず、自動保存が発火しない。
+  // Tab 構造の変化のみを監視してセッションを保存 （content の頻繁な変化は無視）
   const structuralKey = useMemo(() => {
     const strip = (pList: readonly EditorPane[]): any[] =>
       pList.map(p => ({
@@ -81,13 +76,4 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   return <>{children}</>;
 };
 
-/**
- * @deprecated useTabContext は削除されました。
- * useSnapshot(tabState) と tabActions を直接使用してください。
- */
-export const useTabContext = () => {
-  console.warn(
-    '[useTabContext] This hook is deprecated. Use useSnapshot(tabState) and tabActions.'
-  );
-  return { ...useSnapshot(tabState), ...tabActions };
-};
+export default TabSessionManager;

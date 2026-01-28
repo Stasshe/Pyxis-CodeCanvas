@@ -6,7 +6,7 @@ import AppInitializer from '@/components/AppInitializer';
 import { FileSelectorProvider } from '@/context/FileSelectorContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
-import { TabProvider } from '@/context/TabContext';
+import { TabSessionManager } from '@/components/Tab/TabSessionManager';
 import { ThemeProvider } from '@/context/ThemeContext';
 
 export const viewport: Viewport = {
@@ -120,12 +120,12 @@ export default function RootLayout({
         <I18nProvider>
           <ThemeProvider>
             <GitHubUserProvider>
-              <TabProvider>
+              <TabSessionManager>
                 <FileSelectorProvider>
                   {children}
                   <AppInitializer />
                 </FileSelectorProvider>
-              </TabProvider>
+              </TabSessionManager>
             </GitHubUserProvider>
           </ThemeProvider>
         </I18nProvider>
