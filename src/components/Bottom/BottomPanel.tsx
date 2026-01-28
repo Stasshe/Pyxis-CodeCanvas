@@ -250,9 +250,7 @@ export default function BottomPanel({
             <button
               onClick={() => {
                 try {
-                  if (typeof vimEditor.pressEsc === 'function') {
-                    vimEditor.pressEsc();
-                  }
+                  vimEditor.pressEsc();
                 } catch (e) {}
               }}
               title={t('bottom.escButton') ?? 'Esc'}

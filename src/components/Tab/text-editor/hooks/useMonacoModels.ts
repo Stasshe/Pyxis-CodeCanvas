@@ -72,7 +72,7 @@ export function updateCachedModelContent(
   context = 'inactive'
 ): void {
   const model = sharedModelMap.get(tabId);
-  if (model && typeof model.isDisposed === 'function' && !model.isDisposed()) {
+  if (model && !model.isDisposed()) {
     try {
       const currentValue = model.getValue();
       if (currentValue !== content) {
@@ -123,7 +123,7 @@ export function useMonacoModels() {
   const currentModelIdRef = sharedCurrentModelIdRef;
 
   const isModelSafe = useCallback((model: monaco.editor.ITextModel | null | undefined) => {
-    return model && typeof model.isDisposed === 'function' && !model.isDisposed();
+    return model && !model.isDisposed();
   }, []);
 
   const getOrCreateModel = useCallback(

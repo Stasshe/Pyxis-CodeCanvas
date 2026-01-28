@@ -92,7 +92,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
-          if (!isExcluded || !isExcluded(item.path)) {
+          if (!isExcluded(item.path)) {
             result.push(item);
           }
         } else if (item.children) {

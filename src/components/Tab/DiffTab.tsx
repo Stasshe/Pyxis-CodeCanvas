@@ -78,7 +78,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
       // エディタを破棄
       editorsRef.current.forEach((editor, idx) => {
         try {
-          if (editor && typeof editor.dispose === 'function') {
+          if (editor) {
             editor.dispose();
           }
         } catch (e) {
@@ -103,7 +103,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
       // リスナ破棄
       listenersRef.current.forEach((l, idx) => {
         try {
-          if (l && typeof l.dispose === 'function') l.dispose();
+          if (l) l.dispose();
         } catch (e) {
           /* ignore */
         }
@@ -177,7 +177,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
       });
       // 既にリスナがあれば破棄
       const existing = listenersRef.current.get(idx);
-      if (existing && typeof existing.dispose === 'function') {
+      if (existing) {
         try {
           existing.dispose();
         } catch (e) {
@@ -188,11 +188,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
       // 編集可能で単一ファイルのとき、modifiedモデルの変更を監視して
       // 即時ハンドラ(onImmediateContentChange)を呼び、デバウンス保存を走らせる
       const isEditableSingle = editable && diffs.length === 1;
-      if (
-        isEditableSingle &&
-        diffModel.modified &&
-        typeof diffModel.modified.onDidChangeContent === 'function'
-      ) {
+      if (isEditableSingle && diffModel.modified) {
         const listener = diffModel.modified.onDidChangeContent(() => {
           try {
             const current = diffModel.modified.getValue();

@@ -774,9 +774,9 @@ function ClientTerminal({
           outputManagerRef.current?.writeln('^C');
           // send SIGINT to foreground process if available
           try {
-            if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
-              shellRef.current.killForeground();
-            }
+            try {
+            shellRef.current?.killForeground?.();
+          } catch (e) {}
           } catch (e) {}
           currentLine = '';
           cursorPos = 0;

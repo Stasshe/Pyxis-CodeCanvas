@@ -186,7 +186,7 @@ export default function OperationWindow({
     try {
       return flattenFileItems(projectFiles).filter(file => {
         if (file.type !== 'file') return false;
-        if (typeof isExcluded === 'function' && isExcluded(file.path)) return false;
+        if (isExcluded(file.path)) return false;
         if (gitignoreRules && gitignoreRules.length > 0) {
           try {
             if (isPathIgnored(gitignoreRules, file.path, false)) return false;

@@ -279,9 +279,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const dropRef = (node: HTMLDivElement | null) => {
     elementRef.current = node;
     try {
-      if (typeof drop === 'function') {
-        (drop as any)(node);
-      }
+      (drop as any)(node);
     } catch (err) {
       // 安全のためエラーは無視
     }
