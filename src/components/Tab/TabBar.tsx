@@ -251,7 +251,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'closeTab',
     () => {
-      if (tabState.activePane !== paneId) return;
+      if (snapshot(tabState).activePane !== paneId) return;
       if (activeTabId) handleTabClose(activeTabId);
     },
     [activeTabId, paneId]
@@ -260,7 +260,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'removeAllTabs',
     () => {
-      if (tabState.activePane !== paneId) return;
+      if (snapshot(tabState).activePane !== paneId) return;
       handleRemoveAllTabs();
     },
     [paneId]
@@ -269,7 +269,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'nextTab',
     () => {
-      if (tabState.activePane !== paneId) return;
+      if (snapshot(tabState).activePane !== paneId) return;
       if (tabsMeta.length === 0) return;
       const currentIndex = tabsMeta.findIndex(t => t.id === activeTabId);
       const nextIndex = (currentIndex + 1) % tabsMeta.length;
@@ -281,7 +281,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'prevTab',
     () => {
-      if (tabState.activePane !== paneId) return;
+      if (snapshot(tabState).activePane !== paneId) return;
       if (tabsMeta.length === 0) return;
       const currentIndex = tabsMeta.findIndex(t => t.id === activeTabId);
       const prevIndex = (currentIndex - 1 + tabsMeta.length) % tabsMeta.length;
@@ -300,6 +300,21 @@ export default function TabBar({ paneId }: TabBarProps) {
       const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
       if (!(ext === 'md' || ext === 'mdx')) return;
 
+      // Helper: open preview for current active tab into the target pane using a non-reactive snapshot
+      const openPreviewIntoPane = (targetPaneId: string) => {
+        const state = snapshot(tabState);
+        const freshTab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === activeTab.id);
+        if (!freshTab) return;
+        openTab(
+          {
+            name: freshTab.name || activeTab.name,
+            path: freshTab.path || activeTab.path,
+            content: freshTab.content,
+          },
+          { kind: 'preview', paneId: targetPaneId, targetPaneId }
+        );
+      };
+
       const leafPanes = flattenPanes(snapshot(tabState).panes);
 
       if (leafPanes.length === 1) {
@@ -312,17 +327,7 @@ export default function TabBar({ paneId }: TabBarProps) {
           parent.children[1] ||
           parent.children[0];
         if (newPane) {
-          const state = snapshot(tabState);
-          const freshTab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === activeTab.id);
-          openTab(
-            {
-              name: freshTab?.name || activeTab.name,
-              path: freshTab?.path || activeTab.path,
-              content: freshTab?.content,
-
-            },
-            { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
-          );
+          openPreviewIntoPane(newPane.id);
         }
         return;
       }
@@ -331,19 +336,8 @@ export default function TabBar({ paneId }: TabBarProps) {
       if (other.length === 0) return;
       const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
       const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
-      {
-        const state = snapshot(tabState);
-        const freshTab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === activeTab.id);
-        openTab(
-          {
-            name: freshTab?.name || activeTab.name,
-            path: freshTab?.path || activeTab.path,
-            content: freshTab?.content,
 
-          },
-          { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
-        );
-      }
+      openPreviewIntoPane(randomPane.id);
     },
     [paneId, activeTabId, tabsMeta]
   );
