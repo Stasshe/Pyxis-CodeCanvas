@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { X } from 'lucide-react';
 
@@ -39,19 +39,20 @@ function DraggableTabInner({
   const { moveTabToIndex } = tabActions;
   const { panes } = useSnapshot(tabState);
 
-  const isActive = useMemo(() => {
-    const pane = panes.find(p => p.id === paneId);
-    return !!pane && pane.activeTabId === tab.id;
-  }, [panes, paneId, tab.id]);
+  const { globalActiveTab } = useSnapshot(tabState);
+
+  // Compute active status directly so it always reflects the latest snapshot
+  const pane = panes.find(p => p.id === paneId);
+  const isActive = !!pane && (pane.activeTabId === tab.id || globalActiveTab === tab.id);
 
   // duplicate name detection
-  const nameCount = useMemo(() => {
-    const pane = panes.find(p => p.id === paneId);
-    const tabs = pane?.tabs || [];
+  const nameCount = (() => {
+    const paneForNames = panes.find(p => p.id === paneId);
+    const tabs = paneForNames?.tabs || [];
     const counts: Record<string, number> = {};
     tabs.forEach((t: any) => (counts[t.name] = (counts[t.name] || 0) + 1));
     return counts;
-  }, [panes, paneId]);
+  })();
 
   const isDuplicate = nameCount[tab.name] > 1;
   const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
