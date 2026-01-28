@@ -75,7 +75,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    if (!isRestored || !panes.length) {
+    if (!isRestored || panes.length === 0) {
       return;
     }
 

@@ -78,7 +78,7 @@ export function updateCachedModelContent(
   } catch (e) {
     console.warn('[useMonacoModels] updateCachedModelContent failed:', e);
   }
-} 
+}
 
 // LRU順序を更新するヘルパー
 function updateModelAccessOrder(tabId: string): void {
@@ -106,7 +106,7 @@ function enforceModelLimit(
     }
     monacoModelMap.delete(oldestTabId);
   }
-} 
+}
 
 export function useMonacoModels() {
   const monacoModelMapRef = { current: sharedModelMap } as {
@@ -185,7 +185,7 @@ export function useMonacoModels() {
           const uri = mon.Uri.parse(`inmemory://model${normalizedTabPath}`);
           // computed URI log removed in cleanup
 
-            // Check existing Monaco model for this uri and reuse when possible.
+          // Check existing Monaco model for this uri and reuse when possible.
           try {
             const existingModel = mon.editor.getModel(uri);
             if (existingModel && isModelSafe(existingModel)) {

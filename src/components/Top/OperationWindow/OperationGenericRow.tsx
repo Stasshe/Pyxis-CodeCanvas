@@ -14,7 +14,9 @@ interface Props {
 
 function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, queryTokens }: Props) {
   const highlightedLabel = highlightMatch(item.label, queryTokens, isSelected, colors);
-  const highlightedDesc = item.description ? highlightMatch(item.description, queryTokens, isSelected, colors) : null;
+  const highlightedDesc = item.description
+    ? highlightMatch(item.description, queryTokens, isSelected, colors)
+    : null;
 
   return (
     <div

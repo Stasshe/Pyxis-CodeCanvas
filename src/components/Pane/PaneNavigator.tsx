@@ -143,7 +143,10 @@ const RecursivePaneView = memo(function RecursivePaneView({
 });
 
 // Calculate layout dimensions based on pane structure
-function calculateLayoutDimensions(panes: readonly EditorPane[]): { width: number; height: number } {
+function calculateLayoutDimensions(panes: readonly EditorPane[]): {
+  width: number;
+  height: number;
+} {
   const baseSize = 60; // Base size for each pane item
   const gap = 4;
 

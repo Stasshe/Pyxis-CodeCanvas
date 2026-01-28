@@ -136,7 +136,6 @@ export default function TabBar({ paneId }: TabBarProps) {
     openFileSelector(paneId);
   }, [openFileSelector, paneId]);
 
-
   const handleRemovePane = useCallback(() => {
     const flatPanes = flattenPanes(panes);
     if (flatPanes.length <= 1) return;
@@ -292,7 +291,11 @@ export default function TabBar({ paneId }: TabBarProps) {
           parent.children[0];
         if (newPane) {
           openTab(
-            { name: activeTab.name, path: activeTab.path, content: hasContent(activeTab) ? activeTab.content : undefined },
+            {
+              name: activeTab.name,
+              path: activeTab.path,
+              content: hasContent(activeTab) ? activeTab.content : undefined,
+            },
             { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
           );
         }
@@ -304,7 +307,11 @@ export default function TabBar({ paneId }: TabBarProps) {
       const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
       const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
       openTab(
-        { name: activeTab.name, path: activeTab.path, content: hasContent(activeTab) ? activeTab.content : undefined },
+        {
+          name: activeTab.name,
+          path: activeTab.path,
+          content: hasContent(activeTab) ? activeTab.content : undefined,
+        },
         { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
       );
     },

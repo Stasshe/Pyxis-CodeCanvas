@@ -23,7 +23,7 @@ function OperationFileRowInner({
 }: Props) {
   const pathParts = file.path.split('/');
   const dirPath = pathParts.slice(0, -1).join('/');
-  
+
   const highlightedName = highlightMatch(file.name, queryTokens, isSelected, colors);
   const highlightedDir = dirPath ? highlightMatch(dirPath, queryTokens, isSelected, colors) : null;
 

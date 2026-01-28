@@ -242,13 +242,18 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                     };
 
                     // 親ペインを更新（再帰的にペインツリーを更新）
-                    const updatePaneRecursive = (panes: readonly EditorPane[]): readonly Readonly<EditorPane>[] => {
+                    const updatePaneRecursive = (
+                      panes: readonly EditorPane[]
+                    ): readonly Readonly<EditorPane>[] => {
                       return panes.map((p: EditorPane) => {
                         if (p.id === pane.id) {
                           return { ...p, children: updatedChildren } as Readonly<EditorPane>;
                         }
                         if (p.children) {
-                          return { ...p, children: updatePaneRecursive(p.children) } as Readonly<EditorPane>;
+                          return {
+                            ...p,
+                            children: updatePaneRecursive(p.children),
+                          } as Readonly<EditorPane>;
                         }
                         return p as Readonly<EditorPane>;
                       });
