@@ -1,4 +1,4 @@
-import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
+import { type VirtualItem, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';

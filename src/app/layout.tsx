@@ -3,10 +3,10 @@ import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 import AppInitializer from '@/components/AppInitializer';
+import { TabSessionManager } from '@/components/Tab/TabSessionManager';
 import { FileSelectorProvider } from '@/context/FileSelectorContext';
 import { GitHubUserProvider } from '@/context/GitHubUserContext';
 import { I18nProvider } from '@/context/I18nContext';
-import { TabSessionManager } from '@/components/Tab/TabSessionManager';
 import { ThemeProvider } from '@/context/ThemeContext';
 
 export const viewport: Viewport = {

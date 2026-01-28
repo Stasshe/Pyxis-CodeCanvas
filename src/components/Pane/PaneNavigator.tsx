@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 
-import { useTheme, ThemeColors } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';

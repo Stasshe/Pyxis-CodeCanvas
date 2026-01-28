@@ -13,12 +13,12 @@ import 'github-markdown-css/github-markdown.css';
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
-import type { EditorTab, PreviewTab, Tab, EditorPane } from '@/engine/tabs/types';
+import type { EditorPane, EditorTab, PreviewTab, Tab } from '@/engine/tabs/types';
 import { hasContent } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
 import type { Project, ProjectFile } from '@/types';
+import { useSnapshot } from 'valtio';
 
 import InlineHighlightedCode from './InlineHighlightedCode';
 import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';

@@ -14,7 +14,7 @@ import { useCallback, useRef, useState } from 'react';
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme, ThemeColors } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 
 interface MergeConflictResolutionTabProps {

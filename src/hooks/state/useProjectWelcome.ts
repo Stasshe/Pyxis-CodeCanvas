@@ -2,8 +2,8 @@
 import { useEffect } from 'react';
 
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot, snapshot } from 'valtio';
 import type { Project } from '@/types';
+import { snapshot, useSnapshot } from 'valtio';
 
 /**
  * プロジェクト読み込み時にWelcomeタブを開くカスタムフック

@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
 import { getIconSrcForFile, highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import type { ThemeColors } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
-import { ThemeColors } from '@/context/ThemeContext';
+import React from 'react';
 
 interface Props {
   file: FileItem;

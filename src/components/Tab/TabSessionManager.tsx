@@ -3,8 +3,8 @@ import type React from 'react';
 import { type ReactNode, useEffect, useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 
-import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 
 /**
  * TabSessionManager

@@ -1,8 +1,8 @@
 'use client';
 
 import { useTranslation } from '@/context/I18nContext';
-import type { FileItem } from '@/types';
 import type { ThemeColors } from '@/context/ThemeContext';
+import type { FileItem } from '@/types';
 import React from 'react';
 
 interface Props {

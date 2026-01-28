@@ -2,12 +2,12 @@
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
-import { useSnapshot } from 'valtio';
+import { tabActions, tabState } from '@/stores/tabState';
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSnapshot } from 'valtio';
 
 interface ProblemsPanelProps {
   height: number;

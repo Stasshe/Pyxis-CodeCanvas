@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { useDrag, useDrop } from 'react-dnd';
 import { X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 
-import { TabIcon } from './TabIcon';
 import { DND_TAB } from '@/constants/dndTypes';
-import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { Tab } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';
-import { Tab } from '@/engine/tabs/types';
+import { TabIcon } from './TabIcon';
 
 interface Props {
   tab: Tab;

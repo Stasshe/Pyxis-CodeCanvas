@@ -470,15 +470,14 @@ export const tabActions = {
 
     // Final sanitize pass: remove falsy nodes and ensure parentId for children matches their parent
     const sanitize = (panes: readonly EditorPane[]): EditorPane[] =>
-      panes
-        .filter(Boolean)
-        .map(p => {
-          const children = p.children ? sanitize(p.children) : undefined;
-          return {
-            ...p,
-            children: children && children.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
-          } as EditorPane;
-        });
+      panes.filter(Boolean).map(p => {
+        const children = p.children ? sanitize(p.children) : undefined;
+        return {
+          ...p,
+          children:
+            children && children.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
+        } as EditorPane;
+      });
 
     tabState.panes = sanitize(newPanes);
 

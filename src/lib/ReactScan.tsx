@@ -1,6 +1,6 @@
 'use client';
+import { type ReactElement, useEffect } from 'react';
 import { scan } from 'react-scan';
-import { useEffect, type ReactElement } from 'react';
 
 export function ReactScan(): ReactElement | null {
   useEffect(() => {

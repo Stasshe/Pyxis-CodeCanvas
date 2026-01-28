@@ -3,7 +3,7 @@ import React from 'react';
 
 import PanelRightIcon from '@/components/Right/PanelRightIcon';
 import { useTranslation } from '@/context/I18nContext';
-import { ThemeColors } from '@/context/ThemeContext';
+import type { ThemeColors } from '@/context/ThemeContext';
 
 type Props = {
   isOperationWindowVisible: boolean;

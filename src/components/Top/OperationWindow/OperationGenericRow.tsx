@@ -1,9 +1,9 @@
 'use client';
 
+import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import type { ThemeColors } from '@/context/ThemeContext';
 import React from 'react';
 import type { OperationListItem } from './OperationWindow';
-import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
-import { ThemeColors } from '@/context/ThemeContext';
 
 interface Props {
   item: OperationListItem;

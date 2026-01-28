@@ -35,8 +35,8 @@ import { setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
-import { useSnapshot } from 'valtio';
 import type { MenuTab } from '@/types';
+import { useSnapshot } from 'valtio';
 
 /**
  * Home: 新アーキテクチャのメインページ

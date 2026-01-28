@@ -1,7 +1,7 @@
+import type { FileItem } from '@/types';
 import clsx from 'clsx';
 import { Code, Play, Square, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { FileItem } from '@/types';
 
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
