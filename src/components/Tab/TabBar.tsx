@@ -503,6 +503,8 @@ export default function TabBar({ paneId }: TabBarProps) {
             tab={tab}
             tabIndex={tabIndex}
             paneId={paneId}
+            isActive={tab.id === activeTabId || tabState.globalActiveTab === tab.id}
+            isDuplicate={(nameCount[tab.name] || 0) > 1}
             onClick={handleTabClick}
             onContextMenu={handleTabRightClick}
             onTouchStart={handleTouchStart}

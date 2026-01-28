@@ -15,6 +15,8 @@ interface Props {
   tab: any;
   tabIndex: number;
   paneId: string;
+  isActive: boolean;
+  isDuplicate: boolean;
   onClick: (e: React.MouseEvent, tabId: string) => void;
   onContextMenu: (e: React.MouseEvent, tabId: string, el: HTMLElement) => void;
   onTouchStart: (e: React.TouchEvent, tabId: string, el: HTMLElement) => void;
@@ -27,6 +29,8 @@ function DraggableTabInner({
   tab,
   tabIndex,
   paneId,
+  isActive,
+  isDuplicate,
   onClick,
   onContextMenu,
   onTouchStart,
@@ -37,24 +41,7 @@ function DraggableTabInner({
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { moveTabToIndex } = tabActions;
-  const { panes } = useSnapshot(tabState);
 
-  const { globalActiveTab } = useSnapshot(tabState);
-
-  // Compute active status directly so it always reflects the latest snapshot
-  const pane = panes.find(p => p.id === paneId);
-  const isActive = !!pane && (pane.activeTabId === tab.id || globalActiveTab === tab.id);
-
-  // duplicate name detection
-  const nameCount = (() => {
-    const paneForNames = panes.find(p => p.id === paneId);
-    const tabs = paneForNames?.tabs || [];
-    const counts: Record<string, number> = {};
-    tabs.forEach((t: any) => (counts[t.name] = (counts[t.name] || 0) + 1));
-    return counts;
-  })();
-
-  const isDuplicate = nameCount[tab.name] > 1;
   const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
 
   const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | null>(null);
@@ -129,8 +116,12 @@ function DraggableTabInner({
       className={`h-full px-3 flex items-center gap-2 flex-shrink-0 relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
       style={{
         background: isActive ? colors.background : colors.mutedBg,
-        borderColor: isActive ? `${colors.green}80` : colors.border,
-        borderRight: `1px solid ${colors.border}`,
+        // Avoid mixing shorthand `borderColor` with `borderRightColor` to prevent React warnings
+        borderTopColor: isActive ? `${colors.green}80` : colors.border,
+        borderLeftColor: isActive ? `${colors.green}80` : colors.border,
+        borderRightWidth: '1px',
+        borderRightStyle: 'solid',
+        borderRightColor: colors.border,
         borderBottom: isActive ? `2px solid ${colors.green}90` : '2px solid transparent',
         boxShadow: isActive ? `0 2px 8px ${colors.green}20` : 'none',
         minWidth: '120px',
