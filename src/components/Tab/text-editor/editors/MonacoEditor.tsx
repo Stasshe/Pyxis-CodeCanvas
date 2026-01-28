@@ -174,18 +174,36 @@ export default function MonacoEditor({
     if (!isEditorReady || !editorRef.current || !monacoRef.current) return;
     if (jumpToLine === undefined || typeof jumpToLine !== 'number') return;
 
-    const column = jumpToColumn && typeof jumpToColumn === 'number' ? jumpToColumn : 1;
+    // 入力を整数にし、範囲外の場合はクランプする（Monaco は 1-based の行番号を期待する）
+    const requestedLine = Math.trunc(jumpToLine);
+    const requestedColumn = jumpToColumn && typeof jumpToColumn === 'number' ? Math.trunc(jumpToColumn) : 1;
 
     const timeoutId = setTimeout(() => {
       try {
         const editor = editorRef.current;
         const model = editor?.getModel();
 
-        if (editor && model && !model.isDisposed()) {
-          editor.revealPositionInCenter({ lineNumber: jumpToLine, column });
-          editor.setPosition({ lineNumber: jumpToLine, column });
-          editor.focus();
+        if (!editor || !model || model.isDisposed()) return;
+
+        const lineCount = model.getLineCount();
+        let lineNumber = requestedLine;
+        if (Number.isNaN(lineNumber) || lineNumber < 1) {
+          lineNumber = 1;
+        } else if (lineNumber > lineCount) {
+          lineNumber = lineCount;
         }
+
+        const maxColumn = model.getLineMaxColumn(lineNumber);
+        let column = requestedColumn;
+        if (Number.isNaN(column) || column < 1) {
+          column = 1;
+        } else if (column > maxColumn) {
+          column = maxColumn;
+        }
+
+        editor.revealPositionInCenter({ lineNumber, column });
+        editor.setPosition({ lineNumber, column });
+        editor.focus();
       } catch (e) {
         console.warn('[MonacoEditor] Failed to jump to line/column:', e);
       }
