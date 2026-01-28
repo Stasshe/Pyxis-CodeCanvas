@@ -40,7 +40,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // determine markdown plugins based on settings
   const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
 
-  const { panes } = useSnapshot(tabState);
+  // Only subscribe to panes for the purpose of finding the matching editor's content
+  const panesSnapshot = useSnapshot(tabState).panes;
   const editorTabContent = useMemo(() => {
     const find = (paneList: readonly EditorPane[]): string | null => {
       for (const p of paneList) {
@@ -53,8 +54,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       }
       return null;
     };
-    return find(panes);
-  }, [panes, activeTab.path]);
+    return find(panesSnapshot);
+  }, [panesSnapshot, activeTab.path]);
 
   const contentSource = editorTabContent ?? activeTab.content ?? '';
   const { openTab } = tabActions;
