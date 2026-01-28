@@ -379,7 +379,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
-      style={{ background: colors.mutedBg, borderColor: colors.border }}
+      style={{ background: colors.mutedBg, borderColor: colors.border, zIndex: 1 }}
     >
       {/* ペインメニューボタン */}
       <div className="flex items-center h-full pl-2 pr-1 gap-1 relative">

@@ -135,6 +135,7 @@ function DraggableTabInner({
         minWidth: '120px',
         maxWidth: '200px',
         opacity: isDragging ? 0.4 : 1,
+        zIndex: isActive ? 10 : undefined,
       }}
       onClick={e => onClick(e, tab.id)}
       onContextMenu={e => {
