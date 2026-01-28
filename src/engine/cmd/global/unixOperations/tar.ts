@@ -114,7 +114,11 @@ export class TarCommand extends UnixCommandBase {
         const entryName = fileAppPath.replace(/^\/+/, '');
 
         if (file.type === 'folder') {
-          // ディレクトリエントリ（末尾にスラッシュ）
+          // フォルダの場合は再帰的に中身を取得して追加する
+          const folderPrefix = fileAppPath; // AppPath 形式
+          const children = await fileRepository.getFilesByPrefix(this.projectId, folderPrefix);
+
+          // 先にディレクトリエントリ自身を追加
           await new Promise<void>((resolve, reject) => {
             pack.entry({ name: `${entryName}/`, type: 'directory' }, '', (err) => {
               if (err) reject(err);
@@ -122,8 +126,40 @@ export class TarCommand extends UnixCommandBase {
             });
           });
 
-          if (verbose) {
-            console.log(`${entryName}/`);
+          for (const child of children) {
+            const childEntryName = child.path.replace(/^\\+/, '');
+
+            if (child.type === 'folder') {
+              await new Promise<void>((resolve, reject) => {
+                pack.entry({ name: `${childEntryName}/`, type: 'directory' }, '', err => {
+                  if (err) reject(err);
+                  else resolve();
+                });
+              });
+              if (verbose) console.log(`${childEntryName}/`);
+            } else {
+              const contentBuf = child.bufferContent
+                ? Buffer.from(child.bufferContent as ArrayBuffer)
+                : Buffer.from(child.content || '', 'utf8');
+
+              await new Promise<void>((resolve, reject) => {
+                pack.entry(
+                  {
+                    name: childEntryName,
+                    type: 'file',
+                    size: contentBuf.length,
+                  },
+                  contentBuf,
+                  err => {
+                    if (err) reject(err);
+                    else resolve();
+                  }
+                );
+              });
+
+              if (verbose) console.log(childEntryName);
+            }
+            addedCount++;
           }
         } else {
           // ファイルエントリ
