@@ -10,9 +10,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useTranslation } from '@/context/I18nContext';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';
+import { Tab } from '@/engine/tabs/types';
 
 interface Props {
-  tab: any;
+  tab: Tab;
   tabIndex: number;
   paneId: string;
   isActive: boolean;
@@ -177,7 +178,7 @@ function DraggableTabInner({
         {displayName}
       </span>
 
-      {(tab as any).isDirty ? (
+      {tab.isDirty ? (
         <button
           data-close-button="true"
           className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
