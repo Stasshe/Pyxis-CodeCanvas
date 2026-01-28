@@ -1,13 +1,12 @@
 'use client';
 
 import type { ThemeColors } from '@/context/ThemeContext';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useMemo, useRef, useEffect } from 'react';
+import type { OperationListItem } from './OperationWindow';
 import type { FileItem } from '@/types';
-import { type VirtualItem, useVirtualizer } from '@tanstack/react-virtual';
-import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
 import OperationFileRow from './OperationFileRow';
 import OperationGenericRow from './OperationGenericRow';
-import type { OperationListItem } from './OperationWindow';
 
 interface Props {
   viewMode: 'files' | 'list';
@@ -20,7 +19,7 @@ interface Props {
   colors: ThemeColors;
   queryTokens: string[];
   t: (k: string) => string;
-  listRef?: React.RefObject<HTMLDivElement | null>;
+  listRef?: React.RefObject<HTMLDivElement>;
 }
 
 export default function OperationVirtualList({
@@ -48,32 +47,7 @@ export default function OperationVirtualList({
     overscan: 5,
   });
 
-  const [virtualItems, setVirtualItems] = useState<VirtualItem[]>([]);
-  const [totalSize, setTotalSize] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-    const update = () => {
-      // schedule on a microtask to avoid calling into React while it is rendering
-      Promise.resolve().then(() => {
-        if (!mounted) return;
-        setVirtualItems(virtualizer.getVirtualItems());
-        setTotalSize(virtualizer.getTotalSize());
-      });
-    };
-
-    update();
-
-    const el = parentRef.current;
-    if (el) el.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-
-    return () => {
-      mounted = false;
-      if (el) el.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, [virtualizer, count]);
+  const virtualItems = virtualizer.getVirtualItems();
 
   // Ensure the virtualized list scrolls to the selected index when it changes.
   useEffect(() => {
@@ -97,9 +71,7 @@ export default function OperationVirtualList({
         style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
       >
         <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
-          {viewMode === 'files'
-            ? t('operationWindow.noFilesFound')
-            : t('operationWindow.noItemsFound')}
+          {viewMode === 'files' ? t('operationWindow.noFilesFound') : t('operationWindow.noItemsFound')}
         </div>
       </div>
     );
@@ -110,7 +82,7 @@ export default function OperationVirtualList({
       ref={parentRef as React.RefObject<HTMLDivElement>}
       style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
     >
-      <div style={{ height: `${totalSize}px`, width: '100%', position: 'relative' }}>
+      <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
         {virtualItems.map(virtualItem => {
           const index = virtualItem.index;
           const top = virtualItem.start;
@@ -125,14 +97,7 @@ export default function OperationVirtualList({
             return (
               <div
                 key={file.id}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: `${size}px`,
-                  transform: `translateY(${top}px)`,
-                }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${size}px`, transform: `translateY(${top}px)` }}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
                 <OperationFileRow
@@ -154,14 +119,7 @@ export default function OperationVirtualList({
           return (
             <div
               key={item.id}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: `${size}px`,
-                transform: `translateY(${top}px)`,
-              }}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${size}px`, transform: `translateY(${top}px)` }}
               onMouseEnter={() => setSelectedIndex(index)}
             >
               <OperationGenericRow

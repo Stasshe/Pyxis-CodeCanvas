@@ -265,31 +265,7 @@ export default function VirtualizedFileTree({
     [currentProjectId, currentProjectName, onRefresh]
   );
 
-  const [virtualItems, setVirtualItems] = useState<VirtualItem[]>([]);
-  const [totalSize, setTotalSize] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-    const update = () => {
-      Promise.resolve().then(() => {
-        if (!mounted) return;
-        setVirtualItems(virtualizer.getVirtualItems());
-        setTotalSize(virtualizer.getTotalSize());
-      });
-    };
-
-    update();
-
-    const el = parentRef.current;
-    if (el) el.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-
-    return () => {
-      mounted = false;
-      if (el) el.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, [virtualizer, flattenedItems.length]);
+  const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div
@@ -314,7 +290,7 @@ export default function VirtualizedFileTree({
       >
         <div
           style={{
-            height: `${totalSize}px`,
+            height: `${virtualizer.getTotalSize()}px`,
             width: '100%',
             position: 'relative',
           }}
