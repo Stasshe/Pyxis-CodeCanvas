@@ -107,31 +107,22 @@ export abstract class UnixCommandBase {
    * 相対パスを絶対パス（FSPath形式）に変換
    */
   protected resolvePath(path: string): string {
-    // Returns an FSPath (absolute path inside /projects/{projectName})
+    // '.' はカレントディレクトリ
+    if (path === '.') return this.currentDir;
+
     const projectRoot = pathGetProjectRoot(this.projectName);
 
-    // If path already appears to be an FSPath for this project, normalize and return
+    // 既に FSPath (/projects/{projectName}/...) が渡された場合は AppPath に変換して正規化
     if (path.startsWith(projectRoot)) {
       const app = fsPathToAppPath(path, this.projectName);
-      const normalizedApp = normalizeDotSegments(app);
-      return toFSPath(this.projectName, normalizedApp);
+      const normalized = normalizeDotSegments(app);
+      return toFSPath(this.projectName, normalized);
     }
 
-    // If path is absolute AppPath (/src/...), normalize and convert to FSPath
-    if (path.startsWith('/')) {
-      const normalizedApp = normalizeDotSegments(path);
-      return toFSPath(this.projectName, normalizedApp);
-    }
-
-    // '.' is current directory
-    if (path === '.') {
-      return this.currentDir;
-    }
-
-    // Otherwise treat as relative to current dir (FSPath)
-    const currentApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const resolvedApp = pathResolvePath(currentApp, path);
-    return toFSPath(this.projectName, resolvedApp);
+    // AppPath（先頭が /）または相対パスをカレントディレクトリ基準で解決
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const appPath = path.startsWith('/') ? normalizeDotSegments(path) : pathResolvePath(baseApp, path);
+    return toFSPath(this.projectName, appPath);
   }
 
   /**
@@ -139,21 +130,7 @@ export abstract class UnixCommandBase {
    * pathResolverのnormalizeDotSegmentsを使用
    */
   protected normalizePath(path: string): string {
-    // Normalize and return an FSPath (so callers get a consistent absolute FSPath)
-    const projectRoot = pathGetProjectRoot(this.projectName);
-
-    if (path.startsWith(projectRoot)) {
-      const app = fsPathToAppPath(path, this.projectName);
-      const normalizedApp = normalizeDotSegments(app);
-      return toFSPath(this.projectName, normalizedApp);
-    }
-
-    if (path.startsWith('/')) {
-      const normalizedApp = normalizeDotSegments(path);
-      return toFSPath(this.projectName, normalizedApp);
-    }
-
-    // relative -> resolve against current dir
+    // resolvePath already returns a normalized FSPath; reuse it for simplicity
     return this.resolvePath(path);
   }
 
