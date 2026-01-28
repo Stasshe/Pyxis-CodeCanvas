@@ -210,7 +210,7 @@ async function executeSave(path: string, content: string): Promise<boolean> {
   }
 }
 
-// 同一 path の全タブのコンテンツを更新（tabContentStore経由、panesは更新しない）
+// 同一 path の全タブのコンテンツを更新（tabContentStore経由、panesは更新しない→更新する）
 function updateAllTabsByPath(path: string, content: string, isDirty: boolean): void {
   const targetPath = toAppPath(path);
   const allTabs = collectAllTabs(tabState.panes);
@@ -220,12 +220,25 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
     const tPath = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
     if (tPath === targetPath) {
       const prev = getTabContent(t.id);
-      // Only update tab content and schedule model update when necessary
-      if (prev !== content || isDirty) {
+      const currentDirty = (t as any).isDirty ?? false;
+      
+      // Update if content changed OR dirty flag needs update
+      // We check both current content and current dirty status
+      const shouldUpdate = (prev !== content) || (currentDirty !== isDirty);
+
+      if (shouldUpdate) {
         setTabContent(t.id, content, isDirty);
-        // schedule Monaco model update in idle to avoid blocking the main thread
-        pendingModelUpdates.set(t.id, content);
-        scheduleModelUpdateFlush();
+        
+        // Only schedule model update if content CHANGED
+        if (prev !== content) {
+          pendingModelUpdates.set(t.id, content);
+          scheduleModelUpdateFlush();
+        }
+        
+        // Update tabState dirty flag directly on the proxy
+        if (currentDirty !== isDirty) {
+          (t as any).isDirty = isDirty;
+        }
       }
     }
   }
@@ -367,35 +380,17 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
   const tabDef = tabRegistry.get(tab.kind);
   const targetPath = toAppPath(tabDef?.getContentPath?.(tab) ?? tab.path ?? '');
 
-  // 同じパスを持つ全タブのIDを収集
-  const affectedTabIds: string[] = [];
-  for (const t of allTabs) {
-    const def = tabRegistry.get(t.kind);
-    const tp = toAppPath(def?.getContentPath?.(t) ?? t.path ?? '');
-    if (tp === targetPath) {
-      affectedTabIds.push(t.id);
-    }
-  }
+  if (targetPath) {
+    // 共通ロジックを使用して全タブを更新（dirtyフラグの同期も含む）
+    updateAllTabsByPath(targetPath, content, isDirty);
 
-  // tabContentStoreにコンテンツを保存（panes更新なし = page再レンダリングなし）
-  for (const id of affectedTabIds) {
-    const prev = getTabContent(id);
-    if (prev !== content || isDirty) {
-      setTabContent(id, content, isDirty);
-      // schedule Monaco model update in idle to avoid blocking the main thread
-      pendingModelUpdates.set(id, content);
-      scheduleModelUpdateFlush();
-    }
-  }
-
-  // ダーティフラグの変更時のみ panes を更新
-  // これは頻繁には発生しないので問題ない
-  if (isDirty && targetPath) {
-    // 保存をスケジュール
-    try {
-      scheduleSave(targetPath, () => tabState.panes);
-    } catch (e) {
-      console.warn('[tabState] scheduleSave failed:', e);
+    // ダーティフラグが立っている場合は保存をスケジュール
+    if (isDirty) {
+      try {
+        scheduleSave(targetPath, () => tabState.panes);
+      } catch (e) {
+        console.warn('[tabState] scheduleSave failed:', e);
+      }
     }
   }
 }
