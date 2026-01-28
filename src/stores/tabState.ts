@@ -454,49 +454,16 @@ export const tabActions = {
       if (!pane) return null;
       if (!pane.children) return pane;
 
-      // Build a new children array by iterating and handling the case where
-      // a direct child matches `paneId` — in that case, splice in its children
-      // (promote grandchildren) rather than simply removing the node.
-      const resultChildren: EditorPane[] = [];
+      const ch = pane.children
+        .map(c => (c && c.id === paneId ? null : removeRecursive(c as EditorPane)))
+        .filter(Boolean) as EditorPane[];
 
-      for (const child of pane.children) {
-        if (!child) continue;
-        if (child.id === paneId) {
-          // remove this child and insert its children in its place
-          const grand = (child.children ?? []).filter(Boolean) as EditorPane[];
-          if (grand.length === 0) {
-            // nothing to insert
-            continue;
-          }
-          if (grand.length === 1) {
-            // promote single grandchild
-            resultChildren.push({ ...grand[0], parentId: pane.id, size: pane.size });
-            continue;
-          }
-          // multiple grandchildren: adopt them under current pane
-          for (const g of grand) resultChildren.push({ ...g, parentId: pane.id });
-          continue;
-        }
-
-        const r = removeRecursive(child as EditorPane);
-        if (r) resultChildren.push(r);
+      if (ch.length === 1) return { ...ch[0], size: pane.size };
+      if (ch.length > 0) {
+        const s = 100 / ch.length;
+        return { ...pane, children: ch.map(c => ({ ...c, size: s })) };
       }
-
-      // Normalize sizes and parentId
-      if (resultChildren.length === 1) {
-        // Keep the parent pane and make the single remaining child the only child.
-        const single = { ...resultChildren[0], parentId: pane.id, size: pane.size };
-        return { ...pane, children: [single] };
-      }
-      if (resultChildren.length > 0) {
-        const s = 100 / resultChildren.length;
-        return {
-          ...pane,
-          children: resultChildren.map(c => ({ ...c, size: s, parentId: pane.id })),
-        };
-      }
-
-      return { ...pane, children: [] };
+      return { ...pane, children: ch };
     };
 
     const newPanes = currentPanes.map(p => removeRecursive(p)).filter(Boolean) as EditorPane[];

@@ -29,11 +29,9 @@ describe('tabActions.removePane', () => {
       },
     ] as any;
     expect(() => tabActions.removePane('pane-1-1')).not.toThrow();
-    // Parent should remain and its children should contain only the remaining child
+    // Implementation replaces parent with the single remaining child (promotion)
     expect(tabState.panes.length).toBe(1);
-    expect(tabState.panes[0].id).toBe('pane-1');
-    expect(tabState.panes[0].children?.length).toBe(1);
-    expect(tabState.panes[0].children?.[0].id).toBe('pane-1-2');
+    expect(tabState.panes[0].id).toBe('pane-1-2');
   });
 
   test('does not introduce cycles in pane tree', () => {
@@ -119,7 +117,7 @@ describe('tabActions.removePane', () => {
     expect(tabState.globalActiveTab).toBeNull();
   });
 
-  test('promoted child keeps correct size when promoted', () => {
+  test('removing an immediate child removes its subtree (no promotion)', () => {
     tabState.panes = [
       {
         id: 'root',
@@ -129,13 +127,51 @@ describe('tabActions.removePane', () => {
       },
     ] as any;
     tabActions.removePane('parent');
-    // After removal, 'child' should be promoted and inherit parent's size
-    const promoted = (tabState.panes[0].children || [])[0];
-    expect(promoted.id).toBe('child');
-    expect(promoted.size).toBe(30);
+    // After removal, the parent is removed and its subtree is gone (no promotion)
+    const children = tabState.panes[0].children || [];
+    expect(children.length).toBe(0);
   });
 
-  test('promote multiple grandchildren into parent', () => {
+  test('removing parent with sized child subtree removes subtree (no promotion)', () => {
+    tabState.panes = [
+      {
+        id: 'root',
+        children: [
+          {
+            id: 'parent',
+            children: [{ id: 'child', tabs: [], activeTabId: '' }],
+            size: 42,
+            parentId: 'root',
+          },
+        ],
+      },
+    ] as any;
+
+    tabActions.removePane('parent');
+    const children = tabState.panes[0].children || [];
+    expect(children.length).toBe(0);
+  });
+
+  test('removing parent with no size leaves no promoted node', () => {
+    tabState.panes = [
+      {
+        id: 'root',
+        children: [
+          {
+            id: 'parent',
+            children: [{ id: 'child', tabs: [], activeTabId: '' }],
+            parentId: 'root',
+          },
+        ],
+      },
+    ] as any;
+
+    tabActions.removePane('parent');
+    const children = tabState.panes[0].children || [];
+    expect(children.length).toBe(0);
+  });
+
+  test('removing parent removes its children (no promotion of grandchildren)', () => {
     tabState.panes = [
       {
         id: 'root',
@@ -155,7 +191,6 @@ describe('tabActions.removePane', () => {
 
     tabActions.removePane('parent');
     const children = tabState.panes[0].children || [];
-    expect(children.map((c: any) => c.id)).toEqual(['g1', 'g2']);
-    expect(children.every((c: any) => c.parentId === 'root')).toBe(true);
+    expect(children.length).toBe(0);
   });
 });
