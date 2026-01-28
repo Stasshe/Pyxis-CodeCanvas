@@ -193,7 +193,9 @@ function calculateLayoutDimensions(panes: readonly EditorPane[]): {
  */
 export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const { colors } = useTheme();
-  const { panes, activePane } = useSnapshot(tabState);
+  // Subscribe only to structural pane tree and the active pane id
+  const panesForStructure = useSnapshot(tabState).panes;
+  const activePane = useSnapshot(tabState).activePane;
   const { setActivePane, splitPane, removePane } = tabActions;
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
 
@@ -206,9 +208,9 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         if (p.children) traverse(p.children);
       }
     };
-    traverse(panes);
+    traverse(panesForStructure);
     return result;
-  }, [panes]);
+  }, [panesForStructure]);
 
   // Initialize selection
   useEffect(() => {
@@ -326,7 +328,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
-  const { width, height } = calculateLayoutDimensions(panes);
+  const { width, height } = calculateLayoutDimensions(panesForStructure);
 
   return (
     <div
@@ -344,10 +346,10 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         style={{ width: `${width}px`, height: `${height}px` }}
         onClick={e => e.stopPropagation()}
       >
-        {panes.map(pane => (
+        {panesForStructure.map((pane: EditorPane) => (
           <div key={pane.id} className="flex-1" style={{ minWidth: 0, minHeight: 0 }}>
             <RecursivePaneView
-              pane={pane as any}
+              pane={pane}
               selectedPaneId={selectedPaneId}
               activePane={activePane}
               onSelect={handleSelect}

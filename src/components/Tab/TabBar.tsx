@@ -64,13 +64,17 @@ export default function TabBar({ paneId }: TabBarProps) {
     moveTabToIndex,
     splitPane,
   } = tabActions;
-  const { panes } = useSnapshot(tabState);
 
+  // Subscribe only to minimal pane metadata for rendering
+  const paneMeta = useSnapshot(tabState).panes.find(p => p.id === paneId);
+  const tabsMeta =
+    paneMeta?.tabs?.map(t => ({ id: t.id, name: t.name, isDirty: t.isDirty, kind: t.kind, path: t.path })) || [];
+  const activeTabId = paneMeta?.activeTabId;
+  const globalActiveTab = useSnapshot(tabState).globalActiveTab;
+
+  // Non-reactive access to full pane structure for imperative operations
   const pane = getPane(paneId);
   if (!pane) return null;
-
-  const tabs = pane.tabs;
-  const activeTabId = pane.activeTabId;
 
   // ペインメニューの開閉状態
   const [paneMenuOpen, setPaneMenuOpen] = useState(false);
@@ -114,21 +118,21 @@ export default function TabBar({ paneId }: TabBarProps) {
     };
   }, [paneMenuOpen, tabContextMenu.isOpen]);
 
-  // 同名ファイルの重複チェック
+  // 同名ファイルの重複チェック（最小データで計算）
   const nameCount: Record<string, number> = {};
-  tabs.forEach(tab => {
+  tabsMeta.forEach(tab => {
     nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
   });
 
   // タブを閉じる
   const handleTabClose = useCallback(
     (tabId: string) => {
-      const tab = tabs.find(t => t.id === tabId);
-      if (tab) {
-        requestClose(tabId, (tab as any).isDirty || false, () => closeTab(paneId, tabId));
-      }
+      // Use a non-reactive snapshot to get current dirty flag if needed
+      const state = snapshot(tabState);
+      const tab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === tabId);
+      requestClose(tabId, (tab as any)?.isDirty || false, () => closeTab(paneId, tabId));
     },
-    [tabs, requestClose, closeTab, paneId]
+    [requestClose, closeTab, paneId]
   );
 
   // 新しいタブを追加
@@ -158,8 +162,11 @@ export default function TabBar({ paneId }: TabBarProps) {
   }, [paneId, removePane]);
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
-    tabs.forEach(tab => closeTab(paneId, tab.id));
-  }, [tabs, closeTab, paneId]);
+    // Use non-reactive snapshot for authoritative list at click time
+    const state = snapshot(tabState);
+    const currentPane = state.panes.find((p: any) => p.id === paneId);
+    currentPane?.tabs?.forEach((tab: any) => closeTab(paneId, tab.id));
+  }, [closeTab, paneId]);
 
   // タブをペインに移動
   const handleMoveTabToPane = useCallback(
@@ -256,44 +263,44 @@ export default function TabBar({ paneId }: TabBarProps) {
       if (tabState.activePane !== paneId) return;
       handleRemoveAllTabs();
     },
-    [tabs, paneId]
+    [paneId]
   );
 
   useKeyBinding(
     'nextTab',
     () => {
       if (tabState.activePane !== paneId) return;
-      if (tabs.length === 0) return;
-      const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-      const nextIndex = (currentIndex + 1) % tabs.length;
-      activateTab(paneId, tabs[nextIndex].id);
+      if (tabsMeta.length === 0) return;
+      const currentIndex = tabsMeta.findIndex(t => t.id === activeTabId);
+      const nextIndex = (currentIndex + 1) % tabsMeta.length;
+      activateTab(paneId, tabsMeta[nextIndex].id);
     },
-    [tabs, activeTabId, paneId]
+    [tabsMeta, activeTabId, paneId]
   );
 
   useKeyBinding(
     'prevTab',
     () => {
       if (tabState.activePane !== paneId) return;
-      if (tabs.length === 0) return;
-      const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-      activateTab(paneId, tabs[prevIndex].id);
+      if (tabsMeta.length === 0) return;
+      const currentIndex = tabsMeta.findIndex(t => t.id === activeTabId);
+      const prevIndex = (currentIndex - 1 + tabsMeta.length) % tabsMeta.length;
+      activateTab(paneId, tabsMeta[prevIndex].id);
     },
-    [tabs, activeTabId, paneId]
+    [tabsMeta, activeTabId, paneId]
   );
 
   useKeyBinding(
     'openMdPreview',
     () => {
       if (tabState.activePane !== paneId) return;
-      const activeTab = tabs.find(t => t.id === activeTabId);
+      const activeTab = tabsMeta.find(t => t.id === activeTabId);
       if (!activeTab) return;
 
       const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
       if (!(ext === 'md' || ext === 'mdx')) return;
 
-      const leafPanes = flattenPanes(panes);
+      const leafPanes = flattenPanes(snapshot(tabState).panes);
 
       if (leafPanes.length === 1) {
         splitPane(paneId, 'vertical');
@@ -305,11 +312,14 @@ export default function TabBar({ paneId }: TabBarProps) {
           parent.children[1] ||
           parent.children[0];
         if (newPane) {
+          const state = snapshot(tabState);
+          const freshTab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === activeTab.id);
           openTab(
             {
-              name: activeTab.name,
-              path: activeTab.path,
-              content: hasContent(activeTab) ? activeTab.content : undefined,
+              name: freshTab?.name || activeTab.name,
+              path: freshTab?.path || activeTab.path,
+              content: freshTab?.content,
+
             },
             { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
           );
@@ -321,20 +331,25 @@ export default function TabBar({ paneId }: TabBarProps) {
       if (other.length === 0) return;
       const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
       const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
-      openTab(
-        {
-          name: activeTab.name,
-          path: activeTab.path,
-          content: hasContent(activeTab) ? activeTab.content : undefined,
-        },
-        { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
-      );
+      {
+        const state = snapshot(tabState);
+        const freshTab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === activeTab.id);
+        openTab(
+          {
+            name: freshTab?.name || activeTab.name,
+            path: freshTab?.path || activeTab.path,
+            content: freshTab?.content,
+
+          },
+          { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
+        );
+      }
     },
-    [paneId, activeTabId, tabs, panes]
+    [paneId, activeTabId, tabsMeta]
   );
 
-  // ペインリスト（タブ移動用）
-  const flatPanes = flattenPanes(panes);
+  // ペインリスト（タブ移動用） - non-reactive snapshot for list
+  const flatPanes = flattenPanes(snapshot(tabState).panes);
   const availablePanes = flatPanes.map((p, idx) => ({
     id: p.id,
     name: `Pane ${idx + 1}`,
@@ -497,13 +512,13 @@ export default function TabBar({ paneId }: TabBarProps) {
         }}
         onWheel={handleWheel}
       >
-        {tabs.map((tab, tabIndex) => (
+        {tabsMeta.map((tab, tabIndex) => (
           <DraggableTab
             key={`${paneId}-${tabIndex}-${tab.id}`}
-            tab={tab}
+            tab={tab as any}
             tabIndex={tabIndex}
             paneId={paneId}
-            isActive={tab.id === activeTabId || tabState.globalActiveTab === tab.id}
+            isActive={tab.id === activeTabId || globalActiveTab === tab.id}
             isDuplicate={(nameCount[tab.name] || 0) > 1}
             onClick={handleTabClick}
             onContextMenu={handleTabRightClick}
@@ -534,17 +549,16 @@ export default function TabBar({ paneId }: TabBarProps) {
           }}
         >
           {/* Markdownプレビュー */}
-          {tabs
-            .find(t => t.id === tabContextMenu.tabId)
-            ?.name.toLowerCase()
-            .endsWith('.md') && (
+          {tabsMeta.find(t => t.id === tabContextMenu.tabId)?.name.toLowerCase().endsWith('.md') && (
             <button
               className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
               onClick={() => {
-                const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+                // Pull the latest content at the time of user action
+                const state = snapshot(tabState);
+                const tab = state.panes.flatMap((p: any) => p.tabs || []).find((t: any) => t.id === tabContextMenu.tabId);
                 if (tab) {
                   openTab(
-                    { name: tab.name, path: tab.path, content: (tab as any).content },
+                    { name: tab.name, path: tab.path, content: tab.content },
                     { kind: 'preview', paneId, targetPaneId: paneId }
                   );
                 }
