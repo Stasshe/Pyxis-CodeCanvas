@@ -199,6 +199,7 @@ Root
 │   │   │   │   └── useGitPanel.ts
 │   │   │   ├── GitPanel.tsx
 │   │   │   ├── LeftSidebar.tsx
+│   │   │   ├── ResultRow.tsx
 │   │   │   ├── RunPanel.tsx
 │   │   │   ├── SearchPanel.tsx
 │   │   │   └── SettingsPanel.tsx
@@ -216,6 +217,7 @@ Root
 │   │   │   ├── Breadcrumb.tsx
 │   │   │   ├── CodeEditor.tsx
 │   │   │   ├── DiffTab.tsx
+│   │   │   ├── DraggableTab.tsx
 │   │   │   ├── InlineHighlightedCode.tsx
 │   │   │   ├── LocalImage.tsx
 │   │   │   ├── MarkdownPreview
@@ -229,6 +231,7 @@ Root
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── TabIcon.tsx
+│   │   │   ├── TabSessionManager.tsx
 │   │   │   ├── WebPreviewTab.tsx
 │   │   │   ├── WelcomeTab.tsx
 │   │   │   ├── markdownUtils.ts
@@ -252,9 +255,13 @@ Root
 │   │   │   └── useTabCloseConfirmation.tsx
 │   │   └── Top
 │   │       ├── MdPreviewDialog.tsx
-│   │       ├── OperationList.tsx
-│   │       ├── OperationUtils.tsx
-│   │       ├── OperationWindow.tsx
+│   │       ├── OperationWindow
+│   │       │   ├── OperationFileRow.tsx
+│   │       │   ├── OperationGenericRow.tsx
+│   │       │   ├── OperationUtils.tsx
+│   │       │   ├── OperationVirtualList.tsx
+│   │       │   ├── OperationWindow.tsx
+│   │       │   └── operationWorker.ts
 │   │       └── TopBar.tsx
 │   ├── constants
 │   │   ├── config.ts
@@ -263,7 +270,6 @@ Root
 │   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
 │   │   ├── I18nContext.tsx
-│   │   ├── TabContext.tsx
 │   │   └── ThemeContext.tsx
 │   ├── engine
 │   │   ├── ai
@@ -379,10 +385,6 @@ Root
 │   │   │   ├── pathUtils.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
-│   │   ├── editor
-│   │   │   ├── EditorMemoryManager.ts
-│   │   │   ├── index.ts
-│   │   │   └── useEditorMemory.ts
 │   │   ├── helper
 │   │   │   ├── isBufferArray.ts
 │   │   │   ├── resize.ts
@@ -483,10 +485,13 @@ Root
 │   │       ├── usePaneResize.ts
 │   │       ├── useResize.ts
 │   │       └── useTabContentRestore.ts
+│   ├── lib
+│   │   └── ReactScan.tsx
 │   ├── stores
 │   │   ├── projectStore.ts
-│   │   ├── sessionStorage.ts
-│   │   ├── tabStore.ts
+│   │   ├── sessionStore.ts
+│   │   ├── tabContentStore.ts
+│   │   ├── tabState.ts
 │   │   └── terminalHistoryStorage.ts
 │   └── types
 │       ├── git.ts
@@ -517,6 +522,7 @@ Root
 │   ├── reactImportTransform.test.ts
 │   ├── redirection.test.ts
 │   ├── redirection_extra.test.ts
+│   ├── removePane.test.ts
 │   ├── run-test-script.test.ts
 │   ├── run_test_script.test.ts
 │   ├── runtimeRegistry.test.ts
@@ -536,7 +542,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-79 directories, 457 files
+80 directories, 462 files
 
 =================================
 
@@ -666,12 +672,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 71979
-合計文字数: 2281411
-合計ファイルサイズ(bytes): 2426357
+合計行数: 71678
+合計文字数: 2278241
+合計ファイルサイズ(bytes): 2414235
 
-開発時のdev container全体のサイズ(bytes): 1.2G	.
+開発時のdev container全体のサイズ(bytes): 1.3G	.
 ==========
-ビルト済みファイルの行数: 129252
-合計文字数: 27026598
-合計ファイルサイズ(bytes): 30012668
+ビルト済みファイルの行数: 129584
+合計文字数: 27392652
+合計ファイルサイズ(bytes): 30378753
