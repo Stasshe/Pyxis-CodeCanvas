@@ -73,7 +73,7 @@ export interface AIReviewTab extends BaseTab {
   /** AIレビューエントリ (projectIdやoriginalSnapshotなどを含む) */
   aiEntry?: AIReviewEntry;
   /** 履歴 */
-  history?: AIReviewHistoryEntry[];
+  history?: readonly AIReviewHistoryEntry[];
 }
 
 /**
@@ -81,7 +81,7 @@ export interface AIReviewTab extends BaseTab {
  */
 export interface DiffTab extends BaseTab {
   kind: 'diff';
-  diffs: DiffFileEntry[];
+  diffs: readonly DiffFileEntry[];
   editable?: boolean;
 }
 
@@ -153,7 +153,7 @@ export interface MergeConflictFileEntry {
 export interface MergeConflictTab extends BaseTab {
   kind: 'merge-conflict';
   /** List of conflicting files */
-  conflicts: MergeConflictFileEntry[];
+  conflicts: readonly MergeConflictFileEntry[];
   /** OURS branch name/commit ID */
   oursBranch: string;
   /** THEIRS branch name/commit ID */
@@ -196,7 +196,7 @@ export interface OpenTabOptions {
     originalContent: string;
     suggestedContent: string;
     filePath: string;
-    history?: AIReviewHistoryEntry[];
+    history?: readonly AIReviewHistoryEntry[];
     aiEntry?: AIReviewEntry;
   };
   diffProps?: {
@@ -274,11 +274,11 @@ export type PaneLayoutType = 'vertical' | 'horizontal';
  */
 export interface EditorPane {
   id: string;
-  tabs: Tab[];
+  tabs: readonly Tab[];
   activeTabId: string;
   layout?: PaneLayoutType;
   size?: number;
-  children?: EditorPane[];
+  children?: readonly EditorPane[];
   parentId?: string;
 }
 

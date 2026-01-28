@@ -44,7 +44,7 @@ export async function handlePyxisCommand(
         await writeOutput('⚠️  WARNING: This will DELETE ALL DATA including:');
         await writeOutput('  - All IndexedDB databases (pyxis-global, pyxisproject, lightning-fs)');
         await writeOutput('  - localStorage (except recent projects and language settings)');
-        await writeOutput('  - sessionStorage (terminal history)');
+        await writeOutput('  - session-scoped preferences (terminal history)');
         await writeOutput('');
         await writeOutput('Type "yes" to confirm or "no" to cancel:');
 
@@ -158,11 +158,11 @@ export async function handlePyxisCommand(
               `  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`
             );
 
-            // 4. Clear sessionStorage
-            await writeOutput('[4/5] Clearing sessionStorage...');
-            clearAllTerminalHistory();
-            sessionStorage.clear();
-            await writeOutput('  ✓ Cleared sessionStorage');
+            // 4. Clear session-scoped data (migrated to IndexedDB user_preferences)
+            await writeOutput('[4/5] Clearing session-scoped preferences...');
+            await clearAllTerminalHistory();
+            await storageService.clear(STORES.USER_PREFERENCES);
+            await writeOutput('  ✓ Cleared session-scoped preferences');
 
             // 5. Reload page to reinitialize
             await writeOutput('[5/5] Reloading application...');
@@ -209,8 +209,8 @@ export async function handlePyxisCommand(
                   const tx = db.transaction(storeName, 'readonly');
                   const store = tx.objectStore(storeName);
                   const getAllReq = store.getAll();
-                  const items = await new Promise<any[]>((resolve, reject) => {
-                    getAllReq.onsuccess = () => resolve(getAllReq.result);
+                  const items = await new Promise<unknown[]>((resolve, reject) => {
+                    getAllReq.onsuccess = () => resolve(getAllReq.result as unknown[]);
                     getAllReq.onerror = () => reject(getAllReq.error);
                   });
 
@@ -224,17 +224,18 @@ export async function handlePyxisCommand(
                       const item = items[i];
                       let summary = '';
                       if (typeof item === 'object' && item !== null) {
-                        const keys = Object.keys(item);
-                        if (keys.includes('id')) summary += `id: ${item.id}, `;
-                        if (keys.includes('name')) summary += `name: ${item.name}, `;
-                        if (keys.includes('path')) summary += `path: ${item.path}, `;
-                        if (keys.includes('type')) summary += `type: ${item.type}, `;
-                        if (keys.includes('projectId')) summary += `repo: ${item.projectId}, `;
+                        const obj = item as Record<string, any>;
+                        const keys = Object.keys(obj);
+                        if (keys.includes('id')) summary += `id: ${obj.id}, `;
+                        if (keys.includes('name')) summary += `name: ${obj.name}, `;
+                        if (keys.includes('path')) summary += `path: ${obj.path}, `;
+                        if (keys.includes('type')) summary += `type: ${obj.type}, `;
+                        if (keys.includes('projectId')) summary += `repo: ${obj.projectId}, `;
                         if (keys.includes('content')) {
                           const contentSize =
-                            typeof item.content === 'string'
-                              ? item.content.length
-                              : JSON.stringify(item.content).length;
+                            typeof obj.content === 'string'
+                              ? obj.content.length
+                              : JSON.stringify(obj.content).length;
                           summary += `content: ${contentSize} chars, `;
                         }
                         summary = summary.replace(/, $/, '');
@@ -254,10 +255,11 @@ export async function handlePyxisCommand(
                       const item = items[i];
                       let detail = '';
                       if (typeof item === 'object' && item !== null) {
-                        const keys = Object.keys(item);
+                        const obj = item as Record<string, any>;
+                        const keys = Object.keys(obj);
                         detail += '{ ';
                         for (const key of keys) {
-                          let value = item[key];
+                          let value = obj[key];
                           if (key === 'content' || key === 'bufferContent') {
                             if (typeof value === 'string') {
                               value = value.slice(0, 10) + (value.length > 10 ? '...' : '');

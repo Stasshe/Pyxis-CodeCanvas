@@ -42,7 +42,7 @@ graph TB
     end
     
     subgraph Components
-        C[useProjectStore - Reactコンポーネント内]
+        C[useProjectSnapshot - Reactコンポーネント内]
         D[getCurrentProjectId - コールバック内]
         E[props経由 - 明示的な受け渡し]
     end
@@ -64,14 +64,14 @@ graph TB
 
 ### 1. Reactコンポーネント内でProject IDを取得
 
-**推奨: `useProjectStore`を使用**
+**推奨: `useProjectSnapshot`を使用**
 
 ```typescript
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectSnapshot } from '@/stores/projectStore';
 
 const MyComponent = () => {
   // グローバルストアからリアクティブに取得
-  const currentProject = useProjectStore(state => state.currentProject);
+  const { currentProject } = useProjectSnapshot();
   const projectId = currentProject?.id;
   
   // projectIdを使用
@@ -154,8 +154,8 @@ const projectId = JSON.parse(localStorage.getItem('recent-projects'))?.[0]?.id;
 
 | API | 用途 | 使用場所 |
 |-----|------|----------|
-| `useProjectStore(state => state.currentProject)` | リアクティブにプロジェクト取得 | Reactコンポーネント内 |
-| `useProjectStore(state => state.currentProjectId)` | リアクティブにID取得 | Reactコンポーネント内 |
+| `useProjectSnapshot()` | リアクティブにプロジェクト取得 | Reactコンポーネント内 |
+| `useProjectSnapshot()` | リアクティブにID取得 (`const { currentProject } = useProjectSnapshot()`) | Reactコンポーネント内 |
 | `getCurrentProjectId()` | 即時にID取得 | コールバック、非同期関数内 |
 | `getCurrentProject()` | 即時にプロジェクト取得 | コールバック、非同期関数内 |
 
@@ -164,11 +164,11 @@ const projectId = JSON.parse(localStorage.getItem('recent-projects'))?.[0]?.id;
 ```typescript
 // page.tsx
 const { currentProject } = useProject();
-const setCurrentProjectToStore = useProjectStore(state => state.setCurrentProject);
+// page.tsxでは `setCurrentProject(currentProject)` を呼び出して同期します
 
 useEffect(() => {
-  setCurrentProjectToStore(currentProject);
-}, [currentProject, setCurrentProjectToStore]);
+  setCurrentProject(currentProject);
+}, [currentProject]);
 ```
 
 ---
@@ -210,7 +210,7 @@ const getFile = async (path: string) => {
 新しいコンポーネントでProject IDを使用する際：
 
 - [ ] `useProject()`を直接使用していないか確認
-- [ ] Reactコンポーネント内では`useProjectStore`を使用
+- [ ] Reactコンポーネント内では`useProjectSnapshot`を使用
 - [ ] コールバック内では`getCurrentProjectId()`を使用
 - [ ] propsで渡される場合はそのまま使用
 - [ ] Extension内では`context.projectId`を使用

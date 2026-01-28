@@ -13,18 +13,20 @@ import ModeSelector from './chat/ModeSelector';
 import ChangedFilesPanel from './review/ChangedFilesPanel';
 
 import { Confirmation } from '@/components/Confirmation';
-import OperationWindow, { type OperationListItem } from '@/components/Top/OperationWindow';
+import OperationWindow, {
+  type OperationListItem,
+} from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { editorMemoryManager } from '@/engine/editor';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/ai/useAIReview';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState, updateFromExternal } from '@/stores/tabState';
 import type { ChatSpaceMessage, FileItem, Project } from '@/types';
+import { useSnapshot } from 'valtio';
 
 interface AIPanelProps {
   projectFiles: FileItem[];
@@ -177,12 +179,11 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   };
 
   // 現在アクティブなタブのファイルを取得
-  const globalActiveTabId = useTabStore(state => state.globalActiveTab);
-  const activePaneId = useTabStore(state => state.activePane);
+  const { globalActiveTab: globalActiveTabId, activePane: activePaneId } = useSnapshot(tabState);
 
   const activeTab = useMemo(() => {
     if (!globalActiveTabId) return null;
-    const allTabs = useTabStore.getState().getAllTabs();
+    const allTabs = tabActions.getAllTabs();
 
     // 同一ファイルが複数ペインで開かれている場合、現在アクティブなペインに属するタブを優先して返す。
     const preferred = allTabs.find(t => t.id === globalActiveTabId && t.paneId === activePaneId);
@@ -250,7 +251,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 
   // 変更を適用（suggestedContent -> contentへコピー）
   // NOTE: NEW-ARCHITECTURE.mdに従い、fileRepositoryを直接使用
-  // EditorMemoryManagerを使用して他のタブにも変更を同期
+  // 同一ファイルを開いている他タブに変更を同期
   const handleApplyChanges = async (filePath: string, newContent: string) => {
     const projectId = currentProject?.id;
 
@@ -266,9 +267,9 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
       // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
       await fileRepository.saveFileByPath(projectId, filePath, newContent);
 
-      // EditorMemoryManagerを通じて他のタブに変更を通知
-      // 外部更新として扱い、同一ファイルを開いている全タブ（エディタ、AI Review等）に即時反映
-      editorMemoryManager.updateFromExternal(filePath, newContent);
+      // 他タブに変更を通知
+      // 同一ファイルを開いている全タブに即時反映
+      updateFromExternal(filePath, newContent);
 
       // Clear AI review metadata for this file (non-blocking)
       try {

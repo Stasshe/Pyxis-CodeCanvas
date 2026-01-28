@@ -2,7 +2,7 @@
 
 'use client';
 
-import OperationWindow from '@/components/Top/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import type { FileItem } from '@/types';
 
 interface FileSelectorProps {

@@ -14,17 +14,17 @@ import { useCallback, useRef, useState } from 'react';
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 
 interface MergeConflictResolutionTabProps {
-  conflicts: MergeConflictFileEntry[];
+  conflicts: ReadonlyArray<MergeConflictFileEntry>;
   oursBranch: string;
   theirsBranch: string;
   projectId: string;
   projectName: string;
   /** Confirm conflict resolution and save */
-  onResolve: (resolvedFiles: MergeConflictFileEntry[]) => void;
+  onResolve: (resolvedFiles: ReadonlyArray<MergeConflictFileEntry>) => void;
   /** Cancel merge */
   onCancel: () => void;
   /** Update resolved content */
@@ -369,7 +369,7 @@ interface ThreeWayViewProps {
   theirsBranch: string;
   onMount: (editor: monacoEditor.editor.IStandaloneDiffEditor, monaco: Monaco) => void;
   onResolvedContentChange: (value: string | undefined) => void;
-  colors: any;
+  colors: ThemeColors;
   themeName: string;
 }
 

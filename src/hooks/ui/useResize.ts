@@ -10,6 +10,8 @@ interface UseResizeOptions {
   onResize: (newSize: number) => void;
   /** Optional: selector to directly update DOM element during drag for better performance */
   targetSelector?: string;
+  /** If false, onResize will only be called on drag end. defaults to true */
+  shouldUpdateStateDuringResize?: boolean;
 }
 
 interface ResizeState {
@@ -41,6 +43,7 @@ export function useResize(options: UseResizeOptions) {
     maxSize = getDefaultMaxSize(direction),
     onResize,
     targetSelector,
+    shouldUpdateStateDuringResize = true,
   } = options;
 
   const stateRef = useRef<ResizeState>({
@@ -79,22 +82,32 @@ export function useResize(options: UseResizeOptions) {
       }
 
       state.rafId = requestAnimationFrame(() => {
-        onResize(state.currentSize);
+        if (shouldUpdateStateDuringResize) {
+          onResize(state.currentSize);
+        }
 
         // Direct DOM update for better performance during drag
         if (targetSelector) {
           const element = document.querySelector(targetSelector) as HTMLElement;
           if (element) {
             if (direction === 'horizontal') {
-              element.style.height = `${state.currentSize}px`;
+              const sizePx = `${state.currentSize}px`;
+              element.style.height = sizePx;
+              // React sets min/max height/width equal to size, so we must update them too
+              // otherwise they will constrain the element to the old size
+              if (element.style.minHeight) element.style.minHeight = sizePx;
+              if (element.style.maxHeight) element.style.maxHeight = sizePx;
             } else {
-              element.style.width = `${state.currentSize}px`;
+              const sizePx = `${state.currentSize}px`;
+              element.style.width = sizePx;
+              if (element.style.minWidth) element.style.minWidth = sizePx;
+              if (element.style.maxWidth) element.style.maxWidth = sizePx;
             }
           }
         }
       });
     },
-    [direction, minSize, maxSize, onResize, targetSelector]
+    [direction, minSize, maxSize, onResize, targetSelector, shouldUpdateStateDuringResize]
   );
 
   const handleEnd = useCallback(() => {
@@ -108,11 +121,16 @@ export function useResize(options: UseResizeOptions) {
       state.rafId = null;
     }
 
+    // Commit final size if we skipped updates during resize
+    if (!shouldUpdateStateDuringResize) {
+      onResize(state.currentSize);
+    }
+
     // Reset body styles
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     document.body.style.touchAction = '';
-  }, []);
+  }, [onResize, shouldUpdateStateDuringResize]);
 
   // Create stable event handlers that will be registered/removed
   const mouseMoveHandler = useRef<((e: MouseEvent) => void) | null>(null);

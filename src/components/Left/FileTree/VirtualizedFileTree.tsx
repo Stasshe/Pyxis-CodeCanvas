@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { type VirtualItem, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
@@ -6,7 +6,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { importSingleFile } from '@/engine/in-ex/importSingleFile';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 
 import FileTreeContextMenu from './FileTreeContextMenu';
@@ -63,13 +63,12 @@ export default function VirtualizedFileTree({
   onInternalFileDrop,
 }: FileTreeProps) {
   const { colors } = useTheme();
-  const { openTab } = useTabStore();
+  const { openTab } = tabActions;
   const parentRef = useRef<HTMLDivElement>(null);
 
   // State
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
 
@@ -266,7 +265,31 @@ export default function VirtualizedFileTree({
     [currentProjectId, currentProjectName, onRefresh]
   );
 
-  const virtualItems = virtualizer.getVirtualItems();
+  const [virtualItems, setVirtualItems] = useState<VirtualItem[]>([]);
+  const [totalSize, setTotalSize] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const update = () => {
+      Promise.resolve().then(() => {
+        if (!mounted) return;
+        setVirtualItems(virtualizer.getVirtualItems());
+        setTotalSize(virtualizer.getTotalSize());
+      });
+    };
+
+    update();
+
+    const el = parentRef.current;
+    if (el) el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+
+    return () => {
+      mounted = false;
+      if (el) el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [virtualizer, flattenedItems.length]);
 
   return (
     <div
@@ -291,7 +314,7 @@ export default function VirtualizedFileTree({
       >
         <div
           style={{
-            height: `${virtualizer.getTotalSize()}px`,
+            height: `${totalSize}px`,
             width: '100%',
             position: 'relative',
           }}
@@ -317,7 +340,6 @@ export default function VirtualizedFileTree({
                   level={flatItem.level}
                   isExpanded={flatItem.isExpanded}
                   isIgnored={flatItem.isIgnored}
-                  hoveredItemId={hoveredItemId}
                   colors={colors}
                   currentProjectName={currentProjectName}
                   currentProjectId={currentProjectId}
@@ -327,7 +349,6 @@ export default function VirtualizedFileTree({
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchMove={handleTouchMove}
-                  setHoveredItemId={setHoveredItemId}
                   handleNativeFileDrop={handleNativeFileDrop}
                   handleDragOver={handleDragOver}
                   onInternalFileDrop={internalDropHandler}

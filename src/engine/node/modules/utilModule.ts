@@ -11,19 +11,19 @@ export function createUtilModule() {
         return String(obj);
       }
     },
-    format: (f: string, ...args: any[]): string => {
+    format: (f: string, ...args: unknown[]): string => {
       let i = 0;
       return f.replace(/%[sdj%]/g, x => {
         if (x === '%%') return '%';
-        if (i >= args.length) return x;
+        if (i >= (args as unknown[]).length) return x;
         switch (x) {
           case '%s':
-            return String(args[i++]);
+            return String((args as unknown[])[i++]);
           case '%d':
-            return String(Number(args[i++]));
+            return String(Number((args as unknown[])[i++]));
           case '%j':
             try {
-              return JSON.stringify(args[i++]);
+              return JSON.stringify((args as unknown[])[i++]);
             } catch {
               return '[Circular]';
             }
@@ -33,20 +33,20 @@ export function createUtilModule() {
       });
     },
     promisify: (fn: Function): Function => {
-      return (...args: any[]) => {
+      return (...args: unknown[]) => {
         return new Promise((resolve, reject) => {
-          fn(...args, (err: Error | null, result: any) => {
+          fn(...(args as unknown[]), (err: Error | null, result: unknown) => {
             if (err) reject(err);
-            else resolve(result);
+            else resolve(result as unknown);
           });
         });
       };
     },
     callbackify: (fn: Function): Function => {
-      return (...args: any[]) => {
-        const callback = args[args.length - 1];
-        fn(...args.slice(0, -1))
-          .then((result: any) => callback(null, result))
+      return (...args: unknown[]) => {
+        const callback = args[args.length - 1] as Function;
+        (fn as any)(...args.slice(0, -1))
+          .then((result: unknown) => callback(null, result))
           .catch(callback);
       };
     },
@@ -76,22 +76,22 @@ export function createUtilModule() {
         typeof obj.constructor.isBuffer === 'function' &&
         obj.constructor.isBuffer(obj),
     },
-    toPromise: (fn: Function, ...args: any[]): Promise<any> => {
+    toPromise: (fn: Function, ...args: unknown[]): Promise<unknown> => {
       return new Promise((resolve, reject) => {
-        fn(...args, (err: Error | null, result: any) => {
+        (fn as any)(...(args as unknown[]), (err: Error | null, result: unknown) => {
           if (err) reject(err);
-          else resolve(result);
+          else resolve(result as unknown);
         });
       });
     },
     deprecate: (fn: Function, msg: string): Function => {
       let warned = false;
-      return function (this: any, ...args: any[]) {
+      return function (this: any, ...args: unknown[]) {
         if (!warned) {
           console.warn(`DeprecationWarning: ${msg}`);
           warned = true;
         }
-        return fn.apply(this, args);
+        return fn.apply(this, args as any);
       };
     },
   };

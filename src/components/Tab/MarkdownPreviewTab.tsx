@@ -13,10 +13,12 @@ import 'github-markdown-css/github-markdown.css';
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
-import type { EditorTab, PreviewTab } from '@/engine/tabs/types';
+import type { EditorPane, EditorTab, PreviewTab, Tab } from '@/engine/tabs/types';
+import { hasContent } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 import type { Project, ProjectFile } from '@/types';
+import { useSnapshot } from 'valtio';
 
 import InlineHighlightedCode from './InlineHighlightedCode';
 import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';
@@ -38,22 +40,25 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // determine markdown plugins based on settings
   const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
 
-  // Subscribe to editor tab content changes for real-time preview
-  // Find the corresponding editor tab and get its content
-  const editorTabContent = useTabStore(state => {
-    // Find editor tab with the same path
-    const result = state.findTabByPath(activeTab.path, 'editor');
-    if (result?.tab && result.tab.kind === 'editor') {
-      return (result.tab as EditorTab).content;
-    }
-    return null;
-  });
+  // Only subscribe to panes for the purpose of finding the matching editor's content
+  const panesSnapshot = useSnapshot(tabState).panes;
+  const editorTabContent = useMemo(() => {
+    const find = (paneList: readonly EditorPane[]): string | null => {
+      for (const p of paneList) {
+        const t = p.tabs?.find((x: Tab) => x.path === activeTab.path);
+        if (t && hasContent(t)) return t.content;
+        if (p.children) {
+          const r = find(p.children);
+          if (r) return r;
+        }
+      }
+      return null;
+    };
+    return find(panesSnapshot);
+  }, [panesSnapshot, activeTab.path]);
 
-  // Use editor tab content if available (for real-time updates), otherwise use preview tab content
   const contentSource = editorTabContent ?? activeTab.content ?? '';
-
-  // Tab opening helper from store (used by link handler)
-  const openTab = useTabStore(state => state.openTab);
+  const { openTab } = tabActions;
 
   useEffect(() => {
     let mounted = true;

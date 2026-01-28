@@ -166,7 +166,7 @@ class SessionStoreManager {
    * - needsContentRestore を除外
    */
   private cleanSessionForStorage(session: PyxisSession): PyxisSession {
-    const cleanPanes = (panes: EditorPane[]): EditorPane[] => {
+    const cleanPanes = (panes: readonly EditorPane[]): EditorPane[] => {
       return panes.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(tab => {
@@ -191,7 +191,7 @@ class SessionStoreManager {
    * - needsContentRestoreフラグを設定
    */
   private prepareSessionForRestore(session: PyxisSession): PyxisSession {
-    const markPanesForRestore = (panes: EditorPane[]): EditorPane[] => {
+    const markPanesForRestore = (panes: readonly EditorPane[]): EditorPane[] => {
       return panes.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(tab => {

@@ -117,7 +117,14 @@ export class TarCommand extends UnixCommandBase {
           : new TextEncoder().encode(file.content || '').buffer;
 
         const extract = tar.extract();
-        const entries: any[] = [];
+        type TarEntry = {
+          path: string;
+          content: string;
+          type: 'file' | 'folder';
+          isBufferArray?: boolean;
+          bufferContent?: ArrayBuffer;
+        };
+        const entries: TarEntry[] = [];
 
         extract.on('entry', (header, stream, next) => {
           // remove trailing slash if present

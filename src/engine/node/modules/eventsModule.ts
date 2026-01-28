@@ -3,7 +3,7 @@
  * Used by the in-browser Node.js builtins emulation.
  */
 
-type Listener = (...args: any[]) => void;
+type Listener = (...args: unknown[]) => void;
 
 // Internal class implementation (keeps modern class semantics for ESModule consumers)
 class InternalEventEmitter {
@@ -22,7 +22,7 @@ class InternalEventEmitter {
   }
 
   once(event: string | symbol, listener: Listener): this {
-    const wrapped: Listener = (...args: any[]) => {
+    const wrapped: Listener = (...args: unknown[]) => {
       (this as any).removeListener(event, wrapped);
       listener(...args);
     };
@@ -60,7 +60,7 @@ class InternalEventEmitter {
     return (this._events.get(event) || []).length;
   }
 
-  emit(event: string | symbol, ...args: any[]): boolean {
+  emit(event: string | symbol, ...args: unknown[]): boolean {
     const list = this._events.get(event);
     if (!list || list.length === 0) return false;
     const copy = list.slice();

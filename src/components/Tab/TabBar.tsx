@@ -11,9 +11,10 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 
+import DraggableTab from './DraggableTab';
 import { TabIcon } from './TabIcon';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
@@ -21,8 +22,10 @@ import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { type EditorPane, hasContent } from '@/engine/tabs/types';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { snapshot, useSnapshot } from 'valtio';
 
 interface TabBarProps {
   paneId: string;
@@ -60,8 +63,9 @@ export default function TabBar({ paneId }: TabBarProps) {
     moveTab,
     moveTabToIndex,
     splitPane,
-    panes,
-  } = useTabStore();
+  } = tabActions;
+  const snap = useSnapshot(tabState);
+  const panes = snap.panes as EditorPane[];
 
   const pane = getPane(paneId);
   if (!pane) return null;
@@ -113,9 +117,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
-  tabs.forEach(tab => {
+  for (let i = 0; i < tabs.length; i++) {
+    const tab = tabs[i];
     nameCount[tab.name] = (nameCount[tab.name] || 0) + 1;
-  });
+  }
 
   // タブを閉じる
   const handleTabClose = useCallback(
@@ -133,13 +138,26 @@ export default function TabBar({ paneId }: TabBarProps) {
     openFileSelector(paneId);
   }, [openFileSelector, paneId]);
 
-  // ペインを削除
   const handleRemovePane = useCallback(() => {
-    const flatPanes = flattenPanes(panes);
+    // Use a fresh snapshot at the moment of the click to avoid races with in-flight
+    // updates to the shared pane tree. Close any open menus first so we don't try to
+    // reference elements that may be unmounted during removal.
+    const flatPanes = flattenPanes(snapshot(tabState).panes);
     if (flatPanes.length <= 1) return;
-    removePane(paneId);
-  }, [panes, removePane, paneId]);
 
+    setPaneMenuOpen(false);
+    setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
+
+    // Defer the actual removal so we don't run a synchronous state mutation in the
+    // middle of click handling, which has caused crashes in some cases.
+    requestAnimationFrame(() => {
+      try {
+        removePane(paneId);
+      } catch (err) {
+        console.error('[TabBar] removePane failed', err);
+      }
+    });
+  }, [paneId, removePane]);
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
     tabs.forEach(tab => closeTab(paneId, tab.id));
@@ -228,7 +246,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'closeTab',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       if (activeTabId) handleTabClose(activeTabId);
     },
     [activeTabId, paneId]
@@ -237,7 +255,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'removeAllTabs',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       handleRemoveAllTabs();
     },
     [tabs, paneId]
@@ -246,7 +264,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'nextTab',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       if (tabs.length === 0) return;
       const currentIndex = tabs.findIndex(t => t.id === activeTabId);
       const nextIndex = (currentIndex + 1) % tabs.length;
@@ -258,7 +276,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'prevTab',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       if (tabs.length === 0) return;
       const currentIndex = tabs.findIndex(t => t.id === activeTabId);
       const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
@@ -270,7 +288,7 @@ export default function TabBar({ paneId }: TabBarProps) {
   useKeyBinding(
     'openMdPreview',
     () => {
-      if (useTabStore.getState().activePane !== paneId) return;
+      if (tabState.activePane !== paneId) return;
       const activeTab = tabs.find(t => t.id === activeTabId);
       if (!activeTab) return;
 
@@ -290,7 +308,11 @@ export default function TabBar({ paneId }: TabBarProps) {
           parent.children[0];
         if (newPane) {
           openTab(
-            { name: activeTab.name, path: activeTab.path, content: (activeTab as any).content },
+            {
+              name: activeTab.name,
+              path: activeTab.path,
+              content: hasContent(activeTab) ? activeTab.content : undefined,
+            },
             { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
           );
         }
@@ -302,7 +324,11 @@ export default function TabBar({ paneId }: TabBarProps) {
       const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
       const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
       openTab(
-        { name: activeTab.name, path: activeTab.path, content: (activeTab as any).content },
+        {
+          name: activeTab.name,
+          path: activeTab.path,
+          content: hasContent(activeTab) ? activeTab.content : undefined,
+        },
         { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
       );
     },
@@ -366,178 +392,11 @@ export default function TabBar({ paneId }: TabBarProps) {
     }
   }, [activeTabId]);
 
-  // ドラッグ可能なタブコンポーネント
-  function DraggableTab({ tab, tabIndex }: { tab: any; tabIndex: number }) {
-    const isActive = tab.id === activeTabId;
-    const isDuplicate = nameCount[tab.name] > 1;
-    const displayName = isDuplicate ? `${tab.name} (${tab.path})` : tab.name;
-
-    const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | null>(null);
-    const dragOverSideRef = useRef<'left' | 'right' | null>(null);
-    const ref = useRef<HTMLDivElement>(null);
-
-    // dragOverSideが変更されたらrefも更新
-    useEffect(() => {
-      dragOverSideRef.current = dragOverSide;
-    }, [dragOverSide]);
-
-    const [{ isDragging }, dragRef] = useDrag(
-      () => ({
-        type: DND_TAB,
-        item: {
-          type: DND_TAB,
-          tabId: tab.id,
-          fromPaneId: paneId,
-          index: tabIndex,
-          tabName: tab.name,
-        },
-        collect: (monitor: any) => ({ isDragging: monitor.isDragging() }),
-      }),
-      [tab.id, paneId, tabIndex, tab.name]
-    );
-
-    const [{ isOver }, tabDrop] = useDrop(
-      () => ({
-        accept: DND_TAB,
-        drop: (item: any, monitor: any) => {
-          if (!item?.tabId) return;
-          if (monitor && !monitor.isOver({ shallow: true })) return;
-          if (item.tabId === tab.id) return;
-
-          const fromPane = item.fromPaneId;
-          let targetIndex = tabIndex;
-          // refを使用して最新の値を取得
-          if (dragOverSideRef.current === 'right') targetIndex = tabIndex + 1;
-
-          try {
-            moveTabToIndex(fromPane, paneId, item.tabId, targetIndex);
-            item.fromPaneId = paneId;
-            item.index = targetIndex;
-          } catch (err) {
-            // ignore
-          }
-          setDragOverSide(null);
-        },
-        hover: (item, monitor) => {
-          if (!ref.current) return;
-          if (!monitor.isOver({ shallow: true })) {
-            setDragOverSide(null);
-            return;
-          }
-
-          const rect = ref.current.getBoundingClientRect();
-          const clientX = (monitor.getClientOffset() as any).x;
-          const middleX = (rect.right - rect.left) / 2;
-          const relativeX = clientX - rect.left;
-
-          setDragOverSide(relativeX < middleX ? 'left' : 'right');
-        },
-        collect: monitor => ({ isOver: monitor.isOver({ shallow: true }) }),
-      }),
-      [paneId, tabIndex, tab.id]
-    );
-
-    dragRef(tabDrop(ref));
-
-    return (
-      <div
-        ref={ref}
-        data-tab-id={tab.id}
-        className={`h-full px-3 flex items-center gap-2 flex-shrink-0 relative ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
-        style={{
-          background: isActive ? colors.background : colors.mutedBg,
-          borderColor: isActive ? `${colors.green}80` : colors.border,
-          borderRight: `1px solid ${colors.border}`,
-          borderBottom: isActive ? `2px solid ${colors.green}90` : '2px solid transparent',
-          boxShadow: isActive ? `0 2px 8px ${colors.green}20` : 'none',
-          minWidth: '120px',
-          maxWidth: '200px',
-          opacity: isDragging ? 0.4 : 1,
-        }}
-        onClick={e => handleTabClick(e, tab.id)}
-        onContextMenu={e => {
-          if (ref.current) handleTabRightClick(e, tab.id, ref.current);
-        }}
-        onTouchStart={e => {
-          if (ref.current) handleTouchStart(e, tab.id, ref.current);
-        }}
-        onTouchEnd={e => {
-          if (ref.current) handleTouchEnd(e, tab.id, ref.current);
-        }}
-        onTouchMove={handleTouchMove}
-      >
-        {/* ドロップインジケーター */}
-        {isOver && dragOverSide === 'left' && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: '2px',
-              backgroundColor: colors.accentFg || '#007acc',
-              zIndex: 10,
-            }}
-          />
-        )}
-        {isOver && dragOverSide === 'right' && (
-          <div
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: '2px',
-              backgroundColor: colors.accentFg || '#007acc',
-              zIndex: 10,
-            }}
-          />
-        )}
-
-        <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.foreground} />
-        <span
-          className="text-sm truncate flex-1"
-          style={{ color: colors.foreground }}
-          title={displayName}
-        >
-          {displayName}
-        </span>
-
-        {(tab as any).isDirty ? (
-          <button
-            data-close-button="true"
-            className="hover:bg-accent rounded p-0.5 flex items-center justify-center"
-            onClick={e => {
-              e.stopPropagation();
-              handleTabClose(tab.id);
-            }}
-            title={t('tabBar.unsavedChanges')}
-          >
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: colors.foreground }}
-            />
-          </button>
-        ) : (
-          <button
-            data-close-button="true"
-            className="hover:bg-accent rounded p-0.5"
-            onClick={e => {
-              e.stopPropagation();
-              handleTabClose(tab.id);
-            }}
-          >
-            <X size={14} color={colors.foreground} />
-          </button>
-        )}
-      </div>
-    );
-  }
-
+  // DraggableTab moved to ./DraggableTab.tsx
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
-      style={{ background: colors.mutedBg, borderColor: colors.border }}
+      style={{ background: colors.mutedBg, borderColor: colors.border, zIndex: 1 }}
     >
       {/* ペインメニューボタン */}
       <div className="flex items-center h-full pl-2 pr-1 gap-1 relative">
@@ -641,7 +500,20 @@ export default function TabBar({ paneId }: TabBarProps) {
         onWheel={handleWheel}
       >
         {tabs.map((tab, tabIndex) => (
-          <DraggableTab key={`${paneId}-${tabIndex}-${tab.id}`} tab={tab} tabIndex={tabIndex} />
+          <DraggableTab
+            key={`${paneId}-${tabIndex}-${tab.id}`}
+            tab={tab}
+            tabIndex={tabIndex}
+            paneId={paneId}
+            isActive={tab.id === activeTabId || tabState.globalActiveTab === tab.id}
+            isDuplicate={(nameCount[tab.name] || 0) > 1}
+            onClick={handleTabClick}
+            onContextMenu={handleTabRightClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+            onClose={handleTabClose}
+          />
         ))}
         <button
           className="h-full px-3 flex items-center justify-center flex-shrink-0 hover:bg-accent"
@@ -720,10 +592,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 }
 
 // ペインをフラット化
-function flattenPanes(panes: any[]): any[] {
-  const result: any[] = [];
-  const traverse = (panes: any[]) => {
-    for (const pane of panes) {
+function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
+  const result: EditorPane[] = [];
+  const traverse = (items: readonly EditorPane[]) => {
+    for (const pane of items) {
       if (!pane.children || pane.children.length === 0) result.push(pane);
       if (pane.children) traverse(pane.children);
     }

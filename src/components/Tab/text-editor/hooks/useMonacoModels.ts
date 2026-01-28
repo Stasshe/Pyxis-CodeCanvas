@@ -72,16 +72,11 @@ export function updateCachedModelContent(
   context = 'inactive'
 ): void {
   const model = sharedModelMap.get(tabId);
-  if (model && typeof model.isDisposed === 'function' && !model.isDisposed()) {
-    try {
-      const currentValue = model.getValue();
-      if (currentValue !== content) {
-        model.setValue(content);
-        console.log(`[useMonacoModels] Updated cached model content (${context}):`, tabId);
-      }
-    } catch (e) {
-      console.warn('[useMonacoModels] Failed to update cached model content:', e);
-    }
+  if (!model || model.isDisposed()) return;
+  try {
+    if (model.getValue() !== content) model.setValue(content);
+  } catch (e) {
+    console.warn('[useMonacoModels] updateCachedModelContent failed:', e);
   }
 }
 
@@ -101,18 +96,15 @@ function enforceModelLimit(
 ): void {
   while (monacoModelMap.size >= maxModels && modelAccessOrder.length > 0) {
     const oldestTabId = modelAccessOrder.shift();
-    if (oldestTabId) {
-      const oldModel = monacoModelMap.get(oldestTabId);
-      if (oldModel) {
-        try {
-          oldModel.dispose();
-          console.log('[useMonacoModels] Disposed oldest model (LRU):', oldestTabId);
-        } catch (e) {
-          console.warn('[useMonacoModels] Failed to dispose model:', e);
-        }
-        monacoModelMap.delete(oldestTabId);
-      }
+    if (!oldestTabId) continue;
+    const oldModel = monacoModelMap.get(oldestTabId);
+    if (!oldModel) continue;
+    try {
+      oldModel.dispose();
+    } catch (e) {
+      console.warn('[useMonacoModels] Failed to dispose model:', e);
     }
+    monacoModelMap.delete(oldestTabId);
   }
 }
 
@@ -123,7 +115,7 @@ export function useMonacoModels() {
   const currentModelIdRef = sharedCurrentModelIdRef;
 
   const isModelSafe = useCallback((model: monaco.editor.ITextModel | null | undefined) => {
-    return model && typeof model.isDisposed === 'function' && !model.isDisposed();
+    return model && !model.isDisposed();
   }, []);
 
   const getOrCreateModel = useCallback(
@@ -193,75 +185,38 @@ export function useMonacoModels() {
           const uri = mon.Uri.parse(`inmemory://model${normalizedTabPath}`);
           // computed URI log removed in cleanup
 
-          // PATH 2: URI-based lookup in Monaco's native model registry
-          // This prevents creating duplicate models if Monaco already has one for this URI.
-          // Even though we checked our tabId cache above, Monaco might have a model we don't
-          // track (edge cases: models created elsewhere, desync after errors, etc.)
-          // 既存のモデルを再利用（ただし言語IDは強制的に合わせる）
+          // Check existing Monaco model for this uri and reuse when possible.
           try {
             const existingModel = mon.editor.getModel(uri);
             if (existingModel && isModelSafe(existingModel)) {
-              // If existing model has a different language than desired, create a
-              // fresh model instead of mutating language in-place. Mutating can
-              // cause diagnostics / language-service mixups across models.
-              try {
-                const desiredLang = getModelLanguage(fileName);
-                const beforeLang = existingModel.getLanguageId();
-                if (beforeLang !== desiredLang) {
-                  // Create a new unique URI instead of reusing/disposing the current one.
-                  // This avoids racing with other editor instances that may hold the
-                  // previous model reference. Appending a timestamp ensures uniqueness.
-                  const uniqueUri = mon.Uri.parse(`${uri.toString()}__${Date.now()}`);
-                  const newModel = mon.editor.createModel(content, desiredLang, uniqueUri);
-                  monacoModelMap.set(tabId, newModel);
-                  updateModelAccessOrder(tabId);
-                  return newModel;
-                }
-                // Languages already match — reuse safely.
-                // reuse log removed in cleanup
-                // IMPORTANT: Update content when reusing existing model
-                const currentContent = existingModel.getValue();
-                if (currentContent !== content) {
-                  console.log('[useMonacoModels] Updating reused model content:', {
-                    tabId,
-                    oldLength: currentContent.length,
-                    newLength: content.length,
-                  });
-                  existingModel.setValue(content);
-                }
-                monacoModelMap.set(tabId, existingModel);
+              const desiredLang = getModelLanguage(fileName);
+              if (existingModel.getLanguageId() !== desiredLang) {
+                const uniqueUri = mon.Uri.parse(`${uri.toString()}__${Date.now()}`);
+                const newModel = mon.editor.createModel(content, desiredLang, uniqueUri);
+                monacoModelMap.set(tabId, newModel);
                 updateModelAccessOrder(tabId);
-                return existingModel;
-              } catch (e) {
-                console.warn('[useMonacoModels] Reuse/create logic failed:', e);
+                return newModel;
               }
+
+              // Reuse and sync content
+              if (existingModel.getValue() !== content) existingModel.setValue(content);
+              monacoModelMap.set(tabId, existingModel);
+              updateModelAccessOrder(tabId);
+              return existingModel;
             }
           } catch (e) {
-            console.warn('[useMonacoModels] mon.editor.getModel failed:', e);
+            console.warn('[useMonacoModels] mon.editor.getModel error:', e);
           }
 
-          // 強化されたJSX/TSX言語を使用
           const language = getMonarchLanguage(fileName);
           const newModel = mon.editor.createModel(content, language, uri);
-          // Ensure model language aligns with model-level language mapping (safety)
           try {
-            const modelLang = getModelLanguage(fileName);
-            (mon.editor as any).setModelLanguage(newModel, modelLang);
+            (mon.editor as any).setModelLanguage(newModel, getModelLanguage(fileName));
           } catch (e) {
-            // not critical
+            // ignore
           }
           monacoModelMap.set(tabId, newModel);
           updateModelAccessOrder(tabId);
-          console.log(
-            '[useMonacoModels] Created new model for:',
-            tabId,
-            'language:',
-            language,
-            'uri:',
-            uri.toString(),
-            'total models:',
-            monacoModelMap.size
-          );
           return newModel;
         } catch (createError: any) {
           console.error('[useMonacoModels] Model creation failed:', createError);

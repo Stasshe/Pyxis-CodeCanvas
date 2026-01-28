@@ -12,43 +12,27 @@
  * このストアも同期的に更新される。
  */
 
-import { create } from 'zustand';
+import { proxy, useSnapshot } from 'valtio';
 
 import type { Project } from '@/types';
 
-interface ProjectStore {
-  // 現在のプロジェクト
-  currentProject: Project | null;
-  currentProjectId: string | null;
-
-  // アクション
-  setCurrentProject: (project: Project | null) => void;
-}
-
-export const useProjectStore = create<ProjectStore>(set => ({
-  currentProject: null,
-  currentProjectId: null,
-
-  setCurrentProject: (project: Project | null) => {
-    set({
-      currentProject: project,
-      currentProjectId: project?.id || null,
-    });
-  },
-}));
-
 /**
- * コンポーネント外からプロジェクトIDを取得するユーティリティ
- * コールバック関数内など、フック外でプロジェクトIDが必要な場合に使用
+ * 単純化された Valtio プロジェクトストア
+ * - `projectState` を直接参照（コンポーネント外）
+ * - `useProjectSnapshot()` でコンポーネント内の購読
+ * - `setCurrentProject()` で更新
  */
-export const getCurrentProjectId = (): string | null => {
-  return useProjectStore.getState().currentProjectId;
+export const projectState = proxy({
+  currentProject: null as Project | null,
+  currentProjectId: null as string | null,
+});
+
+export const setCurrentProject = (project: Project | null) => {
+  projectState.currentProject = project;
+  projectState.currentProjectId = project?.id ?? null;
 };
 
-/**
- * コンポーネント外から現在のプロジェクトを取得するユーティリティ
- * コールバック関数内など、フック外でプロジェクト情報が必要な場合に使用
- */
-export const getCurrentProject = (): Project | null => {
-  return useProjectStore.getState().currentProject;
-};
+export const useProjectSnapshot = () => useSnapshot(projectState);
+
+export const getCurrentProjectId = (): string | null => projectState.currentProjectId;
+export const getCurrentProject = (): Project | null => projectState.currentProject;

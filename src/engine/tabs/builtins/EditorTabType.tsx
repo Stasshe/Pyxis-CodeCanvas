@@ -1,18 +1,15 @@
+import { useGitContext } from '@/components/Pane/PaneContainer';
+import CodeEditor from '@/components/Tab/CodeEditor';
+import { useSettings } from '@/hooks/state/useSettings';
+import { useProjectSnapshot } from '@/stores/projectStore';
+import { addSaveListener, initTabSaveSync, tabActions } from '@/stores/tabState';
 // src/engine/tabs/builtins/EditorTabType.tsx
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
-
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
-
-import { useGitContext } from '@/components/Pane/PaneContainer';
-import CodeEditor from '@/components/Tab/CodeEditor';
-import { editorMemoryManager } from '@/engine/editor';
-import { useSettings } from '@/hooks/state/useSettings';
-import { useProjectStore } from '@/stores/projectStore';
 
 /**
  * エディタタブのコンポーネント
- *
  * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
  * - コンテンツ変更はEditorMemoryManagerを通じて行う
  * - デバウンス保存、タブ間同期は自動的に処理される
@@ -20,37 +17,34 @@ import { useProjectStore } from '@/stores/projectStore';
  */
 const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
-
   // グローバルストアからプロジェクト情報を取得
-  const currentProject = useProjectStore(state => state.currentProject);
+  const { currentProject } = useProjectSnapshot();
   const projectId = currentProject?.id;
-
   const { settings } = useSettings(projectId);
   const { setGitRefreshTrigger } = useGitContext();
-
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
-  // EditorMemoryManagerを初期化し、初期コンテンツを登録
+  // Valtioベースの同期を初期化し、初期コンテンツを登録
   useEffect(() => {
-    const initMemory = async () => {
-      await editorMemoryManager.init();
+    const init = async () => {
+      await initTabSaveSync();
       if (editorTab.path && editorTab.content !== undefined) {
-        editorMemoryManager.registerInitialContent(editorTab.path, editorTab.content);
+        // 初期コンテンツは isDirty を付けずにタブに反映
+        tabActions.updateTab(editorTab.paneId, editorTab.id, {
+          content: editorTab.content,
+          isDirty: false,
+        } as any);
       }
     };
-    initMemory();
+    init();
   }, [editorTab.path, editorTab.content]);
 
   // 保存完了時にGit状態を更新
   useEffect(() => {
     if (!editorTab.path) return;
-
-    const unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
-      if (success) {
-        setGitRefreshTrigger(prev => prev + 1);
-      }
+    const unsubscribe = addSaveListener((_savedPath, success) => {
+      if (success) setGitRefreshTrigger(prev => prev + 1);
     });
-
     return unsubscribe;
   }, [editorTab.path, setGitRefreshTrigger]);
 
@@ -58,9 +52,8 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const handleContentChange = useCallback(
     async (tabId: string, content: string) => {
       if (!editorTab.path) return;
-      // EditorMemoryManagerを通じてコンテンツを更新
-      // デバウンス保存、タブ間同期は自動的に処理される
-      editorMemoryManager.setContent(editorTab.path, content);
+      // tabState へ更新 (デバウンス保存は tabState 側でスケジュールされる)
+      tabActions.updateTabContent(tabId, content, true);
     },
     [editorTab.path]
   );
@@ -69,8 +62,8 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const handleImmediateContentChange = useCallback(
     (tabId: string, content: string) => {
       if (!editorTab.path) return;
-      // EditorMemoryManagerを通じて即時反映
-      editorMemoryManager.setContent(editorTab.path, content);
+      // tabState へ即時反映
+      tabActions.updateTabContent(tabId, content, true);
     },
     [editorTab.path]
   );
@@ -100,7 +93,6 @@ export const EditorTabType: TabTypeDefinition = {
   canEdit: true,
   canPreview: false,
   component: EditorTabComponent,
-
   createTab: (file, options): EditorTab => {
     const tabId = String(file.path || file.name || `editor-${Date.now()}`);
     return {
@@ -118,21 +110,14 @@ export const EditorTabType: TabTypeDefinition = {
       jumpToColumn: options?.jumpToColumn,
     };
   },
-
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'editor';
   },
-
   updateContent: (tab, content, isDirty) => {
     const editorTab = tab as EditorTab;
     // 変更がない場合は元のタブを返す
-    if (editorTab.content === content && editorTab.isDirty === isDirty) {
-      return tab;
-    }
+    if (editorTab.content === content && editorTab.isDirty === isDirty) return tab;
     return { ...editorTab, content, isDirty };
   },
-
-  getContentPath: tab => {
-    return tab.path || undefined;
-  },
+  getContentPath: tab => tab.path || undefined,
 };

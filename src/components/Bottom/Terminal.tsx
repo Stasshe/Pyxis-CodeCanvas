@@ -356,15 +356,30 @@ function ClientTerminal({
 
     let cmdOutputs = '';
 
-    // 履歴の初期化・復元（sessionStorageから）
-    let commandHistory: string[] = getTerminalHistory(currentProject);
+    // 履歴の初期化・復元（storageServiceへ）
+    let commandHistory: string[] = [];
     let historyIndex = -1;
     let currentLine = '';
     let cursorPos = 0;
 
-    // 履歴保存関数（sessionStorageへ）
-    const saveHistory = () => {
-      saveTerminalHistory(currentProject, commandHistory);
+    // 履歴をロードする（非同期）
+    const loadHistory = async () => {
+      try {
+        const saved = await getTerminalHistory(currentProject);
+        if (Array.isArray(saved)) {
+          commandHistory = saved;
+          historyIndex = commandHistory.length;
+        }
+      } catch (e) {
+        console.warn('[Terminal] Failed to load terminal history:', e);
+      }
+    };
+    // 起動時にロード（非同期で問題なし）
+    loadHistory();
+
+    // 履歴保存関数（storageServiceへ）
+    const saveHistory = async () => {
+      await saveTerminalHistory(currentProject, commandHistory);
     };
 
     // 統一された出力関数 - すべての出力はこれを通る
@@ -422,9 +437,9 @@ function ClientTerminal({
             if (sub === 'clear' || sub === 'reset' || sub === '--clear') {
               try {
                 commandHistory = [];
-                saveHistory();
-                // sessionStorageから明示的に削除
-                clearTerminalHistory(currentProject);
+                await saveHistory();
+                // storageServiceから明示的に削除
+                await clearTerminalHistory(currentProject);
                 await captureWriteOutput('ターミナル履歴を削除しました');
               } catch (e) {
                 await captureWriteOutput(`履歴削除エラー: ${(e as Error).message}`);
@@ -759,9 +774,9 @@ function ClientTerminal({
           outputManagerRef.current?.writeln('^C');
           // send SIGINT to foreground process if available
           try {
-            if (shellRef.current && typeof shellRef.current.killForeground === 'function') {
-              shellRef.current.killForeground();
-            }
+            try {
+              shellRef.current?.killForeground?.();
+            } catch (e) {}
           } catch (e) {}
           currentLine = '';
           cursorPos = 0;
@@ -865,10 +880,13 @@ function ClientTerminal({
     };
   }, [currentProject, currentProjectId, colors]);
 
-  // 高さが変更された時にサイズを再調整
+  // Resize handling: run a fit on height/currentProjectId changes and observe DOM resizes
+  // This consolidates previous separate effects into a single, debounced handler.
   useEffect(() => {
-    if (fitAddonRef.current && xtermRef.current) {
-      setTimeout(() => {
+    if (!terminalRef.current || !fitAddonRef.current) return;
+
+    const runFit = () => {
+      try {
         fitAddonRef.current?.fit();
         // Update shell terminal size after resize
         if (currentProjectId && xtermRef.current) {
@@ -878,12 +896,31 @@ function ClientTerminal({
             xtermRef.current?.rows ?? 24
           );
         }
+        // Ensure terminal is scrolled to bottom after layout settles
         setTimeout(() => {
           xtermRef.current?.scrollToBottom();
         }, 100);
-      }, 100);
-    }
-  }, [height]);
+      } catch (e) {
+        // ignore fit errors (e.g. if element not visible)
+      }
+    };
+
+    // Run an initial fit after a short delay to allow layout to stabilize
+    const timeoutId = setTimeout(() => runFit(), 100);
+
+    // Observe DOM size changes for smooth resizing without React state updates
+    const resizeObserver = new ResizeObserver(() => {
+      // Use rAF to avoid layout thrashing during continuous drag
+      requestAnimationFrame(() => runFit());
+    });
+
+    resizeObserver.observe(terminalRef.current);
+
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+    };
+  }, [height, currentProjectId]);
 
   // ターミナルがアクティブになった時にフォーカスを当てる
   useEffect(() => {
@@ -909,8 +946,12 @@ function ClientTerminal({
       className="w-full h-full overflow-hidden relative terminal-container"
       style={{
         background: colors.editorBg,
-        height: `${height - 32}px`,
-        maxHeight: `${height - 32}px`,
+        // height is handled by parent container now due to flex/absolute positioning in BottomPanel
+        // but we keep minHeight. Explicit height style might fight with direct DOM manipulation
+        // if we are not careful, but BottomPanel actually sets height on the container, not here.
+        // The container in BottomPanel has the fixed height.
+        // This inner div takes full width/height of that container.
+        height: '100%',
         minHeight: '100px',
         touchAction: 'none',
         contain: 'layout style paint',

@@ -7,15 +7,15 @@
  * - IndexedDB復元後、needsContentRestoreフラグがあるタブのコンテンツを復元
  *
  * 注意:
- * - ファイル変更イベントの処理はEditorMemoryManagerに委譲
- * - リアルタイム同期はEditorMemoryManagerが担当
+ * - ファイル変更・リアルタイム同期は tabState (Valtio) が担当
  */
 
 import { useCallback, useEffect, useRef } from 'react';
+import { useSnapshot } from 'valtio';
 
-import { editorMemoryManager } from '@/engine/editor';
-import { useTabStore } from '@/stores/tabStore';
+import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, FileItem } from '@/types';
+import { snapshot } from 'valtio';
 
 // FileItem[]を平坦化する関数
 function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -35,9 +35,9 @@ function flattenFileItems(items: FileItem[]): FileItem[] {
 }
 
 // ペインをフラット化する関数（再帰的に全てのリーフペインを収集）
-function flattenPanes(panes: EditorPane[]): EditorPane[] {
+function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   const result: EditorPane[] = [];
-  function traverse(panes: EditorPane[]) {
+  function traverse(panes: readonly EditorPane[]) {
     panes.forEach(pane => {
       if (pane.children && pane.children.length > 0) {
         traverse(pane.children);
@@ -54,10 +54,10 @@ function flattenPanes(panes: EditorPane[]): EditorPane[] {
  * タブのコンテンツを復元するカスタムフック
  *
  * ページリロード時のセッション復帰によるコンテンツ復元専用。
- * ファイル変更イベントの処理はEditorMemoryManagerが担当する。
+ * ファイル変更・リアルタイム同期は tabState (initTabSaveSync) が担当する。
  */
 export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
-  const store = useTabStore();
+  const { panes } = useSnapshot(tabState);
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
 
@@ -75,11 +75,11 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    if (!isRestored || !store.panes.length) {
+    if (!isRestored || panes.length === 0) {
       return;
     }
 
-    const flatPanes = flattenPanes(store.panes);
+    const flatPanes = flattenPanes(panes);
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
       pane.tabs.filter((tab: any) => tab.needsContentRestore)
     );
@@ -112,11 +112,10 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
     // 復元を非同期で実行（Monaco内部状態の同期を確実にするため）
     requestAnimationFrame(async () => {
       try {
-        // EditorMemoryManagerを初期化
-        await editorMemoryManager.init();
+        await initTabSaveSync();
 
-        const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-          return panes.map(pane => {
+        const updatePaneRecursive = (paneList: readonly EditorPane[]): EditorPane[] => {
+          return paneList.map(pane => {
             if (pane.children && pane.children.length > 0) {
               return {
                 ...pane,
@@ -124,7 +123,6 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
               };
             }
 
-            // リーフペインの場合、全タブを復元
             return {
               ...pane,
               tabs: pane.tabs.map((tab: any) => {
@@ -136,23 +134,10 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
 
                 if (!correspondingFile) {
                   console.warn('[useTabContentRestore] File not found for tab:', tab.path);
-                  // ファイルが見つからない場合でもフラグは解除
-                  return {
-                    ...tab,
-                    needsContentRestore: false,
-                  };
+                  return { ...tab, needsContentRestore: false };
                 }
 
                 const restoredContent = correspondingFile.content || '';
-
-                // EditorMemoryManagerに初期コンテンツを登録
-                if (
-                  tab.path &&
-                  (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')
-                ) {
-                  editorMemoryManager.registerInitialContent(tab.path, restoredContent);
-                }
-
                 console.log('[useTabContentRestore] ✓ Restored:', tab.path);
 
                 return {
@@ -167,7 +152,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
           });
         };
 
-        store.setPanes(updatePaneRecursive(store.panes));
+        tabActions.setPanes(updatePaneRecursive(snapshot(tabState).panes));
 
         // 復元完了をマーク
         restorationCompleted.current = true;
@@ -187,13 +172,12 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         restorationCompleted.current = true;
       }
     });
-  }, [isRestored, store, projectFiles, normalizePath]);
+  }, [isRestored, projectFiles, normalizePath]);
 
   // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {
     performContentRestoration();
   }, [performContentRestoration]);
 
-  // ファイル変更イベントの処理はEditorMemoryManagerに委譲されているため、
-  // このフックではファイル変更リスナーを設置しない
+  // ファイル変更・リアルタイム同期は tabState の initTabSaveSync が担当
 }

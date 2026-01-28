@@ -1148,7 +1148,7 @@ export class FileRepository {
         const req = idx.getAll(projectId);
         req.onerror = () => reject(req.error);
         req.onsuccess = () => {
-          const files = (req.result as any[])
+          const files = (req.result as ProjectFile[])
             .filter(f => {
               if (!prefix || prefix === '') return true;
               return (f.path || '').startsWith(prefix);
@@ -1168,7 +1168,7 @@ export class FileRepository {
       const allReq = store.getAll();
       allReq.onerror = () => reject(allReq.error);
       allReq.onsuccess = () => {
-        const files = (allReq.result as any[])
+        const files = (allReq.result as ProjectFile[])
           .filter(f => {
             if (!prefix || prefix === '') return true;
             return (f.path || '').startsWith(prefix);

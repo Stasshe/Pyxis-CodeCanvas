@@ -82,11 +82,11 @@ export interface ExtensionManifest {
   /** ホームページURL (オプション) */
   homepage?: string;
   /** 依存する他の拡張機能のID (オプション) */
-  dependencies?: string[];
+  dependencies?: readonly string[];
   /** エントリーポイント (相対パス) */
   entry: string;
   /** 追加で必要なファイル (オプション) */
-  files?: string[];
+  files?: readonly string[];
   /** 同じグループで同時に1つのみ有効化を許可 (例: "lang-pack") */
   onlyOne?: string;
   /** READMEコンテンツ (ローダーによって追加される) */
@@ -107,7 +107,7 @@ export interface ExtensionManifest {
     /** ダウンロード数 (オプション) */
     downloads?: number;
     /** タグ */
-    tags?: string[];
+    tags?: readonly string[];
   };
 }
 
@@ -147,7 +147,7 @@ export interface ExtensionRegistry {
   /** 最終更新日時 */
   updatedAt: string;
   /** 利用可能な拡張機能のリスト */
-  extensions: Array<{
+  extensions: ReadonlyArray<{
     /** 拡張機能のID */
     id: string;
     /** マニフェストURL (相対パス) */

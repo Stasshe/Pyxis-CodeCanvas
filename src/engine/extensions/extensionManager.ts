@@ -602,7 +602,7 @@ class ExtensionManager {
     // implementations below.
     const notInitialized =
       (fnName: string) =>
-      (..._args: any[]) => {
+      (..._args: unknown[]) => {
         throw new Error(
           `[Extension:${extensionId}] ${fnName} called before extension context was fully initialized`
         );

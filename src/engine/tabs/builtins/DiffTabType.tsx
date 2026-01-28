@@ -1,129 +1,98 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
 import type React from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
-import { editorMemoryManager } from '@/engine/editor';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectSnapshot } from '@/stores/projectStore';
+import {
+  addSaveListener,
+  initTabSaveSync,
+  saveImmediately,
+  setContent as setTabContent,
+} from '@/stores/tabState';
+
+import { useTabContent } from '@/stores/tabContentStore';
 
 /**
  * Diffタブのコンポーネント
  *
- * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
- * - editable=trueの場合のみコンテンツ編集が可能
- * - コンテンツ変更はEditorMemoryManagerを通じて行う
- * - デバウンス保存、タブ間同期は自動的に処理される
+ * tabState (Valtio) でコンテンツ・デバウンス保存・タブ間同期を管理。
+ * editable=true の場合のみ編集可能。
  */
 const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
   const { setGitRefreshTrigger } = useGitContext();
 
-  // グローバルストアからプロジェクト情報を取得
-  const currentProject = useProjectStore(state => state.currentProject);
+  const { currentProject } = useProjectSnapshot();
   const projectId = currentProject?.id;
 
-  // ユーザー設定からwordWrap設定を取得
   const { settings } = useSettings(projectId);
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
-  // 最新のコンテンツを保持（即時保存用）
-  const latestContentRef = useRef<string>('');
+  // tabContentStoreから最新コンテンツを取得
+  const storeContent = useTabContent(diffTab.id);
 
-  // 初期コンテンツをメモ化
+  // コンテンツをマージした新しいdiffsを作成
+  const mergedDiffs = useMemo(() => {
+    if (!diffTab.diffs || diffTab.diffs.length === 0) return diffTab.diffs;
+    // ストアにコンテンツがあり、かつ編集可能な単一ファイルの場合、latterContentを更新
+    if (storeContent !== undefined && diffTab.editable && diffTab.diffs.length === 1) {
+      return [{ ...diffTab.diffs[0], latterContent: storeContent }];
+    }
+    return diffTab.diffs;
+  }, [diffTab.diffs, storeContent, diffTab.editable]);
+
+  const latestContentRef = useRef<string>('');
   const initialContent = diffTab.diffs.length === 1 ? diffTab.diffs[0]?.latterContent || '' : '';
 
-  // EditorMemoryManagerを初期化し、初期コンテンツを登録
   useEffect(() => {
-    const initMemory = async () => {
-      await editorMemoryManager.init();
-      // editable単一ファイルdiffの場合のみ登録
-      if (diffTab.editable && diffTab.path && diffTab.diffs.length === 1) {
-        editorMemoryManager.registerInitialContent(diffTab.path, initialContent);
-        latestContentRef.current = initialContent;
-      }
-    };
-    initMemory();
-    // 依存配列から diffTab.diffs を除外し、初期化は path/editable の変更時のみ実行
+    initTabSaveSync();
+    if (diffTab.editable && diffTab.path && diffTab.diffs.length === 1) {
+      latestContentRef.current = initialContent;
+    }
   }, [diffTab.editable, diffTab.path, initialContent]);
 
-  // 保存完了時にGit状態を更新
   useEffect(() => {
     if (!diffTab.editable || !diffTab.path) return;
-
-    const unsubscribe = editorMemoryManager.addSaveListener((savedPath, success) => {
-      if (success) {
-        setGitRefreshTrigger(prev => prev + 1);
-      }
+    const unsubscribe = addSaveListener((_path, success) => {
+      if (success) setGitRefreshTrigger(prev => prev + 1);
     });
-
     return unsubscribe;
   }, [diffTab.editable, diffTab.path, setGitRefreshTrigger]);
 
-  // 即時保存ハンドラー（Ctrl+S用）
   const handleImmediateSave = useCallback(async () => {
-    if (!diffTab.editable || !diffTab.path) {
-      console.log('[DiffTabType] Save skipped:', {
-        editable: diffTab.editable,
-        path: diffTab.path,
-      });
-      return;
-    }
-
-    console.log('[DiffTabType] Immediate save:', {
-      path: diffTab.path,
-      contentLength: latestContentRef.current.length,
-    });
-
-    const success = await editorMemoryManager.saveImmediately(diffTab.path);
-    if (success) {
-      console.log('[DiffTabType] ✓ Immediate save completed');
-    }
+    if (!diffTab.editable || !diffTab.path) return;
+    const success = await saveImmediately(diffTab.path);
+    if (success) console.log('[DiffTabType] ✓ Immediate save completed');
   }, [diffTab.editable, diffTab.path]);
 
-  // Ctrl+S バインディング
   useKeyBinding('saveFile', handleImmediateSave, [handleImmediateSave]);
 
-  // 即時コンテンツ変更ハンドラー
   const handleImmediateContentChange = useCallback(
     (content: string) => {
       if (!diffTab.editable || !diffTab.path) return;
-
-      // 最新のコンテンツを保存
       latestContentRef.current = content;
-
-      // EditorMemoryManagerを通じてコンテンツを更新
-      editorMemoryManager.setContent(diffTab.path, content);
+      setTabContent(diffTab.path, content);
     },
     [diffTab.editable, diffTab.path]
   );
 
-  // デバウンス保存付きのコンテンツ変更ハンドラー
-  // 注: DiffTabでは即時変更ハンドラーで既に保存がスケジュールされるため、
-  // このハンドラーは主に互換性のために残している
   const handleContentChange = useCallback(
     async (content: string) => {
-      if (!diffTab.editable || !diffTab.path) {
-        console.log('[DiffTabType] Content change skipped:', {
-          editable: diffTab.editable,
-          path: diffTab.path,
-        });
-        return;
-      }
-
-      // EditorMemoryManagerが自動的にデバウンス保存をスケジュール
-      editorMemoryManager.setContent(diffTab.path, content);
+      if (!diffTab.editable || !diffTab.path) return;
+      setTabContent(diffTab.path, content);
     },
     [diffTab.editable, diffTab.path]
   );
 
   return (
     <DiffTabComponent
-      diffs={diffTab.diffs}
+      diffs={mergedDiffs}
       editable={diffTab.editable}
       wordWrapConfig={wordWrapConfig}
       onImmediateContentChange={handleImmediateContentChange}

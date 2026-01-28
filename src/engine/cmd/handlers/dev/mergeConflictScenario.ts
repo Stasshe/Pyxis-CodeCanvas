@@ -8,7 +8,7 @@
 import type { DevCommandContext, DevCommandInfo } from './types';
 
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 
 /**
  * Generate sample merge conflict data
@@ -111,7 +111,7 @@ async function createMergeConflict(args: string[], context: DevCommandContext): 
   }
 
   // Open merge-conflict tab
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   await openTab(
     {
@@ -145,7 +145,7 @@ async function openMergeConflictTab(args: string[], context: DevCommandContext):
   // Simple single-file conflict
   const conflict = generateSampleConflict('/test/conflict.ts');
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   await openTab(
     {
@@ -266,7 +266,7 @@ export const Header: React.FC = () => {
     }
   }
 
-  const { openTab } = useTabStore.getState();
+  const { openTab } = tabActions;
 
   await openTab(
     {

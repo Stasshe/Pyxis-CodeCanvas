@@ -1,18 +1,18 @@
 'use client';
 
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
-import OperationList from '@/components/Top/OperationList';
-import { flattenFileItems, scoreMatch } from '@/components/Top/OperationUtils';
+import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 
 export interface OperationListItem {
@@ -157,12 +157,9 @@ export default function OperationWindow({
         ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
         : { kind: preview ? 'preview' : 'editor' };
 
-      const store = useTabStore.getState ? useTabStore.getState() : null;
-      if (store && typeof store.openTab === 'function') {
-        await store.openTab(fileWithEditor, options as any);
-        onClose();
-        return;
-      }
+      await tabActions.openTab(fileWithEditor, options);
+      onClose();
+      return;
     } catch (e) {
       console.warn('[OperationWindow] tab fallback failed:', e);
     }
@@ -173,42 +170,71 @@ export default function OperationWindow({
   };
 
   // 設定から除外パターンを取得
-  const gitignoreRules = useMemo(() => {
+  const gitignoreRules = useMemo((): GitIgnoreRule[] => {
     try {
       const flat = flattenFileItems(projectFiles);
       const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');
-      if (!git || !git.content) return [] as any[];
+      if (!git || !git.content) return [];
       return parseGitignore(git.content);
     } catch (err) {
-      return [] as any[];
+      return [];
     }
   }, [projectFiles]);
 
-  const allFiles = flattenFileItems(projectFiles).filter(file => {
-    if (file.type !== 'file') return false;
-    if (typeof isExcluded === 'function' && isExcluded(file.path)) return false;
-    if (gitignoreRules && gitignoreRules.length > 0) {
-      try {
-        if (isPathIgnored(gitignoreRules, file.path, false)) return false;
-      } catch (e) {
-        // ignore errors
-      }
+  // Memoize file list to avoid changing identity on every render (prevents effect loops)
+  const allFiles = useMemo(() => {
+    try {
+      return flattenFileItems(projectFiles).filter(file => {
+        if (file.type !== 'file') return false;
+        if (isExcluded(file.path)) return false;
+        if (gitignoreRules && gitignoreRules.length > 0) {
+          try {
+            if (isPathIgnored(gitignoreRules, file.path, false)) return false;
+          } catch (e) {
+            // ignore errors
+          }
+        }
+        return true;
+      });
+    } catch (e) {
+      return [] as FileItem[];
+    }
+  }, [projectFiles, isExcluded, gitignoreRules]);
+
+  // Keep a ref to the latest allFiles so worker onmessage always maps against current list
+  const allFilesRef = useRef<FileItem[]>([]);
+  useEffect(() => {
+    allFilesRef.current = allFiles;
+  }, [allFiles]);
+
+  // Use a Web Worker for file scoring/filtering to avoid blocking the main thread.
+  const workerRef = useRef<Worker | null>(null);
+  const lastFilesSentVersionRef = useRef<number | null>(null);
+  const searchIdRef = useRef<number>(0);
+  const latestSearchIdRef = useRef<number>(0);
+
+  // Helper: compare file arrays by id (shallow, order-sensitive)
+  function arraysEqualById(a: FileItem[] | null | undefined, b: FileItem[] | null | undefined) {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i].id !== b[i].id) return false;
     }
     return true;
-  });
+  }
 
-  // Enhanced VSCode-style filtering + scoring for FILES (support multi-token search where space is a separator)
-  const filteredFiles: FileItem[] = useMemo(() => {
-    if (viewMode !== 'files') return [];
-    if (!queryTokens || queryTokens.length === 0) return allFiles;
+  // local fallback implementation if worker is not available or fails
+  function localComputeFilteredFiles(tokens: string[], filesToScan: FileItem[]) {
+    if (!tokens || tokens.length === 0) return filesToScan;
 
     const scored: Array<{ file: FileItem; score: number }> = [];
 
-    for (const file of allFiles) {
+    for (const file of filesToScan) {
       let totalScore = 0;
       let matchedAll = true;
 
-      for (const token of queryTokens) {
+      for (const token of tokens) {
         const fileName = file.name;
         const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
         const pathParts = file.path.split('/');
@@ -230,8 +256,7 @@ export default function OperationWindow({
       }
 
       if (matchedAll) {
-        // average score across tokens for stable sorting
-        scored.push({ file, score: totalScore / queryTokens.length });
+        scored.push({ file, score: totalScore / tokens.length });
       }
     }
 
@@ -241,7 +266,101 @@ export default function OperationWindow({
     });
 
     return scored.map(s => s.file);
-  }, [allFiles, queryTokens, viewMode]);
+  }
+
+  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>(() =>
+    viewMode === 'files' ? allFiles : []
+  );
+
+  // init worker once
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      workerRef.current = new Worker(new URL('./operationWorker.ts', import.meta.url), {
+        type: 'module',
+      });
+
+      workerRef.current.onmessage = (e: MessageEvent) => {
+        const msg = e.data;
+        if (!msg) return;
+        if (msg.type === 'result') {
+          // only accept the latest search id
+          if (msg.searchId !== latestSearchIdRef.current) return;
+          const resultEntries: Array<{ id: string; score: number }> = msg.results || [];
+          const idMap = new Map((allFilesRef.current || []).map(f => [f.id, f]));
+          const mapped = resultEntries
+            .map(r => {
+              const file = idMap.get(r.id);
+              if (!file) return null;
+              // attach score (non-breaking, for potential UI use)
+              (file as any).__searchScore = r.score;
+              return file;
+            })
+            .filter(Boolean) as FileItem[];
+          setFilteredFiles(prev => (arraysEqualById(prev, mapped) ? prev : mapped));
+        }
+      };
+    } catch (err) {
+      console.error('Failed to create operation worker', err);
+      workerRef.current = null;
+    }
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // send files to worker when file list changes
+  useEffect(() => {
+    if (viewMode !== 'files') return;
+
+    if (workerRef.current) {
+      try {
+        const payload = allFiles.map(f => ({ id: f.id, name: f.name, path: f.path, type: f.type }));
+        const ver = Date.now();
+        workerRef.current.postMessage({ type: 'updateFiles', files: payload, filesVersion: ver });
+        lastFilesSentVersionRef.current = ver;
+      } catch (err) {
+        console.error('Failed to post updateFiles to operation worker', err);
+      }
+    }
+
+    // if no query, keep list in sync (guard against unnecessary updates)
+    if (!queryTokens || queryTokens.length === 0) {
+      setFilteredFiles(prev => (arraysEqualById(prev, allFiles) ? prev : allFiles));
+    }
+  }, [allFiles, viewMode]);
+
+  // send search requests to worker when tokens change
+  useEffect(() => {
+    if (viewMode !== 'files') return;
+
+    if (!queryTokens || queryTokens.length === 0) {
+      setFilteredFiles(prev => (arraysEqualById(prev, allFiles) ? prev : allFiles));
+      return;
+    }
+
+    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
+    latestSearchIdRef.current = sid;
+
+    if (workerRef.current) {
+      try {
+        workerRef.current.postMessage({ type: 'search', searchId: sid, tokens: queryTokens });
+        return;
+      } catch (err) {
+        console.error('operation worker postMessage failed', err);
+      }
+    }
+
+    // fallback to local compute if worker not available or postMessage failed
+    const fallback = localComputeFilteredFiles(queryTokens, allFiles);
+    setFilteredFiles(fallback);
+  }, [queryTokens, allFiles, viewMode]);
 
   // Filtering for GENERIC ITEMS (support multi-token AND search)
   const filteredItems: OperationListItem[] = useMemo(() => {
@@ -259,25 +378,6 @@ export default function OperationWindow({
   }, [items, queryTokens, viewMode]);
 
   const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
-
-  // 選択されたアイテムにスクロールする関数
-  const scrollToSelectedItem = (index: number) => {
-    if (!listRef.current) return;
-
-    const listElement = listRef.current;
-    const itemHeight = ITEM_HEIGHT;
-    const containerHeight = listElement.clientHeight;
-    const scrollTop = listElement.scrollTop;
-
-    const itemTop = index * itemHeight;
-    const itemBottom = itemTop + itemHeight;
-
-    if (itemTop < scrollTop) {
-      listElement.scrollTop = itemTop;
-    } else if (itemBottom > scrollTop + containerHeight) {
-      listElement.scrollTop = itemBottom - containerHeight;
-    }
-  };
 
   // ESCキーで閉じる、上下キーで選択、Enterで開く
   useEffect(() => {
@@ -316,19 +416,11 @@ export default function OperationWindow({
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex(prev => {
-            const newIndex = prev > 0 ? prev - 1 : currentListLength - 1;
-            setTimeout(() => scrollToSelectedItem(newIndex), 0);
-            return newIndex;
-          });
+          setSelectedIndex(prev => (prev > 0 ? prev - 1 : currentListLength - 1));
           break;
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex(prev => {
-            const newIndex = prev < currentListLength - 1 ? prev + 1 : 0;
-            setTimeout(() => scrollToSelectedItem(newIndex), 0);
-            return newIndex;
-          });
+          setSelectedIndex(prev => (prev < currentListLength - 1 ? prev + 1 : 0));
           break;
         case 'Enter':
           // If we are in the search input, or just navigating
@@ -480,7 +572,7 @@ export default function OperationWindow({
             />
           </div>
 
-          <OperationList
+          <OperationVirtualList
             viewMode={viewMode}
             filteredFiles={filteredFiles}
             filteredItems={filteredItems}
@@ -491,7 +583,9 @@ export default function OperationWindow({
             colors={colors}
             queryTokens={queryTokens}
             t={t}
+            listRef={listRef}
           />
+
           {/* Footer */}
           <div
             style={{

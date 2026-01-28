@@ -1,8 +1,11 @@
 'use client';
+import type { ThemeColors } from '@/context/ThemeContext';
 import { RefreshCw } from 'lucide-react';
-import React from 'react';
 
-export default function LoadingState({ message, colors }: { message: string; colors: any }) {
+export default function LoadingState({
+  message,
+  colors,
+}: { message: string; colors: ThemeColors }) {
   return (
     <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
       <RefreshCw

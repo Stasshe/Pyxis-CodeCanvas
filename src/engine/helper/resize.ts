@@ -20,6 +20,7 @@ export const useRightSidebarResize = (
     maxSize: typeof window !== 'undefined' ? window.innerWidth * 0.7 : 1000,
     onResize: setRightSidebarWidth,
     targetSelector: '[data-sidebar="right"]',
+    shouldUpdateStateDuringResize: false,
   });
 
   return startResizeInverted;
@@ -37,6 +38,7 @@ export const useLeftSidebarResize = (
     maxSize: typeof window !== 'undefined' ? window.innerWidth * 0.7 : 1000,
     onResize: setLeftSidebarWidth,
     targetSelector: '[data-sidebar="left"]',
+    shouldUpdateStateDuringResize: false,
   });
 
   return startResize;
@@ -54,6 +56,7 @@ export const useBottomPanelResize = (
     maxSize: typeof window !== 'undefined' ? window.innerHeight : 1000,
     onResize: setBottomPanelHeight,
     targetSelector: '[data-panel="bottom"]',
+    shouldUpdateStateDuringResize: false,
   });
 
   return startResizeInverted;

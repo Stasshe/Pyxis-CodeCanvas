@@ -7,7 +7,7 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import { downloadWorkspaceZip } from '@/engine/in-ex/exportRepo';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { Project } from '@/types';
 import type { PyxisSettings } from '@/types/settings';
 
@@ -18,7 +18,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const [includeGit, setIncludeGit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { t } = useTranslation();
-  const { openTab } = useTabStore();
+  const { openTab } = tabActions;
   const { colors, setColor, themeName, setTheme, themeList } = useTheme();
 
   // 設定状態

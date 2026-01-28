@@ -2,7 +2,7 @@
 import JSZip from 'jszip';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import type { Project } from '@/types';
+import type { Project, ProjectFile } from '@/types';
 
 // 現在のプロジェクトのみZIPエクスポート
 export async function downloadWorkspaceZip({
@@ -23,8 +23,8 @@ export async function downloadWorkspaceZip({
   const projectsTx = db.transaction('projects', 'readonly');
   const projectsStore = projectsTx.objectStore('projects');
   const projectReq = projectsStore.get(currentProject.id);
-  const project: any = await new Promise((resolve, reject) => {
-    projectReq.onsuccess = () => resolve(projectReq.result);
+  const project: Project = await new Promise((resolve, reject) => {
+    projectReq.onsuccess = () => resolve(projectReq.result as Project);
     projectReq.onerror = () => reject(projectReq.error);
   });
 
@@ -33,8 +33,8 @@ export async function downloadWorkspaceZip({
   const filesStore = filesTx.objectStore('files');
   // プロジェクトIDで絞り込み
   const filesReq = filesStore.getAll();
-  const allFiles: any[] = await new Promise((resolve, reject) => {
-    filesReq.onsuccess = () => resolve(filesReq.result);
+  const allFiles: ProjectFile[] = await new Promise((resolve, reject) => {
+    filesReq.onsuccess = () => resolve(filesReq.result as ProjectFile[]);
     filesReq.onerror = () => reject(filesReq.error);
   });
   db.close();

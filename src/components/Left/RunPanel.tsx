@@ -1,8 +1,9 @@
+import type { FileItem } from '@/types';
 import clsx from 'clsx';
 import { Code, Play, Square, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import OperationWindow from '@/components/Top/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,7 +13,7 @@ import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runt
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
-  files: any[];
+  files: FileItem[];
 }
 
 interface OutputEntry {
@@ -72,31 +73,37 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       });
     });
 
-    const flattenFiles = (items: any[], parentPath = ''): any[] => {
-      return items.reduce((acc, item) => {
-        const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
-        if (item.type === 'file') {
-          // Check if file has supported extension
-          const matchedExt = supportedExtensions.find(ext => item.name.endsWith(ext));
-          if (matchedExt) {
-            const lang = extensionToLang.get(matchedExt) || 'unknown';
-            acc.push({
-              ...item,
-              path: fullPath,
-              uniqueKey: `${fullPath}-${item.id || Math.random().toString(36).substr(2, 9)}`,
-              lang,
-            });
+    const flattenFiles = (
+      items: FileItem[],
+      parentPath = ''
+    ): Array<FileItem & { path: string; uniqueKey: string; lang: string }> => {
+      return items.reduce(
+        (acc, item) => {
+          const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+          if (item.type === 'file') {
+            // Check if file has supported extension
+            const matchedExt = supportedExtensions.find(ext => item.name.endsWith(ext));
+            if (matchedExt) {
+              const lang = extensionToLang.get(matchedExt) || 'unknown';
+              acc.push({
+                ...item,
+                path: fullPath,
+                uniqueKey: `${fullPath}-${item.id || Math.random().toString(36).substr(2, 9)}`,
+                lang,
+              });
+            }
           }
-        }
-        if (item.children) {
-          acc.push(...flattenFiles(item.children, fullPath));
-        }
-        return acc;
-      }, []);
+          if (item.children) {
+            acc.push(...flattenFiles(item.children, fullPath));
+          }
+          return acc;
+        },
+        [] as Array<FileItem & { path: string; uniqueKey: string; lang: string }>
+      );
     };
 
     // .gitignore をプロジェクトツリーから探してパースする
-    const findGitignoreContent = (items: any[], parentPath = ''): string | null => {
+    const findGitignoreContent = (items: FileItem[], parentPath = ''): string | null => {
       for (const item of items) {
         const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
         if (item.type === 'file' && item.name === '.gitignore') {

@@ -122,7 +122,7 @@ class TerminalCommandRegistry {
    */
   updateShellSize(projectId: string, columns: number, rows: number): void {
     const entry = this.projects.get(projectId);
-    if (entry?.shell && typeof entry.shell.setTerminalSize === 'function') {
+    if (entry?.shell) {
       entry.shell.setTerminalSize(columns, rows);
     }
   }

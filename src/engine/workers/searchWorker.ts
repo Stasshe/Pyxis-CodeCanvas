@@ -43,6 +43,9 @@ type WorkerSelf = typeof globalThis & {
 // TypeScript knows `self` exists in worker context
 const workerSelf = self as unknown as WorkerSelf;
 
+// cached files to avoid receiving the full payload on every search message
+let cachedFiles: FilePayload[] = [];
+
 function escapeForRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -73,13 +76,21 @@ function globToRegex(pattern: string, caseSensitive: boolean) {
 
 workerSelf.addEventListener('message', (ev: MessageEvent) => {
   const msg = ev.data;
-  if (!msg || msg.type !== 'search') return;
+  if (!msg) return;
+
+  // support a message to update cached files (avoid large clones every search)
+  if (msg.type === 'updateFiles') {
+    cachedFiles = (msg.files || []).map((f: FilePayload) => ({ ...f }));
+    return;
+  }
+
+  if (msg.type !== 'search') return;
 
   const { searchId, query, options, files } = msg as {
     searchId: number;
     query: string;
     options: SearchOptions;
-    files: FilePayload[];
+    files?: FilePayload[];
   };
 
   try {
@@ -110,7 +121,9 @@ workerSelf.addEventListener('message', (ev: MessageEvent) => {
       globToRegex(g, options.caseSensitive)
     );
 
-    for (const file of files) {
+    const filesToSearch = files?.length ? files : cachedFiles;
+
+    for (const file of filesToSearch) {
       const normalizedPath = (file.path || '').replace(/\\/g, '/');
 
       // Skip if path matches any exclude pattern

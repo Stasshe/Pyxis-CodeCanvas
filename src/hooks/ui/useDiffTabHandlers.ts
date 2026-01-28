@@ -2,19 +2,19 @@ import { useCallback } from 'react';
 
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { normalizePath, toGitPath } from '@/engine/core/fileRepository'; //  toGitPath 追加
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { SingleFileDiff } from '@/types';
 
 /**
  * [NEW ARCHITECTURE] Git Diff タブを開くための Hook
  * パス正規化対応版 - Git APIには先頭スラッシュなしで渡す
- * 
+ *
  * VSCode-style diff behavior:
  * - Staged files: HEAD vs INDEX (staged content)
  * - Unstaged files: INDEX vs WORKDIR (if file is also staged), otherwise HEAD vs WORKDIR
  */
 export function useDiffTabHandlers(currentProject: any) {
-  const { openTab } = useTabStore();
+  const { openTab } = tabActions;
 
   /**
    * [VSCode-style] ステージ済みファイルのdiffを開く
@@ -73,7 +73,7 @@ export function useDiffTabHandlers(currentProject: any) {
 
   /**
    * [VSCode-style] 未ステージファイルのdiffを開く
-   * 比較: 
+   * 比較:
    * - ファイルがステージ済みの場合: INDEX vs WORKDIR
    * - ファイルがステージされていない場合: HEAD vs WORKDIR
    */
@@ -107,7 +107,10 @@ export function useDiffTabHandlers(currentProject: any) {
           formerContent = content || '';
           formerCommitId = 'INDEX';
         } catch (e) {
-          console.warn('[useDiffTabHandlers] Failed to get staged content, falling back to HEAD:', e);
+          console.warn(
+            '[useDiffTabHandlers] Failed to get staged content, falling back to HEAD:',
+            e
+          );
           // フォールバック: HEADを使用
           try {
             const content = await git.getHeadFileContent(gitPath);
@@ -343,4 +346,3 @@ export function useDiffTabHandlers(currentProject: any) {
     handleUnstagedFileDiff,
   };
 }
-

@@ -15,7 +15,7 @@ import PaneContainer from '@/components/Pane/PaneContainer';
 import PaneNavigator from '@/components/Pane/PaneNavigator';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
-import OperationWindow from '@/components/Top/OperationWindow';
+import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import TopBar from '@/components/Top/TopBar';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
@@ -31,11 +31,12 @@ import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
 import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
-import { useProjectStore } from '@/stores/projectStore';
+import { setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
 import type { MenuTab } from '@/types';
+import { useSnapshot } from 'valtio';
 
 /**
  * Home: 新アーキテクチャのメインページ
@@ -61,20 +62,10 @@ export default function Home() {
   const [nodeRuntimeOperationInProgress] = useState(false);
 
   const { colors } = useTheme();
-  const {
-    panes,
-    isLoading: isTabsLoading,
-    isRestored,
-    isContentRestored,
-    openTab,
-    setPanes,
-    activePane,
-    setActivePane,
-    splitPane,
-    removePane,
-    moveTab,
-    activateTab,
-  } = useTabStore();
+  const snap = useSnapshot(tabState);
+  const { panes, isLoading: isTabsLoading, isRestored, isContentRestored, activePane } = snap;
+  const { openTab, setPanes, setActivePane, splitPane, removePane, moveTab, activateTab } =
+    tabActions;
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,
@@ -82,9 +73,9 @@ export default function Home() {
   } = useFileSelector();
 
   // Helper function to flatten panes
-  const flattenPanes = useCallback((paneList: EditorPane[]): EditorPane[] => {
+  const flattenPanes = useCallback((paneList: readonly EditorPane[]): readonly EditorPane[] => {
     const result: EditorPane[] = [];
-    const traverse = (list: EditorPane[]) => {
+    const traverse = (list: readonly EditorPane[]) => {
       for (const pane of list) {
         if (!pane.children || pane.children.length === 0) {
           result.push(pane);
@@ -103,12 +94,9 @@ export default function Home() {
     useProject();
 
   // グローバルプロジェクトストアを同期
-  // NOTE: useProject()は各コンポーネントで独立したステートを持つため、
-  // ここでグローバルストアに同期することで、全コンポーネントが一貫したプロジェクト情報にアクセスできる
-  const setCurrentProjectToStore = useProjectStore(state => state.setCurrentProject);
   useEffect(() => {
-    setCurrentProjectToStore(currentProject);
-  }, [currentProject, setCurrentProjectToStore]);
+    setCurrentProject(currentProject);
+  }, [currentProject]);
 
   // タブコンテンツの復元と自動更新
   useTabContentRestore(projectFiles, isRestored);
@@ -126,6 +114,19 @@ export default function Home() {
 
   // グローバルスクロールロック
   useGlobalScrollLock();
+
+  // Stable callbacks for refresh handlers to avoid passing new function refs each render
+  const handleGitRefresh = useCallback(() => {
+    if (currentProject && loadProject) {
+      loadProject(currentProject);
+    }
+  }, [currentProject, loadProject]);
+
+  const handleFilesRefresh = useCallback(() => {
+    if (refreshProjectFiles) {
+      refreshProjectFiles().then(() => setGitRefreshTrigger(prev => prev + 1));
+    }
+  }, [refreshProjectFiles]);
 
   // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
@@ -467,20 +468,10 @@ export default function Home() {
               files={projectFiles}
               currentProject={currentProject}
               onResize={handleLeftResize}
-              onGitRefresh={() => {
-                if (currentProject && loadProject) {
-                  loadProject(currentProject);
-                }
-              }}
+              onGitRefresh={handleGitRefresh}
               gitRefreshTrigger={gitRefreshTrigger}
               onGitStatusChange={setGitChangesCount}
-              onRefresh={() => {
-                if (refreshProjectFiles) {
-                  refreshProjectFiles().then(() => {
-                    setGitRefreshTrigger(prev => prev + 1);
-                  });
-                }
-              }}
+              onRefresh={handleFilesRefresh}
             />
           )}
 

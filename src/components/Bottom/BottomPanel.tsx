@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState, useTransition } from 'react';
 
 import DebugConsole from './DebugConsole';
 import OutputPanel, { type OutputMessage } from './OutputPanel';
@@ -89,13 +89,29 @@ export default function BottomPanel({
 
   const activeTab = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
 
+  const [isPending, startTransition] = useTransition();
+
   const setActiveTab = (tab: 'output' | 'terminal' | 'debug' | 'problems') => {
-    if (onActiveTabChange) onActiveTabChange(tab);
-    else setInternalActiveTab(tab);
+    const current = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
+    if (current === tab) return; // avoid unnecessary state updates
+
+    if (onActiveTabChange) {
+      startTransition(() => onActiveTabChange(tab));
+    } else {
+      startTransition(() => setInternalActiveTab(tab));
+    }
   };
   const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
   outputMessagesRef.current = outputMessages;
   outputMessagesRef.set = setOutputMessages;
+
+  const handleClearDisplayed = useCallback(
+    (toClear: OutputMessage[]) => {
+      // Remove the currently displayed (filtered) messages from the full messages list
+      setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
+    },
+    [setOutputMessages]
+  );
 
   return (
     <>
@@ -113,6 +129,7 @@ export default function BottomPanel({
       {/* Bottom Panel (Tabs) */}
       <div
         className="flex flex-col bottom-panel-container"
+        data-panel="bottom"
         style={{
           height,
           background: colors.cardBg,
@@ -148,11 +165,6 @@ export default function BottomPanel({
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('problems')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'problems' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.problems')}
           </button>
@@ -176,11 +188,6 @@ export default function BottomPanel({
               transition: 'color 0.2s, border-bottom 0.2s',
             }}
             onClick={() => setActiveTab('output')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'output' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.output')}
           </button>
@@ -204,11 +211,6 @@ export default function BottomPanel({
               marginLeft: '2px',
             }}
             onClick={() => setActiveTab('debug')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'debug' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.debugConsole')}
           </button>
@@ -232,11 +234,6 @@ export default function BottomPanel({
               marginLeft: '2px',
             }}
             onClick={() => setActiveTab('terminal')}
-            onMouseOver={e => (e.currentTarget.style.color = colors.primary)}
-            onMouseOut={e =>
-              (e.currentTarget.style.color =
-                activeTab === 'terminal' ? colors.primary : colors.mutedFg)
-            }
           >
             {t('bottom.terminal')}
           </button>
@@ -253,9 +250,7 @@ export default function BottomPanel({
             <button
               onClick={() => {
                 try {
-                  if (typeof vimEditor.pressEsc === 'function') {
-                    vimEditor.pressEsc();
-                  }
+                  vimEditor.pressEsc();
                 } catch (e) {}
               }}
               title={t('bottom.escButton') ?? 'Esc'}
@@ -302,13 +297,7 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel
-              messages={outputMessages}
-              onClearDisplayed={toClear => {
-                // Remove the currently displayed (filtered) messages from the full messages list
-                setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
-              }}
-            />
+            <OutputPanel messages={outputMessages} onClearDisplayed={handleClearDisplayed} />
           </div>
           <div
             style={{

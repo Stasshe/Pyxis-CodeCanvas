@@ -5,7 +5,7 @@ import { GitFileSystemHelper } from './fileSystemHelper';
 import { MergeConflictDetector } from './mergeConflictDetector';
 
 import { syncManager } from '@/engine/core/syncManager';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 
 /**
  * [NEW ARCHITECTURE] Git merge操作を管理するクラス
@@ -271,7 +271,7 @@ export class GitMergeOperations {
 
           if (conflicts.length > 0) {
             // Open merge conflict tab
-            const { openTab } = useTabStore.getState();
+            const { openTab } = tabActions;
             await openTab(
               {
                 conflicts,

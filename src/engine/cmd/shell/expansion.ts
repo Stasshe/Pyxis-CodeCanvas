@@ -1,4 +1,5 @@
 import type { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 import type { UnixCommands } from '../global/unix';
 import type { TokenObj } from './types';
 
@@ -114,7 +115,7 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
           ? projectRelativeDir
           : `${projectRelativeDir}/`;
 
-    let projectFiles: any[] = [];
+    let projectFiles: ProjectFile[] = [];
     if (repo.getFilesByPrefix) {
       projectFiles = await repo.getFilesByPrefix(projectId, searchPrefix);
     }

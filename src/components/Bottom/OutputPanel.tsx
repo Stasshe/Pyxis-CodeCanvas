@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import type { ThemeColors } from '@/context/ThemeContext';
 
 type OutputType = 'info' | 'error' | 'warn' | 'check';
 
@@ -18,14 +19,14 @@ interface OutputPanelProps {
 }
 
 // Themeの色を使う
-const getTypeColor = (colors: any): Record<OutputType, string> => ({
+const getTypeColor = (colors: ThemeColors): Record<OutputType, string> => ({
   info: colors.primary,
   error: colors.red,
   warn: colors.accentFg,
   check: colors.green,
 });
 
-export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
+export function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [contextFilter, setContextFilter] = useState('');
@@ -245,3 +246,5 @@ export default function OutputPanel({ messages, onClearDisplayed }: OutputPanelP
     </div>
   );
 }
+
+export default React.memo(OutputPanel);

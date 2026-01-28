@@ -16,7 +16,6 @@ export interface FileTreeItemProps {
   level: number;
   isExpanded: boolean;
   isIgnored: boolean;
-  hoveredItemId: string | null;
   colors: ThemeColors;
   currentProjectName: string;
   currentProjectId?: string;
@@ -26,7 +25,6 @@ export interface FileTreeItemProps {
   onTouchStart: (e: React.TouchEvent, item: FileItem) => void;
   onTouchEnd: () => void;
   onTouchMove: () => void;
-  setHoveredItemId: (id: string | null) => void;
   handleNativeFileDrop: (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => void;
   handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;

@@ -6,12 +6,12 @@
  * - エディター間の共通インターフェース提供
  *
  * 注意:
- * - デバウンス保存はEditorMemoryManagerが管理
- * - コンテンツ変更はonImmediateContentChangeを通じてEditorMemoryManagerに通知
- * - Ctrl+Sの即時保存もEditorMemoryManager経由
+ * - デバウンス保存・即時保存は tabState (Valtio) が管理
+ * - コンテンツ変更は onImmediateContentChange を通じて tabState に通知
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSnapshot } from 'valtio';
 
 import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
 import MonacoEditor from './text-editor/editors/MonacoEditor';
@@ -19,11 +19,11 @@ import { useCharCount } from './text-editor/hooks/useCharCount';
 import CharCountDisplay from './text-editor/ui/CharCountDisplay';
 import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
 
-import { editorMemoryManager } from '@/engine/editor';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useTabStore } from '@/stores/tabStore';
+import { useTabContent } from '@/stores/tabContentStore';
+import { saveImmediately, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
 
 interface CodeEditorProps {
@@ -56,7 +56,7 @@ export default function CodeEditor({
     currentProject?.id ||
     (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
   const { settings, updateSettings } = useSettings(projectId);
-  const { isContentRestored } = useTabStore();
+  const { isContentRestored } = useSnapshot(tabState);
 
   // コンテンツ復元中かどうかを判定
   const isRestoringContent =
@@ -65,6 +65,11 @@ export default function CodeEditor({
     (activeTab as any).needsContentRestore &&
     !isContentRestored;
 
+  // tabContentStoreからコンテンツを取得（panesを更新せずに再レンダリング）
+  const storeContent = useTabContent(activeTab?.id ?? '');
+  // ストア未初期化時はactiveTabの初期コンテンツを使用
+  const content = storeContent !== undefined ? storeContent : (activeTab?.content ?? '');
+
   const {
     charCount,
     setCharCount,
@@ -72,7 +77,7 @@ export default function CodeEditor({
     setSelectionCount,
     showCharCountPopup,
     setShowCharCountPopup,
-  } = useCharCount(activeTab?.content);
+  } = useCharCount(content);
 
   const editorHeight = '100%';
 
@@ -122,12 +127,10 @@ export default function CodeEditor({
   }, []);
 
   // エディター変更ハンドラー
-  // EditorMemoryManagerを通じてコンテンツを更新（デバウンス保存と同期は自動）
+  // onImmediateContentChange で tabState に通知（デバウンス保存とタブ間同期は tabState が管理）
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
-      // onImmediateContentChangeを通じてEditorMemoryManagerに変更を通知
-      // EditorMemoryManagerがデバウンス保存とタブ間同期を管理
       try {
         onImmediateContentChange?.(activeTab.id, value);
       } catch (e) {
@@ -137,8 +140,7 @@ export default function CodeEditor({
     [activeTab, onImmediateContentChange]
   );
 
-  // Ctrl+S 等のキーボードショートカットで即時保存するハンドラを登録
-  // EditorMemoryManagerを通じて即時保存を実行
+  // Ctrl+S で即時保存
   useKeyBinding(
     'saveFile',
     async () => {
@@ -151,8 +153,7 @@ export default function CodeEditor({
       }
 
       try {
-        // EditorMemoryManagerを通じて即時保存
-        await editorMemoryManager.saveImmediately(activeTab.path);
+        await saveImmediately(activeTab.path);
         console.log('[CodeEditor] Immediate save completed');
       } catch (e) {
         console.error('[CodeEditor] Immediate save failed:', e);
@@ -205,7 +206,7 @@ export default function CodeEditor({
         <CodeMirrorEditor
           tabId={activeTab.id}
           fileName={activeTab.name}
-          content={activeTab.content}
+          content={content}
           onChange={handleEditorChange}
           onSelectionChange={setSelectionCount}
           tabSize={settings?.editor.tabSize ?? 2}
@@ -219,7 +220,7 @@ export default function CodeEditor({
           showCharCountPopup={showCharCountPopup}
           onTogglePopup={() => setShowCharCountPopup(v => !v)}
           onClosePopup={() => setShowCharCountPopup(false)}
-          content={activeTab.content || ''}
+          content={content}
           alignLeft={isMobileDevice}
         />
       </div>
@@ -232,7 +233,7 @@ export default function CodeEditor({
       <MonacoEditor
         tabId={activeTab.id}
         fileName={activeTab.name}
-        content={activeTab.content}
+        content={content}
         wordWrapConfig={wordWrapConfig}
         jumpToLine={activeTab.jumpToLine}
         jumpToColumn={activeTab.jumpToColumn}
@@ -250,7 +251,7 @@ export default function CodeEditor({
         showCharCountPopup={showCharCountPopup}
         onTogglePopup={() => setShowCharCountPopup(v => !v)}
         onClosePopup={() => setShowCharCountPopup(false)}
-        content={activeTab.content || ''}
+        content={content}
         alignLeft={isMobileDevice}
       />
     </div>

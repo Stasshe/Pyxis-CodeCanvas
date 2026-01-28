@@ -12,9 +12,10 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 
-import { useTheme } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
+import { useSnapshot } from 'valtio';
 
 interface PaneNavigatorProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ interface PaneItemProps {
   isActive: boolean;
   onSelect: (paneId: string) => void;
   onActivate: (paneId: string) => void;
-  colors: any;
+  colors: ThemeColors;
   index: number;
 }
 
@@ -90,7 +91,7 @@ interface RecursivePaneViewProps {
   activePane: string | null;
   onSelect: (paneId: string) => void;
   onActivate: (paneId: string) => void;
-  colors: any;
+  colors: ThemeColors;
   leafIndexRef: { current: number };
 }
 
@@ -142,7 +143,10 @@ const RecursivePaneView = memo(function RecursivePaneView({
 });
 
 // Calculate layout dimensions based on pane structure
-function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height: number } {
+function calculateLayoutDimensions(panes: readonly EditorPane[]): {
+  width: number;
+  height: number;
+} {
   const baseSize = 60; // Base size for each pane item
   const gap = 4;
 
@@ -189,21 +193,24 @@ function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height
  */
 export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const { colors } = useTheme();
-  const { panes, activePane, setActivePane, splitPane, removePane } = useTabStore();
+  // Subscribe only to structural pane tree and the active pane id
+  const panesForStructure = useSnapshot(tabState).panes;
+  const activePane = useSnapshot(tabState).activePane;
+  const { setActivePane, splitPane, removePane } = tabActions;
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
 
   // Flatten panes for navigation
   const flattenedPanes = useMemo(() => {
     const result: EditorPane[] = [];
-    const traverse = (list: EditorPane[]) => {
+    const traverse = (list: readonly EditorPane[]) => {
       for (const p of list) {
         if (!p.children || p.children.length === 0) result.push(p);
         if (p.children) traverse(p.children);
       }
     };
-    traverse(panes);
+    traverse(panesForStructure);
     return result;
-  }, [panes]);
+  }, [panesForStructure]);
 
   // Initialize selection
   useEffect(() => {
@@ -223,12 +230,12 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
       if (pane?.activeTabId) {
         // ペインにアクティブなタブがある場合は、そのタブをアクティブ化
         // activateTab内部でsetActivePaneも実行されるが、明示的に呼ぶ
-        useTabStore.getState().activateTab(id, pane.activeTabId);
+        tabActions.activateTab(id, pane.activeTabId);
       } else {
         // ペインにタブがない場合でも、移動元のペインからフォーカスを外すために
         // アクティブペインを更新し、グローバルアクティブタブをクリア
         setActivePane(id);
-        useTabStore.setState({ globalActiveTab: null });
+        tabState.globalActiveTab = null;
       }
       onClose();
     },
@@ -241,13 +248,13 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
       splitPane(selectedPaneId, dir);
       requestAnimationFrame(() => {
         const newFlat: EditorPane[] = [];
-        const traverse = (list: EditorPane[]) => {
+        const traverse = (list: readonly EditorPane[]) => {
           for (const p of list) {
             if (!p.children || p.children.length === 0) newFlat.push(p);
             if (p.children) traverse(p.children);
           }
         };
-        traverse(useTabStore.getState().panes);
+        traverse(tabState.panes);
         const newPane = newFlat.find(p => !flattenedPanes.some(fp => fp.id === p.id));
         if (newPane) setSelectedPaneId(newPane.id);
       });
@@ -321,7 +328,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
-  const { width, height } = calculateLayoutDimensions(panes);
+  const { width, height } = calculateLayoutDimensions(panesForStructure);
 
   return (
     <div
@@ -339,7 +346,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         style={{ width: `${width}px`, height: `${height}px` }}
         onClick={e => e.stopPropagation()}
       >
-        {panes.map(pane => (
+        {panesForStructure.map((pane: EditorPane) => (
           <div key={pane.id} className="flex-1" style={{ minWidth: 0, minHeight: 0 }}>
             <RecursivePaneView
               pane={pane}

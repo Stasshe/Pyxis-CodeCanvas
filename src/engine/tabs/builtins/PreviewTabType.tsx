@@ -4,7 +4,7 @@ import type React from 'react';
 import type { OpenTabOptions, PreviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
-import { useProjectStore } from '@/stores/projectStore';
+import { useProjectSnapshot } from '@/stores/projectStore';
 import type { FileItem } from '@/types';
 
 /**
@@ -15,7 +15,7 @@ import type { FileItem } from '@/types';
  */
 const PreviewTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
   const previewTab = tab as PreviewTab;
-  const currentProject = useProjectStore(state => state.currentProject);
+  const { currentProject } = useProjectSnapshot();
 
   return <MarkdownPreviewTab activeTab={previewTab} currentProject={currentProject || undefined} />;
 };

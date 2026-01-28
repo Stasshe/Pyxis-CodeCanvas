@@ -1,12 +1,13 @@
 import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
+import ResultRow from './ResultRow';
 
 interface SearchPanelProps {
   files: FileItem[];
@@ -34,10 +35,24 @@ interface FilePayload {
 // ファイル数閾値：この数以下ならリアルタイム検索
 const REALTIME_FILE_THRESHOLD = 50;
 
+// Module-level memoized ResultRow to avoid recreating component each render
+export type ResultRowProps = {
+  result: SearchResult;
+  globalIndex: number;
+  isSelected: boolean;
+  resultKey: string;
+  colors: ThemeColors;
+  isHovered: boolean;
+  onHoverChange: (key: string | null) => void;
+  onClick: (result: SearchResult, idx: number) => void;
+  onReplace: (result: SearchResult, replacement: string) => void;
+  replaceQuery: string;
+};
+
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const { openTab } = useTabStore();
+  const { openTab } = tabActions;
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -63,6 +78,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   // キャッシュ用ref
   const cachedFilesRef = useRef<FilePayload[] | null>(null);
   const lastFilesVersionRef = useRef<string>('');
+  const lastFilesSentVersionRef = useRef<string | null>(null);
   const lastSearchOptionsRef = useRef<string>('');
   const lastSearchQueryRef = useRef<string>('');
   const lastSearchResultsRef = useRef<SearchResult[]>([]);
@@ -76,7 +92,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
-          if (!isExcluded || !isExcluded(item.path)) {
+          if (!isExcluded(item.path)) {
             result.push(item);
           }
         } else if (item.children) {
@@ -188,12 +204,22 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     lastSearchOptionsRef.current = searchOptionsKey;
 
     try {
+      // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
+      if (lastFilesSentVersionRef.current !== filesVersion) {
+        workerRef.current?.postMessage({
+          type: 'updateFiles',
+          files: filePayloads,
+          filesVersion,
+        });
+        lastFilesSentVersionRef.current = filesVersion;
+      }
+
+      // then send the actual search request without files (worker will reuse cached files)
       workerRef.current?.postMessage({
         type: 'search',
         searchId: sid,
         query,
         options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
-        files: filePayloads,
       });
     } catch (err) {
       console.error('Worker postMessage failed', err);
@@ -270,6 +296,25 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const flatResults = searchResults;
   const currentSelected = flatResults[selectedIndex] || null;
 
+  // Grouped results by file (memoized to avoid recomputing groups every render)
+  const groupedResults: Array<{
+    first: SearchResult;
+    results: Array<{ result: SearchResult; globalIndex: number }>;
+  }> = useMemo(() => {
+    // Build groups while preserving each result's global index to avoid repeated indexOf calls during render
+    const groupsMap: Record<
+      string,
+      { first: SearchResult; results: Array<{ result: SearchResult; globalIndex: number }> }
+    > = {};
+    for (let i = 0; i < searchResults.length; i++) {
+      const r = searchResults[i];
+      const key = r.file.id || r.file.path;
+      if (!groupsMap[key]) groupsMap[key] = { first: r, results: [] };
+      groupsMap[key].results.push({ result: r, globalIndex: i });
+    }
+    return Object.values(groupsMap);
+  }, [searchResults]);
+
   useEffect(() => {
     // keep selection within bounds
     if (selectedIndex >= flatResults.length) {
@@ -278,66 +323,72 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flatResults.length]);
 
-  const handleResultClick = async (result: SearchResult) => {
-    try {
-      const projId = projectId;
-      const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
+  const handleResultClick = useCallback(
+    async (result: SearchResult) => {
+      try {
+        const projId = projectId;
+        const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
 
-      let isCodeMirror = false;
-      if (typeof window !== 'undefined') {
-        const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
-        isCodeMirror = defaultEditor === 'codemirror';
+        let isCodeMirror = false;
+        if (typeof window !== 'undefined') {
+          const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
+          isCodeMirror = defaultEditor === 'codemirror';
+        }
+
+        const fileWithJump = {
+          ...(fileEntry || result.file),
+          isCodeMirror,
+          isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
+          bufferContent: fileEntry
+            ? (fileEntry as any).bufferContent
+            : (result.file as any).bufferContent,
+        };
+
+        const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
+        await openTab(fileWithJump, {
+          kind,
+          jumpToLine: result.line,
+          jumpToColumn: result.column,
+        });
+      } catch (err) {
+        console.error('Failed to open file from search result', err);
       }
+    },
+    [projectId, openTab]
+  );
 
-      const fileWithJump = {
-        ...(fileEntry || result.file),
-        isCodeMirror,
-        isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
-        bufferContent: fileEntry
-          ? (fileEntry as any).bufferContent
-          : (result.file as any).bufferContent,
-      };
+  const handleReplaceResult = useCallback(
+    async (result: SearchResult, replacement: string) => {
+      try {
+        const projId = projectId;
+        const filePath = result.file.path;
 
-      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
-      await openTab(fileWithJump, {
-        kind,
-        jumpToLine: result.line,
-        jumpToColumn: result.column,
-      });
-    } catch (err) {
-      console.error('Failed to open file from search result', err);
-    }
-  };
+        if (result.line === 0) {
+          console.info('Skipping filename replace from SearchPanel');
+          return;
+        }
+        const fileEntry = await fileRepository.getFileByPath(projId, filePath);
+        if (!fileEntry || typeof fileEntry.content !== 'string')
+          throw new Error('file not found or not text');
+        const lines = fileEntry.content.split('\n');
+        const lineIdx = result.line - 1;
+        const line = lines[lineIdx] || '';
+        const before = line.substring(0, result.matchStart);
+        const after = line.substring(result.matchEnd);
+        lines[lineIdx] = before + replacement + after;
+        const updatedContent = lines.join('\n');
+        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
+        await fileRepository.saveFile(updated);
 
-  const handleReplaceResult = async (result: SearchResult, replacement: string) => {
-    try {
-      const projId = projectId;
-      const filePath = result.file.path;
-
-      if (result.line === 0) {
-        console.info('Skipping filename replace from SearchPanel');
-        return;
+        // キャッシュをクリアして再検索
+        lastSearchResultsRef.current = [];
+        performSearchRef.current(searchQuery);
+      } catch (e) {
+        console.error('Replace error', e);
       }
-      const fileEntry = await fileRepository.getFileByPath(projId, filePath);
-      if (!fileEntry || typeof fileEntry.content !== 'string')
-        throw new Error('file not found or not text');
-      const lines = fileEntry.content.split('\n');
-      const lineIdx = result.line - 1;
-      const line = lines[lineIdx] || '';
-      const before = line.substring(0, result.matchStart);
-      const after = line.substring(result.matchEnd);
-      lines[lineIdx] = before + replacement + after;
-      const updatedContent = lines.join('\n');
-      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-      await fileRepository.saveFile(updated);
-
-      // キャッシュをクリアして再検索
-      lastSearchResultsRef.current = [];
-      performSearchRef.current(searchQuery);
-    } catch (e) {
-      console.error('Replace error', e);
-    }
-  };
+    },
+    [projectId, searchQuery]
+  );
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
     try {
@@ -385,6 +436,13 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   };
 
+  const handleRowClick = useCallback(
+    (r: SearchResult, idx: number) => {
+      setSelectedIndex(idx);
+      handleResultClick(r);
+    },
+    [handleResultClick]
+  );
   // Enterキーでの検索確定
   const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -511,8 +569,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                   transform: 'translateY(-50%)',
                   color: colors.mutedFg,
                 }}
-                onMouseEnter={e => (e.currentTarget.style.color = colors.foreground)}
-                onMouseLeave={e => (e.currentTarget.style.color = colors.mutedFg)}
               >
                 <X size={14} />
               </button>
@@ -686,16 +742,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
         {searchResults.length > 0 && (
           <div style={{ padding: '0.14rem' }}>
-            {/* Group results by file */}
-            {Object.values(
-              searchResults.reduce((acc: Record<string, SearchResult[]>, r) => {
-                const key = r.file.id || r.file.path;
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(r);
-                return acc;
-              }, {})
-            ).map((group: SearchResult[], gIdx) => {
-              const first = group[0];
+            {/* Group results by file (memoized) */}
+            {groupedResults.map((group, gIdx) => {
+              const first = group.first;
               const key = first.file.id || first.file.path;
               const isCollapsed = !!collapsedFiles[key];
               return (
@@ -756,7 +805,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     <span
                       style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}
                     >
-                      {group.length} hits
+                      {group.results.length} hits
                     </span>
                     <span
                       style={{
@@ -775,7 +824,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
                     {/* Replace all in file button (show on hover/selection like VSCode) */}
                     {(hoveredFileKey === key ||
-                      group.some(r => flatResults[selectedIndex] === r)) && (
+                      group.results.some(g => flatResults[selectedIndex] === g.result)) && (
                       <button
                         onClick={e => {
                           e.stopPropagation();
@@ -811,100 +860,24 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                         paddingLeft: '0.8rem',
                       }}
                     >
-                      {group.map((result, idx) => {
-                        const globalIndex = flatResults.indexOf(result);
+                      {group.results.map(({ result, globalIndex }, idx) => {
                         const isSelected = globalIndex === selectedIndex;
                         const resultKey = `${result.file.id}-${result.line}-${idx}`;
-                        const showResultReplace =
-                          result.line !== 0 && (isSelected || hoveredResultKey === resultKey);
+                        const isHovered = hoveredResultKey === resultKey;
                         return (
-                          <div
+                          <ResultRow
                             key={`${result.file.id}-${result.line}-${idx}`}
-                            onClick={() => {
-                              setSelectedIndex(globalIndex);
-                              handleResultClick(result);
-                            }}
-                            style={{
-                              padding: '0.12rem',
-                              borderRadius: '0.2rem',
-                              cursor: 'pointer',
-                              background: isSelected ? colors.accentBg : 'transparent',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.32rem',
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.background = colors.accentBg;
-                              setHoveredResultKey(resultKey);
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.background = isSelected
-                                ? colors.accentBg
-                                : 'transparent';
-                              setHoveredResultKey(null);
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: '0.32rem',
-                                alignItems: 'center',
-                                flex: 1,
-                                minWidth: 0,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  color: colors.mutedFg,
-                                  width: '2.6rem',
-                                  flexShrink: 0,
-                                  fontSize: '0.62rem',
-                                }}
-                              >
-                                {result.line}:{result.column}
-                              </span>
-                              <code
-                                style={{
-                                  background: colors.mutedBg,
-                                  padding: '0.08rem 0.26rem',
-                                  borderRadius: '0.2rem',
-                                  color: colors.foreground,
-                                  display: 'block',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  maxWidth: 'calc(100% - 6rem)',
-                                }}
-                                title={result.content}
-                              >
-                                {highlightMatch(result.content, result.matchStart, result.matchEnd)}
-                              </code>
-                            </div>
-
-                            {/* per-result replace button (VSCode-like: show on hover/selection) */}
-                            {showResultReplace && (
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  handleReplaceResult(result, replaceQuery);
-                                }}
-                                title="Replace"
-                                style={{
-                                  padding: '0.08rem',
-                                  borderRadius: '0.22rem',
-                                  border: `1px solid ${colors.border}`,
-                                  background: colors.mutedBg,
-                                  color: colors.foreground,
-                                  cursor: 'pointer',
-                                  fontSize: '0.6rem',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                <Edit3 size={12} />
-                              </button>
-                            )}
-                          </div>
+                            result={result}
+                            globalIndex={globalIndex}
+                            isSelected={isSelected}
+                            resultKey={resultKey}
+                            colors={colors}
+                            isHovered={isHovered}
+                            onHoverChange={setHoveredResultKey}
+                            onClick={handleRowClick}
+                            onReplace={handleReplaceResult}
+                            replaceQuery={replaceQuery}
+                          />
                         );
                       })}
                     </div>

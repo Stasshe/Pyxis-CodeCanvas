@@ -2,11 +2,11 @@
 
 import { useCallback } from 'react';
 
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions } from '@/stores/tabState';
 import type { AIReviewEntry, FileItem, Project } from '@/types';
 
 export function useAIReview() {
-  const { openTab, closeTab } = useTabStore();
+  const { openTab, closeTab } = tabActions;
 
   // [NEW ARCHITECTURE] AIレビュータブを開く
   const openAIReviewTab = useCallback(
@@ -86,16 +86,9 @@ export function useAIReview() {
   // [NEW ARCHITECTURE] レビュータブを閉じる
   const closeAIReviewTab = useCallback(
     (filePath: string) => {
-      const { panes } = useTabStore.getState();
-
-      // すべてのペインからAIレビュータブを検索して閉じる
-      for (const pane of panes) {
-        const aiReviewTab = pane.tabs.find(tab => tab.kind === 'ai' && tab.id.includes(filePath));
-
-        if (aiReviewTab) {
-          closeTab(pane.id, aiReviewTab.id);
-        }
-      }
+      const allTabs = tabActions.getAllTabs();
+      const aiTab = allTabs.find(t => t.kind === 'ai' && t.id.includes(filePath));
+      if (aiTab) closeTab(aiTab.paneId, aiTab.id);
     },
     [closeTab]
   );

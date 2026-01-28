@@ -2,10 +2,12 @@
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useTabStore } from '@/stores/tabStore';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSnapshot } from 'valtio';
 
 interface ProblemsPanelProps {
   height: number;
@@ -74,9 +76,8 @@ function isMarkerOwnerValidForFile(fileName: string, owner: string): boolean {
 export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const panes = useTabStore(state => state.panes);
-  const updateTab = useTabStore(state => state.updateTab);
-  const activateTab = useTabStore(state => state.activateTab);
+  const { panes } = useSnapshot(tabState);
+  const { updateTab, activateTab } = tabActions;
 
   const [allMarkers, setAllMarkers] = useState<MarkerWithFile[]>([]);
   const [showImportErrors, setShowImportErrors] = useState<boolean>(false);
@@ -86,9 +87,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   // Helper to find paneId for a tabId
   const findPaneIdForTab = useMemo(() => {
     return (tabId: string): string | null => {
-      const findPane = (panesList: any[]): string | null => {
+      const findPane = (panesList: readonly EditorPane[]): string | null => {
         for (const p of panesList) {
-          if (p.tabs?.find((t: any) => t.id === tabId)) return p.id;
+          if (p.tabs?.find((t: Tab) => t.id === tabId)) return p.id;
           if (p.children) {
             const found = findPane(p.children);
             if (found) return found;

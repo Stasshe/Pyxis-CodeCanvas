@@ -15,11 +15,12 @@ import {
 } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { useTabStore } from '@/stores/tabStore';
+import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, FileItem } from '@/types';
+import { useSnapshot } from 'valtio';
 
 interface PaneContainerProps {
-  pane: EditorPane;
+  pane: Readonly<EditorPane>;
   setGitRefreshTrigger: (fn: (prev: number) => number) => void;
 }
 
@@ -39,9 +40,9 @@ export const useGitContext = () => {
 };
 
 // ペインをフラット化してリーフペインの数をカウント
-function flattenPanes(paneList: EditorPane[]): EditorPane[] {
+function flattenPanes(paneList: readonly EditorPane[]): readonly EditorPane[] {
   const result: EditorPane[] = [];
-  const traverse = (items: EditorPane[]) => {
+  const traverse = (items: readonly EditorPane[]) => {
     for (const p of items) {
       if (!p.children || p.children.length === 0) result.push(p);
       if (p.children) traverse(p.children);
@@ -59,16 +60,8 @@ function flattenPanes(paneList: EditorPane[]): EditorPane[] {
  */
 export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const {
-    globalActiveTab,
-    activePane,
-    setPanes,
-    panes: allPanes,
-    moveTab,
-    splitPaneAndMoveTab,
-    openTab,
-    splitPaneAndOpenFile,
-  } = useTabStore();
+  const { globalActiveTab, activePane, panes: allPanes } = useSnapshot(tabState);
+  const { setPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = tabActions;
 
   // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
   const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
@@ -249,15 +242,20 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                     };
 
                     // 親ペインを更新（再帰的にペインツリーを更新）
-                    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                      return panes.map(p => {
+                    const updatePaneRecursive = (
+                      panes: readonly EditorPane[]
+                    ): readonly Readonly<EditorPane>[] => {
+                      return panes.map((p: EditorPane) => {
                         if (p.id === pane.id) {
-                          return { ...p, children: updatedChildren };
+                          return { ...p, children: updatedChildren } as Readonly<EditorPane>;
                         }
                         if (p.children) {
-                          return { ...p, children: updatePaneRecursive(p.children) };
+                          return {
+                            ...p,
+                            children: updatePaneRecursive(p.children),
+                          } as Readonly<EditorPane>;
                         }
-                        return p;
+                        return p as Readonly<EditorPane>;
                       });
                     };
 
@@ -286,9 +284,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const dropRef = (node: HTMLDivElement | null) => {
     elementRef.current = node;
     try {
-      if (typeof drop === 'function') {
-        (drop as any)(node);
-      }
+      (drop as any)(node);
     } catch (err) {
       // 安全のためエラーは無視
     }
