@@ -74,9 +74,10 @@ export class TarCommand extends UnixCommandBase {
       throw new Error('tar: Cowardly refusing to create an empty archive');
     }
 
-    // 正規化したアーカイブパス（AppPath形式）を取得してアーカイブ自身を除外できるようにする
-    const archiveResolved = this.normalizePath(this.resolvePath(archiveName));
+    // Resolve archive path (FSPath) and convert to AppPath for DB operations
+    const archiveResolved = this.resolvePath(archiveName);
     const archiveRel = this.getRelativePathFromProject(archiveResolved);
+    const archiveAppPath = archiveRel; // AppPath used when saving the archive
 
     if (this.terminalUI) {
       await this.terminalUI.spinner.start('Creating tar archive...');
@@ -90,7 +91,8 @@ export class TarCommand extends UnixCommandBase {
 
       // ファイルを順次追加
       for (const fileName of files) {
-        const resolved = this.normalizePath(this.resolvePath(fileName));
+        // Resolve file path relative to current dir and convert to AppPath
+        const resolved = this.resolvePath(fileName);
         const rel = this.getRelativePathFromProject(resolved);
 
         // アーカイブ自身は含めない
@@ -156,14 +158,21 @@ export class TarCommand extends UnixCommandBase {
 
       const tarBuffer = Buffer.concat(chunks);
 
-      // アーカイブを保存
+      // ArrayBuffer を正確な長さで切り出して保存（Buffer.buffer は underlying ArrayBuffer 全体を返すので
+      // byteOffset/length を考慮する必要がある）
+      const archiveArrayBuffer = tarBuffer.buffer.slice(
+        tarBuffer.byteOffset,
+        tarBuffer.byteOffset + tarBuffer.length
+      );
+
+      // アーカイブを保存（AppPathで渡す。archiveNameそのままだとカレントディレクトリが反映されない）
       await fileRepository.createFile(
         this.projectId,
-        archiveName,
+        archiveAppPath,
         '',
         'file',
         true,
-        tarBuffer.buffer as ArrayBuffer
+        archiveArrayBuffer
       );
 
       if (this.terminalUI) {
@@ -183,7 +192,7 @@ export class TarCommand extends UnixCommandBase {
    * アーカイブ一覧表示
    */
   private async listArchive(archiveName: string, verbose: boolean): Promise<string> {
-    const resolved = this.normalizePath(this.resolvePath(archiveName));
+    const resolved = this.resolvePath(archiveName);
     const rel = this.getRelativePathFromProject(resolved);
     const file = await this.getFileFromDB(rel);
 
@@ -231,7 +240,7 @@ export class TarCommand extends UnixCommandBase {
     }
 
     try {
-      const resolved = this.normalizePath(this.resolvePath(archiveName));
+      const resolved = this.resolvePath(archiveName);
       const rel = this.getRelativePathFromProject(resolved);
       const file = await this.getFileFromDB(rel);
 
@@ -271,12 +280,18 @@ export class TarCommand extends UnixCommandBase {
         stream.on('data', (chunk: any) => chunks.push(Buffer.from(chunk)));
         stream.on('end', () => {
           const fileBuf = Buffer.concat(chunks);
+          // 正確な長さの ArrayBuffer を作る（Buffer.buffer は underlying ArrayBuffer 全体を返す）
+          const fileArrayBuffer = fileBuf.buffer.slice(
+            fileBuf.byteOffset,
+            fileBuf.byteOffset + fileBuf.length
+          );
+
           entries.push({
             path: entryPath,
             content: '',
             type: 'file',
             isBufferArray: true,
-            bufferContent: fileBuf.buffer as ArrayBuffer,
+            bufferContent: fileArrayBuffer,
           });
           extractedNames.push(header.name);
           next();
