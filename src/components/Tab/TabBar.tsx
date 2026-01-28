@@ -24,7 +24,7 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
+import { useSnapshot, snapshot } from 'valtio';
 import { hasContent, EditorPane } from '@/engine/tabs/types';
 
 interface TabBarProps {
@@ -137,10 +137,25 @@ export default function TabBar({ paneId }: TabBarProps) {
   }, [openFileSelector, paneId]);
 
   const handleRemovePane = useCallback(() => {
-    const flatPanes = flattenPanes(panes);
+    // Use a fresh snapshot at the moment of the click to avoid races with in-flight
+    // updates to the shared pane tree. Close any open menus first so we don't try to
+    // reference elements that may be unmounted during removal.
+    const flatPanes = flattenPanes(snapshot(tabState).panes);
     if (flatPanes.length <= 1) return;
-    removePane(paneId);
-  }, [panes, removePane, paneId]);
+
+    setPaneMenuOpen(false);
+    setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
+
+    // Defer the actual removal so we don't run a synchronous state mutation in the
+    // middle of click handling, which has caused crashes in some cases.
+    requestAnimationFrame(() => {
+      try {
+        removePane(paneId);
+      } catch (err) {
+        console.error('[TabBar] removePane failed', err);
+      }
+    });
+  }, [paneId, removePane]);
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
     tabs.forEach(tab => closeTab(paneId, tab.id));
