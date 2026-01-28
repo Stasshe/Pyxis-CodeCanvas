@@ -55,9 +55,7 @@ export async function clearAllTerminalHistory(): Promise<void> {
       .map(e => e.id)
       .filter(id => id.startsWith(TERMINAL_HISTORY_KEY_PREFIX));
 
-    await Promise.all(
-      keysToDelete.map(k => storageService.delete(STORES.USER_PREFERENCES, k))
-    );
+    await Promise.all(keysToDelete.map(k => storageService.delete(STORES.USER_PREFERENCES, k)));
   } catch (error) {
     console.warn('[terminalHistoryStorage] Failed to clear all terminal history:', error);
   }

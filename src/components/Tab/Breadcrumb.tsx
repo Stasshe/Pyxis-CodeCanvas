@@ -11,11 +11,11 @@ interface BreadcrumbProps {
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
   const { panes } = useSnapshot(tabState);
-  const pane = panes.find((p: any) => p.id === paneId);
+  const pane = panes.find(p => p.id === paneId);
   const { colors } = useTheme();
   if (!pane) return null;
 
-  const activeTab = pane.tabs.find((t: any) => t.id === pane.activeTabId);
+  const activeTab = pane.tabs.find(t => t.id === pane.activeTabId);
 
   if (!activeTab) return null;
 

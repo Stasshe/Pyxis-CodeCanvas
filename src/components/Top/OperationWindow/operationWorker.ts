@@ -11,7 +11,8 @@ function scoreMatch(text: string, query: string): number {
 
   const idx = t.indexOf(q);
   if (idx !== -1) {
-    const isBoundary = idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
+    const isBoundary =
+      idx === 0 || text[idx - 1] === '/' || text[idx - 1] === '_' || text[idx - 1] === '-';
     return isBoundary ? 85 : 70;
   }
 
@@ -19,7 +20,8 @@ function scoreMatch(text: string, query: string): number {
   for (let i = 0; i < text.length && queryIdx < query.length; i++) {
     if (text[i].toLowerCase() === query[queryIdx].toLowerCase()) {
       const isUpperCase = text[i] === text[i].toUpperCase() && text[i] !== text[i].toLowerCase();
-      const isBoundary = i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
+      const isBoundary =
+        i === 0 || text[i - 1] === '/' || text[i - 1] === '_' || text[i - 1] === '-';
       if (isUpperCase || isBoundary || queryIdx > 0) {
         queryIdx++;
       }
@@ -36,9 +38,7 @@ let filesVersion: number | null = null;
 function performSearch(searchId: number, tokens: string[]) {
   if (!tokens || tokens.length === 0) {
     // return all files with default score
-    const res = files
-      .filter(f => f.type === 'file')
-      .map(f => ({ id: f.id, score: 100 }));
+    const res = files.filter(f => f.type === 'file').map(f => ({ id: f.id, score: 100 }));
     postMessage({ type: 'result', searchId, results: res });
     return;
   }

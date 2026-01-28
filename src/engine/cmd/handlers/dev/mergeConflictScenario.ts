@@ -111,7 +111,7 @@ async function createMergeConflict(args: string[], context: DevCommandContext): 
   }
 
   // Open merge-conflict tab
-    const { openTab } = tabActions;
+  const { openTab } = tabActions;
 
   await openTab(
     {
@@ -145,7 +145,7 @@ async function openMergeConflictTab(args: string[], context: DevCommandContext):
   // Simple single-file conflict
   const conflict = generateSampleConflict('/test/conflict.ts');
 
-    const { openTab } = tabActions;
+  const { openTab } = tabActions;
 
   await openTab(
     {
@@ -266,7 +266,7 @@ export const Header: React.FC = () => {
     }
   }
 
-    const { openTab } = tabActions;
+  const { openTab } = tabActions;
 
   await openTab(
     {

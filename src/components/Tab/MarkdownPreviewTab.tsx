@@ -41,7 +41,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   const { panes } = useSnapshot(tabState);
   const editorTabContent = useMemo(() => {
-    const find = (paneList: any[]): string | null => {
+    const find = (paneList: readonly any[]): string | null => {
       for (const p of paneList) {
         const t = p.tabs?.find((x: any) => x.path === activeTab.path && x.kind === 'editor');
         if (t?.content) return t.content;
@@ -52,7 +52,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       }
       return null;
     };
-    return find(panes as any);
+    return find(panes);
   }, [panes, activeTab.path]);
 
   const contentSource = editorTabContent ?? activeTab.content ?? '';

@@ -86,7 +86,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   // Helper to find paneId for a tabId
   const findPaneIdForTab = useMemo(() => {
     return (tabId: string): string | null => {
-      const findPane = (panesList: any[]): string | null => {
+      const findPane = (panesList: readonly any[]): string | null => {
         for (const p of panesList) {
           if (p.tabs?.find((t: any) => t.id === tabId)) return p.id;
           if (p.children) {
@@ -96,7 +96,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         }
         return null;
       };
-      return findPane(panes as any);
+      return findPane(panes);
     };
   }, [panes]);
 

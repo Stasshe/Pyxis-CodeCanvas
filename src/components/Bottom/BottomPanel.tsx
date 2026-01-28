@@ -105,10 +105,13 @@ export default function BottomPanel({
   outputMessagesRef.current = outputMessages;
   outputMessagesRef.set = setOutputMessages;
 
-  const handleClearDisplayed = useCallback((toClear: OutputMessage[]) => {
-    // Remove the currently displayed (filtered) messages from the full messages list
-    setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
-  }, [setOutputMessages]);
+  const handleClearDisplayed = useCallback(
+    (toClear: OutputMessage[]) => {
+      // Remove the currently displayed (filtered) messages from the full messages list
+      setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
+    },
+    [setOutputMessages]
+  );
 
   return (
     <>
@@ -296,10 +299,7 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel
-              messages={outputMessages}
-              onClearDisplayed={handleClearDisplayed}
-            />
+            <OutputPanel messages={outputMessages} onClearDisplayed={handleClearDisplayed} />
           </div>
           <div
             style={{

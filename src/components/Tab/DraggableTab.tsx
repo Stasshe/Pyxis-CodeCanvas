@@ -22,7 +22,17 @@ interface Props {
   onClose: (tabId: string) => void;
 }
 
-function DraggableTabInner({ tab, tabIndex, paneId, onClick, onContextMenu, onTouchStart, onTouchEnd, onTouchMove, onClose }: Props) {
+function DraggableTabInner({
+  tab,
+  tabIndex,
+  paneId,
+  onClick,
+  onContextMenu,
+  onTouchStart,
+  onTouchEnd,
+  onTouchMove,
+  onClose,
+}: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const moveTabToIndex = useTabStore(state => state.moveTabToIndex);
@@ -164,7 +174,11 @@ function DraggableTabInner({ tab, tabIndex, paneId, onClick, onContextMenu, onTo
       )}
 
       <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.foreground} />
-      <span className="text-sm truncate flex-1" style={{ color: colors.foreground }} title={displayName}>
+      <span
+        className="text-sm truncate flex-1"
+        style={{ color: colors.foreground }}
+        title={displayName}
+      >
         {displayName}
       </span>
 
@@ -178,7 +192,10 @@ function DraggableTabInner({ tab, tabIndex, paneId, onClick, onContextMenu, onTo
           }}
           title={t('tabBar.unsavedChanges')}
         >
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.foreground }} />
+          <div
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ backgroundColor: colors.foreground }}
+          />
         </button>
       ) : (
         <button
@@ -198,5 +215,7 @@ function DraggableTabInner({ tab, tabIndex, paneId, onClick, onContextMenu, onTo
 
 export default memo(DraggableTabInner, (prev, next) => {
   // Only re-render if the tab identity or index changed (cheap comparison)
-  return prev.tab.id === next.tab.id && prev.tabIndex === next.tabIndex && prev.paneId === next.paneId;
+  return (
+    prev.tab.id === next.tab.id && prev.tabIndex === next.tabIndex && prev.paneId === next.paneId
+  );
 });

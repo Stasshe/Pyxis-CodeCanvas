@@ -121,46 +121,58 @@ const FileTreeItem = memo(function FileTreeItem({
   );
 
   // Combine drag and drop refs (stable ref callbacks to avoid re-creations)
-  const attachRef = useCallback((el: HTMLDivElement | null) => {
-    drop(el);
-    if (!isTouchDevice) {
-      drag(el);
-    }
-  }, [drop, drag, isTouchDevice]);
+  const attachRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      drop(el);
+      if (!isTouchDevice) {
+        drag(el);
+      }
+    },
+    [drop, drag, isTouchDevice]
+  );
 
-  const grabHandleRef = useCallback((el: HTMLDivElement | null) => {
-    if (isTouchDevice && el) {
-      drag(el);
-    }
-  }, [drag, isTouchDevice]);
+  const grabHandleRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (isTouchDevice && el) {
+        drag(el);
+      }
+    },
+    [drag, isTouchDevice]
+  );
 
   useEffect(() => {
     setDropIndicator(isOver && canDrop);
   }, [isOver, canDrop]);
 
   // Use local hover state and containment to avoid parent-driven re-renders and limit paint scope
-  const rootStyle = useMemo<React.CSSProperties>(() => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.25rem',
-    padding: '0.15rem 0.2rem',
-    cursor: isTouchDevice ? 'pointer' : isDragging ? 'grabbing' : 'grab',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-    WebkitTouchCallout: 'none',
-    MozUserSelect: 'none',
-    msUserSelect: 'none',
-    position: 'relative',
-    background: dropIndicator ? colors.accentBg : hovered ? colors.accentBg : 'transparent',
-    marginLeft: `${level * 12}px`,
-    touchAction: 'pan-y', // Allow vertical scrolling on touch devices
-    opacity: isDragging ? 0.5 : 1,
-    border: dropIndicator ? `1px dashed ${colors.primary || '#007acc'}` : '1px solid transparent',
-    height: '24px',
-    boxSizing: 'border-box',
-    // Limit paint/layout scope for this list item
-    contain: 'paint',
-  } as React.CSSProperties), [dropIndicator, hovered, isDragging, level, isTouchDevice, colors]);
+  const rootStyle = useMemo<React.CSSProperties>(
+    () =>
+      ({
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+        padding: '0.15rem 0.2rem',
+        cursor: isTouchDevice ? 'pointer' : isDragging ? 'grabbing' : 'grab',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        position: 'relative',
+        background: dropIndicator ? colors.accentBg : hovered ? colors.accentBg : 'transparent',
+        marginLeft: `${level * 12}px`,
+        touchAction: 'pan-y', // Allow vertical scrolling on touch devices
+        opacity: isDragging ? 0.5 : 1,
+        border: dropIndicator
+          ? `1px dashed ${colors.primary || '#007acc'}`
+          : '1px solid transparent',
+        height: '24px',
+        boxSizing: 'border-box',
+        // Limit paint/layout scope for this list item
+        contain: 'paint',
+      }) as React.CSSProperties,
+    [dropIndicator, hovered, isDragging, level, isTouchDevice, colors]
+  );
 
   // Memoize the icon src so the string computation and path parsing is not done on every render
   const iconSrc = useMemo(() => {

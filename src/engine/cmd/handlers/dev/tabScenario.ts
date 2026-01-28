@@ -203,7 +203,10 @@ async function openSettingsTab(args: string[], context: DevCommandContext): Prom
 async function listTabs(args: string[], context: DevCommandContext): Promise<void> {
   const { writeOutput } = context;
 
-  const { panes, globalActiveTab } = { panes: tabState.panes, globalActiveTab: tabState.globalActiveTab };
+  const { panes, globalActiveTab } = {
+    panes: tabState.panes,
+    globalActiveTab: tabState.globalActiveTab,
+  };
 
   await writeOutput('=== Open Tabs ===\n');
 

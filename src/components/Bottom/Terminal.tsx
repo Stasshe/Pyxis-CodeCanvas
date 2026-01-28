@@ -947,7 +947,7 @@ function ClientTerminal({
       style={{
         background: colors.editorBg,
         // height is handled by parent container now due to flex/absolute positioning in BottomPanel
-        // but we keep minHeight. Explicit height style might fight with direct DOM manipulation 
+        // but we keep minHeight. Explicit height style might fight with direct DOM manipulation
         // if we are not careful, but BottomPanel actually sets height on the container, not here.
         // The container in BottomPanel has the fixed height.
         // This inner div takes full width/height of that container.

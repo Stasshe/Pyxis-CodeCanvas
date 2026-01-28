@@ -172,7 +172,7 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
     });
   };
 
-  const next = updatePanesRecursive(current.panes as any);
+  const next = updatePanesRecursive(current.panes);
   if (next !== current.panes) tabState.panes = next;
 }
 
@@ -339,7 +339,7 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
     });
   };
 
-  const next = updatePanesRecursive(current.panes as any);
+  const next = updatePanesRecursive(current.panes);
   if (next !== current.panes) {
     tabState.panes = next;
     for (const id of updatedIds) {
@@ -367,8 +367,8 @@ export const tabActions = {
   setIsContentRestored(restored: boolean) {
     tabState.isContentRestored = restored;
   },
-  setPanes(panes: EditorPane[]) {
-    tabState.panes = panes;
+  setPanes(panes: readonly Readonly<EditorPane>[]) {
+    tabState.panes = panes as EditorPane[];
   },
   addPane(pane: EditorPane) {
     if (tabState.panes.some(p => p.id === pane.id)) return;
@@ -507,7 +507,7 @@ export const tabActions = {
     const newFrom = from.tabs.filter(x => x.id !== tabId);
     tabActions.updatePane(fromPaneId, {
       tabs: newFrom,
-      activeTabId: from.activeTabId === tabId ? newFrom[0]?.id ?? '' : from.activeTabId,
+      activeTabId: from.activeTabId === tabId ? (newFrom[0]?.id ?? '') : from.activeTabId,
     });
     const j = Math.max(0, Math.min(index, to.tabs.length));
     const newTo = [...to.tabs.slice(0, j), { ...t, paneId: toPaneId }, ...to.tabs.slice(j)];
@@ -653,7 +653,7 @@ export const tabActions = {
           return {
             ...p,
             tabs: nt,
-            activeTabId: p.activeTabId === tabId ? nt[0]?.id ?? '' : p.activeTabId,
+            activeTabId: p.activeTabId === tabId ? (nt[0]?.id ?? '') : p.activeTabId,
           };
         }
         if (p.id !== paneId) {
@@ -671,7 +671,8 @@ export const tabActions = {
                 {
                   id: existingId,
                   tabs: existingTabs,
-                  activeTabId: p.activeTabId === tabId ? existingTabs[0]?.id ?? '' : p.activeTabId,
+                  activeTabId:
+                    p.activeTabId === tabId ? (existingTabs[0]?.id ?? '') : p.activeTabId,
                   parentId: paneId,
                   size: 50,
                 },
@@ -680,7 +681,8 @@ export const tabActions = {
                 {
                   id: existingId,
                   tabs: existingTabs,
-                  activeTabId: p.activeTabId === tabId ? existingTabs[0]?.id ?? '' : p.activeTabId,
+                  activeTabId:
+                    p.activeTabId === tabId ? (existingTabs[0]?.id ?? '') : p.activeTabId,
                   parentId: paneId,
                   size: 50,
                 },
@@ -795,7 +797,8 @@ export const tabActions = {
         return null;
       };
       if (options.paneId) targetPaneId = options.paneId;
-      else if (tabState.activePane && getPane(tabState.activePane)) targetPaneId = tabState.activePane;
+      else if (tabState.activePane && getPane(tabState.activePane))
+        targetPaneId = tabState.activePane;
       else {
         const leaf = findLeaf(tabState.panes);
         if (leaf) targetPaneId = leaf.id;
@@ -871,10 +874,7 @@ export const tabActions = {
       if (existing) {
         await loadAndUpdateTabContent(existing.id, kind, file.path);
         if (options.makeActive !== false) tabActions.activateTab(targetPaneId, existing.id);
-        if (
-          options.jumpToLine !== undefined ||
-          options.jumpToColumn !== undefined
-        ) {
+        if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
           tabActions.updateTab(targetPaneId, existing.id, {
             jumpToLine: options.jumpToLine,
             jumpToColumn: options.jumpToColumn,

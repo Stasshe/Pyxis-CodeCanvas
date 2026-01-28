@@ -157,11 +157,9 @@ export default function OperationWindow({
         ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
         : { kind: preview ? 'preview' : 'editor' };
 
-      if (typeof tabActions.openTab === 'function') {
-        await tabActions.openTab(fileWithEditor, options as any);
-        onClose();
-        return;
-      }
+      await tabActions.openTab(fileWithEditor, options);
+      onClose();
+      return;
     } catch (e) {
       console.warn('[OperationWindow] tab fallback failed:', e);
     }
@@ -270,14 +268,18 @@ export default function OperationWindow({
     return scored.map(s => s.file);
   }
 
-  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>(() => (viewMode === 'files' ? allFiles : []));
+  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>(() =>
+    viewMode === 'files' ? allFiles : []
+  );
 
   // init worker once
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     try {
-      workerRef.current = new Worker(new URL('./operationWorker.ts', import.meta.url), { type: 'module' });
+      workerRef.current = new Worker(new URL('./operationWorker.ts', import.meta.url), {
+        type: 'module',
+      });
 
       workerRef.current.onmessage = (e: MessageEvent) => {
         const msg = e.data;

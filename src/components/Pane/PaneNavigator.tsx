@@ -196,14 +196,14 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
 
   // Flatten panes for navigation
   const flattenedPanes = useMemo(() => {
-    const result: EditorPane[] = [];
+    const result: any[] = [];
     const traverse = (list: any[]) => {
       for (const p of list) {
         if (!p.children || p.children.length === 0) result.push(p);
         if (p.children) traverse(p.children);
       }
     };
-    traverse(panes as any);
+    traverse(panes);
     return result;
   }, [panes]);
 
@@ -249,7 +249,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
             if (p.children) traverse(p.children);
           }
         };
-        traverse(tabState.panes as any);
+        traverse(tabState.panes);
         const newPane = newFlat.find(p => !flattenedPanes.some(fp => fp.id === p.id));
         if (newPane) setSelectedPaneId(newPane.id);
       });
@@ -323,7 +323,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   if (!isOpen) return null;
 
   const leafIndexRef = { current: 0 };
-  const { width, height } = calculateLayoutDimensions(panes as any);
+  const { width, height } = calculateLayoutDimensions(panes);
 
   return (
     <div

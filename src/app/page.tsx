@@ -63,22 +63,9 @@ export default function Home() {
 
   const { colors } = useTheme();
   const snap = useSnapshot(tabState);
-  const {
-    panes,
-    isLoading: isTabsLoading,
-    isRestored,
-    isContentRestored,
-    activePane,
-  } = snap;
-  const {
-    openTab,
-    setPanes,
-    setActivePane,
-    splitPane,
-    removePane,
-    moveTab,
-    activateTab,
-  } = tabActions;
+  const { panes, isLoading: isTabsLoading, isRestored, isContentRestored, activePane } = snap;
+  const { openTab, setPanes, setActivePane, splitPane, removePane, moveTab, activateTab } =
+    tabActions;
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,
@@ -86,9 +73,9 @@ export default function Home() {
   } = useFileSelector();
 
   // Helper function to flatten panes
-  const flattenPanes = useCallback((paneList: EditorPane[]): EditorPane[] => {
-    const result: EditorPane[] = [];
-    const traverse = (list: EditorPane[]) => {
+  const flattenPanes = useCallback((paneList: readonly any[]): readonly any[] => {
+    const result: any[] = [];
+    const traverse = (list: readonly any[]) => {
       for (const pane of list) {
         if (!pane.children || pane.children.length === 0) {
           result.push(pane);
@@ -325,7 +312,7 @@ export default function Home() {
   useKeyBinding(
     'splitPaneVertical',
     () => {
-      const flatPanes = flattenPanes(panes as any);
+      const flatPanes = flattenPanes(panes);
       const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
       if (currentPane) {
         splitPane(currentPane.id, 'vertical');
@@ -337,7 +324,7 @@ export default function Home() {
   useKeyBinding(
     'splitPaneHorizontal',
     () => {
-      const flatPanes = flattenPanes(panes as any);
+      const flatPanes = flattenPanes(panes);
       const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
       if (currentPane) {
         splitPane(currentPane.id, 'horizontal');
@@ -349,7 +336,7 @@ export default function Home() {
   useKeyBinding(
     'closePane',
     () => {
-      const flatPanes = flattenPanes(panes as any);
+      const flatPanes = flattenPanes(panes);
       if (flatPanes.length <= 1) return; // Don't close the last pane
       const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
       if (currentPane) {
@@ -370,7 +357,7 @@ export default function Home() {
   useKeyBinding(
     'focusNextPane',
     () => {
-      const flatPanes = flattenPanes(panes as any);
+      const flatPanes = flattenPanes(panes);
       if (flatPanes.length <= 1) return;
       const currentIndex = flatPanes.findIndex(p => p.id === activePane);
       const nextIndex = (currentIndex + 1) % flatPanes.length;
@@ -386,7 +373,7 @@ export default function Home() {
   useKeyBinding(
     'focusPrevPane',
     () => {
-      const flatPanes = flattenPanes(panes as any);
+      const flatPanes = flattenPanes(panes);
       if (flatPanes.length <= 1) return;
       const currentIndex = flatPanes.findIndex(p => p.id === activePane);
       const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
@@ -402,7 +389,7 @@ export default function Home() {
   useKeyBinding(
     'moveTabToNextPane',
     () => {
-      const flatPanes = flattenPanes(panes as any);
+      const flatPanes = flattenPanes(panes);
       if (flatPanes.length <= 1) return;
       const currentPane = flatPanes.find(p => p.id === activePane);
       if (!currentPane || !currentPane.activeTabId) return;
@@ -513,7 +500,7 @@ export default function Home() {
                         flexGrow: 0,
                       }}
                     >
-                      <PaneContainer pane={pane as any} setGitRefreshTrigger={setGitRefreshTrigger} />
+                      <PaneContainer pane={pane} setGitRefreshTrigger={setGitRefreshTrigger} />
                     </div>
 
                     {/* ルートレベルペイン間のリサイザー */}
@@ -552,12 +539,12 @@ export default function Home() {
                             );
 
                             const updatedPanes = [...panes];
-                            updatedPanes[idx] = { ...pane, size: newLeftSize } as any;
+                            updatedPanes[idx] = { ...pane, size: newLeftSize };
                             updatedPanes[idx + 1] = {
                               ...updatedPanes[idx + 1],
                               size: newRightSize,
                             };
-                            setPanes(updatedPanes as any);
+                            setPanes(updatedPanes);
                           };
 
                           const handleMouseUp = () => {

@@ -19,7 +19,8 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
   );
 
   const highlightedDesc = useMemo(
-    () => (item.description ? highlightMatch(item.description, queryTokens, isSelected, colors) : null),
+    () =>
+      item.description ? highlightMatch(item.description, queryTokens, isSelected, colors) : null,
     [item.description, queryTokens, isSelected, colors]
   );
 
@@ -42,8 +43,21 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
       onClick={() => !item.isEditing && item.onClick?.()}
     >
       {item.icon && (
-        <div style={{ width: 16, height: 16, flex: '0 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {typeof item.icon === 'string' ? <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} /> : item.icon}
+        <div
+          style={{
+            width: 16,
+            height: 16,
+            flex: '0 0 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {typeof item.icon === 'string' ? (
+            <img src={item.icon} alt="" style={{ width: '100%', height: '100%' }} />
+          ) : (
+            item.icon
+          )}
         </div>
       )}
 
@@ -78,11 +92,26 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
         </div>
       ) : (
         <>
-          <span style={{ fontSize: '13px', fontWeight: isSelected || item.isActive ? '600' : '400', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: isSelected || item.isActive ? '600' : '400',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flex: 1,
+            }}
+          >
             {highlightedLabel}
           </span>
           {item.description && (
-            <span style={{ fontSize: '11px', color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg, marginLeft: '8px' }}>
+            <span
+              style={{
+                fontSize: '11px',
+                color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
+                marginLeft: '8px',
+              }}
+            >
               {highlightedDesc}
             </span>
           )}
@@ -102,7 +131,13 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: action.danger ? (isSelected ? '#ffcccc' : colors.destructive) : isSelected ? 'white' : colors.foreground,
+                color: action.danger
+                  ? isSelected
+                    ? '#ffcccc'
+                    : colors.destructive
+                  : isSelected
+                    ? 'white'
+                    : colors.foreground,
                 cursor: 'pointer',
                 padding: '2px',
                 display: 'flex',

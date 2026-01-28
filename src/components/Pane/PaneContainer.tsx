@@ -20,7 +20,7 @@ import type { EditorPane, FileItem } from '@/types';
 import { useSnapshot } from 'valtio';
 
 interface PaneContainerProps {
-  pane: EditorPane;
+  pane: Readonly<EditorPane>;
   setGitRefreshTrigger: (fn: (prev: number) => number) => void;
 }
 
@@ -40,9 +40,9 @@ export const useGitContext = () => {
 };
 
 // ペインをフラット化してリーフペインの数をカウント
-function flattenPanes(paneList: EditorPane[]): EditorPane[] {
-  const result: EditorPane[] = [];
-  const traverse = (items: EditorPane[]) => {
+function flattenPanes(paneList: readonly any[]): readonly any[] {
+  const result: any[] = [];
+  const traverse = (items: readonly any[]) => {
     for (const p of items) {
       if (!p.children || p.children.length === 0) result.push(p);
       if (p.children) traverse(p.children);
@@ -64,7 +64,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const { setPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = tabActions;
 
   // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
-  const leafPaneCount = useMemo(() => flattenPanes(allPanes as any).length, [allPanes]);
+  const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
   const [dropZone, setDropZone] = React.useState<
     'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null
   >(null);
@@ -242,19 +242,19 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                     };
 
                     // 親ペインを更新（再帰的にペインツリーを更新）
-                    const updatePaneRecursive = (panes: EditorPane[]): EditorPane[] => {
-                      return panes.map(p => {
+                    const updatePaneRecursive = (panes: readonly any[]): readonly Readonly<EditorPane>[] => {
+                      return panes.map((p: any) => {
                         if (p.id === pane.id) {
-                          return { ...p, children: updatedChildren };
+                          return { ...p, children: updatedChildren } as Readonly<EditorPane>;
                         }
                         if (p.children) {
-                          return { ...p, children: updatePaneRecursive(p.children) };
+                          return { ...p, children: updatePaneRecursive(p.children) } as Readonly<EditorPane>;
                         }
-                        return p;
+                        return p as Readonly<EditorPane>;
                       });
                     };
 
-                    setPanes(updatePaneRecursive(allPanes as any));
+                    setPanes(updatePaneRecursive(allPanes));
                   }}
                 />
               </div>

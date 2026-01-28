@@ -53,8 +53,16 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   const { openFileSelector } = useFileSelector();
 
-  const { getPane, activateTab, closeTab, openTab, removePane, moveTab, moveTabToIndex, splitPane } =
-    tabActions;
+  const {
+    getPane,
+    activateTab,
+    closeTab,
+    openTab,
+    removePane,
+    moveTab,
+    moveTabToIndex,
+    splitPane,
+  } = tabActions;
   const { panes } = useSnapshot(tabState);
 
   const pane = getPane(paneId);
@@ -129,11 +137,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 
   // ペインを削除
   const handleRemovePane = useCallback(() => {
-    const flatPanes = flattenPanes(panes as any);
+    const flatPanes = flattenPanes(panes);
     if (flatPanes.length <= 1) return;
     removePane(paneId);
   }, [panes, removePane, paneId]);
-
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
     tabs.forEach(tab => closeTab(paneId, tab.id));
@@ -271,7 +278,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
       if (!(ext === 'md' || ext === 'mdx')) return;
 
-      const leafPanes = flattenPanes(panes as any);
+      const leafPanes = flattenPanes(panes);
 
       if (leafPanes.length === 1) {
         splitPane(paneId, 'vertical');
@@ -284,7 +291,7 @@ export default function TabBar({ paneId }: TabBarProps) {
           parent.children[0];
         if (newPane) {
           openTab(
-            { name: activeTab.name, path: activeTab.path, content: (activeTab as any).content },
+            { name: activeTab.name, path: activeTab.path, content: activeTab.content },
             { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
           );
         }

@@ -79,7 +79,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    const flatPanes = flattenPanes(panes as any);
+    const flatPanes = flattenPanes(panes);
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
       pane.tabs.filter((tab: any) => tab.needsContentRestore)
     );
@@ -152,7 +152,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
           });
         };
 
-        tabActions.setPanes(updatePaneRecursive(snapshot(tabState).panes as any));
+        tabActions.setPanes(updatePaneRecursive(snapshot(tabState).panes));
 
         // 復元完了をマーク
         restorationCompleted.current = true;

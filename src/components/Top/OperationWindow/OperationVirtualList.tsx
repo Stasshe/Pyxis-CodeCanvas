@@ -95,7 +95,9 @@ export default function OperationVirtualList({
         style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
       >
         <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
-          {viewMode === 'files' ? t('operationWindow.noFilesFound') : t('operationWindow.noItemsFound')}
+          {viewMode === 'files'
+            ? t('operationWindow.noFilesFound')
+            : t('operationWindow.noItemsFound')}
         </div>
       </div>
     );
@@ -121,7 +123,14 @@ export default function OperationVirtualList({
             return (
               <div
                 key={file.id}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${size}px`, transform: `translateY(${top}px)` }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${size}px`,
+                  transform: `translateY(${top}px)`,
+                }}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
                 <OperationFileRow
@@ -143,7 +152,14 @@ export default function OperationVirtualList({
           return (
             <div
               key={item.id}
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${size}px`, transform: `translateY(${top}px)` }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${size}px`,
+                transform: `translateY(${top}px)`,
+              }}
               onMouseEnter={() => setSelectedIndex(index)}
             >
               <OperationGenericRow

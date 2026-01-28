@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 
 import { tabActions, tabState } from '@/stores/tabState';
+import type { EditorPane } from '@/engine/tabs/types';
 
 /**
  * TabProvider
@@ -45,7 +46,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   // 派生: panes の「構造情報」を JSON にしてキー化する。
   // これにより content のみの変更では文字列が変わらず、自動保存が発火しない。
   const structuralKey = useMemo(() => {
-    const strip = (pList: any[]): any[] =>
+    const strip = (pList: readonly EditorPane[]): any[] =>
       pList.map(p => ({
         id: p.id,
         size: p.size,
@@ -57,7 +58,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
       }));
 
     try {
-      return JSON.stringify(strip(panes as any));
+      return JSON.stringify(strip(panes));
     } catch (e) {
       try {
         return JSON.stringify(panes);
@@ -85,6 +86,8 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
  * useSnapshot(tabState) と tabActions を直接使用してください。
  */
 export const useTabContext = () => {
-  console.warn('[useTabContext] This hook is deprecated. Use useSnapshot(tabState) and tabActions.');
+  console.warn(
+    '[useTabContext] This hook is deprecated. Use useSnapshot(tabState) and tabActions.'
+  );
   return { ...useSnapshot(tabState), ...tabActions };
 };

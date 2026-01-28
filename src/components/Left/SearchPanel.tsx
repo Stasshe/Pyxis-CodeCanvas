@@ -49,7 +49,6 @@ export type ResultRowProps = {
   replaceQuery: string;
 };
 
-
 export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -298,7 +297,10 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const currentSelected = flatResults[selectedIndex] || null;
 
   // Grouped results by file (memoized to avoid recomputing groups every render)
-  const groupedResults: Array<{ first: SearchResult; results: Array<{ result: SearchResult; globalIndex: number }> }> = useMemo(() => {
+  const groupedResults: Array<{
+    first: SearchResult;
+    results: Array<{ result: SearchResult; globalIndex: number }>;
+  }> = useMemo(() => {
     // Build groups while preserving each result's global index to avoid repeated indexOf calls during render
     const groupsMap: Record<
       string,
@@ -321,68 +323,72 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flatResults.length]);
 
+  const handleResultClick = useCallback(
+    async (result: SearchResult) => {
+      try {
+        const projId = projectId;
+        const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
 
+        let isCodeMirror = false;
+        if (typeof window !== 'undefined') {
+          const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
+          isCodeMirror = defaultEditor === 'codemirror';
+        }
 
-  const handleResultClick = useCallback(async (result: SearchResult) => {
-    try {
-      const projId = projectId;
-      const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
+        const fileWithJump = {
+          ...(fileEntry || result.file),
+          isCodeMirror,
+          isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
+          bufferContent: fileEntry
+            ? (fileEntry as any).bufferContent
+            : (result.file as any).bufferContent,
+        };
 
-      let isCodeMirror = false;
-      if (typeof window !== 'undefined') {
-        const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
-        isCodeMirror = defaultEditor === 'codemirror';
+        const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
+        await openTab(fileWithJump, {
+          kind,
+          jumpToLine: result.line,
+          jumpToColumn: result.column,
+        });
+      } catch (err) {
+        console.error('Failed to open file from search result', err);
       }
+    },
+    [projectId, openTab]
+  );
 
-      const fileWithJump = {
-        ...(fileEntry || result.file),
-        isCodeMirror,
-        isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
-        bufferContent: fileEntry
-          ? (fileEntry as any).bufferContent
-          : (result.file as any).bufferContent,
-      };
+  const handleReplaceResult = useCallback(
+    async (result: SearchResult, replacement: string) => {
+      try {
+        const projId = projectId;
+        const filePath = result.file.path;
 
-      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
-      await openTab(fileWithJump, {
-        kind,
-        jumpToLine: result.line,
-        jumpToColumn: result.column,
-      });
-    } catch (err) {
-      console.error('Failed to open file from search result', err);
-    }
-  }, [projectId, openTab]);
+        if (result.line === 0) {
+          console.info('Skipping filename replace from SearchPanel');
+          return;
+        }
+        const fileEntry = await fileRepository.getFileByPath(projId, filePath);
+        if (!fileEntry || typeof fileEntry.content !== 'string')
+          throw new Error('file not found or not text');
+        const lines = fileEntry.content.split('\n');
+        const lineIdx = result.line - 1;
+        const line = lines[lineIdx] || '';
+        const before = line.substring(0, result.matchStart);
+        const after = line.substring(result.matchEnd);
+        lines[lineIdx] = before + replacement + after;
+        const updatedContent = lines.join('\n');
+        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
+        await fileRepository.saveFile(updated);
 
-  const handleReplaceResult = useCallback(async (result: SearchResult, replacement: string) => {
-    try {
-      const projId = projectId;
-      const filePath = result.file.path;
-
-      if (result.line === 0) {
-        console.info('Skipping filename replace from SearchPanel');
-        return;
+        // キャッシュをクリアして再検索
+        lastSearchResultsRef.current = [];
+        performSearchRef.current(searchQuery);
+      } catch (e) {
+        console.error('Replace error', e);
       }
-      const fileEntry = await fileRepository.getFileByPath(projId, filePath);
-      if (!fileEntry || typeof fileEntry.content !== 'string')
-        throw new Error('file not found or not text');
-      const lines = fileEntry.content.split('\n');
-      const lineIdx = result.line - 1;
-      const line = lines[lineIdx] || '';
-      const before = line.substring(0, result.matchStart);
-      const after = line.substring(result.matchEnd);
-      lines[lineIdx] = before + replacement + after;
-      const updatedContent = lines.join('\n');
-      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-      await fileRepository.saveFile(updated);
-
-      // キャッシュをクリアして再検索
-      lastSearchResultsRef.current = [];
-      performSearchRef.current(searchQuery);
-    } catch (e) {
-      console.error('Replace error', e);
-    }
-  }, [projectId, searchQuery]);
+    },
+    [projectId, searchQuery]
+  );
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
     try {
@@ -430,10 +436,13 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   };
 
-  const handleRowClick = useCallback((r: SearchResult, idx: number) => {
-    setSelectedIndex(idx);
-    handleResultClick(r);
-  }, [handleResultClick]);
+  const handleRowClick = useCallback(
+    (r: SearchResult, idx: number) => {
+      setSelectedIndex(idx);
+      handleResultClick(r);
+    },
+    [handleResultClick]
+  );
   // Enterキーでの検索確定
   const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {

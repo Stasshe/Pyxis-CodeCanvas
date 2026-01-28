@@ -13,7 +13,14 @@ interface Props {
   onClick?: () => void;
 }
 
-function OperationFileRowInner({ file, isSelected, ITEM_HEIGHT, colors, queryTokens, onClick }: Props) {
+function OperationFileRowInner({
+  file,
+  isSelected,
+  ITEM_HEIGHT,
+  colors,
+  queryTokens,
+  onClick,
+}: Props) {
   const pathParts = file.path.split('/');
   const dirPath = pathParts.slice(0, -1).join('/');
 
@@ -43,7 +50,11 @@ function OperationFileRowInner({ file, isSelected, ITEM_HEIGHT, colors, queryTok
         borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
       }}
     >
-      <img src={getIconSrcForFile(file.name)} alt="icon" style={{ width: 16, height: 16, flex: '0 0 16px' }} />
+      <img
+        src={getIconSrcForFile(file.name)}
+        alt="icon"
+        style={{ width: 16, height: 16, flex: '0 0 16px' }}
+      />
       <span
         style={{
           fontSize: '13px',
