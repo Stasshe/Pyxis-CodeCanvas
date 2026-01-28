@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * unzip - ZIP アーカイブを展開してプロジェクトに登録
@@ -29,19 +30,20 @@ export class UnzipCommand extends UnixCommandBase {
   ): Promise<string> {
     // mv等と同じパス解決ロジックに統一
     const destTarget = destDir && destDir !== '' ? destDir : '.';
-    const normalizedDest = this.normalizePath(this.resolvePath(destTarget));
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const destApp = pathResolve(baseApp, destTarget);
+    const normalizedDest = toFSPath(this.projectName, destApp);
 
     try {
       let zipBuffer: ArrayBuffer | undefined = bufferContent;
       if (!zipBuffer) {
-        // mv等と同じく、normalizePath→getRelativePathFromProjectの順でパス解決
-        const normalizedArchivePath = this.normalizePath(this.resolvePath(zipFileName));
-        const relPath = this.getRelativePathFromProject(normalizedArchivePath);
+        // Use AppPath to fetch archive directly
+        const archiveApp = pathResolve(baseApp, zipFileName);
+        const relPath = archiveApp;
         // Try to fetch the archive directly by path to avoid loading all project files
         const target = await fileRepository.getFileByPath(this.projectId, relPath);
         // デバッグログ追加
         console.log('[unzip] zipFileName:', zipFileName);
-        console.log('[unzip] normalizedArchivePath:', normalizedArchivePath);
         console.log('[unzip] relPath:', relPath);
         console.log('[unzip] target:', target ? target.path : null);
         if (!target) {
@@ -70,9 +72,9 @@ export class UnzipCommand extends UnixCommandBase {
           continue;
         }
 
-        const destPath = `${normalizedDest}/${relPath}`;
-        const normalizedFilePath = this.normalizePath(destPath);
-        const relativePath = this.getRelativePathFromProject(normalizedFilePath);
+        const fileApp = pathResolve(destApp, relPath);
+        const normalizedFilePath = toFSPath(this.projectName, fileApp);
+        const relativePath = fileApp;
 
         if (file.dir || relPath.endsWith('/')) {
           // ensure folder paths are recorded
@@ -83,7 +85,7 @@ export class UnzipCommand extends UnixCommandBase {
         } else {
           // Ensure parent directories are present in the entries list. createFilesBulk does not
           // automatically create parent folders, so add them explicitly (top-down).
-          const parentParts = relativePath.split('/').filter(p => p);
+            const parentParts = relativePath.split('/').filter(p => p);
           if (parentParts.length > 1) {
             let accum = '';
             for (let i = 0; i < parentParts.length - 1; i++) {

@@ -1,5 +1,6 @@
 import { parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 import type { ProjectFile } from '@/types';
 
@@ -142,7 +143,7 @@ export class GrepCommand extends UnixCommandBase {
 
       for (const path of expanded) {
         try {
-          const normalizedPath = this.normalizePath(path);
+          const normalizedPath = path;
           const isDir = await this.isDirectory(normalizedPath);
 
           if (isDir) {
@@ -384,11 +385,11 @@ export class GrepCommand extends UnixCommandBase {
       if (includePattern && !this.matchGlob(includePattern, basename)) continue;
       if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
 
-      const fullPath = `${this.getProjectRoot()}${file.path}`;
+        const fullPath = toFSPath(this.projectName, file.path);
 
-      try {
-        const result = await this.grepFile(
-          fullPath,
+        try {
+          const result = await this.grepFile(
+            fullPath,
           regex,
           invertMatch,
           showLineNumber,

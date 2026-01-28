@@ -1,5 +1,6 @@
 import { type EvalContext, ExprBuilder, ExprParser, type Expression, evaluate } from '../../lib';
 import { UnixCommandBase } from './base';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * test - 条件式を評価 (POSIX準拠)
@@ -213,7 +214,9 @@ export class TestCommand extends UnixCommandBase {
     // ファイルチェック用の関数
     const checkFile = async (path: string) => {
       try {
-        const resolvedPath = this.normalizePath(this.resolvePath(path));
+        const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+        const appPath = pathResolve(baseApp, path);
+        const resolvedPath = toFSPath(this.projectName, appPath);
         const exists = await this.exists(resolvedPath);
         if (!exists) return null;
 
@@ -223,7 +226,7 @@ export class TestCommand extends UnixCommandBase {
         // サイズ取得
         let size = 0;
         if (isFile) {
-          const relativePath = this.getRelativePathFromProject(resolvedPath);
+          const relativePath = appPath;
           const file = await this.getFileFromDB(relativePath);
           if (file) {
             size = file.bufferContent?.byteLength || file.content?.length || 0;

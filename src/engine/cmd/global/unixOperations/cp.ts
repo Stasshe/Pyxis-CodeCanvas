@@ -1,6 +1,7 @@
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * cp - ファイル/ディレクトリをコピー
@@ -61,7 +62,9 @@ export class CpCommand extends UnixCommandBase {
         if (cleanArg.endsWith('/') && cleanArg !== '/') {
           cleanArg = cleanArg.slice(0, -1);
         }
-        const resolved = this.normalizePath(this.resolvePath(cleanArg));
+        const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+        const app = pathResolve(baseApp, cleanArg);
+        const resolved = toFSPath(this.projectName, app);
         sources.push(resolved);
       }
     }
@@ -73,7 +76,9 @@ export class CpCommand extends UnixCommandBase {
     if (destArgHasTrailingSlash) {
       cleanDestArg = cleanDestArg.slice(0, -1);
     }
-    const dest = this.normalizePath(this.resolvePath(cleanDestArg));
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const destApp = pathResolve(baseApp, cleanDestArg);
+    const dest = toFSPath(this.projectName, destApp);
     const destExists = await this.exists(dest);
     const destIsDir = destExists && (await this.isDirectory(dest));
 
@@ -86,7 +91,7 @@ export class CpCommand extends UnixCommandBase {
     }
 
     for (const source of sources) {
-      const normalizedSource = this.normalizePath(source);
+      const normalizedSource = source;
 
       const sourceExists = await this.exists(normalizedSource);
       if (!sourceExists) {
@@ -105,8 +110,8 @@ export class CpCommand extends UnixCommandBase {
       // 最終的なコピー先パス
       let finalDest = dest;
       if (destIsDir) {
-        finalDest = `${dest}/${sourceName}`;
-        finalDest = this.normalizePath(finalDest);
+        const finalDestApp = pathResolve(destApp, sourceName);
+        finalDest = toFSPath(this.projectName, finalDestApp);
       }
 
       // 上書きチェック

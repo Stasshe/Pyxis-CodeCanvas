@@ -1,5 +1,6 @@
 import { parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * wc - 行数、単語数、バイト数をカウント (POSIX準拠)
@@ -60,9 +61,10 @@ export class WcCommand extends UnixCommandBase {
     } else {
       // 各ファイルを処理
       for (const filePath of positional) {
-        const resolvedPath = this.resolvePath(filePath);
-        const normalizedPath = this.normalizePath(resolvedPath);
-        const relativePath = this.getRelativePathFromProject(normalizedPath);
+        const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+        const appPath = pathResolve(baseApp, filePath);
+        const normalizedPath = toFSPath(this.projectName, appPath);
+        const relativePath = appPath;
 
         const file = await this.cachedGetFile(relativePath);
         if (!file) {

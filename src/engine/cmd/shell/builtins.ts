@@ -273,11 +273,10 @@ export default function adaptUnixToStream(unix: any) {
           if (!entryPath.startsWith('/')) {
             const cwd = await unix.pwd();
             const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
-            entryPath =
-              typeof unix.normalizePath === 'function' ? unix.normalizePath(combined) : combined;
+            entryPath = unix.resolveToFSPath(combined);
           } else {
             entryPath =
-              typeof unix.normalizePath === 'function' ? unix.normalizePath(entryPath) : entryPath;
+              unix.resolveToFSPath(entryPath);
           }
         }
       } catch (e) {

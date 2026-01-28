@@ -106,32 +106,39 @@ export abstract class UnixCommandBase {
   /**
    * 相対パスを絶対パス（FSPath形式）に変換
    */
-  protected resolvePath(path: string): string {
-    // '.' はカレントディレクトリ
-    if (path === '.') return this.currentDir;
-
-    const projectRoot = pathGetProjectRoot(this.projectName);
-
-    // 既に FSPath (/projects/{projectName}/...) が渡された場合は AppPath に変換して正規化
-    if (path.startsWith(projectRoot)) {
-      const app = fsPathToAppPath(path, this.projectName);
-      const normalized = normalizeDotSegments(app);
-      return toFSPath(this.projectName, normalized);
-    }
-
-    // AppPath（先頭が /）または相対パスをカレントディレクトリ基準で解決
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const appPath = path.startsWith('/') ? normalizeDotSegments(path) : pathResolvePath(baseApp, path);
-    return toFSPath(this.projectName, appPath);
-  }
+  // NOTE: `resolvePath` removed. Use explicit pathUtils helpers (`fsPathToAppPath`,
+  // `pathResolvePath`, `toFSPath`) in commands. The helper below normalizes a given
+  // path into an FSPath. It accepts FSPath, AppPath or a relative path and returns
+  // the normalized FSPath.
 
   /**
    * パスを正規化（..や.を解決、末尾スラッシュを除去）
    * pathResolverのnormalizeDotSegmentsを使用
    */
   protected normalizePath(path: string): string {
-    // resolvePath already returns a normalized FSPath; reuse it for simplicity
-    return this.resolvePath(path);
+    // If path is '.' treat as currentDir
+    if (path === '.') return this.currentDir;
+
+    const projectRoot = pathGetProjectRoot(this.projectName);
+
+    // If already an FSPath (/projects/{projectName}/...) -> convert to AppPath, normalize and back
+    if (path.startsWith(projectRoot)) {
+      const app = fsPathToAppPath(path, this.projectName);
+      const normalizedApp = normalizeDotSegments(app);
+      return toFSPath(this.projectName, normalizedApp);
+    }
+
+    // If path is AppPath (starts with '/') -> normalize app path and convert to FSPath
+    if (path.startsWith('/')) {
+      const app = normalizeDotSegments(path);
+      return toFSPath(this.projectName, app);
+    }
+
+    // Otherwise treat as relative to currentDir (FSPath)
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const appPath = pathResolvePath(baseApp, path);
+    const normalizedApp = normalizeDotSegments(appPath);
+    return toFSPath(this.projectName, normalizedApp);
   }
 
   /**
@@ -208,16 +215,30 @@ export abstract class UnixCommandBase {
       cleanPattern = cleanPattern.slice(0, -1);
     }
 
-    // Step 2: カレントディレクトリ基準で解決
-    const resolvedPath = this.resolvePath(cleanPattern);
+    // Step 2: カレントディレクトリ基準で解決 (AppPathを得る)
+    const projectRoot = this.getProjectRoot();
+    let appResolved = '';
 
-    // ワイルドカードが含まれていない場合はそのまま返す
-    if (!resolvedPath.includes('*') && !resolvedPath.includes('?')) {
-      return [resolvedPath];
+    if (cleanPattern.startsWith(projectRoot)) {
+      // FSPath given: strip projectRoot to get AppPath-like string (keep wildcards)
+      const rel = cleanPattern.substring(projectRoot.length) || '/';
+      appResolved = toAppPath(rel);
+    } else if (cleanPattern.startsWith('/')) {
+      // AppPath provided
+      appResolved = normalizeDotSegments(cleanPattern);
+    } else {
+      // relative to current directory (may contain globs)
+      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+      appResolved = pathResolvePath(baseApp, cleanPattern);
     }
 
-    // Step 3: 正規化して絶対パスを得る
-    const normalizedPath = this.normalizePath(resolvedPath);
+    // If no wildcard present in AppPath -> return single FSPath
+    if (!appResolved.includes('*') && !appResolved.includes('?')) {
+      return [toFSPath(this.projectName, normalizeDotSegments(appResolved))];
+    }
+
+    // Step 3: 正規化して絶対パス（FSPath）を得る
+    const normalizedPath = toFSPath(this.projectName, normalizeDotSegments(appResolved));
 
     // Step 4: currentDirからの相対パスを計算
     // currentDirは絶対パス（例：/projects/projectName/src）
@@ -255,7 +276,6 @@ export abstract class UnixCommandBase {
     const uniqueResults = Array.from(new Set(relativeResults));
 
     // 相対パスを絶対パスに戻す
-    const projectRoot = this.getProjectRoot();
     return uniqueResults.map(rel => {
       if (rel.startsWith('/')) {
         return `${projectRoot}${rel}`;

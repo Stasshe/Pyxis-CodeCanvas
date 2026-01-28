@@ -1,6 +1,7 @@
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath } from '@/engine/core/pathUtils';
 
 /**
  * rm - ファイル/ディレクトリを削除
@@ -58,8 +59,8 @@ export class RmCommand extends UnixCommandBase {
 
         // 展開された各パスを処理
         for (const expandedPath of expanded) {
-          const normalizedPath = this.normalizePath(expandedPath);
-          const relativePath = this.getRelativePathFromProject(normalizedPath);
+          const normalizedPath = expandedPath;
+          const relativePath = fsPathToAppPath(normalizedPath, this.projectName);
 
           try {
             const file = await this.cachedGetFile(relativePath);
