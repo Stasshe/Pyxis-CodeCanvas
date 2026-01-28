@@ -23,6 +23,7 @@ import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { saveImmediately, tabState } from '@/stores/tabState';
+import { useTabContent } from '@/stores/tabContentStore';
 import type { Project } from '@/types';
 
 interface CodeEditorProps {
@@ -64,6 +65,11 @@ export default function CodeEditor({
     (activeTab as any).needsContentRestore &&
     !isContentRestored;
 
+  // tabContentStoreからコンテンツを取得（panesを更新せずに再レンダリング）
+  const storeContent = useTabContent(activeTab?.id ?? '');
+  // ストア未初期化時はactiveTabの初期コンテンツを使用
+  const content = storeContent !== undefined ? storeContent : (activeTab?.content ?? '');
+
   const {
     charCount,
     setCharCount,
@@ -71,7 +77,7 @@ export default function CodeEditor({
     setSelectionCount,
     showCharCountPopup,
     setShowCharCountPopup,
-  } = useCharCount(activeTab?.content);
+  } = useCharCount(content);
 
   const editorHeight = '100%';
 
@@ -200,7 +206,7 @@ export default function CodeEditor({
         <CodeMirrorEditor
           tabId={activeTab.id}
           fileName={activeTab.name}
-          content={activeTab.content}
+          content={content}
           onChange={handleEditorChange}
           onSelectionChange={setSelectionCount}
           tabSize={settings?.editor.tabSize ?? 2}
@@ -214,7 +220,7 @@ export default function CodeEditor({
           showCharCountPopup={showCharCountPopup}
           onTogglePopup={() => setShowCharCountPopup(v => !v)}
           onClosePopup={() => setShowCharCountPopup(false)}
-          content={activeTab.content || ''}
+          content={content}
           alignLeft={isMobileDevice}
         />
       </div>
@@ -227,7 +233,7 @@ export default function CodeEditor({
       <MonacoEditor
         tabId={activeTab.id}
         fileName={activeTab.name}
-        content={activeTab.content}
+        content={content}
         wordWrapConfig={wordWrapConfig}
         jumpToLine={activeTab.jumpToLine}
         jumpToColumn={activeTab.jumpToColumn}
@@ -245,7 +251,7 @@ export default function CodeEditor({
         showCharCountPopup={showCharCountPopup}
         onTogglePopup={() => setShowCharCountPopup(v => !v)}
         onClosePopup={() => setShowCharCountPopup(false)}
-        content={activeTab.content || ''}
+        content={content}
         alignLeft={isMobileDevice}
       />
     </div>

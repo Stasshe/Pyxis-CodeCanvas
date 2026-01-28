@@ -1,6 +1,5 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
-import type React from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 
 import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
@@ -15,6 +14,8 @@ import {
   saveImmediately,
   setContent as setTabContent,
 } from '@/stores/tabState';
+
+import { useTabContent } from '@/stores/tabContentStore';
 
 /**
  * Diffタブのコンポーネント
@@ -31,6 +32,19 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const { settings } = useSettings(projectId);
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
+
+  // tabContentStoreから最新コンテンツを取得
+  const storeContent = useTabContent(diffTab.id);
+  
+  // コンテンツをマージした新しいdiffsを作成
+  const mergedDiffs = useMemo(() => {
+    if (!diffTab.diffs || diffTab.diffs.length === 0) return diffTab.diffs;
+    // ストアにコンテンツがあり、かつ編集可能な単一ファイルの場合、latterContentを更新
+    if (storeContent !== undefined && diffTab.editable && diffTab.diffs.length === 1) {
+      return [{ ...diffTab.diffs[0], latterContent: storeContent }];
+    }
+    return diffTab.diffs;
+  }, [diffTab.diffs, storeContent, diffTab.editable]);
 
   const latestContentRef = useRef<string>('');
   const initialContent = diffTab.diffs.length === 1 ? diffTab.diffs[0]?.latterContent || '' : '';
@@ -77,7 +91,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   return (
     <DiffTabComponent
-      diffs={diffTab.diffs}
+      diffs={mergedDiffs}
       editable={diffTab.editable}
       wordWrapConfig={wordWrapConfig}
       onImmediateContentChange={handleImmediateContentChange}

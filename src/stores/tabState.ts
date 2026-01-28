@@ -1,8 +1,11 @@
 /**
  * tabState - Valtio によるタブ状態管理
  *
- * EditorMemoryManager の責務（デバウンス保存、外部変更検知、保存制御）を
- * このモジュールに統合し、content は Tab オブジェクト内に直接保持する。
+ * タブの構造（ID、名前、パス等）はこのモジュールで管理し、
+ * 実際のファイルコンテンツは tabContentStore で管理する。
+ * これにより、コンテンツ変更が page.tsx の再レンダリングをトリガーしない。
+ * 
+ * EditorMemoryManager の責務（デバウンス保存、外部変更検知、保存制御）も統合。
  */
 
 import { proxy, snapshot } from 'valtio';
@@ -13,6 +16,13 @@ import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { DiffTab, EditorPane, OpenTabOptions, Tab, TabFileInfo } from '@/engine/tabs/types';
 import { getCurrentProjectId } from '@/stores/projectStore';
+import {
+  setTabContent,
+  getTabContent,
+  clearTabContent,
+  clearDirtyFlag,
+  setBufferContent,
+} from '@/stores/tabContentStore';
 
 // ---------------------------------------------------------------------------
 // 保存・デバウンス用モジュール状態（旧 EditorMemoryManager の責務）
@@ -100,12 +110,25 @@ function findInPanes(
 function getContentFromPanes(panes: readonly EditorPane[], path: string): string | undefined {
   const tabs = collectAllTabs(panes);
   const p = toAppPath(path);
+  
+  // tabContentStoreからコンテンツを取得
   const editorTab = tabs.find(t => t.kind === 'editor' && toAppPath(t.path || '') === p);
-  if (editorTab && 'content' in editorTab) return (editorTab as { content: string }).content;
-  const diffTab = tabs.find(t => t.kind === 'diff' && toAppPath(t.path || '') === p) as
-    | DiffTab
-    | undefined;
-  if (diffTab?.diffs?.length) return diffTab.diffs[0].latterContent;
+  if (editorTab) {
+    return getTabContent(editorTab.id);
+  }
+  
+  // diffタブの場合（コンテンツはtabContentStoreに）
+  const diffTab = tabs.find(t => t.kind === 'diff' && toAppPath(t.path || '') === p);
+  if (diffTab) {
+    return getTabContent(diffTab.id);
+  }
+  
+  // aiタブの場合
+  const aiTab = tabs.find(t => t.kind === 'ai' && toAppPath(t.path || '') === p);
+  if (aiTab) {
+    return getTabContent(aiTab.id);
+  }
+  
   return undefined;
 }
 
@@ -160,31 +183,25 @@ async function executeSave(path: string, content: string): Promise<boolean> {
   }
 }
 
-// 同一 path の全タブを content / isDirty で更新する（タブ構造は snapshot から取得してから置換）
+// 同一 path の全タブのコンテンツを更新（tabContentStore経由、panesは更新しない）
 function updateAllTabsByPath(path: string, content: string, isDirty: boolean): void {
-  const current = snapshot(tabState);
   const targetPath = toAppPath(path);
+  const allTabs = collectAllTabs(tabState.panes);
 
-  const updatePanesRecursive = (panes: readonly EditorPane[]): EditorPane[] => {
-    return panes.map(pane => {
-      if (pane.children?.length) {
-        return { ...pane, children: updatePanesRecursive(pane.children) };
+  for (const t of allTabs) {
+    const tDef = tabRegistry.get(t.kind);
+    const tPath = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
+    if (tPath === targetPath) {
+      setTabContent(t.id, content, isDirty);
+      
+      // Monaco キャッシュを更新
+      try {
+        updateCachedModelContent(t.id, content, 'tabState');
+      } catch (e) {
+        console.warn('[tabState] updateCachedModelContent failed:', t.id, e);
       }
-      let changed = false;
-      const newTabs = pane.tabs.map(t => {
-        const tDef = tabRegistry.get(t.kind);
-        const tPath = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
-        if (tPath !== targetPath || !tDef?.updateContent) return t;
-        const updated = tDef.updateContent(t, content, isDirty);
-        if (updated !== t) changed = true;
-        return updated;
-      });
-      return changed ? { ...pane, tabs: newTabs } : pane;
-    });
-  };
-
-  const next = updatePanesRecursive(current.panes);
-  if (next !== current.panes) tabState.panes = next;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +330,7 @@ async function loadAndUpdateTabContent(
 }
 
 // ---------------------------------------------------------------------------
-// タブ操作: updateTabContent（全同一 path タブ更新 + 必要に応じて Monaco キャッシュ）
+// タブ操作: updateTabContent（tabContentStoreにコンテンツを保存、panesは構造のみ）
 // ---------------------------------------------------------------------------
 function updateTabContent(tabId: string, content: string, isDirty = false): void {
   const allTabs = collectAllTabs(tabState.panes);
@@ -321,55 +338,38 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
   if (!tab) return;
 
   const tabDef = tabRegistry.get(tab.kind);
-  if (!tabDef?.updateContent) return;
+  const targetPath = toAppPath(tabDef?.getContentPath?.(tab) ?? tab.path ?? '');
 
-  const targetPath = toAppPath(tabDef.getContentPath?.(tab) ?? tab.path ?? '');
-  if (!targetPath) return;
-
-  const updatedIds: string[] = [];
-  const current = snapshot(tabState);
-
-  const updatePanesRecursive = (panes: readonly EditorPane[]): EditorPane[] => {
-    return panes.map(pane => {
-      if (pane.children?.length) {
-        return { ...pane, children: updatePanesRecursive(pane.children) };
-      }
-      let paneChanged = false;
-      const newTabs = pane.tabs.map(t => {
-        const def = tabRegistry.get(t.kind);
-        const tp = toAppPath(def?.getContentPath?.(t) ?? t.path ?? '');
-        if (tp !== targetPath || !def?.updateContent) return t;
-        const updated = def.updateContent(t, content, isDirty);
-        if (updated !== t) {
-          paneChanged = true;
-          updatedIds.push(t.id);
-        }
-        return updated;
-      });
-      return paneChanged ? { ...pane, tabs: newTabs } : pane;
-    });
-  };
-
-  const next = updatePanesRecursive(current.panes);
-  if (next !== current.panes) {
-    tabState.panes = next;
-    for (const id of updatedIds) {
-      try {
-        updateCachedModelContent(id, content, 'tabState');
-      } catch (e) {
-        console.warn('[tabState] updateCachedModelContent failed:', id, e);
-      }
+  // 同じパスを持つ全タブのIDを収集
+  const affectedTabIds: string[] = [];
+  for (const t of allTabs) {
+    const def = tabRegistry.get(t.kind);
+    const tp = toAppPath(def?.getContentPath?.(t) ?? t.path ?? '');
+    if (tp === targetPath) {
+      affectedTabIds.push(t.id);
     }
+  }
 
-    // If this update marks content as dirty, ensure a debounced save is scheduled.
-    // This covers code paths that call `updateTabContent` directly (e.g. editor components)
-    // instead of using `setContent` which already schedules saves.
-    if (isDirty && targetPath) {
-      try {
-        scheduleSave(targetPath, () => tabState.panes);
-      } catch (e) {
-        console.warn('[tabState] scheduleSave failed:', e);
-      }
+  // tabContentStoreにコンテンツを保存（panes更新なし = page再レンダリングなし）
+  for (const id of affectedTabIds) {
+    setTabContent(id, content, isDirty);
+    
+    // Monaco キャッシュを更新
+    try {
+      updateCachedModelContent(id, content, 'tabState');
+    } catch (e) {
+      console.warn('[tabState] updateCachedModelContent failed:', id, e);
+    }
+  }
+
+  // ダーティフラグの変更時のみ panes を更新
+  // これは頻繁には発生しないので問題ない
+  if (isDirty && targetPath) {
+    // 保存をスケジュール
+    try {
+      scheduleSave(targetPath, () => tabState.panes);
+    } catch (e) {
+      console.warn('[tabState] scheduleSave failed:', e);
     }
   }
 }
@@ -527,6 +527,8 @@ export const tabActions = {
       if (path && (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')) {
         removeSaveTimerForPath(path);
       }
+      // tabContentStoreからコンテンツをクリーンアップ
+      clearTabContent(tabId);
     }
     const newTabs = pane.tabs.filter(t => t.id !== tabId);
     let newActive = pane.activeTabId;

@@ -21,23 +21,28 @@ import {
  * tabState (Valtio) でコンテンツ・外部変更検知を管理。
  * ワーキングディレクトリのファイル変更を originalContent に反映。
  */
+import { useTabContent } from '@/stores/tabContentStore';
+
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
   const { setGitRefreshTrigger } = useGitContext();
   const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
 
+  // tabContentStoreから最新のファイルコンテンツを取得（これがoriginalContentになる）
+  // fallbackとして、タブ作成時のoriginalContentを使用
+  const storeContent = useTabContent(aiTab.id);
+  const currentOriginalContent = storeContent ?? aiTab.originalContent;
+  
+  // AIReviewTabComponent用にオブジェクトを再作成（originalContentのみ差し替え）
+  const tabWithContent = {
+    ...aiTab,
+    originalContent: currentOriginalContent,
+  };
+
   useEffect(() => {
     initTabSaveSync();
-    const normalizedFilePath = toAppPath(aiTab.filePath);
-    const unsubscribe = addChangeListener((changedPath, newContent, source) => {
-      if (source === 'external' && toAppPath(changedPath) === normalizedFilePath) {
-        tabActions.updateTab(aiTab.paneId, aiTab.id, {
-          originalContent: newContent,
-        } as Partial<AIReviewTab>);
-      }
-    });
-    return unsubscribe;
-  }, [aiTab.filePath, aiTab.paneId, aiTab.id]);
+    // addChangeListenerは不要になったため削除（tabState.tsのupdateTabContentがtabContentStoreを更新する）
+  }, []);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
     const projectId = aiTab.aiEntry?.projectId;
@@ -124,7 +129,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   return (
     <AIReviewTabComponent
-      tab={aiTab}
+      tab={tabWithContent}
       onApplyChanges={handleApplyChanges}
       onDiscardChanges={handleDiscardChanges}
     />
