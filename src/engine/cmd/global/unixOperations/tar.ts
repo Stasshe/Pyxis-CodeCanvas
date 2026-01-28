@@ -104,6 +104,7 @@ export class TarCommand extends UnixCommandBase {
       });
 
       let addedCount = 0;
+      const now = new Date();
 
       // ファイルを順次追加
       const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
@@ -130,10 +131,23 @@ export class TarCommand extends UnixCommandBase {
           // 先にディレクトリエントリ自身を追加
           await new Promise<void>((resolve, reject) => {
             const dirName = entryName.endsWith('/') ? entryName : `${entryName}/`;
-            pack.entry({ name: dirName, type: 'directory' }, '', (err) => {
-              if (err) reject(err);
-              else resolve();
-            });
+            pack.entry(
+              {
+                name: dirName,
+                type: 'directory',
+                mode: 0o755,
+                uid: 0,
+                gid: 0,
+                mtime: now,
+                uname: 'root',
+                gname: 'root',
+              },
+              '',
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
           });
 
           for (const child of children) {
@@ -142,10 +156,23 @@ export class TarCommand extends UnixCommandBase {
             if (child.type === 'folder') {
               const childDirName = childEntryName.endsWith('/') ? childEntryName : `${childEntryName}/`;
               await new Promise<void>((resolve, reject) => {
-                pack.entry({ name: childDirName, type: 'directory' }, '', err => {
-                  if (err) reject(err);
-                  else resolve();
-                });
+                pack.entry(
+                  {
+                    name: childDirName,
+                    type: 'directory',
+                    mode: 0o755,
+                    uid: 0,
+                    gid: 0,
+                    mtime: now,
+                    uname: 'root',
+                    gname: 'root',
+                  },
+                  '',
+                  err => {
+                    if (err) reject(err);
+                    else resolve();
+                  }
+                );
               });
               if (verbose) console.log(`${childDirName}`);
             } else {
@@ -159,6 +186,12 @@ export class TarCommand extends UnixCommandBase {
                     name: childEntryName,
                     type: 'file',
                     size: contentBuf.length,
+                    mode: 0o644,
+                    uid: 0,
+                    gid: 0,
+                    mtime: now,
+                    uname: 'root',
+                    gname: 'root',
                   },
                   contentBuf,
                   err => {
@@ -184,6 +217,12 @@ export class TarCommand extends UnixCommandBase {
                 name: entryName,
                 type: 'file',
                 size: contentBuf.length,
+                mode: 0o644,
+                uid: 0,
+                gid: 0,
+                mtime: now,
+                uname: 'root',
+                gname: 'root',
               },
               contentBuf,
               (err) => {
