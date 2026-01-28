@@ -220,7 +220,7 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
     const tPath = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
     if (tPath === targetPath) {
       const prev = getTabContent(t.id);
-      const currentDirty = (t as any).isDirty ?? false;
+      const currentDirty = t.isDirty ?? false;
       
       // Update if content changed OR dirty flag needs update
       // We check both current content and current dirty status
@@ -237,7 +237,7 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
         
         // Update tabState dirty flag directly on the proxy
         if (currentDirty !== isDirty) {
-          (t as any).isDirty = isDirty;
+          t.isDirty = isDirty;
         }
       }
     }

@@ -42,7 +42,7 @@ export type ResultRowProps = {
   isSelected: boolean;
   resultKey: string;
   colors: ThemeColors;
-  hoveredResultKey: string | null;
+  isHovered: boolean;
   onHoverChange: (key: string | null) => void;
   onClick: (result: SearchResult, idx: number) => void;
   onReplace: (result: SearchResult, replacement: string) => void;
@@ -863,6 +863,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                       {group.results.map(({ result, globalIndex }, idx) => {
                         const isSelected = globalIndex === selectedIndex;
                         const resultKey = `${result.file.id}-${result.line}-${idx}`;
+                        const isHovered = hoveredResultKey === resultKey;
                         return (
                           <ResultRow
                             key={`${result.file.id}-${result.line}-${idx}`}
@@ -871,7 +872,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                             isSelected={isSelected}
                             resultKey={resultKey}
                             colors={colors}
-                            hoveredResultKey={hoveredResultKey}
+                            isHovered={isHovered}
                             onHoverChange={setHoveredResultKey}
                             onClick={handleRowClick}
                             onReplace={handleReplaceResult}

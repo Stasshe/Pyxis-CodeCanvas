@@ -8,14 +8,14 @@ const ResultRow = memo(function ResultRow({
   isSelected,
   resultKey,
   colors,
-  hoveredResultKey,
+  isHovered,
   onHoverChange,
   onClick,
   onReplace,
   replaceQuery,
   children,
 }: PropsWithChildren<ResultRowProps>) {
-  const showResultReplace = result.line !== 0 && (isSelected || hoveredResultKey === resultKey);
+  const showResultReplace = result.line !== 0 && (isSelected || isHovered);
   return (
     <div
       onClick={() => onClick(result, globalIndex)}
