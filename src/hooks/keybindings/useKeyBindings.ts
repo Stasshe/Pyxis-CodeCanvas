@@ -363,7 +363,7 @@ if (typeof window !== 'undefined') {
     // When modifier is active, allow paste operations to proceed.
     if (modifierActive) {
       const inputType = (ev as InputEvent).inputType || '';
-      if (inputType && inputType.toString().startsWith('insertFromPaste')) {
+      if (inputType?.toString().startsWith('insertFromPaste')) {
         // allow paste
         return;
       }

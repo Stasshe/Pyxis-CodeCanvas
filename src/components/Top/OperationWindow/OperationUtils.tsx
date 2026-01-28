@@ -1,5 +1,6 @@
 'use client';
 
+import type { ThemeColors } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
 import type React from 'react';
 import { getIconForFile } from 'vscode-icons-js';
@@ -75,7 +76,7 @@ export function highlightMatch(
   text: string,
   query: string | string[],
   isSelected: boolean,
-  colors: any
+  colors: ThemeColors
 ): React.ReactNode {
   const tokens = Array.isArray(query)
     ? query.filter(Boolean)

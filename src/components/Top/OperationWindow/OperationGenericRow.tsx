@@ -1,14 +1,15 @@
 'use client';
 
+import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import type { ThemeColors } from '@/context/ThemeContext';
 import React from 'react';
 import type { OperationListItem } from './OperationWindow';
-import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 
 interface Props {
   item: OperationListItem;
   isSelected: boolean;
   ITEM_HEIGHT: number;
-  colors: any;
+  colors: ThemeColors;
   queryTokens: string[];
 }
 

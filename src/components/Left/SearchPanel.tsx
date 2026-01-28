@@ -1,8 +1,8 @@
 import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, useCallback, memo, PropsWithChildren } from 'react';
+import { PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
@@ -41,7 +41,7 @@ export type ResultRowProps = {
   globalIndex: number;
   isSelected: boolean;
   resultKey: string;
-  colors: any;
+  colors: ThemeColors;
   hoveredResultKey: string | null;
   onHoverChange: (key: string | null) => void;
   onClick: (result: SearchResult, idx: number) => void;

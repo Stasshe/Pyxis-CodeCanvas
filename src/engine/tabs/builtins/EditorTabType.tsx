@@ -1,12 +1,12 @@
+import { useGitContext } from '@/components/Pane/PaneContainer';
+import CodeEditor from '@/components/Tab/CodeEditor';
+import { useSettings } from '@/hooks/state/useSettings';
+import { useProjectSnapshot } from '@/stores/projectStore';
+import { addSaveListener, initTabSaveSync, tabActions } from '@/stores/tabState';
 // src/engine/tabs/builtins/EditorTabType.tsx
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
-import { useGitContext } from '@/components/Pane/PaneContainer';
-import CodeEditor from '@/components/Tab/CodeEditor';
-import { initTabSaveSync, addSaveListener, tabActions } from '@/stores/tabState';
-import { useSettings } from '@/hooks/state/useSettings';
-import { useProjectSnapshot } from '@/stores/projectStore';
 
 /**
  * エディタタブのコンポーネント

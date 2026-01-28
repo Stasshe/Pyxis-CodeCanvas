@@ -20,7 +20,7 @@ import type { EditorPane, FileItem } from '@/types';
 import { useSnapshot } from 'valtio';
 
 interface PaneContainerProps {
-  pane: Readonly<EditorPane>;
+  paneId: string;
   setGitRefreshTrigger: (fn: (prev: number) => number) => void;
 }
 
@@ -58,13 +58,17 @@ function flattenPanes(paneList: readonly EditorPane[]): readonly EditorPane[] {
  * - TabRegistryによる動的なタブコンポーネントレンダリング
  * - 即時反映、保存、Git連携などの全機能を保持
  */
-export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
+export default function PaneContainer({ paneId, setGitRefreshTrigger }: PaneContainerProps) {
   const { colors } = useTheme();
-  const { globalActiveTab, activePane, panes: allPanes } = useSnapshot(tabState);
+  const { globalActiveTab, activePane } = useSnapshot(tabState);
+  // Subscribe only to the specific pane we're responsible for
+  const pane = useSnapshot(tabState).panes.find(p => p.id === paneId) as EditorPane | undefined;
+  // For structural count (only tracks structure, not tab content)
+  const panesForCount = useSnapshot(tabState).panes;
   const { setPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = tabActions;
 
-  // リーフペインの数を計算（枠線表示の判定に使用）- パフォーマンスのためメモ化
-  const leafPaneCount = useMemo(() => flattenPanes(allPanes).length, [allPanes]);
+  // リーフペインの数を計算（構造的な変化のみ購読）
+  const leafPaneCount = useMemo(() => flattenPanes(panesForCount).length, [panesForCount]);
   const [dropZone, setDropZone] = React.useState<
     'top' | 'bottom' | 'left' | 'right' | 'center' | 'tabbar' | null
   >(null);
@@ -83,12 +87,13 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
       const defaultEditor =
         typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
       const kind = fileItem.isBufferArray ? 'binary' : 'editor';
+      const effectivePaneId = targetPaneId || paneId;
       await openTab(
         { ...fileItem, isCodeMirror: defaultEditor === 'codemirror' },
-        { kind, paneId: targetPaneId || pane.id }
+        { kind, paneId: effectivePaneId }
       );
     },
-    [openTab, pane.id]
+    [openTab, paneId]
   );
 
   // このペイン自体をドロップターゲットとして扱う（TABとFILE_TREE_ITEM両方受け付け）
@@ -120,7 +125,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
 
               // splitPaneAndOpenFileがあればそれを使用、なければ手動で処理
               if (splitPaneAndOpenFile) {
-                splitPaneAndOpenFile(pane.id, direction, fileItem, position);
+                splitPaneAndOpenFile(paneId, direction, fileItem, position);
               } else {
                 // フォールバック：単純にファイルを開く
                 openFileInPane(fileItem);
@@ -134,15 +139,15 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         // TABの場合は既存のタブ移動ロジック
         if (isTabDragItem(item)) {
           if (!currentDropZone || currentDropZone === 'center' || currentDropZone === 'tabbar') {
-            if (item.fromPaneId === pane.id) return; // 同じペインなら無視
-            moveTab(item.fromPaneId, pane.id, item.tabId);
+            if (item.fromPaneId === paneId) return; // 同じペインなら無視
+            moveTab(item.fromPaneId, paneId, item.tabId);
           } else {
             // Split logic
             const direction =
               currentDropZone === 'top' || currentDropZone === 'bottom' ? 'horizontal' : 'vertical';
             const side =
               currentDropZone === 'top' || currentDropZone === 'left' ? 'before' : 'after';
-            splitPaneAndMoveTab(pane.id, direction, item.tabId, side);
+            splitPaneAndMoveTab(paneId, direction, item.tabId, side);
           }
         }
 
@@ -189,8 +194,11 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         isOver: monitor.isOver({ shallow: true }),
       }),
     }),
-    [pane.id, moveTab, splitPaneAndMoveTab, openFileInPane, splitPaneAndOpenFile]
+    [paneId, moveTab, splitPaneAndMoveTab, openFileInPane, splitPaneAndOpenFile]
   );
+
+  // pane may not be available yet
+  if (!pane) return null;
 
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
@@ -214,7 +222,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                 flexGrow: 0,
               }}
             >
-              <PaneContainer pane={childPane} setGitRefreshTrigger={setGitRefreshTrigger} />
+              <PaneContainer paneId={childPane.id} setGitRefreshTrigger={setGitRefreshTrigger} />
             </div>
 
             {/* 子ペイン間のリサイザー */}
@@ -259,7 +267,9 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                       });
                     };
 
-                    setPanes(updatePaneRecursive(allPanes));
+                    // Read current panes from tabState at the time of resize
+                    const currentAllPanes = tabState.panes as EditorPane[];
+                    setPanes(updatePaneRecursive(currentAllPanes));
                   }}
                 />
               </div>
@@ -271,6 +281,8 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   }
 
   // リーフペイン（実際のエディタ）をレンダリング
+  if (!pane) return null;
+
   const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
   const isActivePane = activePane === pane.id;
   // isActive: グローバルアクティブタブが現在表示しているタブと一致し、かつこのペインがアクティブな場合
@@ -368,10 +380,10 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         {overlayStyle && <div style={overlayStyle} />}
 
         {/* タブバー */}
-        <TabBar paneId={pane.id} />
+        <TabBar paneId={paneId} />
 
         {/* ブレッドクラム */}
-        <Breadcrumb paneId={pane.id} />
+        <Breadcrumb paneId={paneId} />
 
         {/* エディタコンテンツ - TabRegistryで動的レンダリング */}
         <div className="flex-1 overflow-hidden">

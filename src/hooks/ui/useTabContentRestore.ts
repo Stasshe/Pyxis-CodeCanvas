@@ -57,7 +57,8 @@ function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
  * ファイル変更・リアルタイム同期は tabState (initTabSaveSync) が担当する。
  */
 export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
-  const { panes } = useSnapshot(tabState);
+  // Only use the panes length reactively to avoid tracking tab content changes
+  const panesLength = useSnapshot(tabState).panes.length;
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
 
@@ -75,12 +76,12 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    if (!isRestored || panes.length === 0) {
+    if (!isRestored || panesLength === 0) {
       return;
     }
 
-    const flatPanes = flattenPanes(panes);
-    const tabsNeedingRestore = flatPanes.flatMap(pane =>
+    const flatPanes = flattenPanes(snapshot(tabState).panes);
+    const tabsNeedingRestore = flatPanes.flatMap((pane: any) =>
       pane.tabs.filter((tab: any) => tab.needsContentRestore)
     );
 

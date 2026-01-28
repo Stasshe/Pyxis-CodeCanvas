@@ -1,7 +1,7 @@
 import type { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 import type { UnixCommands } from '../global/unix';
 import type { TokenObj } from './types';
-import type { ProjectFile } from '@/types';
 
 import expandBraces from './braceExpand';
 

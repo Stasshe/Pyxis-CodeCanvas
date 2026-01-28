@@ -1,11 +1,13 @@
 'use client';
 
-import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
-import React, { useRef, useEffect, useState } from 'react';
-import type { OperationListItem } from './OperationWindow';
+import type { ThemeColors } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
+import { type VirtualItem, useVirtualizer } from '@tanstack/react-virtual';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import OperationFileRow from './OperationFileRow';
 import OperationGenericRow from './OperationGenericRow';
+import type { OperationListItem } from './OperationWindow';
 
 interface Props {
   viewMode: 'files' | 'list';
@@ -15,7 +17,7 @@ interface Props {
   setSelectedIndex: (i: number) => void;
   handleFileSelectInOperation: (file: FileItem) => void;
   ITEM_HEIGHT: number;
-  colors: any;
+  colors: ThemeColors;
   queryTokens: string[];
   t: (k: string) => string;
   listRef?: React.RefObject<HTMLDivElement | null>;

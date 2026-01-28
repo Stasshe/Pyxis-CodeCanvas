@@ -470,15 +470,13 @@ export const tabActions = {
 
     // Final sanitize pass: remove falsy nodes and ensure parentId for children matches their parent
     const sanitize = (panes: readonly EditorPane[]): EditorPane[] =>
-      panes
-        .filter(Boolean)
-        .map(p => {
-          const children = p.children ? sanitize(p.children) : undefined;
-          return {
-            ...p,
-            children: children && children.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
-          } as EditorPane;
-        });
+      panes.filter(Boolean).map(p => {
+        const children = p.children ? sanitize(p.children) : undefined;
+        return {
+          ...p,
+          children: children?.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
+        } as EditorPane;
+      });
 
     tabState.panes = sanitize(newPanes);
 
@@ -947,7 +945,7 @@ export const tabActions = {
         const leaves = flattenLeafPanes(tabState.panes);
         for (const sp of leaves) {
           for (const t of sp.tabs) {
-            if (t.kind === kind && tabDef.shouldReuseTab!(t, file, options)) {
+            if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
               await loadAndUpdateTabContent(t.id, kind, file.path);
               if (options.makeActive !== false) tabActions.activateTab(sp.id, t.id);
               return;
@@ -956,7 +954,7 @@ export const tabActions = {
         }
       } else {
         for (const t of pane.tabs) {
-          if (t.kind === kind && tabDef.shouldReuseTab!(t, file, options)) {
+          if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
             await loadAndUpdateTabContent(t.id, kind, file.path);
             if (options.makeActive !== false) tabActions.activateTab(targetPaneId, t.id);
             return;

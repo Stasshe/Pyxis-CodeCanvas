@@ -121,7 +121,7 @@ workerSelf.addEventListener('message', (ev: MessageEvent) => {
       globToRegex(g, options.caseSensitive)
     );
 
-    const filesToSearch = files && files.length ? files : cachedFiles;
+    const filesToSearch = files?.length ? files : cachedFiles;
 
     for (const file of filesToSearch) {
       const normalizedPath = (file.path || '').replace(/\\/g, '/');

@@ -13,12 +13,12 @@ import 'github-markdown-css/github-markdown.css';
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
-import type { EditorTab, PreviewTab, Tab, EditorPane } from '@/engine/tabs/types';
+import type { EditorPane, EditorTab, PreviewTab, Tab } from '@/engine/tabs/types';
 import { hasContent } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
 import type { Project, ProjectFile } from '@/types';
+import { useSnapshot } from 'valtio';
 
 import InlineHighlightedCode from './InlineHighlightedCode';
 import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';
@@ -40,7 +40,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // determine markdown plugins based on settings
   const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
 
-  const { panes } = useSnapshot(tabState);
+  // Only subscribe to panes for the purpose of finding the matching editor's content
+  const panesSnapshot = useSnapshot(tabState).panes;
   const editorTabContent = useMemo(() => {
     const find = (paneList: readonly EditorPane[]): string | null => {
       for (const p of paneList) {
@@ -53,8 +54,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
       }
       return null;
     };
-    return find(panes);
-  }, [panes, activeTab.path]);
+    return find(panesSnapshot);
+  }, [panesSnapshot, activeTab.path]);
 
   const contentSource = editorTabContent ?? activeTab.content ?? '';
   const { openTab } = tabActions;

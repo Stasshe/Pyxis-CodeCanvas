@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useTransition } from 'react';
+import { useCallback, useState, useTransition } from 'react';
 
 import DebugConsole from './DebugConsole';
 import OutputPanel, { type OutputMessage } from './OutputPanel';

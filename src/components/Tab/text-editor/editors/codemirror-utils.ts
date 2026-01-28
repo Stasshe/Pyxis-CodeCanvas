@@ -10,8 +10,8 @@ import { python } from '@codemirror/lang-python';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { indentUnit } from '@codemirror/language';
-import type { Extension } from '@codemirror/state';
 import { highlightSelectionMatches } from '@codemirror/search';
+import type { Extension } from '@codemirror/state';
 import {
   highlightActiveLine,
   highlightActiveLineGutter,

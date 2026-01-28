@@ -1,14 +1,15 @@
 'use client';
 
-import React from 'react';
 import { getIconSrcForFile, highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import type { ThemeColors } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
+import React from 'react';
 
 interface Props {
   file: FileItem;
   isSelected: boolean;
   ITEM_HEIGHT: number;
-  colors: any;
+  colors: ThemeColors;
   queryTokens: string[];
   onClick?: () => void;
 }

@@ -2,6 +2,7 @@
 import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 import { CheckCircle2, Loader2Icon } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
+import type { ThemeColors } from '@/context/ThemeContext';
 
 import { syncManager } from '@/engine/core/syncManager';
 
@@ -10,7 +11,7 @@ type Props = {
   currentProjectName?: string;
   gitChangesCount?: number;
   nodeRuntimeBusy?: boolean;
-  colors: any;
+  colors: ThemeColors;
 };
 
 export default function BottomStatusBar({

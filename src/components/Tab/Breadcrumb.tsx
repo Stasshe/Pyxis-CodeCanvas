@@ -2,16 +2,16 @@
 
 import { useTheme } from '@/context/ThemeContext';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
 import type React from 'react';
+import { useSnapshot } from 'valtio';
 
 interface BreadcrumbProps {
   paneId: string;
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ paneId }) => {
-  const { panes } = useSnapshot(tabState);
-  const pane = panes.find(p => p.id === paneId);
+  // Subscribe to only what we need (active tab's path/name)
+  const pane = useSnapshot(tabState).panes.find(p => p.id === paneId);
   const { colors } = useTheme();
   if (!pane) return null;
 

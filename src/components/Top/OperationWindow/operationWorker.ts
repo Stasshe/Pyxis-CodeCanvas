@@ -98,6 +98,6 @@ onmessage = (e: MessageEvent) => {
     }
   } catch (err) {
     // return empty result on error
-    postMessage({ type: 'result', searchId: msg && msg.searchId ? msg.searchId : 0, results: [] });
+    postMessage({ type: 'result', searchId: msg?.searchId ? msg.searchId : 0, results: [] });
   }
 };
