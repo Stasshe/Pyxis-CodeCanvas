@@ -30,7 +30,7 @@ let unsubscribeFileRepository: (() => void) | null = null;
 // ---------------------------------------------------------------------------
 // ヘルパー
 // ---------------------------------------------------------------------------
-function flattenLeafPanes(panes: EditorPane[], result: EditorPane[] = []): EditorPane[] {
+function flattenLeafPanes(panes: readonly EditorPane[], result: EditorPane[] = []): EditorPane[] {
   for (const p of panes) {
     if (!p.children || p.children.length === 0) {
       result.push(p);
@@ -48,7 +48,7 @@ function normalizeTabPath(p?: string): string {
   return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
 }
 
-function findPaneRecursive(panes: EditorPane[], paneId: string): EditorPane | null {
+function findPaneRecursive(panes: readonly EditorPane[], paneId: string): EditorPane | null {
   for (const pane of panes) {
     if (pane.id === paneId) return pane;
     if (pane.children) {
@@ -59,7 +59,7 @@ function findPaneRecursive(panes: EditorPane[], paneId: string): EditorPane | nu
   return null;
 }
 
-function collectAllTabs(panes: EditorPane[]): Tab[] {
+function collectAllTabs(panes: readonly EditorPane[]): Tab[] {
   const tabs: Tab[] = [];
   for (const pane of panes) {
     tabs.push(...pane.tabs);
@@ -69,7 +69,7 @@ function collectAllTabs(panes: EditorPane[]): Tab[] {
 }
 
 function findInPanes(
-  panes: EditorPane[],
+  panes: readonly EditorPane[],
   path: string,
   kind?: string
 ): { paneId: string; tab: Tab } | null {
@@ -86,7 +86,7 @@ function findInPanes(
   return null;
 }
 
-function getContentFromPanes(panes: EditorPane[], path: string): string | undefined {
+function getContentFromPanes(panes: readonly EditorPane[], path: string): string | undefined {
   const tabs = collectAllTabs(panes);
   const p = toAppPath(path);
   const editorTab = tabs.find(t => t.kind === 'editor' && toAppPath(t.path || '') === p);
@@ -154,7 +154,7 @@ function updateAllTabsByPath(path: string, content: string, isDirty: boolean): v
   const current = snapshot(tabState);
   const targetPath = toAppPath(path);
 
-  const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+  const updatePanesRecursive = (panes: readonly EditorPane[]): EditorPane[] => {
     return panes.map(pane => {
       if (pane.children?.length) {
         return { ...pane, children: updatePanesRecursive(pane.children) };
@@ -318,7 +318,7 @@ function updateTabContent(tabId: string, content: string, isDirty = false): void
   const updatedIds: string[] = [];
   const current = snapshot(tabState);
 
-  const updatePanesRecursive = (panes: EditorPane[]): EditorPane[] => {
+  const updatePanesRecursive = (panes: readonly EditorPane[]): EditorPane[] => {
     return panes.map(pane => {
       if (pane.children?.length) {
         return { ...pane, children: updatePanesRecursive(pane.children) };
@@ -408,7 +408,7 @@ export const tabActions = {
     }
   },
   updatePane(paneId: string, updates: Partial<EditorPane>) {
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id === paneId) return { ...p, ...updates };
         if (p.children) return { ...p, children: up(p.children) };
@@ -462,7 +462,7 @@ export const tabActions = {
     }
   },
   activateTab(paneId: string, tabId: string) {
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id === paneId) return { ...p, activeTabId: tabId };
         if (p.children) return { ...p, children: up(p.children) };
@@ -518,7 +518,7 @@ export const tabActions = {
   handleFileDeleted(deletedPath: string) {
     const np = normalizeTabPath(deletedPath);
     const toClose: Array<{ paneId: string; tabId: string }> = [];
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(pane => {
         if (pane.children?.length) return { ...pane, children: up(pane.children) };
         const newTabs = pane.tabs.map((tab: Tab) => {
@@ -547,7 +547,7 @@ export const tabActions = {
     }
     const set = new Set(paths.map(normalizeTabPath));
     const toClose: Array<{ paneId: string; tabId: string }> = [];
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(pane => {
         if (pane.children?.length) return { ...pane, children: up(pane.children) };
         const newTabs = pane.tabs.map((tab: Tab) => {
@@ -573,7 +573,7 @@ export const tabActions = {
     const target = getPane(paneId);
     if (!target) return;
     const ids: string[] = [];
-    const collect = (ps: EditorPane[]) => {
+    const collect = (ps: readonly EditorPane[]) => {
       ps.forEach(p => {
         ids.push(p.id);
         if (p.children) collect(p.children);
@@ -586,7 +586,7 @@ export const tabActions = {
     let n2 = n + 1;
     while (ids.includes(`pane-${n2}`) || `pane-${n2}` === newId) n2++;
     const existingId = `pane-${n2}`;
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id !== paneId) {
           if (p.children) return { ...p, children: up(p.children) };
@@ -621,7 +621,7 @@ export const tabActions = {
     if (!target) return;
     let srcPaneId = '';
     let tabToMove: Tab | null = null;
-    const find = (ps: EditorPane[]) => {
+    const find = (ps: readonly EditorPane[]) => {
       for (const p of ps) {
         const t = p.tabs.find(x => x.id === tabId);
         if (t) {
@@ -635,7 +635,7 @@ export const tabActions = {
     find(tabState.panes);
     if (!tabToMove || !srcPaneId) return;
     const ids: string[] = [];
-    const collect = (ps: EditorPane[]) => {
+    const collect = (ps: readonly EditorPane[]) => {
       ps.forEach(p => {
         ids.push(p.id);
         if (p.children) collect(p.children);
@@ -646,7 +646,7 @@ export const tabActions = {
     while (ids.includes(`pane-${n}`)) n++;
     const newId = `pane-${n}`;
     const existingId = `pane-${n + 1}`;
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id === srcPaneId && srcPaneId !== paneId) {
           const nt = p.tabs.filter(x => x.id !== tabId);
@@ -709,7 +709,7 @@ export const tabActions = {
     const target = getPane(paneId);
     if (!target) return;
     const ids: string[] = [];
-    const collect = (ps: EditorPane[]) => {
+    const collect = (ps: readonly EditorPane[]) => {
       ps.forEach(p => {
         ids.push(p.id);
         if (p.children) collect(p.children);
@@ -735,7 +735,7 @@ export const tabActions = {
       isDirty: false,
       isCodeMirror: defEditor === 'codemirror',
     };
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id !== paneId) {
           if (p.children) return { ...p, children: up(p.children) };
@@ -788,7 +788,7 @@ export const tabActions = {
     const allTabs = tabActions.getAllTabs();
 
     if (allTabs.length === 0) {
-      const findLeaf = (ps: EditorPane[]): EditorPane | null => {
+      const findLeaf = (ps: readonly EditorPane[]): EditorPane | null => {
         for (const p of ps) {
           if (!p.children?.length) return p;
           const f = findLeaf(p.children);
@@ -905,7 +905,7 @@ export const tabActions = {
     }
 
     const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
-    const up = (panes: EditorPane[]): EditorPane[] =>
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id !== targetPaneId) {
           if (p.children) return { ...p, children: up(p.children) };

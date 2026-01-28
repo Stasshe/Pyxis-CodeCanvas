@@ -143,7 +143,7 @@ const RecursivePaneView = memo(function RecursivePaneView({
 });
 
 // Calculate layout dimensions based on pane structure
-function calculateLayoutDimensions(panes: EditorPane[]): { width: number; height: number } {
+function calculateLayoutDimensions(panes: readonly EditorPane[]): { width: number; height: number } {
   const baseSize = 60; // Base size for each pane item
   const gap = 4;
 
@@ -197,7 +197,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   // Flatten panes for navigation
   const flattenedPanes = useMemo(() => {
     const result: any[] = [];
-    const traverse = (list: any[]) => {
+    const traverse = (list: readonly EditorPane[]) => {
       for (const p of list) {
         if (!p.children || p.children.length === 0) result.push(p);
         if (p.children) traverse(p.children);
@@ -243,7 +243,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
       splitPane(selectedPaneId, dir);
       requestAnimationFrame(() => {
         const newFlat: EditorPane[] = [];
-        const traverse = (list: any[]) => {
+        const traverse = (list: readonly EditorPane[]) => {
           for (const p of list) {
             if (!p.children || p.children.length === 0) newFlat.push(p);
             if (p.children) traverse(p.children);

@@ -72,7 +72,7 @@ export interface ProjectFile {
   aiReviewComments?: string; // 簡易コメント/説明
   aiAgentSuggestedContent?: string; // AIが提案した内容（最新）
   aiAgentOriginalSnapshot?: string; // AI提案時のオリジナルスナップショット
-  aiReviewHistory?: readonly Array<{
+  aiReviewHistory?: ReadonlyArray<{
     id: string;
     timestamp: Date;
     content: string; // 保存されたスナップショット
