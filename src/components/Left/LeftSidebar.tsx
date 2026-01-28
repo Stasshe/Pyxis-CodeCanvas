@@ -14,6 +14,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
 import type { Project } from '@/types';
 import type { FileItem, MenuTab } from '@/types';
+import { active } from 'd3';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -155,12 +156,11 @@ export default function LeftSidebar({
               </div>
             </div>
           )}
-          <div
-            className="h-full"
-            style={{ display: activeMenuTab === 'search' ? 'block' : 'none' }}
-          >
-            <SearchPanel files={files} projectId={currentProject.id} />
-          </div>
+          {activeMenuTab === 'search' && (
+            <div className="h-full">
+              <SearchPanel files={files} projectId={currentProject.id} />
+            </div>
+          )}
           {activeMenuTab === 'git' && (
             <div className="h-full">
               <GitPanel
