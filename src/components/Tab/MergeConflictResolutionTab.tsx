@@ -14,7 +14,7 @@ import { useCallback, useRef, useState } from 'react';
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme, ThemeColors } from '@/context/ThemeContext';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 
 interface MergeConflictResolutionTabProps {
@@ -369,7 +369,7 @@ interface ThreeWayViewProps {
   theirsBranch: string;
   onMount: (editor: monacoEditor.editor.IStandaloneDiffEditor, monaco: Monaco) => void;
   onResolvedContentChange: (value: string | undefined) => void;
-  colors: any;
+  colors: ThemeColors;
   themeName: string;
 }
 

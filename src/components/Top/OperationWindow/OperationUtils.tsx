@@ -3,6 +3,7 @@
 import type { FileItem } from '@/types';
 import type React from 'react';
 import { getIconForFile } from 'vscode-icons-js';
+import { ThemeColors } from '@/context/ThemeContext';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
 export function flattenFileItems(items: FileItem[]): FileItem[] {
@@ -75,7 +76,7 @@ export function highlightMatch(
   text: string,
   query: string | string[],
   isSelected: boolean,
-  colors: any
+  colors: ThemeColors
 ): React.ReactNode {
   const tokens = Array.isArray(query)
     ? query.filter(Boolean)

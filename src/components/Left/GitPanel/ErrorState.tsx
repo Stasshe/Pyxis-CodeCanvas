@@ -1,7 +1,7 @@
 'use client';
 import { useTranslation } from '@/context/I18nContext';
 import { X } from 'lucide-react';
-import React from 'react';
+import { ThemeColors } from '@/context/ThemeContext';
 
 export default function ErrorState({
   message,
@@ -10,7 +10,7 @@ export default function ErrorState({
 }: {
   message: string | null;
   onRetry: () => void;
-  colors: any;
+  colors: ThemeColors;
 }) {
   const { t } = useTranslation();
   return (

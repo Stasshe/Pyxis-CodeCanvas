@@ -3,6 +3,7 @@ import React from 'react';
 
 import PanelRightIcon from '@/components/Right/PanelRightIcon';
 import { useTranslation } from '@/context/I18nContext';
+import { ThemeColors } from '@/context/ThemeContext';
 
 type Props = {
   isOperationWindowVisible: boolean;
@@ -11,7 +12,7 @@ type Props = {
   toggleBottomPanel: () => void;
   isRightSidebarVisible: boolean;
   toggleRightSidebar: () => void;
-  colors: any;
+  colors: ThemeColors;
   currentProjectName?: string;
   gitChangesCount?: number;
 };

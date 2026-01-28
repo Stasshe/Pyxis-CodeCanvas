@@ -6,6 +6,7 @@ import type { OperationListItem } from './OperationWindow';
 import type { FileItem } from '@/types';
 import OperationFileRow from './OperationFileRow';
 import OperationGenericRow from './OperationGenericRow';
+import { ThemeColors } from '@/context/ThemeContext';
 
 interface Props {
   viewMode: 'files' | 'list';
@@ -15,7 +16,7 @@ interface Props {
   setSelectedIndex: (i: number) => void;
   handleFileSelectInOperation: (file: FileItem) => void;
   ITEM_HEIGHT: number;
-  colors: any;
+  colors: ThemeColors;
   queryTokens: string[];
   t: (k: string) => string;
   listRef?: React.RefObject<HTMLDivElement | null>;

@@ -3,12 +3,13 @@
 import React from 'react';
 import { getIconSrcForFile, highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type { FileItem } from '@/types';
+import { ThemeColors } from '@/context/ThemeContext';
 
 interface Props {
   file: FileItem;
   isSelected: boolean;
   ITEM_HEIGHT: number;
-  colors: any;
+  colors: ThemeColors;
   queryTokens: string[];
   onClick?: () => void;
 }

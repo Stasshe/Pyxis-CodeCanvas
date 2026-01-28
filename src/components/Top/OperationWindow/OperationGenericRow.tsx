@@ -3,12 +3,13 @@
 import React from 'react';
 import type { OperationListItem } from './OperationWindow';
 import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import { ThemeColors } from '@/context/ThemeContext';
 
 interface Props {
   item: OperationListItem;
   isSelected: boolean;
   ITEM_HEIGHT: number;
-  colors: any;
+  colors: ThemeColors;
   queryTokens: string[];
 }
 

@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } f
 import { useEffect, useMemo, useRef, useState, useCallback, memo, PropsWithChildren } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme, ThemeColors } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
@@ -41,7 +41,7 @@ export type ResultRowProps = {
   globalIndex: number;
   isSelected: boolean;
   resultKey: string;
-  colors: any;
+  colors: ThemeColors;
   hoveredResultKey: string | null;
   onHoverChange: (key: string | null) => void;
   onClick: (result: SearchResult, idx: number) => void;

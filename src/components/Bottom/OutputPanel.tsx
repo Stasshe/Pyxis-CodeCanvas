@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import type { ThemeColors } from '@/context/ThemeContext';
 
 type OutputType = 'info' | 'error' | 'warn' | 'check';
 
@@ -18,7 +19,7 @@ interface OutputPanelProps {
 }
 
 // Themeの色を使う
-const getTypeColor = (colors: any): Record<OutputType, string> => ({
+const getTypeColor = (colors: ThemeColors): Record<OutputType, string> => ({
   info: colors.primary,
   error: colors.red,
   warn: colors.accentFg,

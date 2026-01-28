@@ -2,6 +2,7 @@
 
 import { useTranslation } from '@/context/I18nContext';
 import type { FileItem } from '@/types';
+import type { ThemeColors } from '@/context/ThemeContext';
 import React from 'react';
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
   setMdDialogSelected: (v: 0 | 1) => void;
   actuallyOpenFile: (file: FileItem, preview: boolean) => void;
   setMdPreviewPrompt: (v: null | { file: FileItem }) => void;
-  colors: any;
+  colors: ThemeColors;
 }
 
 export default function MdPreviewDialog({

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme, ThemeColors } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';
@@ -28,7 +28,7 @@ interface PaneItemProps {
   isActive: boolean;
   onSelect: (paneId: string) => void;
   onActivate: (paneId: string) => void;
-  colors: any;
+  colors: ThemeColors;
   index: number;
 }
 
@@ -91,7 +91,7 @@ interface RecursivePaneViewProps {
   activePane: string | null;
   onSelect: (paneId: string) => void;
   onActivate: (paneId: string) => void;
-  colors: any;
+  colors: ThemeColors;
   leafIndexRef: { current: number };
 }
 

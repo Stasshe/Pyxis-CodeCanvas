@@ -10,7 +10,7 @@ type Props = {
   currentProjectName?: string;
   gitChangesCount?: number;
   nodeRuntimeBusy?: boolean;
-  colors: any;
+  colors: ThemeColors;
 };
 
 export default function BottomStatusBar({
