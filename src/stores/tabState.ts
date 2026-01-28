@@ -559,7 +559,19 @@ export const tabActions = {
     if (!from || !to) return;
     const t = from.tabs.find(x => x.id === tabId);
     if (!t) return;
-    tabActions.closeTab(fromPaneId, tabId);
+
+    // Remove from source pane directly (skipping closeTab's side effects like timer removal)
+    const newFromTabs = from.tabs.filter(x => x.id !== tabId);
+    const newFromActive =
+      from.activeTabId === tabId
+        ? newFromTabs.length
+          ? newFromTabs[newFromTabs.length - 1].id // previous tab
+          : ''
+        : from.activeTabId;
+
+    tabActions.updatePane(fromPaneId, { tabs: newFromTabs, activeTabId: newFromActive });
+
+    // Add to destination pane
     tabActions.updatePane(toPaneId, {
       tabs: [...to.tabs, { ...t, paneId: toPaneId }],
       activeTabId: t.id,
@@ -585,11 +597,15 @@ export const tabActions = {
       tabState.activePane = fromPaneId;
       return;
     }
+
+    // Remove from source pane
     const newFrom = from.tabs.filter(x => x.id !== tabId);
     tabActions.updatePane(fromPaneId, {
       tabs: newFrom,
       activeTabId: from.activeTabId === tabId ? (newFrom[0]?.id ?? '') : from.activeTabId,
     });
+
+    // Add to destination pane at index
     const j = Math.max(0, Math.min(index, to.tabs.length));
     const newTo = [...to.tabs.slice(0, j), { ...t, paneId: toPaneId }, ...to.tabs.slice(j)];
     tabActions.updatePane(toPaneId, { tabs: newTo, activeTabId: t.id });
@@ -730,6 +746,7 @@ export const tabActions = {
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id === srcPaneId && srcPaneId !== paneId) {
+          // If moving from a DIFFERENT pane, remove from source (no side effects)
           const nt = p.tabs.filter(x => x.id !== tabId);
           return {
             ...p,

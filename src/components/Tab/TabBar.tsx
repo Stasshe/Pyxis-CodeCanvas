@@ -25,7 +25,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot, snapshot } from 'valtio';
-import { hasContent, EditorPane } from '@/engine/tabs/types';
+import { hasContent, type EditorPane } from '@/engine/tabs/types';
 
 interface TabBarProps {
   paneId: string;
@@ -140,8 +140,21 @@ export default function TabBar({ paneId }: TabBarProps) {
     // Use a fresh snapshot at the moment of the click to avoid races with in-flight
     // updates to the shared pane tree. Close any open menus first so we don't try to
     // reference elements that may be unmounted during removal.
-    const flatPanes = flattenPanes(snapshot(tabState).panes);
+    const currentPanes = snapshot(tabState).panes;
+    const flatPanes = flattenPanes(currentPanes);
     if (flatPanes.length <= 1) return;
+
+    // Check for dirty tabs in this pane
+    const targetPane = currentPanes.find(p => p.id === paneId) || flattenPanes(currentPanes).find(p => p.id === paneId);
+    if (targetPane) {
+      const hasDirtyTabs = targetPane.tabs.some(t => t.isDirty);
+      if (hasDirtyTabs) {
+        if (!confirm(t('tabCloseConfirmation.discardChangesMessage') || 'You have unsaved changes. Are you sure you want to close this pane?')) {
+          setPaneMenuOpen(false);
+          return;
+        }
+      }
+    }
 
     setPaneMenuOpen(false);
     setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
@@ -155,7 +168,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         console.error('[TabBar] removePane failed', err);
       }
     });
-  }, [paneId, removePane]);
+  }, [paneId, removePane, t]);
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
     tabs.forEach(tab => closeTab(paneId, tab.id));
