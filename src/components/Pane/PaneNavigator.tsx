@@ -196,7 +196,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
 
   // Flatten panes for navigation
   const flattenedPanes = useMemo(() => {
-    const result: any[] = [];
+    const result: EditorPane[] = [];
     const traverse = (list: readonly EditorPane[]) => {
       for (const p of list) {
         if (!p.children || p.children.length === 0) result.push(p);

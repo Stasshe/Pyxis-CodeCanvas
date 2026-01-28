@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 
 import { tabActions, tabState } from '@/stores/tabState';
-import type { EditorPane } from '@/engine/tabs/types';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
 
 /**
  * TabSessionManager
@@ -41,14 +41,23 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
 
   // Tab 構造の変化のみを監視してセッションを保存 （content の頻繁な変化は無視）
   const structuralKey = useMemo(() => {
-    const strip = (pList: readonly EditorPane[]): any[] =>
+    type StrippedPane = {
+      id: string;
+      size?: number;
+      layout?: string;
+      activeTabId: string;
+      tabs: Array<{ id: string; kind: string; path?: string; name?: string }>;
+      children?: StrippedPane[];
+    };
+
+    const strip = (pList: readonly EditorPane[]): StrippedPane[] =>
       pList.map(p => ({
         id: p.id,
         size: p.size,
         layout: p.layout,
         activeTabId: p.activeTabId,
         tabs:
-          p.tabs?.map((t: any) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
+          p.tabs?.map((t: Tab) => ({ id: t.id, kind: t.kind, path: t.path, name: t.name })) || [],
         children: p.children ? strip(p.children) : undefined,
       }));
 

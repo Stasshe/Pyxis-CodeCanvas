@@ -10,6 +10,7 @@ import { python } from '@codemirror/lang-python';
 import { xml } from '@codemirror/lang-xml';
 import { yaml } from '@codemirror/lang-yaml';
 import { indentUnit } from '@codemirror/language';
+import type { Extension } from '@codemirror/state';
 import { highlightSelectionMatches } from '@codemirror/search';
 import {
   highlightActiveLine,
@@ -24,7 +25,7 @@ import {
  */
 export const getCMExtensions = (filename: string, tabSize = 2, insertSpaces = true) => {
   const ext = filename.toLowerCase();
-  let lang: any[] = [];
+  let lang: Extension[] = [];
   if (
     ext.endsWith('.js') ||
     ext.endsWith('.jsx') ||

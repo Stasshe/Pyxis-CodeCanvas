@@ -1,6 +1,6 @@
 'use client';
 
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import React, {useRef, useEffect, useState } from 'react';
 import type { OperationListItem } from './OperationWindow';
 import type { FileItem } from '@/types';
@@ -46,7 +46,7 @@ export default function OperationVirtualList({
     overscan: 5,
   });
 
-  const [virtualItems, setVirtualItems] = useState<any[]>([]);
+  const [virtualItems, setVirtualItems] = useState<VirtualItem[]>([]);
   const [totalSize, setTotalSize] = useState(0);
 
   useEffect(() => {
