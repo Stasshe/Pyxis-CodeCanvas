@@ -19,7 +19,8 @@ interface Props {
   colors: ThemeColors;
   queryTokens: string[];
   t: (k: string) => string;
-  listRef?: React.RefObject<HTMLDivElement>;
+  // allow nullable ref objects (useRef<HTMLDivElement | null>(null) is common)
+  listRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function OperationVirtualList({
@@ -67,7 +68,7 @@ export default function OperationVirtualList({
   if (count === 0) {
     return (
       <div
-        ref={parentRef as React.RefObject<HTMLDivElement>}
+        ref={parentRef as React.RefObject<HTMLDivElement | null>}
         style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
       >
         <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
@@ -79,7 +80,7 @@ export default function OperationVirtualList({
 
   return (
     <div
-      ref={parentRef as React.RefObject<HTMLDivElement>}
+      ref={parentRef as React.RefObject<HTMLDivElement | null>}
       style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
     >
       <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
