@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { getIconSrcForFile, highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type { FileItem } from '@/types';
 
@@ -23,16 +23,9 @@ function OperationFileRowInner({
 }: Props) {
   const pathParts = file.path.split('/');
   const dirPath = pathParts.slice(0, -1).join('/');
-
-  const highlightedName = useMemo(
-    () => highlightMatch(file.name, queryTokens, isSelected, colors),
-    [file.name, queryTokens, isSelected, colors]
-  );
-
-  const highlightedDir = useMemo(
-    () => (dirPath ? highlightMatch(dirPath, queryTokens, isSelected, colors) : null),
-    [dirPath, queryTokens, isSelected, colors]
-  );
+  
+  const highlightedName = highlightMatch(file.name, queryTokens, isSelected, colors);
+  const highlightedDir = dirPath ? highlightMatch(dirPath, queryTokens, isSelected, colors) : null;
 
   return (
     <div
@@ -88,17 +81,4 @@ function OperationFileRowInner({
   );
 }
 
-export default React.memo(OperationFileRowInner, (prev, next) => {
-  // Only re-render when selection or visible content changes
-  if (prev.isSelected !== next.isSelected) return false;
-  if (prev.ITEM_HEIGHT !== next.ITEM_HEIGHT) return false;
-  if (prev.colors !== next.colors) return false;
-  if (prev.file.id !== next.file.id) return false;
-  if (prev.file.name !== next.file.name) return false;
-  // shallow compare queryTokens length and contents
-  const a = prev.queryTokens || [];
-  const b = next.queryTokens || [];
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-});
+export default OperationFileRowInner;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, {useRef, useEffect, useState } from 'react';
 import type { OperationListItem } from './OperationWindow';
 import type { FileItem } from '@/types';
 import OperationFileRow from './OperationFileRow';
@@ -18,7 +18,7 @@ interface Props {
   colors: any;
   queryTokens: string[];
   t: (k: string) => string;
-  listRef?: React.RefObject<HTMLDivElement>;
+  listRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function OperationVirtualList({
