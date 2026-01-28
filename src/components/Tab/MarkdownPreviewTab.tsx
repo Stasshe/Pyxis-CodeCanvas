@@ -13,7 +13,7 @@ import 'github-markdown-css/github-markdown.css';
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
-import type { EditorTab, PreviewTab, Tab } from '@/engine/tabs/types';
+import type { EditorTab, PreviewTab, Tab, EditorPane } from '@/engine/tabs/types';
 import { hasContent } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions, tabState } from '@/stores/tabState';
@@ -42,7 +42,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   const { panes } = useSnapshot(tabState);
   const editorTabContent = useMemo(() => {
-    const find = (paneList: readonly any[]): string | null => {
+    const find = (paneList: readonly EditorPane[]): string | null => {
       for (const p of paneList) {
         const t = p.tabs?.find((x: Tab) => x.path === activeTab.path);
         if (t && hasContent(t)) return t.content;
