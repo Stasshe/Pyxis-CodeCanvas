@@ -76,6 +76,20 @@ export default function VirtualizedFileTree({
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const touchPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  // Detect touch device once at this level (avoid per-item listeners in FileTreeItem)
+  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const check = () => {
+      setIsTouchDevice(
+        'ontouchstart' in window ||
+          navigator.maxTouchPoints > 0 ||
+          ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
+      );
+    };
+    check();
+  }, []);
+
   // Flatten tree for virtualization
   const flattenedItems = useMemo(
     () => flattenTree(items, expandedFolders, gitignoreRules),
@@ -328,6 +342,7 @@ export default function VirtualizedFileTree({
                   handleNativeFileDrop={handleNativeFileDrop}
                   handleDragOver={handleDragOver}
                   onInternalFileDrop={internalDropHandler}
+                  isTouchDevice={isTouchDevice}
                 />
               </div>
             );

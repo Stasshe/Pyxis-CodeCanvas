@@ -1,5 +1,5 @@
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
@@ -31,7 +31,7 @@ function getFileIconSrc(name: string) {
   return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
 }
 
-export default function FileTreeItem({
+function FileTreeItem({
   item,
   level,
   isExpanded,
@@ -43,24 +43,11 @@ export default function FileTreeItem({
   onTouchEnd,
   onTouchMove,
   onInternalFileDrop,
-}: FileTreeItemProps) {
+  isTouchDevice,
+}: FileTreeItemProps & { isTouchDevice?: boolean }) {
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
   const [hovered, setHovered] = useState<boolean>(false);
   const isDev = process.env.NEXT_PUBLIC_IS_DEV_SERVER === 'true';
-
-  useEffect(() => {
-    const checkTouchDevice = () => {
-      setIsTouchDevice(
-        'ontouchstart' in window ||
-          navigator.maxTouchPoints > 0 ||
-          ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
-      );
-    };
-    checkTouchDevice();
-    window.addEventListener('resize', checkTouchDevice);
-    return () => window.removeEventListener('resize', checkTouchDevice);
-  }, []);
 
   // Drag source
   const [{ isDragging }, drag, preview] = useDrag(
@@ -273,3 +260,25 @@ export default function FileTreeItem({
     </div>
   );
 }
+
+function arePropsEqual(prev: any, next: any) {
+  return (
+    prev.item?.id === next.item?.id &&
+    prev.level === next.level &&
+    prev.isExpanded === next.isExpanded &&
+    prev.isIgnored === next.isIgnored &&
+    prev.isTouchDevice === next.isTouchDevice &&
+    prev.onItemClick === next.onItemClick &&
+    prev.onContextMenu === next.onContextMenu &&
+    prev.onTouchStart === next.onTouchStart &&
+    prev.onTouchEnd === next.onTouchEnd &&
+    prev.onTouchMove === next.onTouchMove &&
+    prev.onInternalFileDrop === next.onInternalFileDrop &&
+    prev.colors?.foreground === next.colors?.foreground &&
+    prev.colors?.mutedFg === next.colors?.mutedFg &&
+    prev.colors?.accentBg === next.colors?.accentBg &&
+    prev.colors?.primary === next.colors?.primary
+  );
+}
+
+export default memo(FileTreeItem, arePropsEqual);

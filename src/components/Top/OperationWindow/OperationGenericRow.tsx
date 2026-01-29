@@ -151,4 +151,18 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
   );
 }
 
-export default OperationGenericRowInner;
+function arePropsEqualGeneric(prev: Props, next: Props) {
+  if (prev.item?.id !== next.item?.id) return false;
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.ITEM_HEIGHT !== next.ITEM_HEIGHT) return false;
+  // shallow compare query tokens
+  const a = prev.queryTokens || [];
+  const b = next.queryTokens || [];
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  if (prev.colors?.foreground !== next.colors?.foreground) return false;
+  if (prev.colors?.primary !== next.colors?.primary) return false;
+  return true;
+}
+
+export default React.memo(OperationGenericRowInner, arePropsEqualGeneric);

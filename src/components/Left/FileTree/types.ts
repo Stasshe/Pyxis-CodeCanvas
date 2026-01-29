@@ -28,6 +28,8 @@ export interface FileTreeItemProps {
   handleNativeFileDrop: (e: React.DragEvent<HTMLDivElement>, targetPath?: string) => void;
   handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
+  // Provide touch detection from parent to avoid per-item listeners
+  isTouchDevice?: boolean;
 }
 
 export interface ContextMenuState {
