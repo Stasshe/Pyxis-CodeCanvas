@@ -33,6 +33,7 @@ function normalizeTarEntryName(p: string): string {
  */
 export class TarCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
+    console.log('[TarCommand] execute called', { args });
     // オプション解析
     const { flags, values, positional } = parseArgs(args, ['-f', '--file']);
 
@@ -99,21 +100,51 @@ export class TarCommand extends UnixCommandBase {
       });
 
       const packFinished = new Promise<void>((resolve, reject) => {
-        pack.on('end', () => resolve());
-        pack.on('error', (err: Error) => reject(err));
+        // tar-stream pack can emit either 'finish' or 'end' depending on stream state/environment.
+        // Listen for both to avoid hangs where only one is emitted.
+        const onEnd = () => {
+          console.log('[TarCommand] pack emitted end');
+          cleanup();
+          resolve();
+        };
+        const onFinish = () => {
+          console.log('[TarCommand] pack emitted finish');
+          cleanup();
+          resolve();
+        };
+        const onError = (err: Error) => {
+          console.error('[TarCommand] pack emitted error', err);
+          cleanup();
+          reject(err);
+        };
+
+        const cleanup = () => {
+          pack.removeListener('end', onEnd);
+          pack.removeListener('finish', onFinish);
+          pack.removeListener('error', onError);
+        };
+
+        pack.on('end', onEnd);
+        pack.on('finish', onFinish);
+        pack.on('error', onError);
       });
 
       let addedCount = 0;
       const now = new Date();
 
+      console.log('[TarCommand] createArchive start', { archiveName, files });
+
       // ファイルを順次追加
       const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
 
       for (const fileName of files) {
+        console.log('[TarCommand] processing fileName', fileName);
         // パス解決: AppPath ベースから解決
         const fileAppPath = pathResolve(baseApp, fileName);
+        console.log('[TarCommand] resolved fileAppPath', fileAppPath);
 
         const file = await this.getFileFromDB(fileAppPath);
+        console.log('[TarCommand] getFileFromDB returned', file ? { path: file.path, type: file.type } : null);
 
         if (!file) {
           throw new Error(`tar: ${fileName}: Cannot stat: No such file or directory`);
@@ -179,6 +210,7 @@ export class TarCommand extends UnixCommandBase {
                 : Buffer.from(child.content || '', 'utf8');
 
               await new Promise<void>((resolve, reject) => {
+                console.log('[TarCommand] calling pack.entry for child', childEntryName);
                 pack.entry(
                   {
                     name: childEntryName,
@@ -193,6 +225,7 @@ export class TarCommand extends UnixCommandBase {
                   },
                   contentBuf,
                   err => {
+                    console.log('[TarCommand] pack.entry callback for child', childEntryName, err ? { err: err.message } : { ok: true });
                     if (err) reject(err);
                     else resolve();
                   }
@@ -210,6 +243,7 @@ export class TarCommand extends UnixCommandBase {
             : Buffer.from(file.content || '', 'utf8');
 
           await new Promise<void>((resolve, reject) => {
+            console.log('[TarCommand] calling pack.entry for file', entryName);
             pack.entry(
               {
                 name: entryName,
@@ -224,6 +258,7 @@ export class TarCommand extends UnixCommandBase {
               },
               contentBuf,
               (err) => {
+                console.log('[TarCommand] pack.entry callback for file', entryName, err ? { err: err.message } : { ok: true });
                 if (err) reject(err);
                 else resolve();
               }
@@ -243,10 +278,13 @@ export class TarCommand extends UnixCommandBase {
       }
 
       // アーカイブを確定
+      console.log('[TarCommand] finalizing pack');
       pack.finalize();
 
       // ストリーム終了を待つ
+      console.log('[TarCommand] waiting for pack to finish...');
       await packFinished;
+      console.log('[TarCommand] pack finished promise resolved');
 
       // バッファを結合
       const tarBuffer = Buffer.concat(chunks);
