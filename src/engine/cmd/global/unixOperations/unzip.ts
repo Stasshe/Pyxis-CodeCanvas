@@ -4,6 +4,13 @@ import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
+import { fileTypeFromBuffer } from 'file-type';
+import * as jschardet from 'jschardet';
+
+// TextDecoder: prefer browser global, fall back to Node's util.TextDecoder
+const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder)
+  ? (globalThis as any).TextDecoder
+  : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
 
 /**
  * unzip - ZIP アーカイブを展開してプロジェクトに登録
@@ -103,13 +110,24 @@ export class UnzipCommand extends UnixCommandBase {
           }
 
           // then push the file entry itself
-          const isLikelyText =
-            /\.(txt|md|js|ts|jsx|tsx|json|html|css|py|sh|yml|yaml|xml|svg|csv)$/i.test(relPath);
-          if (isLikelyText) {
-            const text = await file.async('string');
-            entries.push({ path: relativePath, content: text, type: 'file' });
+          const arrayBuffer = await file.async('arraybuffer');
+          const contentBuf = new Uint8Array(arrayBuffer);
+          const isText = await this.isLikelyTextFile(relativePath, contentBuf);
+          if (isText) {
+            try {
+              const text = new TextDecoder().decode(contentBuf);
+              entries.push({ path: relativePath, content: text, type: 'file', isBufferArray: false });
+            } catch (e) {
+              // Decoding failed — treat as binary
+              entries.push({
+                path: relativePath,
+                content: '',
+                type: 'file',
+                isBufferArray: true,
+                bufferContent: arrayBuffer,
+              });
+            }
           } else {
-            const arrayBuffer = await file.async('arraybuffer');
             entries.push({
               path: relativePath,
               content: '',
@@ -148,6 +166,45 @@ export class UnzipCommand extends UnixCommandBase {
           console.warn('[unzip] spinner stop failed:', e);
         }
       }
+    }
+  }
+
+  /**
+   * ファイルがテキストファイルかどうかを判定（tar と同じロジック）
+   */
+  private async isLikelyTextFile(path: string, content: Uint8Array): Promise<boolean> {
+    // 空ファイルはテキスト扱い
+    if (content.length === 0) return true;
+
+    // `file-type` で確実な MIME を取得（存在が前提）
+    const type = await fileTypeFromBuffer(content);
+    if (type && type.mime) {
+      const mime = type.mime.toLowerCase();
+      if (mime.startsWith('text/') || mime === 'application/xml' || mime.endsWith('+xml' ) || mime === 'application/json' || mime === 'application/javascript') return true;
+      if (mime.startsWith('image/') || mime === 'application/pdf' || mime === 'application/zip' || mime === 'application/x-gzip' || mime.startsWith('video/') || mime.startsWith('audio/')) return false;
+    }
+
+    // `jschardet` によるエンコーディング判定
+    const sampleSizeEnc = Math.min(8192, content.length);
+    const sample = new TextDecoder('iso-8859-1').decode(content.slice(0, sampleSizeEnc));
+    const det = jschardet.detect(sample as any);
+    if (det && det.encoding) {
+      const enc = String(det.encoding).toLowerCase();
+      const conf = typeof det.confidence === 'number' ? det.confidence : 0;
+      if (enc.includes('utf-8') || enc.includes('utf8') || enc.includes('utf-16') || enc.includes('ascii')) return true;
+      if (conf > 0.9 && (enc.includes('binary') || enc.includes('iso-8859'))) {
+        if (enc.includes('iso-8859')) return true;
+        return false;
+      }
+    }
+
+    // 最終フォールバック: UTF-8 としてデコードできるかを試す
+    try {
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      decoder.decode(content.slice(0, Math.min(8192, content.length)));
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 }
