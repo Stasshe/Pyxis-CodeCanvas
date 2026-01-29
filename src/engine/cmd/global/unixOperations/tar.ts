@@ -2,8 +2,10 @@
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
-import { parseArgs } from '../../lib';
+import { GetOpt } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
+import { fileTypeFromBuffer } from 'file-type';
+import * as jschardet from 'jschardet';
 
 // TextEncoder/TextDecoder: prefer browser globals, fall back to Node's `util` on server.
 // This avoids bundling an undefined TextEncoder when running client-side.
@@ -19,7 +21,21 @@ const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).Te
  */
 export class TarCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
-    const { flags, values, positional } = parseArgs(args, ['-f', '--file']);
+    const parser = new GetOpt('cxtvf:', ['create', 'extract', 'list', 'verbose', 'file=']);
+    const flags = new Set<string>();
+    const values = new Map<string, string>();
+    for (const opt of parser.parse(args)) {
+      if (opt.option.length === 1) {
+        const key = `-${opt.option}`;
+        flags.add(key);
+        if (opt.argument !== null) values.set(key, opt.argument);
+      } else {
+        const key = `--${opt.option}`;
+        flags.add(key);
+        if (opt.argument !== null) values.set(key, opt.argument);
+      }
+    }
+    const positional = parser.remaining();
 
     if (flags.has('-h') || flags.has('--help')) {
       return this.showHelp();
@@ -43,33 +59,9 @@ export class TarCommand extends UnixCommandBase {
       throw new Error('tar: Option -f is required');
     }
 
-    if (create) {
-      return await this.createArchive(archiveName, positional, verbose);
-    } else if (list) {
-      return await this.listArchive(archiveName, verbose);
-    } else if (extract) {
-      return await this.extractArchive(archiveName, verbose);
+    } catch (e) {
+      // file-type not available; fall back to heuristics below
     }
-
-    return '';
-  }
-
-  /**
-   * tarヘッダーを生成（POSIX ustar形式、512バイト）
-   */
-  private createTarHeader(name: string, size: number, isDir: boolean): Uint8Array {
-    const header = new Uint8Array(512);
-    const encoder = new TextEncoder();
-    const now = Math.floor(Date.now() / 1000);
-
-    // ヘルパー: 文字列を指定位置に書き込み
-    const writeString = (str: string, offset: number, length: number) => {
-      const bytes = encoder.encode(str);
-      for (let i = 0; i < Math.min(bytes.length, length); i++) {
-        header[offset + i] = bytes[i];
-      }
-    };
-
     // ヘルパー: 8進数を指定位置に書き込み（NULまたはスペース終端）
     const writeOctal = (value: number, offset: number, length: number, terminator: number = 0) => {
       const octal = value.toString(8).padStart(length - 1, '0');
@@ -379,12 +371,12 @@ export class TarCommand extends UnixCommandBase {
           if (isDir) {
             entries.push({ path: entryPath, content: '', type: 'folder' });
           } else {
-            const contentBuf = buf.slice(offset, offset + size);
-            
-            // テキストファイルかバイナリファイルかを判定
-            const isTextFile = this.isLikelyTextFile(entryPath, contentBuf);
-            
-            if (isTextFile) {
+              const contentBuf = buf.slice(offset, offset + size);
+
+              // テキストファイルかバイナリファイルかを判定
+              const isTextFile = await this.isLikelyTextFile(entryPath, contentBuf);
+
+              if (isTextFile) {
               // テキストファイルとして展開
               try {
                 const textContent = decoder.decode(contentBuf);
@@ -444,91 +436,42 @@ export class TarCommand extends UnixCommandBase {
 
   /**
    * ファイルがテキストファイルかどうかを判定
-   * 拡張子とバイト内容の両方で判定（POSIX準拠）
+   * 外部ライブラリ（file-type, jschardet）を使用して判定します
    */
-  private isLikelyTextFile(path: string, content: Uint8Array): boolean {
-    // テキストファイルの一般的な拡張子
-    const textExtensions = [
-      '.txt', '.md', '.markdown', '.rst',
-      '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.conf', '.cfg',
-      '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
-      '.html', '.htm', '.xhtml', '.svg',
-      '.css', '.scss', '.sass', '.less', '.styl',
-      '.sh', '.bash', '.zsh', '.fish', '.ksh', '.csh',
-      '.py', '.rb', '.php', '.java', '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp',
-      '.rs', '.go', '.swift', '.kt', '.kts', '.scala', '.groovy',
-      '.sql', '.graphql', '.proto',
-      '.vim', '.el', '.lisp', '.clj', '.cljs',
-      '.r', '.R', '.m', '.matlab',
-      '.tex', '.latex',
-      '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
-      '.env', '.envrc', '.env.example',
-      '.npmrc', '.yarnrc', '.babelrc', '.eslintrc', '.prettierrc',
-    ];
+  private async isLikelyTextFile(path: string, content: Uint8Array): Promise<boolean> {
+    // 拡張子/ファイル名による事前判定は削除しました（file-type/jschardet を使用）
 
-    const lowerPath = path.toLowerCase();
-    
-    // 拡張子チェック
-    if (textExtensions.some(ext => lowerPath.endsWith(ext))) {
-      return true;
+    // 空ファイルはテキスト扱い
+    if (content.length === 0) return true;
+
+    // `file-type` で確実な MIME を取得（存在が前提）
+    const type = await fileTypeFromBuffer(content);
+    if (type && type.mime) {
+      const mime = type.mime.toLowerCase();
+      if (mime.startsWith('text/') || mime === 'application/xml' || mime.endsWith('+xml') || mime === 'application/json' || mime === 'application/javascript') return true;
+      if (mime.startsWith('image/') || mime === 'application/pdf' || mime === 'application/zip' || mime === 'application/x-gzip' || mime.startsWith('video/') || mime.startsWith('audio/')) return false;
     }
 
-    // ファイル名チェック（拡張子なし）
-    const fileName = path.split('/').pop() || '';
-    const textFileNames = [
-      'Dockerfile', 'Containerfile', 'Makefile', 'GNUmakefile', 'makefile',
-      'README', 'LICENSE', 'COPYING', 'AUTHORS', 'CONTRIBUTORS',
-      'CHANGELOG', 'CHANGES', 'HISTORY', 'NEWS',
-      'TODO', 'NOTICE', 'THANKS',
-      'Gemfile', 'Rakefile', 'Podfile', 'Brewfile',
-      'Vagrantfile', 'Procfile',
-    ];
-    
-    if (textFileNames.includes(fileName)) {
-      return true;
-    }
-
-    // dotfileチェック（隠しファイル）
-    if (fileName.startsWith('.') && !fileName.includes('.')) {
-      return true;
-    }
-
-    // バイト内容チェック: null文字やバイナリ文字が含まれていないか
-    // 最初の8KBをサンプリング（POSIX `file` コマンドの挙動に準拠）
-    const sampleSize = Math.min(8192, content.length);
-    let nullCount = 0;
-    let nonTextCount = 0;
-    
-    for (let i = 0; i < sampleSize; i++) {
-      const byte = content[i];
-      
-      // null文字
-      if (byte === 0) {
-        nullCount++;
-        // nullが1つでもあればバイナリと判定
-        if (nullCount > 0) {
-          return false;
-        }
-      }
-      
-      // 非ASCII制御文字（タブ、改行、復帰、Form Feed、ESCを除く）
-      if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13 && byte !== 12 && byte !== 27) {
-        nonTextCount++;
-      }
-      
-      // 非テキスト文字が多い場合はバイナリ
-      if (nonTextCount > sampleSize * 0.05) {
+    // `jschardet` によるエンコーディング判定
+    const sampleSizeEnc = Math.min(8192, content.length);
+    const sample = new TextDecoder('iso-8859-1').decode(content.slice(0, sampleSizeEnc));
+    const det = jschardet.detect(sample as any);
+    if (det && det.encoding) {
+      const enc = String(det.encoding).toLowerCase();
+      const conf = typeof det.confidence === 'number' ? det.confidence : 0;
+      if (enc.includes('utf-8') || enc.includes('utf8') || enc.includes('utf-16') || enc.includes('ascii')) return true;
+      if (conf > 0.9 && (enc.includes('binary') || enc.includes('iso-8859'))) {
+        if (enc.includes('iso-8859')) return true;
         return false;
       }
     }
 
-    // UTF-8として有効かチェック
+    // 最終フォールバック: UTF-8 としてデコードできるかを試す
     try {
       const decoder = new TextDecoder('utf-8', { fatal: true });
-      decoder.decode(content.slice(0, sampleSize));
+      decoder.decode(content.slice(0, Math.min(8192, content.length)));
       return true;
     } catch (e) {
-      // UTF-8デコード失敗 → バイナリ
       return false;
     }
   }
