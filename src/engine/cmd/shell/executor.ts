@@ -15,7 +15,7 @@ import { type Segment, type TokenObj, isDevNull } from './types';
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, resolvePath } from '@/engine/core/pathUtils';
+import { fsPathToAppPath, resolvePath, toFSPath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
 
 /**
@@ -369,7 +369,7 @@ export class ShellExecutor {
     let cmd = String(rawTokens[0] ?? '');
     let args = rawTokens.slice(1).map(t => String(t));
 
-    // Handle npx
+    // Handle npx: resolve local node_modules/.bin shim (prefer absolute FS path)
     if (cmd === 'npx') {
       if (args.length === 0) {
         proc.writeStderr('npx: missing command\n');
@@ -378,8 +378,54 @@ export class ShellExecutor {
         proc.exit(2);
         return;
       }
-      cmd = args[0];
+
+      const requested = args[0];
       args = args.slice(1);
+
+      if (unix) {
+        try {
+          const cwdFs = await unix.pwd();
+          const candidates = [
+            `node_modules/.bin/${requested}`,
+            `node_modules/.bin/${requested}.cmd`,
+            `node_modules/.bin/${requested}.js`,
+            `./node_modules/.bin/${requested}`,
+          ];
+
+          let found = false;
+          for (const cand of candidates) {
+            const rel = cand.replace(/^\.\//, '');
+
+            // Build an AppPath for cwd, resolve the relative candidate to an AppPath,
+            // then convert to FSPath using project name.
+            const cwdApp = fsPathToAppPath(cwdFs, this.context.projectName);
+            const resolvedApp = resolvePath(cwdApp, rel);
+            const absFs = toFSPath(this.context.projectName, resolvedApp);
+
+            // check the absolute FSPath
+            const maybeAbs = await unix.cat([absFs]).catch(() => null);
+            if (maybeAbs !== null) {
+              cmd = absFs;
+              found = true;
+              break;
+            }
+
+            // fallback: try project-relative (rel) as-is — unix may resolve relative against cwd
+            const maybeRel = await unix.cat([rel]).catch(() => null);
+            if (maybeRel !== null) {
+              cmd = absFs; // prefer absolute translation
+              found = true;
+              break;
+            }
+          }
+        } catch {
+          // ignore resolution errors, fall back to binary name
+        }
+      }
+
+      if (!cmd || cmd === 'npx') {
+        cmd = requested;
+      }
     }
 
     // Check for alias expansion
@@ -404,9 +450,32 @@ export class ShellExecutor {
           const text = String(maybeContent);
           const firstLine = text.split('\n', 1)[0] || '';
           if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
-            // Save parent context CWD before script execution
+            // Detect node shebangs or JS entrypoints and execute via Node runtime
+            const isNodeShebang = /node/.test(firstLine);
+            const isJsFile = cmd.endsWith('.js') || /\.js$/.test(cmd);
+
+            // Save parent context CWD before script execution (POSIX isolation)
             const savedCwd = await this.saveCwd(unix);
 
+            if (isNodeShebang || isJsFile) {
+              try {
+                const exitCode = await this.executeCommand('node', [cmd, ...args], proc);
+                await this.restoreCwd(unix, savedCwd);
+                proc.endStdout();
+                proc.endStderr();
+                proc.exit(typeof exitCode === 'number' ? exitCode : 0);
+                return;
+              } catch (e: any) {
+                proc.writeStderr(e?.message ?? String(e));
+                await this.restoreCwd(unix, savedCwd);
+                proc.endStdout();
+                proc.endStderr();
+                proc.exit(1);
+                return;
+              }
+            }
+
+            // Otherwise treat as a shell script
             const scriptArgs = [cmd, ...args];
             try {
               await runScript(text, scriptArgs, proc, this as any);
