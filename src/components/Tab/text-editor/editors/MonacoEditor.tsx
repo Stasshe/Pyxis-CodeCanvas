@@ -106,9 +106,14 @@ export default function MonacoEditor({
     }
 
     // 選択範囲の文字数（スペース除外）を検知
+    // ここで最後の選択状態をキャッシュしておくことで、外部からモデルがフラッシュされた
+    // （例: save の同期で setValue が呼ばれる）場合に、カーソル/選択を復元できる。
+    const lastSelectionRef = { current: null as monaco.Selection | null };
+
     editor.onDidChangeCursorSelection(e => {
       if (!isEditorSafe()) return;
       const selection = e.selection;
+      lastSelectionRef.current = selection;
       const model = editor.getModel();
       if (!isModelSafe(model)) return;
       const length = countCharsNoSpaces(model?.getValueInRange(selection)) ?? 0;
@@ -125,7 +130,45 @@ export default function MonacoEditor({
       if (model && isEditorSafe()) {
         try {
           editor.setModel(model);
-          // initial model debug logs removed in cleanup
+
+          // モデルが外部からフラッシュ(setValue)されたときに、最後に記憶した選択を復元する
+          try {
+            if (markerListenerRef.current) {
+              try {
+                markerListenerRef.current.dispose();
+              } catch (e) {}
+              markerListenerRef.current = null;
+            }
+
+            markerListenerRef.current = editor.onDidChangeModelContent(e => {
+              if (!isEditorSafe()) return;
+              // isFlush は setValue 等でモデル全体が置き換えられた時に true になる
+              if (e.isFlush) {
+                try {
+                  const lastSel = (lastSelectionRef as any).current as monaco.Selection | null;
+                  const model = editor.getModel();
+                  // 型の安心性を TypeScript に明示するため、明示的な null / disposed チェックを行う
+                  if (!lastSel || !model || model.isDisposed()) return;
+
+                  // Clamp selection to model bounds
+                  const lineCount = model.getLineCount();
+                  const startLine = Math.max(1, Math.min(lastSel.startLineNumber, lineCount));
+                  const endLine = Math.max(1, Math.min(lastSel.endLineNumber, lineCount));
+                  const startColumn = Math.max(1, Math.min(lastSel.startColumn, model.getLineMaxColumn(startLine)));
+                  const endColumn = Math.max(1, Math.min(lastSel.endColumn, model.getLineMaxColumn(endLine)));
+
+                  const restored = new (mon as any).Selection(startLine, startColumn, endLine, endColumn);
+                  editor.setSelection(restored);
+                  editor.revealRangeInCenter(restored);
+                } catch (e) {
+                  // 非致命
+                }
+              }
+            });
+          } catch (e) {
+            // ignore
+          }
+
           currentModelIdRef.current = tabId;
           onCharCountChange(countCharsNoSpaces(content));
         } catch (e: any) {
@@ -155,9 +198,23 @@ export default function MonacoEditor({
     // 内容同期
     if (isModelSafe(model) && model?.getValue() !== content) {
       try {
-        model?.setValue(content);
+        // エディタが利用可能ならビュー/選択を保持してから setValue → 復元する
         if (isEditorSafe()) {
-          editorRef.current?.layout();
+          const editor = editorRef.current!;
+          try {
+            const prevView = editor.saveViewState();
+            const prevSelections = editor.getSelections();
+            model?.setValue(content);
+            if (prevView) editor.restoreViewState(prevView);
+            if (prevSelections) editor.setSelections(prevSelections);
+            editor.layout();
+          } catch (e) {
+            // フォールバック
+            model?.setValue(content);
+            editor.layout();
+          }
+        } else {
+          model?.setValue(content);
         }
       } catch (e: any) {
         console.warn('[MonacoEditor] Model setValue failed:', e?.message);
