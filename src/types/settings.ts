@@ -42,6 +42,11 @@ export interface PyxisSettings {
       delimiter: 'dollar' | 'bracket' | 'both';
     };
   };
+
+  // ターミナル設定
+  terminal: {
+    suggestEnabled: boolean; // 補完機能のオン/オフ
+  };
 }
 
 /**
@@ -82,5 +87,8 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
   },
   files: {
     exclude: ['**/.git', '**/.DS_Store', '**/Thumbs.db'],
+  },
+  terminal: {
+    suggestEnabled: true,
   },
 };

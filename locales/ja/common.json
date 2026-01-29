@@ -369,6 +369,10 @@
       "colorCustomize": "カラーカスタマイズ",
       "colorTheme": "カラーテーマ",
       "title": "テーマ"
+    },
+    "terminal": {
+      "suggestEnabled": "補完機能を有効化",
+      "title": "ターミナル"
     }
   },
   "shortcutKeys": {

@@ -369,6 +369,10 @@
       "colorCustomize": "Color Customize",
       "colorTheme": "Color Theme",
       "title": "Theme"
+    },
+    "terminal": {
+      "suggestEnabled": "Enable suggestions",
+      "title": "Terminal"
     }
   },
   "shortcutKeys": {

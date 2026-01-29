@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import TerminalSuggestWidget from '@/components/Bottom/TerminalSuggestWidget';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { GitCommands } from '@/engine/cmd/global/git';
@@ -10,6 +11,11 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import {
+  terminalSuggestProvider,
+  type SuggestContext,
+  type SuggestItem,
+} from '@/engine/cmd/terminalSuggestProvider';
 import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -25,7 +31,8 @@ interface TerminalProps {
   currentProject?: string;
   currentProjectId?: string;
   isActive?: boolean;
-  onVimModeChange?: (vimEditor: any | null) => void; // Callback for Vim mode changes
+  onVimModeChange?: (vimEditor: any | null) => void;
+  suggestEnabled?: boolean; // Terminal autocomplete feature toggle
 }
 
 // クライアントサイド専用のターミナルコンポーネント
@@ -35,6 +42,7 @@ function ClientTerminal({
   currentProjectId = '',
   isActive,
   onVimModeChange,
+  suggestEnabled = true,
 }: TerminalProps) {
   const { colors } = useTheme();
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -48,6 +56,212 @@ function ClientTerminal({
   const shellRef = useRef<any>(null);
   const spinnerInterval = useRef<NodeJS.Timeout | null>(null);
   const vimEditorRef = useRef<any>(null); // Track active Vim editor instance
+
+  // Terminal suggest (autocomplete) state
+  const [suggestVisible, setSuggestVisible] = useState(false);
+  const [suggestItems, setSuggestItems] = useState<SuggestItem[]>([]);
+  const [suggestIndex, setSuggestIndex] = useState(0);
+  const [suggestPosition, setSuggestPosition] = useState({ x: 10, y: 40 });
+  const suggestDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const currentLineRef = useRef<string>('');
+  const cursorPosRef = useRef<number>(0);
+  const commandHistoryRef = useRef<string[]>([]);
+  const currentDirRef = useRef<string>('/');
+  
+  // Refs to access suggest state from xterm callbacks
+  const suggestVisibleRef = useRef(false);
+  const suggestItemsRef = useRef<SuggestItem[]>([]);
+  const suggestIndexRef = useRef(0);
+  const updateSuggestionsRef = useRef<((input: string, cursorPos: number) => void) | null>(null);
+  const handleSuggestSelectRef = useRef<((item: SuggestItem) => void) | null>(null);
+  const handleSuggestNavigateRef = useRef<((direction: 'up' | 'down') => void) | null>(null);
+  const handleSuggestCloseRef = useRef<(() => void) | null>(null);
+
+  // Sync suggest state to refs for xterm access
+  useEffect(() => {
+    suggestVisibleRef.current = suggestVisible;
+  }, [suggestVisible]);
+  
+  useEffect(() => {
+    suggestItemsRef.current = suggestItems;
+  }, [suggestItems]);
+  
+  useEffect(() => {
+    suggestIndexRef.current = suggestIndex;
+  }, [suggestIndex]);
+
+  // Suggest context provider for file path suggestions
+  const getSuggestContext = useCallback((): SuggestContext => ({
+    currentDir: currentDirRef.current,
+    commandHistory: commandHistoryRef.current,
+    projectId: currentProjectId,
+    getFilesInDir: async (dir: string) => {
+      try {
+        // Get all project files and filter by directory
+        const allFiles = await fileRepository.getProjectFiles(currentProjectId);
+        const normalizedDir = dir.endsWith('/') ? dir : `${dir}/`;
+        const filesInDir: Array<{ name: string; isDirectory: boolean }> = [];
+        const seenNames = new Set<string>();
+
+        for (const file of allFiles) {
+          // Check if file is in the requested directory
+          if (file.path.startsWith(normalizedDir)) {
+            const relativePath = file.path.slice(normalizedDir.length);
+            const parts = relativePath.split('/');
+            const name = parts[0];
+            
+            if (name && !seenNames.has(name)) {
+              seenNames.add(name);
+              filesInDir.push({
+                name,
+                isDirectory: parts.length > 1 || file.type === 'folder',
+              });
+            }
+          }
+        }
+        return filesInDir.slice(0, 100);
+      } catch {
+        return [];
+      }
+    },
+    getGitBranches: async () => {
+      // Note: GitCommands doesn't have listBranches, only getCurrentBranch
+      // Return empty for now - could be enhanced later
+      try {
+        if (gitCommandsRef.current) {
+          const currentBranch = await gitCommandsRef.current.getCurrentBranch();
+          return currentBranch ? [currentBranch] : [];
+        }
+        return [];
+      } catch {
+        return [];
+      }
+    },
+    getNpmScripts: async () => {
+      try {
+        // Read package.json directly to get scripts
+        const packageJson = await fileRepository.getFileByPath(currentProjectId, '/package.json');
+        if (packageJson?.content) {
+          const parsed = JSON.parse(packageJson.content);
+          return Object.keys(parsed.scripts || {});
+        }
+        return [];
+      } catch {
+        return [];
+      }
+    },
+  }), [currentProjectId]);
+
+  // Update suggestions with debounce
+  const updateSuggestions = useCallback(async (input: string, cursorPos: number) => {
+    if (!suggestEnabled) {
+      setSuggestVisible(false);
+      return;
+    }
+
+    // Clear previous debounce
+    if (suggestDebounceRef.current) {
+      clearTimeout(suggestDebounceRef.current);
+    }
+
+    // Debounce suggestion updates
+    suggestDebounceRef.current = setTimeout(async () => {
+      try {
+        const context = getSuggestContext();
+        const items = await terminalSuggestProvider.getSuggestions(input, cursorPos, context);
+        
+        if (items.length > 0) {
+          setSuggestItems(items);
+          setSuggestIndex(0);
+          setSuggestVisible(true);
+        } else {
+          setSuggestVisible(false);
+        }
+      } catch (e) {
+        console.warn('[Terminal] Suggest error:', e);
+        setSuggestVisible(false);
+      }
+    }, 100);
+  }, [suggestEnabled, getSuggestContext]);
+
+  // Handle suggest selection
+  const handleSuggestSelect = useCallback((item: SuggestItem) => {
+    if (!xtermRef.current) return;
+    
+    const term = xtermRef.current;
+    const currentLine = currentLineRef.current;
+    const cursorPos = cursorPosRef.current;
+    
+    // Find the word being completed
+    const beforeCursor = currentLine.slice(0, cursorPos);
+    const parts = beforeCursor.split(/\s+/);
+    const currentWord = parts[parts.length - 1] || '';
+    
+    // Calculate replacement
+    let insertText = item.insertText;
+    
+    // If it's a full command from history, replace entire line
+    if (item.kind === 'history') {
+      // Clear current line and insert history item
+      for (let i = 0; i < currentLine.length; i++) {
+        term.write('\b \b');
+      }
+      term.write(insertText);
+      currentLineRef.current = insertText;
+      cursorPosRef.current = insertText.length;
+    } else {
+      // Replace current word with suggestion
+      const wordStartPos = cursorPos - currentWord.length;
+      
+      // Delete current word
+      for (let i = 0; i < currentWord.length; i++) {
+        term.write('\b \b');
+      }
+      
+      // Write insert text
+      term.write(insertText);
+      
+      // Update refs
+      currentLineRef.current = currentLine.slice(0, wordStartPos) + insertText + currentLine.slice(cursorPos);
+      cursorPosRef.current = wordStartPos + insertText.length;
+    }
+    
+    setSuggestVisible(false);
+  }, []);
+
+  // Handle suggest navigation
+  const handleSuggestNavigate = useCallback((direction: 'up' | 'down') => {
+    if (!suggestVisible) return;
+    
+    setSuggestIndex(prev => {
+      if (direction === 'up') {
+        return prev > 0 ? prev - 1 : suggestItems.length - 1;
+      } else {
+        return prev < suggestItems.length - 1 ? prev + 1 : 0;
+      }
+    });
+  }, [suggestVisible, suggestItems.length]);
+
+  // Handle suggest close
+  const handleSuggestClose = useCallback(() => {
+    setSuggestVisible(false);
+  }, []);
+
+  useEffect(() => {
+    updateSuggestionsRef.current = updateSuggestions;
+  }, [updateSuggestions]);
+
+  useEffect(() => {
+    handleSuggestSelectRef.current = handleSuggestSelect;
+  }, [handleSuggestSelect]);
+
+  useEffect(() => {
+    handleSuggestNavigateRef.current = handleSuggestNavigate;
+  }, [handleSuggestNavigate]);
+
+  useEffect(() => {
+    handleSuggestCloseRef.current = handleSuggestClose;
+  }, [handleSuggestClose]);
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
@@ -625,6 +839,33 @@ function ClientTerminal({
 
     // キーボードショートカット
     term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
+      // Suggestion handling - Hijack navigation keys when visible
+      if (suggestVisibleRef.current) {
+        if (domEvent.key === 'ArrowUp') {
+          handleSuggestNavigateRef.current?.('up');
+          domEvent.preventDefault();
+          return;
+        }
+        if (domEvent.key === 'ArrowDown') {
+          handleSuggestNavigateRef.current?.('down');
+          domEvent.preventDefault();
+          return;
+        }
+        if (domEvent.key === 'Tab' || domEvent.key === 'Enter') {
+          const item = suggestItemsRef.current[suggestIndexRef.current];
+          if (item) {
+            handleSuggestSelectRef.current?.(item);
+          }
+          domEvent.preventDefault();
+          return;
+        }
+        if (domEvent.key === 'Escape') {
+          handleSuggestCloseRef.current?.();
+          domEvent.preventDefault();
+          return;
+        }
+      }
+
       if (isComposing) return;
 
       // Home / End / Meta(Command) + Arrow のサポート
@@ -637,7 +878,15 @@ function ClientTerminal({
           cursorPos = 0;
           if (isSelecting) selectionEnd = cursorPos;
         }
-        ignoreNextOnData = true;
+        domEvent.preventDefault();
+        return;
+      }
+      if (domEvent.key === 'End' || (domEvent.metaKey && domEvent.key === 'ArrowRight')) {
+        if (cursorPos < currentLine.length) {
+          term.write(currentLine.slice(cursorPos));
+          cursorPos = currentLine.length;
+          if (isSelecting) selectionEnd = cursorPos;
+        }
         domEvent.preventDefault();
         return;
       }
@@ -956,7 +1205,18 @@ function ClientTerminal({
         touchAction: 'none',
         contain: 'layout style paint',
       }}
-    />
+    >
+      {/* Terminal Suggest Widget - VS Code style autocomplete */}
+      <TerminalSuggestWidget
+        visible={suggestVisible}
+        items={suggestItems}
+        selectedIndex={suggestIndex}
+        position={suggestPosition}
+        onSelect={handleSuggestSelect}
+        onClose={handleSuggestClose}
+        onNavigate={handleSuggestNavigate}
+      />
+    </div>
   );
 }
 
@@ -967,6 +1227,7 @@ export default function Terminal({
   currentProjectId,
   isActive,
   onVimModeChange,
+  suggestEnabled = true,
 }: TerminalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -996,6 +1257,7 @@ export default function Terminal({
       currentProjectId={currentProjectId}
       isActive={isActive}
       onVimModeChange={onVimModeChange}
+      suggestEnabled={suggestEnabled}
     />
   );
 }

@@ -453,6 +453,35 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
         </div>
       </div>
 
+      {/* ターミナル設定 */}
+      <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+        <h2
+          className="text-xs font-semibold uppercase tracking-wide mb-3"
+          style={{ color: colors.mutedFg }}
+        >
+          {t('settingsPanel.terminal.title')}
+        </h2>
+        <div className="space-y-3">
+          <label
+            className="flex items-center gap-2 text-xs cursor-pointer hover:bg-opacity-50 py-1 px-2 rounded transition-colors"
+            style={{ color: colors.foreground }}
+          >
+            <input
+              type="checkbox"
+              checked={settings.terminal?.suggestEnabled ?? true}
+              onChange={e =>
+                updateSettings({
+                  terminal: { ...settings.terminal, suggestEnabled: e.target.checked },
+                })
+              }
+              className="rounded"
+              style={{ accentColor: colors.accentBg }}
+            />
+            <span>{t('settingsPanel.terminal.suggestEnabled')}</span>
+          </label>
+        </div>
+      </div>
+
       {/* API設定 */}
       <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
         <h2
