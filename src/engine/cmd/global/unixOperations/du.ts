@@ -1,6 +1,5 @@
 import { parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * du - ディスク使用量を表示（簡易）
@@ -30,9 +29,7 @@ export class DuCommand extends UnixCommandBase {
       }
 
       for (const p of expanded) {
-        const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-        const appPath = pathResolve(baseApp, p);
-        const normalized = toFSPath(this.projectName, appPath);
+        const normalized = this.normalizePath(this.resolvePath(p));
         const size = await this.sizeOfPath(normalized);
         if (summary) {
           lines.push(`${this.formatSize(size, human)}\t${normalized}`);
@@ -43,7 +40,7 @@ export class DuCommand extends UnixCommandBase {
             lines.push(`${this.formatSize(size, human)}\t${normalized}`);
           } else {
             // list children and their sizes
-            const rel = fsPathToAppPath(normalized, this.projectName);
+            const rel = this.getRelativePathFromProject(normalized);
             const prefix = rel === '/' ? '' : `${rel}/`;
             const files = await this.cachedGetFilesByPrefix(prefix);
             const children = files.filter(f => {
@@ -70,8 +67,8 @@ export class DuCommand extends UnixCommandBase {
   }
 
   private async sizeOfPath(path: string): Promise<number> {
-    const normalized = path;
-    const relPath = fsPathToAppPath(normalized, this.projectName);
+    const normalized = this.normalizePath(this.resolvePath(path));
+    const relPath = this.getRelativePathFromProject(normalized);
 
     // if root
     if (relPath === '/' || relPath === '') {

@@ -1,6 +1,5 @@
 import { fnmatch, parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 import type { ProjectFile } from '@/types';
 
@@ -111,9 +110,7 @@ export class LsCommand extends UnixCommandBase {
       showHeader: boolean;
     }
   ): Promise<string> {
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const appPath = pathResolve(baseApp, path);
-    const normalizedPath = toFSPath(this.projectName, appPath);
+    const normalizedPath = this.normalizePath(this.resolvePath(path));
     const isDir = await this.isDirectory(normalizedPath);
 
     // -d: ディレクトリ自体を表示
@@ -126,7 +123,7 @@ export class LsCommand extends UnixCommandBase {
     }
 
     // ディレクトリの場合
-    const relativePath = appPath;
+    const relativePath = this.getRelativePathFromProject(normalizedPath);
     const prefix = relativePath === '/' ? '' : `${relativePath}/`;
     const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
 

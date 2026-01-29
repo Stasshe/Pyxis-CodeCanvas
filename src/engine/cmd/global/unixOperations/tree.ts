@@ -1,6 +1,5 @@
 import { FNM_CASEFOLD, fnmatch, parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 import type { ProjectFile } from '@/types';
 
@@ -54,9 +53,8 @@ export class TreeCommand extends UnixCommandBase {
     }
 
     const targetDir = positional.length > 0 ? positional[0] : '.';
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const appPath = pathResolve(baseApp, targetDir);
-    const normalizedPath = toFSPath(this.projectName, appPath);
+    const resolvedPath = this.resolvePath(targetDir);
+    const normalizedPath = this.normalizePath(resolvedPath);
 
     const exists = await this.exists(normalizedPath);
     if (!exists) {
@@ -71,14 +69,10 @@ export class TreeCommand extends UnixCommandBase {
     let dirCount = 0;
     let fileCount = 0;
 
-    const buildTree = async (
-      dirFS: string,
-      dirApp: string,
-      prefix = '',
-      depth = 0
-    ): Promise<string> => {
+    const buildTree = async (dirPath: string, prefix = '', depth = 0): Promise<string> => {
       if (depth > maxDepth) return '';
-      const relativePath = dirApp;
+
+      const relativePath = this.getRelativePathFromProject(dirPath);
       const dirPrefix = relativePath === '/' ? '' : `${relativePath}/`;
       const files: ProjectFile[] = await this.cachedGetFilesByPrefix(dirPrefix);
 
@@ -138,14 +132,13 @@ export class TreeCommand extends UnixCommandBase {
         const newPrefix = prefix + (isLast ? '    ' : '│   ');
         const name = entry.path.split('/').pop() || '';
 
-        const displayName = fullPath ? `${dirFS}/${name}` : name;
+        const displayName = fullPath ? `${dirPath}/${name}` : name;
         result += `${prefix}${connector}${displayName}${entry.type === 'folder' ? '/' : ''}\n`;
 
         if (entry.type === 'folder') {
           dirCount++;
-          const childApp = pathResolve(dirApp, name);
-          const childPathFS = toFSPath(this.projectName, childApp);
-          result += await buildTree(childPathFS, childApp, newPrefix, depth + 1);
+          const childPath = `${dirPath}/${name}`;
+          result += await buildTree(childPath, newPrefix, depth + 1);
         } else {
           fileCount++;
         }
@@ -155,7 +148,7 @@ export class TreeCommand extends UnixCommandBase {
     };
 
     let result = `${fullPath ? normalizedPath : targetDir}\n`;
-    result += await buildTree(normalizedPath, appPath);
+    result += await buildTree(normalizedPath);
 
     if (!noReport) {
       result += `\n${dirCount} ${dirsOnly ? 'directories' : `directories, ${fileCount} files`}`;

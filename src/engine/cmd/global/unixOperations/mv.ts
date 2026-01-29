@@ -1,7 +1,6 @@
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * mv - ファイル/ディレクトリを移動またはリネーム
@@ -60,9 +59,7 @@ export class MvCommand extends UnixCommandBase {
         if (cleanArg.endsWith('/') && cleanArg !== '/') {
           cleanArg = cleanArg.slice(0, -1);
         }
-        const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-        const app = pathResolve(baseApp, cleanArg);
-        const resolved = toFSPath(this.projectName, app);
+        const resolved = this.normalizePath(this.resolvePath(cleanArg));
         sources.push(resolved);
       }
     }
@@ -74,9 +71,7 @@ export class MvCommand extends UnixCommandBase {
     if (destArgHasTrailingSlash) {
       cleanDestArg = cleanDestArg.slice(0, -1);
     }
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const destApp = pathResolve(baseApp, cleanDestArg);
-    const dest = toFSPath(this.projectName, destApp);
+    const dest = this.normalizePath(this.resolvePath(cleanDestArg));
     const destExists = await this.exists(dest);
     const destIsDir = destExists && (await this.isDirectory(dest));
 
@@ -89,7 +84,7 @@ export class MvCommand extends UnixCommandBase {
     }
 
     for (const source of sources) {
-      const normalizedSource = source;
+      const normalizedSource = this.normalizePath(source);
 
       const sourceExists = await this.exists(normalizedSource);
       if (!sourceExists) {
@@ -102,8 +97,8 @@ export class MvCommand extends UnixCommandBase {
       // 最終的な移動先パス
       let finalDest = dest;
       if (destIsDir) {
-        const finalDestApp = pathResolve(destApp, sourceName);
-        finalDest = toFSPath(this.projectName, finalDestApp);
+        finalDest = `${dest}/${sourceName}`;
+        finalDest = this.normalizePath(finalDest);
       }
 
       // 自分自身への移動をチェック

@@ -2,7 +2,6 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import pako from 'pako';
 import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * gzip - POSIX準拠のファイル圧縮/展開
@@ -67,9 +66,8 @@ export class GzipCommand extends UnixCommandBase {
     force: boolean,
     verbose: boolean
   ): Promise<string> {
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const resolvedApp = pathResolve(baseApp, fileName);
-    const rel = resolvedApp;
+    const resolved = this.normalizePath(this.resolvePath(fileName));
+    const rel = this.getRelativePathFromProject(resolved);
     const file = await this.getFileFromDB(rel);
 
     if (!file) {
@@ -89,8 +87,9 @@ export class GzipCommand extends UnixCommandBase {
 
     // 出力ファイル名
     const outName = fileName.endsWith('.gz') ? fileName : `${fileName}.gz`;
-    const outApp = pathResolve(baseApp, outName);
-    const outRel = outApp;
+    const outRel = this.getRelativePathFromProject(
+      this.normalizePath(this.resolvePath(outName))
+    );
 
     // 既存チェック
     if (!force) {
@@ -114,7 +113,7 @@ export class GzipCommand extends UnixCommandBase {
       // 保存
       await fileRepository.createFile(
         this.projectId,
-        outRel,
+        outName,
         '',
         'file',
         true,
@@ -154,9 +153,8 @@ export class GzipCommand extends UnixCommandBase {
     force: boolean,
     verbose: boolean
   ): Promise<string> {
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const resolvedApp = pathResolve(baseApp, fileName);
-    const rel = resolvedApp;
+    const resolved = this.normalizePath(this.resolvePath(fileName));
+    const rel = this.getRelativePathFromProject(resolved);
     const file = await this.getFileFromDB(rel);
 
     if (!file) {
@@ -180,8 +178,9 @@ export class GzipCommand extends UnixCommandBase {
       outName = `${fileName}.out`;
     }
 
-    const outApp = pathResolve(baseApp, outName);
-    const outRel = outApp;
+    const outRel = this.getRelativePathFromProject(
+      this.normalizePath(this.resolvePath(outName))
+    );
 
     // 既存チェック
     if (!force) {
@@ -203,7 +202,7 @@ export class GzipCommand extends UnixCommandBase {
       // 保存
       await fileRepository.createFile(
         this.projectId,
-        outRel,
+        outName,
         '',
         'file',
         true,

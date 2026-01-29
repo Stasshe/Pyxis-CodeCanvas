@@ -1,5 +1,4 @@
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * cd - カレントディレクトリを変更
@@ -32,9 +31,7 @@ export class CdCommand extends UnixCommandBase {
         throw new Error('cd: OLDPWD not set');
       }
 
-      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-      const app = pathResolve(baseApp, dir);
-      targetDir = toFSPath(this.projectName, app);
+      targetDir = this.normalizePath(this.resolvePath(dir));
     }
 
     // プロジェクト外への移動を禁止

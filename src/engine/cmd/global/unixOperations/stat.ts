@@ -1,5 +1,4 @@
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 import type { ProjectFile } from '@/types';
 
@@ -16,16 +15,15 @@ export class StatCommand extends UnixCommandBase {
     }
 
     const fileArg = positional[0];
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const appPath = pathResolve(baseApp, fileArg);
-    const path = toFSPath(this.projectName, appPath);
+    const resolved = this.resolvePath(fileArg);
+    const path = this.normalizePath(resolved);
 
     // 1) Try to get metadata from IndexedDB via fileRepository
     try {
       const { fileRepository } = await import('@/engine/core/fileRepository');
       // fileRepository stores paths as project-relative (starting with /)
       // getProjectFiles is used via helper methods in base, but we can use getFileFromDB-like logic
-      const relative = appPath;
+      const relative = this.getRelativePathFromProject(path);
 
       // If root or empty, return directory metadata
       if (relative === '/' || relative === '') {

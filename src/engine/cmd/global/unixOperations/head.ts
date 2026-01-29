@@ -1,6 +1,5 @@
 import { parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * head - ファイルの先頭部分を表示 (POSIX/GNU準拠)
@@ -61,9 +60,7 @@ export class HeadCommand extends UnixCommandBase {
 
     for (let i = 0; i < positional.length; i++) {
       const file = positional[i];
-      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-      const appPath = pathResolve(baseApp, file);
-      const path = toFSPath(this.projectName, appPath);
+      const path = this.normalizePath(this.resolvePath(file));
 
       const isDir = await this.isDirectory(path);
       if (isDir) {
@@ -72,7 +69,7 @@ export class HeadCommand extends UnixCommandBase {
       }
 
       try {
-        const relative = appPath;
+        const relative = this.getRelativePathFromProject(path);
         const fileData = await this.getFileFromDB(relative);
         if (!fileData) throw new Error('No such file or directory');
 

@@ -1,6 +1,5 @@
 import { parseArgs } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 export class SortCommand extends UnixCommandBase {
   private stdinContent: string | null = null;
@@ -34,9 +33,8 @@ Options:
       }
     } else {
       for (const p of positional) {
-        const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-        const appPath = pathResolve(baseApp, p);
-        const rel = appPath;
+        const resolved = this.normalizePath(this.resolvePath(p));
+        const rel = this.getRelativePathFromProject(resolved);
         const file = await this.getFileFromDB(rel);
         if (!file) throw new Error(`sort: ${p}: No such file or directory`);
         if (file.type === 'folder') throw new Error(`sort: ${p}: Is a directory`);

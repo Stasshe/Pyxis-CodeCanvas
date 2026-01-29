@@ -11,7 +11,6 @@ import {
   parseArgs,
 } from '../../lib';
 import { UnixCommandBase } from './base';
-import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 import type { ProjectFile } from '@/types';
 
@@ -256,10 +255,8 @@ export class FindCommand extends UnixCommandBase {
     const results: string[] = [];
 
     for (const p of paths) {
-      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-      const appPath = pathResolve(baseApp, p);
-      const startFS = toFSPath(this.projectName, appPath);
-      const found = await this.findFiles(startFS, appPath, expr, maxDepth, minDepth);
+      const normalizedPath = this.normalizePath(this.resolvePath(p));
+      const found = await this.findFiles(normalizedPath, expr, maxDepth, minDepth);
       results.push(...found);
     }
 
@@ -278,12 +275,11 @@ export class FindCommand extends UnixCommandBase {
 
   private async findFiles(
     startPath: string,
-    startApp: string,
     expr: Expression | null,
     maxDepth: number,
     minDepth: number
   ): Promise<string[]> {
-    const relativePath = startApp;
+    const relativePath = this.getRelativePathFromProject(startPath);
     const results: string[] = [];
     const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
     const pruned = new Set<string>();

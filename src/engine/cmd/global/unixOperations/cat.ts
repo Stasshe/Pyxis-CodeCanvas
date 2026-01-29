@@ -3,7 +3,6 @@ import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
-import { fsPathToAppPath } from '@/engine/core/pathUtils';
 
 /**
  * cat - ファイルの内容を表示 (POSIX/GNU準拠)
@@ -88,14 +87,14 @@ export class CatCommand extends UnixCommandBase {
    * ファイルの内容を読み取る
    */
   private async readFile(path: string): Promise<string> {
-    const normalizedPath = path;
+    const normalizedPath = this.normalizePath(path);
 
     const isDir = await this.isDirectory(normalizedPath);
     if (isDir) {
       throw new Error('Is a directory');
     }
 
-    const relative = fsPathToAppPath(normalizedPath, this.projectName);
+    const relative = this.getRelativePathFromProject(normalizedPath);
     const file: ProjectFile | null = await fileRepository.getFileByPath(this.projectId, relative);
 
     if (!file) {
