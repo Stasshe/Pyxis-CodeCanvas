@@ -604,6 +604,26 @@ async function runRange(
     if (trimmed === 'break') return 'break';
     if (trimmed === 'continue') return 'continue';
 
+    // exit builtin (POSIX): exit [n]
+    if (/^exit\b/.test(trimmed)) {
+      const parts = trimmed.split(/\s+/).slice(1);
+      // Too many args -> error, do not exit script (behave like interactive shells)
+      if (parts.length > 1) {
+        proc.writeStderr('exit: too many arguments\n');
+        continue;
+      }
+      let code = 0;
+      if (parts.length === 1) {
+        const a = parts[0];
+        if (!/^-?\d+$/.test(a)) {
+          proc.writeStderr(`exit: ${a}: numeric argument required\n`);
+          return { exit: 2 };
+        }
+        code = Number(a) & 0xff;
+      }
+      return { exit: code };
+    }
+
     // regular command or assignment: interpolate and execute
     let execLine = interpolate(trimmed, localVars, args);
 

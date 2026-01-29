@@ -180,4 +180,120 @@ done
 
     expect(out).toBe(expected);
   });
+
+  test('exit with numeric arg terminates script with code', async () => {
+    const script = `echo before
+exit 5
+echo after
+`;
+
+    const proc = new Process();
+    let out = '';
+    let err = '';
+    proc.stdout.on('data', (chunk: Buffer | string) => {
+      out += String(chunk);
+    });
+    proc.stderr.on('data', (chunk: Buffer | string) => {
+      err += String(chunk);
+    });
+
+    const mockShell: any = {
+      async run(line: string, callbacks?: any) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return { stdout: '', stderr: '', code: 0 };
+        const parts = trimmed.split(/\s+/);
+        if (parts[0] === 'echo') {
+          const txt = parts.slice(1).join(' ') + '\n';
+          if (callbacks?.stdout) callbacks.stdout(txt);
+          return { stdout: txt, stderr: '', code: 0 };
+        }
+        return { stdout: '', stderr: '', code: 0 };
+      },
+    };
+
+    await runScript(script, ['script'], proc, mockShell);
+    // runScript should call proc.exit with provided code; wait for it
+    const res = await proc.wait();
+    expect(res.code).toBe(5);
+    expect(out).toBe('before\n');
+    expect(err).toBe('');
+  });
+
+  test('exit with non-numeric arg prints error and exits with code 2', async () => {
+    const script = `echo before
+exit foo
+echo after
+`;
+
+    const proc = new Process();
+    let out = '';
+    let err = '';
+    proc.stdout.on('data', (chunk: Buffer | string) => {
+      out += String(chunk);
+    });
+    proc.stderr.on('data', (chunk: Buffer | string) => {
+      err += String(chunk);
+    });
+
+    const mockShell: any = {
+      async run(line: string, callbacks?: any) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return { stdout: '', stderr: '', code: 0 };
+        const parts = trimmed.split(/\s+/);
+        if (parts[0] === 'echo') {
+          const txt = parts.slice(1).join(' ') + '\n';
+          if (callbacks?.stdout) callbacks.stdout(txt);
+          return { stdout: txt, stderr: '', code: 0 };
+        }
+        return { stdout: '', stderr: '', code: 0 };
+      },
+    };
+
+    await runScript(script, ['script'], proc, mockShell);
+    const res = await proc.wait();
+    expect(res.code).toBe(2);
+    expect(out).toBe('before\n');
+    expect(err).toBe('exit: foo: numeric argument required\n');
+  });
+
+  test('exit with too many args prints error and continues', async () => {
+    const script = `echo before
+exit 1 2
+echo after
+`;
+
+    const proc = new Process();
+    let out = '';
+    let err = '';
+    proc.stdout.on('data', (chunk: Buffer | string) => {
+      out += String(chunk);
+    });
+    proc.stderr.on('data', (chunk: Buffer | string) => {
+      err += String(chunk);
+    });
+
+    const mockShell: any = {
+      async run(line: string, callbacks?: any) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return { stdout: '', stderr: '', code: 0 };
+        const parts = trimmed.split(/\s+/);
+        if (parts[0] === 'echo') {
+          const txt = parts.slice(1).join(' ') + '\n';
+          if (callbacks?.stdout) callbacks.stdout(txt);
+          return { stdout: txt, stderr: '', code: 0 };
+        }
+        return { stdout: '', stderr: '', code: 0 };
+      },
+    };
+
+    await runScript(script, ['script'], proc, mockShell);
+    // script should have continued; close streams and exit
+    proc.endStdout();
+    proc.endStderr();
+    proc.exit(0);
+    const res = await proc.wait();
+    expect(res.code).toBe(0);
+    expect(out).toBe('before\nafter\n');
+    expect(err).toBe('exit: too many arguments\n');
+  });
 });
