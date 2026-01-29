@@ -4,7 +4,15 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
-import { TextEncoder, TextDecoder } from 'util';
+
+// TextEncoder/TextDecoder: prefer browser globals, fall back to Node's `util` on server.
+// This avoids bundling an undefined TextEncoder when running client-side.
+const TextEncoder = (typeof globalThis !== 'undefined' && (globalThis as any).TextEncoder)
+  ? (globalThis as any).TextEncoder
+  : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextEncoder;
+const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder)
+  ? (globalThis as any).TextDecoder
+  : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
 
 /**
  * tar - POSIX準拠のtarアーカイブ作成/一覧/展開（ネイティブ実装）
