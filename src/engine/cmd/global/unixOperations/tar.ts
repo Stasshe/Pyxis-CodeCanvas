@@ -4,8 +4,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
 import { GetOpt } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
-import { fileTypeFromBuffer } from 'file-type';
-import * as jschardet from 'jschardet';
+import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 
 // TextEncoder/TextDecoder: prefer browser globals, fall back to Node's `util` on server.
 // This avoids bundling an undefined TextEncoder when running client-side.
@@ -395,7 +394,7 @@ export class TarCommand extends UnixCommandBase {
               const contentBuf = buf.slice(offset, offset + size);
 
               // テキストファイルかバイナリファイルかを判定
-              const isTextFile = await this.isLikelyTextFile(entryPath, contentBuf);
+              const isTextFile = await isLikelyTextFile(entryPath, contentBuf);
 
               if (isTextFile) {
               // テキストファイルとして展開
@@ -455,47 +454,7 @@ export class TarCommand extends UnixCommandBase {
     }
   }
 
-  /**
-   * ファイルがテキストファイルかどうかを判定
-   * 外部ライブラリ（file-type, jschardet）を使用して判定します
-   */
-  private async isLikelyTextFile(path: string, content: Uint8Array): Promise<boolean> {
-    // 拡張子/ファイル名による事前判定は削除しました（file-type/jschardet を使用）
 
-    // 空ファイルはテキスト扱い
-    if (content.length === 0) return true;
-
-    // `file-type` で確実な MIME を取得（存在が前提）
-    const type = await fileTypeFromBuffer(content);
-    if (type && type.mime) {
-      const mime = type.mime.toLowerCase();
-      if (mime.startsWith('text/') || mime === 'application/xml' || mime.endsWith('+xml') || mime === 'application/json' || mime === 'application/javascript') return true;
-      if (mime.startsWith('image/') || mime === 'application/pdf' || mime === 'application/zip' || mime === 'application/x-gzip' || mime.startsWith('video/') || mime.startsWith('audio/')) return false;
-    }
-
-    // `jschardet` によるエンコーディング判定
-    const sampleSizeEnc = Math.min(8192, content.length);
-    const sample = new TextDecoder('iso-8859-1').decode(content.slice(0, sampleSizeEnc));
-    const det = jschardet.detect(sample as any);
-    if (det && det.encoding) {
-      const enc = String(det.encoding).toLowerCase();
-      const conf = typeof det.confidence === 'number' ? det.confidence : 0;
-      if (enc.includes('utf-8') || enc.includes('utf8') || enc.includes('utf-16') || enc.includes('ascii')) return true;
-      if (conf > 0.9 && (enc.includes('binary') || enc.includes('iso-8859'))) {
-        if (enc.includes('iso-8859')) return true;
-        return false;
-      }
-    }
-
-    // 最終フォールバック: UTF-8 としてデコードできるかを試す
-    try {
-      const decoder = new TextDecoder('utf-8', { fatal: true });
-      decoder.decode(content.slice(0, Math.min(8192, content.length)));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
 
   private showHelp(): string {
     return `Usage: tar [OPTION]... [FILE]...
