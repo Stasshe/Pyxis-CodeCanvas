@@ -369,64 +369,7 @@ export class ShellExecutor {
     let cmd = String(rawTokens[0] ?? '');
     let args = rawTokens.slice(1).map(t => String(t));
 
-    // Handle npx: resolve local node_modules/.bin shim (prefer absolute FS path)
-    if (cmd === 'npx') {
-      if (args.length === 0) {
-        proc.writeStderr('npx: missing command\n');
-        proc.endStdout();
-        proc.endStderr();
-        proc.exit(2);
-        return;
-      }
-
-      const requested = args[0];
-      args = args.slice(1);
-
-      if (unix) {
-        try {
-          const cwdFs = await unix.pwd();
-          const candidates = [
-            `node_modules/.bin/${requested}`,
-            `node_modules/.bin/${requested}.cmd`,
-            `node_modules/.bin/${requested}.js`,
-            `./node_modules/.bin/${requested}`,
-          ];
-
-          let found = false;
-          for (const cand of candidates) {
-            const rel = cand.replace(/^\.\//, '');
-
-            // Build an AppPath for cwd, resolve the relative candidate to an AppPath,
-            // then convert to FSPath using project name.
-            const cwdApp = fsPathToAppPath(cwdFs, this.context.projectName);
-            const resolvedApp = resolvePath(cwdApp, rel);
-            const absFs = toFSPath(this.context.projectName, resolvedApp);
-
-            // check the absolute FSPath
-            const maybeAbs = await unix.cat([absFs]).catch(() => null);
-            if (maybeAbs !== null) {
-              cmd = absFs;
-              found = true;
-              break;
-            }
-
-            // fallback: try project-relative (rel) as-is — unix may resolve relative against cwd
-            const maybeRel = await unix.cat([rel]).catch(() => null);
-            if (maybeRel !== null) {
-              cmd = absFs; // prefer absolute translation
-              found = true;
-              break;
-            }
-          }
-        } catch {
-          // ignore resolution errors, fall back to binary name
-        }
-      }
-
-      if (!cmd || cmd === 'npx') {
-        cmd = requested;
-      }
-    }
+    // 'npx' is handled by npm handler now; let executeCommand route it
 
     // Check for alias expansion
     if (this.context.aliases[cmd]) {
@@ -596,6 +539,18 @@ export class ShellExecutor {
         return 0;
       } catch (e: any) {
         await writeError(`npm: ${e.message}`);
+        return 1;
+      }
+    }
+
+    // 2b. NPX command - delegate to npm handler
+    if (cmd === 'npx') {
+      try {
+        const { handleNPXCommand } = await import('../handlers/npmHandler');
+        const code = await handleNPXCommand(args, this.context.projectName, this.context.projectId, writeOutput);
+        return typeof code === 'number' ? code : 0;
+      } catch (e: any) {
+        await writeError(`npx: ${e.message}`);
         return 1;
       }
     }

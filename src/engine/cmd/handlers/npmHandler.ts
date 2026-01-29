@@ -81,3 +81,75 @@ export async function handleNPMCommand(
 }
 
 export default handleNPMCommand;
+
+export async function handleNPXCommand(
+  args: string[],
+  projectName: string,
+  projectId: string,
+  writeOutput: (output: string) => Promise<void>
+): Promise<number> {
+  // npx <bin> [args...]
+  if (!args[0]) {
+    await writeOutput('npx: missing command');
+    return 2;
+  }
+
+  const binary = args[0];
+  const binArgs = args.slice(1);
+
+  // Resolve using UnixCommands to access project FS
+  const unix = terminalCommandRegistry.getUnixCommands(projectName, projectId);
+  try {
+    const cwdFs = await unix.pwd();
+    // Try common shim names
+    const candidates = [
+      `node_modules/.bin/${binary}`,
+      `node_modules/.bin/${binary}.js`,
+      `node_modules/.bin/${binary}.cmd`,
+    ];
+
+    // Lazy import path utils and NodeRuntime to avoid cycles
+    const { fsPathToAppPath, resolvePath, toFSPath } = await import('@/engine/core/pathUtils');
+    const { NodeRuntime } = await import('../../runtime/nodeRuntime');
+
+    for (const cand of candidates) {
+      const cwdApp = fsPathToAppPath(cwdFs, projectName);
+      const resolvedApp = resolvePath(cwdApp, cand.replace(/^\.\//, ''));
+      const absFs = toFSPath(projectName, resolvedApp);
+      const exists = await unix.cat([absFs]).catch(() => null);
+      if (exists !== null) {
+        // Execute via NodeRuntime
+        const debugConsole = {
+          log: async (...a: unknown[]) => await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
+          error: async (...a: unknown[]) => await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
+          warn: async (...a: unknown[]) => await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
+          clear: () => {},
+        };
+
+        const runtime = new NodeRuntime({
+          projectId,
+          projectName,
+          filePath: absFs,
+          debugConsole: { log: (...p: unknown[]) => debugConsole.log(...p), error: (...p: unknown[]) => debugConsole.error(...p), warn: (...p: unknown[]) => debugConsole.warn(...p), clear: () => {} },
+          terminalColumns: 80,
+          terminalRows: 24,
+        });
+
+        try {
+          await runtime.execute(absFs, binArgs);
+          await runtime.waitForEventLoop();
+          return 0;
+        } catch (e: any) {
+          await writeOutput(String(e?.message ?? e) + '\n');
+          return 1;
+        }
+      }
+    }
+
+    await writeOutput(`${binary}: command not found`);
+    return 127;
+  } catch (e: any) {
+    await writeOutput(String(e?.message ?? e) + '\n');
+    return 1;
+  }
+}
