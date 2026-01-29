@@ -386,7 +386,7 @@ Root
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
 │   │   ├── helper
-│   │   │   ├── isBufferArray.ts
+│   │   │   ├── isLikelyTextFile.ts
 │   │   │   ├── resize.ts
 │   │   │   └── settingsManager.ts
 │   │   ├── i18n
@@ -506,7 +506,6 @@ Root
 │   ├── aiResponseParser.test.ts
 │   ├── aiResponseParserEdgeCases.test.ts
 │   ├── all-sh.test.ts
-│   ├── debug-if-inline.test.ts
 │   ├── extensionLoader.multifile.test.ts
 │   ├── findCommand.posix.test.ts
 │   ├── fsRequirePromise.test.ts
@@ -533,6 +532,8 @@ Root
 │   ├── shell.operators.test.ts
 │   ├── shell.script.streaming.test.ts
 │   ├── shell.stream.test.ts
+│   ├── tarCommand.test.ts
+│   ├── tarHeaderInspect.test.ts
 │   ├── transform_real_files.test.ts
 │   └── unixExtra.test.ts
 ├── tree-built-out.sh
@@ -542,7 +543,7 @@ Root
 └── types
     └── esbuild-cdn.d.ts
 
-80 directories, 462 files
+80 directories, 463 files
 
 =================================
 
@@ -672,12 +673,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 71630
-合計文字数: 2277104
-合計ファイルサイズ(bytes): 2413164
+合計行数: 72823
+合計文字数: 2315184
+合計ファイルサイズ(bytes): 2453028
 
 開発時のdev container全体のサイズ(bytes): 1.3G	.
 ==========
-ビルト済みファイルの行数: 129584
-合計文字数: 27392116
-合計ファイルサイズ(bytes): 30378217
+ビルト済みファイルの行数: 129642
+合計文字数: 27786868
+合計ファイルサイズ(bytes): 30773008
