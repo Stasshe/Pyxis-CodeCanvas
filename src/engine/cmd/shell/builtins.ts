@@ -129,6 +129,40 @@ export default function adaptUnixToStream(unix: any) {
     ctx.stdout.end();
   };
 
+  // exit: POSIX builtin
+  obj.exit = async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
+    const nArgs = normalizeArgs(args || []);
+
+    // Too many args -> print error and return failure (do not exit the calling shell)
+    if (nArgs.length > 1) {
+      try {
+        ctx.stderr.write('exit: too many arguments\n');
+      } catch {}
+      ctx.stdout.end();
+      ctx.stderr.end();
+      throw { __silent: true, code: 1 };
+    }
+
+    let code = 0;
+    if (nArgs.length === 1) {
+      const a = nArgs[0];
+      if (!/^-?\d+$/.test(a)) {
+        try {
+          ctx.stderr.write(`exit: ${a}: numeric argument required\n`);
+        } catch {}
+        ctx.stdout.end();
+        ctx.stderr.end();
+        throw { __silent: true, code: 2 };
+      }
+      code = Number(a) & 0xff;
+    }
+
+    ctx.stdout.end();
+    ctx.stderr.end();
+    // signal the calling executor to exit with the status code
+    throw { __silent: true, code };
+  };
+
   // type コマンド（シェル内部）
   obj.type = async (ctx: StreamCtx, args: string[] = []) => {
     const opts = { a: false, t: false, p: false };
@@ -273,11 +307,10 @@ export default function adaptUnixToStream(unix: any) {
           if (!entryPath.startsWith('/')) {
             const cwd = await unix.pwd();
             const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
-            entryPath =
-              typeof unix.normalizePath === 'function' ? unix.normalizePath(combined) : combined;
+            entryPath = unix.resolveToFSPath(combined);
           } else {
             entryPath =
-              typeof unix.normalizePath === 'function' ? unix.normalizePath(entryPath) : entryPath;
+              unix.resolveToFSPath(entryPath);
           }
         }
       } catch (e) {

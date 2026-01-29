@@ -169,22 +169,24 @@ export default function OperationWindow({
     onClose();
   };
 
+  // Create a single flattened list once and reuse it to avoid multiple traversals
+  const flattenedFiles = useMemo(() => flattenFileItems(projectFiles), [projectFiles]);
+
   // 設定から除外パターンを取得
   const gitignoreRules = useMemo((): GitIgnoreRule[] => {
     try {
-      const flat = flattenFileItems(projectFiles);
-      const git = flat.find(f => f.name === '.gitignore' || f.path === '.gitignore');
+      const git = flattenedFiles.find(f => f.name === '.gitignore' || f.path === '.gitignore');
       if (!git || !git.content) return [];
       return parseGitignore(git.content);
     } catch (err) {
       return [];
     }
-  }, [projectFiles]);
+  }, [flattenedFiles]);
 
   // Memoize file list to avoid changing identity on every render (prevents effect loops)
   const allFiles = useMemo(() => {
     try {
-      return flattenFileItems(projectFiles).filter(file => {
+      return flattenedFiles.filter(file => {
         if (file.type !== 'file') return false;
         if (isExcluded(file.path)) return false;
         if (gitignoreRules && gitignoreRules.length > 0) {
@@ -199,7 +201,7 @@ export default function OperationWindow({
     } catch (e) {
       return [] as FileItem[];
     }
-  }, [projectFiles, isExcluded, gitignoreRules]);
+  }, [flattenedFiles, isExcluded, gitignoreRules]);
 
   // Keep a ref to the latest allFiles so worker onmessage always maps against current list
   const allFilesRef = useRef<FileItem[]>([]);

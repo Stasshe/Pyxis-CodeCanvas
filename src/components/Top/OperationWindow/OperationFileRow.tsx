@@ -11,7 +11,8 @@ interface Props {
   ITEM_HEIGHT: number;
   colors: ThemeColors;
   queryTokens: string[];
-  onClick?: () => void;
+  // Stable callback invoked with the file when a row is activated
+  onActivate?: (file: FileItem) => void;
 }
 
 function OperationFileRowInner({
@@ -20,7 +21,7 @@ function OperationFileRowInner({
   ITEM_HEIGHT,
   colors,
   queryTokens,
-  onClick,
+  onActivate,
 }: Props) {
   const pathParts = file.path.split('/');
   const dirPath = pathParts.slice(0, -1).join('/');
@@ -30,7 +31,7 @@ function OperationFileRowInner({
 
   return (
     <div
-      onClick={onClick}
+      onClick={() => onActivate?.(file)}
       style={{
         height: ITEM_HEIGHT,
         boxSizing: 'border-box',
@@ -82,4 +83,22 @@ function OperationFileRowInner({
   );
 }
 
-export default OperationFileRowInner;
+function arePropsEqual(prev: Props, next: Props) {
+  // quick shallow comparisons for frequently changing inputs
+  if (prev.file.id !== next.file.id) return false;
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.ITEM_HEIGHT !== next.ITEM_HEIGHT) return false;
+  if (prev.onActivate !== next.onActivate) return false;
+  // shallow compare query tokens
+  const a = prev.queryTokens || [];
+  const b = next.queryTokens || [];
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  // colors comparisons (check few keys)
+  if (prev.colors?.foreground !== next.colors?.foreground) return false;
+  if (prev.colors?.primary !== next.colors?.primary) return false;
+  if (prev.colors?.accentBg !== next.colors?.accentBg) return false;
+  return true;
+}
+
+export default React.memo(OperationFileRowInner, arePropsEqual);

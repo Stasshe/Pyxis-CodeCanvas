@@ -1,6 +1,7 @@
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * mkdir - ディレクトリを作成
@@ -64,8 +65,10 @@ export class MkdirCommand extends UnixCommandBase {
     parents: boolean,
     verbose: boolean
   ): Promise<string | null> {
-    const normalizedPath = this.normalizePath(this.resolvePath(dir));
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const appPath = pathResolve(baseApp, dir);
+    const normalizedPath = toFSPath(this.projectName, appPath);
+    const relativePath = appPath;
 
     // 既に存在するかチェック
     const exists = await this.exists(normalizedPath);
@@ -85,9 +88,7 @@ export class MkdirCommand extends UnixCommandBase {
 
       for (const part of parts) {
         currentPath += `/${part}`;
-        const exists = await this.exists(
-          this.normalizePath(`${this.getProjectRoot()}${currentPath}`)
-        );
+        const exists = await this.exists(toFSPath(this.projectName, currentPath));
 
         if (!exists) {
           await fileRepository.createFile(this.projectId, currentPath, '', 'folder');
@@ -97,7 +98,7 @@ export class MkdirCommand extends UnixCommandBase {
       // 親ディレクトリの存在チェック
       const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
       if (parentPath !== '/') {
-        const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`);
+        const parentFullPath = toFSPath(this.projectName, parentPath);
         const parentExists = await this.exists(parentFullPath);
 
         if (!parentExists) {

@@ -27,6 +27,18 @@ export function useDiffTabHandlers(currentProject: any) {
       const normalizedPath = normalizePath(filePath);
       const gitPath = toGitPath(normalizedPath);
 
+      // Prevent opening a diff view for binary files. If the file in the repository
+      // contains bufferContent, open the binary tab instead.
+      const { fileRepository } = await import('@/engine/core/fileRepository');
+      const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
+      if (file?.bufferContent) {
+        console.log(
+          `[useDiffTabHandlers] ${normalizedPath} has bufferContent — opening binary tab instead of diff`
+        );
+        await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
+        return;
+      }
+      
       console.log(`[useDiffTabHandlers] Staged diff: "${gitPath}" (HEAD vs INDEX)`);
 
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
@@ -137,6 +149,12 @@ export function useDiffTabHandlers(currentProject: any) {
         const { fileRepository } = await import('@/engine/core/fileRepository');
         const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
 
+        // If the repository file contains bufferContent, open it as binary instead of a diff
+        if (file?.bufferContent) {
+          await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
+          return;
+        }
+
         if (file?.content) {
           workdirContent = file.content;
           console.log('[useDiffTabHandlers] Read workdir content from fileRepository');
@@ -217,6 +235,18 @@ export function useDiffTabHandlers(currentProject: any) {
       } catch (error) {
         console.error('[useDiffTabHandlers] Failed to get former content:', error);
         formerContent = '';
+      }
+
+      // If both sides are empty, this may be a binary file (no text content available).
+      // Try to open it as a binary tab instead of showing an empty diff.
+      if ((formerContent === '' || formerContent === undefined) && (latterContent === '' || latterContent === undefined)) {
+        const { fileRepository } = await import('@/engine/core/fileRepository');
+        const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
+        if (file?.bufferContent) {
+          await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
+          return;
+        }
+        return;
       }
 
       const diffData: SingleFileDiff = {

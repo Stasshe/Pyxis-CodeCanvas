@@ -5,7 +5,6 @@ import type { BinaryTab, OpenTabOptions, TabComponentProps, TabTypeDefinition } 
 
 import BinaryTabContent from '@/components/Tab/BinaryTabContent';
 import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
-import { isBufferArray } from '@/engine/helper/isBufferArray';
 import type { FileItem } from '@/types';
 
 /**
@@ -20,8 +19,7 @@ const BinaryTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
       editorHeight="100%"
       // ファイル名・buffer から MIME を推定
       guessMimeType={(fileName: string, buffer?: ArrayBuffer) => guessMimeType(fileName, buffer)}
-      // bufferContent が ArrayBuffer 等であるか
-      isBufferArray={(arg: any) => isBufferArray(arg)}
+      isBufferArray={(arg: any) => arg instanceof ArrayBuffer}
     />
   );
 };

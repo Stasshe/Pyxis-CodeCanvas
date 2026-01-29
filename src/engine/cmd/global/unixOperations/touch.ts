@@ -1,6 +1,7 @@
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 
 /**
  * touch - ファイルのタイムスタンプを更新、または空ファイルを作成
@@ -52,8 +53,10 @@ export class TouchCommand extends UnixCommandBase {
    * ファイルを作成または更新
    */
   private async touchFile(file: string, noCreate: boolean): Promise<void> {
-    const normalizedPath = this.normalizePath(this.resolvePath(file));
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const appPath = pathResolve(baseApp, file);
+    const normalizedPath = toFSPath(this.projectName, appPath);
+    const relativePath = appPath;
 
     const existingFile = await this.getFileFromDB(relativePath);
 
@@ -73,7 +76,7 @@ export class TouchCommand extends UnixCommandBase {
       // 親ディレクトリの存在チェック
       const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
       if (parentPath !== '/') {
-        const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`);
+        const parentFullPath = toFSPath(this.projectName, parentPath);
         const parentExists = await this.exists(parentFullPath);
 
         if (!parentExists) {

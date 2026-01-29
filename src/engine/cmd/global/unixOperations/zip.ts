@@ -1,6 +1,7 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import JSZip from 'jszip';
 import { UnixCommandBase } from './base';
+import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 import { parseArgs } from '../../lib';
 
 /**
@@ -77,8 +78,9 @@ export class ZipCommand extends UnixCommandBase {
     }
 
     // 正規化したアーカイブパス（AppPath形式）を取得してアーカイブ自身を除外できるようにする
-    const archiveResolved = this.normalizePath(this.resolvePath(archiveName));
-    const archiveRel = this.getRelativePathFromProject(archiveResolved);
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const archiveAppPath = pathResolve(baseApp, archiveName);
+    const archiveRel = archiveAppPath;
 
     if (!quiet && this.terminalUI) {
       await this.terminalUI.spinner.start('Creating zip archive...');
@@ -91,8 +93,8 @@ export class ZipCommand extends UnixCommandBase {
       let addedCount = 0;
 
       for (const fileName of files) {
-        const resolved = this.normalizePath(this.resolvePath(fileName));
-        const rel = this.getRelativePathFromProject(resolved);
+        const resolvedApp = pathResolve(baseApp, fileName);
+        const rel = resolvedApp;
 
         // アーカイブ自身は含めない
         if (rel === archiveRel) {
@@ -142,10 +144,10 @@ export class ZipCommand extends UnixCommandBase {
         compressionOptions: { level: 6 },
       });
 
-      // 保存
+      // 保存（AppPathで渡す）
       await fileRepository.createFile(
         this.projectId,
-        archiveName,
+        archiveRel,
         '',
         'file',
         true,
@@ -226,8 +228,9 @@ export class ZipCommand extends UnixCommandBase {
     verbose: boolean
   ): Promise<string> {
     // 既存アーカイブを読み込み
-    const resolved = this.normalizePath(this.resolvePath(archiveName));
-    const rel = this.getRelativePathFromProject(resolved);
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const archiveAppPath = pathResolve(baseApp, archiveName);
+    const rel = archiveAppPath;
     const existingFile = await this.getFileFromDB(rel);
 
     let zip: JSZip;
@@ -243,8 +246,8 @@ export class ZipCommand extends UnixCommandBase {
     const updated: string[] = [];
 
     for (const fileName of files) {
-      const resolved = this.normalizePath(this.resolvePath(fileName));
-      const rel = this.getRelativePathFromProject(resolved);
+      const resolvedApp = pathResolve(baseApp, fileName);
+      const rel = resolvedApp;
       const file = await this.getFileFromDB(rel);
 
       if (!file) {
@@ -254,7 +257,7 @@ export class ZipCommand extends UnixCommandBase {
         continue;
       }
 
-      const entryName = fileName.replace(/^\/+/, '');
+      const entryName = rel.replace(/^\/+/, '');
 
       // -f（freshen）: 既存エントリのみ更新
       if (freshenOnly && !zip.file(entryName)) {
@@ -285,10 +288,10 @@ export class ZipCommand extends UnixCommandBase {
       compressionOptions: { level: 6 },
     });
 
-    // 保存
+    // 保存（AppPathで渡す）
     await fileRepository.createFile(
       this.projectId,
-      archiveName,
+      archiveAppPath,
       '',
       'file',
       true,
@@ -310,8 +313,9 @@ export class ZipCommand extends UnixCommandBase {
     files: string[],
     quiet: boolean
   ): Promise<string> {
-    const resolved = this.normalizePath(this.resolvePath(archiveName));
-    const rel = this.getRelativePathFromProject(resolved);
+    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
+    const archiveAppPath = pathResolve(baseApp, archiveName);
+    const rel = archiveAppPath;
     const existingFile = await this.getFileFromDB(rel);
 
     if (!existingFile || !existingFile.bufferContent) {
@@ -334,10 +338,10 @@ export class ZipCommand extends UnixCommandBase {
       compressionOptions: { level: 6 },
     });
 
-    // 保存
+    // 保存（AppPathで渡す）
     await fileRepository.createFile(
       this.projectId,
-      archiveName,
+      archiveAppPath,
       '',
       'file',
       true,

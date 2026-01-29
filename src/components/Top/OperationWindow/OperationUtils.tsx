@@ -63,12 +63,20 @@ export function scoreMatch(text: string, query: string): number {
   return 0; // マッチしない
 }
 
+const ICON_SRC_CACHE = new Map<string, string>();
 export function getIconSrcForFile(name: string) {
+  const key = name || '';
+  const cached = ICON_SRC_CACHE.get(key);
+  if (cached) return cached;
   const iconPath = getIconForFile(name) || getIconForFile('');
+  let src: string;
   if (iconPath?.endsWith('.svg')) {
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+    src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+  } else {
+    src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
   }
-  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+  ICON_SRC_CACHE.set(key, src);
+  return src;
 }
 
 // テキストのハイライトを行うヘルパー

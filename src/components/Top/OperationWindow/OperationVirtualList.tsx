@@ -107,7 +107,7 @@ export default function OperationVirtualList({
                   ITEM_HEIGHT={ITEM_HEIGHT}
                   colors={colors}
                   queryTokens={queryTokens}
-                  onClick={() => handleFileSelectInOperation(file)}
+                  onActivate={handleFileSelectInOperation}
                 />
               </div>
             );
