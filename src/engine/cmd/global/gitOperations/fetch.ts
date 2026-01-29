@@ -164,12 +164,15 @@ export async function fetchAll(
 /**
  * Parse raw `git fetch` args and delegate to fetch / fetchAll
  */
-import { parseArgs } from '../../lib/getopt';
+import { parseWithGetOpt } from '../../lib';
 
 export async function fetchFromArgs(fs: FS, dir: string, args: string[]): Promise<string> {
   // Use centralized parser to handle options consistently
-  // Options with values: --depth, -d
-  const { flags, values, positional } = parseArgs(args, ['--depth', '-d']);
+  // Options: --all/-a, --prune/-p, --tags, --depth/-d
+  const optstring = 'ad:p';
+  const longopts = ['all', 'prune', 'tags', 'depth='];
+  const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+  if (errors.length) throw new Error(errors.join('; '));
 
   const all = flags.has('--all') || flags.has('-a');
   const prune = flags.has('--prune') || flags.has('-p');

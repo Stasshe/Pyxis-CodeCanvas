@@ -1,7 +1,7 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import pako from 'pako';
 import { UnixCommandBase } from './base';
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 
 /**
  * gzip - POSIX準拠のファイル圧縮/展開
@@ -23,7 +23,10 @@ import { parseArgs } from '../../lib';
 export class GzipCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
     // オプション解析
-    const { flags, positional } = parseArgs(args);
+    const optstring = 'dkfvh';
+    const longopts = ['decompress', 'keep', 'force', 'verbose', 'help', 'uncompress'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     // ヘルプ
     if (flags.has('-h') || flags.has('--help')) {

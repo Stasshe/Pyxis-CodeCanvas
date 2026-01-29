@@ -1,4 +1,4 @@
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 /**
@@ -25,7 +25,10 @@ export class WcCommand extends UnixCommandBase {
   }
 
   async execute(args: string[]): Promise<string> {
-    const { flags, positional } = parseArgs(args);
+    const optstring = 'lwcm';
+    const longopts = ['help'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {
       return 'Usage: wc [options] [file...]\n\nOptions:\n  -l\tlines\n  -w\twords\n  -c\tbytes\n  -m\tchars';

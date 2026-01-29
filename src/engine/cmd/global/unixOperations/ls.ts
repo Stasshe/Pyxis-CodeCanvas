@@ -1,4 +1,4 @@
-import { fnmatch, parseArgs } from '../../lib';
+import { fnmatch, parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 import type { ProjectFile } from '@/types';
@@ -28,7 +28,25 @@ import type { ProjectFile } from '@/types';
  */
 export class LsCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { flags, positional } = parseArgs(args);
+    const optstring = 'aAlhRtSr1dFpi s';
+    const longopts = [
+      'all',
+      'almost-all',
+      'human-readable',
+      'recursive',
+      'reverse',
+      'directory',
+      'classify',
+      'color',
+      'inode',
+      'size',
+    ];
+    const { flags, values, positional, errors } = parseWithGetOpt(
+      args,
+      optstring.replace(/\s+/g, ''),
+      longopts
+    );
+    if (errors.length) throw new Error(errors.join('; '));
 
     // --help (do not override -h which is human-readable)
     if (flags.has('--help')) {

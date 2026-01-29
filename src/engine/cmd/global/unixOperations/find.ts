@@ -8,7 +8,6 @@ import {
   evaluate,
   fnmatch,
   fnmatchPath,
-  parseArgs,
 } from '../../lib';
 import { UnixCommandBase } from './base';
 

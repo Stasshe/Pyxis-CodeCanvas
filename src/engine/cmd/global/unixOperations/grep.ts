@@ -1,4 +1,4 @@
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 import type { ProjectFile } from '@/types';
@@ -39,15 +39,30 @@ export class GrepCommand extends UnixCommandBase {
     args: string[],
     stdin: NodeJS.ReadableStream | string | null = null
   ): Promise<string> {
-    const { flags, values, positional } = parseArgs(args, [
-      '-A',
-      '-B',
-      '-C',
-      '-e',
-      '-f',
-      '--include',
-      '--exclude',
-    ]);
+    const optstring = 'ivnrRlLcHhoxwqFEA:B:C:e:f:';
+    const longopts = [
+      'ignore-case',
+      'invert-match',
+      'line-number',
+      'recursive',
+      'files-with-matches',
+      'files-without-match',
+      'count',
+      'with-filename',
+      'no-filename',
+      'only-matching',
+      'word-regexp',
+      'line-regexp',
+      'quiet',
+      'silent',
+      'no-messages',
+      'fixed-strings',
+      'extended-regexp',
+      'include=',
+      'exclude=',
+    ];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     // --help only (we don't override -h behavior)
     if (flags.has('--help')) {

@@ -1,4 +1,4 @@
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 /**
@@ -17,7 +17,10 @@ import { UnixCommandBase } from './base';
  */
 export class HeadCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { flags, values, positional } = parseArgs(args, ['-n', '-c', '--lines', '--bytes']);
+    const optstring = 'n:c:qv';
+    const longopts = ['lines=', 'bytes=', 'quiet', 'verbose', 'silent'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {
       return 'Usage: head [options] [file...]\n\nOptions:\n  -n, --lines=NUM\tshow first NUM lines (default 10)\n  -c, --bytes=NUM\tshow first NUM bytes';

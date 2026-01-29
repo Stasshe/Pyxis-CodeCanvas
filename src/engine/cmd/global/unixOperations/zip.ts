@@ -1,7 +1,7 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import JSZip from 'jszip';
 import { UnixCommandBase } from './base';
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 
 /**
  * zip - POSIX準拠（Info-ZIP互換）のZIPアーカイブ作成
@@ -27,7 +27,10 @@ import { parseArgs } from '../../lib';
 export class ZipCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
     // オプション解析
-    const { flags, positional } = parseArgs(args);
+    const optstring = 'rqvufdh';
+    const longopts = ['recurse-paths', 'quiet', 'verbose', 'update', 'freshen', 'delete', 'help'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     // ヘルプ
     if (flags.has('-h') || flags.has('--help') || positional.length === 0) {

@@ -1,4 +1,4 @@
-import { FNM_CASEFOLD, fnmatch, parseArgs } from '../../lib';
+import { FNM_CASEFOLD, fnmatch, parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 import type { ProjectFile } from '@/types';
@@ -25,7 +25,10 @@ import type { ProjectFile } from '@/types';
 export class TreeCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     // オプションパース
-    const { flags, values, positional } = parseArgs(args, ['-L', '-I', '-P']);
+    const optstring = 'adfL:I:P:';
+    const longopts = ['noreport'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     // --help サポート
     if (flags.has('--help')) {

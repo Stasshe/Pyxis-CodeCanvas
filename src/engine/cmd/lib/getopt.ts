@@ -234,66 +234,36 @@ export class GetOpt {
 }
 
 /**
- * シンプルなオプションパース（互換性のため）
- * 値を取るオプションも正しく処理
+ * Convenience wrapper around `GetOpt` used by unixOperations.
+ * Returns parsed `flags`, `values`, `positional` and any `errors`.
  */
-export function parseArgs(
+export function parseWithGetOpt(
   args: string[],
-  optionsWithValue: string[] = []
+  optstring = '',
+  longopts: string[] = []
 ): {
   flags: Set<string>;
   values: Map<string, string>;
   positional: string[];
+  errors: string[];
 } {
   const flags = new Set<string>();
   const values = new Map<string, string>();
-  const positional: string[] = [];
-  const valueOpts = new Set(optionsWithValue);
 
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
-
-    if (arg === '--') {
-      positional.push(...args.slice(i + 1));
-      break;
-    }
-
-    if (arg.startsWith('--')) {
-      const eqIndex = arg.indexOf('=');
-      if (eqIndex !== -1) {
-        const name = arg.slice(2, eqIndex);
-        values.set(`--${name}`, arg.slice(eqIndex + 1));
-      } else {
-        const name = arg.slice(2);
-        if (valueOpts.has(`--${name}`) && i + 1 < args.length) {
-          values.set(arg, args[++i]);
-        } else {
-          flags.add(arg);
-        }
-      }
-    } else if (arg.startsWith('-') && arg.length > 1) {
-      // 短いオプション
-      for (let j = 1; j < arg.length; j++) {
-        const opt = `-${arg[j]}`;
-        if (valueOpts.has(opt)) {
-          // 残りの文字または次の引数
-          if (j + 1 < arg.length) {
-            values.set(opt, arg.slice(j + 1));
-            break;
-          }
-          if (i + 1 < args.length) {
-            values.set(opt, args[++i]);
-          }
-        } else {
-          flags.add(opt);
-        }
-      }
+  const parser = new GetOpt(optstring, longopts);
+  for (const opt of parser.parse(args)) {
+    if (opt.option.length === 1) {
+      const key = `-${opt.option}`;
+      if (opt.argument !== null) values.set(key, opt.argument);
+      else flags.add(key);
     } else {
-      positional.push(arg);
+      const key = `--${opt.option}`;
+      if (opt.argument !== null) values.set(key, opt.argument);
+      else flags.add(key);
     }
-    i++;
   }
 
-  return { flags, values, positional };
+  const positional = parser.remaining();
+  const errors = parser.errors();
+  return { flags, values, positional, errors };
 }

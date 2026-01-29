@@ -1,4 +1,4 @@
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -28,7 +28,19 @@ import type { ProjectFile } from '@/types';
  */
 export class CatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { flags, positional } = parseArgs(args);
+    const optstring = 'nbsETvAet';
+    const longopts = [
+      'number',
+      'number-nonblank',
+      'squeeze-blank',
+      'show-ends',
+      'show-tabs',
+      'show-nonprinting',
+      'show-all',
+      'help',
+    ];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {
       return 'Usage: cat [options] [file...]\n\nConcatenate FILE(s) to standard output. Common options: -n, -b, -s, -E, -T';

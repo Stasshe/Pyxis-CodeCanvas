@@ -20,7 +20,7 @@ export {
 } from './fnmatch';
 
 // getopt - オプションパーサー
-export { GetOpt, parseArgs } from './getopt';
+export { GetOpt, parseWithGetOpt } from './getopt';
 export type { ParsedOption, OptionDef } from './getopt';
 
 // expr - 式評価

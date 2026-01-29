@@ -1,4 +1,4 @@
-import { parseArgs } from '../../lib/getopt';
+import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 function pad(n: number, width = 2) {
@@ -32,7 +32,10 @@ function formatZoneName(date: Date, useUTC: boolean) {
  */
 export class DateCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { flags, values, positional } = parseArgs(args, ['-d', '--date', '-I', '--iso-8601']);
+    const optstring = 'uRd:I::';
+    const longopts = ['date=', 'iso-8601::', 'utc', 'rfc-2822'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help') || flags.has('-h')) {
       return `Usage: date [OPTION]... [+FORMAT]\nDisplay or set the system date and time.\n\n  -d, --date=STRING       display time described by STRING, not 'now'\n  -u                      print or set Coordinated Universal Time (UTC)\n  -R                      output RFC 2822 compliant date\n  -I[FMT], --iso-8601[=FMT] output date in ISO 8601 format (FMT: date, hours, minutes, seconds)\n      --help               display this help and exit\nExamples:\n  date\n  date -u +"%Y-%m-%dT%H:%M:%S%z"\n`;

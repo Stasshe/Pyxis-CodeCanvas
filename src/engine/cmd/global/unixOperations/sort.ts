@@ -1,4 +1,4 @@
-import { parseArgs } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 export class SortCommand extends UnixCommandBase {
@@ -9,7 +9,10 @@ export class SortCommand extends UnixCommandBase {
   }
 
   async execute(args: string[] = []): Promise<string> {
-    const { flags, positional } = parseArgs(args);
+    const optstring = 'rnu';
+    const longopts: string[] = ['help'];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {
       return `Usage: sort [options] [file...]

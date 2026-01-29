@@ -2,7 +2,7 @@
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { UnixCommandBase } from './base';
-import { GetOpt } from '../../lib';
+import { parseWithGetOpt } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
 import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 
@@ -20,21 +20,10 @@ const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).Te
  */
 export class TarCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
-    const parser = new GetOpt('cxtvf:', ['create', 'extract', 'list', 'verbose', 'file=']);
-    const flags = new Set<string>();
-    const values = new Map<string, string>();
-    for (const opt of parser.parse(args)) {
-      if (opt.option.length === 1) {
-        const key = `-${opt.option}`;
-        flags.add(key);
-        if (opt.argument !== null) values.set(key, opt.argument);
-      } else {
-        const key = `--${opt.option}`;
-        flags.add(key);
-        if (opt.argument !== null) values.set(key, opt.argument);
-      }
-    }
-    const positional = parser.remaining();
+    const optstring = 'cxtvf:';
+    const longopts = ['create', 'extract', 'list', 'verbose', 'file='];
+    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('-h') || flags.has('--help')) {
       return this.showHelp();
