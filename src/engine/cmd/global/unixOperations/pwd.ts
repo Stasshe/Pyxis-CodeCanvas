@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 /**
  * pwd - カレントディレクトリのパスを表示
@@ -15,7 +16,8 @@ import { UnixCommandBase } from './base';
  */
 export class PwdCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options } = this.parseOptions(args);
+    const { flags: options, positional, errors } = parseWithGetOpt(args, 'LP', ['help']);
+    if (errors.length) throw new Error(errors.join('; '));
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: pwd [-L | -P]\n\nPrint the name of the current working directory.';
     }

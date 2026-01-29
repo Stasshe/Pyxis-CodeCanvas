@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -18,7 +19,8 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class TouchCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { flags: options, positional, errors: parseErrors } = parseWithGetOpt(args, 'c', ['no-create', 'help']);
+    if (parseErrors.length) throw new Error(parseErrors.join('; '));
 
     // Help flag handling
     if (options.has('--help') || options.has('-h')) {

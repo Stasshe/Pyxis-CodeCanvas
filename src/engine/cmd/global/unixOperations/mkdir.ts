@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -18,7 +19,13 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class MkdirCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { flags: options, positional, errors: parseErrors } = parseWithGetOpt(args, 'pvm', [
+      'parents',
+      'verbose',
+      'mode=',
+      'help',
+    ]);
+    if (parseErrors.length) throw new Error(parseErrors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: mkdir [OPTION]... DIRECTORY...\n\nOptions:\n  -p, --parents\tcreate parent directories as needed\n  -m, --mode\tset file mode (not fully supported)';

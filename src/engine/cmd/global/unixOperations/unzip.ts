@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
@@ -18,7 +19,9 @@ const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).Te
  */
 export class UnzipCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { flags, positional, errors } = parseWithGetOpt(args, '', ['help']);
+    if (errors.length) throw new Error(errors.join('; '));
+    const options = flags;
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: unzip ARCHIVE.zip [DEST_DIR]\nExtract files from a ZIP archive into the project.';

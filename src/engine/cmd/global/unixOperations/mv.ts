@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -22,7 +23,12 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class MvCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { flags: options, positional, errors } = parseWithGetOpt(
+      args,
+      'finv',
+      ['force', 'interactive', 'no-clobber', 'verbose', 'help']
+    );
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: mv [OPTION]... SOURCE DEST\n   or: mv [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tprompt before overwrite\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done';

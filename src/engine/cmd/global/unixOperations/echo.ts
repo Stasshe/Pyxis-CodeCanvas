@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 /**
  * echo - テキストを出力
@@ -20,7 +21,8 @@ export class EchoCommand extends UnixCommandBase {
       return '';
     }
 
-    const { options, positional } = this.parseOptions(args);
+    const { flags: options, positional, errors } = parseWithGetOpt(args, 'ne', ['help']);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: echo [string...]\n\nOptions:\n  -n\tdo not output trailing newline\n  -e\tinterpret backslash escapes';

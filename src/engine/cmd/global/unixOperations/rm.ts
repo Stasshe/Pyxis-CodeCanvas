@@ -1,4 +1,5 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -22,7 +23,11 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const optstring = 'rRfi v h'.replace(/\s+/g, '');
+    const longopts = ['recursive', 'force', 'interactive', 'verbose', 'help'];
+    const { flags, positional, errors: parseErrors } = parseWithGetOpt(args, optstring, longopts);
+    if (parseErrors.length) throw new Error(parseErrors.join('; '));
+    const options = flags;
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: rm [OPTION]... FILE...\n\nOptions:\n  -r, -R, --recursive\tremove directories and their contents recursively\n  -f, --force\t\tignore nonexistent files and arguments, never prompt\n  -i, --interactive\tprompt before every removal\n  -v, --verbose\t\texplain what is being done';

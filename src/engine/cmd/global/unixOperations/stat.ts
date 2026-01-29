@@ -1,10 +1,12 @@
 import { UnixCommandBase } from './base';
+import { parseWithGetOpt } from '../../lib';
 
 import type { ProjectFile } from '@/types';
 
 export class StatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { options, positional } = this.parseOptions(args);
+    const { flags: options, positional, errors } = parseWithGetOpt(args, '', ['help']);
+    if (errors.length) throw new Error(errors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: stat FILE\n\nDisplay file or file system status for each FILE.';

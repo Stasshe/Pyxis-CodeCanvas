@@ -420,33 +420,4 @@ export abstract class UnixCommandBase {
     const file = await this.getFileFromDB(relativePath);
     return file !== undefined && file.type === 'file';
   }
-
-  /**
-   * オプションをパース
-   * @param args - コマンドライン引数
-   * @returns パース結果 { options, positional }
-   */
-  protected parseOptions(args: string[]): { options: Set<string>; positional: string[] } {
-    const options = new Set<string>();
-    const positional: string[] = [];
-
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-
-      if (arg.startsWith('--')) {
-        // 長いオプション
-        options.add(arg);
-      } else if (arg.startsWith('-') && arg.length > 1 && arg !== '-') {
-        // 短いオプション（複数結合可能: -rf など）
-        for (let j = 1; j < arg.length; j++) {
-          options.add(`-${arg[j]}`);
-        }
-      } else {
-        // 位置引数
-        positional.push(arg);
-      }
-    }
-
-    return { options, positional };
-  }
 }

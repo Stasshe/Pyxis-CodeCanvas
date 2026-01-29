@@ -1,5 +1,5 @@
 import { UnixCommandBase } from './base';
-
+import { parseWithGetOpt } from '../../lib';
 /**
  * cd - カレントディレクトリを変更
  *
@@ -16,7 +16,7 @@ import { UnixCommandBase } from './base';
  */
 export class CdCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<{ newDir: string; message: string }> {
-    const { positional } = this.parseOptions(args);
+    const { positional } = parseWithGetOpt(args);
 
     let targetDir: string;
 
