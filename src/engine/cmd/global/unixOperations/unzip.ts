@@ -34,8 +34,13 @@ export class UnzipCommand extends UnixCommandBase {
     const destApp = pathResolve(baseApp, destTarget);
     const normalizedDest = toFSPath(this.projectName, destApp);
 
+    let spinnerStarted = false;
     try {
       let zipBuffer: ArrayBuffer | undefined = bufferContent;
+      if (this.terminalUI) {
+        await this.terminalUI.spinner.start('Unzipping archive...');
+        spinnerStarted = true;
+      }
       if (!zipBuffer) {
         // Use AppPath to fetch archive directly
         const archiveApp = pathResolve(baseApp, zipFileName);
@@ -135,6 +140,14 @@ export class UnzipCommand extends UnixCommandBase {
       // 例外時も詳細ログ
       console.error('[unzip] error:', error);
       throw new Error(`unzip: ${zipFileName}: ${(error as Error).message}`);
+    } finally {
+      if (spinnerStarted && this.terminalUI) {
+        try {
+          await this.terminalUI.spinner.stop();
+        } catch (e) {
+          console.warn('[unzip] spinner stop failed:', e);
+        }
+      }
     }
   }
 }
