@@ -40,10 +40,7 @@ export async function handleVimCommand(
     if (unixCommandsRef?.current) {
       if (!entryPath.startsWith('/')) {
         const cwd = await unixCommandsRef.current.pwd();
-        const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
-        entryPath = unixCommandsRef.current.resolveToFSPath(combined);
-      } else {
-        entryPath = unixCommandsRef.current.resolveToFSPath(entryPath);
+        entryPath = `${cwd.replace(/\/$/, '')}/${entryPath}`;
       }
     }
   } catch (e) {

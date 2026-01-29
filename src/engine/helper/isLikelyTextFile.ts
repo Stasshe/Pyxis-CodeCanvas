@@ -14,6 +14,24 @@ export async function isLikelyTextFile(path: string, content: Uint8Array): Promi
   // Empty is text
   if (content.length === 0) return true;
 
+  // Fast-path based on file extension to avoid expensive detection for common cases
+  const ext = (path || '').split('.').pop() || '';
+  const lExt = ext.toLowerCase();
+
+  const textExts = new Set([
+    'txt','md','markdown','json','js','jsx','ts','tsx','html','htm','css','scss','sass','less',
+    'xml','yml','yaml','csv','env','ini','conf','log','py','rb','go','rs','java','c','cpp','h','hpp','cs',
+    'sh','bash','zsh','ps1','bat','gradle','makefile','mk'
+  ]);
+
+  const binaryExts = new Set([
+    'png','jpg','jpeg','gif','webp','avif','ico','bmp','pdf','zip','tar','gz','tgz','bz2','7z',
+    'mp3','wav','flac','ogg','mp4','mov','mkv','exe','dll','so','class','jar','woff','woff2','ttf','otf'
+  ]);
+
+  if (lExt && textExts.has(lExt)) return true;
+  if (lExt && binaryExts.has(lExt)) return false;
+
   // file-type gives reliable mime when it recognizes the content
   const type = await fileTypeFromBuffer(content);
   if (type && type.mime) {

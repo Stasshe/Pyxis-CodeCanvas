@@ -616,7 +616,7 @@ async function runRange(
       if (parts.length === 1) {
         const a = parts[0];
         if (!/^-?\d+$/.test(a)) {
-          proc.writeStderr(`exit: ${a}: numeric argument required\n`);
+          proc.writeStderr('exit: numeric argument required\n');
           return { exit: 2 };
         }
         code = Number(a) & 0xff;
