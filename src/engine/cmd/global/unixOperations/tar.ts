@@ -142,7 +142,6 @@ export class TarCommand extends UnixCommandBase {
                 uname: 'root',
                 gname: 'root',
               },
-              '',
               (err) => {
                 if (err) reject(err);
                 else resolve();
@@ -167,7 +166,6 @@ export class TarCommand extends UnixCommandBase {
                     uname: 'root',
                     gname: 'root',
                   },
-                  '',
                   err => {
                     if (err) reject(err);
                     else resolve();
