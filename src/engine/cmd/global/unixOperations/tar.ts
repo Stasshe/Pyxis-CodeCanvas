@@ -147,6 +147,7 @@ export class TarCommand extends UnixCommandBase {
     try {
       const chunks: Uint8Array[] = [];
       let totalFiles = 0;
+      const addedPaths = new Set<string>(); // 重複チェック用
 
       const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
 
@@ -162,22 +163,31 @@ export class TarCommand extends UnixCommandBase {
         const entryName = fileAppPath.replace(/^\/+/, '');
 
         if (file.type === 'folder') {
-          // フォルダとその中身を再帰的に追加
+          // フォルダ自身を追加（重複チェック）
+          if (!addedPaths.has(entryName)) {
+            const dirHeader = this.createTarHeader(entryName, 0, true);
+            chunks.push(dirHeader);
+            addedPaths.add(entryName);
+            if (verbose) console.log(`${entryName}/`);
+            totalFiles++;
+          }
+
+          // フォルダ内のファイルを取得
           const folderFiles = await fileRepository.getFilesByPrefix(this.projectId, fileAppPath);
 
-          // フォルダ自身
-          const dirHeader = this.createTarHeader(entryName, 0, true);
-          chunks.push(dirHeader);
-          if (verbose) console.log(`${entryName}/`);
-          totalFiles++;
-
-          // フォルダ内のファイル
+          // フォルダ内のファイルを追加
           for (const child of folderFiles) {
             const childEntryName = child.path.replace(/^\/+/, '');
+
+            // 重複チェック
+            if (addedPaths.has(childEntryName)) {
+              continue;
+            }
 
             if (child.type === 'folder') {
               const childDirHeader = this.createTarHeader(childEntryName, 0, true);
               chunks.push(childDirHeader);
+              addedPaths.add(childEntryName);
               if (verbose) console.log(`${childEntryName}/`);
             } else {
               const contentBuf = child.bufferContent
@@ -194,27 +204,31 @@ export class TarCommand extends UnixCommandBase {
                 chunks.push(new Uint8Array(padding));
               }
 
+              addedPaths.add(childEntryName);
               if (verbose) console.log(childEntryName);
             }
             totalFiles++;
           }
         } else {
-          // 単一ファイル
-          const contentBuf = file.bufferContent
-            ? new Uint8Array(file.bufferContent)
-            : new TextEncoder().encode(file.content || '');
+          // 単一ファイル（重複チェック）
+          if (!addedPaths.has(entryName)) {
+            const contentBuf = file.bufferContent
+              ? new Uint8Array(file.bufferContent)
+              : new TextEncoder().encode(file.content || '');
 
-          const fileHeader = this.createTarHeader(entryName, contentBuf.length, false);
-          chunks.push(fileHeader);
-          chunks.push(contentBuf);
+            const fileHeader = this.createTarHeader(entryName, contentBuf.length, false);
+            chunks.push(fileHeader);
+            chunks.push(contentBuf);
 
-          const padding = (512 - (contentBuf.length % 512)) % 512;
-          if (padding > 0) {
-            chunks.push(new Uint8Array(padding));
+            const padding = (512 - (contentBuf.length % 512)) % 512;
+            if (padding > 0) {
+              chunks.push(new Uint8Array(padding));
+            }
+
+            addedPaths.add(entryName);
+            if (verbose) console.log(entryName);
+            totalFiles++;
           }
-
-          if (verbose) console.log(entryName);
-          totalFiles++;
         }
       }
 
@@ -287,7 +301,7 @@ export class TarCommand extends UnixCommandBase {
       const header = buf.slice(offset, offset + 512);
 
       // ゼロブロックチェック
-      if (header.every(b => b === 0)) break;
+      if (header.every((b: number) => b === 0)) break;
 
       const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
       const sizeStr = decoder.decode(header.slice(124, 136)).replace(/\0.*$/, '').trim();
@@ -349,7 +363,7 @@ export class TarCommand extends UnixCommandBase {
       while (offset + 512 <= buf.length) {
         const header = buf.slice(offset, offset + 512);
 
-        if (header.every(b => b === 0)) break;
+        if (header.every((b: number) => b === 0)) break;
 
         const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
         const typeFlag = String.fromCharCode(header[156]);
@@ -366,13 +380,40 @@ export class TarCommand extends UnixCommandBase {
             entries.push({ path: entryPath, content: '', type: 'folder' });
           } else {
             const contentBuf = buf.slice(offset, offset + size);
-            entries.push({
-              path: entryPath,
-              content: '',
-              type: 'file',
-              isBufferArray: true,
-              bufferContent: contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length),
-            });
+            
+            // テキストファイルかバイナリファイルかを判定
+            const isTextFile = this.isLikelyTextFile(entryPath, contentBuf);
+            
+            if (isTextFile) {
+              // テキストファイルとして展開
+              try {
+                const textContent = decoder.decode(contentBuf);
+                entries.push({
+                  path: entryPath,
+                  content: textContent,
+                  type: 'file',
+                  isBufferArray: false,
+                });
+              } catch (e) {
+                // デコード失敗時はバイナリとして扱う
+                entries.push({
+                  path: entryPath,
+                  content: '',
+                  type: 'file',
+                  isBufferArray: true,
+                  bufferContent: contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length),
+                });
+              }
+            } else {
+              // バイナリファイルとして展開
+              entries.push({
+                path: entryPath,
+                content: '',
+                type: 'file',
+                isBufferArray: true,
+                bufferContent: contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length),
+              });
+            }
 
             const padding = (512 - (size % 512)) % 512;
             offset += size + padding;
@@ -398,6 +439,97 @@ export class TarCommand extends UnixCommandBase {
         await this.terminalUI.spinner.error(`Extract failed: ${err?.message || String(err)}`);
       }
       throw err;
+    }
+  }
+
+  /**
+   * ファイルがテキストファイルかどうかを判定
+   * 拡張子とバイト内容の両方で判定（POSIX準拠）
+   */
+  private isLikelyTextFile(path: string, content: Uint8Array): boolean {
+    // テキストファイルの一般的な拡張子
+    const textExtensions = [
+      '.txt', '.md', '.markdown', '.rst',
+      '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.conf', '.cfg',
+      '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+      '.html', '.htm', '.xhtml', '.svg',
+      '.css', '.scss', '.sass', '.less', '.styl',
+      '.sh', '.bash', '.zsh', '.fish', '.ksh', '.csh',
+      '.py', '.rb', '.php', '.java', '.c', '.cpp', '.cc', '.cxx', '.h', '.hpp',
+      '.rs', '.go', '.swift', '.kt', '.kts', '.scala', '.groovy',
+      '.sql', '.graphql', '.proto',
+      '.vim', '.el', '.lisp', '.clj', '.cljs',
+      '.r', '.R', '.m', '.matlab',
+      '.tex', '.latex',
+      '.gitignore', '.gitattributes', '.gitmodules', '.editorconfig',
+      '.env', '.envrc', '.env.example',
+      '.npmrc', '.yarnrc', '.babelrc', '.eslintrc', '.prettierrc',
+    ];
+
+    const lowerPath = path.toLowerCase();
+    
+    // 拡張子チェック
+    if (textExtensions.some(ext => lowerPath.endsWith(ext))) {
+      return true;
+    }
+
+    // ファイル名チェック（拡張子なし）
+    const fileName = path.split('/').pop() || '';
+    const textFileNames = [
+      'Dockerfile', 'Containerfile', 'Makefile', 'GNUmakefile', 'makefile',
+      'README', 'LICENSE', 'COPYING', 'AUTHORS', 'CONTRIBUTORS',
+      'CHANGELOG', 'CHANGES', 'HISTORY', 'NEWS',
+      'TODO', 'NOTICE', 'THANKS',
+      'Gemfile', 'Rakefile', 'Podfile', 'Brewfile',
+      'Vagrantfile', 'Procfile',
+    ];
+    
+    if (textFileNames.includes(fileName)) {
+      return true;
+    }
+
+    // dotfileチェック（隠しファイル）
+    if (fileName.startsWith('.') && !fileName.includes('.')) {
+      return true;
+    }
+
+    // バイト内容チェック: null文字やバイナリ文字が含まれていないか
+    // 最初の8KBをサンプリング（POSIX `file` コマンドの挙動に準拠）
+    const sampleSize = Math.min(8192, content.length);
+    let nullCount = 0;
+    let nonTextCount = 0;
+    
+    for (let i = 0; i < sampleSize; i++) {
+      const byte = content[i];
+      
+      // null文字
+      if (byte === 0) {
+        nullCount++;
+        // nullが1つでもあればバイナリと判定
+        if (nullCount > 0) {
+          return false;
+        }
+      }
+      
+      // 非ASCII制御文字（タブ、改行、復帰、Form Feed、ESCを除く）
+      if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13 && byte !== 12 && byte !== 27) {
+        nonTextCount++;
+      }
+      
+      // 非テキスト文字が多い場合はバイナリ
+      if (nonTextCount > sampleSize * 0.05) {
+        return false;
+      }
+    }
+
+    // UTF-8として有効かチェック
+    try {
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      decoder.decode(content.slice(0, sampleSize));
+      return true;
+    } catch (e) {
+      // UTF-8デコード失敗 → バイナリ
+      return false;
     }
   }
 

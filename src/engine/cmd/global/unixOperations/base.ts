@@ -19,6 +19,7 @@ import type { ProjectFile } from '@/types';
  * - DB操作: AppPath形式（/src/hello.ts）
  */
 import type TerminalUI from '@/engine/cmd/terminalUI';
+import { parseArgs } from '../../lib';
 
 export abstract class UnixCommandBase {
   protected _currentDir: string;
@@ -453,24 +454,13 @@ export abstract class UnixCommandBase {
    * @returns パース結果 { options, positional }
    */
   protected parseOptions(args: string[]): { options: Set<string>; positional: string[] } {
-    const options = new Set<string>();
-    const positional: string[] = [];
+    // 利用可能な共通パーサを使ってフラグ/値/位置引数を取得
+    const { flags, values, positional } = parseArgs(args);
 
-    for (let i = 0; i < args.length; i++) {
-      const arg = args[i];
-
-      if (arg.startsWith('--')) {
-        // 長いオプション
-        options.add(arg);
-      } else if (arg.startsWith('-') && arg.length > 1 && arg !== '-') {
-        // 短いオプション（複数結合可能: -rf など）
-        for (let j = 1; j < arg.length; j++) {
-          options.add(`-${arg[j]}`);
-        }
-      } else {
-        // 位置引数
-        positional.push(arg);
-      }
+    // 既存のコードと互換性を保つため、optionsセットにはフラグと値付きオプションのキーを含める
+    const options = new Set<string>([...flags]);
+    for (const k of values.keys()) {
+      options.add(k);
     }
 
     return { options, positional };
