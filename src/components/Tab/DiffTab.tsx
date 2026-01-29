@@ -8,7 +8,6 @@ import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { isBufferArray } from '@/engine/helper/isBufferArray';
 
 interface SingleFileDiff {
   formerFullPath: string;
@@ -131,27 +130,6 @@ const DiffTab: React.FC<DiffTabProps> = ({
 
   // 編集リスナの参照を保持（cleanupのため）
   const listenersRef = useRef<Map<number, any>>(new Map());
-
-  // 簡易バイナリ判定: NULバイトや制御文字の割合が高ければバイナリと見なす
-  const isBinaryContent = (content: any) => {
-    if (!content) return false;
-    // まずバイナリ配列判定ユーティリティを利用
-    try {
-      if (isBufferArray(content)) return true;
-    } catch (e) {
-      // ignore
-    }
-
-    // 文字列は常にテキストとして扱う（日本語や他言語が含まれていてもバイナリ誤判定しない）
-    // バッファやArrayBuffer等のバイナリ型は上で isBufferArray により判定されるため、
-    // ここでは string 型は例外なくテキスト扱いとする。
-    if (typeof content === 'string') {
-      return false;
-    }
-
-    // その他の型（オブジェクトなど）はバイナリ扱いしない
-    return false;
-  };
 
   // DiffEditorマウント時のハンドラ
   const handleDiffEditorMount = (
@@ -341,58 +319,26 @@ const DiffTab: React.FC<DiffTabProps> = ({
                     : { height: 500, minHeight: 0 }
                 }
               >
-                {(() => {
-                  const formerBinary = isBinaryContent(diff.formerContent);
-                  const latterBinary = isBinaryContent(diff.latterContent);
-                  const isBinary = formerBinary || latterBinary;
-                  if (isBinary) {
-                    return (
-                      <div
-                        style={{
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: '#1f2328',
-                          color: '#ccc',
-                          fontSize: 13,
-                        }}
-                      >
-                        <div style={{ padding: 12, textAlign: 'center' }}>
-                          <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
-                            {t('diffTab.binaryFile') || 'バイナリファイルは表示できません'}
-                          </div>
-                          <div style={{ color: '#999', fontSize: 12 }}>
-                            {diff.latterFullPath || diff.formerFullPath}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <DiffEditor
-                      width="100%"
-                      height="100%"
-                      language={getLanguage(diff.latterFullPath || diff.formerFullPath)}
-                      original={diff.formerContent}
-                      modified={diff.latterContent}
-                      theme="pyxis-custom"
-                      onMount={(editor, monaco) => handleDiffEditorMount(editor, monaco, idx)}
-                      options={{
-                        renderSideBySide: true,
-                        // 単一ファイルのdiffかつeditableがtrueの場合のみ編集可能
-                        readOnly: !(editable && diffs.length === 1),
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        fontSize: 14,
-                        wordWrap: wordWrapConfig,
-                        lineNumbers: 'on',
-                        automaticLayout: true,
-                      }}
-                    />
-                  );
-                })()}
+                <DiffEditor
+                  width="100%"
+                  height="100%"
+                  language={getLanguage(diff.latterFullPath || diff.formerFullPath)}
+                  original={diff.formerContent}
+                  modified={diff.latterContent}
+                  theme="pyxis-custom"
+                  onMount={(editor, monaco) => handleDiffEditorMount(editor, monaco, idx)}
+                  options={{
+                    renderSideBySide: true,
+                    // 単一ファイルのdiffかつeditableがtrueの場合のみ編集可能
+                    readOnly: !(editable && diffs.length === 1),
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 14,
+                    wordWrap: wordWrapConfig,
+                    lineNumbers: 'on',
+                    automaticLayout: true,
+                  }}
+                />
               </div>
             </div>
           );
