@@ -59,21 +59,45 @@ export class TarCommand extends UnixCommandBase {
       throw new Error('tar: Option -f is required');
     }
 
-    } catch (e) {
-      // file-type not available; fall back to heuristics below
+    // Dispatch to the selected operation
+    if (create) {
+      const files = positional.length > 0 ? positional : [];
+      return await this.createArchive(archiveName, files, verbose);
+    } else if (list) {
+      return await this.listArchive(archiveName, verbose);
+    } else if (extract) {
+      return await this.extractArchive(archiveName, verbose);
     }
-    // ヘルパー: 8進数を指定位置に書き込み（NULまたはスペース終端）
+
+    // Should be unreachable due to validation above, but keep a guard
+    throw new Error('tar: Unhandled operation');
+  }
+
+  /**
+   * Create a 512-byte tar header for a single entry
+   */
+  private createTarHeader(name: string, size: number, isDir: boolean): Uint8Array {
+    const header = new Uint8Array(512);
+    const encoder = new TextEncoder();
+
+    const writeString = (str: string, offset: number, length: number) => {
+      const bytes = encoder.encode(str);
+      const len = Math.min(bytes.length, length);
+      header.set(bytes.slice(0, len), offset);
+      if (len < length) header[offset + len] = 0;
+    };
+
     const writeOctal = (value: number, offset: number, length: number, terminator: number = 0) => {
       const octal = value.toString(8).padStart(length - 1, '0');
       writeString(octal, offset, length - 1);
       header[offset + length - 1] = terminator;
     };
 
-    // ファイル名 (0-99)
+    // File name (0-99)
     const nameToWrite = isDir && !name.endsWith('/') ? `${name}/` : name;
     writeString(nameToWrite, 0, 100);
 
-    // モード (100-107)
+    // Mode (100-107)
     writeOctal(isDir ? 0o755 : 0o644, 100, 8);
 
     // UID (108-115)
@@ -82,18 +106,17 @@ export class TarCommand extends UnixCommandBase {
     // GID (116-123)
     writeOctal(0, 116, 8);
 
-    // サイズ (124-135)
+    // Size (124-135)
     writeOctal(size, 124, 12);
 
-    // 更新時刻 (136-147)
+    // Mtime (136-147)
+    const now = Math.floor(Date.now() / 1000);
     writeOctal(now, 136, 12);
 
-    // チェックサム (148-155) - 一旦スペースで埋める
-    for (let i = 148; i < 156; i++) {
-      header[i] = 32; // スペース
-    }
+    // Checksum (148-155) - fill with spaces
+    for (let i = 148; i < 156; i++) header[i] = 32; // space
 
-    // タイプフラグ (156)
+    // Typeflag (156)
     header[156] = isDir ? 53 : 48; // '5' or '0'
 
     // USTAR indicator (257-262)
@@ -101,21 +124,19 @@ export class TarCommand extends UnixCommandBase {
     header[263] = 48; // '0'
     header[264] = 48; // '0'
 
-    // ユーザー名 (265-296)
+    // Username (265-296)
     writeString('root', 265, 32);
 
-    // グループ名 (297-328)
+    // Groupname (297-328)
     writeString('root', 297, 32);
 
-    // チェックサム計算
+    // Calculate checksum
     let checksum = 0;
-    for (let i = 0; i < 512; i++) {
-      checksum += header[i];
-    }
+    for (let i = 0; i < 512; i++) checksum += header[i];
 
-    // チェックサムを書き込み (148-155)
+    // Write checksum (148-155)
     writeOctal(checksum, 148, 7);
-    header[155] = 32; // スペース
+    header[155] = 32; // space
 
     return header;
   }
