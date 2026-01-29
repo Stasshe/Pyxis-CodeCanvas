@@ -1,54 +1,27 @@
 // src/engine/cmd/global/unixOperations/tar.ts
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import * as tar from 'tar-stream';
 import { UnixCommandBase } from './base';
 import { parseArgs } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
+import { TextEncoder, TextDecoder } from 'util';
 
 /**
- * tarエントリ名を正規化（先頭スラッシュ除去、空文字列は'.'に変換）
- */
-function normalizeTarEntryName(p: string): string {
-  const normalized = p.replace(/^\/+/, '');
-  return normalized || '.';
-}
-
-/**
- * tar - POSIX準拠のtarアーカイブ作成/一覧/展開
- * 
- * Usage:
- *   tar -c -f archive.tar file1 file2 ...  # 作成
- *   tar -t -f archive.tar                  # 一覧表示
- *   tar -x -f archive.tar                  # 展開
- *   tar -czf archive.tar.gz file1 ...      # gzip圧縮付き作成（-zは将来対応）
- * 
- * Options:
- *   -c, --create    アーカイブを作成
- *   -x, --extract   アーカイブを展開
- *   -t, --list      アーカイブの内容を一覧表示
- *   -f FILE         アーカイブファイル名を指定（必須）
- *   -v, --verbose   詳細表示
- *   -h, --help      ヘルプ表示
+ * tar - POSIX準拠のtarアーカイブ作成/一覧/展開（ネイティブ実装）
  */
 export class TarCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
-    console.log('[TarCommand] execute called', { args });
-    // オプション解析
     const { flags, values, positional } = parseArgs(args, ['-f', '--file']);
 
-    // ヘルプ
     if (flags.has('-h') || flags.has('--help')) {
       return this.showHelp();
     }
 
-    // モード判定
     const create = flags.has('-c') || flags.has('--create');
     const extract = flags.has('-x') || flags.has('--extract');
     const list = flags.has('-t') || flags.has('--list');
     const verbose = flags.has('-v') || flags.has('--verbose');
 
-    // モードは1つだけ
     const modeCount = [create, extract, list].filter(Boolean).length;
     if (modeCount === 0) {
       throw new Error('tar: You must specify one of -c, -t, or -x');
@@ -57,7 +30,6 @@ export class TarCommand extends UnixCommandBase {
       throw new Error('tar: Cannot specify multiple modes (-c/-t/-x)');
     }
 
-    // アーカイブファイル名取得（-f必須）
     const archiveName = values.get('-f') || values.get('--file');
     if (!archiveName) {
       throw new Error('tar: Option -f is required');
@@ -75,7 +47,81 @@ export class TarCommand extends UnixCommandBase {
   }
 
   /**
-   * アーカイブ作成
+   * tarヘッダーを生成（POSIX ustar形式、512バイト）
+   */
+  private createTarHeader(name: string, size: number, isDir: boolean): Uint8Array {
+    const header = new Uint8Array(512);
+    const encoder = new TextEncoder();
+    const now = Math.floor(Date.now() / 1000);
+
+    // ヘルパー: 文字列を指定位置に書き込み
+    const writeString = (str: string, offset: number, length: number) => {
+      const bytes = encoder.encode(str);
+      for (let i = 0; i < Math.min(bytes.length, length); i++) {
+        header[offset + i] = bytes[i];
+      }
+    };
+
+    // ヘルパー: 8進数を指定位置に書き込み（NULまたはスペース終端）
+    const writeOctal = (value: number, offset: number, length: number, terminator: number = 0) => {
+      const octal = value.toString(8).padStart(length - 1, '0');
+      writeString(octal, offset, length - 1);
+      header[offset + length - 1] = terminator;
+    };
+
+    // ファイル名 (0-99)
+    const nameToWrite = isDir && !name.endsWith('/') ? `${name}/` : name;
+    writeString(nameToWrite, 0, 100);
+
+    // モード (100-107)
+    writeOctal(isDir ? 0o755 : 0o644, 100, 8);
+
+    // UID (108-115)
+    writeOctal(0, 108, 8);
+
+    // GID (116-123)
+    writeOctal(0, 116, 8);
+
+    // サイズ (124-135)
+    writeOctal(size, 124, 12);
+
+    // 更新時刻 (136-147)
+    writeOctal(now, 136, 12);
+
+    // チェックサム (148-155) - 一旦スペースで埋める
+    for (let i = 148; i < 156; i++) {
+      header[i] = 32; // スペース
+    }
+
+    // タイプフラグ (156)
+    header[156] = isDir ? 53 : 48; // '5' or '0'
+
+    // USTAR indicator (257-262)
+    writeString('ustar', 257, 6);
+    header[263] = 48; // '0'
+    header[264] = 48; // '0'
+
+    // ユーザー名 (265-296)
+    writeString('root', 265, 32);
+
+    // グループ名 (297-328)
+    writeString('root', 297, 32);
+
+    // チェックサム計算
+    let checksum = 0;
+    for (let i = 0; i < 512; i++) {
+      checksum += header[i];
+    }
+
+    // チェックサムを書き込み (148-155)
+    writeOctal(checksum, 148, 7);
+    header[155] = 32; // スペース
+
+    return header;
+  }
+
+  /**
+   * アーカイブ作成（ネイティブ実装）
    */
   private async createArchive(
     archiveName: string,
@@ -91,227 +137,116 @@ export class TarCommand extends UnixCommandBase {
     }
 
     try {
-      const pack = tar.pack();
-      const chunks: Buffer[] = [];
+      const chunks: Uint8Array[] = [];
+      let totalFiles = 0;
 
-      // ストリームからデータ収集を開始
-      pack.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
-
-      const packFinished = new Promise<void>((resolve, reject) => {
-        // tar-stream pack can emit either 'finish' or 'end' depending on stream state/environment.
-        // Listen for both to avoid hangs where only one is emitted.
-        const onEnd = () => {
-          console.log('[TarCommand] pack emitted end');
-          cleanup();
-          resolve();
-        };
-        const onFinish = () => {
-          console.log('[TarCommand] pack emitted finish');
-          cleanup();
-          resolve();
-        };
-        const onError = (err: Error) => {
-          console.error('[TarCommand] pack emitted error', err);
-          cleanup();
-          reject(err);
-        };
-
-        const cleanup = () => {
-          pack.removeListener('end', onEnd);
-          pack.removeListener('finish', onFinish);
-          pack.removeListener('error', onError);
-        };
-
-        pack.on('end', onEnd);
-        pack.on('finish', onFinish);
-        pack.on('error', onError);
-      });
-
-      let addedCount = 0;
-      const now = new Date();
-
-      console.log('[TarCommand] createArchive start', { archiveName, files });
-
-      // ファイルを順次追加
       const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
 
       for (const fileName of files) {
-        console.log('[TarCommand] processing fileName', fileName);
-        // パス解決: AppPath ベースから解決
         const fileAppPath = pathResolve(baseApp, fileName);
-        console.log('[TarCommand] resolved fileAppPath', fileAppPath);
-
         const file = await this.getFileFromDB(fileAppPath);
-        console.log('[TarCommand] getFileFromDB returned', file ? { path: file.path, type: file.type } : null);
 
         if (!file) {
           throw new Error(`tar: ${fileName}: Cannot stat: No such file or directory`);
         }
 
-        // アーカイブ内のパス名は AppPath から先頭スラッシュを除去して格納
-        // CRITICAL: tar-streamに渡す前に必ずスラッシュを除去すること
-        const entryName = normalizeTarEntryName(fileAppPath);
+        // tar内のパス名（先頭スラッシュなし）
+        const entryName = fileAppPath.replace(/^\/+/, '');
 
         if (file.type === 'folder') {
-          // フォルダの場合は再帰的に中身を取得して追加する
-          const folderPrefix = fileAppPath; // AppPath 形式
-          const children = await fileRepository.getFilesByPrefix(this.projectId, folderPrefix);
+          // フォルダとその中身を再帰的に追加
+          const folderFiles = await fileRepository.getFilesByPrefix(this.projectId, fileAppPath);
 
-          // 先にディレクトリエントリ自身を追加
-          await new Promise<void>((resolve, reject) => {
-            const dirName = entryName.endsWith('/') ? entryName : `${entryName}/`;
-            pack.entry(
-              {
-                name: dirName,
-                type: 'directory',
-                mode: 0o755,
-                uid: 0,
-                gid: 0,
-                mtime: now,
-                uname: 'root',
-                gname: 'root',
-              },
-              (err) => {
-                if (err) reject(err);
-                else resolve();
-              }
-            );
-          });
+          // フォルダ自身
+          const dirHeader = this.createTarHeader(entryName, 0, true);
+          chunks.push(dirHeader);
+          if (verbose) console.log(`${entryName}/`);
+          totalFiles++;
 
-          for (const child of children) {
-            let childEntryName = normalizeTarEntryName(child.path);
+          // フォルダ内のファイル
+          for (const child of folderFiles) {
+            const childEntryName = child.path.replace(/^\/+/, '');
 
             if (child.type === 'folder') {
-              const childDirName = childEntryName.endsWith('/') ? childEntryName : `${childEntryName}/`;
-              await new Promise<void>((resolve, reject) => {
-                pack.entry(
-                  {
-                    name: childDirName,
-                    type: 'directory',
-                    mode: 0o755,
-                    uid: 0,
-                    gid: 0,
-                    mtime: now,
-                    uname: 'root',
-                    gname: 'root',
-                  },
-                  err => {
-                    if (err) reject(err);
-                    else resolve();
-                  }
-                );
-              });
-              if (verbose) console.log(`${childDirName}`);
+              const childDirHeader = this.createTarHeader(childEntryName, 0, true);
+              chunks.push(childDirHeader);
+              if (verbose) console.log(`${childEntryName}/`);
             } else {
               const contentBuf = child.bufferContent
-                ? Buffer.from(child.bufferContent as ArrayBuffer)
-                : Buffer.from(child.content || '', 'utf8');
+                ? new Uint8Array(child.bufferContent)
+                : new TextEncoder().encode(child.content || '');
 
-              await new Promise<void>((resolve, reject) => {
-                console.log('[TarCommand] calling pack.entry for child', childEntryName);
-                pack.entry(
-                  {
-                    name: childEntryName,
-                    type: 'file',
-                    size: contentBuf.length,
-                    mode: 0o644,
-                    uid: 0,
-                    gid: 0,
-                    mtime: now,
-                    uname: 'root',
-                    gname: 'root',
-                  },
-                  contentBuf,
-                  err => {
-                    console.log('[TarCommand] pack.entry callback for child', childEntryName, err ? { err: err.message } : { ok: true });
-                    if (err) reject(err);
-                    else resolve();
-                  }
-                );
-              });
+              const fileHeader = this.createTarHeader(childEntryName, contentBuf.length, false);
+              chunks.push(fileHeader);
+              chunks.push(contentBuf);
+
+              // 512バイト境界にパディング
+              const padding = (512 - (contentBuf.length % 512)) % 512;
+              if (padding > 0) {
+                chunks.push(new Uint8Array(padding));
+              }
 
               if (verbose) console.log(childEntryName);
             }
-            addedCount++;
+            totalFiles++;
           }
         } else {
-          // ファイルエントリ
+          // 単一ファイル
           const contentBuf = file.bufferContent
-            ? Buffer.from(file.bufferContent)
-            : Buffer.from(file.content || '', 'utf8');
+            ? new Uint8Array(file.bufferContent)
+            : new TextEncoder().encode(file.content || '');
 
-          await new Promise<void>((resolve, reject) => {
-            console.log('[TarCommand] calling pack.entry for file', entryName);
-            pack.entry(
-              {
-                name: entryName,
-                type: 'file',
-                size: contentBuf.length,
-                mode: 0o644,
-                uid: 0,
-                gid: 0,
-                mtime: now,
-                uname: 'root',
-                gname: 'root',
-              },
-              contentBuf,
-              (err) => {
-                console.log('[TarCommand] pack.entry callback for file', entryName, err ? { err: err.message } : { ok: true });
-                if (err) reject(err);
-                else resolve();
-              }
-            );
-          });
+          const fileHeader = this.createTarHeader(entryName, contentBuf.length, false);
+          chunks.push(fileHeader);
+          chunks.push(contentBuf);
 
-          if (verbose) {
-            console.log(entryName);
+          const padding = (512 - (contentBuf.length % 512)) % 512;
+          if (padding > 0) {
+            chunks.push(new Uint8Array(padding));
           }
-        }
 
-        addedCount++;
+          if (verbose) console.log(entryName);
+          totalFiles++;
+        }
       }
 
-      if (addedCount === 0) {
+      if (totalFiles === 0) {
         throw new Error('tar: Cowardly refusing to create an empty archive');
       }
 
-      // アーカイブを確定
-      console.log('[TarCommand] finalizing pack');
-      pack.finalize();
+      // 終端マーカー（1024バイトのゼロ）
+      chunks.push(new Uint8Array(1024));
 
-      // ストリーム終了を待つ
-      console.log('[TarCommand] waiting for pack to finish...');
-      await packFinished;
-      console.log('[TarCommand] pack finished promise resolved');
-
-      // バッファを結合
-      const tarBuffer = Buffer.concat(chunks);
+      // すべてのチャンクを結合
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const tarBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        tarBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
 
       console.log(`[TarCommand] Created tar buffer: ${tarBuffer.length} bytes`);
-      console.log(`[TarCommand] First 100 bytes:`, tarBuffer.slice(0, 100));
+      console.log(`[TarCommand] First 512 bytes:`, tarBuffer.slice(0, 512));
 
-      // ArrayBuffer を正確な長さで作成
-      const archiveArrayBuffer = tarBuffer.buffer.slice(
-        tarBuffer.byteOffset,
-        tarBuffer.byteOffset + tarBuffer.length
-      );
+      // ArrayBufferに変換
+      const archiveArrayBuffer = tarBuffer.buffer;
 
-      console.log(`[TarCommand] ArrayBuffer size: ${archiveArrayBuffer.byteLength} bytes`);
-
-      // アーカイブを保存（AppPath形式で）
       const archiveAppPath = pathResolve(baseApp, archiveName);
-
-      console.log(`[TarCommand] Saving to: ${archiveAppPath}`);
-
-      await fileRepository.createFile(this.projectId, archiveAppPath, '', 'file', true, archiveArrayBuffer);
+      await fileRepository.createFile(
+        this.projectId,
+        archiveAppPath,
+        '',
+        'file',
+        true,
+        archiveArrayBuffer
+      );
 
       if (this.terminalUI) {
         await this.terminalUI.spinner.success('Archive created successfully');
       }
 
-      return verbose ? '' : `Created ${archiveName}`;
+      return verbose ? '' : `Created ${archiveName} (${totalFiles} files)`;
     } catch (err: any) {
       if (this.terminalUI) {
         await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
@@ -333,32 +268,40 @@ export class TarCommand extends UnixCommandBase {
     }
 
     const buf = file.bufferContent
-      ? file.bufferContent
-      : new TextEncoder().encode(file.content || '').buffer;
+      ? new Uint8Array(file.bufferContent)
+      : new TextEncoder().encode(file.content || '');
 
-    const extract = tar.extract();
     const entries: string[] = [];
+    let offset = 0;
+    const decoder = new TextDecoder();
 
-    extract.on('entry', (header, stream, next) => {
-      if (verbose) {
-        // -v: 詳細表示（権限、サイズ、日付、名前）
-        const mode = header.mode ? header.mode.toString(8).padStart(4, '0') : '0644';
-        const size = (header.size || 0).toString().padStart(8);
-        const date = header.mtime ? new Date(header.mtime).toISOString().split('T')[0] : '1970-01-01';
-        entries.push(`-rw-r--r-- 0/0 ${size} ${date} ${header.name}`);
-      } else {
-        entries.push(header.name);
+    while (offset + 512 <= buf.length) {
+      const header = buf.slice(offset, offset + 512);
+
+      // ゼロブロックチェック
+      if (header.every(b => b === 0)) break;
+
+      const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
+      const sizeStr = decoder.decode(header.slice(124, 136)).replace(/\0.*$/, '').trim();
+      const size = parseInt(sizeStr, 8) || 0;
+
+      if (name) {
+        if (verbose) {
+          const mtimeStr = decoder.decode(header.slice(136, 148)).trim();
+          const mtime = parseInt(mtimeStr, 8) || 0;
+          const date = new Date(mtime * 1000).toISOString().split('T')[0];
+          entries.push(`-rw-r--r-- 0/0 ${size.toString().padStart(8)} ${date} ${name}`);
+        } else {
+          entries.push(name);
+        }
       }
 
-      stream.on('end', () => next());
-      stream.resume();
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      extract.on('finish', () => resolve());
-      extract.on('error', (err: any) => reject(err));
-      extract.end(Buffer.from(buf));
-    });
+      offset += 512;
+      if (size > 0) {
+        const padding = (512 - (size % 512)) % 512;
+        offset += size + padding;
+      }
+    }
 
     return entries.join('\n');
   }
@@ -381,72 +324,64 @@ export class TarCommand extends UnixCommandBase {
       }
 
       const buf = file.bufferContent
-        ? file.bufferContent
-        : new TextEncoder().encode(file.content || '').buffer;
+        ? new Uint8Array(file.bufferContent)
+        : new TextEncoder().encode(file.content || '');
 
-      const extract = tar.extract();
-      type TarEntry = {
+      const entries: Array<{
         path: string;
         content: string;
         type: 'file' | 'folder';
         isBufferArray?: boolean;
         bufferContent?: ArrayBuffer;
-      };
-      const entries: TarEntry[] = [];
-      const extractedNames: string[] = [];
+      }> = [];
 
-      extract.on('entry', (header, stream, next) => {
-        // パス名を正規化（先頭にスラッシュを付与）
-        const name = header.name.replace(/\/$/, '');
-        const entryPath = name.startsWith('/') ? name : `/${name}`;
+      let offset = 0;
+      const decoder = new TextDecoder();
 
-        if (header.type === 'directory' || header.name.endsWith('/')) {
-          entries.push({ path: entryPath, content: '', type: 'folder' });
-          extractedNames.push(`${header.name}`);
-          stream.resume();
-          next();
-          return;
+      while (offset + 512 <= buf.length) {
+        const header = buf.slice(offset, offset + 512);
+
+        if (header.every(b => b === 0)) break;
+
+        const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
+        const typeFlag = String.fromCharCode(header[156]);
+        const sizeStr = decoder.decode(header.slice(124, 136)).trim();
+        const size = parseInt(sizeStr, 8) || 0;
+
+        if (name) {
+          const entryPath = name.startsWith('/') ? name.replace(/\/$/, '') : `/${name.replace(/\/$/, '')}`;
+          const isDir = typeFlag === '5' || name.endsWith('/');
+
+          offset += 512;
+
+          if (isDir) {
+            entries.push({ path: entryPath, content: '', type: 'folder' });
+          } else {
+            const contentBuf = buf.slice(offset, offset + size);
+            entries.push({
+              path: entryPath,
+              content: '',
+              type: 'file',
+              isBufferArray: true,
+              bufferContent: contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length),
+            });
+
+            const padding = (512 - (size % 512)) % 512;
+            offset += size + padding;
+          }
+
+          if (verbose) console.log(name);
+        } else {
+          offset += 512;
         }
+      }
 
-        const chunks: Buffer[] = [];
-        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-        stream.on('end', () => {
-          const fileBuf = Buffer.concat(chunks);
-          // 正確な長さの ArrayBuffer を作る
-          const fileArrayBuffer = fileBuf.buffer.slice(
-            fileBuf.byteOffset,
-            fileBuf.byteOffset + fileBuf.length
-          );
-
-          entries.push({
-            path: entryPath,
-            content: '',
-            type: 'file',
-            isBufferArray: true,
-            bufferContent: fileArrayBuffer,
-          });
-          extractedNames.push(header.name);
-          next();
-        });
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        extract.on('finish', () => resolve());
-        extract.on('error', (err: any) => reject(err));
-        extract.end(Buffer.from(buf));
-      });
-
-      // 一括書き込み
       if (entries.length > 0) {
         await fileRepository.createFilesBulk(this.projectId, entries);
       }
 
       if (this.terminalUI) {
         await this.terminalUI.spinner.success('Archive extracted successfully');
-      }
-
-      if (verbose) {
-        return extractedNames.join('\n');
       }
 
       return `Extracted ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`;
