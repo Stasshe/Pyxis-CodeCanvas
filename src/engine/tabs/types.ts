@@ -235,6 +235,24 @@ export interface TabFileInfo {
 }
 
 /**
+ * セッション復元コンテキスト
+ * restoreContent で利用可能な情報
+ */
+export interface SessionRestoreContext {
+  /** プロジェクトファイル一覧 */
+  projectFiles: readonly { path?: string; content?: string; bufferContent?: ArrayBuffer }[];
+  /** fileRepository インスタンス（動的インポートで取得される） */
+  fileRepository?: {
+    getFileByPath: (
+      projectId: string,
+      path: string
+    ) => Promise<{ content?: string; bufferContent?: ArrayBuffer } | null>;
+  };
+  /** 現在のプロジェクトID */
+  projectId?: string;
+}
+
+/**
  * タブタイプの定義
  */
 export interface TabTypeDefinition {
@@ -262,6 +280,31 @@ export interface TabTypeDefinition {
    * @returns ファイルパス、同期不要の場合はundefined
    */
   getContentPath?: (tab: Tab) => string | undefined;
+  /**
+   * セッション保存時にタブをシリアライズする
+   * - コンテンツやバイナリなど、ファイルから復元可能なデータは除外すべき
+   * - 復元に必要なメタデータ（diffs, suggestedContent等）は保持すべき
+   * - 未実装の場合、デフォルト動作（content, bufferContent を除外）が適用される
+   * @param tab シリアライズ対象のタブ
+   * @returns シリアライズされたタブ（保存用）
+   */
+  serializeForSession?: (tab: Tab) => Tab;
+  /**
+   * セッション復元時にタブのコンテンツを復元する
+   * - ファイルベースのタブはfileRepositoryから復元
+   * - 自己完結型タブ（diff, ai等）はシリアライズされたデータから復元
+   * - 未実装かつneedsContentRestore=trueの場合、デフォルトでファイルから復元を試みる
+   * @param tab 復元対象のタブ
+   * @param context 復元コンテキスト（projectFiles, fileRepository等）
+   * @returns 復元されたタブ（needsContentRestore=falseに設定される）
+   */
+  restoreContent?: (tab: Tab, context: SessionRestoreContext) => Promise<Tab>;
+  /**
+   * このタブタイプがセッション復元を必要とするかどうか
+   * - false: welcome, settings など復元不要なタブ
+   * - true または未定義: 復元が必要（デフォルト）
+   */
+  needsSessionRestore?: boolean;
 }
 
 /**

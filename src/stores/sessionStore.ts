@@ -9,7 +9,8 @@
  */
 
 import { STORES, storageService } from '@/engine/storage';
-import type { EditorPane } from '@/engine/tabs/types';
+import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
 
 /**
  * Pyxisセッションの型定義
@@ -162,14 +163,27 @@ class SessionStoreManager {
 
   /**
    * 保存用にセッションをクリーンアップ
-   * - content, bufferContent を除外
-   * - needsContentRestore を除外
+   * - 各タブタイプの serializeForSession を使用
+   * - 未実装の場合はデフォルト動作（content, bufferContent を除外）
    */
   private cleanSessionForStorage(session: PyxisSession): PyxisSession {
     const cleanPanes = (panes: readonly EditorPane[]): EditorPane[] => {
       return panes.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(tab => {
+          const tabDef = tabRegistry.get(tab.kind);
+
+          // タブタイプが serializeForSession を実装している場合はそれを使用
+          if (tabDef?.serializeForSession) {
+            const serialized = tabDef.serializeForSession(tab);
+            // needsContentRestore は除外
+            const { needsContentRestore, ...rest } = serialized as Tab & {
+              needsContentRestore?: boolean;
+            };
+            return rest;
+          }
+
+          // デフォルト動作: content, bufferContent, needsContentRestore を除外
           const { content, bufferContent, needsContentRestore, ...tabRest } = tab as any;
           return tabRest;
         }),
@@ -188,21 +202,25 @@ class SessionStoreManager {
 
   /**
    * 復元用にセッションを準備
-   * - needsContentRestoreフラグを設定
+   * - 各タブタイプの needsSessionRestore を確認
+   * - needsContentRestore フラグを設定
    */
   private prepareSessionForRestore(session: PyxisSession): PyxisSession {
     const markPanesForRestore = (panes: readonly EditorPane[]): EditorPane[] => {
       return panes.map(pane => ({
         ...pane,
         tabs: pane.tabs.map(tab => {
-          // welcome タブや特殊なタブはコンテンツ復元不要
-          if (tab.kind === 'welcome' || tab.kind === 'settings') {
+          const tabDef = tabRegistry.get(tab.kind);
+
+          // タブタイプが復元不要を明示している場合はそのまま返す
+          if (tabDef?.needsSessionRestore === false) {
             return tab;
           }
-          // エディタタブなどはコンテンツ復元が必要
+
+          // タブタイプが restoreContent を実装している場合は復元が必要
+          // 未実装でも needsSessionRestore !== false の場合は復元を試みる
           return {
             ...tab,
-            content: '',
             needsContentRestore: true,
           } as any;
         }),

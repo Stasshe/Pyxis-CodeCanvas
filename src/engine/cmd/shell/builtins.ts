@@ -309,8 +309,7 @@ export default function adaptUnixToStream(unix: any) {
             const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
             entryPath = unix.resolveToFSPath(combined);
           } else {
-            entryPath =
-              unix.resolveToFSPath(entryPath);
+            entryPath = unix.resolveToFSPath(entryPath);
           }
         }
       } catch (e) {

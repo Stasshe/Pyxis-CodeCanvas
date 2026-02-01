@@ -214,4 +214,49 @@ export const AIReviewTabType: TabTypeDefinition = {
     const aiTab = tab as AIReviewTab;
     return aiTab.filePath || aiTab.path || undefined;
   },
+
+  /**
+   * セッション保存時: originalContent のみ除外（ファイルから復元可能）
+   * suggestedContent, aiEntry, history は保持
+   */
+  serializeForSession: (tab): AIReviewTab => {
+    const aiTab = tab as AIReviewTab;
+    return {
+      ...aiTab,
+      originalContent: '', // ファイルから復元
+    };
+  },
+
+  /**
+   * セッション復元時: originalContent をファイルから復元
+   */
+  restoreContent: async (tab, context): Promise<AIReviewTab> => {
+    const aiTab = tab as AIReviewTab;
+    const filePath = aiTab.filePath || aiTab.path;
+
+    if (!filePath || !context.projectFiles) {
+      return aiTab;
+    }
+
+    // projectFiles から対応するファイルを検索
+    const normalizePath = (p?: string) => {
+      if (!p) return '';
+      return p.startsWith('/') ? p : `/${p}`;
+    };
+
+    const correspondingFile = context.projectFiles.find(
+      f => normalizePath(f.path) === normalizePath(filePath)
+    );
+
+    if (correspondingFile?.content) {
+      console.log('[AIReviewTabType] ✓ Restored originalContent for:', filePath);
+      return {
+        ...aiTab,
+        originalContent: correspondingFile.content,
+      };
+    }
+
+    console.warn('[AIReviewTabType] File not found for originalContent:', filePath);
+    return aiTab;
+  },
 };

@@ -1,16 +1,16 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import JSZip from 'jszip';
-import { UnixCommandBase } from './base';
 import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 /**
  * zip - POSIX準拠（Info-ZIP互換）のZIPアーカイブ作成
- * 
+ *
  * Usage:
  *   zip archive.zip file1 file2 ...  # ZIPを作成
  *   zip -r archive.zip dir/          # ディレクトリを再帰的に追加
  *   zip archive file1 file2          # .zip拡張子を自動付与
- * 
+ *
  * Options:
  *   -r, --recurse-paths  ディレクトリを再帰的に追加
  *   -q, --quiet          静かに実行
@@ -19,8 +19,8 @@ import { parseWithGetOpt } from '../../lib';
  *   -f, --freshen        既存エントリのみ更新
  *   -d, --delete         アーカイブからエントリを削除
  *   -h, --help           ヘルプ表示
- * 
- * Note: 
+ *
+ * Note:
  *   - アーカイブ名に.zipがなければ自動付与
  *   - POSIXのzipは'-'オプションなしの最初の引数がアーカイブ名
  */

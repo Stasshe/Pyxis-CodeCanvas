@@ -111,6 +111,9 @@ export const DiffTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: false,
   component: DiffTabRenderer,
+  // diff タブは diffs 配列を完全に保持するので、セッション復元は不要
+  // editable な場合でも、保存されたコンテンツをそのまま使用する
+  needsSessionRestore: false,
 
   createTab: (data, options): DiffTab => {
     // data contains { files, editable } where files is DiffFileEntry[] or single DiffFileEntry
@@ -199,4 +202,6 @@ export const DiffTabType: TabTypeDefinition = {
     }
     return undefined;
   },
+
+  // diffs 配列はデフォルトシリアライズで完全に保持される
 };

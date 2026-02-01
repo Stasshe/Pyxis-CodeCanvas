@@ -366,8 +366,8 @@ export class ShellExecutor {
       return;
     }
 
-    let cmd = String(rawTokens[0] ?? '');
-    let args = rawTokens.slice(1).map(t => String(t));
+    const cmd = String(rawTokens[0] ?? '');
+    const args = rawTokens.slice(1).map(t => String(t));
 
     // 'npx' is handled by npm handler now; let executeCommand route it
 
@@ -547,7 +547,12 @@ export class ShellExecutor {
     if (cmd === 'npx') {
       try {
         const { handleNPXCommand } = await import('../handlers/npmHandler');
-        const code = await handleNPXCommand(args, this.context.projectName, this.context.projectId, writeOutput);
+        const code = await handleNPXCommand(
+          args,
+          this.context.projectName,
+          this.context.projectId,
+          writeOutput
+        );
         return typeof code === 'number' ? code : 0;
       } catch (e: any) {
         await writeError(`npx: ${e.message}`);

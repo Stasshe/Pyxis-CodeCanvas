@@ -1,7 +1,13 @@
 // src/engine/tabs/builtins/BinaryTabType.tsx
 import type React from 'react';
 
-import type { BinaryTab, OpenTabOptions, TabComponentProps, TabTypeDefinition } from '../types';
+import type {
+  BinaryTab,
+  OpenTabOptions,
+  SessionRestoreContext,
+  TabComponentProps,
+  TabTypeDefinition,
+} from '../types';
 
 import BinaryTabContent from '@/components/Tab/BinaryTabContent';
 import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
@@ -51,4 +57,47 @@ export const BinaryTabType: TabTypeDefinition = {
   },
 
   component: BinaryTabComponent,
+
+  /**
+   * セッション保存時: content と bufferContent を除外（ファイルから復元可能）
+   */
+  serializeForSession: (tab): BinaryTab => {
+    const binaryTab = tab as BinaryTab;
+    const { content, bufferContent, ...rest } = binaryTab;
+    return rest as BinaryTab;
+  },
+
+  /**
+   * セッション復元時: bufferContent をファイルから復元
+   */
+  restoreContent: async (tab, context: SessionRestoreContext): Promise<BinaryTab> => {
+    const binaryTab = tab as BinaryTab;
+    const filePath = binaryTab.path;
+
+    if (!filePath || !context.projectFiles) {
+      return binaryTab;
+    }
+
+    // projectFiles から対応するファイルを検索
+    const normalizePath = (p?: string) => {
+      if (!p) return '';
+      return p.startsWith('/') ? p : `/${p}`;
+    };
+
+    const correspondingFile = context.projectFiles.find(
+      f => normalizePath(f.path) === normalizePath(filePath)
+    );
+
+    if (correspondingFile) {
+      console.log('[BinaryTabType] ✓ Restored bufferContent for:', filePath);
+      return {
+        ...binaryTab,
+        content: (correspondingFile.content as string) || '',
+        bufferContent: correspondingFile.bufferContent,
+      };
+    }
+
+    console.warn('[BinaryTabType] File not found for bufferContent:', filePath);
+    return binaryTab;
+  },
 };

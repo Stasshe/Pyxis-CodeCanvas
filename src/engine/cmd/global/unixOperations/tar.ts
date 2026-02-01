@@ -1,19 +1,21 @@
 // src/engine/cmd/global/unixOperations/tar.ts
 
 import { fileRepository } from '@/engine/core/fileRepository';
-import { UnixCommandBase } from './base';
-import { parseWithGetOpt } from '../../lib';
 import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
 import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
+import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 // TextEncoder/TextDecoder: prefer browser globals, fall back to Node's `util` on server.
 // This avoids bundling an undefined TextEncoder when running client-side.
-const TextEncoder = (typeof globalThis !== 'undefined' && (globalThis as any).TextEncoder)
-  ? (globalThis as any).TextEncoder
-  : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextEncoder;
-const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder)
-  ? (globalThis as any).TextDecoder
-  : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
+const TextEncoder =
+  typeof globalThis !== 'undefined' && (globalThis as any).TextEncoder
+    ? (globalThis as any).TextEncoder
+    : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextEncoder;
+const TextDecoder =
+  typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder
+    ? (globalThis as any).TextDecoder
+    : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
 
 /**
  * tar - POSIX準拠のtarアーカイブ作成/一覧/展開（ネイティブ実装）
@@ -75,7 +77,7 @@ export class TarCommand extends UnixCommandBase {
       if (len < length) header[offset + len] = 0;
     };
 
-    const writeOctal = (value: number, offset: number, length: number, terminator: number = 0) => {
+    const writeOctal = (value: number, offset: number, length: number, terminator = 0) => {
       const octal = value.toString(8).padStart(length - 1, '0');
       writeString(octal, offset, length - 1);
       header[offset + length - 1] = terminator;
@@ -306,12 +308,12 @@ export class TarCommand extends UnixCommandBase {
 
       const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
       const sizeStr = decoder.decode(header.slice(124, 136)).replace(/\0.*$/, '').trim();
-      const size = parseInt(sizeStr, 8) || 0;
+      const size = Number.parseInt(sizeStr, 8) || 0;
 
       if (name) {
         if (verbose) {
           const mtimeStr = decoder.decode(header.slice(136, 148)).trim();
-          const mtime = parseInt(mtimeStr, 8) || 0;
+          const mtime = Number.parseInt(mtimeStr, 8) || 0;
           const date = new Date(mtime * 1000).toISOString().split('T')[0];
           entries.push(`-rw-r--r-- 0/0 ${size.toString().padStart(8)} ${date} ${name}`);
         } else {
@@ -369,10 +371,12 @@ export class TarCommand extends UnixCommandBase {
         const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
         const typeFlag = String.fromCharCode(header[156]);
         const sizeStr = decoder.decode(header.slice(124, 136)).trim();
-        const size = parseInt(sizeStr, 8) || 0;
+        const size = Number.parseInt(sizeStr, 8) || 0;
 
         if (name) {
-          const entryPath = name.startsWith('/') ? name.replace(/\/$/, '') : `/${name.replace(/\/$/, '')}`;
+          const entryPath = name.startsWith('/')
+            ? name.replace(/\/$/, '')
+            : `/${name.replace(/\/$/, '')}`;
           const isDir = typeFlag === '5' || name.endsWith('/');
 
           offset += 512;
@@ -380,12 +384,12 @@ export class TarCommand extends UnixCommandBase {
           if (isDir) {
             entries.push({ path: entryPath, content: '', type: 'folder' });
           } else {
-              const contentBuf = buf.slice(offset, offset + size);
+            const contentBuf = buf.slice(offset, offset + size);
 
-              // テキストファイルかバイナリファイルかを判定
-              const isTextFile = await isLikelyTextFile(entryPath, contentBuf);
+            // テキストファイルかバイナリファイルかを判定
+            const isTextFile = await isLikelyTextFile(entryPath, contentBuf);
 
-              if (isTextFile) {
+            if (isTextFile) {
               // テキストファイルとして展開
               try {
                 const textContent = decoder.decode(contentBuf);
@@ -402,7 +406,10 @@ export class TarCommand extends UnixCommandBase {
                   content: '',
                   type: 'file',
                   isBufferArray: true,
-                  bufferContent: contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length),
+                  bufferContent: contentBuf.buffer.slice(
+                    contentBuf.byteOffset,
+                    contentBuf.byteOffset + contentBuf.length
+                  ),
                 });
               }
             } else {
@@ -412,7 +419,10 @@ export class TarCommand extends UnixCommandBase {
                 content: '',
                 type: 'file',
                 isBufferArray: true,
-                bufferContent: contentBuf.buffer.slice(contentBuf.byteOffset, contentBuf.byteOffset + contentBuf.length),
+                bufferContent: contentBuf.buffer.slice(
+                  contentBuf.byteOffset,
+                  contentBuf.byteOffset + contentBuf.length
+                ),
               });
             }
 
@@ -442,8 +452,6 @@ export class TarCommand extends UnixCommandBase {
       throw err;
     }
   }
-
-
 
   private showHelp(): string {
     return `Usage: tar [OPTION]... [FILE]...
