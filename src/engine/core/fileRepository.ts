@@ -281,9 +281,6 @@ export class FileRepository {
 
   /**
    * ZIPファイルからプロジェクトをインポート
-   * @param name プロジェクト名
-   * @param zipFile ZIPファイルオブジェクト
-   * @param description プロジェクトの説明（任意）
    */
   async importProjectFromZip(
     name: string,
@@ -292,10 +289,9 @@ export class FileRepository {
   ): Promise<Project> {
     await this.init();
 
-    // プロジェクト名の重複チェック
     const existingProjects = await this.getProjects();
-    if (existingProjects.some(project => project.name === name)) {
-      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`);
+    if (existingProjects.some(p => p.name === name)) {
+      throw new Error(`プロジェクト名 "${name}" は既に存在します。`);
     }
 
     const project: Project = {
@@ -308,115 +304,80 @@ export class FileRepository {
 
     await this.saveProject(project);
 
-    // 初期チャットスペースのみ作成
     try {
       await chatCreateChatSpace(project.id, `${project.name} - 初期チャット`);
     } catch (error) {
-      coreWarn('[FileRepository] Failed to create initial chat space:', error);
+      coreWarn('[FileRepository] Failed to create chat space:', error);
     }
 
-    // ZIPファイルを解凍してファイルを登録
     try {
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(zipFile);
 
-      // 全てのファイルパスを取得
-      const allPaths: string[] = [];
-      zip.forEach((relativePath, zipEntry) => {
-        if (!zipEntry.dir) {
-          allPaths.push(relativePath);
-        }
+      // ファイルリストを取得してルートディレクトリを検出
+      const files: string[] = [];
+      zip.forEach((path, entry) => {
+        if (!entry.dir) files.push(path);
       });
 
-      // 共通のルートディレクトリを検出
-      let commonRoot = '';
-      if (allPaths.length > 0) {
-        // 最初のパスからルートディレクトリを取得
-        const firstPath = allPaths[0];
-        const firstSlashIndex = firstPath.indexOf('/');
+      // 全ファイルが共通ルート配下にあるかチェック
+      const detectCommonRoot = (): string => {
+        if (files.length === 0) return '';
         
-        if (firstSlashIndex > 0) {
-          const potentialRoot = firstPath.substring(0, firstSlashIndex + 1);
-          
-          // 全てのパスが同じルートで始まるか確認
-          const allHaveSameRoot = allPaths.every(p => p.startsWith(potentialRoot));
-          
-          if (allHaveSameRoot) {
-            commonRoot = potentialRoot;
-            coreInfo(`[FileRepository] Detected common root directory: ${commonRoot}`);
-          }
-        }
+        const firstSlash = files[0].indexOf('/');
+        if (firstSlash === -1) return '';
+        
+        const root = files[0].substring(0, firstSlash + 1);
+        return files.every(f => f.startsWith(root)) ? root : '';
+      };
+
+      const commonRoot = detectCommonRoot();
+      if (commonRoot) {
+        coreInfo(`[ZIP] Stripping root: ${commonRoot}`);
       }
 
-      // ZIPファイル内のファイルを再帰的に処理
-      const filePromises: Promise<void>[] = [];
-      
-      zip.forEach((relativePath, zipEntry) => {
-        // ディレクトリエントリはスキップ（ファイルの親として自動作成される）
-        if (zipEntry.dir) return;
+      // ファイルをインポート
+      const imports = files.map(async (zipPath) => {
+        const entry = zip.file(zipPath);
+        if (!entry) return;
 
-        // 共通ルートを削除してパスを正規化
-        let normalizedPath = relativePath;
-        if (commonRoot && normalizedPath.startsWith(commonRoot)) {
-          normalizedPath = normalizedPath.substring(commonRoot.length);
-        }
-        
-        // 空のパスはスキップ
-        if (!normalizedPath) return;
+        // ルート除去
+        let path = commonRoot ? zipPath.slice(commonRoot.length) : zipPath;
+        if (!path) return;
+        path = `/${path}`;
 
-        // パスを正規化（先頭スラッシュを追加）
-        const path = `/${normalizedPath}`;
+        const buffer = await entry.async('arraybuffer');
+        const bytes = new Uint8Array(buffer);
 
-        const promise = (async () => {
-          try {
-            // バイナリファイルかどうかを判定
-            const arrayBuffer = await zipEntry.async('arraybuffer');
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            // テキストファイルとして読み込めるか試す
-            let content = '';
-            let isBufferArray = false;
-            let bufferContent: number[] | undefined;
+        // テキスト判定
+        let content = '';
+        let isBinary = false;
 
-            try {
-              // UTF-8としてデコード可能か試す
-              const decoder = new TextDecoder('utf-8', { fatal: true });
-              content = decoder.decode(uint8Array);
-              
-              // 制御文字が多い場合はバイナリとみなす
-              const controlChars = content.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g);
-              if (controlChars && controlChars.length > content.length * 0.3) {
-                throw new Error('Binary content detected');
-              }
-            } catch {
-              // バイナリファイルとして扱う
-              isBufferArray = true;
-              bufferContent = Array.from(uint8Array);
-              content = '';
-            }
-
-            // ファイルを作成
-            await this.createFile(
-              project.id,
-              path,
-              content,
-              'file',
-              isBufferArray,
-              bufferContent ? new Uint8Array(bufferContent).buffer : undefined
-            );
-          } catch (error) {
-            coreWarn(`[FileRepository] Failed to import file ${path}:`, error);
+        try {
+          const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+          const ctrl = text.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g);
+          if (ctrl && ctrl.length > text.length * 0.3) {
+            isBinary = true;
+          } else {
+            content = text;
           }
-        })();
+        } catch {
+          isBinary = true;
+        }
 
-        filePromises.push(promise);
+        await this.createFile(
+          project.id,
+          path,
+          content,
+          'file',
+          isBinary,
+          isBinary ? buffer : undefined
+        );
       });
 
-      // 全てのファイルのインポートを待つ
-      await Promise.all(filePromises);
+      await Promise.all(imports);
     } catch (error) {
-      coreError('[FileRepository] Failed to import ZIP file:', error);
-      // インポートに失敗した場合、プロジェクトを削除
+      coreError('[ZIP] Import failed:', error);
       await this.deleteProject(project.id);
       throw error;
     }
