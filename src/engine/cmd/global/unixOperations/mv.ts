@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -23,11 +23,11 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class MvCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { flags: options, positional, errors } = parseWithGetOpt(
-      args,
-      'finv',
-      ['force', 'interactive', 'no-clobber', 'verbose', 'help']
-    );
+    const {
+      flags: options,
+      positional,
+      errors,
+    } = parseWithGetOpt(args, 'finv', ['force', 'interactive', 'no-clobber', 'verbose', 'help']);
     if (errors.length) throw new Error(errors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {

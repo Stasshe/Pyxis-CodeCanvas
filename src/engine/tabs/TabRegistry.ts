@@ -1,12 +1,15 @@
 // src/engine/tabs/TabRegistry.ts
 import type { TabKind, TabTypeDefinition } from './types';
 
+type RegistryChangeListener = (kind: TabKind, definition: TabTypeDefinition) => void;
+
 /**
  * タブタイプレジストリ
  * 各種タブタイプを登録・管理する
  */
 class TabRegistry {
   private registry: Map<TabKind, TabTypeDefinition> = new Map();
+  private listeners: Set<RegistryChangeListener> = new Set();
 
   /**
    * タブタイプを登録
@@ -29,6 +32,9 @@ class TabRegistry {
 
     this.registry.set(definition.kind, definition);
     console.log(`[TabRegistry] Registered tab type: ${definition.kind}`);
+
+    // リスナーに通知
+    this.notifyListeners(definition.kind, definition);
   }
 
   /**
@@ -58,6 +64,27 @@ class TabRegistry {
   unregister(kind: TabKind): void {
     this.registry.delete(kind);
     console.log(`[TabRegistry] Unregistered tab type: ${kind}`);
+  }
+
+  /**
+   * 登録変更リスナーを追加
+   */
+  addChangeListener(listener: RegistryChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * リスナーに通知
+   */
+  private notifyListeners(kind: TabKind, definition: TabTypeDefinition): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(kind, definition);
+      } catch (e) {
+        console.error('[TabRegistry] Listener error:', e);
+      }
+    }
   }
 }
 

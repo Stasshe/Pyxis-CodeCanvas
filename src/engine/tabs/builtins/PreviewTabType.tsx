@@ -1,7 +1,13 @@
 // src/engine/tabs/builtins/PreviewTabType.tsx
 import type React from 'react';
 
-import type { OpenTabOptions, PreviewTab, TabComponentProps, TabTypeDefinition } from '../types';
+import type {
+  OpenTabOptions,
+  PreviewTab,
+  SessionRestoreContext,
+  TabComponentProps,
+  TabTypeDefinition,
+} from '../types';
 
 import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
 import { useProjectSnapshot } from '@/stores/projectStore';
@@ -46,4 +52,38 @@ export const PreviewTabType: TabTypeDefinition = {
   },
 
   component: PreviewTabComponent,
+
+  /**
+   * セッション保存時: content を除外（ファイルから復元可能）
+   */
+  serializeForSession: (tab): PreviewTab => {
+    const previewTab = tab as PreviewTab;
+    const { content, ...rest } = previewTab;
+    return { ...rest, content: '' } as PreviewTab;
+  },
+
+  /**
+   * セッション復元時: content をファイルから復元
+   */
+  restoreContent: async (tab, context: SessionRestoreContext): Promise<PreviewTab> => {
+    const previewTab = tab as PreviewTab;
+    const filePath = previewTab.path;
+
+    if (!filePath) {
+      return previewTab;
+    }
+
+    const file = await context.getFileByPath(filePath);
+
+    if (file?.content) {
+      console.log('[PreviewTabType] ✓ Restored content for:', filePath);
+      return {
+        ...previewTab,
+        content: file.content,
+      };
+    }
+
+    console.warn('[PreviewTabType] File not found for content:', filePath);
+    return previewTab;
+  },
 };

@@ -1027,11 +1027,14 @@ export const tabActions = {
   },
   async saveSession() {
     const { sessionStore, DEFAULT_SESSION } = await import('@/stores/sessionStore');
+    // ValtioプロキシをプレーンオブジェクトにスナップショットしてからIndexedDBに保存
+    // これによりDataCloneErrorを防止
+    const panesSnapshot = snapshot(tabState.panes);
     await sessionStore.save({
       version: 1,
       lastSaved: Date.now(),
       tabs: {
-        panes: tabState.panes,
+        panes: panesSnapshot as EditorPane[],
         activePane: tabState.activePane,
         globalActiveTab: tabState.globalActiveTab,
       },

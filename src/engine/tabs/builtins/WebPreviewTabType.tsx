@@ -27,6 +27,7 @@ export const WebPreviewTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: true,
   component: WebPreviewTabRenderer,
+  needsSessionRestore: false, // WebPreviewはprojectNameさえあれば復元可能
 
   createTab: (file, options): WebPreviewTab => {
     const filePath = String(file.path || file.name || Date.now());
@@ -45,4 +46,6 @@ export const WebPreviewTabType: TabTypeDefinition = {
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'webPreview';
   },
+
+  // projectName はシリアライズ時に保持されるべき（デフォルト動作で保持される）
 };

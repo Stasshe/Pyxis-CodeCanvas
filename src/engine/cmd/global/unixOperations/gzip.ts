@@ -1,18 +1,18 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 import pako from 'pako';
-import { UnixCommandBase } from './base';
 import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 /**
  * gzip - POSIX準拠のファイル圧縮/展開
- * 
+ *
  * Usage:
  *   gzip file              # fileを圧縮してfile.gzを作成、元ファイルを削除
  *   gzip -k file           # 元ファイルを保持
  *   gzip -d file.gz        # file.gzを展開してfileを作成、.gzを削除
  *   gzip -dk file.gz       # .gzを保持
  *   gzip -c file > out.gz  # 標準出力に出力（未実装）
- * 
+ *
  * Options:
  *   -d, --decompress  展開モード
  *   -k, --keep        元ファイルを保持
@@ -40,7 +40,7 @@ export class GzipCommand extends UnixCommandBase {
     const verbose = flags.has('-v') || flags.has('--verbose');
 
     if (positional.length === 0) {
-      throw new Error('gzip: missing file operand\nTry \'gzip --help\' for more information.');
+      throw new Error("gzip: missing file operand\nTry 'gzip --help' for more information.");
     }
 
     const results: string[] = [];
@@ -90,9 +90,7 @@ export class GzipCommand extends UnixCommandBase {
 
     // 出力ファイル名
     const outName = fileName.endsWith('.gz') ? fileName : `${fileName}.gz`;
-    const outRel = this.getRelativePathFromProject(
-      this.normalizePath(this.resolvePath(outName))
-    );
+    const outRel = this.getRelativePathFromProject(this.normalizePath(this.resolvePath(outName)));
 
     // 既存チェック
     if (!force) {
@@ -181,9 +179,7 @@ export class GzipCommand extends UnixCommandBase {
       outName = `${fileName}.out`;
     }
 
-    const outRel = this.getRelativePathFromProject(
-      this.normalizePath(this.resolvePath(outName))
-    );
+    const outRel = this.getRelativePathFromProject(this.normalizePath(this.resolvePath(outName)));
 
     // 既存チェック
     if (!force) {

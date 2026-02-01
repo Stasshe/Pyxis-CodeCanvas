@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 

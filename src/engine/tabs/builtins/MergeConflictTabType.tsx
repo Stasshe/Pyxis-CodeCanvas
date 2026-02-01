@@ -138,6 +138,7 @@ export const MergeConflictTabType: TabTypeDefinition = {
   canEdit: true,
   canPreview: false,
   component: MergeConflictTabRenderer,
+  needsSessionRestore: false, // conflicts 配列は保持されるので復元不要
 
   createTab: (data, options): MergeConflictTab => {
     const conflicts = (data.conflicts as MergeConflictFileEntry[]) || [];
@@ -174,4 +175,6 @@ export const MergeConflictTabType: TabTypeDefinition = {
       mergeTab.theirsBranch === theirsBranch
     );
   },
+
+  // conflicts 配列はデフォルトシリアライズで保持される
 };

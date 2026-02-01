@@ -35,6 +35,7 @@ export const SettingsTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: false,
   component: SettingsTabRenderer,
+  needsSessionRestore: false, // 設定タブは復元不要
 
   createTab: (file, options): SettingsTab => {
     const settingsType = String(file.settingsType || 'general');

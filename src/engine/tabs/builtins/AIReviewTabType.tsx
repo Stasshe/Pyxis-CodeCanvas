@@ -6,7 +6,7 @@ import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/Pane/PaneContainer';
-import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import {
   addChangeListener,
@@ -213,5 +213,42 @@ export const AIReviewTabType: TabTypeDefinition = {
   getContentPath: tab => {
     const aiTab = tab as AIReviewTab;
     return aiTab.filePath || aiTab.path || undefined;
+  },
+
+  /**
+   * セッション保存時: originalContent のみ除外（ファイルから復元可能）
+   * suggestedContent, aiEntry, history は保持
+   */
+  serializeForSession: (tab): AIReviewTab => {
+    const aiTab = tab as AIReviewTab;
+    return {
+      ...aiTab,
+      originalContent: '', // ファイルから復元
+    };
+  },
+
+  /**
+   * セッション復元時: originalContent をファイルから復元
+   */
+  restoreContent: async (tab, context): Promise<AIReviewTab> => {
+    const aiTab = tab as AIReviewTab;
+    const filePath = aiTab.filePath || aiTab.path;
+
+    if (!filePath) {
+      return aiTab;
+    }
+
+    const file = await context.getFileByPath(filePath);
+
+    if (file?.content) {
+      console.log('[AIReviewTabType] ✓ Restored originalContent for:', filePath);
+      return {
+        ...aiTab,
+        originalContent: file.content,
+      };
+    }
+
+    console.warn('[AIReviewTabType] File not found for originalContent:', filePath);
+    return aiTab;
   },
 };

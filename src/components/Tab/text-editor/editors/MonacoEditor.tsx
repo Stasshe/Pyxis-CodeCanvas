@@ -154,10 +154,21 @@ export default function MonacoEditor({
                   const lineCount = model.getLineCount();
                   const startLine = Math.max(1, Math.min(lastSel.startLineNumber, lineCount));
                   const endLine = Math.max(1, Math.min(lastSel.endLineNumber, lineCount));
-                  const startColumn = Math.max(1, Math.min(lastSel.startColumn, model.getLineMaxColumn(startLine)));
-                  const endColumn = Math.max(1, Math.min(lastSel.endColumn, model.getLineMaxColumn(endLine)));
+                  const startColumn = Math.max(
+                    1,
+                    Math.min(lastSel.startColumn, model.getLineMaxColumn(startLine))
+                  );
+                  const endColumn = Math.max(
+                    1,
+                    Math.min(lastSel.endColumn, model.getLineMaxColumn(endLine))
+                  );
 
-                  const restored = new (mon as any).Selection(startLine, startColumn, endLine, endColumn);
+                  const restored = new (mon as any).Selection(
+                    startLine,
+                    startColumn,
+                    endLine,
+                    endColumn
+                  );
                   editor.setSelection(restored);
                   editor.revealRangeInCenter(restored);
                 } catch (e) {
@@ -233,7 +244,8 @@ export default function MonacoEditor({
 
     // 入力を整数にし、範囲外の場合はクランプする（Monaco は 1-based の行番号を期待する）
     const requestedLine = Math.trunc(jumpToLine);
-    const requestedColumn = jumpToColumn && typeof jumpToColumn === 'number' ? Math.trunc(jumpToColumn) : 1;
+    const requestedColumn =
+      jumpToColumn && typeof jumpToColumn === 'number' ? Math.trunc(jumpToColumn) : 1;
 
     const timeoutId = setTimeout(() => {
       try {

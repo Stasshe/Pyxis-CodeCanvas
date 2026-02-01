@@ -1,7 +1,7 @@
 // src/components/PaneContainer.tsx
 'use client';
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useDrop } from 'react-dnd';
 
 import PaneResizer from '@/components/Pane/PaneResizer';
@@ -277,6 +277,26 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   // 同じファイルが複数のペインで開かれている場合でも、アクティブなペインのエディタのみがフォーカスを持つ
   const isGloballyActive = globalActiveTab === activeTab?.id && isActivePane;
 
+  // 拡張機能タブの場合、TabRegistryの変更を監視してリレンダーを促す
+  const [extensionLoaded, setExtensionLoaded] = useState(false);
+  useEffect(() => {
+    // 拡張機能タブがアクティブで、まだ登録されていない場合のみ監視
+    if (activeTab?.kind.startsWith('extension:') && !tabRegistry.has(activeTab.kind)) {
+      setExtensionLoaded(false);
+      const unsubscribe = tabRegistry.addChangeListener((kind) => {
+        if (kind === activeTab.kind) {
+          // TabRegistryに登録されたらリレンダー
+          setExtensionLoaded(true);
+        }
+      });
+      return unsubscribe;
+    }
+    // 既に登録されている場合
+    if (activeTab?.kind.startsWith('extension:') && tabRegistry.has(activeTab.kind)) {
+      setExtensionLoaded(true);
+    }
+  }, [activeTab?.kind]);
+
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
 
@@ -377,6 +397,24 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
         <div className="flex-1 overflow-hidden">
           {activeTab && TabComponent ? (
             <TabComponent key={activeTab.id} tab={activeTab} isActive={isGloballyActive} />
+          ) : activeTab && activeTab.kind.startsWith('extension:') ? (
+            // 拡張機能タブがまだ登録されていない場合のローディング表示
+            <div
+              className="flex flex-col h-full gap-2 select-none"
+              style={{
+                color: colors.mutedFg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                height: '100%',
+              }}
+            >
+              <span style={{ fontWeight: 500, fontSize: '1.1em' }}>Loading extension...</span>
+              <span style={{ fontSize: '0.95em', opacity: 0.8 }}>
+                The extension is being initialized. Please wait a moment.
+              </span>
+            </div>
           ) : (
             <div
               className="flex flex-col h-full gap-2 select-none"

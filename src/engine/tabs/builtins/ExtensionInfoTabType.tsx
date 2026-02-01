@@ -353,6 +353,7 @@ export const ExtensionInfoTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: false,
   component: ExtensionInfoTabRenderer,
+  needsSessionRestore: false, // manifest と isEnabled は保持されるので復元不要
 
   createTab: (file, options): ExtensionInfoTab => {
     const manifest = file.manifest as ExtensionManifest;
@@ -368,4 +369,6 @@ export const ExtensionInfoTabType: TabTypeDefinition = {
       isEnabled: Boolean(file.isEnabled),
     };
   },
+
+  // manifest と isEnabled はデフォルトシリアライズで保持される
 };

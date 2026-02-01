@@ -20,6 +20,7 @@ export const WelcomeTabType: TabTypeDefinition = {
   displayName: 'Welcome',
   canEdit: false,
   canPreview: false,
+  needsSessionRestore: false, // ウェルカムタブは復元不要
 
   createTab: (data: unknown, options?: OpenTabOptions) => {
     const tabId = 'welcome';

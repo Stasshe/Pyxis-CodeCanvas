@@ -38,7 +38,7 @@ export function useDiffTabHandlers(currentProject: any) {
         await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
         return;
       }
-      
+
       console.log(`[useDiffTabHandlers] Staged diff: "${gitPath}" (HEAD vs INDEX)`);
 
       const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
@@ -239,7 +239,10 @@ export function useDiffTabHandlers(currentProject: any) {
 
       // If both sides are empty, this may be a binary file (no text content available).
       // Try to open it as a binary tab instead of showing an empty diff.
-      if ((formerContent === '' || formerContent === undefined) && (latterContent === '' || latterContent === undefined)) {
+      if (
+        (formerContent === '' || formerContent === undefined) &&
+        (latterContent === '' || latterContent === undefined)
+      ) {
         const { fileRepository } = await import('@/engine/core/fileRepository');
         const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
         if (file?.bufferContent) {

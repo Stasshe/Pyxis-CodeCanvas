@@ -1,16 +1,17 @@
 import JSZip from 'jszip';
 
-import { UnixCommandBase } from './base';
 import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 
 // TextDecoder: prefer browser global, fall back to Node's util.TextDecoder
-const TextDecoder = (typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder)
-  ? (globalThis as any).TextDecoder
-  : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
+const TextDecoder =
+  typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder
+    ? (globalThis as any).TextDecoder
+    : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
 
 /**
  * unzip - ZIP アーカイブを展開してプロジェクトに登録
@@ -99,7 +100,7 @@ export class UnzipCommand extends UnixCommandBase {
         } else {
           // Ensure parent directories are present in the entries list. createFilesBulk does not
           // automatically create parent folders, so add them explicitly (top-down).
-            const parentParts = relativePath.split('/').filter(p => p);
+          const parentParts = relativePath.split('/').filter(p => p);
           if (parentParts.length > 1) {
             let accum = '';
             for (let i = 0; i < parentParts.length - 1; i++) {
@@ -118,7 +119,12 @@ export class UnzipCommand extends UnixCommandBase {
           if (isText) {
             try {
               const text = new TextDecoder().decode(contentBuf);
-              entries.push({ path: relativePath, content: text, type: 'file', isBufferArray: false });
+              entries.push({
+                path: relativePath,
+                content: text,
+                type: 'file',
+                isBufferArray: false,
+              });
             } catch (e) {
               // Decoding failed — treat as binary
               entries.push({
@@ -170,6 +176,4 @@ export class UnzipCommand extends UnixCommandBase {
       }
     }
   }
-
-
 }

@@ -1,5 +1,5 @@
-import { UnixCommandBase } from './base';
 import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -19,12 +19,11 @@ import { fileRepository } from '@/engine/core/fileRepository';
  */
 export class MkdirCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const { flags: options, positional, errors: parseErrors } = parseWithGetOpt(args, 'pvm', [
-      'parents',
-      'verbose',
-      'mode=',
-      'help',
-    ]);
+    const {
+      flags: options,
+      positional,
+      errors: parseErrors,
+    } = parseWithGetOpt(args, 'pvm', ['parents', 'verbose', 'mode=', 'help']);
     if (parseErrors.length) throw new Error(parseErrors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {
