@@ -21,17 +21,10 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
 import { initialFileContents } from '@/engine/initialFileContents';
 import {
-  addMessageToChatSpace as chatAddMessageToChatSpace,
   createChatSpace as chatCreateChatSpace,
-  deleteChatSpace as chatDeleteChatSpace,
   deleteChatSpacesForProject as chatDeleteChatSpacesForProject,
-  getChatSpaces as chatGetChatSpaces,
-  renameChatSpace as chatRenameChatSpace,
-  saveChatSpace as chatSaveChatSpace,
-  updateChatSpaceMessage as chatUpdateChatSpaceMessage,
-  updateChatSpaceSelectedFiles as chatUpdateChatSpaceSelectedFiles,
 } from '@/engine/storage/chatStorageAdapter';
-import type { ChatSpace, ChatSpaceMessage, Project, ProjectFile } from '@/types';
+import type { Project, ProjectFile } from '@/types';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -245,7 +238,7 @@ export class FileRepository {
 
     // 初期チャットスペースを作成
     try {
-      await this.createChatSpace(project.id, `${project.name} - 初期チャット`);
+      await chatCreateChatSpace(project.id, `${project.name} - 初期チャット`);
     } catch (error) {
       console.warn('[FileRepository] Failed to create initial chat space:', error);
     }
@@ -278,7 +271,7 @@ export class FileRepository {
 
     // 初期チャットスペースのみ作成（ファイルは作成しない）
     try {
-      await this.createChatSpace(project.id, `${project.name} - 初期チャット`);
+      await chatCreateChatSpace(project.id, `${project.name} - 初期チャット`);
     } catch (error) {
       console.warn('[FileRepository] Failed to create initial chat space:', error);
     }
@@ -1317,87 +1310,6 @@ export class FileRepository {
         resolve();
       };
     });
-  }
-
-  // ==================== チャットスペース操作 ====================
-  // NOTE: ChatSpace操作はchatStorageAdapterに委譲
-  // これらのメソッドは後方互換性のために残しているが、新規コードではchatStorageAdapterを直接使用すること
-
-  /**
-   * チャットスペース作成
-   * @deprecated chatStorageAdapter.createChatSpace を直接使用してください
-   */
-  async createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
-    return chatCreateChatSpace(projectId, name);
-  }
-
-  /**
-   * チャットスペース保存
-   * @deprecated chatStorageAdapter.saveChatSpace を直接使用してください
-   */
-  async saveChatSpace(chatSpace: ChatSpace): Promise<void> {
-    return chatSaveChatSpace(chatSpace);
-  }
-
-  /**
-   * プロジェクトの全チャットスペース取得
-   * @deprecated chatStorageAdapter.getChatSpaces を直接使用してください
-   */
-  async getChatSpaces(projectId: string): Promise<ChatSpace[]> {
-    return chatGetChatSpaces(projectId);
-  }
-
-  /**
-   * チャットスペース削除
-   * @deprecated chatStorageAdapter.deleteChatSpace を直接使用してください
-   */
-  async deleteChatSpace(projectId: string, chatSpaceId: string): Promise<void> {
-    return chatDeleteChatSpace(projectId, chatSpaceId);
-  }
-
-  /**
-   * チャットスペースにメッセージ追加
-   * @deprecated chatStorageAdapter.addMessageToChatSpace を直接使用してください
-   */
-  async addMessageToChatSpace(
-    projectId: string,
-    chatSpaceId: string,
-    message: Omit<ChatSpaceMessage, 'id'>
-  ): Promise<ChatSpaceMessage> {
-    return chatAddMessageToChatSpace(projectId, chatSpaceId, message as ChatSpaceMessage);
-  }
-
-  /**
-   * チャットスペース内の既存メッセージを更新する
-   * @deprecated chatStorageAdapter.updateChatSpaceMessage を直接使用してください
-   */
-  async updateChatSpaceMessage(
-    projectId: string,
-    chatSpaceId: string,
-    messageId: string,
-    updates: Partial<ChatSpaceMessage>
-  ): Promise<ChatSpaceMessage | null> {
-    return chatUpdateChatSpaceMessage(projectId, chatSpaceId, messageId, updates);
-  }
-
-  /**
-   * チャットスペースの選択ファイル更新
-   * @deprecated chatStorageAdapter.updateChatSpaceSelectedFiles を直接使用してください
-   */
-  async updateChatSpaceSelectedFiles(
-    projectId: string,
-    chatSpaceId: string,
-    selectedFiles: string[]
-  ): Promise<void> {
-    return chatUpdateChatSpaceSelectedFiles(projectId, chatSpaceId, selectedFiles);
-  }
-
-  /**
-   * チャットスペース名変更
-   * @deprecated chatStorageAdapter.renameChatSpace を直接使用してください
-   */
-  async renameChatSpace(projectId: string, chatSpaceId: string, newName: string): Promise<void> {
-    return chatRenameChatSpace(projectId, chatSpaceId, newName);
   }
 
   /**
