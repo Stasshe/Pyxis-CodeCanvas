@@ -280,6 +280,114 @@ export class FileRepository {
   }
 
   /**
+   * ZIPファイルからプロジェクトをインポート
+   * @param name プロジェクト名
+   * @param zipFile ZIPファイルオブジェクト
+   * @param description プロジェクトの説明（任意）
+   */
+  async importProjectFromZip(
+    name: string,
+    zipFile: File,
+    description?: string
+  ): Promise<Project> {
+    await this.init();
+
+    // プロジェクト名の重複チェック
+    const existingProjects = await this.getProjects();
+    if (existingProjects.some(project => project.name === name)) {
+      throw new Error(`プロジェクト名 "${name}" は既に存在します。別の名前を使用してください。`);
+    }
+
+    const project: Project = {
+      id: generateUniqueId('project'),
+      name,
+      description,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.saveProject(project);
+
+    // 初期チャットスペースのみ作成
+    try {
+      await chatCreateChatSpace(project.id, `${project.name} - 初期チャット`);
+    } catch (error) {
+      coreWarn('[FileRepository] Failed to create initial chat space:', error);
+    }
+
+    // ZIPファイルを解凍してファイルを登録
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = await JSZip.loadAsync(zipFile);
+
+      // ZIPファイル内のファイルを再帰的に処理
+      const filePromises: Promise<void>[] = [];
+      
+      zip.forEach((relativePath, zipEntry) => {
+        // ディレクトリエントリはスキップ（ファイルの親として自動作成される）
+        if (zipEntry.dir) return;
+
+        // パスを正規化（先頭スラッシュを追加）
+        const path = `/${relativePath}`;
+
+        const promise = (async () => {
+          try {
+            // バイナリファイルかどうかを判定
+            const arrayBuffer = await zipEntry.async('arraybuffer');
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // テキストファイルとして読み込めるか試す
+            let content = '';
+            let isBufferArray = false;
+            let bufferContent: number[] | undefined;
+
+            try {
+              // UTF-8としてデコード可能か試す
+              const decoder = new TextDecoder('utf-8', { fatal: true });
+              content = decoder.decode(uint8Array);
+              
+              // 制御文字が多い場合はバイナリとみなす
+              const controlChars = content.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g);
+              if (controlChars && controlChars.length > content.length * 0.3) {
+                throw new Error('Binary content detected');
+              }
+            } catch {
+              // バイナリファイルとして扱う
+              isBufferArray = true;
+              bufferContent = Array.from(uint8Array);
+              content = '';
+            }
+
+            // ファイルを作成
+            await this.createFile(
+              project.id,
+              path,
+              content,
+              'file',
+              isBufferArray,
+              bufferContent ? new Uint8Array(bufferContent).buffer : undefined
+            );
+          } catch (error) {
+            coreWarn(`[FileRepository] Failed to import file ${path}:`, error);
+          }
+        })();
+
+        filePromises.push(promise);
+      });
+
+      // 全てのファイルのインポートを待つ
+      await Promise.all(filePromises);
+    } catch (error) {
+      coreError('[FileRepository] Failed to import ZIP file:', error);
+      // インポートに失敗した場合、プロジェクトを削除
+      await this.deleteProject(project.id);
+      throw error;
+    }
+
+    return project;
+  }
+
+  /**
    * 初期ファイルを再帰的に登録
    */
   private async registerInitialFiles(

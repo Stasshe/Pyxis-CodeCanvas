@@ -1,5 +1,5 @@
-import { Edit, Folder, GitBranch, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Edit, FileArchive, Folder, FolderOpen, GitBranch, Plus, Trash2, Upload, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -14,6 +14,8 @@ interface ProjectModalProps {
   currentProject: Project | null;
 }
 
+type CreationMethod = 'select' | 'new' | 'clone' | 'zip' | 'empty';
+
 export default function ProjectModal({
   isOpen,
   onClose,
@@ -22,21 +24,24 @@ export default function ProjectModal({
   currentProject,
 }: ProjectModalProps) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isCloning, setIsCloning] = useState(false);
+  const [creationMethod, setCreationMethod] = useState<CreationMethod>('select');
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [cloneUrl, setCloneUrl] = useState('');
   const [cloneProjectName, setCloneProjectName] = useState('');
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipProjectName, setZipProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
       loadProjects();
       checkGitHubAuth();
+      setCreationMethod('select');
     }
   }, [isOpen]);
 
@@ -63,31 +68,48 @@ export default function ProjectModal({
     }
   };
 
-  const handleCreateProject = async () => {
-    let name = newProjectName.trim();
-    if (!name) return;
-
-    // reponame: 英数字・ハイフンのみ、空白は-に置換、日本語不可
-    name = name.replace(/\s+/g, '-');
-    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
+  const validateProjectName = (name: string): string => {
+    // 英数字・ハイフンのみ、空白は-に置換、日本語不可
+    const normalized = name.trim().replace(/\s+/g, '-');
+    if (!/^[a-zA-Z0-9-]+$/.test(normalized)) {
       alert(t('projectModal.nameValidation'));
-      return;
+      return '';
     }
+    return normalized;
+  };
+
+  const handleCreateProject = async (withInitialFiles: boolean) => {
+    const name = validateProjectName(newProjectName);
+    if (!name) return;
 
     setLoading(true);
     try {
+      let project: Project;
+      
       if (onProjectCreate) {
         await onProjectCreate(name, newProjectDescription.trim() || undefined);
+        await loadProjects();
+        const newProject = (await fileRepository.getProjects()).find(p => p.name === name);
+        if (newProject) project = newProject;
+        else throw new Error('Project not found after creation');
       } else {
-        const project = await fileRepository.createProject(
-          name,
-          newProjectDescription.trim() || undefined
-        );
+        if (withInitialFiles) {
+          project = await fileRepository.createProject(
+            name,
+            newProjectDescription.trim() || undefined
+          );
+        } else {
+          project = await fileRepository.createEmptyProject(
+            name,
+            newProjectDescription.trim() || undefined
+          );
+        }
         onProjectSelect(project);
       }
+      
       setNewProjectName('');
       setNewProjectDescription('');
-      setIsCreating(false);
+      setCreationMethod('select');
       onClose();
       await loadProjects();
     } catch (error) {
@@ -113,12 +135,8 @@ export default function ProjectModal({
       name = repoName.replace(/\s+/g, '-');
     }
 
-    // プロジェクト名のバリデーション
-    name = name.replace(/\s+/g, '-');
-    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
-      alert(t('projectModal.nameValidation'));
-      return;
-    }
+    name = validateProjectName(name);
+    if (!name) return;
 
     setLoading(true);
     try {
@@ -130,8 +148,6 @@ export default function ProjectModal({
       const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
 
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
-      // ProjectModalで作成した空プロジェクトのルートに直接クローンするため targetDir='.' を渡す
-      // 最大100件まで.gitオブジェクトを読み込む
       await git.clone(url, '.', { maxGitObjects: 100 });
 
       // プロジェクトを選択して開く
@@ -139,7 +155,7 @@ export default function ProjectModal({
 
       setCloneUrl('');
       setCloneProjectName('');
-      setIsCloning(false);
+      setCreationMethod('select');
       onClose();
       await loadProjects();
 
@@ -147,6 +163,51 @@ export default function ProjectModal({
     } catch (error) {
       console.error('Failed to clone project:', error);
       alert(`クローンに失敗しました: ${(error as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleZipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.name.endsWith('.zip')) {
+      setZipFile(file);
+      // ファイル名からプロジェクト名を推測（.zipを除去）
+      const suggestedName = file.name.replace(/\.zip$/i, '').replace(/\s+/g, '-');
+      setZipProjectName(suggestedName);
+    }
+  };
+
+  const handleImportZip = async () => {
+    if (!zipFile) {
+      alert(t('projectModal.selectZipFile'));
+      return;
+    }
+
+    const name = validateProjectName(zipProjectName);
+    if (!name) return;
+
+    setLoading(true);
+    try {
+      const project = await fileRepository.importProjectFromZip(
+        name,
+        zipFile,
+        newProjectDescription.trim() || undefined
+      );
+
+      onProjectSelect(project);
+
+      setZipFile(null);
+      setZipProjectName('');
+      setNewProjectDescription('');
+      setCreationMethod('select');
+      onClose();
+      await loadProjects();
+
+      alert(t('projectModal.zipImportSuccess'));
+    } catch (error) {
+      console.error('Failed to import ZIP:', error);
+      alert(`ZIPインポートに失敗しました: ${(error as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -204,11 +265,258 @@ export default function ProjectModal({
     }).format(date);
   };
 
+  const renderCreationMethodSelector = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      <button
+        onClick={() => setCreationMethod('new')}
+        className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
+        disabled={loading}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+            <Plus size={24} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">{t('projectModal.createWithInitial')}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('projectModal.createWithInitialDescription')}
+            </p>
+          </div>
+        </div>
+      </button>
+
+      <button
+        onClick={() => setCreationMethod('clone')}
+        className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
+        disabled={loading}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+            <GitBranch size={24} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">{t('projectModal.gitClone')}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('projectModal.gitCloneDescription')}
+            </p>
+          </div>
+        </div>
+      </button>
+
+      <button
+        onClick={() => setCreationMethod('zip')}
+        className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
+        disabled={loading}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+            <FileArchive size={24} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">{t('projectModal.zipImport')}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('projectModal.zipImportDescription')}
+            </p>
+          </div>
+        </div>
+      </button>
+
+      <button
+        onClick={() => setCreationMethod('empty')}
+        className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
+        disabled={loading}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+            <FolderOpen size={24} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">{t('projectModal.createEmpty')}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('projectModal.createEmptyDescription')}
+            </p>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+
+  const renderNewProjectForm = (withInitialFiles: boolean) => (
+    <div className="bg-muted p-4 rounded border">
+      <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">
+          {t('projectModal.projectName')}
+        </label>
+        <input
+          type="text"
+          value={newProjectName}
+          onChange={e => setNewProjectName(e.target.value)}
+          placeholder={t('projectModal.projectNamePlaceholder')}
+          className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+          autoFocus
+        />
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">
+          {t('projectModal.descriptionOptional')}
+        </label>
+        <textarea
+          value={newProjectDescription}
+          onChange={e => setNewProjectDescription(e.target.value)}
+          placeholder={t('projectModal.descriptionPlaceholder')}
+          rows={2}
+          className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleCreateProject(withInitialFiles)}
+          disabled={!newProjectName.trim() || loading}
+          className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+        >
+          {t('projectModal.create')}
+        </button>
+        <button
+          onClick={() => {
+            setCreationMethod('select');
+            setNewProjectName('');
+            setNewProjectDescription('');
+          }}
+          className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+        >
+          {t('projectModal.cancel')}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderCloneForm = () => (
+    <div className="bg-muted p-4 rounded border">
+      <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">
+          {t('projectModal.repoUrl')}
+        </label>
+        <input
+          type="text"
+          value={cloneUrl}
+          onChange={e => setCloneUrl(e.target.value)}
+          placeholder={t('projectModal.repoUrlPlaceholder')}
+          className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+          autoFocus
+        />
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">
+          {t('projectModal.projectNameOptional')}
+        </label>
+        <input
+          type="text"
+          value={cloneProjectName}
+          onChange={e => setCloneProjectName(e.target.value)}
+          placeholder={t('projectModal.projectNameOptionalPlaceholder')}
+          className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <p className="text-xs text-muted-foreground mt-1">{t('projectModal.nameHint')}</p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={handleCloneProject}
+          disabled={!cloneUrl.trim() || loading}
+          className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+        >
+          {t('projectModal.clone')}
+        </button>
+        <button
+          onClick={() => {
+            setCreationMethod('select');
+            setCloneUrl('');
+            setCloneProjectName('');
+          }}
+          className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+        >
+          {t('projectModal.cancel')}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderZipImportForm = () => (
+    <div className="bg-muted p-4 rounded border">
+      <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">
+          {t('projectModal.uploadZip')}
+        </label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip"
+          onChange={handleZipFileSelect}
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full px-3 py-2 bg-background border border-border rounded hover:bg-accent flex items-center justify-center gap-2"
+        >
+          <Upload size={16} />
+          {zipFile ? zipFile.name : t('projectModal.selectZipFile')}
+        </button>
+      </div>
+      {zipFile && (
+        <>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">
+              {t('projectModal.projectName')}
+            </label>
+            <input
+              type="text"
+              value={zipProjectName}
+              onChange={e => setZipProjectName(e.target.value)}
+              placeholder={t('projectModal.projectNamePlaceholder')}
+              className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">
+              {t('projectModal.descriptionOptional')}
+            </label>
+            <textarea
+              value={newProjectDescription}
+              onChange={e => setNewProjectDescription(e.target.value)}
+              placeholder={t('projectModal.descriptionPlaceholder')}
+              rows={2}
+              className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+          </div>
+        </>
+      )}
+      <div className="flex gap-2">
+        <button
+          onClick={handleImportZip}
+          disabled={!zipFile || !zipProjectName.trim() || loading}
+          className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+        >
+          {t('projectModal.create')}
+        </button>
+        <button
+          onClick={() => {
+            setCreationMethod('select');
+            setZipFile(null);
+            setZipProjectName('');
+            setNewProjectDescription('');
+          }}
+          className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+        >
+          {t('projectModal.cancel')}
+        </button>
+      </div>
+    </div>
+  );
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold">{t('projectModal.title')}</h2>
           <button onClick={onClose} className="p-1 hover:bg-accent rounded">
@@ -218,121 +526,19 @@ export default function ProjectModal({
 
         <div className="flex-1 overflow-auto p-4">
           <div className="mb-4">
-            {!isCreating && !isCloning ? (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsCreating(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                  disabled={loading}
-                >
-                  <Plus size={16} />
-                  {t('projectModal.newProject')}
-                </button>
-                <button
-                  onClick={() => setIsCloning(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
-                  disabled={loading}
-                >
-                  <GitBranch size={16} />
-                  {t('projectModal.cloneFromGitHub')}
-                </button>
-              </div>
-            ) : isCreating ? (
-              <div className="bg-muted p-4 rounded border">
-                <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">
-                    {t('projectModal.projectName')}
-                  </label>
-                  <input
-                    type="text"
-                    value={newProjectName}
-                    onChange={e => setNewProjectName(e.target.value)}
-                    placeholder={t('projectModal.projectNamePlaceholder')}
-                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    autoFocus
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">
-                    {t('projectModal.descriptionOptional')}
-                  </label>
-                  <textarea
-                    value={newProjectDescription}
-                    onChange={e => setNewProjectDescription(e.target.value)}
-                    placeholder={t('projectModal.descriptionPlaceholder')}
-                    rows={2}
-                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCreateProject}
-                    disabled={!newProjectName.trim() || loading}
-                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {t('projectModal.create')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCreating(false);
-                      setNewProjectName('');
-                      setNewProjectDescription('');
-                    }}
-                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
-                  >
-                    {t('projectModal.cancel')}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-muted p-4 rounded border">
-                <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">
-                    {t('projectModal.repoUrl')}
-                  </label>
-                  <input
-                    type="text"
-                    value={cloneUrl}
-                    onChange={e => setCloneUrl(e.target.value)}
-                    placeholder={t('projectModal.repoUrlPlaceholder')}
-                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    autoFocus
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="block text-sm font-medium mb-1">
-                    {t('projectModal.projectNameOptional')}
-                  </label>
-                  <input
-                    type="text"
-                    value={cloneProjectName}
-                    onChange={e => setCloneProjectName(e.target.value)}
-                    placeholder={t('projectModal.projectNameOptionalPlaceholder')}
-                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{t('projectModal.nameHint')}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCloneProject}
-                    disabled={!cloneUrl.trim() || loading}
-                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {t('projectModal.clone')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCloning(false);
-                      setCloneUrl('');
-                      setCloneProjectName('');
-                    }}
-                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
-                  >
-                    {t('projectModal.cancel')}
-                  </button>
-                </div>
-              </div>
+            {creationMethod === 'select' && (
+              <>
+                <h3 className="text-sm font-medium mb-3 text-muted-foreground">
+                  {t('projectModal.chooseCreationMethod')}
+                </h3>
+                {renderCreationMethodSelector()}
+              </>
             )}
+
+            {creationMethod === 'new' && renderNewProjectForm(true)}
+            {creationMethod === 'empty' && renderNewProjectForm(false)}
+            {creationMethod === 'clone' && renderCloneForm()}
+            {creationMethod === 'zip' && renderZipImportForm()}
           </div>
 
           {loading ? (
