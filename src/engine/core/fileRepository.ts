@@ -661,7 +661,10 @@ export class FileRepository {
     bufferContent?: ArrayBuffer,
     fileType?: 'file' | 'folder'
   ): Promise<void> {
-    if (!isBrowser()) return;
+    if (!isBrowser()) {
+      coreInfo(`[FileRepository] Skipping GitFileSystem sync in non-browser environment`);
+      return;
+    }
 
     try {
       const shouldIgnore = await this.shouldIgnorePathForGit(projectId, path);
