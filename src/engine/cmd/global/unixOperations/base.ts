@@ -159,7 +159,7 @@ export abstract class UnixCommandBase {
    * @returns マッチしたファイル/ディレクトリの相対パスリスト
    */
   protected async expandGlob(pattern: string, dirPath: string): Promise<string[]> {
-    // パターンが明示的にドット(.)で始まっているかチェック
+    // Check if pattern explicitly starts with dot (e.g., .*, .git*)
     const patternExplicitlyMatchesDotfiles = pattern.startsWith('.');
     const regex = this.globToRegex(pattern);
 
@@ -181,8 +181,7 @@ export abstract class UnixCommandBase {
     return childrenInDir
       .map((f: ProjectFile) => f.path.split('/').pop() || '')
       .filter((name: string) => {
-        // POSIX準拠: ワイルドカードはドットファイルにマッチしない
-        // ただし、パターンが明示的にドットで始まる場合（例: .*）は例外
+        // POSIX-compliant: wildcards don't match dotfiles unless pattern explicitly starts with dot
         if (name.startsWith('.') && !patternExplicitlyMatchesDotfiles) {
           return false;
         }
@@ -295,8 +294,7 @@ export abstract class UnixCommandBase {
       return;
     }
 
-    // パターンが明示的にドット(.)で始まっているかチェック
-    // 例: .*, .git*, .?など
+    // Check if pattern explicitly starts with dot (e.g., .*, .git*, .?)
     const patternExplicitlyMatchesDotfiles = part.startsWith('.');
 
     // ワイルドカード展開（IndexedDBから取得）
@@ -325,7 +323,7 @@ export abstract class UnixCommandBase {
         for (const child of childrenInDir) {
           const fileName = child.path.split('/').pop() || '';
 
-          // POSIX準拠: ワイルドカードはドットファイルにマッチしない
+          // POSIX-compliant: wildcards don't match dotfiles unless explicitly specified
           if (fileName.startsWith('.') && !patternExplicitlyMatchesDotfiles) {
             continue;
           }
@@ -347,8 +345,7 @@ export abstract class UnixCommandBase {
       for (const file of childrenInDir) {
         const fileName = file.path.split('/').pop() || '';
 
-        // POSIX準拠: ワイルドカードはドットファイルにマッチしない
-        // ただし、パターンが明示的にドットで始まる場合（例: .*）は例外
+        // POSIX-compliant: wildcards don't match dotfiles unless pattern explicitly starts with dot
         if (fileName.startsWith('.') && !patternExplicitlyMatchesDotfiles) {
           continue;
         }

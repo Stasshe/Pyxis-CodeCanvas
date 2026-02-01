@@ -136,7 +136,7 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
       .map((file: any) => file.path.split('/').pop() || '')
       .filter((n: string) => n !== '');
 
-    // パターンが明示的にドット(.)で始まっているかチェック
+    // Check if pattern explicitly starts with dot
     const patternExplicitlyMatchesDotfiles = fileGlob.startsWith('.');
 
     // Build regex from glob pattern
@@ -162,8 +162,7 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
     const regexStr = `^${regexParts.join('')}$`;
     const regex = new RegExp(regexStr);
     const matchedNames = fileNames.filter((n: string) => {
-      // POSIX準拠: ワイルドカードはドットファイルにマッチしない
-      // ただし、パターンが明示的にドットで始まる場合（例: .*）は例外
+      // POSIX-compliant: wildcards don't match dotfiles unless pattern explicitly starts with dot
       if (n.startsWith('.') && !patternExplicitlyMatchesDotfiles) {
         return false;
       }
