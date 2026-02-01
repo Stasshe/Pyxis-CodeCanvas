@@ -320,6 +320,34 @@ export class FileRepository {
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(zipFile);
 
+      // 全てのファイルパスを取得
+      const allPaths: string[] = [];
+      zip.forEach((relativePath, zipEntry) => {
+        if (!zipEntry.dir) {
+          allPaths.push(relativePath);
+        }
+      });
+
+      // 共通のルートディレクトリを検出
+      let commonRoot = '';
+      if (allPaths.length > 0) {
+        // 最初のパスからルートディレクトリを取得
+        const firstPath = allPaths[0];
+        const firstSlashIndex = firstPath.indexOf('/');
+        
+        if (firstSlashIndex > 0) {
+          const potentialRoot = firstPath.substring(0, firstSlashIndex + 1);
+          
+          // 全てのパスが同じルートで始まるか確認
+          const allHaveSameRoot = allPaths.every(p => p.startsWith(potentialRoot));
+          
+          if (allHaveSameRoot) {
+            commonRoot = potentialRoot;
+            coreInfo(`[FileRepository] Detected common root directory: ${commonRoot}`);
+          }
+        }
+      }
+
       // ZIPファイル内のファイルを再帰的に処理
       const filePromises: Promise<void>[] = [];
       
@@ -327,8 +355,17 @@ export class FileRepository {
         // ディレクトリエントリはスキップ（ファイルの親として自動作成される）
         if (zipEntry.dir) return;
 
+        // 共通ルートを削除してパスを正規化
+        let normalizedPath = relativePath;
+        if (commonRoot && normalizedPath.startsWith(commonRoot)) {
+          normalizedPath = normalizedPath.substring(commonRoot.length);
+        }
+        
+        // 空のパスはスキップ
+        if (!normalizedPath) return;
+
         // パスを正規化（先頭スラッシュを追加）
-        const path = `/${relativePath}`;
+        const path = `/${normalizedPath}`;
 
         const promise = (async () => {
           try {

@@ -114,14 +114,15 @@ export default function ProjectModal({
             newProjectDescription.trim() || undefined
           );
         }
-        onProjectSelect(project);
       }
 
       setNewProjectName('');
       setNewProjectDescription('');
       setCreationMethod('select');
+      
       onClose();
       await loadProjects();
+      onProjectSelect(project);
     } catch (error) {
       console.error('Failed to create project:', error);
       alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`);
@@ -160,16 +161,15 @@ export default function ProjectModal({
       // git cloneを実行（.gitを含む全ファイルがIndexedDBに同期される）
       await git.clone(url, '.', { maxGitObjects: 100 });
 
-      // プロジェクトを選択して開く
-      onProjectSelect(project);
-
       setCloneUrl('');
       setCloneProjectName('');
       setCreationMethod('select');
+      
+      alert(t('projectModal.cloneSuccess'));
+      
       onClose();
       await loadProjects();
-
-      alert(t('projectModal.cloneSuccess'));
+      onProjectSelect(project);
     } catch (error) {
       console.error('Failed to clone project:', error);
       alert(`クローンに失敗しました: ${(error as Error).message}`);
@@ -205,16 +205,16 @@ export default function ProjectModal({
         newProjectDescription.trim() || undefined
       );
 
-      onProjectSelect(project);
-
       setZipFile(null);
       setZipProjectName('');
       setNewProjectDescription('');
       setCreationMethod('select');
+      
+      alert(t('projectModal.zipImportSuccess'));
+      
       onClose();
       await loadProjects();
-
-      alert(t('projectModal.zipImportSuccess'));
+      onProjectSelect(project);
     } catch (error) {
       console.error('Failed to import ZIP:', error);
       alert(`ZIPインポートに失敗しました: ${(error as Error).message}`);
@@ -526,14 +526,7 @@ export default function ProjectModal({
 
         <div className="flex-1 overflow-auto p-4">
           <div className="mb-4">
-            {creationMethod === 'select' && (
-              <>
-                <h3 className="text-sm font-medium mb-3 text-muted-foreground">
-                  {t('projectModal.chooseCreationMethod')}
-                </h3>
-                {renderCreationMethodSelector()}
-              </>
-            )}
+            {creationMethod === 'select' && renderCreationMethodSelector()}
 
             {creationMethod === 'new' && renderNewProjectForm(true)}
             {creationMethod === 'empty' && renderNewProjectForm(false)}
