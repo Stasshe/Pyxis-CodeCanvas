@@ -144,10 +144,8 @@ const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
 export const useProject = () => {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const loadProject = async (project: Project) => {
-    setLoading(true);
     try {
       await fileRepository.init();
       const files = await fileRepository.getFilesByPrefix(project.id, '/');
@@ -170,91 +168,6 @@ export const useProject = () => {
       }
     } catch (error) {
       console.error('[Project] Failed to load:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveFile = async (path: string, content: string) => {
-    if (!currentProject) {
-      console.error('[Project] No current project');
-      return;
-    }
-    console.log('[Project] Saving file:', path);
-    try {
-      await fileRepository.init();
-      // Query single file directly instead of pulling all project files
-      const existingFile = await fileRepository.getFileByPath(currentProject.id, path);
-      if (existingFile) {
-        const updatedFile = {
-          ...existingFile,
-          content,
-          isBufferArray: false,
-          bufferContent: undefined,
-          updatedAt: new Date(),
-        };
-        await fileRepository.saveFile(updatedFile);
-        console.log('[Project] File updated (event system will update UI)');
-      } else {
-        await fileRepository.createFile(currentProject.id, path, content, 'file');
-        console.log('[Project] File created (event system will update UI)');
-      }
-      // 同期処理はfileRepository側に委譲
-    } catch (error) {
-      console.error('[Project] Failed to save file:', error);
-      throw error;
-    }
-  };
-
-  const createFile = async (path: string, type: 'file' | 'folder', content = '') => {
-    if (!currentProject) return;
-    console.log('[Project] Creating:', type, path);
-    try {
-      if (type === 'file') {
-        await ensureParentFolders(path);
-      }
-      await fileRepository.createFile(currentProject.id, path, content, type);
-      console.log('[Project] Created (event system will update UI)');
-      // 同期処理はfileRepository側に委譲
-    } catch (error) {
-      console.error('[Project] Failed to create:', error);
-      throw error;
-    }
-  };
-
-  const ensureParentFolders = async (filePath: string) => {
-    if (!currentProject) return;
-    if (filePath.lastIndexOf('/') <= 0) return;
-    const pathParts = filePath.split('/').filter(part => part !== '');
-    let currentPath = '';
-    for (let i = 0; i < pathParts.length - 1; i++) {
-      currentPath += `/${pathParts[i]}`;
-      // Query whether the folder exists directly from the repository instead of relying on cached projectFiles
-      try {
-        await fileRepository.init();
-        const existingFolder = await fileRepository.getFileByPath(currentProject.id, currentPath);
-        if (!existingFolder || existingFolder.type !== 'folder') {
-          console.log('[Project] Creating missing folder:', currentPath);
-          await fileRepository.createFile(currentProject.id, currentPath, '', 'folder');
-        }
-      } catch (error) {
-        console.error('[Project] Failed to create parent folder:', currentPath, error);
-        throw error;
-      }
-    }
-  };
-
-  const deleteFile = async (fileId: string) => {
-    if (!currentProject) return;
-    try {
-      const fileToDelete = projectFiles.find(f => f.id === fileId);
-      console.log('[Project] Deleting:', fileToDelete?.path);
-      await fileRepository.deleteFile(fileId);
-      // 子ファイルや同期処理もfileRepository側に委譲
-      console.log('[Project] Deleted (event system will update UI)');
-    } catch (error) {
-      console.error('[Project] Failed to delete:', error);
-      throw error;
     }
   };
 
@@ -269,74 +182,8 @@ export const useProject = () => {
     }
   };
 
-  const syncTerminalFileOperation = async (
-    path: string,
-    type: 'file' | 'folder' | 'delete',
-    content = '',
-    bufferContent?: ArrayBuffer
-  ) => {
-    if (!currentProject) {
-      console.log('[Terminal] No current project');
-      return;
-    }
-    console.log('[Terminal] Syncing operation:', type, path);
-    if (path === '.') {
-      console.log('[Terminal] Dummy refresh operation');
-      await refreshProjectFiles();
-      return;
-    }
-    try {
-      await fileRepository.init();
-      if (type === 'delete') {
-        const fileToDelete = await fileRepository.getFileByPath(currentProject.id, path);
-        if (fileToDelete) {
-          await fileRepository.deleteFile(fileToDelete.id);
-        } else {
-          const childFiles = await fileRepository.getFilesByPrefix(currentProject.id, `${path}/`);
-          for (const child of childFiles) {
-            await fileRepository.deleteFile(child.id);
-          }
-        }
-      } else {
-        const existingFile = await fileRepository.getFileByPath(currentProject.id, path);
-        if (existingFile) {
-          const updatedFile = bufferContent
-            ? {
-                ...existingFile,
-                content: '',
-                isBufferArray: true,
-                bufferContent,
-                updatedAt: new Date(),
-              }
-            : {
-                ...existingFile,
-                content,
-                isBufferArray: false,
-                bufferContent: undefined,
-                updatedAt: new Date(),
-              };
-          await fileRepository.saveFile(updatedFile);
-        } else {
-          await fileRepository.createFile(
-            currentProject.id,
-            path,
-            bufferContent ? '' : content,
-            type,
-            !!bufferContent,
-            bufferContent
-          );
-        }
-      }
-      console.log('[Terminal] Operation completed (event system will update UI)');
-    } catch (error) {
-      console.error('[Terminal] Failed to sync operation:', error);
-      throw error;
-    }
-  };
-
   const createProject = async (name: string, description?: string) => {
     try {
-      setLoading(true);
       await fileRepository.init();
 
       console.log('[Project] Creating new project:', name);
@@ -358,22 +205,6 @@ export const useProject = () => {
       return newProject;
     } catch (error) {
       console.error('[Project] Failed to create:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const clearAIReview = async (filePath: string): Promise<void> => {
-    if (!currentProject) {
-      throw new Error('No project selected');
-    }
-
-    try {
-      await fileRepository.clearAIReview(currentProject.id, filePath);
-      await refreshProjectFiles();
-    } catch (error) {
-      console.error('[Project] Failed to clear AI review:', error);
       throw error;
     }
   };
@@ -469,7 +300,6 @@ export const useProject = () => {
         }
       } catch (error) {
         console.error('[Project] Failed to initialize:', error);
-        setLoading(false);
       }
     };
 
@@ -479,14 +309,8 @@ export const useProject = () => {
   return {
     currentProject,
     projectFiles: convertToFileItems(projectFiles),
-    loading,
     loadProject,
-    saveFile,
-    createFile,
-    deleteFile,
     createProject,
     refreshProjectFiles,
-    syncTerminalFileOperation,
-    clearAIReview,
   };
 };
