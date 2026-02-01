@@ -1,4 +1,14 @@
-import { Edit, FileArchive, Folder, FolderOpen, GitBranch, Plus, Trash2, Upload, X } from 'lucide-react';
+import {
+  Edit,
+  FileArchive,
+  Folder,
+  FolderOpen,
+  GitBranch,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -85,7 +95,7 @@ export default function ProjectModal({
     setLoading(true);
     try {
       let project: Project;
-      
+
       if (onProjectCreate) {
         await onProjectCreate(name, newProjectDescription.trim() || undefined);
         await loadProjects();
@@ -106,7 +116,7 @@ export default function ProjectModal({
         }
         onProjectSelect(project);
       }
-      
+
       setNewProjectName('');
       setNewProjectDescription('');
       setCreationMethod('select');
@@ -170,7 +180,7 @@ export default function ProjectModal({
 
   const handleZipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.name.endsWith('.zip')) {
+    if (file?.name.endsWith('.zip')) {
       setZipFile(file);
       // ファイル名からプロジェクト名を推測（.zipを除去）
       const suggestedName = file.name.replace(/\.zip$/i, '').replace(/\s+/g, '-');
@@ -267,7 +277,7 @@ export default function ProjectModal({
 
   const renderCreationMethodSelector = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-      <button
+      <button type="button" type="button"
         onClick={() => setCreationMethod('new')}
         className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
         disabled={loading}
@@ -285,7 +295,7 @@ export default function ProjectModal({
         </div>
       </button>
 
-      <button
+      <button type="button" type="button"
         onClick={() => setCreationMethod('clone')}
         className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
         disabled={loading}
@@ -296,14 +306,12 @@ export default function ProjectModal({
           </div>
           <div className="flex-1">
             <h3 className="font-semibold mb-1">{t('projectModal.gitClone')}</h3>
-            <p className="text-sm text-muted-foreground">
-              {t('projectModal.gitCloneDescription')}
-            </p>
+            <p className="text-sm text-muted-foreground">{t('projectModal.gitCloneDescription')}</p>
           </div>
         </div>
       </button>
 
-      <button
+      <button type="button" type="button"
         onClick={() => setCreationMethod('zip')}
         className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
         disabled={loading}
@@ -321,7 +329,7 @@ export default function ProjectModal({
         </div>
       </button>
 
-      <button
+      <button type="button" type="button"
         onClick={() => setCreationMethod('empty')}
         className="p-4 border border-border rounded-lg hover:bg-accent hover:border-primary transition-colors text-left group"
         disabled={loading}
@@ -344,16 +352,13 @@ export default function ProjectModal({
   const renderNewProjectForm = (withInitialFiles: boolean) => (
     <div className="bg-muted p-4 rounded border">
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">
-          {t('projectModal.projectName')}
-        </label>
+        <label className="block text-sm font-medium mb-1">{t('projectModal.projectName')}</label>
         <input
           type="text"
           value={newProjectName}
           onChange={e => setNewProjectName(e.target.value)}
           placeholder={t('projectModal.projectNamePlaceholder')}
           className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-          autoFocus
         />
       </div>
       <div className="mb-3">
@@ -369,14 +374,14 @@ export default function ProjectModal({
         />
       </div>
       <div className="flex gap-2">
-        <button
+        <button type="button" type="button"
           onClick={() => handleCreateProject(withInitialFiles)}
           disabled={!newProjectName.trim() || loading}
           className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
         >
           {t('projectModal.create')}
         </button>
-        <button
+        <button type="button" type="button"
           onClick={() => {
             setCreationMethod('select');
             setNewProjectName('');
@@ -393,16 +398,13 @@ export default function ProjectModal({
   const renderCloneForm = () => (
     <div className="bg-muted p-4 rounded border">
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">
-          {t('projectModal.repoUrl')}
-        </label>
+        <label className="block text-sm font-medium mb-1">{t('projectModal.repoUrl')}</label>
         <input
           type="text"
           value={cloneUrl}
           onChange={e => setCloneUrl(e.target.value)}
           placeholder={t('projectModal.repoUrlPlaceholder')}
           className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
-          autoFocus
         />
       </div>
       <div className="mb-3">
@@ -419,14 +421,14 @@ export default function ProjectModal({
         <p className="text-xs text-muted-foreground mt-1">{t('projectModal.nameHint')}</p>
       </div>
       <div className="flex gap-2">
-        <button
+        <button type="button" type="button"
           onClick={handleCloneProject}
           disabled={!cloneUrl.trim() || loading}
           className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
         >
           {t('projectModal.clone')}
         </button>
-        <button
+        <button type="button" type="button"
           onClick={() => {
             setCreationMethod('select');
             setCloneUrl('');
@@ -443,9 +445,7 @@ export default function ProjectModal({
   const renderZipImportForm = () => (
     <div className="bg-muted p-4 rounded border">
       <div className="mb-3">
-        <label className="block text-sm font-medium mb-1">
-          {t('projectModal.uploadZip')}
-        </label>
+        <label className="block text-sm font-medium mb-1">{t('projectModal.uploadZip')}</label>
         <input
           ref={fileInputRef}
           type="file"
@@ -453,7 +453,7 @@ export default function ProjectModal({
           onChange={handleZipFileSelect}
           className="hidden"
         />
-        <button
+        <button type="button" type="button"
           onClick={() => fileInputRef.current?.click()}
           className="w-full px-3 py-2 bg-background border border-border rounded hover:bg-accent flex items-center justify-center gap-2"
         >
@@ -490,14 +490,14 @@ export default function ProjectModal({
         </>
       )}
       <div className="flex gap-2">
-        <button
+        <button type="button" type="button"
           onClick={handleImportZip}
           disabled={!zipFile || !zipProjectName.trim() || loading}
           className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
         >
           {t('projectModal.create')}
         </button>
-        <button
+        <button type="button" type="button"
           onClick={() => {
             setCreationMethod('select');
             setZipFile(null);
@@ -519,7 +519,7 @@ export default function ProjectModal({
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold">{t('projectModal.title')}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-accent rounded">
+          <button type="button" onClick={onClose} className="p-1 hover:bg-accent rounded">
             <X size={20} />
           </button>
         </div>
@@ -580,21 +580,21 @@ export default function ProjectModal({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
+                      <button type="button" type="button"
                         onClick={() => setEditingProject(project)}
                         className="p-1 hover:bg-accent rounded"
                         title={t('projectModal.editProject')}
                       >
                         <Edit size={16} />
                       </button>
-                      <button
+                      <button type="button" type="button"
                         onClick={e => handleDeleteProject(project.id, e)}
                         className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded"
                         title={t('projectModal.deleteProject')}
                       >
                         <Trash2 size={16} />
                       </button>
-                      <button
+                      <button type="button" type="button"
                         onClick={() => {
                           onProjectSelect(project);
                           onClose();
@@ -629,13 +629,13 @@ export default function ProjectModal({
                 />
               </div>
               <div className="flex gap-2">
-                <button
+                <button type="button" type="button"
                   onClick={handleEditProject}
                   className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
                   {t('projectModal.save')}
                 </button>
-                <button
+                <button type="button" type="button"
                   onClick={() => setEditingProject(null)}
                   className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                 >
