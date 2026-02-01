@@ -239,13 +239,8 @@ export const AIReviewTabType: TabTypeDefinition = {
     }
 
     // projectFiles から対応するファイルを検索
-    const normalizePath = (p?: string) => {
-      if (!p) return '';
-      return p.startsWith('/') ? p : `/${p}`;
-    };
-
     const correspondingFile = context.projectFiles.find(
-      f => normalizePath(f.path) === normalizePath(filePath)
+      f => toAppPath(f.path) === toAppPath(filePath)
     );
 
     if (correspondingFile?.content) {

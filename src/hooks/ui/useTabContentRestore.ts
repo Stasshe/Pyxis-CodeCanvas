@@ -178,6 +178,16 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
               return { ...tab, needsContentRestore: false } as any;
             }
 
+            // 拡張機能タブ（まだ登録されていない可能性がある）はそのまま返す
+            // 拡張機能タブのデータは既にシリアライズされているため復元不要
+            if (tab.kind.startsWith('extension:') && !tabDef) {
+              console.log(
+                '[useTabContentRestore] Extension tab type not registered yet, preserving data:',
+                tab.kind
+              );
+              return { ...tab, needsContentRestore: false } as any;
+            }
+
             // デフォルト: ファイルベースの復元を試みる（projectFiles がある場合のみ）
             if (projectFiles.length > 0) {
               return await defaultFileRestore(tab, context);

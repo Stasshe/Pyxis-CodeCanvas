@@ -83,6 +83,8 @@ export class TabAPI {
       canEdit: false,
       canPreview: false,
       component: component,
+      // Extension tabs preserve all data in the tab object, so they don't need session restoration
+      needsSessionRestore: false,
       createTab: (data: any, opts?: any) =>
         ({
           // id: logical resource id within the extension (e.g. note id)

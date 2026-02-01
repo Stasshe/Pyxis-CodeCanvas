@@ -11,6 +11,7 @@ import type {
 
 import BinaryTabContent from '@/components/Tab/BinaryTabContent';
 import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
+import { toAppPath } from '@/engine/core/pathUtils';
 import type { FileItem } from '@/types';
 
 /**
@@ -79,13 +80,8 @@ export const BinaryTabType: TabTypeDefinition = {
     }
 
     // projectFiles から対応するファイルを検索
-    const normalizePath = (p?: string) => {
-      if (!p) return '';
-      return p.startsWith('/') ? p : `/${p}`;
-    };
-
     const correspondingFile = context.projectFiles.find(
-      f => normalizePath(f.path) === normalizePath(filePath)
+      f => toAppPath(f.path) === toAppPath(filePath)
     );
 
     if (correspondingFile) {
