@@ -82,6 +82,7 @@
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.27.1",
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.58.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/jest": "29.5.3",
     "@types/node": "^20.19.27",
