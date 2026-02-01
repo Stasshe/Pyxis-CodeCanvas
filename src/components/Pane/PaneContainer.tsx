@@ -278,19 +278,24 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const isGloballyActive = globalActiveTab === activeTab?.id && isActivePane;
 
   // 拡張機能タブの場合、TabRegistryの変更を監視してリレンダーを促す
-  const [registryVersion, setRegistryVersion] = useState(0);
+  const [extensionLoaded, setExtensionLoaded] = useState(false);
   useEffect(() => {
     // 拡張機能タブがアクティブで、まだ登録されていない場合のみ監視
     if (activeTab?.kind.startsWith('extension:') && !tabRegistry.has(activeTab.kind)) {
+      setExtensionLoaded(false);
       const unsubscribe = tabRegistry.addChangeListener((kind) => {
         if (kind === activeTab.kind) {
           // TabRegistryに登録されたらリレンダー
-          setRegistryVersion(v => v + 1);
+          setExtensionLoaded(true);
         }
       });
       return unsubscribe;
     }
-  }, [activeTab?.kind, registryVersion]);
+    // 既に登録されている場合
+    if (activeTab?.kind.startsWith('extension:') && tabRegistry.has(activeTab.kind)) {
+      setExtensionLoaded(true);
+    }
+  }, [activeTab?.kind]);
 
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;

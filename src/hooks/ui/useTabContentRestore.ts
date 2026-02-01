@@ -37,8 +37,11 @@ function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   return result;
 }
 
-// パスを正規化する関数（タブパスからファイルパスを抽出）
-function normalizeTabPath(p?: string): string {
+// タブパスからファイルパスを抽出して正規化する関数
+// - kind プレフィックス（例: "editor:"）を除去
+// - サフィックス（例: "-preview", "-diff", "-ai"）を除去
+// - 先頭スラッシュを追加
+function extractFilePathFromTab(p?: string): string {
   if (!p) return '';
   const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
   const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
@@ -53,8 +56,7 @@ async function defaultFileRestore(
   tab: Tab & { needsContentRestore?: boolean },
   context: SessionRestoreContext
 ): Promise<Tab> {
-  const filePath = normalizeTabPath(tab.path);
-  
+  const filePath = extractFilePathFromTab(tab.path);
   if (!filePath) {
     console.warn('[useTabContentRestore] No path for tab:', tab.name);
     return { ...tab, needsContentRestore: false } as any;
