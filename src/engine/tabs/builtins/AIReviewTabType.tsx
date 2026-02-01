@@ -6,7 +6,7 @@ import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types
 
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/Pane/PaneContainer';
-import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import {
   addChangeListener,
@@ -234,20 +234,17 @@ export const AIReviewTabType: TabTypeDefinition = {
     const aiTab = tab as AIReviewTab;
     const filePath = aiTab.filePath || aiTab.path;
 
-    if (!filePath || !context.projectFiles) {
+    if (!filePath) {
       return aiTab;
     }
 
-    // projectFiles から対応するファイルを検索
-    const correspondingFile = context.projectFiles.find(
-      f => toAppPath(f.path) === toAppPath(filePath)
-    );
+    const file = await context.getFileByPath(filePath);
 
-    if (correspondingFile?.content) {
+    if (file?.content) {
       console.log('[AIReviewTabType] ✓ Restored originalContent for:', filePath);
       return {
         ...aiTab,
-        originalContent: correspondingFile.content,
+        originalContent: file.content,
       };
     }
 

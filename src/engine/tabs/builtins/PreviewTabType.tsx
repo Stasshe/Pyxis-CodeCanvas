@@ -10,7 +10,6 @@ import type {
 } from '../types';
 
 import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
-import { toAppPath } from '@/engine/core/pathUtils';
 import { useProjectSnapshot } from '@/stores/projectStore';
 import type { FileItem } from '@/types';
 
@@ -70,20 +69,17 @@ export const PreviewTabType: TabTypeDefinition = {
     const previewTab = tab as PreviewTab;
     const filePath = previewTab.path;
 
-    if (!filePath || !context.projectFiles) {
+    if (!filePath) {
       return previewTab;
     }
 
-    // projectFiles から対応するファイルを検索
-    const correspondingFile = context.projectFiles.find(
-      f => toAppPath(f.path) === toAppPath(filePath)
-    );
+    const file = await context.getFileByPath(filePath);
 
-    if (correspondingFile?.content) {
+    if (file?.content) {
       console.log('[PreviewTabType] ✓ Restored content for:', filePath);
       return {
         ...previewTab,
-        content: correspondingFile.content,
+        content: file.content,
       };
     }
 

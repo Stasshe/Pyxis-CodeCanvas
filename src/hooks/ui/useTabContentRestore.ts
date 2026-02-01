@@ -5,7 +5,7 @@
  * 責務:
  * - ページリロード時のセッション復帰によるコンテンツ復元
  * - 各タブタイプの restoreContent メソッドを使用
- * - ファイルベースのタブはプロジェクトファイルから復元
+ * - ファイルベースのタブは fileRepository から復元
  *
  * 注意:
  * - ファイル変更・リアルタイム同期は tabState (Valtio) が担当
@@ -14,47 +14,31 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { snapshot, useSnapshot } from 'valtio';
 
+import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
 import { getCurrentProjectId } from '@/stores/projectStore';
 import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
-import type { EditorPane, FileItem } from '@/types';
-
-// FileItem[]を平坦化する関数
-function flattenFileItems(items: FileItem[]): FileItem[] {
-  const result: FileItem[] = [];
-
-  function traverse(items: FileItem[]) {
-    for (const item of items) {
-      result.push(item);
-      if (item.children && item.children.length > 0) {
-        traverse(item.children);
-      }
-    }
-  }
-
-  traverse(items);
-  return result;
-}
+import type { EditorPane } from '@/types';
 
 // ペインをフラット化する関数（再帰的に全てのリーフペインを収集）
 function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   const result: EditorPane[] = [];
   function traverse(panes: readonly EditorPane[]) {
-    panes.forEach(pane => {
+    for (const pane of panes) {
       if (pane.children && pane.children.length > 0) {
         traverse(pane.children);
       } else {
         result.push(pane);
       }
-    });
+    }
   }
   traverse(panes);
   return result;
 }
 
-// パスを正規化する関数
-function normalizePath(p?: string): string {
+// パスを正規化する関数（タブパスからファイルパスを抽出）
+function normalizeTabPath(p?: string): string {
   if (!p) return '';
   const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
   const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
@@ -69,24 +53,26 @@ async function defaultFileRestore(
   tab: Tab & { needsContentRestore?: boolean },
   context: SessionRestoreContext
 ): Promise<Tab> {
-  const { projectFiles } = context;
-  const flattenedFiles = flattenFileItems(projectFiles as FileItem[]);
-
-  const correspondingFile = flattenedFiles.find(
-    f => normalizePath(f.path) === normalizePath(tab.path)
-  );
-
-  if (!correspondingFile) {
-    console.warn('[useTabContentRestore] File not found for tab:', tab.path);
+  const filePath = normalizeTabPath(tab.path);
+  
+  if (!filePath) {
+    console.warn('[useTabContentRestore] No path for tab:', tab.name);
     return { ...tab, needsContentRestore: false } as any;
   }
 
-  console.log('[useTabContentRestore] ✓ Restored (default):', tab.path);
+  const file = await context.getFileByPath(filePath);
+
+  if (!file) {
+    console.warn('[useTabContentRestore] File not found for tab:', filePath);
+    return { ...tab, needsContentRestore: false } as any;
+  }
+
+  console.log('[useTabContentRestore] ✓ Restored (default):', filePath);
 
   return {
     ...tab,
-    content: correspondingFile.content || '',
-    bufferContent: (tab as any).isBufferArray ? correspondingFile.bufferContent : undefined,
+    content: file.content || '',
+    bufferContent: (tab as any).isBufferArray ? file.bufferContent : undefined,
     isDirty: false,
     needsContentRestore: false,
   } as any;
@@ -96,10 +82,10 @@ async function defaultFileRestore(
  * タブのコンテンツを復元するカスタムフック
  *
  * ページリロード時のセッション復帰によるコンテンツ復元専用。
- * 各タブタイプの restoreContent を使用し、未実装の場合はファイルから復元。
+ * 各タブタイプの restoreContent を使用し、未実装の場合は fileRepository から復元。
  * ファイル変更・リアルタイム同期は tabState (initTabSaveSync) が担当する。
  */
-export function useTabContentRestore(projectFiles: FileItem[], isRestored: boolean) {
+export function useTabContentRestore(isRestored: boolean) {
   const { panes } = useSnapshot(tabState);
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
@@ -129,9 +115,6 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
       return;
     }
 
-    // プロジェクトファイルがまだロードされていない場合は待機
-    // ただし、ファイルベースでないタブタイプは projectFiles 不要かもしれない
-    // 最低限 isRestored が true になるまで待つ
     restorationInProgress.current = true;
     console.log(
       '[useTabContentRestore] Starting content restoration for',
@@ -147,8 +130,12 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         // 復元コンテキストを準備
         const projectId = getCurrentProjectId();
         const context: SessionRestoreContext = {
-          projectFiles: flattenFileItems(projectFiles),
           projectId: projectId || undefined,
+          getFileByPath: async (path: string) => {
+            if (!projectId) return null;
+            const normalizedPath = toAppPath(path);
+            return await fileRepository.getFileByPath(projectId, normalizedPath);
+          },
         };
 
         // 全タブを復元（非同期）
@@ -188,17 +175,8 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
               return { ...tab, needsContentRestore: false } as any;
             }
 
-            // デフォルト: ファイルベースの復元を試みる（projectFiles がある場合のみ）
-            if (projectFiles.length > 0) {
-              return await defaultFileRestore(tab, context);
-            }
-
-            // projectFiles がない場合は復元スキップ
-            console.warn(
-              '[useTabContentRestore] No projectFiles, skipping restoration for:',
-              tab.path
-            );
-            return { ...tab, needsContentRestore: false } as any;
+            // デフォルト: fileRepository からファイルを復元
+            return await defaultFileRestore(tab, context);
           } catch (error) {
             console.error(
               '[useTabContentRestore] Failed to restore tab:',
@@ -262,7 +240,7 @@ export function useTabContentRestore(projectFiles: FileItem[], isRestored: boole
         }, 100);
       }
     });
-  }, [isRestored, panes, projectFiles]);
+  }, [isRestored, panes]);
 
   // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {

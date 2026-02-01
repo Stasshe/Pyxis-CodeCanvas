@@ -11,7 +11,6 @@ import type {
 
 import BinaryTabContent from '@/components/Tab/BinaryTabContent';
 import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
-import { toAppPath } from '@/engine/core/pathUtils';
 import type { FileItem } from '@/types';
 
 /**
@@ -75,21 +74,18 @@ export const BinaryTabType: TabTypeDefinition = {
     const binaryTab = tab as BinaryTab;
     const filePath = binaryTab.path;
 
-    if (!filePath || !context.projectFiles) {
+    if (!filePath) {
       return binaryTab;
     }
 
-    // projectFiles から対応するファイルを検索
-    const correspondingFile = context.projectFiles.find(
-      f => toAppPath(f.path) === toAppPath(filePath)
-    );
+    const file = await context.getFileByPath(filePath);
 
-    if (correspondingFile) {
+    if (file) {
       console.log('[BinaryTabType] ✓ Restored bufferContent for:', filePath);
       return {
         ...binaryTab,
-        content: (correspondingFile.content as string) || '',
-        bufferContent: correspondingFile.bufferContent,
+        content: (file.content as string) || '',
+        bufferContent: file.bufferContent,
       };
     }
 

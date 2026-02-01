@@ -99,7 +99,7 @@ export default function Home() {
   }, [currentProject]);
 
   // タブコンテンツの復元と自動更新
-  useTabContentRestore(projectFiles, isRestored);
+  useTabContentRestore(isRestored);
 
   // ファイル削除時のタブ同期
   useFileDeleteTabSync();

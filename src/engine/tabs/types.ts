@@ -239,17 +239,15 @@ export interface TabFileInfo {
  * restoreContent で利用可能な情報
  */
 export interface SessionRestoreContext {
-  /** プロジェクトファイル一覧 */
-  projectFiles: readonly { path?: string; content?: string; bufferContent?: ArrayBuffer }[];
-  /** fileRepository インスタンス（動的インポートで取得される） */
-  fileRepository?: {
-    getFileByPath: (
-      projectId: string,
-      path: string
-    ) => Promise<{ content?: string; bufferContent?: ArrayBuffer } | null>;
-  };
   /** 現在のプロジェクトID */
   projectId?: string;
+  /**
+   * ファイルをパスで取得する関数
+   * fileRepository.getFileByPath のラッパー
+   */
+  getFileByPath: (
+    path: string
+  ) => Promise<{ content?: string; bufferContent?: ArrayBuffer } | null>;
 }
 
 /**
