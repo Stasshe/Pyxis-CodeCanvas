@@ -1,28 +1,50 @@
 #!/usr/bin/env node
 'use strict';
 
-// Enforce pnpm usage during installs and explicitly disable npm/yarn.
-// Run as `preinstall` from package.json. To bypass (not recommended),
-// set SKIP_PNPM_CHECK=1 in the environment.
+/*
+ * This repository is pnpm-only.
+ * npm / yarn / bun are NOT supported, NOT tolerated, and NOT allowed.
+ * Any attempt to use them will be treated as a hard error.
+ */
 
 const ua = process.env.npm_config_user_agent || '';
-const execPath = process.env.npm_execpath || process.env.NPM_EXECPATH || '';
-const skip = process.env.SKIP_PNPM_CHECK === '1';
+const execPath =
+  process.env.npm_execpath ||
+  process.env.NPM_EXECPATH ||
+  process.argv[0] ||
+  '';
 
-if (skip) {
-  console.warn('SKIP_PNPM_CHECK=1 detected — skipping pnpm enforcement.');
-  process.exit(0);
+const isPnpm =
+  /\bpnpm\b/.test(ua) ||
+  /\bpnpm\b/.test(execPath);
+
+if (!isPnpm) {
+  console.error(`
+\x1b[31mFATAL ERROR\x1b[0m
+
+This repository is \x1b[1mSTRICTLY pnpm-only\x1b[0m.
+
+Detected package manager:
+  user-agent : ${ua || '(unknown)'}
+  exec path  : ${execPath || '(unknown)'}
+
+npm, yarn, bun, and any non-pnpm toolchains are
+\x1b[31mABSOLUTELY FORBIDDEN\x1b[0m in this project.
+
+There is no fallback.
+There is no bypass.
+There is no exception.
+If you don't have pnpm, check the packageManager field on the package.json, and use npm i -g pnpm.
+
+If you are seeing this error, you are using the wrong tool.
+
+Correct usage:
+  pnpm install
+
+Anything else is invalid.
+`);
+  process.exit(1);
 }
 
-const isPnpm = ua.includes('pnpm') || execPath.includes('pnpm');
-if (isPnpm) {
-  process.exit(0);
-}
-
-console.error('\n\u001b[31mERROR:\u001b[0m npm/yarn are disabled for this repository.');
-console.error('This project requires pnpm to install dependencies and run scripts.');
-console.error('Please run:');
-console.error('  pnpm install\n');
-console.error('If you absolutely must bypass this check (e.g., special CI), set: SKIP_PNPM_CHECK=1');
-console.error('\nOperation aborted to prevent accidental use of npm or yarn.');
-process.exit(1);
+// pnpm detected — continue silently
+process.exit(0);
