@@ -136,6 +136,9 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
       .map((file: any) => file.path.split('/').pop() || '')
       .filter((n: string) => n !== '');
 
+    // パターンが明示的にドット(.)で始まっているかチェック
+    const patternExplicitlyMatchesDotfiles = fileGlob.startsWith('.');
+
     // Build regex from glob pattern
     const regexParts: string[] = [];
     for (let i = 0; i < fileGlob.length; i++) {
@@ -158,7 +161,14 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
 
     const regexStr = `^${regexParts.join('')}$`;
     const regex = new RegExp(regexStr);
-    const matchedNames = fileNames.filter((n: string) => regex.test(n)).sort();
+    const matchedNames = fileNames.filter((n: string) => {
+      // POSIX準拠: ワイルドカードはドットファイルにマッチしない
+      // ただし、パターンが明示的にドットで始まる場合（例: .*）は例外
+      if (n.startsWith('.') && !patternExplicitlyMatchesDotfiles) {
+        return false;
+      }
+      return regex.test(n);
+    }).sort();
 
     console.log('[globExpand] input:', pattern);
     console.log('[globExpand] cwd:', currentWorkingDir);
