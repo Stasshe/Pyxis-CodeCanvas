@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
@@ -8,6 +8,7 @@ import { useDrag, useDrop } from 'react-dnd';
 import { DND_TAB } from '@/constants/dndTypes';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { Tab } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
 import { useSnapshot } from 'valtio';
@@ -49,6 +50,28 @@ function DraggableTabInner({
   const [dragOverSide, setDragOverSide] = useState<'left' | 'right' | null>(null);
   const dragOverSideRef = useRef<'left' | 'right' | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // 拡張機能タブがまだ登録されていない場合のローディング状態
+  const [isExtensionLoading, setIsExtensionLoading] = useState(
+    tab.kind.startsWith('extension:') && !tabRegistry.has(tab.kind)
+  );
+
+  useEffect(() => {
+    // 拡張機能タブの場合、TabRegistryの変更を監視
+    if (tab.kind.startsWith('extension:') && !tabRegistry.has(tab.kind)) {
+      setIsExtensionLoading(true);
+      const unsubscribe = tabRegistry.addChangeListener((kind) => {
+        if (kind === tab.kind) {
+          setIsExtensionLoading(false);
+        }
+      });
+      return unsubscribe;
+    }
+    // 既に登録されている場合
+    if (tab.kind.startsWith('extension:') && tabRegistry.has(tab.kind)) {
+      setIsExtensionLoading(false);
+    }
+  }, [tab.kind]);
 
   useEffect(() => {
     dragOverSideRef.current = dragOverSide;
@@ -170,11 +193,16 @@ function DraggableTabInner({
         />
       )}
 
-      <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.foreground} />
+      {/* 拡張機能ローディング中の場合はスピナーを表示 */}
+      {isExtensionLoading ? (
+        <Loader2 size={14} color={colors.primary} className="animate-spin" />
+      ) : (
+        <TabIcon kind={tab.kind} filename={tab.name} size={14} color={colors.foreground} />
+      )}
       <span
         className="text-sm truncate flex-1"
-        style={{ color: colors.foreground }}
-        title={displayName}
+        style={{ color: isExtensionLoading ? colors.mutedFg : colors.foreground }}
+        title={isExtensionLoading ? `Loading extension: ${tab.kind}` : displayName}
       >
         {displayName}
       </span>

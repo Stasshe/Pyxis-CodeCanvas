@@ -165,6 +165,7 @@ class SessionStoreManager {
    * 保存用にセッションをクリーンアップ
    * - 各タブタイプの serializeForSession を使用
    * - 未実装の場合はデフォルト動作（content, bufferContent を除外）
+   * - 拡張機能タブの場合はすべてのデータを保持
    */
   private cleanSessionForStorage(session: PyxisSession): PyxisSession {
     const cleanPanes = (panes: readonly EditorPane[]): EditorPane[] => {
@@ -180,6 +181,13 @@ class SessionStoreManager {
             const { needsContentRestore, ...rest } = serialized as Tab & {
               needsContentRestore?: boolean;
             };
+            return rest;
+          }
+
+          // 拡張機能タブの場合：タブタイプが登録されていなくてもすべてのデータを保持
+          // needsContentRestore のみ除外
+          if (tab.kind.startsWith('extension:')) {
+            const { needsContentRestore, ...rest } = tab as any;
             return rest;
           }
 
