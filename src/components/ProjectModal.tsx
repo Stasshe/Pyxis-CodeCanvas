@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 import { authRepository } from '@/engine/user/authRepository';
 import type { Project } from '@/types';
@@ -246,34 +247,32 @@ export default function ProjectModal({
         // 空のパスやrootPrefix自体はスキップ
         if (!filePath || filePath === '/') continue;
 
-        // .gitディレクトリはスキップ（不完全なgitオブジェクトを防ぐ）
-        if (filePath === '.git' || filePath.startsWith('.git/')) continue;
+        // フォルダはスキップ（ファイル書き込み時に自動作成される）
+        if (zipEntry.dir) continue;
+
+        // .gitディレクトリはLightningFSに保存（IndexedDBではなく）
+        if (filePath === '.git' || filePath.startsWith('.git/')) {
+          // .gitファイルをLightningFSに書き込む
+          const contentBuffer = await zipEntry.async('uint8array');
+          await gitFileSystem.writeFile(project.name, '/' + filePath, contentBuffer);
+          continue;
+        }
 
         // 先頭にスラッシュを付ける（AppPath形式）
         if (!filePath.startsWith('/')) {
           filePath = '/' + filePath;
         }
 
-        // 末尾のスラッシュを削除（フォルダの場合）
-        if (filePath.endsWith('/')) {
-          filePath = filePath.slice(0, -1);
-        }
-
-        if (zipEntry.dir) {
-          // フォルダの場合
-          await fileRepository.createFile(project.id, filePath, '', 'folder');
+        // ファイルの場合
+        // バイナリファイルかテキストファイルか判断（isLikelyTextFileを使用）
+        const contentBuffer = await zipEntry.async('uint8array');
+        const isText = await isLikelyTextFile(filePath, contentBuffer);
+        
+        if (isText) {
+          const content = new TextDecoder('utf-8').decode(contentBuffer);
+          await fileRepository.createFile(project.id, filePath, content, 'file');
         } else {
-          // ファイルの場合
-          // バイナリファイルかテキストファイルか判断（isLikelyTextFileを使用）
-          const contentBuffer = await zipEntry.async('uint8array');
-          const isText = await isLikelyTextFile(filePath, contentBuffer);
-          
-          if (isText) {
-            const content = new TextDecoder('utf-8').decode(contentBuffer);
-            await fileRepository.createFile(project.id, filePath, content, 'file');
-          } else {
-            await fileRepository.createFile(project.id, filePath, '', 'file', true, contentBuffer.buffer);
-          }
+          await fileRepository.createFile(project.id, filePath, '', 'file', true, contentBuffer.buffer as ArrayBuffer);
         }
       }
 
