@@ -286,6 +286,10 @@
     "descriptionOptional": "Description (optional)",
     "descriptionPlaceholder": "Enter project description...",
     "editProject": "Edit Project",
+    "emptyProject": "Empty Project",
+    "emptyProjectHint": "Create a project without initial template files",
+    "import": "Import",
+    "importZip": "Import ZIP",
     "inputRepoUrl": "Repository URL",
     "loading": "Loading...",
     "nameHint": "Use alphanumeric characters and hyphens",
@@ -300,8 +304,13 @@
     "repoUrl": "Repository URL",
     "repoUrlPlaceholder": "https://github.com/owner/repo",
     "save": "Save",
+    "selectZipFile": "Please select a ZIP file",
+    "selectedFile": "Selected file",
     "title": "Project Management",
-    "updated": "Updated"
+    "updated": "Updated",
+    "zipFile": "ZIP File",
+    "zipImportHint": "Import a repository from a ZIP file. If .git directory exists, it will be preserved.",
+    "zipImportSuccess": "ZIP import succeeded"
   },
   "run": {
     "clearOutput": "Clear output",
