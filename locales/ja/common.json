@@ -276,9 +276,12 @@
   "projectModal": {
     "cancel": "キャンセル",
     "clone": "GitHubからクローン",
+    "cloneFailed": "クローンに失敗しました: {error}",
     "cloneFromGitHub": "GitHubからクローン",
     "cloneSuccess": "クローンに成功しました",
     "create": "作成",
+    "createEmptyFailed": "空のプロジェクト作成に失敗しました: {error}",
+    "createFailed": "プロジェクト作成に失敗しました: {error}",
     "created": "作成済み",
     "deleteConfirm": "本当にこのプロジェクトを削除しますか？",
     "deleteProject": "プロジェクト削除",
@@ -309,6 +312,7 @@
     "title": "プロジェクト管理",
     "updated": "更新されました",
     "zipFile": "ZIPファイル",
+    "zipImportFailed": "ZIPインポートに失敗しました: {error}",
     "zipImportHint": "ZIPファイルからリポジトリをインポートします。.gitディレクトリがある場合は保持されます。",
     "zipImportSuccess": "ZIPインポートに成功しました"
   },

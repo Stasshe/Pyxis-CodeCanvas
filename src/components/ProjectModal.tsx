@@ -100,7 +100,7 @@ export default function ProjectModal({
       await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);
-      alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`);
+      alert(t('projectModal.createFailed', { params: { error: (error as Error).message } }));
     } finally {
       setLoading(false);
     }
@@ -124,7 +124,7 @@ export default function ProjectModal({
       await loadProjects();
     } catch (error) {
       console.error('Failed to create empty project:', error);
-      alert(`空のプロジェクト作成に失敗しました: ${(error as Error).message}`);
+      alert(t('projectModal.createEmptyFailed', { params: { error: (error as Error).message } }));
     } finally {
       setLoading(false);
     }
@@ -174,7 +174,7 @@ export default function ProjectModal({
       alert(t('projectModal.cloneSuccess'));
     } catch (error) {
       console.error('Failed to clone project:', error);
-      alert(`クローンに失敗しました: ${(error as Error).message}`);
+      alert(t('projectModal.cloneFailed', { params: { error: (error as Error).message } }));
     } finally {
       setLoading(false);
     }
@@ -305,7 +305,7 @@ export default function ProjectModal({
       alert(t('projectModal.zipImportSuccess'));
     } catch (error) {
       console.error('Failed to import ZIP:', error);
-      alert(`ZIPインポートに失敗しました: ${(error as Error).message}`);
+      alert(t('projectModal.zipImportFailed', { params: { error: (error as Error).message } }));
     } finally {
       setLoading(false);
     }

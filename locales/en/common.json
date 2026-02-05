@@ -276,9 +276,12 @@
   "projectModal": {
     "cancel": "Cancel",
     "clone": "Clone from GitHub",
+    "cloneFailed": "Clone failed: {error}",
     "cloneFromGitHub": "Clone from GitHub",
     "cloneSuccess": "Clone succeeded",
     "create": "Create",
+    "createEmptyFailed": "Failed to create empty project: {error}",
+    "createFailed": "Failed to create project: {error}",
     "created": "Created",
     "deleteConfirm": "Are you sure you want to delete this project?",
     "deleteProject": "Delete Project",
@@ -309,6 +312,7 @@
     "title": "Project Management",
     "updated": "Updated",
     "zipFile": "ZIP File",
+    "zipImportFailed": "ZIP import failed: {error}",
     "zipImportHint": "Import a repository from a ZIP file. If .git directory exists, it will be preserved.",
     "zipImportSuccess": "ZIP import succeeded"
   },
