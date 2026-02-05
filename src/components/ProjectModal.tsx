@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 import { authRepository } from '@/engine/user/authRepository';
 import type { Project } from '@/types';
 
@@ -237,12 +238,6 @@ export default function ProjectModal({
         }
       }
 
-      // .gitディレクトリが存在するかチェック
-      const hasGitDir = entries.some(e => {
-        const path = rootPrefix ? e.replace(rootPrefix, '') : e;
-        return path.startsWith('.git/') || path === '.git';
-      });
-
       // ファイルを展開してプロジェクトに登録
       for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
         // rootPrefixを除去してルートに展開
@@ -250,6 +245,9 @@ export default function ProjectModal({
         
         // 空のパスやrootPrefix自体はスキップ
         if (!filePath || filePath === '/') continue;
+
+        // .gitディレクトリはスキップ（不完全なgitオブジェクトを防ぐ）
+        if (filePath === '.git' || filePath.startsWith('.git/')) continue;
 
         // 先頭にスラッシュを付ける（AppPath形式）
         if (!filePath.startsWith('/')) {
@@ -266,28 +264,16 @@ export default function ProjectModal({
           await fileRepository.createFile(project.id, filePath, '', 'folder');
         } else {
           // ファイルの場合
-          // バイナリファイルかテキストファイルか判断
-          const isBinary = isBinaryFile(filePath);
+          // バイナリファイルかテキストファイルか判断（isLikelyTextFileを使用）
+          const contentBuffer = await zipEntry.async('uint8array');
+          const isText = await isLikelyTextFile(filePath, contentBuffer);
           
-          if (isBinary) {
-            const content = await zipEntry.async('arraybuffer');
-            await fileRepository.createFile(project.id, filePath, '', 'file', true, content);
-          } else {
-            const content = await zipEntry.async('string');
+          if (isText) {
+            const content = new TextDecoder('utf-8').decode(contentBuffer);
             await fileRepository.createFile(project.id, filePath, content, 'file');
+          } else {
+            await fileRepository.createFile(project.id, filePath, '', 'file', true, contentBuffer.buffer);
           }
-        }
-      }
-
-      // .gitがある場合はGitFileSystemに同期
-      if (hasGitDir) {
-        const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
-        const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
-        // ステータスを取得して同期を促す
-        try {
-          await git.status();
-        } catch (e) {
-          console.warn('Git status after zip import failed:', e);
         }
       }
 
@@ -719,21 +705,4 @@ export default function ProjectModal({
       </div>
     </div>
   );
-}
-
-/**
- * ファイルパスからバイナリファイルかどうかを判断
- */
-function isBinaryFile(path: string): boolean {
-  const binaryExtensions = [
-    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg',
-    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    '.zip', '.tar', '.gz', '.rar', '.7z',
-    '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv', '.webm',
-    '.ttf', '.otf', '.woff', '.woff2', '.eot',
-    '.exe', '.dll', '.so', '.dylib',
-    '.bin', '.dat', '.db', '.sqlite',
-  ];
-  const ext = path.toLowerCase().substring(path.lastIndexOf('.'));
-  return binaryExtensions.includes(ext);
 }
