@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestProject } from '../../helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { ModuleResolver } from '@/engine/runtime/moduleResolver';
+import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 
 /**
  * ModuleResolver のテスト

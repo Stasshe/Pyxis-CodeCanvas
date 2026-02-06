@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
+import { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
 
 /**
  * CJS/ESM 正規化のテスト

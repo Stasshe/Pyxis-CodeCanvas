@@ -5,7 +5,7 @@ import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 
 // normalizeCjsEsm は Pure function なので直接使える。
 // transpileManager は Web Worker を使うため Node 環境では動かない → モック。
-import { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
+import { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
 
 vi.mock('@/engine/runtime/transpileManager', () => ({
   transpileManager: {
@@ -26,8 +26,8 @@ vi.mock('@/stores/loggerStore', () => ({
   loggerStore: { messages: [] },
 }));
 
-import { NodeRuntime } from '@/engine/runtime/nodeRuntime';
-import { ModuleResolver } from '@/engine/runtime/moduleResolver';
+import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
+import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 
 /**
  * npmRun テスト
