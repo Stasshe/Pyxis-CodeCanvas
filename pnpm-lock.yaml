@@ -189,9 +189,6 @@ importers:
       '@biomejs/biome':
         specifier: ^1.9.4
         version: 1.9.4
-      '@playwright/test':
-        specifier: ^1.58.1
-        version: 1.58.1
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -5469,6 +5466,7 @@ snapshots:
   '@playwright/test@1.58.1':
     dependencies:
       playwright: 1.58.1
+    optional: true
 
   '@preact/signals-core@1.12.2': {}
 
@@ -8519,7 +8517,8 @@ snapshots:
 
   playwright-core@1.58.0: {}
 
-  playwright-core@1.58.1: {}
+  playwright-core@1.58.1:
+    optional: true
 
   playwright@1.58.0:
     dependencies:
@@ -8532,6 +8531,7 @@ snapshots:
       playwright-core: 1.58.1
     optionalDependencies:
       fsevents: 2.3.2
+    optional: true
 
   please-upgrade-node@3.2.0:
     dependencies:
