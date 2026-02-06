@@ -85,7 +85,7 @@
     "@babel/helper-plugin-utils": "^7.27.1",
     "@biomejs/biome": "^1.9.4",
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/node": "^20.19.27",
+    "@types/node": "^20.19.32",
     "@types/pako": "^2.0.4",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

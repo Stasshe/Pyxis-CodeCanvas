@@ -652,7 +652,7 @@ export class ModuleLoader {
       this.warn('⚠️  Module execution failed (non-fatal):', filePath);
       this.warn(
         'Error details:',
-        error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        error instanceof Error ? `${error.name}: ${error.message}` : String(JSON.stringify(error))
       );
 
       // Return empty exports to allow dependent modules to at least load
