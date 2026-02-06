@@ -1,30 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FileRepository } from '@/engine/core/fileRepository/inmemory';
+import { resetRepository } from '@tests/helpers/testProject';
 
 /**
  * InMemoryFileRepository のテスト
  * Map ベースのファイルリポジトリが正しく動作することを検証
  */
 
-// テストごとにシングルトンをリセットするためのヘルパー
-function createFreshRepository(): InstanceType<typeof FileRepository> {
-  // private constructor なので getInstance() 経由
-  // シングルトンをリセットするために internal state をクリアする
-  const repo = FileRepository.getInstance();
-  // @ts-expect-error -- テスト用に内部状態を直接リセット
-  repo.projects = new Map();
-  // @ts-expect-error
-  repo.files = new Map();
-  // @ts-expect-error
-  repo.listeners = new Set();
-  return repo;
-}
-
 describe('InMemoryFileRepository', () => {
   let repo: InstanceType<typeof FileRepository>;
 
   beforeEach(() => {
-    repo = createFreshRepository();
+    repo = resetRepository();
   });
 
   // ==================== init / close ====================
