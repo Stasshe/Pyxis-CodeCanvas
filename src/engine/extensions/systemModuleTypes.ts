@@ -14,7 +14,7 @@ import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
-import type { FileRepository } from '@/engine/core/fileRepository';
+import type { fileRepository } from '@/engine/core/fileRepository';
 import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
 import type { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 
@@ -40,7 +40,10 @@ export interface PathUtilsModule {
  * この型を使用して getSystemModule の戻り値型を推論する
  */
 export interface SystemModuleMap {
-  fileRepository: typeof FileRepository;
+  // fileRepository is an instance (singleton) exported from the core fileRepository
+  // module. Use the instance type here so getSystemModule returns the runtime
+  // instance rather than the class/constructor.
+  fileRepository: typeof fileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   pathUtils: PathUtilsModule;
   commandRegistry: typeof CommandRegistry;
