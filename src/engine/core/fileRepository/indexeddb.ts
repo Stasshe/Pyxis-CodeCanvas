@@ -8,14 +8,14 @@
  * パス変換は pathResolver モジュールを使用
  */
 
-import { gitFileSystem } from './gitFileSystem';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from './gitignore';
+import { gitFileSystem } from '../gitFileSystem';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '../gitignore';
 import {
   fromGitPath as pathFromGitPath,
   getParentPath as pathGetParentPath,
   toGitPath as pathToGitPath,
   toAppPath,
-} from './pathUtils';
+} from '../pathUtils';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
@@ -813,7 +813,7 @@ export class FileRepository {
       coreInfo(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
 
       // 遅延インポートで循環参照を回避
-      const { syncManager } = await import('./syncManager');
+      const { syncManager } = await import('../syncManager');
       // プロジェクト名を取得
       let projectName = this.projectNameCache.get(projectId);
       if (!projectName) {
@@ -1007,7 +1007,7 @@ export class FileRepository {
         );
 
         if (projectName) {
-          const { syncManager } = await import('./syncManager');
+          const { syncManager } = await import('../syncManager');
           // 一括同期（100ファイルでも1回の処理）
           await syncManager.syncFromIndexedDBToFS(projectId, projectName);
           coreInfo('[FileRepository] Optimized bulk sync completed');
@@ -1199,7 +1199,7 @@ export class FileRepository {
     try {
       if (isRecursive || deletedFiles.length > 5) {
         // 大量削除の場合は全体同期
-        const { syncManager } = await import('./syncManager');
+        const { syncManager } = await import('../syncManager');
         let projectName = this.projectNameCache.get(projectId);
         if (!projectName) {
           const projects = await this.getProjects();
@@ -1344,4 +1344,4 @@ export const fileRepository = FileRepository.getInstance();
 export { normalizePath, getParentPath, toGitPath, fromGitPath };
 
 // 新しいパス解決モジュールを再エクスポート
-export * from './pathUtils';
+export * from '../pathUtils';
