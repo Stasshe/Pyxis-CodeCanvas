@@ -242,9 +242,17 @@ export class NpmInstall {
     const targets = await fileRepository.getFilesByPrefix(this.projectId, dirPath);
     // また単一ファイルの可能性があるため明示的にチェック
     const exact = await fileRepository.getFileByPath(this.projectId, dirPath);
-    if (exact) targets.unshift(exact);
-    for (const file of targets) {
-      await fileRepository.deleteFile(file.id);
+    // ID で重複排除してから削除（exact と prefix の結果が重複する場合がある）
+    const seen = new Set<string>();
+    const all = exact ? [exact, ...targets] : targets;
+    for (const file of all) {
+      if (seen.has(file.id)) continue;
+      seen.add(file.id);
+      try {
+        await fileRepository.deleteFile(file.id);
+      } catch {
+        // フォルダのカスケード削除で既に消えている場合は無視
+      }
     }
   }
 
@@ -384,15 +392,10 @@ export class NpmInstall {
     const toRemove = new Set<string>([packageToRemove]);
     const processed = new Set<string>();
 
-    // ルート依存関係は削除しない
-    if (rootDependencies.has(packageToRemove)) {
-      console.log(
-        `[npm.findOrphanedPackages] ${packageToRemove} is a root dependency, not removing`
-      );
-      return [];
-    }
-
     // 削除候補をキューで処理
+    // NOTE: packageToRemove 自体がルート依存であっても、呼び出し元が明示的に
+    // 削除を要求しているため、推移的依存の探索は実行する。
+    // ルート依存の保護は推移的依存にのみ適用する。
     const queue = [packageToRemove];
 
     while (queue.length > 0) {
@@ -453,7 +456,7 @@ export class NpmInstall {
     // 依存関係グラフを構築
     const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
     const dependencyGraph = await this.analyzeDependencies(snapshotFiles);
-    const rootDependencies = await this.getRootDependencies();
+    const rootDependencies = await this.getRootDependencies(snapshotFiles);
 
     // 削除可能なパッケージを特定
     const orphanedPackages = this.findOrphanedPackages(
@@ -469,7 +472,10 @@ export class NpmInstall {
     for (const pkg of packagesToRemove) {
       try {
         // スナップショットで存在チェック
-        const exists = snapshotFiles.some(f => f.path.startsWith(`/node_modules/${pkg}`));
+        const prefix = `/node_modules/${pkg}/`;
+        const exists = snapshotFiles.some(
+          f => f.path === `/node_modules/${pkg}` || f.path.startsWith(prefix)
+        );
         if (!exists) {
           console.log(`[npm.uninstallWithDependencies] Package ${pkg} not found, skipping`);
           continue;

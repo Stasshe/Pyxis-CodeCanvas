@@ -331,23 +331,48 @@ export class FileRepository {
     const timestamp = new Date();
     const createdFiles: ProjectFile[] = [];
 
-    for (const entry of entries) {
-      const file: ProjectFile = {
-        id: generateUniqueId('file'),
-        projectId,
-        path: entry.path,
-        name: entry.path.split('/').pop() || '',
-        content: entry.isBufferArray ? '' : entry.content || '',
-        type: entry.type || 'file',
-        parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isBufferArray: !!entry.isBufferArray,
-        bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
-      };
+    // 既存ファイルのパス→IDマップを構築（upsert対応: IndexedDBのputと同等）
+    const existingPathMap = new Map<string, string>();
+    for (const [id, f] of this.files) {
+      if (f.projectId === projectId) {
+        existingPathMap.set(f.path, id);
+      }
+    }
 
-      this.files.set(file.id, file);
-      createdFiles.push(file);
+    for (const entry of entries) {
+      const existingId = existingPathMap.get(entry.path);
+
+      if (existingId) {
+        // 既存ファイルを更新（upsert）
+        const existing = this.files.get(existingId)!;
+        const updated: ProjectFile = {
+          ...existing,
+          content: entry.isBufferArray ? '' : entry.content || '',
+          type: entry.type || 'file',
+          updatedAt: timestamp,
+          isBufferArray: !!entry.isBufferArray,
+          bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
+        };
+        this.files.set(existingId, updated);
+        createdFiles.push(updated);
+      } else {
+        const file: ProjectFile = {
+          id: generateUniqueId('file'),
+          projectId,
+          path: entry.path,
+          name: entry.path.split('/').pop() || '',
+          content: entry.isBufferArray ? '' : entry.content || '',
+          type: entry.type || 'file',
+          parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          isBufferArray: !!entry.isBufferArray,
+          bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
+        };
+        this.files.set(file.id, file);
+        existingPathMap.set(entry.path, file.id);
+        createdFiles.push(file);
+      }
     }
 
     // イベント発火

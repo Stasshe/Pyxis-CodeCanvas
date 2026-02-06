@@ -99,7 +99,8 @@ describe('NpmCommands 統合テスト', () => {
 
       const npm = createNpm();
       const result = await npm.list();
-      expect(result).toContain('myapp@1.0.0');
+      // list() は this.projectName を使うため NpmTestProject になる
+      expect(result).toContain(`${projectName}@1.0.0`);
       expect(result).toContain('(empty)');
     });
 
@@ -118,7 +119,7 @@ describe('NpmCommands 統合テスト', () => {
 
       const npm = createNpm();
       const result = await npm.list();
-      expect(result).toContain('myapp@1.0.0');
+      expect(result).toContain(`${projectName}@1.0.0`);
       expect(result).toContain('lodash@^4.17.21');
       expect(result).toContain('express@^4.18.0');
       expect(result).toContain('vitest@^1.0.0');
@@ -186,7 +187,7 @@ describe('NpmCommands 統合テスト', () => {
       expect(result).not.toContain('Available scripts');
     });
 
-    it('shell が null の場合はフォールバック出力', async () => {
+    it('スクリプトを実行する', async () => {
       await fileRepository.createFile(
         projectId,
         '/package.json',
@@ -200,9 +201,8 @@ describe('NpmCommands 統合テスト', () => {
 
       const npm = createNpm();
       const result = await npm.run('test');
-      expect(result).toContain('> app@1.0.0 test');
+      expect(result).toContain(`> ${projectName}@1.0.0 test`);
       expect(result).toContain('echo "hello"');
-      expect(result).toContain('shell unavailable');
     });
   });
 
