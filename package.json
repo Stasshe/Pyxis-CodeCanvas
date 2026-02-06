@@ -1,6 +1,6 @@
 {
   "name": "pyxis",
-  "version": "0.23.3",
+  "version": "0.24.0",
   "private": true,
   "scripts": {
     "preinstall": "node ./scripts/check-pnpm.js",

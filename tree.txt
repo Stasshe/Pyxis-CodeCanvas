@@ -80,8 +80,6 @@ Root
 │           ├── hello.ts
 │           ├── math.ts
 │           └── use-math.ts
-├── jest.config.cjs
-├── jest.setup.js
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
@@ -379,7 +377,10 @@ Root
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
-│   │   │   ├── filerepository/
+│   │   │   ├── fileRepository
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── indexeddb.ts
+│   │   │   │   └── inmemory.ts
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── gitignore.ts
 │   │   │   ├── pathUtils.ts
@@ -405,38 +406,39 @@ Root
 │   │   │   ├── importSingleFile.ts
 │   │   │   └── inlineHtmlAssets.ts
 │   │   ├── initialFileContents.ts
-│   │   ├── node
-│   │   │   ├── builtInModule.ts
-│   │   │   └── modules
-│   │   │       ├── assertModule.ts
-│   │   │       ├── bufferModule.ts
-│   │   │       ├── eventsModule.ts
-│   │   │       ├── fsModule.ts
-│   │   │       ├── httpModule.ts
-│   │   │       ├── moduleModule.ts
-│   │   │       ├── osModule.ts
-│   │   │       ├── pathModule.ts
-│   │   │       ├── readlineModule.ts
-│   │   │       ├── urlModule.ts
-│   │   │       └── utilModule.ts
 │   │   ├── runtime
-│   │   │   ├── RuntimeProvider.ts
-│   │   │   ├── RuntimeRegistry.ts
-│   │   │   ├── builtinRuntimes.ts
-│   │   │   ├── extendedBuiltInModules.ts
-│   │   │   ├── moduleCache.ts
-│   │   │   ├── moduleLoader.ts
-│   │   │   ├── moduleResolver.ts
-│   │   │   ├── nodeErrors.ts
-│   │   │   ├── nodeRuntime.ts
-│   │   │   ├── normalizeCjsEsm.ts
-│   │   │   ├── providers
-│   │   │   │   ├── ExtensionTranspilerProvider.ts
-│   │   │   │   └── NodeRuntimeProvider.ts
-│   │   │   ├── pyodideRuntime.ts
-│   │   │   ├── runtimeLogger.ts
-│   │   │   ├── transpileManager.ts
-│   │   │   └── transpileWorker.ts
+│   │   │   ├── core
+│   │   │   │   ├── RuntimeProvider.ts
+│   │   │   │   ├── RuntimeRegistry.ts
+│   │   │   │   ├── builtinRuntimes.ts
+│   │   │   │   └── runtimeLogger.ts
+│   │   │   ├── module
+│   │   │   │   ├── moduleCache.ts
+│   │   │   │   ├── moduleLoader.ts
+│   │   │   │   └── moduleResolver.ts
+│   │   │   ├── nodejs
+│   │   │   │   ├── NodeRuntimeProvider.ts
+│   │   │   │   ├── builtInModule.ts
+│   │   │   │   ├── extendedBuiltInModules.ts
+│   │   │   │   ├── modules
+│   │   │   │   │   ├── assertModule.ts
+│   │   │   │   │   ├── bufferModule.ts
+│   │   │   │   │   ├── eventsModule.ts
+│   │   │   │   │   ├── fsModule.ts
+│   │   │   │   │   ├── httpModule.ts
+│   │   │   │   │   ├── moduleModule.ts
+│   │   │   │   │   ├── osModule.ts
+│   │   │   │   │   ├── pathModule.ts
+│   │   │   │   │   ├── readlineModule.ts
+│   │   │   │   │   ├── urlModule.ts
+│   │   │   │   │   └── utilModule.ts
+│   │   │   │   ├── nodeErrors.ts
+│   │   │   │   └── nodeRuntime.ts
+│   │   │   └── transpiler
+│   │   │       ├── ExtensionTranspilerProvider.ts
+│   │   │       ├── normalizeCjsEsm.ts
+│   │   │       ├── transpileManager.ts
+│   │   │       └── transpileWorker.ts
 │   │   ├── storage
 │   │   │   ├── aiStorageAdapter.ts
 │   │   │   ├── chatStorageAdapter.ts
@@ -488,6 +490,7 @@ Root
 │   ├── lib
 │   │   └── ReactScan.tsx
 │   ├── stores
+│   │   ├── loggerStore.ts
 │   │   ├── projectStore.ts
 │   │   ├── sessionStore.ts
 │   │   ├── tabContentStore.ts
@@ -501,49 +504,41 @@ Root
 │       └── vm-browserify.d.ts
 ├── tailwind.config.ts
 ├── tests
-│   ├── aiMultiEditComplexScenarios.test.ts
-│   ├── aiMultiPatch.test.ts
-│   ├── aiResponseParser.test.ts
-│   ├── aiResponseParserEdgeCases.test.ts
-│   ├── all-sh.test.ts
-│   ├── extensionLoader.multifile.test.ts
-│   ├── findCommand.posix.test.ts
-│   ├── fsRequirePromise.test.ts
-│   ├── gitignore.test.ts
-│   ├── normalizeCjsEsm.imports.test.ts
-│   ├── normalizeCjsEsm.test.ts
-│   ├── parser.ast.test.ts
-│   ├── parser.commandsub.test.ts
-│   ├── parser.complex.test.ts
-│   ├── parser.unit.test.ts
-│   ├── patchApplier.test.ts
-│   ├── pathResolver.test.ts
-│   ├── reactImportTransform.test.ts
-│   ├── redirection.test.ts
-│   ├── redirection_extra.test.ts
-│   ├── removePane.test.ts
-│   ├── run-test-script.test.ts
-│   ├── run_test_script.test.ts
-│   ├── runtimeRegistry.test.ts
-│   ├── script.args.test.ts
-│   ├── script.control.inline.test.ts
-│   ├── script.control.test.ts
-│   ├── scriptRunner.test.ts
-│   ├── shell.operators.test.ts
-│   ├── shell.script.streaming.test.ts
-│   ├── shell.stream.test.ts
-│   ├── tarCommand.test.ts
-│   ├── tarHeaderInspect.test.ts
-│   ├── transform_real_files.test.ts
-│   └── unixExtra.test.ts
+│   ├── README.md
+│   ├── engine
+│   │   ├── cmd
+│   │   │   └── shell
+│   │   │       ├── braceExpand.test.ts
+│   │   │       ├── expansion.test.ts
+│   │   │       ├── parser.test.ts
+│   │   │       └── types.test.ts
+│   │   ├── core
+│   │   │   ├── fileRepository
+│   │   │   │   └── inmemory.test.ts
+│   │   │   ├── gitignore.test.ts
+│   │   │   └── pathUtils.test.ts
+│   │   ├── npm
+│   │   │   ├── e2e
+│   │   │   │   ├── prettier.test.ts
+│   │   │   │   └── uvu.test.ts
+│   │   │   ├── npm.test.ts
+│   │   │   └── npmInstall.test.ts
+│   │   └── runtime
+│   │       ├── moduleResolver.test.ts
+│   │       └── normalizeCjsEsm.test.ts
+│   ├── helpers
+│   │   └── testProject.ts
+│   ├── setup.ts
+│   └── tsconfig.json
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
-└── types
-    └── esbuild-cdn.d.ts
+├── types
+│   └── esbuild-cdn.d.ts
+└── vitest.config.ts
 
-80 directories, 463 files
+92 directories, 446 files
 
 =================================
 
@@ -673,12 +668,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 72788
-合計文字数: 2313642
-合計ファイルサイズ(bytes): 2451318
+合計行数: 73228
+合計文字数: 2324353
+合計ファイルサイズ(bytes): 2464628
 
 開発時のdev container全体のサイズ(bytes): 1.3G	.
 ==========
-ビルト済みファイルの行数: 129642
-合計文字数: 27788167
-合計ファイルサイズ(bytes): 30774307
+ビルト済みファイルの行数: 129635
+合計文字数: 27840357
+合計ファイルサイズ(bytes): 30826561
