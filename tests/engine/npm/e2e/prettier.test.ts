@@ -7,7 +7,7 @@ import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 // transpileManager は Web Worker を使うため Node 環境では動かない → モック。
 import { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
 
-vi.mock('@/engine/runtime/transpileManager', () => ({
+vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
   transpileManager: {
     transpile: async (options: { code: string; filePath: string }) => {
       const result = normalizeCjsEsm(options.code);
@@ -177,16 +177,33 @@ describe('e2e — npx prettier 実行テスト', () => {
         console.log('\n========================================\n');
 
         const allOutput = [...output, ...errors].join('\n');
+
+        // より厳密なエラーチェック
         expect(allOutput).not.toContain('ERR_MODULE_NOT_FOUND');
         expect(allOutput).not.toContain('Cannot find module');
+        expect(allOutput).not.toContain('Module execution failed');
+        expect(allOutput).not.toContain('no-fatal');
+        expect(allOutput).not.toContain('fatal error');
+        expect(allOutput).not.toMatch(/ERROR:/i);
+        expect(allOutput).not.toMatch(/\[ERROR\]/i);
 
         if (executionError) {
           console.log('\n========== Execution Error ==========');
           console.log('Error:', executionError);
+          console.log('Stack:', executionError.stack);
           console.log('=====================================\n');
-          // ERR_MODULE_NOT_FOUND は致命的。他のエラーはランタイム環境の制限で許容
-          expect(executionError.name).not.toContain('ERR_MODULE_NOT_FOUND');
-          expect(executionError.message).not.toContain('Cannot find module');
+
+          // 実行エラーは許容しない
+          throw new Error(
+            `Execution failed with error: ${executionError.message}\nStack: ${executionError.stack}`
+          );
+        }
+
+        // errors配列に内容がある場合はエラーとみなす
+        if (errors.length > 0) {
+          throw new Error(
+            `Errors detected during execution:\n${errors.join('\n')}`
+          );
         }
 
         // prettier --version が出力されることを期待（バージョン番号の形式）
@@ -269,15 +286,34 @@ describe('e2e — npx prettier 実行テスト', () => {
         console.log('\n========================================\n');
 
         const allOutput = [...output, ...errors].join('\n');
+
+        // より厳密なエラーチェック
         expect(allOutput).not.toContain('ERR_MODULE_NOT_FOUND');
+        expect(allOutput).not.toContain('Cannot find module');
+        expect(allOutput).not.toContain('Module execution failed');
         expect(allOutput).not.toContain("Cannot find module 'prettier'");
+        expect(allOutput).not.toContain('no-fatal');
+        expect(allOutput).not.toContain('fatal error');
+        expect(allOutput).not.toMatch(/ERROR:/i);
+        expect(allOutput).not.toMatch(/\[ERROR\]/i);
 
         if (executionError) {
           console.log('\n========== Execution Error ==========');
           console.log('Error:', executionError);
+          console.log('Stack:', executionError.stack);
           console.log('=====================================\n');
-          expect(executionError.name).not.toContain('ERR_MODULE_NOT_FOUND');
-          expect(executionError.message).not.toContain("Cannot find module 'prettier'");
+
+          // 実行エラーは許容しない
+          throw new Error(
+            `Execution failed with error: ${executionError.message}\nStack: ${executionError.stack}`
+          );
+        }
+
+        // errors配列に内容がある場合はエラーとみなす
+        if (errors.length > 0) {
+          throw new Error(
+            `Errors detected during execution:\n${errors.join('\n')}`
+          );
         }
 
         // prettier.format が function として認識されることを期待
