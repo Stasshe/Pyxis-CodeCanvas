@@ -492,6 +492,7 @@ export class NodeRuntime {
             '.mts',
             '.tsx',
             '.jsx',
+            '.json',
             '/index.js',
             '/index.ts',
           ];
