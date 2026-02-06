@@ -379,7 +379,7 @@ Root
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
-│   │   │   ├── fileRepository.ts
+│   │   │   ├── filerepository/
 │   │   │   ├── gitFileSystem.ts
 │   │   │   ├── gitignore.ts
 │   │   │   ├── pathUtils.ts

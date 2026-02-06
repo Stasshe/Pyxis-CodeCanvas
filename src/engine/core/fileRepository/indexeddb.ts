@@ -889,7 +889,7 @@ export class FileRepository {
    * git clone等の大量ファイル作成時に個別同期ではなく一括同期を使用
    */
 
-  // fileRepository.ts に追加するメソッド
+  // filerepository/ に追加するメソッド
 
   /**
    * 複数ファイルを一括作成/更新する（最適化版 - 一括同期対応）
