@@ -68,6 +68,9 @@ extensions/**/PNPM-GUIDE.md
 
 
 # npm lock file (use pnpm instead)
-package-lock.jsone2e/
+package-lock.json
 playwright-report/
 test-results/
+
+
+test-workspaces/
