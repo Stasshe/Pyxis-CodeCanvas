@@ -553,7 +553,7 @@ export class ModuleResolver {
   }
 
   /**
-   * ファイルが存在するかチェック
+   * ファイルが存在するかチェック（ディレクトリは除外）
    */
   private async fileExists(path: string): Promise<boolean> {
     // キャッシュをチェック
@@ -565,7 +565,9 @@ export class ModuleResolver {
       await fileRepository.init();
       const normalizedPath = fsPathToAppPath(path, this.projectName);
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
-      const exists = !!file;
+
+      // ファイルが存在し、かつディレクトリではない場合のみtrueを返す
+      const exists = !!file && file.type === 'file';
 
       this.fileCache.set(path, exists);
       return exists;

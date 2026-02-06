@@ -185,11 +185,6 @@ export class ModuleLoader {
 
       // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
       const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-
-      // デバッグ: transpileResultの内容を確認
-      runtimeInfo('📝 Transpile result type:', typeof transpileResult);
-      runtimeInfo('📝 Transpile result:', transpileResult);
-
       const { code, dependencies } = transpileResult;
 
       // デバッグ: codeとdependenciesの型を確認
@@ -330,12 +325,7 @@ export class ModuleLoader {
       isESModule: this.isESModule(content),
       isJSX: false,
     });
-
-    // デバッグ: transpileManagerの結果を確認
-    runtimeInfo('📝 TranspileManager result:', typeof result, result);
-    runtimeInfo('📝 Result.code type:', typeof result.code);
-    runtimeInfo('📝 Result.dependencies:', result.dependencies);
-
+    
     // キャッシュに保存
     await this.cache.set(filePath, {
       originalPath: filePath,

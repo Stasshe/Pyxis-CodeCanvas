@@ -121,13 +121,19 @@ describe('npmRun — npx uvu 実行テスト', () => {
 
         const debugConsole = {
           log: (...args: unknown[]) => {
+            const msg = args.map(String).join(' ');
+            output.push(msg);
             console.log(...args);
           },
           error: (...args: unknown[]) => {
-            errors.push(args.map(String).join(' '));
+            const msg = args.map(String).join(' ');
+            errors.push(msg);
+            console.error(...args);
           },
           warn: (...args: unknown[]) => {
-            output.push(args.map(String).join(' '));
+            const msg = args.map(String).join(' ');
+            output.push(msg);
+            console.warn(...args);
           },
           clear: () => {},
         };
@@ -151,11 +157,21 @@ describe('npmRun — npx uvu 実行テスト', () => {
           executionError = e as Error;
         }
 
+        // 収集したログを全て出力
+        console.log('\n========== Console Output ==========');
+        console.log(output.join('\n'));
+        console.log('\n========== Error Output ==========');
+        console.log(errors.join('\n'));
+        console.log('\n========================================\n');
+
         const allOutput = [...output, ...errors].join('\n');
         expect(allOutput).not.toContain('ERR_MODULE_NOT_FOUND');
         expect(allOutput).not.toContain("Cannot find module './package'");
 
         if (executionError) {
+          console.log('\n========== Execution Error ==========');
+          console.log('Error:', executionError);
+          console.log('=====================================\n');
           // ERR_MODULE_NOT_FOUND は致命的。他のエラーはランタイム環境の制限で許容
           expect(executionError.name).not.toContain('ERR_MODULE_NOT_FOUND');
           expect(executionError.message).not.toContain("Cannot find module './package'");
