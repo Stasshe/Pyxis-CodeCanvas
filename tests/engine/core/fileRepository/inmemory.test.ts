@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FileRepository } from '@/engine/core/fileRepository/inmemory';
+import { fileRepository } from '@/engine/core/fileRepository/inmemory';
 import { resetRepository } from '@tests/helpers/testProject';
 
 /**
@@ -8,7 +8,7 @@ import { resetRepository } from '@tests/helpers/testProject';
  */
 
 describe('InMemoryFileRepository', () => {
-  let repo: InstanceType<typeof FileRepository>;
+  let repo: typeof fileRepository;
 
   beforeEach(() => {
     repo = resetRepository();

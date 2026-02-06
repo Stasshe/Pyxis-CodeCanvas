@@ -48,6 +48,9 @@ tsconfig.extensions.tsbuildinfo
 
 memo.txt
 memo.md
+memo
+error
+error.md
 
 src/engine/initialFileContents.ts
 public/extensions/

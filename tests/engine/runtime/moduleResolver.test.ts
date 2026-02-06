@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestProject } from '@tests/helpers/testProject';
-import { FileRepository } from '@/engine/core/fileRepository/inmemory';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * ModuleResolver のテスト
- * InMemoryFileRepository を使って node_modules のモジュール解決をテスト
+ * fileRepository を使って node_modules のモジュール解決をテスト
  *
  * gitFileSystem / syncManager のモックは setup.ts でグローバル定義済み
  * fileRepository のモックは不要（Node 環境では自動的に InMemory に切り替わる）
@@ -12,7 +12,7 @@ import { FileRepository } from '@/engine/core/fileRepository/inmemory';
 
 describe('ModuleResolver', () => {
   let projectId: string;
-  let repo: InstanceType<typeof FileRepository>;
+  let repo: typeof fileRepository;
 
   beforeEach(async () => {
     const ctx = await setupTestProject();
