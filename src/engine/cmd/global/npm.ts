@@ -21,20 +21,17 @@ export class NpmCommands {
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;
   private terminalUI?: TerminalUI;
-  private fetchFn: typeof globalThis.fetch;
 
   constructor(
     projectName: string,
     projectId: string,
     currentDir: string,
-    setLoading?: (isLoading: boolean) => void,
-    fetchFn?: typeof globalThis.fetch
+    setLoading?: (isLoading: boolean) => void
   ) {
     this.projectName = projectName;
     this.projectId = projectId;
     this.currentDir = currentDir;
     this.setLoading = setLoading;
-    this.fetchFn = fetchFn ?? globalThis.fetch.bind(globalThis);
   }
 
   setLoadingHandler(callback: (isLoading: boolean) => void) {
@@ -46,7 +43,7 @@ export class NpmCommands {
   }
 
   async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId, false, this.fetchFn);
+    const npmInstall = new NpmInstall(this.projectName, this.projectId);
     npmInstall.startBatchProcessing();
     try {
       await npmInstall.installWithDependencies(packageName, version);
@@ -56,7 +53,7 @@ export class NpmCommands {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId, true, this.fetchFn);
+    const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
     await npmInstall.removeDirectory(dirPath);
   }
 
@@ -116,7 +113,7 @@ export class NpmCommands {
         let installedCount = 0;
         const failedPackages: string[] = [];
 
-        const npmInstall = new NpmInstall(this.projectName, this.projectId, false, this.fetchFn);
+        const npmInstall = new NpmInstall(this.projectName, this.projectId);
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -228,13 +225,13 @@ export class NpmCommands {
             await ui.spinner.stop();
           }
           try {
-            const npmInstall = new NpmInstall(this.projectName, this.projectId, false, this.fetchFn);
+            const npmInstall = new NpmInstall(this.projectName, this.projectId);
             // ensure .bin entries exist for already-installed package
             // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
           } catch {}
           return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
-        const npmInstall = new NpmInstall(this.projectName, this.projectId, false, this.fetchFn);
+        const npmInstall = new NpmInstall(this.projectName, this.projectId);
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -326,7 +323,7 @@ export class NpmCommands {
       );
 
       // 依存関係を含めてパッケージを削除
-      const npmInstall = new NpmInstall(this.projectName, this.projectId, true, this.fetchFn);
+      const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
@@ -494,7 +491,7 @@ export class NpmCommands {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
 
-      const response = await this.fetchFn(`https://registry.npmjs.org/${packageName}`, {
+      const response = await fetch(`https://registry.npmjs.org/${packageName}`, {
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
