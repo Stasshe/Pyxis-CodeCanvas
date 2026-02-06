@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { initializeExtensions } from '@/engine/extensions/autoInstaller';
 import { initializeBuiltinRuntimes } from '@/engine/runtime/builtinRuntimes';
 import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
-import { pushMsgOutPanel } from './Bottom/BottomPanel';
+import { pushLogMessage } from '@/stores/loggerStore';
 
 /**
  * アプリケーション全体の初期化をまとめたコンポーネント
@@ -30,7 +30,7 @@ export default function AppInitializer() {
 
         if (mounted) {
           console.log('[AppInitializer] initialized');
-          pushMsgOutPanel('initialized', 'info', 'Initializer');
+          pushLogMessage('initialized', 'info', 'Initializer');
         }
       } catch (err) {
         // don't throw in client render path

@@ -20,9 +20,10 @@ vi.mock('@/engine/runtime/transpileManager', () => ({
   },
 }));
 
-// pushMsgOutPanel は React UI であり Node.js では利用不可
-vi.mock('@/components/Bottom/BottomPanel', () => ({
-  pushMsgOutPanel: () => {},
+// loggerStore のモック（Node 環境では UI 呼び出しを実行しない）
+vi.mock('@/stores/loggerStore', () => ({
+  pushLogMessage: () => {},
+  loggerStore: { messages: [] },
 }));
 
 import { NodeRuntime } from '@/engine/runtime/nodeRuntime';

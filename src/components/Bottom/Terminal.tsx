@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import { pushLogMessage } from '@/stores/loggerStore';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { GitCommands } from '@/engine/cmd/global/git';
@@ -53,7 +53,7 @@ function ClientTerminal({
   useEffect(() => {
     if (!terminalRef.current) return;
     if (!currentProject || !currentProjectId) return;
-    pushMsgOutPanel('Terminal initializing', 'info', 'Terminal');
+    pushLogMessage('Terminal initializing', 'info', 'Terminal');
 
     // ファイルシステムとFileRepositoryの初期化
     const setLoading = (isLoading: boolean) => {
@@ -133,7 +133,7 @@ function ClientTerminal({
           '[Terminal] terminal registry load failed — builtin commands not initialized',
           e
         );
-        pushMsgOutPanel(
+        pushLogMessage(
           'Terminal: failed to load terminalCommandRegistry — builtin commands unavailable',
           'error',
           'Terminal'

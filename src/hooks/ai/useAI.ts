@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import { pushLogMessage } from '@/stores/loggerStore';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
 import { generateChatResponse, generateCodeEdit } from '@/engine/ai/fetchAI';
@@ -80,10 +80,10 @@ export function useAI(props?: UseAIProps) {
         if (type === 'assistant') {
           const ctx = mode === 'edit' ? 'AI (edit)' : 'AI';
           const msg = typeof content === 'string' ? content : JSON.stringify(content);
-          pushMsgOutPanel(msg, 'info', ctx);
+          pushLogMessage(msg, 'info', ctx);
         }
       } catch (e) {
-        console.warn('[useAI] pushMsgOutPanel failed', e);
+        console.warn('[useAI] pushLogMessage failed', e);
       }
       return null;
     },
