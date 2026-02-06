@@ -650,10 +650,10 @@ export class ModuleLoader {
       // that are difficult to normalize via regex-based transformations.
       // Log the error but don't crash - allow other modules to continue.
       this.warn('⚠️  Module execution failed (non-fatal):', filePath);
-      this.warn('Error details:', {
-        message: error instanceof Error ? error.message : String(error),
-        name: error instanceof Error ? error.name : undefined,
-      });
+      this.warn(
+        'Error details:',
+        error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      );
 
       // Return empty exports to allow dependent modules to at least load
       // This is especially useful for Prettier where some plugins may fail

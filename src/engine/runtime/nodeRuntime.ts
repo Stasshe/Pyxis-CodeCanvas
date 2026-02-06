@@ -263,7 +263,10 @@ export class NodeRuntime {
    * @param argv コマンドライン引数
    */
   private createProcessObject(currentFilePath?: string, argv: string[] = []): Record<string, any> {
-    return {
+    // EventEmitter-like listener store for process events (exit, uncaughtException, etc.)
+    const listeners: Record<string, Function[]> = {};
+
+    const processObj: Record<string, any> = {
       env: {
         LANG: 'en',
         // chalk, colors, etc. color libraries check these environment variables
@@ -281,6 +284,51 @@ export class NodeRuntime {
       },
       exit: () => {},
       nextTick: (fn: Function, ...args: unknown[]) => setTimeout(() => fn(...args), 0),
+      // EventEmitter methods — many npm packages call process.on('exit', ...)
+      on: (event: string, cb: Function) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(cb);
+        return processObj;
+      },
+      once: (event: string, cb: Function) => {
+        const wrapped = (...args: unknown[]) => {
+          processObj.removeListener(event, wrapped);
+          cb(...args);
+        };
+        return processObj.on(event, wrapped);
+      },
+      off: (event: string, cb: Function) => {
+        return processObj.removeListener(event, cb);
+      },
+      removeListener: (event: string, cb: Function) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter(fn => fn !== cb);
+        }
+        return processObj;
+      },
+      addListener: (event: string, cb: Function) => {
+        return processObj.on(event, cb);
+      },
+      emit: (event: string, ...args: unknown[]) => {
+        if (listeners[event]) {
+          for (const fn of [...listeners[event]]) {
+            fn(...args);
+          }
+          return true;
+        }
+        return false;
+      },
+      listeners: (event: string) => {
+        return listeners[event] ? [...listeners[event]] : [];
+      },
+      removeAllListeners: (event?: string) => {
+        if (event) {
+          delete listeners[event];
+        } else {
+          for (const key of Object.keys(listeners)) delete listeners[key];
+        }
+        return processObj;
+      },
       stdin: {
         on: () => {},
         once: () => {},
@@ -321,6 +369,8 @@ export class NodeRuntime {
         hasColors: (count?: number) => count === undefined || count <= 16777216,
       },
     };
+
+    return processObj;
   }
 
   /**
