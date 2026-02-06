@@ -9,7 +9,6 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
-import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/python/pyodideRuntime';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
@@ -30,17 +29,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
-  const [isPyodideReady, setIsPyodideReady] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
-
-  // Pyodideプロジェクト設定
-  useEffect(() => {
-    if (currentProject) {
-      setCurrentProject(currentProject.id, currentProject.name).then(() => {
-        setIsPyodideReady(true);
-      });
-    }
-  }, [currentProject]);
 
   // 出力エリアの自動スクロール
   useEffect(() => {
@@ -223,34 +212,27 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         inputCode.trimStart().startsWith('import ') ||
         inputCode.trimStart().startsWith('print(');
 
-      if (isPython) {
-        if (!isPyodideReady) {
-          addOutput(t('run.runtimeNotReady'), 'error');
-          return;
-        }
-        const pyodide = await initPyodide();
-        const cleanCode = inputCode.replace(/^#!python\s*/, '');
-        const pythonResult = await pyodide.runPythonAsync(cleanCode);
-        addOutput(String(pythonResult), 'log');
-      } else {
-        // Node.js実行 - RuntimeRegistryを使用
-        const runtime = runtimeRegistry.getRuntime('nodejs');
-        if (!runtime) {
-          addOutput('Node.js runtime not available', 'error');
-          return;
-        }
+      const runtimeId = isPython ? 'python' : 'nodejs';
+      const runtime = runtimeRegistry.getRuntime(runtimeId);
+      if (!runtime) {
+        addOutput(`${runtimeId} runtime not available`, 'error');
+        return;
+      }
 
-        const result = await runtime.executeCode?.(inputCode, {
-          projectId: currentProject.id,
-          projectName: currentProject.name,
-          filePath: '/temp-code.js',
-          debugConsole: createDebugConsole(),
-          onInput: createOnInput(),
-        });
+      const cleanCode = isPython ? inputCode.replace(/^#!python\s*/, '') : inputCode;
 
-        if (result?.stderr) {
-          addOutput(result.stderr, 'error');
-        }
+      const result = await runtime.executeCode?.(cleanCode, {
+        projectId: currentProject.id,
+        projectName: currentProject.name,
+        filePath: isPython ? '/temp-code.py' : '/temp-code.js',
+        debugConsole: createDebugConsole(),
+        onInput: createOnInput(),
+      });
+
+      if (result?.stderr) {
+        addOutput(result.stderr, 'error');
+      } else if (result?.result != null) {
+        addOutput(String(result.result), 'log');
       }
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
