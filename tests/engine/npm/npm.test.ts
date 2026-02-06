@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '@tests/helpers/testProject';
+import { setupTestProject } from '../../helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { NpmCommands } from '@/engine/cmd/global/npm';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { fileRepository } from '@/engine/core/fileRepository/inmemory';
-import { resetRepository } from '@tests/helpers/testProject';
+import { resetRepository } from '../../../helpers/testProject';
 
 /**
  * InMemoryFileRepository のテスト
