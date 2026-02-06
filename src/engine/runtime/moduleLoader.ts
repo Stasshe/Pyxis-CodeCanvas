@@ -185,11 +185,6 @@ export class ModuleLoader {
 
       // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
       const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-
-      // デバッグ: transpileResultの内容を確認
-      runtimeInfo('📝 Transpile result type:', typeof transpileResult);
-      runtimeInfo('📝 Transpile result:', transpileResult);
-
       const { code, dependencies } = transpileResult;
 
       // デバッグ: codeとdependenciesの型を確認
@@ -330,12 +325,7 @@ export class ModuleLoader {
       isESModule: this.isESModule(content),
       isJSX: false,
     });
-
-    // デバッグ: transpileManagerの結果を確認
-    runtimeInfo('📝 TranspileManager result:', typeof result, result);
-    runtimeInfo('📝 Result.code type:', typeof result.code);
-    runtimeInfo('📝 Result.dependencies:', result.dependencies);
-
+    
     // キャッシュに保存
     await this.cache.set(filePath, {
       originalPath: filePath,
@@ -530,6 +520,7 @@ export class ModuleLoader {
           '.mts',
           '.tsx',
           '.jsx',
+          '.json',
           '/index.js',
           '/index.ts',
         ];
@@ -646,14 +637,23 @@ export class ModuleLoader {
       );
       return result;
     } catch (error) {
+      // ERR_MODULE_NOT_FOUND は本当にモジュールが見つからないエラーなので再スローする
+      // これを飲み込むと require が失敗しても空 exports で動いてしまい、
+      // テストが偽の成功になる
+      if (error instanceof Error && error.name === 'Error [ERR_MODULE_NOT_FOUND]') {
+        this.warn('❌ Module not found during execution:', filePath);
+        this.warn('Error details:', error.message);
+        throw error;
+      }
+
       // Minified ESM code (especially from Prettier) may have syntax errors
       // that are difficult to normalize via regex-based transformations.
       // Log the error but don't crash - allow other modules to continue.
       this.warn('⚠️  Module execution failed (non-fatal):', filePath);
-      this.warn('Error details:', {
-        message: error instanceof Error ? error.message : String(error),
-        name: error instanceof Error ? error.name : undefined,
-      });
+      this.warn(
+        'Error details:',
+        error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      );
 
       // Return empty exports to allow dependent modules to at least load
       // This is especially useful for Prettier where some plugins may fail

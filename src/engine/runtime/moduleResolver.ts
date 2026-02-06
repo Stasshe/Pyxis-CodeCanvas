@@ -273,7 +273,22 @@ export class ModuleResolver {
     }
 
     // パッケージルート - エントリーポイントを解決
-    let entryPoint = packageJson.module || packageJson.main || 'index.js';
+    // exportsフィールドを最優先でチェック（Node.js仕様準拠）
+    if (packageJson.exports) {
+      const exportPath = this.resolveExports(packageJson.exports, '.');
+      if (exportPath) {
+        let ep = exportPath;
+        if (ep.startsWith('./')) ep = ep.slice(2);
+        const fullExportPath = `${this.projectDir}/node_modules/${packageName}/${ep}`;
+        if (await this.fileExists(fullExportPath)) {
+          runtimeInfo('✅ Resolved via exports["."]:', fullExportPath);
+          return { path: fullExportPath, packageJson };
+        }
+      }
+    }
+
+    // CJSランタイムなのでmainを優先（moduleはESM用）
+    let entryPoint = packageJson.main || packageJson.module || 'index.js';
     // ./ プレフィックスを削除
     if (entryPoint.startsWith('./')) {
       entryPoint = entryPoint.slice(2);
@@ -389,10 +404,10 @@ export class ModuleResolver {
       if (typeof value === 'string') {
         return value;
       }
-      // 条件付きエクスポート（簡易版）
+      // 条件付きエクスポート — CJSランタイムなのでrequireを優先
       if (typeof value === 'object' && value !== null) {
         const obj = value as Record<string, unknown>;
-        return (obj.default || obj.import || obj.require) as string;
+        return (obj.require || obj.default || obj.import) as string;
       }
     }
 
@@ -430,9 +445,9 @@ export class ModuleResolver {
       if (typeof value === 'string') {
         return value;
       }
-      // import/require条件
+      // import/require条件 — CJSランタイムなのでrequireを優先
       if (typeof value === 'object' && value !== null) {
-        return (value as any).import || (value as any).require || (value as any).default || null;
+        return (value as any).require || (value as any).default || (value as any).import || null;
       }
     }
 
@@ -443,7 +458,7 @@ export class ModuleResolver {
         return value;
       }
       if (typeof value === 'object' && value !== null) {
-        return (value as any).import || (value as any).require || (value as any).default || null;
+        return (value as any).require || (value as any).default || (value as any).import || null;
       }
     }
 
@@ -553,7 +568,7 @@ export class ModuleResolver {
   }
 
   /**
-   * ファイルが存在するかチェック
+   * ファイルが存在するかチェック（ディレクトリは除外）
    */
   private async fileExists(path: string): Promise<boolean> {
     // キャッシュをチェック
@@ -565,7 +580,9 @@ export class ModuleResolver {
       await fileRepository.init();
       const normalizedPath = fsPathToAppPath(path, this.projectName);
       const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
-      const exists = !!file;
+
+      // ファイルが存在し、かつディレクトリではない場合のみtrueを返す
+      const exists = !!file && file.type === 'file';
 
       this.fileCache.set(path, exists);
       return exists;

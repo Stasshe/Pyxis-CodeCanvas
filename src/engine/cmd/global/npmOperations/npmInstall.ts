@@ -238,13 +238,26 @@ export class NpmInstall {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    // IndexedDB上でディレクトリ配下のファイルをすべて削除（プレフィックス検索で効率化）
-    const targets = await fileRepository.getFilesByPrefix(this.projectId, dirPath);
-    // また単一ファイルの可能性があるため明示的にチェック
-    const exact = await fileRepository.getFileByPath(this.projectId, dirPath);
-    if (exact) targets.unshift(exact);
-    for (const file of targets) {
-      await fileRepository.deleteFile(file.id);
+    const normalizedPath = dirPath.replace(/\/+$/, '');
+
+    // フォルダエントリがあれば cascade 削除で子ファイルも全部消える
+    const folder = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+    if (folder) {
+      await fileRepository.deleteFile(folder.id);
+    }
+
+    // cascade で消えなかった残存ファイルを個別削除
+    // trailing slash で正確にプレフィックスマッチ（express-session 等を巻き込まない）
+    const remaining = await fileRepository.getFilesByPrefix(
+      this.projectId,
+      normalizedPath + '/'
+    );
+    for (const file of remaining) {
+      try {
+        await fileRepository.deleteFile(file.id);
+      } catch {
+        // cascade で既に削除済みの場合
+      }
     }
   }
 
@@ -384,15 +397,10 @@ export class NpmInstall {
     const toRemove = new Set<string>([packageToRemove]);
     const processed = new Set<string>();
 
-    // ルート依存関係は削除しない
-    if (rootDependencies.has(packageToRemove)) {
-      console.log(
-        `[npm.findOrphanedPackages] ${packageToRemove} is a root dependency, not removing`
-      );
-      return [];
-    }
-
     // 削除候補をキューで処理
+    // NOTE: packageToRemove 自体がルート依存であっても、呼び出し元が明示的に
+    // 削除を要求しているため、推移的依存の探索は実行する。
+    // ルート依存の保護は推移的依存にのみ適用する。
     const queue = [packageToRemove];
 
     while (queue.length > 0) {
@@ -453,7 +461,7 @@ export class NpmInstall {
     // 依存関係グラフを構築
     const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
     const dependencyGraph = await this.analyzeDependencies(snapshotFiles);
-    const rootDependencies = await this.getRootDependencies();
+    const rootDependencies = await this.getRootDependencies(snapshotFiles);
 
     // 削除可能なパッケージを特定
     const orphanedPackages = this.findOrphanedPackages(
@@ -469,7 +477,10 @@ export class NpmInstall {
     for (const pkg of packagesToRemove) {
       try {
         // スナップショットで存在チェック
-        const exists = snapshotFiles.some(f => f.path.startsWith(`/node_modules/${pkg}`));
+        const prefix = `/node_modules/${pkg}/`;
+        const exists = snapshotFiles.some(
+          f => f.path === `/node_modules/${pkg}` || f.path.startsWith(prefix)
+        );
         if (!exists) {
           console.log(`[npm.uninstallWithDependencies] Package ${pkg} not found, skipping`);
           continue;

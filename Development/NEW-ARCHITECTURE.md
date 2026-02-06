@@ -26,7 +26,7 @@ lightning-fs（Git用ワークスペース）
 
 ## core/* ファイル一覧と役割
 
-### 1. `fileRepository.ts` ★ 主要API
+### 1. `filerepository/` ★ 主要API
 **役割**: IndexedDBを管理する統一的なファイル操作API  
 **使用場面**: **全てのファイル操作はここを経由する**  
 **自動同期**: ✅ 有効（保存・削除時にGitFileSystemへ自動同期）
@@ -308,7 +308,7 @@ export class UnixCommands {
 5. **プロジェクト管理**: Reactでは`useProject()`、それ以外では`fileRepository`
 
 ### ファイル優先度
-- 🥇 **fileRepository.ts**: 主要API（常に使用）
+- 🥇 **filerepository/**: 主要API（常に使用）
 - 🥈 **gitFileSystem.ts**: 読み取り専用で使用（書き込みは避ける）
 - 🥉 **project.ts**: Reactコンポーネントから使用
 - 🔄 **syncManager.ts**: 内部的に使用（直接呼ばない）

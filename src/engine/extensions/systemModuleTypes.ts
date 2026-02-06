@@ -14,7 +14,7 @@ import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
-import type { FileRepository } from '@/engine/core/fileRepository';
+import type { fileRepository } from '@/engine/core/fileRepository';
 import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
 import type { normalizeCjsEsm } from '@/engine/runtime/normalizeCjsEsm';
 
@@ -38,11 +38,18 @@ export interface PathUtilsModule {
 /**
  * システムモジュールの型マップ
  * この型を使用して getSystemModule の戻り値型を推論する
+ *
+ * NOTE: すべての型はインスタンス型を指定する（クラスコンストラクタ型ではない）
  */
 export interface SystemModuleMap {
-  fileRepository: FileRepository;
+  // fileRepository is an instance (singleton) exported from the core fileRepository
+  // module. Use the instance type here so getSystemModule returns the runtime
+  // instance rather than the class/constructor.
+  fileRepository: typeof fileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   pathUtils: PathUtilsModule;
+  // commandRegistry is an instance exported from commandRegistry module.
+  // Use the class instance type (not constructor type).
   commandRegistry: CommandRegistry;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {

@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
 import DebugConsole from './DebugConsole';
-import OutputPanel, { type OutputMessage } from './OutputPanel';
+import OutputPanel from './OutputPanel';
 import ProblemsPanel from './ProblemsPanel';
 import Terminal from './Terminal';
 
-import { OUTPUT_CONFIG } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
@@ -21,54 +20,6 @@ interface BottomPanelProps {
   activeTab?: 'output' | 'terminal' | 'debug' | 'problems';
   onActiveTabChange?: (tab: 'output' | 'terminal' | 'debug' | 'problems') => void;
   // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
-}
-
-const outputMessagesRef: {
-  current: OutputMessage[];
-  set?: React.Dispatch<React.SetStateAction<OutputMessage[]>>;
-} = { current: [], set: undefined };
-
-export function pushMsgOutPanel(
-  msg: string,
-  type?: 'info' | 'error' | 'warn' | 'check',
-  context?: string
-) {
-  if (outputMessagesRef.set) {
-    outputMessagesRef.set(prev => {
-      // 直前のメッセージと同じ内容・type・contextなら回数を増やす
-      if (prev.length > 0) {
-        const last = prev[prev.length - 1];
-        if (last.message === msg && last.type === type && last.context === context) {
-          // 回数を記録するため、lastにcountプロパティを追加
-          const newPrev = [...prev];
-          // @ts-ignore
-          newPrev[newPrev.length - 1] = { ...last, count: (last.count ?? 1) + 1 };
-          // Trim if over limit
-          const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
-          if (newPrev.length > max) {
-            const start = newPrev.length - max;
-            const trimmed = newPrev.slice(start);
-            outputMessagesRef.current = trimmed;
-            return trimmed;
-          }
-          outputMessagesRef.current = newPrev;
-          return newPrev;
-        }
-      }
-      // 新規メッセージ
-      const next = [...prev, { message: msg, type, context }];
-      // Trim to keep only the most recent OUTPUT_MAX_MESSAGES
-      const max = OUTPUT_CONFIG.OUTPUT_MAX_MESSAGES ?? 30;
-      if (next.length > max) {
-        const start = next.length - max;
-        const trimmed = next.slice(start);
-        outputMessagesRef.current = trimmed;
-        return trimmed;
-      }
-      outputMessagesRef.current = next;
-      return next;
-    });
-  }
 }
 
 export default function BottomPanel({
@@ -101,17 +52,6 @@ export default function BottomPanel({
       startTransition(() => setInternalActiveTab(tab));
     }
   };
-  const [outputMessages, setOutputMessages] = useState<OutputMessage[]>([]);
-  outputMessagesRef.current = outputMessages;
-  outputMessagesRef.set = setOutputMessages;
-
-  const handleClearDisplayed = useCallback(
-    (toClear: OutputMessage[]) => {
-      // Remove the currently displayed (filtered) messages from the full messages list
-      setOutputMessages(prev => prev.filter(m => !toClear.includes(m)));
-    },
-    [setOutputMessages]
-  );
 
   return (
     <>
@@ -297,7 +237,7 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel messages={outputMessages} onClearDisplayed={handleClearDisplayed} />
+            <OutputPanel/>
           </div>
           <div
             style={{

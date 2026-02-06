@@ -370,7 +370,7 @@ export class NpmCommands {
         return 'npm ERR! Cannot find package.json';
       }
       const packageJson = JSON.parse(packageFile.content);
-      let output = `${this.projectName}@${packageJson.version} (IndexedDB)\n`;
+      let output = `${this.projectName}@${packageJson.version}\n`;
       const dependencies = packageJson.dependencies || {};
       const devDependencies = packageJson.devDependencies || {};
       const depKeys = Object.keys(dependencies);

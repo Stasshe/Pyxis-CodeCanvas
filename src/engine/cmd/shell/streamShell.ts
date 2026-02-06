@@ -27,7 +27,7 @@ export interface ShellOptions {
   projectName: string;
   projectId: string;
   unix: UnixCommands;
-  fileRepository?: typeof fileRepository | any; // Allow mock file repositories
+  fileRepository?: typeof fileRepository;
   commandRegistry?: any;
   terminalColumns?: number;
   terminalRows?: number;

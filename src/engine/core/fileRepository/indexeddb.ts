@@ -8,14 +8,14 @@
  * パス変換は pathResolver モジュールを使用
  */
 
-import { gitFileSystem } from './gitFileSystem';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from './gitignore';
+import { gitFileSystem } from '../gitFileSystem';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '../gitignore';
 import {
   fromGitPath as pathFromGitPath,
   getParentPath as pathGetParentPath,
   toGitPath as pathToGitPath,
   toAppPath,
-} from './pathUtils';
+} from '../pathUtils';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
@@ -813,7 +813,7 @@ export class FileRepository {
       coreInfo(`[FileRepository.syncToGitFileSystem] Path not ignored, proceeding: ${path}`);
 
       // 遅延インポートで循環参照を回避
-      const { syncManager } = await import('./syncManager');
+      const { syncManager } = await import('../syncManager');
       // プロジェクト名を取得
       let projectName = this.projectNameCache.get(projectId);
       if (!projectName) {
@@ -889,7 +889,7 @@ export class FileRepository {
    * git clone等の大量ファイル作成時に個別同期ではなく一括同期を使用
    */
 
-  // fileRepository.ts に追加するメソッド
+  // filerepository/ に追加するメソッド
 
   /**
    * 複数ファイルを一括作成/更新する（最適化版 - 一括同期対応）
@@ -943,6 +943,22 @@ export class FileRepository {
     let hasGitignore = false;
     let gitignoreContent = '';
 
+    // 既存ファイルのパス→IDマップを構築（upsert対応: 同一パスなら上書き）
+    const existingPathMap = new Map<string, string>();
+    await new Promise<void>((resolve, reject) => {
+      const readTx = this.db!.transaction(['files'], 'readonly');
+      const readStore = readTx.objectStore('files');
+      const idx = readStore.index('projectId');
+      const req = idx.getAll(projectId);
+      req.onsuccess = () => {
+        for (const f of req.result as ProjectFile[]) {
+          existingPathMap.set(f.path, f.id);
+        }
+        resolve();
+      };
+      req.onerror = () => reject(req.error);
+    });
+
     // 🚀 最適化5: 各バッチを並列処理（Promise.all）
     await Promise.all(
       batches.map(
@@ -956,21 +972,26 @@ export class FileRepository {
 
             try {
               for (const entry of batch) {
+                // 既存パスがあればIDを再利用 → store.put で上書き
+                const existingId = existingPathMap.get(entry.path);
                 const file: ProjectFile = {
-                  id: generateUniqueId('file'),
+                  id: existingId || generateUniqueId('file'),
                   projectId,
                   path: entry.path,
                   name: entry.path.split('/').pop() || '',
                   content: entry.isBufferArray ? '' : entry.content || '',
                   type: entry.type || 'file',
                   parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
-                  createdAt: timestamp, // 事前生成されたタイムスタンプを使用
-                  updatedAt: timestamp, // 事前生成されたタイムスタンプを使用
+                  createdAt: timestamp,
+                  updatedAt: timestamp,
                   isBufferArray: !!entry.isBufferArray,
                   bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
                 };
 
                 createdFiles.push(file);
+                if (!existingId) {
+                  existingPathMap.set(entry.path, file.id);
+                }
                 store.put(file);
 
                 // .gitignore の検出
@@ -1007,7 +1028,7 @@ export class FileRepository {
         );
 
         if (projectName) {
-          const { syncManager } = await import('./syncManager');
+          const { syncManager } = await import('../syncManager');
           // 一括同期（100ファイルでも1回の処理）
           await syncManager.syncFromIndexedDBToFS(projectId, projectName);
           coreInfo('[FileRepository] Optimized bulk sync completed');
@@ -1199,7 +1220,7 @@ export class FileRepository {
     try {
       if (isRecursive || deletedFiles.length > 5) {
         // 大量削除の場合は全体同期
-        const { syncManager } = await import('./syncManager');
+        const { syncManager } = await import('../syncManager');
         let projectName = this.projectNameCache.get(projectId);
         if (!projectName) {
           const projects = await this.getProjects();
@@ -1344,4 +1365,4 @@ export const fileRepository = FileRepository.getInstance();
 export { normalizePath, getParentPath, toGitPath, fromGitPath };
 
 // 新しいパス解決モジュールを再エクスポート
-export * from './pathUtils';
+export * from '../pathUtils';
