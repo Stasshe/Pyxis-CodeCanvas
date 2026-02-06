@@ -943,6 +943,22 @@ export class FileRepository {
     let hasGitignore = false;
     let gitignoreContent = '';
 
+    // 既存ファイルのパス→IDマップを構築（upsert対応: 同一パスなら上書き）
+    const existingPathMap = new Map<string, string>();
+    await new Promise<void>((resolve, reject) => {
+      const readTx = this.db!.transaction(['files'], 'readonly');
+      const readStore = readTx.objectStore('files');
+      const idx = readStore.index('projectId');
+      const req = idx.getAll(projectId);
+      req.onsuccess = () => {
+        for (const f of req.result as ProjectFile[]) {
+          existingPathMap.set(f.path, f.id);
+        }
+        resolve();
+      };
+      req.onerror = () => reject(req.error);
+    });
+
     // 🚀 最適化5: 各バッチを並列処理（Promise.all）
     await Promise.all(
       batches.map(
@@ -956,21 +972,26 @@ export class FileRepository {
 
             try {
               for (const entry of batch) {
+                // 既存パスがあればIDを再利用 → store.put で上書き
+                const existingId = existingPathMap.get(entry.path);
                 const file: ProjectFile = {
-                  id: generateUniqueId('file'),
+                  id: existingId || generateUniqueId('file'),
                   projectId,
                   path: entry.path,
                   name: entry.path.split('/').pop() || '',
                   content: entry.isBufferArray ? '' : entry.content || '',
                   type: entry.type || 'file',
                   parentPath: entry.path.substring(0, entry.path.lastIndexOf('/')) || '/',
-                  createdAt: timestamp, // 事前生成されたタイムスタンプを使用
-                  updatedAt: timestamp, // 事前生成されたタイムスタンプを使用
+                  createdAt: timestamp,
+                  updatedAt: timestamp,
                   isBufferArray: !!entry.isBufferArray,
                   bufferContent: entry.isBufferArray ? entry.bufferContent : undefined,
                 };
 
                 createdFiles.push(file);
+                if (!existingId) {
+                  existingPathMap.set(entry.path, file.id);
+                }
                 store.put(file);
 
                 // .gitignore の検出

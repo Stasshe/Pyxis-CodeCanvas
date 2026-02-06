@@ -331,7 +331,7 @@ export class FileRepository {
     const timestamp = new Date();
     const createdFiles: ProjectFile[] = [];
 
-    // 既存ファイルのパス→IDマップを構築（upsert対応: IndexedDBのputと同等）
+    // 既存ファイルのパス→IDマップを構築（upsert対応: 同一パスなら上書き）
     const existingPathMap = new Map<string, string>();
     for (const [id, f] of this.files) {
       if (f.projectId === projectId) {

@@ -238,20 +238,25 @@ export class NpmInstall {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    // IndexedDB上でディレクトリ配下のファイルをすべて削除（プレフィックス検索で効率化）
-    const targets = await fileRepository.getFilesByPrefix(this.projectId, dirPath);
-    // また単一ファイルの可能性があるため明示的にチェック
-    const exact = await fileRepository.getFileByPath(this.projectId, dirPath);
-    // ID で重複排除してから削除（exact と prefix の結果が重複する場合がある）
-    const seen = new Set<string>();
-    const all = exact ? [exact, ...targets] : targets;
-    for (const file of all) {
-      if (seen.has(file.id)) continue;
-      seen.add(file.id);
+    const normalizedPath = dirPath.replace(/\/+$/, '');
+
+    // フォルダエントリがあれば cascade 削除で子ファイルも全部消える
+    const folder = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+    if (folder) {
+      await fileRepository.deleteFile(folder.id);
+    }
+
+    // cascade で消えなかった残存ファイルを個別削除
+    // trailing slash で正確にプレフィックスマッチ（express-session 等を巻き込まない）
+    const remaining = await fileRepository.getFilesByPrefix(
+      this.projectId,
+      normalizedPath + '/'
+    );
+    for (const file of remaining) {
       try {
         await fileRepository.deleteFile(file.id);
       } catch {
-        // フォルダのカスケード削除で既に消えている場合は無視
+        // cascade で既に削除済みの場合
       }
     }
   }
