@@ -1,9 +1,9 @@
 /**
  * テストプロジェクトヘルパー
- * InMemoryFileRepository にinitialFileContents を事前ロードするユーティリティ
+ * fileRepository に initialFileContents を事前ロードするユーティリティ
  */
 
-import { FileRepository } from '@/engine/core/fileRepository/inmemory';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { initialFileContents } from '@/engine/initialFileContents';
 
 // initialFileContents のノード型
@@ -37,10 +37,10 @@ export function flattenInitialFiles(
 }
 
 /**
- * InMemoryFileRepository のシングルトンをリセットする
+ * fileRepository のシングルトンをリセットする
  */
-export function resetRepository(): InstanceType<typeof FileRepository> {
-  const repo = FileRepository.getInstance();
+export function resetRepository(): typeof fileRepository {
+  const repo = fileRepository;
   // @ts-expect-error -- テスト用に内部状態を直接リセット
   repo.projects = new Map();
   // @ts-expect-error
@@ -57,7 +57,7 @@ export function resetRepository(): InstanceType<typeof FileRepository> {
 export async function setupTestProject(
   projectName = 'TestProject'
 ): Promise<{
-  repo: InstanceType<typeof FileRepository>;
+  repo: typeof fileRepository;
   projectId: string;
   projectName: string;
 }> {

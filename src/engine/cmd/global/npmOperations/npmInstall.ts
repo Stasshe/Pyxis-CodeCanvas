@@ -35,6 +35,7 @@ export type InstallProgressCallback = (
 export class NpmInstall {
   private projectName: string;
   private projectId: string;
+  private fetchFn: typeof globalThis.fetch;
 
   // Callback for progress logging
   private onInstallProgress?: InstallProgressCallback;
@@ -100,9 +101,15 @@ export class NpmInstall {
   // 現在インストール処理中のパッケージ（循環依存回避）
   private installingPackages: Set<string> = new Set();
 
-  constructor(projectName: string, projectId: string, skipLoadingInstalledPackages = false) {
+  constructor(
+    projectName: string,
+    projectId: string,
+    skipLoadingInstalledPackages = false,
+    fetchFn?: typeof globalThis.fetch
+  ) {
     this.projectName = projectName;
     this.projectId = projectId;
+    this.fetchFn = fetchFn ?? globalThis.fetch.bind(globalThis);
 
     // 既存のインストール済みパッケージを非同期で読み込み（スキップオプション付き）
     if (!skipLoadingInstalledPackages) {
@@ -242,8 +249,12 @@ export class NpmInstall {
     const targets = await fileRepository.getFilesByPrefix(this.projectId, dirPath);
     // また単一ファイルの可能性があるため明示的にチェック
     const exact = await fileRepository.getFileByPath(this.projectId, dirPath);
-    if (exact) targets.unshift(exact);
-    for (const file of targets) {
+    // ID で重複排除してから削除
+    const seen = new Set<string>();
+    const all = exact ? [exact, ...targets] : targets;
+    for (const file of all) {
+      if (seen.has(file.id)) continue;
+      seen.add(file.id);
       await fileRepository.deleteFile(file.id);
     }
   }
@@ -502,7 +513,7 @@ export class NpmInstall {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒タイムアウト
 
-      const response = await fetch(packageUrl, {
+      const response = await this.fetchFn(packageUrl, {
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
@@ -761,7 +772,7 @@ export class NpmInstall {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
 
-        tarballResponse = await fetch(tgzUrl, {
+        tarballResponse = await this.fetchFn(tgzUrl, {
           signal: controller.signal,
           headers: {
             Accept: 'application/octet-stream',
