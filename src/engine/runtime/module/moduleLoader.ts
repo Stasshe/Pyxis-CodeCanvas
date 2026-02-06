@@ -9,12 +9,12 @@
  */
 
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
-import { runtimeRegistry } from './RuntimeRegistry';
+import { runtimeRegistry } from '../core/RuntimeRegistry';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
-import { createModuleNotFoundError } from './nodeErrors';
-import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
-import { transpileManager } from './transpileManager';
+import { createModuleNotFoundError } from '../nodejs/nodeErrors';
+import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import { transpileManager } from '../transpiler/transpileManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 

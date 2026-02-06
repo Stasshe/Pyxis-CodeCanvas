@@ -10,13 +10,13 @@
  * 6. require()は非同期化（await __require__()に変換）
  */
 
-import { ModuleLoader } from './moduleLoader';
+import { ModuleLoader } from '../module/moduleLoader';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
-import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
+import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
-import { type BuiltInModules, createBuiltInModules } from '@/engine/node/builtInModule';
+import { type BuiltInModules, createBuiltInModules } from './builtInModule';
 
 /**
  * 実行オプション

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 import { initializeExtensions } from '@/engine/extensions/autoInstaller';
-import { initializeBuiltinRuntimes } from '@/engine/runtime/builtinRuntimes';
+import { initializeBuiltinRuntimes } from '@/engine/runtime/core/builtinRuntimes';
 import { registerBuiltinTabs } from '@/engine/tabs/registerBuiltinTabs';
 import { pushLogMessage } from '@/stores/loggerStore';
 

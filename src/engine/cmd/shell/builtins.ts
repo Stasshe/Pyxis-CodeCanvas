@@ -255,7 +255,7 @@ export default function adaptUnixToStream(unix: any) {
 
     try {
       // NodeRuntimeをdynamic importで読み込み
-      const { NodeRuntime } = await import('../../runtime/nodeRuntime');
+      const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
 
       // デバッグコンソールを設定（即座に出力、バッファリングなし）
       const debugConsole = {

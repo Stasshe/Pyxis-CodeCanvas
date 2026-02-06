@@ -630,7 +630,7 @@ class ExtensionManager {
             return fileRepository as SystemModuleMap[T];
           }
           case 'normalizeCjsEsm': {
-            const module = await import('@/engine/runtime/normalizeCjsEsm');
+            const module = await import('@/engine/runtime/transpiler/normalizeCjsEsm');
             // import() returns a module namespace object which may not structurally
             // match the expected SystemModuleMap[T] type. Cast via unknown first
             // to satisfy TypeScript and avoid unsafe direct casting warnings.
@@ -668,9 +668,9 @@ class ExtensionManager {
       registerTranspiler: async (transpilerConfig: any) => {
         // RuntimeRegistryにトランスパイラーを登録
         try {
-          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
+          const { runtimeRegistry } = await import('@/engine/runtime/core/RuntimeRegistry');
           const { ExtensionTranspilerProvider } = await import(
-            '@/engine/runtime/providers/ExtensionTranspilerProvider'
+            '@/engine/runtime/transpiler/ExtensionTranspilerProvider'
           );
 
           const provider = new ExtensionTranspilerProvider(
@@ -690,7 +690,7 @@ class ExtensionManager {
       registerRuntime: async (runtimeConfig: any) => {
         // RuntimeRegistryにランタイムを登録
         try {
-          const { runtimeRegistry } = await import('@/engine/runtime/RuntimeRegistry');
+          const { runtimeRegistry } = await import('@/engine/runtime/core/RuntimeRegistry');
 
           // Create a runtime provider from the config
           const provider = {

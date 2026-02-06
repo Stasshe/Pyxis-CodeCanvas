@@ -7,7 +7,7 @@
  */
 
 import { runtimeRegistry } from './RuntimeRegistry';
-import { NodeRuntimeProvider } from './providers/NodeRuntimeProvider';
+import { NodeRuntimeProvider } from '../nodejs/NodeRuntimeProvider';
 import { runtimeInfo } from './runtimeLogger';
 
 /**

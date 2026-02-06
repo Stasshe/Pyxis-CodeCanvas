@@ -8,8 +8,8 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { runtimeRegistry } from '@/engine/runtime/RuntimeRegistry';
-import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/pyodideRuntime';
+import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
+import { initPyodide, runPythonWithSync, setCurrentProject } from '@/engine/runtime/python/pyodideRuntime';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;

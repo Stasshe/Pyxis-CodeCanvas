@@ -8,7 +8,7 @@
  */
 
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
-import { runtimeError, runtimeInfo, runtimeWarn } from './runtimeLogger';
+import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 

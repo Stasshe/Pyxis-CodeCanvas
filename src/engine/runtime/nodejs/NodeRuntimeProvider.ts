@@ -6,8 +6,8 @@
  * - RuntimeProviderインターフェースを実装
  */
 
-import { NodeRuntime } from '../nodeRuntime';
-import { runtimeInfo } from '../runtimeLogger';
+import { NodeRuntime } from './nodeRuntime';
+import { runtimeInfo } from '../core/runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -15,7 +15,7 @@ import type {
   RuntimeExecutionOptions,
   RuntimeExecutionResult,
   RuntimeProvider,
-} from '../RuntimeProvider';
+} from '../core/RuntimeProvider';
 
 export class NodeRuntimeProvider implements RuntimeProvider {
   readonly id = 'nodejs';

@@ -110,7 +110,7 @@ export async function handleNPXCommand(
 
     // Lazy import path utils and NodeRuntime to avoid cycles
     const { fsPathToAppPath, resolvePath, toFSPath } = await import('@/engine/core/pathUtils');
-    const { NodeRuntime } = await import('../../runtime/nodeRuntime');
+    const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
 
     for (const cand of candidates) {
       const cwdApp = fsPathToAppPath(cwdFs, projectName);
