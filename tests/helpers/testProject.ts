@@ -39,7 +39,7 @@ export function flattenInitialFiles(
 /**
  * fileRepository のシングルトンをリセットする
  */
-export function resetRepository(): typeof fileRepository {
+export function resetRepository(): any {
   const repo = fileRepository;
   // @ts-expect-error -- テスト用に内部状態を直接リセット
   repo.projects = new Map();
