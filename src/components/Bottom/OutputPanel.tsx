@@ -3,20 +3,10 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeColors } from '@/context/ThemeContext';
+import { removeLogMessages, type OutputType } from '@/stores/loggerStore';
+import { useSnapshot } from 'valtio/react';
+import { loggerStore } from '@/stores/loggerStore';
 
-type OutputType = 'info' | 'error' | 'warn' | 'check';
-
-export interface OutputMessage {
-  message: string;
-  type?: OutputType;
-  context?: string;
-  count?: number;
-}
-
-interface OutputPanelProps {
-  messages: OutputMessage[];
-  onClearDisplayed?: (toClear: OutputMessage[]) => void;
-}
 
 // Themeの色を使う
 const getTypeColor = (colors: ThemeColors): Record<OutputType, string> => ({
@@ -26,7 +16,8 @@ const getTypeColor = (colors: ThemeColors): Record<OutputType, string> => ({
   check: colors.green,
 });
 
-export function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
+export function OutputPanel() {
+  const { messages } = useSnapshot(loggerStore);
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [contextFilter, setContextFilter] = useState('');
@@ -128,10 +119,9 @@ export function OutputPanel({ messages, onClearDisplayed }: OutputPanelProps) {
             ))}
           </select>
         </label>
-        {/* クリアボタン: 現在フィルターで表示されているメッセージを親に渡す */}
         <button
           onClick={() => {
-            if (onClearDisplayed) onClearDisplayed(filtered);
+            removeLogMessages(filtered);
           }}
           style={{
             marginLeft: 6,

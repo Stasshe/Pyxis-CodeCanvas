@@ -1,4 +1,4 @@
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
+import { pushLogMessage } from '@/stores/loggerStore';
 
 function safeStringify(value: unknown): string {
   try {
@@ -18,7 +18,7 @@ function formatArgs(args: unknown[]): string {
 
 export function coreInfo(...args: unknown[]): void {
   try {
-    pushMsgOutPanel(formatArgs(args), 'info', 'core');
+    pushLogMessage(formatArgs(args), 'info', 'core');
   } catch {
     // ignore
   }
@@ -26,7 +26,7 @@ export function coreInfo(...args: unknown[]): void {
 
 export function coreWarn(...args: unknown[]): void {
   try {
-    pushMsgOutPanel(formatArgs(args), 'warn', 'core');
+    pushLogMessage(formatArgs(args), 'warn', 'core');
   } catch {
     // ignore
   }
@@ -34,7 +34,7 @@ export function coreWarn(...args: unknown[]): void {
 
 export function coreError(...args: unknown[]): void {
   try {
-    pushMsgOutPanel(formatArgs(args), 'error', 'core');
+    pushLogMessage(formatArgs(args), 'error', 'core');
   } catch {
     // ignore
   }
