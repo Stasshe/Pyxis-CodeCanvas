@@ -38,6 +38,8 @@ export interface PathUtilsModule {
 /**
  * システムモジュールの型マップ
  * この型を使用して getSystemModule の戻り値型を推論する
+ *
+ * NOTE: すべての型はインスタンス型を指定する（クラスコンストラクタ型ではない）
  */
 export interface SystemModuleMap {
   // fileRepository is an instance (singleton) exported from the core fileRepository
@@ -46,7 +48,9 @@ export interface SystemModuleMap {
   fileRepository: typeof fileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   pathUtils: PathUtilsModule;
-  commandRegistry: typeof CommandRegistry;
+  // commandRegistry is an instance exported from commandRegistry module.
+  // Use the class instance type (not constructor type).
+  commandRegistry: CommandRegistry;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;

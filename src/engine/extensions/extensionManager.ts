@@ -627,7 +627,7 @@ class ExtensionManager {
         switch (moduleName) {
           case 'fileRepository': {
             const { fileRepository } = await import('@/engine/core/fileRepository');
-            return fileRepository as unknown as SystemModuleMap[T];
+            return fileRepository as SystemModuleMap[T];
           }
           case 'normalizeCjsEsm': {
             const module = await import('@/engine/runtime/normalizeCjsEsm');
@@ -649,7 +649,7 @@ class ExtensionManager {
           }
           case 'commandRegistry': {
             const { commandRegistry } = await import('./commandRegistry');
-            return commandRegistry as unknown as SystemModuleMap[T];
+            return commandRegistry as SystemModuleMap[T];
           }
           case 'systemBuiltinCommands': {
             // Provide registry that returns singleton command instances per project
