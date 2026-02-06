@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestProject } from '../../helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { NpmCommands } from '@/engine/cmd/global/npm';
+import { ModuleResolver } from '@/engine/runtime/moduleResolver';
 
 /**
  * NpmCommands 統合テスト
@@ -13,8 +14,7 @@ import { NpmCommands } from '@/engine/cmd/global/npm';
 describe('NpmCommands 統合テスト', () => {
   let projectId: string;
   let projectName: string;
-
-  /** fetchFn 省略 → globalThis.fetch を使う (本物のレジストリ) */
+  
   function createNpm() {
     return new NpmCommands(projectName, projectId, `/projects/${projectName}`);
   }
@@ -487,6 +487,84 @@ describe('NpmCommands 統合テスト', () => {
         const pkg = JSON.parse(after!.content);
         expect(pkg.name).toBe('NpmTestProject');
         expect(pkg.dependencies['kleur']).toBeDefined();
+      },
+      30000
+    );
+  });
+
+  // ==================== インストール後の require 解決検証 ====================
+
+  describe('インストール後の require 解決', () => {
+    it(
+      "インストールしたパッケージ内で require('./package') が解決できる",
+      async () => {
+        await fileRepository.createFile(
+          projectId,
+          '/package.json',
+          JSON.stringify({
+            name: 'app',
+            version: '1.0.0',
+            dependencies: {},
+            devDependencies: {},
+          }),
+          'file'
+        );
+
+        const npm = createNpm();
+        await npm.install('kleur');
+
+        // kleur の package.json が存在することを直接確認
+        const kleurPkg = await fileRepository.getFileByPath(
+          projectId,
+          '/node_modules/kleur/package.json'
+        );
+        expect(kleurPkg).not.toBeNull();
+
+        // ModuleResolver で './package' が package.json に解決されることを検証
+        // これは uvu/bin.js の require('./package') と同じパターン
+        const resolver = new ModuleResolver(projectId, projectName);
+        const result = await resolver.resolve(
+          './package',
+          `/projects/${projectName}/node_modules/kleur/index.mjs`
+        );
+
+        expect(result).not.toBeNull();
+        expect(result!.path).toContain('/node_modules/kleur/package.json');
+      },
+      30000
+    );
+
+    it(
+      'インストールしたパッケージのエントリポイントが解決できる',
+      async () => {
+        await fileRepository.createFile(
+          projectId,
+          '/package.json',
+          JSON.stringify({
+            name: 'app',
+            version: '1.0.0',
+            dependencies: {},
+            devDependencies: {},
+          }),
+          'file'
+        );
+
+        const npm = createNpm();
+        await npm.install('kleur');
+
+        // kleur の package.json から main/module を読み取り、そのファイルが存在するか検証
+        const kleurPkg = await fileRepository.getFileByPath(
+          projectId,
+          '/node_modules/kleur/package.json'
+        );
+        const pkg = JSON.parse(kleurPkg!.content);
+        const entryPoint = pkg.main || pkg.module || 'index.js';
+
+        const entryFile = await fileRepository.getFileByPath(
+          projectId,
+          `/node_modules/kleur/${entryPoint}`
+        );
+        expect(entryFile).not.toBeNull();
       },
       30000
     );

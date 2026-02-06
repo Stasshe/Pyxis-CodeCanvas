@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestProject } from '../../helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { ModuleResolver } from '@/engine/runtime/moduleResolver';
 
 /**
  * ModuleResolver のテスト
@@ -12,12 +13,14 @@ import { fileRepository } from '@/engine/core/fileRepository';
 
 describe('ModuleResolver', () => {
   let projectId: string;
+  let projectName: string;
   let repo: typeof fileRepository;
 
   beforeEach(async () => {
     const ctx = await setupTestProject();
     repo = ctx.repo;
     projectId = ctx.projectId;
+    projectName = ctx.projectName;
   });
 
   describe('パッケージ解決の基盤テスト', () => {
@@ -262,6 +265,75 @@ describe('ModuleResolver', () => {
 
       const uvuIndex = await repo.getFileByPath(projectId, '/node_modules/uvu/index.js');
       expect(uvuIndex?.content).toContain("require('kleur')");
+    });
+  });
+
+  // ==================== ModuleResolver.resolve() の直接テスト ====================
+
+  describe('ModuleResolver.resolve() — 相対パスの拡張子解決', () => {
+    let resolver: ModuleResolver;
+
+    beforeEach(() => {
+      resolver = new ModuleResolver(projectId, projectName);
+    });
+
+    it("require('./package') が package.json に解決される", async () => {
+      // uvu/bin.js が require('./package') するパターンを再現
+      await repo.createFile(
+        projectId,
+        '/node_modules/uvu/package.json',
+        JSON.stringify({ name: 'uvu', version: '0.5.6', main: 'index.js' }),
+        'file'
+      );
+      await repo.createFile(
+        projectId,
+        '/node_modules/uvu/bin.js',
+        "const pkg = require('./package');\nmodule.exports = pkg;",
+        'file'
+      );
+
+      const currentFile = `/projects/${projectName}/node_modules/uvu/bin.js`;
+      const result = await resolver.resolve('./package', currentFile);
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(`/projects/${projectName}/node_modules/uvu/package.json`);
+    });
+
+    it("require('./lib/utils') が ./lib/utils.js に解決される", async () => {
+      await repo.createFile(
+        projectId,
+        '/node_modules/test-pkg/lib/utils.js',
+        'module.exports = {}',
+        'file'
+      );
+
+      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
+      const result = await resolver.resolve('./lib/utils', currentFile);
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(`/projects/${projectName}/node_modules/test-pkg/lib/utils.js`);
+    });
+
+    it("require('./data') が ./data.json に解決される", async () => {
+      await repo.createFile(
+        projectId,
+        '/node_modules/test-pkg/data.json',
+        JSON.stringify({ key: 'value' }),
+        'file'
+      );
+
+      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
+      const result = await resolver.resolve('./data', currentFile);
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(`/projects/${projectName}/node_modules/test-pkg/data.json`);
+    });
+
+    it('存在しない相対モジュールは null を返す', async () => {
+      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
+      const result = await resolver.resolve('./nonexistent', currentFile);
+
+      expect(result).toBeNull();
     });
   });
 });

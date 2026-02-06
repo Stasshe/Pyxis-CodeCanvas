@@ -530,6 +530,7 @@ export class ModuleLoader {
           '.mts',
           '.tsx',
           '.jsx',
+          '.json',
           '/index.js',
           '/index.ts',
         ];
@@ -646,6 +647,15 @@ export class ModuleLoader {
       );
       return result;
     } catch (error) {
+      // ERR_MODULE_NOT_FOUND は本当にモジュールが見つからないエラーなので再スローする
+      // これを飲み込むと require が失敗しても空 exports で動いてしまい、
+      // テストが偽の成功になる
+      if (error instanceof Error && error.name === 'Error [ERR_MODULE_NOT_FOUND]') {
+        this.warn('❌ Module not found during execution:', filePath);
+        this.warn('Error details:', error.message);
+        throw error;
+      }
+
       // Minified ESM code (especially from Prettier) may have syntax errors
       // that are difficult to normalize via regex-based transformations.
       // Log the error but don't crash - allow other modules to continue.
