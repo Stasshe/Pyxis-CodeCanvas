@@ -34,3 +34,9 @@ vi.mock('@/engine/core/syncManager', () => ({
     syncFromFSToIndexedDB: vi.fn(),
   },
 }));
+
+// loggerStore のモック（Node 環境では UI 呼び出しを実行しない）
+vi.mock('@/stores/loggerStore', () => ({
+  pushLogMessage: () => {},
+  loggerStore: { messages: [] },
+}));

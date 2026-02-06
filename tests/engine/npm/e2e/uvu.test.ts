@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setupTestProject } from '../../helpers/testProject';
+import { setupTestProject } from '../../../helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 
@@ -20,28 +20,24 @@ vi.mock('@/engine/runtime/transpileManager', () => ({
   },
 }));
 
-// loggerStore のモック（Node 環境では UI 呼び出しを実行しない）
-vi.mock('@/stores/loggerStore', () => ({
-  pushLogMessage: () => {},
-  loggerStore: { messages: [] },
-}));
+
 
 import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
 import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 
 /**
- * npmRun テスト
+ * uvu e2e テスト
  *
  * uvu を実際にインストールし、npx uvu 相当の実行を NodeRuntime で行う。
  * require('./package') の解決を含め、ランタイム実行パスの正当性を検証。
  */
 
-describe('npmRun — npx uvu 実行テスト', () => {
+describe('e2e — npx uvu 実行テスト', () => {
   let projectId: string;
   let projectName: string;
 
   beforeEach(async () => {
-    const ctx = await setupTestProject('NpmRunTest');
+    const ctx = await setupTestProject('UvuE2ETest');
     projectId = ctx.projectId;
     projectName = ctx.projectName;
   });
