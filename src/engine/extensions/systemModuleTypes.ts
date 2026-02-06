@@ -40,10 +40,10 @@ export interface PathUtilsModule {
  * この型を使用して getSystemModule の戻り値型を推論する
  */
 export interface SystemModuleMap {
-  fileRepository: FileRepository;
+  fileRepository: typeof FileRepository;
   normalizeCjsEsm: NormalizeCjsEsmModule;
   pathUtils: PathUtilsModule;
-  commandRegistry: CommandRegistry;
+  commandRegistry: typeof CommandRegistry;
   /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
