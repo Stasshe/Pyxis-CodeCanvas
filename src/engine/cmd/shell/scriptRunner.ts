@@ -8,7 +8,7 @@ import expandBraces from './braceExpand';
  * Handles if/elif/else/fi, for loops, while loops, break/continue
  */
 
-const MAX_LOOP = 10000;
+const MAX_LOOP = 1000;
 
 /**
  * Split the script into physical lines while respecting quotes, backticks and $(...)
@@ -347,7 +347,7 @@ async function runRange(
   // Debug: write current slice to stderr to help diagnose inline-insert issues
   try {
     const preview = lines.slice(start, Math.min(end, start + 6)).map(l => l.trim());
-    proc.writeStderr(`[runRange] range ${start}-${end} (len ${lines.length}) preview: ${JSON.stringify(preview)}\n`);
+    proc.writeDebug(`[runRange] range ${start}-${end} (len ${lines.length}) preview: ${JSON.stringify(preview)}\n`);
   } catch (e) {}
 
   for (let i = start; i < end; i++) {
@@ -434,7 +434,7 @@ async function runRange(
         const thenLines = thenTrailing ? [thenTrailing, ...lines.slice(thenStart, thenEnd)] : lines.slice(thenStart, thenEnd);
         const r = await runRange(thenLines, 0, thenLines.length, localVars, args, proc, shell);
         if (r !== 'ok') {
-          try { proc.writeStderr(`[runRange-if] returning ${String(r)} thenLines=${JSON.stringify(thenLines)} thenStart=${thenStart} thenEnd=${thenEnd}\n`); } catch (e) {}
+          proc.writeDebug(`[runRange-if] returning ${String(r)} thenLines=${JSON.stringify(thenLines)} thenStart=${thenStart} thenEnd=${thenEnd}\n`);
           return r;
         }
       } else {
@@ -464,7 +464,7 @@ async function runRange(
             const eThenLines = eTrailing ? [eTrailing, ...lines.slice(eThenStart, eThenEnd)] : lines.slice(eThenStart, eThenEnd);
             const r = await runRange(eThenLines, 0, eThenLines.length, localVars, args, proc, shell);
             if (r !== 'ok') {
-              try { proc.writeStderr(`[runRange-elif] returning ${String(r)} eThenLines=${JSON.stringify(eThenLines)} eThenStart=${eThenStart} eThenEnd=${eThenEnd}\n`); } catch (e) {}
+              proc.writeDebug(`[runRange-elif] returning ${String(r)} eThenLines=${JSON.stringify(eThenLines)} eThenStart=${eThenStart} eThenEnd=${eThenEnd}\n`);
               return r;
             }
             matched = true;
@@ -567,13 +567,14 @@ async function runRange(
         // set loop variable in localVars
         localVars[varName] = it;
         // debug: announce iteration (write to stderr to avoid polluting stdout used by scripts)
-        try { proc.writeStderr(`[scriptRunner] for iter ${iter} ${varName}=${it}\n`); } catch (e) {}
+        // Debug: announce iteration and data on the debug channel
+        proc.writeDebug(`[scriptRunner] for iter ${iter} ${varName}=${it}\n`);
         // Use a fresh copy of bodyLines for each iteration so inner mutations
         // do not leak across iterations.
         const perIterLines = bodyLines.slice();
-        try { proc.writeStderr(`[scriptRunner] perIterLines for ${varName}=${it}: ${JSON.stringify(perIterLines)}\n`); } catch (e) {}
+        proc.writeDebug(`[scriptRunner] perIterLines for ${varName}=${it}: ${JSON.stringify(perIterLines)}\n`);
         const r = await runRange(perIterLines, 0, perIterLines.length, localVars, args, proc, shell);
-        try { proc.writeStderr(`[scriptRunner] runRange returned ${String(r)} for ${varName}=${it}\n`); } catch (e) {}
+        proc.writeDebug(`[scriptRunner] runRange returned ${String(r)} for ${varName}=${it}\n`);
         if (r === 'break') break;
         if (r === 'continue') continue;
         if (typeof r === 'object' && r && 'exit' in r) return r;

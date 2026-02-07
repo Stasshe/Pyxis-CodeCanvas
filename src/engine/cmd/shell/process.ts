@@ -123,6 +123,17 @@ export class Process extends EventEmitter {
     }
   }
 
+  // Debug output channel. By default, it writes to stderr with a [debug] prefix.
+  writeDebug(chunk: string | Buffer) {
+    if (chunk === undefined || chunk === null) return this.writeStderr('');
+    if (typeof chunk === 'string') return this.writeStderr(`[debug] ${chunk}`);
+    try {
+      return this.writeStderr(`[debug] ${JSON.stringify(chunk)}`);
+    } catch (e) {
+      return this.writeStderr(`[debug] ${String(chunk)}`);
+    }
+  }
+
   endStdout() {
     this._stdout.end();
   }
