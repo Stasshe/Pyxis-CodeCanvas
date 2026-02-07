@@ -21,7 +21,17 @@ export class EchoCommand extends UnixCommandBase {
       return '';
     }
 
-    const { flags: options, positional, errors } = parseWithGetOpt(args, 'ne', ['help']);
+    // Treat negative numeric arguments like -7 as positional operands (not options)
+    const preprocessedArgs = [...args];
+    for (let i = 0; i < preprocessedArgs.length; i++) {
+      if (/^-\d+$/.test(preprocessedArgs[i])) {
+        // insert '--' to stop option parsing so negative numbers are preserved
+        preprocessedArgs.splice(i, 0, '--');
+        break;
+      }
+    }
+
+    const { flags: options, positional, errors } = parseWithGetOpt(preprocessedArgs, 'ne', ['help']);
     if (errors.length) throw new Error(errors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {

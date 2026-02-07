@@ -283,10 +283,11 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
   let i = 0;
   while (i < line.length) {
     const ch = line[i];
-    // handle escapes
+    // handle backslashes - preserve the backslash character so downstream
+    // consumers (e.g. echo -e) can interpret escape sequences like \n and \t
     if (ch === '\\') {
       if (i + 1 < line.length) {
-        cur += line[i + 1];
+        cur += '\\' + line[i + 1];
         i += 2;
         continue;
       }
@@ -357,6 +358,12 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
     cur += ch;
     i++;
   }
+
+  // If quotes were left open, surface a parse error for unterminated quotes
+  if (inSingle || inDouble) {
+    throw new ParseError('Unterminated quote');
+  }
+
   if (cur !== '') tokens.push(cur);
   return tokens;
 }
@@ -398,17 +405,53 @@ export function parseCommandLine(
 
   const makeTokenFromRaw = (raw: any): Token => {
     const s = String(raw);
-    let quote: 'single' | 'double' | null = null;
-    let text = s;
-    if (text.length >= 2) {
-      const f = text[0];
-      const l = text[text.length - 1];
+
+    // If the whole token is wrapped in a single matching quote char, preserve that as the token quote
+    if (s.length >= 2) {
+      const f = s[0];
+      const l = s[s.length - 1];
       if ((f === '"' && l === '"') || (f === "'" && l === "'")) {
-        quote = f === "'" ? 'single' : 'double';
-        text = text.slice(1, -1);
+        return { text: s.slice(1, -1), quote: f === "'" ? 'single' : 'double' };
       }
     }
-    return { text, quote };
+
+    // If the token contains multiple quoted segments (e.g. "hello"'world'), remove the quotes and
+    // concatenate literal content. Mixed or multiple quoted segments result in an unquoted token.
+    if (s.includes('"') || s.includes("'")) {
+      let out = '';
+      let i = 0;
+      while (i < s.length) {
+        const ch = s[i];
+        if (ch === "'") {
+          const j = s.indexOf("'", i + 1);
+          if (j === -1) {
+            // unterminated, treat remainder literally
+            out += s.slice(i + 1);
+            i = s.length;
+            continue;
+          }
+          out += s.slice(i + 1, j);
+          i = j + 1;
+          continue;
+        }
+        if (ch === '"') {
+          const j = s.indexOf('"', i + 1);
+          if (j === -1) {
+            out += s.slice(i + 1);
+            i = s.length;
+            continue;
+          }
+          out += s.slice(i + 1, j);
+          i = j + 1;
+          continue;
+        }
+        out += ch;
+        i++;
+      }
+      return { text: out, quote: null };
+    }
+
+    return { text: s, quote: null };
   };
 
   for (let i = 0; i < toks.length; i++) {
@@ -519,10 +562,28 @@ export function parseCommandLine(
     const rawTok = String(tok);
     const tkn = makeTokenFromRaw(rawTok);
 
-    // If this token is exactly a command-substitution placeholder, attach cmdSub
-    if (tkn.text.startsWith('__CMD_SUB_') && extracted.map[tkn.text]) {
-      const info = extracted.map[tkn.text];
-      cur.tokens.push({ text: tkn.text, quote: info.quote ?? tkn.quote, cmdSub: info.cmd });
+    // If this token contains command-substitution placeholders embedded in the word,
+    // split into parts so placeholders can be resolved independently.
+    const placeholderRe = /(__CMD_SUB_\d+__)/g;
+    if (placeholderRe.test(tkn.text)) {
+      let last = 0;
+      let m: RegExpExecArray | null;
+      placeholderRe.lastIndex = 0;
+      while ((m = placeholderRe.exec(tkn.text)) !== null) {
+        const idx = m.index;
+        const before = tkn.text.slice(last, idx);
+        if (before) cur.tokens.push({ text: before, quote: tkn.quote, cmdSub: undefined });
+        const key = m[1];
+        const info = extracted.map[key];
+        if (info) {
+          cur.tokens.push({ text: key, quote: info.quote ?? tkn.quote, cmdSub: info.cmd });
+        } else {
+          cur.tokens.push({ text: key, quote: tkn.quote, cmdSub: undefined });
+        }
+        last = idx + key.length;
+      }
+      const after = tkn.text.slice(last);
+      if (after) cur.tokens.push({ text: after, quote: tkn.quote, cmdSub: undefined });
       continue;
     }
 

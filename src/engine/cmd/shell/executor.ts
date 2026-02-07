@@ -173,7 +173,7 @@ export class ShellExecutor {
     // Parse command line
     let segments: Segment[];
     try {
-      segments = parseCommandLine(line) as Segment[];
+      segments = parseCommandLine(line, this.context.env) as Segment[];
     } catch (parseErr: any) {
       const msg = String(parseErr?.message || parseErr);
       return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
@@ -298,6 +298,8 @@ export class ShellExecutor {
             const subRes = await this.run(tk.cmdSub);
             const rawOut = String(subRes.stdout || '');
             const normalized = rawOut.replace(/\r?\n/g, ' ').replace(/\s+$/g, '');
+            // Emit structured debug info for command substitutions (fd 3 / fallback)
+            proc.writeDebug(`[cmdSub] ${tk.text} -> ${JSON.stringify(rawOut)} => ${JSON.stringify(normalized)}\n`);
             withCmdSub.push({
               text: normalized,
               quote: tk.quote ?? null,

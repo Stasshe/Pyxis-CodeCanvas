@@ -131,6 +131,7 @@ export class Process extends EventEmitter {
 
   // Debug output channel. By default writes to fd 3 if it exists (so callers can redirect `3>`).
   // If fd 3 is not set, fall back to stderr with a `[debug] ` prefix for backward compatibility.
+  // This is not POSIX standard, but a useful convention for internal debug logging.
   writeDebug(chunk: string | Buffer) {
     const fd = 3;
     // If fd 3 exists, write raw debug content there so callers can redirect `3>` to a file.
