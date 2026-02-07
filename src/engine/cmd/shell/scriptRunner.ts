@@ -344,6 +344,12 @@ async function runRange(
   proc: Process,
   shell: StreamShell
 ): Promise<RunRangeResult> {
+  // Debug: write current slice to stderr to help diagnose inline-insert issues
+  try {
+    const preview = lines.slice(start, Math.min(end, start + 6)).map(l => l.trim());
+    proc.writeStderr(`[runRange] range ${start}-${end} (len ${lines.length}) preview: ${JSON.stringify(preview)}\n`);
+  } catch (e) {}
+
   for (let i = start; i < end; i++) {
     const raw = lines[i] ?? '';
     const trimmed = raw.trim();
@@ -365,13 +371,15 @@ async function runRange(
       // extract conditional expression between 'if' and 'then' (may be on same statement)
       let condLine = trimmed.replace(/^if\s+/, '').trim();
       let thenIdx = -1;
+      let thenTrailing: string | null = null;
       // if this statement contains 'then'
       const thenMatch = condLine.match(/\bthen\b(.*)$/);
       if (thenMatch) {
         condLine = condLine.slice(0, thenMatch.index).trim();
         const trailing = thenMatch[1] ? thenMatch[1].trim() : '';
         if (trailing) {
-          lines.splice(i + 1, 0, trailing);
+          // don't mutate global lines; record trailing to be executed at the top
+          thenTrailing = trailing;
         }
         thenIdx = i;
       } else {
@@ -381,7 +389,7 @@ async function runRange(
           if (/^then\b/.test(t)) {
             thenIdx = j;
             const trailing = t.replace(/^then\b/, '').trim();
-            if (trailing) lines.splice(j + 1, 0, trailing);
+            if (trailing) thenTrailing = trailing;
             break;
           }
         }
@@ -422,8 +430,13 @@ async function runRange(
       if (condEval.code === 0) {
         const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
         const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
-        const r = await runRange(lines, thenStart, thenEnd, localVars, args, proc, shell);
-        if (r !== 'ok') return r;
+        // If we detected inline trailing after the 'then', execute it first
+        const thenLines = thenTrailing ? [thenTrailing, ...lines.slice(thenStart, thenEnd)] : lines.slice(thenStart, thenEnd);
+        const r = await runRange(thenLines, 0, thenLines.length, localVars, args, proc, shell);
+        if (r !== 'ok') {
+          try { proc.writeStderr(`[runRange-if] returning ${String(r)} thenLines=${JSON.stringify(thenLines)} thenStart=${thenStart} thenEnd=${thenEnd}\n`); } catch (e) {}
+          return r;
+        }
       } else {
         // check elifs in order
         let matched = false;
@@ -431,21 +444,14 @@ async function runRange(
           const eIdx = elifs[k];
           const eLine = (lines[eIdx] || '').trim();
           let eCond = eLine.replace(/^elif\s+/, '').trim();
+          let eTrailing: string | null = null;
           const m = eCond.match(/\bthen\b(.*)$/);
           if (m) {
             eCond = eCond.slice(0, m.index).trim();
             const trailing = m[1] ? m[1].trim() : '';
             if (trailing) {
-              // insert the trailing inline statements right after this elif
-              lines.splice(eIdx + 1, 0, trailing);
-              // Adjust stored indices because we've mutated `lines`.
-              // Subsequent `elifs` indices (those after the current one) must be incremented.
-              for (let t = k + 1; t < elifs.length; t++) {
-                elifs[t] = elifs[t] + 1;
-              }
-              // If else/fi were recorded and come after this insert point, shift them too.
-              if (elseIdx !== -1 && elseIdx > eIdx) elseIdx += 1;
-              if (fiIdx !== -1 && fiIdx > eIdx) fiIdx += 1;
+              // record trailing; do not mutate lines
+              eTrailing = trailing;
             }
           }
           const eRes = await runCondition(eCond, localVars, args, shell);
@@ -455,14 +461,18 @@ async function runRange(
           if (eRes.code === 0) {
             const eThenStart = eIdx + 1;
             const eThenEnd = k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
-            const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell);
-            if (r !== 'ok') return r;
+            const eThenLines = eTrailing ? [eTrailing, ...lines.slice(eThenStart, eThenEnd)] : lines.slice(eThenStart, eThenEnd);
+            const r = await runRange(eThenLines, 0, eThenLines.length, localVars, args, proc, shell);
+            if (r !== 'ok') {
+              try { proc.writeStderr(`[runRange-elif] returning ${String(r)} eThenLines=${JSON.stringify(eThenLines)} eThenStart=${eThenStart} eThenEnd=${eThenEnd}\n`); } catch (e) {}
+              return r;
+            }
             matched = true;
             break;
           }
         }
         if (!matched && elseIdx !== -1) {
-          const r = await runRange(lines, elseIdx + 1, fiIdx, { ...localVars }, args, proc, shell);
+          const r = await runRange(lines.slice(elseIdx + 1, fiIdx), 0, Math.max(0, fiIdx - (elseIdx + 1)), { ...localVars }, args, proc, shell);
           if (r !== 'ok') return r;
         }
       }
@@ -479,21 +489,26 @@ async function runRange(
       }
       const varName = m[1];
       let itemsStr = m[2] ? m[2].trim() : '';
-      // if itemsStr contains 'do' (inline), split
+      // find 'do' for this for-header first
+      let doIdx = -1;
+      let doneIdx = -1;
+      let inlineBodyTrailing: string | null = null;
+      // if itemsStr contains 'do' (inline), split and record trailing without mutating `lines`
       if (/\bdo\b/.test(itemsStr)) {
         const parts = itemsStr.split(/\bdo\b/);
         itemsStr = parts[0].trim();
         const trailing = parts.slice(1).join('do').trim();
-        if (trailing) lines.splice(i + 1, 0, trailing);
+        if (trailing) {
+          inlineBodyTrailing = trailing;
+          // treat the 'do' as if located at the header (i)
+          doIdx = i;
+        }
       }
-      // find 'do' for this for-header first
-      let doIdx = -1;
-      let doneIdx = -1;
       for (let j = i + 1; j < lines.length; j++) {
         const t = (lines[j] || '').trim();
         if (/^do\b/.test(t)) {
           const trailing = t.replace(/^do\b/, '').trim();
-          if (trailing) lines.splice(j + 1, 0, trailing);
+          if (trailing) inlineBodyTrailing = trailing;
           doIdx = j;
           break;
         }
@@ -540,12 +555,25 @@ async function runRange(
         if (expanded.length > 1 || expanded[0] !== it) items.push(...expanded);
         else items.push(it);
       }
+      // Make a copy of the loop body so that any inline trailing statements
+      // that were present on the `do` line (inline do) are executed first
+      // without mutating the global `lines` array.
+      const baseBody = lines.slice(bodyStart, bodyEnd);
+      const bodyLines = inlineBodyTrailing ? [inlineBodyTrailing, ...baseBody] : baseBody;
+      console.debug('[scriptRunner] for loop', { varName, itemsLength: items.length, bodyLinesLength: bodyLines.length });
       let iter = 0;
       for (const it of items) {
         if (++iter > MAX_LOOP) break;
         // set loop variable in localVars
         localVars[varName] = it;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
+        // debug: announce iteration (write to stderr to avoid polluting stdout used by scripts)
+        try { proc.writeStderr(`[scriptRunner] for iter ${iter} ${varName}=${it}\n`); } catch (e) {}
+        // Use a fresh copy of bodyLines for each iteration so inner mutations
+        // do not leak across iterations.
+        const perIterLines = bodyLines.slice();
+        try { proc.writeStderr(`[scriptRunner] perIterLines for ${varName}=${it}: ${JSON.stringify(perIterLines)}\n`); } catch (e) {}
+        const r = await runRange(perIterLines, 0, perIterLines.length, localVars, args, proc, shell);
+        try { proc.writeStderr(`[scriptRunner] runRange returned ${String(r)} for ${varName}=${it}\n`); } catch (e) {}
         if (r === 'break') break;
         if (r === 'continue') continue;
         if (typeof r === 'object' && r && 'exit' in r) return r;
@@ -557,12 +585,15 @@ async function runRange(
     // WHILE block
     if (/^while\b/.test(trimmed)) {
       let condLine = trimmed.replace(/^while\s+/, '').trim();
-      // handle inline do
+      // handle inline do in header by recording trailing without mutating `lines`
+      let inlineBodyTrailing: string | null = null;
       if (/\bdo\b/.test(condLine)) {
         const parts = condLine.split(/\bdo\b/);
         condLine = parts[0].trim();
         const trailing = parts.slice(1).join('do').trim();
-        if (trailing) lines.splice(i + 1, 0, trailing);
+        if (trailing) {
+          inlineBodyTrailing = trailing;
+        }
       }
       let doIdx = -1;
       let doneIdx = -1;
@@ -570,7 +601,7 @@ async function runRange(
         const t = (lines[j] || '').trim();
         if (/^do\b/.test(t) && doIdx === -1) {
           const trailing = t.replace(/^do\b/, '').trim();
-          if (trailing) lines.splice(j + 1, 0, trailing);
+          if (trailing) inlineBodyTrailing = trailing;
           doIdx = j;
         }
         if (/^done\b/.test(t)) {
@@ -578,12 +609,17 @@ async function runRange(
           break;
         }
       }
+      // if header had inline do and no separate do line was found, treat do as header
+      if (inlineBodyTrailing && doIdx === -1) doIdx = i;
       if (doIdx === -1 || doneIdx === -1) {
         i = doneIdx === -1 ? lines.length - 1 : doneIdx;
         continue;
       }
       const bodyStart = doIdx + 1;
       const bodyEnd = doneIdx;
+      const bodyLines = lines.slice(bodyStart, bodyEnd);
+      const finalBodyLines = inlineBodyTrailing ? [inlineBodyTrailing, ...bodyLines] : bodyLines;
+      console.debug('[scriptRunner] while loop', { cond: condLine, bodyLinesLength: finalBodyLines.length });
       let count = 0;
       while (true) {
         if (++count > MAX_LOOP) break;
@@ -591,7 +627,9 @@ async function runRange(
         if (cres.stdout) proc.writeStdout(cres.stdout);
         if (cres.stderr) proc.writeStderr(cres.stderr);
         if (cres.code !== 0) break;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
+        // use a fresh copy each iteration
+        const perIterLines = finalBodyLines.slice();
+        const r = await runRange(perIterLines, 0, perIterLines.length, localVars, args, proc, shell);
         if (r === 'break') break;
         if (r === 'continue') continue;
         if (typeof r === 'object' && r && 'exit' in r) return r;
