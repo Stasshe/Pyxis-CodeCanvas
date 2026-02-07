@@ -560,7 +560,7 @@ async function runRange(
       // without mutating the global `lines` array.
       const baseBody = lines.slice(bodyStart, bodyEnd);
       const bodyLines = inlineBodyTrailing ? [inlineBodyTrailing, ...baseBody] : baseBody;
-      console.debug('[scriptRunner] for loop', { varName, itemsLength: items.length, bodyLinesLength: bodyLines.length });
+      proc.writeDebug(`[scriptRunner] for loop ${JSON.stringify({ varName, itemsLength: items.length, bodyLinesLength: bodyLines.length })}\n`);
       let iter = 0;
       for (const it of items) {
         if (++iter > MAX_LOOP) break;
@@ -620,7 +620,7 @@ async function runRange(
       const bodyEnd = doneIdx;
       const bodyLines = lines.slice(bodyStart, bodyEnd);
       const finalBodyLines = inlineBodyTrailing ? [inlineBodyTrailing, ...bodyLines] : bodyLines;
-      console.debug('[scriptRunner] while loop', { cond: condLine, bodyLinesLength: finalBodyLines.length });
+      proc.writeDebug(`[scriptRunner] while loop ${JSON.stringify({ cond: condLine, bodyLinesLength: finalBodyLines.length })}\n`);
       let count = 0;
       while (true) {
         if (++count > MAX_LOOP) break;

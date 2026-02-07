@@ -49,6 +49,8 @@ export class Process extends EventEmitter {
   }
 
   // Duplicate fd 'from' to 'to' within this process (so writes to `from` go to same stream as `to`).
+  // Also, if duplicating stdout/stderr, keep fd 3 (debug) in sync so debug output
+  // can follow the primary output destination when desired.
   setFdDup(from: number, to: number) {
     const target = this.getFdWrite(to);
     this._fdMap.set(from, target);
@@ -58,11 +60,15 @@ export class Process extends EventEmitter {
       this._stdout = target;
       this.stdout = this._stdout as unknown as Readable;
       this._fdMap.set(1, target);
+      // keep debug fd (3) pointing to same target by default
+      this._fdMap.set(3, target);
     }
     if (from === 2) {
       this._stderr = target;
       this.stderr = this._stderr as unknown as Readable;
       this._fdMap.set(2, target);
+      // keep debug fd (3) pointing to same target by default
+      this._fdMap.set(3, target);
     }
   }
 
@@ -123,8 +129,32 @@ export class Process extends EventEmitter {
     }
   }
 
-  // Debug output channel. By default, it writes to stderr with a [debug] prefix.
+  // Debug output channel. By default writes to fd 3 if it exists (so callers can redirect `3>`).
+  // If fd 3 is not set, fall back to stderr with a `[debug] ` prefix for backward compatibility.
   writeDebug(chunk: string | Buffer) {
+    const fd = 3;
+    // If fd 3 exists, write raw debug content there so callers can redirect `3>` to a file.
+    if (this._fdMap.has(fd)) {
+      const p = this._fdMap.get(fd)!;
+      try {
+        if (chunk === undefined || chunk === null) {
+          p.write('');
+        } else if (typeof chunk === 'string') {
+          p.write(chunk);
+        } else {
+          try {
+            p.write(JSON.stringify(chunk));
+          } catch (e) {
+            p.write(String(chunk));
+          }
+        }
+      } catch (e) {
+        try { p.write(String(chunk)); } catch {}
+      }
+      return;
+    }
+
+    // Fallback: stderr with a debug prefix
     if (chunk === undefined || chunk === null) return this.writeStderr('');
     if (typeof chunk === 'string') return this.writeStderr(`[debug] ${chunk}`);
     try {
