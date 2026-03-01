@@ -13,9 +13,9 @@ import 'github-markdown-css/github-markdown.css';
 import { useTranslation } from '@/context/I18nContext';
 import { ThemeContext, useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
-import type { EditorPane, EditorTab, PreviewTab, Tab } from '@/engine/tabs/types';
-import { hasContent } from '@/engine/tabs/types';
+import type { EditorPane, PreviewTab, Tab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
+import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project, ProjectFile } from '@/types';
 import { useSnapshot } from 'valtio';
@@ -40,13 +40,13 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // determine markdown plugins based on settings
   const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
 
-  // Only subscribe to panes for the purpose of finding the matching editor's content
+  // Only subscribe to panes for the purpose of finding the matching editor tab ID
   const panesSnapshot = useSnapshot(tabState).panes;
-  const editorTabContent = useMemo(() => {
+  const editorTabId = useMemo(() => {
     const find = (paneList: readonly EditorPane[]): string | null => {
       for (const p of paneList) {
-        const t = p.tabs?.find((x: Tab) => x.path === activeTab.path);
-        if (t && hasContent(t)) return t.content;
+        const t = p.tabs?.find((x: Tab) => x.path === activeTab.path && x.kind === 'editor');
+        if (t) return t.id;
         if (p.children) {
           const r = find(p.children);
           if (r) return r;
@@ -56,6 +56,9 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     };
     return find(panesSnapshot);
   }, [panesSnapshot, activeTab.path]);
+
+  // Subscribe to the editor tab's content from tabContentStore for real-time updates
+  const editorTabContent = useTabContent(editorTabId ?? '');
 
   const contentSource = editorTabContent ?? activeTab.content ?? '';
   const { openTab } = tabActions;

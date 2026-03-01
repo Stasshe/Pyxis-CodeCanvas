@@ -987,7 +987,7 @@ export const tabActions = {
     }
 
     let fileToCreate = file;
-    if ((kind === 'editor' || kind === 'binary') && file.path) {
+    if (file.path && (kind === 'editor' || kind === 'binary' || kind === 'preview')) {
       try {
         const projectId = getCurrentProjectId();
         if (projectId) {
