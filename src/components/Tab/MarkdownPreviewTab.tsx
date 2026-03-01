@@ -62,8 +62,8 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // Preview tab's own runtime content (populated from fileRepository when tab is opened)
   const previewTabContent = useTabContent(activeTab.id);
 
-  // Priority: live editor > preview runtime store > session-restored tab.content
-  const contentSource = editorTabContent ?? previewTabContent ?? activeTab.content ?? '';
+  // Priority: live editor > preview runtime store
+  const contentSource = editorTabContent ?? previewTabContent ?? '';
   const { openTab } = tabActions;
 
   useEffect(() => {

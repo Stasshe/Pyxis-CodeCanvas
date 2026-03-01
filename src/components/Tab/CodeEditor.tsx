@@ -67,8 +67,7 @@ export default function CodeEditor({
 
   // tabContentStoreからコンテンツを取得（panesを更新せずに再レンダリング）
   const storeContent = useTabContent(activeTab?.id ?? '');
-  // ストア未初期化時はactiveTabの初期コンテンツを使用
-  const content = storeContent !== undefined ? storeContent : (activeTab?.content ?? '');
+  const content = storeContent ?? '';
 
   const {
     charCount,

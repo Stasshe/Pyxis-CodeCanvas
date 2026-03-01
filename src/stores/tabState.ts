@@ -1013,11 +1013,6 @@ export const tabActions = {
     }
 
     const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
-    // Store preview tab content in tabContentStore (same as editor tabs) so
-    // MarkdownPreviewTab can subscribe to it without relying on tab.content
-    if (kind === 'preview' && 'content' in newTab) {
-      setTabContent(newTab.id, (newTab as { content: string }).content, false);
-    }
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id !== targetPaneId) {

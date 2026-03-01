@@ -11,6 +11,7 @@ import type {
 
 import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
 import { useProjectSnapshot } from '@/stores/projectStore';
+import { setTabContent } from '@/stores/tabContentStore';
 import type { FileItem } from '@/types';
 
 /**
@@ -40,14 +41,15 @@ export const PreviewTabType: TabTypeDefinition = {
     const tabId = fileItem.path ? `preview:${fileItem.path}` : `preview:${fileItem.name}`;
     // Support both `targetPaneId` (preferred) and `paneId` for backward compatibility
     const paneId = options?.targetPaneId || (options as any)?.paneId || '';
-
+    const content = fileItem.content || '';
+    setTabContent(tabId, content, false);
     return {
       id: tabId,
       name: fileItem.name,
       path: fileItem.path,
       kind: 'preview',
       paneId,
-      content: fileItem.content || '',
+      content,
     } as PreviewTab;
   },
 

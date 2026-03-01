@@ -18,6 +18,7 @@ import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
 import { getCurrentProjectId } from '@/stores/projectStore';
+import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane } from '@/types';
 
@@ -219,6 +220,20 @@ export function useTabContentRestore(isRestored: boolean) {
 
         const restoredPanes = await updatePaneRecursive(currentPanes);
         tabActions.setPanes(restoredPanes);
+
+        // Populate tabContentStore from restored tab.content so components
+        // don't need tab.content as a fallback
+        for (const pane of flattenPanes(restoredPanes)) {
+          for (const tab of pane.tabs) {
+            const t = tab as any;
+            if (typeof t.content === 'string') {
+              setTabContent(tab.id, t.content, t.isDirty ?? false);
+            }
+            if (t.isBufferArray && t.bufferContent instanceof ArrayBuffer) {
+              setBufferContent(tab.id, t.bufferContent);
+            }
+          }
+        }
 
         // 復元完了をマーク
         restorationCompleted.current = true;
