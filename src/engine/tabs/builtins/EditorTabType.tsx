@@ -2,6 +2,7 @@ import { useGitContext } from '@/components/Pane/PaneContainer';
 import CodeEditor from '@/components/Tab/CodeEditor';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectSnapshot } from '@/stores/projectStore';
+import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { addSaveListener, initTabSaveSync, tabActions } from '@/stores/tabState';
 // src/engine/tabs/builtins/EditorTabType.tsx
 import type React from 'react';
@@ -24,20 +25,10 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const { setGitRefreshTrigger } = useGitContext();
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
-  // Valtioベースの同期を初期化し、初期コンテンツを登録
+  // Initialize save sync once on mount
   useEffect(() => {
-    const init = async () => {
-      await initTabSaveSync();
-      if (editorTab.path && editorTab.content !== undefined) {
-        // 初期コンテンツは isDirty を付けずにタブに反映
-        tabActions.updateTab(editorTab.paneId, editorTab.id, {
-          content: editorTab.content,
-          isDirty: false,
-        } as any);
-      }
-    };
-    init();
-  }, [editorTab.path, editorTab.content]);
+    initTabSaveSync();
+  }, []);
 
   // 保存完了時にGit状態を更新
   useEffect(() => {
@@ -95,29 +86,27 @@ export const EditorTabType: TabTypeDefinition = {
   component: EditorTabComponent,
   createTab: (file, options): EditorTab => {
     const tabId = String(file.path || file.name || `editor-${Date.now()}`);
+    const content = String(file.content || '');
+    const bufferContent = file.bufferContent as ArrayBuffer | undefined;
+    setTabContent(tabId, content, false);
+    if (file.isBufferArray && bufferContent) setBufferContent(tabId, bufferContent);
     return {
       id: tabId,
       name: String(file.name || ''),
       kind: 'editor',
       path: String(file.path || ''),
       paneId: options?.paneId || '',
-      content: String(file.content || ''),
+      content,
       isDirty: false,
       isCodeMirror: Boolean(file.isCodeMirror),
       isBufferArray: Boolean(file.isBufferArray),
-      bufferContent: file.bufferContent as ArrayBuffer | undefined,
+      bufferContent,
       jumpToLine: options?.jumpToLine,
       jumpToColumn: options?.jumpToColumn,
     };
   },
   shouldReuseTab: (existingTab, newFile, options) => {
     return existingTab.path === newFile.path && existingTab.kind === 'editor';
-  },
-  updateContent: (tab, content, isDirty) => {
-    const editorTab = tab as EditorTab;
-    // 変更がない場合は元のタブを返す
-    if (editorTab.content === content && editorTab.isDirty === isDirty) return tab;
-    return { ...editorTab, content, isDirty };
   },
   getContentPath: tab => tab.path || undefined,
 };

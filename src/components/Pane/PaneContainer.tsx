@@ -192,6 +192,27 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
     [pane.id, moveTab, splitPaneAndMoveTab, openFileInPane, splitPaneAndOpenFile]
   );
 
+  // activeTabは早期リターンより前に計算する（hook呼び出し順を一定に保つため）
+  const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
+
+  // 拡張機能タブの場合、TabRegistryの変更を監視してリレンダーを促す
+  // ※ このhookは早期リターンより前に置くこと（hook数を一定に保つため）
+  const [extensionLoaded, setExtensionLoaded] = useState(false);
+  useEffect(() => {
+    if (activeTab?.kind.startsWith('extension:') && !tabRegistry.has(activeTab.kind)) {
+      setExtensionLoaded(false);
+      const unsubscribe = tabRegistry.addChangeListener((kind) => {
+        if (kind === activeTab.kind) {
+          setExtensionLoaded(true);
+        }
+      });
+      return unsubscribe;
+    }
+    if (activeTab?.kind.startsWith('extension:') && tabRegistry.has(activeTab.kind)) {
+      setExtensionLoaded(true);
+    }
+  }, [activeTab?.kind]);
+
   // 子ペインがある場合は分割レイアウトをレンダリング
   if (pane.children && pane.children.length > 0) {
     return (
@@ -271,31 +292,10 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   }
 
   // リーフペイン（実際のエディタ）をレンダリング
-  const activeTab = pane.tabs.find(tab => tab.id === pane.activeTabId);
   const isActivePane = activePane === pane.id;
   // isActive: グローバルアクティブタブが現在表示しているタブと一致し、かつこのペインがアクティブな場合
   // 同じファイルが複数のペインで開かれている場合でも、アクティブなペインのエディタのみがフォーカスを持つ
   const isGloballyActive = globalActiveTab === activeTab?.id && isActivePane;
-
-  // 拡張機能タブの場合、TabRegistryの変更を監視してリレンダーを促す
-  const [extensionLoaded, setExtensionLoaded] = useState(false);
-  useEffect(() => {
-    // 拡張機能タブがアクティブで、まだ登録されていない場合のみ監視
-    if (activeTab?.kind.startsWith('extension:') && !tabRegistry.has(activeTab.kind)) {
-      setExtensionLoaded(false);
-      const unsubscribe = tabRegistry.addChangeListener((kind) => {
-        if (kind === activeTab.kind) {
-          // TabRegistryに登録されたらリレンダー
-          setExtensionLoaded(true);
-        }
-      });
-      return unsubscribe;
-    }
-    // 既に登録されている場合
-    if (activeTab?.kind.startsWith('extension:') && tabRegistry.has(activeTab.kind)) {
-      setExtensionLoaded(true);
-    }
-  }, [activeTab?.kind]);
 
   // TabRegistryからコンポーネントを取得
   const TabComponent = activeTab ? tabRegistry.get(activeTab.kind)?.component : null;
