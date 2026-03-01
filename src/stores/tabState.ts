@@ -358,12 +358,18 @@ async function loadAndUpdateTabContent(
   kind: string,
   filePath: string | undefined
 ): Promise<void> {
-  if ((kind !== 'editor' && kind !== 'binary') || !filePath) return;
+  if ((kind !== 'editor' && kind !== 'binary' && kind !== 'preview') || !filePath) return;
   try {
     const projectId = getCurrentProjectId();
     if (!projectId) return;
     const fresh = await fileRepository.getFileByPath(projectId, filePath);
-    if (fresh?.content !== undefined) tabActions.updateTabContent(tabId, fresh.content, false);
+    if (fresh?.content !== undefined) {
+      if (kind === 'preview') {
+        setTabContent(tabId, fresh.content, false);
+      } else {
+        tabActions.updateTabContent(tabId, fresh.content, false);
+      }
+    }
   } catch (e) {
     console.warn('[tabState] Failed to load fresh content for reused tab:', e);
   }
@@ -1007,6 +1013,11 @@ export const tabActions = {
     }
 
     const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
+    // Store preview tab content in tabContentStore (same as editor tabs) so
+    // MarkdownPreviewTab can subscribe to it without relying on tab.content
+    if (kind === 'preview' && 'content' in newTab) {
+      setTabContent(newTab.id, (newTab as { content: string }).content, false);
+    }
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id !== targetPaneId) {

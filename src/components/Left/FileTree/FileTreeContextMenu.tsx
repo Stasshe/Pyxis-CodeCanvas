@@ -283,17 +283,16 @@ export default function FileTreeContextMenu({
         }
       }
     } else if (key === 'download') {
-      if (menuItem.type === 'file') {
-        let content = menuItem.content;
-        if (typeof content !== 'string') content = 'error fetching content';
+      if (menuItem.type === 'file' && currentProjectId) {
+        const fresh = await fileRepository.getFileByPath(currentProjectId, menuItem.path);
         exportSingleFile({
           name: menuItem.name,
-          content,
-          isBufferArray: menuItem.isBufferArray,
-          bufferContent: menuItem.bufferContent,
+          content: fresh?.content ?? '',
+          isBufferArray: fresh?.isBufferArray ?? false,
+          bufferContent: fresh?.bufferContent as ArrayBuffer | undefined,
         });
       } else if (menuItem.type === 'folder') {
-        await exportFolderZip(menuItem);
+        await exportFolderZip(menuItem, currentProjectId ?? '');
       }
     } else if (key === 'rename') {
       const newName = prompt(t('fileTree.prompt.rename'), menuItem.name);
