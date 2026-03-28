@@ -61,7 +61,7 @@
   "editor.suggestSelection": "first",
   "editor.minimap.enabled": true,
   "workbench.startupEditor": "none",
-  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.colorTheme": "Dark Modern",
   "workbench.iconTheme": "vs-seti",
   "explorer.confirmDelete": false,
   "typescript.preferences.includePackageJsonAutoImports": "auto",
