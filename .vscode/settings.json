@@ -62,7 +62,7 @@
   "editor.minimap.enabled": true,
   "workbench.startupEditor": "none",
   "workbench.colorTheme": "Dark Modern",
-  "workbench.iconTheme": "vs-seti",
+  "workbench.iconTheme": "vscode-icons",
   "explorer.confirmDelete": false,
   "typescript.preferences.includePackageJsonAutoImports": "auto",
   "typescript.suggest.autoImports": true,
