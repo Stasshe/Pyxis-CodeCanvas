@@ -85,7 +85,11 @@ export const EditorTabType: TabTypeDefinition = {
   canPreview: false,
   component: EditorTabComponent,
   createTab: (file, options): EditorTab => {
-    const tabId = String(file.path || file.name || `editor-${Date.now()}`);
+    // Use unique ID to allow same file open in multiple panes independently.
+    // Content is keyed by tabId in tabContentStore, so each pane instance
+    // must have its own key to avoid content sharing / clearTabContent conflicts.
+    const basePath = String(file.path || file.name || 'editor');
+    const tabId = `${basePath}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const content = String(file.content || '');
     const bufferContent = file.bufferContent as ArrayBuffer | undefined;
     setTabContent(tabId, content, false);

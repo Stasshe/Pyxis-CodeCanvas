@@ -586,9 +586,21 @@ export const tabActions = {
     if (!from || !to) return;
     const t = from.tabs.find(x => x.id === tabId);
     if (!t) return;
-    tabActions.closeTab(fromPaneId, tabId);
+    // Remove from source WITHOUT calling closeTab (which would clearTabContent).
+    // Moving a tab must preserve its content in tabContentStore.
+    const newFromTabs = from.tabs.filter(x => x.id !== tabId);
+    tabActions.updatePane(fromPaneId, {
+      tabs: newFromTabs,
+      activeTabId: from.activeTabId === tabId ? (newFromTabs[0]?.id ?? '') : from.activeTabId,
+    });
+    if (tabState.globalActiveTab === tabId) {
+      tabState.globalActiveTab = newFromTabs[0]?.id ?? null;
+      tabState.activePane = newFromTabs.length ? fromPaneId : null;
+    }
+    // Capture destination tabs before the source update potentially invalidates 'to'
+    const toTabs = [...to.tabs];
     tabActions.updatePane(toPaneId, {
-      tabs: [...to.tabs, { ...t, paneId: toPaneId }],
+      tabs: [...toTabs, { ...t, paneId: toPaneId }],
       activeTabId: t.id,
     });
     tabState.globalActiveTab = t.id;
@@ -808,7 +820,7 @@ export const tabActions = {
     tabState.activePane = newId;
     tabState.globalActiveTab = tabId;
   },
-  splitPaneAndOpenFile(
+  async splitPaneAndOpenFile(
     paneId: string,
     direction: 'horizontal' | 'vertical',
     file: TabFileInfo,
@@ -833,13 +845,38 @@ export const tabActions = {
     const kind = file.isBufferArray ? 'binary' : 'editor';
     const filePath = file.path || '';
     const name = file.name || filePath.split('/').pop() || 'untitled';
+
+    // Resolve content: prefer content from an already-open tab (preserves unsaved changes),
+    // otherwise load fresh from the file repository.
+    let content = (file.content as string) || '';
+    const existingTabForPath = collectAllTabs(tabState.panes).find(
+      t => t.path === filePath && t.kind === kind
+    );
+    if (existingTabForPath) {
+      content = getTabContent(existingTabForPath.id) ?? content;
+    } else if (filePath) {
+      try {
+        const projectId = getCurrentProjectId();
+        if (projectId) {
+          const fresh = await fileRepository.getFileByPath(projectId, filePath);
+          if (fresh?.content !== undefined) content = fresh.content as string;
+        }
+      } catch {
+        // keep existing content on error
+      }
+    }
+
+    // Use a unique tabId so each pane instance has its own entry in tabContentStore.
+    const newTabId = `${filePath || name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setTabContent(newTabId, content, false);
+
     const newTab: Tab = {
-      id: `${filePath || name}-${Date.now()}`,
+      id: newTabId,
       name,
       path: filePath,
       kind,
       paneId: newId,
-      content: (file.content as string) || '',
+      content,
       isDirty: false,
       isCodeMirror: defEditor === 'codemirror',
     };
