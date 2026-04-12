@@ -177,7 +177,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
 
   // ファイル内容が変わったらiframeに反映
   useEffect(() => {
-    // console.log('[DEBUG] fileContentの状態:', fileContent);
     if (iframeRef.current) {
       const iframeDocument = iframeRef.current.contentDocument;
       if (iframeDocument) {
@@ -185,17 +184,25 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         iframeDocument.open();
         iframeDocument.write(fileContent);
         iframeDocument.close();
+        iframeDocument.documentElement.style.backgroundColor = '#ffffff';
+        if (iframeDocument.body) {
+          iframeDocument.body.style.backgroundColor = '#ffffff';
+        }
       } else {
         console.warn('[DEBUG] iframeDocumentが取得できませんでした');
       }
+      iframeRef.current.style.backgroundColor = '#ffffff';
     } else {
       console.warn('[DEBUG] iframeRefがnullです');
     }
   }, [fileContent]);
 
   return (
-    <div style={{ height: '100%', width: '100%' }}>
-      <iframe ref={iframeRef} style={{ border: 'none', width: '100%', height: '100%' }} />
+    <div style={{ backgroundColor: '#ffffff', height: '100%', width: '100%' }}>
+      <iframe
+        ref={iframeRef}
+        style={{ border: 'none', width: '100%', height: '100%', backgroundColor: '#ffffff' }}
+      />
     </div>
   );
 };
