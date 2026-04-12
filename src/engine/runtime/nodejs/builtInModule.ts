@@ -28,6 +28,7 @@
  */
 
 import * as stream from 'node:stream';
+import type { FileRepository } from '@/engine/core/fileRepository';
 import { createAssertModule } from './modules/assertModule';
 import { Buffer } from './modules/bufferModule';
 import { createEventsModule } from './modules/eventsModule';
@@ -45,6 +46,7 @@ export interface BuiltInModulesOptions {
   projectId: string;
   projectName: string;
   onInput?: (prompt: string, callback: (input: string) => void) => void;
+  fileRepository?: FileRepository;
 }
 
 export interface BuiltInModules {
@@ -70,10 +72,10 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, onInput } = options;
+  const { projectDir, projectId, projectName, onInput, fileRepository } = options;
 
   return {
-    fs: createFSModule({ projectDir, projectId, projectName }),
+    fs: createFSModule({ projectDir, projectId, projectName, fileRepository }),
     path: createPathModule(projectDir),
     os: createOSModule(),
     util: createUtilModule(),

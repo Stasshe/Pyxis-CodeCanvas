@@ -58,6 +58,10 @@ export class FileRepository {
     return FileRepository.instance;
   }
 
+  static createNewInstance(): FileRepository {
+    return new FileRepository();
+  }
+
   addChangeListener(listener: FileChangeListener): () => void {
     this.listeners.add(listener);
     return () => {

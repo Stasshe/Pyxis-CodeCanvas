@@ -9,8 +9,8 @@
 
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
-
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { FileRepository } from '@/engine/core/fileRepository';
+import { fileRepository as defaultFileRepository } from '@/engine/core/fileRepository';
 
 /**
  * パッケージ情報
@@ -46,11 +46,13 @@ export class ModuleResolver {
   private projectDir: string;
   private packageJsonCache: Map<string, PackageJson> = new Map();
   private fileCache: Map<string, boolean> = new Map(); // ファイル存在チェックキャッシュ
+  private fileRepository: FileRepository;
 
-  constructor(projectId: string, projectName: string) {
+  constructor(projectId: string, projectName: string, options?: { fileRepository?: FileRepository }) {
     this.projectId = projectId;
     this.projectName = projectName;
     this.projectDir = `/projects/${projectName}`;
+    this.fileRepository = options?.fileRepository ?? defaultFileRepository;
   }
 
   /**
@@ -235,7 +237,7 @@ export class ModuleResolver {
 
       // デバッグ: node_modulesにどんなファイルがあるか確認
       try {
-        const nodeModuleFiles = await fileRepository.getFilesByPrefix(
+        const nodeModuleFiles = await this.fileRepository.getFilesByPrefix(
           this.projectId,
           `/node_modules/${packageName}`
         );
@@ -501,12 +503,12 @@ export class ModuleResolver {
     }
 
     try {
-      await fileRepository.init();
+      await this.fileRepository.init();
       // Normalize using pathUtils: convert FSPath to AppPath (handles fallback internally)
       const normalizedPath = fsPathToAppPath(path, this.projectName);
       runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
 
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      const file = await this.fileRepository.getFileByPath(this.projectId, normalizedPath);
       if (!file) {
         runtimeWarn('❌ File not found. Searched for:', normalizedPath);
         return null;
@@ -577,9 +579,9 @@ export class ModuleResolver {
     }
 
     try {
-      await fileRepository.init();
+      await this.fileRepository.init();
       const normalizedPath = fsPathToAppPath(path, this.projectName);
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      const file = await this.fileRepository.getFileByPath(this.projectId, normalizedPath);
 
       // ファイルが存在し、かつディレクトリではない場合のみtrueを返す
       const exists = !!file && file.type === 'file';

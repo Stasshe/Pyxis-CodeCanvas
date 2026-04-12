@@ -16,6 +16,8 @@ const impl = useInMemory ? inmemoryImpl : indexeddbImpl;
 export const fileRepository = impl.fileRepository;
 export const FileRepository = impl.FileRepository;
 
+export type FileRepository = indexeddbImpl.FileRepository | inmemoryImpl.FileRepository;
+
 // 型 (共通)
 export type { FileChangeEvent } from './indexeddb';
 

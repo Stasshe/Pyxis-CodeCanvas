@@ -1,4 +1,49 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { NpmInstall } from '../global/npmOperations/npmInstall';
+import { FileRepository as InMemoryFileRepository } from '@/engine/core/fileRepository/inmemory';
+
+function parsePackageSpec(spec: string): { packageName: string; version: string } {
+  if (spec.startsWith('@')) {
+    const atIndex = spec.lastIndexOf('@');
+    if (atIndex > 0) {
+      return {
+        packageName: spec.slice(0, atIndex),
+        version: spec.slice(atIndex + 1) || 'latest',
+      };
+    }
+    return { packageName: spec, version: 'latest' };
+  }
+
+  const atIndex = spec.lastIndexOf('@');
+  if (atIndex > 0) {
+    return {
+      packageName: spec.slice(0, atIndex),
+      version: spec.slice(atIndex + 1) || 'latest',
+    };
+  }
+  return { packageName: spec, version: 'latest' };
+}
+
+function resolvePackageBinPath(packageJson: any, binary: string): string | null {
+  if (!packageJson) return null;
+  const bin = packageJson.bin;
+  if (typeof bin === 'string') {
+    return bin.replace(/^[./]+/, '');
+  }
+  if (typeof bin === 'object' && bin !== null) {
+    if (typeof bin[binary] === 'string') {
+      return String(bin[binary]).replace(/^[./]+/, '');
+    }
+    const keys = Object.keys(bin);
+    if (keys.length === 1 && typeof bin[keys[0]] === 'string') {
+      return String(bin[keys[0]]).replace(/^[./]+/, '');
+    }
+  }
+  if (typeof packageJson.main === 'string') {
+    return packageJson.main.replace(/^[./]+/, '');
+  }
+  return 'index.js';
+}
 
 export async function handleNPMCommand(
   args: string[],
@@ -153,8 +198,71 @@ export async function handleNPXCommand(
       }
     }
 
-    await writeOutput(`${binary}: command not found`);
-    return 127;
+    const { packageName, version } = parsePackageSpec(binary);
+    const tempRepo = InMemoryFileRepository.createNewInstance();
+    const tempInstall = new NpmInstall(projectName, projectId, true, tempRepo);
+    tempInstall.startBatchProcessing();
+    try {
+      await writeOutput(`npx: installing ${packageName}@${version} temporarily...\n`);
+      await tempInstall.installWithDependencies(packageName, version, {
+        isDirect: true,
+        ignoreEntry: 'node_modules',
+      });
+      await tempInstall.ensureBinsForPackage(packageName).catch(() => {});
+      await tempInstall.finishBatchProcessing();
+
+      const pkgFile = await tempRepo.getFileByPath(projectId, `/node_modules/${packageName}/package.json`);
+      if (!pkgFile || !pkgFile.content) {
+        throw new Error(`Package ${packageName} installed but package.json not found`);
+      }
+      const pkgJson = JSON.parse(pkgFile.content);
+      const binRelative = resolvePackageBinPath(pkgJson, binary);
+      if (!binRelative) {
+        throw new Error(`Cannot resolve executable for ${binary}`);
+      }
+      const absFsTemp = toFSPath(projectName, `/node_modules/${packageName}/${binRelative}`);
+      const binFile = await tempRepo.getFileByPath(projectId, `/node_modules/${packageName}/${binRelative}`);
+      if (!binFile) {
+        throw new Error(`Temporary executable not found: ${binRelative}`);
+      }
+
+      const debugConsole = {
+        log: async (...a: unknown[]) => await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
+        error: async (...a: unknown[]) =>
+          await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
+        warn: async (...a: unknown[]) =>
+          await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
+        clear: () => {},
+      };
+
+      const runtime = new NodeRuntime({
+        projectId,
+        projectName,
+        filePath: absFsTemp,
+        debugConsole: {
+          log: (...p: unknown[]) => debugConsole.log(...p),
+          error: (...p: unknown[]) => debugConsole.error(...p),
+          warn: (...p: unknown[]) => debugConsole.warn(...p),
+          clear: () => {},
+        },
+        fileRepository: tempRepo,
+        terminalColumns: 80,
+        terminalRows: 24,
+      });
+
+      try {
+        await runtime.execute(absFsTemp, binArgs);
+        await runtime.waitForEventLoop();
+        return 0;
+      } catch (e: any) {
+        await writeOutput(String(e?.message ?? e) + '\n');
+        return 1;
+      }
+    } catch (error: any) {
+      await tempInstall.finishBatchProcessing();
+      await writeOutput(`npx: failed to install ${packageName}: ${String(error?.message ?? error)}\n`);
+      return 1;
+    }
   } catch (e: any) {
     await writeOutput(String(e?.message ?? e) + '\n');
     return 1;

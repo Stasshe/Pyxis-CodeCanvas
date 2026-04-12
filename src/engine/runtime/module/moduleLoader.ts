@@ -15,8 +15,7 @@ import { ModuleResolver } from './moduleResolver';
 import { createModuleNotFoundError } from '../nodejs/nodeErrors';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { transpileManager } from '../transpiler/transpileManager';
-
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { FileRepository } from '@/engine/core/fileRepository';
 
 /**
  * Node.js ビルトインモジュールのリスト
@@ -92,6 +91,7 @@ export interface ModuleLoaderOptions {
     warn: (...args: unknown[]) => void;
   };
   builtinResolver?: (moduleName: string) => any;
+  fileRepository?: FileRepository;
 }
 
 /**
@@ -107,6 +107,7 @@ export class ModuleLoader {
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
   private moduleNameMap: Record<string, string> = {}; // モジュール名→解決済みパスのマッピング
+  private fileRepository?: FileRepository;
 
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
@@ -114,9 +115,10 @@ export class ModuleLoader {
     this.projectDir = `/projects/${this.projectName}`;
     this.debugConsole = options.debugConsole;
     this.builtinResolver = options.builtinResolver;
+    this.fileRepository = options.fileRepository;
 
-    this.cache = new ModuleCache(this.projectId, this.projectName);
-    this.resolver = new ModuleResolver(this.projectId, this.projectName);
+    this.cache = new ModuleCache(this.projectId, this.projectName, { fileRepository: this.fileRepository });
+    this.resolver = new ModuleResolver(this.projectId, this.projectName, { fileRepository: this.fileRepository });
   }
 
   /**
@@ -722,11 +724,11 @@ export class ModuleLoader {
    */
   private async readFile(filePath: string): Promise<string | null> {
     try {
-      await fileRepository.init();
+      await this.fileRepository?.init();
       // パスを正規化して検索
       // Normalize using pathUtils: convert FSPath to AppPath (handles fallback internally)
       const normalizedPath = fsPathToAppPath(filePath, this.projectName);
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      const file = await this.fileRepository?.getFileByPath(this.projectId, normalizedPath);
 
       if (!file) {
         this.error('❌ File not found:', filePath, '→', normalizedPath);

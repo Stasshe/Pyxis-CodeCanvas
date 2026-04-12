@@ -11,7 +11,7 @@
 import pako from 'pako';
 import tarStream from 'tar-stream';
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fileRepository as defaultFileRepository, type FileRepository } from '@/engine/core/fileRepository';
 import { ensureGitignoreContains } from '@/engine/core/gitignore';
 
 interface PackageInfo {
@@ -35,6 +35,7 @@ export type InstallProgressCallback = (
 export class NpmInstall {
   private projectName: string;
   private projectId: string;
+  private fileRepository: FileRepository;
 
   // Callback for progress logging
   private onInstallProgress?: InstallProgressCallback;
@@ -100,9 +101,15 @@ export class NpmInstall {
   // 現在インストール処理中のパッケージ（循環依存回避）
   private installingPackages: Set<string> = new Set();
 
-  constructor(projectName: string, projectId: string, skipLoadingInstalledPackages = false) {
+  constructor(
+    projectName: string,
+    projectId: string,
+    skipLoadingInstalledPackages = false,
+    fileRepository?: FileRepository
+  ) {
     this.projectName = projectName;
     this.projectId = projectId;
+    this.fileRepository = fileRepository ?? defaultFileRepository;
 
     // 既存のインストール済みパッケージを非同期で読み込み（スキップオプション付き）
     if (!skipLoadingInstalledPackages) {
@@ -155,16 +162,16 @@ export class NpmInstall {
 
       try {
         if (filesToCreate.length > 0) {
-          await fileRepository.createFilesBulk(this.projectId, filesToCreate as any);
+          await this.fileRepository.createFilesBulk(this.projectId, filesToCreate as any);
         }
 
         // 削除対象のファイルはインデックス検索で単一取得してから削除
         if (deletes.length > 0) {
           for (const delPath of deletes) {
             const normalizedPath = delPath.replace(/\/+$/, '');
-            const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+            const fileToDelete = await this.fileRepository.getFileByPath(this.projectId, normalizedPath);
             if (fileToDelete) {
-              await fileRepository.deleteFile(fileToDelete.id);
+              await this.fileRepository.deleteFile(fileToDelete.id);
             }
           }
         }
@@ -187,7 +194,7 @@ export class NpmInstall {
     if (this.batchProcessing) {
       // バッチモードでもフォルダは即座に作成（親ディレクトリの存在が必要なため）
       if (type === 'folder') {
-        await fileRepository.createFile(this.projectId, path, '', 'folder');
+        await this.fileRepository.createFile(this.projectId, path, '', 'folder');
       } else {
         // ファイルと削除操作はキューに追加
         this.fileOperationQueue.push({ path, type, content });
@@ -195,14 +202,14 @@ export class NpmInstall {
     } else {
       // 通常モードの場合は即座に実行
       if (type === 'folder') {
-        await fileRepository.createFile(this.projectId, path, '', 'folder');
+        await this.fileRepository.createFile(this.projectId, path, '', 'folder');
       } else if (type === 'file') {
-        await fileRepository.createFile(this.projectId, path, content || '', 'file');
+        await this.fileRepository.createFile(this.projectId, path, content || '', 'file');
       } else if (type === 'delete') {
         const normalizedPath = path.replace(/\/+$/, '');
-        const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+        const fileToDelete = await this.fileRepository.getFileByPath(this.projectId, normalizedPath);
         if (fileToDelete) {
-          await fileRepository.deleteFile(fileToDelete.id);
+          await this.fileRepository.deleteFile(fileToDelete.id);
         }
       }
     }
@@ -212,7 +219,7 @@ export class NpmInstall {
   private async loadInstalledPackages(snapshotFiles?: Array<any>): Promise<void> {
     try {
       const files =
-        snapshotFiles ?? (await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
+        snapshotFiles ?? (await this.fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
       const nodeModulesFiles = files.filter(
         (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
       );
@@ -241,20 +248,20 @@ export class NpmInstall {
     const normalizedPath = dirPath.replace(/\/+$/, '');
 
     // フォルダエントリがあれば cascade 削除で子ファイルも全部消える
-    const folder = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+    const folder = await this.fileRepository.getFileByPath(this.projectId, normalizedPath);
     if (folder) {
-      await fileRepository.deleteFile(folder.id);
+      await this.fileRepository.deleteFile(folder.id);
     }
 
     // cascade で消えなかった残存ファイルを個別削除
     // trailing slash で正確にプレフィックスマッチ（express-session 等を巻き込まない）
-    const remaining = await fileRepository.getFilesByPrefix(
+    const remaining = await this.fileRepository.getFilesByPrefix(
       this.projectId,
       normalizedPath + '/'
     );
     for (const file of remaining) {
       try {
-        await fileRepository.deleteFile(file.id);
+        await this.fileRepository.deleteFile(file.id);
       } catch {
         // cascade で既に削除済みの場合
       }
@@ -265,7 +272,7 @@ export class NpmInstall {
   async ensureBinsForPackage(packageName: string): Promise<void> {
     try {
       const pkgPath = `/node_modules/${packageName}/package.json`;
-      const pkgFile = await fileRepository.getFileByPath(this.projectId, pkgPath);
+      const pkgFile = await this.fileRepository.getFileByPath(this.projectId, pkgPath);
       if (!pkgFile || !pkgFile.content) return;
       let pj: any;
       try {
@@ -327,7 +334,7 @@ export class NpmInstall {
     const dependencyGraph = new Map<string, { dependencies: string[]; dependents: string[] }>();
     try {
       const files =
-        snapshotFiles ?? (await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
+        snapshotFiles ?? (await this.fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
       const nodeModulesFiles = files.filter(
         (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
       );
@@ -374,7 +381,7 @@ export class NpmInstall {
       if (snapshotFiles) {
         packageFile = snapshotFiles.find((f: any) => f.path === '/package.json');
       } else {
-        packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
+        packageFile = await this.fileRepository.getFileByPath(this.projectId, '/package.json');
       }
       if (!packageFile) return rootDeps;
       const packageJson = JSON.parse(packageFile.content);
@@ -459,7 +466,7 @@ export class NpmInstall {
     console.log(`[npm.uninstallWithDependencies] Analyzing dependencies for ${packageName}`);
 
     // 依存関係グラフを構築
-    const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
+    const snapshotFiles = await this.fileRepository.getProjectFiles(this.projectId);
     const dependencyGraph = await this.analyzeDependencies(snapshotFiles);
     const rootDependencies = await this.getRootDependencies(snapshotFiles);
 
@@ -575,7 +582,7 @@ export class NpmInstall {
           (f: any) => f.path === `/node_modules/${packageName}/package.json`
         );
       } else {
-        packageFile = await fileRepository.getFileByPath(
+        packageFile = await this.fileRepository.getFileByPath(
           this.projectId,
           `/node_modules/${packageName}/package.json`
         );
@@ -607,7 +614,7 @@ export class NpmInstall {
       if (files) {
         depPackageFile = files.find((f: any) => f.path === `/node_modules/${depName}/package.json`);
       } else {
-        depPackageFile = await fileRepository.getFileByPath(
+        depPackageFile = await this.fileRepository.getFileByPath(
           this.projectId,
           `/node_modules/${depName}/package.json`
         );
@@ -645,9 +652,9 @@ export class NpmInstall {
 
     // ファイル一覧を1回だけ取得してスナップショットとして再利用（IndexedDB往復を削減）
     // ただし全件取得は避け、node_modules 配下はプレフィックス、ルート設定は単一取得で済ませる
-    const nodeFiles = await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
-    const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-    const gitignoreFile = await fileRepository.getFileByPath(this.projectId, '/.gitignore');
+    const nodeFiles = await this.fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
+    const packageFile = await this.fileRepository.getFileByPath(this.projectId, '/package.json');
+    const gitignoreFile = await this.fileRepository.getFileByPath(this.projectId, '/.gitignore');
     const snapshotFiles = [packageFile, gitignoreFile, ...(nodeFiles || [])].filter(Boolean as any);
 
     // 常に /.gitignore を作成または更新して node_modules を含める
@@ -659,7 +666,7 @@ export class NpmInstall {
       const { content: newContent, changed } = ensureGitignoreContains(currentContent, entry);
       if (changed) {
         // createFile は既存を更新するので存在チェックは不要
-        await fileRepository.createFile(this.projectId, '/.gitignore', newContent, 'file');
+        await this.fileRepository.createFile(this.projectId, '/.gitignore', newContent, 'file');
         console.log(
           `[npm.installWithDependencies] /.gitignore created/updated to include '${entry}'`
         );
@@ -876,7 +883,7 @@ export class NpmInstall {
           // フォルダを並列作成（存在チェックは fileRepository 内で行われる想定）
           await Promise.all(
             foldersToCreate.map(p =>
-              fileRepository.createFile(this.projectId, p, '', 'folder').catch(err => {
+              this.fileRepository.createFile(this.projectId, p, '', 'folder').catch(err => {
                 console.warn(`[npm.downloadAndInstallPackage] Failed to create folder ${p}:`, err);
               })
             )
@@ -887,13 +894,13 @@ export class NpmInstall {
           for (let i = 0; i < filesToCreate.length; i += BATCH_SIZE) {
             const batch = filesToCreate.slice(i, i + BATCH_SIZE);
             try {
-              await fileRepository.createFilesBulk(this.projectId, batch as any, true);
+              await this.fileRepository.createFilesBulk(this.projectId, batch as any, true);
             } catch (err) {
               console.warn('[npm.downloadAndInstallPackage] createFilesBulk failed:', err);
               // フォールバックで個別作成（並列）
               await Promise.all(
                 batch.map(b =>
-                  fileRepository
+                  this.fileRepository
                     .createFile(this.projectId, b.path, b.content || '', 'file')
                     .catch(e => {
                       console.warn(

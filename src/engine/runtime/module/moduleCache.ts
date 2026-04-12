@@ -11,7 +11,8 @@
  *   3. 変更されていない依存ファイルはキャッシュ利用可能
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { FileRepository } from '@/engine/core/fileRepository';
+import { fileRepository as defaultFileRepository } from '@/engine/core/fileRepository';
 import { runtimeError, runtimeInfo, runtimeWarn } from '@/engine/runtime/core/runtimeLogger';
 
 export interface CacheEntry {
@@ -34,10 +35,12 @@ export class ModuleCache {
   private cacheDir = '/cache/modules';
   private metaDir = '/cache/meta';
   private initialized = false;
+  private fileRepository: FileRepository;
 
-  constructor(projectId: string, projectName: string) {
+  constructor(projectId: string, projectName: string, options?: { fileRepository?: FileRepository }) {
     this.projectId = projectId;
     this.projectName = projectName;
+    this.fileRepository = options?.fileRepository ?? defaultFileRepository;
   }
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -170,16 +173,16 @@ export class ModuleCache {
 
   private async ensureCacheDirectories(): Promise<void> {
     try {
-      await fileRepository.init();
-      const cacheDirFile = await fileRepository.getFileByPath(this.projectId, this.cacheDir);
+      await this.fileRepository.init();
+      const cacheDirFile = await this.fileRepository.getFileByPath(this.projectId, this.cacheDir);
       if (!cacheDirFile) {
-        await fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
+        await this.fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
         runtimeInfo('📁 Created:', this.cacheDir);
       }
 
-      const metaDirFile = await fileRepository.getFileByPath(this.projectId, this.metaDir);
+      const metaDirFile = await this.fileRepository.getFileByPath(this.projectId, this.metaDir);
       if (!metaDirFile) {
-        await fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
+        await this.fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
         runtimeInfo('📁 Created:', this.metaDir);
       }
     } catch (error) {
@@ -189,8 +192,8 @@ export class ModuleCache {
 
   private async loadAllCacheFromDisk(): Promise<void> {
     try {
-      await fileRepository.init();
-      const metaFiles = await fileRepository.getFilesByPrefix(this.projectId, this.metaDir);
+      await this.fileRepository.init();
+      const metaFiles = await this.fileRepository.getFilesByPrefix(this.projectId, this.metaDir);
       const filteredMetaFiles = metaFiles.filter(
         f => f.path.endsWith('.json') && f.type === 'file' && f.content?.trim()
       );
@@ -203,7 +206,7 @@ export class ModuleCache {
           const meta: any = JSON.parse(metaFile.content);
           const originalPath = meta.originalPath;
           const safeFileName = this.pathToSafeFileName(originalPath);
-          const codeFile = await fileRepository.getFileByPath(
+          const codeFile = await this.fileRepository.getFileByPath(
             this.projectId,
             `${this.cacheDir}/${safeFileName}.js`
           );
@@ -237,7 +240,7 @@ export class ModuleCache {
   private async saveToDisk(path: string, entry: CacheEntry): Promise<void> {
     const safeFileName = this.pathToSafeFileName(path);
 
-    await fileRepository.createFile(
+    await this.fileRepository.createFile(
       this.projectId,
       `${this.cacheDir}/${safeFileName}.js`,
       entry.code,
@@ -255,7 +258,7 @@ export class ModuleCache {
       size: entry.size,
     };
 
-    await fileRepository.createFile(
+    await this.fileRepository.createFile(
       this.projectId,
       `${this.metaDir}/${safeFileName}.json`,
       JSON.stringify(meta, null, 2),
@@ -305,17 +308,17 @@ export class ModuleCache {
 
   private async deleteFromDisk(path: string): Promise<void> {
     const safeFileName = this.pathToSafeFileName(path);
-    const codeFile = await fileRepository.getFileByPath(
+    const codeFile = await this.fileRepository.getFileByPath(
       this.projectId,
       `${this.cacheDir}/${safeFileName}.js`
     );
-    if (codeFile) await fileRepository.deleteFile(codeFile.id);
+    if (codeFile) await this.fileRepository.deleteFile(codeFile.id);
 
-    const metaFile = await fileRepository.getFileByPath(
+    const metaFile = await this.fileRepository.getFileByPath(
       this.projectId,
       `${this.metaDir}/${safeFileName}.json`
     );
-    if (metaFile) await fileRepository.deleteFile(metaFile.id);
+    if (metaFile) await this.fileRepository.deleteFile(metaFile.id);
   }
 
   private getTotalSize(): number {

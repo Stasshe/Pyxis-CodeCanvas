@@ -14,7 +14,7 @@ import { ModuleLoader } from '../module/moduleLoader';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fileRepository as defaultFileRepository, type FileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
 
@@ -36,6 +36,7 @@ export interface ExecutionOptions {
   terminalColumns?: number;
   /** Terminal rows (height). If not provided, defaults to 24. */
   terminalRows?: number;
+  fileRepository?: FileRepository;
 }
 
 /**
@@ -51,6 +52,7 @@ export class NodeRuntime {
   private projectDir: string;
   private terminalColumns: number;
   private terminalRows: number;
+  private fileRepository: FileRepository;
 
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
@@ -64,6 +66,7 @@ export class NodeRuntime {
     this.projectDir = `/projects/${this.projectName}`;
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
+    this.fileRepository = options.fileRepository ?? defaultFileRepository;
 
     // ビルトインモジュールの初期化（onInputを渡す）
     this.builtInModules = createBuiltInModules({
@@ -71,6 +74,7 @@ export class NodeRuntime {
       projectId: this.projectId,
       projectName: this.projectName,
       onInput: this.onInput,
+      fileRepository: this.fileRepository,
     });
 
     // ModuleLoaderの初期化
@@ -79,6 +83,7 @@ export class NodeRuntime {
       projectName: this.projectName,
       debugConsole: this.debugConsole,
       builtinResolver: this.resolveBuiltInModule.bind(this),
+      fileRepository: this.fileRepository,
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -617,10 +622,10 @@ export class NodeRuntime {
    */
   private async readFile(filePath: string): Promise<string | null> {
     try {
-      await fileRepository.init();
+      await this.fileRepository.init();
       const normalizedPath = fsPathToAppPath(filePath, this.projectName);
 
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      const file = await this.fileRepository.getFileByPath(this.projectId, normalizedPath);
       if (!file) {
         this.log('⚠️ File not found in IndexedDB:', normalizedPath);
         return null;
