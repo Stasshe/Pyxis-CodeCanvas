@@ -1,5 +1,6 @@
 Root
 .
+├── CLAUDE.md
 ├── CODE_OF_CONDUCT.md
 ├── Development
 │   ├── COMMAND-EXTENSION.md
@@ -505,8 +506,15 @@ Root
 ├── tailwind.config.ts
 ├── tests
 │   ├── README.md
+│   ├── _helpers
+│   │   └── testProject.ts
 │   ├── engine
 │   │   ├── cmd
+│   │   │   ├── e2e
+│   │   │   │   ├── envExpansion.test.ts
+│   │   │   │   ├── errorHandling.test.ts
+│   │   │   │   ├── pipeline.test.ts
+│   │   │   │   └── subshell.test.ts
 │   │   │   └── shell
 │   │   │       ├── braceExpand.test.ts
 │   │   │       ├── expansion.test.ts
@@ -526,8 +534,6 @@ Root
 │   │   └── runtime
 │   │       ├── moduleResolver.test.ts
 │   │       └── normalizeCjsEsm.test.ts
-│   ├── helpers
-│   │   └── testProject.ts
 │   ├── setup.ts
 │   └── tsconfig.json
 ├── tree-built-out.sh
@@ -538,7 +544,7 @@ Root
 │   └── esbuild-cdn.d.ts
 └── vitest.config.ts
 
-92 directories, 446 files
+93 directories, 451 files
 
 =================================
 
@@ -668,12 +674,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 73228
-合計文字数: 2324353
-合計ファイルサイズ(bytes): 2464628
+合計行数: 73293
+合計文字数: 2327576
+合計ファイルサイズ(bytes): 2467665
 
 開発時のdev container全体のサイズ(bytes): 1.3G	.
 ==========
 ビルト済みファイルの行数: 129635
-合計文字数: 27840357
-合計ファイルサイズ(bytes): 30826561
+合計文字数: 27841472
+合計ファイルサイズ(bytes): 30827676
