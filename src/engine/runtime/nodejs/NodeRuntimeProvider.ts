@@ -6,8 +6,8 @@
  * - RuntimeProviderインターフェースを実装
  */
 
-import { NodeRuntime } from './nodeRuntime';
 import { runtimeInfo } from '../core/runtimeLogger';
+import { NodeRuntime } from './nodeRuntime';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 

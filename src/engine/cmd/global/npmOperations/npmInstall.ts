@@ -248,10 +248,7 @@ export class NpmInstall {
 
     // cascade で消えなかった残存ファイルを個別削除
     // trailing slash で正確にプレフィックスマッチ（express-session 等を巻き込まない）
-    const remaining = await fileRepository.getFilesByPrefix(
-      this.projectId,
-      normalizedPath + '/'
-    );
+    const remaining = await fileRepository.getFilesByPrefix(this.projectId, normalizedPath + '/');
     for (const file of remaining) {
       try {
         await fileRepository.deleteFile(file.id);

@@ -10,9 +10,9 @@
  * 6. require()は非同期化（await __require__()に変換）
  */
 
+import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { ModuleLoader } from '../module/moduleLoader';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
-import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';

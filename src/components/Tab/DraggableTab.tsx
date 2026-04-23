@@ -60,7 +60,7 @@ function DraggableTabInner({
     // 拡張機能タブの場合、TabRegistryの変更を監視
     if (tab.kind.startsWith('extension:') && !tabRegistry.has(tab.kind)) {
       setIsExtensionLoading(true);
-      const unsubscribe = tabRegistry.addChangeListener((kind) => {
+      const unsubscribe = tabRegistry.addChangeListener(kind => {
         if (kind === tab.kind) {
           setIsExtensionLoading(false);
         }

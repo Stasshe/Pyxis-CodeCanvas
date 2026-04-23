@@ -4,7 +4,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { pushLogMessage } from '@/stores/loggerStore';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
 import { generateChatResponse, generateCodeEdit } from '@/engine/ai/fetchAI';
@@ -15,6 +14,7 @@ import {
   validateResponse,
 } from '@/engine/ai/responseParser';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { pushLogMessage } from '@/stores/loggerStore';
 import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
 
 interface UseAIProps {

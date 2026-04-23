@@ -3,10 +3,9 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeColors } from '@/context/ThemeContext';
-import { removeLogMessages, type OutputType } from '@/stores/loggerStore';
-import { useSnapshot } from 'valtio/react';
+import { type OutputType, removeLogMessages } from '@/stores/loggerStore';
 import { loggerStore } from '@/stores/loggerStore';
-
+import { useSnapshot } from 'valtio/react';
 
 // Themeの色を使う
 const getTypeColor = (colors: ThemeColors): Record<OutputType, string> => ({

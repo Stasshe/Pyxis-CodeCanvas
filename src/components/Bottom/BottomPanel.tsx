@@ -237,7 +237,7 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel/>
+            <OutputPanel />
           </div>
           <div
             style={{

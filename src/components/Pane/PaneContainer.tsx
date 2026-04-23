@@ -201,7 +201,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   useEffect(() => {
     if (activeTab?.kind.startsWith('extension:') && !tabRegistry.has(activeTab.kind)) {
       setExtensionLoaded(false);
-      const unsubscribe = tabRegistry.addChangeListener((kind) => {
+      const unsubscribe = tabRegistry.addChangeListener(kind => {
         if (kind === activeTab.kind) {
           setExtensionLoaded(true);
         }

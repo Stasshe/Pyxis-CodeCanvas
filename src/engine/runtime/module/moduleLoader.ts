@@ -10,11 +10,11 @@
 
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '../core/RuntimeRegistry';
+import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import { createModuleNotFoundError } from '../nodejs/nodeErrors';
+import { transpileManager } from '../transpiler/transpileManager';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
-import { createModuleNotFoundError } from '../nodejs/nodeErrors';
-import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
-import { transpileManager } from '../transpiler/transpileManager';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -325,7 +325,7 @@ export class ModuleLoader {
       isESModule: this.isESModule(content),
       isJSX: false,
     });
-    
+
     // キャッシュに保存
     await this.cache.set(filePath, {
       originalPath: filePath,

@@ -6,8 +6,8 @@
  * - アプリケーション起動時に自動登録
  */
 
-import { runtimeRegistry } from './RuntimeRegistry';
 import { NodeRuntimeProvider } from '../nodejs/NodeRuntimeProvider';
+import { runtimeRegistry } from './RuntimeRegistry';
 import { runtimeInfo } from './runtimeLogger';
 
 /**

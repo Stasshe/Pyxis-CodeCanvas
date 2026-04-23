@@ -22,21 +22,12 @@ export const loggerStore = proxy<{
  * ログメッセージをストアに追加
  * engine層から直接呼び出し可能（React非依存）
  */
-export function pushLogMessage(
-  msg: string,
-  type?: OutputType,
-  context?: string
-): void {
+export function pushLogMessage(msg: string, type?: OutputType, context?: string): void {
   const messages = loggerStore.messages;
   const last = messages[messages.length - 1];
 
   // 直前のメッセージと同じ内容・type・contextなら回数を増やす
-  if (
-    last &&
-    last.message === msg &&
-    last.type === type &&
-    last.context === context
-  ) {
+  if (last && last.message === msg && last.type === type && last.context === context) {
     last.count = (last.count ?? 1) + 1;
   } else {
     // 新規メッセージ
@@ -50,17 +41,17 @@ export function pushLogMessage(
     loggerStore.messages.splice(0, messages.length - max);
   }
 
-  if ( type === 'info' ) {
+  if (type === 'info') {
     // 情報メッセージはコンソールにも出力
     console.log(`[${context ?? 'unknown'}] ${msg}`);
   }
-  
-  if ( type === 'warn' ) {
+
+  if (type === 'warn') {
     // 警告メッセージはコンソールにも出力
     console.warn(`[${context ?? 'unknown'}] ${msg}`);
   }
 
-  if ( type === 'error' ) {
+  if (type === 'error') {
     // エラーメッセージはコンソールにも出力
     console.error(`[${context ?? 'unknown'}] ${msg}`);
   }
@@ -70,9 +61,7 @@ export function pushLogMessage(
  * 指定されたメッセージをストアから削除
  */
 export function removeLogMessages(toRemove: OutputMessage[]): void {
-  loggerStore.messages = loggerStore.messages.filter(
-    m => !toRemove.includes(m)
-  );
+  loggerStore.messages = loggerStore.messages.filter(m => !toRemove.includes(m));
 }
 
 /**

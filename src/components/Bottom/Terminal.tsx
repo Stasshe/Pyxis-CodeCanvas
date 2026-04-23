@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { pushLogMessage } from '@/stores/loggerStore';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { GitCommands } from '@/engine/cmd/global/git';
@@ -14,6 +13,7 @@ import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { pushLogMessage } from '@/stores/loggerStore';
 import {
   clearTerminalHistory,
   getTerminalHistory,
