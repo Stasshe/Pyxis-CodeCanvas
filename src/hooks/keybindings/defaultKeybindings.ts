@@ -52,10 +52,10 @@ export const DEFAULT_BINDINGS: Binding[] = [
   // Pane management
   { id: 'openPaneNavigator', name: 'Open Pane Navigator', combo: 'Ctrl+M', category: 'pane' },
   { id: 'splitPaneVertical', name: 'Split Pane Vertical', combo: 'Ctrl+K V', category: 'pane' },
-  { id: 'splitPaneHorizontal', name: 'Split Pane Horizontal', combo: 'Ctrl+K S', category: 'pane' },
+  { id: 'splitPaneHorizontal', name: 'Split Pane Horizontal', combo: 'Ctrl+K H', category: 'pane' },
   { id: 'closePane', name: 'Close Current Pane', combo: 'Ctrl+K D', category: 'pane' },
   { id: 'focusNextPane', name: 'Focus Next Pane', combo: 'Ctrl+K L', category: 'pane' },
-  { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K H', category: 'pane' },
+  { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K J', category: 'pane' },
 
   // Project
   { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },

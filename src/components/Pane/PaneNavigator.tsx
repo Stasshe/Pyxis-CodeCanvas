@@ -299,7 +299,6 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
           if (selectedPaneId) handleActivate(selectedPaneId);
           break;
         case 'ArrowLeft':
-        case 'h':
         case 'ArrowUp':
         case 'k':
           if (idx > 0) setSelectedPaneId(flattenedPanes[idx - 1].id);
@@ -313,7 +312,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         case 'v':
           handleSplit('vertical');
           break;
-        case 's':
+        case 'h':
           handleSplit('horizontal');
           break;
         case 'd':
@@ -387,7 +386,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
             <Columns2 size={12} />
             <span className="text-[10px]">v</span>
             <Rows2 size={12} />
-            <span className="text-[10px]">s</span>
+            <span className="text-[10px]">h</span>
           </div>
 
           {/* Delete */}
