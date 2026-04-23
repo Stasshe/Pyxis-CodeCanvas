@@ -5,11 +5,14 @@ import { OUTPUT_CONFIG } from '@/constants/config';
 export type OutputType = 'info' | 'error' | 'warn' | 'check';
 
 export interface OutputMessage {
+  id: number;
   message: string;
   type?: OutputType;
   context?: string;
   count?: number;
 }
+
+let nextOutputMessageId = 1;
 
 // Vanilla Valtio store (React非依存)
 export const loggerStore = proxy<{
@@ -31,7 +34,7 @@ export function pushLogMessage(msg: string, type?: OutputType, context?: string)
     last.count = (last.count ?? 1) + 1;
   } else {
     // 新規メッセージ
-    messages.push({ message: msg, type, context });
+    messages.push({ id: nextOutputMessageId++, message: msg, type, context });
   }
 
   // 最大数制限

@@ -192,7 +192,7 @@ export function OutputPanel() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {filtered.map(msg => (
             <div
-              key={`${msg.type || 'info'}-${msg.context || ''}-${msg.message}-${msg.count || 1}`}
+              key={`output-${msg.id}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
