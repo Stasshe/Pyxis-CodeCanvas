@@ -17,7 +17,7 @@ import { snapshot, useSnapshot } from 'valtio';
 import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
-import { getCurrentProjectId } from '@/stores/projectStore';
+import { projectState } from '@/stores/projectStore';
 import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane } from '@/types';
@@ -90,6 +90,7 @@ async function defaultFileRestore(
  */
 export function useTabContentRestore(isRestored: boolean) {
   const { panes } = useSnapshot(tabState);
+  const { currentProjectId } = useSnapshot(projectState);
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
 
@@ -99,7 +100,7 @@ export function useTabContentRestore(isRestored: boolean) {
       return;
     }
 
-    if (!isRestored || panes.length === 0) {
+    if (!isRestored || panes.length === 0 || !currentProjectId) {
       return;
     }
 
@@ -131,13 +132,11 @@ export function useTabContentRestore(isRestored: boolean) {
         await initTabSaveSync();
 
         // 復元コンテキストを準備
-        const projectId = getCurrentProjectId();
         const context: SessionRestoreContext = {
-          projectId: projectId || undefined,
+          projectId: currentProjectId,
           getFileByPath: async (path: string) => {
-            if (!projectId) return null;
             const normalizedPath = toAppPath(path);
-            return await fileRepository.getFileByPath(projectId, normalizedPath);
+            return await fileRepository.getFileByPath(currentProjectId, normalizedPath);
           },
         };
 
@@ -257,7 +256,7 @@ export function useTabContentRestore(isRestored: boolean) {
         }, 100);
       }
     });
-  }, [isRestored, panes]);
+  }, [isRestored, panes, currentProjectId]);
 
   // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {
