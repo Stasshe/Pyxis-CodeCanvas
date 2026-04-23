@@ -102,7 +102,7 @@ export default function FileChangeItem({
               console.warn('[FileChangeItem] onOpenReview handler not provided');
             }
           }}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all transition-transform active:scale-95 ${onOpenReview ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all active:scale-95 ${onOpenReview ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
           style={{
             background: colors.mutedBg,
             color: colors.foreground,
@@ -125,7 +125,7 @@ export default function FileChangeItem({
               console.warn('[FileChangeItem] onApply handler not provided');
             }
           }}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all transition-transform active:scale-95 active:bg-opacity-80 ${onApply ? 'hover:opacity-90' : 'opacity-50 cursor-not-allowed'}`}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all active:scale-95 active:bg-opacity-80 ${onApply ? 'hover:opacity-90' : 'opacity-50 cursor-not-allowed'}`}
           style={{
             background: colors.accent,
             color: colors.accentFg,
@@ -147,7 +147,7 @@ export default function FileChangeItem({
               console.warn('[FileChangeItem] onDiscard handler not provided');
             }
           }}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all transition-transform active:scale-95 ${onDiscard ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-all active:scale-95 ${onDiscard ? 'hover:opacity-80' : 'opacity-50 cursor-not-allowed'}`}
           style={{
             background: 'transparent',
             color: colors.mutedFg,
