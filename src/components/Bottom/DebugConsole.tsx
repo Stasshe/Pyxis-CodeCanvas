@@ -1,6 +1,8 @@
 // DebugConsole.tsx
 'use client';
 
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
 import { useEffect, useRef } from 'react';
 
 import { DebugConsoleAPI, type TerminalAction } from './DebugConsoleAPI';
@@ -15,8 +17,8 @@ interface DebugConsoleProps {
 export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
   const { colors } = useTheme();
   const xtermRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<any>(null);
-  const fitAddonRef = useRef<any>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
 
   useEffect(() => {
     if (!xtermRef.current) return;
@@ -229,7 +231,7 @@ export default function DebugConsole({ height, isActive }: DebugConsoleProps) {
         }, 100);
       }, 100);
     }
-  }, [height]);
+  });
 
   return (
     <div

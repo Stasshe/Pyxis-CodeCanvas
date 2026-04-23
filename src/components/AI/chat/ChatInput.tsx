@@ -2,7 +2,7 @@
 
 'use client';
 
-import { FileCode, Loader2, Plus, Send } from 'lucide-react';
+import { FileCode, Loader2, Plus, Send, X } from 'lucide-react';
 import React, { useState, type KeyboardEvent, useRef, useEffect } from 'react';
 import { getIconForFile } from 'vscode-icons-js';
 
@@ -47,13 +47,12 @@ export default function ChatInput({
     storageKey: `ai-chat-history-${mode}`,
   });
 
-  // テキストエリアの高さを自動調整
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
-  }, [input]);
+  });
 
   const handleSubmit = () => {
     if (input.trim() && !isProcessing && !disabled) {
@@ -173,12 +172,12 @@ export default function ChatInput({
               </div>
             )}
 
-            {selectedFiles.map((file, index) => {
+            {selectedFiles.map(file => {
               const fileName = (file.split('/').pop() as string) || file;
               const iconSrc = getIconSrcForFile(fileName);
               return (
                 <div
-                  key={index}
+                  key={file}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -203,6 +202,7 @@ export default function ChatInput({
                     {fileName}
                   </span>
                   <button
+                    type="button"
                     onClick={() => onRemoveSelectedFile?.(file)}
                     title={t('ai.fileContextBar.remove') || 'Remove'}
                     style={{
@@ -219,20 +219,7 @@ export default function ChatInput({
                       cursor: 'pointer',
                     }}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="8"
-                      height="8"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    <X size={8} />
                   </button>
                 </div>
               );
@@ -264,6 +251,7 @@ export default function ChatInput({
           <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1">
             {onOpenFileSelector && (
               <button
+                type="button"
                 onClick={onOpenFileSelector}
                 disabled={isProcessing || disabled}
                 className="p-1 rounded hover:bg-opacity-80 transition-all"
@@ -278,6 +266,7 @@ export default function ChatInput({
             )}
 
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={!input.trim() || isProcessing || disabled}
               className={`p-1 rounded transition-all ${

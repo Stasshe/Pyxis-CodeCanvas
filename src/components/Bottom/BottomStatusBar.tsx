@@ -109,7 +109,8 @@ export default function BottomStatusBar({
       <div style={{ color: colors.mutedFg }}>|</div>
       <div style={{ color: colors.mutedFg }}>{gitChangesCount} changes</div>
       {activeChord && (
-        <div
+        <button
+          type="button"
           style={{
             marginLeft: 8,
             padding: '4px 8px',
@@ -121,13 +122,14 @@ export default function BottomStatusBar({
             alignItems: 'center',
             gap: 6,
             cursor: 'pointer',
+            font: 'inherit',
           }}
           title="Press next key for chord or click to cancel"
           onClick={() => clearActiveChord()}
         >
           <span style={{ opacity: 0.7, fontSize: 12 }}>Chord:</span>
           <strong style={{ fontSize: 12 }}>{formatKeyComboForDisplay(activeChord)}</strong>
-        </div>
+        </button>
       )}
       <div style={{ marginLeft: 'auto', color: colors.mutedFg }}>
         {/* sync status + node runtime status */}

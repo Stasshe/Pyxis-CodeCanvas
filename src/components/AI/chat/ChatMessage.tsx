@@ -197,9 +197,9 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
             >
               <div className="flex items-center gap-1 text-[10px] opacity-70 flex-wrap">
                 <FileCode size={10} />
-                {message.fileContext.map((filePath, index) => (
+                {message.fileContext.map(filePath => (
                   <span
-                    key={index}
+                    key={filePath}
                     className="px-1 py-0.5 rounded font-mono"
                     style={{
                       background: isUser ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
@@ -241,6 +241,7 @@ export default function ChatMessage({ message, onRevert }: ChatMessageProps) {
               {/* Revert button */}
               {appliedCount > 0 && onRevert && (
                 <button
+                  type="button"
                   className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded transition-all hover:opacity-80"
                   style={{
                     background: 'rgba(239, 68, 68, 0.1)',

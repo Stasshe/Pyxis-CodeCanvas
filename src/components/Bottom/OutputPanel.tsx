@@ -25,9 +25,9 @@ export function OutputPanel() {
 
   const contextList = useMemo(() => {
     const set = new Set<string>();
-    messages.forEach(m => {
+    for (const m of messages) {
       if (m.context) set.add(m.context);
-    });
+    }
     return Array.from(set);
   }, [messages]);
 
@@ -119,6 +119,7 @@ export function OutputPanel() {
           </select>
         </label>
         <button
+          type="button"
           onClick={() => {
             removeLogMessages(filtered);
           }}
@@ -138,6 +139,7 @@ export function OutputPanel() {
         </button>
         {/* コピー（表示中すべて） */}
         <button
+          type="button"
           onClick={async () => {
             const lines = filtered.map(msg => {
               const type = msg.type || 'info';
@@ -188,9 +190,9 @@ export function OutputPanel() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {filtered.map((msg, idx) => (
+          {filtered.map(msg => (
             <div
-              key={idx}
+              key={`${msg.type || 'info'}-${msg.context || ''}-${msg.message}-${msg.count || 1}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',

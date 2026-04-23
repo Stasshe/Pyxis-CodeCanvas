@@ -31,6 +31,7 @@ export default function ModeSelector({ mode, onChange, disabled = false }: ModeS
     <div className={`flex ${sizeClass} select-none`} style={{ background: colors.mutedBg }}>
       {modes.map(({ value, label, icon: Icon, description }) => (
         <button
+          type="button"
           key={value}
           onClick={() => !disabled && onChange(value)}
           disabled={disabled}

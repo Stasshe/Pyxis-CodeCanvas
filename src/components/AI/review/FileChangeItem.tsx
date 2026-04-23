@@ -93,6 +93,7 @@ export default function FileChangeItem({
       <div className="flex items-center gap-2 mt-2">
         {/* 確認 (レビュー) */}
         <button
+          type="button"
           onClick={() => {
             if (onOpenReview) {
               onOpenReview(file.path, file.originalContent, file.suggestedContent);
@@ -116,6 +117,7 @@ export default function FileChangeItem({
 
         {/* 採用 */}
         <button
+          type="button"
           onClick={() => {
             if (onApply) {
               onApply(file.path, file.suggestedContent);
@@ -137,6 +139,7 @@ export default function FileChangeItem({
 
         {/* 破棄 */}
         <button
+          type="button"
           onClick={() => {
             if (onDiscard) {
               onDiscard(file.path);
