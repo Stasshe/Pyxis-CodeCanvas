@@ -9,13 +9,42 @@ import Terminal from './Terminal';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 
+type BottomPanelTab = 'output' | 'terminal' | 'problems';
+
 interface BottomPanelProps {
   height: number;
   currentProject?: string;
   currentProjectId?: string;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  activeTab?: 'output' | 'terminal' | 'problems';
-  onActiveTabChange?: (tab: 'output' | 'terminal' | 'problems') => void;
+  activeTab?: BottomPanelTab;
+  onActiveTabChange?: (tab: BottomPanelTab) => void;
+}
+
+const PERSISTENT_TABS: ReadonlySet<BottomPanelTab> = new Set(['terminal']);
+
+function BottomPanelViewport({
+  isActive,
+  shouldRender,
+  children,
+}: {
+  isActive: boolean;
+  shouldRender: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        position: isActive ? 'static' : 'absolute',
+        visibility: isActive ? 'visible' : 'hidden',
+        pointerEvents: isActive ? 'auto' : 'none',
+        inset: 0,
+      }}
+    >
+      {shouldRender ? children : null}
+    </div>
+  );
 }
 
 export default function BottomPanel({
@@ -29,27 +58,22 @@ export default function BottomPanel({
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [vimEditor, setVimEditor] = useState<any | null>(null);
-  const [internalActiveTab, setInternalActiveTab] = useState<'output' | 'terminal' | 'problems'>(
-    'terminal'
-  );
-  const [mountedTabs, setMountedTabs] = useState<
-    Set<'output' | 'terminal' | 'problems'>
-  >(() => new Set([activeTabProp ?? 'terminal']));
+  const [internalActiveTab, setInternalActiveTab] = useState<BottomPanelTab>('terminal');
+  const [visitedTabs, setVisitedTabs] = useState<Record<BottomPanelTab, boolean>>({
+    output: (activeTabProp ?? 'terminal') === 'output',
+    terminal: true,
+    problems: (activeTabProp ?? 'terminal') === 'problems',
+  });
 
   const activeTab = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
 
   useEffect(() => {
-    setMountedTabs(prev => {
-      if (prev.has(activeTab)) return prev;
-      const next = new Set(prev);
-      next.add(activeTab);
-      return next;
-    });
+    setVisitedTabs(prev => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
   }, [activeTab]);
 
   const [, startTransition] = useTransition();
 
-  const setActiveTab = (tab: 'output' | 'terminal' | 'problems') => {
+  const setActiveTab = (tab: BottomPanelTab) => {
     const current = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
     if (current === tab) return; // avoid unnecessary state updates
 
@@ -59,6 +83,8 @@ export default function BottomPanel({
       startTransition(() => setInternalActiveTab(tab));
     }
   };
+
+  const shouldRenderTab = (tab: BottomPanelTab) => PERSISTENT_TABS.has(tab) || visitedTabs[tab];
 
   return (
     <>
@@ -195,46 +221,23 @@ export default function BottomPanel({
           )}
         </div>
         <div className="flex-1 overflow-hidden relative">
-          {/* 3つのパネルを同時にマウントし、visibility/positionで切り替え（xterm.jsの幅崩れ対策） */}
-          <div
-            style={{
-              height: '100%',
-              width: '100%',
-              position: activeTab === 'problems' ? 'static' : 'absolute',
-              visibility: activeTab === 'problems' ? 'visible' : 'hidden',
-              pointerEvents: activeTab === 'problems' ? 'auto' : 'none',
-              top: 0,
-              left: 0,
-            }}
+          <BottomPanelViewport
+            isActive={activeTab === 'problems'}
+            shouldRender={shouldRenderTab('problems')}
           >
-            {mountedTabs.has('problems') && (
-              <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
-            )}
-          </div>
+            <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
+          </BottomPanelViewport>
 
-          <div
-            style={{
-              height: '100%',
-              width: '100%',
-              position: activeTab === 'output' ? 'static' : 'absolute',
-              visibility: activeTab === 'output' ? 'visible' : 'hidden',
-              pointerEvents: activeTab === 'output' ? 'auto' : 'none',
-              top: 0,
-              left: 0,
-            }}
+          <BottomPanelViewport
+            isActive={activeTab === 'output'}
+            shouldRender={shouldRenderTab('output')}
           >
-            {mountedTabs.has('output') && <OutputPanel />}
-          </div>
-          <div
-            style={{
-              height: '100%',
-              width: '100%',
-              position: activeTab === 'terminal' ? 'static' : 'absolute',
-              visibility: activeTab === 'terminal' ? 'visible' : 'hidden',
-              pointerEvents: activeTab === 'terminal' ? 'auto' : 'none',
-              top: 0,
-              left: 0,
-            }}
+            <OutputPanel />
+          </BottomPanelViewport>
+
+          <BottomPanelViewport
+            isActive={activeTab === 'terminal'}
+            shouldRender={shouldRenderTab('terminal')}
           >
             <Terminal
               height={height}
@@ -243,7 +246,7 @@ export default function BottomPanel({
               isActive={activeTab === 'terminal'}
               onVimModeChange={editor => setVimEditor(editor)}
             />
-          </div>
+          </BottomPanelViewport>
         </div>
       </div>
       {/* Vim ESC button: shown when a VimEditor instance is active */}
