@@ -77,6 +77,7 @@ export class NodeRuntime {
       projectName: this.projectName,
       processStdin: this.processStdin,
       getTrackIO: () => this.trackIO.bind(this),
+      requireFactory: (filename: string) => this.createRequire(filename),
     });
 
     // ModuleLoaderの初期化
@@ -616,6 +617,61 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
+      v8: this.builtInModules.v8,
+      crypto: this.builtInModules.crypto,
+      'stream/consumers': {
+        text: async (s: any): Promise<string> => {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          const all = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          return new TextDecoder().decode(all);
+        },
+        json: async (s: any): Promise<unknown> => {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          const all = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          return JSON.parse(new TextDecoder().decode(all));
+        },
+        buffer: async (s: any): Promise<Uint8Array> => {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          return chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+        },
+      },
+      'stream/promises': {
+        pipeline: (..._args: unknown[]) => Promise.resolve(),
+        finished: (_stream: unknown, _options?: unknown) => Promise.resolve(),
+      },
+      'stream/web': {},
+      'timers/promises': {
+        setTimeout: (delay?: number) => new Promise(resolve => globalThis.setTimeout(resolve, delay)),
+        setImmediate: () => new Promise(resolve => globalThis.setTimeout(resolve, 0)),
+        setInterval: async function* (_delay?: number) {},
+      },
+      perf_hooks: {
+        performance: {
+          now: () => performance.now(),
+          mark: (_name: string) => {},
+          measure: (_name: string, _start?: string, _end?: string) => ({ duration: 0, name: _name }),
+          getEntriesByName: () => [],
+          getEntriesByType: () => [],
+          clearMarks: () => {},
+          clearMeasures: () => {},
+        },
+        PerformanceObserver: class {
+          constructor(_callback: any) {}
+          observe(_options: any) {}
+          disconnect() {}
+        },
+        constants: {},
+      },
+      worker_threads: {
+        isMainThread: true,
+        workerData: null,
+        parentPort: null,
+        threadId: 0,
+        Worker: class { constructor() { throw new Error('Worker not supported'); } },
+      },
       // process モジュール - createProcessObjectで統一
       process: this.createProcessObject(),
       timers: {

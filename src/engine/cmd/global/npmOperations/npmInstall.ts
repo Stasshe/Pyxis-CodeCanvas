@@ -13,6 +13,7 @@ import tarStream from 'tar-stream';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { ensureGitignoreContains } from '@/engine/core/gitignore';
+import { transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
 
 interface PackageInfo {
   name: string;
@@ -184,20 +185,26 @@ export class NpmInstall {
     type: 'file' | 'folder' | 'delete',
     content?: string
   ): Promise<void> {
+    // .mjsファイルはinstall時にCJSへ変換（runtimeのregex変換が複雑なESMで壊れるため）
+    let finalContent = content;
+    if (type === 'file' && path.endsWith('.mjs') && content) {
+      finalContent = await transformEsmToCjs(content, path);
+    }
+
     if (this.batchProcessing) {
       // バッチモードでもフォルダは即座に作成（親ディレクトリの存在が必要なため）
       if (type === 'folder') {
         await fileRepository.createFile(this.projectId, path, '', 'folder');
       } else {
         // ファイルと削除操作はキューに追加
-        this.fileOperationQueue.push({ path, type, content });
+        this.fileOperationQueue.push({ path, type, content: finalContent });
       }
     } else {
       // 通常モードの場合は即座に実行
       if (type === 'folder') {
         await fileRepository.createFile(this.projectId, path, '', 'folder');
       } else if (type === 'file') {
-        await fileRepository.createFile(this.projectId, path, content || '', 'file');
+        await fileRepository.createFile(this.projectId, path, finalContent || '', 'file');
       } else if (type === 'delete') {
         const normalizedPath = path.replace(/\/+$/, '');
         const fileToDelete = await fileRepository.getFileByPath(this.projectId, normalizedPath);
@@ -854,10 +861,15 @@ export class NpmInstall {
           if (fileInfo.isDirectory) {
             foldersToCreate.push(fullPath);
           } else {
+            // .mjsファイルはesbuildでCJSへ変換（runtimeのregex変換が複雑なESMで壊れるため）
+            let content = fileInfo.content || '';
+            if (fullPath.endsWith('.mjs') && content) {
+              content = await transformEsmToCjs(content, fullPath);
+            }
             filesToCreate.push({
               projectId: this.projectId,
               path: fullPath,
-              content: fileInfo.content || '',
+              content,
               type: 'file',
             });
           }

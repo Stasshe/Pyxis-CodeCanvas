@@ -42,20 +42,19 @@ export const builtinModules = [
   'zlib',
 ];
 
-export function createModuleModule() {
+export function createModuleModule(requireFactory?: (filename: string) => (id: string) => unknown) {
   return {
     builtinModules,
     createRequire: (filename: string | URL) => {
-      // This is a stub. The actual require function is injected by the runtime.
-      // In a real implementation, we might need to access the runtime's module loader.
-      // For now, we'll return a dummy function or throw an error if used.
-      // However, many tools just check for its existence.
-      return (id: string) => {
+      const filenameStr = typeof filename === 'string' ? filename : filename.pathname;
+      if (requireFactory) {
+        return requireFactory(filenameStr);
+      }
+      return (_id: string) => {
         throw new Error(
           'require() created via module.createRequire is not fully supported in this environment yet.'
         );
       };
     },
-    // Add other properties as needed
   };
 }

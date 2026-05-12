@@ -40,6 +40,8 @@ import { createReadlineModule } from './modules/readlineModule';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
+import { createV8Module } from './modules/v8Module';
+import { createCryptoModule } from './modules/cryptoModule';
 
 export interface BuiltInModulesOptions {
   projectDir: string;
@@ -47,6 +49,7 @@ export interface BuiltInModulesOptions {
   projectName: string;
   processStdin?: ProcessStdin;
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
+  requireFactory?: (filename: string) => (id: string) => unknown;
 }
 
 export interface BuiltInModules {
@@ -63,6 +66,8 @@ export interface BuiltInModules {
   readline: ReturnType<typeof createReadlineModule>;
   assert: any;
   module: ReturnType<typeof createModuleModule>;
+  v8: ReturnType<typeof createV8Module>;
+  crypto: ReturnType<typeof createCryptoModule>;
 }
 
 /**
@@ -72,7 +77,7 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, processStdin, getTrackIO } = options;
+  const { projectDir, projectId, projectName, processStdin, getTrackIO, requireFactory } = options;
 
   return {
     fs: createFSModule({ projectDir, projectId, projectName }),
@@ -85,9 +90,11 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     Buffer: Buffer,
     readline: createReadlineModule(processStdin, getTrackIO),
     assert: createAssertModule(),
-    module: createModuleModule(),
+    module: createModuleModule(requireFactory),
     url: urlModule,
     stream: stream,
+    v8: createV8Module(),
+    crypto: createCryptoModule(),
   };
 }
 

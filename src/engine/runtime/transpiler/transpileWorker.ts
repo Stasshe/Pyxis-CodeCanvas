@@ -14,12 +14,10 @@
  * ## 注意
  * TypeScript/JSXのトランスパイルは拡張機能 (extensions/typescript-runtime) で実行
  * このWorkerはビルトインのCJS/ESM変換のみを担当
+ * npmパッケージの.mjsファイルはinstall時にesbuildで事前変換済みのためここでは不要
  */
 
 import { normalizeCjsEsm } from './normalizeCjsEsm';
-
-// transpileWorker runs inside a WebWorker context; runtime logger may not be available here.
-// Use console for worker-level diagnostics and ensure messages are concise.
 
 /**
  * トランスパイルリクエスト
@@ -56,11 +54,6 @@ function transpile(request: TranspileRequest): TranspileResult {
 
     // CJS/ESM正規化を実行（依存関係も同時に抽出される）
     const normalized = normalizeCjsEsm(code);
-
-    // デバッグ: normalizeCjsEsmの戻り値を確認
-    console.log('🔍 normalizeCjsEsm result:', typeof normalized, normalized);
-    console.log('🔍 normalized.code type:', typeof normalized.code);
-    console.log('🔍 normalized.dependencies:', normalized.dependencies);
 
     return {
       id: request.id,

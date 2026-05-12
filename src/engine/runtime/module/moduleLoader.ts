@@ -48,15 +48,21 @@ const NODE_BUILTIN_MODULES = [
   'readline',
   'repl',
   'stream',
+  'stream/consumers',
+  'stream/promises',
+  'stream/web',
   'string_decoder',
   'sys',
   'timers',
+  'timers/promises',
   'tls',
   'tty',
   'url',
   'util',
   'v8',
   'vm',
+  'worker_threads',
+  'perf_hooks',
   'zlib',
 ];
 
@@ -271,6 +277,21 @@ export class ModuleLoader {
         code: `module.exports = ${content};`,
         dependencies: [],
       };
+    }
+
+    // .mjsファイルでesbuildによる事前変換済み（CJS）の場合:
+    // normalizeCjsEsmを通すとtemplate literalが壊れるため、require()のみ抽出してそのまま返す
+    if (filePath.endsWith('.mjs') && !this.isESModule(content)) {
+      const deps = this.extractRequireDeps(content);
+      await this.cache.set(filePath, {
+        originalPath: filePath,
+        contentHash: version,
+        code: content,
+        deps,
+        mtime: Date.now(),
+        size: content.length,
+      });
+      return { code: content, dependencies: deps };
     }
 
     // トランスパイルが必要か判定
@@ -607,11 +628,18 @@ export class ModuleLoader {
       // If we can't modify navigator, continue anyway
     }
 
-    // コードをラップして実行。console を受け取るようにして、モジュール内の
-    // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
-    // 同期実行のため async は削除
+    // コードをラップして実行。
+    // パラメータ名を __injected_* にすることで、モジュール内の
+    // `const process = ...` や `var Buffer = ...` との名前衝突を防ぐ。
     const wrappedCode = `
-      (function(module, exports, require, __filename, __dirname, console, process, Buffer, setTimeout, setInterval, clearTimeout, clearInterval, global) {
+      (function(module, exports, require, __filename, __dirname, console, __injected_process, __injected_Buffer, __injected_setTimeout, __injected_setInterval, __injected_clearTimeout, __injected_clearInterval, __injected_global) {
+        var process = __injected_process;
+        var Buffer = __injected_Buffer;
+        var setTimeout = __injected_setTimeout;
+        var setInterval = __injected_setInterval;
+        var clearTimeout = __injected_clearTimeout;
+        var clearInterval = __injected_clearInterval;
+        var global = __injected_global;
         ${code}
         return module.exports;
       })
@@ -619,7 +647,6 @@ export class ModuleLoader {
 
     try {
       const executeFunc = eval(wrappedCode);
-      // 同期実行
       const result = executeFunc(
         module,
         exports,
@@ -641,23 +668,19 @@ export class ModuleLoader {
       // これを飲み込むと require が失敗しても空 exports で動いてしまい、
       // テストが偽の成功になる
       if (error instanceof Error && error.name === 'Error [ERR_MODULE_NOT_FOUND]') {
-        this.warn('❌ Module not found during execution:', filePath);
-        this.warn('Error details:', error.message);
+        runtimeWarn('❌ Module not found during execution:', filePath);
+        runtimeWarn('Error details:', error.message);
         throw error;
       }
 
-      // Minified ESM code (especially from Prettier) may have syntax errors
-      // that are difficult to normalize via regex-based transformations.
-      // Log the error but don't crash - allow other modules to continue.
-      this.warn('⚠️  Module execution failed (non-fatal):', filePath);
-      this.warn(
+      // モジュール実行失敗は runtimeWarn のみに記録。
+      // sandbox console (debugConsole) には出さない。
+      runtimeWarn('⚠️  Module execution failed (non-fatal):', filePath);
+      runtimeWarn(
         'Error details:',
         error instanceof Error ? `${error.name}: ${error.message}` : String(JSON.stringify(error))
       );
 
-      // Return empty exports to allow dependent modules to at least load
-      // This is especially useful for Prettier where some plugins may fail
-      // but the core functionality might still work
       return module.exports || {};
     } finally {
       // Restore original navigator
@@ -676,6 +699,20 @@ export class ModuleLoader {
   /**
    * トランスパイルが必要か判定
    */
+  /**
+   * CJSコードからrequire()の依存関係を抽出（シンプルregex版）
+   * esbuild変換済みCJSコードにのみ使用する。normalizeCjsEsmは通さない。
+   */
+  private extractRequireDeps(content: string): string[] {
+    const deps = new Set<string>();
+    const re = /\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      deps.add(m[2]);
+    }
+    return Array.from(deps);
+  }
+
   private needsTranspile(filePath: string, content: string): boolean {
     // TypeScriptファイル
     if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
