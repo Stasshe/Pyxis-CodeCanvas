@@ -33,6 +33,17 @@ const LOCALE_STORAGE_KEY = LOCALSTORAGE_KEY.LOCALE;
 // 初期ロケール計算のキャッシュ（一度だけ計算）
 let cachedInitialLocale: Locale | null = null;
 
+function getBrowserLocalStorage(): Storage | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    return window.localStorage;
+  } catch (error) {
+    console.warn('[i18n] localStorage is unavailable:', error);
+    return null;
+  }
+}
+
 /**
  * 有効化された言語パック拡張機能から利用可能な言語を取得
  */
@@ -80,10 +91,11 @@ function detectBrowserLocale(): Locale {
  * 有効化された言語パック拡張機能の中から選択
  */
 function getSavedLocale(): Locale | null {
-  if (typeof localStorage === 'undefined') return null;
+  const storage = getBrowserLocalStorage();
+  if (!storage) return null;
 
   try {
-    const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
+    const saved = storage.getItem(LOCALE_STORAGE_KEY);
     if (saved && isSupportedLocale(saved)) {
       // 保存された言語が有効化された言語パックの中にあるかチェック
       const enabledLocales = getEnabledLocales();
@@ -121,10 +133,11 @@ function getSavedLocale(): Locale | null {
  * localStorageにロケールを保存
  */
 function saveLocale(locale: Locale): void {
-  if (typeof localStorage === 'undefined') return;
+  const storage = getBrowserLocalStorage();
+  if (!storage) return;
 
   try {
-    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    storage.setItem(LOCALE_STORAGE_KEY, locale);
   } catch (error) {
     console.error('[i18n] Failed to save locale:', error);
   }
@@ -295,7 +308,7 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
     cleanExpiredCache().catch(err => {
       console.error('[i18n] Failed to clean expired cache:', err);
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialLocale, loadLocale]);
 
   const value: I18nContextValue = {
     locale,
