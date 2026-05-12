@@ -31,35 +31,30 @@ async function getApi(): Promise<EsbuildApi | null> {
   if (initPromise) return initPromise;
 
   initPromise = (async (): Promise<EsbuildApi | null> => {
-    try {
-      if (typeof window === 'undefined') {
-        // Node.js環境 (テスト): esbuildネイティブ
-        const mod = await import('esbuild');
-        api = mod as unknown as EsbuildApi;
-        return api;
-      }
+    if (typeof window === 'undefined') {
+      // Node.js環境 (テスト): esbuildネイティブ
+      const mod = await import('esbuild');
+      api = mod as unknown as EsbuildApi;
+      return api;
+    }
 
-      // ブラウザ環境: esbuild-wasm
-      const mod = await import('esbuild-wasm');
-      const esbuild = ((mod as any).default || mod) as EsbuildApi;
+    // ブラウザ環境: esbuild-wasm
+    const mod = await import('esbuild-wasm');
+    const esbuild = ((mod as any).default || mod) as EsbuildApi;
 
-      if (esbuild.initialize) {
-        try {
-          // react-previewと共有のwasmファイルを使用
-          await esbuild.initialize({ wasmURL: '/extensions/react-preview/esbuild.wasm' });
-        } catch (e) {
-          // 既に初期化済み (react-preview等が先に初期化) → 続行
-          if (!String(e).includes('already been initialized')) {
-            return null;
-          }
+    if (esbuild.initialize) {
+      try {
+        await esbuild.initialize({ wasmURL: '/esbuild.wasm' });
+      } catch (e) {
+        // 既に初期化済み → 続行
+        if (!String(e).includes('already been initialized')) {
+          throw e;
         }
       }
-
-      api = esbuild;
-      return api;
-    } catch {
-      return null;
     }
+
+    api = esbuild;
+    return api;
   })();
 
   return initPromise;
@@ -67,27 +62,18 @@ async function getApi(): Promise<EsbuildApi | null> {
 
 /**
  * ESMコードをCJSに変換する
- *
- * esbuildが利用できない場合は元のコードをそのまま返す (フォールバック)
  */
 export async function transformEsmToCjs(code: string, _filePath: string): Promise<string> {
   const esbuild = await getApi();
-  if (!esbuild) return code;
+  if (!esbuild) throw new Error('esbuild not available');
 
-  let transformed: string;
-  try {
-    const result = await esbuild.transform(code, {
-      format: 'cjs',
-      target: 'es2020',
-      loader: 'js',
-      platform: 'node',
-    });
-    transformed = result.code;
-  } catch (e) {
-    // esbuild変換失敗時は空のexportsを返す。
-    // 元のESMコードを返すとnormalizeCjsEsmが壊すためスタブで代替。
-    return '"use strict";\nmodule.exports = {};';
-  }
+  const result = await esbuild.transform(code, {
+    format: 'cjs',
+    target: 'es2020',
+    loader: 'js',
+    platform: 'node',
+  });
+  let transformed = result.code;
 
   // esbuild変換後のpost-processing:
   // ブラウザ/custom runtimeのwrapperと衝突する宣言を除去・修正
