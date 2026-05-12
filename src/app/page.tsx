@@ -11,8 +11,8 @@ import BottomStatusBar from '@/components/Bottom/BottomStatusBar';
 import CustomDragLayer from '@/components/DnD/CustomDragLayer';
 import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
-import PaneContainer from '@/components/Pane/PaneContainer';
 import PaneNavigator from '@/components/Pane/PaneNavigator';
+import RootPaneArea from '@/components/Pane/RootPaneArea';
 import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
@@ -32,6 +32,7 @@ import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { setCurrentProject } from '@/stores/projectStore';
+import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { sessionStore } from '@/stores/sessionStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
@@ -57,7 +58,6 @@ export default function Home() {
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isPaneNavigatorOpen, setIsPaneNavigatorOpen] = useState(false);
-  const [gitRefreshTrigger, setGitRefreshTrigger] = useState(0);
   const [gitChangesCount, setGitChangesCount] = useState(0);
   const [nodeRuntimeOperationInProgress] = useState(false);
 
@@ -124,7 +124,7 @@ export default function Home() {
 
   const handleFilesRefresh = useCallback(() => {
     if (refreshProjectFiles) {
-      refreshProjectFiles().then(() => setGitRefreshTrigger(prev => prev + 1));
+      refreshProjectFiles().then(() => triggerGitRefresh());
     }
   }, [refreshProjectFiles]);
 
@@ -469,7 +469,6 @@ export default function Home() {
               currentProject={currentProject}
               onResize={handleLeftResize}
               onGitRefresh={handleGitRefresh}
-              gitRefreshTrigger={gitRefreshTrigger}
               onGitStatusChange={setGitChangesCount}
               onRefresh={handleFilesRefresh}
             />
@@ -481,82 +480,7 @@ export default function Home() {
           >
             {/* メインエディタエリア */}
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-              <div
-                className="flex-1 overflow-hidden flex flex-row"
-                style={{ position: 'relative' }}
-              >
-                {panes.map((pane, idx) => (
-                  <React.Fragment key={pane.id}>
-                    <div
-                      style={{
-                        width: panes.length > 1 ? `${pane.size || 100 / panes.length}%` : '100%',
-                        height: '100%',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        flexGrow: 0,
-                      }}
-                    >
-                      <PaneContainer pane={pane} setGitRefreshTrigger={setGitRefreshTrigger} />
-                    </div>
-
-                    {/* ルートレベルペイン間のリサイザー */}
-                    {idx < panes.length - 1 && (
-                      <div
-                        style={{
-                          position: 'relative',
-                          width: '6px',
-                          height: '100%',
-                          flexShrink: 0,
-                          flexGrow: 0,
-                          cursor: 'col-resize',
-                          background: colors.border,
-                          zIndex: 10,
-                        }}
-                        onMouseDown={e => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startLeftSize = pane.size || 100 / panes.length;
-                          const startRightSize = panes[idx + 1]?.size || 100 / panes.length;
-
-                          const handleMouseMove = (moveEvent: MouseEvent) => {
-                            const container = e.currentTarget.parentElement;
-                            if (!container) return;
-
-                            const containerWidth = container.clientWidth;
-                            const delta = moveEvent.clientX - startX;
-                            const deltaPercent = (delta / containerWidth) * 100;
-                            const newLeftSize = Math.max(
-                              10,
-                              Math.min(90, startLeftSize + deltaPercent)
-                            );
-                            const newRightSize = Math.max(
-                              10,
-                              Math.min(90, startRightSize - deltaPercent)
-                            );
-
-                            const updatedPanes = [...panes];
-                            updatedPanes[idx] = { ...pane, size: newLeftSize };
-                            updatedPanes[idx + 1] = {
-                              ...updatedPanes[idx + 1],
-                              size: newRightSize,
-                            };
-                            setPanes(updatedPanes);
-                          };
-
-                          const handleMouseUp = () => {
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUp);
-                          };
-
-                          document.addEventListener('mousemove', handleMouseMove);
-                          document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                      />
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
+              <RootPaneArea panes={panes} colors={colors} setPanes={setPanes} />
 
               {isBottomPanelVisible && (
                 <BottomPanel

@@ -23,7 +23,6 @@ interface LeftSidebarProps {
   currentProject: Project;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
-  gitRefreshTrigger?: number;
   onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
 }
@@ -35,7 +34,6 @@ export default function LeftSidebar({
   currentProject,
   onResize,
   onGitRefresh,
-  gitRefreshTrigger,
   onRefresh,
   onGitStatusChange,
 }: LeftSidebarProps) {
@@ -167,7 +165,6 @@ export default function LeftSidebar({
                 currentProject={currentProject.name}
                 currentProjectId={currentProject.id}
                 onRefresh={onGitRefresh}
-                gitRefreshTrigger={gitRefreshTrigger}
                 onGitStatusChange={onGitStatusChange}
               />
             </div>
