@@ -8,7 +8,7 @@ import { syncManager } from '@/engine/core/syncManager';
 import { tabActions } from '@/stores/tabState';
 
 /**
- * [NEW ARCHITECTURE] Git merge操作を管理するクラス
+ * Git merge操作を管理するクラス
  * - merge後にsyncManager.syncFromFSToIndexedDB()で逆同期
  */
 export class GitMergeOperations {
@@ -188,7 +188,7 @@ export class GitMergeOperations {
 
       // Fast-forward マージの場合
       if (canFF && !options.noFf) {
-        console.log('[NEW ARCHITECTURE] Performing fast-forward merge');
+        console.log('Performing fast-forward merge');
 
         // Fast-forward マージを実行（HEADを対象ブランチに移動）
         await git.writeRef({
@@ -201,17 +201,17 @@ export class GitMergeOperations {
         // ワーキングディレクトリを更新
         await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch });
 
-        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+        // GitFileSystem → IndexedDBへ逆同期
+        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
         await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('[NEW ARCHITECTURE] Reverse sync completed');
+        console.log('Reverse sync completed');
 
         const shortTarget = targetCommit.slice(0, 7);
-        return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
+        return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward\n\nChanges synced to IndexedDB`;
       }
 
       // 3-way マージを実行
-      console.log('[NEW ARCHITECTURE] Performing 3-way merge');
+      console.log('Performing 3-way merge');
 
       const commitMessage = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
 
@@ -233,7 +233,7 @@ export class GitMergeOperations {
           message: commitMessage,
         });
 
-        console.log('[NEW ARCHITECTURE] Merge result:', result);
+        console.log('Merge result:', result);
 
         // マージが成功した場合
         if (result && !result.alreadyMerged) {
@@ -242,28 +242,28 @@ export class GitMergeOperations {
             await git.checkout({ fs: this.fs, dir: this.dir, ref: result.oid });
           }
 
-          // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-          console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+          // GitFileSystem → IndexedDBへ逆同期
+          console.log('Starting reverse sync: GitFileSystem → IndexedDB');
           await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-          console.log('[NEW ARCHITECTURE] Reverse sync completed');
+          console.log('Reverse sync completed');
 
           const mergeCommit = result.oid ? result.oid.slice(0, 7) : 'unknown';
-          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
+          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}\n\nChanges synced to IndexedDB`;
         }
         if (result?.alreadyMerged) {
           return 'Already up to date.';
         }
-        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+        // GitFileSystem → IndexedDBへ逆同期
+        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
         await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('[NEW ARCHITECTURE] Reverse sync completed');
+        console.log('Reverse sync completed');
 
-        return 'Merge completed successfully.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB';
+        return 'Merge completed successfully.\n\nChanges synced to IndexedDB';
       } catch (mergeError) {
         const error = mergeError as Error & { code?: string };
         // マージコンフリクトの場合
         if (error.code === 'MergeNotSupportedError' || error.message?.includes('conflict')) {
-          console.log('[NEW ARCHITECTURE] Merge conflict detected, opening resolution tab');
+          console.log('Merge conflict detected, opening resolution tab');
 
           // Detect conflicts
           const detector = new MergeConflictDetector(this.fs, this.dir);
@@ -335,12 +335,12 @@ export class GitMergeOperations {
           await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
         }
 
-        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+        // GitFileSystem → IndexedDBへ逆同期
+        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
         await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('[NEW ARCHITECTURE] Reverse sync completed');
+        console.log('Reverse sync completed');
 
-        return 'Merge aborted. Working tree has been reset.\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB';
+        return 'Merge aborted. Working tree has been reset.\n\nChanges synced to IndexedDB';
       } catch (error) {
         throw new Error(`Failed to abort merge: ${(error as Error).message}`);
       }

@@ -4,7 +4,7 @@ import git from 'isomorphic-git';
 import { syncManager } from '@/engine/core/syncManager';
 
 /**
- * [NEW ARCHITECTURE] Git reset操作を管理するクラス
+ * Git reset操作を管理するクラス
  * - reset --hard後にsyncManager.syncFromFSToIndexedDB()で逆同期
  */
 export class GitResetOperations {
@@ -20,7 +20,7 @@ export class GitResetOperations {
     this.projectName = projectName;
   }
 
-  // [NEW ARCHITECTURE] git reset - ファイルをアンステージング、またはハードリセット + 逆同期
+  // git reset - ファイルをアンステージング、またはハードリセット + 逆同期
   async reset(
     options: { filepath?: string; hard?: boolean; commit?: string } = {}
   ): Promise<string> {
@@ -36,7 +36,7 @@ export class GitResetOperations {
 
       if (filepath) {
         // 特定のファイルをアンステージング
-        console.log('[NEW ARCHITECTURE] Reset: Unstaging file:', filepath);
+        console.log('Reset: Unstaging file:', filepath);
         await git.resetIndex({
           fs: this.fs,
           dir: this.dir,
@@ -49,7 +49,7 @@ export class GitResetOperations {
         // ハードリセット: ワーキングディレクトリとインデックスを指定コミットの状態に戻す
         const targetRef = commit || 'HEAD';
 
-        console.log('[NEW ARCHITECTURE] Reset: Hard reset to', targetRef);
+        console.log('Reset: Hard reset to', targetRef);
 
         // ターゲットコミットのOIDを取得（短縮形コミットIDも対応）
         let targetOid: string;
@@ -96,11 +96,10 @@ export class GitResetOperations {
           oid: targetOid,
         });
 
-        const targetTree = await git.readTree({
-          fs: this.fs,
-          dir: this.dir,
-          oid: targetCommit.commit.tree,
-        });
+        // reset 前の GitFS 側パスを控えておく。
+        // 逆同期時はこの tracked path 群だけを IndexedDB から読むことで、
+        // node_modules など .gitignore 済みの IndexedDB レコードを全走査しない。
+        const previousFsPaths = await this.collectFsPaths(this.dir);
 
         // 現在のファイルをすべて削除（.gitディレクトリ以外）
         const deleteAllFiles = async (dirPath: string): Promise<void> => {
@@ -130,7 +129,7 @@ export class GitResetOperations {
 
         // git.checkoutを使用してターゲットコミットの状態を復元
         // これによりディレクトリ構造も自動的に作成される
-        console.log('[NEW ARCHITECTURE] Reset: Checking out target commit');
+        console.log('Reset: Checking out target commit');
 
         // ブランチが存在する場合はブランチ名でcheckout、detached HEAD状態の場合はOIDでcheckout
         const checkoutRef = currentBranch !== 'HEAD' ? currentBranch : targetOid;
@@ -167,21 +166,24 @@ export class GitResetOperations {
         };
 
         const restoredCount = await countFiles(this.dir);
-        console.log('[NEW ARCHITECTURE] Reset: Restored files count:', restoredCount);
+        console.log('Reset: Restored files count:', restoredCount);
 
-        // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-        console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
-        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('[NEW ARCHITECTURE] Reverse sync completed');
+        // GitFileSystem → IndexedDBへ逆同期
+        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
+        const restoredFsPaths = await this.collectFsPaths(this.dir);
+        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName, {
+          candidatePaths: new Set([...previousFsPaths, ...restoredFsPaths]),
+        });
+        console.log('Reverse sync completed');
 
         const shortHash = targetOid.slice(0, 7);
         const commitMessage = targetCommit.commit.message.split('\n')[0];
-        return `HEAD is now at ${shortHash} ${commitMessage}\n\n[NEW ARCHITECTURE] ${restoredCount} files synced to IndexedDB`;
+        return `HEAD is now at ${shortHash} ${commitMessage}\n\n${restoredCount} files synced to IndexedDB`;
       }
 
       // 通常のリセット（ソフトリセット）
       const targetRef = commit || 'HEAD';
-      console.log('[NEW ARCHITECTURE] Reset: Soft reset to', targetRef);
+      console.log('Reset: Soft reset to', targetRef);
 
       // ソフトリセット用のOID解決（短縮形コミットIDも対応）
       let targetOid: string;
@@ -249,5 +251,30 @@ export class GitResetOperations {
 
       throw new Error(`git reset failed: ${errorMessage}`);
     }
+  }
+
+  private async collectFsPaths(dirPath: string, relativePath = ''): Promise<string[]> {
+    const paths: string[] = [];
+    try {
+      const entries = await this.fs.promises.readdir(dirPath);
+      for (const entry of entries) {
+        if (entry === '.git') continue;
+
+        const fullPath = `${dirPath}/${entry}`;
+        const appPath = relativePath ? `${relativePath}/${entry}` : `/${entry}`;
+        try {
+          const stats = await this.fs.promises.stat(fullPath);
+          paths.push(appPath);
+          if (stats.type === 'dir') {
+            paths.push(...(await this.collectFsPaths(fullPath, appPath)));
+          }
+        } catch {
+          // Ignore entries that disappear while collecting.
+        }
+      }
+    } catch {
+      // Treat unreadable directories as empty.
+    }
+    return paths;
   }
 }

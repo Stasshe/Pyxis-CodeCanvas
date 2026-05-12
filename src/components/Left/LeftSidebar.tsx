@@ -23,8 +23,7 @@ interface LeftSidebarProps {
   currentProject: Project;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
-  gitRefreshTrigger?: number;
-  onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
+  onRefresh?: () => void; // ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
 }
 
@@ -35,7 +34,6 @@ export default function LeftSidebar({
   currentProject,
   onResize,
   onGitRefresh,
-  gitRefreshTrigger,
   onRefresh,
   onGitStatusChange,
 }: LeftSidebarProps) {
@@ -93,7 +91,7 @@ export default function LeftSidebar({
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>
                   ./
                 </span>
-                {/* [NEW ARCHITECTURE] 新規ファイル作成 - fileRepository直接呼び出し */}
+                {/* 新規ファイル作成 - fileRepository直接呼び出し */}
                 <button
                   title={t('leftSidebar.createFile')}
                   style={{
@@ -115,7 +113,7 @@ export default function LeftSidebar({
                 >
                   <FilePlus size={16} color={colors.sidebarIconFg} />
                 </button>
-                {/* [NEW ARCHITECTURE] 新規フォルダ作成 - fileRepository直接呼び出し */}
+                {/* 新規フォルダ作成 - fileRepository直接呼び出し */}
                 <button
                   title={t('leftSidebar.createFolder')}
                   style={{
@@ -167,14 +165,15 @@ export default function LeftSidebar({
                 currentProject={currentProject.name}
                 currentProjectId={currentProject.id}
                 onRefresh={onGitRefresh}
-                gitRefreshTrigger={gitRefreshTrigger}
                 onGitStatusChange={onGitStatusChange}
               />
             </div>
           )}
-          <div className="h-full" style={{ display: activeMenuTab === 'run' ? 'block' : 'none' }}>
-            <RunPanel currentProject={currentProject} files={files} />
-          </div>
+          {activeMenuTab === 'run' && (
+            <div className="h-full">
+              <RunPanel currentProject={currentProject} files={files} />
+            </div>
+          )}
           {activeMenuTab === 'extensions' && (
             <div className="h-full">
               <ExtensionsPanel />

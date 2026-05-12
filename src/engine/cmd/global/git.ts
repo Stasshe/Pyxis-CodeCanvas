@@ -20,7 +20,7 @@ import { syncManager } from '@/engine/core/syncManager';
 import { authRepository } from '@/engine/user/authRepository';
 
 /**
- * [NEW ARCHITECTURE] Git操作を管理するクラス
+ * Git操作を管理するクラス
  * - IndexedDBへの同期はfileRepositoryが自動的に実行
  * - Git操作後の逆同期はsyncManagerを使用
  * - バッチ処理機能を削除（不要）
@@ -274,7 +274,7 @@ export class GitCommands {
   // ファイルの追加・コミット操作
   // ========================================
 
-  // [NEW ARCHITECTURE] git add - ファイルをステージング（削除ファイル対応強化版）
+  // git add - ファイルをステージング（削除ファイル対応強化版）
   async add(filepath: string): Promise<string> {
     await this.ensureProjectDirectory();
     const { add } = await import('./gitOperations/add');

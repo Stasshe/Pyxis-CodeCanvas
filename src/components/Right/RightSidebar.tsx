@@ -28,6 +28,15 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
   return (
     <>
+      <div
+        className="resizer resizer-vertical flex-shrink-0"
+        onMouseDown={onResize}
+        onTouchStart={onResize}
+        style={{
+          background: colors.sidebarResizerBg,
+          cursor: 'col-resize',
+        }}
+      />
       <aside
         data-sidebar="right"
         className="flex flex-col flex-shrink-0"
@@ -43,7 +52,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       >
         <div style={{ flex: 1, overflow: 'auto' }}>
           {children || (
-            // [NEW ARCHITECTURE] デフォルトでAI Panelを表示
+            // デフォルトでAI Panelを表示
             <AIPanel
               projectFiles={projectFiles}
               currentProject={currentProject}

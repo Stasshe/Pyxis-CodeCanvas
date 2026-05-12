@@ -107,6 +107,8 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   }, []);
 
   useEffect(() => {
+    if (!isActive) return;
+
     let disposable: { dispose?: () => void } | null = null;
     let isCancelled = false;
 
@@ -185,7 +187,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         }
       } catch (e) {}
     };
-  }, [refreshCounter]);
+  }, [isActive, refreshCounter]);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;

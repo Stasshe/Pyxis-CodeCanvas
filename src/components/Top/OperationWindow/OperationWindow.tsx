@@ -3,8 +3,8 @@
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
 import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -39,7 +39,6 @@ export interface OperationListItem {
 }
 
 interface OperationWindowProps {
-  isVisible: boolean;
   onClose: () => void;
   projectFiles: FileItem[];
   onFileSelect?: (file: FileItem, preview?: boolean) => void; // AI用モード用
@@ -60,7 +59,6 @@ interface OperationWindowProps {
 }
 
 export default function OperationWindow({
-  isVisible,
   onClose,
   projectFiles,
   onFileSelect,
@@ -91,17 +89,15 @@ export default function OperationWindow({
   // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
   const ITEM_HEIGHT = 20; // slightly more compact
 
-  // Reset state when visibility changes
+  // Reset state on mount. Visibility is controlled by the parent mounting/unmounting this window.
   useEffect(() => {
-    if (isVisible) {
-      setSearchQuery('');
-      setSelectedIndex(0);
-      // Focus input
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [isVisible]);
+    setSearchQuery('');
+    setSelectedIndex(0);
+    const timeoutId = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   // Attach a top-level portal element to document.body so the overlay isn't clipped
   useEffect(() => {
@@ -121,56 +117,65 @@ export default function OperationWindow({
   }, [portalEl]);
 
   // ファイル選択ハンドラ
-  const handleFileSelectInOperation = (file: FileItem) => {
-    // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
-    if (aiMode) {
-      actuallyOpenFile(file, false);
-      return;
-    }
-
-    if (file.name.toLowerCase().endsWith('.md')) {
-      setMdPreviewPrompt({ file });
-      return;
-    }
-    actuallyOpenFile(file, false);
-  };
-
   // 実際にファイルを開く処理（mdプレビューかどうかを指定）
   // NOTE: Tab system removed — delegate to `onFileSelect(file, preview)` if available.
-  const actuallyOpenFile = async (file: FileItem, preview: boolean) => {
-    if (onFileSelect) {
-      try {
-        onFileSelect(file, preview);
-      } catch (e) {
-        console.warn('[OperationWindow] onFileSelect threw:', e);
+  const actuallyOpenFile = useCallback(
+    async (file: FileItem, preview: boolean) => {
+      if (onFileSelect) {
+        try {
+          onFileSelect(file, preview);
+        } catch (e) {
+          console.warn('[OperationWindow] onFileSelect threw:', e);
+        }
+        onClose();
+        return;
       }
+
+      // Fallback: try to open via tab store if available (back-compat)
+      try {
+        const defaultEditor =
+          typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+        const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
+        const options = targetPaneId
+          ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
+          : { kind: preview ? 'preview' : 'editor' };
+
+        await tabActions.openTab(fileWithEditor, options);
+        onClose();
+        return;
+      } catch (e) {
+        console.warn('[OperationWindow] tab fallback failed:', e);
+      }
+
+      // No handler available — simply close and warn.
+      console.warn('[OperationWindow] No file open handler available (tabs removed).');
       onClose();
-      return;
-    }
+    },
+    [onFileSelect, onClose, targetPaneId]
+  );
 
-    // Fallback: try to open via tab store if available (back-compat)
-    try {
-      const defaultEditor =
-        typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-      const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
-      const options = targetPaneId
-        ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
-        : { kind: preview ? 'preview' : 'editor' };
+  const handleFileSelectInOperation = useCallback(
+    (file: FileItem) => {
+      // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
+      if (aiMode) {
+        actuallyOpenFile(file, false);
+        return;
+      }
 
-      await tabActions.openTab(fileWithEditor, options);
-      onClose();
-      return;
-    } catch (e) {
-      console.warn('[OperationWindow] tab fallback failed:', e);
-    }
-
-    // No handler available — simply close and warn.
-    console.warn('[OperationWindow] No file open handler available (tabs removed).');
-    onClose();
-  };
+      if (file.name.toLowerCase().endsWith('.md')) {
+        setMdPreviewPrompt({ file });
+        return;
+      }
+      actuallyOpenFile(file, false);
+    },
+    [actuallyOpenFile, aiMode]
+  );
 
   // Create a single flattened list once and reuse it to avoid multiple traversals
-  const flattenedFiles = useMemo(() => flattenFileItems(projectFiles), [projectFiles]);
+  const flattenedFiles = useMemo(
+    () => (viewMode === 'files' ? flattenFileItems(projectFiles) : []),
+    [projectFiles, viewMode]
+  );
 
   // 設定から除外パターンを取得
   const gitignoreRules = useMemo((): GitIgnoreRule[] => {
@@ -384,8 +389,6 @@ export default function OperationWindow({
   // ESCキーで閉じる、上下キーで選択、Enterで開く
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isVisible) return;
-
       // mdプレビュー選択ダイアログが表示中
       if (mdPreviewPrompt) {
         if (e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -438,15 +441,12 @@ export default function OperationWindow({
       }
     };
 
-    if (isVisible) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [
-    isVisible,
     filteredFiles,
     filteredItems,
     selectedIndex,
@@ -465,8 +465,6 @@ export default function OperationWindow({
       onSearchList(searchQuery);
     }
   }, [searchQuery, viewMode]);
-
-  if (!isVisible) return null;
 
   const jsx = (
     <>

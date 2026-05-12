@@ -7,7 +7,7 @@ import { isRemoteRef, resolveRemoteRef, toFullRemoteRef } from './remoteUtils';
 import { syncManager } from '@/engine/core/syncManager';
 
 /**
- * [NEW ARCHITECTURE] Git checkout操作を管理するクラス
+ * Git checkout操作を管理するクラス
  * - checkout後にsyncManager.syncFromFSToIndexedDB()で逆同期
  * - リモートブランチはremoteUtilsを使用して標準化された処理を行う
  */
@@ -40,7 +40,7 @@ export class GitCheckoutOperations {
     return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
   }
 
-  // [NEW ARCHITECTURE] git checkout - ブランチ切り替え/作成 + 逆同期
+  // git checkout - ブランチ切り替え/作成 + 逆同期
   async checkout(branchName: string, createNew = false): Promise<string> {
     try {
       await this.ensureProjectDirectory();
@@ -131,7 +131,7 @@ export class GitCheckoutOperations {
 
       // チェックアウト前のファイル数を記録
       const beforeFiles = await this.getAllFiles(this.dir);
-      console.log('[NEW ARCHITECTURE] Checkout: Before files count:', beforeFiles.length);
+      console.log('Checkout: Before files count:', beforeFiles.length);
 
       // チェックアウト実行:
       // - createNew が true の場合: 新しく作成したブランチ名でチェックアウト
@@ -141,18 +141,18 @@ export class GitCheckoutOperations {
       const checkoutRef =
         createNew || resolvedFromLocal ? branchName : targetCommitHash || branchName;
 
-      console.log('[NEW ARCHITECTURE] Executing git checkout (ref):', checkoutRef);
+      console.log('Executing git checkout (ref):', checkoutRef);
       await git.checkout({ fs: this.fs, dir: this.dir, ref: checkoutRef });
-      console.log('[NEW ARCHITECTURE] Checkout completed');
+      console.log('Checkout completed');
 
       // チェックアウト後のファイル数を記録
       const afterFiles = await this.getAllFiles(this.dir);
-      console.log('[NEW ARCHITECTURE] Checkout: After files count:', afterFiles.length);
+      console.log('Checkout: After files count:', afterFiles.length);
 
-      // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-      console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+      // GitFileSystem → IndexedDBへ逆同期
+      console.log('Starting reverse sync: GitFileSystem → IndexedDB');
       await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-      console.log('[NEW ARCHITECTURE] Reverse sync completed');
+      console.log('Reverse sync completed');
 
       // ターゲットコミットの情報を取得
       if (!targetCommitHash) {
@@ -183,7 +183,7 @@ export class GitCheckoutOperations {
       // ファイル変更数を追加
       const filesChanged = Math.abs(afterFiles.length - beforeFiles.length);
       if (filesChanged > 0) {
-        result += `\n\n[NEW ARCHITECTURE] Files synced to IndexedDB: ${afterFiles.length}`;
+        result += `\n\nFiles synced to IndexedDB: ${afterFiles.length}`;
       }
 
       return result;

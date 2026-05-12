@@ -660,6 +660,102 @@ export class FileRepository {
   }
 
   /**
+   * GitFileSystem からの逆同期用 upsert。
+   * 通常の save/create と違い、GitFileSystem への再同期は発火しない。
+   */
+  async upsertFileFromSync(
+    projectId: string,
+    path: string,
+    content: string,
+    type: 'file' | 'folder'
+  ): Promise<ProjectFile> {
+    if (!this.db) throw new Error('Database not initialized');
+    const db = this.db;
+
+    const normalizedPath = toAppPath(path);
+    const existingFile = await this.getFileByPath(projectId, normalizedPath);
+    const timestamp = new Date();
+    const file: ProjectFile = existingFile
+      ? {
+          ...existingFile,
+          content,
+          type,
+          isBufferArray: false,
+          bufferContent: undefined,
+          updatedAt: timestamp,
+        }
+      : {
+          id: generateUniqueId('file'),
+          projectId,
+          path: normalizedPath,
+          name: normalizedPath.split('/').pop() || '',
+          content,
+          type,
+          parentPath: normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) || '/',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          isBufferArray: false,
+          bufferContent: undefined,
+        };
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+      const request = store.put(file);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+
+    if (file.path === '/.gitignore') {
+      if (!file.content || file.content.trim() === '') {
+        this.clearGitignoreCache(projectId);
+      } else {
+        this.updateGitignoreCache(projectId, file.content);
+      }
+    }
+
+    this.emitChange({
+      type: existingFile ? 'update' : 'create',
+      projectId,
+      file,
+    });
+
+    return file;
+  }
+
+  /**
+   * GitFileSystem からの逆同期用削除。
+   * 指定 ID のレコードだけを消し、GitFileSystem への再同期やフォルダ再帰削除は行わない。
+   */
+  async deleteFileFromSync(fileId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const db = this.db;
+
+    const fileToDelete = await this.getFileById(fileId);
+    if (!fileToDelete) {
+      throw new Error(`File with id ${fileId} not found`);
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(['files'], 'readwrite');
+      const store = transaction.objectStore('files');
+      const request = store.delete(fileId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+
+    if (fileToDelete.path === '/.gitignore') {
+      this.clearGitignoreCache(fileToDelete.projectId);
+    }
+
+    this.emitChange({
+      type: 'delete',
+      projectId: fileToDelete.projectId,
+      file: { id: fileToDelete.id, path: fileToDelete.path },
+    });
+  }
+
+  /**
    * パスベースでファイルを保存または作成する便利メソッド
    * 既存ファイルがあれば更新し、なければ新規作成する
    * AI機能など、ファイルの存在を事前に確認せずに保存したい場合に使用

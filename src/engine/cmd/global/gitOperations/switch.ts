@@ -4,7 +4,7 @@ import { GitCheckoutOperations } from './checkout';
 import { isRemoteRef, resolveRemoteRef } from './remoteUtils';
 
 /**
- * [NEW ARCHITECTURE] Git switch操作を管理するクラス
+ * Git switch操作を管理するクラス
  * - ローカルブランチ、リモートブランチ、コミットハッシュに対応
  * - checkout操作をラップして機能を提供
  * - リモートブランチはremoteUtilsを使用して標準化された処理を行う

@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] os モジュールのエミュレーション
+ * os モジュールのエミュレーション
  */
 
 export function createOSModule() {

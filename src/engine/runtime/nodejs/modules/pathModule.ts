@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] path モジュールのエミュレーション
+ * path モジュールのエミュレーション
  */
 
 import pathBrowserify from 'path-browserify';

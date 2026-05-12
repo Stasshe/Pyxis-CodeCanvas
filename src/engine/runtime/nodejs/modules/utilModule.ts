@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] util モジュールのエミュレーション
+ * util モジュールのエミュレーション
  */
 
 export function createUtilModule() {

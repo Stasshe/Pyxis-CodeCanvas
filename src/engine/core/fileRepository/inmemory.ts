@@ -253,6 +253,57 @@ export class FileRepository {
     });
   }
 
+  async upsertFileFromSync(
+    projectId: string,
+    path: string,
+    content: string,
+    type: 'file' | 'folder'
+  ): Promise<ProjectFile> {
+    const normalizedPath = toAppPath(path);
+    const existingFile = await this.getFileByPath(projectId, normalizedPath);
+    const timestamp = new Date();
+    const file: ProjectFile = existingFile
+      ? {
+          ...existingFile,
+          content,
+          type,
+          isBufferArray: false,
+          bufferContent: undefined,
+          updatedAt: timestamp,
+        }
+      : {
+          id: generateUniqueId('file'),
+          projectId,
+          path: normalizedPath,
+          name: normalizedPath.split('/').pop() || '',
+          content,
+          type,
+          parentPath: normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) || '/',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          isBufferArray: false,
+          bufferContent: undefined,
+        };
+
+    this.files.set(file.id, file);
+    this.emitChange({ type: existingFile ? 'update' : 'create', projectId, file });
+    return file;
+  }
+
+  async deleteFileFromSync(fileId: string): Promise<void> {
+    const fileToDelete = this.files.get(fileId);
+    if (!fileToDelete) {
+      throw new Error(`File with id ${fileId} not found`);
+    }
+
+    this.files.delete(fileId);
+    this.emitChange({
+      type: 'delete',
+      projectId: fileToDelete.projectId,
+      file: { id: fileToDelete.id, path: fileToDelete.path },
+    });
+  }
+
   async saveFileByPath(projectId: string, path: string, content: string): Promise<void> {
     const normalizedPath = toAppPath(path);
     const existingFile = await this.getFileByPath(projectId, normalizedPath);

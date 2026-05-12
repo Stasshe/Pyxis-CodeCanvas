@@ -490,7 +490,6 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
       {/* OperationWindow-driven spaces list (opened when showSpaceList) */}
       {showSpaceList && (
         <OperationWindow
-          isVisible={showSpaceList}
           onClose={() => setShowSpaceList(false)}
           projectFiles={projectFiles}
           items={spaceItems}

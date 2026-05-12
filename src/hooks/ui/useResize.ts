@@ -54,14 +54,47 @@ export function useResize(options: UseResizeOptions) {
     currentSize: initialSize,
   });
 
+  const cleanupDocumentState = useCallback(() => {
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.body.style.touchAction = '';
+    document.body.classList.remove('ui-resizing');
+
+    if (mouseMoveHandler.current) {
+      document.removeEventListener('mousemove', mouseMoveHandler.current);
+    }
+    if (mouseUpHandler.current) {
+      document.removeEventListener('mouseup', mouseUpHandler.current);
+    }
+    if (touchMoveHandler.current) {
+      document.removeEventListener('touchmove', touchMoveHandler.current);
+    }
+    if (touchEndHandler.current) {
+      document.removeEventListener('touchend', touchEndHandler.current);
+    }
+
+    mouseMoveHandler.current = null;
+    mouseUpHandler.current = null;
+    touchMoveHandler.current = null;
+    touchEndHandler.current = null;
+  }, []);
+
+  // Create stable event handlers that will be registered/removed
+  const mouseMoveHandler = useRef<((e: MouseEvent) => void) | null>(null);
+  const mouseUpHandler = useRef<(() => void) | null>(null);
+  const touchMoveHandler = useRef<((e: TouchEvent) => void) | null>(null);
+  const touchEndHandler = useRef<(() => void) | null>(null);
+
   // Clean up any pending animation frame on unmount
   useEffect(() => {
     return () => {
       if (stateRef.current.rafId !== null) {
         cancelAnimationFrame(stateRef.current.rafId);
       }
+      stateRef.current.isResizing = false;
+      cleanupDocumentState();
     };
-  }, []);
+  }, [cleanupDocumentState]);
 
   const handleMove = useCallback(
     (clientX: number, clientY: number, isInverted = false) => {
@@ -126,17 +159,8 @@ export function useResize(options: UseResizeOptions) {
       onResize(state.currentSize);
     }
 
-    // Reset body styles
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.body.style.touchAction = '';
-  }, [onResize, shouldUpdateStateDuringResize]);
-
-  // Create stable event handlers that will be registered/removed
-  const mouseMoveHandler = useRef<((e: MouseEvent) => void) | null>(null);
-  const mouseUpHandler = useRef<(() => void) | null>(null);
-  const touchMoveHandler = useRef<((e: TouchEvent) => void) | null>(null);
-  const touchEndHandler = useRef<(() => void) | null>(null);
+    cleanupDocumentState();
+  }, [cleanupDocumentState, onResize, shouldUpdateStateDuringResize]);
 
   const startResize = useCallback(
     (
@@ -164,6 +188,7 @@ export function useResize(options: UseResizeOptions) {
       document.body.style.cursor = direction === 'horizontal' ? 'row-resize' : 'col-resize';
       document.body.style.userSelect = 'none';
       document.body.style.touchAction = 'none';
+      document.body.classList.add('ui-resizing');
 
       // Create handlers with closure over isInverted
       mouseMoveHandler.current = (e: MouseEvent) => {
@@ -173,9 +198,6 @@ export function useResize(options: UseResizeOptions) {
 
       mouseUpHandler.current = () => {
         handleEnd();
-        // Remove listeners
-        document.removeEventListener('mousemove', mouseMoveHandler.current!);
-        document.removeEventListener('mouseup', mouseUpHandler.current!);
       };
 
       touchMoveHandler.current = (e: TouchEvent) => {
@@ -186,9 +208,6 @@ export function useResize(options: UseResizeOptions) {
 
       touchEndHandler.current = () => {
         handleEnd();
-        // Remove listeners
-        document.removeEventListener('touchmove', touchMoveHandler.current!);
-        document.removeEventListener('touchend', touchEndHandler.current!);
       };
 
       // Add event listeners

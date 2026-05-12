@@ -25,13 +25,13 @@ import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
+import { useGitRefreshVersion } from '@/stores/gitRefreshStore';
 import type { GitCommit, GitRepository, GitStatus } from '@/types/git';
 
 interface GitPanelProps {
   currentProject?: string;
   currentProjectId?: string;
   onRefresh?: () => void;
-  gitRefreshTrigger?: number;
   onGitStatusChange?: (changesCount: number) => void;
 }
 
@@ -46,7 +46,6 @@ export default function GitPanel({
   currentProject,
   currentProjectId,
   onRefresh,
-  gitRefreshTrigger,
   onGitStatusChange,
 }: GitPanelProps) {
   const { colors } = useTheme();
@@ -60,6 +59,7 @@ export default function GitPanel({
 
   const [showBranchSelector, setShowBranchSelector] = useState(false);
   const branchButtonRef = useRef<HTMLButtonElement | null>(null);
+  const gitRefreshVersion = useGitRefreshVersion();
 
   // use the extracted hook for git operations/state
   const {
@@ -298,15 +298,15 @@ export default function GitPanel({
     }
   }, [currentProject, fetchGitStatus]);
 
-  // Git更新トリガーが変更されたときの更新
+  // Git更新通知を受けたときの更新
   useEffect(() => {
-    if (currentProject && gitRefreshTrigger !== undefined && gitRefreshTrigger > 0) {
+    if (currentProject && gitRefreshVersion > 0) {
       const timer = setTimeout(() => {
         fetchGitStatus(commitDepth);
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [gitRefreshTrigger, currentProject, fetchGitStatus, commitDepth]);
+  }, [gitRefreshVersion, currentProject, fetchGitStatus, commitDepth]);
 
   // Diffファイルクリックハンドラー（メモ化）
   // VSCode-style: ステージ済みファイルは HEAD vs INDEX を比較
@@ -607,7 +607,6 @@ export default function GitPanel({
         {/* ブランチセレクタ OperationWindow */}
         {showBranchSelector && (
           <OperationWindow
-            isVisible={showBranchSelector}
             onClose={() => setShowBranchSelector(false)}
             projectFiles={[]}
             items={(() => {

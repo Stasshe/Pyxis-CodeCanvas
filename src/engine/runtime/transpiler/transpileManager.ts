@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Transpile Manager
+ * Transpile Manager
  *
  * ## 役割
  * - normalizeCjsEsmによるCJS/ESM変換のみをサポート

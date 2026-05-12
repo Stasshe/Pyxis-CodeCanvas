@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] http/https モジュールのエミュレーション
+ * http/https モジュールのエミュレーション
  */
 
 interface RequestOptions {

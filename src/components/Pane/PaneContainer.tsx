@@ -15,13 +15,13 @@ import {
 } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, FileItem } from '@/types';
 import { useSnapshot } from 'valtio';
 
 interface PaneContainerProps {
   pane: Readonly<EditorPane>;
-  setGitRefreshTrigger: (fn: (prev: number) => number) => void;
 }
 
 // Git連携のためのContext
@@ -58,7 +58,13 @@ function flattenPanes(paneList: readonly EditorPane[]): readonly EditorPane[] {
  * - TabRegistryによる動的なタブコンポーネントレンダリング
  * - 即時反映、保存、Git連携などの全機能を保持
  */
-export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContainerProps) {
+const notifyGitRefresh = () => {
+  triggerGitRefresh();
+};
+
+const gitContextValue: GitContextValue = { setGitRefreshTrigger: notifyGitRefresh };
+
+export default function PaneContainer({ pane }: PaneContainerProps) {
   const { colors } = useTheme();
   const { globalActiveTab, activePane, panes: allPanes } = useSnapshot(tabState);
   const { setPanes, moveTab, splitPaneAndMoveTab, openTab, splitPaneAndOpenFile } = tabActions;
@@ -235,7 +241,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
                 flexGrow: 0,
               }}
             >
-              <PaneContainer pane={childPane} setGitRefreshTrigger={setGitRefreshTrigger} />
+              <PaneContainer pane={childPane} />
             </div>
 
             {/* 子ペイン間のリサイザー */}
@@ -370,7 +376,7 @@ export default function PaneContainer({ pane, setGitRefreshTrigger }: PaneContai
   const showActiveBorder = leafPaneCount > 1 && isActivePane;
 
   return (
-    <GitContext.Provider value={{ setGitRefreshTrigger }}>
+    <GitContext.Provider value={gitContextValue}>
       <div
         ref={dropRef}
         className="flex flex-col overflow-hidden relative"

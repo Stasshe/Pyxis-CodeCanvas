@@ -6,7 +6,7 @@ import { tabActions } from '@/stores/tabState';
 import type { SingleFileDiff } from '@/types';
 
 /**
- * [NEW ARCHITECTURE] Git Diff タブを開くための Hook
+ * Git Diff タブを開くための Hook
  * パス正規化対応版 - Git APIには先頭スラッシュなしで渡す
  *
  * VSCode-style diff behavior:
