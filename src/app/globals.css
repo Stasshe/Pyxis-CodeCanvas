@@ -195,6 +195,10 @@ body {
   background: transparent;
 }
 
+body.ui-resizing iframe {
+  pointer-events: none;
+}
+
 /* iPad/タッチデバイス用の調整 */
 @media (hover: none) and (pointer: coarse) {
   .resizer-vertical {
