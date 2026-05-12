@@ -96,11 +96,10 @@ export class GitResetOperations {
           oid: targetOid,
         });
 
-        const targetTree = await git.readTree({
-          fs: this.fs,
-          dir: this.dir,
-          oid: targetCommit.commit.tree,
-        });
+        // reset 前の GitFS 側パスを控えておく。
+        // 逆同期時はこの tracked path 群だけを IndexedDB から読むことで、
+        // node_modules など .gitignore 済みの IndexedDB レコードを全走査しない。
+        const previousFsPaths = await this.collectFsPaths(this.dir);
 
         // 現在のファイルをすべて削除（.gitディレクトリ以外）
         const deleteAllFiles = async (dirPath: string): Promise<void> => {
@@ -171,7 +170,10 @@ export class GitResetOperations {
 
         // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
         console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
-        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
+        const restoredFsPaths = await this.collectFsPaths(this.dir);
+        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName, {
+          candidatePaths: new Set([...previousFsPaths, ...restoredFsPaths]),
+        });
         console.log('[NEW ARCHITECTURE] Reverse sync completed');
 
         const shortHash = targetOid.slice(0, 7);
@@ -249,5 +251,30 @@ export class GitResetOperations {
 
       throw new Error(`git reset failed: ${errorMessage}`);
     }
+  }
+
+  private async collectFsPaths(dirPath: string, relativePath = ''): Promise<string[]> {
+    const paths: string[] = [];
+    try {
+      const entries = await this.fs.promises.readdir(dirPath);
+      for (const entry of entries) {
+        if (entry === '.git') continue;
+
+        const fullPath = `${dirPath}/${entry}`;
+        const appPath = relativePath ? `${relativePath}/${entry}` : `/${entry}`;
+        try {
+          const stats = await this.fs.promises.stat(fullPath);
+          paths.push(appPath);
+          if (stats.type === 'dir') {
+            paths.push(...(await this.collectFsPaths(fullPath, appPath)));
+          }
+        } catch {
+          // Ignore entries that disappear while collecting.
+        }
+      }
+    } catch {
+      // Treat unreadable directories as empty.
+    }
+    return paths;
   }
 }

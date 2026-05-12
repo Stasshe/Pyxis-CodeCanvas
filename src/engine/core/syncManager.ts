@@ -219,7 +219,11 @@ export class SyncManager {
    * lightning-fs → IndexedDB への同期
    * git revert/checkout等の操作後に呼び出される
    */
-  async syncFromFSToIndexedDB(projectId: string, projectName: string): Promise<void> {
+  async syncFromFSToIndexedDB(
+    projectId: string,
+    projectName: string,
+    options: { candidatePaths?: Iterable<string> } = {}
+  ): Promise<void> {
     // internal: syncing from lightning-fs to IndexedDB
 
     // notify listeners that a sync is starting
@@ -229,19 +233,30 @@ export class SyncManager {
       // lightning-fsから全ファイルを取得
       const fsFiles = await gitFileSystem.getAllFiles(projectName);
 
-      // IndexedDBから現在のファイル一覧を取得
-      const dbFiles = await fileRepository.getFilesByPrefix(projectId, '/');
+      // IndexedDBから現在のファイル一覧を取得。
+      // reset --hard など GitFS 側だけを基準にできる操作では、事前に分かっている
+      // tracked path だけを読む。これにより node_modules 等の ignored files を全走査しない。
+      const candidatePaths = options.candidatePaths
+        ? Array.from(new Set(options.candidatePaths))
+        : null;
+      const dbFiles = candidatePaths
+        ? (
+            await Promise.all(
+              candidatePaths.map(path => fileRepository.getFileByPath(projectId, path))
+            )
+          ).filter((file): file is NonNullable<typeof file> => file !== null)
+        : await fileRepository.getFilesByPrefix(projectId, '/');
 
       // 差分を計算
       const fsFilePaths = new Set(fsFiles.map(f => f.path));
-      const dbFilePaths = new Set(dbFiles.map(f => f.path));
+      const dbFileMap = new Map(dbFiles.map(f => [f.path, f] as const));
 
       // 削除されたファイルをIndexedDBから削除
       for (const dbFile of dbFiles) {
         if (!fsFilePaths.has(dbFile.path)) {
           try {
             coreInfo(`[SyncManager] Deleting file from IndexedDB: ${dbFile.path}`);
-            await fileRepository.deleteFile(dbFile.id);
+            await fileRepository.deleteFileFromSync(dbFile.id);
           } catch (deleteError) {
             // Skip if file is already deleted or not found
             coreWarn(
@@ -254,7 +269,7 @@ export class SyncManager {
 
       // 新規/更新されたファイルをIndexedDBに保存
       for (const fsFile of fsFiles) {
-        const existingFile = dbFiles.find(f => f.path === fsFile.path);
+        const existingFile = dbFileMap.get(fsFile.path);
 
         if (existingFile) {
           // 既存ファイルの更新
@@ -262,12 +277,22 @@ export class SyncManager {
             coreInfo(`[SyncManager] Updating file in IndexedDB: ${fsFile.path}`);
             existingFile.content = fsFile.content;
             existingFile.updatedAt = new Date();
-            await fileRepository.saveFile(existingFile);
+            await fileRepository.upsertFileFromSync(
+              projectId,
+              fsFile.path,
+              fsFile.content,
+              fsFile.type
+            );
           }
         } else {
           // 新規ファイルの作成
           coreInfo(`[SyncManager] Creating file in IndexedDB: ${fsFile.path}`);
-          await fileRepository.createFile(projectId, fsFile.path, fsFile.content, fsFile.type);
+          await fileRepository.upsertFileFromSync(
+            projectId,
+            fsFile.path,
+            fsFile.content,
+            fsFile.type
+          );
         }
       }
 
