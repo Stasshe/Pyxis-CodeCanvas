@@ -172,9 +172,11 @@ export default function LeftSidebar({
               />
             </div>
           )}
-          <div className="h-full" style={{ display: activeMenuTab === 'run' ? 'block' : 'none' }}>
-            <RunPanel currentProject={currentProject} files={files} />
-          </div>
+          {activeMenuTab === 'run' && (
+            <div className="h-full">
+              <RunPanel currentProject={currentProject} files={files} />
+            </div>
+          )}
           {activeMenuTab === 'extensions' && (
             <div className="h-full">
               <ExtensionsPanel />
