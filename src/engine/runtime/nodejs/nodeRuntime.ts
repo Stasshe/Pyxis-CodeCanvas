@@ -11,6 +11,7 @@
  */
 
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { ModuleLoader } from '../module/moduleLoader';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 
@@ -32,7 +33,8 @@ export interface ExecutionOptions {
     warn: (...args: unknown[]) => void;
     clear: () => void;
   };
-  onInput?: (prompt: string, callback: (input: string) => void) => void;
+  /** Stdin stream for interactive input */
+  processStdin?: ProcessStdin;
   /** Terminal columns (width). If not provided, defaults to 80. */
   terminalColumns?: number;
   /** Terminal rows (height). If not provided, defaults to 24. */
@@ -46,7 +48,7 @@ export class NodeRuntime {
   private projectId: string;
   private projectName: string;
   private debugConsole: ExecutionOptions['debugConsole'];
-  private onInput?: ExecutionOptions['onInput'];
+  private processStdin?: ProcessStdin;
   private builtInModules: BuiltInModules;
   private moduleLoader: ModuleLoader;
   private projectDir: string;
@@ -56,24 +58,25 @@ export class NodeRuntime {
 
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
+  private pendingIO: Set<Promise<any>> = new Set();
   private eventLoopResolve: (() => void) | null = null;
 
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
     this.projectName = options.projectName;
     this.debugConsole = options.debugConsole;
-    this.onInput = options.onInput;
+    this.processStdin = options.processStdin;
     this.projectDir = `/projects/${this.projectName}`;
     this.cwd = options.cwd ?? this.projectDir;
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
 
-    // ビルトインモジュールの初期化（onInputを渡す）
     this.builtInModules = createBuiltInModules({
       projectDir: this.projectDir,
       projectId: this.projectId,
       projectName: this.projectName,
-      onInput: this.onInput,
+      processStdin: this.processStdin,
+      getTrackIO: () => this.trackIO.bind(this),
     });
 
     // ModuleLoaderの初期化
@@ -165,17 +168,30 @@ export class NodeRuntime {
   }
 
   /**
+   * インタラクティブIO（readline等）の完了を追跡する
+   * waitForEventLoop がこのPromiseが解決されるまで待機する
+   */
+  trackIO(p: Promise<any>): void {
+    this.pendingIO.add(p);
+    p.finally(() => {
+      this.pendingIO.delete(p);
+      this.checkEventLoop();
+    });
+  }
+
+  /**
    * イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
    */
   async waitForEventLoop(): Promise<void> {
-    // アクティブなタイマーがなければすぐに完了
-    if (this.activeTimers.size === 0) {
+    // アクティブなタイマーとIOがなければすぐに完了
+    if (this.activeTimers.size === 0 && this.pendingIO.size === 0) {
       runtimeInfo('✅ Event loop is already empty');
       return;
     }
 
     runtimeInfo('⏳ Waiting for event loop to complete...', {
       activeTimers: this.activeTimers.size,
+      pendingIO: this.pendingIO.size,
     });
 
     // イベントループが空になるまで待機
@@ -193,7 +209,7 @@ export class NodeRuntime {
   }
 
   private checkEventLoop() {
-    if (this.activeTimers.size === 0 && this.eventLoopResolve) {
+    if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
       this.eventLoopResolve();
       this.eventLoopResolve = null;
@@ -333,7 +349,7 @@ export class NodeRuntime {
         }
         return processObj;
       },
-      stdin: {
+      stdin: this.processStdin ?? {
         on: () => {},
         once: () => {},
         removeListener: () => {},

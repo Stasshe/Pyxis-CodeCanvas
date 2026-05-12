@@ -26,8 +26,8 @@ export interface RuntimeExecutionOptions {
     warn: (...args: unknown[]) => void;
     clear: () => void;
   };
-  /** 入力コールバック（readline等） */
-  onInput?: (prompt: string, callback: (input: string) => void) => void;
+  /** Stdin stream for interactive input */
+  processStdin?: import('@/engine/cmd/terminalProcessBridge').ProcessStdin;
   /** ターミナル幅 */
   terminalColumns?: number;
   /** ターミナル高さ */

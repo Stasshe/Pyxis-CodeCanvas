@@ -119,25 +119,12 @@ export async function handleNPXCommand(
       const exists = await unix.cat([absFs]).catch(() => null);
       if (exists !== null) {
         // Execute via NodeRuntime
-        const debugConsole = {
-          log: async (...a: unknown[]) => await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
-          error: async (...a: unknown[]) =>
-            await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
-          warn: async (...a: unknown[]) =>
-            await writeOutput(a.map(x => String(x)).join(' ') + '\n'),
-          clear: () => {},
-        };
-
+        const fmt = (...a: unknown[]) => writeOutput(a.map(x => String(x)).join(' ') + '\n');
         const runtime = new NodeRuntime({
           projectId,
           projectName,
           filePath: absFs,
-          debugConsole: {
-            log: (...p: unknown[]) => debugConsole.log(...p),
-            error: (...p: unknown[]) => debugConsole.error(...p),
-            warn: (...p: unknown[]) => debugConsole.warn(...p),
-            clear: () => {},
-          },
+          debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
           terminalColumns: 80,
           terminalRows: 24,
         });

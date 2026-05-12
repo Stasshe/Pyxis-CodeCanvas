@@ -22,8 +22,6 @@ export class NodeRuntimeProvider implements RuntimeProvider {
   readonly name = 'Node.js';
   readonly supportedExtensions = ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts'];
 
-  private runtimeInstances: Map<string, NodeRuntime> = new Map();
-
   canExecute(filePath: string): boolean {
     return this.supportedExtensions.some(ext => filePath.endsWith(ext));
   }
@@ -40,28 +38,18 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       filePath,
       argv = [],
       debugConsole,
-      onInput,
+      processStdin,
       terminalColumns,
       terminalRows,
     } = options;
 
     try {
-      // NodeRuntimeインスタンスを作成（プロジェクトごとにキャッシュ）
-      const key = `${projectId}-${filePath}`;
-
-      // 既存のキャッシュはメモリリーク防止のためクリア
-      if (this.runtimeInstances.has(key)) {
-        const existing = this.runtimeInstances.get(key)!;
-        existing.clearCache();
-        this.runtimeInstances.delete(key);
-      }
-
       const runtime = new NodeRuntime({
         projectId,
         projectName,
         filePath,
         debugConsole,
-        onInput,
+        processStdin,
         terminalColumns,
         terminalRows,
       });
@@ -121,18 +109,9 @@ export class NodeRuntimeProvider implements RuntimeProvider {
     }
   }
 
-  clearCache(): void {
-    runtimeInfo('🗑️ Clearing Node.js runtime cache');
-    for (const runtime of this.runtimeInstances.values()) {
-      runtime.clearCache();
-    }
-    this.runtimeInstances.clear();
-  }
+  clearCache(): void {}
 
-  async dispose(): Promise<void> {
-    runtimeInfo('🗑️ Disposing Node.js runtime');
-    this.clearCache();
-  }
+  async dispose(): Promise<void> {}
 
   isReady(): boolean {
     return true; // Node.jsランタイムは常に準備完了

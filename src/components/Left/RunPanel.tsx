@@ -8,6 +8,7 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 
 interface RunPanelProps {
@@ -29,14 +30,20 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
+  const [interactiveInput, setInteractiveInput] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
+  const interactiveInputRef = useRef<HTMLInputElement>(null);
 
   // 出力エリアの自動スクロール
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
-  }, [output]);
+    // 新しい出力が来たときにインタラクティブ入力フィールドにフォーカス
+    if (isRunning) {
+      interactiveInputRef.current?.focus();
+    }
+  }, [output, isRunning]);
 
   // 拡張子で自動判別: 登録されているすべてのランタイムの実行可能ファイルを取得
   const getExecutableFiles = () => {
@@ -157,7 +164,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   };
 
   // デバッグコンソールを作成
-  const createDebugConsole = () => ({
+  const createOutputConsole = () => ({
     log: (...args: unknown[]) => {
       const content = args
         .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
@@ -181,25 +188,6 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     },
   });
 
-  // 入力コールバックを作成（readline用 - DebugConsoleAPI使用）
-  const createOnInput = () => {
-    return (prompt: string, callback: (input: string) => void) => {
-      // DebugConsoleAPIを使って入力を受け取る
-      const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI');
-
-      // プロンプトを表示
-      addOutput(prompt, 'log');
-      DebugConsoleAPI.write(prompt);
-
-      // DebugConsoleからの入力を待つ
-      const unsubscribe = DebugConsoleAPI.onInput((input: string) => {
-        unsubscribe();
-        addOutput(input, 'input');
-        callback(input);
-      });
-    };
-  };
-
   // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
     if (!inputCode.trim() || !currentProject) return;
@@ -221,12 +209,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
       const cleanCode = isPython ? inputCode.replace(/^#!python\s*/, '') : inputCode;
 
+      terminalProcessBridge.activate();
       const result = await runtime.executeCode?.(cleanCode, {
         projectId: currentProject.id,
         projectName: currentProject.name,
         filePath: isPython ? '/temp-code.py' : '/temp-code.js',
-        debugConsole: createDebugConsole(),
-        onInput: createOnInput(),
+        debugConsole: createOutputConsole(),
+        processStdin: terminalProcessBridge.stdin,
       });
 
       if (result?.stderr) {
@@ -237,6 +226,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      terminalProcessBridge.deactivate();
       setIsRunning(false);
       setInputCode('');
     }
@@ -260,13 +250,14 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
 
+    terminalProcessBridge.activate();
     try {
       const result = await runtime.execute({
         projectId: currentProject.id,
         projectName: currentProject.name,
         filePath,
-        debugConsole: createDebugConsole(),
-        onInput: createOnInput(),
+        debugConsole: createOutputConsole(),
+        processStdin: terminalProcessBridge.stdin,
       });
 
       if (result.stderr) {
@@ -274,16 +265,25 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       } else if (result.stdout) {
         addOutput(result.stdout, 'log');
       }
-      // Don't show "no output" message - if there's no output, show nothing
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      terminalProcessBridge.deactivate();
       setIsRunning(false);
     }
   };
 
+  // 実行中のインタラクティブ入力を送信
+  const submitInteractiveInput = () => {
+    const line = interactiveInput;
+    setInteractiveInput('');
+    addOutput(`> ${line}`, 'input');
+    terminalProcessBridge.submitLine(line);
+  };
+
   // 実行を停止
   const stopExecution = () => {
+    terminalProcessBridge.deactivate();
     setIsRunning(false);
     addOutput(t('run.executionStopped'), 'log');
   };
@@ -391,6 +391,28 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             ))
           )}
         </div>
+
+        {/* インタラクティブ入力エリア（実行中のみ表示） */}
+        {isRunning && (
+          <div className="border-t px-3 py-2 flex items-center gap-2" style={{ borderTop: `1px solid ${colors.border}`, background: colors.background }}>
+            <span className="font-mono text-xs" style={{ color: colors.primary }}>{'>'}</span>
+            <input
+              ref={interactiveInputRef}
+              type="text"
+              value={interactiveInput}
+              onChange={e => setInteractiveInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  submitInteractiveInput();
+                }
+              }}
+              className="flex-1 bg-transparent outline-none font-mono text-sm"
+              style={{ color: colors.foreground }}
+              autoFocus
+            />
+          </div>
+        )}
 
         {/* 入力エリア */}
         <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>

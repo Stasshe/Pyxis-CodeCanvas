@@ -9,6 +9,7 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -722,6 +723,17 @@ function ClientTerminal({
     // 通常のキー入力
     let vimModeActive = false; // Flag to disable normal input during vim mode
 
+    // インタラクティブ入力モード（readline等で使用）
+    // interactiveModeはterminalProcessBridge.isActive()で判定
+    let interactiveLine = '';
+    let interactivePos = 0;
+
+    // When process exits, reset interactive line state
+    terminalProcessBridge.setDeactivateCallback(() => {
+      interactiveLine = '';
+      interactivePos = 0;
+    });
+
     term.onData((data: string) => {
       if (ignoreNextOnData) {
         // clear and ignore a single following onData payload
@@ -729,6 +741,70 @@ function ClientTerminal({
         return;
       }
       if (isComposing || vimModeActive) return; // Skip if vim is active
+
+      // インタラクティブ入力モード（Node.jsプロセスがstdinを読んでいる場合）
+      if (terminalProcessBridge.isActive()) {
+        switch (data) {
+          case '\r': {
+            term.write('\r\n');
+            const line = interactiveLine;
+            interactiveLine = '';
+            interactivePos = 0;
+            terminalProcessBridge.submitLine(line);
+            break;
+          }
+          case '\x7F': {
+            if (interactivePos > 0) {
+              interactiveLine =
+                interactiveLine.slice(0, interactivePos - 1) +
+                interactiveLine.slice(interactivePos);
+              interactivePos--;
+              term.write('\b');
+              term.write(`${interactiveLine.slice(interactivePos)} `);
+              for (let i = 0; i < interactiveLine.length - interactivePos + 1; i++)
+                term.write('\b');
+            }
+            break;
+          }
+          case '\x03': {
+            term.write('^C\r\n');
+            interactiveLine = '';
+            interactivePos = 0;
+            terminalProcessBridge.deactivate();
+            try {
+              shellRef.current?.killForeground?.();
+            } catch (e) {}
+            break;
+          }
+          case '\x1b[D': {
+            if (interactivePos > 0) {
+              term.write('\b');
+              interactivePos--;
+            }
+            break;
+          }
+          case '\x1b[C': {
+            if (interactivePos < interactiveLine.length) {
+              term.write(interactiveLine[interactivePos]);
+              interactivePos++;
+            }
+            break;
+          }
+          default: {
+            if (data >= ' ' || data === '\t') {
+              interactiveLine =
+                interactiveLine.slice(0, interactivePos) +
+                data +
+                interactiveLine.slice(interactivePos);
+              term.write(interactiveLine.slice(interactivePos));
+              interactivePos++;
+              for (let i = 0; i < interactiveLine.length - interactivePos; i++) term.write('\b');
+            }
+            break;
+          }
+        }
+        return;
+      }
 
       switch (data) {
         case '\r':

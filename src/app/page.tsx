@@ -51,7 +51,7 @@ export default function Home() {
   const [rightSidebarWidth, setRightSidebarWidth] = useState(240);
   const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
   const [bottomPanelActiveTab, setBottomPanelActiveTab] = useState<
-    'output' | 'terminal' | 'debug' | 'problems'
+    'output' | 'terminal' | 'problems'
   >('terminal');
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
@@ -563,7 +563,6 @@ export default function Home() {
                   height={bottomPanelHeight}
                   currentProject={currentProject?.name}
                   currentProjectId={currentProject?.id || ''}
-                  projectFiles={projectFiles}
                   onResize={handleBottomResize}
                   activeTab={bottomPanelActiveTab}
                   onActiveTabChange={setBottomPanelActiveTab}
