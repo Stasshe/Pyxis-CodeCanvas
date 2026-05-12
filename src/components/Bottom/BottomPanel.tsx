@@ -8,24 +8,20 @@ import Terminal from './Terminal';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import type { FileItem } from '@/types';
 
 interface BottomPanelProps {
   height: number;
   currentProject?: string;
   currentProjectId?: string;
-  projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   activeTab?: 'output' | 'terminal' | 'problems';
   onActiveTabChange?: (tab: 'output' | 'terminal' | 'problems') => void;
-  // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
 }
 
 export default function BottomPanel({
   height,
   currentProject,
   currentProjectId,
-  projectFiles,
   onResize,
   activeTab: activeTabProp,
   onActiveTabChange,
@@ -39,7 +35,7 @@ export default function BottomPanel({
 
   const activeTab = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
 
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const setActiveTab = (tab: 'output' | 'terminal' | 'problems') => {
     const current = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;

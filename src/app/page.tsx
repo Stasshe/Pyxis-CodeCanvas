@@ -563,7 +563,6 @@ export default function Home() {
                   height={bottomPanelHeight}
                   currentProject={currentProject?.name}
                   currentProjectId={currentProject?.id || ''}
-                  projectFiles={projectFiles}
                   onResize={handleBottomResize}
                   activeTab={bottomPanelActiveTab}
                   onActiveTabChange={setBottomPanelActiveTab}

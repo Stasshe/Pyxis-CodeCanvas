@@ -10,7 +10,6 @@
  *   bridge.deactivate()     — called after process exits (sends EOF)
  */
 
-type Writer = (text: string) => void;
 type DataListener = (chunk: Buffer) => void;
 type EndListener = () => void;
 
@@ -85,15 +84,7 @@ export class ProcessStdin {
 
 class TerminalProcessBridge {
   readonly stdin = new ProcessStdin();
-  private _writer: Writer | null = null;
-  private _errWriter: Writer | null = null;
   private _onDeactivate: (() => void) | null = null;
-
-  /** Terminal.tsx registers output writers on mount */
-  setOutput(writer: Writer, errWriter: Writer): void {
-    this._writer = writer;
-    this._errWriter = errWriter;
-  }
 
   /** Terminal.tsx registers this to reset its interactive line state on deactivation */
   setDeactivateCallback(cb: () => void): void {
@@ -118,16 +109,6 @@ class TerminalProcessBridge {
   /** Terminal forwards completed lines here during an active session */
   submitLine(line: string): void {
     this.stdin.submitLine(line);
-  }
-
-  /** NodeRuntime stdout → terminal */
-  write(text: string): void {
-    this._writer?.(text);
-  }
-
-  /** NodeRuntime stderr → terminal */
-  writeError(text: string): void {
-    this._errWriter?.(text);
   }
 }
 

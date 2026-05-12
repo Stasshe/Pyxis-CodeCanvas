@@ -206,12 +206,6 @@ function ClientTerminal({
       console.warn('[Terminal] failed to register TerminalUI with registry', e);
     }
 
-    // Register terminal I/O with the process bridge (PTY-like stdin/stdout for Node.js)
-    terminalProcessBridge.setOutput(
-      text => outputManager.write(text),
-      text => outputManager.writeError ? outputManager.writeError(text) : outputManager.write(text)
-    );
-
     // タッチスクロール機能を追加
     let startY = 0;
     let scrolling = false;
