@@ -8,7 +8,6 @@ interface BinaryTabContentProps {
   activeTab: BinaryTab | EditorTab;
   editorHeight: string;
   guessMimeType: (fileName: string, buffer?: ArrayBuffer) => string;
-  isBufferArray: (arg: any) => boolean;
 }
 
 /**
@@ -18,7 +17,6 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   activeTab,
   editorHeight,
   guessMimeType,
-  isBufferArray,
 }) => {
   const { t } = useTranslation();
   // If the tab doesn't have bufferContent, nothing to show here
