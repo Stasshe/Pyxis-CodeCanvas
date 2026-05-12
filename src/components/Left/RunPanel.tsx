@@ -30,14 +30,20 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
+  const [interactiveInput, setInteractiveInput] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
+  const interactiveInputRef = useRef<HTMLInputElement>(null);
 
   // 出力エリアの自動スクロール
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
-  }, [output]);
+    // 新しい出力が来たときにインタラクティブ入力フィールドにフォーカス
+    if (isRunning) {
+      interactiveInputRef.current?.focus();
+    }
+  }, [output, isRunning]);
 
   // 拡張子で自動判別: 登録されているすべてのランタイムの実行可能ファイルを取得
   const getExecutableFiles = () => {
@@ -267,8 +273,17 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     }
   };
 
+  // 実行中のインタラクティブ入力を送信
+  const submitInteractiveInput = () => {
+    const line = interactiveInput;
+    setInteractiveInput('');
+    addOutput(`> ${line}`, 'input');
+    terminalProcessBridge.submitLine(line);
+  };
+
   // 実行を停止
   const stopExecution = () => {
+    terminalProcessBridge.deactivate();
     setIsRunning(false);
     addOutput(t('run.executionStopped'), 'log');
   };
@@ -376,6 +391,28 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             ))
           )}
         </div>
+
+        {/* インタラクティブ入力エリア（実行中のみ表示） */}
+        {isRunning && (
+          <div className="border-t px-3 py-2 flex items-center gap-2" style={{ borderTop: `1px solid ${colors.border}`, background: colors.background }}>
+            <span className="font-mono text-xs" style={{ color: colors.primary }}>{'>'}</span>
+            <input
+              ref={interactiveInputRef}
+              type="text"
+              value={interactiveInput}
+              onChange={e => setInteractiveInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  submitInteractiveInput();
+                }
+              }}
+              className="flex-1 bg-transparent outline-none font-mono text-sm"
+              style={{ color: colors.foreground }}
+              autoFocus
+            />
+          </div>
+        )}
 
         {/* 入力エリア */}
         <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>
