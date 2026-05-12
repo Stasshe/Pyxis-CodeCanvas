@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 import OutputPanel from './OutputPanel';
 import ProblemsPanel from './ProblemsPanel';
@@ -32,8 +32,20 @@ export default function BottomPanel({
   const [internalActiveTab, setInternalActiveTab] = useState<'output' | 'terminal' | 'problems'>(
     'terminal'
   );
+  const [mountedTabs, setMountedTabs] = useState<
+    Set<'output' | 'terminal' | 'problems'>
+  >(() => new Set([activeTabProp ?? 'terminal']));
 
   const activeTab = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
+
+  useEffect(() => {
+    setMountedTabs(prev => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   const [, startTransition] = useTransition();
 
@@ -195,7 +207,9 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
+            {mountedTabs.has('problems') && (
+              <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
+            )}
           </div>
 
           <div
@@ -209,7 +223,7 @@ export default function BottomPanel({
               left: 0,
             }}
           >
-            <OutputPanel />
+            {mountedTabs.has('output') && <OutputPanel />}
           </div>
           <div
             style={{

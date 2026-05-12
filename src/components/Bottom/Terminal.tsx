@@ -966,7 +966,7 @@ function ClientTerminal({
   // Resize handling: run a fit on height/currentProjectId changes and observe DOM resizes
   // This consolidates previous separate effects into a single, debounced handler.
   useEffect(() => {
-    if (!terminalRef.current || !fitAddonRef.current) return;
+    if (!isActive || !terminalRef.current || !fitAddonRef.current) return;
 
     const runFit = () => {
       try {
@@ -1003,7 +1003,7 @@ function ClientTerminal({
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
     };
-  }, [height, currentProjectId]);
+  }, [height, currentProjectId, isActive]);
 
   // ターミナルがアクティブになった時にフォーカスを当てる
   useEffect(() => {
