@@ -700,7 +700,6 @@ class ExtensionManager {
             canExecute: runtimeConfig.canExecute,
             initialize: runtimeConfig.initialize,
             execute: runtimeConfig.execute,
-            executeCode: runtimeConfig.executeCode,
             clearCache: runtimeConfig.clearCache,
             dispose: runtimeConfig.dispose,
             isReady: runtimeConfig.isReady,

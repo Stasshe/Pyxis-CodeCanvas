@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "清除輸出",
     "execute": "執行",
-    "executeHint": "按 Ctrl+Enter（Cmd+Enter）執行",
     "executionStopped": "執行已停止",
-    "inputPlaceholder": "輸入 Node.js 程式碼...",
-    "noProject": "請開啟專案以執行 Node.js 程式碼",
-    "outputHint": "當你執行 JavaScript/Node.js/Python 程式碼時，結果會顯示在此處。Node.js 與 js 可以在同一檔案執行。",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Python 執行環境尚未初始化",
     "selectFile": "選擇檔案",
     "stop": "停止",

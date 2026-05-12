@@ -28,7 +28,6 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState<OutputEntry[]>([]);
-  const [inputCode, setInputCode] = useState('');
   const [selectedFile, setSelectedFile] = useState<string>('');
   const [interactiveInput, setInteractiveInput] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
@@ -187,50 +186,6 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       setOutput([]);
     },
   });
-
-  // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
-  const executeCode = async () => {
-    if (!inputCode.trim() || !currentProject) return;
-    setIsRunning(true);
-    addOutput(`> ${inputCode}`, 'input');
-    try {
-      // 入力欄の先頭行に#!pythonがあればPython、それ以外はNode.js
-      const isPython =
-        inputCode.trimStart().startsWith('#!python') ||
-        inputCode.trimStart().startsWith('import ') ||
-        inputCode.trimStart().startsWith('print(');
-
-      const runtimeId = isPython ? 'python' : 'nodejs';
-      const runtime = runtimeRegistry.getRuntime(runtimeId);
-      if (!runtime) {
-        addOutput(`${runtimeId} runtime not available`, 'error');
-        return;
-      }
-
-      const cleanCode = isPython ? inputCode.replace(/^#!python\s*/, '') : inputCode;
-
-      terminalProcessBridge.activate();
-      const result = await runtime.executeCode?.(cleanCode, {
-        projectId: currentProject.id,
-        projectName: currentProject.name,
-        filePath: isPython ? '/temp-code.py' : '/temp-code.js',
-        debugConsole: createOutputConsole(),
-        processStdin: terminalProcessBridge.stdin,
-      });
-
-      if (result?.stderr) {
-        addOutput(result.stderr, 'error');
-      } else if (result?.result != null) {
-        addOutput(String(result.result), 'log');
-      }
-    } catch (error) {
-      addOutput(`Error: ${(error as Error).message}`, 'error');
-    } finally {
-      terminalProcessBridge.deactivate();
-      setIsRunning(false);
-      setInputCode('');
-    }
-  };
 
   // ファイルを実行（拡張子で自動判別）
   const executeFile = async () => {
@@ -413,58 +368,18 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
             />
           </div>
         )}
-
-        {/* 入力エリア */}
-        <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>
-          <div className="flex gap-2">
-            <textarea
-              value={inputCode}
-              onChange={e => setInputCode(e.target.value)}
-              placeholder={t('run.inputPlaceholder')}
-              className="flex-1 px-3 py-2 border rounded font-mono text-sm resize-none"
-              style={{
-                background: colors.background,
-                color: colors.foreground,
-                border: `1px solid ${colors.border}`,
-              }}
-              rows={3}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  executeCode();
-                }
-              }}
-            />
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={executeCode}
-                disabled={!inputCode.trim() || isRunning}
-                className={clsx('px-4 py-2 rounded flex items-center gap-2')}
-                style={{
-                  background: inputCode.trim() && !isRunning ? colors.primary : colors.mutedBg,
-                  color: inputCode.trim() && !isRunning ? colors.background : colors.mutedFg,
-                  cursor: inputCode.trim() && !isRunning ? 'pointer' : 'not-allowed',
-                }}
-              >
-                <Play size={14} />
-                {t('run.execute')}
-              </button>
-              {isRunning && (
-                <button
-                  onClick={stopExecution}
-                  className="px-4 py-2 rounded flex items-center gap-2"
-                  style={{ background: colors.red, color: 'white' }}
-                >
-                  <Square size={14} />
-                  {t('run.stop')}
-                </button>
-              )}
-            </div>
+        {isRunning && (
+          <div className="border-t p-3" style={{ borderTop: `1px solid ${colors.border}` }}>
+            <button
+              onClick={stopExecution}
+              className="px-4 py-2 rounded flex items-center gap-2"
+              style={{ background: colors.red, color: 'white' }}
+            >
+              <Square size={14} />
+              {t('run.stop')}
+            </button>
           </div>
-          <div className="text-xs mt-2" style={{ color: colors.mutedFg }}>
-            {t('run.executeHint')}
-          </div>
-        </div>
+        )}
       </div>
       {isOperationOpen && (
         <OperationWindow

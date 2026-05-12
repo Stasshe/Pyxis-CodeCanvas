@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "Effacer la sortie",
     "execute": "Exécuter",
-    "executeHint": "Appuyez sur Ctrl+Entrée (Cmd+Entrée) pour exécuter",
     "executionStopped": "Exécution arrêtée",
-    "inputPlaceholder": "Entrez du code Node.js...",
-    "noProject": "Ouvrez un projet pour exécuter du code Node.js",
-    "outputHint": "Lorsque vous exécutez du code JavaScript/Node.js/Python, les résultats seront affichés ici. Node.js et js peuvent être exécutés dans le même fichier.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "L'environnement Python n'est pas initialisé",
     "selectFile": "Sélectionner un fichier",
     "stop": "Arrêter",

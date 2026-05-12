@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "출력 지우기",
     "execute": "실행",
-    "executeHint": "Ctrl+Enter (Cmd+Enter)로 실행",
     "executionStopped": "실행 중지",
-    "inputPlaceholder": "Node.js 코드를 입력하세요...",
-    "noProject": "실행할 프로젝트를 열어주세요",
-    "outputHint": "JavaScript/Node.js/Python 코드를 실행하면 결과가 여기 표시됩니다. Node.js와 js는 동일 파일에서 실행할 수 있습니다.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Python 런타임이 초기화되지 않았습니다",
     "selectFile": "파일 선택",
     "stop": "중지",

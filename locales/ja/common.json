@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "出力をクリア",
     "execute": "実行",
-    "executeHint": "Ctrl+Enter (Cmd+Enter) で実行",
     "executionStopped": "実行が停止しました",
-    "inputPlaceholder": "Node.jsコードを入力してください...",
-    "noProject": "プロジェクトを開いてNode.jsコードを実行してください",
-    "outputHint": "Javascript/Node.js/Pythonコードを実行すると、ここに結果が表示されます。Node.jsと、jsは、同じファイルで実行できます。",
+    "noProject": "ファイルを実行するにはプロジェクトを開いてください",
+    "outputHint": "実行するファイルを選択してください。結果はここに表示されます。",
     "runtimeNotReady": "Pythonランタイムが初期化されていません",
     "selectFile": "ファイルを選択",
     "stop": "停止",

@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "مسح المخرجات",
     "execute": "تنفيذ",
-    "executeHint": "اضغط Ctrl+Enter (Cmd+Enter) للتنفيذ",
     "executionStopped": "توقف التنفيذ",
-    "inputPlaceholder": "أدخل شيفرة Node.js...",
-    "noProject": "افتح مشروعًا لتنفيذ Node.js",
-    "outputHint": "عند تنفيذ JavaScript/Node.js/Python، ستعرض النتائج هنا. يمكن تنفيذ Node.js و js في نفس الملف.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "بيئة Python غير مُهيأة",
     "selectFile": "اختر ملفًا",
     "stop": "إيقاف",

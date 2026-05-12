@@ -445,29 +445,7 @@ del _pyxis_stdout
         };
       }
     },
-    
-    async executeCode(code: string, options: any): Promise<any> {
-      try {
-        context.logger.info('🐍 Executing Python code snippet');
-        
-        // Execute the Python code
-        const pyodide = await initPyodide();
-        const result = await pyodide.runPythonAsync(code);
-        
-        return {
-          result: String(result),
-          exitCode: 0,
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        context.logger.error(`❌ Python code execution failed: ${errorMessage}`);
-        return {
-          stderr: errorMessage,
-          exitCode: 1,
-        };
-      }
-    },
-    
+
     isReady(): boolean {
       return pyodideInstance !== null;
     },

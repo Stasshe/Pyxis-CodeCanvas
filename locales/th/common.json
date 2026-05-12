@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "ล้างผลลัพธ์",
     "execute": "รัน",
-    "executeHint": "กด Ctrl+Enter (Cmd+Enter) เพื่อรัน",
     "executionStopped": "การรันหยุดลง",
-    "inputPlaceholder": "ใส่โค้ด Node.js...",
-    "noProject": "เปิดโปรเจกต์เพื่อรัน Node.js",
-    "outputHint": "เมื่อรัน JavaScript/Node.js/Python ผลลัพธ์จะแสดงที่นี่ Node.js และ js สามารถรันในไฟล์เดียวกันได้",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "สภาพแวดล้อม Python ยังไม่ถูกเริ่ม",
     "selectFile": "เลือกไฟล์",
     "stop": "หยุด",

@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "Bersihkan output",
     "execute": "Jalankan",
-    "executeHint": "Tekan Ctrl+Enter (Cmd+Enter) untuk menjalankan",
     "executionStopped": "Eksekusi dihentikan",
-    "inputPlaceholder": "Masukkan kode Node.js...",
-    "noProject": "Buka proyek untuk menjalankan Node.js",
-    "outputHint": "Saat Anda menjalankan JavaScript/Node.js/Python, hasil akan ditampilkan di sini. Node.js dan js dapat dijalankan di file yang sama.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Runtime Python belum diinisialisasi",
     "selectFile": "Pilih file",
     "stop": "Berhenti",

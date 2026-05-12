@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "Çıktıyı temizle",
     "execute": "Çalıştır",
-    "executeHint": "Çalıştırmak için Ctrl+Enter (Cmd+Enter) basın",
     "executionStopped": "Çalıştırma durduruldu",
-    "inputPlaceholder": "Node.js kodu girin...",
-    "noProject": "Node.js kodu çalıştırmak için bir proje açın",
-    "outputHint": "JavaScript/Node.js/Python kodu çalıştırdığınızda sonuçlar burada gösterilecektir. Node.js ve js aynı dosyada çalıştırılabilir.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Python runtime başlatılmadı",
     "selectFile": "Dosya seç",
     "stop": "Durdur",

@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "Rensa utdata",
     "execute": "Kör",
-    "executeHint": "Tryck Ctrl+Enter (Cmd+Enter) för att köra",
     "executionStopped": "Körning stoppad",
-    "inputPlaceholder": "Ange Node.js-kod...",
-    "noProject": "Öppna ett projekt för att köra Node.js-kod",
-    "outputHint": "När du kör JavaScript/Node.js/Python-kod visas resultaten här. Node.js och js kan köras i samma fil.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Python-runtime är inte initierad",
     "selectFile": "Välj fil",
     "stop": "Stoppa",

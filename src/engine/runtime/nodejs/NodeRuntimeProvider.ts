@@ -9,8 +9,6 @@
 import { runtimeInfo } from '../core/runtimeLogger';
 import { NodeRuntime } from './nodeRuntime';
 
-import { fileRepository } from '@/engine/core/fileRepository';
-
 import type {
   RuntimeExecutionOptions,
   RuntimeExecutionResult,
@@ -63,43 +61,6 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       return {
         exitCode: 0,
       };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        stderr: errorMessage,
-        exitCode: 1,
-      };
-    }
-  }
-
-  async executeCode(
-    code: string,
-    options: RuntimeExecutionOptions
-  ): Promise<RuntimeExecutionResult> {
-    const { projectId, projectName } = options;
-
-    try {
-      // 一時ファイルを作成
-      const tempFilePath = '/temp-code.js';
-      await fileRepository.createFile(projectId, tempFilePath, code, 'file');
-
-      // 実行
-      const result = await this.execute({
-        ...options,
-        filePath: tempFilePath,
-      });
-
-      // 一時ファイルを削除
-      try {
-        const tempFile = await fileRepository.getFileByPath(projectId, tempFilePath);
-        if (tempFile) {
-          await fileRepository.deleteFile(tempFile.id);
-        }
-      } catch (e) {
-        // 削除失敗は無視
-      }
-
-      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {

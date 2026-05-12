@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "आउटपुट साफ़ करें",
     "execute": "चालन करें",
-    "executeHint": "Ctrl+Enter (Cmd+Enter) दबाएँ",
     "executionStopped": "निष्पादन रोका गया",
-    "inputPlaceholder": "Node.js कोड दर्ज करें...",
-    "noProject": "Node.js को चलाने के लिए एक प्रोजेक्ट खोलें",
-    "outputHint": "जब आप JavaScript/Node.js/Python कोड चलाते हैं, परिणाम यहाँ दिखेंगे। Node.js और js एक ही फाइल में चल सकते हैं।",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Python रनटाइम आरंभ नहीं हुआ है",
     "selectFile": "फ़ाइल चुनें",
     "stop": "रोकें",

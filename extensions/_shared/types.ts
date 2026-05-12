@@ -270,7 +270,6 @@ export interface ExtensionContext {
     canExecute: (filePath: string) => boolean;
     initialize?: (projectId: string, projectName: string) => Promise<void>;
     execute: (options: any) => Promise<any>;
-    executeCode?: (code: string, options: any) => Promise<any>;
     clearCache?: () => void;
     dispose?: () => Promise<void>;
     isReady?: () => boolean;

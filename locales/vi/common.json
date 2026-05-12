@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "Xóa kết quả",
     "execute": "Thực thi",
-    "executeHint": "Nhấn Ctrl+Enter (Cmd+Enter) để thực thi",
     "executionStopped": "Thực thi đã dừng",
-    "inputPlaceholder": "Nhập mã Node.js...",
-    "noProject": "Mở một dự án để thực thi mã Node.js",
-    "outputHint": "Khi bạn thực thi JavaScript/Node.js/Python, kết quả sẽ hiển thị ở đây. Node.js và js có thể chạy trong cùng tệp.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Runtime Python chưa khởi tạo",
     "selectFile": "Chọn tệp",
     "stop": "Dừng",

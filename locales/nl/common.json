@@ -306,11 +306,9 @@
   "run": {
     "clearOutput": "Output wissen",
     "execute": "Uitvoeren",
-    "executeHint": "Druk op Ctrl+Enter (Cmd+Enter) om uit te voeren",
     "executionStopped": "Uitvoering gestopt",
-    "inputPlaceholder": "Voer Node.js code in...",
-    "noProject": "Open een project om Node.js-code uit te voeren",
-    "outputHint": "Wanneer je JavaScript/Node.js/Python-code uitvoert, worden de resultaten hier weergegeven. Node.js en js kunnen in hetzelfde bestand worden uitgevoerd.",
+    "noProject": "Open a project to execute files",
+    "outputHint": "Select a file to execute. Output will be displayed here.",
     "runtimeNotReady": "Python-runtime is niet geïnitialiseerd",
     "selectFile": "Bestand selecteren",
     "stop": "Stoppen",

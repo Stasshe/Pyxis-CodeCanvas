@@ -89,12 +89,6 @@ export interface RuntimeProvider {
   execute(options: RuntimeExecutionOptions): Promise<RuntimeExecutionResult>;
 
   /**
-   * コードスニペットを実行（REPLモード）
-   * - 一時的なコード実行用
-   */
-  executeCode?(code: string, options: RuntimeExecutionOptions): Promise<RuntimeExecutionResult>;
-
-  /**
    * キャッシュをクリア
    * - メモリリーク防止のため定期的に呼ばれる
    */

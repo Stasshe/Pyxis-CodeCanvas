@@ -27,7 +27,6 @@ Pyxisの新しいランタイムアーキテクチャは、拡張可能で体系
 │  │  - name: string               │     │
 │  │  - supportedExtensions        │     │
 │  │  - execute()                  │     │
-│  │  - executeCode()              │     │
 │  └───────────────────────────────┘     │
 │            ▲                            │
 │            │                            │
@@ -101,9 +100,6 @@ export interface RuntimeProvider {
   
   // ファイルを実行
   execute(options: RuntimeExecutionOptions): Promise<RuntimeExecutionResult>;
-  
-  // コードスニペットを実行（REPLモード、オプション）
-  executeCode?(code: string, options: RuntimeExecutionOptions): Promise<RuntimeExecutionResult>;
   
   // キャッシュをクリア（オプション）
   clearCache?(): void;
