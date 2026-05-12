@@ -56,6 +56,7 @@ export class NodeRuntime {
 
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
+  private pendingIO: Set<Promise<any>> = new Set();
   private eventLoopResolve: (() => void) | null = null;
 
   constructor(options: ExecutionOptions) {
@@ -165,17 +166,30 @@ export class NodeRuntime {
   }
 
   /**
+   * インタラクティブIO（readline等）の完了を追跡する
+   * waitForEventLoop がこのPromiseが解決されるまで待機する
+   */
+  trackIO(p: Promise<any>): void {
+    this.pendingIO.add(p);
+    p.finally(() => {
+      this.pendingIO.delete(p);
+      this.checkEventLoop();
+    });
+  }
+
+  /**
    * イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
    */
   async waitForEventLoop(): Promise<void> {
-    // アクティブなタイマーがなければすぐに完了
-    if (this.activeTimers.size === 0) {
+    // アクティブなタイマーとIOがなければすぐに完了
+    if (this.activeTimers.size === 0 && this.pendingIO.size === 0) {
       runtimeInfo('✅ Event loop is already empty');
       return;
     }
 
     runtimeInfo('⏳ Waiting for event loop to complete...', {
       activeTimers: this.activeTimers.size,
+      pendingIO: this.pendingIO.size,
     });
 
     // イベントループが空になるまで待機
@@ -193,7 +207,7 @@ export class NodeRuntime {
   }
 
   private checkEventLoop() {
-    if (this.activeTimers.size === 0 && this.eventLoopResolve) {
+    if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
       this.eventLoopResolve();
       this.eventLoopResolve = null;

@@ -1,11 +1,7 @@
 /**
- * [NEW ARCHITECTURE] readline モジュールのエミュレーション
+ * readline モジュールのエミュレーション
  *
- * ## 動作モード
- * 1. Terminal経由でnodeコマンドで実行: Terminalの入力インターフェースを使用
- * 2. RunPanel経由で実行: DebugConsoleAPIを使用
- *
- * onInput callbackが渡された場合はそれを優先的に使用
+ * onInput callbackが渡された場合はTerminalInputBridge経由でターミナルから入力を受け取る
  */
 
 interface ReadlineOptions {
@@ -313,8 +309,8 @@ export function createReadlineModule(
       // Choose input stream with attention to sandboxed process.stdin.
       // Rules:
       // - If caller explicitly passed the real host `process.stdin`, use it.
-      // - If an onInput handler is provided (RunPanel/DebugConsole), prefer pseudoStdin
-      //   so GUI-driven input is used instead of the sandbox's stubbed stdin.
+      // - If an onInput handler is provided, prefer pseudoStdin
+      //   so terminal-driven input is used instead of the sandbox's stubbed stdin.
       // - Otherwise, if options.input is provided, use it.
       // - Otherwise fall back to host process.stdin if available, else pseudoStdin.
       let input: any;
@@ -327,7 +323,7 @@ export function createReadlineModule(
         // Caller explicitly passed the real host stdin
         input = options.input;
       } else if (onInput) {
-        // GUI-driven run: prefer pseudoStdin so DebugConsole can drive input
+        // terminal-driven run: prefer pseudoStdin so onInput handler drives input
         input = pseudoStdin;
       } else if (options.input && typeof options.input.on === 'function') {
         // Use provided input (likely from a true stream)
@@ -340,11 +336,13 @@ export function createReadlineModule(
 
       const iface = new Interface({ ...options, input });
 
-      // Only attach host-driven wrappers when we're using the pseudoStdin
-      // (i.e. not a real terminal stdin) and an onInput handler is provided.
+      // Attach host-driven wrappers when using pseudoStdin with onInput.
+      // IMPORTANT: Do NOT write the prompt immediately here.
+      // The bridge (terminalInputBridge) queues requests and writes the prompt
+      // only when it is ready to accept that specific input, preventing interleaving
+      // when multiple readline interfaces call question/prompt simultaneously.
       if (onInput && input === pseudoStdin) {
-        const origPrompt = iface.prompt.bind(iface);
-        iface.prompt = (preserveCursor?: boolean) => {
+        iface.prompt = (_preserveCursor?: boolean) => {
           try {
             onInput(iface.promptStr ?? '', (val: string) => {
               emitData(`${val}\n`);
@@ -352,14 +350,11 @@ export function createReadlineModule(
           } catch (err) {
             console.error('Error calling onInput handler:', err);
           }
-          return origPrompt(preserveCursor);
+          // Intentionally NOT calling origPrompt — bridge writes prompt at the right time.
         };
 
-        const origQuestion = iface.question.bind(iface);
         iface.question = (query: string, callback?: (answer: string) => void) => {
-          if (iface.output?.write) {
-            iface.output.write(query);
-          }
+          // Intentionally NOT writing query to output here — bridge writes it when ready.
           try {
             onInput(query, (val: string) => {
               emitData(`${val}\n`);

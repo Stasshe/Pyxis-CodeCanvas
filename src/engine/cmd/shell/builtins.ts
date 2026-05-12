@@ -2,6 +2,7 @@ import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
 import { normalizeDotSegments, toFSPath } from '@/engine/core/pathUtils';
+import { terminalInputBridge } from '../terminalInputBridge';
 import handleUnixCommand from '../handlers/unixHandler';
 
 export type StreamCtx = {
@@ -292,15 +293,6 @@ export default function adaptUnixToStream(unix: any) {
         },
       };
 
-      // TODO: stdinに統合
-      // 入力インターフェース（シンプルなダミー実装、将来的にstdin統合可能）
-      const onInput = (promptText: string, callback: (input: string) => void) => {
-        // streamShellではインタラクティブ入力は未対応
-        // エラーを返すか、空文字列でcallback
-        ctx.stderr.write('node: interactive input not supported in streamShell\n');
-        callback('');
-      };
-
       // パスを解決（相対パス対応）
       let entryPath = args[0];
       let cwd: string | undefined;
@@ -321,7 +313,17 @@ export default function adaptUnixToStream(unix: any) {
         entryPath = args[0];
       }
 
-      const runtime = new NodeRuntime({
+      // runtimeを先に生成し、onInput内でtrackIOを呼べるよう前方参照
+      let runtime: InstanceType<typeof NodeRuntime>;
+      const onInput = (promptText: string, callback: (input: string) => void) => {
+        const p = terminalInputBridge
+          .requestInput(promptText)
+          .then(callback)
+          .catch(() => callback(''));
+        runtime?.trackIO(p);
+      };
+
+      runtime = new NodeRuntime({
         projectId: ctx.projectId || '',
         projectName: ctx.projectName || '',
         filePath: entryPath,

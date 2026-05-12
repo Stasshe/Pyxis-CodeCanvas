@@ -9,6 +9,7 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { terminalInputBridge } from '@/engine/cmd/terminalInputBridge';
 import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -722,6 +723,26 @@ function ClientTerminal({
     // 通常のキー入力
     let vimModeActive = false; // Flag to disable normal input during vim mode
 
+    // インタラクティブ入力モード（readline等で使用）
+    let interactiveMode = false;
+    let interactiveLine = '';
+    let interactivePos = 0;
+    let interactiveResolve: ((line: string) => void) | null = null;
+
+    // TerminalInputBridgeにハンドラを登録（同期的に登録してレースコンディション回避）
+    // プロンプト文字列はここで書く（readlineModule側では書かない）
+    terminalInputBridge.registerHandler((prompt: string): Promise<string> => {
+      if (prompt) {
+        outputManagerRef.current?.write(prompt);
+      }
+      return new Promise<string>(resolve => {
+        interactiveMode = true;
+        interactiveLine = '';
+        interactivePos = 0;
+        interactiveResolve = resolve;
+      });
+    });
+
     term.onData((data: string) => {
       if (ignoreNextOnData) {
         // clear and ignore a single following onData payload
@@ -729,6 +750,76 @@ function ClientTerminal({
         return;
       }
       if (isComposing || vimModeActive) return; // Skip if vim is active
+
+      // インタラクティブ入力モード（readline等）
+      if (interactiveMode) {
+        switch (data) {
+          case '\r': {
+            outputManagerRef.current?.writeln('');
+            const line = interactiveLine;
+            interactiveMode = false;
+            interactiveLine = '';
+            interactivePos = 0;
+            const res = interactiveResolve;
+            interactiveResolve = null;
+            res?.(line);
+            break;
+          }
+          case '': {
+            if (interactivePos > 0) {
+              interactiveLine =
+                interactiveLine.slice(0, interactivePos - 1) +
+                interactiveLine.slice(interactivePos);
+              interactivePos--;
+              term.write('\b');
+              term.write(`${interactiveLine.slice(interactivePos)} `);
+              for (let i = 0; i < interactiveLine.length - interactivePos + 1; i++)
+                term.write('\b');
+            }
+            break;
+          }
+          case '': {
+            outputManagerRef.current?.writeln('^C');
+            interactiveMode = false;
+            interactiveLine = '';
+            interactivePos = 0;
+            const res = interactiveResolve;
+            interactiveResolve = null;
+            res?.('');
+            try {
+              shellRef.current?.killForeground?.();
+            } catch (e) {}
+            break;
+          }
+          case '[D': {
+            if (interactivePos > 0) {
+              term.write('\b');
+              interactivePos--;
+            }
+            break;
+          }
+          case '[C': {
+            if (interactivePos < interactiveLine.length) {
+              term.write(interactiveLine[interactivePos]);
+              interactivePos++;
+            }
+            break;
+          }
+          default: {
+            if (data >= ' ' || data === '\t') {
+              interactiveLine =
+                interactiveLine.slice(0, interactivePos) +
+                data +
+                interactiveLine.slice(interactivePos);
+              term.write(interactiveLine.slice(interactivePos));
+              interactivePos++;
+              for (let i = 0; i < interactiveLine.length - interactivePos; i++) term.write('\b');
+            }
+            break;
+          }
+        }
+        return;
+      }
 
       switch (data) {
         case '\r':
@@ -870,6 +961,7 @@ function ClientTerminal({
     return () => {
       // prevent updates from async tasks after unmount
       mounted = false;
+      terminalInputBridge.unregisterHandler();
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);

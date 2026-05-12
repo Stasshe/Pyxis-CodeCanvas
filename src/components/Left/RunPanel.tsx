@@ -157,7 +157,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   };
 
   // デバッグコンソールを作成
-  const createDebugConsole = () => ({
+  const createOutputConsole = () => ({
     log: (...args: unknown[]) => {
       const content = args
         .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
@@ -181,21 +181,15 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     },
   });
 
-  // 入力コールバックを作成（readline用 - DebugConsoleAPI使用）
+  // 入力コールバックを作成（readline用 - TerminalInputBridge使用）
   const createOnInput = () => {
     return (prompt: string, callback: (input: string) => void) => {
-      // DebugConsoleAPIを使って入力を受け取る
-      const { DebugConsoleAPI } = require('@/components/Bottom/DebugConsoleAPI');
-
-      // プロンプトを表示
       addOutput(prompt, 'log');
-      DebugConsoleAPI.write(prompt);
-
-      // DebugConsoleからの入力を待つ
-      const unsubscribe = DebugConsoleAPI.onInput((input: string) => {
-        unsubscribe();
-        addOutput(input, 'input');
-        callback(input);
+      import('@/engine/cmd/terminalInputBridge').then(({ terminalInputBridge }) => {
+        terminalInputBridge.requestInput(prompt).then(input => {
+          addOutput(input, 'input');
+          callback(input);
+        });
       });
     };
   };
@@ -225,7 +219,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         projectId: currentProject.id,
         projectName: currentProject.name,
         filePath: isPython ? '/temp-code.py' : '/temp-code.js',
-        debugConsole: createDebugConsole(),
+        debugConsole: createOutputConsole(),
         onInput: createOnInput(),
       });
 
@@ -265,7 +259,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         projectId: currentProject.id,
         projectName: currentProject.name,
         filePath,
-        debugConsole: createDebugConsole(),
+        debugConsole: createOutputConsole(),
         onInput: createOnInput(),
       });
 

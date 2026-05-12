@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 
-import DebugConsole from './DebugConsole';
 import OutputPanel from './OutputPanel';
 import ProblemsPanel from './ProblemsPanel';
 import Terminal from './Terminal';
@@ -17,8 +16,8 @@ interface BottomPanelProps {
   currentProjectId?: string;
   projectFiles?: FileItem[];
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  activeTab?: 'output' | 'terminal' | 'debug' | 'problems';
-  onActiveTabChange?: (tab: 'output' | 'terminal' | 'debug' | 'problems') => void;
+  activeTab?: 'output' | 'terminal' | 'problems';
+  onActiveTabChange?: (tab: 'output' | 'terminal' | 'problems') => void;
   // [NEW ARCHITECTURE] onTerminalFileOperation removed - Terminal uses fileRepository directly
 }
 
@@ -34,15 +33,15 @@ export default function BottomPanel({
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [vimEditor, setVimEditor] = useState<any | null>(null);
-  const [internalActiveTab, setInternalActiveTab] = useState<
-    'output' | 'terminal' | 'debug' | 'problems'
-  >('terminal');
+  const [internalActiveTab, setInternalActiveTab] = useState<'output' | 'terminal' | 'problems'>(
+    'terminal'
+  );
 
   const activeTab = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
 
   const [isPending, startTransition] = useTransition();
 
-  const setActiveTab = (tab: 'output' | 'terminal' | 'debug' | 'problems') => {
+  const setActiveTab = (tab: 'output' | 'terminal' | 'problems') => {
     const current = typeof activeTabProp !== 'undefined' ? activeTabProp : internalActiveTab;
     if (current === tab) return; // avoid unnecessary state updates
 
@@ -130,29 +129,6 @@ export default function BottomPanel({
             onClick={() => setActiveTab('output')}
           >
             {t('bottom.output')}
-          </button>
-          <button
-            className="tab-btn"
-            style={{
-              position: 'relative',
-              fontSize: '11px',
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              padding: '2px 12px 0 12px',
-              background: 'none',
-              border: 'none',
-              outline: 'none',
-              color: activeTab === 'debug' ? colors.primary : colors.mutedFg,
-              cursor: 'pointer',
-              borderBottom:
-                activeTab === 'debug' ? `2px solid ${colors.primary}` : '2px solid transparent',
-              transition: 'color 0.2s, border-bottom 0.2s',
-              marginLeft: '2px',
-            }}
-            onClick={() => setActiveTab('debug')}
-          >
-            {t('bottom.debugConsole')}
           </button>
           <button
             className="tab-btn"
@@ -257,19 +233,6 @@ export default function BottomPanel({
               isActive={activeTab === 'terminal'}
               onVimModeChange={editor => setVimEditor(editor)}
             />
-          </div>
-          <div
-            style={{
-              height: '100%',
-              width: '100%',
-              position: activeTab === 'debug' ? 'static' : 'absolute',
-              visibility: activeTab === 'debug' ? 'visible' : 'hidden',
-              pointerEvents: activeTab === 'debug' ? 'auto' : 'none',
-              top: 0,
-              left: 0,
-            }}
-          >
-            <DebugConsole height={height} isActive={activeTab === 'debug'} />
           </div>
         </div>
       </div>
