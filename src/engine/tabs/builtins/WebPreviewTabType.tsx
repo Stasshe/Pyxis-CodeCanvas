@@ -4,6 +4,7 @@ import type React from 'react';
 import type { TabComponentProps, TabTypeDefinition, WebPreviewTab } from '../types';
 
 import WebPreviewTabComponent from '@/components/Tab/WebPreviewTab';
+import { tabActions } from '@/stores/tabState';
 
 /**
  * Webプレビュータブのコンポーネント
@@ -14,7 +15,15 @@ const WebPreviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   // タブに保存されたprojectNameを優先、なければcurrentProjectから取得
   const projectName = webTab.projectName;
 
-  return <WebPreviewTabComponent filePath={webTab.path} currentProjectName={projectName} />;
+  return (
+    <WebPreviewTabComponent
+      filePath={webTab.path}
+      currentProjectName={projectName}
+      onTitleChange={title => {
+        tabActions.updateTab(webTab.paneId, webTab.id, { name: title });
+      }}
+    />
+  );
 };
 
 /**

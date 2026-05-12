@@ -11,9 +11,14 @@ import { inlineHtmlAssets } from '@/engine/in-ex/inlineHtmlAssets';
 interface WebPreviewTabProps {
   filePath: string;
   currentProjectName?: string;
+  onTitleChange?: (title: string) => void;
 }
 
-const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectName }) => {
+const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
+  filePath,
+  currentProjectName,
+  onTitleChange,
+}) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [fileContent, setFileContent] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -25,6 +30,25 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
   const resolveFilePath = (path: string): string => {
     const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
     return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
+  };
+
+  const getDefaultTabName = () => {
+    const trimmed = filePath.replace(/\/$/, '');
+    const name = trimmed.split('/').pop() || 'web';
+    return `Preview: ${name}`;
+  };
+
+  const applyHtmlTitle = (html: string) => {
+    if (!onTitleChange) return;
+    if (typeof DOMParser === 'undefined') return;
+
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const title = doc.querySelector('title')?.textContent?.trim();
+      onTitleChange(title || getDefaultTabName());
+    } catch (e) {
+      console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
+    }
   };
 
   // ファイルシステムから直接ファイル内容を取得
@@ -188,6 +212,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, currentProjectN
         if (iframeDocument.body) {
           iframeDocument.body.style.backgroundColor = '#ffffff';
         }
+        applyHtmlTitle(fileContent);
       } else {
         console.warn('[DEBUG] iframeDocumentが取得できませんでした');
       }
