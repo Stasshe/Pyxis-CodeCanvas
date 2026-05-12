@@ -11,7 +11,6 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
-import type React from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GitHistory from './GitHistory';
@@ -292,15 +291,6 @@ export default function GitPanel({
     setApiKey(savedKey);
   }, []);
 
-  const hasApiKey = !!apiKey;
-
-  // APIキー入力時にlocalStorageへ保存
-  const handleApiKeyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setApiKey(value);
-    localStorage.setItem(LOCALSTORAGE_KEY.GEMINI_API_KEY, value);
-  }, []);
-
   // 初期化とプロジェクト変更時の更新
   useEffect(() => {
     if (currentProject) {
@@ -519,19 +509,16 @@ export default function GitPanel({
       {/* コミット */}
       {(gitRepo?.status?.staged?.length || 0) > 0 && (
         <CommitBox
-          gitRepo={gitRepo}
           commitMessage={commitMessage}
           setCommitMessage={setCommitMessage}
           handleGenerateCommitMessage={handleGenerateCommitMessage}
           handleCommit={handleCommit}
           apiKey={apiKey}
-          handleApiKeyChange={handleApiKeyChange}
           isGenerating={isGenerating}
           generateError={generateError}
           isCommitting={isCommitting}
           colors={colors}
           t={t}
-          hasApiKey={hasApiKey}
           uiError={uiError}
         />
       )}

@@ -1,45 +1,40 @@
 'use client';
-import React from 'react';
+import type React from 'react';
+
+import type { ThemeColors } from '@/context/ThemeContext';
+
+type CommitBoxProps = {
+  commitMessage: string;
+  setCommitMessage: (message: string) => void;
+  handleGenerateCommitMessage: () => void;
+  handleCommit: () => void;
+  apiKey: string;
+  isGenerating: boolean;
+  generateError: string | null;
+  isCommitting: boolean;
+  colors: ThemeColors;
+  t: (key: string) => string;
+  uiError: string | null;
+};
 
 export default function CommitBox({
-  gitRepo,
   commitMessage,
   setCommitMessage,
   handleGenerateCommitMessage,
   handleCommit,
   apiKey,
-  handleApiKeyChange,
   isGenerating,
   generateError,
   isCommitting,
   colors,
   t,
-  hasApiKey,
   uiError,
-}: any) {
+}: CommitBoxProps) {
   return (
     <div style={{ padding: '0.3rem', borderBottom: `1px solid ${colors.border}` }}>
-      {!hasApiKey && (
-        <input
-          type="text"
-          value={apiKey}
-          onChange={handleApiKeyChange}
-          placeholder={t('git.apiKeyPlaceholder')}
-          style={{
-            width: '100%',
-            marginBottom: '0.5rem',
-            fontSize: '0.75rem',
-            border: `1px solid ${colors.border}`,
-            borderRadius: '0.375rem',
-            padding: '0.25rem 0.5rem',
-            background: colors.background,
-            color: colors.foreground,
-          }}
-        />
-      )}
       <textarea
         value={commitMessage}
-        onChange={(e: any) => setCommitMessage(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCommitMessage(e.target.value)}
         placeholder={t('git.commitMessagePlaceholder')}
         style={{
           width: '100%',
@@ -56,6 +51,7 @@ export default function CommitBox({
       />
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
         <button
+          type="button"
           onClick={handleGenerateCommitMessage}
           disabled={!apiKey || isGenerating}
           style={{
@@ -79,6 +75,7 @@ export default function CommitBox({
           {t('git.generateCommitMessage')}
         </button>
         <button
+          type="button"
           onClick={handleCommit}
           disabled={!commitMessage.trim() || isCommitting}
           style={{

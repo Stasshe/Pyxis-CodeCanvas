@@ -159,7 +159,6 @@
     }
   },
   "git": {
-    "apiKeyPlaceholder": "Enter Gemini API key",
     "branchFilter": {
       "all": "All",
       "allMode": "All Branches",

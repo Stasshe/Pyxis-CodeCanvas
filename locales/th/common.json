@@ -159,7 +159,6 @@
     }
   },
   "git": {
-    "apiKeyPlaceholder": "ใส่คีย์ API ของ Gemini",
     "branchFilter": {
       "all": "ทั้งหมด",
       "allMode": "ทุกสาขา",

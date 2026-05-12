@@ -159,7 +159,6 @@
     }
   },
   "git": {
-    "apiKeyPlaceholder": "Gemini API 키 입력",
     "branchFilter": {
       "all": "모두",
       "allMode": "모든 브랜치",

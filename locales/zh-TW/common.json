@@ -159,7 +159,6 @@
     }
   },
   "git": {
-    "apiKeyPlaceholder": "輸入 Gemini API 金鑰",
     "branchFilter": {
       "all": "全部",
       "allMode": "所有分支",

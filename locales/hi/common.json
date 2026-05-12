@@ -159,7 +159,6 @@
     }
   },
   "git": {
-    "apiKeyPlaceholder": "Gemini API key दर्ज करें",
     "branchFilter": {
       "all": "सभी",
       "allMode": "सभी ब्रांच",
