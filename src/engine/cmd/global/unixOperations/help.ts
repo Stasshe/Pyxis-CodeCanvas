@@ -34,7 +34,6 @@ Basic Commands:
 
 Navigation:
   ↑/↓ 矢印キー - コマンド履歴を操作
-  Ctrl+C    - 現在のコマンドをキャンセル
 
 File System Commands:
   pwd       - 現在のディレクトリを表示

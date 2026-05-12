@@ -624,6 +624,55 @@ function ClientTerminal({
       }
     });
 
+    const copyTextToClipboard = (text: string) => {
+      const fallbackCopy = () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+          document.execCommand('copy');
+        } finally {
+          textarea.remove();
+          term.focus();
+        }
+      };
+
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
+    };
+
+    const copyTerminalSelection = () => {
+      const selection = typeof term.getSelection === 'function' ? term.getSelection() : '';
+      if (!selection) return false;
+      copyTextToClipboard(selection);
+      return true;
+    };
+
+    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      const isCopyShortcut =
+        event.type === 'keydown' &&
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === 'c';
+
+      if (isCopyShortcut && copyTerminalSelection()) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+
+      return true;
+    });
+
     // キーボードショートカット
     term.onKey(({ key, domEvent }: { key: string; domEvent: KeyboardEvent }) => {
       if (isComposing) return;
@@ -702,22 +751,6 @@ function ClientTerminal({
         }
       }
 
-      if (
-        domEvent.ctrlKey &&
-        key === '\u0003' &&
-        isSelecting &&
-        selectionStart !== null &&
-        selectionEnd !== null
-      ) {
-        const selStart = Math.min(selectionStart, selectionEnd);
-        const selEnd = Math.max(selectionStart, selectionEnd);
-        const selectedText = currentLine.slice(selStart, selEnd);
-        navigator.clipboard.writeText(selectedText);
-        isSelecting = false;
-        selectionStart = null;
-        selectionEnd = null;
-        domEvent.preventDefault();
-      }
     });
 
     // 通常のキー入力
@@ -764,16 +797,6 @@ function ClientTerminal({
               for (let i = 0; i < interactiveLine.length - interactivePos + 1; i++)
                 term.write('\b');
             }
-            break;
-          }
-          case '\x03': {
-            term.write('^C\r\n');
-            interactiveLine = '';
-            interactivePos = 0;
-            terminalProcessBridge.deactivate();
-            try {
-              shellRef.current?.killForeground?.();
-            } catch (e) {}
             break;
           }
           case '\x1b[D': {
@@ -845,22 +868,6 @@ function ClientTerminal({
             term.write(`${currentLine.slice(cursorPos)} `);
             for (let i = 0; i < currentLine.length - cursorPos + 1; i++) term.write('\b');
           }
-          break;
-        case '\u0003':
-          outputManagerRef.current?.writeln('^C');
-          // send SIGINT to foreground process if available
-          try {
-            try {
-              shellRef.current?.killForeground?.();
-            } catch (e) {}
-          } catch (e) {}
-          currentLine = '';
-          cursorPos = 0;
-          historyIndex = -1;
-          isSelecting = false;
-          selectionStart = null;
-          selectionEnd = null;
-          showPrompt();
           break;
         case '\u001b[A':
           if (commandHistory.length > 0) {
