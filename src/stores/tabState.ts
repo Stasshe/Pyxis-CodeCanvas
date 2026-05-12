@@ -996,6 +996,12 @@ export const tabActions = {
           for (const t of sp.tabs) {
             if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
               await loadAndUpdateTabContent(t.id, kind, file.path);
+              if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
+                tabActions.updateTab(sp.id, t.id, {
+                  jumpToLine: options.jumpToLine,
+                  jumpToColumn: options.jumpToColumn,
+                } as Partial<Tab>);
+              }
               if (options.makeActive !== false) tabActions.activateTab(sp.id, t.id);
               return;
             }
@@ -1005,6 +1011,12 @@ export const tabActions = {
         for (const t of pane.tabs) {
           if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
             await loadAndUpdateTabContent(t.id, kind, file.path);
+            if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
+              tabActions.updateTab(targetPaneId, t.id, {
+                jumpToLine: options.jumpToLine,
+                jumpToColumn: options.jumpToColumn,
+              } as Partial<Tab>);
+            }
             if (options.makeActive !== false) tabActions.activateTab(targetPaneId, t.id);
             return;
           }
