@@ -170,8 +170,6 @@ Root
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
 │   │   │   ├── BottomStatusBar.tsx
-│   │   │   ├── DebugConsole.tsx
-│   │   │   ├── DebugConsoleAPI.ts
 │   │   │   ├── OutputPanel.tsx
 │   │   │   ├── ProblemsPanel.tsx
 │   │   │   └── Terminal.tsx
@@ -372,6 +370,7 @@ Root
 │   │   │   │   ├── streamShell.ts
 │   │   │   │   └── types.ts
 │   │   │   ├── terminalOutputManager.ts
+│   │   │   ├── terminalProcessBridge.ts
 │   │   │   ├── terminalRegistry.ts
 │   │   │   ├── terminalUI.ts
 │   │   │   └── vim.ts
@@ -420,7 +419,6 @@ Root
 │   │   │   ├── nodejs
 │   │   │   │   ├── NodeRuntimeProvider.ts
 │   │   │   │   ├── builtInModule.ts
-│   │   │   │   ├── extendedBuiltInModules.ts
 │   │   │   │   ├── modules
 │   │   │   │   │   ├── assertModule.ts
 │   │   │   │   │   ├── bufferModule.ts
@@ -498,6 +496,7 @@ Root
 │   │   ├── tabState.ts
 │   │   └── terminalHistoryStorage.ts
 │   └── types
+│       ├── css.d.ts
 │       ├── git.ts
 │       ├── index.ts
 │       ├── path-browserify.d.ts
@@ -518,6 +517,7 @@ Root
 │   │   │   └── shell
 │   │   │       ├── braceExpand.test.ts
 │   │   │       ├── expansion.test.ts
+│   │   │       ├── nodeBuiltin.test.ts
 │   │   │       ├── parser.test.ts
 │   │   │       └── types.test.ts
 │   │   ├── core
@@ -674,12 +674,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 73293
-合計文字数: 2327576
-合計ファイルサイズ(bytes): 2467665
+合計行数: 72821
+合計文字数: 2315803
+合計ファイルサイズ(bytes): 2453958
 
 開発時のdev container全体のサイズ(bytes): 1.3G	.
 ==========
 ビルト済みファイルの行数: 129635
-合計文字数: 27841472
-合計ファイルサイズ(bytes): 30827676
+合計文字数: 27838140
+合計ファイルサイズ(bytes): 30824214
