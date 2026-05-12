@@ -496,24 +496,13 @@ export default function Home() {
 
             {/* 右サイドバー */}
             {isRightSidebarVisible && (
-              <>
-                <div
-                  className="resizer resizer-vertical flex-shrink-0"
-                  onMouseDown={handleRightResize}
-                  onTouchStart={handleRightResize}
-                  style={{
-                    background: colors.sidebarResizerBg,
-                    cursor: 'col-resize',
-                  }}
-                />
-                <RightSidebar
-                  rightSidebarWidth={rightSidebarWidth}
-                  onResize={handleRightResize}
-                  projectFiles={projectFiles}
-                  currentProject={currentProject}
-                  currentProjectId={currentProject?.id || ''}
-                />
-              </>
+              <RightSidebar
+                rightSidebarWidth={rightSidebarWidth}
+                onResize={handleRightResize}
+                projectFiles={projectFiles}
+                currentProject={currentProject}
+                currentProjectId={currentProject?.id || ''}
+              />
             )}
           </div>
 
