@@ -9,7 +9,7 @@
  * 5. 手動の状態更新は不要（イベントシステムに任せる）
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { fileRepository } from './fileRepository';
 
@@ -144,6 +144,7 @@ const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
 export const useProject = () => {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+  const fileItems = useMemo(() => convertToFileItems(projectFiles), [projectFiles]);
 
   const loadProject = async (project: Project) => {
     try {
@@ -308,7 +309,7 @@ export const useProject = () => {
 
   return {
     currentProject,
-    projectFiles: convertToFileItems(projectFiles),
+    projectFiles: fileItems,
     loadProject,
     createProject,
     refreshProjectFiles,

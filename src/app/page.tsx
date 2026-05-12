@@ -601,12 +601,13 @@ export default function Home() {
             currentProject={currentProject}
           />
 
-          <OperationWindow
-            isVisible={isOperationWindowVisible}
-            onClose={closeFileSelector}
-            projectFiles={projectFiles}
-            targetPaneId={operationWindowTargetPaneId}
-          />
+          {isOperationWindowVisible && (
+            <OperationWindow
+              onClose={closeFileSelector}
+              projectFiles={projectFiles}
+              targetPaneId={operationWindowTargetPaneId}
+            />
+          )}
 
           <PaneNavigator
             isOpen={isPaneNavigatorOpen}

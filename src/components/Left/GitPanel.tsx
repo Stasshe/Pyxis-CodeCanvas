@@ -607,7 +607,6 @@ export default function GitPanel({
         {/* ブランチセレクタ OperationWindow */}
         {showBranchSelector && (
           <OperationWindow
-            isVisible={showBranchSelector}
             onClose={() => setShowBranchSelector(false)}
             projectFiles={[]}
             items={(() => {
