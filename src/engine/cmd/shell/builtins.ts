@@ -1,6 +1,7 @@
 import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
+import { normalizeDotSegments, toFSPath } from '@/engine/core/pathUtils';
 import handleUnixCommand from '../handlers/unixHandler';
 
 export type StreamCtx = {
@@ -302,14 +303,17 @@ export default function adaptUnixToStream(unix: any) {
 
       // パスを解決（相対パス対応）
       let entryPath = args[0];
+      let cwd: string | undefined;
       try {
         if (unix && typeof unix.pwd === 'function') {
+          cwd = await unix.pwd();
           if (!entryPath.startsWith('/')) {
-            const cwd = await unix.pwd();
-            const combined = `${cwd.replace(/\/$/, '')}/${entryPath}`;
-            entryPath = unix.resolveToFSPath(combined);
+            const combined = `${cwd!.replace(/\/$/, '')}/${entryPath}`;
+            entryPath = normalizeDotSegments(combined);
+          } else if (!entryPath.startsWith('/projects/')) {
+            entryPath = toFSPath(ctx.projectName || '', entryPath);
           } else {
-            entryPath = unix.resolveToFSPath(entryPath);
+            entryPath = normalizeDotSegments(entryPath);
           }
         }
       } catch (e) {
@@ -321,6 +325,7 @@ export default function adaptUnixToStream(unix: any) {
         projectId: ctx.projectId || '',
         projectName: ctx.projectName || '',
         filePath: entryPath,
+        cwd,
         debugConsole,
         onInput,
         terminalColumns: ctx.terminalColumns,

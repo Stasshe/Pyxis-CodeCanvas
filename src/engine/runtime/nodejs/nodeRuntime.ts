@@ -25,6 +25,7 @@ export interface ExecutionOptions {
   projectId: string;
   projectName: string;
   filePath: string;
+  cwd?: string;
   debugConsole?: {
     log: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -49,6 +50,7 @@ export class NodeRuntime {
   private builtInModules: BuiltInModules;
   private moduleLoader: ModuleLoader;
   private projectDir: string;
+  private cwd: string;
   private terminalColumns: number;
   private terminalRows: number;
 
@@ -62,6 +64,7 @@ export class NodeRuntime {
     this.debugConsole = options.debugConsole;
     this.onInput = options.onInput;
     this.projectDir = `/projects/${this.projectName}`;
+    this.cwd = options.cwd ?? this.projectDir;
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
 
@@ -85,6 +88,7 @@ export class NodeRuntime {
       projectId: this.projectId,
       projectName: this.projectName,
       projectDir: this.projectDir,
+      cwd: this.cwd,
     });
   }
   /**
@@ -275,7 +279,7 @@ export class NodeRuntime {
         FORCE_COLOR: '3', // Force color level 3 (truecolor)
       },
       argv: ['node', currentFilePath || '/'].concat(argv),
-      cwd: () => this.projectDir,
+      cwd: () => this.cwd,
       platform: 'browser',
       version: 'v18.0.0',
       versions: {
