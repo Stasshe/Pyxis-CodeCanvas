@@ -14,10 +14,12 @@ export async function importSingleFile(
   projectName: string,
   projectId?: string
 ) {
-  // バイナリ拡張子リスト
+  // バイナリ拡張子リスト（SVGは特例でテキストファイルとして判定）
+  const fileName = file.name.toLowerCase();
+  const isSvg = /\.svg$/i.test(fileName);
   const binaryExt =
-    /\.(png|jpg|jpeg|gif|bmp|webp|svg|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
-  const isBinary = binaryExt.test(file.name.toLowerCase());
+    /\.(png|jpg|jpeg|gif|bmp|webp|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
+  const isBinary = !isSvg && binaryExt.test(fileName);
 
   console.log(`[importSingleFile] [NEW ARCHITECTURE] ファイルアップロード開始: ${targetPath}`);
 

@@ -31,6 +31,7 @@ export async function isLikelyTextFile(path: string, content: Uint8Array): Promi
     'html',
     'htm',
     'css',
+    'svg',
     'scss',
     'sass',
     'less',
