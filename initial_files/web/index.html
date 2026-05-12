@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTML / CSS / JavaScript の基礎</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header id="page-header" class="site-header">
+      <p class="eyebrow">Web Basics</p>
+      <h1>HTML / CSS / JavaScript を触ってみよう</h1>
+      <p>
+        HTMLで要素を作り、CSSで見た目を整え、JavaScriptで画面を更新します。
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="lesson-card">
+        <h2>1. HTML はページの部品を作る</h2>
+        <p>
+          この見出し、文章、入力欄、ボタンはすべてHTMLの要素です。
+          <code>id</code> は1つの要素を指定したいとき、
+          <code>class</code> は同じ種類の要素をまとめて指定したいときに使います。
+        </p>
+
+        <label class="field" for="name-input">
+          表示する名前
+          <input id="name-input" type="text" value="CodeCanvas" />
+        </label>
+
+        <button id="update-button" class="primary-button" type="button">
+          メッセージを更新
+        </button>
+      </section>
+
+      <section class="lesson-card highlight-box">
+        <h2>2. CSS は見た目を整える</h2>
+        <p>
+          この枠は <code>.lesson-card</code> と
+          <code>.highlight-box</code> というclassで装飾されています。
+          ページ上部のheaderは <code>#page-header</code> というidでも指定できます。
+        </p>
+
+        <ul class="sample-list">
+          <li>タグ名指定: <code>body</code>, <code>h1</code>, <code>button</code></li>
+          <li>class指定: <code>.lesson-card</code>, <code>.primary-button</code></li>
+          <li>id指定: <code>#message</code>, <code>#update-button</code></li>
+        </ul>
+      </section>
+
+      <section class="lesson-card">
+        <h2>3. JavaScript はHTMLの要素を更新する</h2>
+        <p id="message" class="message">
+          ここはJavaScriptで書き換えられる文章です。
+        </p>
+
+        <div class="button-row">
+          <button id="count-button" type="button">クリック数を増やす</button>
+          <button id="theme-button" type="button">色を切り替える</button>
+        </div>
+
+        <p class="counter">
+          クリック数: <span id="count">0</span>
+        </p>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
