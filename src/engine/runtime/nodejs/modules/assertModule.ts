@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] assert モジュールのエミュレーション
+ * assert モジュールのエミュレーション
  */
 
 export function createAssertModule() {

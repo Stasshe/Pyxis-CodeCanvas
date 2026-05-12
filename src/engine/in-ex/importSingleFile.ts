@@ -1,7 +1,7 @@
 import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
- * [NEW ARCHITECTURE] ファイルアップロード(インポート)機能
+ * ファイルアップロード(インポート)機能
  * fileRepository経由で自動的にGitFileSystemに同期されるため、syncFileToFileSystemは不要
  *
  * @param file File APIで受け取ったファイル
@@ -21,7 +21,7 @@ export async function importSingleFile(
     /\.(png|jpg|jpeg|gif|bmp|webp|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
   const isBinary = !isSvg && binaryExt.test(fileName);
 
-  console.log(`[importSingleFile] [NEW ARCHITECTURE] ファイルアップロード開始: ${targetPath}`);
+  console.log(`[importSingleFile] ファイルアップロード開始: ${targetPath}`);
 
   // targetPath からプロジェクト内パスを抽出
   const match = targetPath.match(/^\/projects\/[^/]+(\/.*)$/);
@@ -42,6 +42,6 @@ export async function importSingleFile(
     await fileRepository.createFile(projectId, filePath, '', 'file', true, arrayBuffer);
   }
 
-  console.log(`[importSingleFile] [NEW ARCHITECTURE] ファイルアップロード完了: ${targetPath}`);
-  // [NEW ARCHITECTURE] syncFileToFileSystemは不要 - fileRepositoryが自動的にGitFileSystemに同期
+  console.log(`[importSingleFile] ファイルアップロード完了: ${targetPath}`);
+  // syncFileToFileSystemは不要 - fileRepositoryが自動的にGitFileSystemに同期
 }

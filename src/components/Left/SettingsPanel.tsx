@@ -235,7 +235,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
             <button
               type="button"
               onClick={async () => {
-                // [NEW ARCHITECTURE] Open shortcut keys settings tab using TabContext
+                // Open shortcut keys settings tab using TabContext
                 await openTab(
                   { name: 'Shortcut Keys', settingsType: 'shortcuts' },
                   { kind: 'settings' }

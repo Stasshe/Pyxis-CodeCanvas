@@ -75,7 +75,7 @@ function ClientTerminal({
         // GitFileSystemを初期化
         gitFileSystem.init();
 
-        // [NEW ARCHITECTURE] fileRepositoryが自動的にlightning-fsに同期するため、
+        // fileRepositoryが自動的にlightning-fsに同期するため、
         // ここでの明示的な同期は不要（むしろ有害：ディレクトリクリアで新規ファイルが消える）
         // 初期化時の同期は、プロジェクト作成時のみsyncManager.initializeProjectで実行される
       } catch (error) {
@@ -274,7 +274,7 @@ function ClientTerminal({
     const initializeMessages = async () => {
       // 初期メッセージ via TerminalUI
       const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
-      await terminalUI.info(`Pyxis Terminal v${pyxisVersion} [NEW ARCHITECTURE]`);
+      await terminalUI.info(`Pyxis Terminal v${pyxisVersion}`);
       await terminalUI.println('Type "help" for available commands.');
       // 初期プロンプト表示
       await showPrompt();

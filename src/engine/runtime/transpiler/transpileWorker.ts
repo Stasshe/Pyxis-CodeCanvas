@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Transpile Worker
+ * Transpile Worker
  *
  * ## 役割
  * Web Worker内でnormalizeCjsEsmを実行

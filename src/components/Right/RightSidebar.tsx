@@ -43,7 +43,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       >
         <div style={{ flex: 1, overflow: 'auto' }}>
           {children || (
-            // [NEW ARCHITECTURE] デフォルトでAI Panelを表示
+            // デフォルトでAI Panelを表示
             <AIPanel
               projectFiles={projectFiles}
               currentProject={currentProject}

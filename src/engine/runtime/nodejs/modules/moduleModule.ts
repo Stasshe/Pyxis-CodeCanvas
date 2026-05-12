@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Module Module
+ * Module Module
  *
  * Node.js 'module' module implementation
  */

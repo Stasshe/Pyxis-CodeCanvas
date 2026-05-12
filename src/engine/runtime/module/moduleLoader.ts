@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Module Loader
+ * Module Loader
  *
  * ## 役割
  * - モジュールの読み込みと実行

@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Node.js Runtime Emulator
+ * Node.js Runtime Emulator
  *
  * ## 設計原則
  * 1. IndexedDB (fileRepository) を唯一の真実の源として使用

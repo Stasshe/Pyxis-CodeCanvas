@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Buffer クラスのエミュレーション
+ * Buffer クラスのエミュレーション
  */
 
 class BufferEmulation {

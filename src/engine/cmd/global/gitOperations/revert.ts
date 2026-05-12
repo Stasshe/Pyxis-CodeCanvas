@@ -4,7 +4,7 @@ import git from 'isomorphic-git';
 import { syncManager } from '@/engine/core/syncManager';
 
 /**
- * [NEW ARCHITECTURE] Git revert操作を管理するクラス
+ * Git revert操作を管理するクラス
  * - revert後にsyncManager.syncFromFSToIndexedDB()で逆同期
  */
 export class GitRevertOperations {
@@ -20,7 +20,7 @@ export class GitRevertOperations {
     this.projectName = projectName;
   }
 
-  // [NEW ARCHITECTURE] git revert - コミットを取り消し + 逆同期
+  // git revert - コミットを取り消し + 逆同期
   async revert(commitHash: string): Promise<string> {
     try {
       // Gitリポジトリが初期化されているかチェック
@@ -58,7 +58,7 @@ export class GitRevertOperations {
 
       const parentHash = commitToRevert.commit.parent[0];
 
-      console.log('[NEW ARCHITECTURE] Reverting commit:', commitHash.slice(0, 7));
+      console.log('Reverting commit:', commitHash.slice(0, 7));
 
       // 親コミットの状態を取得
       const parentCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: parentHash });
@@ -133,7 +133,7 @@ export class GitRevertOperations {
         }
       }
 
-      console.log('[NEW ARCHITECTURE] Revert: Files to change:', changedFiles.size);
+      console.log('Revert: Files to change:', changedFiles.size);
 
       // 変更を適用
       for (const [filePath, { parentOid }] of changedFiles) {
@@ -177,14 +177,14 @@ export class GitRevertOperations {
         },
       });
 
-      console.log('[NEW ARCHITECTURE] Revert commit created:', commitOid.slice(0, 7));
+      console.log('Revert commit created:', commitOid.slice(0, 7));
 
-      // [NEW ARCHITECTURE] GitFileSystem → IndexedDBへ逆同期
-      console.log('[NEW ARCHITECTURE] Starting reverse sync: GitFileSystem → IndexedDB');
+      // GitFileSystem → IndexedDBへ逆同期
+      console.log('Starting reverse sync: GitFileSystem → IndexedDB');
       await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-      console.log('[NEW ARCHITECTURE] Reverse sync completed');
+      console.log('Reverse sync completed');
 
-      return `[${commitOid.slice(0, 7)}] ${revertMessage.split('\n')[0]}\n${changedFiles.size} files changed\n\n[NEW ARCHITECTURE] Changes synced to IndexedDB`;
+      return `[${commitOid.slice(0, 7)}] ${revertMessage.split('\n')[0]}\n${changedFiles.size} files changed\n\nChanges synced to IndexedDB`;
     } catch (error) {
       const errorMessage = (error as Error).message;
 

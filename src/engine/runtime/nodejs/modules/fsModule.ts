@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] fs モジュールのエミュレーション
+ * fs モジュールのエミュレーション
  * - fileRepositoryを直接使用してIndexedDBに保存
  * - GitFileSystemへの同期は自動的に実行される
  * - 読み取りはgitFileSystem.getFS()から直接実行
@@ -51,7 +51,7 @@ export function createFSModule(options: FSModuleOptions) {
 
   /**
    * ファイルを書き込む（IndexedDBに保存し、自動的にGitFileSystemに同期）
-   * [NEW ARCHITECTURE] GitFileSystemへの直接書き込みは不要
+   * GitFileSystemへの直接書き込みは不要
    */
   async function handleWriteFile(
     path: string,
@@ -278,7 +278,7 @@ export function createFSModule(options: FSModuleOptions) {
 
     /**
      * ディレクトリを作成
-     * [NEW ARCHITECTURE] IndexedDBに保存すれば自動的にGitFileSystemに同期される
+     * IndexedDBに保存すれば自動的にGitFileSystemに同期される
      */
     mkdir: async (path: string, options?: any): Promise<void> => {
       const { relativePath } = normalizeModulePath(path);
@@ -363,7 +363,7 @@ export function createFSModule(options: FSModuleOptions) {
 
     /**
      * ファイルを削除
-     * [NEW ARCHITECTURE] IndexedDBから削除すれば自動的にGitFileSystemからも削除される
+     * IndexedDBから削除すれば自動的にGitFileSystemからも削除される
      */
     unlink: async (path: string): Promise<void> => {
       const { relativePath } = normalizeModulePath(path);

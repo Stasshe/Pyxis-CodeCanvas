@@ -23,7 +23,7 @@ interface LeftSidebarProps {
   currentProject: Project;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   onGitRefresh?: () => void;
-  onRefresh?: () => void; // [NEW ARCHITECTURE] ファイルツリー再読み込み用
+  onRefresh?: () => void; // ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
 }
 
@@ -91,7 +91,7 @@ export default function LeftSidebar({
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>
                   ./
                 </span>
-                {/* [NEW ARCHITECTURE] 新規ファイル作成 - fileRepository直接呼び出し */}
+                {/* 新規ファイル作成 - fileRepository直接呼び出し */}
                 <button
                   title={t('leftSidebar.createFile')}
                   style={{
@@ -113,7 +113,7 @@ export default function LeftSidebar({
                 >
                   <FilePlus size={16} color={colors.sidebarIconFg} />
                 </button>
-                {/* [NEW ARCHITECTURE] 新規フォルダ作成 - fileRepository直接呼び出し */}
+                {/* 新規フォルダ作成 - fileRepository直接呼び出し */}
                 <button
                   title={t('leftSidebar.createFolder')}
                   style={{

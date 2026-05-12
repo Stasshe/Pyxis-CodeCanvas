@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Module Resolver
+ * Module Resolver
  *
  * ## 役割
  * - モジュールパスの解決（Node.js互換）

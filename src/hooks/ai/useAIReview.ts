@@ -8,7 +8,7 @@ import type { AIReviewEntry, FileItem, Project } from '@/types';
 export function useAIReview() {
   const { openTab, closeTab } = tabActions;
 
-  // [NEW ARCHITECTURE] AIレビュータブを開く
+  // AIレビュータブを開く
   const openAIReviewTab = useCallback(
     async (
       filePath: string,
@@ -83,7 +83,7 @@ export function useAIReview() {
     []
   );
 
-  // [NEW ARCHITECTURE] レビュータブを閉じる
+  // レビュータブを閉じる
   const closeAIReviewTab = useCallback(
     (filePath: string) => {
       const allTabs = tabActions.getAllTabs();

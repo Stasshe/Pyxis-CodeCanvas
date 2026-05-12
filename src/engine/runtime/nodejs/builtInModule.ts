@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Built-in Node.js モジュールのエミュレーション（統合エントリーポイント）
+ * Built-in Node.js モジュールのエミュレーション（統合エントリーポイント）
  *
  * ## 主な変更点
  * - fileRepositoryを直接使用してIndexedDBに保存

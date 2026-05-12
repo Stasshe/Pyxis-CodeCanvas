@@ -1,5 +1,5 @@
 /**
- * [NEW ARCHITECTURE] Module Cache Manager
+ * Module Cache Manager
  *
  * キャッシュ戦略:
  * - キャッシュキーはファイルパスのみ(内容のハッシュは含めない)
