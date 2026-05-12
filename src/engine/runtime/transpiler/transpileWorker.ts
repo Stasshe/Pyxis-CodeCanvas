@@ -2,22 +2,22 @@
  * Transpile Worker
  *
  * ## 役割
- * Web Worker内でnormalizeCjsEsmを実行
+ * Web Worker内でesbuildベースのESM→CJS変換を実行
  * メインスレッドをブロックせず、完了後にWorkerを即座に終了してメモリを解放
  *
  * ## 処理フロー
- * 1. normalizeCjsEsmでCJS/ESM変換
- * 2. 依存関係を抽出
+ * 1. esbuildでESM→CJS変換
+ * 2. CJSコードから依存関係を抽出
  * 3. 結果をメインスレッドに返す
  * 4. Worker終了
  *
  * ## 注意
  * TypeScript/JSXのトランスパイルは拡張機能 (extensions/typescript-runtime) で実行
- * このWorkerはビルトインのCJS/ESM変換のみを担当
+ * このWorkerはビルトインのESM→CJS変換のみを担当
  * npmパッケージの.mjsファイルはinstall時にesbuildで事前変換済みのためここでは不要
  */
 
-import { normalizeCjsEsm } from './normalizeCjsEsm';
+import { extractCjsDependencies, transformEsmToCjs } from './esmTransformer';
 
 /**
  * トランスパイルリクエスト
@@ -46,19 +46,16 @@ export interface TranspileResult {
 
 /**
  * トランスパイル実行
- * normalizeCjsEsmによるCJS/ESM変換のみを行う
+ * esbuildによるESM→CJS変換のみを行う
  */
-function transpile(request: TranspileRequest): TranspileResult {
+async function transpile(request: TranspileRequest): Promise<TranspileResult> {
   try {
-    const { code } = request;
-
-    // CJS/ESM正規化を実行（依存関係も同時に抽出される）
-    const normalized = normalizeCjsEsm(code);
+    const transformed = await transformEsmToCjs(request.code, request.filePath);
 
     return {
       id: request.id,
-      code: normalized.code,
-      dependencies: normalized.dependencies,
+      code: transformed,
+      dependencies: extractCjsDependencies(transformed),
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -84,11 +81,11 @@ function transpile(request: TranspileRequest): TranspileResult {
 /**
  * メッセージハンドラー
  */
-self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
+self.addEventListener('message', async (event: MessageEvent<TranspileRequest>) => {
   const request = event.data;
 
   try {
-    const result = transpile(request);
+    const result = await transpile(request);
     self.postMessage(result);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -110,7 +107,7 @@ try {
   self.postMessage({
     type: 'log',
     level: 'info',
-    message: '✅ Transpile worker initialized (normalizeCjsEsm)',
+    message: '✅ Transpile worker initialized (esbuild)',
   });
 } catch {
   // ignore

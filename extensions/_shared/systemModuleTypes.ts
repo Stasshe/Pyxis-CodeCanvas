@@ -39,28 +39,11 @@ export interface FileRepository {
 }
 
 /**
- * normalizeCjsEsm - CommonJS/ES Module変換ユーティリティ
+ * transpiler - ESM→CJS変換ユーティリティ
  */
-export interface NormalizeCjsEsmModule {
-  normalizeCjsEsm(code: string): string;
-  extractImports(
-    code: string
-  ): Array<{
-    source: string;
-    specifiers: Array<{
-      type: 'default' | 'named' | 'namespace';
-      imported?: string;
-      local: string;
-    }>;
-  }>;
-  extractExports(
-    code: string
-  ): Array<{
-    type: 'named' | 'default' | 'all';
-    exported?: string;
-    local?: string;
-    source?: string;
-  }>;
+export interface TranspilerModule {
+  transformEsmToCjs(code: string, filePath: string): Promise<string>;
+  extractCjsDependencies(code: string): string[];
 }
 
 /**
@@ -267,7 +250,7 @@ export interface StreamShell {
 
 export interface SystemModuleMap {
   fileRepository: FileRepository;
-  normalizeCjsEsm: NormalizeCjsEsmModule;
+  transpiler: TranspilerModule;
   pathUtils: PathUtilsModule;
   commandRegistry: CommandRegistry;
   /** Terminal/CLI commands provider exposed to extensions */

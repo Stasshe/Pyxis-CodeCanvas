@@ -6,7 +6,7 @@
  * - ブラウザ: esbuild-wasm (WASMベース、正確なESM→CJS変換)
  * - Node.js (テスト環境): esbuild (ネイティブ)
  *
- * esbuildを使うことでregexベースのnormalizeCjsEsmでは壊れる
+ * esbuildを使うことでregexベースの旧変換では壊れる
  * 複雑なテンプレートリテラル・minified ESMも正確に変換できる。
  */
 
@@ -22,6 +22,20 @@ type EsbuildApi = {
   ): Promise<{ code: string }>;
   initialize?(options: { wasmURL: string }): Promise<void>;
 };
+
+export function extractCjsDependencies(code: string): string[] {
+  const deps = new Set<string>();
+  const re = /\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(code)) !== null) {
+    deps.add(match[2]);
+  }
+  const dynamicImportRe = /\bdynamicImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
+  while ((match = dynamicImportRe.exec(code)) !== null) {
+    deps.add(match[2]);
+  }
+  return Array.from(deps);
+}
 
 let api: EsbuildApi | null = null;
 let initPromise: Promise<EsbuildApi | null> | null = null;
@@ -93,6 +107,20 @@ export async function transformEsmToCjs(code: string, _filePath: string): Promis
   transformed = transformed.replace(
     /^[ \t]*(?:var|let|const)\s+process\s*=\s*require\(['"](?:node:)?process['"]\)\s*;?\n/gm,
     ''
+  );
+
+  // dynamic import は custom runtime の eval 実行では使えないため require に寄せる
+  transformed = transformed.replace(
+    /new\s+Function\s*\(\s*(['"])module\1\s*,\s*(['"])return\s+import\(module\)\2\s*\)/g,
+    '((module) => Promise.resolve(require(module)))'
+  );
+  transformed = transformed.replace(
+    /\bimport\s*\(\s*([^)\n]+?)\s*\)/g,
+    'Promise.resolve(require($1))'
+  );
+  transformed = transformed.replace(
+    /\bdynamicImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g,
+    'Promise.resolve(require($1$2$1))'
   );
 
   return transformed;

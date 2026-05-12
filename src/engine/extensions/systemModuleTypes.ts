@@ -16,13 +16,15 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
-import type { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
+import type { extractCjsDependencies, transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
 
 /**
- * normalizeCjsEsmモジュールの型定義
- * 実際の実装から型を抽出
+ * transpilerモジュールの型定義
  */
-export type NormalizeCjsEsmModule = typeof normalizeCjsEsm;
+export interface TranspilerModule {
+  transformEsmToCjs: typeof transformEsmToCjs;
+  extractCjsDependencies: typeof extractCjsDependencies;
+}
 
 /**
  * pathUtilsモジュールの型定義
@@ -46,7 +48,7 @@ export interface SystemModuleMap {
   // module. Use the instance type here so getSystemModule returns the runtime
   // instance rather than the class/constructor.
   fileRepository: typeof fileRepository;
-  normalizeCjsEsm: NormalizeCjsEsmModule;
+  transpiler: TranspilerModule;
   pathUtils: PathUtilsModule;
   // commandRegistry is an instance exported from commandRegistry module.
   // Use the class instance type (not constructor type).

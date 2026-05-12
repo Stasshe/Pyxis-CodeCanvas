@@ -11,47 +11,27 @@ interface TranspileResponse {
   id: string;
   code: string;
   map?: string;
-  dependencies: string[];
   error?: string;
 }
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger.info('TypeScript Runtime Extension activating...');
 
-  // normalizeCjsEsmユーティリティを取得（型推論により自動的に正しい型が得られる）
+  // transpilerユーティリティを取得
   if (!context.getSystemModule) {
     throw new Error('getSystemModule not available');
   }
-  
-  let normalizeCjsEsm: (code: string) => string;
+
+  let transformEsmToCjs: (code: string, filePath: string) => Promise<string>;
+  let extractCjsDependencies: (code: string) => string[];
   try {
-    // moduleの型は自動的に NormalizeCjsEsmModule として推論される
-    const module = await context.getSystemModule('normalizeCjsEsm');
-    normalizeCjsEsm = module.normalizeCjsEsm;
-    context.logger.info('✅ normalizeCjsEsm loaded');
+    const module = await context.getSystemModule('transpiler');
+    transformEsmToCjs = module.transformEsmToCjs;
+    extractCjsDependencies = module.extractCjsDependencies;
+    context.logger.info('✅ transpiler loaded');
   } catch (error) {
-    context.logger.warn('⚠️ Failed to load normalizeCjsEsm:', error);
-    throw new Error('normalizeCjsEsm is required but could not be loaded');
-  }
-
-  /**
-   * 依存関係を抽出
-   */
-  function extractDependencies(code: string): string[] {
-    const dependencies = new Set<string>();
-
-    const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-    let match;
-    while ((match = requireRegex.exec(code)) !== null) {
-      dependencies.add(match[1]);
-    }
-
-    const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'"]+)['"]/g;
-    while ((match = importRegex.exec(code)) !== null) {
-      dependencies.add(match[1]);
-    }
-
-    return Array.from(dependencies);
+    context.logger.warn('⚠️ Failed to load transpiler:', error);
+    throw new Error('transpiler is required but could not be loaded');
   }
 
   /**
@@ -120,25 +100,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           reject(new Error(errorMsg));
         };
         
-        // normalizeCjsEsmとextractDependenciesの関数全体を文字列として取得
-        const normalizeCjsEsmCode = normalizeCjsEsm.toString();
-        const extractDependenciesCode = extractDependencies.toString();
-        
-        // デバッグ: 関数コードが正しく取得できているか確認
-        context.logger.info(`📝 normalizeCjsEsm code length: ${normalizeCjsEsmCode.length}`);
-        context.logger.info(`📝 extractDependencies code length: ${extractDependenciesCode.length}`);
-        
-        if (!normalizeCjsEsmCode || normalizeCjsEsmCode.length < 10) {
-          reject(new Error('normalizeCjsEsm function code extraction failed'));
-          worker.terminate();
-          return;
-        }
-        if (!extractDependenciesCode || extractDependenciesCode.length < 10) {
-          reject(new Error('extractDependencies function code extraction failed'));
-          worker.terminate();
-          return;
-        }
-        
         // リクエスト送信
         worker.postMessage({
           id,
@@ -146,8 +107,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           filePath,
           isTypeScript,
           isJSX,
-          normalizeCjsEsm: normalizeCjsEsmCode,
-          extractDependencies: extractDependenciesCode,
         });
         
       } catch (error) {
@@ -171,21 +130,23 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         // TypeScriptの場合: Web Workerでトランスパイル
         if (isTypeScript) {
           const result = await transpileWithWorker(code, filePath, true, false);
+          const finalCode = await transformEsmToCjs(result.code, filePath);
+          const dependencies = extractCjsDependencies(finalCode);
           
-          context.logger.info(`✅ Transpiled: ${filePath} (${code.length} -> ${result.code.length} bytes, ${result.dependencies.length} deps)`);
+          context.logger.info(`✅ Transpiled: ${filePath} (${code.length} -> ${finalCode.length} bytes, ${dependencies.length} deps)`);
           
           return {
-            code: result.code,
+            code: finalCode,
             map: result.map,
-            dependencies: result.dependencies,
+            dependencies,
           };
         } 
-        // 普通のJSの場合: normalizeCjsEsmのみ（渡されたものを使用）
+        // 普通のJSの場合: esbuildでCJSに変換
         else {
-          const finalCode = normalizeCjsEsm(code);
-          const dependencies = extractDependencies(finalCode);
+          const finalCode = await transformEsmToCjs(code, filePath);
+          const dependencies = extractCjsDependencies(finalCode);
           
-          context.logger.info(`✅ Normalized: ${filePath} (${code.length} -> ${finalCode.length} bytes, ${dependencies.length} deps)`);
+          context.logger.info(`✅ Transformed: ${filePath} (${code.length} -> ${finalCode.length} bytes, ${dependencies.length} deps)`);
           
           return {
             code: finalCode,

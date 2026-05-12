@@ -2,13 +2,13 @@
  * Transpile Manager
  *
  * ## 役割
- * - normalizeCjsEsmによるCJS/ESM変換のみをサポート
+ * - esbuildによるESM→CJS変換をサポート
  * - TypeScript/JSXのトランスパイルは拡張機能の責任
  * - Web Workerを使用してメインスレッドをブロックしない
  *
  * ## 設計方針
  * - TypeScriptはビルトインで保証されていないため、ここではサポートしない
- * - CJS/ESM変換のみを行う（transpileWorker経由でnormalizeCjsEsm使用）
+ * - JSのESM→CJS変換のみを行う（transpileWorker経由でesbuild使用）
  * - moduleLoaderから使用される
  */
 
@@ -35,13 +35,13 @@ export class TranspileManager {
   /**
    * コードをトランスパイル
    *
-   * Web Worker経由でnormalizeCjsEsmによるCJS/ESM変換を行う。
+   * Web Worker経由でesbuildによるESM→CJS変換を行う。
    * TypeScript/JSXのトランスパイルは拡張機能の責任。
    */
   async transpile(options: TranspileOptions): Promise<TranspileResult> {
     const id = `transpile_${++this.requestId}_${Date.now()}`;
 
-    runtimeInfo('🔄 Normalizing CJS/ESM (Web Worker):', options.filePath);
+    runtimeInfo('🔄 Transforming ESM to CJS (Web Worker):', options.filePath);
 
     return new Promise((resolve, reject) => {
       try {

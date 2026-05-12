@@ -2,19 +2,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setupTestProject } from '../../../_helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
-
-// normalizeCjsEsm は Pure function なので直接使える。
-// transpileManager は Web Worker を使うため Node 環境では動かない → モック。
-import { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
+import {
+  extractCjsDependencies,
+  transformEsmToCjs,
+} from '@/engine/runtime/transpiler/esmTransformer';
 
 vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
   transpileManager: {
     transpile: async (options: { code: string; filePath: string }) => {
-      const result = normalizeCjsEsm(options.code);
+      const code = await transformEsmToCjs(options.code, options.filePath);
       return {
         id: 'mock',
-        code: result.code,
-        dependencies: result.dependencies,
+        code,
+        dependencies: extractCjsDependencies(code),
       };
     },
   },
@@ -150,6 +150,7 @@ describe('e2e — npx uvu 実行テスト', () => {
         let executionError: Error | null = null;
         try {
           await runtime.execute(shimPath, []);
+          await runtime.waitForEventLoop();
         } catch (e) {
           executionError = e as Error;
         }

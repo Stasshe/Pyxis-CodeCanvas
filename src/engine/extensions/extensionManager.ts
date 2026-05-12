@@ -629,8 +629,8 @@ class ExtensionManager {
             const { fileRepository } = await import('@/engine/core/fileRepository');
             return fileRepository as SystemModuleMap[T];
           }
-          case 'normalizeCjsEsm': {
-            const module = await import('@/engine/runtime/transpiler/normalizeCjsEsm');
+          case 'transpiler': {
+            const module = await import('@/engine/runtime/transpiler/esmTransformer');
             // import() returns a module namespace object which may not structurally
             // match the expected SystemModuleMap[T] type. Cast via unknown first
             // to satisfy TypeScript and avoid unsafe direct casting warnings.

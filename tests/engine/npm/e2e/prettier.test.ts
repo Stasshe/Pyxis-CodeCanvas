@@ -2,20 +2,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setupTestProject } from '../../../_helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
-
-// normalizeCjsEsm は Pure function なので直接使える。
-// transpileManager は Web Worker を使うため Node 環境では動かない → モック。
-// npmInstall時にesbuildで.mjsをCJS変換済みのため、runtimeでは単純なCJSを処理するだけ。
-import { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
+import {
+  extractCjsDependencies,
+  transformEsmToCjs,
+} from '@/engine/runtime/transpiler/esmTransformer';
 
 vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
   transpileManager: {
     transpile: async (options: { code: string; filePath: string }) => {
-      const result = normalizeCjsEsm(options.code);
+      const code = await transformEsmToCjs(options.code, options.filePath);
       return {
         id: 'mock',
-        code: result.code,
-        dependencies: result.dependencies,
+        code,
+        dependencies: extractCjsDependencies(code),
       };
     },
   },
@@ -43,6 +42,15 @@ describe('e2e — npx prettier 実行テスト', () => {
 
   function createInstaller(skipLoad = true) {
     return new NpmInstall(projectName, projectId, skipLoad);
+  }
+
+  async function ensurePrettierRuntimeFiles() {
+    await fileRepository.createFile(
+      projectId,
+      '/tmp/ionstore_tiny-updater.json',
+      '{}',
+      'file'
+    );
   }
 
   // ==================== prettier インストール & 解決テスト ====================
@@ -99,13 +107,14 @@ describe('e2e — npx prettier 実行テスト', () => {
 
   describe('npx prettier 実行', () => {
     it(
-      'prettier の bin シムを NodeRuntime で実行してもモジュール解決エラーが出ない',
+      'prettier の bin エントリを NodeRuntime で実行してもモジュール解決エラーが出ない',
       async () => {
         // === 1. prettier をインストール ===
         const installer = createInstaller();
         installer.startBatchProcessing();
         await installer.installWithDependencies('prettier', 'latest');
         await installer.finishBatchProcessing();
+        await ensurePrettierRuntimeFiles();
 
         // .bin シムを生成
         await installer.ensureBinsForPackage('prettier');
@@ -126,6 +135,16 @@ describe('e2e — npx prettier 実行テスト', () => {
         );
         expect(shim).not.toBeNull();
         expect(shim!.content).toContain('require(');
+
+        const prettierPkg = await fileRepository.getFileByPath(
+          projectId,
+          '/node_modules/prettier/package.json'
+        );
+        expect(prettierPkg).not.toBeNull();
+        const pkg = JSON.parse(prettierPkg!.content);
+        const binField = typeof pkg.bin === 'string' ? { prettier: pkg.bin } : pkg.bin;
+        const binEntry = Object.values(binField)[0] as string;
+        const binPath = `/projects/${projectName}/node_modules/prettier/${binEntry.replace(/^\.\//, '')}`;
 
         // === 4. NodeRuntime で実行 ===
         const output: string[] = [];
@@ -150,12 +169,10 @@ describe('e2e — npx prettier 実行テスト', () => {
           clear: () => {},
         };
 
-        const shimPath = `/projects/${projectName}/node_modules/.bin/prettier`;
-
         const runtime = new NodeRuntime({
           projectId,
           projectName,
-          filePath: shimPath,
+          filePath: binPath,
           debugConsole,
           terminalColumns: 80,
           terminalRows: 24,
@@ -165,7 +182,8 @@ describe('e2e — npx prettier 実行テスト', () => {
         // prettier は --help などを渡すことで正常終了させる
         let executionError: Error | null = null;
         try {
-          await runtime.execute(shimPath, ['--version']);
+          await runtime.execute(binPath, ['--version']);
+          await runtime.waitForEventLoop();
         } catch (e) {
           executionError = e as Error;
         }
@@ -229,6 +247,7 @@ describe('e2e — npx prettier 実行テスト', () => {
         installer.startBatchProcessing();
         await installer.installWithDependencies('prettier', 'latest');
         await installer.finishBatchProcessing();
+        await ensurePrettierRuntimeFiles();
 
         // テストファイルを作成
         const testCode = `const prettier = require('prettier');\nconsole.log(typeof prettier.format);`;
@@ -276,6 +295,7 @@ describe('e2e — npx prettier 実行テスト', () => {
         let executionError: Error | null = null;
         try {
           await runtime.execute(testPath, []);
+          await runtime.waitForEventLoop();
         } catch (e) {
           executionError = e as Error;
         }

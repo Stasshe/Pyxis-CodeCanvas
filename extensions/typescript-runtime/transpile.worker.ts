@@ -20,53 +20,13 @@ interface TranspileRequest {
   filePath: string;
   isTypeScript?: boolean;
   isJSX?: boolean;
-  normalizeCjsEsm: string; // normalizeCjsEsm関数のコード文字列
-  extractDependencies: string; // extractDependencies関数のコード文字列
 }
 
 interface TranspileResponse {
   id: string;
   code: string;
   map?: string;
-  dependencies: string[];
   error?: string;
-}
-
-// メインスレッドから渡された関数を保持
-let normalizeCjsEsm: ((code: string) => {code: string; dependencies: string[]}) | null = null;
-let extractDependencies: ((code: string) => string[]) | null = null;
-
-// 関数を動的に初期化
-function initializeFunctions(normalizeCjsEsmCode?: string, extractDependenciesCode?: string) {
-  if (normalizeCjsEsmCode && !normalizeCjsEsm) {
-    // 関数全体の文字列を評価して関数として取得
-     
-    normalizeCjsEsm = eval(`(${normalizeCjsEsmCode})`) as (code: string) => {code: string; dependencies: string[]};
-  }
-  if (extractDependenciesCode && !extractDependencies) {
-     
-    extractDependencies = eval(`(${extractDependenciesCode})`) as (code: string) => string[];
-  }
-}
-
-// フォールバック用の簡易実装
-function fallbackExtractDependencies(code: string): string[] {
-  const dependencies = new Set<string>();
-
-  // require('module')
-  const requireRegex = /require\s*\(\s*['"]([^'\"]+)['"]\s*\)/g;
-  let match;
-  while ((match = requireRegex.exec(code)) !== null) {
-    dependencies.add(match[1]);
-  }
-
-  // import ... from 'module'
-  const importRegex = /import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]([^'\"]+)['"]/g;
-  while ((match = importRegex.exec(code)) !== null) {
-    dependencies.add(match[1]);
-  }
-
-  return Array.from(dependencies);
 }
 
 // TypeScript/JSXトランスパイル処理（Babel Standalone使用）
@@ -104,27 +64,12 @@ if (typeof Babel === 'undefined') {
 
 // メッセージハンドラー
 self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
-  const { id, code, filePath, isTypeScript, isJSX, normalizeCjsEsm: normalizeCjsEsmCode, extractDependencies: extractDependenciesCode } = event.data;
+  const { id, code, filePath, isTypeScript, isJSX } = event.data;
 
   try {
     // Babelのロード確認
     if (typeof Babel === 'undefined') {
       throw new Error('Babel is not loaded. CDN may be blocked or importScripts failed.');
-    }
-
-    // 関数コードの受信確認
-    if (!normalizeCjsEsmCode) {
-      throw new Error('normalizeCjsEsm code not provided from main thread');
-    }
-    if (!extractDependenciesCode) {
-      throw new Error('extractDependencies code not provided from main thread');
-    }
-
-    // 関数を初期化（初回のみ）
-    try {
-      initializeFunctions(normalizeCjsEsmCode, extractDependenciesCode);
-    } catch (fnError) {
-      throw new Error(`Function initialization failed: ${fnError instanceof Error ? fnError.message : String(fnError)}`);
     }
 
     let transpiledCode = code;
@@ -138,38 +83,9 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
       }
     }
 
-    // CJS/ESM正規化（新しい戻り値: {code, dependencies}）
-    let normalizedCode: string;
-    let deps: string[] = [];
-    try {
-      if (normalizeCjsEsm) {
-        const result = normalizeCjsEsm(transpiledCode);
-        normalizedCode = result.code;
-        deps = result.dependencies;
-      } else {
-        normalizedCode = transpiledCode;
-      }
-    } catch (normError) {
-      throw new Error(`normalizeCjsEsm failed: ${normError instanceof Error ? normError.message : String(normError)}`);
-    }
-
-    // 依存関係抽出（extractDependenciesは不要になったが、フォールバック用に残す）
-    let dependencies: string[];
-    try {
-      // normalizeCjsEsmが既に依存関係を抽出しているので、それを使う
-      dependencies = deps.length > 0 ? deps : (
-        extractDependencies
-          ? extractDependencies(normalizedCode)
-          : fallbackExtractDependencies(normalizedCode)
-      );
-    } catch (depError) {
-      throw new Error(`extractDependencies failed: ${depError instanceof Error ? depError.message : String(depError)}`);
-    }
-
     const response: TranspileResponse = {
       id,
-      code: normalizedCode,
-      dependencies,
+      code: transpiledCode,
     };
 
     self.postMessage(response);
@@ -179,7 +95,6 @@ self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
     const response: TranspileResponse = {
       id,
       code: '',
-      dependencies: [],
       error: `[Worker Error] ${errorMessage}${errorStack ? '\nStack: ' + errorStack : ''}`,
     };
     self.postMessage(response);

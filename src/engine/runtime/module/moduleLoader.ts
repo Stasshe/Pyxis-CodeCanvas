@@ -280,7 +280,7 @@ export class ModuleLoader {
     }
 
     // .mjsファイルでesbuildによる事前変換済み（CJS）の場合:
-    // normalizeCjsEsmを通すとtemplate literalが壊れるため、require()のみ抽出してそのまま返す
+    // 再変換せず、require()のみ抽出してそのまま返す
     if (filePath.endsWith('.mjs') && !this.isESModule(content)) {
       const deps = this.extractRequireDeps(content);
       await this.cache.set(filePath, {
@@ -297,7 +297,7 @@ export class ModuleLoader {
     // トランスパイルが必要か判定
     const needsTranspile = this.needsTranspile(filePath, content);
     if (!needsTranspile) {
-      return { code: content, dependencies: [] };
+      return { code: content, dependencies: this.extractRequireDeps(content) };
     }
 
     runtimeInfo('🔄 Transpiling module (extracting dependencies):', filePath);
@@ -338,7 +338,7 @@ export class ModuleLoader {
       }
     }
 
-    // 普通のJSの場合はnormalizeCjsEsmのみ
+    // 普通のJS/ESMの場合はesbuildでCJSへ変換
     const result = await transpileManager.transpile({
       code: content,
       filePath,
@@ -701,7 +701,7 @@ export class ModuleLoader {
    */
   /**
    * CJSコードからrequire()の依存関係を抽出（シンプルregex版）
-   * esbuild変換済みCJSコードにのみ使用する。normalizeCjsEsmは通さない。
+   * esbuild変換済みCJSコードにのみ使用する。
    */
   private extractRequireDeps(content: string): string[] {
     const deps = new Set<string>();
@@ -729,13 +729,22 @@ export class ModuleLoader {
       return true;
     }
 
-    // ES Module構文を含む
-    if (this.isESModule(content)) {
+    // dynamic import は eval 実行系でそのまま扱えないため変換する
+    if (/\bimport\s*\(/.test(content)) {
       return true;
     }
 
-    // require()を含む（非同期化が必要）
-    if (/require\s*\(/.test(content)) {
+    // prettier などの dynamic import hack も変換対象
+    if (
+      /new\s+Function\s*\(\s*(['"])module\1\s*,\s*(['"])return\s+import\(module\)\2\s*\)/.test(
+        content
+      )
+    ) {
+      return true;
+    }
+
+    // ES Module構文を含む
+    if (this.isESModule(content)) {
       return true;
     }
 
