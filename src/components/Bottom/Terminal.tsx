@@ -9,7 +9,7 @@ import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { terminalInputBridge } from '@/engine/cmd/terminalInputBridge';
+import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/vim';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -205,6 +205,12 @@ function ClientTerminal({
     } catch (e) {
       console.warn('[Terminal] failed to register TerminalUI with registry', e);
     }
+
+    // Register terminal I/O with the process bridge (PTY-like stdin/stdout for Node.js)
+    terminalProcessBridge.setOutput(
+      text => outputManager.write(text),
+      text => outputManager.writeError ? outputManager.writeError(text) : outputManager.write(text)
+    );
 
     // タッチスクロール機能を追加
     let startY = 0;
@@ -724,23 +730,14 @@ function ClientTerminal({
     let vimModeActive = false; // Flag to disable normal input during vim mode
 
     // インタラクティブ入力モード（readline等で使用）
-    let interactiveMode = false;
+    // interactiveModeはterminalProcessBridge.isActive()で判定
     let interactiveLine = '';
     let interactivePos = 0;
-    let interactiveResolve: ((line: string) => void) | null = null;
 
-    // TerminalInputBridgeにハンドラを登録（同期的に登録してレースコンディション回避）
-    // プロンプト文字列はここで書く（readlineModule側では書かない）
-    terminalInputBridge.registerHandler((prompt: string): Promise<string> => {
-      if (prompt) {
-        outputManagerRef.current?.write(prompt);
-      }
-      return new Promise<string>(resolve => {
-        interactiveMode = true;
-        interactiveLine = '';
-        interactivePos = 0;
-        interactiveResolve = resolve;
-      });
+    // When process exits, reset interactive line state
+    terminalProcessBridge.setDeactivateCallback(() => {
+      interactiveLine = '';
+      interactivePos = 0;
     });
 
     term.onData((data: string) => {
@@ -751,21 +748,18 @@ function ClientTerminal({
       }
       if (isComposing || vimModeActive) return; // Skip if vim is active
 
-      // インタラクティブ入力モード（readline等）
-      if (interactiveMode) {
+      // インタラクティブ入力モード（Node.jsプロセスがstdinを読んでいる場合）
+      if (terminalProcessBridge.isActive()) {
         switch (data) {
           case '\r': {
-            outputManagerRef.current?.writeln('');
+            term.write('\r\n');
             const line = interactiveLine;
-            interactiveMode = false;
             interactiveLine = '';
             interactivePos = 0;
-            const res = interactiveResolve;
-            interactiveResolve = null;
-            res?.(line);
+            terminalProcessBridge.submitLine(line);
             break;
           }
-          case '': {
+          case '\x7F': {
             if (interactivePos > 0) {
               interactiveLine =
                 interactiveLine.slice(0, interactivePos - 1) +
@@ -778,27 +772,24 @@ function ClientTerminal({
             }
             break;
           }
-          case '': {
-            outputManagerRef.current?.writeln('^C');
-            interactiveMode = false;
+          case '\x03': {
+            term.write('^C\r\n');
             interactiveLine = '';
             interactivePos = 0;
-            const res = interactiveResolve;
-            interactiveResolve = null;
-            res?.('');
+            terminalProcessBridge.deactivate();
             try {
               shellRef.current?.killForeground?.();
             } catch (e) {}
             break;
           }
-          case '[D': {
+          case '\x1b[D': {
             if (interactivePos > 0) {
               term.write('\b');
               interactivePos--;
             }
             break;
           }
-          case '[C': {
+          case '\x1b[C': {
             if (interactivePos < interactiveLine.length) {
               term.write(interactiveLine[interactivePos]);
               interactivePos++;
@@ -961,7 +952,6 @@ function ClientTerminal({
     return () => {
       // prevent updates from async tasks after unmount
       mounted = false;
-      terminalInputBridge.unregisterHandler();
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);

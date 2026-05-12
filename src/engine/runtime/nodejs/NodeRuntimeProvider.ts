@@ -40,7 +40,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       filePath,
       argv = [],
       debugConsole,
-      onInput,
+      processStdin,
       terminalColumns,
       terminalRows,
     } = options;
@@ -61,7 +61,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         projectName,
         filePath,
         debugConsole,
-        onInput,
+        processStdin,
         terminalColumns,
         terminalRows,
       });

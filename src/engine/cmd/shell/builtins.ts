@@ -2,7 +2,7 @@ import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
 import { normalizeDotSegments, toFSPath } from '@/engine/core/pathUtils';
-import { terminalInputBridge } from '../terminalInputBridge';
+import { terminalProcessBridge } from '../terminalProcessBridge';
 import handleUnixCommand from '../handlers/unixHandler';
 
 export type StreamCtx = {
@@ -313,23 +313,14 @@ export default function adaptUnixToStream(unix: any) {
         entryPath = args[0];
       }
 
-      // runtimeを先に生成し、onInput内でtrackIOを呼べるよう前方参照
-      let runtime: InstanceType<typeof NodeRuntime>;
-      const onInput = (promptText: string, callback: (input: string) => void) => {
-        const p = terminalInputBridge
-          .requestInput(promptText)
-          .then(callback)
-          .catch(() => callback(''));
-        runtime?.trackIO(p);
-      };
-
-      runtime = new NodeRuntime({
+      terminalProcessBridge.activate();
+      const runtime = new NodeRuntime({
         projectId: ctx.projectId || '',
         projectName: ctx.projectName || '',
         filePath: entryPath,
         cwd,
         debugConsole,
-        onInput,
+        processStdin: terminalProcessBridge.stdin,
         terminalColumns: ctx.terminalColumns,
         terminalRows: ctx.terminalRows,
       });
@@ -337,14 +328,13 @@ export default function adaptUnixToStream(unix: any) {
       // NodeRuntimeを実行
       await runtime.execute(entryPath, args.slice(1));
 
-      // ★ イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
-      // setTimeout, Promise.thenなど、すべての非同期タスクが完了するまで自動的に待機
       await runtime.waitForEventLoop();
 
-      // ストリームを閉じる
+      terminalProcessBridge.deactivate();
       ctx.stdout.end();
       ctx.stderr.end();
     } catch (e: any) {
+      terminalProcessBridge.deactivate();
       const msg = e?.message ? String(e.message) : String(e);
       ctx.stderr.write(`node: error: ${msg}\n`);
       ctx.stdout.end();

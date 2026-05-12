@@ -8,6 +8,7 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 
 interface RunPanelProps {
@@ -181,19 +182,6 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     },
   });
 
-  // 入力コールバックを作成（readline用 - TerminalInputBridge使用）
-  const createOnInput = () => {
-    return (prompt: string, callback: (input: string) => void) => {
-      addOutput(prompt, 'log');
-      import('@/engine/cmd/terminalInputBridge').then(({ terminalInputBridge }) => {
-        terminalInputBridge.requestInput(prompt).then(input => {
-          addOutput(input, 'input');
-          callback(input);
-        });
-      });
-    };
-  };
-
   // コードを実行（自動判別: .pyならPython, それ以外はNode.js）
   const executeCode = async () => {
     if (!inputCode.trim() || !currentProject) return;
@@ -215,12 +203,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
       const cleanCode = isPython ? inputCode.replace(/^#!python\s*/, '') : inputCode;
 
+      terminalProcessBridge.activate();
       const result = await runtime.executeCode?.(cleanCode, {
         projectId: currentProject.id,
         projectName: currentProject.name,
         filePath: isPython ? '/temp-code.py' : '/temp-code.js',
         debugConsole: createOutputConsole(),
-        onInput: createOnInput(),
+        processStdin: terminalProcessBridge.stdin,
       });
 
       if (result?.stderr) {
@@ -231,6 +220,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      terminalProcessBridge.deactivate();
       setIsRunning(false);
       setInputCode('');
     }
@@ -254,13 +244,14 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
 
+    terminalProcessBridge.activate();
     try {
       const result = await runtime.execute({
         projectId: currentProject.id,
         projectName: currentProject.name,
         filePath,
         debugConsole: createOutputConsole(),
-        onInput: createOnInput(),
+        processStdin: terminalProcessBridge.stdin,
       });
 
       if (result.stderr) {
@@ -268,10 +259,10 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
       } else if (result.stdout) {
         addOutput(result.stdout, 'log');
       }
-      // Don't show "no output" message - if there's no output, show nothing
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      terminalProcessBridge.deactivate();
       setIsRunning(false);
     }
   };

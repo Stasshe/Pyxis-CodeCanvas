@@ -5,12 +5,14 @@
 
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
+import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 
 export interface ExtendedBuiltInModulesOptions {
   projectDir: string;
   projectId: string;
   projectName: string;
-  onInput?: (prompt: string, callback: (input: string) => void) => void;
+  processStdin?: ProcessStdin;
+  getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
 }
 
 /**

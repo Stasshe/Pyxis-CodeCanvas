@@ -37,6 +37,7 @@ import { createModuleModule } from './modules/moduleModule';
 import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
+import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 
@@ -44,7 +45,8 @@ export interface BuiltInModulesOptions {
   projectDir: string;
   projectId: string;
   projectName: string;
-  onInput?: (prompt: string, callback: (input: string) => void) => void;
+  processStdin?: ProcessStdin;
+  getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
 }
 
 export interface BuiltInModules {
@@ -70,7 +72,7 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, onInput } = options;
+  const { projectDir, projectId, projectName, processStdin, getTrackIO } = options;
 
   return {
     fs: createFSModule({ projectDir, projectId, projectName }),
@@ -81,7 +83,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     https: createHTTPSModule(),
     events: createEventsModule(),
     Buffer: Buffer,
-    readline: createReadlineModule(onInput),
+    readline: createReadlineModule(processStdin, getTrackIO),
     assert: createAssertModule(),
     module: createModuleModule(),
     url: urlModule,
