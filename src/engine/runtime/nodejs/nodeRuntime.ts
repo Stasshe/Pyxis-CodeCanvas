@@ -497,21 +497,39 @@ export class NodeRuntime {
         resume: () => {},
         isTTY: true,
       },
-      stdout: {
-        write: (data: string) => {
-          if (this.debugConsole?.log) {
-            this.debugConsole.log(data);
-          } else {
-            runtimeInfo(data);
-          }
-          return true;
-        },
-        isTTY: true,
-        columns: this.terminalColumns,
-        rows: this.terminalRows,
-        getColorDepth: () => 24, // 24-bit color (truecolor)
-        hasColors: (count?: number) => count === undefined || count <= 16777216,
-      },
+      stdout: (() => {
+        // \r (carriage return) を正しく処理するラインバッファ
+        // prettier等は \r で同一行を上書きするが、debugConsole.log は行単位なのでバッファが必要
+        let lineBuf = '';
+        const emitLine = (line: string) => {
+          if (this.debugConsole?.log) this.debugConsole.log(line);
+          else runtimeInfo(line);
+        };
+        return {
+          write: (data: string) => {
+            lineBuf += data;
+            let cur = '';
+            for (let i = 0; i < lineBuf.length; i++) {
+              const ch = lineBuf[i];
+              if (ch === '\r') {
+                cur = '';  // キャリッジリターン: 現在行をクリア（上書き予定）
+              } else if (ch === '\n') {
+                emitLine(cur);
+                cur = '';
+              } else {
+                cur += ch;
+              }
+            }
+            lineBuf = cur;  // 未完了行をバッファに残す
+            return true;
+          },
+          isTTY: true,
+          columns: this.terminalColumns,
+          rows: this.terminalRows,
+          getColorDepth: () => 24,
+          hasColors: (count?: number) => count === undefined || count <= 16777216,
+        };
+      })(),
       stderr: {
         write: (data: string) => {
           if (this.debugConsole?.error) {
