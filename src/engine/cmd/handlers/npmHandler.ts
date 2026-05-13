@@ -12,7 +12,7 @@ export async function handleNPMCommand(
     return;
   }
 
-  const npm = terminalCommandRegistry.getNpmCommands(
+  const npm = await terminalCommandRegistry.getNpmCommands(
     projectName,
     projectId,
     `/projects/${projectName}`

@@ -40,6 +40,11 @@ export function extractCjsDependencies(code: string): string[] {
 let api: EsbuildApi | null = null;
 let initPromise: Promise<EsbuildApi | null> | null = null;
 
+async function importModuleDynamically<T>(specifier: string): Promise<T> {
+  const importer = new Function('s', 'return import(s)') as (s: string) => Promise<T>;
+  return importer(specifier);
+}
+
 async function getApi(): Promise<EsbuildApi | null> {
   if (api) return api;
   if (initPromise) return initPromise;
@@ -47,7 +52,7 @@ async function getApi(): Promise<EsbuildApi | null> {
   initPromise = (async (): Promise<EsbuildApi | null> => {
     if (typeof window === 'undefined') {
       // Node.js環境 (テスト): esbuildネイティブ
-      const mod = await import('esbuild');
+      const mod = await importModuleDynamically<typeof import('esbuild')>('esbuild');
       api = mod as unknown as EsbuildApi;
       return api;
     }

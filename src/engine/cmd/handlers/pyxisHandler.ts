@@ -21,7 +21,7 @@ export async function handlePyxisCommand(
   // Obtain registry instances
   const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(projectName, projectId);
   const gitInst: GitCommands = terminalCommandRegistry.getGitCommands(projectName, projectId);
-  const npmInst: NpmCommands = terminalCommandRegistry.getNpmCommands(
+  const npmInst: NpmCommands = await terminalCommandRegistry.getNpmCommands(
     projectName,
     projectId,
     `/projects/${projectName}`
