@@ -106,6 +106,7 @@ export class NodeRuntime {
       processStdin: this.processStdin,
       getTrackIO: () => this.trackIO.bind(this),
       requireFactory: (filename: string) => this.createRequire(filename),
+      getCwd: () => this.cwd,
     });
 
     // ModuleLoaderの初期化

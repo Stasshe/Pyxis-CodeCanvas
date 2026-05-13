@@ -153,6 +153,7 @@ export async function handleNPXCommand(
       projectId,
       projectName,
       filePath: absFs,
+      cwd: cwdFs,
       debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
       terminalColumns: 80,
       terminalRows: 24,

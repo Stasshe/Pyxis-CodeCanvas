@@ -50,6 +50,7 @@ export interface BuiltInModulesOptions {
   processStdin?: ProcessStdin;
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
   requireFactory?: (filename: string) => (id: string) => unknown;
+  getCwd?: () => string;
 }
 
 export interface BuiltInModules {
@@ -77,11 +78,11 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, processStdin, getTrackIO, requireFactory } = options;
+  const { projectDir, projectId, projectName, processStdin, getTrackIO, requireFactory, getCwd } = options;
 
   return {
     fs: createFSModule({ projectDir, projectId, projectName }),
-    path: createPathModule(projectDir),
+    path: createPathModule(getCwd ?? (() => projectDir)),
     os: createOSModule(),
     util: createUtilModule(),
     http: createHTTPModule(),
