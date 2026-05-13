@@ -269,6 +269,55 @@ export class NodeRuntime {
     }
   }
 
+  private createTrackedTimer(
+    kind: 'timeout' | 'interval',
+    handler: TimerHandler,
+    timeout?: number,
+    args: unknown[] = []
+  ): any {
+    let nativeId: any;
+    const timerRef: any = {
+      ref: () => {
+        this.activeTimers.add(timerRef);
+        return timerRef;
+      },
+      unref: () => {
+        this.activeTimers.delete(timerRef);
+        this.checkEventLoop();
+        return timerRef;
+      },
+      hasRef: () => this.activeTimers.has(timerRef),
+      [Symbol.toPrimitive]: () => nativeId,
+    };
+
+    const invoke = () => {
+      if (kind === 'timeout') {
+        this.activeTimers.delete(timerRef);
+      }
+
+      try {
+        if (typeof handler === 'function') {
+          handler(...args);
+        }
+      } catch (error) {
+        if (isProcessExitSignal(error)) {
+          this.finalizeProcessExit(error.code);
+          if (kind === 'interval') clearInterval(nativeId);
+          return;
+        }
+        throw error;
+      } finally {
+        this.checkEventLoop();
+      }
+    };
+
+    nativeId = kind === 'timeout'
+      ? setTimeout(invoke, timeout)
+      : setInterval(invoke, timeout);
+    this.activeTimers.add(timerRef);
+    return timerRef;
+  }
+
   getExitCode(): number {
     return this.exitCode;
   }
@@ -521,54 +570,20 @@ export class NodeRuntime {
         clear: () => this.debugConsole?.clear(),
       },
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
-      setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
-        const timerId = setTimeout(() => {
-          this.activeTimers.delete(timerId);
-          try {
-            if (typeof handler === 'function') {
-              handler(...args);
-            }
-          } catch (error) {
-            if (isProcessExitSignal(error)) {
-              this.finalizeProcessExit(error.code);
-              return;
-            }
-            throw error;
-          } finally {
-            this.checkEventLoop();
-          }
-        }, timeout) as any;
-        this.activeTimers.add(timerId);
-        return timerId as number;
-      },
-      setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
-        const intervalId = setInterval(() => {
-          try {
-            if (typeof handler === 'function') {
-              handler(...args);
-            }
-          } catch (error) {
-            if (isProcessExitSignal(error)) {
-              this.finalizeProcessExit(error.code);
-              clearInterval(intervalId);
-              return;
-            }
-            throw error;
-          }
-        }, timeout) as any;
-        this.activeTimers.add(intervalId);
-        return intervalId as number;
-      },
-      clearTimeout: (id?: number) => {
+      setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
+        this.createTrackedTimer('timeout', handler, timeout, args),
+      setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
+        this.createTrackedTimer('interval', handler, timeout, args),
+      clearTimeout: (id?: any) => {
         if (id !== undefined) {
-          clearTimeout(id);
+          clearTimeout(Number(id));
           this.activeTimers.delete(id);
           this.checkEventLoop();
         }
       },
-      clearInterval: (id?: number) => {
+      clearInterval: (id?: any) => {
         if (id !== undefined) {
-          clearInterval(id);
+          clearInterval(Number(id));
           this.activeTimers.delete(id);
           this.checkEventLoop();
         }
@@ -721,7 +736,7 @@ export class NodeRuntime {
 
     const builtIns: Record<string, unknown> = {
       fs: this.builtInModules.fs,
-      'fs/promises': this.builtInModules.fs,
+      'fs/promises': (this.builtInModules.fs as any).promises,
       path: this.builtInModules.path,
       os: this.builtInModules.os,
       util: this.builtInModules.util,

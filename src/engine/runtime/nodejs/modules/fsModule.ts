@@ -22,6 +22,7 @@ export interface FSModuleOptions {
 
 export function createFSModule(options: FSModuleOptions) {
   const { projectDir, projectId, projectName } = options;
+  const tmpRoot = '/tmp';
 
   function splitOptionsAndCallback(
     options?: any,
@@ -59,6 +60,63 @@ export function createFSModule(options: FSModuleOptions) {
     error.path = path;
 
     return error;
+  }
+
+  function isTmpPath(path: string): boolean {
+    return path === tmpRoot || path.startsWith(`${tmpRoot}/`);
+  }
+
+  function ensureTmpParents(path: string): void {
+    let current = tmpRoot;
+    const relative = path.slice(tmpRoot.length).split('/').filter(Boolean);
+    for (const part of relative.slice(0, -1)) {
+      current = `${current}/${part}`;
+      tmpDirs.add(current);
+    }
+  }
+
+  function encodeContent(content: string | Uint8Array): Uint8Array {
+    return typeof content === 'string' ? new TextEncoder().encode(content) : content;
+  }
+
+  function decodeContent(content: string | Uint8Array): string {
+    return typeof content === 'string' ? content : new TextDecoder().decode(content);
+  }
+
+  function normalizeEncoding(options?: any): string | null | undefined {
+    if (typeof options === 'string') return options;
+    return options?.encoding;
+  }
+
+  function formatReadContent(content: string | Uint8Array, options?: any): string | Uint8Array {
+    const encoding = normalizeEncoding(options);
+    if (encoding === null) {
+      return encodeContent(content);
+    }
+
+    return typeof content === 'string' ? content : new TextDecoder().decode(content);
+  }
+
+  function makeStats(
+    type: 'file' | 'directory',
+    size = 0,
+    mtime = new Date()
+  ) {
+    return {
+      size,
+      mtime,
+      ctime: mtime,
+      birthtime: mtime,
+      atime: mtime,
+      mode: type === 'directory' ? 0o40755 : 0o100644,
+      isFile: () => type === 'file',
+      isDirectory: () => type === 'directory',
+      isSymbolicLink: () => false,
+      isBlockDevice: () => false,
+      isCharacterDevice: () => false,
+      isFIFO: () => false,
+      isSocket: () => false,
+    };
   }
 
   /**
@@ -163,6 +221,86 @@ export function createFSModule(options: FSModuleOptions) {
 
   // メモリキャッシュ（同期読み込み用）
   const memoryCache = new Map<string, string | Uint8Array>();
+  const knownDirs = new Set<string>(['/']);
+  const tmpFiles = new Map<string, string | Uint8Array>();
+  const tmpDirs = new Set<string>([tmpRoot]);
+
+  function rememberPath(path: string, type: 'file' | 'folder'): void {
+    let current = '/';
+    for (const part of path.split('/').filter(Boolean).slice(0, type === 'file' ? -1 : undefined)) {
+      current = current === '/' ? `/${part}` : `${current}/${part}`;
+      knownDirs.add(current);
+    }
+
+    if (type === 'folder') {
+      knownDirs.add(path);
+    }
+  }
+
+  async function getStats(path: string, syscall: 'stat' | 'lstat'): Promise<any> {
+    const { relativePath } = normalizeModulePath(path);
+
+    if (isTmpPath(relativePath)) {
+      if (tmpDirs.has(relativePath)) {
+        return makeStats('directory');
+      }
+      if (tmpFiles.has(relativePath)) {
+        const content = tmpFiles.get(relativePath)!;
+        return makeStats('file', encodeContent(content).length);
+      }
+      throw createFsError('ENOENT', syscall, path);
+    }
+
+    if (knownDirs.has(relativePath)) {
+      return makeStats('directory');
+    }
+
+    if (memoryCache.has(relativePath)) {
+      const content = memoryCache.get(relativePath)!;
+      return makeStats('file', encodeContent(content).length);
+    }
+
+    const file = await fileRepository.getFileByPath(projectId, relativePath);
+    if (!file) {
+      throw createFsError('ENOENT', syscall, path);
+    }
+
+    rememberPath(relativePath, file.type);
+    return makeStats(
+      file.type === 'folder' ? 'directory' : 'file',
+      file.content ? new TextEncoder().encode(file.content).length : 0,
+      file.updatedAt
+    );
+  }
+
+  function getStatsSync(path: string, syscall: 'stat' | 'lstat', options?: any): any {
+    const { relativePath } = normalizeModulePath(path);
+    let stats: any;
+
+    if (isTmpPath(relativePath)) {
+      if (tmpDirs.has(relativePath)) {
+        stats = makeStats('directory');
+      } else if (tmpFiles.has(relativePath)) {
+        const content = tmpFiles.get(relativePath)!;
+        stats = makeStats('file', encodeContent(content).length);
+      }
+    } else if (knownDirs.has(relativePath)) {
+      stats = makeStats('directory');
+    } else if (memoryCache.has(relativePath)) {
+      const content = memoryCache.get(relativePath)!;
+      stats = makeStats('file', encodeContent(content).length);
+    }
+
+    if (stats) {
+      return stats;
+    }
+
+    if (options?.throwIfNoEntry === false) {
+      return undefined;
+    }
+
+    throw createFsError('ENOENT', syscall, path);
+  }
 
   const fsModule = {
     /**
@@ -178,14 +316,16 @@ export function createFSModule(options: FSModuleOptions) {
       try {
         const { relativePath } = normalizeModulePath(path);
 
+        if (isTmpPath(relativePath)) {
+          if (!tmpFiles.has(relativePath)) {
+            throw createFsError('ENOENT', 'open', path);
+          }
+          return formatReadContent(tmpFiles.get(relativePath)!, normalized.options);
+        }
+
         // キャッシュにあればそれを返す
         if (memoryCache.has(relativePath)) {
-          const content = memoryCache.get(relativePath)!;
-          if (normalized.options && normalized.options.encoding === null) {
-            const encoder = new TextEncoder();
-            return typeof content === 'string' ? encoder.encode(content) : content;
-          }
-          return content;
+          return formatReadContent(memoryCache.get(relativePath)!, normalized.options);
         }
 
         const file = await fileRepository.getFileByPath(projectId, relativePath);
@@ -197,11 +337,7 @@ export function createFSModule(options: FSModuleOptions) {
         // キャッシュ更新
         memoryCache.set(relativePath, content);
 
-        if (normalized.options && normalized.options.encoding === null) {
-          const encoder = new TextEncoder();
-          return encoder.encode(content);
-        }
-        return content;
+        return formatReadContent(content, normalized.options);
       } catch (error) {
         if (
           error &&
@@ -243,10 +379,17 @@ export function createFSModule(options: FSModuleOptions) {
       const writeTask = (async (): Promise<void> => {
       try {
         const { relativePath } = normalizeModulePath(path);
+        const content = typeof data === 'string' ? data : data;
+
+        if (isTmpPath(relativePath)) {
+          ensureTmpParents(relativePath);
+          tmpFiles.set(relativePath, content);
+          return;
+        }
 
         // キャッシュ更新
-        const content = typeof data === 'string' ? data : new TextDecoder().decode(data);
-        memoryCache.set(relativePath, content); // Note: storing string in cache for simplicity if possible, or raw data
+        memoryCache.set(relativePath, content);
+        rememberPath(relativePath, 'file');
 
         await handleWriteFile(path, data, true);
       } catch (error) {
@@ -274,29 +417,35 @@ export function createFSModule(options: FSModuleOptions) {
     readFileSync: (path: string, options?: any): string | Uint8Array => {
       const { relativePath } = normalizeModulePath(path);
 
-      if (memoryCache.has(relativePath)) {
-        const content = memoryCache.get(relativePath)!;
-        if (options && options.encoding === null) {
-          const encoder = new TextEncoder();
-          return typeof content === 'string' ? encoder.encode(content) : content;
+      if (isTmpPath(relativePath)) {
+        if (!tmpFiles.has(relativePath)) {
+          throw createFsError('ENOENT', 'open', path);
         }
-        return content;
+        return formatReadContent(tmpFiles.get(relativePath)!, options);
       }
 
-      console.warn(
-        `⚠️  fs.readFileSync: File not in cache: ${path} (normalized: ${relativePath}). Returning Promise (will likely fail for sync callers). Call preloadFiles() first.`
-      );
-      // Fallback to async (will break strict sync callers like yargs/JSON.parse)
-      return fsModule.readFile(path, options) as any;
+      if (memoryCache.has(relativePath)) {
+        return formatReadContent(memoryCache.get(relativePath)!, options);
+      }
+
+      throw createFsError('ENOENT', 'open', path);
     },
 
     /**
      * ファイルに同期的に書き込む（非同期に変換）
      */
     writeFileSync: (path: string, data: string | Uint8Array, options?: any): void => {
-      console.warn(
-        '⚠️  fs.writeFileSync detected: Converting to async operation (fire and forget).'
-      );
+      const { relativePath } = normalizeModulePath(path);
+      const content = typeof data === 'string' ? data : data;
+
+      if (isTmpPath(relativePath)) {
+        ensureTmpParents(relativePath);
+        tmpFiles.set(relativePath, content);
+        return;
+      }
+
+      memoryCache.set(relativePath, content);
+      rememberPath(relativePath, 'file');
       fsModule.writeFile(path, data, options).catch(err => console.error(err));
     },
 
@@ -305,14 +454,18 @@ export function createFSModule(options: FSModuleOptions) {
      */
     existsSync: (path: string): boolean => {
       const { relativePath } = normalizeModulePath(path);
-      // Check cache first
-      if (memoryCache.has(relativePath)) return true;
+      return (
+        memoryCache.has(relativePath) ||
+        knownDirs.has(relativePath) ||
+        tmpFiles.has(relativePath) ||
+        tmpDirs.has(relativePath)
+      );
+    },
 
-      // Hack: we can't check IndexedDB synchronously if not in cache.
-      // We assume if it's not in cache (and we preloaded), it might not exist or we don't know.
-      // But for yargs, it checks existence.
-      // If we preloaded everything, cache miss = not found.
-      return false;
+    accessSync: (path: string): void => {
+      if (!fsModule.existsSync(path)) {
+        throw createFsError('ENOENT', 'access', path);
+      }
     },
 
     /**
@@ -328,7 +481,8 @@ export function createFSModule(options: FSModuleOptions) {
         for (const file of files) {
           // 拡張子フィルタ（空の場合は全ファイル）
           if (extensions.length === 0 || extensions.some(ext => file.path.endsWith(ext))) {
-            if (file.content !== undefined) {
+            rememberPath(file.path, file.type);
+            if (file.type === 'file' && file.content !== undefined) {
               memoryCache.set(file.path, file.content);
               count++;
             }
@@ -374,6 +528,14 @@ export function createFSModule(options: FSModuleOptions) {
       const recursive = options?.recursive || false;
 
       try {
+        if (isTmpPath(relativePath)) {
+          if (recursive) {
+            ensureTmpParents(`${relativePath}/.keep`);
+          }
+          tmpDirs.add(relativePath);
+          return;
+        }
+
         if (recursive) {
           // 再帰的にディレクトリを作成 - check each path with targeted lookup
           const parts = relativePath.split('/').filter(Boolean);
@@ -387,6 +549,7 @@ export function createFSModule(options: FSModuleOptions) {
             if (!folderExists) {
               await fileRepository.createFile(projectId, currentPath, '', 'folder');
             }
+            knownDirs.add(currentPath);
           }
         } else {
           // 単一ディレクトリを作成
@@ -396,6 +559,7 @@ export function createFSModule(options: FSModuleOptions) {
           if (!folderExists) {
             await fileRepository.createFile(projectId, relativePath, '', 'folder');
           }
+          knownDirs.add(relativePath);
         }
       } catch (error) {
         console.error('[fsModule] Failed to create directory in IndexedDB:', error);
@@ -409,6 +573,15 @@ export function createFSModule(options: FSModuleOptions) {
     readdir: async (path: string, options?: any): Promise<string[]> => {
       try {
         const { relativePath } = normalizeModulePath(path);
+
+        if (isTmpPath(relativePath)) {
+          const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
+          return [...tmpDirs, ...tmpFiles.keys()]
+            .filter(p => p.startsWith(dirPath) && p !== relativePath)
+            .map(p => p.slice(dirPath.length).split('/')[0])
+            .filter((v, i, arr) => v && arr.indexOf(v) === i);
+        }
+
         const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
         // Use prefix-based listing to avoid loading all files
         const files =
@@ -434,6 +607,13 @@ export function createFSModule(options: FSModuleOptions) {
       const { relativePath } = normalizeModulePath(path);
       const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
 
+      if (isTmpPath(relativePath)) {
+        return [...tmpDirs, ...tmpFiles.keys()]
+          .filter(p => p.startsWith(dirPath) && p !== relativePath)
+          .map(p => p.slice(dirPath.length).split('/')[0])
+          .filter((v, i, arr) => v && arr.indexOf(v) === i);
+      }
+
       // メモリキャッシュから直接取得
       const keys = Array.from(memoryCache.keys());
       const children = keys
@@ -457,6 +637,13 @@ export function createFSModule(options: FSModuleOptions) {
     unlink: async (path: string): Promise<void> => {
       const { relativePath } = normalizeModulePath(path);
 
+      if (isTmpPath(relativePath)) {
+        if (!tmpFiles.delete(relativePath)) {
+          throw createFsError('ENOENT', 'unlink', path);
+        }
+        return;
+      }
+
       // キャッシュから削除
       if (memoryCache.has(relativePath)) {
         memoryCache.delete(relativePath);
@@ -467,7 +654,7 @@ export function createFSModule(options: FSModuleOptions) {
         if (file) {
           await fileRepository.deleteFile(file.id);
         } else {
-          throw new Error(`File not found: ${path}`);
+          throw createFsError('ENOENT', 'unlink', path);
         }
       } catch (error) {
         console.error('[fsModule] Failed to delete file from IndexedDB:', error);
@@ -510,32 +697,7 @@ export function createFSModule(options: FSModuleOptions) {
      */
     stat: async (path: string): Promise<any> => {
       try {
-        const { relativePath } = normalizeModulePath(path);
-
-        // キャッシュにあればファイルとして返す
-        if (memoryCache.has(relativePath)) {
-          const content = memoryCache.get(relativePath)!;
-          return {
-            isFile: () => true,
-            isDirectory: () => false,
-            size: content.length,
-            mtime: new Date(),
-            ctime: new Date(),
-          };
-        }
-
-        const file = await fileRepository.getFileByPath(projectId, relativePath);
-        if (!file) {
-          throw createFsError('ENOENT', 'stat', path);
-        }
-        // 疑似的なstat情報を返す
-        return {
-          isFile: () => file.type === 'file',
-          isDirectory: () => file.type === 'folder',
-          size: file.content ? file.content.length : 0,
-          mtime: file.updatedAt,
-          ctime: file.createdAt,
-        };
+        return await getStats(path, 'stat');
       } catch (error) {
         if (
           error &&
@@ -554,10 +716,106 @@ export function createFSModule(options: FSModuleOptions) {
         );
       }
     },
+
+    lstat: async (path: string): Promise<any> => {
+      try {
+        return await getStats(path, 'lstat');
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          typeof (error as any).code === 'string'
+        ) {
+          throw error;
+        }
+
+        throw createFsError(
+          'EIO',
+          'lstat',
+          path,
+          `ファイル情報の取得に失敗しました: ${path}`
+        );
+      }
+    },
+
+    statSync: (path: string, options?: any): any => getStatsSync(path, 'stat', options),
+    lstatSync: (path: string, options?: any): any => getStatsSync(path, 'lstat', options),
+
+    mkdirSync: (path: string, options?: any): void => {
+      const { relativePath } = normalizeModulePath(path);
+      if (isTmpPath(relativePath)) {
+        if (options?.recursive) {
+          ensureTmpParents(`${relativePath}/.keep`);
+        }
+        tmpDirs.add(relativePath);
+        return;
+      }
+
+      knownDirs.add(relativePath);
+      fsModule.mkdir(path, options).catch(err => console.error(err));
+    },
+
+    unlinkSync: (path: string): void => {
+      const { relativePath } = normalizeModulePath(path);
+      if (isTmpPath(relativePath)) {
+        if (!tmpFiles.delete(relativePath)) {
+          throw createFsError('ENOENT', 'unlink', path);
+        }
+        return;
+      }
+
+      memoryCache.delete(relativePath);
+      fsModule.unlink(path).catch(err => console.error(err));
+    },
+
+    rmSync: (path: string, options?: any): void => {
+      const { relativePath } = normalizeModulePath(path);
+      if (isTmpPath(relativePath)) {
+        if (tmpFiles.delete(relativePath)) return;
+        if (tmpDirs.has(relativePath)) {
+          for (const key of [...tmpFiles.keys()]) {
+            if (key.startsWith(`${relativePath}/`)) tmpFiles.delete(key);
+          }
+          for (const key of [...tmpDirs]) {
+            if (key !== tmpRoot && (key === relativePath || key.startsWith(`${relativePath}/`))) {
+              tmpDirs.delete(key);
+            }
+          }
+          return;
+        }
+        if (!options?.force) {
+          throw createFsError('ENOENT', 'rm', path);
+        }
+        return;
+      }
+
+      memoryCache.delete(relativePath);
+      if (!options?.recursive) return;
+      for (const key of [...memoryCache.keys()]) {
+        if (key.startsWith(`${relativePath}/`)) memoryCache.delete(key);
+      }
+    },
+
+    constants: {
+      F_OK: 0,
+      R_OK: 4,
+      W_OK: 2,
+      X_OK: 1,
+    },
   };
 
-  // fs.promisesプロパティを追加
-  (fsModule as any).promises = fsModule;
+  (fsModule as any).promises = {
+    readFile: (path: string, options?: any) => fsModule.readFile(path, options),
+    writeFile: (path: string, data: string | Uint8Array, options?: any) =>
+      fsModule.writeFile(path, data, options),
+    stat: (path: string) => fsModule.stat(path),
+    lstat: (path: string) => fsModule.lstat(path),
+    readdir: (path: string, options?: any) => fsModule.readdir(path, options),
+    mkdir: (path: string, options?: any) => fsModule.mkdir(path, options),
+    unlink: (path: string) => fsModule.unlink(path),
+    rm: async (path: string, options?: any) => fsModule.rmSync(path, options),
+  };
 
   return fsModule;
 }
