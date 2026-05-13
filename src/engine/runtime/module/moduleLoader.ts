@@ -12,6 +12,7 @@ import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUti
 import { runtimeRegistry } from '../core/RuntimeRegistry';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { createModuleNotFoundError } from '../nodejs/nodeErrors';
+import { isProcessExitSignal } from '../nodejs/processExit';
 import { transpileManager } from '../transpiler/transpileManager';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
@@ -84,6 +85,8 @@ interface ModuleExecutionCache {
     exports: unknown;
     loaded: boolean;
     loading: boolean;
+    code?: string;
+    dependencies?: string[];
   };
 }
 /**
@@ -146,101 +149,120 @@ export class ModuleLoader {
   async load(moduleName: string, currentFilePath: string): Promise<unknown> {
     runtimeInfo('📦 Loading module:', moduleName, 'from', currentFilePath);
 
-    // モジュールパスを解決
+    const prepared = await this.prepareModule(moduleName, currentFilePath);
+    if (prepared.__isBuiltIn) {
+      runtimeInfo('✅ Built-in module:', moduleName);
+      return prepared;
+    }
+
+    try {
+      const moduleExports = this.executePreparedModule(prepared.resolvedPath);
+      runtimeInfo('✅ Module loaded:', prepared.resolvedPath);
+      return moduleExports;
+    } catch (error) {
+      delete this.executionCache[prepared.resolvedPath];
+      runtimeError('❌ Failed to load module:', prepared.resolvedPath, error);
+      throw error;
+    }
+  }
+
+  private async prepareModule(
+    moduleName: string,
+    currentFilePath: string
+  ): Promise<{ __isBuiltIn: true; moduleName: string } | { __isBuiltIn: false; resolvedPath: string }> {
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
     if (!resolved) {
       throw createModuleNotFoundError(moduleName, currentFilePath);
     }
 
-    // ビルトインモジュールは特殊なマーカーを返す
     if (resolved.isBuiltIn) {
-      runtimeInfo('✅ Built-in module:', moduleName);
       return { __isBuiltIn: true, moduleName };
     }
 
     const resolvedPath = resolved.path;
+    const existing = this.executionCache[resolvedPath];
+    if (existing?.code) {
+      return { __isBuiltIn: false, resolvedPath };
+    }
 
-    // 実行キャッシュをチェック（循環参照対策）
-    if (this.executionCache[resolvedPath]) {
-      const cached = this.executionCache[resolvedPath];
-      if (cached.loaded) {
-        runtimeInfo('📦 Using execution cache:', resolvedPath);
-        return cached.exports;
-      }
-      if (cached.loading) {
-        runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
-        return cached.exports; // 部分的なexportsを返す
+    if (!existing) {
+      this.executionCache[resolvedPath] = {
+        exports: {},
+        loaded: false,
+        loading: false,
+      };
+    }
+
+    const fileContent = await this.readFile(resolvedPath);
+    if (fileContent === null) {
+      const err = new Error(`ENOENT: no such file or directory, open '${resolvedPath}'`);
+      err.name = 'Error [ERR_FS_ENOENT]';
+      throw err;
+    }
+
+    const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
+    const { code, dependencies } = transpileResult;
+
+    runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
+
+    this.executionCache[resolvedPath].code = code;
+    this.executionCache[resolvedPath].dependencies = dependencies;
+
+    if (moduleName && !moduleName.startsWith('.') && !moduleName.startsWith('/')) {
+      this.moduleNameMap[moduleName] = resolvedPath;
+      runtimeInfo('📝 Stored module name mapping:', moduleName, '→', resolvedPath);
+    }
+
+    if (dependencies && dependencies.length > 0) {
+      runtimeInfo('📦 Preparing dependencies for', resolvedPath, ':', dependencies);
+      for (const dep of dependencies) {
+        try {
+          if (isBuiltInModule(dep)) {
+            continue;
+          }
+          await this.prepareModule(dep, resolvedPath);
+        } catch (error) {
+          if (isProcessExitSignal(error)) {
+            throw error;
+          }
+          runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+        }
       }
     }
 
-    // 実行キャッシュを初期化
-    this.executionCache[resolvedPath] = {
-      exports: {},
-      loaded: false,
-      loading: true,
-    };
+    return { __isBuiltIn: false, resolvedPath };
+  }
 
+  private executePreparedModule(resolvedPath: string): unknown {
+    const cached = this.executionCache[resolvedPath];
+    if (!cached) {
+      throw new Error(`Module not prepared: ${resolvedPath}`);
+    }
+
+    if (cached.loaded) {
+      runtimeInfo('📦 Using execution cache:', resolvedPath);
+      return cached.exports;
+    }
+
+    if (cached.loading) {
+      runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
+      return cached.exports;
+    }
+
+    if (!cached.code) {
+      throw new Error(`Prepared module is missing transpiled code: ${resolvedPath}`);
+    }
+
+    cached.loading = true;
     try {
-      // ファイルを読み込み
-      const fileContent = await this.readFile(resolvedPath);
-      if (fileContent === null) {
-        const err = new Error(`ENOENT: no such file or directory, open '${resolvedPath}'`);
-        err.name = 'Error [ERR_FS_ENOENT]';
-        throw err;
-      }
-
-      // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
-      const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-      const { code, dependencies } = transpileResult;
-
-      // デバッグ: codeとdependenciesの型を確認
-      runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
-
-      // 依存関係を再帰的にロード（ビルトインモジュールは除く）
-      if (dependencies && dependencies.length > 0) {
-        runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
-        for (const dep of dependencies) {
-          try {
-            // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
-            if (isBuiltInModule(dep)) {
-              continue;
-            }
-
-            // 依存関係を再帰的にロード
-            await this.load(dep, resolvedPath);
-          } catch (error) {
-            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
-          }
-        }
-      }
-
-      // すべての依存関係がロードされた後、モジュールを実行（同期実行）
-      runtimeInfo('📝 About to execute module with code type:', typeof code);
-      const moduleExports = this.executeModule(code, resolvedPath);
-
-      // 実行キャッシュを更新
-      this.executionCache[resolvedPath].exports = moduleExports;
-      this.executionCache[resolvedPath].loaded = true;
-      this.executionCache[resolvedPath].loading = false;
-
-      // モジュール名→パスのマッピングを保存（require時の解決用）
-      // パッケージ名（node_modulesから）の場合のみマッピングを保存
-      if (
-        !resolved.isBuiltIn &&
-        moduleName &&
-        !moduleName.startsWith('.') &&
-        !moduleName.startsWith('/')
-      ) {
-        this.moduleNameMap[moduleName] = resolvedPath;
-        runtimeInfo('📝 Stored module name mapping:', moduleName, '→', resolvedPath);
-      }
-
-      runtimeInfo('✅ Module loaded:', resolvedPath);
+      runtimeInfo('📝 About to execute module with code type:', typeof cached.code);
+      const moduleExports = this.executeModule(cached.code, resolvedPath);
+      cached.exports = moduleExports;
+      cached.loaded = true;
+      cached.loading = false;
       return moduleExports;
     } catch (error) {
-      // エラー時はキャッシュをクリア
-      delete this.executionCache[resolvedPath];
-      runtimeError('❌ Failed to load module:', resolvedPath, error);
+      cached.loading = false;
       throw error;
     }
   }
@@ -422,7 +444,7 @@ export class ModuleLoader {
     const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
     const { dependencies } = transpileResult;
 
-    // 依存関係を再帰的にロード（これらは実行される）
+    // 依存関係を再帰的に準備（実行は require 時まで遅延）
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
       for (const dep of dependencies) {
@@ -432,8 +454,11 @@ export class ModuleLoader {
             continue;
           }
 
-          await this.load(dep, resolvedPath);
+          await this.prepareModule(dep, resolvedPath);
         } catch (error) {
+          if (isProcessExitSignal(error)) {
+            throw error;
+          }
           runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
         }
       }
@@ -524,12 +549,7 @@ export class ModuleLoader {
       if (resolvedPath) {
         // Try exact path first
         if (this.executionCache[resolvedPath]) {
-          const cached = this.executionCache[resolvedPath];
-          if (cached.loaded) return cached.exports;
-          if (cached.loading) {
-            runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
-            return cached.exports;
-          }
+          return this.executePreparedModule(resolvedPath);
         }
 
         // Try with common extensions
@@ -548,12 +568,7 @@ export class ModuleLoader {
         for (const ext of extensions) {
           const pathWithExt = resolvedPath + ext;
           if (this.executionCache[pathWithExt]) {
-            const cached = this.executionCache[pathWithExt];
-            if (cached.loaded) return cached.exports;
-            if (cached.loading) {
-              runtimeWarn('⚠️ Circular dependency detected:', pathWithExt);
-              return cached.exports;
-            }
+            return this.executePreparedModule(pathWithExt);
           }
         }
       }
@@ -664,6 +679,9 @@ export class ModuleLoader {
       );
       return result;
     } catch (error) {
+      if (isProcessExitSignal(error)) {
+        throw error;
+      }
       // ERR_MODULE_NOT_FOUND は本当にモジュールが見つからないエラーなので再スローする
       // これを飲み込むと require が失敗しても空 exports で動いてしまい、
       // テストが偽の成功になる
@@ -821,8 +839,8 @@ export class ModuleLoader {
    * NodeRuntime からも使用される
    */
   getExports(resolvedPath: string): any {
-    if (this.executionCache[resolvedPath]?.loaded) {
-      return this.executionCache[resolvedPath].exports;
+    if (this.executionCache[resolvedPath]) {
+      return this.executePreparedModule(resolvedPath);
     }
     return null;
   }

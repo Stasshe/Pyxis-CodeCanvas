@@ -330,11 +330,22 @@ export default function adaptUnixToStream(unix: any) {
 
       await runtime.waitForEventLoop();
 
+      const exitCode = runtime.getExitCode();
+
       terminalProcessBridge.deactivate();
       ctx.stdout.end();
       ctx.stderr.end();
+
+      if (exitCode !== 0) {
+        throw { __silent: true, code: exitCode };
+      }
     } catch (e: any) {
       terminalProcessBridge.deactivate();
+      if (e?.__silent) {
+        ctx.stdout.end();
+        ctx.stderr.end();
+        throw e;
+      }
       const msg = e?.message ? String(e.message) : String(e);
       ctx.stderr.write(`node: error: ${msg}\n`);
       ctx.stdout.end();

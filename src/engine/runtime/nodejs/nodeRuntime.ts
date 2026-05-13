@@ -14,6 +14,11 @@ import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { ModuleLoader } from '../module/moduleLoader';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
+import {
+  createProcessExitSignal,
+  isProcessExitSignal,
+  normalizeProcessExitCode,
+} from './processExit';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
@@ -55,11 +60,34 @@ export class NodeRuntime {
   private cwd: string;
   private terminalColumns: number;
   private terminalRows: number;
+  private exitCode = 0;
+  private didExit = false;
+  private syncExitBoundaryDepth = 0;
 
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
   private pendingIO: Set<Promise<any>> = new Set();
   private eventLoopResolve: (() => void) | null = null;
+
+  private isPromiseLike(value: unknown): value is Promise<unknown> {
+    return !!value && typeof (value as { then?: unknown }).then === 'function';
+  }
+
+  private getExecutionPromise(moduleExports: unknown): Promise<unknown> | null {
+    if (this.isPromiseLike(moduleExports)) {
+      return moduleExports;
+    }
+
+    if (
+      moduleExports &&
+      typeof moduleExports === 'object' &&
+      this.isPromiseLike((moduleExports as { __promise?: unknown }).__promise)
+    ) {
+      return (moduleExports as { __promise: Promise<unknown> }).__promise;
+    }
+
+    return null;
+  }
 
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
@@ -102,6 +130,9 @@ export class NodeRuntime {
    * ファイルを実行
    */
   async execute(filePath: string, argv: string[] = []): Promise<void> {
+    this.exitCode = 0;
+    this.didExit = false;
+
     try {
       runtimeInfo('▶️ Executing file:', filePath);
 
@@ -125,42 +156,58 @@ export class NodeRuntime {
 
       // Pre-load dependencies ONLY (do not execute the entry file yet)
       runtimeInfo('📦 Pre-loading dependencies...');
-      await this.moduleLoader.preloadDependencies(filePath, filePath);
-      runtimeInfo('✅ All dependencies pre-loaded');
+      this.syncExitBoundaryDepth++;
+      try {
+        await this.moduleLoader.preloadDependencies(filePath, filePath);
+        runtimeInfo('✅ All dependencies pre-loaded');
 
-      // サンドボックス環境を構築（require関数を含む）
-      // globalsを再利用する
-      const sandbox = {
-        ...globals,
-        require: this.createRequire(filePath),
-        module: { exports: {} },
-        exports: {},
-        __filename: filePath,
-        __dirname: getParentPath(filePath),
-      };
+        // サンドボックス環境を構築（require関数を含む）
+        // globalsを再利用する
+        const sandbox = {
+          ...globals,
+          require: this.createRequire(filePath),
+          module: { exports: {} },
+          exports: {},
+          __filename: filePath,
+          __dirname: getParentPath(filePath),
+        };
 
-      // module.exportsへの参照を維持
-      (sandbox as any).exports = (sandbox as any).module.exports;
+        // module.exportsへの参照を維持
+        (sandbox as any).exports = (sandbox as any).module.exports;
 
-      // ファイルを読み込み
-      const fileContent = await this.readFile(filePath);
-      if (fileContent === null) {
-        const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
-        err.name = 'Error [ERR_FS_ENOENT]';
-        throw err;
+        // ファイルを読み込み
+        const fileContent = await this.readFile(filePath);
+        if (fileContent === null) {
+          const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+          err.name = 'Error [ERR_FS_ENOENT]';
+          throw err;
+        }
+
+        // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
+        const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
+
+        // コードをラップして同期実行
+        const wrappedCode = this.wrapCode(code, filePath);
+        const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
+
+        runtimeInfo('✅ Code compiled successfully');
+        const executionResult = executeFunc(...Object.values(sandbox));
+        const executionPromise = this.getExecutionPromise(executionResult);
+        if (executionPromise) {
+          this.trackIO(executionPromise);
+          await executionPromise;
+        }
+        runtimeInfo('✅ Execution completed');
+      } finally {
+        this.syncExitBoundaryDepth = Math.max(0, this.syncExitBoundaryDepth - 1);
+      }
+    } catch (error) {
+      if (isProcessExitSignal(error)) {
+        this.finalizeProcessExit(error.code);
+        runtimeInfo('✅ Process exited via process.exit()', { code: error.code });
+        return;
       }
 
-      // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
-      const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
-
-      // コードをラップして同期実行
-      const wrappedCode = this.wrapCode(code, filePath);
-      const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
-
-      runtimeInfo('✅ Code compiled successfully');
-      executeFunc(...Object.values(sandbox)); // No await - synchronous execution
-      runtimeInfo('✅ Execution completed');
-    } catch (error) {
       // Format error in Node.js style
       const formattedError = formatNodeError(error, { filePath });
       runtimeError(formattedError);
@@ -174,7 +221,7 @@ export class NodeRuntime {
    */
   trackIO(p: Promise<any>): void {
     this.pendingIO.add(p);
-    p.finally(() => {
+    p.catch(() => undefined).finally(() => {
       this.pendingIO.delete(p);
       this.checkEventLoop();
     });
@@ -184,6 +231,11 @@ export class NodeRuntime {
    * イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
    */
   async waitForEventLoop(): Promise<void> {
+    if (this.didExit) {
+      runtimeInfo('✅ Event loop wait skipped after process exit');
+      return;
+    }
+
     // アクティブなタイマーとIOがなければすぐに完了
     if (this.activeTimers.size === 0 && this.pendingIO.size === 0) {
       runtimeInfo('✅ Event loop is already empty');
@@ -212,6 +264,22 @@ export class NodeRuntime {
   private checkEventLoop() {
     if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
+      this.eventLoopResolve();
+      this.eventLoopResolve = null;
+    }
+  }
+
+  getExitCode(): number {
+    return this.exitCode;
+  }
+
+  private finalizeProcessExit(code: number): void {
+    this.exitCode = normalizeProcessExitCode(code);
+    this.didExit = true;
+    this.activeTimers.clear();
+    this.pendingIO.clear();
+
+    if (this.eventLoopResolve) {
       this.eventLoopResolve();
       this.eventLoopResolve = null;
     }
@@ -303,8 +371,27 @@ export class NodeRuntime {
         node: '18.0.0',
         v8: '10.0.0',
       },
-      exit: () => {},
-      nextTick: (fn: Function, ...args: unknown[]) => setTimeout(() => fn(...args), 0),
+      exit: (code?: number) => {
+        const resolvedCode =
+          code === undefined ? normalizeProcessExitCode(processObj.exitCode) : code;
+        this.finalizeProcessExit(normalizeProcessExitCode(resolvedCode));
+        processObj.emit('exit', this.exitCode);
+        if (this.syncExitBoundaryDepth > 0) {
+          throw createProcessExitSignal(this.exitCode);
+        }
+      },
+      nextTick: (fn: Function, ...args: unknown[]) =>
+        setTimeout(() => {
+          try {
+            fn(...args);
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              this.finalizeProcessExit(error.code);
+              return;
+            }
+            throw error;
+          }
+        }, 0),
       // EventEmitter methods — many npm packages call process.on('exit', ...)
       on: (event: string, cb: Function) => {
         if (!listeners[event]) listeners[event] = [];
@@ -391,6 +478,15 @@ export class NodeRuntime {
       },
     };
 
+    Object.defineProperty(processObj, 'exitCode', {
+      configurable: true,
+      enumerable: true,
+      get: () => this.exitCode,
+      set: (value: unknown) => {
+        this.exitCode = normalizeProcessExitCode(value);
+      },
+    });
+
     return processObj;
   }
 
@@ -428,18 +524,36 @@ export class NodeRuntime {
       setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
         const timerId = setTimeout(() => {
           this.activeTimers.delete(timerId);
-          if (typeof handler === 'function') {
-            handler(...args);
+          try {
+            if (typeof handler === 'function') {
+              handler(...args);
+            }
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              this.finalizeProcessExit(error.code);
+              return;
+            }
+            throw error;
+          } finally {
+            this.checkEventLoop();
           }
-          this.checkEventLoop();
         }, timeout) as any;
         this.activeTimers.add(timerId);
         return timerId as number;
       },
       setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
         const intervalId = setInterval(() => {
-          if (typeof handler === 'function') {
-            handler(...args);
+          try {
+            if (typeof handler === 'function') {
+              handler(...args);
+            }
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              this.finalizeProcessExit(error.code);
+              clearInterval(intervalId);
+              return;
+            }
+            throw error;
           }
         }, timeout) as any;
         this.activeTimers.add(intervalId);
@@ -585,6 +699,9 @@ export class NodeRuntime {
         runtimeError(`  Required from: ${currentFilePath}`);
         throw createModuleNotFoundError(moduleName, currentFilePath);
       } catch (error) {
+        if (isProcessExitSignal(error)) {
+          throw error;
+        }
         if (error instanceof Error && error.name.includes('ERR_MODULE_NOT_FOUND')) {
           throw error;
         }

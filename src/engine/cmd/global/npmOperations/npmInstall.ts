@@ -307,6 +307,9 @@ export class NpmInstall {
           shimLines.push('try {');
           shimLines.push(`  require('${target}');`);
           shimLines.push('} catch (e) {');
+          shimLines.push("  if (e && typeof e === 'object' && e.__pyxisProcessExit === true) {");
+          shimLines.push('    throw e;');
+          shimLines.push('  }');
           shimLines.push(
             `  console.error('Failed to run ${name}:', e && e.message ? e.message : e);`
           );

@@ -23,6 +23,44 @@ export interface FSModuleOptions {
 export function createFSModule(options: FSModuleOptions) {
   const { projectDir, projectId, projectName } = options;
 
+  function splitOptionsAndCallback(
+    options?: any,
+    callback?: ((error: Error | null, data?: any) => void) | undefined
+  ): {
+    options: any;
+    callback?: (error: Error | null, data?: any) => void;
+  } {
+    if (typeof options === 'function') {
+      return { options: undefined, callback: options };
+    }
+
+    return { options, callback };
+  }
+
+  function createFsError(
+    code: string,
+    syscall: string,
+    path: string,
+    message?: string
+  ): Error & { code: string; errno: number; syscall: string; path: string } {
+    const error = new Error(
+      message ?? `${code}: no such file or directory, ${syscall} '${path}'`
+    ) as Error & {
+      code: string;
+      errno: number;
+      syscall: string;
+      path: string;
+    };
+
+    error.name = 'Error';
+    error.code = code;
+    error.errno = code === 'ENOENT' ? -2 : -1;
+    error.syscall = syscall;
+    error.path = path;
+
+    return error;
+  }
+
   /**
    * パスを正規化してフルパスと相対パス（AppPath）を取得
    * pathResolverを使用
@@ -130,14 +168,20 @@ export function createFSModule(options: FSModuleOptions) {
     /**
      * ファイルを読み取る
      */
-    readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
+    readFile: (
+      path: string,
+      options?: any,
+      callback?: (error: Error | null, data?: string | Uint8Array) => void
+    ): Promise<string | Uint8Array> | void => {
+      const normalized = splitOptionsAndCallback(options, callback);
+      const readTask = (async (): Promise<string | Uint8Array> => {
       try {
         const { relativePath } = normalizeModulePath(path);
 
         // キャッシュにあればそれを返す
         if (memoryCache.has(relativePath)) {
           const content = memoryCache.get(relativePath)!;
-          if (options && options.encoding === null) {
+          if (normalized.options && normalized.options.encoding === null) {
             const encoder = new TextEncoder();
             return typeof content === 'string' ? encoder.encode(content) : content;
           }
@@ -145,26 +189,58 @@ export function createFSModule(options: FSModuleOptions) {
         }
 
         const file = await fileRepository.getFileByPath(projectId, relativePath);
-        if (!file) throw new Error(`File not found: ${path}`);
+        if (!file) {
+          throw createFsError('ENOENT', 'open', path);
+        }
         const content = file.content ?? '';
 
         // キャッシュ更新
         memoryCache.set(relativePath, content);
 
-        if (options && options.encoding === null) {
+        if (normalized.options && normalized.options.encoding === null) {
           const encoder = new TextEncoder();
           return encoder.encode(content);
         }
         return content;
       } catch (error) {
-        throw new Error(`ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`);
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          typeof (error as any).code === 'string'
+        ) {
+          throw error;
+        }
+        throw createFsError(
+          'EIO',
+          'open',
+          path,
+          `ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`
+        );
       }
+      })();
+
+      if (normalized.callback) {
+        readTask
+          .then(data => normalized.callback!(null, data))
+          .catch(error => normalized.callback!(error as Error));
+        return;
+      }
+
+      return readTask;
     },
 
     /**
      * ファイルに書き込む
      */
-    writeFile: async (path: string, data: string | Uint8Array, options?: any): Promise<void> => {
+    writeFile: (
+      path: string,
+      data: string | Uint8Array,
+      options?: any,
+      callback?: (error: Error | null) => void
+    ): Promise<void> | void => {
+      const normalized = splitOptionsAndCallback(options, callback);
+      const writeTask = (async (): Promise<void> => {
       try {
         const { relativePath } = normalizeModulePath(path);
 
@@ -174,8 +250,21 @@ export function createFSModule(options: FSModuleOptions) {
 
         await handleWriteFile(path, data, true);
       } catch (error) {
-        throw new Error(`ファイルの書き込みに失敗しました: ${path}`);
+        throw createFsError(
+          'EIO',
+          'write',
+          path,
+          `ファイルの書き込みに失敗しました: ${path}`
+        );
       }
+      })();
+
+      if (normalized.callback) {
+        writeTask.then(() => normalized.callback!(null)).catch(error => normalized.callback!(error as Error));
+        return;
+      }
+
+      return writeTask;
     },
 
     /**
@@ -436,7 +525,9 @@ export function createFSModule(options: FSModuleOptions) {
         }
 
         const file = await fileRepository.getFileByPath(projectId, relativePath);
-        if (!file) throw new Error(`File not found: ${path}`);
+        if (!file) {
+          throw createFsError('ENOENT', 'stat', path);
+        }
         // 疑似的なstat情報を返す
         return {
           isFile: () => file.type === 'file',
@@ -446,7 +537,21 @@ export function createFSModule(options: FSModuleOptions) {
           ctime: file.createdAt,
         };
       } catch (error) {
-        throw new Error(`ファイル情報の取得に失敗しました: ${path}`);
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          typeof (error as any).code === 'string'
+        ) {
+          throw error;
+        }
+
+        throw createFsError(
+          'EIO',
+          'stat',
+          path,
+          `ファイル情報の取得に失敗しました: ${path}`
+        );
       }
     },
   };

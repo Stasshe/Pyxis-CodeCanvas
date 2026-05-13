@@ -20,7 +20,22 @@ export function formatNodeError(
     code?: string;
   }
 ): string {
-  const err = error instanceof Error ? error : new Error(String(error));
+  const err =
+    error instanceof Error
+      ? error
+      : new Error(
+          (() => {
+            if (typeof error === 'string') return error;
+            if (error && typeof error === 'object') {
+              try {
+                return JSON.stringify(error, null, 2);
+              } catch {
+                return String(error);
+              }
+            }
+            return String(error);
+          })()
+        );
   const lines: string[] = [];
 
   // Error type and message (similar to Node.js format)
