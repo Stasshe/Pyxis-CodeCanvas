@@ -38,6 +38,10 @@ export function createFSModule(options: FSModuleOptions) {
     return { options, callback };
   }
 
+  function isPromiseLike<T>(value: void | Promise<T>): value is Promise<T> {
+    return typeof value !== 'undefined';
+  }
+
   function createFsError(
     code: string,
     syscall: string,
@@ -446,7 +450,10 @@ export function createFSModule(options: FSModuleOptions) {
 
       memoryCache.set(relativePath, content);
       rememberPath(relativePath, 'file');
-      fsModule.writeFile(path, data, options).catch(err => console.error(err));
+      const writeTask = fsModule.writeFile(path, data, options);
+      if (isPromiseLike(writeTask)) {
+        writeTask.catch((err: unknown) => console.error(err));
+      }
     },
 
     /**
@@ -509,7 +516,11 @@ export function createFSModule(options: FSModuleOptions) {
      * ファイルを非同期で読み取る
      */
     asyncReadFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
-      return await fsModule.readFile(path, options);
+      const readTask = fsModule.readFile(path, options);
+      if (!isPromiseLike(readTask)) {
+        throw new Error(`fsModule.readFile returned void without a callback: ${path}`);
+      }
+      return await readTask;
     },
 
     /**
@@ -795,7 +806,10 @@ export function createFSModule(options: FSModuleOptions) {
       }
 
       knownDirs.add(relativePath);
-      fsModule.mkdir(path, options).catch(err => console.error(err));
+      const mkdirTask = fsModule.mkdir(path, options);
+      if (isPromiseLike(mkdirTask)) {
+        mkdirTask.catch((err: unknown) => console.error(err));
+      }
     },
 
     unlinkSync: (path: string): void => {
@@ -808,7 +822,10 @@ export function createFSModule(options: FSModuleOptions) {
       }
 
       memoryCache.delete(relativePath);
-      fsModule.unlink(path).catch(err => console.error(err));
+      const unlinkTask = fsModule.unlink(path);
+      if (isPromiseLike(unlinkTask)) {
+        unlinkTask.catch((err: unknown) => console.error(err));
+      }
     },
 
     rmSync: (path: string, options?: any): void => {
