@@ -6,8 +6,8 @@
  * - ブラウザ: esbuild-wasm (WASMベース、正確なESM→CJS変換)
  * - Node.js (テスト環境): esbuild (ネイティブ)
  *
- * esbuildを使うことでregexベースの旧変換では壊れる
- * 複雑なテンプレートリテラル・minified ESMも正確に変換できる。
+ * esbuildが import/export・dynamic import() を正しく変換する。
+ * post-processingはcustom runtimeのwrapperとの衝突回避のみ。
  */
 
 type EsbuildApi = {
@@ -28,7 +28,9 @@ export function extractCjsDependencies(code: string): string[] {
   const re = /\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(code)) !== null) {
-    deps.add(match[2]);
+    const dep = match[2];
+    if (/[{}<>]/.test(dep)) continue;
+    deps.add(dep);
   }
   const dynamicImportRe = /\bdynamicImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
   while ((match = dynamicImportRe.exec(code)) !== null) {
@@ -80,7 +82,9 @@ async function getApi(): Promise<EsbuildApi | null> {
 }
 
 /**
- * ESMコードをCJSに変換する
+ * ESMコードをCJSに変換する。
+ * dynamic import() の変換はesbuildに委ねる。
+ * post-processingはcustom runtimeのwrapperと衝突する宣言の修正のみ。
  */
 export async function transformEsmToCjs(code: string, _filePath: string): Promise<string> {
   const esbuild = await getApi();
@@ -94,38 +98,27 @@ export async function transformEsmToCjs(code: string, _filePath: string): Promis
   });
   let transformed = result.code;
 
-  // esbuild変換後のpost-processing:
-  // ブラウザ/custom runtimeのwrapperと衝突する宣言を除去・修正
-
-  // import.meta → { url: "file:///" + __filename } に修正
+  // import.meta → { url: "file:///" + __filename }
   // esbuildは var/const import_meta = {} を生成するが url プロパティがない
   transformed = transformed.replace(
     /\b(?:var|let|const)\s+import_meta\s*=\s*\{\s*\};/g,
     'var import_meta = { url: "file:///" + __filename };'
   );
 
-  // const __filename/__dirname はラッパーパラメータと strict mode 競合するため var に降格
-  // (var はパラメータと共存できる; 除去は多行構文を壊すリスクあり)
+  // const __filename/__dirname はラッパーパラメータと strict mode で競合するため var に降格
   transformed = transformed.replace(/\bconst\s+(__filename|__dirname)\b/g, 'var $1');
 
-  // process再宣言も除去（単行のみ）
+  // process再宣言はラッパーが提供するため除去（単行のみ）
   transformed = transformed.replace(
     /^[ \t]*(?:var|let|const)\s+process\s*=\s*require\(['"](?:node:)?process['"]\)\s*;?\n/gm,
     ''
   );
 
-  // dynamic import は custom runtime の eval 実行では使えないため require に寄せる
+  // new Function('module', 'return import(module)') パターン:
+  // esbuildはFunction文字列内を解析しないため手動で変換
   transformed = transformed.replace(
     /new\s+Function\s*\(\s*(['"])module\1\s*,\s*(['"])return\s+import\(module\)\2\s*\)/g,
     '((module) => Promise.resolve(require(module)))'
-  );
-  transformed = transformed.replace(
-    /\bimport\s*\(\s*([^)\n]+?)\s*\)/g,
-    'Promise.resolve(require($1))'
-  );
-  transformed = transformed.replace(
-    /\bdynamicImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g,
-    'Promise.resolve(require($1$2$1))'
   );
 
   return transformed;

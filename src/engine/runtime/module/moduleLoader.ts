@@ -726,7 +726,11 @@ export class ModuleLoader {
     const re = /\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
-      deps.add(m[2]);
+      const dep = m[2];
+      // Skip format placeholders ({0}, {1}, etc.) and strings with braces/angle-brackets
+      // that are not valid npm package names or paths (e.g. from string templates in bundled code)
+      if (/[{}<>]/.test(dep)) continue;
+      deps.add(dep);
     }
     return Array.from(deps);
   }
