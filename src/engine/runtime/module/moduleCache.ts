@@ -74,7 +74,7 @@ export class ModuleCache {
       return entry;
     }
 
-    runtimeWarn('❌ Cache MISS:', path);
+    runtimeInfo('📭 Cache MISS (first load):', path);
     return null;
   }
 

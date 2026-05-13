@@ -14,11 +14,11 @@ import { runtimeInfo } from './runtimeLogger';
  * ビルトインランタイムプロバイダーを初期化・登録
  */
 export function initializeBuiltinRuntimes(): void {
+  if (runtimeRegistry.getRuntime('nodejs')) {
+    return;
+  }
+
   runtimeInfo('🔧 Initializing builtin runtime providers...');
-
-  // Node.jsランタイムプロバイダーを登録
-  const nodeProvider = new NodeRuntimeProvider();
-  runtimeRegistry.registerRuntime(nodeProvider);
-
+  runtimeRegistry.registerRuntime(new NodeRuntimeProvider());
   runtimeInfo('✅ Builtin runtime providers initialized');
 }

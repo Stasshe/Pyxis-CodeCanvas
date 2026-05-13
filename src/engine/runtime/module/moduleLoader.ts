@@ -301,19 +301,23 @@ export class ModuleLoader {
       };
     }
 
-    // .mjsファイルでesbuildによる事前変換済み（CJS）の場合:
-    // 再変換せず、require()のみ抽出してそのまま返す
-    if (filePath.endsWith('.mjs') && !this.isESModule(content)) {
-      const deps = this.extractRequireDeps(content);
-      await this.cache.set(filePath, {
-        originalPath: filePath,
-        contentHash: version,
-        code: content,
-        deps,
-        mtime: Date.now(),
-        size: content.length,
-      });
-      return { code: content, dependencies: deps };
+    // node_modules 配下の .mjs は install 時に esbuild で CJS 変換済みのはず。
+    // isESModule() はテンプレートリテラル等で誤検知するため、node_modules では無条件にスキップ。
+    // node_modules 外の .mjs (ユーザーコード) のみ isESModule で判定する。
+    if (filePath.endsWith('.mjs')) {
+      const isNodeModule = filePath.includes('/node_modules/');
+      if (isNodeModule || !this.isESModule(content)) {
+        const deps = this.extractRequireDeps(content);
+        await this.cache.set(filePath, {
+          originalPath: filePath,
+          contentHash: version,
+          code: content,
+          deps,
+          mtime: Date.now(),
+          size: content.length,
+        });
+        return { code: content, dependencies: deps };
+      }
     }
 
     // トランスパイルが必要か判定
