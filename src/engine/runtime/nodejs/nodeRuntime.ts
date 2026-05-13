@@ -163,9 +163,11 @@ export class NodeRuntime {
 
         // サンドボックス環境を構築（require関数を含む）
         // globalsを再利用する
+        const requireFn = this.createRequire(filePath);
         const sandbox = {
           ...globals,
-          require: this.createRequire(filePath),
+          require: requireFn,
+          __pyxisImport: (s: string) => this.moduleLoader.asyncLoad(s, filePath),
           module: { exports: {} },
           exports: {},
           __filename: filePath,

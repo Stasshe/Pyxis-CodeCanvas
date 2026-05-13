@@ -32,9 +32,12 @@ export function extractCjsDependencies(code: string): string[] {
     if (/[{}<>]/.test(dep)) continue;
     deps.add(dep);
   }
-  const dynamicImportRe = /\bdynamicImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
-  while ((match = dynamicImportRe.exec(code)) !== null) {
-    deps.add(match[2]);
+  // __pyxisImport("...") パターンも依存関係として抽出
+  const pyxisImportRe = /\b__pyxisImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
+  while ((match = pyxisImportRe.exec(code)) !== null) {
+    const dep = match[2];
+    if (/[{}<>]/.test(dep)) continue;
+    deps.add(dep);
   }
   return Array.from(deps);
 }
@@ -114,12 +117,18 @@ export async function transformEsmToCjs(code: string, _filePath: string): Promis
     ''
   );
 
-  // new Function('module', 'return import(module)') パターン:
-  // esbuildはFunction文字列内を解析しないため手動で変換
+  // new Function('varName', 'return import(varName)') パターン:
+  // esbuildはFunction文字列内を解析しないため手動で変換（任意の変数名対応）
+  // __pyxisImport を使い動的ロードに対応（pre-load 外モジュールも実行時にロード可能）
   transformed = transformed.replace(
-    /new\s+Function\s*\(\s*(['"])module\1\s*,\s*(['"])return\s+import\(module\)\2\s*\)/g,
-    '((module) => Promise.resolve(require(module)))'
+    /new\s+Function\s*\(\s*(['"])([\w$]+)\1\s*,\s*(['"])return\s+import\(\s*\2\s*\)\3\s*\)/g,
+    '(($2) => __pyxisImport($2))'
   );
+
+  // esbuildが変換できなかった残存 import() を __pyxisImport() に置換
+  // (import.meta は除外: import_meta として変換済みのため対象外)
+  // これによりブラウザのネイティブ import() がランタイムの require() 経由になる
+  transformed = transformed.replace(/(?<![.\w])import\s*\(/g, '__pyxisImport(');
 
   return transformed;
 }

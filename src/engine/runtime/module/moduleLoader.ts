@@ -650,8 +650,10 @@ export class ModuleLoader {
     // コードをラップして実行。
     // パラメータ名を __injected_* にすることで、モジュール内の
     // `const process = ...` や `var Buffer = ...` との名前衝突を防ぐ。
+    // asyncLoad は動的 import() のフォールバックに使用（pre-load 外のモジュール対応）
+    const asyncLoadFn = this.asyncLoad.bind(this);
     const wrappedCode = `
-      (function(module, exports, require, __filename, __dirname, console, __injected_process, __injected_Buffer, __injected_setTimeout, __injected_setInterval, __injected_clearTimeout, __injected_clearInterval, __injected_global) {
+      (function(module, exports, require, __filename, __dirname, console, __injected_process, __injected_Buffer, __injected_setTimeout, __injected_setInterval, __injected_clearTimeout, __injected_clearInterval, __injected_global, __injected_asyncLoad) {
         var process = __injected_process;
         var Buffer = __injected_Buffer;
         var setTimeout = __injected_setTimeout;
@@ -659,6 +661,7 @@ export class ModuleLoader {
         var clearTimeout = __injected_clearTimeout;
         var clearInterval = __injected_clearInterval;
         var global = __injected_global;
+        var __pyxisImport = function(s) { return __injected_asyncLoad(s, __filename); };
         ${code}
         return module.exports;
       })
@@ -679,7 +682,8 @@ export class ModuleLoader {
         setInterval,
         clearTimeout,
         clearInterval,
-        global
+        global,
+        asyncLoadFn
       );
       return result;
     } catch (error) {
@@ -727,15 +731,16 @@ export class ModuleLoader {
    */
   private extractRequireDeps(content: string): string[] {
     const deps = new Set<string>();
-    const re = /\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(content)) !== null) {
-      const dep = m[2];
-      // Skip format placeholders ({0}, {1}, etc.) and strings with braces/angle-brackets
-      // that are not valid npm package names or paths (e.g. from string templates in bundled code)
-      if (/[{}<>]/.test(dep)) continue;
-      deps.add(dep);
-    }
+    const extractFrom = (re: RegExp) => {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(content)) !== null) {
+        const dep = m[2];
+        if (/[{}<>]/.test(dep)) continue;
+        deps.add(dep);
+      }
+    };
+    extractFrom(/\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g);
+    extractFrom(/\b__pyxisImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g);
     return Array.from(deps);
   }
 
@@ -851,6 +856,40 @@ export class ModuleLoader {
       return this.executePreparedModule(resolvedPath);
     }
     return null;
+  }
+
+  /**
+   * 非同期でモジュールをロード（動的 import() 変換用）
+   * pre-load 済みでない場合は IndexedDB から非同期ロードする
+   */
+  async asyncLoad(moduleName: string, currentFilePath: string): Promise<unknown> {
+    if (isBuiltInModule(moduleName)) {
+      if (this.builtinResolver) {
+        const result = this.builtinResolver(moduleName);
+        if (result !== null) return result;
+      }
+      return null;
+    }
+
+    // まずsync resolveで済む場合（execution cache済み）
+    const resolved = await this.resolver.resolve(moduleName, currentFilePath);
+    if (!resolved) throw createModuleNotFoundError(moduleName, currentFilePath);
+    if (resolved.isBuiltIn) {
+      return this.builtinResolver?.(moduleName) ?? null;
+    }
+
+    const resolvedPath = resolved.path;
+    if (this.executionCache[resolvedPath]?.code) {
+      return this.executePreparedModule(resolvedPath);
+    }
+
+    // キャッシュにない → IndexedDB から動的ロード
+    runtimeInfo('🔄 Async loading module (not pre-loaded):', resolvedPath);
+    const prepared = await this.prepareModule(moduleName, currentFilePath);
+    if (prepared.__isBuiltIn) {
+      return this.builtinResolver?.(moduleName) ?? null;
+    }
+    return this.executePreparedModule(prepared.resolvedPath);
   }
 
   /**

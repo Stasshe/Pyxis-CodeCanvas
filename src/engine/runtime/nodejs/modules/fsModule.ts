@@ -570,64 +570,114 @@ export function createFSModule(options: FSModuleOptions) {
     /**
      * ディレクトリの内容を読み取る
      */
-    readdir: async (path: string, options?: any): Promise<string[]> => {
-      try {
-        const { relativePath } = normalizeModulePath(path);
+    readdir: (path: string, options?: any, callback?: any): any => {
+      // callback style: readdir(path, cb) or readdir(path, options, cb)
+      let cb: ((err: Error | null, files: any[]) => void) | undefined;
+      let opts: any = {};
+      if (typeof options === 'function') {
+        cb = options;
+        opts = {};
+      } else if (typeof callback === 'function') {
+        cb = callback;
+        opts = options ?? {};
+      } else {
+        opts = options ?? {};
+      }
 
+      const withFileTypes = opts?.encoding === 'buffer' ? false : (opts?.withFileTypes === true);
+
+      const doReaddir = async (): Promise<any[]> => {
+        const { relativePath } = normalizeModulePath(path);
+        const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
+
+        let names: string[];
         if (isTmpPath(relativePath)) {
-          const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
-          return [...tmpDirs, ...tmpFiles.keys()]
+          names = [...tmpDirs, ...tmpFiles.keys()]
             .filter(p => p.startsWith(dirPath) && p !== relativePath)
             .map(p => p.slice(dirPath.length).split('/')[0])
             .filter((v, i, arr) => v && arr.indexOf(v) === i);
+        } else {
+          const files =
+            typeof fileRepository.getFilesByPrefix === 'function'
+              ? await fileRepository.getFilesByPrefix(projectId, dirPath)
+              : await fileRepository.getProjectFiles(projectId);
+          names = files
+            .filter(f => f.path.startsWith(dirPath) && f.path !== dirPath)
+            .map(f => f.path.slice(dirPath.length).split('/')[0])
+            .filter((v, i, arr) => v && arr.indexOf(v) === i);
         }
 
-        const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
-        // Use prefix-based listing to avoid loading all files
-        const files =
-          typeof fileRepository.getFilesByPrefix === 'function'
-            ? await fileRepository.getFilesByPrefix(projectId, dirPath)
-            : await fileRepository.getProjectFiles(projectId);
-        // 直下のファイル/フォルダ名のみ返す
-        const children = files
-          .filter(f => f.path.startsWith(dirPath) && f.path !== dirPath)
-          .map(f => f.path.slice(dirPath.length).split('/')[0])
-          .filter((v, i, arr) => v && arr.indexOf(v) === i);
-        return children;
-      } catch (error) {
-        throw new Error(`ディレクトリの読み取りに失敗しました: ${path}`);
+        if (!withFileTypes) return names;
+
+        return names.map(name => {
+          const childPath = dirPath + name;
+          const isDir = knownDirs.has(childPath);
+          return {
+            name,
+            isDirectory: () => isDir,
+            isFile: () => !isDir,
+            isSymbolicLink: () => false,
+            isBlockDevice: () => false,
+            isCharacterDevice: () => false,
+            isFIFO: () => false,
+            isSocket: () => false,
+          };
+        });
+      };
+
+      if (cb) {
+        doReaddir().then(result => cb!(null, result)).catch(err => cb!(err, []));
+        return;
       }
+      return doReaddir();
     },
 
     /**
      * 同期的にディレクトリの内容を読み取る
      * 注意: IndexedDBは同期でアクセスできないため、事前に`preloadFiles()`でキャッシュをロードしておく必要があります。
      */
-    readdirSync: (path: string, options?: any): string[] => {
+    readdirSync: (path: string, options?: any): any[] => {
+      const withFileTypes = options?.withFileTypes === true;
       const { relativePath } = normalizeModulePath(path);
       const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
 
+      let names: string[];
+
       if (isTmpPath(relativePath)) {
-        return [...tmpDirs, ...tmpFiles.keys()]
+        names = [...tmpDirs, ...tmpFiles.keys()]
           .filter(p => p.startsWith(dirPath) && p !== relativePath)
           .map(p => p.slice(dirPath.length).split('/')[0])
           .filter((v, i, arr) => v && arr.indexOf(v) === i);
+      } else {
+        const keys = Array.from(memoryCache.keys());
+        names = keys
+          .filter(k => k.startsWith(dirPath) && k !== dirPath)
+          .map(k => k.slice(dirPath.length).split('/')[0])
+          .filter((v, i, arr) => v && arr.indexOf(v) === i);
+
+        if (names.length === 0) {
+          console.warn(
+            `⚠️  fs.readdirSync: Directory not preloaded: ${path} (normalized: ${relativePath}). Returning empty array. Call preloadFiles() first.`
+          );
+        }
       }
 
-      // メモリキャッシュから直接取得
-      const keys = Array.from(memoryCache.keys());
-      const children = keys
-        .filter(k => k.startsWith(dirPath) && k !== dirPath)
-        .map(k => k.slice(dirPath.length).split('/')[0])
-        .filter((v, i, arr) => v && arr.indexOf(v) === i);
+      if (!withFileTypes) return names;
 
-      if (children.length > 0) return children;
-
-      // キャッシュにない場合は同期での取得はできないため警告して空配列を返す
-      console.warn(
-        `⚠️  fs.readdirSync: Directory not preloaded: ${path} (normalized: ${relativePath}). Returning empty array. Call preloadFiles() first.`
-      );
-      return [];
+      return names.map(name => {
+        const childPath = dirPath + name;
+        const isDir = knownDirs.has(childPath);
+        return {
+          name,
+          isDirectory: () => isDir,
+          isFile: () => !isDir,
+          isSymbolicLink: () => false,
+          isBlockDevice: () => false,
+          isCharacterDevice: () => false,
+          isFIFO: () => false,
+          isSocket: () => false,
+        };
+      });
     },
 
     /**
@@ -695,48 +745,40 @@ export function createFSModule(options: FSModuleOptions) {
     /**
      * ファイル/ディレクトリの情報を取得
      */
-    stat: async (path: string): Promise<any> => {
-      try {
-        return await getStats(path, 'stat');
-      } catch (error) {
-        if (
-          error &&
-          typeof error === 'object' &&
-          'code' in error &&
-          typeof (error as any).code === 'string'
-        ) {
-          throw error;
+    stat: (path: string, callback?: any): any => {
+      const doStat = async () => {
+        try {
+          return await getStats(path, 'stat');
+        } catch (error) {
+          if (error && typeof error === 'object' && 'code' in error && typeof (error as any).code === 'string') {
+            throw error;
+          }
+          throw createFsError('EIO', 'stat', path, `ファイル情報の取得に失敗しました: ${path}`);
         }
-
-        throw createFsError(
-          'EIO',
-          'stat',
-          path,
-          `ファイル情報の取得に失敗しました: ${path}`
-        );
+      };
+      if (typeof callback === 'function') {
+        doStat().then(s => callback(null, s)).catch(e => callback(e));
+        return;
       }
+      return doStat();
     },
 
-    lstat: async (path: string): Promise<any> => {
-      try {
-        return await getStats(path, 'lstat');
-      } catch (error) {
-        if (
-          error &&
-          typeof error === 'object' &&
-          'code' in error &&
-          typeof (error as any).code === 'string'
-        ) {
-          throw error;
+    lstat: (path: string, callback?: any): any => {
+      const doLstat = async () => {
+        try {
+          return await getStats(path, 'lstat');
+        } catch (error) {
+          if (error && typeof error === 'object' && 'code' in error && typeof (error as any).code === 'string') {
+            throw error;
+          }
+          throw createFsError('EIO', 'lstat', path, `ファイル情報の取得に失敗しました: ${path}`);
         }
-
-        throw createFsError(
-          'EIO',
-          'lstat',
-          path,
-          `ファイル情報の取得に失敗しました: ${path}`
-        );
+      };
+      if (typeof callback === 'function') {
+        doLstat().then(s => callback(null, s)).catch(e => callback(e));
+        return;
       }
+      return doLstat();
     },
 
     statSync: (path: string, options?: any): any => getStatsSync(path, 'stat', options),
