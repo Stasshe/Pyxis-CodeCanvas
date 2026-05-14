@@ -9,7 +9,6 @@
  * 1. esbuildでESM→CJS変換
  * 2. CJSコードから依存関係を抽出
  * 3. 結果をメインスレッドに返す
- * 4. Worker終了
  *
  * ## 注意
  * TypeScript/JSXのトランスパイルは拡張機能 (extensions/typescript-runtime) で実行
@@ -96,9 +95,6 @@ self.addEventListener('message', async (event: MessageEvent<TranspileRequest>) =
       error: errorMessage,
     } as TranspileResult);
   }
-
-  // Worker終了（メモリ解放）
-  self.close();
 });
 
 // Signal ready and log initialization to main thread

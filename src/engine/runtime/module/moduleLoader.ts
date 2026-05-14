@@ -118,6 +118,8 @@ export class ModuleLoader {
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
   private moduleNameMap: Record<string, string> = {}; // モジュール名→解決済みパスのマッピング
+  private preparePromises = new Map<string, Promise<void>>();
+  private readonly maxParallelPreloads = 8;
 
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
@@ -170,8 +172,11 @@ export class ModuleLoader {
 
   private async prepareModule(
     moduleName: string,
-    currentFilePath: string
-  ): Promise<{ __isBuiltIn: true; moduleName: string } | { __isBuiltIn: false; resolvedPath: string }> {
+    currentFilePath: string,
+    prepareStack: Set<string> = new Set()
+  ): Promise<
+    { __isBuiltIn: true; moduleName: string } | { __isBuiltIn: false; resolvedPath: string }
+  > {
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
     if (!resolved) {
       throw createModuleNotFoundError(moduleName, currentFilePath);
@@ -185,6 +190,39 @@ export class ModuleLoader {
     const existing = this.executionCache[resolvedPath];
     if (existing?.code) {
       return { __isBuiltIn: false, resolvedPath };
+    }
+
+    if (prepareStack.has(resolvedPath)) {
+      runtimeWarn('⚠️ Circular dependency detected during preload:', resolvedPath);
+      return { __isBuiltIn: false, resolvedPath };
+    }
+
+    const pendingPrepare = this.preparePromises.get(resolvedPath);
+    if (pendingPrepare) {
+      await pendingPrepare;
+      return { __isBuiltIn: false, resolvedPath };
+    }
+
+    const preparePromise = this.prepareResolvedModule(resolvedPath, moduleName, prepareStack);
+    this.preparePromises.set(resolvedPath, preparePromise);
+
+    try {
+      await preparePromise;
+    } finally {
+      this.preparePromises.delete(resolvedPath);
+    }
+
+    return { __isBuiltIn: false, resolvedPath };
+  }
+
+  private async prepareResolvedModule(
+    resolvedPath: string,
+    moduleName: string,
+    prepareStack: Set<string>
+  ): Promise<void> {
+    const existing = this.executionCache[resolvedPath];
+    if (existing?.code) {
+      return;
     }
 
     if (!existing) {
@@ -217,22 +255,26 @@ export class ModuleLoader {
 
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Preparing dependencies for', resolvedPath, ':', dependencies);
-      for (const dep of dependencies) {
-        try {
-          if (isBuiltInModule(dep)) {
-            continue;
+      const nextStack = new Set(prepareStack);
+      nextStack.add(resolvedPath);
+      await this.runWithConcurrency(
+        Array.from(new Set(dependencies)),
+        this.maxParallelPreloads,
+        async dep => {
+          try {
+            if (isBuiltInModule(dep)) {
+              return;
+            }
+            await this.prepareModule(dep, resolvedPath, nextStack);
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              throw error;
+            }
+            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
           }
-          await this.prepareModule(dep, resolvedPath);
-        } catch (error) {
-          if (isProcessExitSignal(error)) {
-            throw error;
-          }
-          runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
         }
-      }
+      );
     }
-
-    return { __isBuiltIn: false, resolvedPath };
   }
 
   private executePreparedModule(resolvedPath: string): unknown {
@@ -456,24 +498,46 @@ export class ModuleLoader {
     // 依存関係を再帰的に準備（実行は require 時まで遅延）
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
-      for (const dep of dependencies) {
-        try {
-          // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
-          if (isBuiltInModule(dep)) {
-            continue;
-          }
+      const prepareStack = new Set<string>([resolvedPath]);
+      await this.runWithConcurrency(
+        Array.from(new Set(dependencies)),
+        this.maxParallelPreloads,
+        async dep => {
+          try {
+            // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
+            if (isBuiltInModule(dep)) {
+              return;
+            }
 
-          await this.prepareModule(dep, resolvedPath);
-        } catch (error) {
-          if (isProcessExitSignal(error)) {
-            throw error;
+            await this.prepareModule(dep, resolvedPath, prepareStack);
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              throw error;
+            }
+            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
           }
-          runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
         }
-      }
+      );
     }
 
     runtimeInfo('✅ Dependencies pre-loaded for:', resolvedPath);
+  }
+
+  private async runWithConcurrency<T>(
+    items: T[],
+    limit: number,
+    worker: (item: T) => Promise<void>
+  ): Promise<void> {
+    const queue = [...items];
+    const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item === undefined) continue;
+        await worker(item);
+      }
+    });
+
+    await Promise.all(workers);
   }
 
   /**
@@ -844,6 +908,7 @@ export class ModuleLoader {
     this.cache.clear();
     this.executionCache = {};
     this.moduleNameMap = {};
+    this.preparePromises.clear();
   }
 
   /**
