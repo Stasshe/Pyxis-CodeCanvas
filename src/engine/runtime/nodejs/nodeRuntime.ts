@@ -115,6 +115,8 @@ export class NodeRuntime {
       requireFactory: (filename: string) => this.createRequire(filename),
       getCwd: () => this.cwd,
       mountRouter: runtimeStorage.mountRouter,
+      terminalColumns: this.terminalColumns,
+      terminalRows: this.terminalRows,
     });
 
     // ModuleLoaderの初期化
@@ -784,6 +786,7 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
+      tty: this.builtInModules.tty,
       v8: this.builtInModules.v8,
       crypto: this.builtInModules.crypto,
       'stream/consumers': {

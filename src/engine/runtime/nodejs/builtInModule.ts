@@ -37,6 +37,7 @@ import { createModuleModule } from './modules/moduleModule';
 import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
+import { createTTYModule } from './modules/ttyModule';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
@@ -53,6 +54,8 @@ export interface BuiltInModulesOptions {
   requireFactory?: (filename: string) => (id: string) => unknown;
   getCwd?: () => string;
   mountRouter: MountRouter;
+  terminalColumns?: number;
+  terminalRows?: number;
 }
 
 export interface BuiltInModules {
@@ -67,6 +70,7 @@ export interface BuiltInModules {
   events: ReturnType<typeof createEventsModule>;
   Buffer: typeof Buffer;
   readline: ReturnType<typeof createReadlineModule>;
+  tty: ReturnType<typeof createTTYModule>;
   assert: any;
   module: ReturnType<typeof createModuleModule>;
   v8: ReturnType<typeof createV8Module>;
@@ -89,6 +93,8 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     requireFactory,
     getCwd,
     mountRouter,
+    terminalColumns,
+    terminalRows,
   } = options;
 
   return {
@@ -101,6 +107,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     events: createEventsModule(),
     Buffer: Buffer,
     readline: createReadlineModule(processStdin, getTrackIO),
+    tty: createTTYModule(terminalColumns, terminalRows),
     assert: createAssertModule(),
     module: createModuleModule(requireFactory),
     url: urlModule,
@@ -123,6 +130,7 @@ export {
   createEventsModule,
   Buffer,
   createReadlineModule,
+  createTTYModule,
   createAssertModule,
   createModuleModule,
   urlModule,

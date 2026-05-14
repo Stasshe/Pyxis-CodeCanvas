@@ -175,4 +175,40 @@ describe('NodeRuntime process exit handling', () => {
     expect(output.join('\n')).toContain('async fs output');
     expect(errors).toHaveLength(0);
   });
+
+  it('provides the tty built-in module for CLI packages', async () => {
+    await fileRepository.createFile(
+      projectId,
+      '/tty-entry.js',
+      [
+        "const tty = require('tty');",
+        "const nodeTty = require('node:tty');",
+        "console.log('tty', tty.isatty(1), nodeTty.isatty(2));",
+      ].join('\n'),
+      'file'
+    );
+
+    const output: string[] = [];
+    const errors: string[] = [];
+    const entryPath = `/projects/${projectName}/tty-entry.js`;
+
+    const runtime = new NodeRuntime({
+      projectId,
+      projectName,
+      filePath: entryPath,
+      debugConsole: {
+        log: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+        error: (...args: unknown[]) => errors.push(args.map(String).join(' ')),
+        warn: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+        clear: () => {},
+      },
+    });
+
+    await runtime.execute(entryPath, []);
+    await runtime.waitForEventLoop();
+
+    expect(runtime.getExitCode()).toBe(0);
+    expect(output.join('\n')).toContain('tty true true');
+    expect(errors).toHaveLength(0);
+  });
 });
