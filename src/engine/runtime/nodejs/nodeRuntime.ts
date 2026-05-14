@@ -63,6 +63,7 @@ export class NodeRuntime {
   private cwd: string;
   private terminalColumns: number;
   private terminalRows: number;
+  private currentProcess: Record<string, any> | null = null;
   private exitCode = 0;
   private didExit = false;
   private syncExitBoundaryDepth = 0;
@@ -574,6 +575,9 @@ export class NodeRuntime {
    * グローバルオブジェクトを作成
    */
   private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
+    const process = this.createProcessObject(currentFilePath, argv);
+    this.currentProcess = process;
+
     return {
       // グローバルオブジェクト
       console: {
@@ -649,7 +653,7 @@ export class NodeRuntime {
           },
         },
       },
-      process: this.createProcessObject(currentFilePath, argv),
+      process,
       Buffer: this.builtInModules.Buffer,
     };
   }
@@ -835,8 +839,8 @@ export class NodeRuntime {
         threadId: 0,
         Worker: class { constructor() { throw new Error('Worker not supported'); } },
       },
-      // process モジュール - createProcessObjectで統一
-      process: this.createProcessObject(),
+      // process モジュール - 実行中の process.argv/cwd/env を共有する
+      process: this.currentProcess ?? this.createProcessObject(),
       timers: {
         setTimeout: globalThis.setTimeout,
         clearTimeout: globalThis.clearTimeout,

@@ -135,4 +135,44 @@ describe('NodeRuntime process exit handling', () => {
     expect(output.join('\n')).toContain('async version output');
     expect(errors).toHaveLength(0);
   });
+
+  it('waits for unreturned async fs work before completing the event loop', async () => {
+    await fileRepository.createFile(
+      projectId,
+      '/async-fs-entry.js',
+      [
+        "const { readdir } = require('fs');",
+        "const { promisify } = require('util');",
+        'const ls = promisify(readdir);',
+        '(async () => {',
+        "  await ls('.');",
+        "  console.log('async fs output');",
+        '})();',
+      ].join('\n'),
+      'file'
+    );
+
+    const output: string[] = [];
+    const errors: string[] = [];
+    const entryPath = `/projects/${projectName}/async-fs-entry.js`;
+
+    const runtime = new NodeRuntime({
+      projectId,
+      projectName,
+      filePath: entryPath,
+      debugConsole: {
+        log: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+        error: (...args: unknown[]) => errors.push(args.map(String).join(' ')),
+        warn: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+        clear: () => {},
+      },
+    });
+
+    await runtime.execute(entryPath, []);
+    await runtime.waitForEventLoop();
+
+    expect(runtime.getExitCode()).toBe(0);
+    expect(output.join('\n')).toContain('async fs output');
+    expect(errors).toHaveLength(0);
+  });
 });

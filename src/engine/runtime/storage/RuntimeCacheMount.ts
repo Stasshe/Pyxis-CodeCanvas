@@ -22,6 +22,7 @@ export class RuntimeCacheMount implements VirtualMount {
   private hotDirs = new Set<string>(['/cache']);
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
+  private memoryOnly = false;
   private readonly storeName = 'runtimeCache';
   private readonly dbName = 'PyxisProjects';
   private readonly dbVersion = 6;
@@ -29,9 +30,13 @@ export class RuntimeCacheMount implements VirtualMount {
   constructor(private readonly namespace = 'global') {}
 
   async init(): Promise<void> {
-    if (this.db) return;
+    if (this.db || this.memoryOnly) return;
     if (!this.initPromise) {
       this.initPromise = (async () => {
+        if (typeof indexedDB === 'undefined') {
+          this.memoryOnly = true;
+          return;
+        }
         this.db = await this.openDB();
         await this.loadAll();
       })();
@@ -105,6 +110,7 @@ export class RuntimeCacheMount implements VirtualMount {
   }
 
   private async idbPut(record: CacheRecord): Promise<void> {
+    if (this.memoryOnly) return;
     const db = await this.ensureReady();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
@@ -115,6 +121,7 @@ export class RuntimeCacheMount implements VirtualMount {
   }
 
   private async idbDelete(key: string): Promise<void> {
+    if (this.memoryOnly) return;
     const db = await this.ensureReady();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
@@ -231,11 +238,15 @@ export class RuntimeCacheMount implements VirtualMount {
   }
 
   async clear(): Promise<void> {
-    await this.ensureReady();
     const keys = [...this.hotCache.keys(), ...this.hotDirs].map(key => this.toStorageKey(key));
     this.hotCache.clear();
     this.hotDirs.clear();
     this.hotDirs.add('/cache');
+    if (this.memoryOnly || typeof indexedDB === 'undefined') {
+      this.memoryOnly = true;
+      return;
+    }
+    await this.ensureReady();
     await Promise.all(keys.map(key => this.idbDelete(key)));
   }
 }

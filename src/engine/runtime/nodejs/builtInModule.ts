@@ -92,7 +92,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
   } = options;
 
   return {
-    fs: createFSModule({ projectDir, projectId, projectName, mountRouter }),
+    fs: createFSModule({ projectDir, projectId, projectName, mountRouter, getTrackIO }),
     path: createPathModule(getCwd ?? (() => projectDir)),
     os: createOSModule(),
     util: createUtilModule(),
