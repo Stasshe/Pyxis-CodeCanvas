@@ -19,8 +19,8 @@ export class MemoryMount implements VirtualMount {
   private files = new Map<string, string | Uint8Array>();
   private dirs = new Set<string>();
 
-  constructor(rootPath: string) {
-    this.dirs.add(rootPath);
+  constructor(private readonly rootPath: string) {
+    this.dirs.add(this.rootPath);
   }
 
   hasFile(path: string): boolean {
@@ -92,5 +92,11 @@ export class MemoryMount implements VirtualMount {
     const content = this.files.get(path);
     if (content === undefined) return null;
     return { type: 'file', size: contentSize(content), mtime: new Date() };
+  }
+
+  clear(): void {
+    this.files.clear();
+    this.dirs.clear();
+    this.dirs.add(this.rootPath);
   }
 }

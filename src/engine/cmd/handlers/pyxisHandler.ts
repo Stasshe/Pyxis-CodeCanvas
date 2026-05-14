@@ -8,6 +8,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { exportPage } from '@/engine/in-ex/exportPage';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
 import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
 
@@ -532,10 +533,7 @@ export async function handlePyxisCommand(
       case 'export':
       case 'export-page':
       case 'export--page':
-      case 'export---page':
-      case 'export-indexeddb':
-      case 'export--indexeddb':
-      case 'export---indexeddb': {
+      case 'export---page': {
         const cmdLower = cmd.toLowerCase();
         const localArgs = [...args];
 
@@ -548,16 +546,6 @@ export async function handlePyxisCommand(
         ) {
           localArgs.unshift('--page');
         }
-        if (
-          cmdLower.includes('indexedb') &&
-          !(
-            localArgs[0]?.toLowerCase().startsWith('--indexeddb') ||
-            localArgs[0]?.toLowerCase() === 'indexedb'
-          )
-        ) {
-          localArgs.unshift('--indexeddb');
-        }
-
         if (localArgs[0]?.toLowerCase() === '--page' && localArgs[1]) {
           const cwd = unixInst ? await unixInst.pwd() : '';
           const targetPath = localArgs[1].startsWith('/') ? localArgs[1] : `${cwd}/${localArgs[1]}`;
@@ -567,19 +555,35 @@ export async function handlePyxisCommand(
           } else {
             await writeOutput('無効なパスが指定されました。');
           }
-        } else if (localArgs[0]?.toLowerCase() === '--indexeddb') {
-          const win = window.open('about:blank', '_blank');
-          if (!win) {
-            await writeOutput('about:blankの新規タブを開けませんでした。');
-            break;
-          }
-          const mod = await import('@/engine/in-ex/exportIndexeddb');
-          mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
         } else {
-          await writeOutput(
-            'export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです'
-          );
+          await writeOutput('export: サポートされているのは "export --page <path>" のみです');
         }
+        break;
+      }
+
+      case 'runtime-cache-clear':
+      case 'runtime-cache':
+      case 'cache-clear':
+      case 'cache': {
+        if ((cmd === 'runtime-cache' || cmd === 'cache') && args[0] !== 'clear') {
+          await writeOutput('Usage: pyxis runtime-cache clear');
+          break;
+        }
+
+        await runtimeStorageRegistry.clearRuntimeCache(projectId, projectName);
+        await writeOutput('runtime-cache: /cache を削除しました');
+        break;
+      }
+
+      case 'tmp-clear':
+      case 'tmp': {
+        if (cmd === 'tmp' && args[0] !== 'clear') {
+          await writeOutput('Usage: pyxis tmp clear');
+          break;
+        }
+
+        runtimeStorageRegistry.clearTmp(projectId, projectName);
+        await writeOutput('tmp: /tmp を削除しました');
         break;
       }
 

@@ -23,9 +23,7 @@ import {
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
-import { MemoryMount } from '@/engine/runtime/storage/MemoryMount';
-import { MountRouter } from '@/engine/runtime/storage/MountRouter';
-import { ProjectMount } from '@/engine/runtime/storage/ProjectMount';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
 import { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 /**
@@ -104,16 +102,8 @@ export class NodeRuntime {
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
 
-    const tmpMount = new MemoryMount('/tmp');
-    this.cacheMount = new RuntimeCacheMount(this.projectId);
-    const projectMount = new ProjectMount(this.projectId);
-    const mountRouter = new MountRouter(
-      [
-        { prefix: '/tmp', mount: tmpMount },
-        { prefix: '/cache', mount: this.cacheMount },
-      ],
-      projectMount
-    );
+    const runtimeStorage = runtimeStorageRegistry.get(this.projectId, this.projectName);
+    this.cacheMount = runtimeStorage.cacheMount;
 
     this.builtInModules = createBuiltInModules({
       projectDir: this.projectDir,
@@ -123,7 +113,7 @@ export class NodeRuntime {
       getTrackIO: () => this.trackIO.bind(this),
       requireFactory: (filename: string) => this.createRequire(filename),
       getCwd: () => this.cwd,
-      mountRouter,
+      mountRouter: runtimeStorage.mountRouter,
     });
 
     // ModuleLoaderの初期化
