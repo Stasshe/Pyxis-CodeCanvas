@@ -37,6 +37,9 @@ interface FilePayload {
 // ファイル数閾値：この数以下ならリアルタイム検索
 const REALTIME_FILE_THRESHOLD = 50;
 
+// 一度に表示する最大結果数（超えると DOM ノードが多くなりブラウザのペイントが重くなる）
+const MAX_VISIBLE_RESULTS = 200;
+
 // Module-level memoized ResultRow to avoid recreating component each render
 export type ResultRowProps = {
   result: SearchResult;
@@ -291,13 +294,16 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     first: SearchResult;
     results: Array<{ result: SearchResult; globalIndex: number }>;
   }> = useMemo(() => {
-    // Build groups while preserving each result's global index to avoid repeated indexOf calls during render
     const groupsMap: Record<
       string,
       { first: SearchResult; results: Array<{ result: SearchResult; globalIndex: number }> }
     > = {};
-    for (let i = 0; i < searchResults.length; i++) {
-      const r = searchResults[i];
+    // cap rendered results to avoid committing too many DOM nodes at once
+    const visible = searchResults.length > MAX_VISIBLE_RESULTS
+      ? searchResults.slice(0, MAX_VISIBLE_RESULTS)
+      : searchResults;
+    for (let i = 0; i < visible.length; i++) {
+      const r = visible[i];
       const key = r.file.id || r.file.path;
       if (!groupsMap[key]) groupsMap[key] = { first: r, results: [] };
       groupsMap[key].results.push({ result: r, globalIndex: i });
@@ -707,7 +713,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
             <div style={{ fontSize: '0.62rem', color: colors.mutedFg }}>
               {isSearching
                 ? t('searchPanel.searching')
-                : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
+                : searchResults.length > MAX_VISIBLE_RESULTS
+                  ? `${MAX_VISIBLE_RESULTS}+ results (showing first ${MAX_VISIBLE_RESULTS})`
+                  : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
             </div>
           )}
         </div>
