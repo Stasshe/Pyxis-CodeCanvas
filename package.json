@@ -43,6 +43,7 @@
     "@xterm/xterm": "^5.5.0",
     "autoprefixer": "^10.5.0",
     "clsx": "^2.1.1",
+    "comlink": "^4.4.2",
     "crypto-browserify": "^3.12.1",
     "diff": "^8.0.4",
     "error-stack-parser": "^2.1.4",

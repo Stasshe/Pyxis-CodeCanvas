@@ -1,8 +1,6 @@
-// Web Worker for file search
-// Receives messages: { type: 'search', searchId, query, options, files }
-// Responds with: { type: 'result', searchId, results }
+import * as Comlink from 'comlink';
 
-type FilePayload = {
+export type FilePayload = {
   id?: string;
   path: string;
   name?: string;
@@ -18,30 +16,14 @@ type SearchOptions = {
   excludeGlobs?: string[];
 };
 
-interface SearchResult {
-  file: { id?: string; path: string; name?: string };
+export interface SearchResult {
+  file: { id: string; path: string; name: string; type: 'file' };
   line: number;
   column: number;
   content: string;
   matchStart: number;
   matchEnd: number;
 }
-
-interface SearchResultMessage {
-  type: 'result';
-  searchId: number;
-  results: SearchResult[];
-  error?: string;
-}
-
-// Worker global scope with proper typing
-type WorkerSelf = typeof globalThis & {
-  postMessage(message: SearchResultMessage): void;
-  addEventListener(type: 'message', listener: (ev: MessageEvent) => void): void;
-};
-
-// TypeScript knows `self` exists in worker context
-const workerSelf = self as unknown as WorkerSelf;
 
 // cached files to avoid receiving the full payload on every search message
 let cachedFiles: FilePayload[] = [];
@@ -74,33 +56,23 @@ function globToRegex(pattern: string, caseSensitive: boolean) {
   return new RegExp(`^${regexStr}$`, caseSensitive ? '' : 'i');
 }
 
-workerSelf.addEventListener('message', (ev: MessageEvent) => {
-  const msg = ev.data;
-  if (!msg) return;
-
-  // support a message to update cached files (avoid large clones every search)
-  if (msg.type === 'updateFiles') {
-    cachedFiles = (msg.files || []).map((f: FilePayload) => ({ ...f }));
-    return;
-  }
-
-  if (msg.type !== 'search') return;
-
-  const { searchId, query, options, files } = msg as {
-    searchId: number;
+export interface SearchWorkerApi {
+  updateFiles(files: FilePayload[]): Promise<void>;
+  search(request: {
     query: string;
     options: SearchOptions;
     files?: FilePayload[];
-  };
+  }): Promise<SearchResult[]>;
+}
 
-  try {
+const api: SearchWorkerApi = {
+  async updateFiles(files) {
+    cachedFiles = files.map(f => ({ ...f }));
+  },
+
+  async search({ query, options, files }) {
     if (!query || !query.trim()) {
-      workerSelf.postMessage({
-        type: 'result',
-        searchId,
-        results: [],
-      } satisfies SearchResultMessage);
-      return;
+      return [];
     }
 
     let searchRegex: RegExp;
@@ -146,7 +118,12 @@ workerSelf.addEventListener('message', (ev: MessageEvent) => {
         let m: RegExpExecArray | null = localRegex.exec(targetName);
         while (m !== null) {
           results.push({
-            file: { id: file.id, path: file.path, name: file.name },
+            file: {
+              id: file.id || file.path,
+              path: file.path,
+              name: file.name || '',
+              type: 'file',
+            },
             line: 0,
             column: m.index + 1,
             content: targetName,
@@ -167,7 +144,12 @@ workerSelf.addEventListener('message', (ev: MessageEvent) => {
         let m: RegExpExecArray | null = searchRegex.exec(line);
         while (m !== null) {
           results.push({
-            file: { id: file.id, path: file.path, name: file.name },
+            file: {
+              id: file.id || file.path,
+              path: file.path,
+              name: file.name || '',
+              type: 'file',
+            },
             line: i + 1,
             column: m.index + 1,
             content: line,
@@ -180,15 +162,8 @@ workerSelf.addEventListener('message', (ev: MessageEvent) => {
       }
     }
 
-    workerSelf.postMessage({ type: 'result', searchId, results } satisfies SearchResultMessage);
-  } catch (err) {
-    workerSelf.postMessage({
-      type: 'result',
-      searchId,
-      results: [],
-      error: String(err),
-    } satisfies SearchResultMessage);
-  }
-});
+    return results;
+  },
+};
 
-export {};
+Comlink.expose(api);

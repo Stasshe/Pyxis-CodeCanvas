@@ -636,6 +636,10 @@ class ExtensionManager {
             // to satisfy TypeScript and avoid unsafe direct casting warnings.
             return module as unknown as SystemModuleMap[T];
           }
+          case 'workerRuntime': {
+            const module = await import('@/engine/workers/WorkerPool');
+            return module as unknown as SystemModuleMap[T];
+          }
           case 'pathUtils': {
             const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } =
               await import('@/engine/core/pathUtils');

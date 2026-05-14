@@ -16,7 +16,15 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
-import type { extractCjsDependencies, transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
+import type {
+  extractCjsDependencies,
+  transformEsmToCjs,
+} from '@/engine/runtime/transpiler/esmTransformer';
+import type {
+  createUrlWorkerPool,
+  createWorkerPool,
+  WorkerPool,
+} from '@/engine/workers/WorkerPool';
 
 /**
  * transpilerモジュールの型定義
@@ -24,6 +32,15 @@ import type { extractCjsDependencies, transformEsmToCjs } from '@/engine/runtime
 export interface TranspilerModule {
   transformEsmToCjs: typeof transformEsmToCjs;
   extractCjsDependencies: typeof extractCjsDependencies;
+}
+
+/**
+ * ComlinkベースのWorker Poolユーティリティ
+ */
+export interface WorkerRuntimeModule {
+  WorkerPool: typeof WorkerPool;
+  createWorkerPool: typeof createWorkerPool;
+  createUrlWorkerPool: typeof createUrlWorkerPool;
 }
 
 /**
@@ -49,6 +66,7 @@ export interface SystemModuleMap {
   // instance rather than the class/constructor.
   fileRepository: typeof fileRepository;
   transpiler: TranspilerModule;
+  workerRuntime: WorkerRuntimeModule;
   pathUtils: PathUtilsModule;
   // commandRegistry is an instance exported from commandRegistry module.
   // Use the class instance type (not constructor type).

@@ -10,10 +10,12 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
+import type { OperationWorkerApi } from './operationWorker';
 
 export interface OperationListItem {
   id: string;
@@ -208,15 +210,14 @@ export default function OperationWindow({
     }
   }, [flattenedFiles, isExcluded, gitignoreRules]);
 
-  // Keep a ref to the latest allFiles so worker onmessage always maps against current list
+  // Keep a ref to the latest allFiles so async worker results map against current list
   const allFilesRef = useRef<FileItem[]>([]);
   useEffect(() => {
     allFilesRef.current = allFiles;
   }, [allFiles]);
 
   // Use a Web Worker for file scoring/filtering to avoid blocking the main thread.
-  const workerRef = useRef<Worker | null>(null);
-  const lastFilesSentVersionRef = useRef<number | null>(null);
+  const workerPoolRef = useRef<WorkerPool<OperationWorkerApi> | null>(null);
   const searchIdRef = useRef<number>(0);
   const latestSearchIdRef = useRef<number>(0);
 
@@ -284,40 +285,22 @@ export default function OperationWindow({
     if (typeof window === 'undefined') return;
 
     try {
-      workerRef.current = new Worker(new URL('./operationWorker.ts', import.meta.url), {
-        type: 'module',
+      workerPoolRef.current = createWorkerPool<OperationWorkerApi>({
+        createWorker: () =>
+          new Worker(new URL('./operationWorker.ts', import.meta.url), {
+            type: 'module',
+          }),
+        maxWorkers: 1,
+        timeoutMs: 10000,
       });
-
-      workerRef.current.onmessage = (e: MessageEvent) => {
-        const msg = e.data;
-        if (!msg) return;
-        if (msg.type === 'result') {
-          // only accept the latest search id
-          if (msg.searchId !== latestSearchIdRef.current) return;
-          const resultEntries: Array<{ id: string; score: number }> = msg.results || [];
-          const idMap = new Map((allFilesRef.current || []).map(f => [f.id, f]));
-          const mapped = resultEntries
-            .map(r => {
-              const file = idMap.get(r.id);
-              if (!file) return null;
-              // attach score (non-breaking, for potential UI use)
-              (file as any).__searchScore = r.score;
-              return file;
-            })
-            .filter(Boolean) as FileItem[];
-          setFilteredFiles(prev => (arraysEqualById(prev, mapped) ? prev : mapped));
-        }
-      };
     } catch (err) {
-      console.error('Failed to create operation worker', err);
-      workerRef.current = null;
+      console.error('Failed to create operation worker pool', err);
+      workerPoolRef.current = null;
     }
 
     return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
+      workerPoolRef.current?.terminate();
+      workerPoolRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -326,14 +309,15 @@ export default function OperationWindow({
   useEffect(() => {
     if (viewMode !== 'files') return;
 
-    if (workerRef.current) {
+    if (workerPoolRef.current) {
       try {
         const payload = allFiles.map(f => ({ id: f.id, name: f.name, path: f.path, type: f.type }));
         const ver = Date.now();
-        workerRef.current.postMessage({ type: 'updateFiles', files: payload, filesVersion: ver });
-        lastFilesSentVersionRef.current = ver;
+        void workerPoolRef.current
+          .call(worker => worker.updateFiles(payload, ver))
+          .catch(err => console.error('Failed to update operation worker files', err));
       } catch (err) {
-        console.error('Failed to post updateFiles to operation worker', err);
+        console.error('Failed to update operation worker files', err);
       }
     }
 
@@ -355,16 +339,34 @@ export default function OperationWindow({
     const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
     latestSearchIdRef.current = sid;
 
-    if (workerRef.current) {
-      try {
-        workerRef.current.postMessage({ type: 'search', searchId: sid, tokens: queryTokens });
-        return;
-      } catch (err) {
-        console.error('operation worker postMessage failed', err);
-      }
+    if (workerPoolRef.current) {
+      void workerPoolRef.current
+        .call(worker => worker.search(queryTokens))
+        .then(resultEntries => {
+          // only accept the latest search id
+          if (sid !== latestSearchIdRef.current) return;
+          const idMap = new Map((allFilesRef.current || []).map(f => [f.id, f]));
+          const mapped = resultEntries
+            .map(r => {
+              const file = idMap.get(r.id);
+              if (!file) return null;
+              // attach score (non-breaking, for potential UI use)
+              (file as any).__searchScore = r.score;
+              return file;
+            })
+            .filter(Boolean) as FileItem[];
+          setFilteredFiles(prev => (arraysEqualById(prev, mapped) ? prev : mapped));
+        })
+        .catch(err => {
+          console.error('operation worker search failed', err);
+          if (sid !== latestSearchIdRef.current) return;
+          const fallback = localComputeFilteredFiles(queryTokens, allFiles);
+          setFilteredFiles(fallback);
+        });
+      return;
     }
 
-    // fallback to local compute if worker not available or postMessage failed
+    // fallback to local compute if worker is not available
     const fallback = localComputeFilteredFiles(queryTokens, allFiles);
     setFilteredFiles(fallback);
   }, [queryTokens, allFiles, viewMode]);

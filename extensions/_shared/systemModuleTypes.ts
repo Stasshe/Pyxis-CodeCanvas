@@ -46,6 +46,22 @@ export interface TranspilerModule {
   extractCjsDependencies(code: string): string[];
 }
 
+export type WorkerPoolCall<T extends object> = <R>(fn: (api: T) => Promise<R>) => Promise<R>;
+
+export interface WorkerPool<T extends object> {
+  call: WorkerPoolCall<T>;
+  terminate(): void;
+}
+
+export interface WorkerRuntimeModule {
+  createUrlWorkerPool<T extends object>(options: {
+    url: string | URL;
+    maxWorkers?: number;
+    timeoutMs?: number;
+    workerOptions?: WorkerOptions;
+  }): WorkerPool<T>;
+}
+
 /**
  * pathUtils - パス操作ユーティリティ
  */
@@ -129,15 +145,28 @@ export interface GitCommandsPublic {
   getCurrentBranch(): Promise<string>;
   status(): Promise<string>;
   init(): Promise<string>;
-  clone(url: string, targetDir?: string, options?: { skipDotGit?: boolean; maxGitObjects?: number }): Promise<string>;
+  clone(
+    url: string,
+    targetDir?: string,
+    options?: { skipDotGit?: boolean; maxGitObjects?: number }
+  ): Promise<string>;
   add(filepath: string): Promise<string>;
   commit(message: string, author?: { name: string; email: string }): Promise<string>;
   push(options?: { remote?: string; branch?: string; force?: boolean }): Promise<string>;
   pull(options?: { remote?: string; branch?: string; rebase?: boolean }): Promise<string>;
-  branch(branchName?: string, options?: { delete?: boolean; remote?: boolean; all?: boolean }): Promise<string>;
+  branch(
+    branchName?: string,
+    options?: { delete?: boolean; remote?: boolean; all?: boolean }
+  ): Promise<string>;
   checkout(branchName: string, createNew?: boolean): Promise<string>;
   log(depth?: number): Promise<string>;
-  diff(options?: { staged?: boolean; filepath?: string; commit1?: string; commit2?: string; branchName?: string }): Promise<string>;
+  diff(options?: {
+    staged?: boolean;
+    filepath?: string;
+    commit1?: string;
+    commit2?: string;
+    branchName?: string;
+  }): Promise<string>;
 }
 
 export interface NpmCommandsPublic {
@@ -251,13 +280,18 @@ export interface StreamShell {
 export interface SystemModuleMap {
   fileRepository: FileRepository;
   transpiler: TranspilerModule;
+  workerRuntime: WorkerRuntimeModule;
   pathUtils: PathUtilsModule;
   commandRegistry: CommandRegistry;
   /** Terminal/CLI commands provider exposed to extensions */
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommandsPublic;
     getGitCommands: (projectName: string, projectId?: string) => GitCommandsPublic;
-    getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => NpmCommandsPublic;
+    getNpmCommands: (
+      projectName: string,
+      projectId?: string,
+      projectPath?: string
+    ) => NpmCommandsPublic;
     getShell: (
       projectName: string,
       projectId?: string,

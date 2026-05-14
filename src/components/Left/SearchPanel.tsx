@@ -4,6 +4,8 @@ import { PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useSt
 import { useTranslation } from '@/context/I18nContext';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
+import type { SearchWorkerApi } from '@/engine/workers/searchWorker';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
@@ -72,7 +74,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const workerRef = useRef<Worker | null>(null);
+  const workerPoolRef = useRef<WorkerPool<SearchWorkerApi> | null>(null);
   const searchIdRef = useRef(0);
 
   // キャッシュ用ref
@@ -165,37 +167,24 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       return;
     }
 
-    // Worker初期化
-    if (!workerRef.current) {
+    if (!workerPoolRef.current) {
       try {
-        workerRef.current = new Worker(
-          new URL('../../engine/workers/searchWorker.ts', import.meta.url),
-          {
-            type: 'module',
-          }
-        );
-
-        workerRef.current.onmessage = e => {
-          const msg = e.data;
-          if (!msg) return;
-          if (msg.type === 'result') {
-            const id = msg.searchId;
-            if (id !== searchIdRef.current) return; // stale
-            const results = msg.results || [];
-            setSearchResults(results);
-            setIsSearching(false);
-
-            // キャッシュを更新
-            lastSearchResultsRef.current = results;
-          }
-        };
+        workerPoolRef.current = createWorkerPool<SearchWorkerApi>({
+          createWorker: () =>
+            new Worker(new URL('../../engine/workers/searchWorker.ts', import.meta.url), {
+              type: 'module',
+            }),
+          maxWorkers: 1,
+          timeoutMs: 10000,
+        });
       } catch (err) {
-        console.error('Failed to create search worker', err);
+        console.error('Failed to create search worker pool', err);
         setIsSearching(false);
         return;
       }
     }
 
+    const pool = workerPoolRef.current;
     setIsSearching(true);
     const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
 
@@ -203,28 +192,31 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     lastSearchQueryRef.current = query;
     lastSearchOptionsRef.current = searchOptionsKey;
 
-    try {
-      // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
-      if (lastFilesSentVersionRef.current !== filesVersion) {
-        workerRef.current?.postMessage({
-          type: 'updateFiles',
-          files: filePayloads,
-          filesVersion,
-        });
-        lastFilesSentVersionRef.current = filesVersion;
-      }
+    void (async () => {
+      try {
+        // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
+        if (lastFilesSentVersionRef.current !== filesVersion) {
+          await pool.call(worker => worker.updateFiles(filePayloads));
+          lastFilesSentVersionRef.current = filesVersion;
+        }
 
-      // then send the actual search request without files (worker will reuse cached files)
-      workerRef.current?.postMessage({
-        type: 'search',
-        searchId: sid,
-        query,
-        options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
-      });
-    } catch (err) {
-      console.error('Worker postMessage failed', err);
-      setIsSearching(false);
-    }
+        const results = await pool.call(worker =>
+          worker.search({
+            query,
+            options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
+          })
+        );
+
+        if (sid !== searchIdRef.current) return;
+        setSearchResults(results);
+        setIsSearching(false);
+        lastSearchResultsRef.current = results;
+      } catch (err) {
+        if (sid !== searchIdRef.current) return;
+        console.error('Search worker failed', err);
+        setIsSearching(false);
+      }
+    })();
   };
 
   // 検索クエリ変更時の処理
@@ -278,10 +270,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   // Workerのクリーンアップ
   useEffect(() => {
     return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
+      workerPoolRef.current?.terminate();
+      workerPoolRef.current = null;
     };
   }, []);
 

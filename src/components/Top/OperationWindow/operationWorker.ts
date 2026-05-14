@@ -1,4 +1,11 @@
+import * as Comlink from 'comlink';
+
 type FilePayload = { id: string; name: string; path: string; type?: string };
+export type OperationSearchResult = { id: string; score: number };
+export interface OperationWorkerApi {
+  updateFiles(files: FilePayload[], version: number): Promise<void>;
+  search(tokens: string[]): Promise<OperationSearchResult[]>;
+}
 
 // --- Copied scoreMatch from OperationUtils ---
 function scoreMatch(text: string, query: string): number {
@@ -35,15 +42,13 @@ function scoreMatch(text: string, query: string): number {
 let files: FilePayload[] = [];
 let filesVersion: number | null = null;
 
-function performSearch(searchId: number, tokens: string[]) {
+function performSearch(tokens: string[]): OperationSearchResult[] {
   if (!tokens || tokens.length === 0) {
     // return all files with default score
-    const res = files.filter(f => f.type === 'file').map(f => ({ id: f.id, score: 100 }));
-    postMessage({ type: 'result', searchId, results: res });
-    return;
+    return files.filter(f => f.type === 'file').map(f => ({ id: f.id, score: 100 }));
   }
 
-  const results: Array<{ id: string; score: number }> = [];
+  const results: OperationSearchResult[] = [];
 
   for (const f of files) {
     if (f.type && f.type !== 'file') continue;
@@ -82,22 +87,18 @@ function performSearch(searchId: number, tokens: string[]) {
     return a.id.localeCompare(b.id);
   });
 
-  postMessage({ type: 'result', searchId, results });
+  return results;
 }
 
-onmessage = (e: MessageEvent) => {
-  const msg = e.data;
-  if (!msg) return;
+const api: OperationWorkerApi = {
+  async updateFiles(nextFiles, version) {
+    files = nextFiles;
+    filesVersion = version;
+  },
 
-  try {
-    if (msg.type === 'updateFiles') {
-      files = msg.files || [];
-      filesVersion = msg.filesVersion || null;
-    } else if (msg.type === 'search') {
-      performSearch(msg.searchId, msg.tokens || []);
-    }
-  } catch (err) {
-    // return empty result on error
-    postMessage({ type: 'result', searchId: msg?.searchId ? msg.searchId : 0, results: [] });
-  }
+  async search(tokens) {
+    return performSearch(tokens);
+  },
 };
+
+Comlink.expose(api);

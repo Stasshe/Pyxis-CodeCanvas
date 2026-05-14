@@ -17,6 +17,7 @@
  */
 
 import { extractCjsDependencies, transformEsmToCjs } from './esmTransformer';
+import * as Comlink from 'comlink';
 
 /**
  * トランスパイルリクエスト
@@ -58,16 +59,6 @@ async function transpile(request: TranspileRequest): Promise<TranspileResult> {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    try {
-      self.postMessage({
-        type: 'log',
-        level: 'error',
-        message: `❌ Transpile error: ${errorMessage}`,
-      });
-    } catch {
-      console.error(`postMessage failed, ❌ Transpile error: ${errorMessage}`);
-    }
-
     return {
       id: request.id,
       code: '',
@@ -77,34 +68,12 @@ async function transpile(request: TranspileRequest): Promise<TranspileResult> {
   }
 }
 
-/**
- * メッセージハンドラー
- */
-self.addEventListener('message', async (event: MessageEvent<TranspileRequest>) => {
-  const request = event.data;
-
-  try {
-    const result = await transpile(request);
-    self.postMessage(result);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    self.postMessage({
-      id: request.id,
-      code: '',
-      dependencies: [],
-      error: errorMessage,
-    } as TranspileResult);
-  }
-});
-
-// Signal ready and log initialization to main thread
-try {
-  self.postMessage({ type: 'ready' });
-  self.postMessage({
-    type: 'log',
-    level: 'info',
-    message: '✅ Transpile worker initialized (esbuild)',
-  });
-} catch {
-  // ignore
+export interface TranspileWorkerApi {
+  transpile(request: TranspileRequest): Promise<TranspileResult>;
 }
+
+const api: TranspileWorkerApi = {
+  transpile,
+};
+
+Comlink.expose(api);

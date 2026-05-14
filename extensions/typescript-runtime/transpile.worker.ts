@@ -1,11 +1,13 @@
 /**
  * TypeScript Runtime Extension - Transpile Worker
- * 
+ *
  * Web Worker内でトランスパイルを実行
- * 
+ *
  * このファイルはpublic/extensions/にビルドされ、
  * Workerとして実行される。Babel StandaloneはCDNからロード。
  */
+
+import * as Comlink from 'comlink';
 
 // Babel Standalone (グローバルから参照)
 // 親スレッドでロード済みと仮定、または動的にロード
@@ -15,7 +17,6 @@ declare const Babel: any;
 declare function importScripts(...urls: string[]): void;
 
 interface TranspileRequest {
-  id: string;
   code: string;
   filePath: string;
   isTypeScript?: boolean;
@@ -23,10 +24,8 @@ interface TranspileRequest {
 }
 
 interface TranspileResponse {
-  id: string;
   code: string;
   map?: string;
-  error?: string;
 }
 
 // TypeScript/JSXトランスパイル処理（Babel Standalone使用）
@@ -62,47 +61,34 @@ if (typeof Babel === 'undefined') {
   importScripts('https://unpkg.com/@babel/standalone@7.26.5/babel.min.js');
 }
 
-// メッセージハンドラー
-self.addEventListener('message', (event: MessageEvent<TranspileRequest>) => {
-  const { id, code, filePath, isTypeScript, isJSX } = event.data;
+export interface TranspileWorkerApi {
+  transpile(request: TranspileRequest): Promise<TranspileResponse>;
+}
 
-  try {
-    // Babelのロード確認
+const api: TranspileWorkerApi = {
+  async transpile(request) {
+    const { code, filePath, isTypeScript, isJSX } = request;
+
     if (typeof Babel === 'undefined') {
       throw new Error('Babel is not loaded. CDN may be blocked or importScripts failed.');
     }
 
-    let transpiledCode = code;
-
-    // TypeScript/JSXの場合はトランスパイル
-    if (isTypeScript || isJSX) {
-      try {
-        transpiledCode = transpileTypeScript(code, filePath, isJSX || false);
-      } catch (tsError) {
-        throw new Error(`TypeScript transpile failed: ${tsError instanceof Error ? tsError.message : String(tsError)}`);
-      }
+    if (!isTypeScript && !isJSX) {
+      return { code };
     }
 
-    const response: TranspileResponse = {
-      id,
-      code: transpiledCode,
-    };
+    try {
+      return {
+        code: transpileTypeScript(code, filePath, isJSX || false),
+      };
+    } catch (tsError) {
+      throw new Error(
+        `TypeScript transpile failed: ${
+          tsError instanceof Error ? tsError.message : String(tsError)
+        }`
+      );
+    }
+  },
+};
 
-    self.postMessage(response);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    const response: TranspileResponse = {
-      id,
-      code: '',
-      error: `[Worker Error] ${errorMessage}${errorStack ? '\nStack: ' + errorStack : ''}`,
-    };
-    self.postMessage(response);
-  }
-
-  // Worker終了（メモリ解放）
-  self.close();
-});
-
-// 初期化完了を通知
-self.postMessage({ type: 'ready' });
+Comlink.expose(api);
