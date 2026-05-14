@@ -23,6 +23,8 @@ import {
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
+import { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 /**
  * 実行オプション
@@ -56,6 +58,7 @@ export class NodeRuntime {
   private processStdin?: ProcessStdin;
   private builtInModules: BuiltInModules;
   private moduleLoader: ModuleLoader;
+  private cacheMount: RuntimeCacheMount;
   private projectDir: string;
   private cwd: string;
   private terminalColumns: number;
@@ -99,6 +102,9 @@ export class NodeRuntime {
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
 
+    const runtimeStorage = runtimeStorageRegistry.get(this.projectId, this.projectName);
+    this.cacheMount = runtimeStorage.cacheMount;
+
     this.builtInModules = createBuiltInModules({
       projectDir: this.projectDir,
       projectId: this.projectId,
@@ -107,6 +113,7 @@ export class NodeRuntime {
       getTrackIO: () => this.trackIO.bind(this),
       requireFactory: (filename: string) => this.createRequire(filename),
       getCwd: () => this.cwd,
+      mountRouter: runtimeStorage.mountRouter,
     });
 
     // ModuleLoaderの初期化
@@ -115,6 +122,7 @@ export class NodeRuntime {
       projectName: this.projectName,
       debugConsole: this.debugConsole,
       builtinResolver: this.resolveBuiltInModule.bind(this),
+      cacheMount: this.cacheMount,
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -136,6 +144,8 @@ export class NodeRuntime {
 
     try {
       runtimeInfo('▶️ Executing file:', filePath);
+
+      await this.cacheMount.init();
 
       // [NEW] Preload files for synchronous fs access (e.g. for yargs)
       // This is required because fs.readFileSync must be synchronous, but IndexedDB is async.

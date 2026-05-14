@@ -42,6 +42,7 @@ import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 import { createV8Module } from './modules/v8Module';
 import { createCryptoModule } from './modules/cryptoModule';
+import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
 
 export interface BuiltInModulesOptions {
   projectDir: string;
@@ -51,6 +52,7 @@ export interface BuiltInModulesOptions {
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
   requireFactory?: (filename: string) => (id: string) => unknown;
   getCwd?: () => string;
+  mountRouter: MountRouter;
 }
 
 export interface BuiltInModules {
@@ -78,10 +80,19 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, processStdin, getTrackIO, requireFactory, getCwd } = options;
+  const {
+    projectDir,
+    projectId,
+    projectName,
+    processStdin,
+    getTrackIO,
+    requireFactory,
+    getCwd,
+    mountRouter,
+  } = options;
 
   return {
-    fs: createFSModule({ projectDir, projectId, projectName }),
+    fs: createFSModule({ projectDir, projectId, projectName, mountRouter }),
     path: createPathModule(getCwd ?? (() => projectDir)),
     os: createOSModule(),
     util: createUtilModule(),

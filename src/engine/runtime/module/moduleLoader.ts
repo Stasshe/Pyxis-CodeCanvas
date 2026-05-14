@@ -16,6 +16,7 @@ import { isProcessExitSignal } from '../nodejs/processExit';
 import { transpileManager } from '../transpiler/transpileManager';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 
@@ -101,6 +102,7 @@ export interface ModuleLoaderOptions {
     warn: (...args: unknown[]) => void;
   };
   builtinResolver?: (moduleName: string) => any;
+  cacheMount: RuntimeCacheMount;
 }
 
 /**
@@ -124,7 +126,7 @@ export class ModuleLoader {
     this.debugConsole = options.debugConsole;
     this.builtinResolver = options.builtinResolver;
 
-    this.cache = new ModuleCache(this.projectId, this.projectName);
+    this.cache = new ModuleCache(this.projectId, this.projectName, options.cacheMount);
     this.resolver = new ModuleResolver(this.projectId, this.projectName);
   }
 

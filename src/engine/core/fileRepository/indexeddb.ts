@@ -60,7 +60,7 @@ const getParentPath = pathGetParentPath;
 
 export class FileRepository {
   private dbName = 'PyxisProjects';
-  private version = 5; // Breaking change: ChatSpace operations now use chatStorageAdapter
+  private version = 6; // runtimeCache object store for runtime-only /cache data
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName
@@ -184,6 +184,10 @@ export class FileRepository {
           if (!chatStore.indexNames.contains('projectId')) {
             chatStore.createIndex('projectId', 'projectId', { unique: false });
           }
+        }
+
+        if (!db.objectStoreNames.contains('runtimeCache')) {
+          db.createObjectStore('runtimeCache', { keyPath: 'key' });
         }
       };
     });
