@@ -43,7 +43,7 @@ export class NpmCommands {
   }
 
   async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId);
+    const npmInstall = new NpmInstall(this.projectId);
     npmInstall.startBatchProcessing();
     try {
       await npmInstall.installWithDependencies(packageName, version);
@@ -53,7 +53,7 @@ export class NpmCommands {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
+    const npmInstall = new NpmInstall(this.projectId, true);
     await npmInstall.removeDirectory(dirPath);
   }
 
@@ -113,7 +113,7 @@ export class NpmCommands {
         let installedCount = 0;
         const failedPackages: string[] = [];
 
-        const npmInstall = new NpmInstall(this.projectName, this.projectId);
+        const npmInstall = new NpmInstall(this.projectId);
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -225,13 +225,13 @@ export class NpmCommands {
             await ui.spinner.stop();
           }
           try {
-            const npmInstall = new NpmInstall(this.projectName, this.projectId);
+            const npmInstall = new NpmInstall(this.projectId);
             // ensure .bin entries exist for already-installed package
             // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
           } catch {}
           return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
         }
-        const npmInstall = new NpmInstall(this.projectName, this.projectId);
+        const npmInstall = new NpmInstall(this.projectId);
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -323,7 +323,7 @@ export class NpmCommands {
       );
 
       // 依存関係を含めてパッケージを削除
-      const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
+      const npmInstall = new NpmInstall(this.projectId, true);
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
