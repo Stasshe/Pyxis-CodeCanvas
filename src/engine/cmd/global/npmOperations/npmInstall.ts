@@ -542,16 +542,25 @@ export class NpmInstall {
         throw new Error(`Invalid package data for '${packageName}'`);
       }
 
-      const targetVersion = version === 'latest' ? data['dist-tags'].latest : version;
-      const versionData = data.versions[targetVersion];
+      const rawVersion = version === 'latest' ? data['dist-tags'].latest : version;
+      let resolvedVersionKey = rawVersion;
+      let versionData = data.versions[rawVersion];
+
+      if (!versionData) {
+        const resolved = this.resolveVersionSpec(rawVersion, data.versions);
+        if (resolved) {
+          resolvedVersionKey = resolved;
+          versionData = data.versions[resolved];
+        }
+      }
 
       if (!versionData || !versionData.dist || !versionData.dist.tarball) {
-        throw new Error(`No download URL found for '${packageName}@${targetVersion}'`);
+        throw new Error(`No download URL found for '${packageName}@${rawVersion}'`);
       }
 
       return {
         name: data.name,
-        version: targetVersion,
+        version: resolvedVersionKey,
         dependencies: versionData.dependencies || {},
         tarball: versionData.dist.tarball,
       };
@@ -561,6 +570,79 @@ export class NpmInstall {
       }
       throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
     }
+  }
+
+  private versionCompare(a: string, b: string): number {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < 3; i++) {
+      if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
+    }
+    return 0;
+  }
+
+  // セマンティックバージョン範囲 (^, ~, ||, >= 等) を利用可能バージョン群から解決
+  private resolveVersionSpec(spec: string, versions: Record<string, any>): string | null {
+    spec = spec.trim();
+    if (versions[spec]) return spec;
+
+    // || 範囲: 左から順に解決を試みる
+    if (spec.includes('||')) {
+      for (const part of spec.split('||')) {
+        const r = this.resolveVersionSpec(part.trim(), versions);
+        if (r) return r;
+      }
+      return null;
+    }
+
+    // AND 範囲 (スペース区切り: ">=1.0.0 <2.0.0") は最初の制約だけ使う
+    const andParts = spec.split(/\s+/).filter(Boolean);
+    const primarySpec = andParts[0];
+
+    const stable = Object.keys(versions)
+      .filter(v => /^\d+\.\d+\.\d+$/.test(v))
+      .sort((a, b) => this.versionCompare(b, a)); // 降順
+
+    // ^ : 同じメジャーの最新
+    const caret = primarySpec.match(/^\^(\d+)\.(\d+)\.(\d+)/);
+    if (caret) {
+      const [, major, minor, patch] = caret;
+      return (
+        stable.find(v => {
+          const [vMaj, vMin, vPat] = v.split('.').map(Number);
+          if (vMaj !== Number(major)) return false;
+          if (vMaj === 0) {
+            if (vMin !== Number(minor)) return false;
+            if (vMin === 0) return vPat >= Number(patch);
+            return vPat >= Number(patch) || vMin > Number(minor);
+          }
+          return this.versionCompare(v, `${major}.${minor}.${patch}`) >= 0;
+        }) ?? null
+      );
+    }
+
+    // ~ : 同じメジャー.マイナーの最新
+    const tilde = primarySpec.match(/^~(\d+)\.(\d+)/);
+    if (tilde) {
+      const [, major, minor] = tilde;
+      return stable.find(v => v.split('.')[0] === major && v.split('.')[1] === minor) ?? null;
+    }
+
+    // >= : 以上の最新
+    const gte = primarySpec.match(/^>=(\d+\.\d+\.\d+)/);
+    if (gte) {
+      return stable.find(v => this.versionCompare(v, gte[1]) >= 0) ?? null;
+    }
+
+    // > : より大きい最新
+    const gt = primarySpec.match(/^>(\d+\.\d+\.\d+)/);
+    if (gt) {
+      return stable.find(v => this.versionCompare(v, gt[1]) > 0) ?? null;
+    }
+
+    // 先頭の記号を除いた完全一致
+    const stripped = primarySpec.replace(/^[>=<^~]+/, '');
+    return versions[stripped] ? stripped : null;
   }
 
   // セマンティックバージョンを解析して実際のバージョンを決定
