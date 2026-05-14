@@ -17,8 +17,10 @@
  * ```
  */
 
-const DB_NAME = 'pyxis-global';
-const DB_VERSION = 5; // Breaking change: ChatSpace key format changed to include projectId
+import { IDB } from '@/constants/idb';
+
+const DB_NAME = IDB.GLOBAL.NAME;
+const DB_VERSION = IDB.GLOBAL.VERSION;
 
 /**
  * ストアの定義

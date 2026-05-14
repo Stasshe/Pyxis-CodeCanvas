@@ -10,6 +10,7 @@
 import FS from '@isomorphic-git/lightning-fs';
 
 import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
+import { IDB } from '@/constants/idb';
 
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
 
@@ -34,7 +35,7 @@ export class GitFileSystem {
    */
   init(): FS {
     if (typeof window !== 'undefined' && !this.fs) {
-      this.fs = new FS('pyxis-fs');
+      this.fs = new FS(IDB.FS.NAME);
 
       // 基本ディレクトリ構造を非同期で作成
       setTimeout(async () => {

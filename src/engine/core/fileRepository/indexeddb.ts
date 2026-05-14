@@ -18,6 +18,7 @@ import {
 } from '../pathUtils';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
+import { IDB } from '@/constants/idb';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
 import { initialFileContents } from '@/engine/initialFileContents';
 import {
@@ -59,8 +60,8 @@ const normalizePath = toAppPath;
 const getParentPath = pathGetParentPath;
 
 export class FileRepository {
-  private dbName = 'PyxisProjects';
-  private version = 6; // runtimeCache object store for runtime-only /cache data
+  private dbName = IDB.PROJECTS.NAME;
+  private version = IDB.PROJECTS.VERSION;
   private db: IDBDatabase | null = null;
   private static instance: FileRepository | null = null;
   private projectNameCache: Map<string, string> = new Map(); // projectId -> projectName

@@ -1,3 +1,4 @@
+import { IDB } from '@/constants/idb';
 import type { MountStat, VirtualMount } from './types';
 
 interface CacheRecord {
@@ -24,8 +25,8 @@ export class RuntimeCacheMount implements VirtualMount {
   private initPromise: Promise<void> | null = null;
   private memoryOnly = false;
   private readonly storeName = 'runtimeCache';
-  private readonly dbName = 'PyxisProjects';
-  private readonly dbVersion = 6;
+  private readonly dbName = IDB.PROJECTS.NAME;
+  private readonly dbVersion = IDB.PROJECTS.VERSION;
 
   constructor(private readonly namespace = 'global') {}
 

@@ -3,6 +3,7 @@
  * LocalStorageにPersonal Access Token (PAT)を暗号化して保存
  */
 
+import { IDB } from '@/constants/idb';
 import { clearEncryptionKey, decryptText, encryptText } from './crypto';
 
 export interface GitHubUser {
@@ -29,8 +30,8 @@ interface EncryptedAuthData {
 }
 
 export class AuthRepository {
-  private dbName = 'PyxisAuth';
-  private version = 1;
+  private dbName = IDB.AUTH.NAME;
+  private version = IDB.AUTH.VERSION;
   private db: IDBDatabase | null = null;
   private static instance: AuthRepository | null = null;
 
