@@ -724,6 +724,7 @@ export class NodeRuntime {
           const extensions = [
             '',
             '.js',
+            '.cjs',
             '.mjs',
             '.ts',
             '.mts',
@@ -731,6 +732,7 @@ export class NodeRuntime {
             '.jsx',
             '.json',
             '/index.js',
+            '/index.cjs',
             '/index.ts',
           ];
           for (const ext of extensions) {

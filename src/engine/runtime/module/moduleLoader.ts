@@ -292,7 +292,10 @@ export class ModuleLoader {
         'deps:',
         cached.deps
       );
-      return { code: cached.code, dependencies: cached.deps || [] };
+      const dependencies = Array.from(
+        new Set([...(cached.deps || []), ...this.extractRequireDeps(cached.code)])
+      );
+      return { code: cached.code, dependencies };
     }
 
     // JSONファイルの場合はそのままJSオブジェクトとしてエクスポート
@@ -562,6 +565,7 @@ export class ModuleLoader {
         const extensions = [
           '',
           '.js',
+          '.cjs',
           '.mjs',
           '.ts',
           '.mts',
@@ -569,6 +573,7 @@ export class ModuleLoader {
           '.jsx',
           '.json',
           '/index.js',
+          '/index.cjs',
           '/index.ts',
         ];
         for (const ext of extensions) {

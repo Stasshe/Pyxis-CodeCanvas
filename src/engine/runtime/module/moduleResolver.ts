@@ -541,7 +541,7 @@ export class ModuleResolver {
     }
 
     // 拡張子を試す順序
-    const extensions = ['.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
+    const extensions = ['.js', '.cjs', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
     for (const ext of extensions) {
       const pathWithExt = filePath + ext;
       if (await this.fileExists(pathWithExt)) {
@@ -552,6 +552,7 @@ export class ModuleResolver {
     // index.jsを試す
     const indexPaths = [
       `${filePath}/index.js`,
+      `${filePath}/index.cjs`,
       `${filePath}/index.mjs`,
       `${filePath}/index.ts`,
       `${filePath}/index.mts`,
