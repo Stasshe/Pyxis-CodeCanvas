@@ -135,13 +135,12 @@ export class NpmCommands {
           for (let i = 0; i < packageNames.length; i++) {
             const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
-            const version = versionSpec.replace(/^[\^~]/, '');
 
             try {
-              await npmInstall.installWithDependencies(pkg, version, { isDirect: true });
+              await npmInstall.installWithDependencies(pkg, versionSpec, { isDirect: true });
               installedCount++;
             } catch (error) {
-              failedPackages.push(`${pkg}@${version}: ${(error as Error).message}`);
+              failedPackages.push(`${pkg}@${versionSpec}: ${(error as Error).message}`);
             }
           }
         } finally {
@@ -217,20 +216,7 @@ export class NpmCommands {
           `/node_modules/${packageName}`
         );
         const isActuallyInstalled = nodeFiles.length > 0;
-
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-        if (isInPackageJson && isActuallyInstalled) {
-          if (ui) {
-            await ui.spinner.stop();
-          }
-          try {
-            const npmInstall = new NpmInstall(this.projectId);
-            // ensure .bin entries exist for already-installed package
-            // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-          } catch {}
-          return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        }
+        const wasAlreadyInstalled = isInPackageJson && isActuallyInstalled;
         const npmInstall = new NpmInstall(this.projectId);
 
         // Set up progress callback to log all packages (direct + transitive)
@@ -256,6 +242,9 @@ export class NpmCommands {
         }
 
         const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        if (wasAlreadyInstalled) {
+          return `up to date, audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
+        }
         return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
       } catch (error) {
         if (ui) {

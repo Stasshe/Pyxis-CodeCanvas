@@ -6,7 +6,7 @@ import { BatchFileWriter } from './install/batchWriter';
 import { analyzeDependencies, findOrphanedPackages, getRootDependencies } from './install/dependencyGraph';
 import { TarExtractor } from './install/tarExtractor';
 import type { InstallProgressCallback, PackageInfo } from './install/types';
-import { resolveVersion, resolveVersionSpec } from './install/versionUtils';
+import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
 
 export type { InstallProgressCallback };
 
@@ -171,6 +171,7 @@ export class NpmInstall {
         name: data.name,
         version: resolvedKey,
         dependencies: versionData.dependencies || {},
+        optionalDependencies: versionData.optionalDependencies || {},
         tarball: versionData.dist.tarball,
       };
     } catch (error) {
@@ -207,7 +208,6 @@ export class NpmInstall {
     snapshotFiles?: Array<any>
   ): Promise<boolean> {
     for (const [depName, depSpec] of Object.entries(dependencies)) {
-      const depVersion = resolveVersion(depSpec);
       const depFile = snapshotFiles
         ? snapshotFiles.find((f: any) => f.path === `/node_modules/${depName}/package.json`)
         : await fileRepository.getFileByPath(
@@ -216,7 +216,8 @@ export class NpmInstall {
           );
       if (!depFile) return false;
       try {
-        if (JSON.parse(depFile.content).version !== depVersion) return false;
+        const depPackageJson = JSON.parse(depFile.content);
+        if (!satisfiesVersionSpec(depPackageJson.version, depSpec)) return false;
       } catch {
         return false;
       }
@@ -224,13 +225,16 @@ export class NpmInstall {
     return true;
   }
 
+  private isConcreteVersion(version: string): boolean {
+    return /^\d+\.\d+\.\d+(?:[-+].+)?$/.test(version);
+  }
+
   async installWithDependencies(
     packageName: string,
     version = 'latest',
     options?: { ignoreEntry?: string; isDirect?: boolean }
   ): Promise<void> {
-    const resolvedVersion = resolveVersion(version);
-    const packageKey = `${packageName}@${resolvedVersion}`;
+    const packageKey = `${packageName}@${version}`;
     const isDirect = options?.isDirect ?? true;
 
     if (this.installingPackages.has(packageKey)) return;
@@ -253,27 +257,49 @@ export class NpmInstall {
       }
     } catch {}
 
-    if (await this.isPackageInstalled(packageName, resolvedVersion, snapshotFiles)) {
-      this.installedPackages.set(packageName, resolvedVersion);
+    if (
+      this.isConcreteVersion(version) &&
+      (await this.isPackageInstalled(packageName, version, snapshotFiles))
+    ) {
+      this.installedPackages.set(packageName, version);
       return;
     }
 
     try {
       this.installingPackages.add(packageKey);
-      if (this.onInstallProgress) await this.onInstallProgress(packageName, resolvedVersion, isDirect);
 
-      const pkgInfo = await this.fetchPackageInfo(packageName, resolvedVersion);
-      const depEntries = Object.entries(pkgInfo.dependencies || {});
+      const pkgInfo = await this.fetchPackageInfo(packageName, version);
+      if (await this.isPackageInstalled(packageName, pkgInfo.version, snapshotFiles)) {
+        this.installedPackages.set(packageName, pkgInfo.version);
+        return;
+      }
+
+      if (this.onInstallProgress) await this.onInstallProgress(packageName, pkgInfo.version, isDirect);
+
+      const requiredDepEntries = Object.entries(pkgInfo.dependencies || {});
+      const optionalDepEntries = Object.entries(pkgInfo.optionalDependencies || {}).filter(
+        ([depName]) => !(pkgInfo.dependencies || {})[depName]
+      );
 
       const BATCH = 3;
-      for (let i = 0; i < depEntries.length; i += BATCH) {
+      for (let i = 0; i < requiredDepEntries.length; i += BATCH) {
         await Promise.all(
-          depEntries.slice(i, i + BATCH).map(async ([depName, depVer]) => {
+          requiredDepEntries
+            .slice(i, i + BATCH)
+            .map(([depName, depVer]) =>
+              this.installWithDependencies(depName, depVer, { isDirect: false })
+            )
+        );
+      }
+
+      for (let i = 0; i < optionalDepEntries.length; i += BATCH) {
+        await Promise.all(
+          optionalDepEntries.slice(i, i + BATCH).map(async ([depName, depVer]) => {
             try {
-              await this.installWithDependencies(depName, resolveVersion(depVer), { isDirect: false });
+              await this.installWithDependencies(depName, depVer, { isDirect: false });
             } catch (error) {
               console.warn(
-                `[npm] Failed to install dep ${depName}@${depVer}:`,
+                `[npm] Skipping optional dep ${depName}@${depVer}:`,
                 (error as Error).message
               );
             }
