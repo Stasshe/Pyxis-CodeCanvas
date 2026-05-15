@@ -762,6 +762,8 @@ export class ModuleLoader {
         var clearTimeout = __injected_clearTimeout;
         var clearInterval = __injected_clearInterval;
         var global = __injected_global;
+        var define = undefined;
+        var window = undefined;
         var __pyxisImport = function(s) { return __injected_asyncLoad(s, __filename); };
         ${code}
         return module.exports;
