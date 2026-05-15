@@ -19,64 +19,7 @@ import { ModuleResolver } from './moduleResolver';
 import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-
-/**
- * Node.js ビルトインモジュールのリスト
- * `node:` プレフィックス付きもサポート
- */
-const NODE_BUILTIN_MODULES = [
-  'assert',
-  'buffer',
-  'child_process',
-  'cluster',
-  'console',
-  'constants',
-  'crypto',
-  'dgram',
-  'dns',
-  'domain',
-  'events',
-  'fs',
-  'fs/promises',
-  'http',
-  'https',
-  'module',
-  'net',
-  'os',
-  'path',
-  'process',
-  'punycode',
-  'querystring',
-  'readline',
-  'repl',
-  'stream',
-  'stream/consumers',
-  'stream/promises',
-  'stream/web',
-  'string_decoder',
-  'sys',
-  'timers',
-  'timers/promises',
-  'tls',
-  'tty',
-  'url',
-  'util',
-  'v8',
-  'vm',
-  'worker_threads',
-  'perf_hooks',
-  'zlib',
-];
-
-/**
- * ビルトインモジュールかどうかを判定
- * `node:` プレフィックス付きモジュールもサポート
- */
-function isBuiltInModule(moduleName: string): boolean {
-  // `node:` プレフィックスを削除して正規化
-  const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
-  return NODE_BUILTIN_MODULES.includes(normalizedName);
-}
+import { isBuiltInModule } from './builtinModules';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）

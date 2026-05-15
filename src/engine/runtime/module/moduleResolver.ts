@@ -11,6 +11,7 @@ import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUti
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { isBuiltInModule } from './builtinModules';
 
 /**
  * パッケージ情報
@@ -61,7 +62,7 @@ export class ModuleResolver {
     runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
     // 1. ビルトインモジュール
-    if (this.isBuiltInModule(moduleName)) {
+    if (isBuiltInModule(moduleName)) {
       return {
         path: moduleName,
         isBuiltIn: true,
@@ -149,55 +150,6 @@ export class ModuleResolver {
     } catch {
       return moduleName.replace(/^file:\/\/\/?/, '/').replace(/[?#].*$/, '');
     }
-  }
-
-  /**
-   * ビルトインモジュールかどうかを判定
-   * `node:` プレフィックス付きのモジュール名もサポート
-   */
-  private isBuiltInModule(moduleName: string): boolean {
-    // `node:` プレフィックスを削除
-    const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
-
-    const builtIns = [
-      'fs',
-      'fs/promises',
-      'path',
-      'os',
-      'util',
-      'http',
-      'https',
-      'buffer',
-      'readline',
-      'crypto',
-      'stream',
-      'events',
-      'url',
-      'querystring',
-      'assert',
-      'child_process',
-      'cluster',
-      'dgram',
-      'dns',
-      'domain',
-      'net',
-      'tls',
-      'tty',
-      'zlib',
-      'module',
-      'process',
-      'timers',
-      'console',
-      'constants',
-      'punycode',
-      'string_decoder',
-      'sys',
-      'v8',
-      'vm',
-      'repl',
-    ];
-
-    return builtIns.includes(normalizedName);
   }
 
   /**

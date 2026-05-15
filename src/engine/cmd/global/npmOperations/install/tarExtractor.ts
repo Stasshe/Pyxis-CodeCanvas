@@ -41,6 +41,34 @@ export class TarExtractor {
       : this.textDecoder.decode(buf);
   }
 
+  private processEntry(
+    header: any,
+    chunks: Uint8Array[],
+    packageDir: string,
+    fileEntries: Map<string, { type: string; content?: string; fullPath: string }>,
+    requiredDirs: Set<string>
+  ): void {
+    let rel = header.name;
+    if (rel.startsWith('package/')) rel = rel.substring(8);
+    if (!rel || rel.includes('..') || rel.startsWith('/')) return;
+
+    const fullPath = `${packageDir}/${rel}`;
+    if (header.type === 'file') {
+      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+      const combined = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const c of chunks) { combined.set(c, offset); offset += c.length; }
+      fileEntries.set(rel, { type: 'file', content: this.encodeContent(combined), fullPath });
+      const parts = rel.split('/');
+      for (let i = 0; i < parts.length - 1; i++) {
+        requiredDirs.add(parts.slice(0, i + 1).join('/'));
+      }
+    } else if (header.type === 'directory') {
+      fileEntries.set(rel, { type: 'directory', fullPath });
+      requiredDirs.add(rel);
+    }
+  }
+
   private buildExtractedFiles(
     packageDir: string,
     fileEntries: Map<string, { type: string; content?: string; fullPath: string }>,
@@ -78,25 +106,7 @@ export class TarExtractor {
       const chunks: Uint8Array[] = [];
       stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
       stream.on('end', () => {
-        let rel = header.name;
-        if (rel.startsWith('package/')) rel = rel.substring(8);
-        if (!rel) { next(); return; }
-
-        const fullPath = `${packageDir}/${rel}`;
-        if (header.type === 'file') {
-          const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-          const combined = new Uint8Array(totalLen);
-          let offset = 0;
-          for (const c of chunks) { combined.set(c, offset); offset += c.length; }
-          fileEntries.set(rel, { type: 'file', content: this.encodeContent(combined), fullPath });
-          const parts = rel.split('/');
-          for (let i = 0; i < parts.length - 1; i++) {
-            requiredDirs.add(parts.slice(0, i + 1).join('/'));
-          }
-        } else if (header.type === 'directory') {
-          fileEntries.set(rel, { type: 'directory', fullPath });
-          requiredDirs.add(rel);
-        }
+        this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
         next();
       });
       stream.resume();
@@ -124,25 +134,7 @@ export class TarExtractor {
       const chunks: Uint8Array[] = [];
       stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
       stream.on('end', () => {
-        let rel = header.name;
-        if (rel.startsWith('package/')) rel = rel.substring(8);
-        if (!rel) { next(); return; }
-
-        const fullPath = `${packageDir}/${rel}`;
-        if (header.type === 'file') {
-          const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-          const combined = new Uint8Array(totalLen);
-          let offset = 0;
-          for (const c of chunks) { combined.set(c, offset); offset += c.length; }
-          fileEntries.set(rel, { type: 'file', content: this.encodeContent(combined), fullPath });
-          const parts = rel.split('/');
-          for (let i = 0; i < parts.length - 1; i++) {
-            requiredDirs.add(parts.slice(0, i + 1).join('/'));
-          }
-        } else if (header.type === 'directory') {
-          fileEntries.set(rel, { type: 'directory', fullPath });
-          requiredDirs.add(rel);
-        }
+        this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
         next();
       });
       stream.resume();

@@ -42,8 +42,12 @@ export class NpmCommands {
     this.terminalUI = ui;
   }
 
+  private createInstaller(dedupe = false): NpmInstall {
+    return new NpmInstall(this.projectId, dedupe);
+  }
+
   async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectId);
+    const npmInstall = this.createInstaller();
     npmInstall.startBatchProcessing();
     try {
       await npmInstall.installWithDependencies(packageName, version);
@@ -53,7 +57,7 @@ export class NpmCommands {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectId, true);
+    const npmInstall = this.createInstaller(true);
     await npmInstall.removeDirectory(dirPath);
   }
 
@@ -100,7 +104,7 @@ export class NpmCommands {
         let installedCount = 0;
         const failedPackages: string[] = [];
 
-        const npmInstall = new NpmInstall(this.projectId);
+        const npmInstall = this.createInstaller();
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -203,7 +207,7 @@ export class NpmCommands {
         );
         const isActuallyInstalled = !!nodeFile;
         const wasAlreadyInstalled = isInPackageJson && isActuallyInstalled;
-        const npmInstall = new NpmInstall(this.projectId);
+        const npmInstall = this.createInstaller();
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -298,7 +302,7 @@ export class NpmCommands {
       );
 
       // 依存関係を含めてパッケージを削除
-      const npmInstall = new NpmInstall(this.projectId, true);
+      const npmInstall = this.createInstaller(true);
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
