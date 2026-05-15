@@ -11,7 +11,7 @@ import 'katex/dist/katex.min.css';
 import 'github-markdown-css/github-markdown.css';
 
 import { useTranslation } from '@/context/I18nContext';
-import { ThemeContext, useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
 import type { EditorPane, PreviewTab, Tab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
@@ -20,8 +20,7 @@ import { tabActions, tabState } from '@/stores/tabState';
 import type { Project, ProjectFile } from '@/types';
 import { useSnapshot } from 'valtio';
 
-import InlineHighlightedCode from './InlineHighlightedCode';
-import { CodeBlock, LocalImage, Mermaid } from './MarkdownPreview';
+import { CodeBlock, LocalImage } from './MarkdownPreview';
 
 interface MarkdownPreviewTabProps {
   activeTab: PreviewTab;
@@ -94,20 +93,28 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     };
   }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter]);
 
-  // ReactMarkdownのコンポーネントをメモ化
-  // 通常表示用
-  const markdownComponents = useMemo<Partial<Components>>(
+  // code コンポーネントは activeTab/colors に依存しないため分離して安定させる
+  // — 参照が変わらない限り react-markdown は Mermaid を remount しない
+  const codeComponent = useMemo<Pick<Components, 'code'>>(
     () => ({
       code: ({ className, children, ...props }) => (
         <CodeBlock
           className={className}
-          colors={colors}
           currentProjectName={currentProject?.name}
           {...props}
         >
           {children}
         </CodeBlock>
       ),
+    }),
+    [currentProject?.name]
+  );
+
+  // ReactMarkdownのコンポーネントをメモ化
+  // 通常表示用
+  const markdownComponents = useMemo<Partial<Components>>(
+    () => ({
+      ...codeComponent,
       img: ({ src, alt, ...props }) => {
         const srcString = typeof src === 'string' ? src : '';
         return (
@@ -259,7 +266,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         );
       },
     }),
-    [colors, currentProject?.name, currentProject?.id, activeTab, openTab]
+    [codeComponent, currentProject?.name, currentProject?.id, activeTab, openTab]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters

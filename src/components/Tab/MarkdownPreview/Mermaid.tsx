@@ -3,7 +3,7 @@ import mermaid from 'mermaid';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
-import { type ThemeColors, useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
 
 import { parseMermaidContent } from '../markdownUtils';
 
@@ -11,7 +11,6 @@ import { useIntersectionObserver } from './useIntersectionObserver';
 
 interface MermaidProps {
   chart: string;
-  colors: ThemeColors;
 }
 
 interface ZoomState {
@@ -25,10 +24,11 @@ let globalMermaidCounter = 0;
 // グローバルズーム状態ストア: diagramハッシュをキーにしてズーム状態を保持
 const mermaidZoomStore = new Map<string, ZoomState>();
 
-// diagram内容からハッシュキーを生成（安定したキー）
+// diagram最初の行（図種類）からキーを生成 — 内容変更でもキーが変わらない
 const generateDiagramKey = (diagram: string): string => {
   try {
-    const hash = diagram.split('').reduce((acc, char) => {
+    const firstLine = diagram.split('\n').find((line) => line.trim()) || diagram;
+    const hash = firstLine.split('').reduce((acc, char) => {
       return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
     }, 0);
     return `diagram-${Math.abs(hash)}`;
@@ -59,9 +59,9 @@ const generateSafeId = (chart: string): string => {
   }
 };
 
-const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
+const Mermaid = memo<MermaidProps>(({ chart }) => {
   const { t } = useTranslation();
-  const { themeName } = useTheme();
+  const { themeName, colors } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
 
   // Lazy loading with IntersectionObserver
@@ -90,12 +90,13 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
   const [svgContent, setSvgContent] = useState<string | null>(null);
   const [zoomState, setZoomState] = useState<ZoomState>(initialZoomState);
 
+  // refsはre-render間でズーム状態を維持 — stale closureを避けるためrefで管理
   const scaleRef = useRef<number>(initialZoomState.scale);
   const translateRef = useRef<{ x: number; y: number }>({ ...initialZoomState.translate });
   const isPanningRef = useRef<boolean>(false);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
 
-  // diagramKeyが変わったときに保存されたズーム状態を復元
+  // diagramKeyが変わったときに保存されたズーム状態を復元（コンポーネント再マウント時）
   useEffect(() => {
     const stored = getStoredZoomState(diagramKey);
     if (stored) {
@@ -125,19 +126,7 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
 
       setIsLoading(true);
       setError(null);
-      scaleRef.current = zoomState.scale;
-      translateRef.current = { ...zoomState.translate };
-
-      ref.current.innerHTML = `
-        <div class="mermaid-loading" style="display:flex;align-items:center;justify-content:center;height:120px;">
-          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="18" stroke="#4ade80" stroke-width="4" fill="none" stroke-dasharray="90" stroke-dashoffset="60">
-              <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
-            </circle>
-          </svg>
-          <span style="margin-left:10px;color:#4ade80;font-size:14px;">${t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}</span>
-        </div>
-      `;
+      // refs値はそのまま維持 — ズームリセットしない
 
       try {
         const isDark = !themeName?.includes('light');
@@ -246,10 +235,10 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
           svgElem.style.touchAction = 'none';
           svgElem.style.transformOrigin = '0 0';
 
-          // requestAnimationFrameで描画完了を保証
+          // requestAnimationFrameで描画完了を保証 — refsの現在値を使用（stale closureを避ける）
           requestAnimationFrame(() => {
             if (svgElem && isMounted) {
-              svgElem.style.transform = `translate(${zoomState.translate.x}px, ${zoomState.translate.y}px) scale(${zoomState.scale})`;
+              svgElem.style.transform = `translate(${translateRef.current.x}px, ${translateRef.current.y}px) scale(${scaleRef.current})`;
             }
           });
 
@@ -527,7 +516,7 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
 
   return (
     <div ref={containerRef} style={{ gap: '8px', minHeight: '120px' }}>
-      {svgContent && !isLoading && !error && (
+      {svgContent && !error && (
         <div
           style={{
             display: 'flex',
@@ -628,6 +617,49 @@ const Mermaid = memo<MermaidProps>(({ chart, colors }) => {
       )}
       <div style={{ position: 'relative', zIndex: 10, overflow: 'hidden', paddingTop: 4 }}>
         <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
+        {/* ローディングは初回のみ表示 — 再レンダリング時はSVGを維持して静かに更新 */}
+        {isLoading && !svgContent && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '120px',
+              background: 'transparent',
+              pointerEvents: 'none',
+            }}
+          >
+            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <circle
+                cx="20"
+                cy="20"
+                r="18"
+                stroke="#4ade80"
+                strokeWidth="4"
+                fill="none"
+                strokeDasharray="90"
+                strokeDashoffset="60"
+              >
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from="0 20 20"
+                  to="360 20 20"
+                  dur="1s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+            </svg>
+            <span style={{ marginLeft: '10px', color: '#4ade80', fontSize: '14px' }}>
+              {t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
