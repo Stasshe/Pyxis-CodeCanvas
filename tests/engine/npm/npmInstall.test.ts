@@ -23,7 +23,7 @@ describe('NpmInstall', () => {
 
   /** globalThis.fetch をそのまま使う NpmInstall を生成 */
   function createInstaller(skipLoad = true) {
-    return new NpmInstall(projectName, projectId, skipLoad);
+    return new NpmInstall(projectId, skipLoad);
   }
 
   // ==================== バッチ処理 ====================
