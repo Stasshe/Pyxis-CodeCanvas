@@ -43,6 +43,7 @@ import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 import { createV8Module } from './modules/v8Module';
 import { createCryptoModule } from './modules/cryptoModule';
+import { createChildProcessModule } from './modules/childProcessModule';
 import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
 
 export interface BuiltInModulesOptions {
@@ -53,6 +54,11 @@ export interface BuiltInModulesOptions {
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
   requireFactory?: (filename: string) => (id: string) => unknown;
   getCwd?: () => string;
+  getEnv?: () => Record<string, string>;
+  runShell?: (
+    command: string,
+    options?: { cwd?: string; env?: Record<string, string> }
+  ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
   mountRouter: MountRouter;
   terminalColumns?: number;
   terminalRows?: number;
@@ -75,6 +81,7 @@ export interface BuiltInModules {
   module: ReturnType<typeof createModuleModule>;
   v8: ReturnType<typeof createV8Module>;
   crypto: ReturnType<typeof createCryptoModule>;
+  child_process: ReturnType<typeof createChildProcessModule>;
 }
 
 /**
@@ -92,6 +99,8 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     getTrackIO,
     requireFactory,
     getCwd,
+    getEnv,
+    runShell,
     mountRouter,
     terminalColumns,
     terminalRows,
@@ -114,6 +123,13 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     stream: stream,
     v8: createV8Module(),
     crypto: createCryptoModule(),
+    child_process: createChildProcessModule({
+      runShell,
+      getCwd,
+      getEnv,
+      getTrackIO,
+      maxParallel: 2,
+    }),
   };
 }
 
@@ -133,6 +149,7 @@ export {
   createTTYModule,
   createAssertModule,
   createModuleModule,
+  createChildProcessModule,
   urlModule,
   stream,
 };

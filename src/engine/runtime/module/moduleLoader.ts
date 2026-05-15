@@ -265,6 +265,10 @@ export class ModuleLoader {
             if (isBuiltInModule(dep)) {
               return;
             }
+            if (this.isOptionalDependency(dep, resolvedPath)) {
+              runtimeInfo('ℹ️ Skipping optional dependency preload:', dep, 'from', resolvedPath);
+              return;
+            }
             await this.prepareModule(dep, resolvedPath, nextStack);
           } catch (error) {
             if (isProcessExitSignal(error)) {
@@ -335,7 +339,11 @@ export class ModuleLoader {
         cached.deps
       );
       const dependencies = Array.from(
-        new Set([...(cached.deps || []), ...this.extractRequireDeps(cached.code)])
+        new Set([
+          ...(cached.deps || []),
+          ...this.extractRequireDeps(cached.code),
+          ...(await this.extractTemplateRequireDeps(filePath, cached.code)),
+        ])
       );
       return { code: cached.code, dependencies };
     }
@@ -354,7 +362,10 @@ export class ModuleLoader {
     if (filePath.endsWith('.mjs')) {
       const isNodeModule = filePath.includes('/node_modules/');
       if (isNodeModule || !this.isESModule(content)) {
-        const deps = this.extractRequireDeps(content);
+        const deps = [
+          ...this.extractRequireDeps(content),
+          ...(await this.extractTemplateRequireDeps(filePath, content)),
+        ];
         await this.cache.set(filePath, {
           originalPath: filePath,
           contentHash: version,
@@ -370,7 +381,13 @@ export class ModuleLoader {
     // トランスパイルが必要か判定
     const needsTranspile = this.needsTranspile(filePath, content);
     if (!needsTranspile) {
-      return { code: content, dependencies: this.extractRequireDeps(content) };
+      return {
+        code: content,
+        dependencies: [
+          ...this.extractRequireDeps(content),
+          ...(await this.extractTemplateRequireDeps(filePath, content)),
+        ],
+      };
     }
 
     runtimeInfo('🔄 Transpiling module (extracting dependencies):', filePath);
@@ -393,7 +410,10 @@ export class ModuleLoader {
           isTypeScript,
         });
 
-        const deps = result.dependencies || [];
+        const deps = [
+          ...(result.dependencies || []),
+          ...(await this.extractTemplateRequireDeps(filePath, result.code)),
+        ];
         await this.cache.set(filePath, {
           originalPath: filePath,
           contentHash: version,
@@ -420,19 +440,24 @@ export class ModuleLoader {
       isJSX: false,
     });
 
+    const dependencies = [
+      ...(result.dependencies || []),
+      ...(await this.extractTemplateRequireDeps(filePath, result.code)),
+    ];
+
     // キャッシュに保存
     await this.cache.set(filePath, {
       originalPath: filePath,
       contentHash: version,
       code: result.code,
       sourceMap: result.sourceMap,
-      deps: result.dependencies,
+      deps: dependencies,
       mtime: Date.now(),
       size: result.code.length,
     });
 
     // transpileManager.transpile は既に { code: string, dependencies: string[] } を返すので、そのまま返す
-    return result;
+    return { ...result, dependencies };
   }
 
   /**
@@ -506,6 +531,10 @@ export class ModuleLoader {
           try {
             // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
             if (isBuiltInModule(dep)) {
+              return;
+            }
+            if (this.isOptionalDependency(dep, resolvedPath)) {
+              runtimeInfo('ℹ️ Skipping optional dependency preload:', dep, 'from', resolvedPath);
               return;
             }
 
@@ -648,12 +677,13 @@ export class ModuleLoader {
         }
       }
 
-      // Module not found in cache - create Node.js style error
-      runtimeError(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
-      if (resolvedPath) {
-        runtimeError(`  Resolved path: ${resolvedPath}`);
+      if (!this.isOptionalDependency(moduleName, filePath)) {
+        runtimeWarn(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
+        if (resolvedPath) {
+          runtimeWarn(`  Resolved path: ${resolvedPath}`);
+        }
+        runtimeWarn(`  Required from: ${filePath}`);
       }
-      runtimeError(`  Required from: ${filePath}`);
       throw createModuleNotFoundError(moduleName, filePath);
     };
 
@@ -770,15 +800,12 @@ export class ModuleLoader {
         throw error;
       }
 
-      // モジュール実行失敗は runtimeWarn のみに記録。
-      // sandbox console (debugConsole) には出さない。
-      runtimeWarn('⚠️  Module execution failed (non-fatal):', filePath);
+      runtimeWarn('❌ Module execution failed:', filePath);
       runtimeWarn(
         'Error details:',
         error instanceof Error ? `${error.name}: ${error.message}` : String(JSON.stringify(error))
       );
-
-      return module.exports || {};
+      throw error;
     } finally {
       // Restore original navigator
       try {
@@ -813,6 +840,77 @@ export class ModuleLoader {
     extractFrom(/\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g);
     extractFrom(/\b__pyxisImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g);
     return Array.from(deps);
+  }
+
+  private async extractTemplateRequireDeps(filePath: string, content: string): Promise<string[]> {
+    const deps = new Set<string>();
+    const patterns = [
+      /\brequire\s*\(\s*`([^`$]+)\$\{[^`]+}([^`]*)`\s*\)/g,
+      /\b__pyxisImport\s*\(\s*`([^`$]+)\$\{[^`]+}([^`]*)`\s*\)/g,
+    ];
+
+    for (const re of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(content)) !== null) {
+        const [, prefix, suffix] = match;
+        if (!prefix || prefix.includes('${') || suffix.includes('${')) continue;
+        if (!prefix.startsWith('./') && !prefix.startsWith('../')) continue;
+
+        const slashIndex = prefix.lastIndexOf('/');
+        if (slashIndex < 0) continue;
+
+        const dirPart = prefix.slice(0, slashIndex + 1);
+        const filePrefix = prefix.slice(slashIndex + 1);
+        const currentDir = this.dirname(filePath);
+        const fsDir = this.resolveRelativePath(currentDir, dirPart);
+        const appDir = fsPathToAppPath(fsDir, this.projectName).replace(/\/+$/, '');
+
+        try {
+          const files = await fileRepository.getFilesByPrefix(this.projectId, `${appDir}/`);
+          for (const file of files) {
+            if (file.type !== 'file') continue;
+            const name = file.path.slice(appDir.length + 1);
+            if (name.includes('/')) continue;
+            if (!name.startsWith(filePrefix) || !name.endsWith(suffix)) continue;
+            deps.add(`${dirPart}${name}`);
+          }
+        } catch (error) {
+          runtimeWarn('⚠️ Failed to expand template require deps:', filePath, error);
+        }
+      }
+    }
+
+    return Array.from(deps);
+  }
+
+  private resolveRelativePath(basePath: string, relativePath: string): string {
+    const parts = basePath.split('/').filter(Boolean);
+    const relParts = relativePath.split('/').filter(Boolean);
+
+    for (const part of relParts) {
+      if (part === '..') parts.pop();
+      else if (part !== '.') parts.push(part);
+    }
+
+    return `/${parts.join('/')}`;
+  }
+
+  private isOptionalDependency(moduleName: string, fromPath: string): boolean {
+    if (
+      moduleName === 'supports-color' &&
+      fromPath.includes('/node_modules/debug/src/node.js')
+    ) {
+      return true;
+    }
+
+    if (
+      (moduleName === 'jiti' || moduleName === 'jiti/package.json') &&
+      fromPath.includes('/node_modules/eslint/lib/config/config-loader.js')
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   private needsTranspile(filePath: string, content: string): boolean {

@@ -114,6 +114,8 @@ export class NodeRuntime {
       getTrackIO: () => this.trackIO.bind(this),
       requireFactory: (filename: string) => this.createRequire(filename),
       getCwd: () => this.cwd,
+      getEnv: () => ({ ...(this.currentProcess?.env ?? {}) }),
+      runShell: (command, options) => this.runChildProcessShell(command, options),
       mountRouter: runtimeStorage.mountRouter,
       terminalColumns: this.terminalColumns,
       terminalRows: this.terminalRows,
@@ -419,6 +421,17 @@ export class NodeRuntime {
   private createProcessObject(currentFilePath?: string, argv: string[] = []): Record<string, any> {
     // EventEmitter-like listener store for process events (exit, uncaughtException, etc.)
     const listeners: Record<string, Function[]> = {};
+    const startedAt = performance.now();
+    const hrtime = (time?: [number, number]): [number, number] => {
+      const elapsedNs = BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
+      if (!time) {
+        return [Number(elapsedNs / 1_000_000_000n), Number(elapsedNs % 1_000_000_000n)];
+      }
+      const baseNs = BigInt(time[0]) * 1_000_000_000n + BigInt(time[1]);
+      const diffNs = elapsedNs - baseNs;
+      return [Number(diffNs / 1_000_000_000n), Number(diffNs % 1_000_000_000n)];
+    };
+    hrtime.bigint = () => BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
 
     const processObj: Record<string, any> = {
       env: {
@@ -436,6 +449,16 @@ export class NodeRuntime {
         node: '18.0.0',
         v8: '10.0.0',
       },
+      hrtime,
+      uptime: () => (performance.now() - startedAt) / 1000,
+      memoryUsage: () => ({
+        rss: 0,
+        heapTotal: 0,
+        heapUsed: 0,
+        external: 0,
+        arrayBuffers: 0,
+      }),
+      resourceUsage: () => ({}),
       exit: (code?: number) => {
         const resolvedCode =
           code === undefined ? normalizeProcessExitCode(processObj.exitCode) : code;
@@ -765,6 +788,42 @@ export class NodeRuntime {
     };
   }
 
+  private async runChildProcessShell(
+    command: string,
+    options?: { cwd?: string; env?: Record<string, string> }
+  ): Promise<{ stdout: string; stderr: string; code: number | null }> {
+    const { ShellExecutor } = await import('@/engine/cmd/shell/executor');
+    const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+
+    const unix = terminalCommandRegistry.getUnixCommands(this.projectName, this.projectId);
+    const savedCwd = await unix.pwd().catch(() => null);
+    const targetCwd = options?.cwd;
+
+    try {
+      if (targetCwd) {
+        await unix.cd([targetCwd]).catch(() => {});
+      }
+
+      const executor = new ShellExecutor({
+        projectName: this.projectName,
+        projectId: this.projectId,
+        unix,
+        fileRepository,
+        commandRegistry: terminalCommandRegistry,
+        terminalColumns: this.terminalColumns,
+        terminalRows: this.terminalRows,
+        env: options?.env,
+        isInteractive: false,
+      });
+
+      return await executor.run(command);
+    } finally {
+      if (savedCwd) {
+        await unix.cd([savedCwd]).catch(() => {});
+      }
+    }
+  }
+
   /**
    * ビルトインモジュールを解決
    * `node:` プレフィックス付きのモジュール名もサポート
@@ -791,6 +850,7 @@ export class NodeRuntime {
       tty: this.builtInModules.tty,
       v8: this.builtInModules.v8,
       crypto: this.builtInModules.crypto,
+      child_process: this.builtInModules.child_process,
       'stream/consumers': {
         text: async (s: any): Promise<string> => {
           const chunks: Uint8Array[] = [];
