@@ -95,9 +95,11 @@ export class RuntimeCacheMount implements VirtualMount {
 
   private async idbGetAll(): Promise<CacheRecord[]> {
     const db = await this.ensureReadyForTransaction();
+    const prefix = `${this.namespace}:`;
+    const range = IDBKeyRange.bound(prefix, prefix + '￿', false, false);
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readonly');
-      const req = tx.objectStore(this.storeName).getAll();
+      const req = tx.objectStore(this.storeName).getAll(range);
       req.onsuccess = () => resolve(req.result as CacheRecord[]);
       req.onerror = () => reject(req.error);
     });

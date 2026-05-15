@@ -55,14 +55,18 @@ async function getApi(): Promise<EsbuildApi | null> {
   if (initPromise) return initPromise;
 
   initPromise = (async (): Promise<EsbuildApi | null> => {
-    if (typeof window === 'undefined') {
+    const isNode =
+      typeof process !== 'undefined' &&
+      process.versions != null &&
+      process.versions.node != null;
+    if (isNode) {
       // Node.js環境 (テスト): esbuildネイティブ
       const mod = await importModuleDynamically<typeof import('esbuild')>('esbuild');
       api = mod as unknown as EsbuildApi;
       return api;
     }
 
-    // ブラウザ環境: esbuild-wasm
+    // ブラウザ環境 (WebWorker含む): esbuild-wasm
     const mod = await import('esbuild-wasm');
     const esbuild = ((mod as any).default || mod) as EsbuildApi;
 

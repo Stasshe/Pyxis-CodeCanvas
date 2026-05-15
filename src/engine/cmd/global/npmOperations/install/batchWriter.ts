@@ -33,12 +33,12 @@ export class BatchFileWriter {
       const batch = this.queue.slice(i, i + BATCH_SIZE);
       const filesToCreate = batch
         .filter(b => b.type === 'file')
-        .map(b => ({ projectId: this.projectId, path: b.path, content: b.content || '', type: 'file' }));
+        .map(b => ({ path: b.path, content: b.content || '', type: 'file' as const }));
       const deletes = batch.filter(b => b.type === 'delete').map(b => b.path);
 
       try {
         if (filesToCreate.length > 0) {
-          await fileRepository.createFilesBulk(this.projectId, filesToCreate as any);
+          await fileRepository.createFilesBulk(this.projectId, filesToCreate, true);
         }
         for (const delPath of deletes) {
           const normalized = delPath.replace(/\/+$/, '');

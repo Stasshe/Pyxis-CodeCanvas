@@ -291,7 +291,7 @@ export interface SystemModuleMap {
       projectName: string,
       projectId?: string,
       projectPath?: string
-    ) => NpmCommandsPublic;
+    ) => Promise<NpmCommandsPublic>;
     getShell: (
       projectName: string,
       projectId?: string,

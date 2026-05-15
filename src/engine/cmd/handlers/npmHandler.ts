@@ -112,29 +112,40 @@ export async function handleNPXCommand(
       .getFileByPath(projectId, directPackageJsonApp)
       .catch(() => null);
 
-    if (!directPackageJson?.content) {
-      await writeOutput(`${binary}: command not found`);
-      return 127;
-    }
-
     let absFs: string | null = null;
 
-    try {
-      const pkg = JSON.parse(directPackageJson.content);
-      const binField = typeof pkg.bin === 'string' ? { [pkg.name || binary]: pkg.bin } : pkg.bin;
-      const selectedBin =
-        (binField && typeof binField === 'object' && (binField[binary] || Object.values(binField)[0])) ||
-        null;
+    if (directPackageJson?.content) {
+      try {
+        const pkg = JSON.parse(directPackageJson.content);
+        const binField = typeof pkg.bin === 'string' ? { [pkg.name || binary]: pkg.bin } : pkg.bin;
+        const selectedBin =
+          (binField && typeof binField === 'object' && (binField[binary] || Object.values(binField)[0])) ||
+          null;
 
-      if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
-        absFs = toFSPath(
-          projectName,
-          resolvePath(cwdApp, `node_modules/${binary}/${selectedBin.replace(/^\.\//, '')}`)
-        );
+        if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
+          absFs = toFSPath(
+            projectName,
+            resolvePath(cwdApp, `node_modules/${binary}/${selectedBin.replace(/^\.\//, '')}`)
+          );
+        }
+      } catch (error: any) {
+        await writeOutput(`npx: failed to resolve ${binary}: ${String(error?.message ?? error)}\n`);
+        return 1;
       }
-    } catch (error: any) {
-      await writeOutput(`npx: failed to resolve ${binary}: ${String(error?.message ?? error)}\n`);
-      return 1;
+    }
+
+    // パッケージ名とバイナリ名が一致しない場合 (例: tsc → typescript) の fallback
+    if (!absFs) {
+      const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${binary}`);
+      const dotBinFile = await fileRepository.getFileByPath(projectId, dotBinApp).catch(() => null);
+      if (dotBinFile) {
+        absFs = toFSPath(projectName, dotBinApp);
+      }
+    }
+
+    if (!absFs) {
+      await writeOutput(`${binary}: command not found`);
+      return 127;
     }
 
     if (!absFs) {
