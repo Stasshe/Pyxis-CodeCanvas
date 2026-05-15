@@ -198,6 +198,18 @@ describe('ModuleResolver', () => {
       const indexFile = await repo.getFileByPath(projectId, '/src/components/index.js');
       expect(indexFile).not.toBeNull();
     });
+
+    it('file URL のクエリ付き dynamic import をプロジェクトファイルに解決する', async () => {
+      await repo.createFile(projectId, '/eslint.config.js', 'export default [];', 'file');
+      const resolver = new ModuleResolver(projectId, projectName);
+      const result = await resolver.resolve(
+        `file:///projects/${projectName}/eslint.config.js?mtime=123#hash`,
+        `/projects/${projectName}/node_modules/eslint/lib/config/config-loader.js`
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(`/projects/${projectName}/eslint.config.js`);
+    });
   });
 
   describe('npm バイナリ解決', () => {

@@ -57,6 +57,7 @@ export class ModuleResolver {
    * モジュールパスを解決
    */
   async resolve(moduleName: string, currentFilePath: string): Promise<ResolveResult | null> {
+    moduleName = this.normalizeSpecifier(moduleName);
     runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
     // 1. ビルトインモジュール
@@ -135,6 +136,19 @@ export class ModuleResolver {
 
     runtimeWarn('⚠️ Module not found:', moduleName);
     return null;
+  }
+
+  private normalizeSpecifier(moduleName: string): string {
+    if (!moduleName.startsWith('file://')) {
+      return moduleName;
+    }
+
+    try {
+      const url = new URL(moduleName);
+      return decodeURIComponent(url.pathname);
+    } catch {
+      return moduleName.replace(/^file:\/\/\/?/, '/').replace(/[?#].*$/, '');
+    }
   }
 
   /**
