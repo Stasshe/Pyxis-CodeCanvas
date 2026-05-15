@@ -17,7 +17,9 @@ export async function analyzeDependencies(
       try {
         const pj = JSON.parse(f.content);
         if (pj.name) graph.set(pj.name, { dependencies: [], dependents: [] });
-      } catch {}
+      } catch (err) {
+        console.warn(`[dependencyGraph] parse error in ${f.path}:`, err);
+      }
     }
     for (const f of pkgFiles) {
       try {
@@ -30,7 +32,9 @@ export async function analyzeDependencies(
             graph.get(dep)?.dependents.push(pj.name);
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn(`[dependencyGraph] deps resolution error in ${f.path}:`, err);
+      }
     }
   } catch (error) {
     console.warn('[dependencyGraph] analyzeDependencies error:', error);

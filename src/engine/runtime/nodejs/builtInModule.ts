@@ -77,7 +77,7 @@ export interface BuiltInModules {
   Buffer: typeof Buffer;
   readline: ReturnType<typeof createReadlineModule>;
   tty: ReturnType<typeof createTTYModule>;
-  assert: any;
+  assert: ReturnType<typeof createAssertModule>;
   module: ReturnType<typeof createModuleModule>;
   v8: ReturnType<typeof createV8Module>;
   crypto: ReturnType<typeof createCryptoModule>;

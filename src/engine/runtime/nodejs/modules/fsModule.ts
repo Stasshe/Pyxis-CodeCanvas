@@ -371,12 +371,6 @@ export function createFSModule(options: FSModuleOptions) {
       const knownFiles = new Set<string>();
       const names = new Set<string>();
 
-      for (const candidate of [relativePath, dirPath]) {
-        if (mount.hasDir(candidate)) {
-          break;
-        }
-      }
-
       // VirtualMount intentionally exposes synchronous file lookup only; sync readdir
       // relies on mounted hot caches populated by writes or preloadFiles().
       const maybeCache = mount as unknown as { files?: Map<string, unknown>; dirs?: Set<string> };
