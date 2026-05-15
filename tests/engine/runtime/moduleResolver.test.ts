@@ -335,5 +335,42 @@ describe('ModuleResolver', () => {
 
       expect(result).toBeNull();
     });
+
+    it('nested require/default exports を CJS entry に解決する', async () => {
+      await repo.createFile(
+        projectId,
+        '/node_modules/minimatch/package.json',
+        JSON.stringify({
+          name: 'minimatch',
+          exports: {
+            '.': {
+              import: {
+                types: './dist/mjs/index.d.ts',
+                default: './dist/mjs/index.js',
+              },
+              require: {
+                types: './dist/cjs/index.d.ts',
+                default: './dist/cjs/index-cjs.js',
+              },
+            },
+          },
+        }),
+        'file'
+      );
+      await repo.createFile(
+        projectId,
+        '/node_modules/minimatch/dist/cjs/index-cjs.js',
+        'module.exports = {}',
+        'file'
+      );
+
+      const currentFile = `/projects/${projectName}/src/index.js`;
+      const result = await resolver.resolve('minimatch', currentFile);
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(
+        `/projects/${projectName}/node_modules/minimatch/dist/cjs/index-cjs.js`
+      );
+    });
   });
 });

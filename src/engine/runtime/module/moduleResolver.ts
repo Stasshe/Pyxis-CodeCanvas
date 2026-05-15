@@ -400,15 +400,7 @@ export class ModuleResolver {
   private resolveImports(imports: Record<string, unknown>, subPath: string): string | null {
     // 完全一致
     if (imports[subPath]) {
-      const value = imports[subPath];
-      if (typeof value === 'string') {
-        return value;
-      }
-      // 条件付きエクスポート — CJSランタイムなのでrequireを優先
-      if (typeof value === 'object' && value !== null) {
-        const obj = value as Record<string, unknown>;
-        return (obj.require || obj.default || obj.import) as string;
-      }
+      return this.resolveConditionalTarget(imports[subPath]);
     }
 
     // ワイルドカード (#internal/*)
@@ -428,6 +420,40 @@ export class ModuleResolver {
     return null;
   }
 
+  private resolveConditionalTarget(value: unknown): string | null {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const resolved = this.resolveConditionalTarget(entry);
+        if (resolved) return resolved;
+      }
+      return null;
+    }
+
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+
+    const obj = value as Record<string, unknown>;
+    for (const condition of ['require', 'node', 'default', 'import']) {
+      if (condition in obj) {
+        const resolved = this.resolveConditionalTarget(obj[condition]);
+        if (resolved) return resolved;
+      }
+    }
+
+    for (const [condition, target] of Object.entries(obj)) {
+      if (condition === 'types' || condition.startsWith('.')) continue;
+      const resolved = this.resolveConditionalTarget(target);
+      if (resolved) return resolved;
+    }
+
+    return null;
+  }
+
   /**
    * exportsフィールドを解決
    */
@@ -441,25 +467,16 @@ export class ModuleResolver {
 
     // 完全一致
     if (exports[subPath]) {
-      const value = exports[subPath];
-      if (typeof value === 'string') {
-        return value;
-      }
-      // import/require条件 — CJSランタイムなのでrequireを優先
-      if (typeof value === 'object' && value !== null) {
-        return (value as any).require || (value as any).default || (value as any).import || null;
-      }
+      return this.resolveConditionalTarget(exports[subPath]);
     }
 
     // . (デフォルト)
     if (subPath === '.' && exports['.']) {
-      const value = exports['.'];
-      if (typeof value === 'string') {
-        return value;
-      }
-      if (typeof value === 'object' && value !== null) {
-        return (value as any).require || (value as any).default || (value as any).import || null;
-      }
+      return this.resolveConditionalTarget(exports['.']);
+    }
+
+    if (subPath === '.' && !Object.keys(exports).some(key => key.startsWith('.'))) {
+      return this.resolveConditionalTarget(exports);
     }
 
     return null;
@@ -497,7 +514,7 @@ export class ModuleResolver {
   private async loadPackageJson(path: string): Promise<PackageJson | null> {
     // キャッシュをチェック
     if (this.packageJsonCache.has(path)) {
-      return this.packageJsonCache.get(path)!;
+      return this.packageJsonCache.get(path) ?? null;
     }
 
     try {
@@ -574,7 +591,7 @@ export class ModuleResolver {
   private async fileExists(path: string): Promise<boolean> {
     // キャッシュをチェック
     if (this.fileCache.has(path)) {
-      return this.fileCache.get(path)!;
+      return this.fileCache.get(path) ?? false;
     }
 
     try {
