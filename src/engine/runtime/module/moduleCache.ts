@@ -11,8 +11,8 @@
  *   3. 変更されていない依存ファイルはキャッシュ利用可能
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
 import { runtimeError, runtimeInfo, runtimeWarn } from '@/engine/runtime/core/runtimeLogger';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 export interface CacheEntry {
   originalPath: string;
@@ -26,25 +26,40 @@ export interface CacheEntry {
   size: number;
 }
 
+interface CacheMeta {
+  originalPath?: string;
+  contentHash?: string;
+  sourceMap?: string;
+  deps?: string[];
+  dependents?: string[];
+  mtime?: number;
+  lastAccess?: number;
+  size?: number;
+}
+
 export class ModuleCache {
   private projectId: string;
   private projectName: string;
+  private cacheMount: RuntimeCacheMount;
   private cache: Map<string, CacheEntry> = new Map(); // key = originalPath
   private maxCacheSize: number = 100 * 1024 * 1024;
-  private cacheDir = '/cache/modules';
-  private metaDir = '/cache/meta';
+  private readonly cacheDir = '/cache/modules';
+  private readonly metaDir = '/cache/meta';
   private initialized = false;
 
-  constructor(projectId: string, projectName: string) {
+  constructor(projectId: string, projectName: string, cacheMount: RuntimeCacheMount) {
     this.projectId = projectId;
     this.projectName = projectName;
+    this.cacheMount = cacheMount;
   }
   async init(): Promise<void> {
     if (this.initialized) return;
 
     runtimeInfo('🗄️ Initializing module cache...');
-    await this.ensureCacheDirectories();
-    await this.loadAllCacheFromDisk();
+    await this.cacheMount.init();
+    await this.cacheMount.mkdir(this.cacheDir, true);
+    await this.cacheMount.mkdir(this.metaDir, true);
+    await this.loadFromMount();
     this.initialized = true;
 
     runtimeInfo('✅ Module cache initialized:', {
@@ -74,7 +89,7 @@ export class ModuleCache {
       return entry;
     }
 
-    runtimeWarn('❌ Cache MISS:', path);
+    runtimeInfo('📭 Cache MISS (first load):', path);
     return null;
   }
 
@@ -104,7 +119,7 @@ export class ModuleCache {
     await this.updateDependencyLinks(path, entry.deps);
 
     try {
-      await this.saveToDisk(path, cacheEntry);
+      await this.saveToMount(path, cacheEntry);
       runtimeInfo('✅ Cache saved:', path);
     } catch (error) {
       runtimeError('❌ Failed to save cache:', error);
@@ -136,7 +151,7 @@ export class ModuleCache {
 
     // キャッシュとディスクから削除
     this.cache.delete(path);
-    await this.deleteFromDisk(path);
+    await this.deleteFromMount(path);
   }
 
   /**
@@ -165,66 +180,52 @@ export class ModuleCache {
 
   async clear(): Promise<void> {
     this.cache.clear();
+    await this.cacheMount.clear();
     runtimeInfo('✅ Cache cleared');
   }
 
-  private async ensureCacheDirectories(): Promise<void> {
+  private async loadFromMount(): Promise<void> {
     try {
-      await fileRepository.init();
-      const cacheDirFile = await fileRepository.getFileByPath(this.projectId, this.cacheDir);
-      if (!cacheDirFile) {
-        await fileRepository.createFile(this.projectId, this.cacheDir, '', 'folder');
-        runtimeInfo('📁 Created:', this.cacheDir);
-      }
-
-      const metaDirFile = await fileRepository.getFileByPath(this.projectId, this.metaDir);
-      if (!metaDirFile) {
-        await fileRepository.createFile(this.projectId, this.metaDir, '', 'folder');
-        runtimeInfo('📁 Created:', this.metaDir);
-      }
-    } catch (error) {
-      runtimeWarn('⚠️ Failed to create cache directories:', error);
-    }
-  }
-
-  private async loadAllCacheFromDisk(): Promise<void> {
-    try {
-      await fileRepository.init();
-      const metaFiles = await fileRepository.getFilesByPrefix(this.projectId, this.metaDir);
-      const filteredMetaFiles = metaFiles.filter(
-        f => f.path.endsWith('.json') && f.type === 'file' && f.content?.trim()
-      );
-
+      const metaFiles = await this.cacheMount.listDir(this.metaDir);
       runtimeInfo(`📂 Found ${metaFiles.length} cache meta files`);
       let loadedCount = 0;
 
-      for (const metaFile of filteredMetaFiles) {
+      for (const name of metaFiles) {
+        if (!name.endsWith('.json')) continue;
         try {
-          const meta: any = JSON.parse(metaFile.content);
-          const originalPath = meta.originalPath;
-          const safeFileName = this.pathToSafeFileName(originalPath);
-          const codeFile = await fileRepository.getFileByPath(
-            this.projectId,
-            `${this.cacheDir}/${safeFileName}.js`
-          );
+          const metaPath = `${this.metaDir}/${name}`;
+          const metaContent = this.cacheMount.getFileSync(metaPath);
+          if (!metaContent) continue;
 
-          if (codeFile?.content && originalPath) {
+          const metaText =
+            typeof metaContent === 'string' ? metaContent : new TextDecoder().decode(metaContent);
+          if (!metaText.trim()) continue;
+
+          const meta = JSON.parse(metaText) as CacheMeta;
+          const originalPath = meta.originalPath;
+          if (!originalPath) continue;
+          const safeFileName = this.pathToSafeFileName(originalPath);
+          const codeContent = this.cacheMount.getFileSync(`${this.cacheDir}/${safeFileName}.js`);
+
+          if (codeContent && originalPath) {
+            const code =
+              typeof codeContent === 'string' ? codeContent : new TextDecoder().decode(codeContent);
             const entry: CacheEntry = {
               originalPath,
               contentHash: meta.contentHash || '',
-              code: codeFile.content,
+              code,
               sourceMap: meta.sourceMap,
               deps: meta.deps || [],
               dependents: meta.dependents || [],
               mtime: meta.mtime || Date.now(),
               lastAccess: meta.lastAccess || Date.now(),
-              size: meta.size || codeFile.content.length,
+              size: meta.size || code.length,
             };
             this.cache.set(originalPath, entry);
             loadedCount++;
           }
         } catch (error) {
-          runtimeWarn('⚠️ Failed to parse:', metaFile.path);
+          runtimeWarn('⚠️ Failed to parse cache meta:', name);
         }
       }
 
@@ -234,15 +235,10 @@ export class ModuleCache {
     }
   }
 
-  private async saveToDisk(path: string, entry: CacheEntry): Promise<void> {
+  private async saveToMount(path: string, entry: CacheEntry): Promise<void> {
     const safeFileName = this.pathToSafeFileName(path);
 
-    await fileRepository.createFile(
-      this.projectId,
-      `${this.cacheDir}/${safeFileName}.js`,
-      entry.code,
-      'file'
-    );
+    await this.cacheMount.setFile(`${this.cacheDir}/${safeFileName}.js`, entry.code);
 
     const meta: Omit<CacheEntry, 'code'> = {
       originalPath: entry.originalPath,
@@ -255,11 +251,9 @@ export class ModuleCache {
       size: entry.size,
     };
 
-    await fileRepository.createFile(
-      this.projectId,
+    await this.cacheMount.setFile(
       `${this.metaDir}/${safeFileName}.json`,
-      JSON.stringify(meta, null, 2),
-      'file'
+      JSON.stringify(meta, null, 2)
     );
   }
 
@@ -289,7 +283,7 @@ export class ModuleCache {
       this.cache.delete(path);
 
       try {
-        await this.deleteFromDisk(path);
+        await this.deleteFromMount(path);
         currentSize -= entry.size;
         deletedCount++;
       } catch (error) {
@@ -303,19 +297,10 @@ export class ModuleCache {
     });
   }
 
-  private async deleteFromDisk(path: string): Promise<void> {
+  private async deleteFromMount(path: string): Promise<void> {
     const safeFileName = this.pathToSafeFileName(path);
-    const codeFile = await fileRepository.getFileByPath(
-      this.projectId,
-      `${this.cacheDir}/${safeFileName}.js`
-    );
-    if (codeFile) await fileRepository.deleteFile(codeFile.id);
-
-    const metaFile = await fileRepository.getFileByPath(
-      this.projectId,
-      `${this.metaDir}/${safeFileName}.json`
-    );
-    if (metaFile) await fileRepository.deleteFile(metaFile.id);
+    await this.cacheMount.deleteFile(`${this.cacheDir}/${safeFileName}.js`);
+    await this.cacheMount.deleteFile(`${this.metaDir}/${safeFileName}.json`);
   }
 
   private getTotalSize(): number {

@@ -1,9 +1,12 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
-import { PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
+import type { SearchWorkerApi } from '@/engine/workers/searchWorker';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
@@ -72,7 +75,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const workerRef = useRef<Worker | null>(null);
+  const workerPoolRef = useRef<WorkerPool<SearchWorkerApi> | null>(null);
   const searchIdRef = useRef(0);
 
   // キャッシュ用ref
@@ -165,37 +168,24 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       return;
     }
 
-    // Worker初期化
-    if (!workerRef.current) {
+    if (!workerPoolRef.current) {
       try {
-        workerRef.current = new Worker(
-          new URL('../../engine/workers/searchWorker.ts', import.meta.url),
-          {
-            type: 'module',
-          }
-        );
-
-        workerRef.current.onmessage = e => {
-          const msg = e.data;
-          if (!msg) return;
-          if (msg.type === 'result') {
-            const id = msg.searchId;
-            if (id !== searchIdRef.current) return; // stale
-            const results = msg.results || [];
-            setSearchResults(results);
-            setIsSearching(false);
-
-            // キャッシュを更新
-            lastSearchResultsRef.current = results;
-          }
-        };
+        workerPoolRef.current = createWorkerPool<SearchWorkerApi>({
+          createWorker: () =>
+            new Worker(new URL('../../engine/workers/searchWorker.ts', import.meta.url), {
+              type: 'module',
+            }),
+          maxWorkers: 1,
+          timeoutMs: 10000,
+        });
       } catch (err) {
-        console.error('Failed to create search worker', err);
+        console.error('Failed to create search worker pool', err);
         setIsSearching(false);
         return;
       }
     }
 
+    const pool = workerPoolRef.current;
     setIsSearching(true);
     const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
 
@@ -203,28 +193,31 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     lastSearchQueryRef.current = query;
     lastSearchOptionsRef.current = searchOptionsKey;
 
-    try {
-      // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
-      if (lastFilesSentVersionRef.current !== filesVersion) {
-        workerRef.current?.postMessage({
-          type: 'updateFiles',
-          files: filePayloads,
-          filesVersion,
-        });
-        lastFilesSentVersionRef.current = filesVersion;
-      }
+    void (async () => {
+      try {
+        // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
+        if (lastFilesSentVersionRef.current !== filesVersion) {
+          await pool.call(worker => worker.updateFiles(filePayloads));
+          lastFilesSentVersionRef.current = filesVersion;
+        }
 
-      // then send the actual search request without files (worker will reuse cached files)
-      workerRef.current?.postMessage({
-        type: 'search',
-        searchId: sid,
-        query,
-        options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
-      });
-    } catch (err) {
-      console.error('Worker postMessage failed', err);
-      setIsSearching(false);
-    }
+        const results = await pool.call(worker =>
+          worker.search({
+            query,
+            options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
+          })
+        );
+
+        if (sid !== searchIdRef.current) return;
+        setSearchResults(results);
+        setIsSearching(false);
+        lastSearchResultsRef.current = results;
+      } catch (err) {
+        if (sid !== searchIdRef.current) return;
+        console.error('Search worker failed', err);
+        setIsSearching(false);
+      }
+    })();
   };
 
   // 検索クエリ変更時の処理
@@ -278,10 +271,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   // Workerのクリーンアップ
   useEffect(() => {
     return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
+      workerPoolRef.current?.terminate();
+      workerPoolRef.current = null;
     };
   }, []);
 
@@ -301,7 +292,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     first: SearchResult;
     results: Array<{ result: SearchResult; globalIndex: number }>;
   }> = useMemo(() => {
-    // Build groups while preserving each result's global index to avoid repeated indexOf calls during render
     const groupsMap: Record<
       string,
       { first: SearchResult; results: Array<{ result: SearchResult; globalIndex: number }> }
@@ -479,28 +469,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   };
 
-  const highlightMatch = (content: string, matchStart: number, matchEnd: number) => {
-    const before = content.substring(0, matchStart);
-    const match = content.substring(matchStart, matchEnd);
-    const after = content.substring(matchEnd);
-    return (
-      <>
-        {before}
-        <span
-          style={{
-            background: colors.primary,
-            color: colors.background,
-            padding: '0.125rem 0.25rem',
-            borderRadius: '0.25rem',
-          }}
-        >
-          {match}
-        </span>
-        {after}
-      </>
-    );
-  };
-
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
@@ -511,6 +479,36 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const toggleFileCollapse = (key: string) => {
     setCollapsedFiles(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  // Flat list for virtualizer: header rows + result rows (collapsed groups omit results)
+  type FlatItem =
+    | { type: 'header'; groupKey: string; first: SearchResult; resultCount: number; isCollapsed: boolean }
+    | { type: 'result'; groupKey: string; result: SearchResult; globalIndex: number; idxInGroup: number };
+
+  const flatItems = useMemo((): FlatItem[] => {
+    const items: FlatItem[] = [];
+    for (const group of groupedResults) {
+      const key = group.first.file.id || group.first.file.path;
+      const isCollapsed = !!collapsedFiles[key];
+      items.push({ type: 'header', groupKey: key, first: group.first, resultCount: group.results.length, isCollapsed });
+      if (!isCollapsed) {
+        for (let i = 0; i < group.results.length; i++) {
+          const { result, globalIndex } = group.results[i];
+          items.push({ type: 'result', groupKey: key, result, globalIndex, idxInGroup: i });
+        }
+      }
+    }
+    return items;
+  }, [groupedResults, collapsedFiles]);
+
+  const resultsScrollRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => resultsScrollRef.current,
+    estimateSize: i => (flatItems[i]?.type === 'header' ? 28 : 22),
+    overscan: 15,
+  });
 
   // 検索モードの表示用テキスト
   const searchModeText = isRealtimeSearch
@@ -724,7 +722,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       </div>
 
       {/* 検索結果 */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <div ref={resultsScrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {searchQuery && !isSearching && searchResults.length === 0 && (
           <div style={{ padding: '0.5rem', textAlign: 'center', color: colors.mutedFg }}>
             <Search
@@ -740,148 +738,91 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
           </div>
         )}
 
-        {searchResults.length > 0 && (
-          <div style={{ padding: '0.14rem' }}>
-            {/* Group results by file (memoized) */}
-            {groupedResults.map((group, gIdx) => {
-              const first = group.first;
-              const key = first.file.id || first.file.path;
-              const isCollapsed = !!collapsedFiles[key];
+        {flatItems.length > 0 && (
+          <div style={{ height: virtualizer.getTotalSize(), position: 'relative', padding: '0.14rem' }}>
+            {virtualizer.getVirtualItems().map(vItem => {
+              const item = flatItems[vItem.index];
+              if (!item) return null;
+
+              if (item.type === 'header') {
+                const { groupKey, first, resultCount, isCollapsed } = item;
+                return (
+                  <div
+                    key={vItem.key}
+                    data-index={vItem.index}
+                    ref={virtualizer.measureElement}
+                    style={{ position: 'absolute', top: vItem.start, left: 0, right: 0, padding: '0.18rem 0.28rem', borderBottom: `1px solid ${colors.border}`, minWidth: 0 }}
+                  >
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleFileCollapse(groupKey)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleFileCollapse(groupKey);
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredFileKey(groupKey)}
+                      onMouseLeave={() => setHoveredFileKey(null)}
+                      onFocus={() => setHoveredFileKey(groupKey)}
+                      onBlur={() => setHoveredFileKey(null)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.22rem', cursor: 'pointer', userSelect: 'none', minWidth: 0 }}
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight size={14} color={colors.mutedFg} />
+                      ) : (
+                        <ChevronDown size={14} color={colors.mutedFg} />
+                      )}
+                      <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
+                      <span style={{ color: colors.foreground, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40%', minWidth: 0 }}>
+                        {first.file.name}
+                      </span>
+                      <span style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}>
+                        {resultCount} hits
+                      </span>
+                      <span style={{ marginLeft: '0.5rem', color: colors.mutedFg, fontSize: '0.62rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '35%', minWidth: 0 }}>
+                        {first.file.path}
+                      </span>
+                      {(hoveredFileKey === groupKey || flatResults[selectedIndex]?.file.id === first.file.id) && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleReplaceAllInFile(first.file, replaceQuery); }}
+                          title="Replace all in file"
+                          style={{ marginLeft: 'auto', padding: '0.12rem 0.3rem', borderRadius: '0.28rem', border: `1px solid ${colors.border}`, background: colors.mutedBg, color: colors.mutedFg, fontSize: '0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <Repeat size={12} />
+                          All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // type === 'result'
+              const { result, globalIndex, idxInGroup } = item;
+              const isSelected = globalIndex === selectedIndex;
+              const resultKey = `${result.file.id}-${result.line}-${idxInGroup}`;
+              const isHovered = hoveredResultKey === resultKey;
               return (
                 <div
-                  key={`${key}-${gIdx}`}
-                  style={{
-                    padding: '0.18rem 0.28rem',
-                    borderRadius: '0.28rem',
-                    borderBottom: `1px solid ${colors.border}`,
-                    marginBottom: '0.125rem',
-                    overflow: 'hidden',
-                    minWidth: 0,
-                  }}
+                  key={vItem.key}
+                  data-index={vItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{ position: 'absolute', top: vItem.start, left: 0, right: 0, paddingLeft: '1.6rem' }}
                 >
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => toggleFileCollapse(key)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        toggleFileCollapse(key);
-                      }
-                    }}
-                    onMouseEnter={() => setHoveredFileKey(key)}
-                    onMouseLeave={() => setHoveredFileKey(null)}
-                    onFocus={() => setHoveredFileKey(key)}
-                    onBlur={() => setHoveredFileKey(null)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.22rem',
-                      marginBottom: '0.1rem',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                      minWidth: 0,
-                    }}
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight size={14} color={colors.mutedFg} />
-                    ) : (
-                      <ChevronDown size={14} color={colors.mutedFg} />
-                    )}
-                    <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
-                    <span
-                      style={{
-                        color: colors.foreground,
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '40%',
-                        minWidth: 0,
-                      }}
-                    >
-                      {first.file.name}
-                    </span>
-                    <span
-                      style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}
-                    >
-                      {group.results.length} hits
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: '0.5rem',
-                        color: colors.mutedFg,
-                        fontSize: '0.62rem',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '35%',
-                        minWidth: 0,
-                      }}
-                    >
-                      {first.file.path}
-                    </span>
-
-                    {/* Replace all in file button (show on hover/selection like VSCode) */}
-                    {(hoveredFileKey === key ||
-                      group.results.some(g => flatResults[selectedIndex] === g.result)) && (
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleReplaceAllInFile(first.file, replaceQuery);
-                        }}
-                        title="Replace all in file"
-                        style={{
-                          marginLeft: 'auto',
-                          padding: '0.12rem 0.3rem',
-                          borderRadius: '0.28rem',
-                          border: `1px solid ${colors.border}`,
-                          background: colors.mutedBg,
-                          color: colors.mutedFg,
-                          fontSize: '0.6rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                        }}
-                      >
-                        <Repeat size={12} />
-                        All
-                      </button>
-                    )}
-                  </div>
-
-                  {!isCollapsed && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.12rem',
-                        paddingLeft: '0.8rem',
-                      }}
-                    >
-                      {group.results.map(({ result, globalIndex }, idx) => {
-                        const isSelected = globalIndex === selectedIndex;
-                        const resultKey = `${result.file.id}-${result.line}-${idx}`;
-                        const isHovered = hoveredResultKey === resultKey;
-                        return (
-                          <ResultRow
-                            key={`${result.file.id}-${result.line}-${idx}`}
-                            result={result}
-                            globalIndex={globalIndex}
-                            isSelected={isSelected}
-                            resultKey={resultKey}
-                            colors={colors}
-                            isHovered={isHovered}
-                            onHoverChange={setHoveredResultKey}
-                            onClick={handleRowClick}
-                            onReplace={handleReplaceResult}
-                            replaceQuery={replaceQuery}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
+                  <ResultRow
+                    result={result}
+                    globalIndex={globalIndex}
+                    isSelected={isSelected}
+                    resultKey={resultKey}
+                    colors={colors}
+                    isHovered={isHovered}
+                    onHoverChange={setHoveredResultKey}
+                    onClick={handleRowClick}
+                    onReplace={handleReplaceResult}
+                    replaceQuery={replaceQuery}
+                  />
                 </div>
               );
             })}

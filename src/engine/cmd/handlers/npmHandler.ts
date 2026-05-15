@@ -1,4 +1,5 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 export async function handleNPMCommand(
   args: string[],
@@ -12,7 +13,7 @@ export async function handleNPMCommand(
     return;
   }
 
-  const npm = terminalCommandRegistry.getNpmCommands(
+  const npm = await terminalCommandRegistry.getNpmCommands(
     projectName,
     projectId,
     `/projects/${projectName}`
@@ -101,47 +102,82 @@ export async function handleNPXCommand(
   const unix = terminalCommandRegistry.getUnixCommands(projectName, projectId);
   try {
     const cwdFs = await unix.pwd();
-    // Try common shim names
-    const candidates = [
-      `node_modules/.bin/${binary}`,
-      `node_modules/.bin/${binary}.js`,
-      `node_modules/.bin/${binary}.cmd`,
-    ];
-
     // Lazy import path utils and NodeRuntime to avoid cycles
     const { fsPathToAppPath, resolvePath, toFSPath } = await import('@/engine/core/pathUtils');
     const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
+    const cwdApp = fsPathToAppPath(cwdFs, projectName);
 
-    for (const cand of candidates) {
-      const cwdApp = fsPathToAppPath(cwdFs, projectName);
-      const resolvedApp = resolvePath(cwdApp, cand.replace(/^\.\//, ''));
-      const absFs = toFSPath(projectName, resolvedApp);
-      const exists = await unix.cat([absFs]).catch(() => null);
-      if (exists !== null) {
-        // Execute via NodeRuntime
-        const fmt = (...a: unknown[]) => writeOutput(a.map(x => String(x)).join(' ') + '\n');
-        const runtime = new NodeRuntime({
-          projectId,
-          projectName,
-          filePath: absFs,
-          debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
-          terminalColumns: 80,
-          terminalRows: 24,
-        });
+    const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${binary}/package.json`);
+    const directPackageJson = await fileRepository
+      .getFileByPath(projectId, directPackageJsonApp)
+      .catch(() => null);
 
-        try {
-          await runtime.execute(absFs, binArgs);
-          await runtime.waitForEventLoop();
-          return 0;
-        } catch (e: any) {
-          await writeOutput(String(e?.message ?? e) + '\n');
-          return 1;
+    let absFs: string | null = null;
+
+    if (directPackageJson?.content) {
+      try {
+        const pkg = JSON.parse(directPackageJson.content);
+        const binField = typeof pkg.bin === 'string' ? { [pkg.name || binary]: pkg.bin } : pkg.bin;
+        const selectedBin =
+          (binField && typeof binField === 'object' && (binField[binary] || Object.values(binField)[0])) ||
+          null;
+
+        if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
+          absFs = toFSPath(
+            projectName,
+            resolvePath(cwdApp, `node_modules/${binary}/${selectedBin.replace(/^\.\//, '')}`)
+          );
         }
+      } catch (error: any) {
+        await writeOutput(`npx: failed to resolve ${binary}: ${String(error?.message ?? error)}\n`);
+        return 1;
       }
     }
 
-    await writeOutput(`${binary}: command not found`);
-    return 127;
+    // パッケージ名とバイナリ名が一致しない場合 (例: tsc → typescript) の fallback
+    if (!absFs) {
+      const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${binary}`);
+      const dotBinFile = await fileRepository.getFileByPath(projectId, dotBinApp).catch(() => null);
+      if (dotBinFile) {
+        absFs = toFSPath(projectName, dotBinApp);
+      }
+    }
+
+    if (!absFs) {
+      await writeOutput(`${binary}: command not found`);
+      return 127;
+    }
+
+    if (!absFs) {
+      await writeOutput(`${binary}: command not found`);
+      return 127;
+    }
+
+    const exists = await unix.cat([absFs]).catch(() => null);
+    if (exists === null) {
+      await writeOutput(`${binary}: command not found`);
+      return 127;
+    }
+
+    const fmt = (...a: unknown[]) => writeOutput(a.map(x => String(x)).join(' ') + '\n');
+    const runtime = new NodeRuntime({
+      projectId,
+      projectName,
+      filePath: absFs,
+      cwd: cwdFs,
+      debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
+      terminalColumns: 80,
+      terminalRows: 24,
+    });
+
+    try {
+      await runtime.execute(absFs, binArgs);
+      await runtime.waitForEventLoop();
+      return runtime.getExitCode();
+    } catch (e: any) {
+      await writeOutput(String(e?.message ?? e) + '\n');
+      return 1;
+    }
   } catch (e: any) {
     await writeOutput(String(e?.message ?? e) + '\n');
     return 1;

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestProject } from '../../../_helpers/testProject';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 
 /**
  * エラーハンドリングと終了コードのe2eテスト
@@ -17,66 +17,32 @@ import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
 describe('e2e — エラーハンドリングと終了コード実行テスト', () => {
   let projectId: string;
   let projectName: string;
+  let shell: Awaited<ReturnType<typeof terminalCommandRegistry.getShell>>;
 
   beforeEach(async () => {
+    await terminalCommandRegistry.clearAll();
     const ctx = await setupTestProject('ErrorHandlingE2ETest');
     projectId = ctx.projectId;
     projectName = ctx.projectName;
+    shell = await terminalCommandRegistry.getShell(projectName, projectId, { fileRepository });
   });
 
   async function executeScript(
     scriptContent: string,
     scriptName = 'test-script.sh',
-    expectError = false
+    _expectError = false
   ): Promise<{
     output: string[];
     errors: string[];
     executionError: Error | null;
   }> {
-    await fileRepository.createFile(
-      projectId,
-      `/${scriptName}`,
-      scriptContent,
-      'file'
-    );
-
-    const output: string[] = [];
-    const errors: string[] = [];
-
-    const debugConsole = {
-      log: (...args: unknown[]) => {
-        const msg = args.map(String).join(' ');
-        output.push(msg);
-      },
-      error: (...args: unknown[]) => {
-        const msg = args.map(String).join(' ');
-        errors.push(msg);
-      },
-      warn: (...args: unknown[]) => {
-        const msg = args.map(String).join(' ');
-        output.push(`[WARN] ${msg}`);
-      },
-      clear: () => {},
+    await fileRepository.createFile(projectId, `/${scriptName}`, scriptContent, 'file');
+    const result = await shell!.run(`bash ${scriptName}`);
+    return {
+      output: result.stdout.split('\n').filter(Boolean),
+      errors: result.stderr.split('\n').filter(Boolean),
+      executionError: result.code !== 0 ? new Error(`Script exited with code ${result.code}\n${result.stderr}`) : null,
     };
-
-    const scriptPath = `/projects/${projectName}/${scriptName}`;
-    const runtime = new NodeRuntime({
-      projectId,
-      projectName,
-      filePath: scriptPath,
-      debugConsole,
-      terminalColumns: 120,
-      terminalRows: 40,
-    });
-
-    let executionError: Error | null = null;
-    try {
-      await runtime.execute(scriptPath, []);
-    } catch (e) {
-      executionError = e as Error;
-    }
-
-    return { output, errors, executionError };
   }
 
   function assertNoUnexpectedErrors(

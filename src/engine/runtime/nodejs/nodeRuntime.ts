@@ -14,10 +14,17 @@ import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { ModuleLoader } from '../module/moduleLoader';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
+import {
+  createProcessExitSignal,
+  isProcessExitSignal,
+  normalizeProcessExitCode,
+} from './processExit';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
+import { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 /**
  * 実行オプション
@@ -51,15 +58,40 @@ export class NodeRuntime {
   private processStdin?: ProcessStdin;
   private builtInModules: BuiltInModules;
   private moduleLoader: ModuleLoader;
+  private cacheMount: RuntimeCacheMount;
   private projectDir: string;
   private cwd: string;
   private terminalColumns: number;
   private terminalRows: number;
+  private currentProcess: Record<string, any> | null = null;
+  private exitCode = 0;
+  private didExit = false;
+  private syncExitBoundaryDepth = 0;
 
   // イベントループ追跡
   private activeTimers: Set<any> = new Set();
   private pendingIO: Set<Promise<any>> = new Set();
   private eventLoopResolve: (() => void) | null = null;
+
+  private isPromiseLike(value: unknown): value is Promise<unknown> {
+    return !!value && typeof (value as { then?: unknown }).then === 'function';
+  }
+
+  private getExecutionPromise(moduleExports: unknown): Promise<unknown> | null {
+    if (this.isPromiseLike(moduleExports)) {
+      return moduleExports;
+    }
+
+    if (
+      moduleExports &&
+      typeof moduleExports === 'object' &&
+      this.isPromiseLike((moduleExports as { __promise?: unknown }).__promise)
+    ) {
+      return (moduleExports as { __promise: Promise<unknown> }).__promise;
+    }
+
+    return null;
+  }
 
   constructor(options: ExecutionOptions) {
     this.projectId = options.projectId;
@@ -71,12 +103,22 @@ export class NodeRuntime {
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
 
+    const runtimeStorage = runtimeStorageRegistry.get(this.projectId, this.projectName);
+    this.cacheMount = runtimeStorage.cacheMount;
+
     this.builtInModules = createBuiltInModules({
       projectDir: this.projectDir,
       projectId: this.projectId,
       projectName: this.projectName,
       processStdin: this.processStdin,
       getTrackIO: () => this.trackIO.bind(this),
+      requireFactory: (filename: string) => this.createRequire(filename),
+      getCwd: () => this.cwd,
+      getEnv: () => ({ ...(this.currentProcess?.env ?? {}) }),
+      runShell: (command, options) => this.runChildProcessShell(command, options),
+      mountRouter: runtimeStorage.mountRouter,
+      terminalColumns: this.terminalColumns,
+      terminalRows: this.terminalRows,
     });
 
     // ModuleLoaderの初期化
@@ -85,6 +127,7 @@ export class NodeRuntime {
       projectName: this.projectName,
       debugConsole: this.debugConsole,
       builtinResolver: this.resolveBuiltInModule.bind(this),
+      cacheMount: this.cacheMount,
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -101,8 +144,13 @@ export class NodeRuntime {
    * ファイルを実行
    */
   async execute(filePath: string, argv: string[] = []): Promise<void> {
+    this.exitCode = 0;
+    this.didExit = false;
+
     try {
       runtimeInfo('▶️ Executing file:', filePath);
+
+      await this.cacheMount.init();
 
       // [NEW] Preload files for synchronous fs access (e.g. for yargs)
       // This is required because fs.readFileSync must be synchronous, but IndexedDB is async.
@@ -124,42 +172,60 @@ export class NodeRuntime {
 
       // Pre-load dependencies ONLY (do not execute the entry file yet)
       runtimeInfo('📦 Pre-loading dependencies...');
-      await this.moduleLoader.preloadDependencies(filePath, filePath);
-      runtimeInfo('✅ All dependencies pre-loaded');
+      this.syncExitBoundaryDepth++;
+      try {
+        await this.moduleLoader.preloadDependencies(filePath, filePath);
+        runtimeInfo('✅ All dependencies pre-loaded');
 
-      // サンドボックス環境を構築（require関数を含む）
-      // globalsを再利用する
-      const sandbox = {
-        ...globals,
-        require: this.createRequire(filePath),
-        module: { exports: {} },
-        exports: {},
-        __filename: filePath,
-        __dirname: getParentPath(filePath),
-      };
+        // サンドボックス環境を構築（require関数を含む）
+        // globalsを再利用する
+        const requireFn = this.createRequire(filePath);
+        const sandbox = {
+          ...globals,
+          require: requireFn,
+          __pyxisImport: (s: string) => this.moduleLoader.asyncLoad(s, filePath),
+          module: { exports: {} },
+          exports: {},
+          __filename: filePath,
+          __dirname: getParentPath(filePath),
+        };
 
-      // module.exportsへの参照を維持
-      (sandbox as any).exports = (sandbox as any).module.exports;
+        // module.exportsへの参照を維持
+        (sandbox as any).exports = (sandbox as any).module.exports;
 
-      // ファイルを読み込み
-      const fileContent = await this.readFile(filePath);
-      if (fileContent === null) {
-        const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
-        err.name = 'Error [ERR_FS_ENOENT]';
-        throw err;
+        // ファイルを読み込み
+        const fileContent = await this.readFile(filePath);
+        if (fileContent === null) {
+          const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+          err.name = 'Error [ERR_FS_ENOENT]';
+          throw err;
+        }
+
+        // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
+        const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
+
+        // コードをラップして同期実行
+        const wrappedCode = this.wrapCode(code, filePath);
+        const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
+
+        runtimeInfo('✅ Code compiled successfully');
+        const executionResult = executeFunc(...Object.values(sandbox));
+        const executionPromise = this.getExecutionPromise(executionResult);
+        if (executionPromise) {
+          this.trackIO(executionPromise);
+          await executionPromise;
+        }
+        runtimeInfo('✅ Execution completed');
+      } finally {
+        this.syncExitBoundaryDepth = Math.max(0, this.syncExitBoundaryDepth - 1);
+      }
+    } catch (error) {
+      if (isProcessExitSignal(error)) {
+        this.finalizeProcessExit(error.code);
+        runtimeInfo('✅ Process exited via process.exit()', { code: error.code });
+        return;
       }
 
-      // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
-      const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
-
-      // コードをラップして同期実行
-      const wrappedCode = this.wrapCode(code, filePath);
-      const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
-
-      runtimeInfo('✅ Code compiled successfully');
-      executeFunc(...Object.values(sandbox)); // No await - synchronous execution
-      runtimeInfo('✅ Execution completed');
-    } catch (error) {
       // Format error in Node.js style
       const formattedError = formatNodeError(error, { filePath });
       runtimeError(formattedError);
@@ -173,7 +239,7 @@ export class NodeRuntime {
    */
   trackIO(p: Promise<any>): void {
     this.pendingIO.add(p);
-    p.finally(() => {
+    p.catch(() => undefined).finally(() => {
       this.pendingIO.delete(p);
       this.checkEventLoop();
     });
@@ -183,6 +249,11 @@ export class NodeRuntime {
    * イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
    */
   async waitForEventLoop(): Promise<void> {
+    if (this.didExit) {
+      runtimeInfo('✅ Event loop wait skipped after process exit');
+      return;
+    }
+
     // アクティブなタイマーとIOがなければすぐに完了
     if (this.activeTimers.size === 0 && this.pendingIO.size === 0) {
       runtimeInfo('✅ Event loop is already empty');
@@ -211,6 +282,71 @@ export class NodeRuntime {
   private checkEventLoop() {
     if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
+      this.eventLoopResolve();
+      this.eventLoopResolve = null;
+    }
+  }
+
+  private createTrackedTimer(
+    kind: 'timeout' | 'interval',
+    handler: TimerHandler,
+    timeout?: number,
+    args: unknown[] = []
+  ): any {
+    let nativeId: any;
+    const timerRef: any = {
+      ref: () => {
+        this.activeTimers.add(timerRef);
+        return timerRef;
+      },
+      unref: () => {
+        this.activeTimers.delete(timerRef);
+        this.checkEventLoop();
+        return timerRef;
+      },
+      hasRef: () => this.activeTimers.has(timerRef),
+      [Symbol.toPrimitive]: () => nativeId,
+    };
+
+    const invoke = () => {
+      if (kind === 'timeout') {
+        this.activeTimers.delete(timerRef);
+      }
+
+      try {
+        if (typeof handler === 'function') {
+          handler(...args);
+        }
+      } catch (error) {
+        if (isProcessExitSignal(error)) {
+          this.finalizeProcessExit(error.code);
+          if (kind === 'interval') clearInterval(nativeId);
+          return;
+        }
+        throw error;
+      } finally {
+        this.checkEventLoop();
+      }
+    };
+
+    nativeId = kind === 'timeout'
+      ? setTimeout(invoke, timeout)
+      : setInterval(invoke, timeout);
+    this.activeTimers.add(timerRef);
+    return timerRef;
+  }
+
+  getExitCode(): number {
+    return this.exitCode;
+  }
+
+  private finalizeProcessExit(code: number): void {
+    this.exitCode = normalizeProcessExitCode(code);
+    this.didExit = true;
+    this.activeTimers.clear();
+    this.pendingIO.clear();
+
+    if (this.eventLoopResolve) {
       this.eventLoopResolve();
       this.eventLoopResolve = null;
     }
@@ -285,6 +421,17 @@ export class NodeRuntime {
   private createProcessObject(currentFilePath?: string, argv: string[] = []): Record<string, any> {
     // EventEmitter-like listener store for process events (exit, uncaughtException, etc.)
     const listeners: Record<string, Function[]> = {};
+    const startedAt = performance.now();
+    const hrtime = (time?: [number, number]): [number, number] => {
+      const elapsedNs = BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
+      if (!time) {
+        return [Number(elapsedNs / 1_000_000_000n), Number(elapsedNs % 1_000_000_000n)];
+      }
+      const baseNs = BigInt(time[0]) * 1_000_000_000n + BigInt(time[1]);
+      const diffNs = elapsedNs - baseNs;
+      return [Number(diffNs / 1_000_000_000n), Number(diffNs % 1_000_000_000n)];
+    };
+    hrtime.bigint = () => BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
 
     const processObj: Record<string, any> = {
       env: {
@@ -302,8 +449,37 @@ export class NodeRuntime {
         node: '18.0.0',
         v8: '10.0.0',
       },
-      exit: () => {},
-      nextTick: (fn: Function, ...args: unknown[]) => setTimeout(() => fn(...args), 0),
+      hrtime,
+      uptime: () => (performance.now() - startedAt) / 1000,
+      memoryUsage: () => ({
+        rss: 0,
+        heapTotal: 0,
+        heapUsed: 0,
+        external: 0,
+        arrayBuffers: 0,
+      }),
+      resourceUsage: () => ({}),
+      exit: (code?: number) => {
+        const resolvedCode =
+          code === undefined ? normalizeProcessExitCode(processObj.exitCode) : code;
+        this.finalizeProcessExit(normalizeProcessExitCode(resolvedCode));
+        processObj.emit('exit', this.exitCode);
+        if (this.syncExitBoundaryDepth > 0) {
+          throw createProcessExitSignal(this.exitCode);
+        }
+      },
+      nextTick: (fn: Function, ...args: unknown[]) =>
+        setTimeout(() => {
+          try {
+            fn(...args);
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              this.finalizeProcessExit(error.code);
+              return;
+            }
+            throw error;
+          }
+        }, 0),
       // EventEmitter methods — many npm packages call process.on('exit', ...)
       on: (event: string, cb: Function) => {
         if (!listeners[event]) listeners[event] = [];
@@ -358,21 +534,39 @@ export class NodeRuntime {
         resume: () => {},
         isTTY: true,
       },
-      stdout: {
-        write: (data: string) => {
-          if (this.debugConsole?.log) {
-            this.debugConsole.log(data);
-          } else {
-            runtimeInfo(data);
-          }
-          return true;
-        },
-        isTTY: true,
-        columns: this.terminalColumns,
-        rows: this.terminalRows,
-        getColorDepth: () => 24, // 24-bit color (truecolor)
-        hasColors: (count?: number) => count === undefined || count <= 16777216,
-      },
+      stdout: (() => {
+        // \r (carriage return) を正しく処理するラインバッファ
+        // prettier等は \r で同一行を上書きするが、debugConsole.log は行単位なのでバッファが必要
+        let lineBuf = '';
+        const emitLine = (line: string) => {
+          if (this.debugConsole?.log) this.debugConsole.log(line);
+          else runtimeInfo(line);
+        };
+        return {
+          write: (data: string) => {
+            lineBuf += data;
+            let cur = '';
+            for (let i = 0; i < lineBuf.length; i++) {
+              const ch = lineBuf[i];
+              if (ch === '\r') {
+                cur = '';  // キャリッジリターン: 現在行をクリア（上書き予定）
+              } else if (ch === '\n') {
+                emitLine(cur);
+                cur = '';
+              } else {
+                cur += ch;
+              }
+            }
+            lineBuf = cur;  // 未完了行をバッファに残す
+            return true;
+          },
+          isTTY: true,
+          columns: this.terminalColumns,
+          rows: this.terminalRows,
+          getColorDepth: () => 24,
+          hasColors: (count?: number) => count === undefined || count <= 16777216,
+        };
+      })(),
       stderr: {
         write: (data: string) => {
           if (this.debugConsole?.error) {
@@ -390,6 +584,15 @@ export class NodeRuntime {
       },
     };
 
+    Object.defineProperty(processObj, 'exitCode', {
+      configurable: true,
+      enumerable: true,
+      get: () => this.exitCode,
+      set: (value: unknown) => {
+        this.exitCode = normalizeProcessExitCode(value);
+      },
+    });
+
     return processObj;
   }
 
@@ -397,6 +600,9 @@ export class NodeRuntime {
    * グローバルオブジェクトを作成
    */
   private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
+    const process = this.createProcessObject(currentFilePath, argv);
+    this.currentProcess = process;
+
     return {
       // グローバルオブジェクト
       console: {
@@ -424,36 +630,20 @@ export class NodeRuntime {
         clear: () => this.debugConsole?.clear(),
       },
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
-      setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
-        const timerId = setTimeout(() => {
-          this.activeTimers.delete(timerId);
-          if (typeof handler === 'function') {
-            handler(...args);
-          }
-          this.checkEventLoop();
-        }, timeout) as any;
-        this.activeTimers.add(timerId);
-        return timerId as number;
-      },
-      setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): number => {
-        const intervalId = setInterval(() => {
-          if (typeof handler === 'function') {
-            handler(...args);
-          }
-        }, timeout) as any;
-        this.activeTimers.add(intervalId);
-        return intervalId as number;
-      },
-      clearTimeout: (id?: number) => {
+      setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
+        this.createTrackedTimer('timeout', handler, timeout, args),
+      setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
+        this.createTrackedTimer('interval', handler, timeout, args),
+      clearTimeout: (id?: any) => {
         if (id !== undefined) {
-          clearTimeout(id);
+          clearTimeout(Number(id));
           this.activeTimers.delete(id);
           this.checkEventLoop();
         }
       },
-      clearInterval: (id?: number) => {
+      clearInterval: (id?: any) => {
         if (id !== undefined) {
-          clearInterval(id);
+          clearInterval(Number(id));
           this.activeTimers.delete(id);
           this.checkEventLoop();
         }
@@ -488,7 +678,7 @@ export class NodeRuntime {
           },
         },
       },
-      process: this.createProcessObject(currentFilePath, argv),
+      process,
       Buffer: this.builtInModules.Buffer,
     };
   }
@@ -557,6 +747,7 @@ export class NodeRuntime {
           const extensions = [
             '',
             '.js',
+            '.cjs',
             '.mjs',
             '.ts',
             '.mts',
@@ -564,6 +755,7 @@ export class NodeRuntime {
             '.jsx',
             '.json',
             '/index.js',
+            '/index.cjs',
             '/index.ts',
           ];
           for (const ext of extensions) {
@@ -584,6 +776,9 @@ export class NodeRuntime {
         runtimeError(`  Required from: ${currentFilePath}`);
         throw createModuleNotFoundError(moduleName, currentFilePath);
       } catch (error) {
+        if (isProcessExitSignal(error)) {
+          throw error;
+        }
         if (error instanceof Error && error.name.includes('ERR_MODULE_NOT_FOUND')) {
           throw error;
         }
@@ -591,6 +786,42 @@ export class NodeRuntime {
         throw error;
       }
     };
+  }
+
+  private async runChildProcessShell(
+    command: string,
+    options?: { cwd?: string; env?: Record<string, string> }
+  ): Promise<{ stdout: string; stderr: string; code: number | null }> {
+    const { ShellExecutor } = await import('@/engine/cmd/shell/executor');
+    const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
+
+    const unix = terminalCommandRegistry.getUnixCommands(this.projectName, this.projectId);
+    const savedCwd = await unix.pwd().catch(() => null);
+    const targetCwd = options?.cwd;
+
+    try {
+      if (targetCwd) {
+        await unix.cd([targetCwd]).catch(() => {});
+      }
+
+      const executor = new ShellExecutor({
+        projectName: this.projectName,
+        projectId: this.projectId,
+        unix,
+        fileRepository,
+        commandRegistry: terminalCommandRegistry,
+        terminalColumns: this.terminalColumns,
+        terminalRows: this.terminalRows,
+        env: options?.env,
+        isInteractive: false,
+      });
+
+      return await executor.run(command);
+    } finally {
+      if (savedCwd) {
+        await unix.cd([savedCwd]).catch(() => {});
+      }
+    }
   }
 
   /**
@@ -603,7 +834,7 @@ export class NodeRuntime {
 
     const builtIns: Record<string, unknown> = {
       fs: this.builtInModules.fs,
-      'fs/promises': this.builtInModules.fs,
+      'fs/promises': (this.builtInModules.fs as any).promises,
       path: this.builtInModules.path,
       os: this.builtInModules.os,
       util: this.builtInModules.util,
@@ -616,8 +847,65 @@ export class NodeRuntime {
       module: this.builtInModules.module,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
-      // process モジュール - createProcessObjectで統一
-      process: this.createProcessObject(),
+      tty: this.builtInModules.tty,
+      v8: this.builtInModules.v8,
+      crypto: this.builtInModules.crypto,
+      child_process: this.builtInModules.child_process,
+      'stream/consumers': {
+        text: async (s: any): Promise<string> => {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          const all = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          return new TextDecoder().decode(all);
+        },
+        json: async (s: any): Promise<unknown> => {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          const all = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          return JSON.parse(new TextDecoder().decode(all));
+        },
+        buffer: async (s: any): Promise<Uint8Array> => {
+          const chunks: Uint8Array[] = [];
+          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          return chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+        },
+      },
+      'stream/promises': {
+        pipeline: (..._args: unknown[]) => Promise.resolve(),
+        finished: (_stream: unknown, _options?: unknown) => Promise.resolve(),
+      },
+      'stream/web': {},
+      'timers/promises': {
+        setTimeout: (delay?: number) => new Promise(resolve => globalThis.setTimeout(resolve, delay)),
+        setImmediate: () => new Promise(resolve => globalThis.setTimeout(resolve, 0)),
+        setInterval: async function* (_delay?: number) {},
+      },
+      perf_hooks: {
+        performance: {
+          now: () => performance.now(),
+          mark: (_name: string) => {},
+          measure: (_name: string, _start?: string, _end?: string) => ({ duration: 0, name: _name }),
+          getEntriesByName: () => [],
+          getEntriesByType: () => [],
+          clearMarks: () => {},
+          clearMeasures: () => {},
+        },
+        PerformanceObserver: class {
+          constructor(_callback: any) {}
+          observe(_options: any) {}
+          disconnect() {}
+        },
+        constants: {},
+      },
+      worker_threads: {
+        isMainThread: true,
+        workerData: null,
+        parentPort: null,
+        threadId: 0,
+        Worker: class { constructor() { throw new Error('Worker not supported'); } },
+      },
+      // process モジュール - 実行中の process.argv/cwd/env を共有する
+      process: this.currentProcess ?? this.createProcessObject(),
       timers: {
         setTimeout: globalThis.setTimeout,
         clearTimeout: globalThis.clearTimeout,

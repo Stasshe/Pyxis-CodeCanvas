@@ -37,9 +37,14 @@ import { createModuleModule } from './modules/moduleModule';
 import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
+import { createTTYModule } from './modules/ttyModule';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
+import { createV8Module } from './modules/v8Module';
+import { createCryptoModule } from './modules/cryptoModule';
+import { createChildProcessModule } from './modules/childProcessModule';
+import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
 
 export interface BuiltInModulesOptions {
   projectDir: string;
@@ -47,6 +52,16 @@ export interface BuiltInModulesOptions {
   projectName: string;
   processStdin?: ProcessStdin;
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
+  requireFactory?: (filename: string) => (id: string) => unknown;
+  getCwd?: () => string;
+  getEnv?: () => Record<string, string>;
+  runShell?: (
+    command: string,
+    options?: { cwd?: string; env?: Record<string, string> }
+  ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
+  mountRouter: MountRouter;
+  terminalColumns?: number;
+  terminalRows?: number;
 }
 
 export interface BuiltInModules {
@@ -61,8 +76,12 @@ export interface BuiltInModules {
   events: ReturnType<typeof createEventsModule>;
   Buffer: typeof Buffer;
   readline: ReturnType<typeof createReadlineModule>;
-  assert: any;
+  tty: ReturnType<typeof createTTYModule>;
+  assert: ReturnType<typeof createAssertModule>;
   module: ReturnType<typeof createModuleModule>;
+  v8: ReturnType<typeof createV8Module>;
+  crypto: ReturnType<typeof createCryptoModule>;
+  child_process: ReturnType<typeof createChildProcessModule>;
 }
 
 /**
@@ -72,11 +91,24 @@ export interface BuiltInModules {
  * @returns すべてのビルトインモジュール
  */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
-  const { projectDir, projectId, projectName, processStdin, getTrackIO } = options;
+  const {
+    projectDir,
+    projectId,
+    projectName,
+    processStdin,
+    getTrackIO,
+    requireFactory,
+    getCwd,
+    getEnv,
+    runShell,
+    mountRouter,
+    terminalColumns,
+    terminalRows,
+  } = options;
 
   return {
-    fs: createFSModule({ projectDir, projectId, projectName }),
-    path: createPathModule(projectDir),
+    fs: createFSModule({ projectDir, projectId, projectName, mountRouter, getTrackIO }),
+    path: createPathModule(getCwd ?? (() => projectDir)),
     os: createOSModule(),
     util: createUtilModule(),
     http: createHTTPModule(),
@@ -84,10 +116,20 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     events: createEventsModule(),
     Buffer: Buffer,
     readline: createReadlineModule(processStdin, getTrackIO),
+    tty: createTTYModule(terminalColumns, terminalRows),
     assert: createAssertModule(),
-    module: createModuleModule(),
+    module: createModuleModule(requireFactory),
     url: urlModule,
     stream: stream,
+    v8: createV8Module(),
+    crypto: createCryptoModule(),
+    child_process: createChildProcessModule({
+      runShell,
+      getCwd,
+      getEnv,
+      getTrackIO,
+      maxParallel: 2,
+    }),
   };
 }
 
@@ -104,8 +146,10 @@ export {
   createEventsModule,
   Buffer,
   createReadlineModule,
+  createTTYModule,
   createAssertModule,
   createModuleModule,
+  createChildProcessModule,
   urlModule,
   stream,
 };

@@ -2,6 +2,7 @@
 import JSZip from 'jszip';
 
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { IDB } from '@/constants/idb';
 import type { Project, ProjectFile } from '@/types';
 
 // 現在のプロジェクトのみZIPエクスポート
@@ -12,8 +13,7 @@ export async function downloadWorkspaceZip({
   currentProject: Project;
   includeGit?: boolean;
 }) {
-  const dbName = 'PyxisProjects';
-  const req = window.indexedDB.open(dbName);
+  const req = window.indexedDB.open(IDB.PROJECTS.NAME);
   const db: IDBDatabase = await new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

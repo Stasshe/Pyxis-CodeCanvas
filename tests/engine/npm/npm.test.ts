@@ -14,7 +14,7 @@ import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 describe('NpmCommands 統合テスト', () => {
   let projectId: string;
   let projectName: string;
-  
+
   function createNpm() {
     return new NpmCommands(projectName, projectId, `/projects/${projectName}`);
   }

@@ -100,7 +100,7 @@ function ClientTerminal({
           currentProject,
           currentProjectId
         );
-        npmCommandsRef.current = terminalCommandRegistry.getNpmCommands(
+        npmCommandsRef.current = await terminalCommandRegistry.getNpmCommands(
           currentProject,
           currentProjectId,
           `/projects/${currentProject}`

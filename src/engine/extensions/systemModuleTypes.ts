@@ -16,13 +16,32 @@ import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
-import type { normalizeCjsEsm } from '@/engine/runtime/transpiler/normalizeCjsEsm';
+import type {
+  extractCjsDependencies,
+  transformEsmToCjs,
+} from '@/engine/runtime/transpiler/esmTransformer';
+import type {
+  createUrlWorkerPool,
+  createWorkerPool,
+  WorkerPool,
+} from '@/engine/workers/WorkerPool';
 
 /**
- * normalizeCjsEsmモジュールの型定義
- * 実際の実装から型を抽出
+ * transpilerモジュールの型定義
  */
-export type NormalizeCjsEsmModule = typeof normalizeCjsEsm;
+export interface TranspilerModule {
+  transformEsmToCjs: typeof transformEsmToCjs;
+  extractCjsDependencies: typeof extractCjsDependencies;
+}
+
+/**
+ * ComlinkベースのWorker Poolユーティリティ
+ */
+export interface WorkerRuntimeModule {
+  WorkerPool: typeof WorkerPool;
+  createWorkerPool: typeof createWorkerPool;
+  createUrlWorkerPool: typeof createUrlWorkerPool;
+}
 
 /**
  * pathUtilsモジュールの型定義
@@ -46,7 +65,8 @@ export interface SystemModuleMap {
   // module. Use the instance type here so getSystemModule returns the runtime
   // instance rather than the class/constructor.
   fileRepository: typeof fileRepository;
-  normalizeCjsEsm: NormalizeCjsEsmModule;
+  transpiler: TranspilerModule;
+  workerRuntime: WorkerRuntimeModule;
   pathUtils: PathUtilsModule;
   // commandRegistry is an instance exported from commandRegistry module.
   // Use the class instance type (not constructor type).
@@ -55,7 +75,7 @@ export interface SystemModuleMap {
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
     getGitCommands: (projectName: string, projectId?: string) => GitCommands;
-    getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => NpmCommands;
+    getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => Promise<NpmCommands>;
     /**
      * Construct or return a per-project StreamShell instance.
      * Matches TerminalCommandRegistry.getShell which may return null on failure.

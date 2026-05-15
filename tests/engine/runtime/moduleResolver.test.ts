@@ -198,6 +198,18 @@ describe('ModuleResolver', () => {
       const indexFile = await repo.getFileByPath(projectId, '/src/components/index.js');
       expect(indexFile).not.toBeNull();
     });
+
+    it('file URL のクエリ付き dynamic import をプロジェクトファイルに解決する', async () => {
+      await repo.createFile(projectId, '/eslint.config.js', 'export default [];', 'file');
+      const resolver = new ModuleResolver(projectId, projectName);
+      const result = await resolver.resolve(
+        `file:///projects/${projectName}/eslint.config.js?mtime=123#hash`,
+        `/projects/${projectName}/node_modules/eslint/lib/config/config-loader.js`
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(`/projects/${projectName}/eslint.config.js`);
+    });
   });
 
   describe('npm バイナリ解決', () => {
@@ -334,6 +346,43 @@ describe('ModuleResolver', () => {
       const result = await resolver.resolve('./nonexistent', currentFile);
 
       expect(result).toBeNull();
+    });
+
+    it('nested require/default exports を CJS entry に解決する', async () => {
+      await repo.createFile(
+        projectId,
+        '/node_modules/minimatch/package.json',
+        JSON.stringify({
+          name: 'minimatch',
+          exports: {
+            '.': {
+              import: {
+                types: './dist/mjs/index.d.ts',
+                default: './dist/mjs/index.js',
+              },
+              require: {
+                types: './dist/cjs/index.d.ts',
+                default: './dist/cjs/index-cjs.js',
+              },
+            },
+          },
+        }),
+        'file'
+      );
+      await repo.createFile(
+        projectId,
+        '/node_modules/minimatch/dist/cjs/index-cjs.js',
+        'module.exports = {}',
+        'file'
+      );
+
+      const currentFile = `/projects/${projectName}/src/index.js`;
+      const result = await resolver.resolve('minimatch', currentFile);
+
+      expect(result).not.toBeNull();
+      expect(result!.path).toBe(
+        `/projects/${projectName}/node_modules/minimatch/dist/cjs/index-cjs.js`
+      );
     });
   });
 });

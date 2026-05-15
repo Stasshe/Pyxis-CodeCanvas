@@ -2,7 +2,7 @@
  * useSettings - Pyxis設定を使用するためのReact Hook
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { settingsManager } from '@/engine/helper/settingsManager';
 import type { PyxisSettings } from '@/types/settings';
@@ -81,10 +81,10 @@ export function useSettings(projectId?: string) {
     });
   }, [settings]);
 
-  // 除外判定関数
-  const isExcluded = (path: string): boolean => {
-    return excludeRegexps.some(re => re.test(path));
-  };
+  const isExcluded = useCallback(
+    (path: string): boolean => excludeRegexps.some(re => re.test(path)),
+    [excludeRegexps]
+  );
 
   type UpdatesArg = Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>);
 

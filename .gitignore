@@ -55,6 +55,7 @@ error.md
 src/engine/initialFileContents.ts
 public/extensions/
 public/locales/
+public/esbuild.wasm
 
 tests/__artifacts__/*
 

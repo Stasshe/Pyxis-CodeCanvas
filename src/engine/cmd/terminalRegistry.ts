@@ -1,6 +1,6 @@
 import { GitCommands } from './global/git';
-import { NpmCommands } from './global/npm';
 import { UnixCommands } from './global/unix';
+import type { NpmCommands } from './global/npm';
 import type StreamShell from './shell/streamShell';
 import type TerminalUI from './terminalUI';
 
@@ -23,6 +23,7 @@ type ProjectEntry = {
  */
 class TerminalCommandRegistry {
   private projects = new Map<string, ProjectEntry>();
+  private npmCommandsModulePromise: Promise<typeof import('./global/npm')> | null = null;
 
   private getOrCreateEntry(projectId: string): ProjectEntry {
     let entry = this.projects.get(projectId);
@@ -72,9 +73,22 @@ class TerminalCommandRegistry {
     return entry.git!;
   }
 
-  getNpmCommands(projectName: string, projectId: string, currentDir = '/'): NpmCommands {
+  private async loadNpmCommandsModule(): Promise<typeof import('./global/npm')> {
+    if (!this.npmCommandsModulePromise) {
+      this.npmCommandsModulePromise = import('./global/npm');
+    }
+
+    return this.npmCommandsModulePromise;
+  }
+
+  async getNpmCommands(
+    projectName: string,
+    projectId: string,
+    currentDir = '/'
+  ): Promise<NpmCommands> {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.npm) {
+      const { NpmCommands } = await this.loadNpmCommandsModule();
       entry.npm = new NpmCommands(projectName, projectId, currentDir);
       if (entry.terminalUI) entry.npm.setTerminalUI(entry.terminalUI);
     }

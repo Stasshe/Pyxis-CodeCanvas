@@ -11,6 +11,7 @@ import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUti
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 
 import { fileRepository } from '@/engine/core/fileRepository';
+import { isBuiltInModule } from './builtinModules';
 
 /**
  * パッケージ情報
@@ -57,10 +58,11 @@ export class ModuleResolver {
    * モジュールパスを解決
    */
   async resolve(moduleName: string, currentFilePath: string): Promise<ResolveResult | null> {
+    moduleName = this.normalizeSpecifier(moduleName);
     runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
     // 1. ビルトインモジュール
-    if (this.isBuiltInModule(moduleName)) {
+    if (isBuiltInModule(moduleName)) {
       return {
         path: moduleName,
         isBuiltIn: true,
@@ -137,53 +139,17 @@ export class ModuleResolver {
     return null;
   }
 
-  /**
-   * ビルトインモジュールかどうかを判定
-   * `node:` プレフィックス付きのモジュール名もサポート
-   */
-  private isBuiltInModule(moduleName: string): boolean {
-    // `node:` プレフィックスを削除
-    const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
+  private normalizeSpecifier(moduleName: string): string {
+    if (!moduleName.startsWith('file://')) {
+      return moduleName;
+    }
 
-    const builtIns = [
-      'fs',
-      'fs/promises',
-      'path',
-      'os',
-      'util',
-      'http',
-      'https',
-      'buffer',
-      'readline',
-      'crypto',
-      'stream',
-      'events',
-      'url',
-      'querystring',
-      'assert',
-      'child_process',
-      'cluster',
-      'dgram',
-      'dns',
-      'domain',
-      'net',
-      'tls',
-      'tty',
-      'zlib',
-      'module',
-      'process',
-      'timers',
-      'console',
-      'constants',
-      'punycode',
-      'string_decoder',
-      'sys',
-      'v8',
-      'vm',
-      'repl',
-    ];
-
-    return builtIns.includes(normalizedName);
+    try {
+      const url = new URL(moduleName);
+      return decodeURIComponent(url.pathname);
+    } catch {
+      return moduleName.replace(/^file:\/\/\/?/, '/').replace(/[?#].*$/, '');
+    }
   }
 
   /**
@@ -400,15 +366,7 @@ export class ModuleResolver {
   private resolveImports(imports: Record<string, unknown>, subPath: string): string | null {
     // 完全一致
     if (imports[subPath]) {
-      const value = imports[subPath];
-      if (typeof value === 'string') {
-        return value;
-      }
-      // 条件付きエクスポート — CJSランタイムなのでrequireを優先
-      if (typeof value === 'object' && value !== null) {
-        const obj = value as Record<string, unknown>;
-        return (obj.require || obj.default || obj.import) as string;
-      }
+      return this.resolveConditionalTarget(imports[subPath]);
     }
 
     // ワイルドカード (#internal/*)
@@ -428,6 +386,40 @@ export class ModuleResolver {
     return null;
   }
 
+  private resolveConditionalTarget(value: unknown): string | null {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const resolved = this.resolveConditionalTarget(entry);
+        if (resolved) return resolved;
+      }
+      return null;
+    }
+
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+
+    const obj = value as Record<string, unknown>;
+    for (const condition of ['require', 'node', 'default', 'import']) {
+      if (condition in obj) {
+        const resolved = this.resolveConditionalTarget(obj[condition]);
+        if (resolved) return resolved;
+      }
+    }
+
+    for (const [condition, target] of Object.entries(obj)) {
+      if (condition === 'types' || condition.startsWith('.')) continue;
+      const resolved = this.resolveConditionalTarget(target);
+      if (resolved) return resolved;
+    }
+
+    return null;
+  }
+
   /**
    * exportsフィールドを解決
    */
@@ -441,25 +433,16 @@ export class ModuleResolver {
 
     // 完全一致
     if (exports[subPath]) {
-      const value = exports[subPath];
-      if (typeof value === 'string') {
-        return value;
-      }
-      // import/require条件 — CJSランタイムなのでrequireを優先
-      if (typeof value === 'object' && value !== null) {
-        return (value as any).require || (value as any).default || (value as any).import || null;
-      }
+      return this.resolveConditionalTarget(exports[subPath]);
     }
 
     // . (デフォルト)
     if (subPath === '.' && exports['.']) {
-      const value = exports['.'];
-      if (typeof value === 'string') {
-        return value;
-      }
-      if (typeof value === 'object' && value !== null) {
-        return (value as any).require || (value as any).default || (value as any).import || null;
-      }
+      return this.resolveConditionalTarget(exports['.']);
+    }
+
+    if (subPath === '.' && !Object.keys(exports).some(key => key.startsWith('.'))) {
+      return this.resolveConditionalTarget(exports);
     }
 
     return null;
@@ -497,7 +480,7 @@ export class ModuleResolver {
   private async loadPackageJson(path: string): Promise<PackageJson | null> {
     // キャッシュをチェック
     if (this.packageJsonCache.has(path)) {
-      return this.packageJsonCache.get(path)!;
+      return this.packageJsonCache.get(path) ?? null;
     }
 
     try {
@@ -541,7 +524,7 @@ export class ModuleResolver {
     }
 
     // 拡張子を試す順序
-    const extensions = ['.js', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
+    const extensions = ['.js', '.cjs', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
     for (const ext of extensions) {
       const pathWithExt = filePath + ext;
       if (await this.fileExists(pathWithExt)) {
@@ -552,6 +535,7 @@ export class ModuleResolver {
     // index.jsを試す
     const indexPaths = [
       `${filePath}/index.js`,
+      `${filePath}/index.cjs`,
       `${filePath}/index.mjs`,
       `${filePath}/index.ts`,
       `${filePath}/index.mts`,
@@ -573,7 +557,7 @@ export class ModuleResolver {
   private async fileExists(path: string): Promise<boolean> {
     // キャッシュをチェック
     if (this.fileCache.has(path)) {
-      return this.fileCache.get(path)!;
+      return this.fileCache.get(path) ?? false;
     }
 
     try {

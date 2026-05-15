@@ -1,47 +1,132 @@
 /**
  * fs モジュールのエミュレーション
- * - fileRepositoryを直接使用してIndexedDBに保存
- * - GitFileSystemへの同期は自動的に実行される
- * - 読み取りはgitFileSystem.getFS()から直接実行
- * - 書き込みはfileRepositoryのみを使用（自動同期）
+ *
+ * Storage concerns are delegated to runtime mounts:
+ * - /tmp is backed by MemoryMount
+ * - /cache is backed by RuntimeCacheMount
+ * - all other paths are backed by ProjectMount
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
 import {
   fsPathToAppPath,
   normalizeDotSegments,
   toAppPath,
   toFSPath,
 } from '@/engine/core/pathUtils';
+import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
 
 export interface FSModuleOptions {
   projectDir: string;
   projectId: string;
   projectName: string;
+  mountRouter?: MountRouter;
+  getTrackIO?: () => ((p: Promise<any>) => void) | undefined;
 }
+
+type FsCallback<T = any> = (error: Error | null, data?: T) => void;
 
 export function createFSModule(options: FSModuleOptions) {
   const { projectDir, projectId, projectName } = options;
+  const mountRouter =
+    options.mountRouter ?? runtimeStorageRegistry.get(projectId, projectName).mountRouter;
 
-  /**
-   * パスを正規化してフルパスと相対パス（AppPath）を取得
-   * pathResolverを使用
-   * POSIX準拠: . と .. を解決
-   */
+  function trackTask<T>(task: Promise<T>): Promise<T> {
+    options.getTrackIO?.()?.(task);
+    return task;
+  }
+
+  function splitOptionsAndCallback(
+    options?: any,
+    callback?: FsCallback | undefined
+  ): {
+    options: any;
+    callback?: FsCallback;
+  } {
+    if (typeof options === 'function') {
+      return { options: undefined, callback: options };
+    }
+
+    return { options, callback };
+  }
+
+  function isPromiseLike<T>(value: void | Promise<T>): value is Promise<T> {
+    return typeof value !== 'undefined';
+  }
+
+  function createFsError(
+    code: string,
+    syscall: string,
+    path: string,
+    message?: string
+  ): Error & { code: string; errno: number; syscall: string; path: string } {
+    const error = new Error(
+      message ?? `${code}: no such file or directory, ${syscall} '${path}'`
+    ) as Error & {
+      code: string;
+      errno: number;
+      syscall: string;
+      path: string;
+    };
+
+    error.name = 'Error';
+    error.code = code;
+    error.errno = code === 'ENOENT' ? -2 : -1;
+    error.syscall = syscall;
+    error.path = path;
+
+    return error;
+  }
+
+  function encodeContent(content: string | Uint8Array): Uint8Array {
+    return typeof content === 'string' ? new TextEncoder().encode(content) : content;
+  }
+
+  function decodeContent(content: string | Uint8Array): string {
+    return typeof content === 'string' ? content : new TextDecoder().decode(content);
+  }
+
+  function normalizeEncoding(options?: any): string | null | undefined {
+    if (typeof options === 'string') return options;
+    return options?.encoding;
+  }
+
+  function formatReadContent(content: string | Uint8Array, options?: any): string | Uint8Array {
+    const encoding = normalizeEncoding(options);
+    if (encoding === null) {
+      return encodeContent(content);
+    }
+
+    return typeof content === 'string' ? content : new TextDecoder().decode(content);
+  }
+
+  function makeStats(type: 'file' | 'directory', size = 0, mtime = new Date()) {
+    return {
+      size,
+      mtime,
+      ctime: mtime,
+      birthtime: mtime,
+      atime: mtime,
+      mode: type === 'directory' ? 0o40755 : 0o100644,
+      isFile: () => type === 'file',
+      isDirectory: () => type === 'directory',
+      isSymbolicLink: () => false,
+      isBlockDevice: () => false,
+      isCharacterDevice: () => false,
+      isFIFO: () => false,
+      isSocket: () => false,
+    };
+  }
+
   function normalizeModulePath(path: string): { fullPath: string; relativePath: string } {
-    // すでにprojectDirで始まる場合（FSPath形式）
     if (path.startsWith(projectDir)) {
-      const relativePath = fsPathToAppPath(path, projectName);
-      // . と .. を解決
-      const resolvedPath = normalizeDotSegments(relativePath);
+      const relativePath = normalizeDotSegments(fsPathToAppPath(path, projectName));
       return {
-        fullPath: toFSPath(projectName, resolvedPath),
-        relativePath: resolvedPath,
+        fullPath: toFSPath(projectName, relativePath),
+        relativePath,
       };
     }
 
-    // AppPath形式またはGitPath形式の場合
-    // まずAppPath形式に変換し、. と .. を解決
     const appPath = normalizeDotSegments(toAppPath(path));
     return {
       fullPath: toFSPath(projectName, appPath),
@@ -49,211 +134,169 @@ export function createFSModule(options: FSModuleOptions) {
     };
   }
 
-  /**
-   * ファイルを書き込む（IndexedDBに保存し、自動的にGitFileSystemに同期）
-   * GitFileSystemへの直接書き込みは不要
-   */
-  async function handleWriteFile(
-    path: string,
-    data: string | Uint8Array,
-    isNodeRuntime = true
-  ): Promise<void> {
-    // projectIdのバリデーション
-    if (!projectId || typeof projectId !== 'string') {
-      console.error('[fsModule] Invalid projectId:', projectId);
-      throw new Error(`Invalid projectId: ${projectId}`);
-    }
-
+  async function getStats(path: string, syscall: 'stat' | 'lstat'): Promise<any> {
     const { relativePath } = normalizeModulePath(path);
-
-    // 親ディレクトリをIndexedDBに作成
-    const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/'));
-    if (parentPath) {
-      try {
-        // Prefer direct lookup of the parent folder instead of listing all files
-        const folder = await fileRepository.getFileByPath(projectId, parentPath);
-        const folderExists = folder && folder.type === 'folder';
-        if (!folderExists) {
-          await fileRepository.createFile(projectId, parentPath, '', 'folder');
-        }
-      } catch (error) {
-        console.error('[fsModule] Failed to create parent directory in IndexedDB:', error);
-      }
+    const stat = await mountRouter.resolve(relativePath).stat(relativePath);
+    if (!stat) {
+      throw createFsError('ENOENT', syscall, path);
     }
-
-    // IndexedDBに保存（自動的にGitFileSystemに同期される）
-    try {
-      const existingFile = await fileRepository.getFileByPath(projectId, relativePath);
-
-      if (existingFile) {
-        // 既存ファイルを更新
-        const content = typeof data === 'string' ? data : '';
-        const bufferContent =
-          typeof data === 'string'
-            ? undefined
-            : data.buffer instanceof ArrayBuffer
-              ? data.buffer
-              : undefined;
-
-        await fileRepository.saveFile({
-          ...existingFile,
-          content,
-          bufferContent,
-          updatedAt: new Date(),
-        });
-      } else {
-        // 新規ファイルを作成
-        const content = typeof data === 'string' ? data : '';
-        const isBufferArray = typeof data !== 'string';
-        const bufferContent =
-          isBufferArray && data.buffer instanceof ArrayBuffer ? data.buffer : undefined;
-
-        await fileRepository.createFile(
-          projectId,
-          relativePath,
-          content,
-          'file',
-          isBufferArray,
-          bufferContent
-        );
-      }
-    } catch (error) {
-      console.error('[fsModule] Failed to save file to IndexedDB:', error);
-      throw error;
-    }
+    return makeStats(stat.type, stat.size, stat.mtime);
   }
 
-  // メモリキャッシュ（同期読み込み用）
-  const memoryCache = new Map<string, string | Uint8Array>();
+  function getStatsSync(path: string, syscall: 'stat' | 'lstat', options?: any): any {
+    const { relativePath } = normalizeModulePath(path);
+    const mount = mountRouter.resolve(relativePath);
+    if (mount.hasDir(relativePath)) {
+      return makeStats('directory');
+    }
+
+    const content = mount.getFileSync(relativePath);
+    if (content !== undefined) {
+      return makeStats('file', encodeContent(content).length);
+    }
+
+    if (options?.throwIfNoEntry === false) {
+      return undefined;
+    }
+
+    throw createFsError('ENOENT', syscall, path);
+  }
+
+  function makeDirent(name: string, isDir: boolean) {
+    return {
+      name,
+      isDirectory: () => isDir,
+      isFile: () => !isDir,
+      isSymbolicLink: () => false,
+      isBlockDevice: () => false,
+      isCharacterDevice: () => false,
+      isFIFO: () => false,
+      isSocket: () => false,
+    };
+  }
 
   const fsModule = {
-    /**
-     * ファイルを読み取る
-     */
-    readFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
-      try {
-        const { relativePath } = normalizeModulePath(path);
+    readFile: (
+      path: string,
+      options?: any,
+      callback?: FsCallback<string | Uint8Array>
+    ): Promise<string | Uint8Array> | void => {
+      const normalized = splitOptionsAndCallback(options, callback);
+      const readTask = trackTask((async (): Promise<string | Uint8Array> => {
+        try {
+          const { relativePath } = normalizeModulePath(path);
+          const mount = mountRouter.resolve(relativePath);
+          const syncContent = mount.getFileSync(relativePath);
+          const content =
+            syncContent !== undefined ? syncContent : await mount.getFile(relativePath);
 
-        // キャッシュにあればそれを返す
-        if (memoryCache.has(relativePath)) {
-          const content = memoryCache.get(relativePath)!;
-          if (options && options.encoding === null) {
-            const encoder = new TextEncoder();
-            return typeof content === 'string' ? encoder.encode(content) : content;
+          if (content === undefined) {
+            throw createFsError('ENOENT', 'open', path);
           }
-          return content;
+
+          return formatReadContent(content, normalized.options);
+        } catch (error) {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            typeof (error as any).code === 'string'
+          ) {
+            throw error;
+          }
+          throw createFsError(
+            'EIO',
+            'open',
+            path,
+            `ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`
+          );
         }
+      })());
 
-        const file = await fileRepository.getFileByPath(projectId, relativePath);
-        if (!file) throw new Error(`File not found: ${path}`);
-        const content = file.content ?? '';
-
-        // キャッシュ更新
-        memoryCache.set(relativePath, content);
-
-        if (options && options.encoding === null) {
-          const encoder = new TextEncoder();
-          return encoder.encode(content);
-        }
-        return content;
-      } catch (error) {
-        throw new Error(`ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`);
+      if (normalized.callback) {
+        readTask
+          .then(data => normalized.callback!(null, data))
+          .catch(error => normalized.callback!(error as Error));
+        return;
       }
+
+      return readTask;
     },
 
-    /**
-     * ファイルに書き込む
-     */
-    writeFile: async (path: string, data: string | Uint8Array, options?: any): Promise<void> => {
-      try {
-        const { relativePath } = normalizeModulePath(path);
+    writeFile: (
+      path: string,
+      data: string | Uint8Array,
+      options?: any,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      const normalized = splitOptionsAndCallback(options, callback);
+      const writeTask = trackTask((async (): Promise<void> => {
+        try {
+          const { relativePath } = normalizeModulePath(path);
+          await mountRouter.resolve(relativePath).setFile(relativePath, data);
+        } catch (error) {
+          throw createFsError(
+            'EIO',
+            'write',
+            path,
+            `ファイルの書き込みに失敗しました: ${path}`
+          );
+        }
+      })());
 
-        // キャッシュ更新
-        const content = typeof data === 'string' ? data : new TextDecoder().decode(data);
-        memoryCache.set(relativePath, content); // Note: storing string in cache for simplicity if possible, or raw data
-
-        await handleWriteFile(path, data, true);
-      } catch (error) {
-        throw new Error(`ファイルの書き込みに失敗しました: ${path}`);
+      if (normalized.callback) {
+        writeTask
+          .then(() => normalized.callback!(null))
+          .catch(error => normalized.callback!(error as Error));
+        return;
       }
+
+      return writeTask;
     },
 
-    /**
-     * ファイルを同期的に読み取る
-     * 事前にpreloadFiles()でキャッシュにロードしておく必要がある
-     */
     readFileSync: (path: string, options?: any): string | Uint8Array => {
       const { relativePath } = normalizeModulePath(path);
-
-      if (memoryCache.has(relativePath)) {
-        const content = memoryCache.get(relativePath)!;
-        if (options && options.encoding === null) {
-          const encoder = new TextEncoder();
-          return typeof content === 'string' ? encoder.encode(content) : content;
-        }
-        return content;
+      const content = mountRouter.resolve(relativePath).getFileSync(relativePath);
+      if (content === undefined) {
+        throw createFsError('ENOENT', 'open', path);
       }
-
-      console.warn(
-        `⚠️  fs.readFileSync: File not in cache: ${path} (normalized: ${relativePath}). Returning Promise (will likely fail for sync callers). Call preloadFiles() first.`
-      );
-      // Fallback to async (will break strict sync callers like yargs/JSON.parse)
-      return fsModule.readFile(path, options) as any;
+      return formatReadContent(content, options);
     },
 
-    /**
-     * ファイルに同期的に書き込む（非同期に変換）
-     */
     writeFileSync: (path: string, data: string | Uint8Array, options?: any): void => {
-      console.warn(
-        '⚠️  fs.writeFileSync detected: Converting to async operation (fire and forget).'
-      );
-      fsModule.writeFile(path, data, options).catch(err => console.error(err));
+      const writeTask = fsModule.writeFile(path, data, options);
+      if (isPromiseLike(writeTask)) {
+        writeTask.catch((err: unknown) => console.error(err));
+      }
     },
 
-    /**
-     * ファイル/ディレクトリの存在を確認
-     */
     existsSync: (path: string): boolean => {
       const { relativePath } = normalizeModulePath(path);
-      // Check cache first
-      if (memoryCache.has(relativePath)) return true;
-
-      // Hack: we can't check IndexedDB synchronously if not in cache.
-      // We assume if it's not in cache (and we preloaded), it might not exist or we don't know.
-      // But for yargs, it checks existence.
-      // If we preloaded everything, cache miss = not found.
-      return false;
+      const mount = mountRouter.resolve(relativePath);
+      return mount.hasFile(relativePath) || mount.hasDir(relativePath);
     },
 
-    /**
-     * ファイルをプリロード（メモリキャッシュにロード）
-     */
+    accessSync: (path: string): void => {
+      if (!fsModule.existsSync(path)) {
+        throw createFsError('ENOENT', 'access', path);
+      }
+    },
+
     preloadFiles: async (extensions: string[] = ['.json', '.txt', '.md']): Promise<void> => {
+      const projectMount = mountRouter.resolve('/') as {
+        preload?: (extensions: string[]) => Promise<number>;
+      };
+
+      if (!projectMount.preload) return;
+
       try {
-        // 全ファイルをロード（フィルタリング付き）
-        // getProjectFilesは再帰的に全ファイルを取得すると仮定
-        // TODO: 全ファイルは非効率。ライブでやる感じに変える。とりあえず今は動いてる。
-        const files = await fileRepository.getProjectFiles(projectId);
-        let count = 0;
-        for (const file of files) {
-          // 拡張子フィルタ（空の場合は全ファイル）
-          if (extensions.length === 0 || extensions.some(ext => file.path.endsWith(ext))) {
-            if (file.content !== undefined) {
-              memoryCache.set(file.path, file.content);
-              count++;
-            }
-          }
-        }
+        const count = await projectMount.preload(extensions);
         console.log(`[fsModule] Preloaded ${count} files into memory cache.`);
       } catch (error) {
         console.error('[fsModule] Failed to preload files:', error);
       }
     },
 
-    /**
-     * ファイルに非同期で書き込む
-     */
     asyncWriteFile: async (
       path: string,
       data: string | Uint8Array,
@@ -262,197 +305,241 @@ export function createFSModule(options: FSModuleOptions) {
       await fsModule.writeFile(path, data, options);
     },
 
-    /**
-     * ファイルを非同期で読み取る
-     */
     asyncReadFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
-      return await fsModule.readFile(path, options);
+      const readTask = fsModule.readFile(path, options);
+      if (!isPromiseLike(readTask)) {
+        throw new Error(`fsModule.readFile returned void without a callback: ${path}`);
+      }
+      return await readTask;
     },
 
-    /**
-     * ファイルを非同期で削除
-     */
     asyncRemoveFile: async (path: string): Promise<void> => {
       await fsModule.unlink(path);
     },
 
-    /**
-     * ディレクトリを作成
-     * IndexedDBに保存すれば自動的にGitFileSystemに同期される
-     */
-    mkdir: async (path: string, options?: any): Promise<void> => {
-      const { relativePath } = normalizeModulePath(path);
-      const recursive = options?.recursive || false;
-
-      try {
-        if (recursive) {
-          // 再帰的にディレクトリを作成 - check each path with targeted lookup
-          const parts = relativePath.split('/').filter(Boolean);
-          let currentPath = '';
-
-          for (const part of parts) {
-            currentPath += `/${part}`;
-            const folder = await fileRepository.getFileByPath(projectId, currentPath);
-            const folderExists = folder && folder.type === 'folder';
-
-            if (!folderExists) {
-              await fileRepository.createFile(projectId, currentPath, '', 'folder');
-            }
-          }
-        } else {
-          // 単一ディレクトリを作成
-          const folder = await fileRepository.getFileByPath(projectId, relativePath);
-          const folderExists = folder && folder.type === 'folder';
-
-          if (!folderExists) {
-            await fileRepository.createFile(projectId, relativePath, '', 'folder');
-          }
-        }
-      } catch (error) {
-        console.error('[fsModule] Failed to create directory in IndexedDB:', error);
-        throw error;
-      }
-    },
-
-    /**
-     * ディレクトリの内容を読み取る
-     */
-    readdir: async (path: string, options?: any): Promise<string[]> => {
-      try {
+    mkdir: (path: string, options?: any): Promise<void> =>
+      trackTask((async (): Promise<void> => {
         const { relativePath } = normalizeModulePath(path);
-        const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
-        // Use prefix-based listing to avoid loading all files
-        const files =
-          typeof fileRepository.getFilesByPrefix === 'function'
-            ? await fileRepository.getFilesByPrefix(projectId, dirPath)
-            : await fileRepository.getProjectFiles(projectId);
-        // 直下のファイル/フォルダ名のみ返す
-        const children = files
-          .filter(f => f.path.startsWith(dirPath) && f.path !== dirPath)
-          .map(f => f.path.slice(dirPath.length).split('/')[0])
-          .filter((v, i, arr) => v && arr.indexOf(v) === i);
-        return children;
-      } catch (error) {
-        throw new Error(`ディレクトリの読み取りに失敗しました: ${path}`);
+        await mountRouter.resolve(relativePath).mkdir(relativePath, options?.recursive || false);
+      })()),
+
+    readdir: (path: string, options?: any, callback?: any): any => {
+      let cb: FsCallback<any[]> | undefined;
+      let opts: any = {};
+      if (typeof options === 'function') {
+        cb = options;
+      } else if (typeof callback === 'function') {
+        cb = callback;
+        opts = options ?? {};
+      } else {
+        opts = options ?? {};
       }
+
+      const withFileTypes = opts?.encoding === 'buffer' ? false : opts?.withFileTypes === true;
+
+      const doReaddir = (): Promise<any[]> => trackTask((async (): Promise<any[]> => {
+        const { relativePath } = normalizeModulePath(path);
+        const mount = mountRouter.resolve(relativePath);
+        const names = await mount.listDir(relativePath);
+
+        if (!withFileTypes) return names;
+
+        return Promise.all(
+          names.map(async name => {
+            const childPath =
+              relativePath === '/' ? `/${name}` : `${relativePath.replace(/\/$/, '')}/${name}`;
+            const stat = await mount.stat(childPath);
+            return makeDirent(name, stat?.type === 'directory');
+          })
+        );
+      })());
+
+      if (cb) {
+        doReaddir()
+          .then(result => cb!(null, result))
+          .catch(err => cb!(err, []));
+        return;
+      }
+      return doReaddir();
     },
 
-    /**
-     * 同期的にディレクトリの内容を読み取る
-     * 注意: IndexedDBは同期でアクセスできないため、事前に`preloadFiles()`でキャッシュをロードしておく必要があります。
-     */
-    readdirSync: (path: string, options?: any): string[] => {
+    readdirSync: (path: string, options?: any): any[] => {
+      const withFileTypes = options?.withFileTypes === true;
       const { relativePath } = normalizeModulePath(path);
       const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
+      const mount = mountRouter.resolve(relativePath);
+      const knownFiles = new Set<string>();
+      const names = new Set<string>();
 
-      // メモリキャッシュから直接取得
-      const keys = Array.from(memoryCache.keys());
-      const children = keys
-        .filter(k => k.startsWith(dirPath) && k !== dirPath)
-        .map(k => k.slice(dirPath.length).split('/')[0])
-        .filter((v, i, arr) => v && arr.indexOf(v) === i);
-
-      if (children.length > 0) return children;
-
-      // キャッシュにない場合は同期での取得はできないため警告して空配列を返す
-      console.warn(
-        `⚠️  fs.readdirSync: Directory not preloaded: ${path} (normalized: ${relativePath}). Returning empty array. Call preloadFiles() first.`
-      );
-      return [];
-    },
-
-    /**
-     * ファイルを削除
-     * IndexedDBから削除すれば自動的にGitFileSystemからも削除される
-     */
-    unlink: async (path: string): Promise<void> => {
-      const { relativePath } = normalizeModulePath(path);
-
-      // キャッシュから削除
-      if (memoryCache.has(relativePath)) {
-        memoryCache.delete(relativePath);
+      // VirtualMount intentionally exposes synchronous file lookup only; sync readdir
+      // relies on mounted hot caches populated by writes or preloadFiles().
+      const maybeCache = mount as unknown as { files?: Map<string, unknown>; dirs?: Set<string> };
+      for (const key of maybeCache.files?.keys?.() ?? []) {
+        knownFiles.add(key);
       }
-
-      try {
-        const file = await fileRepository.getFileByPath(projectId, relativePath);
-        if (file) {
-          await fileRepository.deleteFile(file.id);
-        } else {
-          throw new Error(`File not found: ${path}`);
+      for (const key of maybeCache.dirs?.values?.() ?? []) {
+        knownFiles.add(key);
+      }
+      for (const key of knownFiles) {
+        if (key.startsWith(dirPath) && key !== dirPath) {
+          names.add(key.slice(dirPath.length).split('/')[0]);
         }
-      } catch (error) {
-        console.error('[fsModule] Failed to delete file from IndexedDB:', error);
-        throw error;
       }
+
+      const result = [...names].filter(Boolean);
+      if (!withFileTypes) return result;
+
+      return result.map(name => {
+        const childPath = dirPath + name;
+        return makeDirent(name, mount.hasDir(childPath));
+      });
     },
 
-    /**
-     * ファイルに追記
-     */
-    appendFile: async (path: string, data: string, options?: any): Promise<void> => {
-      try {
+    unlink: (path: string): Promise<void> =>
+      trackTask((async (): Promise<void> => {
         const { relativePath } = normalizeModulePath(path);
-        let existingContent = '';
+        const deleted = await mountRouter.resolve(relativePath).deleteFile(relativePath);
+        if (!deleted) {
+          throw createFsError('ENOENT', 'unlink', path);
+        }
+      })()),
 
-        // キャッシュまたはDBから取得
-        if (memoryCache.has(relativePath)) {
-          const cacheContent = memoryCache.get(relativePath)!;
-          existingContent =
-            typeof cacheContent === 'string'
-              ? cacheContent
-              : new TextDecoder().decode(cacheContent);
-        } else {
-          try {
-            const file = await fileRepository.getFileByPath(projectId, relativePath);
-            if (file) existingContent = file.content ?? '';
-          } catch {
-            // ファイルが存在しない場合は新規作成
+    appendFile: (path: string, data: string, options?: any): Promise<void> =>
+      trackTask((async (): Promise<void> => {
+        try {
+          const { relativePath } = normalizeModulePath(path);
+          const mount = mountRouter.resolve(relativePath);
+          const content = (await mount.getFile(relativePath)) ?? '';
+          await fsModule.writeFile(path, decodeContent(content) + data, options);
+        } catch (error) {
+          throw new Error(`ファイルへの追記に失敗しました: ${path}`);
+        }
+      })()),
+
+    stat: (path: string, callback?: any): any => {
+      const doStat = () => trackTask((async () => {
+        try {
+          return await getStats(path, 'stat');
+        } catch (error) {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            typeof (error as any).code === 'string'
+          ) {
+            throw error;
           }
+          throw createFsError('EIO', 'stat', path, `ファイル情報の取得に失敗しました: ${path}`);
         }
+      })());
+      if (typeof callback === 'function') {
+        doStat()
+          .then(s => callback(null, s))
+          .catch(e => callback(e));
+        return;
+      }
+      return doStat();
+    },
 
-        await fsModule.writeFile(path, existingContent + data, options);
-      } catch (error) {
-        throw new Error(`ファイルへの追記に失敗しました: ${path}`);
+    lstat: (path: string, callback?: any): any => {
+      const doLstat = () => trackTask((async () => {
+        try {
+          return await getStats(path, 'lstat');
+        } catch (error) {
+          if (
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            typeof (error as any).code === 'string'
+          ) {
+            throw error;
+          }
+          throw createFsError('EIO', 'lstat', path, `ファイル情報の取得に失敗しました: ${path}`);
+        }
+      })());
+      if (typeof callback === 'function') {
+        doLstat()
+          .then(s => callback(null, s))
+          .catch(e => callback(e));
+        return;
+      }
+      return doLstat();
+    },
+
+    statSync: (path: string, options?: any): any => getStatsSync(path, 'stat', options),
+    lstatSync: (path: string, options?: any): any => getStatsSync(path, 'lstat', options),
+
+    mkdirSync: (path: string, options?: any): void => {
+      const mkdirTask = fsModule.mkdir(path, options);
+      if (isPromiseLike(mkdirTask)) {
+        mkdirTask.catch((err: unknown) => console.error(err));
       }
     },
 
-    /**
-     * ファイル/ディレクトリの情報を取得
-     */
-    stat: async (path: string): Promise<any> => {
-      try {
-        const { relativePath } = normalizeModulePath(path);
-
-        // キャッシュにあればファイルとして返す
-        if (memoryCache.has(relativePath)) {
-          const content = memoryCache.get(relativePath)!;
-          return {
-            isFile: () => true,
-            isDirectory: () => false,
-            size: content.length,
-            mtime: new Date(),
-            ctime: new Date(),
-          };
-        }
-
-        const file = await fileRepository.getFileByPath(projectId, relativePath);
-        if (!file) throw new Error(`File not found: ${path}`);
-        // 疑似的なstat情報を返す
-        return {
-          isFile: () => file.type === 'file',
-          isDirectory: () => file.type === 'folder',
-          size: file.content ? file.content.length : 0,
-          mtime: file.updatedAt,
-          ctime: file.createdAt,
-        };
-      } catch (error) {
-        throw new Error(`ファイル情報の取得に失敗しました: ${path}`);
+    unlinkSync: (path: string): void => {
+      const { relativePath } = normalizeModulePath(path);
+      const mount = mountRouter.resolve(relativePath);
+      if (!mount.hasFile(relativePath)) {
+        throw createFsError('ENOENT', 'unlink', path);
       }
+      const unlinkTask = fsModule.unlink(path);
+      if (isPromiseLike(unlinkTask)) {
+        unlinkTask.catch((err: unknown) => console.error(err));
+      }
+    },
+
+    rmSync: (path: string, options?: any): void => {
+      const { relativePath } = normalizeModulePath(path);
+      const mount = mountRouter.resolve(relativePath);
+      if (mount.hasFile(relativePath)) {
+        const deleteTask = mount.deleteFile(relativePath);
+        deleteTask.catch((err: unknown) => console.error(err));
+        return;
+      }
+
+      if (mount.hasDir(relativePath)) {
+        const deleteTask = mount.rmdir(relativePath, options?.recursive || false);
+        deleteTask.catch((err: unknown) => console.error(err));
+        return;
+      }
+
+      if (!options?.force) {
+        throw createFsError('ENOENT', 'rm', path);
+      }
+    },
+
+    constants: {
+      F_OK: 0,
+      R_OK: 4,
+      W_OK: 2,
+      X_OK: 1,
     },
   };
 
-  // fs.promisesプロパティを追加
-  (fsModule as any).promises = fsModule;
+  (fsModule as any).promises = {
+    readFile: (path: string, options?: any) => fsModule.readFile(path, options),
+    writeFile: (path: string, data: string | Uint8Array, options?: any) =>
+      fsModule.writeFile(path, data, options),
+    stat: (path: string) => fsModule.stat(path),
+    lstat: (path: string) => fsModule.lstat(path),
+    readdir: (path: string, options?: any) => fsModule.readdir(path, options),
+    mkdir: (path: string, options?: any) => fsModule.mkdir(path, options),
+    unlink: (path: string) => fsModule.unlink(path),
+    rm: async (path: string, options?: any) => {
+      const { relativePath } = normalizeModulePath(path);
+      const mount = mountRouter.resolve(relativePath);
+      if (mount.hasFile(relativePath)) {
+        const deleted = await mount.deleteFile(relativePath);
+        if (!deleted && !options?.force) throw createFsError('ENOENT', 'rm', path);
+        return;
+      }
+      if (mount.hasDir(relativePath)) {
+        await mount.rmdir(relativePath, options?.recursive || false);
+        return;
+      }
+      if (!options?.force) throw createFsError('ENOENT', 'rm', path);
+    },
+  };
 
   return fsModule;
 }

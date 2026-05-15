@@ -249,7 +249,8 @@ NPM Commands:
 
 Pyxis Commands:
   pyxis export --page <path>     - ページをエクスポート
-  pyxis export --indexeddb       - IndexedDBの内容をエクスポート
+  pyxis runtime-cache clear      - Node runtime の /cache を削除
+  pyxis tmp clear                - Node runtime の /tmp を削除
   pyxis debug-db                 - IndexedDB・Lightning-FSの全データを出力
   pyxis memory-clean             - 不要なデータを削除
   pyxis fs-clean                 - /projects配下を全て削除

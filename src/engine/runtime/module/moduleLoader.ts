@@ -12,63 +12,14 @@ import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUti
 import { runtimeRegistry } from '../core/RuntimeRegistry';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { createModuleNotFoundError } from '../nodejs/nodeErrors';
+import { isProcessExitSignal } from '../nodejs/processExit';
 import { transpileManager } from '../transpiler/transpileManager';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 import { fileRepository } from '@/engine/core/fileRepository';
-
-/**
- * Node.js ビルトインモジュールのリスト
- * `node:` プレフィックス付きもサポート
- */
-const NODE_BUILTIN_MODULES = [
-  'assert',
-  'buffer',
-  'child_process',
-  'cluster',
-  'console',
-  'constants',
-  'crypto',
-  'dgram',
-  'dns',
-  'domain',
-  'events',
-  'fs',
-  'fs/promises',
-  'http',
-  'https',
-  'module',
-  'net',
-  'os',
-  'path',
-  'process',
-  'punycode',
-  'querystring',
-  'readline',
-  'repl',
-  'stream',
-  'string_decoder',
-  'sys',
-  'timers',
-  'tls',
-  'tty',
-  'url',
-  'util',
-  'v8',
-  'vm',
-  'zlib',
-];
-
-/**
- * ビルトインモジュールかどうかを判定
- * `node:` プレフィックス付きモジュールもサポート
- */
-function isBuiltInModule(moduleName: string): boolean {
-  // `node:` プレフィックスを削除して正規化
-  const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
-  return NODE_BUILTIN_MODULES.includes(normalizedName);
-}
+import { isBuiltInModule } from './builtinModules';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -78,6 +29,8 @@ interface ModuleExecutionCache {
     exports: unknown;
     loaded: boolean;
     loading: boolean;
+    code?: string;
+    dependencies?: string[];
   };
 }
 /**
@@ -92,6 +45,7 @@ export interface ModuleLoaderOptions {
     warn: (...args: unknown[]) => void;
   };
   builtinResolver?: (moduleName: string) => any;
+  cacheMount: RuntimeCacheMount;
 }
 
 /**
@@ -107,6 +61,8 @@ export class ModuleLoader {
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
   private moduleNameMap: Record<string, string> = {}; // モジュール名→解決済みパスのマッピング
+  private preparePromises = new Map<string, Promise<void>>();
+  private readonly maxParallelPreloads = 8;
 
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
@@ -115,7 +71,7 @@ export class ModuleLoader {
     this.debugConsole = options.debugConsole;
     this.builtinResolver = options.builtinResolver;
 
-    this.cache = new ModuleCache(this.projectId, this.projectName);
+    this.cache = new ModuleCache(this.projectId, this.projectName, options.cacheMount);
     this.resolver = new ModuleResolver(this.projectId, this.projectName);
   }
 
@@ -140,101 +96,164 @@ export class ModuleLoader {
   async load(moduleName: string, currentFilePath: string): Promise<unknown> {
     runtimeInfo('📦 Loading module:', moduleName, 'from', currentFilePath);
 
-    // モジュールパスを解決
+    const prepared = await this.prepareModule(moduleName, currentFilePath);
+    if (prepared.__isBuiltIn) {
+      runtimeInfo('✅ Built-in module:', moduleName);
+      return prepared;
+    }
+
+    try {
+      const moduleExports = this.executePreparedModule(prepared.resolvedPath);
+      runtimeInfo('✅ Module loaded:', prepared.resolvedPath);
+      return moduleExports;
+    } catch (error) {
+      delete this.executionCache[prepared.resolvedPath];
+      runtimeError('❌ Failed to load module:', prepared.resolvedPath, error);
+      throw error;
+    }
+  }
+
+  private async prepareModule(
+    moduleName: string,
+    currentFilePath: string,
+    prepareStack: Set<string> = new Set()
+  ): Promise<
+    { __isBuiltIn: true; moduleName: string } | { __isBuiltIn: false; resolvedPath: string }
+  > {
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
     if (!resolved) {
       throw createModuleNotFoundError(moduleName, currentFilePath);
     }
 
-    // ビルトインモジュールは特殊なマーカーを返す
     if (resolved.isBuiltIn) {
-      runtimeInfo('✅ Built-in module:', moduleName);
       return { __isBuiltIn: true, moduleName };
     }
 
     const resolvedPath = resolved.path;
-
-    // 実行キャッシュをチェック（循環参照対策）
-    if (this.executionCache[resolvedPath]) {
-      const cached = this.executionCache[resolvedPath];
-      if (cached.loaded) {
-        runtimeInfo('📦 Using execution cache:', resolvedPath);
-        return cached.exports;
-      }
-      if (cached.loading) {
-        runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
-        return cached.exports; // 部分的なexportsを返す
-      }
+    const existing = this.executionCache[resolvedPath];
+    if (existing?.code) {
+      return { __isBuiltIn: false, resolvedPath };
     }
 
-    // 実行キャッシュを初期化
-    this.executionCache[resolvedPath] = {
-      exports: {},
-      loaded: false,
-      loading: true,
-    };
+    if (prepareStack.has(resolvedPath)) {
+      runtimeWarn('⚠️ Circular dependency detected during preload:', resolvedPath);
+      return { __isBuiltIn: false, resolvedPath };
+    }
+
+    const pendingPrepare = this.preparePromises.get(resolvedPath);
+    if (pendingPrepare) {
+      await pendingPrepare;
+      return { __isBuiltIn: false, resolvedPath };
+    }
+
+    const preparePromise = this.prepareResolvedModule(resolvedPath, moduleName, prepareStack);
+    this.preparePromises.set(resolvedPath, preparePromise);
 
     try {
-      // ファイルを読み込み
-      const fileContent = await this.readFile(resolvedPath);
-      if (fileContent === null) {
-        const err = new Error(`ENOENT: no such file or directory, open '${resolvedPath}'`);
-        err.name = 'Error [ERR_FS_ENOENT]';
-        throw err;
-      }
+      await preparePromise;
+    } finally {
+      this.preparePromises.delete(resolvedPath);
+    }
 
-      // トランスパイル済みコードと依存関係を取得（キャッシュ優先）
-      const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-      const { code, dependencies } = transpileResult;
+    return { __isBuiltIn: false, resolvedPath };
+  }
 
-      // デバッグ: codeとdependenciesの型を確認
-      runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
+  private async prepareResolvedModule(
+    resolvedPath: string,
+    moduleName: string,
+    prepareStack: Set<string>
+  ): Promise<void> {
+    const existing = this.executionCache[resolvedPath];
+    if (existing?.code) {
+      return;
+    }
 
-      // 依存関係を再帰的にロード（ビルトインモジュールは除く）
-      if (dependencies && dependencies.length > 0) {
-        runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
-        for (const dep of dependencies) {
+    if (!existing) {
+      this.executionCache[resolvedPath] = {
+        exports: {},
+        loaded: false,
+        loading: false,
+      };
+    }
+
+    const fileContent = await this.readFile(resolvedPath);
+    if (fileContent === null) {
+      const err = new Error(`ENOENT: no such file or directory, open '${resolvedPath}'`);
+      err.name = 'Error [ERR_FS_ENOENT]';
+      throw err;
+    }
+
+    const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
+    const { code, dependencies } = transpileResult;
+
+    runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
+
+    this.executionCache[resolvedPath].code = code;
+    this.executionCache[resolvedPath].dependencies = dependencies;
+
+    if (moduleName && !moduleName.startsWith('.') && !moduleName.startsWith('/')) {
+      this.moduleNameMap[moduleName] = resolvedPath;
+      runtimeInfo('📝 Stored module name mapping:', moduleName, '→', resolvedPath);
+    }
+
+    if (dependencies && dependencies.length > 0) {
+      runtimeInfo('📦 Preparing dependencies for', resolvedPath, ':', dependencies);
+      const nextStack = new Set(prepareStack);
+      nextStack.add(resolvedPath);
+      await this.runWithConcurrency(
+        Array.from(new Set(dependencies)),
+        this.maxParallelPreloads,
+        async dep => {
           try {
-            // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
             if (isBuiltInModule(dep)) {
-              continue;
+              return;
             }
-
-            // 依存関係を再帰的にロード
-            await this.load(dep, resolvedPath);
+            if (this.isOptionalDependency(dep, resolvedPath)) {
+              runtimeInfo('ℹ️ Skipping optional dependency preload:', dep, 'from', resolvedPath);
+              return;
+            }
+            await this.prepareModule(dep, resolvedPath, nextStack);
           } catch (error) {
+            if (isProcessExitSignal(error)) {
+              throw error;
+            }
             runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
           }
         }
-      }
+      );
+    }
+  }
 
-      // すべての依存関係がロードされた後、モジュールを実行（同期実行）
-      runtimeInfo('📝 About to execute module with code type:', typeof code);
-      const moduleExports = this.executeModule(code, resolvedPath);
+  private executePreparedModule(resolvedPath: string): unknown {
+    const cached = this.executionCache[resolvedPath];
+    if (!cached) {
+      throw new Error(`Module not prepared: ${resolvedPath}`);
+    }
 
-      // 実行キャッシュを更新
-      this.executionCache[resolvedPath].exports = moduleExports;
-      this.executionCache[resolvedPath].loaded = true;
-      this.executionCache[resolvedPath].loading = false;
+    if (cached.loaded) {
+      runtimeInfo('📦 Using execution cache:', resolvedPath);
+      return cached.exports;
+    }
 
-      // モジュール名→パスのマッピングを保存（require時の解決用）
-      // パッケージ名（node_modulesから）の場合のみマッピングを保存
-      if (
-        !resolved.isBuiltIn &&
-        moduleName &&
-        !moduleName.startsWith('.') &&
-        !moduleName.startsWith('/')
-      ) {
-        this.moduleNameMap[moduleName] = resolvedPath;
-        runtimeInfo('📝 Stored module name mapping:', moduleName, '→', resolvedPath);
-      }
+    if (cached.loading) {
+      runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
+      return cached.exports;
+    }
 
-      runtimeInfo('✅ Module loaded:', resolvedPath);
+    if (!cached.code) {
+      throw new Error(`Prepared module is missing transpiled code: ${resolvedPath}`);
+    }
+
+    cached.loading = true;
+    try {
+      runtimeInfo('📝 About to execute module with code type:', typeof cached.code);
+      const moduleExports = this.executeModule(cached.code, resolvedPath);
+      cached.exports = moduleExports;
+      cached.loaded = true;
+      cached.loading = false;
       return moduleExports;
     } catch (error) {
-      // エラー時はキャッシュをクリア
-      delete this.executionCache[resolvedPath];
-      runtimeError('❌ Failed to load module:', resolvedPath, error);
+      cached.loading = false;
       throw error;
     }
   }
@@ -262,7 +281,14 @@ export class ModuleLoader {
         'deps:',
         cached.deps
       );
-      return { code: cached.code, dependencies: cached.deps || [] };
+      const dependencies = Array.from(
+        new Set([
+          ...(cached.deps || []),
+          ...this.extractRequireDeps(cached.code),
+          ...(await this.extractTemplateRequireDeps(filePath, cached.code)),
+        ])
+      );
+      return { code: cached.code, dependencies };
     }
 
     // JSONファイルの場合はそのままJSオブジェクトとしてエクスポート
@@ -273,10 +299,38 @@ export class ModuleLoader {
       };
     }
 
+    // node_modules 配下の .mjs は install 時に esbuild で CJS 変換済みのはず。
+    // isESModule() はテンプレートリテラル等で誤検知するため、node_modules では無条件にスキップ。
+    // node_modules 外の .mjs (ユーザーコード) のみ isESModule で判定する。
+    if (filePath.endsWith('.mjs')) {
+      const isNodeModule = filePath.includes('/node_modules/');
+      if (isNodeModule || !this.isESModule(content)) {
+        const deps = [
+          ...this.extractRequireDeps(content),
+          ...(await this.extractTemplateRequireDeps(filePath, content)),
+        ];
+        await this.cache.set(filePath, {
+          originalPath: filePath,
+          contentHash: version,
+          code: content,
+          deps,
+          mtime: Date.now(),
+          size: content.length,
+        });
+        return { code: content, dependencies: deps };
+      }
+    }
+
     // トランスパイルが必要か判定
     const needsTranspile = this.needsTranspile(filePath, content);
     if (!needsTranspile) {
-      return { code: content, dependencies: [] };
+      return {
+        code: content,
+        dependencies: [
+          ...this.extractRequireDeps(content),
+          ...(await this.extractTemplateRequireDeps(filePath, content)),
+        ],
+      };
     }
 
     runtimeInfo('🔄 Transpiling module (extracting dependencies):', filePath);
@@ -299,7 +353,10 @@ export class ModuleLoader {
           isTypeScript,
         });
 
-        const deps = result.dependencies || [];
+        const deps = [
+          ...(result.dependencies || []),
+          ...(await this.extractTemplateRequireDeps(filePath, result.code)),
+        ];
         await this.cache.set(filePath, {
           originalPath: filePath,
           contentHash: version,
@@ -317,7 +374,7 @@ export class ModuleLoader {
       }
     }
 
-    // 普通のJSの場合はnormalizeCjsEsmのみ
+    // 普通のJS/ESMの場合はesbuildでCJSへ変換
     const result = await transpileManager.transpile({
       code: content,
       filePath,
@@ -326,19 +383,24 @@ export class ModuleLoader {
       isJSX: false,
     });
 
+    const dependencies = [
+      ...(result.dependencies || []),
+      ...(await this.extractTemplateRequireDeps(filePath, result.code)),
+    ];
+
     // キャッシュに保存
     await this.cache.set(filePath, {
       originalPath: filePath,
       contentHash: version,
       code: result.code,
       sourceMap: result.sourceMap,
-      deps: result.dependencies,
+      deps: dependencies,
       mtime: Date.now(),
       size: result.code.length,
     });
 
     // transpileManager.transpile は既に { code: string, dependencies: string[] } を返すので、そのまま返す
-    return result;
+    return { ...result, dependencies };
   }
 
   /**
@@ -401,24 +463,53 @@ export class ModuleLoader {
     const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
     const { dependencies } = transpileResult;
 
-    // 依存関係を再帰的にロード（これらは実行される）
+    // 依存関係を再帰的に準備（実行は require 時まで遅延）
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
-      for (const dep of dependencies) {
-        try {
-          // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
-          if (isBuiltInModule(dep)) {
-            continue;
-          }
+      const prepareStack = new Set<string>([resolvedPath]);
+      await this.runWithConcurrency(
+        Array.from(new Set(dependencies)),
+        this.maxParallelPreloads,
+        async dep => {
+          try {
+            // ビルトインモジュールはスキップ（node: プレフィックス付きも含む）
+            if (isBuiltInModule(dep)) {
+              return;
+            }
+            if (this.isOptionalDependency(dep, resolvedPath)) {
+              runtimeInfo('ℹ️ Skipping optional dependency preload:', dep, 'from', resolvedPath);
+              return;
+            }
 
-          await this.load(dep, resolvedPath);
-        } catch (error) {
-          runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+            await this.prepareModule(dep, resolvedPath, prepareStack);
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              throw error;
+            }
+            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+          }
         }
-      }
+      );
     }
 
     runtimeInfo('✅ Dependencies pre-loaded for:', resolvedPath);
+  }
+
+  private async runWithConcurrency<T>(
+    items: T[],
+    limit: number,
+    worker: (item: T) => Promise<void>
+  ): Promise<void> {
+    const queue = [...items];
+    const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item === undefined) continue;
+        await worker(item);
+      }
+    });
+
+    await Promise.all(workers);
   }
 
   /**
@@ -503,18 +594,14 @@ export class ModuleLoader {
       if (resolvedPath) {
         // Try exact path first
         if (this.executionCache[resolvedPath]) {
-          const cached = this.executionCache[resolvedPath];
-          if (cached.loaded) return cached.exports;
-          if (cached.loading) {
-            runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
-            return cached.exports;
-          }
+          return this.executePreparedModule(resolvedPath);
         }
 
         // Try with common extensions
         const extensions = [
           '',
           '.js',
+          '.cjs',
           '.mjs',
           '.ts',
           '.mts',
@@ -522,27 +609,24 @@ export class ModuleLoader {
           '.jsx',
           '.json',
           '/index.js',
+          '/index.cjs',
           '/index.ts',
         ];
         for (const ext of extensions) {
           const pathWithExt = resolvedPath + ext;
           if (this.executionCache[pathWithExt]) {
-            const cached = this.executionCache[pathWithExt];
-            if (cached.loaded) return cached.exports;
-            if (cached.loading) {
-              runtimeWarn('⚠️ Circular dependency detected:', pathWithExt);
-              return cached.exports;
-            }
+            return this.executePreparedModule(pathWithExt);
           }
         }
       }
 
-      // Module not found in cache - create Node.js style error
-      runtimeError(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
-      if (resolvedPath) {
-        runtimeError(`  Resolved path: ${resolvedPath}`);
+      if (!this.isOptionalDependency(moduleName, filePath)) {
+        runtimeWarn(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
+        if (resolvedPath) {
+          runtimeWarn(`  Resolved path: ${resolvedPath}`);
+        }
+        runtimeWarn(`  Required from: ${filePath}`);
       }
-      runtimeError(`  Required from: ${filePath}`);
       throw createModuleNotFoundError(moduleName, filePath);
     };
 
@@ -607,11 +691,23 @@ export class ModuleLoader {
       // If we can't modify navigator, continue anyway
     }
 
-    // コードをラップして実行。console を受け取るようにして、モジュール内の
-    // console.log 呼び出しがここで用意した sandboxConsole を使うようにする。
-    // 同期実行のため async は削除
+    // コードをラップして実行。
+    // パラメータ名を __injected_* にすることで、モジュール内の
+    // `const process = ...` や `var Buffer = ...` との名前衝突を防ぐ。
+    // asyncLoad は動的 import() のフォールバックに使用（pre-load 外のモジュール対応）
+    const asyncLoadFn = this.asyncLoad.bind(this);
     const wrappedCode = `
-      (function(module, exports, require, __filename, __dirname, console, process, Buffer, setTimeout, setInterval, clearTimeout, clearInterval, global) {
+      (function(module, exports, require, __filename, __dirname, console, __injected_process, __injected_Buffer, __injected_setTimeout, __injected_setInterval, __injected_clearTimeout, __injected_clearInterval, __injected_global, __injected_asyncLoad) {
+        var process = __injected_process;
+        var Buffer = __injected_Buffer;
+        var setTimeout = __injected_setTimeout;
+        var setInterval = __injected_setInterval;
+        var clearTimeout = __injected_clearTimeout;
+        var clearInterval = __injected_clearInterval;
+        var global = __injected_global;
+        var define = undefined;
+        var window = undefined;
+        var __pyxisImport = function(s) { return __injected_asyncLoad(s, __filename); };
         ${code}
         return module.exports;
       })
@@ -619,7 +715,6 @@ export class ModuleLoader {
 
     try {
       const executeFunc = eval(wrappedCode);
-      // 同期実行
       const result = executeFunc(
         module,
         exports,
@@ -633,32 +728,29 @@ export class ModuleLoader {
         setInterval,
         clearTimeout,
         clearInterval,
-        global
+        global,
+        asyncLoadFn
       );
       return result;
     } catch (error) {
+      if (isProcessExitSignal(error)) {
+        throw error;
+      }
       // ERR_MODULE_NOT_FOUND は本当にモジュールが見つからないエラーなので再スローする
       // これを飲み込むと require が失敗しても空 exports で動いてしまい、
       // テストが偽の成功になる
       if (error instanceof Error && error.name === 'Error [ERR_MODULE_NOT_FOUND]') {
-        this.warn('❌ Module not found during execution:', filePath);
-        this.warn('Error details:', error.message);
+        runtimeWarn('❌ Module not found during execution:', filePath);
+        runtimeWarn('Error details:', error.message);
         throw error;
       }
 
-      // Minified ESM code (especially from Prettier) may have syntax errors
-      // that are difficult to normalize via regex-based transformations.
-      // Log the error but don't crash - allow other modules to continue.
-      this.warn('⚠️  Module execution failed (non-fatal):', filePath);
-      this.warn(
+      runtimeWarn('❌ Module execution failed:', filePath);
+      runtimeWarn(
         'Error details:',
         error instanceof Error ? `${error.name}: ${error.message}` : String(JSON.stringify(error))
       );
-
-      // Return empty exports to allow dependent modules to at least load
-      // This is especially useful for Prettier where some plugins may fail
-      // but the core functionality might still work
-      return module.exports || {};
+      throw error;
     } finally {
       // Restore original navigator
       try {
@@ -676,6 +768,96 @@ export class ModuleLoader {
   /**
    * トランスパイルが必要か判定
    */
+  /**
+   * CJSコードからrequire()の依存関係を抽出（シンプルregex版）
+   * esbuild変換済みCJSコードにのみ使用する。
+   */
+  private extractRequireDeps(content: string): string[] {
+    const deps = new Set<string>();
+    const extractFrom = (re: RegExp) => {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(content)) !== null) {
+        const dep = m[2];
+        if (/[{}<>]/.test(dep)) continue;
+        deps.add(dep);
+      }
+    };
+    extractFrom(/\brequire\s*\(\s*(['"])([^'"]+)\1\s*\)/g);
+    extractFrom(/\b__pyxisImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g);
+    return Array.from(deps);
+  }
+
+  private async extractTemplateRequireDeps(filePath: string, content: string): Promise<string[]> {
+    const deps = new Set<string>();
+    const patterns = [
+      /\brequire\s*\(\s*`([^`$]+)\$\{[^`]+}([^`]*)`\s*\)/g,
+      /\b__pyxisImport\s*\(\s*`([^`$]+)\$\{[^`]+}([^`]*)`\s*\)/g,
+    ];
+
+    for (const re of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(content)) !== null) {
+        const [, prefix, suffix] = match;
+        if (!prefix || prefix.includes('${') || suffix.includes('${')) continue;
+        if (!prefix.startsWith('./') && !prefix.startsWith('../')) continue;
+
+        const slashIndex = prefix.lastIndexOf('/');
+        if (slashIndex < 0) continue;
+
+        const dirPart = prefix.slice(0, slashIndex + 1);
+        const filePrefix = prefix.slice(slashIndex + 1);
+        const currentDir = this.dirname(filePath);
+        const fsDir = this.resolveRelativePath(currentDir, dirPart);
+        const appDir = fsPathToAppPath(fsDir, this.projectName).replace(/\/+$/, '');
+
+        try {
+          const files = await fileRepository.getFilesByPrefix(this.projectId, `${appDir}/`);
+          for (const file of files) {
+            if (file.type !== 'file') continue;
+            const name = file.path.slice(appDir.length + 1);
+            if (name.includes('/')) continue;
+            if (!name.startsWith(filePrefix) || !name.endsWith(suffix)) continue;
+            deps.add(`${dirPart}${name}`);
+          }
+        } catch (error) {
+          runtimeWarn('⚠️ Failed to expand template require deps:', filePath, error);
+        }
+      }
+    }
+
+    return Array.from(deps);
+  }
+
+  private resolveRelativePath(basePath: string, relativePath: string): string {
+    const parts = basePath.split('/').filter(Boolean);
+    const relParts = relativePath.split('/').filter(Boolean);
+
+    for (const part of relParts) {
+      if (part === '..') parts.pop();
+      else if (part !== '.') parts.push(part);
+    }
+
+    return `/${parts.join('/')}`;
+  }
+
+  private isOptionalDependency(moduleName: string, fromPath: string): boolean {
+    if (
+      moduleName === 'supports-color' &&
+      fromPath.includes('/node_modules/debug/src/node.js')
+    ) {
+      return true;
+    }
+
+    if (
+      (moduleName === 'jiti' || moduleName === 'jiti/package.json') &&
+      fromPath.includes('/node_modules/eslint/lib/config/config-loader.js')
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   private needsTranspile(filePath: string, content: string): boolean {
     // TypeScriptファイル
     if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
@@ -692,13 +874,22 @@ export class ModuleLoader {
       return true;
     }
 
-    // ES Module構文を含む
-    if (this.isESModule(content)) {
+    // dynamic import は eval 実行系でそのまま扱えないため変換する
+    if (/\bimport\s*\(/.test(content)) {
       return true;
     }
 
-    // require()を含む（非同期化が必要）
-    if (/require\s*\(/.test(content)) {
+    // prettier などの dynamic import hack も変換対象
+    if (
+      /new\s+Function\s*\(\s*(['"])module\1\s*,\s*(['"])return\s+import\(module\)\2\s*\)/.test(
+        content
+      )
+    ) {
+      return true;
+    }
+
+    // ES Module構文を含む
+    if (this.isESModule(content)) {
       return true;
     }
 
@@ -760,6 +951,7 @@ export class ModuleLoader {
     this.cache.clear();
     this.executionCache = {};
     this.moduleNameMap = {};
+    this.preparePromises.clear();
   }
 
   /**
@@ -775,10 +967,44 @@ export class ModuleLoader {
    * NodeRuntime からも使用される
    */
   getExports(resolvedPath: string): any {
-    if (this.executionCache[resolvedPath]?.loaded) {
-      return this.executionCache[resolvedPath].exports;
+    if (this.executionCache[resolvedPath]) {
+      return this.executePreparedModule(resolvedPath);
     }
     return null;
+  }
+
+  /**
+   * 非同期でモジュールをロード（動的 import() 変換用）
+   * pre-load 済みでない場合は IndexedDB から非同期ロードする
+   */
+  async asyncLoad(moduleName: string, currentFilePath: string): Promise<unknown> {
+    if (isBuiltInModule(moduleName)) {
+      if (this.builtinResolver) {
+        const result = this.builtinResolver(moduleName);
+        if (result !== null) return result;
+      }
+      return null;
+    }
+
+    // まずsync resolveで済む場合（execution cache済み）
+    const resolved = await this.resolver.resolve(moduleName, currentFilePath);
+    if (!resolved) throw createModuleNotFoundError(moduleName, currentFilePath);
+    if (resolved.isBuiltIn) {
+      return this.builtinResolver?.(moduleName) ?? null;
+    }
+
+    const resolvedPath = resolved.path;
+    if (this.executionCache[resolvedPath]?.code) {
+      return this.executePreparedModule(resolvedPath);
+    }
+
+    // キャッシュにない → IndexedDB から動的ロード
+    runtimeInfo('🔄 Async loading module (not pre-loaded):', resolvedPath);
+    const prepared = await this.prepareModule(moduleName, currentFilePath);
+    if (prepared.__isBuiltIn) {
+      return this.builtinResolver?.(moduleName) ?? null;
+    }
+    return this.executePreparedModule(prepared.resolvedPath);
   }
 
   /**

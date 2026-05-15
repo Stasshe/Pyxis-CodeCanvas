@@ -59,7 +59,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       await runtime.waitForEventLoop();
 
       return {
-        exitCode: 0,
+        exitCode: runtime.getExitCode(),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

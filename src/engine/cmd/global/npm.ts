@@ -42,8 +42,12 @@ export class NpmCommands {
     this.terminalUI = ui;
   }
 
+  private createInstaller(dedupe = false): NpmInstall {
+    return new NpmInstall(this.projectId, dedupe);
+  }
+
   async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId);
+    const npmInstall = this.createInstaller();
     npmInstall.startBatchProcessing();
     try {
       await npmInstall.installWithDependencies(packageName, version);
@@ -53,7 +57,7 @@ export class NpmCommands {
   }
 
   async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
+    const npmInstall = this.createInstaller(true);
     await npmInstall.removeDirectory(dirPath);
   }
 
@@ -76,20 +80,7 @@ export class NpmCommands {
         packageJson = JSON.parse(packageFile.content);
       } else {
         // package.jsonが存在しない場合は作成
-        packageJson = {
-          name: this.projectName,
-          version: '1.0.0',
-          description: '',
-          main: 'index.js',
-          scripts: {
-            test: 'echo "Error: no test specified" && exit 1',
-          },
-          keywords: [],
-          author: '',
-          license: 'ISC',
-          dependencies: {},
-          devDependencies: {},
-        };
+        packageJson = this.defaultPackageJson();
         await fileRepository.createFile(
           this.projectId,
           '/package.json',
@@ -113,7 +104,7 @@ export class NpmCommands {
         let installedCount = 0;
         const failedPackages: string[] = [];
 
-        const npmInstall = new NpmInstall(this.projectName, this.projectId);
+        const npmInstall = this.createInstaller();
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -135,22 +126,21 @@ export class NpmCommands {
           for (let i = 0; i < packageNames.length; i++) {
             const pkg = packageNames[i];
             const versionSpec = allDependencies[pkg];
-            const version = versionSpec.replace(/^[\^~]/, '');
 
             try {
-              await npmInstall.installWithDependencies(pkg, version, { isDirect: true });
+              await npmInstall.installWithDependencies(pkg, versionSpec, { isDirect: true });
               installedCount++;
             } catch (error) {
-              failedPackages.push(`${pkg}@${version}: ${(error as Error).message}`);
+              failedPackages.push(`${pkg}@${versionSpec}: ${(error as Error).message}`);
             }
           }
         } finally {
           await npmInstall.finishBatchProcessing();
           // ensure .bin entries for all installed packages
           for (const pkg of packageNames) {
-            try {
-              await npmInstall.ensureBinsForPackage(pkg).catch(() => {});
-            } catch {}
+            await npmInstall.ensureBinsForPackage(pkg).catch(err =>
+              console.warn(`[npm] ensureBins failed for ${pkg}:`, err)
+            );
           }
         }
 
@@ -211,27 +201,13 @@ export class NpmCommands {
           'file'
         );
 
-        // 実際にnode_modulesにインストールされているかチェック（プレフィックス検索）
-        const nodeFiles = await fileRepository.getFilesByPrefix(
+        const nodeFile = await fileRepository.getFileByPath(
           this.projectId,
-          `/node_modules/${packageName}`
+          `/node_modules/${packageName}/package.json`
         );
-        const isActuallyInstalled = nodeFiles.length > 0;
-
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-        if (isInPackageJson && isActuallyInstalled) {
-          if (ui) {
-            await ui.spinner.stop();
-          }
-          try {
-            const npmInstall = new NpmInstall(this.projectName, this.projectId);
-            // ensure .bin entries exist for already-installed package
-            // await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-          } catch {}
-          return `up to date, audited 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        }
-        const npmInstall = new NpmInstall(this.projectName, this.projectId);
+        const isActuallyInstalled = !!nodeFile;
+        const wasAlreadyInstalled = isInPackageJson && isActuallyInstalled;
+        const npmInstall = this.createInstaller();
 
         // Set up progress callback to log all packages (direct + transitive)
         if (ui) {
@@ -245,9 +221,9 @@ export class NpmCommands {
           await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
         } finally {
           await npmInstall.finishBatchProcessing();
-          try {
-            await npmInstall.ensureBinsForPackage(packageName).catch(() => {});
-          } catch {}
+          await npmInstall.ensureBinsForPackage(packageName).catch(err =>
+            console.warn(`[npm] ensureBins failed for ${packageName}:`, err)
+          );
         }
 
         // Stop spinner
@@ -256,6 +232,9 @@ export class NpmCommands {
         }
 
         const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        if (wasAlreadyInstalled) {
+          return `up to date, audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
+        }
         return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
       } catch (error) {
         if (ui) {
@@ -323,7 +302,7 @@ export class NpmCommands {
       );
 
       // 依存関係を含めてパッケージを削除
-      const npmInstall = new NpmInstall(this.projectName, this.projectId, true);
+      const npmInstall = this.createInstaller(true);
       try {
         const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
         const totalRemoved = removedPackages.length;
@@ -402,20 +381,7 @@ export class NpmCommands {
       if (packageFile && !force) {
         return `package.json already exists. Use 'npm init --force' to overwrite.`;
       }
-      const packageJson = {
-        name: this.projectName,
-        version: '1.0.0',
-        description: '',
-        main: 'index.js',
-        scripts: {
-          test: 'echo "Error: no test specified" && exit 1',
-        },
-        keywords: [],
-        author: '',
-        license: 'ISC',
-        dependencies: {},
-        devDependencies: {},
-      };
+      const packageJson = this.defaultPackageJson();
       await fileRepository.createFile(
         this.projectId,
         '/package.json',
@@ -483,10 +449,26 @@ export class NpmCommands {
     }
   }
 
+  private defaultPackageJson() {
+    return {
+      name: this.projectName,
+      version: '1.0.0',
+      description: '',
+      main: 'index.js',
+      scripts: {
+        test: 'echo "Error: no test specified" && exit 1',
+      },
+      keywords: [],
+      author: '',
+      license: 'ISC',
+      dependencies: {},
+      devDependencies: {},
+    };
+  }
+
   // 実際のnpmレジストリからパッケージ情報を取得
   private async fetchPackageInfo(packageName: string): Promise<any> {
     try {
-      console.log('fetching package info for:', packageName);
       // タイムアウト付きでfetch
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
@@ -509,8 +491,6 @@ export class NpmCommands {
 
       const data = await response.json();
 
-      console.dir(data, { depth: null, colors: true });
-
       // 必要なデータが存在するかチェック
       if (!data.name || !data['dist-tags'] || !data['dist-tags'].latest) {
         throw new Error(`Invalid package data for '${packageName}'`);
@@ -525,14 +505,9 @@ export class NpmCommands {
 
       // メインファイルパスを正規化
       let mainFile = versionData.main || 'index.js';
-      console.log(`[npm.fetchPackageInfo] Original main file: "${mainFile}"`);
-
-      // より厳密な正規化
-      mainFile = mainFile.replace(/^\.+\/+/g, ''); // ./や../を削除
-      mainFile = mainFile.replace(/\/+/g, '/'); // 連続するスラッシュを1つにまとめる
-      mainFile = mainFile.replace(/^\/+/, ''); // 先頭のスラッシュを削除
-
-      console.log(`[npm.fetchPackageInfo] Normalized main file: "${mainFile}"`);
+      mainFile = mainFile.replace(/^\.+\/+/g, '');
+      mainFile = mainFile.replace(/\/+/g, '/');
+      mainFile = mainFile.replace(/^\/+/, '');
 
       return {
         name: data.name,
@@ -551,8 +526,4 @@ export class NpmCommands {
     }
   }
 
-  // プロジェクトディレクトリからの相対パスを取得（現状未使用）
-  private getRelativePathFromProject(fullPath: string): string {
-    return fullPath;
-  }
 }

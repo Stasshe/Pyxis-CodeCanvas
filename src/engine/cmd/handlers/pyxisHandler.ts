@@ -8,6 +8,7 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
 import { exportPage } from '@/engine/in-ex/exportPage';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
 import { STORES, storageService } from '@/engine/storage';
 import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
 
@@ -21,7 +22,7 @@ export async function handlePyxisCommand(
   // Obtain registry instances
   const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(projectName, projectId);
   const gitInst: GitCommands = terminalCommandRegistry.getGitCommands(projectName, projectId);
-  const npmInst: NpmCommands = terminalCommandRegistry.getNpmCommands(
+  const npmInst: NpmCommands = await terminalCommandRegistry.getNpmCommands(
     projectName,
     projectId,
     `/projects/${projectName}`
@@ -532,10 +533,7 @@ export async function handlePyxisCommand(
       case 'export':
       case 'export-page':
       case 'export--page':
-      case 'export---page':
-      case 'export-indexeddb':
-      case 'export--indexeddb':
-      case 'export---indexeddb': {
+      case 'export---page': {
         const cmdLower = cmd.toLowerCase();
         const localArgs = [...args];
 
@@ -548,16 +546,6 @@ export async function handlePyxisCommand(
         ) {
           localArgs.unshift('--page');
         }
-        if (
-          cmdLower.includes('indexedb') &&
-          !(
-            localArgs[0]?.toLowerCase().startsWith('--indexeddb') ||
-            localArgs[0]?.toLowerCase() === 'indexedb'
-          )
-        ) {
-          localArgs.unshift('--indexeddb');
-        }
-
         if (localArgs[0]?.toLowerCase() === '--page' && localArgs[1]) {
           const cwd = unixInst ? await unixInst.pwd() : '';
           const targetPath = localArgs[1].startsWith('/') ? localArgs[1] : `${cwd}/${localArgs[1]}`;
@@ -567,19 +555,35 @@ export async function handlePyxisCommand(
           } else {
             await writeOutput('無効なパスが指定されました。');
           }
-        } else if (localArgs[0]?.toLowerCase() === '--indexeddb') {
-          const win = window.open('about:blank', '_blank');
-          if (!win) {
-            await writeOutput('about:blankの新規タブを開けませんでした。');
-            break;
-          }
-          const mod = await import('@/engine/in-ex/exportIndexeddb');
-          mod.exportIndexeddbHtmlWithWindow(writeOutput, win);
         } else {
-          await writeOutput(
-            'export: サポートされているのは "export --page <path>" または "export --indexeddb" のみです'
-          );
+          await writeOutput('export: サポートされているのは "export --page <path>" のみです');
         }
+        break;
+      }
+
+      case 'runtime-cache-clear':
+      case 'runtime-cache':
+      case 'cache-clear':
+      case 'cache': {
+        if ((cmd === 'runtime-cache' || cmd === 'cache') && args[0] !== 'clear') {
+          await writeOutput('Usage: pyxis runtime-cache clear');
+          break;
+        }
+
+        await runtimeStorageRegistry.clearRuntimeCache(projectId, projectName);
+        await writeOutput('runtime-cache: /cache を削除しました');
+        break;
+      }
+
+      case 'tmp-clear':
+      case 'tmp': {
+        if (cmd === 'tmp' && args[0] !== 'clear') {
+          await writeOutput('Usage: pyxis tmp clear');
+          break;
+        }
+
+        runtimeStorageRegistry.clearTmp(projectId, projectName);
+        await writeOutput('tmp: /tmp を削除しました');
         break;
       }
 
@@ -695,62 +699,6 @@ export async function handlePyxisCommand(
         }
         break;
 
-      case 'storage-get':
-      case 'storage get':
-        try {
-          if (args.length < 2) {
-            await writeOutput('Usage: storage-get <store-name> <entry-id>');
-          } else {
-            const storeName = args[0];
-            const entryId = args[1];
-            const validStores = Object.values(STORES);
-
-            if (!validStores.includes(storeName as any)) {
-              await writeOutput(
-                `storage-get: 無効なストア名です。有効なストア: ${validStores.join(', ')}`
-              );
-              break;
-            }
-
-            const data = await storageService.get(storeName as any, entryId);
-
-            if (data === null) {
-              await writeOutput(`storage-get: ${storeName}/${entryId} が見つかりませんでした`);
-            } else {
-              await writeOutput(`=== ${storeName}/${entryId} ===`);
-              const dataStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-              await writeOutput(dataStr);
-            }
-          }
-        } catch (e) {
-          await writeOutput(`storage-get: エラー: ${(e as Error).message}`);
-        }
-        break;
-
-      case 'storage-delete':
-      case 'storage delete':
-        try {
-          if (args.length < 2) {
-            await writeOutput('Usage: storage-delete <store-name> <entry-id>');
-          } else {
-            const storeName = args[0];
-            const entryId = args[1];
-            const validStores = Object.values(STORES);
-
-            if (!validStores.includes(storeName as any)) {
-              await writeOutput(
-                `storage-delete: 無効なストア名です。有効なストア: ${validStores.join(', ')}`
-              );
-              break;
-            }
-
-            await storageService.delete(storeName as any, entryId);
-            await writeOutput(`storage-delete: ${storeName}/${entryId} を削除しました`);
-          }
-        } catch (e) {
-          await writeOutput(`storage-delete: エラー: ${(e as Error).message}`);
-        }
-        break;
 
       case 'storage-clean':
       case 'storage clean':
@@ -762,63 +710,7 @@ export async function handlePyxisCommand(
           await writeOutput(`storage-clean: エラー: ${(e as Error).message}`);
         }
         break;
-
-      case 'storage-stats':
-      case 'storage stats':
-        try {
-          await writeOutput('=== Pyxis Storage Statistics ===\n');
-
-          const allStores = Object.values(STORES);
-          let totalEntries = 0;
-          let totalSize = 0;
-          let expiredCount = 0;
-
-          for (const storeName of allStores) {
-            try {
-              const entries = await storageService.getAll(storeName);
-              let storeSize = 0;
-              let storeExpired = 0;
-              const now = Date.now();
-
-              for (const entry of entries) {
-                const dataSize =
-                  typeof entry.data === 'string'
-                    ? entry.data.length
-                    : JSON.stringify(entry.data).length;
-                storeSize += dataSize;
-
-                if (entry.expiresAt && now > entry.expiresAt) {
-                  storeExpired++;
-                }
-              }
-
-              totalEntries += entries.length;
-              totalSize += storeSize;
-              expiredCount += storeExpired;
-
-              const storeSizeKB = (storeSize / 1024).toFixed(2);
-              await writeOutput(
-                `${storeName}: ${entries.length} entries, ${storeSizeKB} KB${storeExpired > 0 ? ` (${storeExpired} expired)` : ''}`
-              );
-            } catch (err) {
-              await writeOutput(`${storeName}: Error - ${(err as Error).message}`);
-            }
-          }
-
-          const totalSizeKB = (totalSize / 1024).toFixed(2);
-          const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
-
-          await writeOutput(
-            `\n📊 Total: ${totalEntries} entries, ${totalSizeKB} KB (${totalSizeMB} MB)`
-          );
-          if (expiredCount > 0) {
-            await writeOutput(`⚠️  ${expiredCount} expired entries (run 'storage-clean' to remove)`);
-          }
-        } catch (e) {
-          await writeOutput(`storage-stats: エラー: ${(e as Error).message}`);
-        }
-        break;
-
+        
       default:
         await writeOutput(`Unknown pyxis command: ${cmd}`);
     }

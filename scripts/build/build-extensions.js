@@ -238,6 +238,24 @@ function hasNodeModules(dir) {
 }
 
 /**
+ * package.jsonにインストールが必要な依存があるかチェック
+ */
+function hasInstallableDependencies(dir) {
+  const packageJsonPath = path.join(dir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  return Boolean(
+    Object.keys(pkg.dependencies || {}).length ||
+      Object.keys(pkg.devDependencies || {}).length ||
+      Object.keys(pkg.optionalDependencies || {}).length ||
+      Object.keys(pkg.peerDependencies || {}).length
+  );
+}
+
+/**
  * 依存関係をインストール
  */
 function installDependencies(dir) {
@@ -741,7 +759,7 @@ async function buildSingleExtension(srcDir, distDir, displayName) {
       console.log(`Found package.json - using esbuild bundler`);
       
       // node_modules がない場合はインストール
-      if (!hasNodeModules(srcDir)) {
+      if (hasInstallableDependencies(srcDir) && !hasNodeModules(srcDir)) {
         const installed = installDependencies(srcDir);
         if (!installed) {
           return false;

@@ -11,5 +11,15 @@ export function createOSModule() {
     tmpdir: () => '/tmp',
     homedir: () => '/home/user',
     EOL: '\n',
+    cpus: () => [
+      { model: 'Browser CPU', speed: 0, times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0 } },
+    ],
+    availableParallelism: () => 1,
+    networkInterfaces: () => ({}),
+    totalmem: () => 0,
+    freemem: () => 0,
+    uptime: () => 0,
+    release: () => '0.0.0',
+    version: () => '0.0.0',
   };
 }
