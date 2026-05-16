@@ -1,10 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import {
   extractCjsDependencies,
+  getEsbuildWasmURL,
   transformEsmToCjs,
 } from '@/engine/runtime/transpiler/esmTransformer';
 
 describe('esmTransformer', () => {
+  it('basePath なしの esbuild wasm URL を生成する', () => {
+    const originalBasePath = (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+    const originalEnv = process.env.NEXT_PUBLIC_BASE_PATH;
+    delete (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+    delete process.env.NEXT_PUBLIC_BASE_PATH;
+
+    try {
+      expect(getEsbuildWasmURL()).toBe('/esbuild.wasm');
+    } finally {
+      if (originalBasePath === undefined) {
+        delete (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+      } else {
+        (globalThis as any).__NEXT_PUBLIC_BASE_PATH__ = originalBasePath;
+      }
+      if (originalEnv === undefined) {
+        delete process.env.NEXT_PUBLIC_BASE_PATH;
+      } else {
+        process.env.NEXT_PUBLIC_BASE_PATH = originalEnv;
+      }
+    }
+  });
+
+  it('runtime basePath つきの esbuild wasm URL を生成する', () => {
+    const originalBasePath = (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+    (globalThis as any).__NEXT_PUBLIC_BASE_PATH__ = '/Pyxis-CodeCanvas/';
+
+    try {
+      expect(getEsbuildWasmURL()).toBe('/Pyxis-CodeCanvas/esbuild.wasm');
+    } finally {
+      if (originalBasePath === undefined) {
+        delete (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+      } else {
+        (globalThis as any).__NEXT_PUBLIC_BASE_PATH__ = originalBasePath;
+      }
+    }
+  });
+
   it('ESM import/export を CommonJS に変換する', async () => {
     const code = await transformEsmToCjs(
       "import fs from 'fs'; export const value = fs.readFileSync; export default value;",

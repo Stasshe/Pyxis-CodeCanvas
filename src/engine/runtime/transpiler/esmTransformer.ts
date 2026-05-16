@@ -45,6 +45,14 @@ export function extractCjsDependencies(code: string): string[] {
 let api: EsbuildApi | null = null;
 let initPromise: Promise<EsbuildApi | null> | null = null;
 
+export function getEsbuildWasmURL(): string {
+  const basePath =
+    ((globalThis as any).__NEXT_PUBLIC_BASE_PATH__ as string | undefined) ||
+    process.env.NEXT_PUBLIC_BASE_PATH ||
+    '';
+  return `${basePath.replace(/\/$/, '')}/esbuild.wasm`;
+}
+
 async function importModuleDynamically<T>(specifier: string): Promise<T> {
   const importer = new Function('s', 'return import(s)') as (s: string) => Promise<T>;
   return importer(specifier);
@@ -72,7 +80,7 @@ async function getApi(): Promise<EsbuildApi | null> {
 
     if (esbuild.initialize) {
       try {
-        await esbuild.initialize({ wasmURL: '/esbuild.wasm' });
+        await esbuild.initialize({ wasmURL: getEsbuildWasmURL() });
       } catch (e) {
         // 既に初期化済み → 続行
         if (!String(e).includes('already been initialized')) {
