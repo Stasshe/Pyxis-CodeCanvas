@@ -728,7 +728,7 @@ export class VimEditor {
     return this.state.lines[this.state.cursorRow] || '';
   }
 
-  // src/engine/cmd/VimEditor.ts の render() メソッド
+  // src/engine/cmd/app/vim/VimEditor.ts の render() メソッド
   private render() {
     if (this.disposed) return;
 

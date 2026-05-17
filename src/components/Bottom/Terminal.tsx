@@ -11,7 +11,7 @@ import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import TerminalUI from '@/engine/cmd/terminalUI';
-import { handleVimCommand } from '@/engine/cmd/vim';
+import { handleVimCommand } from '@/engine/cmd/handlers/vimHandler';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { pushLogMessage } from '@/stores/loggerStore';

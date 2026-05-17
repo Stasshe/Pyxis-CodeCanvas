@@ -9,11 +9,11 @@
  *   dev help                   - Show available commands
  */
 
-import type { DevCommandContext, DevCommandInfo } from './types';
+import type { DevCommandContext, DevCommandInfo } from '../app/dev/types';
 
 // Subcommand imports
-import { mergeConflictCommands } from './mergeConflictScenario';
-import { tabCommands } from './tabScenario';
+import { mergeConflictCommands } from '../app/dev/mergeConflictScenario';
+import { tabCommands } from '../app/dev/tabScenario';
 
 /**
  * Development Command Registry
@@ -130,3 +130,5 @@ export async function handleDevCommand(
     await writeOutput(`dev ${subCommand}: ${(error as Error).message}`);
   }
 }
+
+export type { DevCommandContext, DevCommandHandler, DevCommandInfo } from '../app/dev/types';

@@ -609,7 +609,7 @@ export class ShellExecutor {
     // 4. Dev command (development/testing utilities)
     if (cmd === 'dev') {
       try {
-        const { handleDevCommand } = await import('../handlers/dev');
+        const { handleDevCommand } = await import('../handlers/devHandler');
         await handleDevCommand(args, this.context.projectName, this.context.projectId, writeOutput);
         return 0;
       } catch (e: any) {
