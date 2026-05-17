@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 
 import { getLanguage } from '../editors/editor-utils';
 import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-language';
+import { getMonacoModelPath, getMonacoModelUriValue } from '../utils/monacoPathUtils';
 
 import { MONACO_CONFIG } from '@/constants/config';
 
@@ -145,10 +146,21 @@ export function useMonacoModels() {
         try {
           const desiredLang = getModelLanguage(fileName);
           const currentLang = model?.getLanguageId();
-          if (currentLang !== desiredLang) {
+          const desiredPath = getMonacoModelPath(tabId, fileName);
+          const currentPath = model?.uri?.path;
+          if (currentLang !== desiredLang || currentPath !== desiredPath) {
             // Remove from our map so caller will create a new model. Do NOT dispose
             // the existing model here to avoid racing with setModel()/editor lifecycle.
             monacoModelMap.delete(tabId);
+            if (currentPath !== desiredPath) {
+              window.setTimeout(() => {
+                try {
+                  if (model && !model.isDisposed()) model.dispose();
+                } catch (e) {
+                  console.warn('[useMonacoModels] Failed to dispose stale URI model:', e);
+                }
+              }, 0);
+            }
             model = undefined;
           } else {
             // Language matches - update content if it differs (fixes external change bug)
@@ -173,16 +185,9 @@ export function useMonacoModels() {
         enforceModelLimit(monacoModelMap, MONACO_CONFIG.MAX_MONACO_MODELS);
 
         try {
-          // Use the tabId to construct a unique in-memory URI so different
-          // tabs/files with the same base filename don't collide.
-          const safeFileName = fileName && fileName.length > 0 ? fileName : `untitled-${tabId}`;
-          const normalizedTabPath =
-            tabId && tabId.length > 0
-              ? tabId.startsWith('/')
-                ? tabId
-                : `/${tabId}`
-              : `/${safeFileName}`;
-          const uri = mon.Uri.parse(`inmemory://model${normalizedTabPath}`);
+          // Keep the URI path extension intact for Monaco workers. Synthetic tab ids
+          // like "hello.ts-1779005182520-j57xr" go in the query, not the path.
+          const uri = mon.Uri.parse(getMonacoModelUriValue(tabId, fileName));
           // computed URI log removed in cleanup
 
           // Check existing Monaco model for this uri and reuse when possible.

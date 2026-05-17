@@ -1,5 +1,9 @@
 'use client';
 
+import {
+  getPathFromMonacoResourcePath,
+  getTabIdFromMonacoResourceQuery,
+} from '@/components/Tab/text-editor/utils/monacoPathUtils';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
@@ -19,6 +23,7 @@ interface MarkerWithFile {
   marker: any;
   filePath: string;
   fileName: string;
+  tabId: string | null;
 }
 
 // File extensions to exclude from problems display
@@ -129,12 +134,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             for (const marker of allMonacoMarkers) {
               try {
                 // Extract file path from the marker's resource URI
-                let filePath = marker.resource?.path || '';
-                if (filePath.startsWith('/')) {
-                  filePath = filePath.substring(1);
-                }
-                // Remove any timestamp suffixes added for uniqueness
-                filePath = filePath.replace(/__\d+$/, '');
+                const filePath = getPathFromMonacoResourcePath(marker.resource?.path || '');
 
                 const fileName = filePath.split('/').pop() || filePath;
 
@@ -153,6 +153,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                   marker,
                   filePath,
                   fileName,
+                  tabId: getTabIdFromMonacoResourceQuery(marker.resource?.query || ''),
                 });
               } catch (e) {
                 // Skip markers that fail
@@ -190,18 +191,29 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   }, [isActive, refreshCounter]);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
-    const { marker, filePath } = markerWithFile;
+    const { marker, filePath, tabId: markerTabId } = markerWithFile;
 
     // Find the tab and pane for this file
-    const tabId = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    const paneId = findPaneIdForTab(tabId) || findPaneIdForTab(filePath);
+    const canonicalTabId = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    const tabIdCandidates = [markerTabId, canonicalTabId, filePath].filter(Boolean) as string[];
+    let targetTabId: string | null = null;
+    let paneId: string | null = null;
 
-    if (paneId) {
+    for (const candidate of tabIdCandidates) {
+      const foundPaneId = findPaneIdForTab(candidate);
+      if (foundPaneId) {
+        targetTabId = candidate;
+        paneId = foundPaneId;
+        break;
+      }
+    }
+
+    if (paneId && targetTabId) {
       // Activate the tab first
-      activateTab(paneId, tabId.startsWith('/') ? tabId : filePath);
+      activateTab(paneId, targetTabId);
 
       // Then update with jump info
-      updateTab(paneId, tabId.startsWith('/') ? tabId : filePath, {
+      updateTab(paneId, targetTabId, {
         jumpToLine: marker.startLineNumber,
         jumpToColumn: marker.startColumn,
       } as any);
