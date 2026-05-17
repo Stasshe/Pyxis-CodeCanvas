@@ -9,7 +9,6 @@ import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
 import {
-  getEnhancedLanguage,
   getModelLanguage,
   registerEnhancedJSXLanguage,
 } from './monarch-jsx-language';
@@ -99,7 +98,7 @@ export default function MonacoEditor({
     };
   }, []);
 
-  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel } = useMonacoModels();
+  const { currentModelIdRef, isModelSafe, getOrCreateModel } = useMonacoModels();
 
   const isEditorSafe = useCallback(() => {
     return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;

@@ -30,7 +30,7 @@ function scheduleModelUpdateFlush(): void {
     pendingModelUpdates.clear();
     for (const [id, content] of entries) {
       try {
-        updateCachedModelContent(id, content, 'tabState');
+        updateCachedModelContent(id, content);
       } catch (e) {
         console.warn('[tabState] updateCachedModelContent failed:', id, e);
       }
