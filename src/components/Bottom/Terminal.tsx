@@ -667,18 +667,13 @@ function ClientTerminal({
 
     const handlePasteText = (text: string) => {
       if (!text || vimModeActive) return;
-      const sanitized = text.replace(/\x00/g, '');
-      if (!sanitized) return;
 
       if (terminalProcessBridge.isActive()) {
-        const cleaned = sanitized.replace(/\r?\n/g, '');
-        if (!cleaned) return;
-        ({ line: interactiveLine, pos: interactivePos } = insertAtCursor(interactiveLine, interactivePos, cleaned));
+        ({ line: interactiveLine, pos: interactivePos } = insertAtCursor(interactiveLine, interactivePos, text));
         return;
       }
 
-      const cleaned = sanitized.replace(/\r?\n/g, ' ');
-      ({ line: currentLine, pos: cursorPos } = insertAtCursor(currentLine, cursorPos, cleaned));
+      ({ line: currentLine, pos: cursorPos } = insertAtCursor(currentLine, cursorPos, text));
     };
 
     term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
