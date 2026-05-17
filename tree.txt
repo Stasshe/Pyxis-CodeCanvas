@@ -240,6 +240,7 @@ Root
 │   │   │   ├── WelcomeTab.tsx
 │   │   │   ├── markdownUtils.ts
 │   │   │   ├── text-editor
+│   │   │   │   ├── MONACO_MODEL_MANAGEMENT.md
 │   │   │   │   ├── editors
 │   │   │   │   │   ├── CodeMirrorEditor.tsx
 │   │   │   │   │   ├── MonacoEditor.tsx
@@ -255,7 +256,8 @@ Root
 │   │   │   │   │   ├── CharCountDisplay.tsx
 │   │   │   │   │   └── EditorPlaceholder.tsx
 │   │   │   │   └── utils
-│   │   │   │       └── CharCountDetails.tsx
+│   │   │   │       ├── CharCountDetails.tsx
+│   │   │   │       └── monacoPathUtils.ts
 │   │   │   └── useTabCloseConfirmation.tsx
 │   │   └── Top
 │   │       ├── MdPreviewDialog.tsx
@@ -585,7 +587,7 @@ Root
 │   └── esbuild-cdn.d.ts
 └── vitest.config.ts
 
-99 directories, 486 files
+99 directories, 488 files
 
 =================================
 
@@ -717,12 +719,12 @@ extensions/ 以下のディレクトリ構造:
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 74301
-合計文字数: 2357193
-合計ファイルサイズ(bytes): 2488515
+合計行数: 74447
+合計文字数: 2361725
+合計ファイルサイズ(bytes): 2492775
 
 開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 199616
-合計文字数: 40245075
-合計ファイルサイズ(bytes): 45291109
+ビルト済みファイルの行数: 199898
+合計文字数: 39964663
+合計ファイルサイズ(bytes): 45029157
