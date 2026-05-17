@@ -2,26 +2,57 @@ import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useMonacoModels } from '../hooks/useMonacoModels';
+import { restoreTabViewState, saveTabViewState, useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
+import { getLanguageFileName } from '../utils/monacoPathUtils';
 import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
 import {
-  getEnhancedLanguage,
   getModelLanguage,
   registerEnhancedJSXLanguage,
 } from './monarch-jsx-language';
 
 import { useTheme } from '@/context/ThemeContext';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 
 // グローバルフラグ
 let isLanguageRegistered = false;
 let isLanguageDefaultsConfigured = false;
+let isEditorOpenerRegistered = false;
+
+function findTabForFilePath(filePath: string): { paneId: string; tabId: string } | null {
+  const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
+  function search(panes: readonly EditorPane[]): { paneId: string; tabId: string } | null {
+    for (const p of panes) {
+      const tab = p.tabs?.find((t: Tab) => {
+        const tp = t.path || '';
+        return tp === filePath || tp === normalized || `/${tp}` === normalized;
+      });
+      if (tab) return { paneId: p.id, tabId: tab.id };
+      if (p.children) {
+        const found = search(p.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return search(tabState.panes);
+}
+
+function getJumpPosition(
+  sel: monaco.IRange | monaco.IPosition | undefined
+): { jumpToLine: number; jumpToColumn: number } | undefined {
+  if (!sel) return undefined;
+  if ('startLineNumber' in sel) return { jumpToLine: sel.startLineNumber, jumpToColumn: sel.startColumn };
+  return { jumpToLine: sel.lineNumber, jumpToColumn: sel.column };
+}
 
 interface MonacoEditorProps {
   tabId: string;
   fileName: string;
+  filePath?: string;
   content: string;
   wordWrapConfig: 'on' | 'off';
   jumpToLine?: number;
@@ -38,6 +69,7 @@ interface MonacoEditorProps {
 export default function MonacoEditor({
   tabId,
   fileName,
+  filePath,
   content,
   wordWrapConfig,
   jumpToLine,
@@ -51,11 +83,13 @@ export default function MonacoEditor({
   isActive = false,
 }: MonacoEditorProps) {
   const { colors, themeName } = useTheme();
+  const languageFileName = getLanguageFileName(filePath, fileName);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const isMountedRef = useRef(true);
   const markerListenerRef = useRef<monaco.IDisposable | null>(null);
+  const prevTabIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -64,7 +98,7 @@ export default function MonacoEditor({
     };
   }, []);
 
-  const { monacoModelMapRef, currentModelIdRef, isModelSafe, getOrCreateModel } = useMonacoModels();
+  const { currentModelIdRef, isModelSafe, getOrCreateModel } = useMonacoModels();
 
   const isEditorSafe = useCallback(() => {
     return editorRef.current && !(editorRef.current as any)._isDisposed && isMountedRef.current;
@@ -105,6 +139,40 @@ export default function MonacoEditor({
       }
     }
 
+    // go-to-definition / find-references でのタブナビゲーション（初回のみ）
+    if (!isEditorOpenerRegistered) {
+      try {
+        mon.editor.registerEditorOpener({
+          openCodeEditor(_source, resource, selectionOrPosition) {
+            const rawPath = resource.path;
+            const filePath = rawPath.startsWith('/') ? rawPath.substring(1) : rawPath;
+            if (!filePath) return false;
+
+            const jump = getJumpPosition(selectionOrPosition);
+            const found = findTabForFilePath(filePath);
+
+            if (found) {
+              tabActions.activateTab(found.paneId, found.tabId);
+              if (jump) {
+                tabActions.updateTab(found.paneId, found.tabId, jump as any);
+              }
+              return true;
+            }
+
+            // タブ未オープン → openTab でファイルを開く
+            const name = filePath.split('/').pop() || filePath;
+            tabActions
+              .openTab({ path: filePath, name }, { makeActive: true, ...jump })
+              .catch(() => {});
+            return true;
+          },
+        });
+        isEditorOpenerRegistered = true;
+      } catch (e) {
+        console.warn('[MonacoEditor] Failed to register editor opener:', e);
+      }
+    }
+
     // 選択範囲の文字数（スペース除外）を検知
     // ここで最後の選択状態をキャッシュしておくことで、外部からモデルがフラッシュされた
     // （例: save の同期で setValue が呼ばれる）場合に、カーソル/選択を復元できる。
@@ -126,10 +194,12 @@ export default function MonacoEditor({
 
     // 初期モデルを設定
     if (monacoRef.current) {
-      const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
+      const model = getOrCreateModel(monacoRef.current, tabId, content, fileName, filePath);
       if (model && isEditorSafe()) {
         try {
           editor.setModel(model);
+          restoreTabViewState(tabId, editor);
+          prevTabIdRef.current = tabId;
 
           // モデルが外部からフラッシュ(setValue)されたときに、最後に記憶した選択を復元する
           try {
@@ -192,26 +262,36 @@ export default function MonacoEditor({
   // タブ切り替え時のモデル管理
   useEffect(() => {
     if (!isEditorSafe() || !monacoRef.current) return;
+    const editor = editorRef.current!;
 
-    const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
+    const model = getOrCreateModel(monacoRef.current, tabId, content, fileName, filePath);
+    const prevTabId = prevTabIdRef.current;
+    const tabSwitched = prevTabId !== null && prevTabId !== tabId;
 
-    if (model && currentModelIdRef.current !== tabId) {
+    // タブ切り替え: 旧タブの viewState 保存 → 新モデルセット → 新タブの viewState 復元
+    if (tabSwitched) {
+      saveTabViewState(prevTabId!, editor);
+    }
+
+    if (model && (currentModelIdRef.current !== tabId || tabSwitched)) {
       try {
-        editorRef.current?.setModel(model);
-        // marker dump removed in cleanup
+        editor.setModel(model);
         currentModelIdRef.current = tabId;
-        onCharCountChange(countCharsNoSpaces(model.getValue()));
       } catch (e: any) {
         console.warn('[MonacoEditor] setModel failed:', e?.message);
       }
     }
 
-    // 内容同期
+    if (tabSwitched) {
+      restoreTabViewState(tabId, editor);
+    }
+
+    prevTabIdRef.current = tabId;
+
+    // 内容同期 (外部変更: ファイルウォッチャー等)
     if (isModelSafe(model) && model?.getValue() !== content) {
       try {
-        // エディタが利用可能ならビュー/選択を保持してから setValue → 復元する
         if (isEditorSafe()) {
-          const editor = editorRef.current!;
           try {
             const prevView = editor.saveViewState();
             const prevSelections = editor.getSelections();
@@ -220,7 +300,6 @@ export default function MonacoEditor({
             if (prevSelections) editor.setSelections(prevSelections);
             editor.layout();
           } catch (e) {
-            // フォールバック
             model?.setValue(content);
             editor.layout();
           }
@@ -232,10 +311,10 @@ export default function MonacoEditor({
       }
     }
 
-    if (isModelSafe(model)) {
+    if (isModelSafe(model) && !tabSwitched) {
       onCharCountChange(countCharsNoSpaces(model?.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
+  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, filePath]);
 
   // ジャンプ機能
   useEffect(() => {
@@ -312,6 +391,7 @@ export default function MonacoEditor({
   useEffect(() => {
     return () => {
       if (editorRef.current) {
+        saveTabViewState(tabId, editorRef.current);
         editorRef.current.dispose();
         editorRef.current = null;
       }
@@ -330,7 +410,7 @@ export default function MonacoEditor({
   return (
     <Editor
       height="100%"
-      language={getModelLanguage(fileName)}
+      language={getModelLanguage(languageFileName)}
       onMount={handleEditorDidMount}
       onChange={value => {
         if (value !== undefined) {
