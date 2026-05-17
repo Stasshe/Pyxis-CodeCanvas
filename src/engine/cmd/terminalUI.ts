@@ -1,3 +1,7 @@
+import type TerminalOutputManager from './terminalOutputManager';
+
+export type WriteCallback = (text: string) => Promise<void> | void;
+
 /**
  * TerminalUI - Advanced terminal display API
  *
@@ -13,21 +17,16 @@
  *   await ui.spinner.stop();
  *   await ui.status('Completed in 2.3s');
  */
-
-// ANSI escape codes
 export const ANSI = {
-  // Cursor control
   CURSOR_HIDE: '\x1b[?25l',
   CURSOR_SHOW: '\x1b[?25h',
   CURSOR_SAVE: '\x1b[s',
   CURSOR_RESTORE: '\x1b[u',
 
-  // Line control
-  CLEAR_LINE: '\r\x1b[K', // Clear entire line
-  CLEAR_TO_END: '\x1b[0K', // Clear from cursor to end of line
-  CLEAR_TO_START: '\x1b[1K', // Clear from cursor to start of line
+  CLEAR_LINE: '\r\x1b[K',
+  CLEAR_TO_END: '\x1b[0K',
+  CLEAR_TO_START: '\x1b[1K',
 
-  // Cursor movement
   MOVE_UP: (n: number) => `\x1b[${n}A`,
   MOVE_DOWN: (n: number) => `\x1b[${n}B`,
   MOVE_RIGHT: (n: number) => `\x1b[${n}C`,
@@ -35,7 +34,6 @@ export const ANSI = {
   MOVE_TO_COL: (n: number) => `\x1b[${n}G`,
   MOVE_TO: (row: number, col: number) => `\x1b[${row};${col}H`,
 
-  // Colors (foreground)
   FG: {
     BLACK: '\x1b[30m',
     RED: '\x1b[31m',
@@ -55,7 +53,6 @@ export const ANSI = {
     BRIGHT_WHITE: '\x1b[97m',
   },
 
-  // Colors (background)
   BG: {
     BLACK: '\x1b[40m',
     RED: '\x1b[41m',
@@ -67,7 +64,6 @@ export const ANSI = {
     WHITE: '\x1b[47m',
   },
 
-  // Text styles
   RESET: '\x1b[0m',
   BOLD: '\x1b[1m',
   DIM: '\x1b[2m',
@@ -79,36 +75,17 @@ export const ANSI = {
   STRIKETHROUGH: '\x1b[9m',
 } as const;
 
-// Spinner frame sets
 export const SPINNERS = {
-  // npm-like braille spinner
   BRAILLE: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
-  // Classic dots
   DOTS: ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'],
-  // Simple line
   LINE: ['-', '\\', '|', '/'],
-  // Growing dots
   GROWING: ['.  ', '.. ', '...', '   '],
-  // Arrow
   ARROW: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙'],
-  // Box bounce
   BOUNCE: ['▖', '▘', '▝', '▗'],
 } as const;
 
 export type SpinnerType = keyof typeof SPINNERS;
 
-/**
- * Write callback type - function to write directly to the terminal
- */
-import type TerminalOutputManager from './terminalOutputManager';
-
-export type WriteCallback = (text: string) => Promise<void> | void;
-
-// ... ANSI, SPINNERS定数は変更なし ...
-
-/**
- * Spinner controller using TerminalOutputManager
- */
 export class SpinnerController {
   private frames: string[];
   private frameIndex = 0;
@@ -131,9 +108,9 @@ export class SpinnerController {
     this.interval = interval;
   }
 
-  private getFrame(): string {
-    const frame = this.frames[this.frameIndex % this.frames.length];
-    return `${this.color}${frame}${ANSI.RESET}`;
+  private renderFrame(): string {
+    const frame = `${this.color}${this.frames[this.frameIndex % this.frames.length]}${ANSI.RESET}`;
+    return this.message ? `${frame} ${this.message}` : frame;
   }
 
   async start(message = ''): Promise<void> {
@@ -141,54 +118,48 @@ export class SpinnerController {
     this.isRunning = true;
     this.message = message;
     this.frameIndex = 0;
-
-    const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.outputManager.writeRaw(ANSI.CURSOR_HIDE + display);
-
+    await this.outputManager.writeRaw(ANSI.CURSOR_HIDE + this.renderFrame());
     this.intervalId = setInterval(async () => {
       this.frameIndex++;
-      const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
+      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + this.renderFrame());
     }, this.interval);
   }
 
   async update(message: string): Promise<void> {
     this.message = message;
     if (!this.isRunning) return;
-    const display = this.message ? `${this.getFrame()} ${this.message}` : this.getFrame();
-    await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
+    await this.outputManager.writeRaw(ANSI.CLEAR_LINE + this.renderFrame());
   }
 
   async stop(finalMessage?: string): Promise<void> {
     if (!this.isRunning) return;
     this.isRunning = false;
-
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    const suffix = finalMessage ? `${finalMessage}\n` : '';
+    await this.outputManager.writeRaw(`${ANSI.CLEAR_LINE}${suffix}${ANSI.CURSOR_SHOW}`);
+  }
 
-    if (finalMessage) {
-      await this.outputManager.writeRaw(`${ANSI.CLEAR_LINE}${finalMessage}\n${ANSI.CURSOR_SHOW}`);
-    } else {
-      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + ANSI.CURSOR_SHOW);
-    }
+  private async stopWith(badge: string, message: string): Promise<void> {
+    await this.stop(`${badge} ${message}`);
   }
 
   async success(message: string): Promise<void> {
-    await this.stop(`${ANSI.FG.GREEN}✓${ANSI.RESET} ${message}`);
+    await this.stopWith(`${ANSI.FG.GREEN}✓${ANSI.RESET}`, message);
   }
 
   async error(message: string): Promise<void> {
-    await this.stop(`${ANSI.FG.RED}✗${ANSI.RESET} ${message}`);
+    await this.stopWith(`${ANSI.FG.RED}✗${ANSI.RESET}`, message);
   }
 
   async warn(message: string): Promise<void> {
-    await this.stop(`${ANSI.FG.YELLOW}warn: ${ANSI.RESET} ${message}`);
+    await this.stopWith(`${ANSI.FG.YELLOW}warn:${ANSI.RESET}`, message);
   }
 
   async info(message: string): Promise<void> {
-    await this.stop(`${ANSI.FG.CYAN}info: ${ANSI.RESET} ${message}`);
+    await this.stopWith(`${ANSI.FG.CYAN}info:${ANSI.RESET}`, message);
   }
 
   get running(): boolean {
@@ -196,9 +167,6 @@ export class SpinnerController {
   }
 }
 
-/**
- * Progress bar using TerminalOutputManager
- */
 export class ProgressBar {
   private outputManager: TerminalOutputManager;
   private width: number;
@@ -228,9 +196,7 @@ export class ProgressBar {
   async update(current: number, message?: string): Promise<void> {
     if (!this.isActive) return;
     this.current = Math.min(current, this.total);
-    if (message !== undefined) {
-      this.message = message;
-    }
+    if (message !== undefined) this.message = message;
     await this.render();
   }
 
@@ -239,22 +205,19 @@ export class ProgressBar {
   }
 
   private async render(): Promise<void> {
-    const percent = Math.round((this.current / this.total) * 100);
-    const filled = Math.round((this.current / this.total) * this.width);
-    const empty = this.width - filled;
-
-    const bar = `${ANSI.FG.GREEN}${this.filledChar.repeat(filled)}${ANSI.FG.GRAY}${this.emptyChar.repeat(empty)}${ANSI.RESET}`;
-    const percentStr = `${percent}%`.padStart(4);
-    const display = this.message ? `${bar} ${percentStr} ${this.message}` : `${bar} ${percentStr}`;
-
+    const ratio = this.current / this.total;
+    const filled = Math.round(ratio * this.width);
+    const bar =
+      `${ANSI.FG.GREEN}${this.filledChar.repeat(filled)}` +
+      `${ANSI.FG.GRAY}${this.emptyChar.repeat(this.width - filled)}${ANSI.RESET}`;
+    const percent = `${Math.round(ratio * 100)}%`.padStart(4);
+    const display = this.message ? `${bar} ${percent} ${this.message}` : `${bar} ${percent}`;
     await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
   }
 
   async complete(message?: string): Promise<void> {
     this.current = this.total;
-    if (message !== undefined) {
-      this.message = message;
-    }
+    if (message !== undefined) this.message = message;
     await this.render();
     await this.outputManager.write('\n');
     await this.outputManager.writeRaw(ANSI.CURSOR_SHOW);
@@ -262,9 +225,6 @@ export class ProgressBar {
   }
 }
 
-/**
- * Status line using TerminalOutputManager
- */
 export class StatusLine {
   private outputManager: TerminalOutputManager;
   private isActive = false;
@@ -287,27 +247,15 @@ export class StatusLine {
   }
 
   async end(finalText?: string): Promise<void> {
-    if (finalText) {
-      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + finalText);
-    }
+    if (finalText) await this.outputManager.writeRaw(ANSI.CLEAR_LINE + finalText);
     await this.outputManager.write('\n');
     await this.outputManager.writeRaw(ANSI.CURSOR_SHOW);
     this.isActive = false;
   }
 }
 
-/**
- * Main TerminalUI class - High-level terminal output API
- *
- * All output goes through TerminalOutputManager to ensure:
- * - Proper queueing and ordering
- * - Cursor position tracking
- * - Newline handling
- * - No race conditions
- */
 export class TerminalUI {
   private outputManager: TerminalOutputManager;
-
   public spinner: SpinnerController;
   public progress: ProgressBar;
   public status: StatusLine;
@@ -318,8 +266,6 @@ export class TerminalUI {
     this.progress = new ProgressBar(outputManager);
     this.status = new StatusLine(outputManager);
   }
-
-  // ===== Basic Output =====
 
   async print(text: string): Promise<void> {
     await this.outputManager.write(text);
@@ -332,8 +278,6 @@ export class TerminalUI {
   async clearLine(): Promise<void> {
     await this.outputManager.writeRaw(ANSI.CLEAR_LINE);
   }
-
-  // ===== Colored Output =====
 
   async colored(text: string, color: string): Promise<void> {
     await this.outputManager.write(`${color}${text}${ANSI.RESET}`);
@@ -355,8 +299,6 @@ export class TerminalUI {
     await this.outputManager.writeInfo(`info:  ${message}\n`);
   }
 
-  // ===== Formatted Output =====
-
   async treeItem(text: string, isLast = false, indent = 0): Promise<void> {
     const prefix = '  '.repeat(indent) + (isLast ? '└── ' : '├── ');
     await this.outputManager.writeDim(prefix);
@@ -371,13 +313,7 @@ export class TerminalUI {
     await this.outputManager.write(`${ANSI.BOLD}${text}${ANSI.RESET}`);
   }
 
-  // ===== Component Factories =====
-
-  createSpinner(
-    type: SpinnerType = 'BRAILLE',
-    color: string = ANSI.FG.CYAN,
-    interval = 80
-  ): SpinnerController {
+  createSpinner(type: SpinnerType = 'BRAILLE', color: string = ANSI.FG.CYAN, interval = 80): SpinnerController {
     return new SpinnerController(this.outputManager, type, color, interval);
   }
 
@@ -385,15 +321,9 @@ export class TerminalUI {
     return new ProgressBar(this.outputManager, width, filledChar, emptyChar);
   }
 
-  // ===== Direct Manager Access (for advanced use) =====
-
   get manager(): TerminalOutputManager {
     return this.outputManager;
   }
 }
-
-/**
- * Create a TerminalUI instance
- */
 
 export default TerminalUI;
