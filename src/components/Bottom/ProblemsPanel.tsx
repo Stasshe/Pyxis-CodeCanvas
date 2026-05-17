@@ -2,7 +2,7 @@
 
 import {
   getPathFromMonacoResourcePath,
-  getTabIdFromMonacoResourceQuery,
+  getTabIdFromMonacoAuthority,
 } from '@/components/Tab/text-editor/utils/monacoPathUtils';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -153,7 +153,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                   marker,
                   filePath,
                   fileName,
-                  tabId: getTabIdFromMonacoResourceQuery(marker.resource?.query || ''),
+                  tabId: getTabIdFromMonacoAuthority(marker.resource?.authority || ''),
                 });
               } catch (e) {
                 // Skip markers that fail

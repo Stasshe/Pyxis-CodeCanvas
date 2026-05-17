@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
+import { getMonacoLanguageFileName } from '../utils/monacoPathUtils';
 import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
@@ -22,6 +23,7 @@ let isLanguageDefaultsConfigured = false;
 interface MonacoEditorProps {
   tabId: string;
   fileName: string;
+  filePath?: string;
   content: string;
   wordWrapConfig: 'on' | 'off';
   jumpToLine?: number;
@@ -38,6 +40,7 @@ interface MonacoEditorProps {
 export default function MonacoEditor({
   tabId,
   fileName,
+  filePath,
   content,
   wordWrapConfig,
   jumpToLine,
@@ -51,6 +54,7 @@ export default function MonacoEditor({
   isActive = false,
 }: MonacoEditorProps) {
   const { colors, themeName } = useTheme();
+  const languageFileName = getMonacoLanguageFileName(tabId, fileName, filePath);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
@@ -126,7 +130,7 @@ export default function MonacoEditor({
 
     // 初期モデルを設定
     if (monacoRef.current) {
-      const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
+      const model = getOrCreateModel(monacoRef.current, tabId, content, fileName, filePath);
       if (model && isEditorSafe()) {
         try {
           editor.setModel(model);
@@ -193,7 +197,7 @@ export default function MonacoEditor({
   useEffect(() => {
     if (!isEditorSafe() || !monacoRef.current) return;
 
-    const model = getOrCreateModel(monacoRef.current, tabId, content, fileName);
+    const model = getOrCreateModel(monacoRef.current, tabId, content, fileName, filePath);
 
     if (model && currentModelIdRef.current !== tabId) {
       try {
@@ -235,7 +239,7 @@ export default function MonacoEditor({
     if (isModelSafe(model)) {
       onCharCountChange(countCharsNoSpaces(model?.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName]);
+  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, filePath]);
 
   // ジャンプ機能
   useEffect(() => {
@@ -330,7 +334,7 @@ export default function MonacoEditor({
   return (
     <Editor
       height="100%"
-      language={getModelLanguage(fileName)}
+      language={getModelLanguage(languageFileName)}
       onMount={handleEditorDidMount}
       onChange={value => {
         if (value !== undefined) {

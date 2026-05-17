@@ -4,7 +4,10 @@ import { useCallback } from 'react';
 
 import { getLanguage } from '../editors/editor-utils';
 import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-language';
-import { getMonacoModelPath, getMonacoModelUriValue } from '../utils/monacoPathUtils';
+import {
+  getMonacoLanguageFileName,
+  getMonacoModelUriValue,
+} from '../utils/monacoPathUtils';
 
 import { MONACO_CONFIG } from '@/constants/config';
 
@@ -20,7 +23,9 @@ import { MONACO_CONFIG } from '@/constants/config';
  *
  * 2. URI-based lookup (Monaco's native registry)
  *    - Purpose: Prevent duplicate models, leverage Monaco's lifecycle
- *    - Indexed by: URI (e.g., "inmemory://model/path/to/file.ts")
+ *    - Indexed by: URI (e.g., "inmemory://<encoded-tab-id>/path/to/file.ts")
+ *    - Contract: uri.toString() must end with the real file extension because
+ *      Monaco's TypeScript worker derives ScriptKind from the full URI string.
  *    - Benefits: Safety net, Monaco-managed disposal
  *
  * Why both?
@@ -124,10 +129,14 @@ export function useMonacoModels() {
       mon: Monaco,
       tabId: string,
       content: string,
-      fileName: string
+      fileName: string,
+      filePath?: string | null
     ): monaco.editor.ITextModel | null => {
       // entry log removed in cleanup
       const monacoModelMap = monacoModelMapRef.current;
+      const languageFileName = getMonacoLanguageFileName(tabId, fileName, filePath);
+      const desiredLang = getModelLanguage(languageFileName);
+      const desiredUriValue = getMonacoModelUriValue(tabId, fileName, filePath);
       let model = monacoModelMap.get(tabId);
 
       // ARCHITECTURE NOTE: This function uses a hybrid approach with two lookup paths:
@@ -138,21 +147,37 @@ export function useMonacoModels() {
 
       // If a model exists in our map, ensure it's safe and has the correct language.
       // IMPORTANT: do not dispose a model here synchronously — other editor instances
-      // may be attaching to the same underlying model. Instead we remove it from
-      // our map and create a new model with a unique URI when languages differ.
+      // may be attaching to the same underlying model. URI changes create a new
+      // model; language-only changes update the existing model in place.
       if (isModelSafe(model)) {
         // Update LRU access order
         updateModelAccessOrder(tabId);
         try {
-          const desiredLang = getModelLanguage(fileName);
           const currentLang = model?.getLanguageId();
-          const desiredPath = getMonacoModelPath(tabId, fileName);
-          const currentPath = model?.uri?.path;
-          if (currentLang !== desiredLang || currentPath !== desiredPath) {
+          const currentUriValue = model?.uri?.toString();
+          if (currentUriValue === desiredUriValue && currentLang !== desiredLang) {
+            try {
+              if (model) {
+                mon.editor.setModelLanguage(model, desiredLang);
+                mon.editor.setModelMarkers(model, 'typescript', []);
+                mon.editor.setModelMarkers(model, 'javascript', []);
+              }
+            } catch (e) {
+              console.warn('[useMonacoModels] Failed to update cached model language:', e);
+            }
+          }
+
+          if (currentUriValue !== desiredUriValue) {
             // Remove from our map so caller will create a new model. Do NOT dispose
             // the existing model here to avoid racing with setModel()/editor lifecycle.
             monacoModelMap.delete(tabId);
-            if (currentPath !== desiredPath) {
+            if (model) {
+              try {
+                mon.editor.setModelMarkers(model, 'typescript', []);
+                mon.editor.setModelMarkers(model, 'javascript', []);
+              } catch (e) {
+                // ignore marker cleanup failures
+              }
               window.setTimeout(() => {
                 try {
                   if (model && !model.isDisposed()) model.dispose();
@@ -185,22 +210,24 @@ export function useMonacoModels() {
         enforceModelLimit(monacoModelMap, MONACO_CONFIG.MAX_MONACO_MODELS);
 
         try {
-          // Keep the URI path extension intact for Monaco workers. Synthetic tab ids
-          // like "hello.ts-1779005182520-j57xr" go in the query, not the path.
-          const uri = mon.Uri.parse(getMonacoModelUriValue(tabId, fileName));
+          // Monaco's TypeScript worker derives ScriptKind from uri.toString().
+          // Keep the real Pyxis file path as the URI path so it ends with .ts/.tsx,
+          // and put tab identity in the authority for per-tab uniqueness.
+          const uri = mon.Uri.parse(desiredUriValue);
           // computed URI log removed in cleanup
 
           // Check existing Monaco model for this uri and reuse when possible.
           try {
             const existingModel = mon.editor.getModel(uri);
             if (existingModel && isModelSafe(existingModel)) {
-              const desiredLang = getModelLanguage(fileName);
               if (existingModel.getLanguageId() !== desiredLang) {
-                const uniqueUri = mon.Uri.parse(`${uri.toString()}__${Date.now()}`);
-                const newModel = mon.editor.createModel(content, desiredLang, uniqueUri);
-                monacoModelMap.set(tabId, newModel);
-                updateModelAccessOrder(tabId);
-                return newModel;
+                try {
+                  mon.editor.setModelLanguage(existingModel, desiredLang);
+                  mon.editor.setModelMarkers(existingModel, 'typescript', []);
+                  mon.editor.setModelMarkers(existingModel, 'javascript', []);
+                } catch (e) {
+                  console.warn('[useMonacoModels] Failed to update existing model language:', e);
+                }
               }
 
               // Reuse and sync content
@@ -213,10 +240,10 @@ export function useMonacoModels() {
             console.warn('[useMonacoModels] mon.editor.getModel error:', e);
           }
 
-          const language = getMonarchLanguage(fileName);
+          const language = getMonarchLanguage(languageFileName);
           const newModel = mon.editor.createModel(content, language, uri);
           try {
-            (mon.editor as any).setModelLanguage(newModel, getModelLanguage(fileName));
+            (mon.editor as any).setModelLanguage(newModel, getModelLanguage(languageFileName));
           } catch (e) {
             // ignore
           }

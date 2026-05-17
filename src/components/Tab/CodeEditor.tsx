@@ -232,6 +232,7 @@ export default function CodeEditor({
       <MonacoEditor
         tabId={activeTab.id}
         fileName={activeTab.name}
+        filePath={activeTab.path}
         content={content}
         wordWrapConfig={wordWrapConfig}
         jumpToLine={activeTab.jumpToLine}
