@@ -1,9 +1,6 @@
 'use client';
 
-import {
-  getPathFromMonacoResourcePath,
-  getTabIdFromMonacoAuthority,
-} from '@/components/Tab/text-editor/utils/monacoPathUtils';
+import { getFilePathFromUri } from '@/components/Tab/text-editor/utils/monacoPathUtils';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
@@ -23,7 +20,6 @@ interface MarkerWithFile {
   marker: any;
   filePath: string;
   fileName: string;
-  tabId: string | null;
 }
 
 // File extensions to exclude from problems display
@@ -89,20 +85,25 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
   const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // Helper to find paneId for a tabId
-  const findPaneIdForTab = useMemo(() => {
-    return (tabId: string): string | null => {
-      const findPane = (panesList: readonly EditorPane[]): string | null => {
+  // Find the first open tab for a given filePath
+  const findTabByFilePath = useMemo(() => {
+    return (filePath: string): { tabId: string; paneId: string } | null => {
+      const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
+      const search = (panesList: readonly EditorPane[]): { tabId: string; paneId: string } | null => {
         for (const p of panesList) {
-          if (p.tabs?.find((t: Tab) => t.id === tabId)) return p.id;
+          const tab = p.tabs?.find((t: Tab) => {
+            const tp = t.path || '';
+            return tp === filePath || tp === normalized || `/${tp}` === normalized;
+          });
+          if (tab) return { tabId: tab.id, paneId: p.id };
           if (p.children) {
-            const found = findPane(p.children);
+            const found = search(p.children);
             if (found) return found;
           }
         }
         return null;
       };
-      return findPane(panes);
+      return search(panes);
     };
   }, [panes]);
 
@@ -134,8 +135,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             for (const marker of allMonacoMarkers) {
               try {
                 // Extract file path from the marker's resource URI
-                const filePath = getPathFromMonacoResourcePath(marker.resource?.path || '');
-
+                const filePath = getFilePathFromUri(marker.resource?.path || '');
                 const fileName = filePath.split('/').pop() || filePath;
 
                 // Skip excluded file types
@@ -149,12 +149,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                   continue;
                 }
 
-                markersWithFiles.push({
-                  marker,
-                  filePath,
-                  fileName,
-                  tabId: getTabIdFromMonacoAuthority(marker.resource?.authority || ''),
-                });
+                markersWithFiles.push({ marker, filePath, fileName });
               } catch (e) {
                 // Skip markers that fail
               }
@@ -191,33 +186,14 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   }, [isActive, refreshCounter]);
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
-    const { marker, filePath, tabId: markerTabId } = markerWithFile;
-
-    // Find the tab and pane for this file
-    const canonicalTabId = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    const tabIdCandidates = [markerTabId, canonicalTabId, filePath].filter(Boolean) as string[];
-    let targetTabId: string | null = null;
-    let paneId: string | null = null;
-
-    for (const candidate of tabIdCandidates) {
-      const foundPaneId = findPaneIdForTab(candidate);
-      if (foundPaneId) {
-        targetTabId = candidate;
-        paneId = foundPaneId;
-        break;
-      }
-    }
-
-    if (paneId && targetTabId) {
-      // Activate the tab first
-      activateTab(paneId, targetTabId);
-
-      // Then update with jump info
-      updateTab(paneId, targetTabId, {
-        jumpToLine: marker.startLineNumber,
-        jumpToColumn: marker.startColumn,
-      } as any);
-    }
+    const { marker, filePath } = markerWithFile;
+    const result = findTabByFilePath(filePath);
+    if (!result) return;
+    activateTab(result.paneId, result.tabId);
+    updateTab(result.paneId, result.tabId, {
+      jumpToLine: marker.startLineNumber,
+      jumpToColumn: marker.startColumn,
+    } as any);
   };
 
   const toggleFileCollapse = (filePath: string) => {

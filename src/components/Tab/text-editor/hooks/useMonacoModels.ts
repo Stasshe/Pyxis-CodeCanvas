@@ -5,79 +5,83 @@ import { useCallback } from 'react';
 import { getLanguage } from '../editors/editor-utils';
 import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-language';
 import {
-  getMonacoLanguageFileName,
-  getMonacoModelUriValue,
+  getLanguageFileName,
+  getModelCacheKey,
+  getWorkspaceModelUri,
 } from '../utils/monacoPathUtils';
 
 import { MONACO_CONFIG } from '@/constants/config';
 
 /**
- * Monaco Model Management Architecture
+ * Monaco Model Management — Workspace Model Architecture
  *
- * This module uses a HYBRID approach with two model lookup paths:
+ * URI scheme: inmemory://workspace/<filePath>
  *
- * 1. TabId-based cache (sharedModelMap)
- *    - Purpose: Fast lookup, LRU management, external update capability
- *    - Indexed by: tabId (e.g., "/path/to/file.ts")
- *    - Benefits: Enables updateCachedModelContent() for background tabs
+ * One Monaco model per unique file path (not per tab).
+ * Same file opened in multiple panes shares the same model → edits sync automatically.
+ * Tab-specific state (cursor, scroll, selections) is stored as ICodeEditorViewState
+ * keyed by tabId, separate from the model.
  *
- * 2. URI-based lookup (Monaco's native registry)
- *    - Purpose: Prevent duplicate models, leverage Monaco's lifecycle
- *    - Indexed by: URI (e.g., "inmemory://<encoded-tab-id>/path/to/file.ts")
- *    - Contract: uri.toString() must end with the real file extension because
- *      Monaco's TypeScript worker derives ScriptKind from the full URI string.
- *    - Benefits: Safety net, Monaco-managed disposal
+ * Why fixed 'workspace' authority:
+ *   TypeScript worker resolves './math' from 'inmemory://workspace/src/use-math.ts'
+ *   → looks for 'inmemory://workspace/src/math.ts' → found. Cross-file resolution works.
  *
- * Why both?
- * - TabId cache: Required for LRU eviction and external updates (tabStore integration)
- * - URI lookup: Required to avoid creating duplicate models in Monaco's registry
- *
- * This is NOT redundant - each serves a distinct purpose. Both paths properly
- * update content on model reuse (fixes external change bug).
+ * Model cache key:
+ *   filePath  — for file-based tabs (shared model)
+ *   tabId     — for untitled tabs (unique model)
  */
 
-// Monarch言語用のヘルパー
+// Model map keyed by modelKey (filePath or tabId for untitled)
+const sharedModelMap: Map<string, monaco.editor.ITextModel> = new Map();
+
+// LRU access order (by modelKey)
+const modelAccessOrder: string[] = [];
+
+// View states keyed by tabId — persists cursor/scroll across tab switches
+const tabViewStates: Map<string, monaco.editor.ICodeEditorViewState | null> = new Map();
+
+const sharedCurrentModelIdRef: { current: string | null } = { current: null };
+
 function getMonarchLanguage(fileName: string): string {
-  // Use the model language for TSX/JSX so the TypeScript diagnostics run.
-  // For other files, fall back to the default language detection.
   const ext = fileName.toLowerCase();
-  // For TSX/JSX, return the enhanced monarch language ID. This makes the
-  // model use `enhanced-tsx`/`enhanced-jsx` tokens but the TypeScript
-  // diagnostics will not run for these models (tradeoff). To keep
-  // diagnostics active you'd need a different approach (e.g. worker
-  // mapping) but that introduces mis-highlighting when attaching tokens to
-  // the built-in 'typescript' language globally.
-  if (ext.endsWith('.tsx')) return getEnhancedLanguage(fileName); // 'enhanced-tsx'
-  if (ext.endsWith('.jsx')) return getEnhancedLanguage(fileName); // 'enhanced-jsx'
+  if (ext.endsWith('.tsx')) return getEnhancedLanguage(fileName);
+  if (ext.endsWith('.jsx')) return getEnhancedLanguage(fileName);
   if (ext.endsWith('.ts')) return 'typescript';
   if (ext.endsWith('.js')) return 'javascript';
-
-  // Fallback to existing helper
   return getLanguage(fileName);
 }
 
-// モジュール共有のモデルMap（シングルトン）
-const sharedModelMap: Map<string, monaco.editor.ITextModel> = new Map();
+function updateModelAccessOrder(modelKey: string): void {
+  const index = modelAccessOrder.indexOf(modelKey);
+  if (index > -1) modelAccessOrder.splice(index, 1);
+  modelAccessOrder.push(modelKey);
+}
 
-// LRU順序を追跡するリスト（最近使われたものが後ろ）
-const modelAccessOrder: string[] = [];
-
-// モジュール共有の currentModelIdRef 互換オブジェクト
-const sharedCurrentModelIdRef: { current: string | null } = { current: null };
+function enforceModelLimit(maxModels: number): void {
+  while (sharedModelMap.size >= maxModels && modelAccessOrder.length > 0) {
+    const oldest = modelAccessOrder.shift();
+    if (!oldest) continue;
+    const model = sharedModelMap.get(oldest);
+    if (!model) continue;
+    try {
+      model.dispose();
+    } catch (e) {
+      console.warn('[useMonacoModels] Failed to dispose model:', e);
+    }
+    sharedModelMap.delete(oldest);
+  }
+}
 
 /**
- * モジュールレベルの関数: 既存のモデルのコンテンツを更新
- * TabStoreから呼び出されて、非アクティブなタブのモデルも更新する
- * @param tabId タブID
- * @param content 新しいコンテンツ
- * @param context 呼び出し元のコンテキスト（ログ用）
+ * Update Monaco model content from outside (e.g. file watcher, external save).
+ * modelKey = filePath for file-based tabs, tabId for untitled.
  */
 export function updateCachedModelContent(
-  tabId: string,
+  modelKey: string,
   content: string,
   context = 'inactive'
 ): void {
-  const model = sharedModelMap.get(tabId);
+  const model = sharedModelMap.get(modelKey);
   if (!model || model.isDisposed()) return;
   try {
     if (model.getValue() !== content) model.setValue(content);
@@ -86,31 +90,35 @@ export function updateCachedModelContent(
   }
 }
 
-// LRU順序を更新するヘルパー
-function updateModelAccessOrder(tabId: string): void {
-  const index = modelAccessOrder.indexOf(tabId);
-  if (index > -1) {
-    modelAccessOrder.splice(index, 1);
+/**
+ * Save editor view state for a tab (cursor, scroll, folding).
+ * Call before switching away from a tab.
+ */
+export function saveTabViewState(
+  tabId: string,
+  editor: monaco.editor.IStandaloneCodeEditor
+): void {
+  try {
+    tabViewStates.set(tabId, editor.saveViewState());
+  } catch (e) {
+    // ignore
   }
-  modelAccessOrder.push(tabId);
 }
 
-// 最も古いモデルを削除してキャパシティを確保
-function enforceModelLimit(
-  monacoModelMap: Map<string, monaco.editor.ITextModel>,
-  maxModels: number
+/**
+ * Restore editor view state for a tab.
+ * Call after switching to a tab and setting the model.
+ */
+export function restoreTabViewState(
+  tabId: string,
+  editor: monaco.editor.IStandaloneCodeEditor
 ): void {
-  while (monacoModelMap.size >= maxModels && modelAccessOrder.length > 0) {
-    const oldestTabId = modelAccessOrder.shift();
-    if (!oldestTabId) continue;
-    const oldModel = monacoModelMap.get(oldestTabId);
-    if (!oldModel) continue;
-    try {
-      oldModel.dispose();
-    } catch (e) {
-      console.warn('[useMonacoModels] Failed to dispose model:', e);
-    }
-    monacoModelMap.delete(oldestTabId);
+  const state = tabViewStates.get(tabId);
+  if (!state) return;
+  try {
+    editor.restoreViewState(state);
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -132,166 +140,121 @@ export function useMonacoModels() {
       fileName: string,
       filePath?: string | null
     ): monaco.editor.ITextModel | null => {
-      // entry log removed in cleanup
-      const monacoModelMap = monacoModelMapRef.current;
-      const languageFileName = getMonacoLanguageFileName(tabId, fileName, filePath);
+      const languageFileName = getLanguageFileName(filePath, fileName);
       const desiredLang = getModelLanguage(languageFileName);
-      const desiredUriValue = getMonacoModelUriValue(tabId, fileName, filePath);
-      let model = monacoModelMap.get(tabId);
+      const desiredUriValue = getWorkspaceModelUri(filePath, tabId);
+      const modelKey = getModelCacheKey(filePath, tabId);
+      let model = sharedModelMap.get(modelKey);
 
-      // ARCHITECTURE NOTE: This function uses a hybrid approach with two lookup paths:
-      // 1. TabId-based lookup (our cache) - Fast path, enables LRU management and external updates
-      // 2. URI-based lookup (Monaco's registry) - Safety path, prevents duplicate model creation
-      // Both paths are intentional and serve different purposes. Do not refactor to single path
-      // without careful consideration of LRU functionality and external update requirements.
+      if (model && !model.isDisposed()) {
+        updateModelAccessOrder(modelKey);
+        const currentLang = model.getLanguageId();
+        const currentUri = model.uri.toString();
 
-      // If a model exists in our map, ensure it's safe and has the correct language.
-      // IMPORTANT: do not dispose a model here synchronously — other editor instances
-      // may be attaching to the same underlying model. URI changes create a new
-      // model; language-only changes update the existing model in place.
-      if (isModelSafe(model)) {
-        // Update LRU access order
-        updateModelAccessOrder(tabId);
-        try {
-          const currentLang = model?.getLanguageId();
-          const currentUriValue = model?.uri?.toString();
-          if (currentUriValue === desiredUriValue && currentLang !== desiredLang) {
+        if (currentUri === desiredUriValue) {
+          // Language update if stale
+          if (currentLang !== desiredLang) {
             try {
-              if (model) {
-                mon.editor.setModelLanguage(model, desiredLang);
-                mon.editor.setModelMarkers(model, 'typescript', []);
-                mon.editor.setModelMarkers(model, 'javascript', []);
-              }
+              mon.editor.setModelLanguage(model, desiredLang);
+              mon.editor.setModelMarkers(model, 'typescript', []);
+              mon.editor.setModelMarkers(model, 'javascript', []);
             } catch (e) {
-              console.warn('[useMonacoModels] Failed to update cached model language:', e);
+              console.warn('[useMonacoModels] Failed to update model language:', e);
             }
           }
+          // Sync content
+          if (model.getValue() !== content) model.setValue(content);
+          return model;
+        }
 
-          if (currentUriValue !== desiredUriValue) {
-            // Remove from our map so caller will create a new model. Do NOT dispose
-            // the existing model here to avoid racing with setModel()/editor lifecycle.
-            monacoModelMap.delete(tabId);
-            if (model) {
-              try {
-                mon.editor.setModelMarkers(model, 'typescript', []);
-                mon.editor.setModelMarkers(model, 'javascript', []);
-              } catch (e) {
-                // ignore marker cleanup failures
-              }
-              window.setTimeout(() => {
-                try {
-                  if (model && !model.isDisposed()) model.dispose();
-                } catch (e) {
-                  console.warn('[useMonacoModels] Failed to dispose stale URI model:', e);
-                }
-              }, 0);
-            }
-            model = undefined;
-          } else {
-            // Language matches - update content if it differs (fixes external change bug)
-            // Use existing function to maintain consistency
-            updateCachedModelContent(tabId, content, 'reactivating');
-            // Return the updated model
-            return model || null;
-          }
+        // URI mismatch (filePath changed for this tab) — replace model
+        sharedModelMap.delete(modelKey);
+        try {
+          mon.editor.setModelMarkers(model, 'typescript', []);
+          mon.editor.setModelMarkers(model, 'javascript', []);
         } catch (e) {
-          console.warn('[useMonacoModels] Error while checking cached model language:', e);
+          // ignore
         }
-      } else {
-        // dispose済みモデルはMapから削除
-        if (model) {
-          monacoModelMap.delete(tabId);
-        }
+        window.setTimeout(() => {
+          try {
+            if (model && !model.isDisposed()) model.dispose();
+          } catch (e) {
+            console.warn('[useMonacoModels] Failed to dispose stale URI model:', e);
+          }
+        }, 0);
+        model = undefined;
+      } else if (model) {
+        sharedModelMap.delete(modelKey);
         model = undefined;
       }
 
-      if (!model) {
-        // Enforce model limit before creating a new model
-        enforceModelLimit(monacoModelMap, MONACO_CONFIG.MAX_MONACO_MODELS);
+      // Create new model
+      enforceModelLimit(MONACO_CONFIG.MAX_MONACO_MODELS);
 
-        try {
-          // Monaco's TypeScript worker derives ScriptKind from uri.toString().
-          // Keep the real Pyxis file path as the URI path so it ends with .ts/.tsx,
-          // and put tab identity in the authority for per-tab uniqueness.
-          const uri = mon.Uri.parse(desiredUriValue);
-          // computed URI log removed in cleanup
+      try {
+        const uri = mon.Uri.parse(desiredUriValue);
 
-          // Check existing Monaco model for this uri and reuse when possible.
-          try {
-            const existingModel = mon.editor.getModel(uri);
-            if (existingModel && isModelSafe(existingModel)) {
-              if (existingModel.getLanguageId() !== desiredLang) {
-                try {
-                  mon.editor.setModelLanguage(existingModel, desiredLang);
-                  mon.editor.setModelMarkers(existingModel, 'typescript', []);
-                  mon.editor.setModelMarkers(existingModel, 'javascript', []);
-                } catch (e) {
-                  console.warn('[useMonacoModels] Failed to update existing model language:', e);
-                }
-              }
-
-              // Reuse and sync content
-              if (existingModel.getValue() !== content) existingModel.setValue(content);
-              monacoModelMap.set(tabId, existingModel);
-              updateModelAccessOrder(tabId);
-              return existingModel;
+        // Reuse existing Monaco registry model if URI already exists
+        const existingModel = mon.editor.getModel(uri);
+        if (existingModel && !existingModel.isDisposed()) {
+          if (existingModel.getLanguageId() !== desiredLang) {
+            try {
+              mon.editor.setModelLanguage(existingModel, desiredLang);
+              mon.editor.setModelMarkers(existingModel, 'typescript', []);
+              mon.editor.setModelMarkers(existingModel, 'javascript', []);
+            } catch (e) {
+              console.warn('[useMonacoModels] Failed to update existing model language:', e);
             }
-          } catch (e) {
-            console.warn('[useMonacoModels] mon.editor.getModel error:', e);
           }
-
-          const language = getMonarchLanguage(languageFileName);
-          const newModel = mon.editor.createModel(content, language, uri);
-          try {
-            (mon.editor as any).setModelLanguage(newModel, getModelLanguage(languageFileName));
-          } catch (e) {
-            // ignore
-          }
-          monacoModelMap.set(tabId, newModel);
-          updateModelAccessOrder(tabId);
-          return newModel;
-        } catch (createError: any) {
-          console.error('[useMonacoModels] Model creation failed:', createError);
-          return null;
+          if (existingModel.getValue() !== content) existingModel.setValue(content);
+          sharedModelMap.set(modelKey, existingModel);
+          updateModelAccessOrder(modelKey);
+          return existingModel;
         }
+
+        const monarchLang = getMonarchLanguage(languageFileName);
+        const newModel = mon.editor.createModel(content, monarchLang, uri);
+        try {
+          (mon.editor as any).setModelLanguage(newModel, desiredLang);
+        } catch (e) {
+          // ignore
+        }
+        sharedModelMap.set(modelKey, newModel);
+        updateModelAccessOrder(modelKey);
+        return newModel;
+      } catch (e) {
+        console.error('[useMonacoModels] Model creation failed:', e);
+        return null;
       }
-      return model;
     },
     [isModelSafe]
   );
 
-  const disposeModel = useCallback((tabId: string) => {
-    const monacoModelMap = monacoModelMapRef.current;
-    const model = monacoModelMap.get(tabId);
+  const disposeModel = useCallback((modelKey: string) => {
+    const model = sharedModelMap.get(modelKey);
     if (model) {
       try {
         model.dispose();
-        console.log('[useMonacoModels] Disposed model for:', tabId);
       } catch (e) {
         console.warn('[useMonacoModels] Failed to dispose model:', e);
       }
-      monacoModelMap.delete(tabId);
-      // Remove from LRU access order
-      const index = modelAccessOrder.indexOf(tabId);
-      if (index > -1) {
-        modelAccessOrder.splice(index, 1);
-      }
+      sharedModelMap.delete(modelKey);
+      const index = modelAccessOrder.indexOf(modelKey);
+      if (index > -1) modelAccessOrder.splice(index, 1);
     }
   }, []);
 
   const disposeAllModels = useCallback(() => {
-    const monacoModelMap = monacoModelMapRef.current;
-    monacoModelMap.forEach((model, tabId) => {
+    sharedModelMap.forEach(model => {
       try {
         model.dispose();
-        console.log('[useMonacoModels] Disposed model for:', tabId);
       } catch (e) {
         console.warn('[useMonacoModels] Failed to dispose model:', e);
       }
     });
-    monacoModelMap.clear();
-    // Clear LRU access order
+    sharedModelMap.clear();
     modelAccessOrder.length = 0;
+    tabViewStates.clear();
     currentModelIdRef.current = null;
   }, [currentModelIdRef]);
 

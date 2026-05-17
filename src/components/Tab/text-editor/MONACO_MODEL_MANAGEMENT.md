@@ -1,111 +1,132 @@
 # Monaco Model Management
 
-This document defines how Pyxis manages Monaco editor models and URIs.
+## URI Scheme
 
-## Core Rule
-
-Monaco model URIs must use this shape:
-
-```text
-inmemory://<encoded-tab-id>/<path-from-pyxis-root>
+```
+inmemory://workspace/<path-from-pyxis-root>
 ```
 
 Example:
 
-```text
-inmemory://%2Fsrc%2Ftypescript%2Fhello.ts-1779005182520-j57xr/src/typescript/hello.ts
+```
+inmemory://workspace/src/typescript/hello.ts
+inmemory://workspace/src/typescript/math.ts
 ```
 
-The URI path must be the real Pyxis file path and must end with the real file extension.
+The authority is always `workspace` (fixed). The URI path is the real Pyxis file path and must end with the real file extension.
 
-## Why This Matters
+## Why Fixed Authority
 
-Monaco's TypeScript worker derives `ScriptKind` from `uri.toString()`, not just from the model language id.
+Monaco's TypeScript worker resolves module imports relative to the model's URI.
 
-If a URI ends like this:
+With per-tab authority (old design):
 
-```text
-inmemory://model/src/typescript/hello.ts?tabId=hello.ts-1779005182520-j57xr
+```
+use-math.ts → inmemory://tab-A/typescript/use-math.ts
+math.ts     → inmemory://tab-B/typescript/math.ts
 ```
 
-the worker sees the suffix as something other than `ts`, and with `allowJs: true` it falls back to JavaScript. That causes errors such as:
+The worker resolving `./math` from tab-A's model looks for `inmemory://tab-A/typescript/math.ts` — not found. Cross-file resolution was broken.
 
-```text
-Type annotations can only be used in TypeScript files.(8010)
+With fixed `workspace` authority:
+
+```
+use-math.ts → inmemory://workspace/typescript/use-math.ts
+math.ts     → inmemory://workspace/typescript/math.ts
 ```
 
-Therefore, do not put identity data after the file extension.
+The worker resolves `./math` and finds the model. Cross-file resolution works.
 
-## Identity Model
+## Model Identity
 
-Use two identities deliberately:
+One Monaco model per unique file path (not per tab).
 
-- `tabId`: identifies an editor tab instance. It is stored in the URI authority.
-- `filePath`: identifies the project file from the Pyxis root. It is stored in the URI path.
+- `filePath` → model cache key for file-based tabs
+- `tabId` → model cache key for untitled tabs (no filePath)
 
-This allows the same file to be opened in multiple panes with separate Monaco models while keeping diagnostics tied to the real file path.
+The same file opened in multiple panes shares one model. Edits in one pane are immediately visible in all panes showing the same file.
+
+## Tab View State
+
+Tab-specific state (cursor position, scroll, folding, selections) is stored separately as `ICodeEditorViewState` keyed by `tabId`.
+
+On tab switch:
+1. Save view state for the outgoing `tabId`
+2. `editor.setModel(sharedModel)`
+3. Restore view state for the incoming `tabId`
+
+This gives each tab its own cursor/scroll position even when sharing a model.
 
 ## Responsibilities
 
 `utils/monacoPathUtils.ts`
 
-- Owns Monaco URI construction and parsing.
-- Encodes `tabId` into the URI authority.
-- Encodes the Pyxis file path into the URI path.
-- Provides helpers for ProblemsPanel to recover the display path and tab id.
+- `getWorkspaceModelUri(filePath, tabId)` — builds the `inmemory://workspace/...` URI
+- `getModelCacheKey(filePath, tabId)` — filePath for file tabs, tabId for untitled
+- `getLanguageFileName(filePath, fileName)` — basename for language detection
+- `getFilePathFromUri(resourcePath)` — strips leading slash for display
 
 `hooks/useMonacoModels.ts`
 
-- Owns model lookup, creation, reuse, language updates, and LRU disposal.
-- Uses `tabId` as the local cache key.
-- Uses the Monaco URI as the Monaco registry key.
-- Must never create TypeScript/JavaScript model URIs that fail to end with `.ts`, `.tsx`, `.js`, or `.jsx`.
+- Owns model lookup, creation, reuse, language updates, and LRU disposal
+- `sharedModelMap` keyed by modelKey (filePath or tabId)
+- `tabViewStates` keyed by tabId — persists cursor/scroll across tab switches
+- Exports `saveTabViewState` and `restoreTabViewState` for use by MonacoEditor
+- Exports `updateCachedModelContent(modelKey, content)` for contentSync
 
 `editors/MonacoEditor.tsx`
 
-- Passes both `tabId` and `filePath` to `useMonacoModels`.
-- Uses the normalized model filename for the editor `language` prop.
+- Passes `tabId`, `fileName`, `filePath` to `getOrCreateModel`
+- Saves view state for previous tab before switching
+- Restores view state after switching to new tab
+- Saves view state on unmount
 
 `Bottom/ProblemsPanel.tsx`
 
-- Reads diagnostics from Monaco markers.
-- Uses `marker.resource.path` for display file paths.
-- Uses `marker.resource.authority` to recover the original `tabId` for jump-to-problem.
+- `marker.resource.path` → display file path (authority is always `workspace`, not used)
+- Jump-to-problem: `findTabByFilePath(filePath)` → finds open tab by `tab.path`
+
+`stores/tabState/contentSync.ts`
+
+- `updateCachedModelContent` called with `filePath` (not `tabId`) to update the shared model once per file regardless of how many tabs show it
 
 ## Forbidden URI Patterns
 
-Do not use query or hash for tab identity:
+Do not put tab identity in the URI authority, query, or hash:
 
-```text
-inmemory://model/src/hello.ts?tabId=...
-inmemory://model/src/hello.ts#...
+```
+inmemory://<tab-id>/path/file.ts         ← breaks cross-file resolution
+inmemory://workspace/path/file.ts?tab=x  ← TS worker sees wrong ScriptKind
+inmemory://workspace/path/file.ts#id     ← same problem
 ```
 
-Do not append uniqueness after the extension:
+Do not append uniqueness after the file extension:
 
-```text
-inmemory://model/src/hello.ts-1779005182520-j57xr
-inmemory://model/src/hello.ts__1779005182520
+```
+inmemory://workspace/path/file.ts-timestamp-id  ← breaks ScriptKind detection
 ```
 
-Both patterns break TypeScript worker extension detection.
+## ScriptKind Rule
+
+Monaco's TypeScript worker derives `ScriptKind` from `uri.toString()`. The URI path must end with `.ts`, `.tsx`, `.js`, or `.jsx` for correct TypeScript/JavaScript parsing.
 
 ## Model Reuse Rules
 
-When reusing a cached model:
-
-1. If the cached model URI matches the desired URI, reuse it.
-2. If only the language id is stale, update the model language in place and clear old TS/JS markers.
-3. If the URI changed, remove it from the tab cache and create a new model with the canonical URI.
-4. Do not create fallback URIs by appending suffixes after the file extension.
+1. If cached model URI matches desired URI: sync content, update language if stale, return model
+2. If URI changed (filePath changed for a tab): dispose old model async, create new model
+3. If no cache entry but Monaco registry has the URI: reuse registry model, register in cache
+4. Never create fallback URIs or append suffixes after the file extension
 
 ## Troubleshooting
 
-If TypeScript diagnostics report JavaScript-only errors in `.ts` files:
+**"Cannot find module" errors:**
 
-1. Check `model.uri.toString()`.
-2. Confirm it ends with `.ts` or `.tsx`.
-3. Confirm tab identity is in `model.uri.authority`, not query/hash/path suffix.
-4. Confirm `model.getLanguageId()` is `typescript`.
-5. Close/reopen the tab if an old in-memory model was created before the URI contract changed.
+1. Confirm all related files are open as Monaco models (models are created on tab open)
+2. Check `model.uri.toString()` — must be `inmemory://workspace/<path>`
+3. Confirm authority is `workspace`, not a tabId
 
+**TypeScript errors in `.ts` files (wrong ScriptKind):**
+
+1. Check `model.uri.toString()` ends with `.ts` or `.tsx`
+2. Check `model.getLanguageId()` is `typescript`
+3. Close and reopen the tab if an old model was created under the previous URI scheme

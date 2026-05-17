@@ -131,8 +131,11 @@ export function updateAllTabsByPath(path: string, content: string, isDirty: bool
         setTabContent(t.id, content, isDirty);
 
         if (prev !== content) {
-          pendingModelUpdates.set(t.id, content);
-          scheduleModelUpdateFlush();
+          // Use filePath as model key — same file in multiple tabs shares one Monaco model
+          if (!pendingModelUpdates.has(targetPath)) {
+            pendingModelUpdates.set(targetPath, content);
+            scheduleModelUpdateFlush();
+          }
         }
 
         if (currentDirty !== isDirty) {

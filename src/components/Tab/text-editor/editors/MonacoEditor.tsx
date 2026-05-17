@@ -2,9 +2,9 @@ import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useMonacoModels } from '../hooks/useMonacoModels';
+import { restoreTabViewState, saveTabViewState, useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
-import { getMonacoLanguageFileName } from '../utils/monacoPathUtils';
+import { getLanguageFileName } from '../utils/monacoPathUtils';
 import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
@@ -54,12 +54,13 @@ export default function MonacoEditor({
   isActive = false,
 }: MonacoEditorProps) {
   const { colors, themeName } = useTheme();
-  const languageFileName = getMonacoLanguageFileName(tabId, fileName, filePath);
+  const languageFileName = getLanguageFileName(filePath, fileName);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const isMountedRef = useRef(true);
   const markerListenerRef = useRef<monaco.IDisposable | null>(null);
+  const prevTabIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -134,6 +135,8 @@ export default function MonacoEditor({
       if (model && isEditorSafe()) {
         try {
           editor.setModel(model);
+          restoreTabViewState(tabId, editor);
+          prevTabIdRef.current = tabId;
 
           // モデルが外部からフラッシュ(setValue)されたときに、最後に記憶した選択を復元する
           try {
@@ -196,26 +199,36 @@ export default function MonacoEditor({
   // タブ切り替え時のモデル管理
   useEffect(() => {
     if (!isEditorSafe() || !monacoRef.current) return;
+    const editor = editorRef.current!;
 
     const model = getOrCreateModel(monacoRef.current, tabId, content, fileName, filePath);
+    const prevTabId = prevTabIdRef.current;
+    const tabSwitched = prevTabId !== null && prevTabId !== tabId;
 
-    if (model && currentModelIdRef.current !== tabId) {
+    // タブ切り替え: 旧タブの viewState 保存 → 新モデルセット → 新タブの viewState 復元
+    if (tabSwitched) {
+      saveTabViewState(prevTabId!, editor);
+    }
+
+    if (model && (currentModelIdRef.current !== tabId || tabSwitched)) {
       try {
-        editorRef.current?.setModel(model);
-        // marker dump removed in cleanup
+        editor.setModel(model);
         currentModelIdRef.current = tabId;
-        onCharCountChange(countCharsNoSpaces(model.getValue()));
       } catch (e: any) {
         console.warn('[MonacoEditor] setModel failed:', e?.message);
       }
     }
 
-    // 内容同期
+    if (tabSwitched) {
+      restoreTabViewState(tabId, editor);
+    }
+
+    prevTabIdRef.current = tabId;
+
+    // 内容同期 (外部変更: ファイルウォッチャー等)
     if (isModelSafe(model) && model?.getValue() !== content) {
       try {
-        // エディタが利用可能ならビュー/選択を保持してから setValue → 復元する
         if (isEditorSafe()) {
-          const editor = editorRef.current!;
           try {
             const prevView = editor.saveViewState();
             const prevSelections = editor.getSelections();
@@ -224,7 +237,6 @@ export default function MonacoEditor({
             if (prevSelections) editor.setSelections(prevSelections);
             editor.layout();
           } catch (e) {
-            // フォールバック
             model?.setValue(content);
             editor.layout();
           }
@@ -236,7 +248,7 @@ export default function MonacoEditor({
       }
     }
 
-    if (isModelSafe(model)) {
+    if (isModelSafe(model) && !tabSwitched) {
       onCharCountChange(countCharsNoSpaces(model?.getValue()));
     }
   }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, filePath]);
@@ -316,6 +328,7 @@ export default function MonacoEditor({
   useEffect(() => {
     return () => {
       if (editorRef.current) {
+        saveTabViewState(tabId, editorRef.current);
         editorRef.current.dispose();
         editorRef.current = null;
       }

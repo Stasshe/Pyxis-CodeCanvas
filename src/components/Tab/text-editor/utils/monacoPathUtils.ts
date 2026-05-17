@@ -1,13 +1,4 @@
-const SYNTHETIC_TAB_SUFFIX_RE = /(\.[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)?)-\d{10,}-[a-z0-9]{3,}$/i;
-const DEFAULT_AUTHORITY = 'model';
-
-function stripSyntheticSuffix(path: string): string {
-  return path.replace(/__\d+$/, '').replace(SYNTHETIC_TAB_SUFFIX_RE, '$1');
-}
-
-function ensureLeadingSlash(path: string): string {
-  return path.startsWith('/') ? path : `/${path}`;
-}
+const WORKSPACE_AUTHORITY = 'workspace';
 
 function encodePath(path: string): string {
   return path
@@ -16,55 +7,50 @@ function encodePath(path: string): string {
     .join('/');
 }
 
-export function getMonacoTabAuthority(tabId: string): string {
-  return encodeURIComponent(tabId || DEFAULT_AUTHORITY);
+function ensureLeadingSlash(path: string): string {
+  return path.startsWith('/') ? path : `/${path}`;
 }
 
-export function getTabIdFromMonacoAuthority(authority: string): string | null {
-  if (!authority || authority === DEFAULT_AUTHORITY) return null;
+/**
+ * Monaco model cache key.
+ * File-based tabs: filePath (shared across tabs showing same file).
+ * Untitled tabs: tabId (unique per tab).
+ */
+export function getModelCacheKey(filePath: string | undefined | null, tabId: string): string {
+  return filePath && filePath.length > 0 ? filePath : tabId;
+}
 
-  try {
-    return decodeURIComponent(authority);
-  } catch (e) {
-    return authority;
+/**
+ * Monaco model URI.
+ * Fixed 'workspace' authority enables TypeScript worker cross-file resolution.
+ * URI path ends with real file extension so TS worker derives correct ScriptKind.
+ */
+export function getWorkspaceModelUri(filePath: string | undefined | null, tabId: string): string {
+  if (filePath && filePath.length > 0) {
+    const normalized = ensureLeadingSlash(filePath.split(/[?#]/)[0]);
+    return `inmemory://${WORKSPACE_AUTHORITY}${encodePath(normalized)}`;
   }
+  return `inmemory://${WORKSPACE_AUTHORITY}/untitled/${encodeURIComponent(tabId)}`;
 }
 
-export function getMonacoModelPath(
-  tabId: string,
-  fileName: string,
-  filePath?: string | null
+/**
+ * Filename used for language detection (basename of filePath, fallback to fileName).
+ */
+export function getLanguageFileName(
+  filePath: string | undefined | null,
+  fileName: string
 ): string {
-  const safeFileName = fileName && fileName.length > 0 ? fileName : `untitled-${tabId}`;
-  const rawPath =
-    filePath && filePath.length > 0
-      ? ensureLeadingSlash(filePath.split(/[?#]/)[0])
-      : tabId && tabId.length > 0
-        ? ensureLeadingSlash(tabId.split(/[?#]/)[0])
-        : `/${safeFileName}`;
-
-  return stripSyntheticSuffix(rawPath);
+  if (filePath && filePath.length > 0) {
+    const basename = filePath.split('/').pop();
+    if (basename && basename.length > 0) return basename;
+  }
+  return fileName;
 }
 
-export function getMonacoLanguageFileName(
-  tabId: string,
-  fileName: string,
-  filePath?: string | null
-): string {
-  const modelPath = getMonacoModelPath(tabId, fileName, filePath);
-  return modelPath.split('/').pop() || fileName;
-}
-
-export function getMonacoModelUriValue(
-  tabId: string,
-  fileName: string,
-  filePath?: string | null
-): string {
-  const modelPath = getMonacoModelPath(tabId, fileName, filePath);
-  return `inmemory://${getMonacoTabAuthority(tabId)}${encodePath(modelPath)}`;
-}
-
-export function getPathFromMonacoResourcePath(resourcePath: string): string {
-  const normalized = stripSyntheticSuffix(resourcePath || '');
-  return normalized.startsWith('/') ? normalized.substring(1) : normalized;
+/**
+ * Display path from Monaco URI resource path — strips leading slash.
+ */
+export function getFilePathFromUri(resourcePath: string): string {
+  const path = resourcePath || '';
+  return path.startsWith('/') ? path.substring(1) : path;
 }
