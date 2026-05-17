@@ -53,7 +53,8 @@ Root
 │   │   └── terminal-output-management.md
 │   ├── en
 │   │   └── NODE-RUNTIME.md
-│   └── pyxis-all.svg.svg
+│   ├── pyxis-all.svg.svg
+│   └── runtime-storage-refactor.md
 ├── helper-code.txt
 ├── i18n.sh
 ├── initial_files
@@ -96,6 +97,7 @@ Root
 │   ├── apple-touch-icon.png
 │   ├── base-path-init.js
 │   ├── eruda-init.js
+│   ├── esbuild.wasm
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
@@ -267,7 +269,8 @@ Root
 │   │       └── TopBar.tsx
 │   ├── constants
 │   │   ├── config.ts
-│   │   └── dndTypes.ts
+│   │   ├── dndTypes.ts
+│   │   └── idb.ts
 │   ├── context
 │   │   ├── FileSelectorContext.tsx
 │   │   ├── GitHubUserContext.tsx
@@ -282,7 +285,14 @@ Root
 │   │   │   ├── prompts.ts
 │   │   │   └── responseParser.ts
 │   │   ├── cmd
-│   │   │   ├── VimEditor.ts
+│   │   │   ├── app
+│   │   │   │   ├── dev
+│   │   │   │   │   ├── mergeConflictScenario.ts
+│   │   │   │   │   ├── tabScenario.ts
+│   │   │   │   │   └── types.ts
+│   │   │   │   └── vim
+│   │   │   │       ├── VimEditor.ts
+│   │   │   │       └── index.ts
 │   │   │   ├── global
 │   │   │   │   ├── git.ts
 │   │   │   │   ├── gitOperations
@@ -313,6 +323,12 @@ Root
 │   │   │   │   │   └── tree.ts
 │   │   │   │   ├── npm.ts
 │   │   │   │   ├── npmOperations
+│   │   │   │   │   ├── install
+│   │   │   │   │   │   ├── batchWriter.ts
+│   │   │   │   │   │   ├── dependencyGraph.ts
+│   │   │   │   │   │   ├── tarExtractor.ts
+│   │   │   │   │   │   ├── types.ts
+│   │   │   │   │   │   └── versionUtils.ts
 │   │   │   │   │   ├── npmDependencySize.ts
 │   │   │   │   │   └── npmInstall.ts
 │   │   │   │   ├── unix.ts
@@ -347,16 +363,12 @@ Root
 │   │   │   │       ├── wc.ts
 │   │   │   │       └── zip.ts
 │   │   │   ├── handlers
-│   │   │   │   ├── dev
-│   │   │   │   │   ├── devHandler.ts
-│   │   │   │   │   ├── index.ts
-│   │   │   │   │   ├── mergeConflictScenario.ts
-│   │   │   │   │   ├── tabScenario.ts
-│   │   │   │   │   └── types.ts
+│   │   │   │   ├── devHandler.ts
 │   │   │   │   ├── gitHandler.ts
 │   │   │   │   ├── npmHandler.ts
 │   │   │   │   ├── pyxisHandler.ts
-│   │   │   │   └── unixHandler.ts
+│   │   │   │   ├── unixHandler.ts
+│   │   │   │   └── vimHandler.ts
 │   │   │   ├── lib
 │   │   │   │   ├── GUIDELINES.md
 │   │   │   │   ├── expr.ts
@@ -377,8 +389,7 @@ Root
 │   │   │   ├── terminalOutputManager.ts
 │   │   │   ├── terminalProcessBridge.ts
 │   │   │   ├── terminalRegistry.ts
-│   │   │   ├── terminalUI.ts
-│   │   │   └── vim.ts
+│   │   │   └── terminalUI.ts
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
@@ -403,7 +414,6 @@ Root
 │   │   │   └── types.ts
 │   │   ├── in-ex
 │   │   │   ├── exportFolderZip.ts
-│   │   │   ├── exportIndexeddb.ts
 │   │   │   ├── exportPage.ts
 │   │   │   ├── exportPdf.ts
 │   │   │   ├── exportRepo.ts
@@ -418,6 +428,7 @@ Root
 │   │   │   │   ├── builtinRuntimes.ts
 │   │   │   │   └── runtimeLogger.ts
 │   │   │   ├── module
+│   │   │   │   ├── builtinModules.ts
 │   │   │   │   ├── moduleCache.ts
 │   │   │   │   ├── moduleLoader.ts
 │   │   │   │   └── moduleResolver.ts
@@ -427,6 +438,8 @@ Root
 │   │   │   │   ├── modules
 │   │   │   │   │   ├── assertModule.ts
 │   │   │   │   │   ├── bufferModule.ts
+│   │   │   │   │   ├── childProcessModule.ts
+│   │   │   │   │   ├── cryptoModule.ts
 │   │   │   │   │   ├── eventsModule.ts
 │   │   │   │   │   ├── fsModule.ts
 │   │   │   │   │   ├── httpModule.ts
@@ -434,13 +447,23 @@ Root
 │   │   │   │   │   ├── osModule.ts
 │   │   │   │   │   ├── pathModule.ts
 │   │   │   │   │   ├── readlineModule.ts
+│   │   │   │   │   ├── ttyModule.ts
 │   │   │   │   │   ├── urlModule.ts
-│   │   │   │   │   └── utilModule.ts
+│   │   │   │   │   ├── utilModule.ts
+│   │   │   │   │   └── v8Module.ts
 │   │   │   │   ├── nodeErrors.ts
-│   │   │   │   └── nodeRuntime.ts
+│   │   │   │   ├── nodeRuntime.ts
+│   │   │   │   └── processExit.ts
+│   │   │   ├── storage
+│   │   │   │   ├── MemoryMount.ts
+│   │   │   │   ├── MountRouter.ts
+│   │   │   │   ├── ProjectMount.ts
+│   │   │   │   ├── RuntimeCacheMount.ts
+│   │   │   │   ├── RuntimeStorageRegistry.ts
+│   │   │   │   └── types.ts
 │   │   │   └── transpiler
 │   │   │       ├── ExtensionTranspilerProvider.ts
-│   │   │       ├── normalizeCjsEsm.ts
+│   │   │       ├── esmTransformer.ts
 │   │   │       ├── transpileManager.ts
 │   │   │       └── transpileWorker.ts
 │   │   ├── storage
@@ -468,6 +491,7 @@ Root
 │   │   │   ├── crypto.ts
 │   │   │   └── githubUserManager.ts
 │   │   └── workers
+│   │       ├── WorkerPool.ts
 │   │       └── searchWorker.ts
 │   ├── hooks
 │   │   ├── ai
@@ -499,6 +523,11 @@ Root
 │   │   ├── projectStore.ts
 │   │   ├── sessionStore.ts
 │   │   ├── tabContentStore.ts
+│   │   ├── tabState
+│   │   │   ├── actions.ts
+│   │   │   ├── contentSync.ts
+│   │   │   ├── paneUtils.ts
+│   │   │   └── state.ts
 │   │   ├── tabState.ts
 │   │   └── terminalHistoryStorage.ts
 │   └── types
@@ -512,6 +541,7 @@ Root
 ├── tests
 │   ├── README.md
 │   ├── _helpers
+│   │   ├── localNpmPackage.ts
 │   │   └── testProject.ts
 │   ├── engine
 │   │   ├── cmd
@@ -536,10 +566,15 @@ Root
 │   │   │   │   ├── prettier.test.ts
 │   │   │   │   └── uvu.test.ts
 │   │   │   ├── npm.test.ts
-│   │   │   └── npmInstall.test.ts
+│   │   │   ├── npmInstall.test.ts
+│   │   │   ├── npx.test.ts
+│   │   │   └── versionUtils.test.ts
 │   │   └── runtime
+│   │       ├── childProcessModule.test.ts
+│   │       ├── esmTransformer.test.ts
+│   │       ├── fsModule.test.ts
 │   │       ├── moduleResolver.test.ts
-│   │       └── normalizeCjsEsm.test.ts
+│   │       └── nodeRuntime.test.ts
 │   ├── setup.ts
 │   └── tsconfig.json
 ├── tree-built-out.sh
@@ -550,7 +585,7 @@ Root
 │   └── esbuild-cdn.d.ts
 └── vitest.config.ts
 
-94 directories, 456 files
+99 directories, 486 files
 
 =================================
 
@@ -670,22 +705,24 @@ extensions/ 以下のディレクトリ構造:
 │   ├── index.tsx
 │   └── manifest.json
 └── typescript-runtime
+    ├── _build.js
     ├── index.ts
     ├── manifest.json
+    ├── package.json
     └── transpile.worker.ts
 
-41 directories, 77 files
+41 directories, 79 files
 
 =================================
 
 
 src/*.ts, *.tsx の統計:
-合計行数: 72971
-合計文字数: 2321587
-合計ファイルサイズ(bytes): 2460026
+合計行数: 74301
+合計文字数: 2357193
+合計ファイルサイズ(bytes): 2488515
 
-開発時のdev container全体のサイズ(bytes): 1.3G	.
+開発時のdev container全体のサイズ(bytes): 1.2G	.
 ==========
-ビルト済みファイルの行数: 129556
-合計文字数: 27834775
-合計ファイルサイズ(bytes): 30820154
+ビルト済みファイルの行数: 199616
+合計文字数: 40245075
+合計ファイルサイズ(bytes): 45291109

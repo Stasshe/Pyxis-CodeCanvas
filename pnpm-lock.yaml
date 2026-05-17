@@ -289,6 +289,8 @@ importers:
         specifier: ^0.27.0
         version: 0.27.0
 
+  extensions/typescript-runtime: {}
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
