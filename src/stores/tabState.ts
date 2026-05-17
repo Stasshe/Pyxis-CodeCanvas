@@ -57,11 +57,17 @@ function scheduleModelUpdateFlush(): void {
       }
     }
   };
-  if (typeof window !== 'undefined' && (window as any).requestIdleCallback) {
-    (window as any).requestIdleCallback(flush, { timeout: 500 });
-  } else {
-    setTimeout(flush, 0);
+  if (typeof window !== 'undefined') {
+    const browserWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => void;
+    };
+    const requestIdleCallback = browserWindow.requestIdleCallback;
+    if (requestIdleCallback) {
+      requestIdleCallback(flush, { timeout: 500 });
+      return;
+    }
   }
+  setTimeout(flush, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +82,68 @@ function flattenLeafPanes(panes: readonly EditorPane[], result: EditorPane[] = [
     }
   }
   return result;
+}
+
+function collectPaneIds(panes: readonly EditorPane[], result = new Set<string>()): Set<string> {
+  for (const pane of panes) {
+    result.add(pane.id);
+    if (pane.children) collectPaneIds(pane.children, result);
+  }
+  return result;
+}
+
+function createUniquePaneId(reserved = new Set<string>()): string {
+  const ids = collectPaneIds(tabState.panes);
+  for (const id of reserved) ids.add(id);
+  let next = 1;
+  while (ids.has(`pane-${next}`)) next++;
+  return `pane-${next}`;
+}
+
+function findFirstLeafPane(panes: readonly EditorPane[]): EditorPane | null {
+  for (const pane of panes) {
+    if (!pane.children?.length) return pane;
+    const childLeaf = findFirstLeafPane(pane.children);
+    if (childLeaf) return childLeaf;
+  }
+  return null;
+}
+
+function toLeafPaneId(paneId: string | null | undefined): string | null {
+  if (!paneId) return null;
+  const pane = findPaneRecursive(tabState.panes, paneId);
+  if (!pane) return null;
+  if (!pane.children?.length) return pane.id;
+  return findFirstLeafPane([pane])?.id ?? null;
+}
+
+function resolveOpenTargetPaneId(preferredPaneId?: string | null): string | null {
+  const preferred = toLeafPaneId(preferredPaneId);
+  if (preferred) return preferred;
+
+  const active = toLeafPaneId(tabState.activePane);
+  if (active) return active;
+
+  const leaves = flattenLeafPanes(tabState.panes);
+  const leafWithActiveTab = leaves.find(pane =>
+    pane.activeTabId ? pane.tabs.some(tab => tab.id === pane.activeTabId) : false
+  );
+  return leafWithActiveTab?.id ?? leaves[0]?.id ?? null;
+}
+
+function withTabsInPane(tabs: readonly Tab[], paneId: string): Tab[] {
+  return tabs.map(tab => (tab.paneId === paneId ? tab : ({ ...tab, paneId } as Tab)));
+}
+
+function validActiveTabId(tabs: readonly Tab[], activeTabId: string): string {
+  if (activeTabId && tabs.some(tab => tab.id === activeTabId)) return activeTabId;
+  return tabs[0]?.id ?? '';
+}
+
+function focusFirstAvailableLeaf(): void {
+  const leaf = findFirstLeafPane(tabState.panes);
+  tabState.activePane = leaf?.id ?? null;
+  tabState.globalActiveTab = leaf?.activeTabId || null;
 }
 
 function normalizeTabPath(p?: string): string {
@@ -471,8 +539,7 @@ export const tabActions = {
         tabState.panes = [];
       }
       if (tabState.activePane === paneId) {
-        tabState.activePane = null;
-        tabState.globalActiveTab = null;
+        focusFirstAvailableLeaf();
       }
       return;
     }
@@ -508,8 +575,7 @@ export const tabActions = {
     tabState.panes = sanitize(newPanes);
 
     if (tabState.activePane === paneId) {
-      tabState.activePane = null;
-      tabState.globalActiveTab = null;
+      focusFirstAvailableLeaf();
     }
   },
 
@@ -690,46 +756,42 @@ export const tabActions = {
     for (const { paneId, tabId } of toClose) tabActions.closeTab(paneId, tabId);
   },
   splitPane(paneId: string, direction: 'horizontal' | 'vertical') {
-    const target = getPane(paneId);
+    const targetPaneId = toLeafPaneId(paneId);
+    if (!targetPaneId) return;
+    const target = getPane(targetPaneId);
     if (!target) return;
-    const ids: string[] = [];
-    const collect = (ps: readonly EditorPane[]) => {
-      ps.forEach(p => {
-        ids.push(p.id);
-        if (p.children) collect(p.children);
-      });
-    };
-    collect(tabState.panes);
-    let n = 1;
-    while (ids.includes(`pane-${n}`)) n++;
-    const newId = `pane-${n}`;
-    let n2 = n + 1;
-    while (ids.includes(`pane-${n2}`) || `pane-${n2}` === newId) n2++;
-    const existingId = `pane-${n2}`;
+    const reserved = new Set([targetPaneId]);
+    const existingId = createUniquePaneId(reserved);
+    reserved.add(existingId);
+    const newId = createUniquePaneId(reserved);
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
-        if (p.id !== paneId) {
+        if (p.id !== targetPaneId) {
           if (p.children) return { ...p, children: up(p.children) };
           return p;
         }
+        const existingTabs = withTabsInPane(p.tabs, existingId);
+        const existingActiveTabId = validActiveTabId(existingTabs, p.activeTabId);
         return {
           ...p,
           layout: direction,
           children: [
             {
               id: existingId,
-              tabs: p.tabs.map(t => ({ ...t, id: t.id.replace(p.id, existingId) })),
-              activeTabId: p.activeTabId ? p.activeTabId.replace(p.id, existingId) : '',
-              parentId: paneId,
+              tabs: existingTabs,
+              activeTabId: existingActiveTabId,
+              parentId: targetPaneId,
               size: 50,
             },
-            { id: newId, tabs: [], activeTabId: '', parentId: paneId, size: 50 },
+            { id: newId, tabs: [], activeTabId: '', parentId: targetPaneId, size: 50 },
           ],
           tabs: [],
           activeTabId: '',
         };
       });
     tabState.panes = up(tabState.panes);
+    tabState.activePane = existingId;
+    tabState.globalActiveTab = target.activeTabId || null;
   },
   splitPaneAndMoveTab(
     paneId: string,
@@ -737,7 +799,9 @@ export const tabActions = {
     tabId: string,
     side: 'before' | 'after'
   ) {
-    const target = getPane(paneId);
+    const targetPaneId = toLeafPaneId(paneId);
+    if (!targetPaneId) return;
+    const target = getPane(targetPaneId);
     if (!target) return;
     let srcPaneId = '';
     let tabToMove: Tab | null = null;
@@ -753,22 +817,15 @@ export const tabActions = {
       }
     };
     find(tabState.panes);
-    if (!tabToMove || !srcPaneId) return;
-    const ids: string[] = [];
-    const collect = (ps: readonly EditorPane[]) => {
-      ps.forEach(p => {
-        ids.push(p.id);
-        if (p.children) collect(p.children);
-      });
-    };
-    collect(tabState.panes);
-    let n = 1;
-    while (ids.includes(`pane-${n}`)) n++;
-    const newId = `pane-${n}`;
-    const existingId = `pane-${n + 1}`;
+    const tabToMoveValue = tabToMove;
+    if (!tabToMoveValue || !srcPaneId) return;
+    const reserved = new Set([targetPaneId]);
+    const newId = createUniquePaneId(reserved);
+    reserved.add(newId);
+    const existingId = createUniquePaneId(reserved);
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
-        if (p.id === srcPaneId && srcPaneId !== paneId) {
+        if (p.id === srcPaneId && srcPaneId !== targetPaneId) {
           const nt = p.tabs.filter(x => x.id !== tabId);
           return {
             ...p,
@@ -776,24 +833,32 @@ export const tabActions = {
             activeTabId: p.activeTabId === tabId ? (nt[0]?.id ?? '') : p.activeTabId,
           };
         }
-        if (p.id !== paneId) {
+        if (p.id !== targetPaneId) {
           if (p.children) return { ...p, children: up(p.children) };
           return p;
         }
         const existingTabs = p.tabs
           .filter(x => x.id !== tabId)
           .map(t => ({ ...t, paneId: existingId }));
-        const moved = { ...tabToMove!, paneId: newId };
+        const moved: Tab = { ...(tabToMoveValue as Tab), paneId: newId };
         const [p1, p2] =
           side === 'before'
             ? [
-                { id: newId, tabs: [moved], activeTabId: moved.id, parentId: paneId, size: 50 },
+                {
+                  id: newId,
+                  tabs: [moved],
+                  activeTabId: moved.id,
+                  parentId: targetPaneId,
+                  size: 50,
+                },
                 {
                   id: existingId,
                   tabs: existingTabs,
-                  activeTabId:
-                    p.activeTabId === tabId ? (existingTabs[0]?.id ?? '') : p.activeTabId,
-                  parentId: paneId,
+                  activeTabId: validActiveTabId(
+                    existingTabs,
+                    p.activeTabId === tabId ? '' : p.activeTabId
+                  ),
+                  parentId: targetPaneId,
                   size: 50,
                 },
               ]
@@ -801,12 +866,20 @@ export const tabActions = {
                 {
                   id: existingId,
                   tabs: existingTabs,
-                  activeTabId:
-                    p.activeTabId === tabId ? (existingTabs[0]?.id ?? '') : p.activeTabId,
-                  parentId: paneId,
+                  activeTabId: validActiveTabId(
+                    existingTabs,
+                    p.activeTabId === tabId ? '' : p.activeTabId
+                  ),
+                  parentId: targetPaneId,
                   size: 50,
                 },
-                { id: newId, tabs: [moved], activeTabId: moved.id, parentId: paneId, size: 50 },
+                {
+                  id: newId,
+                  tabs: [moved],
+                  activeTabId: moved.id,
+                  parentId: targetPaneId,
+                  size: 50,
+                },
               ];
         return {
           ...p,
@@ -826,20 +899,14 @@ export const tabActions = {
     file: TabFileInfo,
     side: 'before' | 'after'
   ) {
-    const target = getPane(paneId);
+    const targetPaneId = toLeafPaneId(paneId);
+    if (!targetPaneId) return;
+    const target = getPane(targetPaneId);
     if (!target) return;
-    const ids: string[] = [];
-    const collect = (ps: readonly EditorPane[]) => {
-      ps.forEach(p => {
-        ids.push(p.id);
-        if (p.children) collect(p.children);
-      });
-    };
-    collect(tabState.panes);
-    let n = 1;
-    while (ids.includes(`pane-${n}`)) n++;
-    const newId = `pane-${n}`;
-    const existingId = `pane-${n + 1}`;
+    const reserved = new Set([targetPaneId]);
+    const newId = createUniquePaneId(reserved);
+    reserved.add(newId);
+    const existingId = createUniquePaneId(reserved);
     const defEditor =
       typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
     const kind = file.isBufferArray ? 'binary' : 'editor';
@@ -882,20 +949,26 @@ export const tabActions = {
     };
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
-        if (p.id !== paneId) {
+        if (p.id !== targetPaneId) {
           if (p.children) return { ...p, children: up(p.children) };
           return p;
         }
-        const existingTabs = p.tabs.map(t => ({ ...t, paneId: existingId }));
+        const existingTabs = withTabsInPane(p.tabs, existingId);
         const [p1, p2] =
           side === 'before'
             ? [
-                { id: newId, tabs: [newTab], activeTabId: newTab.id, parentId: paneId, size: 50 },
+                {
+                  id: newId,
+                  tabs: [newTab],
+                  activeTabId: newTab.id,
+                  parentId: targetPaneId,
+                  size: 50,
+                },
                 {
                   id: existingId,
                   tabs: existingTabs,
-                  activeTabId: p.activeTabId,
-                  parentId: paneId,
+                  activeTabId: validActiveTabId(existingTabs, p.activeTabId),
+                  parentId: targetPaneId,
                   size: 50,
                 },
               ]
@@ -903,11 +976,17 @@ export const tabActions = {
                 {
                   id: existingId,
                   tabs: existingTabs,
-                  activeTabId: p.activeTabId,
-                  parentId: paneId,
+                  activeTabId: validActiveTabId(existingTabs, p.activeTabId),
+                  parentId: targetPaneId,
                   size: 50,
                 },
-                { id: newId, tabs: [newTab], activeTabId: newTab.id, parentId: paneId, size: 50 },
+                {
+                  id: newId,
+                  tabs: [newTab],
+                  activeTabId: newTab.id,
+                  parentId: targetPaneId,
+                  size: 50,
+                },
               ];
         return {
           ...p,
@@ -929,59 +1008,14 @@ export const tabActions = {
       options.kind ??
       file.kind ??
       (file?.isBufferArray === true || file?.isBufferArray ? 'binary' : 'editor');
-    let targetPaneId = options.paneId ?? tabState.activePane ?? null;
-    const allTabs = tabActions.getAllTabs();
+    let targetPaneId = resolveOpenTargetPaneId(options.paneId);
 
-    if (allTabs.length === 0) {
-      const findLeaf = (ps: readonly EditorPane[]): EditorPane | null => {
-        for (const p of ps) {
-          if (!p.children?.length) return p;
-          const f = findLeaf(p.children);
-          if (f) return f;
-        }
-        return null;
-      };
-      if (options.paneId) targetPaneId = options.paneId;
-      else if (tabState.activePane && getPane(tabState.activePane))
-        targetPaneId = tabState.activePane;
-      else {
-        const leaf = findLeaf(tabState.panes);
-        if (leaf) targetPaneId = leaf.id;
-        else if (!targetPaneId) {
-          let next = 1;
-          while (tabState.panes.some(p => p.id === `pane-${next}`)) next++;
-          const newPane: EditorPane = { id: `pane-${next}`, tabs: [], activeTabId: '' };
-          tabActions.addPane(newPane);
-          targetPaneId = newPane.id;
-          tabState.activePane = newPane.id;
-        }
-      }
-      if (!targetPaneId) {
-        const first = tabState.panes[0]?.id;
-        if (first) targetPaneId = first;
-        else {
-          let next = 1;
-          while (tabState.panes.some(p => p.id === `pane-${next}`)) next++;
-          const newPane: EditorPane = { id: `pane-${next}`, tabs: [], activeTabId: '' };
-          tabActions.addPane(newPane);
-          targetPaneId = newPane.id;
-          tabState.activePane = newPane.id;
-        }
-      }
+    if (!targetPaneId) {
+      const newPane: EditorPane = { id: createUniquePaneId(), tabs: [], activeTabId: '' };
+      tabActions.addPane(newPane);
+      targetPaneId = newPane.id;
+      tabState.activePane = newPane.id;
     }
-
-    if (!targetPaneId) return;
-
-    const toLeaf = (id: string): string => {
-      const s = getPane(id);
-      if (!s) return id;
-      const find = (p: EditorPane): EditorPane => {
-        if (!p.children?.length) return p;
-        return find(p.children[0]);
-      };
-      return find(s).id;
-    };
-    targetPaneId = toLeaf(targetPaneId);
 
     const tabDef = tabRegistry.get(kind);
     if (!tabDef) return;
