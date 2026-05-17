@@ -187,13 +187,16 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
 
   const handleGoto = (markerWithFile: MarkerWithFile) => {
     const { marker, filePath } = markerWithFile;
+    const jump = { jumpToLine: marker.startLineNumber, jumpToColumn: marker.startColumn };
     const result = findTabByFilePath(filePath);
-    if (!result) return;
-    activateTab(result.paneId, result.tabId);
-    updateTab(result.paneId, result.tabId, {
-      jumpToLine: marker.startLineNumber,
-      jumpToColumn: marker.startColumn,
-    } as any);
+    if (result) {
+      activateTab(result.paneId, result.tabId);
+      updateTab(result.paneId, result.tabId, jump as any);
+      return;
+    }
+    // Tab not open — open the file from fileRepository
+    const name = filePath.split('/').pop() || filePath;
+    tabActions.openTab({ path: filePath, name }, { makeActive: true, ...jump }).catch(() => {});
   };
 
   const toggleFileCollapse = (filePath: string) => {
