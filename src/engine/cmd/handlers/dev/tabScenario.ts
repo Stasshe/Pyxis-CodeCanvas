@@ -6,6 +6,8 @@
 
 import type { DevCommandContext, DevCommandInfo } from './types';
 
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { setTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
 
 /**
@@ -210,7 +212,7 @@ async function listTabs(args: string[], context: DevCommandContext): Promise<voi
 
   await writeOutput('=== Open Tabs ===\n');
 
-  const printPane = async (pane: any, indent = 0) => {
+  const printPane = async (pane: EditorPane, indent = 0) => {
     const prefix = '  '.repeat(indent);
 
     if (pane.tabs && pane.tabs.length > 0) {
@@ -237,11 +239,230 @@ async function listTabs(args: string[], context: DevCommandContext): Promise<voi
     await printPane(pane);
   }
 
-  if (
-    panes.length === 0 ||
-    panes.every((p: any) => (!p.tabs || p.tabs.length === 0) && !p.children)
-  ) {
+  if (panes.length === 0 || panes.every(p => (!p.tabs || p.tabs.length === 0) && !p.children)) {
     await writeOutput('No tabs open.');
+  }
+}
+
+function createReproEditorTab(paneId: string, path: string, content: string): Tab {
+  const name = path.split('/').pop() || path;
+  const id = `${path}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  setTabContent(id, content, false);
+
+  return {
+    id,
+    name,
+    path,
+    kind: 'editor',
+    paneId,
+    content,
+    isDirty: false,
+  };
+}
+
+function collectTabStateIssues() {
+  const panes = tabState.panes as EditorPane[];
+  const activePane = tabState.activePane;
+  const globalActiveTab = tabState.globalActiveTab;
+
+  const issues: string[] = [];
+  const paneIdCounts = new Map<string, number>();
+  const panesById = new Map<string, EditorPane[]>();
+  const leafPanes: EditorPane[] = [];
+  const tabLocations = new Map<string, Array<{ paneId: string; tab: Tab }>>();
+
+  const visit = (pane: EditorPane, parentId: string | null, path: string) => {
+    paneIdCounts.set(pane.id, (paneIdCounts.get(pane.id) || 0) + 1);
+    panesById.set(pane.id, [...(panesById.get(pane.id) || []), pane]);
+
+    const hasChildren = (pane.children?.length || 0) > 0;
+    const tabs = pane.tabs || [];
+
+    if (hasChildren && tabs.length > 0) {
+      issues.push(`Pane ${pane.id} at ${path} has both children and ${tabs.length} tabs.`);
+    }
+
+    if (hasChildren) {
+      for (const child of pane.children || []) {
+        if (child.parentId !== pane.id) {
+          issues.push(
+            `Pane ${child.id} at ${path}/${child.id} has parentId=${child.parentId || '(empty)'}, expected ${pane.id}.`
+          );
+        }
+        visit(child, pane.id, `${path}/${child.id}`);
+      }
+      return;
+    }
+
+    leafPanes.push(pane);
+
+    if (pane.activeTabId && !tabs.some(tab => tab.id === pane.activeTabId)) {
+      issues.push(`Leaf pane ${pane.id} activeTabId=${pane.activeTabId} is not in its tabs.`);
+    }
+
+    for (const tab of tabs) {
+      const locations = tabLocations.get(tab.id) || [];
+      tabLocations.set(tab.id, [...locations, { paneId: pane.id, tab }]);
+
+      if (tab.paneId !== pane.id) {
+        issues.push(
+          `Tab ${tab.id} (${tab.name}) is stored in pane ${pane.id}, but tab.paneId=${tab.paneId || '(empty)'}.`
+        );
+      }
+    }
+  };
+
+  for (const pane of panes) {
+    visit(pane, null, pane.id);
+  }
+
+  for (const [paneId, count] of paneIdCounts) {
+    if (count > 1) {
+      issues.push(`Duplicate pane id ${paneId} appears ${count} times.`);
+    }
+  }
+
+  for (const [tabId, locations] of tabLocations) {
+    if (locations.length > 1) {
+      issues.push(
+        `Duplicate tab id ${tabId} appears in panes ${locations.map(location => location.paneId).join(', ')}.`
+      );
+    }
+  }
+
+  if (activePane) {
+    const activeMatches = panesById.get(activePane) || [];
+    if (activeMatches.length === 0) {
+      issues.push(`activePane=${activePane} does not exist.`);
+    } else if (!leafPanes.some(pane => pane.id === activePane)) {
+      issues.push(`activePane=${activePane} is not a leaf pane.`);
+    }
+  }
+
+  if (globalActiveTab && !tabLocations.has(globalActiveTab)) {
+    issues.push(`globalActiveTab=${globalActiveTab} does not exist in any leaf pane.`);
+  }
+
+  return {
+    panes,
+    activePane,
+    globalActiveTab,
+    issues,
+    leafPanes,
+    tabCount: Array.from(tabLocations.values()).reduce((sum, v) => sum + v.length, 0),
+  };
+}
+
+/**
+ * Check tab/pane tree invariants.
+ */
+async function checkTabState(args: string[], context: DevCommandContext): Promise<void> {
+  const { writeOutput } = context;
+  const { panes, activePane, globalActiveTab, issues, leafPanes, tabCount } =
+    collectTabStateIssues();
+
+  await writeOutput('=== Tab State Check ===');
+  await writeOutput(`Root panes: ${panes.length}`);
+  await writeOutput(`Leaf panes: ${leafPanes.length}`);
+  await writeOutput(`Tabs: ${tabCount}`);
+  await writeOutput(`activePane: ${activePane || '(none)'}`);
+  await writeOutput(`globalActiveTab: ${globalActiveTab || '(none)'}`);
+
+  if (issues.length === 0) {
+    await writeOutput('\n✓ No tab/pane invariant issues found.');
+    return;
+  }
+
+  await writeOutput(`\nFound ${issues.length} issue(s):`);
+  for (const issue of issues) {
+    await writeOutput(`- ${issue}`);
+  }
+}
+
+/**
+ * Reproduce the splitPaneAndMoveTab pane-id collision without drag-and-drop.
+ */
+async function reproSplitIdCollision(args: string[], context: DevCommandContext): Promise<void> {
+  const { writeOutput } = context;
+
+  const first = createReproEditorTab('pane-2', '/repro/a.ts', 'export const a = 1;\n');
+  const second = createReproEditorTab('pane-2', '/repro/b.ts', 'export const b = 2;\n');
+
+  tabActions.setPanes([
+    {
+      id: 'pane-2',
+      tabs: [first, second],
+      activeTabId: first.id,
+    },
+  ]);
+  tabActions.activateTab('pane-2', first.id);
+
+  await writeOutput('Prepared one leaf pane with id=pane-2.');
+  await writeOutput('Calling splitPaneAndMoveTab("pane-2", "vertical", firstTab, "after").');
+
+  tabActions.splitPaneAndMoveTab('pane-2', 'vertical', first.id, 'after');
+
+  const { issues } = collectTabStateIssues();
+  await writeOutput(`Result: ${issues.length} invariant issue(s).`);
+  for (const issue of issues) {
+    await writeOutput(`- ${issue}`);
+  }
+}
+
+/**
+ * Reproduce openTab returning early when a tab exists but no pane is active.
+ */
+async function reproNoFocusOpen(args: string[], context: DevCommandContext): Promise<void> {
+  const { writeOutput } = context;
+
+  const existing = createReproEditorTab(
+    'pane-2',
+    '/repro/existing.ts',
+    'export const ok = true;\n'
+  );
+
+  tabActions.setPanes([
+    {
+      id: 'pane-1',
+      tabs: [],
+      activeTabId: '',
+      size: 50,
+    },
+    {
+      id: 'pane-2',
+      tabs: [existing],
+      activeTabId: existing.id,
+      size: 50,
+    },
+  ]);
+  tabActions.setActivePane(null);
+  tabState.globalActiveTab = null;
+
+  const before = tabActions.getAllTabs().length;
+  await writeOutput('Prepared panes: pane-1 is empty, pane-2 has one tab, activePane is null.');
+  await writeOutput('Calling openTab(...) without paneId.');
+
+  await tabActions.openTab({
+    path: '/repro/open-without-focus.ts',
+    name: 'open-without-focus.ts',
+    content: 'export const opened = true;\n',
+  });
+
+  const after = tabActions.getAllTabs().length;
+  await writeOutput(`Tabs before: ${before}`);
+  await writeOutput(`Tabs after: ${after}`);
+  if (after === before) {
+    await writeOutput(
+      'Reproduced: openTab returned without opening because no target pane was resolved.'
+    );
+  } else {
+    await writeOutput('Not reproduced: a tab was opened.');
+  }
+
+  const { issues } = collectTabStateIssues();
+  await writeOutput(`Invariant issues after repro: ${issues.length}`);
+  for (const issue of issues) {
+    await writeOutput(`- ${issue}`);
   }
 }
 
@@ -284,5 +505,23 @@ export const tabCommands: DevCommandInfo[] = [
     description: 'List all open tabs',
     usage: 'dev tab-list',
     handler: listTabs,
+  },
+  {
+    name: 'tab-check',
+    description: 'Check tab/pane state invariants',
+    usage: 'dev tab-check',
+    handler: checkTabState,
+  },
+  {
+    name: 'tab-repro-id-collision',
+    description: 'Reproduce pane id collision during split-and-move',
+    usage: 'dev tab-repro-id-collision',
+    handler: reproSplitIdCollision,
+  },
+  {
+    name: 'tab-repro-no-focus-open',
+    description: 'Reproduce openTab failing when no pane is active',
+    usage: 'dev tab-repro-no-focus-open',
+    handler: reproNoFocusOpen,
   },
 ];
