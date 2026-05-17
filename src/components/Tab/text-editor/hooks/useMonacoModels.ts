@@ -79,7 +79,6 @@ function enforceModelLimit(maxModels: number): void {
 export function updateCachedModelContent(
   modelKey: string,
   content: string,
-  context = 'inactive'
 ): void {
   const model = sharedModelMap.get(modelKey);
   if (!model || model.isDisposed()) return;

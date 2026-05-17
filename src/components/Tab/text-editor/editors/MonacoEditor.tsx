@@ -15,10 +15,40 @@ import {
 } from './monarch-jsx-language';
 
 import { useTheme } from '@/context/ThemeContext';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 
 // グローバルフラグ
 let isLanguageRegistered = false;
 let isLanguageDefaultsConfigured = false;
+let isEditorOpenerRegistered = false;
+
+function findTabForFilePath(filePath: string): { paneId: string; tabId: string } | null {
+  const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
+  function search(panes: readonly EditorPane[]): { paneId: string; tabId: string } | null {
+    for (const p of panes) {
+      const tab = p.tabs?.find((t: Tab) => {
+        const tp = t.path || '';
+        return tp === filePath || tp === normalized || `/${tp}` === normalized;
+      });
+      if (tab) return { paneId: p.id, tabId: tab.id };
+      if (p.children) {
+        const found = search(p.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return search(tabState.panes);
+}
+
+function getJumpPosition(
+  sel: monaco.IRange | monaco.IPosition | undefined
+): { jumpToLine: number; jumpToColumn: number } | undefined {
+  if (!sel) return undefined;
+  if ('startLineNumber' in sel) return { jumpToLine: sel.startLineNumber, jumpToColumn: sel.startColumn };
+  return { jumpToLine: sel.lineNumber, jumpToColumn: sel.column };
+}
 
 interface MonacoEditorProps {
   tabId: string;
@@ -107,6 +137,40 @@ export default function MonacoEditor({
         isLanguageDefaultsConfigured = true;
       } catch (e) {
         console.warn('[MonacoEditor] Failed to configure language defaults:', e);
+      }
+    }
+
+    // go-to-definition / find-references でのタブナビゲーション（初回のみ）
+    if (!isEditorOpenerRegistered) {
+      try {
+        mon.editor.registerEditorOpener({
+          openCodeEditor(_source, resource, selectionOrPosition) {
+            const rawPath = resource.path;
+            const filePath = rawPath.startsWith('/') ? rawPath.substring(1) : rawPath;
+            if (!filePath) return false;
+
+            const jump = getJumpPosition(selectionOrPosition);
+            const found = findTabForFilePath(filePath);
+
+            if (found) {
+              tabActions.activateTab(found.paneId, found.tabId);
+              if (jump) {
+                tabActions.updateTab(found.paneId, found.tabId, jump as any);
+              }
+              return true;
+            }
+
+            // タブ未オープン → openTab でファイルを開く
+            const name = filePath.split('/').pop() || filePath;
+            tabActions
+              .openTab({ path: filePath, name }, { makeActive: true, ...jump })
+              .catch(() => {});
+            return true;
+          },
+        });
+        isEditorOpenerRegistered = true;
+      } catch (e) {
+        console.warn('[MonacoEditor] Failed to register editor opener:', e);
       }
     }
 
