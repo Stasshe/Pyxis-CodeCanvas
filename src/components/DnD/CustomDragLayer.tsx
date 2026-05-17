@@ -1,5 +1,5 @@
 'use client';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { useDragLayer } from 'react-dnd';
 import { getIconForFile, getIconForFolder } from 'vscode-icons-js';
 
@@ -18,6 +18,17 @@ const CustomDragLayer = memo(function CustomDragLayer() {
     currentOffset: monitor.getSourceClientOffset(),
     isDragging: monitor.isDragging(),
   }));
+
+  useEffect(() => {
+    const shouldDisableIframePointerEvents =
+      isDragging && (itemType === DND_FILE_TREE_ITEM || itemType === DND_TAB);
+
+    document.body.classList.toggle('ui-dnd-dragging', shouldDisableIframePointerEvents);
+
+    return () => {
+      document.body.classList.remove('ui-dnd-dragging');
+    };
+  }, [isDragging, itemType]);
 
   // アイテム情報をメモ化
   const { iconSrc, name, isFolder } = useMemo(() => {
