@@ -613,15 +613,10 @@ function ClientTerminal({
       isComposing = false;
     });
 
-    // ペースト対応
+    // ペースト対応 (Ctrl+V は attachCustomKeyEventHandler で処理、Ctrl+Shift+V などブラウザネイティブ経由はここで処理)
     term.textarea?.addEventListener('paste', (e: ClipboardEvent) => {
       e.preventDefault();
-    });
-
-    term.textarea?.addEventListener('beforeinput', (e: InputEvent) => {
-      if (e.inputType === 'insertFromPaste') {
-        // pasteイベントのみで処理
-      }
+      handlePasteText(e.clipboardData?.getData('text/plain') ?? '');
     });
 
     const copyTextToClipboard = (text: string) => {
@@ -656,17 +651,54 @@ function ClientTerminal({
       return true;
     };
 
-    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-      const isCopyShortcut =
-        event.type === 'keydown' &&
-        (event.ctrlKey || event.metaKey) &&
-        !event.shiftKey &&
-        !event.altKey &&
-        event.key.toLowerCase() === 'c';
+    // カーソル位置にテキスト挿入し画面を更新する共通処理
+    const insertAtCursor = (
+      line: string,
+      pos: number,
+      text: string
+    ): { line: string; pos: number } => {
+      const next = line.slice(0, pos) + text + line.slice(pos);
+      term.write(next.slice(pos));
+      const newPos = pos + text.length;
+      const back = next.length - newPos;
+      for (let i = 0; i < back; i++) term.write('\b');
+      return { line: next, pos: newPos };
+    };
 
-      if (isCopyShortcut && copyTerminalSelection()) {
+    const handlePasteText = (text: string) => {
+      if (!text || vimModeActive) return;
+      const sanitized = text.replace(/\x00/g, '');
+      if (!sanitized) return;
+
+      if (terminalProcessBridge.isActive()) {
+        const cleaned = sanitized.replace(/\r?\n/g, '');
+        if (!cleaned) return;
+        ({ line: interactiveLine, pos: interactivePos } = insertAtCursor(interactiveLine, interactivePos, cleaned));
+        return;
+      }
+
+      const cleaned = sanitized.replace(/\r?\n/g, ' ');
+      ({ line: currentLine, pos: cursorPos } = insertAtCursor(currentLine, cursorPos, cleaned));
+    };
+
+    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      if (event.type !== 'keydown') return true;
+
+      const ctrl = event.ctrlKey || event.metaKey;
+
+      // Ctrl+C: copy selection
+      if (ctrl && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'c') {
+        if (copyTerminalSelection()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return false;
+        }
+      }
+
+      // Ctrl+V / Ctrl+Shift+V: paste (両方横取りしてClipboard API経由に統一)
+      if (ctrl && !event.altKey && event.key.toLowerCase() === 'v') {
         event.preventDefault();
-        event.stopPropagation();
+        navigator.clipboard.readText().then(handlePasteText).catch(() => {});
         return false;
       }
 
