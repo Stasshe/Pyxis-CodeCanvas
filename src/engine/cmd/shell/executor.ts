@@ -661,7 +661,69 @@ export class ShellExecutor {
       }
     }
 
-    // 7. Command not found
+    // 7. node_modules/.bin lookup — run installed CLI binaries without npx
+    {
+      const unix = await this.getUnix();
+      const cwdFs = unix ? await unix.pwd() : this.context.cwd;
+      const cwdApp = fsPathToAppPath(cwdFs, this.context.projectName);
+
+      let absFs: string | null = null;
+
+      // Try package.json bin field first
+      const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${cmd}/package.json`);
+      const directPackageJson = this.fileRepository
+        ? await this.fileRepository.getFileByPath(this.context.projectId, directPackageJsonApp).catch(() => null)
+        : null;
+
+      if (directPackageJson?.content) {
+        try {
+          const pkg = JSON.parse(directPackageJson.content);
+          const binField = typeof pkg.bin === 'string' ? { [pkg.name || cmd]: pkg.bin } : pkg.bin;
+          const selectedBin =
+            (binField && typeof binField === 'object' && (binField[cmd] || Object.values(binField)[0])) || null;
+          if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
+            absFs = toFSPath(
+              this.context.projectName,
+              resolvePath(cwdApp, `node_modules/${cmd}/${selectedBin.replace(/^\.\//, '')}`)
+            );
+          }
+        } catch {}
+      }
+
+      // Fallback: .bin shim
+      if (!absFs && this.fileRepository) {
+        const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${cmd}`);
+        const dotBinFile = await this.fileRepository.getFileByPath(this.context.projectId, dotBinApp).catch(() => null);
+        if (dotBinFile) {
+          absFs = toFSPath(this.context.projectName, dotBinApp);
+        }
+      }
+
+      if (absFs) {
+        const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
+        const fmt = (...a: unknown[]) => proc.writeStdout(a.map(x => String(x)).join(' ') + '\n');
+        const fmtErr = (...a: unknown[]) => proc.writeStderr(a.map(x => String(x)).join(' ') + '\n');
+        const runtime = new NodeRuntime({
+          projectId: this.context.projectId,
+          projectName: this.context.projectName,
+          filePath: absFs,
+          cwd: cwdFs,
+          debugConsole: { log: fmt, error: fmtErr, warn: fmt, clear: () => {} },
+          terminalColumns: this.context.terminalColumns ?? 80,
+          terminalRows: this.context.terminalRows ?? 24,
+        });
+        try {
+          await runtime.execute(absFs, args);
+          await runtime.waitForEventLoop();
+          return runtime.getExitCode();
+        } catch (e: any) {
+          proc.writeStderr(String(e?.message ?? e) + '\n');
+          return 1;
+        }
+      }
+    }
+
+    // 8. Command not found
     proc.writeStderr(`${cmd}: command not found\n`);
     return 127;
   }
