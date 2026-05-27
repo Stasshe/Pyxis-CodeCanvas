@@ -1,11 +1,10 @@
 import type React from 'react';
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown, { type Components, type Options } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import type { PluggableList } from 'unified';
 import { fileRepository } from '@/engine/core/fileRepository';
 import 'katex/dist/katex.min.css';
 import 'github-markdown-css/github-markdown.css';
@@ -27,6 +26,8 @@ interface MarkdownPreviewTabProps {
   currentProject?: Project;
 }
 
+type RemarkPlugins = NonNullable<Options['remarkPlugins']>;
+
 const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors, themeName } = useTheme();
   const { settings } = useSettings(currentProject?.id);
@@ -37,7 +38,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const prevContentRef = useRef<string | null>(null);
 
   // determine markdown plugins based on settings
-  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
+  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<RemarkPlugins>([]);
 
   // Only subscribe to panes for the purpose of finding the matching editor tab ID
   const panesSnapshot = useSnapshot(tabState).panes;
@@ -68,7 +69,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   useEffect(() => {
     let mounted = true;
     const setup = async (): Promise<void> => {
-      const plugins: PluggableList = [];
+      const plugins: RemarkPlugins = [];
       try {
         const mode = settings?.markdown?.singleLineBreaks || 'default';
         if (mode === 'breaks') {
