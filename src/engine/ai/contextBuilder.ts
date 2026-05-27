@@ -23,9 +23,7 @@ function normalizeContent(content: unknown): string {
         return new TextDecoder('utf-8').decode(content);
       }
       // typed arrays (Uint8Array, etc.)
-      // @ts-expect-error
       if (ArrayBuffer.isView(content)) {
-        // @ts-expect-error
         return new TextDecoder('utf-8').decode(content);
       }
     }

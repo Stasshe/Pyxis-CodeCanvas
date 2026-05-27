@@ -45,13 +45,13 @@
       "correctness": {
         "noUnusedFunctionParameters": "off",
         "noUnusedImports": "off",
-        "noUnusedPrivateClassMembers": "off",
-        "noUnusedVariables": "off",
+        "noUnusedPrivateClassMembers": "on",
+        "noUnusedVariables": "on",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
       "performance": {
-        "noImgElement": "off"
+        "noImgElement": "on"
       },
       "security": {
         "noDangerouslySetInnerHtml": "off",
@@ -61,9 +61,9 @@
         "noNonNullAssertion": "off",
         "noParameterAssign": "off",
         "noUnusedTemplateLiteral": "off",
-        "noUselessElse": "off",
-        "useConst": "off",
-        "useNodejsImportProtocol": "off",
+        "noUselessElse": "on",
+        "useConst": "on",
+        "useNodejsImportProtocol": "on",
         "useTemplate": "off"
       },
       "suspicious": {
