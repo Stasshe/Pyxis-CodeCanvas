@@ -1,7 +1,7 @@
 import type { Monaco } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useCallback } from 'react';
-
+import { MONACO_CONFIG } from '@/constants/config';
 import { getLanguage } from '../editors/editor-utils';
 import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-language';
 import {
@@ -9,8 +9,6 @@ import {
   getModelCacheKey,
   getWorkspaceModelUri,
 } from '../utils/monacoPathUtils';
-
-import { MONACO_CONFIG } from '@/constants/config';
 
 /**
  * Monaco Model Management — Workspace Model Architecture

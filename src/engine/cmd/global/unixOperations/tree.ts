@@ -1,7 +1,6 @@
+import type { ProjectFile } from '@/types';
 import { FNM_CASEFOLD, fnmatch, parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-
-import type { ProjectFile } from '@/types';
 
 /**
  * tree - ディレクトリ構造をツリー形式で表示

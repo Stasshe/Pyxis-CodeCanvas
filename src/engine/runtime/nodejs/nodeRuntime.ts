@@ -11,20 +11,19 @@
  */
 
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { ModuleLoader } from '../module/moduleLoader';
+import { type BuiltInModules, createBuiltInModules } from './builtInModule';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 import {
   createProcessExitSignal,
   isProcessExitSignal,
   normalizeProcessExitCode,
 } from './processExit';
-
-import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
-import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
-import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
-import { type BuiltInModules, createBuiltInModules } from './builtInModule';
 
 /**
  * 実行オプション

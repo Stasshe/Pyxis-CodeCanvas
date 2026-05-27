@@ -3,9 +3,8 @@
  * 汎用ストレージレイヤーをi18n用にラップするアダプター
  */
 
-import type { Locale } from './types';
-
 import { STORES, storageService } from '@/engine/storage';
+import type { Locale } from './types';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7日間
 

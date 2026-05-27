@@ -8,8 +8,6 @@
  * strict type safety within the engine code.
  */
 
-import type { CommandRegistry } from './commandRegistry';
-
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
@@ -21,10 +19,11 @@ import type {
   transformEsmToCjs,
 } from '@/engine/runtime/transpiler/esmTransformer';
 import type {
-  WorkerPool,
   createUrlWorkerPool,
   createWorkerPool,
+  WorkerPool,
 } from '@/engine/workers/WorkerPool';
+import type { CommandRegistry } from './commandRegistry';
 
 /**
  * transpilerモジュールの型定義

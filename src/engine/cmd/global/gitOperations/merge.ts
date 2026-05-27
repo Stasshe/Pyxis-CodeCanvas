@@ -1,11 +1,9 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
-import { GitFileSystemHelper } from './fileSystemHelper';
-import { MergeConflictDetector } from './mergeConflictDetector';
-
 import { syncManager } from '@/engine/core/syncManager';
 import { tabActions } from '@/stores/tabState';
+import { GitFileSystemHelper } from './fileSystemHelper';
+import { MergeConflictDetector } from './mergeConflictDetector';
 
 /**
  * Git merge操作を管理するクラス

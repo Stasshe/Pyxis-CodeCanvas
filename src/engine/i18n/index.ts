@@ -3,12 +3,10 @@
  * i18nシステムの公開API
  */
 
-// Types
-export type { Locale, TranslationKey, TranslateOptions, I18nContextValue } from './types';
-
 // Context & Hooks
 export { I18nProvider, useI18n, useTranslation } from '@/context/I18nContext';
-
 // Utilities (開発/デバッグ用)
-export { loadTranslations, preloadTranslations, clearMemoryCache } from './loader';
+export { clearMemoryCache, loadTranslations, preloadTranslations } from './loader';
 export { createTranslator, translatePlural } from './translator';
+// Types
+export type { I18nContextValue, Locale, TranslateOptions, TranslationKey } from './types';

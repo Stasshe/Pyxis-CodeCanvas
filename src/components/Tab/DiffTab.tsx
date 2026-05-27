@@ -1,5 +1,5 @@
-import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
+import { DiffEditor } from '@monaco-editor/react';
 import type * as monacoEditor from 'monaco-editor';
 import type React from 'react';
 import { useEffect, useRef } from 'react';

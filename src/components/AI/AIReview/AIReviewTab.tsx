@@ -3,11 +3,11 @@
 
 'use client';
 
-import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
+import { DiffEditor } from '@monaco-editor/react';
 import { Check, X } from 'lucide-react';
 import type * as monacoEditor from 'monaco-editor';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';

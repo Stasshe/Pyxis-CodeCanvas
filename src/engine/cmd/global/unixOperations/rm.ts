@@ -1,7 +1,6 @@
+import { fileRepository } from '@/engine/core/fileRepository';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-
-import { fileRepository } from '@/engine/core/fileRepository';
 
 /**
  * rm - ファイル/ディレクトリを削除

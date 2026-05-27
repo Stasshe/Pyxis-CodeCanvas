@@ -1,7 +1,6 @@
+import expandBraces from './braceExpand';
 import type { Process } from './process';
 import type { StreamShell } from './streamShell';
-
-import expandBraces from './braceExpand';
 
 /**
  * ScriptRunner - Executes shell scripts with control flow support

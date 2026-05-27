@@ -7,10 +7,9 @@
  * - package.jsonの解析とエントリーポイント決定
  */
 
+import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
-
-import { fileRepository } from '@/engine/core/fileRepository';
 import { isBuiltInModule } from './builtinModules';
 
 /**

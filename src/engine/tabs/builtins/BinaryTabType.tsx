@@ -1,6 +1,8 @@
 // src/engine/tabs/builtins/BinaryTabType.tsx
 import type React from 'react';
-
+import BinaryTabContent from '@/components/Tab/BinaryTabContent';
+import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
+import type { FileItem } from '@/types';
 import type {
   BinaryTab,
   OpenTabOptions,
@@ -8,10 +10,6 @@ import type {
   TabComponentProps,
   TabTypeDefinition,
 } from '../types';
-
-import BinaryTabContent from '@/components/Tab/BinaryTabContent';
-import { guessMimeType } from '@/components/Tab/text-editor/editors/editor-utils';
-import type { FileItem } from '@/types';
 
 /**
  * バイナリタブのコンポーネント

@@ -5,18 +5,17 @@
  * without unnecessary provider abstraction layer.
  */
 
-import adaptBuiltins, { type StreamCtx } from './builtins';
-import { expandTokens } from './expansion';
-import { parseCommandLine } from './parser';
-import { Process } from './process';
-import { runScript } from './scriptRunner';
-import { type Segment, type TokenObj, isDevNull } from './types';
-
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath, toFSPath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
+import adaptBuiltins, { type StreamCtx } from './builtins';
+import { expandTokens } from './expansion';
+import { parseCommandLine } from './parser';
+import { Process } from './process';
+import { runScript } from './scriptRunner';
+import { isDevNull, type Segment, type TokenObj } from './types';
 
 /**
  * Shell Executor Options

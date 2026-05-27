@@ -1,15 +1,15 @@
 'use client';
 
-import { getFilePathFromUri } from '@/components/Tab/text-editor/utils/monacoPathUtils';
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
-import { tabActions, tabState } from '@/stores/tabState';
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSnapshot } from 'valtio';
+import { getFilePathFromUri } from '@/components/Tab/text-editor/utils/monacoPathUtils';
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 
 interface ProblemsPanelProps {
   height: number;

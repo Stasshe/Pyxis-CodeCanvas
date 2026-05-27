@@ -1,4 +1,4 @@
-import { type EvalContext, ExprBuilder, ExprParser, type Expression, evaluate } from '../../lib';
+import { type EvalContext, ExprBuilder, type Expression, ExprParser, evaluate } from '../../lib';
 import { UnixCommandBase } from './base';
 
 /**

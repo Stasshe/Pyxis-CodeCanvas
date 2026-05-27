@@ -12,7 +12,7 @@
  * - moduleLoaderから使用される
  */
 
-import { type WorkerPool, createWorkerPool } from '@/engine/workers/WorkerPool';
+import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import { runtimeInfo } from '../core/runtimeLogger';
 import type { TranspileRequest, TranspileResult, TranspileWorkerApi } from './transpileWorker';
 

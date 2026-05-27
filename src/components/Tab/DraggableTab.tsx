@@ -4,14 +4,13 @@ import { Loader2, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
-
+import { useSnapshot } from 'valtio';
 import { DND_TAB } from '@/constants/dndTypes';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { Tab } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
 import { TabIcon } from './TabIcon';
 
 interface Props {

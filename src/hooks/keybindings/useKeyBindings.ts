@@ -18,7 +18,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-
+import { STORES, storageService } from '@/engine/storage';
 import { DEFAULT_BINDINGS } from './defaultKeybindings';
 import {
   type Binding,
@@ -26,8 +26,6 @@ import {
   formatKeyEvent,
   normalizeKeyCombo,
 } from './keybindingUtils';
-
-import { STORES, storageService } from '@/engine/storage';
 
 const KEYBINDINGS_STORAGE_ID = 'user-keybindings';
 

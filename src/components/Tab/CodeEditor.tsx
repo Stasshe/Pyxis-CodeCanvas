@@ -12,19 +12,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
-
-import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
-import MonacoEditor from './text-editor/editors/MonacoEditor';
-import { useCharCount } from './text-editor/hooks/useCharCount';
-import CharCountDisplay from './text-editor/ui/CharCountDisplay';
-import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
-
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { saveImmediately, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
+import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
+import MonacoEditor from './text-editor/editors/MonacoEditor';
+import { useCharCount } from './text-editor/hooks/useCharCount';
+import CharCountDisplay from './text-editor/ui/CharCountDisplay';
+import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
 
 interface CodeEditorProps {
   activeTab: EditorTab | undefined;

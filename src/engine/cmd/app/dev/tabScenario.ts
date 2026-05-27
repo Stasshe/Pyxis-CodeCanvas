@@ -4,11 +4,10 @@
  * Open various tab types with test data for quick testing.
  */
 
-import type { DevCommandContext, DevCommandInfo } from './types';
-
 import type { EditorPane, Tab } from '@/engine/tabs/types';
 import { setTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
+import type { DevCommandContext, DevCommandInfo } from './types';
 
 /**
  * Open diff tab with test data

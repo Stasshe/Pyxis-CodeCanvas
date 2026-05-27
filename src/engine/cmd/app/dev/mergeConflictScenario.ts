@@ -5,10 +5,9 @@
  * Opens the resolution tab with generated test data.
  */
 
-import type { DevCommandContext, DevCommandInfo } from './types';
-
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 import { tabActions } from '@/stores/tabState';
+import type { DevCommandContext, DevCommandInfo } from './types';
 
 /**
  * Generate sample merge conflict data

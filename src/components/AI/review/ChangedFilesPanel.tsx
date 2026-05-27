@@ -4,11 +4,9 @@
 
 import { FileCode } from 'lucide-react';
 import React from 'react';
-
-import FileChangeItem from './FileChangeItem';
-
 import { useTheme } from '@/context/ThemeContext';
 import type { AIEditResponse } from '@/types';
+import FileChangeItem from './FileChangeItem';
 
 interface ChangedFilesPanelProps {
   changedFiles: AIEditResponse['changedFiles'];

@@ -8,6 +8,7 @@
  * - 循環参照の検出
  */
 
+import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
 import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 import { runtimeRegistry } from '../core/RuntimeRegistry';
@@ -15,11 +16,9 @@ import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { createModuleNotFoundError } from '../nodejs/nodeErrors';
 import { isProcessExitSignal } from '../nodejs/processExit';
 import { transpileManager } from '../transpiler/transpileManager';
+import { isBuiltInModule } from './builtinModules';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
-
-import { fileRepository } from '@/engine/core/fileRepository';
-import { isBuiltInModule } from './builtinModules';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）

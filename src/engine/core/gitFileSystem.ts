@@ -10,9 +10,8 @@
 import FS from '@isomorphic-git/lightning-fs';
 
 import { IDB } from '@/constants/idb';
-import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
-
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
+import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
 
 export class GitFileSystem {
   private fs: FS | null = null;

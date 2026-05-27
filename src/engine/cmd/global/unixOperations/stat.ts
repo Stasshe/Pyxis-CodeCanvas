@@ -1,7 +1,6 @@
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-
-import type { ProjectFile } from '@/types';
 
 export class StatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {

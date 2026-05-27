@@ -3,7 +3,7 @@
 'use client';
 
 import { FileCode, Loader2, Plus, Send, X } from 'lucide-react';
-import React, { useState, type KeyboardEvent, useRef, useEffect } from 'react';
+import React, { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { getIconForFile } from 'vscode-icons-js';
 
 import { useTranslation } from '@/context/I18nContext';

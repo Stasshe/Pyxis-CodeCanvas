@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { TouchBackend } from 'react-dnd-touch-backend';
-
-import { useTheme } from '../context/ThemeContext';
+import { useSnapshot } from 'valtio';
 
 import BottomPanel from '@/components/Bottom/BottomPanel';
 import BottomStatusBar from '@/components/Bottom/BottomStatusBar';
@@ -35,9 +34,8 @@ import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
 import { tabActions, tabState } from '@/stores/tabState';
-import type { Project } from '@/types';
-import type { MenuTab } from '@/types';
-import { useSnapshot } from 'valtio';
+import type { MenuTab, Project } from '@/types';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * Home: 新アーキテクチャのメインページ

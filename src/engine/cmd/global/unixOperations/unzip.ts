@@ -1,11 +1,9 @@
 import JSZip from 'jszip';
-
-import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
-
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
+import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 // TextDecoder: prefer browser global, fall back to Node's util.TextDecoder
 const TextDecoder =

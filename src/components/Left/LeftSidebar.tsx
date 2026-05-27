@@ -1,5 +1,10 @@
+import { active } from 'd3';
 import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react';
-
+import { useTranslation } from '@/context/I18nContext';
+import { useTheme } from '@/context/ThemeContext';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
+import type { FileItem, MenuTab, Project } from '@/types';
 import ExtensionPanelRenderer from './ExtensionPanelRenderer';
 import ExtensionsPanel from './ExtensionsPanel';
 import FileTree from './FileTree';
@@ -7,14 +12,6 @@ import GitPanel from './GitPanel';
 import RunPanel from './RunPanel';
 import SearchPanel from './SearchPanel';
 import SettingsPanel from './SettingsPanel';
-
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
-import type { Project } from '@/types';
-import type { FileItem, MenuTab } from '@/types';
-import { active } from 'd3';
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;

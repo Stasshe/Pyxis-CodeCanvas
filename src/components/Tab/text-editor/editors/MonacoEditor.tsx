@@ -1,7 +1,9 @@
 import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
+import { useTheme } from '@/context/ThemeContext';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 import { restoreTabViewState, saveTabViewState, useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
 import { getLanguageFileName } from '../utils/monacoPathUtils';
@@ -9,10 +11,6 @@ import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
 import { getModelLanguage, registerEnhancedJSXLanguage } from './monarch-jsx-language';
-
-import { useTheme } from '@/context/ThemeContext';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
-import { tabActions, tabState } from '@/stores/tabState';
 
 // グローバルフラグ
 let isLanguageRegistered = false;

@@ -1,4 +1,3 @@
-import { tabRegistry } from './TabRegistry';
 // src/engine/tabs/registerBuiltinTabs.ts
 import {
   AIReviewTabType,
@@ -12,6 +11,7 @@ import {
   WebPreviewTabType,
   WelcomeTabType,
 } from './builtins';
+import { tabRegistry } from './TabRegistry';
 
 /**
  * ビルトインタブタイプを登録

@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-
-import OutputPanel from './OutputPanel';
-import ProblemsPanel from './ProblemsPanel';
-import Terminal from './Terminal';
-
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
+import OutputPanel from './OutputPanel';
+import ProblemsPanel from './ProblemsPanel';
+import Terminal from './Terminal';
 
 type BottomPanelTab = 'output' | 'terminal' | 'problems';
 

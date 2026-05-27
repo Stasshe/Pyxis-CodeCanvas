@@ -1,6 +1,10 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { syncManager } from '@/engine/core/syncManager';
+import { authRepository } from '@/engine/user/authRepository';
 import { GitCheckoutOperations } from './gitOperations/checkout';
 import { GitCloneOperations } from './gitOperations/clone';
 import { GitDiffOperations } from './gitOperations/diff';
@@ -12,12 +16,6 @@ import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils'
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 import { formatStatusResult } from './gitOperations/status';
-
-import type { TerminalUI } from '@/engine/cmd/terminalUI';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { syncManager } from '@/engine/core/syncManager';
-import { authRepository } from '@/engine/user/authRepository';
 
 /**
  * Git操作を管理するクラス

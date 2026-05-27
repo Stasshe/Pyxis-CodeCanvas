@@ -6,14 +6,13 @@
  * パス形式: AppPath（先頭スラッシュ付き）
  */
 
+import type { Project, ProjectFile } from '@/types';
 import {
   fromGitPath as pathFromGitPath,
   getParentPath as pathGetParentPath,
   toGitPath as pathToGitPath,
   toAppPath,
 } from '../pathUtils';
-
-import type { Project, ProjectFile } from '@/types';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -491,7 +490,7 @@ const fromGitPath = pathFromGitPath;
 
 // エクスポート
 export const fileRepository = FileRepository.getInstance();
-export { normalizePath, getParentPath, toGitPath, fromGitPath };
 
 // 新しいパス解決モジュールを再エクスポート
 export * from '../pathUtils';
+export { fromGitPath, getParentPath, normalizePath, toGitPath };

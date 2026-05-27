@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useDrop } from 'react-dnd';
-
+import { useSnapshot } from 'valtio';
 import PaneResizer from '@/components/Pane/PaneResizer';
 import { Breadcrumb } from '@/components/Tab/Breadcrumb';
 import TabBar from '@/components/Tab/TabBar';
@@ -18,7 +18,6 @@ import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, FileItem } from '@/types';
-import { useSnapshot } from 'valtio';
 
 interface PaneContainerProps {
   pane: Readonly<EditorPane>;

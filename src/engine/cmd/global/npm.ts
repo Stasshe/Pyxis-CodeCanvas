@@ -9,11 +9,10 @@
  * - TerminalUI API provides advanced terminal display features
  */
 
-import { NpmInstall } from './npmOperations/npmInstall';
-
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { NpmInstall } from './npmOperations/npmInstall';
 
 export class NpmCommands {
   private currentDir: string;

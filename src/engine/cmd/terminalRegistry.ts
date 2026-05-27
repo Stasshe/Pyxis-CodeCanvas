@@ -1,10 +1,9 @@
+import type { fileRepository } from '@/engine/core/fileRepository';
 import { GitCommands } from './global/git';
 import type { NpmCommands } from './global/npm';
 import { UnixCommands } from './global/unix';
 import type StreamShell from './shell/streamShell';
 import type TerminalUI from './terminalUI';
-
-import type { fileRepository } from '@/engine/core/fileRepository';
 
 type ProjectEntry = {
   unix?: UnixCommands;

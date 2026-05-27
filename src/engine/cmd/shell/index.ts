@@ -44,33 +44,28 @@
  * - types.ts              - Shared type definitions
  */
 
-// Main shell classes
-export { StreamShell, Process, type ProcExit } from './streamShell';
+export { default as expandBraces } from './braceExpand';
 export {
-  ShellExecutor,
   createShellExecutor,
-  type ShellExecutorOptions,
   type OutputCallbacks,
+  ShellExecutor,
+  type ShellExecutorOptions,
 } from './executor';
-
+// Utilities
+export { expandTokens } from './expansion';
 // Parser
 export { parseCommandLine } from './parser';
-
+export { runScript } from './scriptRunner';
+// Main shell classes
+// Default export
+export { type ProcExit, Process, StreamShell, StreamShell as default } from './streamShell';
 // Types
 export {
   isDevNull,
   isSpecialFile,
-  SPECIAL_FILES,
   type Segment,
   type ShellOptions,
   type ShellRunResult,
+  SPECIAL_FILES,
   type TokenObj,
 } from './types';
-
-// Utilities
-export { expandTokens } from './expansion';
-export { default as expandBraces } from './braceExpand';
-export { runScript } from './scriptRunner';
-
-// Default export
-export { StreamShell as default } from './streamShell';

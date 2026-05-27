@@ -10,14 +10,12 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-
-import { fileRepository } from './fileRepository';
-
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { createChatSpace } from '@/engine/storage/chatStorageAdapter';
 import type { FileItem } from '@/types';
 import type { Project, ProjectFile } from '@/types/';
+import { fileRepository } from './fileRepository';
 
 /**
  * プロジェクト作成時のGit初期化とコミット

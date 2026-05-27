@@ -1,16 +1,16 @@
 'use client';
 
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
 import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type React from 'react';
-import { createPortal } from 'react-dom';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { type WorkerPool, createWorkerPool } from '@/engine/workers/WorkerPool';
+import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';

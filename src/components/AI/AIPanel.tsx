@@ -3,15 +3,9 @@
 'use client';
 
 import { Bot, ChevronDown, Edit2, MessageSquare, Plus, Terminal, Trash2, X } from 'lucide-react';
-import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-
-import FileSelector from './FileSelector';
-import ChatContainer from './chat/ChatContainer';
-import ChatInput from './chat/ChatInput';
-import ModeSelector from './chat/ModeSelector';
-import ChangedFilesPanel from './review/ChangedFilesPanel';
-
+import { useSnapshot } from 'valtio';
 import { Confirmation } from '@/components/Confirmation';
 import OperationWindow, {
   type OperationListItem,
@@ -26,7 +20,11 @@ import { useAIReview } from '@/hooks/ai/useAIReview';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { tabActions, tabState, updateFromExternal } from '@/stores/tabState';
 import type { ChatSpaceMessage, FileItem, Project } from '@/types';
-import { useSnapshot } from 'valtio';
+import ChatContainer from './chat/ChatContainer';
+import ChatInput from './chat/ChatInput';
+import ModeSelector from './chat/ModeSelector';
+import FileSelector from './FileSelector';
+import ChangedFilesPanel from './review/ChangedFilesPanel';
 
 interface AIPanelProps {
   projectFiles: FileItem[];

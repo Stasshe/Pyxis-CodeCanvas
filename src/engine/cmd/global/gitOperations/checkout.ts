@@ -1,10 +1,8 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
+import { syncManager } from '@/engine/core/syncManager';
 import { GitFileSystemHelper } from './fileSystemHelper';
 import { isRemoteRef, resolveRemoteRef, toFullRemoteRef } from './remoteUtils';
-
-import { syncManager } from '@/engine/core/syncManager';
 
 /**
  * Git checkout操作を管理するクラス

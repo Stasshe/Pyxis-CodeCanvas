@@ -6,7 +6,7 @@
  * 2. Legacy full-file replacement format (fallback)
  */
 
-import { type PatchBlock, type SearchReplaceBlock, applyPatchBlock } from './patchApplier';
+import { applyPatchBlock, type PatchBlock, type SearchReplaceBlock } from './patchApplier';
 
 export interface ParsedFile {
   path: string;

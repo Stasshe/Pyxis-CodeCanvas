@@ -1,6 +1,6 @@
 'use client';
-import type { ThemeColors } from '@/context/ThemeContext';
 import { RefreshCw } from 'lucide-react';
+import type { ThemeColors } from '@/context/ThemeContext';
 
 export default function LoadingState({
   message,

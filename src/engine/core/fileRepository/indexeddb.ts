@@ -8,15 +8,6 @@
  * パス変換は pathResolver モジュールを使用
  */
 
-import { gitFileSystem } from '../gitFileSystem';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '../gitignore';
-import {
-  fromGitPath as pathFromGitPath,
-  getParentPath as pathGetParentPath,
-  toGitPath as pathToGitPath,
-  toAppPath,
-} from '../pathUtils';
-
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { IDB } from '@/constants/idb';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
@@ -26,6 +17,14 @@ import {
   deleteChatSpacesForProject as chatDeleteChatSpacesForProject,
 } from '@/engine/storage/chatStorageAdapter';
 import type { Project, ProjectFile } from '@/types';
+import { gitFileSystem } from '../gitFileSystem';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '../gitignore';
+import {
+  fromGitPath as pathFromGitPath,
+  getParentPath as pathGetParentPath,
+  toGitPath as pathToGitPath,
+  toAppPath,
+} from '../pathUtils';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -1463,7 +1462,7 @@ const fromGitPath = pathFromGitPath;
 
 // エクスポート
 export const fileRepository = FileRepository.getInstance();
-export { normalizePath, getParentPath, toGitPath, fromGitPath };
 
 // 新しいパス解決モジュールを再エクスポート
 export * from '../pathUtils';
+export { fromGitPath, getParentPath, normalizePath, toGitPath };

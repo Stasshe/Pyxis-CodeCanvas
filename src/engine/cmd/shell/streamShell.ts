@@ -9,16 +9,16 @@ import type TerminalUI from '@/engine/cmd/terminalUI';
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { UnixCommands } from '../global/unix';
 import {
+  createShellExecutor,
   type OutputCallbacks,
   type ShellExecutor,
   type ShellExecutorOptions,
   type ShellRunResult,
-  createShellExecutor,
 } from './executor';
 import { type ProcExit, Process } from './process';
 
 // Re-export for backward compatibility
-export { Process, type ProcExit } from './process';
+export { type ProcExit, Process } from './process';
 
 /**
  * Shell Options (backward compatible)

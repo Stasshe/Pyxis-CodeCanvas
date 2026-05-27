@@ -1,7 +1,5 @@
 // src/engine/tabs/builtins/ExtensionInfoTabType.tsx
 'use client';
-import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
-import LocalImage from '@/components/Tab/LocalImage';
 import { Calendar, CheckCircle2, Package, Tag, User, XCircle } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -9,11 +7,11 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
-
-import type { ExtensionInfoTab, TabComponentProps, TabTypeDefinition } from '../types';
-
+import InlineHighlightedCode from '@/components/Tab/InlineHighlightedCode';
+import LocalImage from '@/components/Tab/LocalImage';
 import { useTheme } from '@/context/ThemeContext';
 import type { ExtensionManifest } from '@/engine/extensions/types';
+import type { ExtensionInfoTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 /**
  * 拡張機能の詳細情報を表示するコンポーネント

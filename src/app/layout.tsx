@@ -1,5 +1,5 @@
-import { ReactScan } from '@/lib/ReactScan';
 import type { Metadata, Viewport } from 'next';
+import { ReactScan } from '@/lib/ReactScan';
 
 import './globals.css';
 import AppInitializer from '@/components/AppInitializer';

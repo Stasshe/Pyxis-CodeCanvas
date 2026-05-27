@@ -4,40 +4,38 @@
  * POSIXユーティリティ群の共通基盤
  */
 
-// fnmatch - パターンマッチング
-export {
-  fnmatch,
-  fnmatchToRegExp,
-  fnmatchBasename,
-  fnmatchPath,
-  FNM_NOESCAPE,
-  FNM_PATHNAME,
-  FNM_PERIOD,
-  FNM_CASEFOLD,
-  FNM_LEADING_DIR,
-  FNM_EXTMATCH,
-  FNM_NOMATCH,
-} from './fnmatch';
-
-// getopt - オプションパーサー
-export { GetOpt, parseWithGetOpt } from './getopt';
-export type { ParsedOption, OptionDef } from './getopt';
-
-// expr - 式評価
-export {
-  evaluate,
-  ExprBuilder,
-  TokenStream,
-  ExprParser,
-} from './expr';
 export type {
+  AndNode,
+  ConstNode,
   EvalContext,
+  Expression,
   ExprNode,
   ExprNodeKind,
-  PredicateNode,
-  AndNode,
-  OrNode,
   NotNode,
-  ConstNode,
-  Expression,
+  OrNode,
+  PredicateNode,
 } from './expr';
+// expr - 式評価
+export {
+  ExprBuilder,
+  ExprParser,
+  evaluate,
+  TokenStream,
+} from './expr';
+// fnmatch - パターンマッチング
+export {
+  FNM_CASEFOLD,
+  FNM_EXTMATCH,
+  FNM_LEADING_DIR,
+  FNM_NOESCAPE,
+  FNM_NOMATCH,
+  FNM_PATHNAME,
+  FNM_PERIOD,
+  fnmatch,
+  fnmatchBasename,
+  fnmatchPath,
+  fnmatchToRegExp,
+} from './fnmatch';
+export type { OptionDef, ParsedOption } from './getopt';
+// getopt - オプションパーサー
+export { GetOpt, parseWithGetOpt } from './getopt';

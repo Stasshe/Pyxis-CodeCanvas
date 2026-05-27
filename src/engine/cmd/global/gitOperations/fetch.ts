@@ -6,10 +6,8 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
-
-import { parseGitHubUrl } from './github/utils';
-
 import { authRepository } from '@/engine/user/authRepository';
+import { parseGitHubUrl } from './github/utils';
 
 export interface FetchOptions {
   remote?: string;

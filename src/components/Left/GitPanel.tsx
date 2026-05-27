@@ -12,9 +12,6 @@ import {
   X,
 } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import GitHistory from './GitHistory';
-
 import OperationWindow, {
   type OperationListItem,
 } from '@/components/Top/OperationWindow/OperationWindow';
@@ -22,11 +19,11 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
-
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
 import { useGitRefreshVersion } from '@/stores/gitRefreshStore';
 import type { GitCommit, GitRepository, GitStatus } from '@/types/git';
+import GitHistory from './GitHistory';
 
 interface GitPanelProps {
   currentProject?: string;

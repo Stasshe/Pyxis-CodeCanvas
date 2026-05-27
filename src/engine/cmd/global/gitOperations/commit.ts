@@ -1,6 +1,6 @@
-import { authRepository } from '@/engine/user/authRepository';
 // src/engine/cmd/global/gitOperations/commit.ts
 import git from 'isomorphic-git';
+import { authRepository } from '@/engine/user/authRepository';
 
 export async function commit(
   fs: any,

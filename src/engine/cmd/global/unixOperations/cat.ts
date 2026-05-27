@@ -1,8 +1,7 @@
-import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
-
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
+import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 /**
  * cat - ファイルの内容を表示 (POSIX/GNU準拠)

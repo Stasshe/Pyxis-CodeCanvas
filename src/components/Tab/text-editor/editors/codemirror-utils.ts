@@ -1,6 +1,5 @@
 import { autocompletion } from '@codemirror/autocomplete';
-import { history } from '@codemirror/commands';
-import { defaultKeymap, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
 import { javascript } from '@codemirror/lang-javascript';

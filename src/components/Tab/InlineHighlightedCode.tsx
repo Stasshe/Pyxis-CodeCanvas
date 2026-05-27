@@ -1,5 +1,5 @@
 import { Check, Copy } from 'lucide-react';
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';

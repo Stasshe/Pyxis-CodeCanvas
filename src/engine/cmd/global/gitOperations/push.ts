@@ -12,13 +12,11 @@
 
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
+import { authRepository } from '@/engine/user/authRepository';
 import { GitHubAPI } from './github/GitHubAPI';
 import { TreeBuilder } from './github/TreeBuilder';
 import { parseGitHubUrl } from './github/utils';
-
-import type { TerminalUI } from '@/engine/cmd/terminalUI';
-import { authRepository } from '@/engine/user/authRepository';
 
 export interface PushOptions {
   remote?: string;

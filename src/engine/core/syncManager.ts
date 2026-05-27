@@ -4,12 +4,11 @@
  * git操作後: lightning-fs → IndexedDB
  */
 
+import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
+import type { ProjectFile } from '@/types';
 import { fileRepository } from './fileRepository';
 import { gitFileSystem } from './gitFileSystem';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from './gitignore';
-
-import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
-import type { ProjectFile } from '@/types';
 
 export class SyncManager {
   private static instance: SyncManager | null = null;

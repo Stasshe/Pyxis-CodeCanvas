@@ -1,5 +1,5 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import type { Terminal } from '@xterm/xterm';
+import { fileRepository } from '@/engine/core/fileRepository';
 
 type VimMode = 'NORMAL' | 'INSERT' | 'VISUAL' | 'COMMAND';
 

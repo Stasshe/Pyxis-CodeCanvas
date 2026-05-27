@@ -14,11 +14,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { createPortal } from 'react-dom';
-
-import DraggableTab from './DraggableTab';
-import { TabIcon } from './TabIcon';
-import { useTabCloseConfirmation } from './useTabCloseConfirmation';
-
+import { snapshot, useSnapshot } from 'valtio';
 import { DND_TAB } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
@@ -26,7 +22,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { type EditorPane, hasContent } from '@/engine/tabs/types';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { tabActions, tabState } from '@/stores/tabState';
-import { snapshot, useSnapshot } from 'valtio';
+import DraggableTab from './DraggableTab';
+import { TabIcon } from './TabIcon';
+import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
 interface TabBarProps {
   paneId: string;

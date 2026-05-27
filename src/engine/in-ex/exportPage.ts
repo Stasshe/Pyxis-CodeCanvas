@@ -1,7 +1,6 @@
-import { inlineHtmlAssets } from './inlineHtmlAssets';
-
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
+import { inlineHtmlAssets } from './inlineHtmlAssets';
 
 export const exportPage = async (
   path: string,

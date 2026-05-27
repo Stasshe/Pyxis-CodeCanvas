@@ -10,12 +10,11 @@ import {
   Rows2,
   Trash2,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
-
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSnapshot } from 'valtio';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
 
 interface PaneNavigatorProps {
   isOpen: boolean;

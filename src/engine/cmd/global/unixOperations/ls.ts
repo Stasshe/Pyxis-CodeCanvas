@@ -1,7 +1,6 @@
+import type { ProjectFile } from '@/types';
 import { fnmatch, parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-
-import type { ProjectFile } from '@/types';
 
 /**
  * ls - ディレクトリの内容を表示 (POSIX/GNU準拠)

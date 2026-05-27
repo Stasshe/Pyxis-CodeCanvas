@@ -1,6 +1,5 @@
-import CharCountDetails from '../utils/CharCountDetails';
-
 import { useTranslation } from '@/context/I18nContext';
+import CharCountDetails from '../utils/CharCountDetails';
 
 interface CharCountDisplayProps {
   charCount: number;

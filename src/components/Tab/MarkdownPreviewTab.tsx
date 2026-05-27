@@ -1,4 +1,3 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import type React from 'react';
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
@@ -7,9 +6,11 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import type { PluggableList } from 'unified';
+import { fileRepository } from '@/engine/core/fileRepository';
 import 'katex/dist/katex.min.css';
 import 'github-markdown-css/github-markdown.css';
 
+import { useSnapshot } from 'valtio';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
@@ -18,7 +19,6 @@ import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project, ProjectFile } from '@/types';
-import { useSnapshot } from 'valtio';
 
 import { CodeBlock, LocalImage } from './MarkdownPreview';
 
