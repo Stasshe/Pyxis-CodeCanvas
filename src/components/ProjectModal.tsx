@@ -1,10 +1,15 @@
-import { Edit, Folder, GitBranch, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Archive, Edit, FileText, Folder, GitBranch, Plus, Trash2, X } from 'lucide-react';
+import JSZip from 'jszip';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 import { authRepository } from '@/engine/user/authRepository';
 import type { Project } from '@/types';
+
+type CreationMode = 'none' | 'new' | 'empty' | 'clone' | 'zip';
 
 interface ProjectModalProps {
   isOpen: boolean;
@@ -22,15 +27,17 @@ export default function ProjectModal({
   currentProject,
 }: ProjectModalProps) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isCloning, setIsCloning] = useState(false);
+  const [creationMode, setCreationMode] = useState<CreationMode>('none');
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [cloneUrl, setCloneUrl] = useState('');
   const [cloneProjectName, setCloneProjectName] = useState('');
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipProjectName, setZipProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false);
+  const zipInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -63,16 +70,19 @@ export default function ProjectModal({
     }
   };
 
-  const handleCreateProject = async () => {
-    let name = newProjectName.trim();
-    if (!name) return;
-
-    // reponame: 英数字・ハイフンのみ、空白は-に置換、日本語不可
-    name = name.replace(/\s+/g, '-');
-    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
+  const validateProjectName = (name: string): string | null => {
+    const sanitized = name.trim().replace(/\s+/g, '-');
+    if (!sanitized) return null;
+    if (!/^[a-zA-Z0-9-]+$/.test(sanitized)) {
       alert(t('projectModal.nameValidation'));
-      return;
+      return null;
     }
+    return sanitized;
+  };
+
+  const handleCreateProject = async () => {
+    const name = validateProjectName(newProjectName);
+    if (!name) return;
 
     setLoading(true);
     try {
@@ -87,12 +97,36 @@ export default function ProjectModal({
       }
       setNewProjectName('');
       setNewProjectDescription('');
-      setIsCreating(false);
+      setCreationMode('none');
       onClose();
       await loadProjects();
     } catch (error) {
       console.error('Failed to create project:', error);
-      alert(`プロジェクト作成に失敗しました: ${(error as Error).message}`);
+      alert(t('projectModal.createFailed', { params: { error: (error as Error).message } }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateEmptyProject = async () => {
+    const name = validateProjectName(newProjectName);
+    if (!name) return;
+
+    setLoading(true);
+    try {
+      const project = await fileRepository.createEmptyProject(
+        name,
+        newProjectDescription.trim() || undefined
+      );
+      onProjectSelect(project);
+      setNewProjectName('');
+      setNewProjectDescription('');
+      setCreationMode('none');
+      onClose();
+      await loadProjects();
+    } catch (error) {
+      console.error('Failed to create empty project:', error);
+      alert(t('projectModal.createEmptyFailed', { params: { error: (error as Error).message } }));
     } finally {
       setLoading(false);
     }
@@ -113,17 +147,13 @@ export default function ProjectModal({
       name = repoName.replace(/\s+/g, '-');
     }
 
-    // プロジェクト名のバリデーション
-    name = name.replace(/\s+/g, '-');
-    if (!/^[a-zA-Z0-9-]+$/.test(name)) {
-      alert(t('projectModal.nameValidation'));
-      return;
-    }
+    const validatedName = validateProjectName(name);
+    if (!validatedName) return;
 
     setLoading(true);
     try {
       // 空のプロジェクトを作成（デフォルトファイル無し）
-      const project = await fileRepository.createEmptyProject(name);
+      const project = await fileRepository.createEmptyProject(validatedName);
 
       // GitCommandsはregistry経由で取得（シングルトン管理）
       const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
@@ -139,14 +169,128 @@ export default function ProjectModal({
 
       setCloneUrl('');
       setCloneProjectName('');
-      setIsCloning(false);
+      setCreationMode('none');
       onClose();
       await loadProjects();
 
       alert(t('projectModal.cloneSuccess'));
     } catch (error) {
       console.error('Failed to clone project:', error);
-      alert(`クローンに失敗しました: ${(error as Error).message}`);
+      alert(t('projectModal.cloneFailed', { params: { error: (error as Error).message } }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleZipFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setZipFile(file);
+      // ZIPファイル名からプロジェクト名を推測
+      const suggestedName = file.name.replace(/\.zip$/i, '').replace(/\s+/g, '-');
+      if (!zipProjectName) {
+        setZipProjectName(suggestedName);
+      }
+    }
+  };
+
+  const handleImportZip = async () => {
+    if (!zipFile) {
+      alert(t('projectModal.selectZipFile'));
+      return;
+    }
+
+    let name = zipProjectName.trim();
+    if (!name) {
+      name = zipFile.name.replace(/\.zip$/i, '').replace(/\s+/g, '-');
+    }
+
+    const validatedName = validateProjectName(name);
+    if (!validatedName) return;
+
+    setLoading(true);
+    try {
+      // ZIPファイルを読み込む
+      const arrayBuffer = await zipFile.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+
+      // 空のプロジェクトを作成
+      const project = await fileRepository.createEmptyProject(validatedName);
+
+      // ZIPのルート構造を分析（単一フォルダの場合は中身を展開）
+      const entries = Object.keys(zip.files);
+      let rootPrefix = '';
+      
+      // 全エントリが同一フォルダ配下かチェック（例: repo-name/src/... の場合）
+      const topLevelDirs = new Set<string>();
+      for (const entry of entries) {
+        const parts = entry.split('/');
+        if (parts[0] && parts.length > 1) {
+          topLevelDirs.add(parts[0]);
+        }
+      }
+      
+      // 単一のトップレベルフォルダがあり、他にルート直下ファイルがない場合
+      if (topLevelDirs.size === 1) {
+        const singleDir = [...topLevelDirs][0];
+        const hasRootFiles = entries.some(e => !e.startsWith(singleDir + '/') && e !== singleDir + '/');
+        if (!hasRootFiles) {
+          rootPrefix = singleDir + '/';
+        }
+      }
+
+      // ファイルを展開してプロジェクトに登録
+      for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+        // rootPrefixを除去してルートに展開
+        let filePath = rootPrefix ? relativePath.replace(rootPrefix, '') : relativePath;
+        
+        // 空のパスやrootPrefix自体はスキップ
+        if (!filePath || filePath === '/') continue;
+
+        // フォルダはスキップ（ファイル書き込み時に自動作成される）
+        if (zipEntry.dir) continue;
+
+        // .gitディレクトリはLightningFSに保存（IndexedDBではなく）
+        if (filePath === '.git' || filePath.startsWith('.git/')) {
+          // .gitファイルをLightningFSに書き込む
+          const contentBuffer = await zipEntry.async('uint8array');
+          await gitFileSystem.writeFile(project.name, '/' + filePath, contentBuffer);
+          continue;
+        }
+
+        // 先頭にスラッシュを付ける（AppPath形式）
+        if (!filePath.startsWith('/')) {
+          filePath = '/' + filePath;
+        }
+
+        // ファイルの場合
+        // バイナリファイルかテキストファイルか判断（isLikelyTextFileを使用）
+        const contentBuffer = await zipEntry.async('uint8array');
+        const isText = await isLikelyTextFile(filePath, contentBuffer);
+        
+        if (isText) {
+          const content = new TextDecoder('utf-8').decode(contentBuffer);
+          await fileRepository.createFile(project.id, filePath, content, 'file');
+        } else {
+          await fileRepository.createFile(project.id, filePath, '', 'file', true, contentBuffer.buffer as ArrayBuffer);
+        }
+      }
+
+      onProjectSelect(project);
+
+      setZipFile(null);
+      setZipProjectName('');
+      if (zipInputRef.current) {
+        zipInputRef.current.value = '';
+      }
+      setCreationMode('none');
+      onClose();
+      await loadProjects();
+
+      alert(t('projectModal.zipImportSuccess'));
+    } catch (error) {
+      console.error('Failed to import ZIP:', error);
+      alert(t('projectModal.zipImportFailed', { params: { error: (error as Error).message } }));
     } finally {
       setLoading(false);
     }
@@ -204,6 +348,19 @@ export default function ProjectModal({
     }).format(date);
   };
 
+  const resetCreationMode = () => {
+    setCreationMode('none');
+    setNewProjectName('');
+    setNewProjectDescription('');
+    setCloneUrl('');
+    setCloneProjectName('');
+    setZipFile(null);
+    setZipProjectName('');
+    if (zipInputRef.current) {
+      zipInputRef.current.value = '';
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -218,10 +375,10 @@ export default function ProjectModal({
 
         <div className="flex-1 overflow-auto p-4">
           <div className="mb-4">
-            {!isCreating && !isCloning ? (
-              <div className="flex gap-2">
+            {creationMode === 'none' ? (
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setIsCreating(true)}
+                  onClick={() => setCreationMode('new')}
                   className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                   disabled={loading}
                 >
@@ -229,16 +386,33 @@ export default function ProjectModal({
                   {t('projectModal.newProject')}
                 </button>
                 <button
-                  onClick={() => setIsCloning(true)}
+                  onClick={() => setCreationMode('empty')}
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  disabled={loading}
+                >
+                  <FileText size={16} />
+                  {t('projectModal.emptyProject')}
+                </button>
+                <button
+                  onClick={() => setCreationMode('clone')}
                   className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   disabled={loading}
                 >
                   <GitBranch size={16} />
                   {t('projectModal.cloneFromGitHub')}
                 </button>
+                <button
+                  onClick={() => setCreationMode('zip')}
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  disabled={loading}
+                >
+                  <Archive size={16} />
+                  {t('projectModal.importZip')}
+                </button>
               </div>
-            ) : isCreating ? (
+            ) : creationMode === 'new' ? (
               <div className="bg-muted p-4 rounded border">
+                <h3 className="text-sm font-medium mb-3">{t('projectModal.newProject')}</h3>
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">
                     {t('projectModal.projectName')}
@@ -273,19 +447,61 @@ export default function ProjectModal({
                     {t('projectModal.create')}
                   </button>
                   <button
-                    onClick={() => {
-                      setIsCreating(false);
-                      setNewProjectName('');
-                      setNewProjectDescription('');
-                    }}
+                    onClick={resetCreationMode}
                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >
                     {t('projectModal.cancel')}
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : creationMode === 'empty' ? (
               <div className="bg-muted p-4 rounded border">
+                <h3 className="text-sm font-medium mb-3">{t('projectModal.emptyProject')}</h3>
+                <p className="text-xs text-muted-foreground mb-3">{t('projectModal.emptyProjectHint')}</p>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.projectName')}
+                  </label>
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={e => setNewProjectName(e.target.value)}
+                    placeholder={t('projectModal.projectNamePlaceholder')}
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.descriptionOptional')}
+                  </label>
+                  <textarea
+                    value={newProjectDescription}
+                    onChange={e => setNewProjectDescription(e.target.value)}
+                    placeholder={t('projectModal.descriptionPlaceholder')}
+                    rows={2}
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCreateEmptyProject}
+                    disabled={!newProjectName.trim() || loading}
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {t('projectModal.create')}
+                  </button>
+                  <button
+                    onClick={resetCreationMode}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  >
+                    {t('projectModal.cancel')}
+                  </button>
+                </div>
+              </div>
+            ) : creationMode === 'clone' ? (
+              <div className="bg-muted p-4 rounded border">
+                <h3 className="text-sm font-medium mb-3">{t('projectModal.cloneFromGitHub')}</h3>
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">
                     {t('projectModal.repoUrl')}
@@ -321,11 +537,57 @@ export default function ProjectModal({
                     {t('projectModal.clone')}
                   </button>
                   <button
-                    onClick={() => {
-                      setIsCloning(false);
-                      setCloneUrl('');
-                      setCloneProjectName('');
-                    }}
+                    onClick={resetCreationMode}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  >
+                    {t('projectModal.cancel')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-muted p-4 rounded border">
+                <h3 className="text-sm font-medium mb-3">{t('projectModal.importZip')}</h3>
+                <p className="text-xs text-muted-foreground mb-3">{t('projectModal.zipImportHint')}</p>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.zipFile')}
+                  </label>
+                  <input
+                    ref={zipInputRef}
+                    type="file"
+                    accept=".zip"
+                    onChange={handleZipFileSelect}
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  {zipFile && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('projectModal.selectedFile')}: {zipFile.name}
+                    </p>
+                  )}
+                </div>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">
+                    {t('projectModal.projectNameOptional')}
+                  </label>
+                  <input
+                    type="text"
+                    value={zipProjectName}
+                    onChange={e => setZipProjectName(e.target.value)}
+                    placeholder={t('projectModal.projectNameOptionalPlaceholder')}
+                    className="w-full px-3 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('projectModal.nameHint')}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleImportZip}
+                    disabled={!zipFile || loading}
+                    className="px-3 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {t('projectModal.import')}
+                  </button>
+                  <button
+                    onClick={resetCreationMode}
                     className="px-3 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >
                     {t('projectModal.cancel')}
