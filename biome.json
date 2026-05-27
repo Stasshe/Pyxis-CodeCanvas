@@ -63,7 +63,7 @@
         "noUnusedTemplateLiteral": "off",
         "noUselessElse": "on",
         "useConst": "on",
-        "useNodejsImportProtocol": "on",
+        "useNodejsImportProtocol": "off",
         "useTemplate": "off"
       },
       "suspicious": {
