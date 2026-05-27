@@ -13,6 +13,7 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
+import { createPortal } from 'react-dom';
 
 import DraggableTab from './DraggableTab';
 import { TabIcon } from './TabIcon';
@@ -76,6 +77,8 @@ export default function TabBar({ paneId }: TabBarProps) {
   // ペインメニューの開閉状態
   const [paneMenuOpen, setPaneMenuOpen] = useState(false);
   const paneMenuRef = useRef<HTMLDivElement>(null);
+  const paneMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const [paneMenuPosition, setPaneMenuPosition] = useState({ left: 0, top: 0 });
 
   // タブコンテキストメニューの状態
   const [tabContextMenu, setTabContextMenu] = useState<TabContextMenuState>({
@@ -95,7 +98,8 @@ export default function TabBar({ paneId }: TabBarProps) {
       if (
         paneMenuOpen &&
         paneMenuRef.current &&
-        !paneMenuRef.current.contains(event.target as Node)
+        !paneMenuRef.current.contains(event.target as Node) &&
+        !paneMenuButtonRef.current?.contains(event.target as Node)
       ) {
         setPaneMenuOpen(false);
       }
@@ -114,6 +118,14 @@ export default function TabBar({ paneId }: TabBarProps) {
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [paneMenuOpen, tabContextMenu.isOpen]);
+
+  const togglePaneMenu = useCallback(() => {
+    if (!paneMenuOpen && paneMenuButtonRef.current) {
+      const rect = paneMenuButtonRef.current.getBoundingClientRect();
+      setPaneMenuPosition({ left: rect.left, top: rect.bottom + 4 });
+    }
+    setPaneMenuOpen(open => !open);
+  }, [paneMenuOpen]);
 
   // 同名ファイルの重複チェック
   const nameCount: Record<string, number> = {};
@@ -401,9 +413,10 @@ export default function TabBar({ paneId }: TabBarProps) {
       {/* ペインメニューボタン */}
       <div className="flex items-center h-full pl-2 pr-1 gap-1 relative">
         <button
+          ref={paneMenuButtonRef}
           className="p-1 rounded focus:outline-none focus:ring-2"
           style={{ background: paneMenuOpen ? colors.accentBg : undefined }}
-          onClick={() => setPaneMenuOpen(open => !open)}
+          onClick={togglePaneMenu}
           title={t('tabBar.paneMenu')}
           onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
           onMouseLeave={e =>
@@ -414,80 +427,88 @@ export default function TabBar({ paneId }: TabBarProps) {
         </button>
 
         {/* ペインメニュー */}
-        {paneMenuOpen && (
-          <div
-            ref={paneMenuRef}
-            className="absolute top-11 left-0 bg-card border border-border rounded-lg shadow-2xl z-20 min-w-[180px] py-2 px-1 flex flex-col gap-1"
-            style={{ background: colors.cardBg, borderColor: colors.border }}
-          >
-            <button
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              onClick={() => {
-                setPaneMenuOpen(false);
-                handleRemovePane();
+        {paneMenuOpen &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              ref={paneMenuRef}
+              className="fixed bg-card border border-border rounded-lg shadow-2xl z-50 min-w-[180px] py-2 px-1 flex flex-col gap-1"
+              style={{
+                background: colors.cardBg,
+                borderColor: colors.border,
+                left: paneMenuPosition.left,
+                top: paneMenuPosition.top,
               }}
-              title={t('tabBar.removePane')}
-              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <Minus size={16} color={colors.red} />
-              <span style={{ color: colors.foreground }}>{t('tabBar.removePane')}</span>
-            </button>
-            <button
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              onClick={() => {
-                setPaneMenuOpen(false);
-                splitPane(paneId, 'horizontal');
-              }}
-              title={t('tabBar.splitVertical')}
-              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
-            >
-              <SplitSquareVertical size={16} color={colors.accentFg} />
-              <span style={{ color: colors.foreground }}>{t('tabBar.splitVertical')}</span>
-            </button>
-            <button
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              onClick={() => {
-                setPaneMenuOpen(false);
-                splitPane(paneId, 'vertical');
-              }}
-              title={t('tabBar.splitHorizontal')}
-              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
-            >
-              <SplitSquareHorizontal size={16} color={colors.accentFg} />
-              <span style={{ color: colors.foreground }}>{t('tabBar.splitHorizontal')}</span>
-            </button>
-            <div className="h-px bg-border my-1" />
-            <button
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              onClick={() => {
-                setPaneMenuOpen(false);
-                handleRemoveAllTabs();
-              }}
-              title={t('tabBar.removeAllTabs')}
-              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
-            >
-              <Trash2 size={16} color={colors.red} />
-              <span style={{ color: colors.foreground }}>{t('tabBar.removeAllTabs')}</span>
-            </button>
-            <button
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-              onClick={() => {
-                setPaneMenuOpen(false);
-                triggerAction('saveFile');
-              }}
-              title={t('common.save')}
-              onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
-            >
-              <Save size={16} color={colors.primary} />
-              <span style={{ color: colors.foreground }}>{t('common.save')}</span>
-            </button>
-          </div>
-        )}
+              <button
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                onClick={() => {
+                  setPaneMenuOpen(false);
+                  handleRemovePane();
+                }}
+                title={t('tabBar.removePane')}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                <Minus size={16} color={colors.red} />
+                <span style={{ color: colors.foreground }}>{t('tabBar.removePane')}</span>
+              </button>
+              <button
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                onClick={() => {
+                  setPaneMenuOpen(false);
+                  splitPane(paneId, 'horizontal');
+                }}
+                title={t('tabBar.splitVertical')}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                <SplitSquareVertical size={16} color={colors.accentFg} />
+                <span style={{ color: colors.foreground }}>{t('tabBar.splitVertical')}</span>
+              </button>
+              <button
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                onClick={() => {
+                  setPaneMenuOpen(false);
+                  splitPane(paneId, 'vertical');
+                }}
+                title={t('tabBar.splitHorizontal')}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                <SplitSquareHorizontal size={16} color={colors.accentFg} />
+                <span style={{ color: colors.foreground }}>{t('tabBar.splitHorizontal')}</span>
+              </button>
+              <div className="h-px bg-border my-1" />
+              <button
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                onClick={() => {
+                  setPaneMenuOpen(false);
+                  handleRemoveAllTabs();
+                }}
+                title={t('tabBar.removeAllTabs')}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                <Trash2 size={16} color={colors.red} />
+                <span style={{ color: colors.foreground }}>{t('tabBar.removeAllTabs')}</span>
+              </button>
+              <button
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                onClick={() => {
+                  setPaneMenuOpen(false);
+                  triggerAction('saveFile');
+                }}
+                title={t('common.save')}
+                onMouseEnter={e => (e.currentTarget.style.background = colors.accentBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                <Save size={16} color={colors.primary} />
+                <span style={{ color: colors.foreground }}>{t('common.save')}</span>
+              </button>
+            </div>,
+            document.body
+          )}
       </div>
 
       {/* タブリスト */}
