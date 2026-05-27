@@ -255,97 +255,77 @@ export default function TabBar({ paneId }: TabBarProps) {
   // ショートカットキー
   useKeyBinding('newTab', handleAddTab, [paneId]);
 
-  useKeyBinding(
-    'closeTab',
-    () => {
-      if (tabState.activePane !== paneId) return;
-      if (activeTabId) handleTabClose(activeTabId);
-    },
-    [activeTabId, paneId]
-  );
+  useKeyBinding('closeTab', () => {
+    if (tabState.activePane !== paneId) return;
+    if (activeTabId) handleTabClose(activeTabId);
+  }, [activeTabId, paneId]);
 
-  useKeyBinding(
-    'removeAllTabs',
-    () => {
-      if (tabState.activePane !== paneId) return;
-      handleRemoveAllTabs();
-    },
-    [tabs, paneId]
-  );
+  useKeyBinding('removeAllTabs', () => {
+    if (tabState.activePane !== paneId) return;
+    handleRemoveAllTabs();
+  }, [tabs, paneId]);
 
-  useKeyBinding(
-    'nextTab',
-    () => {
-      if (tabState.activePane !== paneId) return;
-      if (tabs.length === 0) return;
-      const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-      const nextIndex = (currentIndex + 1) % tabs.length;
-      activateTab(paneId, tabs[nextIndex].id);
-    },
-    [tabs, activeTabId, paneId]
-  );
+  useKeyBinding('nextTab', () => {
+    if (tabState.activePane !== paneId) return;
+    if (tabs.length === 0) return;
+    const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    activateTab(paneId, tabs[nextIndex].id);
+  }, [tabs, activeTabId, paneId]);
 
-  useKeyBinding(
-    'prevTab',
-    () => {
-      if (tabState.activePane !== paneId) return;
-      if (tabs.length === 0) return;
-      const currentIndex = tabs.findIndex(t => t.id === activeTabId);
-      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-      activateTab(paneId, tabs[prevIndex].id);
-    },
-    [tabs, activeTabId, paneId]
-  );
+  useKeyBinding('prevTab', () => {
+    if (tabState.activePane !== paneId) return;
+    if (tabs.length === 0) return;
+    const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+    const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    activateTab(paneId, tabs[prevIndex].id);
+  }, [tabs, activeTabId, paneId]);
 
-  useKeyBinding(
-    'openMdPreview',
-    () => {
-      if (tabState.activePane !== paneId) return;
-      const activeTab = tabs.find(t => t.id === activeTabId);
-      if (!activeTab) return;
+  useKeyBinding('openMdPreview', () => {
+    if (tabState.activePane !== paneId) return;
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (!activeTab) return;
 
-      const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
-      if (!(ext === 'md' || ext === 'mdx')) return;
+    const ext = activeTab.name.split('.').pop()?.toLowerCase() || '';
+    if (!(ext === 'md' || ext === 'mdx')) return;
 
-      const leafPanes = flattenPanes(panes);
+    const leafPanes = flattenPanes(panes);
 
-      if (leafPanes.length === 1) {
-        splitPane(paneId, 'vertical');
-        const parent = getPane(paneId);
-        if (!parent?.children?.length) return;
+    if (leafPanes.length === 1) {
+      splitPane(paneId, 'vertical');
+      const parent = getPane(paneId);
+      if (!parent?.children?.length) return;
 
-        const newPane =
-          parent.children.find(c => !c.tabs || c.tabs.length === 0) ||
-          parent.children[1] ||
-          parent.children[0];
-        if (newPane) {
-          openTab(
-            {
-              name: activeTab.name,
-              path: activeTab.path,
-              content: hasContent(activeTab) ? activeTab.content : undefined,
-            },
-            { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
-          );
-        }
-        return;
+      const newPane =
+        parent.children.find(c => !c.tabs || c.tabs.length === 0) ||
+        parent.children[1] ||
+        parent.children[0];
+      if (newPane) {
+        openTab(
+          {
+            name: activeTab.name,
+            path: activeTab.path,
+            content: hasContent(activeTab) ? activeTab.content : undefined,
+          },
+          { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
+        );
       }
+      return;
+    }
 
-      const other = leafPanes.filter(p => p.id !== paneId);
-      if (other.length === 0) return;
-      const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
-      const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
-      openTab(
-        {
-          name: activeTab.name,
-          path: activeTab.path,
-          content: hasContent(activeTab) ? activeTab.content : undefined,
-        },
-        { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
-      );
-    },
-    [paneId, activeTabId, tabs, panes]
-  );
+    const other = leafPanes.filter(p => p.id !== paneId);
+    if (other.length === 0) return;
+    const emptyOther = other.find(p => !p.tabs || p.tabs.length === 0);
+    const randomPane = emptyOther || other[Math.floor(Math.random() * other.length)];
+    openTab(
+      {
+        name: activeTab.name,
+        path: activeTab.path,
+        content: hasContent(activeTab) ? activeTab.content : undefined,
+      },
+      { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
+    );
+  }, [paneId, activeTabId, tabs, panes]);
 
   // ペインリスト（タブ移動用）
   const flatPanes = flattenPanes(panes);

@@ -84,7 +84,7 @@
   },
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.28.6",
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.4.15",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^20.19.41",
     "@types/pako": "^2.0.4",

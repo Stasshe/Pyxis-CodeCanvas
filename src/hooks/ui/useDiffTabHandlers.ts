@@ -196,13 +196,7 @@ export function useDiffTabHandlers(currentProject: any) {
 
   // コミット履歴用: コミット間のファイル差分を開く（親コミット vs コミット）
   const handleCommitsDiff = useCallback(
-    async ({
-      commitId,
-      filePath,
-    }: {
-      commitId: string;
-      filePath: string;
-    }) => {
+    async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
       if (!currentProject) return;
 
       // fileRepository用に正規化（先頭スラッシュあり）

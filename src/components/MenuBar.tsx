@@ -118,13 +118,9 @@ export default function MenuBar({
   ].sort((a, b) => a.order - b.order);
 
   // グローバル検索ショートカット (Ctrl+Shift+F)
-  useKeyBinding(
-    'globalSearch',
-    () => {
-      onMenuTabClick('search');
-    },
-    [onMenuTabClick]
-  );
+  useKeyBinding('globalSearch', () => {
+    onMenuTabClick('search');
+  }, [onMenuTabClick]);
 
   return (
     <div

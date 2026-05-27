@@ -5,7 +5,10 @@ import { RefreshCw } from 'lucide-react';
 export default function LoadingState({
   message,
   colors,
-}: { message: string; colors: ThemeColors }) {
+}: {
+  message: string;
+  colors: ThemeColors;
+}) {
   return (
     <div style={{ padding: '1rem', textAlign: 'center', color: colors.mutedFg }}>
       <RefreshCw

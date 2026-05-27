@@ -560,13 +560,7 @@ export class GitCommands {
   /**
    * git push - リモートにプッシュ
    */
-  async push(
-    options: {
-      remote?: string;
-      branch?: string;
-      force?: boolean;
-    } = {}
-  ): Promise<string> {
+  async push(options: { remote?: string; branch?: string; force?: boolean } = {}): Promise<string> {
     await this.ensureGitRepository();
 
     // 動的インポートで循環参照を回避
@@ -624,11 +618,7 @@ export class GitCommands {
    * git fetch --all - 全リモートから変更を取得
    */
   async fetchAll(
-    options: {
-      depth?: number;
-      prune?: boolean;
-      tags?: boolean;
-    } = {}
+    options: { depth?: number; prune?: boolean; tags?: boolean } = {}
   ): Promise<string> {
     await this.ensureGitRepository();
 
@@ -660,11 +650,7 @@ export class GitCommands {
    * git pull - fetch + merge/rebase
    */
   async pull(
-    options: {
-      remote?: string;
-      branch?: string;
-      rebase?: boolean;
-    } = {}
+    options: { remote?: string; branch?: string; rebase?: boolean } = {}
   ): Promise<string> {
     await this.ensureGitRepository();
     const { pull } = await import('./gitOperations/pull');

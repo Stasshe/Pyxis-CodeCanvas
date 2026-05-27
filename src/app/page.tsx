@@ -242,163 +242,111 @@ export default function Home() {
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
-  useKeyBinding(
-    'openSettings',
-    () => {
-      setActiveMenuTab('settings');
-      setIsLeftSidebarVisible(true);
-    },
-    []
-  );
-  useKeyBinding(
-    'openExplorer',
-    () => {
-      setActiveMenuTab('files');
-      setIsLeftSidebarVisible(true);
-    },
-    []
-  );
-  useKeyBinding(
-    'openExtensions',
-    () => {
-      setActiveMenuTab('extensions');
-      setIsLeftSidebarVisible(true);
-    },
-    []
-  );
-  useKeyBinding(
-    'openShortcutKeys',
-    () => {
-      openTab(
-        { name: 'Shortcut Keys', path: 'settings/shortcuts', settingsType: 'shortcuts' },
-        { kind: 'settings' }
-      );
-    },
-    []
-  );
-  useKeyBinding(
-    'openGit',
-    () => {
-      setActiveMenuTab('git');
-      setIsLeftSidebarVisible(true);
-    },
-    []
-  );
+  useKeyBinding('openSettings', () => {
+    setActiveMenuTab('settings');
+    setIsLeftSidebarVisible(true);
+  }, []);
+  useKeyBinding('openExplorer', () => {
+    setActiveMenuTab('files');
+    setIsLeftSidebarVisible(true);
+  }, []);
+  useKeyBinding('openExtensions', () => {
+    setActiveMenuTab('extensions');
+    setIsLeftSidebarVisible(true);
+  }, []);
+  useKeyBinding('openShortcutKeys', () => {
+    openTab(
+      { name: 'Shortcut Keys', path: 'settings/shortcuts', settingsType: 'shortcuts' },
+      { kind: 'settings' }
+    );
+  }, []);
+  useKeyBinding('openGit', () => {
+    setActiveMenuTab('git');
+    setIsLeftSidebarVisible(true);
+  }, []);
   useKeyBinding('openTerminal', () => setIsBottomPanelVisible(true), []);
   useKeyBinding('openProject', () => setIsProjectModalOpen(true), []);
-  useKeyBinding(
-    'globalSearch',
-    () => {
-      setActiveMenuTab('search');
-      setIsLeftSidebarVisible(true);
-    },
-    []
-  );
-  useKeyBinding(
-    'runFile',
-    () => {
-      setActiveMenuTab('run');
-      setIsLeftSidebarVisible(true);
-    },
-    []
-  );
+  useKeyBinding('globalSearch', () => {
+    setActiveMenuTab('search');
+    setIsLeftSidebarVisible(true);
+  }, []);
+  useKeyBinding('runFile', () => {
+    setActiveMenuTab('run');
+    setIsLeftSidebarVisible(true);
+  }, []);
 
   // Pane management shortcuts
   useKeyBinding('openPaneNavigator', () => setIsPaneNavigatorOpen(true), []);
 
-  useKeyBinding(
-    'splitPaneVertical',
-    () => {
-      const flatPanes = flattenPanes(panes);
-      const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
-      if (currentPane) {
-        splitPane(currentPane.id, 'vertical');
-      }
-    },
-    [panes, activePane, flattenPanes, splitPane]
-  );
+  useKeyBinding('splitPaneVertical', () => {
+    const flatPanes = flattenPanes(panes);
+    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+    if (currentPane) {
+      splitPane(currentPane.id, 'vertical');
+    }
+  }, [panes, activePane, flattenPanes, splitPane]);
 
-  useKeyBinding(
-    'splitPaneHorizontal',
-    () => {
-      const flatPanes = flattenPanes(panes);
-      const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
-      if (currentPane) {
-        splitPane(currentPane.id, 'horizontal');
-      }
-    },
-    [panes, activePane, flattenPanes, splitPane]
-  );
+  useKeyBinding('splitPaneHorizontal', () => {
+    const flatPanes = flattenPanes(panes);
+    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+    if (currentPane) {
+      splitPane(currentPane.id, 'horizontal');
+    }
+  }, [panes, activePane, flattenPanes, splitPane]);
 
-  useKeyBinding(
-    'closePane',
-    () => {
-      const flatPanes = flattenPanes(panes);
-      if (flatPanes.length <= 1) return; // Don't close the last pane
-      const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
-      if (currentPane) {
-        removePane(currentPane.id);
-        // Focus the first remaining pane
-        const remaining = flatPanes.filter(p => p.id !== currentPane.id);
-        if (remaining.length > 0) {
-          setActivePane(remaining[0].id);
-          if (remaining[0].activeTabId) {
-            activateTab(remaining[0].id, remaining[0].activeTabId);
-          }
+  useKeyBinding('closePane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return; // Don't close the last pane
+    const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
+    if (currentPane) {
+      removePane(currentPane.id);
+      // Focus the first remaining pane
+      const remaining = flatPanes.filter(p => p.id !== currentPane.id);
+      if (remaining.length > 0) {
+        setActivePane(remaining[0].id);
+        if (remaining[0].activeTabId) {
+          activateTab(remaining[0].id, remaining[0].activeTabId);
         }
       }
-    },
-    [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]
-  );
+    }
+  }, [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]);
 
-  useKeyBinding(
-    'focusNextPane',
-    () => {
-      const flatPanes = flattenPanes(panes);
-      if (flatPanes.length <= 1) return;
-      const currentIndex = flatPanes.findIndex(p => p.id === activePane);
-      const nextIndex = (currentIndex + 1) % flatPanes.length;
-      const nextPane = flatPanes[nextIndex];
-      setActivePane(nextPane.id);
-      if (nextPane.activeTabId) {
-        activateTab(nextPane.id, nextPane.activeTabId);
-      }
-    },
-    [panes, activePane, flattenPanes, setActivePane, activateTab]
-  );
+  useKeyBinding('focusNextPane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return;
+    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+    const nextIndex = (currentIndex + 1) % flatPanes.length;
+    const nextPane = flatPanes[nextIndex];
+    setActivePane(nextPane.id);
+    if (nextPane.activeTabId) {
+      activateTab(nextPane.id, nextPane.activeTabId);
+    }
+  }, [panes, activePane, flattenPanes, setActivePane, activateTab]);
 
-  useKeyBinding(
-    'focusPrevPane',
-    () => {
-      const flatPanes = flattenPanes(panes);
-      if (flatPanes.length <= 1) return;
-      const currentIndex = flatPanes.findIndex(p => p.id === activePane);
-      const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
-      const prevPane = flatPanes[prevIndex];
-      setActivePane(prevPane.id);
-      if (prevPane.activeTabId) {
-        activateTab(prevPane.id, prevPane.activeTabId);
-      }
-    },
-    [panes, activePane, flattenPanes, setActivePane, activateTab]
-  );
+  useKeyBinding('focusPrevPane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return;
+    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+    const prevIndex = (currentIndex - 1 + flatPanes.length) % flatPanes.length;
+    const prevPane = flatPanes[prevIndex];
+    setActivePane(prevPane.id);
+    if (prevPane.activeTabId) {
+      activateTab(prevPane.id, prevPane.activeTabId);
+    }
+  }, [panes, activePane, flattenPanes, setActivePane, activateTab]);
 
-  useKeyBinding(
-    'moveTabToNextPane',
-    () => {
-      const flatPanes = flattenPanes(panes);
-      if (flatPanes.length <= 1) return;
-      const currentPane = flatPanes.find(p => p.id === activePane);
-      if (!currentPane || !currentPane.activeTabId) return;
+  useKeyBinding('moveTabToNextPane', () => {
+    const flatPanes = flattenPanes(panes);
+    if (flatPanes.length <= 1) return;
+    const currentPane = flatPanes.find(p => p.id === activePane);
+    if (!currentPane || !currentPane.activeTabId) return;
 
-      const currentIndex = flatPanes.findIndex(p => p.id === activePane);
-      const nextIndex = (currentIndex + 1) % flatPanes.length;
-      const nextPane = flatPanes[nextIndex];
+    const currentIndex = flatPanes.findIndex(p => p.id === activePane);
+    const nextIndex = (currentIndex + 1) % flatPanes.length;
+    const nextPane = flatPanes[nextIndex];
 
-      moveTab(currentPane.id, nextPane.id, currentPane.activeTabId);
-    },
-    [panes, activePane, flattenPanes, moveTab]
-  );
+    moveTab(currentPane.id, nextPane.id, currentPane.activeTabId);
+  }, [panes, activePane, flattenPanes, moveTab]);
 
   // TouchBackendオプション: enableMouseEventsでマウスとタッチ両方をサポート
   // delayTouchStart: 長押し（200ms）でドラッグ開始

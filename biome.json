@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
@@ -9,14 +9,19 @@
     "lineWidth": 100,
     "attributePosition": "auto"
   },
-  "organizeImports": {
-    "enabled": true
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
   },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
       "a11y": {
+        "noStaticElementInteractions": "warn",
         "noAutofocus": "warn",
         "noLabelWithoutControl": "warn",
         "noSvgWithoutTitle": "warn",
@@ -26,9 +31,11 @@
         "useKeyWithClickEvents": "warn",
         "useKeyWithMouseEvents": "warn",
         "useMediaCaption": "warn",
-        "useSemanticElements": "warn"
+        "useSemanticElements": "warn",
+        "useAriaPropsSupportedByRole": "warn"
       },
       "complexity": {
+        "noImportantStyles": "off",
         "noBannedTypes": "off",
         "noForEach": "off",
         "noStaticOnlyClass": "off",
@@ -36,7 +43,15 @@
         "useOptionalChain": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "noUnusedFunctionParameters": "off",
+        "noUnusedImports": "off",
+        "noUnusedPrivateClassMembers": "off",
+        "noUnusedVariables": "off",
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "warn"
+      },
+      "performance": {
+        "noImgElement": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "off",
@@ -56,7 +71,11 @@
         "noAssignInExpressions": "off",
         "noConfusingVoidType": "off",
         "noExplicitAny": "off",
-        "noImplicitAnyLet": "warn"
+        "noImplicitAnyLet": "warn",
+        "noTemplateCurlyInString": "off",
+        "noUnknownAtRules": "off",
+        "noUselessEscapeInString": "off",
+        "useIterableCallbackReturn": "warn"
       }
     }
   },
@@ -72,21 +91,27 @@
       "bracketSameLine": false
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "files": {
-    "ignore": [
-      "node_modules",
-      ".next",
-      ".git",
-      "dist",
-      "build",
-      "out",
-      "coverage",
-      "*.log",
-      ".env*",
-      ".DS_Store",
-      ".vscode",
-      "*.md",
-      "eslint.config.js"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/.git",
+      "!**/dist",
+      "!**/build",
+      "!**/out",
+      "!**/coverage",
+      "!**/*.log",
+      "!**/.env*",
+      "!**/.DS_Store",
+      "!**/.vscode",
+      "!**/*.md",
+      "!**/eslint.config.js"
     ]
   }
 }
