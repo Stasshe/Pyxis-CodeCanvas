@@ -358,7 +358,7 @@ if (typeof window !== 'undefined') {
       try {
         ev.preventDefault();
         ev.stopPropagation();
-      } catch (err) {
+      } catch {
         // ignore
       }
       return;
@@ -375,7 +375,7 @@ if (typeof window !== 'undefined') {
         ev.preventDefault();
         // stopPropagation may be needed depending on environment
         ev.stopPropagation();
-      } catch (err) {
+      } catch {
         // ignore
       }
     }

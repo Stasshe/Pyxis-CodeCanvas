@@ -183,7 +183,6 @@ function findFuzzyMatch(
   startFrom = 0,
   minConfidence = MIN_CONFIDENCE_THRESHOLD
 ): { index: number; matchedText: string; confidence: number } | null {
-  const normalizedContent = normalizeForComparison(content);
   const normalizedSearch = normalizeForComparison(search);
 
   const contentLines = content.split('\n');
@@ -198,7 +197,7 @@ function findFuzzyMatch(
 
   for (let i = 0; i < contentLines.length - searchLines.length + 1; i++) {
     // Check if first line matches
-    const contentLineNormalized = contentLines[i].trim();
+    const contentLineNormalized = normalizeForComparison(contentLines[i]).trim();
     if (
       !contentLineNormalized.includes(firstSearchLine) &&
       !firstSearchLine.includes(contentLineNormalized)

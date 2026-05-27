@@ -307,7 +307,7 @@ export async function loadExtensionModule(
                 // remove script after error captured
                 try {
                   script.remove();
-                } catch (e) {}
+                } catch {}
               }
             };
 
@@ -351,7 +351,7 @@ export async function loadExtensionModule(
     try {
       console.error('[ExtensionLoader] entryCode (first 1000 chars):', entryCode.slice(0, 1000));
       console.error('[ExtensionLoader] additionalFiles keys:', Object.keys(additionalFiles));
-    } catch (e) {}
+    } catch {}
     return null;
   }
 }
@@ -384,7 +384,7 @@ export async function activateExtension(
     try {
       console.error('[ExtensionLoader] context:', context);
       console.error('[ExtensionLoader] exports keys:', Object.keys(exports));
-    } catch (e) {}
+    } catch {}
     return null;
   }
 }
