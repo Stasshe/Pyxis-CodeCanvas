@@ -198,7 +198,6 @@ Root
 │       ├── index.html
 │       ├── script.js
 │       └── style.css
-├── memo.md
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
@@ -834,12 +833,11 @@ Root
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
-├── tsconfig.tsbuildinfo
 ├── types
 │   └── esbuild-cdn.d.ts
 └── vitest.config.ts
 
-169 directories, 670 files
+169 directories, 668 files
 
 =================================
 
@@ -848,4 +846,8 @@ src/*.ts, *.tsx の統計:
 合計文字数: 2365013
 合計ファイルサイズ(bytes): 2496155
 
-開発時のdev container全体のサイズ(bytes): 1.7G	.
+開発時のdev container全体のサイズ(bytes): 1.2G	.
+==========
+ビルト済みファイルの行数: 199898
+合計文字数: 39966536
+合計ファイルサイズ(bytes): 45031030
