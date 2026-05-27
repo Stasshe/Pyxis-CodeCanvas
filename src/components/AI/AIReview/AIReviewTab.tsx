@@ -63,14 +63,6 @@ export default function AIReviewTab({
   // デバウンス保存用のタイマー
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  if (!originalContent && !suggestedContent) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ color: colors.mutedFg }}>
-        {t('aiReviewTab.notFound')}
-      </div>
-    );
-  }
-
   // クリーンアップ
   useEffect(() => {
     return () => {
@@ -298,6 +290,14 @@ export default function AIReviewTab({
   // use shared utility to detect language from filename
   const language = getLanguage(filePath);
 
+  if (!originalContent && !suggestedContent) {
+    return (
+      <div className="flex items-center justify-center h-full" style={{ color: colors.mutedFg }}>
+        {t('aiReviewTab.notFound')}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
@@ -419,7 +419,7 @@ export default function AIReviewTab({
                 </span>
               </div>
             );
-          } catch (e) {
+          } catch {
             const orig = originalContent.split('\n').length;
             const sug = currentSuggestedContent.split('\n').length;
             return (

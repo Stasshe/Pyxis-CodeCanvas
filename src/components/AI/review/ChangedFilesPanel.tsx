@@ -21,8 +21,6 @@ export default function ChangedFilesPanel({
   onApplyChanges,
   onDiscardChanges,
 }: ChangedFilesPanelProps) {
-  // Always compact
-  const compact = true;
   const { colors } = useTheme();
 
   if (changedFiles.length === 0) {
@@ -45,9 +43,9 @@ export default function ChangedFilesPanel({
       </div>
 
       <div className="space-y-2">
-        {changedFiles.map((file, index) => (
+        {changedFiles.map(file => (
           <FileChangeItem
-            key={`${file.path}-${index}`}
+            key={file.path}
             file={file}
             onOpenReview={onOpenReview}
             onApply={onApplyChanges}

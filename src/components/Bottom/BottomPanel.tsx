@@ -90,6 +90,8 @@ export default function BottomPanel({
       {/* Bottom Resizer（高さ調節バーはそのまま） */}
       <div
         className="resizer resizer-horizontal"
+        role="separator"
+        aria-orientation="horizontal"
         style={{
           background: colors.sidebarResizerBg,
           cursor: 'row-resize',
@@ -204,7 +206,7 @@ export default function BottomPanel({
               onClick={() => {
                 try {
                   vimEditor.pressEsc();
-                } catch (e) {}
+                } catch {}
               }}
               title={t('bottom.escButton') ?? 'Esc'}
               className="pyxis-esc-btn"

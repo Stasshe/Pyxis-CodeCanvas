@@ -154,7 +154,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                 }
 
                 markersWithFiles.push({ marker, filePath, fileName });
-              } catch (e) {
+              } catch {
                 // Skip markers that fail
               }
             }
@@ -185,7 +185,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         if (disposable?.dispose) {
           disposable.dispose();
         }
-      } catch (e) {}
+      } catch {}
     };
   }, [isActive, refreshCounter]);
 

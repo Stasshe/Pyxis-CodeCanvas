@@ -79,7 +79,6 @@ export default function RootLayout({
 }>) {
   // basePath を runtime で組み立て。NEXT_PUBLIC_BASE_PATH は next.config の env で注入済み
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-  const swPath = `${basePath}/sw.js`;
   const manifestPath = `${basePath}/manifest.json`;
   return (
     <html lang="en" className="h-full" translate="no">

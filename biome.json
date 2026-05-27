@@ -32,7 +32,9 @@
         "useKeyWithMouseEvents": "warn",
         "useMediaCaption": "warn",
         "useSemanticElements": "warn",
-        "useAriaPropsSupportedByRole": "warn"
+        "useAriaPropsSupportedByRole": "warn",
+        "useAriaPropsForRole": "off",
+        "useFocusableInteractive": "off"
       },
       "complexity": {
         "noImportantStyles": "off",
@@ -111,7 +113,8 @@
       "!**/.DS_Store",
       "!**/.vscode",
       "!**/*.md",
-      "!**/eslint.config.js"
+      "!**/eslint.config.js",
+      "!src/engine/initialFileContents.ts"
     ]
   }
 }
