@@ -2,9 +2,8 @@ packages:
   - src/**
   - extensions/**
 
-ignoredBuiltDependencies:
-  - '@biomejs/biome'
-  - core-js
-  - esbuild
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  '@biomejs/biome': false
+  core-js: false
+  esbuild: false
+  sharp: false
