@@ -40,7 +40,7 @@ export function extractFilePathsFromResponse(response: string): string[] {
 
   // Pattern 1: ### File: [path]
   const fileHeaderPattern = /###\s*File:\s*(.+?)(?:\n|$)/g;
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = fileHeaderPattern.exec(response)) !== null) {
     const filePath = match[1].trim();
     if (filePath && !seen.has(filePath)) {
@@ -169,7 +169,7 @@ function extractFilePatchSections(
   const fileHeaderRegex = /###\s*File:\s*(.+?)(?:\n|$)/g;
   const matches: { path: string; index: number }[] = [];
 
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = fileHeaderRegex.exec(response)) !== null) {
     matches.push({
       path: match[1].trim(),
@@ -214,7 +214,7 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
   const fileBlockPattern =
     /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)\n\s*<AI_EDIT_CONTENT_END:\1>/g;
 
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = fileBlockPattern.exec(response)) !== null) {
     blocks.push({
       path: match[1].trim(),
@@ -225,7 +225,7 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
   // Fallback: END tag path doesn't match
   if (blocks.length === 0) {
     const loosePattern = /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)<AI_EDIT_CONTENT_END:(.+?)>/g;
-    let looseMatch;
+    let looseMatch: RegExpExecArray | null;
     while ((looseMatch = loosePattern.exec(response)) !== null) {
       const startPath = looseMatch[1].trim();
       const endPath = looseMatch[3].trim();
@@ -242,7 +242,7 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
   if (blocks.length === 0) {
     const unclosedPattern =
       /<AI_EDIT_CONTENT_START:(.+?)>\s*\n([\s\S]*?)(?=<AI_EDIT_CONTENT_START:|$)/g;
-    let unclosedMatch;
+    let unclosedMatch: RegExpExecArray | null;
     while ((unclosedMatch = unclosedPattern.exec(response)) !== null) {
       const path = unclosedMatch[1].trim();
       let content = unclosedMatch[2];
@@ -267,7 +267,7 @@ export function extractReasons(response: string): Map<string, string> {
 
   // Pattern 1: ### File: ... **Reason**: ...
   const pattern1 = /###\s*File:\s*(.+?)\s*\n+\*\*Reason\*\*:\s*(.+?)(?=\n)/g;
-  let match1;
+  let match1: RegExpExecArray | null;
   while ((match1 = pattern1.exec(response)) !== null) {
     const path = match1[1].trim();
     const reason = match1[2].trim();
@@ -277,7 +277,7 @@ export function extractReasons(response: string): Map<string, string> {
   // Pattern 2: ## Changed File: ... **Reason**: ...
   const pattern2 =
     /##\s*(?:Changed\s+)?File:\s*(.+?)\s*\n+\*\*(?:Reason|変更理由)\*\*:\s*(.+?)(?=\n)/g;
-  let match2;
+  let match2: RegExpExecArray | null;
   while ((match2 = pattern2.exec(response)) !== null) {
     const path = match2[1].trim();
     const reason = match2[2].trim();
@@ -288,7 +288,7 @@ export function extractReasons(response: string): Map<string, string> {
 
   // Pattern 3: Japanese format
   const pattern3 = /##\s*変更ファイル:\s*(.+?)\s*\n+\*\*変更理由\*\*:\s*(.+?)(?=\n)/g;
-  let match3;
+  let match3: RegExpExecArray | null;
   while ((match3 = pattern3.exec(response)) !== null) {
     const path = match3[1].trim();
     const reason = match3[2].trim();
@@ -299,7 +299,7 @@ export function extractReasons(response: string): Map<string, string> {
 
   // Pattern 4: **ファイル名**: ... **理由**: ...
   const pattern4 = /\*\*ファイル名\*\*:\s*(.+?)\s*\n+\*\*理由\*\*:\s*(.+?)(?=\n|$)/g;
-  let match4;
+  let match4: RegExpExecArray | null;
   while ((match4 = pattern4.exec(response)) !== null) {
     const path = match4[1].trim();
     const reason = match4[2].trim();
@@ -310,7 +310,7 @@ export function extractReasons(response: string): Map<string, string> {
 
   // Pattern 5: [filepath] - [reason]
   const pattern5 = /^-?\s*\[?(.+?\.(?:ts|tsx|js|jsx|json|md|css|html))\]?\s*[-:]\s*(.+)$/gm;
-  let match5;
+  let match5: RegExpExecArray | null;
   while ((match5 = pattern5.exec(response)) !== null) {
     const path = match5[1].trim();
     const reason = match5[2].trim();
@@ -322,7 +322,7 @@ export function extractReasons(response: string): Map<string, string> {
   // Pattern 6: Change/Modified: filepath - reason
   const pattern6 =
     /^(?:変更|Change|Modified):\s*(.+?\.(?:ts|tsx|js|jsx|json|md|css|html|py|java|go|rs))\s*[-:]\s*(.+)$/gm;
-  let match6;
+  let match6: RegExpExecArray | null;
   while ((match6 = pattern6.exec(response)) !== null) {
     const path = match6[1].trim();
     const reason = match6[2].trim();
@@ -333,7 +333,7 @@ export function extractReasons(response: string): Map<string, string> {
 
   // Pattern 7: ## File: ... Reason: ... (English format without bold)
   const pattern7 = /##\s*File:\s*(.+?)\s*\n+Reason:\s*(.+?)(?=\n|$)/g;
-  let match7;
+  let match7: RegExpExecArray | null;
   while ((match7 = pattern7.exec(response)) !== null) {
     const path = match7[1].trim();
     const reason = match7[2].trim();

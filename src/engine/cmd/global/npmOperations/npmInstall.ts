@@ -9,7 +9,7 @@ import {
   getRootDependencies,
 } from './install/dependencyGraph';
 import { TarExtractor } from './install/tarExtractor';
-import type { InstallProgressCallback, PackageInfo } from './install/types';
+import type { ExtractedFileMap, InstallProgressCallback, PackageInfo } from './install/types';
 import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
 
 export type { InstallProgressCallback };
@@ -359,7 +359,7 @@ export class NpmInstall {
       }
 
       const packageDir = `/node_modules/${packageName}`;
-      let extractedFiles;
+      let extractedFiles: ExtractedFileMap;
       try {
         if (tarballResponse.body && typeof ReadableStream !== 'undefined') {
           let decompressedStream: ReadableStream<Uint8Array>;

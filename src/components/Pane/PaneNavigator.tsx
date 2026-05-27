@@ -281,7 +281,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
 
       // Number keys 1-9 for direct selection
       if (key >= '1' && key <= '9') {
-        const idx = Number.parseInt(key) - 1;
+        const idx = Number.parseInt(key, 10) - 1;
         if (idx < flattenedPanes.length) {
           handleActivate(flattenedPanes[idx].id);
         }

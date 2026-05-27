@@ -91,7 +91,9 @@ export function clearMemoryCacheForLocale(locale: Locale): void {
       keysToDelete.push(key);
     }
   }
-  keysToDelete.forEach(key => memoryCache.delete(key));
+  keysToDelete.forEach(key => {
+    memoryCache.delete(key);
+  });
   console.log(`[i18n-loader] Cleared ${keysToDelete.length} entries for locale '${locale}'`);
 }
 

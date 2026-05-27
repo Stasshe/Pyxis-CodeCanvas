@@ -183,7 +183,9 @@ class KeyBindingsManager {
       if (binding) {
         const callbacks = this.actions.get(binding.id);
         if (callbacks && callbacks.size > 0) {
-          callbacks.forEach(cb => cb());
+          callbacks.forEach(cb => {
+            cb();
+          });
           return true;
         }
       }
@@ -234,7 +236,9 @@ class KeyBindingsManager {
       if (callbacks && callbacks.size > 0) {
         e.preventDefault();
         e.stopPropagation();
-        callbacks.forEach(cb => cb());
+        callbacks.forEach(cb => {
+          cb();
+        });
         return true;
       }
     }
@@ -282,7 +286,9 @@ class KeyBindingsManager {
   }
 
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach(listener => {
+      listener();
+    });
   }
 }
 

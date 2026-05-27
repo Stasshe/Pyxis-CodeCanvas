@@ -357,7 +357,9 @@ export default function ExtensionsPanel() {
       setTimeout(() => {
         setExpandedPacks(prev => {
           const next = new Set(prev);
-          packsToExpand.forEach(id => next.add(id));
+          packsToExpand.forEach(id => {
+            next.add(id);
+          });
           return next;
         });
       }, 0);
@@ -403,7 +405,9 @@ export default function ExtensionsPanel() {
       setTimeout(() => {
         setExpandedPacks(prev => {
           const next = new Set(prev);
-          packsToExpand.forEach(id => next.add(id));
+          packsToExpand.forEach(id => {
+            next.add(id);
+          });
           return next;
         });
       }, 0);

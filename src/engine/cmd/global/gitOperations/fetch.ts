@@ -62,7 +62,7 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
     }
 
     // fetch実行
-    let fetchResult;
+    let fetchResult: Awaited<ReturnType<typeof git.fetch>>;
     try {
       fetchResult = await git.fetch({
         fs,

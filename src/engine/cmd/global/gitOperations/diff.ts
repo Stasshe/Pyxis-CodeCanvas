@@ -489,14 +489,18 @@ export class GitDiffOperations {
       result += '--- /dev/null\n';
       result += `+++ b/${filepath}\n`;
       result += `@@ -0,0 +1,${newLines.length} @@\n`;
-      newLines.forEach(line => (result += `+${line}\n`));
+      newLines.forEach(line => {
+        result += `+${line}\n`;
+      });
     } else if (newContent === '') {
       result += 'deleted file mode 100644\n';
       result += `index ${this.generateShortHash(oldContent)}..0000000\n`;
       result += `--- a/${filepath}\n`;
       result += '+++ /dev/null\n';
       result += `@@ -1,${oldLines.length} +0,0 @@\n`;
-      oldLines.forEach(line => (result += `-${line}\n`));
+      oldLines.forEach(line => {
+        result += `-${line}\n`;
+      });
     } else {
       result += `index ${this.generateShortHash(oldContent)}..${this.generateShortHash(newContent)} 100644\n`;
       result += `--- a/${filepath}\n`;

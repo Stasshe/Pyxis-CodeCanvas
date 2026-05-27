@@ -527,7 +527,7 @@ export function parseSearchReplaceBlocks(text: string): SearchReplaceBlock[] {
   // Pattern for SEARCH/REPLACE blocks
   const blockPattern = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
 
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = blockPattern.exec(text)) !== null) {
     blocks.push({
       search: match[1],

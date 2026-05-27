@@ -170,7 +170,9 @@ export default function TabBar({ paneId }: TabBarProps) {
   }, [paneId, removePane]);
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
-    tabs.forEach(tab => closeTab(paneId, tab.id));
+    tabs.forEach(tab => {
+      closeTab(paneId, tab.id);
+    });
   }, [tabs, closeTab, paneId]);
 
   // タブをペインに移動

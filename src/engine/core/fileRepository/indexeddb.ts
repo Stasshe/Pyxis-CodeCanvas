@@ -459,7 +459,9 @@ export class FileRepository {
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [LOCALSTORAGE_KEY.LAST_EXECUTE_FILE];
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
     } catch (error) {
       coreError('[FileRepository] Failed to cleanup localStorage:', error);
     }

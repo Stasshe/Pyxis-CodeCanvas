@@ -383,7 +383,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={settings.editor.fontSize}
               onChange={e =>
                 updateSettings({
-                  editor: { ...settings.editor, fontSize: Number.parseInt(e.target.value) || 14 },
+                  editor: {
+                    ...settings.editor,
+                    fontSize: Number.parseInt(e.target.value, 10) || 14,
+                  },
                 })
               }
               className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
@@ -406,7 +409,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
               value={settings.editor.tabSize}
               onChange={e =>
                 updateSettings({
-                  editor: { ...settings.editor, tabSize: Number.parseInt(e.target.value) || 2 },
+                  editor: {
+                    ...settings.editor,
+                    tabSize: Number.parseInt(e.target.value, 10) || 2,
+                  },
                 })
               }
               className="w-full rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1"

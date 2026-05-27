@@ -694,7 +694,7 @@ export class VimEditor {
     try {
       const regex = new RegExp(pattern, 'gi');
       for (let i = 0; i < this.state.lines.length; i++) {
-        let match;
+        let match: RegExpExecArray | null;
         while ((match = regex.exec(this.state.lines[i])) !== null) {
           this.state.searchMatches.push({ row: i, col: match.index });
         }

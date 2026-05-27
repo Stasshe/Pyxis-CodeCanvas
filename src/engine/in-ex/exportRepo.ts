@@ -64,7 +64,7 @@ export async function downloadWorkspaceZip({
       const gitDir = `${gitFileSystem.getProjectDir(project.name || project.id)}/.git`;
 
       // .gitディレクトリが存在するか確認
-      let stat;
+      let stat: Awaited<ReturnType<typeof fs.promises.stat>> | null;
       try {
         stat = await fs.promises.stat(gitDir);
       } catch {
@@ -85,7 +85,7 @@ export async function downloadWorkspaceZip({
           }
           for (const file of files) {
             const filePath = `${dir}/${file}`;
-            let stat;
+            let stat: Awaited<ReturnType<typeof fs.promises.stat>>;
             if (!fs) continue;
             try {
               stat = await fs.promises.stat(filePath);
