@@ -55,6 +55,118 @@ Root
 │   │   └── NODE-RUNTIME.md
 │   ├── pyxis-all.svg.svg
 │   └── runtime-storage-refactor.md
+├── extensions
+│   ├── README.md
+│   ├── _shared
+│   │   ├── README.md
+│   │   ├── systemModuleTypes.ts
+│   │   └── types.ts
+│   ├── binary-editor
+│   │   ├── index.tsx
+│   │   └── manifest.json
+│   ├── calc
+│   │   ├── README.md
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   └── package.json
+│   ├── chart-extension
+│   │   ├── README.md
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   └── package.json
+│   ├── lang-packs
+│   │   ├── ar
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── de
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── en
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── es
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── fr
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── hi
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── id
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── it
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ja
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ko
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── nl
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── pl
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── pt
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ru
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── sv
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── th
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── tr
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── vi
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── zh
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   └── zh-TW
+│   │       ├── index.ts
+│   │       └── manifest.json
+│   ├── note-tab
+│   │   ├── index.tsx
+│   │   └── manifest.json
+│   ├── python-runtime
+│   │   ├── index.ts
+│   │   ├── manifest.json
+│   │   └── package.json
+│   ├── react-preview
+│   │   ├── README.md
+│   │   ├── _build.js
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   └── package.json
+│   ├── registry.json
+│   ├── sample-command
+│   │   ├── README.md
+│   │   ├── index.ts
+│   │   └── manifest.json
+│   ├── test-multi-file
+│   │   ├── helper.ts
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   └── utils.ts
+│   ├── todo-panel
+│   │   ├── index.tsx
+│   │   └── manifest.json
+│   └── typescript-runtime
+│       ├── _build.js
+│       ├── index.ts
+│       ├── manifest.json
+│       ├── package.json
+│       └── transpile.worker.ts
 ├── helper-code.txt
 ├── i18n.sh
 ├── initial_files
@@ -86,6 +198,7 @@ Root
 │       ├── index.html
 │       ├── script.js
 │       └── style.css
+├── memo.md
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package.json
@@ -98,6 +211,111 @@ Root
 │   ├── base-path-init.js
 │   ├── eruda-init.js
 │   ├── esbuild.wasm
+│   ├── extensions
+│   │   ├── _shared
+│   │   │   ├── systemModuleTypes.js
+│   │   │   └── types.js
+│   │   ├── binary-editor
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   ├── calc
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── chart-extension
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── lang-packs
+│   │   │   ├── ar
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── de
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── en
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── es
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── fr
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── hi
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── id
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── it
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ja
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ko
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── nl
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── pl
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── pt
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ru
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── sv
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── th
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── tr
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── vi
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── zh
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   └── zh-TW
+│   │   │       ├── index.js
+│   │   │       └── manifest.json
+│   │   ├── note-tab
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   ├── python-runtime
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── react-preview
+│   │   │   ├── esbuild.wasm
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── registry.json
+│   │   ├── sample-command
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   ├── test-multi-file
+│   │   │   ├── helper.js
+│   │   │   ├── index.js
+│   │   │   ├── manifest.json
+│   │   │   └── utils.js
+│   │   ├── todo-panel
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   └── typescript-runtime
+│   │       ├── index.js
+│   │       ├── index.js.meta.json
+│   │       ├── manifest.json
+│   │       └── transpile.worker.js
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
@@ -133,6 +351,22 @@ Root
 │   ├── check-pnpm.js
 │   ├── chore
 │   │   └── update-readmes-version.js
+│   ├── extensions
+│   │   ├── EXTENSION-PNPM-GUIDE.md
+│   │   ├── create-extension-guide.md
+│   │   ├── create-extension.js
+│   │   └── samples
+│   │       ├── README.md
+│   │       ├── builtin-module-extension.template.ts
+│   │       ├── command-extension.template.ts
+│   │       ├── open-tab-button.template.tsx
+│   │       ├── service-extension.template.ts
+│   │       ├── sidebar-component.template.tsx
+│   │       ├── sidebar-registration.template.ts
+│   │       ├── tab-component.template.tsx
+│   │       ├── tab-registration.template.ts
+│   │       ├── transpiler-extension.template.ts
+│   │       └── ui-extension.template.tsx
 │   ├── i18n
 │   │   ├── README.md
 │   │   ├── add-hardcoded-translations.js
@@ -404,6 +638,23 @@ Root
 │   │   │   ├── pathUtils.ts
 │   │   │   ├── project.ts
 │   │   │   └── syncManager.ts
+│   │   ├── extensions
+│   │   │   ├── autoInstaller.ts
+│   │   │   ├── binaryUtils.ts
+│   │   │   ├── commandRegistry.ts
+│   │   │   ├── extensionLoader.ts
+│   │   │   ├── extensionManager.ts
+│   │   │   ├── extensionRegistry.ts
+│   │   │   ├── extensionsLogger.ts
+│   │   │   ├── index.ts
+│   │   │   ├── storage-adapter.ts
+│   │   │   ├── system-api
+│   │   │   │   ├── ExplorerMenuAPI.ts
+│   │   │   │   ├── SidebarAPI.ts
+│   │   │   │   └── TabAPI.ts
+│   │   │   ├── systemModuleTypes.ts
+│   │   │   ├── transformImports.ts
+│   │   │   └── types.ts
 │   │   ├── helper
 │   │   │   ├── isLikelyTextFile.ts
 │   │   │   ├── resize.ts
@@ -583,148 +834,18 @@ Root
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 ├── types
 │   └── esbuild-cdn.d.ts
 └── vitest.config.ts
 
-99 directories, 488 files
+169 directories, 670 files
 
 =================================
-
-extensions/ 以下のディレクトリ構造:
-.
-├── README.md
-├── _shared
-│   ├── README.md
-│   ├── systemModuleTypes.ts
-│   └── types.ts
-├── binary-editor
-│   ├── index.tsx
-│   └── manifest.json
-├── calc
-│   ├── README.md
-│   ├── index.tsx
-│   ├── manifest.json
-│   ├── node_modules
-│   │   └── latexium -> ../../../node_modules/.pnpm/latexium@0.1.1/node_modules/latexium
-│   └── package.json
-├── chart-extension
-│   ├── README.md
-│   ├── index.tsx
-│   ├── manifest.json
-│   ├── node_modules
-│   │   └── chart.js -> ../../../node_modules/.pnpm/chart.js@4.5.1/node_modules/chart.js
-│   └── package.json
-├── lang-packs
-│   ├── ar
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── de
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── en
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── es
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── fr
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── hi
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── id
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── it
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── ja
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── ko
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── nl
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── pl
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── pt
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── ru
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── sv
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── th
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── tr
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── vi
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   ├── zh
-│   │   ├── index.ts
-│   │   └── manifest.json
-│   └── zh-TW
-│       ├── index.ts
-│       └── manifest.json
-├── note-tab
-│   ├── index.tsx
-│   └── manifest.json
-├── python-runtime
-│   ├── index.ts
-│   ├── manifest.json
-│   ├── node_modules
-│   │   └── pyodide -> ../../../node_modules/.pnpm/pyodide@0.29.0/node_modules/pyodide
-│   └── package.json
-├── react-preview
-│   ├── README.md
-│   ├── _build.js
-│   ├── index.tsx
-│   ├── manifest.json
-│   ├── node_modules
-│   │   └── esbuild-wasm -> ../../../node_modules/.pnpm/esbuild-wasm@0.27.0/node_modules/esbuild-wasm
-│   └── package.json
-├── registry.json
-├── sample-command
-│   ├── README.md
-│   ├── index.ts
-│   └── manifest.json
-├── test-multi-file
-│   ├── helper.ts
-│   ├── index.tsx
-│   ├── manifest.json
-│   └── utils.ts
-├── todo-panel
-│   ├── index.tsx
-│   └── manifest.json
-└── typescript-runtime
-    ├── _build.js
-    ├── index.ts
-    ├── manifest.json
-    ├── package.json
-    └── transpile.worker.ts
-
-41 directories, 79 files
-
-=================================
-
 
 src/*.ts, *.tsx の統計:
-合計行数: 74447
-合計文字数: 2361725
-合計ファイルサイズ(bytes): 2492775
+合計行数: 74487
+合計文字数: 2365013
+合計ファイルサイズ(bytes): 2496155
 
-開発時のdev container全体のサイズ(bytes): 1.2G	.
-==========
-ビルト済みファイルの行数: 199898
-合計文字数: 39964663
-合計ファイルサイズ(bytes): 45029157
+開発時のdev container全体のサイズ(bytes): 1.7G	.
