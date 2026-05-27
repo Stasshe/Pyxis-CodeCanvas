@@ -113,6 +113,7 @@
       "!**/.DS_Store",
       "!**/.vscode",
       "!**/*.md",
+      "!**/public/extensions/*",
       "!**/eslint.config.js",
       "!src/engine/initialFileContents.ts"
     ]
