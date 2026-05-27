@@ -48,8 +48,7 @@ export class ProcessStdin {
   removeListener(event: 'data', fn: DataListener): this;
   removeListener(event: 'end' | 'close', fn: EndListener): this;
   removeListener(event: string, fn: DataListener | EndListener): this {
-    if (event === 'data')
-      this._dataListeners = this._dataListeners.filter(f => f !== fn);
+    if (event === 'data') this._dataListeners = this._dataListeners.filter(f => f !== fn);
     else if (event === 'end' || event === 'close')
       this._endListeners = this._endListeners.filter(f => f !== fn);
     return this;

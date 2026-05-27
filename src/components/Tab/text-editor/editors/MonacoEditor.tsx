@@ -8,10 +8,7 @@ import { getLanguageFileName } from '../utils/monacoPathUtils';
 import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
-import {
-  getModelLanguage,
-  registerEnhancedJSXLanguage,
-} from './monarch-jsx-language';
+import { getModelLanguage, registerEnhancedJSXLanguage } from './monarch-jsx-language';
 
 import { useTheme } from '@/context/ThemeContext';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
@@ -45,7 +42,8 @@ function getJumpPosition(
   sel: monaco.IRange | monaco.IPosition | undefined
 ): { jumpToLine: number; jumpToColumn: number } | undefined {
   if (!sel) return undefined;
-  if ('startLineNumber' in sel) return { jumpToLine: sel.startLineNumber, jumpToColumn: sel.startColumn };
+  if ('startLineNumber' in sel)
+    return { jumpToLine: sel.startLineNumber, jumpToColumn: sel.startColumn };
   return { jumpToLine: sel.lineNumber, jumpToColumn: sel.column };
 }
 
@@ -154,7 +152,7 @@ export default function MonacoEditor({
             if (found) {
               tabActions.activateTab(found.paneId, found.tabId);
               if (jump) {
-                tabActions.updateTab(found.paneId, found.tabId, jump as any);
+                tabActions.updateTab(found.paneId, found.tabId, jump);
               }
               return true;
             }

@@ -313,7 +313,11 @@ export class TerminalUI {
     await this.outputManager.write(`${ANSI.BOLD}${text}${ANSI.RESET}`);
   }
 
-  createSpinner(type: SpinnerType = 'BRAILLE', color: string = ANSI.FG.CYAN, interval = 80): SpinnerController {
+  createSpinner(
+    type: SpinnerType = 'BRAILLE',
+    color: string = ANSI.FG.CYAN,
+    interval = 80
+  ): SpinnerController {
     return new SpinnerController(this.outputManager, type, color, interval);
   }
 

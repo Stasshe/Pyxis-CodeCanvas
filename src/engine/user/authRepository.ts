@@ -122,7 +122,7 @@ export class AuthRepository {
   async getAuth(): Promise<GitHubAuthData | null> {
     await this.init();
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['auth'], 'readonly');
       const store = transaction.objectStore('auth');
       const request = store.get('github');

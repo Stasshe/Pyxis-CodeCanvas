@@ -4,14 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import type { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
-import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
-import TerminalUI from '@/engine/cmd/terminalUI';
 import { handleVimCommand } from '@/engine/cmd/handlers/vimHandler';
+import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
+import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import TerminalUI from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
 import { pushLogMessage } from '@/stores/loggerStore';
@@ -26,7 +27,7 @@ interface TerminalProps {
   currentProject?: string;
   currentProjectId?: string;
   isActive?: boolean;
-  onVimModeChange?: (vimEditor: any | null) => void; // Callback for Vim mode changes
+  onVimModeChange?: (vimEditor: VimEditor | null) => void; // Callback for Vim mode changes
 }
 
 // クライアントサイド専用のターミナルコンポーネント
@@ -48,7 +49,7 @@ function ClientTerminal({
   const npmCommandsRef = useRef<NpmCommands | null>(null);
   const shellRef = useRef<any>(null);
   const spinnerInterval = useRef<NodeJS.Timeout | null>(null);
-  const vimEditorRef = useRef<any>(null); // Track active Vim editor instance
+  const vimEditorRef = useRef<VimEditor | null>(null); // Track active Vim editor instance
 
   // xterm/fitAddonをrefで保持
   useEffect(() => {
@@ -461,22 +462,23 @@ function ClientTerminal({
             // Disable normal terminal input during vim mode
             vimModeActive = true;
 
-            const vimEditor = await handleVimCommand(
-              args,
-              unixCommandsRef,
-              captureWriteOutput,
-              currentProject,
-              currentProjectId,
-              term, // Pass xterm instance
-              () => {
-                // On vim exit callback
-                vimModeActive = false; // Re-enable normal terminal input
-                vimEditorRef.current = null;
-                if (onVimModeChange) onVimModeChange(null);
-                term.clear();
-                showPrompt();
-              }
-            );
+            const vimEditor =
+              (await handleVimCommand(
+                args,
+                unixCommandsRef,
+                captureWriteOutput,
+                currentProject,
+                currentProjectId,
+                term, // Pass xterm instance
+                () => {
+                  // On vim exit callback
+                  vimModeActive = false; // Re-enable normal terminal input
+                  vimEditorRef.current = null;
+                  if (onVimModeChange) onVimModeChange(null);
+                  term.clear();
+                  showPrompt();
+                }
+              )) ?? null;
 
             // Store Vim editor instance for ESC button
             vimEditorRef.current = vimEditor;
@@ -669,7 +671,11 @@ function ClientTerminal({
       if (!text || vimModeActive) return;
 
       if (terminalProcessBridge.isActive()) {
-        ({ line: interactiveLine, pos: interactivePos } = insertAtCursor(interactiveLine, interactivePos, text));
+        ({ line: interactiveLine, pos: interactivePos } = insertAtCursor(
+          interactiveLine,
+          interactivePos,
+          text
+        ));
         return;
       }
 
@@ -693,7 +699,10 @@ function ClientTerminal({
       // Ctrl+V / Ctrl+Shift+V: paste (両方横取りしてClipboard API経由に統一)
       if (ctrl && !event.altKey && event.key.toLowerCase() === 'v') {
         event.preventDefault();
-        navigator.clipboard.readText().then(handlePasteText).catch(() => {});
+        navigator.clipboard
+          .readText()
+          .then(handlePasteText)
+          .catch(() => {});
         return false;
       }
 
@@ -777,7 +786,6 @@ function ClientTerminal({
           domEvent.preventDefault();
         }
       }
-
     });
 
     // 通常のキー入力

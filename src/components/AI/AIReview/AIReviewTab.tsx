@@ -122,20 +122,15 @@ export default function AIReviewTab({
   // suggestedContentの変更を監視してローカル状態を更新
   // 他のAIReviewTabからsuggestedContentが更新されたときに同期する
   useEffect(() => {
-    if (currentSuggestedContent !== suggestedContent) {
-      setCurrentSuggestedContent(suggestedContent);
-      // DiffEditorのmodifiedモデルも更新
-      if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
-        const currentModifiedValue = modelsRef.current.modified.getValue();
-        if (currentModifiedValue !== suggestedContent) {
-          console.log('[AIReviewTab] Suggested content changed externally, updating DiffEditor');
-          modelsRef.current.modified.setValue(suggestedContent);
-        }
+    setCurrentSuggestedContent(suggestedContent);
+    // DiffEditorのmodifiedモデルも更新
+    if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
+      const currentModifiedValue = modelsRef.current.modified.getValue();
+      if (currentModifiedValue !== suggestedContent) {
+        console.log('[AIReviewTab] Suggested content changed externally, updating DiffEditor');
+        modelsRef.current.modified.setValue(suggestedContent);
       }
     }
-    // Note: currentSuggestedContent is intentionally not in the dependency array
-    // to prevent infinite loops - we only want to sync when suggestedContent prop changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedContent]);
 
   // デバウンス付き保存関数

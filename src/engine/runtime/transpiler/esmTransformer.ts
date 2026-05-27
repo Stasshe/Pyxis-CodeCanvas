@@ -64,9 +64,7 @@ async function getApi(): Promise<EsbuildApi | null> {
 
   initPromise = (async (): Promise<EsbuildApi | null> => {
     const isNode =
-      typeof process !== 'undefined' &&
-      process.versions != null &&
-      process.versions.node != null;
+      typeof process !== 'undefined' && process.versions != null && process.versions.node != null;
     if (isNode) {
       // Node.js環境 (テスト): esbuildネイティブ
       const mod = await importModuleDynamically<typeof import('esbuild')>('esbuild');

@@ -7,6 +7,7 @@ import type { EditorPane, Tab } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSnapshot } from 'valtio';
 
@@ -17,7 +18,7 @@ interface ProblemsPanelProps {
 
 // Marker with file info for display
 interface MarkerWithFile {
-  marker: any;
+  marker: monaco.editor.IMarker;
   filePath: string;
   fileName: string;
 }
@@ -89,7 +90,9 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
   const findTabByFilePath = useMemo(() => {
     return (filePath: string): { tabId: string; paneId: string } | null => {
       const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
-      const search = (panesList: readonly EditorPane[]): { tabId: string; paneId: string } | null => {
+      const search = (
+        panesList: readonly EditorPane[]
+      ): { tabId: string; paneId: string } | null => {
         for (const p of panesList) {
           const tab = p.tabs?.find((t: Tab) => {
             const tp = t.path || '';
@@ -112,6 +115,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     setRefreshCounter(c => c + 1);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Refresh explicitly reloads Monaco markers.
   useEffect(() => {
     if (!isActive) return;
 
@@ -191,7 +195,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
     const result = findTabByFilePath(filePath);
     if (result) {
       activateTab(result.paneId, result.tabId);
-      updateTab(result.paneId, result.tabId, jump as any);
+      updateTab(result.paneId, result.tabId, jump);
       return;
     }
     // Tab not open — open the file from fileRepository
@@ -267,6 +271,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
         </div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <button
+            type="button"
             onClick={handleRefresh}
             style={{
               fontSize: 10,
@@ -284,6 +289,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
             <RefreshCw style={{ width: 10, height: 10 }} />
           </button>
           <button
+            type="button"
             onClick={() => setShowImportErrors(prev => !prev)}
             style={{
               fontSize: 10,
@@ -309,9 +315,13 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
 
             return (
               <div key={filePath} style={{ marginBottom: 4 }}>
-                <div
+                <button
+                  type="button"
                   onClick={() => toggleFileCollapse(filePath)}
                   style={{
+                    width: '100%',
+                    border: 'none',
+                    textAlign: 'left',
                     fontSize: 11,
                     fontWeight: 500,
                     padding: '3px 4px',
@@ -335,14 +345,23 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                     )}
                     {fileWarnCount > 0 && <span style={{ color: '#D7BA7D' }}>{fileWarnCount}</span>}
                   </span>
-                </div>
+                </button>
                 {!isCollapsed && (
                   <div style={{ marginLeft: 16 }}>
-                    {fileMarkers.map((m, idx) => (
-                      <div
-                        key={idx}
+                    {fileMarkers.map(m => (
+                      <button
+                        type="button"
+                        key={`${m.marker.owner}:${m.marker.startLineNumber}:${m.marker.startColumn}:${m.marker.message}`}
                         onClick={() => handleGoto(m)}
                         style={{
+                          display: 'block',
+                          width: '100%',
+                          borderTop: 'none',
+                          borderRight: 'none',
+                          borderBottom: 'none',
+                          textAlign: 'left',
+                          background: 'transparent',
+                          color: 'inherit',
                           borderLeft: `2px solid ${m.marker.severity === 8 ? '#D16969' : '#D7BA7D'}`,
                           padding: '2px 6px',
                           marginTop: 2,
@@ -358,7 +377,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
                           {m.marker.message.split('\n')[0].substring(0, 80)}
                           {m.marker.message.length > 80 ? '...' : ''}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}

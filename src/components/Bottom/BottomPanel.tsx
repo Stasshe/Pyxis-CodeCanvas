@@ -8,6 +8,7 @@ import Terminal from './Terminal';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import type { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
 
 type BottomPanelTab = 'output' | 'terminal' | 'problems';
 
@@ -57,7 +58,7 @@ export default function BottomPanel({
 }: BottomPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const [vimEditor, setVimEditor] = useState<any | null>(null);
+  const [vimEditor, setVimEditor] = useState<VimEditor | null>(null);
   const [internalActiveTab, setInternalActiveTab] = useState<BottomPanelTab>('terminal');
   const [visitedTabs, setVisitedTabs] = useState<Record<BottomPanelTab, boolean>>({
     output: (activeTabProp ?? 'terminal') === 'output',
@@ -120,6 +121,7 @@ export default function BottomPanel({
           }}
         >
           <button
+            type="button"
             className="tab-btn"
             style={{
               position: 'relative',
@@ -143,6 +145,7 @@ export default function BottomPanel({
           </button>
 
           <button
+            type="button"
             className="tab-btn"
             style={{
               position: 'relative',
@@ -165,6 +168,7 @@ export default function BottomPanel({
             {t('bottom.output')}
           </button>
           <button
+            type="button"
             className="tab-btn"
             style={{
               position: 'relative',
@@ -198,6 +202,7 @@ export default function BottomPanel({
           {/* Place ESC button at the far right of the tab bar when vim is active */}
           {vimEditor && (
             <button
+              type="button"
               onClick={() => {
                 try {
                   vimEditor.pressEsc();

@@ -16,8 +16,8 @@
  * npmパッケージの.mjsファイルはinstall時にesbuildで事前変換済みのためここでは不要
  */
 
-import { extractCjsDependencies, transformEsmToCjs } from './esmTransformer';
 import * as Comlink from 'comlink';
+import { extractCjsDependencies, transformEsmToCjs } from './esmTransformer';
 
 /**
  * トランスパイルリクエスト

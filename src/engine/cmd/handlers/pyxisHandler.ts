@@ -699,7 +699,6 @@ export async function handlePyxisCommand(
         }
         break;
 
-
       case 'storage-clean':
       case 'storage clean':
         try {
@@ -710,7 +709,7 @@ export async function handlePyxisCommand(
           await writeOutput(`storage-clean: エラー: ${(e as Error).message}`);
         }
         break;
-        
+
       default:
         await writeOutput(`Unknown pyxis command: ${cmd}`);
     }

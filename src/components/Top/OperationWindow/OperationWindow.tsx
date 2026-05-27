@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
+import { type WorkerPool, createWorkerPool } from '@/engine/workers/WorkerPool';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';

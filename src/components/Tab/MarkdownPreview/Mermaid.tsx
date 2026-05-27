@@ -27,7 +27,7 @@ const mermaidZoomStore = new Map<string, ZoomState>();
 // diagram最初の行（図種類）からキーを生成 — 内容変更でもキーが変わらない
 const generateDiagramKey = (diagram: string): string => {
   try {
-    const firstLine = diagram.split('\n').find((line) => line.trim()) || diagram;
+    const firstLine = diagram.split('\n').find(line => line.trim()) || diagram;
     const hash = firstLine.split('').reduce((acc, char) => {
       return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
     }, 0);

@@ -21,9 +21,9 @@ import type {
   transformEsmToCjs,
 } from '@/engine/runtime/transpiler/esmTransformer';
 import type {
+  WorkerPool,
   createUrlWorkerPool,
   createWorkerPool,
-  WorkerPool,
 } from '@/engine/workers/WorkerPool';
 
 /**
@@ -75,7 +75,11 @@ export interface SystemModuleMap {
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
     getGitCommands: (projectName: string, projectId?: string) => GitCommands;
-    getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => Promise<NpmCommands>;
+    getNpmCommands: (
+      projectName: string,
+      projectId?: string,
+      projectPath?: string
+    ) => Promise<NpmCommands>;
     /**
      * Construct or return a per-project StreamShell instance.
      * Matches TerminalCommandRegistry.getShell which may return null on failure.

@@ -9,6 +9,7 @@
  */
 
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 import { runtimeRegistry } from '../core/RuntimeRegistry';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { createModuleNotFoundError } from '../nodejs/nodeErrors';
@@ -16,7 +17,6 @@ import { isProcessExitSignal } from '../nodejs/processExit';
 import { transpileManager } from '../transpiler/transpileManager';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
-import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { isBuiltInModule } from './builtinModules';
@@ -841,10 +841,7 @@ export class ModuleLoader {
   }
 
   private isOptionalDependency(moduleName: string, fromPath: string): boolean {
-    if (
-      moduleName === 'supports-color' &&
-      fromPath.includes('/node_modules/debug/src/node.js')
-    ) {
+    if (moduleName === 'supports-color' && fromPath.includes('/node_modules/debug/src/node.js')) {
       return true;
     }
 

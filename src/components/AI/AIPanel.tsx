@@ -122,15 +122,20 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
 
+  const fileContextsRef = useRef(fileContexts);
+  const updateFileContextsRef = useRef(updateFileContexts);
+  fileContextsRef.current = fileContexts;
+  updateFileContextsRef.current = updateFileContexts;
+
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      const selectedMap = new Map(fileContexts.map(ctx => [ctx.path, ctx.selected]));
+      const selectedMap = new Map(fileContextsRef.current.map(ctx => [ctx.path, ctx.selected]));
       const contexts = buildAIFileContextList(projectFiles).map(ctx => ({
         ...ctx,
         selected: selectedMap.get(ctx.path) ?? false,
       }));
-      updateFileContexts(contexts);
+      updateFileContextsRef.current(contexts);
     }
   }, [projectFiles]);
 

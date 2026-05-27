@@ -384,7 +384,7 @@ export class FileRepository {
     const project = projects.find(p => p.id === projectId);
     const projectName = project?.name || '';
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['projects', 'files', 'chatSpaces'], 'readwrite');
 
       // プロジェクトを削除

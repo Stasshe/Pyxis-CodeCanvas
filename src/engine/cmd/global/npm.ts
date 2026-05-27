@@ -138,9 +138,9 @@ export class NpmCommands {
           await npmInstall.finishBatchProcessing();
           // ensure .bin entries for all installed packages
           for (const pkg of packageNames) {
-            await npmInstall.ensureBinsForPackage(pkg).catch(err =>
-              console.warn(`[npm] ensureBins failed for ${pkg}:`, err)
-            );
+            await npmInstall
+              .ensureBinsForPackage(pkg)
+              .catch(err => console.warn(`[npm] ensureBins failed for ${pkg}:`, err));
           }
         }
 
@@ -221,9 +221,9 @@ export class NpmCommands {
           await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
         } finally {
           await npmInstall.finishBatchProcessing();
-          await npmInstall.ensureBinsForPackage(packageName).catch(err =>
-            console.warn(`[npm] ensureBins failed for ${packageName}:`, err)
-          );
+          await npmInstall
+            .ensureBinsForPackage(packageName)
+            .catch(err => console.warn(`[npm] ensureBins failed for ${packageName}:`, err));
         }
 
         // Stop spinner
@@ -525,5 +525,4 @@ export class NpmCommands {
       throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
     }
   }
-
 }

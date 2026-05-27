@@ -98,11 +98,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const codeComponent = useMemo<Pick<Components, 'code'>>(
     () => ({
       code: ({ className, children, ...props }) => (
-        <CodeBlock
-          className={className}
-          currentProjectName={currentProject?.name}
-          {...props}
-        >
+        <CodeBlock className={className} currentProjectName={currentProject?.name} {...props}>
           {children}
         </CodeBlock>
       ),

@@ -1,6 +1,6 @@
 import { GitCommands } from './global/git';
-import { UnixCommands } from './global/unix';
 import type { NpmCommands } from './global/npm';
+import { UnixCommands } from './global/unix';
 import type StreamShell from './shell/streamShell';
 import type TerminalUI from './terminalUI';
 

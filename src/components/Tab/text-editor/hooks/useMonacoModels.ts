@@ -76,10 +76,7 @@ function enforceModelLimit(maxModels: number): void {
  * Update Monaco model content from outside (e.g. file watcher, external save).
  * modelKey = filePath for file-based tabs, tabId for untitled.
  */
-export function updateCachedModelContent(
-  modelKey: string,
-  content: string,
-): void {
+export function updateCachedModelContent(modelKey: string, content: string): void {
   const model = sharedModelMap.get(modelKey);
   if (!model || model.isDisposed()) return;
   try {
@@ -93,10 +90,7 @@ export function updateCachedModelContent(
  * Save editor view state for a tab (cursor, scroll, folding).
  * Call before switching away from a tab.
  */
-export function saveTabViewState(
-  tabId: string,
-  editor: monaco.editor.IStandaloneCodeEditor
-): void {
+export function saveTabViewState(tabId: string, editor: monaco.editor.IStandaloneCodeEditor): void {
   try {
     tabViewStates.set(tabId, editor.saveViewState());
   } catch (e) {

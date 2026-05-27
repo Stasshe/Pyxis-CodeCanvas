@@ -9,8 +9,8 @@
 
 import FS from '@isomorphic-git/lightning-fs';
 
-import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
 import { IDB } from '@/constants/idb';
+import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
 
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
 

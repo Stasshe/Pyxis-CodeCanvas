@@ -2,8 +2,8 @@ import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
 import { normalizeDotSegments, toFSPath } from '@/engine/core/pathUtils';
-import { terminalProcessBridge } from '../terminalProcessBridge';
 import handleUnixCommand from '../handlers/unixHandler';
+import { terminalProcessBridge } from '../terminalProcessBridge';
 
 export type StreamCtx = {
   stdin: Readable;
