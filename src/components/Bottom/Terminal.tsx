@@ -242,21 +242,24 @@ function ClientTerminal({
       terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
     }
 
-    // サイズを調整
-    setTimeout(() => {
+    // サイズ調整 — rAFで順次実行。timeoutでDOM安定を祈らない
+    const fitAndSync = () => {
       fitAddon.fit();
-      // Update shell terminal size after fit
       terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
-      setTimeout(() => {
-        term.scrollToBottom();
-        setTimeout(() => {
-          fitAddon.fit();
-          term.scrollToBottom();
-          // Update shell terminal size again after second fit
-          terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
-        }, 100);
-      }, 50);
-    }, 100);
+    };
+    const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    (async () => {
+      await nextFrame();
+      if (!mounted) return;
+      fitAndSync();
+      await nextFrame();
+      if (!mounted) return;
+      term.scrollToBottom();
+      await nextFrame();
+      if (!mounted) return;
+      fitAndSync();
+      term.scrollToBottom();
+    })();
 
     // 初期化処理を非同期で実行
     const initializeMessages = async () => {
@@ -270,32 +273,20 @@ function ClientTerminal({
 
     // 確実な自動スクロール関数
     const scrollToBottom = () => {
-      try {
+      if (!mounted) return;
+      term.scrollToBottom();
+      // rAFで次フレームに補正スクロール（カーソル位置確定後）
+      requestAnimationFrame(() => {
+        if (!mounted) return;
+        const buffer = term.buffer.active;
+        const viewportHeight = term.rows;
+        const absoluteCursorLine = buffer.baseY + buffer.cursorY;
+        const scrollDelta = absoluteCursorLine - buffer.viewportY - viewportHeight + 1;
+        if (scrollDelta > 0) {
+          term.scrollLines(scrollDelta);
+        }
         term.scrollToBottom();
-        setTimeout(() => {
-          try {
-            const buffer = term.buffer.active;
-            const viewportHeight = term.rows;
-            const baseY = buffer.baseY;
-            const cursorY = buffer.cursorY;
-            const absoluteCursorLine = baseY + cursorY;
-            const currentScrollTop = buffer.viewportY;
-            const targetScrollTop = Math.max(0, absoluteCursorLine - viewportHeight + 1);
-            const scrollDelta = targetScrollTop - currentScrollTop;
-
-            if (scrollDelta > 0) {
-              term.scrollLines(scrollDelta);
-            }
-            term.scrollToBottom();
-          } catch (error) {
-            console.warn('[Terminal.tsx] caught non-fatal error', error);
-            term.scrollToBottom();
-          }
-        }, 50);
-      } catch (error) {
-        console.warn('[Terminal.tsx] caught non-fatal error', error);
-        term.scrollToBottom();
-      }
+      });
     };
 
     // プロンプトを表示する関数
@@ -961,6 +952,7 @@ function ClientTerminal({
         terminalRef.current.removeEventListener('touchend', handleTouchEnd);
         terminalRef.current.removeEventListener('wheel', handleWheel);
       }
+      xtermRef.current = null;
       term.dispose();
     };
   }, [currentProject, currentProjectId, colors, onVimModeChange]);
@@ -973,37 +965,30 @@ function ClientTerminal({
     const runFit = () => {
       try {
         fitAddonRef.current?.fit();
-        // Update shell terminal size after resize
         if (currentProjectId && xtermRef.current) {
           terminalCommandRegistry.updateShellSize(
             currentProjectId,
-            xtermRef.current?.cols ?? 80,
-            xtermRef.current?.rows ?? 24
+            xtermRef.current.cols,
+            xtermRef.current.rows
           );
         }
-        // Ensure terminal is scrolled to bottom after layout settles
-        setTimeout(() => {
-          xtermRef.current?.scrollToBottom();
-        }, 100);
+        xtermRef.current?.scrollToBottom();
       } catch (e) {
         console.warn('[Terminal.tsx] caught non-fatal error', e);
-        // ignore fit errors (e.g. if element not visible)
       }
     };
 
-    // Run an initial fit after a short delay to allow layout to stabilize
-    const timeoutId = setTimeout(() => runFit(), 100);
+    // 初回 fit は次フレームで実行（レイアウト確定後）
+    const rafId = requestAnimationFrame(runFit);
 
-    // Observe DOM size changes for smooth resizing without React state updates
     const resizeObserver = new ResizeObserver(() => {
-      // Use rAF to avoid layout thrashing during continuous drag
-      requestAnimationFrame(() => runFit());
+      requestAnimationFrame(runFit);
     });
 
     resizeObserver.observe(terminalRef.current);
 
     return () => {
-      clearTimeout(timeoutId);
+      cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
     };
   }, [currentProjectId, isActive]);
