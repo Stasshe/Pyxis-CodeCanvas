@@ -126,7 +126,7 @@ export default function GitPanel({
       setBranchFilterMode(mode);
       setSelectedBranches(branches);
     }
-  }, [currentProjectId, getStoredBranchFilter]);
+  }, [currentProjectId, getStoredBranchFilter, setBranchFilterMode, setSelectedBranches]);
 
   // commit depth, fetch and history logic moved to `useGitPanel` hook
   // VSCode-style diff handlers: staged = HEAD vs INDEX, unstaged = INDEX vs WORKDIR
@@ -154,16 +154,19 @@ export default function GitPanel({
   const [confirmMessage, setConfirmMessage] = useState<string | undefined>(undefined);
   const confirmActionRef = useRef<(() => Promise<void> | void) | null>(null);
 
-  const openConfirm = (
-    title: string | undefined,
-    message: string | undefined,
-    action: () => Promise<void> | void
-  ) => {
-    setConfirmTitle(title);
-    setConfirmMessage(message);
-    confirmActionRef.current = action;
-    setConfirmOpen(true);
-  };
+  const openConfirm = useCallback(
+    (
+      title: string | undefined,
+      message: string | undefined,
+      action: () => Promise<void> | void
+    ) => {
+      setConfirmTitle(title);
+      setConfirmMessage(message);
+      confirmActionRef.current = action;
+      setConfirmOpen(true);
+    },
+    []
+  );
 
   const handleConfirm = async () => {
     setConfirmOpen(false);
@@ -191,7 +194,7 @@ export default function GitPanel({
       const message = `${t('git.discardChangesMessage')} ${file}`;
       openConfirm(title, message, async () => handleDiscardChanges(file));
     },
-    [handleDiscardChanges, t]
+    [handleDiscardChanges, t, openConfirm]
   );
 
   const handleRequestDiscardAllUnstaged = useCallback(async () => {
@@ -206,7 +209,7 @@ export default function GitPanel({
       await discardAllUnstaged();
       if (onRefresh) onRefresh();
     });
-  }, [gitRepo?.status, discardAllUnstaged, onRefresh, t]);
+  }, [gitRepo?.status, discardAllUnstaged, onRefresh, t, openConfirm]);
 
   const handleRequestDiscardAllStaged = useCallback(async () => {
     const count = gitRepo?.status?.staged?.length || 0;
@@ -217,7 +220,7 @@ export default function GitPanel({
       await discardAllStaged();
       if (onRefresh) onRefresh();
     });
-  }, [gitRepo?.status, discardAllStaged, onRefresh, t]);
+  }, [gitRepo?.status, discardAllStaged, onRefresh, t, openConfirm]);
 
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim()) return;

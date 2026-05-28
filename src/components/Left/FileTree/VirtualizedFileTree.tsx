@@ -190,7 +190,7 @@ export default function VirtualizedFileTree({
         await openTab({ ...item, isCodeMirror: defaultEditor === 'codemirror' }, { kind });
       }
     },
-    [toggleFolder, openTab]
+    [toggleFolder]
   );
 
   // Handle context menu

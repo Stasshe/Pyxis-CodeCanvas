@@ -249,9 +249,10 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         searchTimer.current = null;
       }
     };
-  }, [searchQuery, isRealtimeSearch, minQueryLength, debounceDelay]);
+  }, [searchQuery, isRealtimeSearch]);
 
   // 検索オプション変更時にリアルタイム検索を再実行
+  // biome-ignore lint/correctness/useExhaustiveDependencies: caseSensitive/wholeWord/useRegex/searchInFilenames/minQueryLength are trigger deps used via performSearchRef
   useEffect(() => {
     if (isRealtimeSearch && searchQuery && searchQuery.length >= minQueryLength) {
       // キャッシュをクリアして検索
@@ -277,6 +278,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   }, []);
 
   // ファイルが変更された場合、キャッシュをクリア
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filesVersion is a trigger dep — clear cache when file tree changes
   useEffect(() => {
     // ファイルが変更されたのでキャッシュをクリア
     lastSearchResultsRef.current = [];
@@ -305,12 +307,12 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     return Object.values(groupsMap);
   }, [searchResults]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedIndex is intentionally excluded — effect only needs to run when results shrink; selectedIndex at that render is always current
   useEffect(() => {
     // keep selection within bounds
     if (selectedIndex >= flatResults.length) {
       setSelectedIndex(Math.max(0, flatResults.length - 1));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flatResults.length]);
 
   const handleResultClick = useCallback(
@@ -344,7 +346,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         console.error('Failed to open file from search result', err);
       }
     },
-    [projectId, openTab]
+    [projectId]
   );
 
   const handleReplaceResult = useCallback(

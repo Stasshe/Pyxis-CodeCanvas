@@ -457,6 +457,7 @@ export function useKeyBinding(
 ) {
   const { registerAction } = useKeyBindings();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: callback intentionally excluded — callers pass deps explicitly to control re-registration
   useEffect(() => {
     const unregister = registerAction(actionId, callback);
     return unregister;

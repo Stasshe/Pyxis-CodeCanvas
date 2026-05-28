@@ -25,11 +25,10 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
   const isLoading = useSnapshot(tabState).isLoading;
   const activePane = useSnapshot(tabState).activePane;
   const globalActiveTab = useSnapshot(tabState).globalActiveTab;
-
   // IndexedDBからセッションを復元
   useEffect(() => {
     loadSession();
-  }, [loadSession]);
+  }, []);
 
   // Track a structural key derived from panes without re-rendering on frequent content updates
   const computeStructuralKey = (panes: readonly EditorPane[]) => {
@@ -70,6 +69,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
   );
   const structuralKeyRef = useRef(structuralKey);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: computeStructuralKey is a plain function with no state captures; run-once subscription
   useEffect(() => {
     // Subscribe to panes updates but only update local state when the structural key actually changes
     const unsub = subscribeKey(tabState, 'panes', () => {
@@ -91,8 +91,9 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
 
     window.addEventListener('pyxis-content-restored', handleContentRestored);
     return () => window.removeEventListener('pyxis-content-restored', handleContentRestored);
-  }, [setIsContentRestored]);
+  }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: structuralKey/activePane/globalActiveTab/saveSession are all needed trigger deps for session persistence
   useEffect(() => {
     if (isLoading) return; // 初期ロード中は保存しない
 

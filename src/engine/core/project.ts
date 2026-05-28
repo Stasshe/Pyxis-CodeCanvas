@@ -273,12 +273,14 @@ export const useProject = () => {
     };
   }, [currentProject]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: saveRecentProject is a plain function with no changing state captures
   useEffect(() => {
     if (currentProject) {
       saveRecentProject(currentProject);
     }
   }, [currentProject]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: createProject/getRecentProjects/loadProject are plain functions; intentional run-once initialization
   useEffect(() => {
     const initProject = async () => {
       try {

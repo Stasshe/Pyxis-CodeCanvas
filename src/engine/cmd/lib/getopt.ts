@@ -46,7 +46,6 @@ export class GetOpt {
   private longOpts: Map<string, 'none' | 'required' | 'optional'> = new Map();
   private args: string[] = [];
   private index = 0;
-  private charIndex = 0;
   private _remaining: string[] = [];
   private _errors: string[] = [];
 
@@ -115,7 +114,6 @@ export class GetOpt {
   *parse(args: string[]): Generator<ParsedOption> {
     this.args = args;
     this.index = 0;
-    this.charIndex = 0;
     this._remaining = [];
     this._errors = [];
 

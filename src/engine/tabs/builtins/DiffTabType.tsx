@@ -52,7 +52,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     if (diffTab.editable && diffTab.path && diffTab.diffs.length === 1) {
       latestContentRef.current = initialContent;
     }
-  }, [diffTab.editable, diffTab.path, initialContent]);
+  }, [diffTab.editable, diffTab.path, initialContent, diffTab.diffs.length]);
 
   useEffect(() => {
     if (!diffTab.editable || !diffTab.path) return;

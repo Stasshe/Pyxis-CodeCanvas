@@ -31,6 +31,7 @@ export default function ProjectModal({
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const { t } = useTranslation();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadProjects is a plain function that captures no changing state
   useEffect(() => {
     if (isOpen) {
       loadProjects();

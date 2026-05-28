@@ -235,7 +235,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
           </div>
           {diffs.map((diff, idx) => (
             <div
-              key={idx}
+              key={diff.latterFullPath || diff.formerFullPath}
               style={{
                 padding: '4px 8px',
                 cursor: 'pointer',
@@ -273,7 +273,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
           const isSingleFile = diffs.length === 1;
           return (
             <div
-              key={idx}
+              key={diff.latterFullPath || diff.formerFullPath}
               ref={el => {
                 diffRefs.current[idx] = el ?? null;
               }}

@@ -264,6 +264,7 @@ export default function MonacoEditor({
   };
 
   // タブ切り替え時のモデル管理
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentModelIdRef is a useRef — mutations don't trigger re-renders and should not be in deps
   useEffect(() => {
     if (!isEditorSafe() || !monacoRef.current) return;
     const editor = editorRef.current!;
@@ -319,7 +320,16 @@ export default function MonacoEditor({
     if (isModelSafe(model) && !tabSwitched) {
       onCharCountChange(countCharsNoSpaces(model?.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, filePath]);
+  }, [
+    tabId,
+    content,
+    isEditorSafe,
+    getOrCreateModel,
+    isModelSafe,
+    fileName,
+    filePath,
+    onCharCountChange,
+  ]);
 
   // ジャンプ機能
   useEffect(() => {
@@ -393,6 +403,7 @@ export default function MonacoEditor({
   }, [isActive, isEditorReady]);
 
   // クリーンアップ
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tabId is used only in cleanup; adding it would re-mount editor on tab switch
   useEffect(() => {
     return () => {
       if (editorRef.current) {

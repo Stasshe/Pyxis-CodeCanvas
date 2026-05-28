@@ -99,9 +99,8 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [projectFilesForOperation, setProjectFilesForOperation] = useState<FileItem[]>([]);
   const outputRef = useRef<HTMLDivElement>(null);
   const interactiveInputRef = useRef<HTMLInputElement>(null);
-  const outputCount = output.length;
-
   // 出力エリアの自動スクロール
+  // biome-ignore lint/correctness/useExhaustiveDependencies: output.length is a trigger dep — scroll when new output arrives
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -110,9 +109,10 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     if (isRunning) {
       interactiveInputRef.current?.focus();
     }
-  }, [outputCount, isRunning]);
+  }, [output.length, isRunning]);
 
   // 初期化時にlocalStorageから復元
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id is a trigger dep — restore saved file when project changes
   useEffect(() => {
     const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
     if (last) {

@@ -24,7 +24,7 @@ export const inlineHtmlAssets = async (
 
   // ローカル判定関数
   const isLocal = (src: string) => {
-    return src.startsWith('.') || src.startsWith('/') || src.startsWith('..');
+    return !src.startsWith('//') && !/^[a-z][a-z\d+\-.]*:/i.test(src);
   };
 
   // CSS

@@ -453,7 +453,7 @@ function GitHistoryComponent({
     const calculatedHeight = currentY + 30;
     setSvgHeight(calculatedHeight);
     setExtendedCommits(processedCommits);
-  }, [commits, expandedCommits, commitChanges, branchColors, getCommitRowHeight]);
+  }, [commits, branchColors, getCommitRowHeight]);
 
   // コミットの変更ファイルを取得
   const getCommitChanges = useCallback(
@@ -571,7 +571,7 @@ function GitHistoryComponent({
 
                     lines.push(
                       <path
-                        key={`line-${commit.hash}-${parentHash}-${parentIndex}`}
+                        key={`line-${commit.hash}-${parentHash}`}
                         d={path}
                         stroke={lineColor}
                         strokeWidth="2"
@@ -583,7 +583,7 @@ function GitHistoryComponent({
                     const virtualY = commit.y + 28;
                     lines.push(
                       <line
-                        key={`virtual-parent-line-${commit.hash}-${parentHash}-${parentIndex}`}
+                        key={`virtual-parent-line-${commit.hash}-${parentHash}`}
                         x1={commit.x}
                         y1={commit.y}
                         x2={commit.x}
@@ -866,9 +866,9 @@ function GitHistoryComponent({
                               }
                               return (
                                 <>
-                                  {allFiles.map(({ file, type }, index) => (
+                                  {allFiles.map(({ file, type }) => (
                                     <div
-                                      key={index}
+                                      key={file}
                                       className="flex items-center gap-1 text-[11px] py-0.5 cursor-pointer hover:underline"
                                       onClick={async () => {
                                         if (handleCommitsDiff) {

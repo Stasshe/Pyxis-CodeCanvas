@@ -93,7 +93,7 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
         { kind, paneId: targetPaneId || pane.id }
       );
     },
-    [openTab, pane.id]
+    [pane.id]
   );
 
   // このペイン自体をドロップターゲットとして扱う（TABとFILE_TREE_ITEM両方受け付け）

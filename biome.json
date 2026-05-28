@@ -39,7 +39,7 @@
         "useHookAtTopLevel": "warn"
       },
       "performance": {
-        "noImgElement": "on"
+        "noImgElement": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "off",

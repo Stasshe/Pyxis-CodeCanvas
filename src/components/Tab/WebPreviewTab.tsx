@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 // Lightning-FSの仮想ファイルシステム取得関数
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -18,39 +18,55 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   onTitleChange,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const onTitleChangeRef = useRef(onTitleChange);
+  const lastAppliedTitleRef = useRef<string | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { t } = useTranslation();
 
   console.log('[web previewtab]', filePath);
 
-  // ファイルパスを仮想ファイルシステムのルートに基づいて解決
-  const resolveFilePath = (path: string): string => {
-    const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
-    return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
-  };
+  useEffect(() => {
+    onTitleChangeRef.current = onTitleChange;
+  }, [onTitleChange]);
 
-  const getDefaultTabName = () => {
+  // ファイルパスを仮想ファイルシステムのルートに基づいて解決
+  const resolveFilePath = useCallback(
+    (path: string): string => {
+      const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
+      return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
+    },
+    [currentProjectName]
+  );
+
+  const getDefaultTabName = useCallback(() => {
     const trimmed = filePath.replace(/\/$/, '');
     const name = trimmed.split('/').pop() || 'web';
     return `Preview: ${name}`;
-  };
+  }, [filePath]);
 
-  const applyHtmlTitle = (html: string) => {
-    if (!onTitleChange) return;
-    if (typeof DOMParser === 'undefined') return;
+  const applyHtmlTitle = useCallback(
+    (html: string) => {
+      const handleTitleChange = onTitleChangeRef.current;
+      if (!handleTitleChange) return;
+      if (typeof DOMParser === 'undefined') return;
 
-    try {
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const title = doc.querySelector('title')?.textContent?.trim();
-      onTitleChange(title || getDefaultTabName());
-    } catch (e) {
-      console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
-    }
-  };
+      try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const title = doc.querySelector('title')?.textContent?.trim();
+        const nextTitle = title || getDefaultTabName();
+        if (lastAppliedTitleRef.current === nextTitle) return;
+        lastAppliedTitleRef.current = nextTitle;
+        handleTitleChange(nextTitle);
+      } catch (e) {
+        console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
+      }
+    },
+    [getDefaultTabName]
+  );
 
   // ファイルシステムから直接ファイル内容を取得
-  const fetchFileContent = async () => {
+  const fetchFileContent = useCallback(async () => {
     try {
       // Use fileRepository (IndexedDB) as the source of truth (new architecture)
       await fileRepository.init();
@@ -124,12 +140,29 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
       console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
       setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
     }
-  };
+  }, [filePath, currentProjectName, t, resolveFilePath]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger is an increment counter used to force re-fetch, not read inside the callback
   useEffect(() => {
     fetchFileContent();
     console.log('file changed');
-  }, [filePath, refreshTrigger]); // fileContentの依存関係を削除してrefreshTriggerを追加
+  }, [fetchFileContent, refreshTrigger]);
+
+  // ファイル内容が変わったらiframeに反映（document.writeで in-place更新 → ナビゲーションフラッシュなし）
+  useEffect(() => {
+    if (!iframeRef.current) return;
+    const iframeDocument = iframeRef.current.contentDocument;
+    if (!iframeDocument) return;
+    iframeDocument.open();
+    iframeDocument.write(fileContent);
+    iframeDocument.close();
+    iframeDocument.documentElement.style.backgroundColor = '#ffffff';
+    if (iframeDocument.body) {
+      iframeDocument.body.style.backgroundColor = '#ffffff';
+    }
+    iframeRef.current.style.backgroundColor = '#ffffff';
+    applyHtmlTitle(fileContent);
+  }, [fileContent, applyHtmlTitle]);
 
   // ファイル変更監視の設定（fileRepository のリスナーを使う）
   useEffect(() => {
@@ -197,29 +230,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
       }
     };
   }, [filePath, currentProjectName]);
-
-  // ファイル内容が変わったらiframeに反映
-  useEffect(() => {
-    if (iframeRef.current) {
-      const iframeDocument = iframeRef.current.contentDocument;
-      if (iframeDocument) {
-        console.log('[DEBUG] iframeに書き込む内容:', fileContent);
-        iframeDocument.open();
-        iframeDocument.write(fileContent);
-        iframeDocument.close();
-        iframeDocument.documentElement.style.backgroundColor = '#ffffff';
-        if (iframeDocument.body) {
-          iframeDocument.body.style.backgroundColor = '#ffffff';
-        }
-        applyHtmlTitle(fileContent);
-      } else {
-        console.warn('[DEBUG] iframeDocumentが取得できませんでした');
-      }
-      iframeRef.current.style.backgroundColor = '#ffffff';
-    } else {
-      console.warn('[DEBUG] iframeRefがnullです');
-    }
-  }, [fileContent]);
 
   return (
     <div style={{ backgroundColor: '#ffffff', height: '100%', width: '100%' }}>

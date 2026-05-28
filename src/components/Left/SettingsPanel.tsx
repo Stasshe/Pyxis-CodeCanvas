@@ -109,7 +109,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     return () => {
       unsubscribe();
     };
-  }, [currentProject.id]);
+  }, [currentProject.id, setColor, setTheme]);
 
   // APIキー変更ハンドラ
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {

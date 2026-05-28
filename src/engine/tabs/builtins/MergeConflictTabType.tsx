@@ -71,7 +71,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         alert(`Failed to complete merge: ${(error as Error).message}`);
       }
     },
-    [mergeTab, closeTab]
+    [mergeTab]
   );
 
   /**
@@ -79,7 +79,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
    */
   const handleCancel = useCallback(() => {
     closeTab(mergeTab.paneId, mergeTab.id);
-  }, [mergeTab, closeTab]);
+  }, [mergeTab]);
 
   /**
    * Update resolved content
@@ -93,7 +93,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         conflicts: updatedConflicts,
       } as Partial<MergeConflictTab>);
     },
-    [mergeTab, updateTab]
+    [mergeTab]
   );
 
   /**
@@ -108,7 +108,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         conflicts: updatedConflicts,
       } as Partial<MergeConflictTab>);
     },
-    [mergeTab, updateTab]
+    [mergeTab]
   );
 
   return (

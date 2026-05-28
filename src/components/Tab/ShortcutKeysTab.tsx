@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { DEFAULT_BINDINGS } from '@/hooks/keybindings/defaultKeybindings';
@@ -43,11 +43,11 @@ export default function ShortcutKeysTab() {
     setPreviewCombo('');
   };
 
-  const stopCapture = () => {
+  const stopCapture = useCallback(() => {
     setEditingId(null);
     setError(null);
     setPreviewCombo('');
-  };
+  }, []);
 
   useEffect(() => {
     if (!editingId) return;
@@ -155,7 +155,7 @@ export default function ShortcutKeysTab() {
     return () => {
       window.removeEventListener('keydown', handler, { capture: true });
     };
-  }, [editingId, bindings, updateBindings]);
+  }, [editingId, bindings, updateBindings, stopCapture]);
 
   const resetDefaults = async () => {
     if (confirm('すべてのショートカットキーをデフォルトに戻しますか？')) {
@@ -302,9 +302,9 @@ export default function ShortcutKeysTab() {
                           <div className="flex gap-1">
                             {formatKeyComboForDisplay(b.combo)
                               .split(' ')
-                              .map((part, i) => (
+                              .map(part => (
                                 <kbd
-                                  key={i}
+                                  key={part}
                                   className="px-1 py-0.5 bg-muted text-muted-foreground rounded border border-border/50 text-[10px] font-mono shadow-sm min-w-[1.1em] text-center"
                                 >
                                   {part}
@@ -349,9 +349,9 @@ export default function ShortcutKeysTab() {
               <div className="w-full bg-muted/50 border-2 border-dashed border-border rounded-lg p-4 mb-4 flex items-center justify-center min-h-[72px]">
                 {previewCombo ? (
                   <div className="flex gap-2 flex-wrap justify-center">
-                    {previewCombo.split(' ').map((part, i) => (
+                    {previewCombo.split(' ').map(part => (
                       <kbd
-                        key={i}
+                        key={part}
                         className="px-2 py-1 bg-background text-foreground rounded border border-border shadow-sm text-lg font-mono font-semibold"
                       >
                         {part}

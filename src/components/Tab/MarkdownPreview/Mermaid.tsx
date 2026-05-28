@@ -425,7 +425,20 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
         // ignore
       }
     };
-  }, [chart, colors.mermaidBg, themeName, config, diagram, idRef, hasIntersected]);
+  }, [
+    colors.mermaidBg,
+    themeName,
+    config,
+    diagram,
+    idRef,
+    hasIntersected,
+    colors.accent,
+    colors.border,
+    colors.mutedBg,
+    colors.foreground,
+    colors.background,
+    colors.cardBg,
+  ]);
 
   const handleDownloadSvg = useCallback(() => {
     if (!svgContent) return;

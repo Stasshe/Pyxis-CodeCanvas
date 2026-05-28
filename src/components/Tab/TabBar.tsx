@@ -129,7 +129,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         requestClose(tabId, (tab as any).isDirty || false, () => closeTab(paneId, tabId));
       }
     },
-    [tabs, requestClose, closeTab, paneId]
+    [tabs, requestClose, paneId]
   );
 
   // 新しいタブを追加
@@ -156,13 +156,13 @@ export default function TabBar({ paneId }: TabBarProps) {
         console.error('[TabBar] removePane failed', err);
       }
     });
-  }, [paneId, removePane]);
+  }, [paneId]);
   // 全タブを閉じる
   const handleRemoveAllTabs = useCallback(() => {
     tabs.forEach(tab => {
       closeTab(paneId, tab.id);
     });
-  }, [tabs, closeTab, paneId]);
+  }, [tabs, paneId]);
 
   // タブをペインに移動
   const handleMoveTabToPane = useCallback(
@@ -170,7 +170,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       moveTab(paneId, targetPaneId, tabId);
       setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
     },
-    [moveTab, paneId]
+    [paneId]
   );
 
   // コンテキストメニューを開く（タブの真下に固定）
@@ -193,7 +193,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       }
       activateTab(paneId, tabId);
     },
-    [activateTab, paneId]
+    [paneId]
   );
 
   // タブ右クリック = コンテキストメニューを表示

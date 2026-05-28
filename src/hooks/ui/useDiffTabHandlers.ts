@@ -80,7 +80,7 @@ export function useDiffTabHandlers(currentProject: any) {
         { kind: 'diff', searchAllPanesForReuse: true }
       );
     },
-    [currentProject, openTab]
+    [currentProject]
   );
 
   /**
@@ -193,7 +193,7 @@ export function useDiffTabHandlers(currentProject: any) {
         { kind: 'diff', searchAllPanesForReuse: true }
       );
     },
-    [currentProject, openTab]
+    [currentProject]
   );
 
   // コミット履歴用: コミット間のファイル差分を開く（親コミット vs コミット）
@@ -265,7 +265,7 @@ export function useDiffTabHandlers(currentProject: any) {
         { kind: 'diff', searchAllPanesForReuse: true }
       );
     },
-    [currentProject, openTab]
+    [currentProject]
   );
 
   // コミット全体のdiffタブを開く
@@ -365,7 +365,7 @@ export function useDiffTabHandlers(currentProject: any) {
         { kind: 'diff', searchAllPanesForReuse: true }
       );
     },
-    [currentProject, openTab]
+    [currentProject]
   );
 
   return {
