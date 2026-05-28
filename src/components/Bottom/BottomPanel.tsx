@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
@@ -57,6 +57,7 @@ export default function BottomPanel({
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [vimEditor, setVimEditor] = useState<VimEditor | null>(null);
+  const handleVimModeChange = useCallback((editor: VimEditor | null) => setVimEditor(editor), []);
   const [internalActiveTab, setInternalActiveTab] = useState<BottomPanelTab>('terminal');
   const [visitedTabs, setVisitedTabs] = useState<Record<BottomPanelTab, boolean>>({
     output: (activeTabProp ?? 'terminal') === 'output',
@@ -249,7 +250,7 @@ export default function BottomPanel({
               currentProject={currentProject}
               currentProjectId={currentProjectId}
               isActive={activeTab === 'terminal'}
-              onVimModeChange={editor => setVimEditor(editor)}
+              onVimModeChange={handleVimModeChange}
             />
           </BottomPanelViewport>
         </div>
