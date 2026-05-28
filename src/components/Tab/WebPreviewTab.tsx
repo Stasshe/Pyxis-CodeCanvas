@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 // Lightning-FSの仮想ファイルシステム取得関数
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -25,32 +25,38 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   console.log('[web previewtab]', filePath);
 
   // ファイルパスを仮想ファイルシステムのルートに基づいて解決
-  const resolveFilePath = (path: string): string => {
-    const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
-    return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
-  };
+  const resolveFilePath = useCallback(
+    (path: string): string => {
+      const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
+      return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
+    },
+    [currentProjectName]
+  );
 
-  const getDefaultTabName = () => {
+  const getDefaultTabName = useCallback(() => {
     const trimmed = filePath.replace(/\/$/, '');
     const name = trimmed.split('/').pop() || 'web';
     return `Preview: ${name}`;
-  };
+  }, [filePath]);
 
-  const applyHtmlTitle = (html: string) => {
-    if (!onTitleChange) return;
-    if (typeof DOMParser === 'undefined') return;
+  const applyHtmlTitle = useCallback(
+    (html: string) => {
+      if (!onTitleChange) return;
+      if (typeof DOMParser === 'undefined') return;
 
-    try {
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const title = doc.querySelector('title')?.textContent?.trim();
-      onTitleChange(title || getDefaultTabName());
-    } catch (e) {
-      console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
-    }
-  };
+      try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const title = doc.querySelector('title')?.textContent?.trim();
+        onTitleChange(title || getDefaultTabName());
+      } catch (e) {
+        console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
+      }
+    },
+    [onTitleChange, getDefaultTabName]
+  );
 
   // ファイルシステムから直接ファイル内容を取得
-  const fetchFileContent = async () => {
+  const fetchFileContent = useCallback(async () => {
     try {
       // Use fileRepository (IndexedDB) as the source of truth (new architecture)
       await fileRepository.init();
@@ -124,12 +130,13 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
       console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
       setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
     }
-  };
+  }, [filePath, currentProjectName, t, resolveFilePath]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger is an increment counter used to force re-fetch, not read inside the callback
   useEffect(() => {
     fetchFileContent();
     console.log('file changed');
-  }, [filePath, refreshTrigger]); // fileContentの依存関係を削除してrefreshTriggerを追加
+  }, [fetchFileContent, refreshTrigger]);
 
   // ファイル変更監視の設定（fileRepository のリスナーを使う）
   useEffect(() => {

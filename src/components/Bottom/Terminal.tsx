@@ -963,7 +963,7 @@ function ClientTerminal({
       }
       term.dispose();
     };
-  }, [currentProject, currentProjectId, colors]);
+  }, [currentProject, currentProjectId, colors, onVimModeChange]);
 
   // Resize handling: run a fit on height/currentProjectId changes and observe DOM resizes
   // This consolidates previous separate effects into a single, debounced handler.

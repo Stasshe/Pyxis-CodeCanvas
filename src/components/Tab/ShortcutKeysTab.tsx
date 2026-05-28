@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { DEFAULT_BINDINGS } from '@/hooks/keybindings/defaultKeybindings';
@@ -43,11 +43,11 @@ export default function ShortcutKeysTab() {
     setPreviewCombo('');
   };
 
-  const stopCapture = () => {
+  const stopCapture = useCallback(() => {
     setEditingId(null);
     setError(null);
     setPreviewCombo('');
-  };
+  }, []);
 
   useEffect(() => {
     if (!editingId) return;
@@ -155,7 +155,7 @@ export default function ShortcutKeysTab() {
     return () => {
       window.removeEventListener('keydown', handler, { capture: true });
     };
-  }, [editingId, bindings, updateBindings]);
+  }, [editingId, bindings, updateBindings, stopCapture]);
 
   const resetDefaults = async () => {
     if (confirm('すべてのショートカットキーをデフォルトに戻しますか？')) {
