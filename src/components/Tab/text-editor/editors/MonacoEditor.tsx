@@ -139,7 +139,11 @@ export default function MonacoEditor({
     if (!isEditorOpenerRegistered) {
       try {
         mon.editor.registerEditorOpener({
-          openCodeEditor(_source: monaco.editor.ICodeEditor | null, resource: monaco.Uri, selectionOrPosition: monaco.IRange | monaco.IPosition | undefined) {
+          openCodeEditor(
+            _source: monaco.editor.ICodeEditor | null,
+            resource: monaco.Uri,
+            selectionOrPosition: monaco.IRange | monaco.IPosition | undefined
+          ) {
             const rawPath = resource.path;
             const filePath = rawPath.startsWith('/') ? rawPath.substring(1) : rawPath;
             if (!filePath) return false;

@@ -1,5 +1,5 @@
 import type { Monaco } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { getLanguage } from './editor-utils';
 
 let isRegistered = false;

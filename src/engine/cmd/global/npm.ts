@@ -20,11 +20,7 @@ export class NpmCommands {
   private setLoading?: (isLoading: boolean) => void;
   private terminalUI?: TerminalUI;
 
-  constructor(
-    projectName: string,
-    projectId: string,
-    setLoading?: (isLoading: boolean) => void
-  ) {
+  constructor(projectName: string, projectId: string, setLoading?: (isLoading: boolean) => void) {
     this.projectName = projectName;
     this.projectId = projectId;
     this.setLoading = setLoading;

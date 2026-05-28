@@ -80,10 +80,7 @@ class TerminalCommandRegistry {
     return this.npmCommandsModulePromise;
   }
 
-  async getNpmCommands(
-    projectName: string,
-    projectId: string
-  ): Promise<NpmCommands> {
+  async getNpmCommands(projectName: string, projectId: string): Promise<NpmCommands> {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.npm) {
       const { NpmCommands } = await this.loadNpmCommandsModule();

@@ -13,10 +13,7 @@ export async function handleNPMCommand(
     return;
   }
 
-  const npm = await terminalCommandRegistry.getNpmCommands(
-    projectName,
-    projectId
-  );
+  const npm = await terminalCommandRegistry.getNpmCommands(projectName, projectId);
   if (setLoading) {
     npm.setLoadingHandler(setLoading);
   }
