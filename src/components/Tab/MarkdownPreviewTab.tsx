@@ -110,6 +110,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id/name are sufficient; !currentProject ≡ !currentProject?.id
   const markdownComponents = useMemo<Partial<Components>>(
     () => ({
       ...codeComponent,
@@ -265,7 +266,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         );
       },
     }),
-    [codeComponent, currentProject?.name, currentProject?.id, activeTab]
+    [codeComponent, currentProject?.id, currentProject?.name, activeTab]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters
