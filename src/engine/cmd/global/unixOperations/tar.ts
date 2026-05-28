@@ -22,8 +22,8 @@ const TextDecoder =
  */
 export class TarCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
-    const optstring = 'cxtvf:';
-    const longopts = ['create', 'extract', 'list', 'verbose', 'file='];
+    const optstring = 'cxtvf:h';
+    const longopts = ['create', 'extract', 'list', 'verbose', 'file=', 'help'];
     const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
@@ -51,11 +51,12 @@ export class TarCommand extends UnixCommandBase {
 
     // Dispatch to the selected operation
     if (create) {
-      const files = positional.length > 0 ? positional : [];
-      return await this.createArchive(archiveName, files, verbose);
-    } else if (list) {
+      return await this.createArchive(archiveName, positional, verbose);
+    }
+    if (list) {
       return await this.listArchive(archiveName, verbose);
-    } else if (extract) {
+    }
+    if (extract) {
       return await this.extractArchive(archiveName, verbose);
     }
 
@@ -399,7 +400,7 @@ export class TarCommand extends UnixCommandBase {
                   type: 'file',
                   isBufferArray: false,
                 });
-              } catch (e) {
+              } catch (_e) {
                 // デコード失敗時はバイナリとして扱う
                 entries.push({
                   path: entryPath,

@@ -239,8 +239,8 @@ export async function loadExtensionModule(
       console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
 
       // エントリーポイントをBlobURLとして作成
-      let entryBlob;
-      let entryUrl;
+      let entryBlob: Blob;
+      let entryUrl: string;
       try {
         entryBlob = new Blob([processedEntryCode], { type: 'application/javascript' });
         entryUrl = URL.createObjectURL(entryBlob);
@@ -251,7 +251,7 @@ export async function loadExtensionModule(
       }
 
       // Dynamic importでモジュールをロード
-      let module;
+      let module: ExtensionExports;
       try {
         module = await import(/* webpackIgnore: true */ entryUrl);
       } catch (err) {
@@ -279,7 +279,14 @@ export async function loadExtensionModule(
             const codeWithSource = `${processedEntryCode}\n//# sourceURL=${entryUrl}`;
             script.textContent = codeWithSource;
 
-            const errorInfo: any = { caught: false };
+            const errorInfo: {
+              caught: boolean;
+              message?: string;
+              filename?: string;
+              lineno?: number;
+              colno?: number;
+              error?: { message?: string; stack?: string };
+            } = { caught: false };
 
             const onError = (event: ErrorEvent) => {
               try {
@@ -300,7 +307,7 @@ export async function loadExtensionModule(
                 // remove script after error captured
                 try {
                   script.remove();
-                } catch (e) {}
+                } catch {}
               }
             };
 
@@ -334,7 +341,9 @@ export async function loadExtensionModule(
       return module as ExtensionExports;
     } finally {
       // 全てのBlobURLをクリーンアップ
-      blobUrls.forEach(url => URL.revokeObjectURL(url));
+      blobUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
     }
   } catch (error) {
     extensionError('Error loading extension module:', error);
@@ -342,7 +351,7 @@ export async function loadExtensionModule(
     try {
       console.error('[ExtensionLoader] entryCode (first 1000 chars):', entryCode.slice(0, 1000));
       console.error('[ExtensionLoader] additionalFiles keys:', Object.keys(additionalFiles));
-    } catch (e) {}
+    } catch {}
     return null;
   }
 }
@@ -375,7 +384,7 @@ export async function activateExtension(
     try {
       console.error('[ExtensionLoader] context:', context);
       console.error('[ExtensionLoader] exports keys:', Object.keys(exports));
-    } catch (e) {}
+    } catch {}
     return null;
   }
 }

@@ -1,7 +1,6 @@
+import expandBraces from './braceExpand';
 import type { Process } from './process';
 import type { StreamShell } from './streamShell';
-
-import expandBraces from './braceExpand';
 
 /**
  * ScriptRunner - Executes shell scripts with control flow support
@@ -147,6 +146,7 @@ function evalArithmeticInString(s: string, localVars: Record<string, string>): s
       const val = Function(`return (${safe})`)();
       return String(Number(val));
     } catch (e) {
+      console.error('Arithmetic evaluation error:', e);
       return '0';
     }
   });
@@ -208,7 +208,7 @@ async function evalCommandSubstitutions(
   // After command-substitutions, also perform arithmetic expansion
   try {
     out = evalArithmeticInString(out, localVars);
-  } catch (e) {
+  } catch (_e) {
     // if arithmetic expansion fails, leave the string as-is
   }
 
@@ -299,7 +299,7 @@ async function evaluateLine(
   // finally arithmetic expansion
   try {
     return evalArithmeticInString(afterCmdSub, localVars);
-  } catch (e) {
+  } catch (_e) {
     return afterCmdSub;
   }
 }
@@ -648,7 +648,7 @@ async function runRange(
       try {
         const evaluated = await evalCommandSubstitutions(rhs, localVars, shell);
         localVars[name] = evaluated;
-      } catch (e) {
+      } catch (_e) {
         localVars[name] = rhs;
       }
       continue;
@@ -656,11 +656,11 @@ async function runRange(
     // For non-assignment commands, perform full evaluation pipeline
     try {
       execLine = await evaluateLine(execLine, localVars, args, shell);
-    } catch (e) {
+    } catch (_e) {
       // ignore evaluation errors and use original execLine
     }
     // Pass real-time output callbacks to enable streaming output
-    const res = await shell.run(execLine, {
+    const _res = await shell.run(execLine, {
       stdout: (data: string) => {
         proc.writeStdout(data);
       },
@@ -703,7 +703,7 @@ export async function runScript(
   if (typeof result === 'object' && result && 'exit' in result) {
     try {
       proc.exit(result.exit);
-    } catch (e) {}
+    } catch (_e) {}
     return;
   }
 }

@@ -21,7 +21,7 @@ function formatZoneName(date: Date, useUTC: boolean) {
     const parts = nf.formatToParts(date);
     const tn = parts.find(p => p.type === 'timeZoneName');
     return tn ? tn.value : 'LOCAL';
-  } catch (e) {
+  } catch {
     return 'LOCAL';
   }
 }

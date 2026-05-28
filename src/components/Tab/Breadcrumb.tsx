@@ -1,9 +1,9 @@
 'use client';
 
-import { useTheme } from '@/context/ThemeContext';
-import { tabActions, tabState } from '@/stores/tabState';
 import type React from 'react';
 import { useSnapshot } from 'valtio';
+import { useTheme } from '@/context/ThemeContext';
+import { tabActions, tabState } from '@/stores/tabState';
 
 interface BreadcrumbProps {
   paneId: string;

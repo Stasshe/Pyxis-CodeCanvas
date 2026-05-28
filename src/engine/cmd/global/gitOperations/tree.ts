@@ -12,6 +12,7 @@ export async function tree(fs: FS, dirPath: string): Promise<string> {
     try {
       entries = await fs.promises.readdir(currentPath);
     } catch (e) {
+      console.warn('[tree.ts] caught non-fatal error', e);
       // no read permission or not exist
       return;
     }
@@ -49,6 +50,7 @@ export async function tree(fs: FS, dirPath: string): Promise<string> {
           lines.push(`${prefix}${connector}${entry}`);
         }
       } catch (e) {
+        console.warn('[tree.ts] caught non-fatal error', e);
         lines.push(`${prefix}${connector}${entry}`);
       }
     }

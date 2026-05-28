@@ -1,11 +1,9 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
-import { GitFileSystemHelper } from './fileSystemHelper';
-import { MergeConflictDetector } from './mergeConflictDetector';
-
 import { syncManager } from '@/engine/core/syncManager';
 import { tabActions } from '@/stores/tabState';
+import { GitFileSystemHelper } from './fileSystemHelper';
+import { MergeConflictDetector } from './mergeConflictDetector';
 
 /**
  * Git merge操作を管理するクラス
@@ -66,7 +64,7 @@ export class GitMergeOperations {
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
 
       // 変更されたファイルまたはステージされたファイルがあるかチェック
-      for (const [filepath, HEAD, workdir, stage] of status) {
+      for (const [_filepath, HEAD, workdir, stage] of status) {
         // 変更がある場合
         if (HEAD !== workdir || stage !== HEAD) {
           return false;

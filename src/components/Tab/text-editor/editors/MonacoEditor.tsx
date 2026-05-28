@@ -1,21 +1,16 @@
 import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
+import { useTheme } from '@/context/ThemeContext';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { tabActions, tabState } from '@/stores/tabState';
 import { restoreTabViewState, saveTabViewState, useMonacoModels } from '../hooks/useMonacoModels';
 import EditorPlaceholder from '../ui/EditorPlaceholder';
 import { getLanguageFileName } from '../utils/monacoPathUtils';
 import { countCharsNoSpaces } from './editor-utils';
 import { configureMonacoLanguageDefaults } from './monaco-language-defaults';
 import { defineAndSetMonacoThemes } from './monaco-themes';
-import {
-  getModelLanguage,
-  registerEnhancedJSXLanguage,
-} from './monarch-jsx-language';
-
-import { useTheme } from '@/context/ThemeContext';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
-import { tabActions, tabState } from '@/stores/tabState';
+import { getModelLanguage, registerEnhancedJSXLanguage } from './monarch-jsx-language';
 
 // グローバルフラグ
 let isLanguageRegistered = false;
@@ -45,7 +40,8 @@ function getJumpPosition(
   sel: monaco.IRange | monaco.IPosition | undefined
 ): { jumpToLine: number; jumpToColumn: number } | undefined {
   if (!sel) return undefined;
-  if ('startLineNumber' in sel) return { jumpToLine: sel.startLineNumber, jumpToColumn: sel.startColumn };
+  if ('startLineNumber' in sel)
+    return { jumpToLine: sel.startLineNumber, jumpToColumn: sel.startColumn };
   return { jumpToLine: sel.lineNumber, jumpToColumn: sel.column };
 }
 
@@ -143,7 +139,11 @@ export default function MonacoEditor({
     if (!isEditorOpenerRegistered) {
       try {
         mon.editor.registerEditorOpener({
-          openCodeEditor(_source, resource, selectionOrPosition) {
+          openCodeEditor(
+            _source: monaco.editor.ICodeEditor | null,
+            resource: monaco.Uri,
+            selectionOrPosition: monaco.IRange | monaco.IPosition | undefined
+          ) {
             const rawPath = resource.path;
             const filePath = rawPath.startsWith('/') ? rawPath.substring(1) : rawPath;
             if (!filePath) return false;
@@ -154,7 +154,7 @@ export default function MonacoEditor({
             if (found) {
               tabActions.activateTab(found.paneId, found.tabId);
               if (jump) {
-                tabActions.updateTab(found.paneId, found.tabId, jump as any);
+                tabActions.updateTab(found.paneId, found.tabId, jump);
               }
               return true;
             }
@@ -206,7 +206,9 @@ export default function MonacoEditor({
             if (markerListenerRef.current) {
               try {
                 markerListenerRef.current.dispose();
-              } catch (e) {}
+              } catch (e) {
+                console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
+              }
               markerListenerRef.current = null;
             }
 
@@ -242,11 +244,13 @@ export default function MonacoEditor({
                   editor.setSelection(restored);
                   editor.revealRangeInCenter(restored);
                 } catch (e) {
+                  console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
                   // 非致命
                 }
               }
             });
           } catch (e) {
+            console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
             // ignore
           }
 
@@ -300,6 +304,7 @@ export default function MonacoEditor({
             if (prevSelections) editor.setSelections(prevSelections);
             editor.layout();
           } catch (e) {
+            console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
             model?.setValue(content);
             editor.layout();
           }
@@ -401,7 +406,9 @@ export default function MonacoEditor({
       if (markerListenerRef.current) {
         try {
           markerListenerRef.current.dispose();
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
+        }
         markerListenerRef.current = null;
       }
     };

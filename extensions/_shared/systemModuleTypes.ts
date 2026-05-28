@@ -188,13 +188,15 @@ export type ProcExit = {
   signal?: string | null;
 };
 
+export type BinaryChunk = Uint8Array;
+
 /**
  * Minimal readable stream-like interface used by builtins/handlers.
  * Designed to be compatible with Node.js streams but intentionally
  * small so the extension-facing API doesn't require Node types.
  */
 export interface ReadableLike {
-  on(event: 'data', cb: (chunk: Buffer | string) => void): this;
+  on(event: 'data', cb: (chunk: BinaryChunk | string) => void): this;
   on(event: 'end' | 'close', cb: () => void): this;
   on(event: 'error', cb: (err: Error) => void): this;
 }
@@ -203,7 +205,7 @@ export interface ReadableLike {
  * Minimal writable stream-like interface used by builtins/handlers.
  */
 export interface WritableLike {
-  write(chunk: Buffer | string): boolean;
+  write(chunk: BinaryChunk | string): boolean;
   end(): void;
   on(event: 'error', cb: (err: Error) => void): this;
 }

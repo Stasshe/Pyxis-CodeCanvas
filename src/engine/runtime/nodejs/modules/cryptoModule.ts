@@ -8,8 +8,7 @@
 class Hash {
   private data: Uint8Array[] = [];
 
-  constructor(_algorithm: string) {
-  }
+  constructor(_algorithm: string) {}
 
   update(data: string | Uint8Array, _encoding?: string): this {
     if (typeof data === 'string') {
@@ -24,9 +23,7 @@ class Hash {
     // Synchronous hash via SubtleCrypto is not available — use a simple fallback
     // that returns a consistent placeholder. Real use cases (prettier) just need
     // this not to throw.
-    const combined = new Uint8Array(
-      this.data.reduce((acc, chunk) => acc + chunk.length, 0)
-    );
+    const combined = new Uint8Array(this.data.reduce((acc, chunk) => acc + chunk.length, 0));
     let offset = 0;
     for (const chunk of this.data) {
       combined.set(chunk, offset);
@@ -102,15 +99,33 @@ export function createCryptoModule() {
     },
 
     // Stub for packages that just check existence
-    pbkdf2: (_password: any, _salt: any, _iterations: number, _keylen: number, _digest: string, cb: (err: Error | null, key: Buffer) => void) => {
+    pbkdf2: (
+      _password: any,
+      _salt: any,
+      _iterations: number,
+      _keylen: number,
+      _digest: string,
+      cb: (err: Error | null, key: Buffer) => void
+    ) => {
       cb(null, new Uint8Array(32) as any);
     },
 
-    pbkdf2Sync: (_password: any, _salt: any, _iterations: number, _keylen: number, _digest: string): Uint8Array => {
+    pbkdf2Sync: (
+      _password: any,
+      _salt: any,
+      _iterations: number,
+      _keylen: number,
+      _digest: string
+    ): Uint8Array => {
       return new Uint8Array(32);
     },
 
-    scrypt: (_password: any, _salt: any, _keylen: number, cb: (err: Error | null, key: Buffer) => void) => {
+    scrypt: (
+      _password: any,
+      _salt: any,
+      _keylen: number,
+      cb: (err: Error | null, key: Buffer) => void
+    ) => {
       cb(null, new Uint8Array(32) as any);
     },
 

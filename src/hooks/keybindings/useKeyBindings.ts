@@ -18,7 +18,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-
+import { STORES, storageService } from '@/engine/storage';
 import { DEFAULT_BINDINGS } from './defaultKeybindings';
 import {
   type Binding,
@@ -26,8 +26,6 @@ import {
   formatKeyEvent,
   normalizeKeyCombo,
 } from './keybindingUtils';
-
-import { STORES, storageService } from '@/engine/storage';
 
 const KEYBINDINGS_STORAGE_ID = 'user-keybindings';
 
@@ -185,7 +183,9 @@ class KeyBindingsManager {
       if (binding) {
         const callbacks = this.actions.get(binding.id);
         if (callbacks && callbacks.size > 0) {
-          callbacks.forEach(cb => cb());
+          callbacks.forEach(cb => {
+            cb();
+          });
           return true;
         }
       }
@@ -236,7 +236,9 @@ class KeyBindingsManager {
       if (callbacks && callbacks.size > 0) {
         e.preventDefault();
         e.stopPropagation();
-        callbacks.forEach(cb => cb());
+        callbacks.forEach(cb => {
+          cb();
+        });
         return true;
       }
     }
@@ -284,7 +286,9 @@ class KeyBindingsManager {
   }
 
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach(listener => {
+      listener();
+    });
   }
 }
 
@@ -354,7 +358,7 @@ if (typeof window !== 'undefined') {
       try {
         ev.preventDefault();
         ev.stopPropagation();
-      } catch (err) {
+      } catch {
         // ignore
       }
       return;
@@ -371,7 +375,7 @@ if (typeof window !== 'undefined') {
         ev.preventDefault();
         // stopPropagation may be needed depending on environment
         ev.stopPropagation();
-      } catch (err) {
+      } catch {
         // ignore
       }
     }

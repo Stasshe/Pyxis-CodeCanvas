@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -238,6 +238,7 @@ export default function FileTreeContextMenu({
             try {
               await fileRepository.createFile(projectId, acc, '', 'folder');
             } catch (err) {
+              console.warn('[FileTreeContextMenu.tsx] caught non-fatal error', err);
               // ignore
             }
           }

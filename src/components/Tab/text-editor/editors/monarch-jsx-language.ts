@@ -1,5 +1,5 @@
 import type { Monaco } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { getLanguage } from './editor-utils';
 
 let isRegistered = false;
@@ -58,7 +58,7 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         'defaultLibrary',
       ],
     }),
-    provideDocumentSemanticTokens: async model => {
+    provideDocumentSemanticTokens: async (_model: monaco.editor.ITextModel) => {
       // TypeScript の言語サービスが既にセマンティックトークンを提供しているため
       // ここでは null を返して標準の処理に任せる
       // （必要に応じて追加のトークンをここで生成できる）

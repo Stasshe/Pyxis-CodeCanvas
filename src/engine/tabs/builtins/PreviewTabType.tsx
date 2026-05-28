@@ -1,6 +1,9 @@
 // src/engine/tabs/builtins/PreviewTabType.tsx
 import type React from 'react';
-
+import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
+import { useProjectSnapshot } from '@/stores/projectStore';
+import { setTabContent } from '@/stores/tabContentStore';
+import type { FileItem } from '@/types';
 import type {
   OpenTabOptions,
   PreviewTab,
@@ -8,11 +11,6 @@ import type {
   TabComponentProps,
   TabTypeDefinition,
 } from '../types';
-
-import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
-import { useProjectSnapshot } from '@/stores/projectStore';
-import { setTabContent } from '@/stores/tabContentStore';
-import type { FileItem } from '@/types';
 
 /**
  * プレビュータブのコンポーネント

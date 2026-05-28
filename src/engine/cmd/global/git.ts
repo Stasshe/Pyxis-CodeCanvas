@@ -1,6 +1,10 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
+import type { TerminalUI } from '@/engine/cmd/terminalUI';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { syncManager } from '@/engine/core/syncManager';
+import { authRepository } from '@/engine/user/authRepository';
 import { GitCheckoutOperations } from './gitOperations/checkout';
 import { GitCloneOperations } from './gitOperations/clone';
 import { GitDiffOperations } from './gitOperations/diff';
@@ -12,12 +16,6 @@ import { listAllRemoteRefs, toFullRemoteRef } from './gitOperations/remoteUtils'
 import { GitResetOperations } from './gitOperations/reset';
 import { GitRevertOperations } from './gitOperations/revert';
 import { formatStatusResult } from './gitOperations/status';
-
-import type { TerminalUI } from '@/engine/cmd/terminalUI';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import { syncManager } from '@/engine/core/syncManager';
-import { authRepository } from '@/engine/user/authRepository';
 
 /**
  * Git操作を管理するクラス
@@ -129,34 +127,6 @@ export class GitCommands {
       });
       return await cloneOps.clone(url, targetDir, options);
     }, 'git clone failed');
-  }
-
-  // ディレクトリ内の全ファイルを再帰的に取得
-  private async getAllFilesInDirectory(dirPath: string): Promise<string[]> {
-    const files: string[] = [];
-
-    const traverse = async (currentPath: string) => {
-      try {
-        const entries = await this.fs.promises.readdir(currentPath);
-        for (const entry of entries) {
-          if (entry === '.' || entry === '..' || entry === '.git') continue;
-
-          const fullPath = `${currentPath}/${entry}`;
-          const stat = await this.fs.promises.stat(fullPath);
-
-          if (stat.isDirectory()) {
-            await traverse(fullPath);
-          } else {
-            files.push(fullPath);
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to traverse ${currentPath}:`, error);
-      }
-    };
-
-    await traverse(dirPath);
-    return files;
   }
 
   // git status - ステータス確認
@@ -548,6 +518,7 @@ export class GitCommands {
       });
       return new TextDecoder().decode(blob);
     } catch (e) {
+      console.warn('[git.ts] caught non-fatal error', e);
       // File might not exist in HEAD (new file)
       return null;
     }
@@ -560,13 +531,7 @@ export class GitCommands {
   /**
    * git push - リモートにプッシュ
    */
-  async push(
-    options: {
-      remote?: string;
-      branch?: string;
-      force?: boolean;
-    } = {}
-  ): Promise<string> {
+  async push(options: { remote?: string; branch?: string; force?: boolean } = {}): Promise<string> {
     await this.ensureGitRepository();
 
     // 動的インポートで循環参照を回避
@@ -624,11 +589,7 @@ export class GitCommands {
    * git fetch --all - 全リモートから変更を取得
    */
   async fetchAll(
-    options: {
-      depth?: number;
-      prune?: boolean;
-      tags?: boolean;
-    } = {}
+    options: { depth?: number; prune?: boolean; tags?: boolean } = {}
   ): Promise<string> {
     await this.ensureGitRepository();
 
@@ -660,11 +621,7 @@ export class GitCommands {
    * git pull - fetch + merge/rebase
    */
   async pull(
-    options: {
-      remote?: string;
-      branch?: string;
-      rebase?: boolean;
-    } = {}
+    options: { remote?: string; branch?: string; rebase?: boolean } = {}
   ): Promise<string> {
     await this.ensureGitRepository();
     const { pull } = await import('./gitOperations/pull');

@@ -1,6 +1,6 @@
-import { syncManager } from '@/engine/core/syncManager';
 // src/engine/cmd/global/gitOperations/pull.ts
 import git from 'isomorphic-git';
+import { syncManager } from '@/engine/core/syncManager';
 import { GitMergeOperations } from './merge';
 
 export async function pull(

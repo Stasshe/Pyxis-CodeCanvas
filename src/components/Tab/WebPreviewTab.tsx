@@ -1,12 +1,10 @@
-import type { ProjectFile } from '@/types';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-
 import { useTranslation } from '@/context/I18nContext';
-
 // Lightning-FSの仮想ファイルシステム取得関数
 import { fileRepository } from '@/engine/core/fileRepository';
 import { inlineHtmlAssets } from '@/engine/in-ex/inlineHtmlAssets';
+import type { ProjectFile } from '@/types';
 
 interface WebPreviewTabProps {
   filePath: string;
@@ -193,6 +191,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
         try {
           unsubscribe();
         } catch (e) {
+          console.warn('[WebPreviewTab.tsx] caught non-fatal error', e);
           /* ignore */
         }
       }

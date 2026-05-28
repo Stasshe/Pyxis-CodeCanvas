@@ -60,7 +60,9 @@ function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
   if (commits.length === 0) return [];
 
   const commitMap = new Map<string, GitCommitType>();
-  commits.forEach(c => commitMap.set(c.hash, c));
+  commits.forEach(c => {
+    commitMap.set(c.hash, c);
+  });
 
   // 各コミットを指す子の数をカウント（入次数）
   // 親コミットは子から指されているので、親の入次数を増やす
@@ -176,7 +178,9 @@ function assignLanes(
   }
 
   const commitMap = new Map<string, GitCommitType>();
-  commits.forEach(c => commitMap.set(c.hash, c));
+  commits.forEach(c => {
+    commitMap.set(c.hash, c);
+  });
 
   // デフォルトカラー（branchColorsが空の場合のフォールバック）
   const defaultColor = '#3b82f6';

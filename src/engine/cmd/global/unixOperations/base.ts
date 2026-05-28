@@ -1,3 +1,12 @@
+/**
+ * Unixコマンドのベースクラス
+ * 共通のユーティリティメソッドと状態管理を提供
+ *
+ * パス形式:
+ * - currentDir: FSPath形式（/projects/{projectName}/...）
+ * - DB操作: AppPath形式（/src/hello.ts）
+ */
+import type TerminalUI from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
 import {
   fsPathToAppPath,
@@ -8,16 +17,6 @@ import {
   toAppPath,
 } from '@/engine/core/pathUtils';
 import type { ProjectFile } from '@/types';
-
-/**
- * Unixコマンドのベースクラス
- * 共通のユーティリティメソッドと状態管理を提供
- *
- * パス形式:
- * - currentDir: FSPath形式（/projects/{projectName}/...）
- * - DB操作: AppPath形式（/src/hello.ts）
- */
-import type TerminalUI from '@/engine/cmd/terminalUI';
 
 export abstract class UnixCommandBase {
   protected _currentDir: string;

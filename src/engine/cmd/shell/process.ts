@@ -86,7 +86,7 @@ export class Process extends EventEmitter {
       } else if (typeof chunk === 'object') {
         try {
           this._stdout.write(JSON.stringify(chunk));
-        } catch (e) {
+        } catch (_e) {
           this._stdout.write(String(chunk));
         }
       } else if (typeof chunk === 'string') {
@@ -94,7 +94,7 @@ export class Process extends EventEmitter {
       } else {
         this._stdout.write(String(chunk));
       }
-    } catch (e) {
+    } catch (_e) {
       try {
         this._stdout.write(String(chunk));
       } catch {}
@@ -108,7 +108,7 @@ export class Process extends EventEmitter {
       } else if (typeof chunk === 'object') {
         try {
           this._stderr.write(JSON.stringify(chunk));
-        } catch (e) {
+        } catch (_e) {
           this._stderr.write(String(chunk));
         }
       } else if (typeof chunk === 'string') {
@@ -116,7 +116,7 @@ export class Process extends EventEmitter {
       } else {
         this._stderr.write(String(chunk));
       }
-    } catch (e) {
+    } catch (_e) {
       try {
         this._stderr.write(String(chunk));
       } catch {}

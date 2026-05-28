@@ -1,7 +1,6 @@
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-
-import type { ProjectFile } from '@/types';
 
 /**
  * grep - ファイル内のパターンを検索 (POSIX/GNU準拠)

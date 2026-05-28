@@ -1,7 +1,7 @@
 import type { Monaco } from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor';
 import { useCallback } from 'react';
-
+import { MONACO_CONFIG } from '@/constants/config';
 import { getLanguage } from '../editors/editor-utils';
 import { getEnhancedLanguage, getModelLanguage } from '../editors/monarch-jsx-language';
 import {
@@ -9,8 +9,6 @@ import {
   getModelCacheKey,
   getWorkspaceModelUri,
 } from '../utils/monacoPathUtils';
-
-import { MONACO_CONFIG } from '@/constants/config';
 
 /**
  * Monaco Model Management — Workspace Model Architecture
@@ -76,10 +74,7 @@ function enforceModelLimit(maxModels: number): void {
  * Update Monaco model content from outside (e.g. file watcher, external save).
  * modelKey = filePath for file-based tabs, tabId for untitled.
  */
-export function updateCachedModelContent(
-  modelKey: string,
-  content: string,
-): void {
+export function updateCachedModelContent(modelKey: string, content: string): void {
   const model = sharedModelMap.get(modelKey);
   if (!model || model.isDisposed()) return;
   try {
@@ -93,13 +88,11 @@ export function updateCachedModelContent(
  * Save editor view state for a tab (cursor, scroll, folding).
  * Call before switching away from a tab.
  */
-export function saveTabViewState(
-  tabId: string,
-  editor: monaco.editor.IStandaloneCodeEditor
-): void {
+export function saveTabViewState(tabId: string, editor: monaco.editor.IStandaloneCodeEditor): void {
   try {
     tabViewStates.set(tabId, editor.saveViewState());
   } catch (e) {
+    console.warn('[useMonacoModels.ts] caught non-fatal error', e);
     // ignore
   }
 }
@@ -117,6 +110,7 @@ export function restoreTabViewState(
   try {
     editor.restoreViewState(state);
   } catch (e) {
+    console.warn('[useMonacoModels.ts] caught non-fatal error', e);
     // ignore
   }
 }
@@ -172,6 +166,7 @@ export function useMonacoModels() {
           mon.editor.setModelMarkers(model, 'typescript', []);
           mon.editor.setModelMarkers(model, 'javascript', []);
         } catch (e) {
+          console.warn('[useMonacoModels.ts] caught non-fatal error', e);
           // ignore
         }
         window.setTimeout(() => {
@@ -216,6 +211,7 @@ export function useMonacoModels() {
         try {
           (mon.editor as any).setModelLanguage(newModel, desiredLang);
         } catch (e) {
+          console.warn('[useMonacoModels.ts] caught non-fatal error', e);
           // ignore
         }
         sharedModelMap.set(modelKey, newModel);
@@ -235,6 +231,7 @@ export function useMonacoModels() {
                 // setValue bumps the model version → DiagnosticsAdapter schedules re-evaluation
                 m.setValue(m.getValue());
               } catch (e) {
+                console.warn('[useMonacoModels.ts] caught non-fatal error', e);
                 // ignore
               }
             }

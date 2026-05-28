@@ -1,7 +1,6 @@
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-
-import type { ProjectFile } from '@/types';
 
 export class StatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
@@ -49,7 +48,7 @@ export class StatCommand extends UnixCommandBase {
 
         return `  File: ${fileArg}\n  Size: ${size}\n  Modified: ${mtime}\n  Type: ${type}`;
       }
-    } catch (err) {
+    } catch (_err) {
       // Continue to fallback
       // console.warn('[StatCommand] fileRepository lookup failed:', err);
     }

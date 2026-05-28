@@ -23,32 +23,26 @@ function normalizeContent(content: unknown): string {
         return new TextDecoder('utf-8').decode(content);
       }
       // typed arrays (Uint8Array, etc.)
-      // @ts-ignore
       if (ArrayBuffer.isView(content)) {
-        // @ts-ignore
         return new TextDecoder('utf-8').decode(content);
       }
     }
   } catch (e) {
+    console.warn('[contextBuilder.ts] caught non-fatal error', e);
     // fallthrough to other strategies
   }
 
   try {
     return JSON.stringify(content);
   } catch (e) {
+    console.warn('[contextBuilder.ts] caught non-fatal error', e);
     try {
       return String(content);
     } catch (e2) {
+      console.warn('[contextBuilder.ts] caught non-fatal error', e2);
       return '';
     }
   }
-}
-
-// ファイル内容の行数をチェック
-function isFileTooLarge(content: unknown): boolean {
-  const normalized = normalizeContent(content);
-  const lines = normalized.split('\n');
-  return lines.length > MAX_LINES_PER_FILE;
 }
 
 // ファイル内容を切り詰める

@@ -14,7 +14,7 @@ import {
   githubUserManager,
 } from '@/engine/user/githubUserManager';
 
-export type { GitHubUser, GitCommitAuthor };
+export type { GitCommitAuthor, GitHubUser };
 
 interface GitHubUserContextType {
   user: GitHubUser | null;

@@ -3,7 +3,8 @@
 'use client';
 
 import { FileCode, Loader2, Plus, Send, X } from 'lucide-react';
-import React, { useState, type KeyboardEvent, useRef, useEffect } from 'react';
+import Image from 'next/image';
+import React, { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { getIconForFile } from 'vscode-icons-js';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -98,7 +99,7 @@ export default function ChatInput({
       if (iconPath?.endsWith('.svg')) {
         return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
       }
-    } catch (e) {
+    } catch {
       // ignore and fallback
     }
     return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
@@ -141,10 +142,13 @@ export default function ChatInput({
                   lineHeight: 1,
                 }}
               >
-                <img
+                <Image
                   src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)}
                   alt="icon"
-                  style={{ width: 10, height: 10, flex: '0 0 10px' }}
+                  width={10}
+                  height={10}
+                  unoptimized
+                  style={{ flex: '0 0 10px' }}
                 />
                 <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                   {activeTabPath.split('/').pop()}
@@ -193,10 +197,13 @@ export default function ChatInput({
                     lineHeight: 1,
                   }}
                 >
-                  <img
+                  <Image
                     src={iconSrc}
                     alt="icon"
-                    style={{ width: 10, height: 10, flex: '0 0 10px' }}
+                    width={10}
+                    height={10}
+                    unoptimized
+                    style={{ flex: '0 0 10px' }}
                   />
                   <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                     {fileName}

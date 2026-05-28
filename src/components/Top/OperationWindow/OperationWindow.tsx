@@ -1,11 +1,11 @@
 'use client';
 
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
 import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type React from 'react';
-import { createPortal } from 'react-dom';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -78,8 +78,7 @@ export default function OperationWindow({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
   const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
-  const [viewMode, setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
-  const hideModeTabs = Boolean(items && initialView === 'list');
+  const [viewMode, _setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [portalEl] = useState(() =>
@@ -113,6 +112,7 @@ export default function OperationWindow({
       try {
         document.body.removeChild(portalEl);
       } catch (e) {
+        console.warn('[OperationWindow.tsx] caught non-fatal error', e);
         // ignore
       }
     };
@@ -186,6 +186,7 @@ export default function OperationWindow({
       if (!git || !git.content) return [];
       return parseGitignore(git.content);
     } catch (err) {
+      console.warn('[OperationWindow.tsx] caught non-fatal error', err);
       return [];
     }
   }, [flattenedFiles]);
@@ -200,12 +201,14 @@ export default function OperationWindow({
           try {
             if (isPathIgnored(gitignoreRules, file.path, false)) return false;
           } catch (e) {
+            console.warn('[OperationWindow.tsx] caught non-fatal error', e);
             // ignore errors
           }
         }
         return true;
       });
     } catch (e) {
+      console.warn('[OperationWindow.tsx] caught non-fatal error', e);
       return [] as FileItem[];
     }
   }, [flattenedFiles, isExcluded, gitignoreRules]);

@@ -10,12 +10,11 @@ import {
   Rows2,
   Trash2,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
-
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSnapshot } from 'valtio';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
 import { tabActions, tabState } from '@/stores/tabState';
-import { useSnapshot } from 'valtio';
 
 interface PaneNavigatorProps {
   isOpen: boolean;
@@ -282,7 +281,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
 
       // Number keys 1-9 for direct selection
       if (key >= '1' && key <= '9') {
-        const idx = Number.parseInt(key) - 1;
+        const idx = Number.parseInt(key, 10) - 1;
         if (idx < flattenedPanes.length) {
           handleActivate(flattenedPanes[idx].id);
         }

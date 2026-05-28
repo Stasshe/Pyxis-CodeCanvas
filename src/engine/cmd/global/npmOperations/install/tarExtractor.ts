@@ -36,9 +36,7 @@ export class TarExtractor {
   private textDecoder = new TextDecoder('utf-8', { fatal: false });
 
   private encodeContent(buf: Uint8Array): string {
-    return isBinaryBuffer(buf)
-      ? `base64:${uint8ArrayToBase64(buf)}`
-      : this.textDecoder.decode(buf);
+    return isBinaryBuffer(buf) ? `base64:${uint8ArrayToBase64(buf)}` : this.textDecoder.decode(buf);
   }
 
   private processEntry(
@@ -57,7 +55,10 @@ export class TarExtractor {
       const totalLen = chunks.reduce((s, c) => s + c.length, 0);
       const combined = new Uint8Array(totalLen);
       let offset = 0;
-      for (const c of chunks) { combined.set(c, offset); offset += c.length; }
+      for (const c of chunks) {
+        combined.set(c, offset);
+        offset += c.length;
+      }
       fileEntries.set(rel, { type: 'file', content: this.encodeContent(combined), fullPath });
       const parts = rel.split('/');
       for (let i = 0; i < parts.length - 1; i++) {
@@ -165,9 +166,7 @@ export class TarExtractor {
     return this.buildExtractedFiles(packageDir, fileEntries, requiredDirs);
   }
 
-  createPakoDecompressedStream(
-    bodyStream: ReadableStream<Uint8Array>
-  ): ReadableStream<Uint8Array> {
+  createPakoDecompressedStream(bodyStream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
     const reader = bodyStream.getReader();
     const inflate = new pako.Inflate();
 

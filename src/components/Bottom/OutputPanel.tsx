@@ -1,11 +1,9 @@
-import React, { useState, useMemo } from 'react';
-
-import { useTranslation } from '@/context/I18nContext';
-import { useTheme } from '@/context/ThemeContext';
-import type { ThemeColors } from '@/context/ThemeContext';
-import { type OutputType, removeLogMessages } from '@/stores/loggerStore';
-import { loggerStore } from '@/stores/loggerStore';
+import React, { useMemo, useState } from 'react';
 import { useSnapshot } from 'valtio/react';
+import { useTranslation } from '@/context/I18nContext';
+import type { ThemeColors } from '@/context/ThemeContext';
+import { useTheme } from '@/context/ThemeContext';
+import { loggerStore, type OutputType, removeLogMessages } from '@/stores/loggerStore';
 
 // Themeの色を使う
 const getTypeColor = (colors: ThemeColors): Record<OutputType, string> => ({
@@ -166,6 +164,7 @@ export function OutputPanel() {
               setTimeout(() => setCopyStatus('idle'), 1800);
             } catch (e) {
               setCopyStatus('error');
+              console.error('Failed to copy logs:', e);
               setTimeout(() => setCopyStatus('idle'), 1800);
             }
           }}

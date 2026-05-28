@@ -1,15 +1,15 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import type React from 'react';
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown, { type Components, type Options } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import type { PluggableList } from 'unified';
+import { fileRepository } from '@/engine/core/fileRepository';
 import 'katex/dist/katex.min.css';
 import 'github-markdown-css/github-markdown.css';
 
+import { useSnapshot } from 'valtio';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
@@ -18,7 +18,6 @@ import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project, ProjectFile } from '@/types';
-import { useSnapshot } from 'valtio';
 
 import { CodeBlock, LocalImage } from './MarkdownPreview';
 
@@ -26,6 +25,8 @@ interface MarkdownPreviewTabProps {
   activeTab: PreviewTab;
   currentProject?: Project;
 }
+
+type RemarkPlugins = NonNullable<Options['remarkPlugins']>;
 
 const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors, themeName } = useTheme();
@@ -37,7 +38,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const prevContentRef = useRef<string | null>(null);
 
   // determine markdown plugins based on settings
-  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<PluggableList>([]);
+  const [extraRemarkPlugins, setExtraRemarkPlugins] = useState<RemarkPlugins>([]);
 
   // Only subscribe to panes for the purpose of finding the matching editor tab ID
   const panesSnapshot = useSnapshot(tabState).panes;
@@ -68,7 +69,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   useEffect(() => {
     let mounted = true;
     const setup = async (): Promise<void> => {
-      const plugins: PluggableList = [];
+      const plugins: RemarkPlugins = [];
       try {
         const mode = settings?.markdown?.singleLineBreaks || 'default';
         if (mode === 'breaks') {
@@ -77,6 +78,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
             const mod = await import('remark-breaks');
             if (mounted) plugins.push(mod.default || mod);
           } catch (e) {
+            console.warn('[MarkdownPreviewTab.tsx] caught non-fatal error', e);
             console.warn(
               '[MarkdownPreviewTab] remark-breaks not available, falling back to default linebreak behavior.'
             );
@@ -98,11 +100,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   const codeComponent = useMemo<Pick<Components, 'code'>>(
     () => ({
       code: ({ className, children, ...props }) => (
-        <CodeBlock
-          className={className}
-          currentProjectName={currentProject?.name}
-          {...props}
-        >
+        <CodeBlock className={className} currentProjectName={currentProject?.name} {...props}>
           {children}
         </CodeBlock>
       ),
@@ -245,6 +243,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
                   return;
                 }
               } catch (err) {
+                console.warn('[MarkdownPreviewTab.tsx] caught non-fatal error', err);
                 // ignore and try next
               }
             }

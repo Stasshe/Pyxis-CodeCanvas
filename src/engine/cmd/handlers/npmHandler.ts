@@ -13,11 +13,7 @@ export async function handleNPMCommand(
     return;
   }
 
-  const npm = await terminalCommandRegistry.getNpmCommands(
-    projectName,
-    projectId,
-    `/projects/${projectName}`
-  );
+  const npm = await terminalCommandRegistry.getNpmCommands(projectName, projectId);
   if (setLoading) {
     npm.setLoadingHandler(setLoading);
   }
@@ -119,7 +115,9 @@ export async function handleNPXCommand(
         const pkg = JSON.parse(directPackageJson.content);
         const binField = typeof pkg.bin === 'string' ? { [pkg.name || binary]: pkg.bin } : pkg.bin;
         const selectedBin =
-          (binField && typeof binField === 'object' && (binField[binary] || Object.values(binField)[0])) ||
+          (binField &&
+            typeof binField === 'object' &&
+            (binField[binary] || Object.values(binField)[0])) ||
           null;
 
         if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {

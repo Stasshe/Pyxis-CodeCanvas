@@ -72,7 +72,7 @@ export class AuthRepository {
 
         // 認証情報ストア（単一レコードのみ保存）
         if (!db.objectStoreNames.contains('auth')) {
-          const store = db.createObjectStore('auth', { keyPath: 'id' });
+          const _store = db.createObjectStore('auth', { keyPath: 'id' });
           console.log('[AuthRepository] Created "auth" object store');
         }
       };
@@ -122,7 +122,7 @@ export class AuthRepository {
   async getAuth(): Promise<GitHubAuthData | null> {
     await this.init();
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['auth'], 'readonly');
       const store = transaction.objectStore('auth');
       const request = store.get('github');

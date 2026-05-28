@@ -129,6 +129,7 @@ export function useDiffTabHandlers(currentProject: any) {
             formerContent = content || '';
             formerCommitId = 'HEAD';
           } catch (e2) {
+            console.warn('[useDiffTabHandlers.ts] caught non-fatal error', e2);
             formerContent = '';
           }
         }
@@ -162,6 +163,7 @@ export function useDiffTabHandlers(currentProject: any) {
           throw new Error('File not found in repository');
         }
       } catch (repoError) {
+        console.warn('[useDiffTabHandlers.ts] caught non-fatal error', repoError);
         console.log('[useDiffTabHandlers] Falling back to gitFileSystem');
         const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
 
@@ -196,13 +198,7 @@ export function useDiffTabHandlers(currentProject: any) {
 
   // コミット履歴用: コミット間のファイル差分を開く（親コミット vs コミット）
   const handleCommitsDiff = useCallback(
-    async ({
-      commitId,
-      filePath,
-    }: {
-      commitId: string;
-      filePath: string;
-    }) => {
+    async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
       if (!currentProject) return;
 
       // fileRepository用に正規化（先頭スラッシュあり）

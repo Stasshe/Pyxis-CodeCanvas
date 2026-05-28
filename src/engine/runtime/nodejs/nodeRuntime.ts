@@ -10,21 +10,20 @@
  * 6. require()は非同期化（await __require__()に変換）
  */
 
-import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
+import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
+import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { ModuleLoader } from '../module/moduleLoader';
+import { type BuiltInModules, createBuiltInModules } from './builtInModule';
 import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
 import {
   createProcessExitSignal,
   isProcessExitSignal,
   normalizeProcessExitCode,
 } from './processExit';
-
-import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
-import { type BuiltInModules, createBuiltInModules } from './builtInModule';
-import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
-import { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 
 /**
  * 実行オプション
@@ -329,9 +328,7 @@ export class NodeRuntime {
       }
     };
 
-    nativeId = kind === 'timeout'
-      ? setTimeout(invoke, timeout)
-      : setInterval(invoke, timeout);
+    nativeId = kind === 'timeout' ? setTimeout(invoke, timeout) : setInterval(invoke, timeout);
     this.activeTimers.add(timerRef);
     return timerRef;
   }
@@ -350,42 +347,6 @@ export class NodeRuntime {
       this.eventLoopResolve();
       this.eventLoopResolve = null;
     }
-  }
-
-  /**
-   * トランスパイルが必要か判定
-   */
-  private needsTranspile(filePath: string, content: string): boolean {
-    if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
-      return true;
-    }
-
-    if (/\.(jsx|tsx)$/.test(filePath)) {
-      return true;
-    }
-
-    if (this.isESModule(content)) {
-      return true;
-    }
-
-    // require()を含む場合も変換が必要（await __require__に変換）
-    if (/require\s*\(/.test(content)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * ES Moduleかどうかを判定
-   */
-  private isESModule(content: string): boolean {
-    const cleaned = content
-      .replace(/\/\/.*$/gm, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '');
-
-    return /^\s*(import|export)\s+/m.test(cleaned);
   }
 
   /**
@@ -549,7 +510,7 @@ export class NodeRuntime {
             for (let i = 0; i < lineBuf.length; i++) {
               const ch = lineBuf[i];
               if (ch === '\r') {
-                cur = '';  // キャリッジリターン: 現在行をクリア（上書き予定）
+                cur = ''; // キャリッジリターン: 現在行をクリア（上書き予定）
               } else if (ch === '\n') {
                 emitLine(cur);
                 cur = '';
@@ -557,7 +518,7 @@ export class NodeRuntime {
                 cur += ch;
               }
             }
-            lineBuf = cur;  // 未完了行をバッファに残す
+            lineBuf = cur; // 未完了行をバッファに残す
             return true;
           },
           isTTY: true,
@@ -854,20 +815,38 @@ export class NodeRuntime {
       'stream/consumers': {
         text: async (s: any): Promise<string> => {
           const chunks: Uint8Array[] = [];
-          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-          const all = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          for await (const chunk of s)
+            chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          const all = chunks.reduce((a, b) => {
+            const c = new Uint8Array(a.length + b.length);
+            c.set(a);
+            c.set(b, a.length);
+            return c;
+          }, new Uint8Array(0));
           return new TextDecoder().decode(all);
         },
         json: async (s: any): Promise<unknown> => {
           const chunks: Uint8Array[] = [];
-          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-          const all = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          for await (const chunk of s)
+            chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          const all = chunks.reduce((a, b) => {
+            const c = new Uint8Array(a.length + b.length);
+            c.set(a);
+            c.set(b, a.length);
+            return c;
+          }, new Uint8Array(0));
           return JSON.parse(new TextDecoder().decode(all));
         },
         buffer: async (s: any): Promise<Uint8Array> => {
           const chunks: Uint8Array[] = [];
-          for await (const chunk of s) chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-          return chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+          for await (const chunk of s)
+            chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+          return chunks.reduce((a, b) => {
+            const c = new Uint8Array(a.length + b.length);
+            c.set(a);
+            c.set(b, a.length);
+            return c;
+          }, new Uint8Array(0));
         },
       },
       'stream/promises': {
@@ -876,7 +855,8 @@ export class NodeRuntime {
       },
       'stream/web': {},
       'timers/promises': {
-        setTimeout: (delay?: number) => new Promise(resolve => globalThis.setTimeout(resolve, delay)),
+        setTimeout: (delay?: number) =>
+          new Promise(resolve => globalThis.setTimeout(resolve, delay)),
         setImmediate: () => new Promise(resolve => globalThis.setTimeout(resolve, 0)),
         setInterval: async function* (_delay?: number) {},
       },
@@ -884,7 +864,10 @@ export class NodeRuntime {
         performance: {
           now: () => performance.now(),
           mark: (_name: string) => {},
-          measure: (_name: string, _start?: string, _end?: string) => ({ duration: 0, name: _name }),
+          measure: (_name: string, _start?: string, _end?: string) => ({
+            duration: 0,
+            name: _name,
+          }),
           getEntriesByName: () => [],
           getEntriesByType: () => [],
           clearMarks: () => {},
@@ -902,7 +885,11 @@ export class NodeRuntime {
         workerData: null,
         parentPort: null,
         threadId: 0,
-        Worker: class { constructor() { throw new Error('Worker not supported'); } },
+        Worker: class {
+          constructor() {
+            throw new Error('Worker not supported');
+          }
+        },
       },
       // process モジュール - 実行中の process.argv/cwd/env を共有する
       process: this.currentProcess ?? this.createProcessObject(),

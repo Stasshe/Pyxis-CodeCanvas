@@ -103,7 +103,7 @@ function extractCommandSubstitutions(line: string): {
           // eslint-disable-next-line no-new-func
           const val = Function(`return (${expr})`)();
           out += String(val === undefined || val === null ? '' : val);
-        } catch (e) {
+        } catch (_e) {
           out += '';
         }
       } else {
@@ -260,7 +260,7 @@ function expandArithmetic(input: string): string {
           // eslint-disable-next-line no-new-func
           const val = Function(`return (${expr})`)();
           out += String(val === undefined || val === null ? '' : val);
-        } catch (e) {
+        } catch (_e) {
           out += '';
         }
       }

@@ -9,11 +9,10 @@
  *   dev help                   - Show available commands
  */
 
-import type { DevCommandContext, DevCommandInfo } from '../app/dev/types';
-
 // Subcommand imports
 import { mergeConflictCommands } from '../app/dev/mergeConflictScenario';
 import { tabCommands } from '../app/dev/tabScenario';
+import type { DevCommandContext, DevCommandInfo } from '../app/dev/types';
 
 /**
  * Development Command Registry

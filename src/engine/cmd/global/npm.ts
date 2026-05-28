@@ -9,28 +9,20 @@
  * - TerminalUI API provides advanced terminal display features
  */
 
-import { NpmInstall } from './npmOperations/npmInstall';
-
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
+import { NpmInstall } from './npmOperations/npmInstall';
 
 export class NpmCommands {
-  private currentDir: string;
   private projectName: string;
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;
   private terminalUI?: TerminalUI;
 
-  constructor(
-    projectName: string,
-    projectId: string,
-    currentDir: string,
-    setLoading?: (isLoading: boolean) => void
-  ) {
+  constructor(projectName: string, projectId: string, setLoading?: (isLoading: boolean) => void) {
     this.projectName = projectName;
     this.projectId = projectId;
-    this.currentDir = currentDir;
     this.setLoading = setLoading;
   }
 
@@ -138,9 +130,9 @@ export class NpmCommands {
           await npmInstall.finishBatchProcessing();
           // ensure .bin entries for all installed packages
           for (const pkg of packageNames) {
-            await npmInstall.ensureBinsForPackage(pkg).catch(err =>
-              console.warn(`[npm] ensureBins failed for ${pkg}:`, err)
-            );
+            await npmInstall
+              .ensureBinsForPackage(pkg)
+              .catch(err => console.warn(`[npm] ensureBins failed for ${pkg}:`, err));
           }
         }
 
@@ -221,9 +213,9 @@ export class NpmCommands {
           await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
         } finally {
           await npmInstall.finishBatchProcessing();
-          await npmInstall.ensureBinsForPackage(packageName).catch(err =>
-            console.warn(`[npm] ensureBins failed for ${packageName}:`, err)
-          );
+          await npmInstall
+            .ensureBinsForPackage(packageName)
+            .catch(err => console.warn(`[npm] ensureBins failed for ${packageName}:`, err));
         }
 
         // Stop spinner
@@ -525,5 +517,4 @@ export class NpmCommands {
       throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
     }
   }
-
 }

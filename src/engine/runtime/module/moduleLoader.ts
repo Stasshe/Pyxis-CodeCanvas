@@ -8,18 +8,17 @@
  * - 循環参照の検出
  */
 
+import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
+import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
 import { runtimeRegistry } from '../core/RuntimeRegistry';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { createModuleNotFoundError } from '../nodejs/nodeErrors';
 import { isProcessExitSignal } from '../nodejs/processExit';
 import { transpileManager } from '../transpiler/transpileManager';
+import { isBuiltInModule } from './builtinModules';
 import { ModuleCache } from './moduleCache';
 import { ModuleResolver } from './moduleResolver';
-import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
-
-import { fileRepository } from '@/engine/core/fileRepository';
-import { isBuiltInModule } from './builtinModules';
 
 /**
  * モジュール実行キャッシュ（循環参照対策）
@@ -54,7 +53,6 @@ export interface ModuleLoaderOptions {
 export class ModuleLoader {
   private projectId: string;
   private projectName: string;
-  private projectDir: string;
   private debugConsole?: ModuleLoaderOptions['debugConsole'];
   private builtinResolver?: (moduleName: string) => any;
   private cache: ModuleCache;
@@ -67,7 +65,6 @@ export class ModuleLoader {
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
     this.projectName = options.projectName;
-    this.projectDir = `/projects/${this.projectName}`;
     this.debugConsole = options.debugConsole;
     this.builtinResolver = options.builtinResolver;
 
@@ -688,6 +685,7 @@ export class ModuleLoader {
         writable: true,
       });
     } catch (e) {
+      console.warn('[moduleLoader.ts] caught non-fatal error', e);
       // If we can't modify navigator, continue anyway
     }
 
@@ -760,6 +758,7 @@ export class ModuleLoader {
           writable: true,
         });
       } catch (e) {
+        console.warn('[moduleLoader.ts] caught non-fatal error', e);
         // Ignore restoration errors
       }
     }
@@ -841,10 +840,7 @@ export class ModuleLoader {
   }
 
   private isOptionalDependency(moduleName: string, fromPath: string): boolean {
-    if (
-      moduleName === 'supports-color' &&
-      fromPath.includes('/node_modules/debug/src/node.js')
-    ) {
+    if (moduleName === 'supports-color' && fromPath.includes('/node_modules/debug/src/node.js')) {
       return true;
     }
 

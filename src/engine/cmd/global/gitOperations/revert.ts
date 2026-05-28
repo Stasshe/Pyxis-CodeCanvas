@@ -164,7 +164,6 @@ export class GitRevertOperations {
       }
 
       // リバートコミットを作成
-      const shortHash = commitHash.slice(0, 7);
       const revertMessage = `Revert "${commitToRevert.commit.message.split('\n')[0]}"\n\nThis reverts commit ${fullCommitHash}.`;
 
       const commitOid = await git.commit({

@@ -1,9 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import type { GitRepository } from '@/types/git';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseGitBranches, parseGitLog, parseGitStatus } from './gitUtils';
 
 export function useGitPanel({
@@ -245,6 +245,7 @@ export function useGitPanel({
           try {
             await gitCommands.discardChanges(f);
           } catch (e) {
+            console.warn('[useGitPanel.ts] caught non-fatal error', e);
             // ignore individual discard errors
           }
         })

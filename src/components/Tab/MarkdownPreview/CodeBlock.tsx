@@ -1,4 +1,4 @@
-import { type ReactNode, memo } from 'react';
+import { memo, type ReactNode } from 'react';
 
 import type { FileItem } from '@/types';
 
@@ -13,23 +13,21 @@ interface MemoizedCodeComponentProps {
   projectFiles?: FileItem[];
 }
 
-const MemoizedCodeComponent = memo<MemoizedCodeComponentProps>(
-  ({ className, children }) => {
-    const match = /language-(\w+)/.exec(className || '');
-    const codeString = String(children).replace(/\n$/, '').trim();
+const MemoizedCodeComponent = memo<MemoizedCodeComponentProps>(({ className, children }) => {
+  const match = /language-(\w+)/.exec(className || '');
+  const codeString = String(children).replace(/\n$/, '').trim();
 
-    if (match && match[1] === 'mermaid') {
-      return <Mermaid chart={codeString} />;
-    }
-
-    if (className && match) {
-      return <InlineHighlightedCode language={match[1] || ''} value={codeString} />;
-    }
-
-    // インラインコード: InlineHighlightedCode を使う
-    return <InlineHighlightedCode language={'plainText'} value={codeString} inline />;
+  if (match && match[1] === 'mermaid') {
+    return <Mermaid chart={codeString} />;
   }
-);
+
+  if (className && match) {
+    return <InlineHighlightedCode language={match[1] || ''} value={codeString} />;
+  }
+
+  // インラインコード: InlineHighlightedCode を使う
+  return <InlineHighlightedCode language={'plainText'} value={codeString} inline />;
+});
 
 MemoizedCodeComponent.displayName = 'MemoizedCodeComponent';
 

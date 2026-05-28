@@ -1,9 +1,8 @@
 import type { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
 import type { UnixCommands } from '../global/unix';
-import type { TokenObj } from './types';
-
 import expandBraces from './braceExpand';
+import type { TokenObj } from './types';
 
 /**
  * Word expansion utilities for shell
@@ -14,7 +13,7 @@ import expandBraces from './braceExpand';
  * Check if a string contains glob characters
  */
 export function hasGlob(s: string): boolean {
-  return /[*?\[]/.test(s);
+  return /[*?[]/.test(s);
 }
 
 /**
@@ -25,7 +24,7 @@ function escapeForCharClass(ch: string): string {
   if (ch === ']') return '\\]';
   if (ch === '-') return '\\-';
   if (ch === '^') return '\\^';
-  return ch.replace(/([\\\]\-\^])/g, m => `\\${m}`);
+  return ch.replace(/([\\\]\-^])/g, m => `\\${m}`);
 }
 
 /**
@@ -155,7 +154,7 @@ export async function globExpand(pattern: string, options: GlobExpandOptions): P
         }
         i = Math.min(j, fileGlob.length - 1);
         regexParts.push(`[${cls}]`);
-      } else if (/[\\.\+\^\$\{\}\(\)\|]/.test(ch)) regexParts.push(`\\${ch}`);
+      } else if (/[\\.+^${}()|]/.test(ch)) regexParts.push(`\\${ch}`);
       else regexParts.push(ch);
     }
 

@@ -1,10 +1,8 @@
 // src/engine/tabs/builtins/WebPreviewTabType.tsx
 import type React from 'react';
-
-import type { TabComponentProps, TabTypeDefinition, WebPreviewTab } from '../types';
-
 import WebPreviewTabComponent from '@/components/Tab/WebPreviewTab';
 import { tabActions } from '@/stores/tabState';
+import type { TabComponentProps, TabTypeDefinition, WebPreviewTab } from '../types';
 
 /**
  * Webプレビュータブのコンポーネント

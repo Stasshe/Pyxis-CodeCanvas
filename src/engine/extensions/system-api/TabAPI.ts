@@ -3,10 +3,9 @@
  * 拡張機能が自分のタブを作成・管理するためのAPI
  */
 
-import type { ExtensionContext } from '../types';
-
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { tabActions, tabState } from '@/stores/tabState';
+import type { ExtensionContext } from '../types';
 
 /**
  * 拡張機能用タブデータ

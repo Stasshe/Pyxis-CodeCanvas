@@ -1,4 +1,4 @@
-import { type EvalContext, ExprBuilder, ExprParser, type Expression, evaluate } from '../../lib';
+import { type EvalContext, ExprBuilder, type Expression, ExprParser, evaluate } from '../../lib';
 import { UnixCommandBase } from './base';
 
 /**
@@ -52,13 +52,8 @@ interface TestContext extends EvalContext {
  * test用の式パーサー
  */
 class TestExprParser extends ExprParser<TestContext> {
-  private checkFile: (
-    path: string
-  ) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
-
-  constructor(tokens: string[], checkFile: TestContext['checkFile']) {
+  constructor(tokens: string[], _checkFile: TestContext['checkFile']) {
     super(tokens);
-    this.checkFile = checkFile;
   }
 
   protected isOrOperator(tok: string | null): boolean {
@@ -83,7 +78,6 @@ class TestExprParser extends ExprParser<TestContext> {
       const path = this.stream.consume();
       if (!path) return ExprBuilder.false();
 
-      const checkFile = this.checkFile;
       return ExprBuilder.predicate(tok, [path], (ctx: EvalContext) => {
         // 非同期なので、事前にチェック結果をコンテキストに入れておく必要あり
         const tc = ctx as TestContext & { fileCache?: Map<string, any> };

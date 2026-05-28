@@ -1,5 +1,5 @@
-import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
+import { DiffEditor } from '@monaco-editor/react';
 import type * as monacoEditor from 'monaco-editor';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
@@ -104,6 +104,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
         try {
           if (l) l.dispose();
         } catch (e) {
+          console.warn('[DiffTab.tsx] caught non-fatal error', e);
           /* ignore */
         }
       });
@@ -159,6 +160,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
         try {
           existing.dispose();
         } catch (e) {
+          console.warn('[DiffTab.tsx] caught non-fatal error', e);
           /* ignore */
         }
       }

@@ -1,22 +1,19 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-
-import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
-
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import DiffTabComponent from '@/components/Tab/DiffTab';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectSnapshot } from '@/stores/projectStore';
+import { useTabContent } from '@/stores/tabContentStore';
 import {
   addSaveListener,
   initTabSaveSync,
   saveImmediately,
   setContent as setTabContent,
 } from '@/stores/tabState';
-
-import { useTabContent } from '@/stores/tabContentStore';
+import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 /**
  * Diffタブのコンポーネント

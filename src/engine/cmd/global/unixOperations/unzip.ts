@@ -1,11 +1,9 @@
 import JSZip from 'jszip';
-
-import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
-
 import { fileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath as pathResolve, toFSPath } from '@/engine/core/pathUtils';
 import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
+import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 // TextDecoder: prefer browser global, fall back to Node's util.TextDecoder
 const TextDecoder =
@@ -88,7 +86,6 @@ export class UnzipCommand extends UnixCommandBase {
         }
 
         const fileApp = pathResolve(destApp, relPath);
-        const normalizedFilePath = toFSPath(this.projectName, fileApp);
         const relativePath = fileApp;
 
         if (file.dir || relPath.endsWith('/')) {
@@ -134,6 +131,9 @@ export class UnzipCommand extends UnixCommandBase {
                 isBufferArray: true,
                 bufferContent: arrayBuffer,
               });
+              console.warn(
+                `[unzip] Warning: Failed to decode ${relativePath} as text. Saving as binary.${(e as Error).message}`
+              );
             }
           } else {
             entries.push({

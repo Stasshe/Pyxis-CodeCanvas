@@ -116,6 +116,7 @@ export const countCharsNoSpaces = (text?: unknown) => {
       // objects/arrays/buffers を渡された場合にもある程度扱えるように文字列化
       text = String(text);
     } catch (e) {
+      console.warn('[editor-utils.ts] caught non-fatal error', e);
       return 0;
     }
   }

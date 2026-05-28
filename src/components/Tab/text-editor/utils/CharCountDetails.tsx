@@ -44,7 +44,7 @@ function countAlpha(text: string): number {
 
 function countSymbols(text: string): number {
   // 記号（英記号・全角記号）
-  return (text.match(/[!-/:-@\[-`{-~\uFF01-\uFF60\uFFE0-\uFFEF]/g) || []).length;
+  return (text.match(/[!-/:-@[-`{-~\uFF01-\uFF60\uFFE0-\uFFEF]/g) || []).length;
 }
 
 function countSpaces(text: string): number {

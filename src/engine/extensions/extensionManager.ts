@@ -110,6 +110,7 @@ class ExtensionManager {
         try {
           katexModule = await import('katex');
         } catch (e) {
+          console.warn('[extensionManager.ts] caught non-fatal error', e);
           // katex is optional; warn but continue
           console.warn('[ExtensionManager] katex not available as host-provided module');
         }
@@ -663,7 +664,7 @@ class ExtensionManager {
           default: {
             // TypeScriptの網羅性チェック用の変数
             // 実行時には到達しないが、型エラーメッセージを改善するために使用
-            const exhaustiveCheck: never = moduleName;
+            const _exhaustiveCheck: never = moduleName;
             // 実際のエラーメッセージでは元のmoduleNameを文字列として出力
             throw new Error(`System module not found: ${String(moduleName)}`);
           }

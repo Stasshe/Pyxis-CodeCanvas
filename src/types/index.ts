@@ -14,22 +14,22 @@ export interface FileItem {
 
 // Re-export new tab system types
 export type {
-  Tab,
-  EditorTab,
-  PreviewTab,
-  WebPreviewTab,
   AIReviewTab,
   DiffTab,
-  SettingsTab,
-  MergeConflictTab,
-  MergeConflictFileEntry,
-  TabKind,
-  OpenTabOptions,
-  TabComponentProps,
-  TabTypeDefinition,
-  TabFileInfo,
-  PaneLayoutType,
   EditorPane,
+  EditorTab,
+  MergeConflictFileEntry,
+  MergeConflictTab,
+  OpenTabOptions,
+  PaneLayoutType,
+  PreviewTab,
+  SettingsTab,
+  Tab,
+  TabComponentProps,
+  TabFileInfo,
+  TabKind,
+  TabTypeDefinition,
+  WebPreviewTab,
 } from '@/engine/tabs/types';
 
 // Legacy: SingleFileDiff (still used in some places)

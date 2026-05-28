@@ -1,9 +1,8 @@
 // src/hooks/useProjectWelcome.ts
 import { useEffect } from 'react';
-
+import { snapshot, useSnapshot } from 'valtio';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
-import { snapshot, useSnapshot } from 'valtio';
 
 /**
  * プロジェクト読み込み時にWelcomeタブを開くカスタムフック

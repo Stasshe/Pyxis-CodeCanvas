@@ -1,5 +1,5 @@
 import { Edit3 } from 'lucide-react';
-import { type PropsWithChildren, memo } from 'react';
+import { memo, type PropsWithChildren } from 'react';
 import type { ResultRowProps } from './SearchPanel';
 
 const ResultRow = memo(function ResultRow({

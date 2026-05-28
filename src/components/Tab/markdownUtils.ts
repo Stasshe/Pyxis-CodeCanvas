@@ -22,7 +22,6 @@ export const loadImageAsDataURL = async (
 
   try {
     // Prefer indexed single-file lookup when projectId is available
-    let files: FileItem[] | undefined;
     if (projectId) {
       // we'll try to resolve candidate paths via getFileByPath instead of loading the whole tree
     }
@@ -103,6 +102,7 @@ export const loadImageAsDataURL = async (
             break;
           }
         } catch (err) {
+          console.warn('[markdownUtils.ts] caught non-fatal error', err);
           // ignore and try next candidate
         }
       }

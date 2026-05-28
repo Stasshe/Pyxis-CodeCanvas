@@ -1,10 +1,9 @@
+import type { fileRepository } from '@/engine/core/fileRepository';
 import { GitCommands } from './global/git';
-import { UnixCommands } from './global/unix';
 import type { NpmCommands } from './global/npm';
+import { UnixCommands } from './global/unix';
 import type StreamShell from './shell/streamShell';
 import type TerminalUI from './terminalUI';
-
-import type { fileRepository } from '@/engine/core/fileRepository';
 
 type ProjectEntry = {
   unix?: UnixCommands;
@@ -81,15 +80,11 @@ class TerminalCommandRegistry {
     return this.npmCommandsModulePromise;
   }
 
-  async getNpmCommands(
-    projectName: string,
-    projectId: string,
-    currentDir = '/'
-  ): Promise<NpmCommands> {
+  async getNpmCommands(projectName: string, projectId: string): Promise<NpmCommands> {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.npm) {
       const { NpmCommands } = await this.loadNpmCommandsModule();
-      entry.npm = new NpmCommands(projectName, projectId, currentDir);
+      entry.npm = new NpmCommands(projectName, projectId);
       if (entry.terminalUI) entry.npm.setTerminalUI(entry.terminalUI);
     }
     return entry.npm!;

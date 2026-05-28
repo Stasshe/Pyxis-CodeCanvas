@@ -1,9 +1,7 @@
 // src/engine/tabs/builtins/WelcomeTabType.tsx
 import type React from 'react';
-
-import type { OpenTabOptions, TabComponentProps, TabTypeDefinition, WelcomeTab } from '../types';
-
 import WelcomeTabView from '@/components/Tab/WelcomeTab';
+import type { OpenTabOptions, TabComponentProps, TabTypeDefinition, WelcomeTab } from '../types';
 
 /**
  * ウェルカムタブのコンポーネント

@@ -40,7 +40,6 @@ function scoreMatch(text: string, query: string): number {
 }
 
 let files: FilePayload[] = [];
-let filesVersion: number | null = null;
 
 function performSearch(tokens: string[]): OperationSearchResult[] {
   if (!tokens || tokens.length === 0) {
@@ -91,9 +90,8 @@ function performSearch(tokens: string[]): OperationSearchResult[] {
 }
 
 const api: OperationWorkerApi = {
-  async updateFiles(nextFiles, version) {
+  async updateFiles(nextFiles, _version) {
     files = nextFiles;
-    filesVersion = version;
   },
 
   async search(tokens) {

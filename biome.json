@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,
@@ -9,13 +9,62 @@
     "lineWidth": 100,
     "attributePosition": "auto"
   },
-  "organizeImports": {
-    "enabled": true
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "a11y": "off",
+
+      "complexity": {
+        "noImportantStyles": "off",
+        "noBannedTypes": "off",
+        "noForEach": "off",
+        "noStaticOnlyClass": "off",
+        "noUselessConstructor": "off",
+        "useOptionalChain": "off"
+      },
+      "correctness": {
+        "noUnusedFunctionParameters": "off",
+        "noUnusedImports": "off",
+        "noUnusedPrivateClassMembers": "on",
+        "noUnusedVariables": "on",
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "warn"
+      },
+      "performance": {
+        "noImgElement": "on"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "off",
+        "noGlobalEval": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off",
+        "noUnusedTemplateLiteral": "off",
+        "noUselessElse": "on",
+        "useConst": "on",
+        "useNodejsImportProtocol": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "noExplicitAny": "off",
+        "noImplicitAnyLet": "warn",
+        "noTemplateCurlyInString": "off",
+        "noUnknownAtRules": "off",
+        "noUselessEscapeInString": "off",
+        "useIterableCallbackReturn": "warn"
+      }
     }
   },
   "javascript": {
@@ -30,21 +79,29 @@
       "bracketSameLine": false
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "files": {
-    "ignore": [
-      "node_modules",
-      ".next",
-      ".git",
-      "dist",
-      "build",
-      "out",
-      "coverage",
-      "*.log",
-      ".env*",
-      ".DS_Store",
-      ".vscode",
-      "*.md",
-      "eslint.config.js"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/.git",
+      "!**/dist",
+      "!**/build",
+      "!**/out",
+      "!**/coverage",
+      "!**/*.log",
+      "!**/.env*",
+      "!**/.DS_Store",
+      "!**/.vscode",
+      "!**/*.md",
+      "!**/public/extensions/*",
+      "!**/eslint.config.js",
+      "!src/engine/initialFileContents.ts"
     ]
   }
 }

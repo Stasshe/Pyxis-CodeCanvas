@@ -8,8 +8,6 @@
  * strict type safety within the engine code.
  */
 
-import type { CommandRegistry } from './commandRegistry';
-
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
@@ -25,6 +23,7 @@ import type {
   createWorkerPool,
   WorkerPool,
 } from '@/engine/workers/WorkerPool';
+import type { CommandRegistry } from './commandRegistry';
 
 /**
  * transpilerモジュールの型定義
@@ -75,7 +74,11 @@ export interface SystemModuleMap {
   systemBuiltinCommands: {
     getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
     getGitCommands: (projectName: string, projectId?: string) => GitCommands;
-    getNpmCommands: (projectName: string, projectId?: string, projectPath?: string) => Promise<NpmCommands>;
+    getNpmCommands: (
+      projectName: string,
+      projectId?: string,
+      projectPath?: string
+    ) => Promise<NpmCommands>;
     /**
      * Construct or return a per-project StreamShell instance.
      * Matches TerminalCommandRegistry.getShell which may return null on failure.

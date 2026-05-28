@@ -1,19 +1,17 @@
 // src/engine/tabs/builtins/MergeConflictTabType.tsx
 import type React from 'react';
 import { useCallback } from 'react';
-
+import MergeConflictResolutionTab from '@/components/Tab/MergeConflictResolutionTab';
+import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { syncManager } from '@/engine/core/syncManager';
+import { tabActions } from '@/stores/tabState';
 import type {
   MergeConflictFileEntry,
   MergeConflictTab,
   TabComponentProps,
   TabTypeDefinition,
 } from '../types';
-
-import MergeConflictResolutionTab from '@/components/Tab/MergeConflictResolutionTab';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { syncManager } from '@/engine/core/syncManager';
-import { tabActions } from '@/stores/tabState';
 
 /**
  * Merge Conflict Resolution Tab Renderer

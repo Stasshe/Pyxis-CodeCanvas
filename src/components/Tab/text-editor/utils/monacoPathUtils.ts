@@ -36,10 +36,7 @@ export function getWorkspaceModelUri(filePath: string | undefined | null, tabId:
 /**
  * Filename used for language detection (basename of filePath, fallback to fileName).
  */
-export function getLanguageFileName(
-  filePath: string | undefined | null,
-  fileName: string
-): string {
+export function getLanguageFileName(filePath: string | undefined | null, fileName: string): string {
   if (filePath && filePath.length > 0) {
     const basename = filePath.split('/').pop();
     if (basename && basename.length > 0) return basename;

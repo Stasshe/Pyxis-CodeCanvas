@@ -1,6 +1,6 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 // src/engine/cmd/global/gitOperations/discardChanges.ts
 import git from 'isomorphic-git';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { GitFileSystemHelper } from './fileSystemHelper';
 
 export async function discardChanges(

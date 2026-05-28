@@ -3,11 +3,11 @@
 
 'use client';
 
-import { DiffEditor } from '@monaco-editor/react';
 import type { Monaco } from '@monaco-editor/react';
+import { DiffEditor } from '@monaco-editor/react';
 import { Check, X } from 'lucide-react';
 import type * as monacoEditor from 'monaco-editor';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { getLanguage } from '@/components/Tab/text-editor/editors/editor-utils';
 import { defineAndSetMonacoThemes } from '@/components/Tab/text-editor/editors/monaco-themes';
@@ -63,14 +63,6 @@ export default function AIReviewTab({
   // デバウンス保存用のタイマー
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  if (!originalContent && !suggestedContent) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ color: colors.mutedFg }}>
-        {t('aiReviewTab.notFound')}
-      </div>
-    );
-  }
-
   // クリーンアップ
   useEffect(() => {
     return () => {
@@ -122,20 +114,15 @@ export default function AIReviewTab({
   // suggestedContentの変更を監視してローカル状態を更新
   // 他のAIReviewTabからsuggestedContentが更新されたときに同期する
   useEffect(() => {
-    if (currentSuggestedContent !== suggestedContent) {
-      setCurrentSuggestedContent(suggestedContent);
-      // DiffEditorのmodifiedモデルも更新
-      if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
-        const currentModifiedValue = modelsRef.current.modified.getValue();
-        if (currentModifiedValue !== suggestedContent) {
-          console.log('[AIReviewTab] Suggested content changed externally, updating DiffEditor');
-          modelsRef.current.modified.setValue(suggestedContent);
-        }
+    setCurrentSuggestedContent(suggestedContent);
+    // DiffEditorのmodifiedモデルも更新
+    if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
+      const currentModifiedValue = modelsRef.current.modified.getValue();
+      if (currentModifiedValue !== suggestedContent) {
+        console.log('[AIReviewTab] Suggested content changed externally, updating DiffEditor');
+        modelsRef.current.modified.setValue(suggestedContent);
       }
     }
-    // Note: currentSuggestedContent is intentionally not in the dependency array
-    // to prevent infinite loops - we only want to sync when suggestedContent prop changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedContent]);
 
   // デバウンス付き保存関数
@@ -303,6 +290,14 @@ export default function AIReviewTab({
   // use shared utility to detect language from filename
   const language = getLanguage(filePath);
 
+  if (!originalContent && !suggestedContent) {
+    return (
+      <div className="flex items-center justify-center h-full" style={{ color: colors.mutedFg }}>
+        {t('aiReviewTab.notFound')}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
@@ -424,7 +419,7 @@ export default function AIReviewTab({
                 </span>
               </div>
             );
-          } catch (e) {
+          } catch {
             const orig = originalContent.split('\n').length;
             const sug = currentSuggestedContent.split('\n').length;
             return (

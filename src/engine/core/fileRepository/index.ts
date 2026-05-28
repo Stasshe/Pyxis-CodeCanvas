@@ -16,11 +16,9 @@ const impl = useInMemory ? inmemoryImpl : indexeddbImpl;
 export const fileRepository = impl.fileRepository;
 export const FileRepository = impl.FileRepository;
 
-// 型 (共通)
-export type { FileChangeEvent } from './indexeddb';
-
-// deprecated パスユーティリティ (実装非依存)
-export { normalizePath, getParentPath, toGitPath, fromGitPath } from './indexeddb';
-
 // pathUtils 再エクスポート
 export * from '../pathUtils';
+// 型 (共通)
+export type { FileChangeEvent } from './indexeddb';
+// deprecated パスユーティリティ (実装非依存)
+export { fromGitPath, getParentPath, normalizePath, toGitPath } from './indexeddb';

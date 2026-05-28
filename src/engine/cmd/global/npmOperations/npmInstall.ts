@@ -3,9 +3,13 @@ import { ensureGitignoreContains } from '@/engine/core/gitignore';
 import { transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
 
 import { BatchFileWriter } from './install/batchWriter';
-import { analyzeDependencies, findOrphanedPackages, getRootDependencies } from './install/dependencyGraph';
+import {
+  analyzeDependencies,
+  findOrphanedPackages,
+  getRootDependencies,
+} from './install/dependencyGraph';
 import { TarExtractor } from './install/tarExtractor';
-import type { InstallProgressCallback, PackageInfo } from './install/types';
+import type { ExtractedFileMap, InstallProgressCallback, PackageInfo } from './install/types';
 import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
 
 export type { InstallProgressCallback };
@@ -64,7 +68,9 @@ export class NpmInstall {
 
     const remaining = await fileRepository.getFilesByPrefix(this.projectId, normalized + '/');
     for (const file of remaining) {
-      try { await fileRepository.deleteFile(file.id); } catch {}
+      try {
+        await fileRepository.deleteFile(file.id);
+      } catch {}
     }
   }
 
@@ -76,7 +82,11 @@ export class NpmInstall {
       );
       if (!pkgFile?.content) return;
       let pj: any;
-      try { pj = JSON.parse(pkgFile.content); } catch { return; }
+      try {
+        pj = JSON.parse(pkgFile.content);
+      } catch {
+        return;
+      }
 
       const binField = pj.bin;
       let bins: Record<string, string> = {};
@@ -274,7 +284,8 @@ export class NpmInstall {
         return;
       }
 
-      if (this.onInstallProgress) await this.onInstallProgress(packageName, pkgInfo.version, isDirect);
+      if (this.onInstallProgress)
+        await this.onInstallProgress(packageName, pkgInfo.version, isDirect);
 
       const requiredDepEntries = Object.entries(pkgInfo.dependencies || {});
       const optionalDepEntries = Object.entries(pkgInfo.optionalDependencies || {}).filter(
@@ -336,7 +347,8 @@ export class NpmInstall {
         });
         clearTimeout(timeoutId);
         if (!tarballResponse.ok) {
-          if (tarballResponse.status === 404) throw new Error(`Package '${packageName}@${version}' not found`);
+          if (tarballResponse.status === 404)
+            throw new Error(`Package '${packageName}@${version}' not found`);
           throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
         }
       } catch (error) {
@@ -347,7 +359,7 @@ export class NpmInstall {
       }
 
       const packageDir = `/node_modules/${packageName}`;
-      let extractedFiles;
+      let extractedFiles: ExtractedFileMap;
       try {
         if (tarballResponse.body && typeof ReadableStream !== 'undefined') {
           let decompressedStream: ReadableStream<Uint8Array>;
@@ -357,7 +369,9 @@ export class NpmInstall {
                 new (globalThis as any).DecompressionStream('gzip')
               );
             } catch {
-              decompressedStream = this.extractor.createPakoDecompressedStream(tarballResponse.body);
+              decompressedStream = this.extractor.createPakoDecompressedStream(
+                tarballResponse.body
+              );
             }
           } else {
             decompressedStream = this.extractor.createPakoDecompressedStream(tarballResponse.body);
@@ -370,7 +384,9 @@ export class NpmInstall {
           );
         }
       } catch (error) {
-        try { await this.removeDirectory(packageDir); } catch {}
+        try {
+          await this.removeDirectory(packageDir);
+        } catch {}
         throw new Error(`Failed to extract package: ${(error as Error).message}`);
       }
 
@@ -378,7 +394,12 @@ export class NpmInstall {
         await this.writer.execute(packageDir, 'folder');
 
         const foldersToCreate: string[] = [];
-        const filesToCreate: Array<{ projectId: string; path: string; content: string; type: string }> = [];
+        const filesToCreate: Array<{
+          projectId: string;
+          path: string;
+          content: string;
+          type: string;
+        }> = [];
 
         for (const [relPath, fileInfo] of extractedFiles) {
           const fullPath = `${packageDir}/${relPath}`;
@@ -389,7 +410,12 @@ export class NpmInstall {
             if (fullPath.endsWith('.mjs') && content) {
               content = await transformEsmToCjs(content, fullPath);
             }
-            filesToCreate.push({ projectId: this.projectId, path: fullPath, content, type: 'file' });
+            filesToCreate.push({
+              projectId: this.projectId,
+              path: fullPath,
+              content,
+              type: 'file',
+            });
           }
         }
 
@@ -412,7 +438,9 @@ export class NpmInstall {
             } catch {
               await Promise.all(
                 batch.map(b =>
-                  fileRepository.createFile(this.projectId, b.path, b.content, 'file').catch(() => {})
+                  fileRepository
+                    .createFile(this.projectId, b.path, b.content, 'file')
+                    .catch(() => {})
                 )
               );
             }
@@ -422,7 +450,9 @@ export class NpmInstall {
         console.warn(`[npm] Failed to sync to IndexedDB:`, (error as Error).message);
       }
     } catch (error) {
-      throw new Error(`Installation failed for ${packageName}@${version}: ${(error as Error).message}`);
+      throw new Error(
+        `Installation failed for ${packageName}@${version}: ${(error as Error).message}`
+      );
     }
   }
 }

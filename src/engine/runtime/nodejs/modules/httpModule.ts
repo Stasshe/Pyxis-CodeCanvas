@@ -131,7 +131,7 @@ class ClientRequest {
       this._options = {
         protocol: url.protocol,
         hostname: url.hostname,
-        port: url.port ? Number.parseInt(url.port) : undefined,
+        port: url.port ? Number.parseInt(url.port, 10) : undefined,
         path: url.pathname + url.search,
         method: 'GET',
       };
@@ -282,7 +282,7 @@ export function createHTTPModule() {
         options = {
           protocol: url.protocol,
           hostname: url.hostname,
-          port: url.port ? Number.parseInt(url.port) : undefined,
+          port: url.port ? Number.parseInt(url.port, 10) : undefined,
           path: url.pathname + url.search,
           method: 'GET',
         };

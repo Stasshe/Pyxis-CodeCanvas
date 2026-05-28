@@ -8,15 +8,6 @@
  * パス変換は pathResolver モジュールを使用
  */
 
-import { gitFileSystem } from '../gitFileSystem';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '../gitignore';
-import {
-  fromGitPath as pathFromGitPath,
-  getParentPath as pathGetParentPath,
-  toGitPath as pathToGitPath,
-  toAppPath,
-} from '../pathUtils';
-
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { IDB } from '@/constants/idb';
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
@@ -26,6 +17,14 @@ import {
   deleteChatSpacesForProject as chatDeleteChatSpacesForProject,
 } from '@/engine/storage/chatStorageAdapter';
 import type { Project, ProjectFile } from '@/types';
+import { gitFileSystem } from '../gitFileSystem';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '../gitignore';
+import {
+  fromGitPath as pathFromGitPath,
+  getParentPath as pathGetParentPath,
+  toGitPath as pathToGitPath,
+  toAppPath,
+} from '../pathUtils';
 
 // ユニークID生成関数
 const generateUniqueId = (prefix: string): string => {
@@ -158,6 +157,7 @@ export class FileRepository {
           try {
             fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
           } catch (e) {
+            console.warn('[indexeddb.ts] caught non-fatal error', e);
             // ignore if not supported
           }
         } else {
@@ -169,6 +169,7 @@ export class FileRepository {
             try {
               fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
             } catch (e) {
+              console.warn('[indexeddb.ts] caught non-fatal error', e);
               // ignore if not supported
             }
           }
@@ -384,7 +385,7 @@ export class FileRepository {
     const project = projects.find(p => p.id === projectId);
     const projectName = project?.name || '';
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['projects', 'files', 'chatSpaces'], 'readwrite');
 
       // プロジェクトを削除
@@ -460,7 +461,9 @@ export class FileRepository {
       }
       // エディターレイアウトやターミナル履歴など、プロジェクト固有のlocalStorageキーを削除
       const keysToRemove = [LOCALSTORAGE_KEY.LAST_EXECUTE_FILE];
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
     } catch (error) {
       coreError('[FileRepository] Failed to cleanup localStorage:', error);
     }
@@ -1193,6 +1196,7 @@ export class FileRepository {
           req.onsuccess = () => resolve(req.result || null);
           return;
         } catch (e) {
+          console.warn('[indexeddb.ts] caught non-fatal error', e);
           // fallthrough to fallback
         }
       }
@@ -1253,6 +1257,7 @@ export class FileRepository {
           };
           return;
         } catch (e) {
+          console.warn('[indexeddb.ts] caught non-fatal error', e);
           // fallthrough
         }
       }
@@ -1463,7 +1468,7 @@ const fromGitPath = pathFromGitPath;
 
 // エクスポート
 export const fileRepository = FileRepository.getInstance();
-export { normalizePath, getParentPath, toGitPath, fromGitPath };
 
 // 新しいパス解決モジュールを再エクスポート
 export * from '../pathUtils';
+export { fromGitPath, getParentPath, normalizePath, toGitPath };

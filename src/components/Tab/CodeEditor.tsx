@@ -12,19 +12,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
-
-import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
-import MonacoEditor from './text-editor/editors/MonacoEditor';
-import { useCharCount } from './text-editor/hooks/useCharCount';
-import CharCountDisplay from './text-editor/ui/CharCountDisplay';
-import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
-
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { saveImmediately, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
+import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
+import MonacoEditor from './text-editor/editors/MonacoEditor';
+import { useCharCount } from './text-editor/hooks/useCharCount';
+import CharCountDisplay from './text-editor/ui/CharCountDisplay';
+import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
 
 interface CodeEditorProps {
   activeTab: EditorTab | undefined;
@@ -101,6 +99,7 @@ export default function CodeEditor({
           !!hasTouchPoints || (!!mqPointer && mqPointer.matches) || (!!mqWidth && mqWidth.matches);
         setIsMobileDevice(isMobile);
       } catch (e) {
+        console.warn('[CodeEditor.tsx] caught non-fatal error', e);
         setIsMobileDevice(false);
       }
     };
@@ -140,46 +139,38 @@ export default function CodeEditor({
   );
 
   // Ctrl+S で即時保存
-  useKeyBinding(
-    'saveFile',
-    async () => {
-      if (!activeTab?.path) return;
-      // コンテンツ復元中やランタイム操作中は保存を無視
-      if (isRestoringContent) return;
-      if (nodeRuntimeOperationInProgress) {
-        console.log('[CodeEditor] Save skipped during NodeRuntime operation');
-        return;
-      }
+  useKeyBinding('saveFile', async () => {
+    if (!activeTab?.path) return;
+    // コンテンツ復元中やランタイム操作中は保存を無視
+    if (isRestoringContent) return;
+    if (nodeRuntimeOperationInProgress) {
+      console.log('[CodeEditor] Save skipped during NodeRuntime operation');
+      return;
+    }
 
-      try {
-        await saveImmediately(activeTab.path);
-        console.log('[CodeEditor] Immediate save completed');
-      } catch (e) {
-        console.error('[CodeEditor] Immediate save failed:', e);
-      }
-    },
-    [activeTab?.path, isRestoringContent, nodeRuntimeOperationInProgress]
-  );
+    try {
+      await saveImmediately(activeTab.path);
+      console.log('[CodeEditor] Immediate save completed');
+    } catch (e) {
+      console.error('[CodeEditor] Immediate save failed:', e);
+    }
+  }, [activeTab?.path, isRestoringContent, nodeRuntimeOperationInProgress]);
 
   // 折り返しのトグルショートカット登録 (Alt+Z)
-  useKeyBinding(
-    'toggleWordWrap',
-    async () => {
-      if (!projectId || !updateSettings) return;
-      const current = settings?.editor?.wordWrap ?? false;
-      try {
-        await updateSettings(prev => ({
-          editor: {
-            ...(prev?.editor || {}),
-            wordWrap: !current,
-          },
-        }));
-      } catch (e) {
-        console.error('[CodeEditor] toggleWordWrap failed:', e);
-      }
-    },
-    [projectId, settings?.editor?.wordWrap, updateSettings]
-  );
+  useKeyBinding('toggleWordWrap', async () => {
+    if (!projectId || !updateSettings) return;
+    const current = settings?.editor?.wordWrap ?? false;
+    try {
+      await updateSettings(prev => ({
+        editor: {
+          ...(prev?.editor || {}),
+          wordWrap: !current,
+        },
+      }));
+    } catch (e) {
+      console.error('[CodeEditor] toggleWordWrap failed:', e);
+    }
+  }, [projectId, settings?.editor?.wordWrap, updateSettings]);
 
   // === タブなし ===
   if (!activeTab) {

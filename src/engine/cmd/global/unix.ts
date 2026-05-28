@@ -1,5 +1,12 @@
 // Unixコマンド統合クラス（新アーキテクチャ: IndexedDB優先、自動同期）
 
+import type TerminalUI from '@/engine/cmd/terminalUI';
+import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import {
+  fsPathToAppPath,
+  normalizeDotSegments,
+  resolvePath as pathResolvePath,
+} from '@/engine/core/pathUtils';
 import {
   CatCommand,
   CdCommand,
@@ -29,15 +36,6 @@ import {
   WcCommand,
   ZipCommand,
 } from './unixOperations';
-
-import type TerminalUI from '@/engine/cmd/terminalUI';
-
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import {
-  fsPathToAppPath,
-  normalizeDotSegments,
-  resolvePath as pathResolvePath,
-} from '@/engine/core/pathUtils';
 
 /**
  * Unixコマンドを統合して提供するクラス

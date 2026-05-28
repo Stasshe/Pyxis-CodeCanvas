@@ -150,6 +150,7 @@ export async function isLikelyTextFile(path: string, content: Uint8Array): Promi
     decoder.decode(content.slice(0, Math.min(8192, content.length)));
     return true;
   } catch (e) {
+    console.warn('[isLikelyTextFile.ts] caught non-fatal error', e);
     return false;
   }
 }

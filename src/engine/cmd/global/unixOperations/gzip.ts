@@ -1,5 +1,5 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import pako from 'pako';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -25,7 +25,7 @@ export class GzipCommand extends UnixCommandBase {
     // オプション解析
     const optstring = 'dkfvh';
     const longopts = ['decompress', 'keep', 'force', 'verbose', 'help', 'uncompress'];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
     // ヘルプ

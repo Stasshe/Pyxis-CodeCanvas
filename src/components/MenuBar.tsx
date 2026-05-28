@@ -1,15 +1,13 @@
-import { FolderOpen, LogIn, LogOut, Package } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import { FolderOpen, LogIn, LogOut, Package } from 'lucide-react';
 import { useState } from 'react';
-
-import { useTheme } from '../context/ThemeContext';
-import type { MenuTab } from '../types';
-
 import { useGitHubUser } from '@/context/GitHubUserContext';
 import { useTranslation } from '@/context/I18nContext';
 import { authRepository } from '@/engine/user/authRepository';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
+import { useTheme } from '../context/ThemeContext';
+import type { MenuTab } from '../types';
 
 interface MenuBarProps {
   activeMenuTab: MenuTab;
@@ -118,13 +116,9 @@ export default function MenuBar({
   ].sort((a, b) => a.order - b.order);
 
   // グローバル検索ショートカット (Ctrl+Shift+F)
-  useKeyBinding(
-    'globalSearch',
-    () => {
-      onMenuTabClick('search');
-    },
-    [onMenuTabClick]
-  );
+  useKeyBinding('globalSearch', () => {
+    onMenuTabClick('search');
+  }, [onMenuTabClick]);
 
   return (
     <div

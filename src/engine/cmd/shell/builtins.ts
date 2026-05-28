@@ -2,8 +2,8 @@ import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
 import { normalizeDotSegments, toFSPath } from '@/engine/core/pathUtils';
-import { terminalProcessBridge } from '../terminalProcessBridge';
 import handleUnixCommand from '../handlers/unixHandler';
+import { terminalProcessBridge } from '../terminalProcessBridge';
 
 export type StreamCtx = {
   stdin: Readable;
@@ -42,7 +42,7 @@ const makeUnixBridge = (name: string) => {
       if (s === undefined || s === null) return;
       try {
         ctx.stdout.write(String(s));
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     };
@@ -60,7 +60,7 @@ const makeUnixBridge = (name: string) => {
         try {
           if (s === undefined || s === null) return;
           ctx.stderr.write(String(s));
-        } catch (e) {}
+        } catch (_e) {}
       };
 
       const result = await handleUnixCommand(
@@ -242,7 +242,7 @@ export default function adaptUnixToStream(unix: any) {
       try {
         const ver = 'v18.0.0 (custom build)'; // バージョン番号を適宜設定
         ctx.stdout.write(`${String(ver)}\n`);
-      } catch (e) {}
+      } catch (_e) {}
       ctx.stdout.end();
       ctx.stderr.end();
       return;
@@ -268,7 +268,7 @@ export default function adaptUnixToStream(unix: any) {
           // 即座にストリームに書き込む（バッファリングなし）
           try {
             ctx.stdout.write(output);
-          } catch (e) {
+          } catch (_e) {
             // ストリームが閉じていても無視（イベントループ完了後の出力）
           }
         },
@@ -278,7 +278,7 @@ export default function adaptUnixToStream(unix: any) {
             .join(' ');
           try {
             ctx.stderr.write(`${output}\n`);
-          } catch (e) {}
+          } catch (_e) {}
         },
         warn: (...args: unknown[]) => {
           const output = args
@@ -286,7 +286,7 @@ export default function adaptUnixToStream(unix: any) {
             .join(' ');
           try {
             ctx.stdout.write(`${output}\n`);
-          } catch (e) {}
+          } catch (_e) {}
         },
         clear: () => {
           // Terminal clearは別途処理
@@ -308,7 +308,7 @@ export default function adaptUnixToStream(unix: any) {
             entryPath = normalizeDotSegments(entryPath);
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // Fallback to original arg
         entryPath = args[0];
       }

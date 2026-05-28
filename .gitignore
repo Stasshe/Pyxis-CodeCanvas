@@ -76,3 +76,5 @@ test-results/
 
 test-workspaces/
 .gle/
+
+lint-report/

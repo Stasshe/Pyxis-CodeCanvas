@@ -325,7 +325,7 @@ export default function ExtensionsPanel() {
     }
 
     const filtered = filterInstalledExtensions(installed);
-    const { packs, others: allOthers } = groupInstalledExtensions(installed);
+    const { packs } = groupInstalledExtensions(installed);
 
     const filteredPacks: ExtensionPack[] = [];
     const filteredOthers: InstalledExtension[] = [];
@@ -357,7 +357,9 @@ export default function ExtensionsPanel() {
       setTimeout(() => {
         setExpandedPacks(prev => {
           const next = new Set(prev);
-          packsToExpand.forEach(id => next.add(id));
+          packsToExpand.forEach(id => {
+            next.add(id);
+          });
           return next;
         });
       }, 0);
@@ -373,7 +375,7 @@ export default function ExtensionsPanel() {
     }
 
     const filtered = filterAvailableExtensions(available);
-    const { packs, others: allOthers } = groupAvailableExtensions(available);
+    const { packs } = groupAvailableExtensions(available);
 
     const filteredPacks: AvailablePack[] = [];
     const filteredOthers: ExtensionManifest[] = [];
@@ -403,7 +405,9 @@ export default function ExtensionsPanel() {
       setTimeout(() => {
         setExpandedPacks(prev => {
           const next = new Set(prev);
-          packsToExpand.forEach(id => next.add(id));
+          packsToExpand.forEach(id => {
+            next.add(id);
+          });
           return next;
         });
       }, 0);

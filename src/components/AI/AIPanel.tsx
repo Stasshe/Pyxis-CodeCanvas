@@ -3,15 +3,9 @@
 'use client';
 
 import { Bot, ChevronDown, Edit2, MessageSquare, Plus, Terminal, Trash2, X } from 'lucide-react';
-import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-
-import FileSelector from './FileSelector';
-import ChatContainer from './chat/ChatContainer';
-import ChatInput from './chat/ChatInput';
-import ModeSelector from './chat/ModeSelector';
-import ChangedFilesPanel from './review/ChangedFilesPanel';
-
+import { useSnapshot } from 'valtio';
 import { Confirmation } from '@/components/Confirmation';
 import OperationWindow, {
   type OperationListItem,
@@ -26,7 +20,11 @@ import { useAIReview } from '@/hooks/ai/useAIReview';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { tabActions, tabState, updateFromExternal } from '@/stores/tabState';
 import type { ChatSpaceMessage, FileItem, Project } from '@/types';
-import { useSnapshot } from 'valtio';
+import ChatContainer from './chat/ChatContainer';
+import ChatInput from './chat/ChatInput';
+import ModeSelector from './chat/ModeSelector';
+import FileSelector from './FileSelector';
+import ChangedFilesPanel from './review/ChangedFilesPanel';
 
 interface AIPanelProps {
   projectFiles: FileItem[];
@@ -41,7 +39,6 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [showSpaceList, setShowSpaceList] = useState(false);
   const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const spaceButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Track if we're on the client for portal rendering
@@ -61,31 +58,10 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
     setIsClient(true);
   }, []);
 
-  // Compute dropdown position relative to viewport (fixed) so it appears under the button
-  const dropdownPosition = useMemo(() => {
-    if (!anchorRect || typeof window === 'undefined') return null;
-    const padding = 8;
-    const desiredWidth = 320;
-    const maxAvailableRight = window.innerWidth - padding - anchorRect.left;
-    const width = Math.min(desiredWidth, Math.max(160, Math.min(360, maxAvailableRight)));
-
-    // If the dropdown would overflow the right edge, shift it left
-    let left = anchorRect.left;
-    if (left + width + padding > window.innerWidth) {
-      left = Math.max(padding, window.innerWidth - width - padding);
-    }
-
-    // place just below the button
-    const top = anchorRect.bottom + 6;
-
-    return { left, top, width };
-  }, [anchorRect]);
-
   // チャットスペース管理
   const {
     chatSpaces,
     currentSpace,
-    loading: spacesLoading,
     createNewSpace,
     selectSpace,
     deleteSpace,
@@ -122,15 +98,20 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
 
+  const fileContextsRef = useRef(fileContexts);
+  const updateFileContextsRef = useRef(updateFileContexts);
+  fileContextsRef.current = fileContexts;
+  updateFileContextsRef.current = updateFileContexts;
+
   // プロジェクトファイルが変更されたときにコンテキストを更新
   useEffect(() => {
     if (projectFiles.length > 0) {
-      const selectedMap = new Map(fileContexts.map(ctx => [ctx.path, ctx.selected]));
+      const selectedMap = new Map(fileContextsRef.current.map(ctx => [ctx.path, ctx.selected]));
       const contexts = buildAIFileContextList(projectFiles).map(ctx => ({
         ...ctx,
         selected: selectedMap.get(ctx.path) ?? false,
       }));
-      updateFileContexts(contexts);
+      updateFileContextsRef.current(contexts);
     }
   }, [projectFiles]);
 
@@ -448,9 +429,6 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
               }}
               ref={spaceButtonRef}
               onClick={() => {
-                if (spaceButtonRef.current) {
-                  setAnchorRect(spaceButtonRef.current.getBoundingClientRect());
-                }
                 setShowSpaceList(prev => !prev);
               }}
             >

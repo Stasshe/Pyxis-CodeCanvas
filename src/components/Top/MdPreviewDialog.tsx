@@ -1,9 +1,9 @@
 'use client';
 
+import React from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import type { ThemeColors } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
-import React from 'react';
 
 interface Props {
   prompt: { file: FileItem } | null;

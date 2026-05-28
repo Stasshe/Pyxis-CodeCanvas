@@ -4,8 +4,9 @@
  * Displays 3-way merge (base, ours, theirs) and allows
  * users to resolve conflicts interactively.
  */
-import { DiffEditor, Editor } from '@monaco-editor/react';
+
 import type { Monaco } from '@monaco-editor/react';
+import { DiffEditor, Editor } from '@monaco-editor/react';
 import { Check, ChevronDown, ChevronRight, GitMerge, X } from 'lucide-react';
 import type * as monacoEditor from 'monaco-editor';
 import type React from 'react';
@@ -294,7 +295,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                     {t('mergeConflict.resolved') || 'Resolved'}
                   </>
                 ) : (
-                  <>{t('mergeConflict.markAsResolved') || 'Mark as Resolved'}</>
+                  t('mergeConflict.markAsResolved') || 'Mark as Resolved'
                 )}
               </button>
             </div>

@@ -1,8 +1,6 @@
-import type { FileItem } from '@/types';
 import clsx from 'clsx';
 import { Code, Play, Square, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
@@ -10,6 +8,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
+import type { FileItem } from '@/types';
 
 interface RunPanelProps {
   currentProject: { id: string; name: string } | null;
@@ -67,6 +66,7 @@ function buildExecutableProjectFiles(files: FileItem[]): FileItem[] {
               });
             }
           } catch (e) {
+            console.warn('[RunPanel.tsx] caught non-fatal error', e);
             executableFiles.push({
               id: item.id || fullPath,
               name: item.name,

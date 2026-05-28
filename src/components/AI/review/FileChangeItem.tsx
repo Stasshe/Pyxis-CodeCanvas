@@ -23,8 +23,6 @@ export default function FileChangeItem({
   onApply,
   onDiscard,
 }: FileChangeItemProps) {
-  // always compact
-  const compact = true;
   const { colors } = useTheme();
   const { t } = useTranslation();
 

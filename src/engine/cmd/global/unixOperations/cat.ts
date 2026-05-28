@@ -1,8 +1,7 @@
-import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
-
 import { fileRepository } from '@/engine/core/fileRepository';
 import type { ProjectFile } from '@/types';
+import { parseWithGetOpt } from '../../lib';
+import { UnixCommandBase } from './base';
 
 /**
  * cat - ファイルの内容を表示 (POSIX/GNU準拠)
@@ -39,7 +38,7 @@ export class CatCommand extends UnixCommandBase {
       'show-all',
       'help',
     ];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {

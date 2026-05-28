@@ -5,18 +5,17 @@
  * without unnecessary provider abstraction layer.
  */
 
-import adaptBuiltins, { type StreamCtx } from './builtins';
-import { expandTokens } from './expansion';
-import { parseCommandLine } from './parser';
-import { Process } from './process';
-import { runScript } from './scriptRunner';
-import { type Segment, type TokenObj, isDevNull } from './types';
-
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
 import { fsPathToAppPath, resolvePath, toFSPath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
+import adaptBuiltins, { type StreamCtx } from './builtins';
+import { expandTokens } from './expansion';
+import { parseCommandLine } from './parser';
+import { Process } from './process';
+import { runScript } from './scriptRunner';
+import { isDevNull, type Segment, type TokenObj } from './types';
 
 /**
  * Shell Executor Options
@@ -672,7 +671,9 @@ export class ShellExecutor {
       // Try package.json bin field first
       const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${cmd}/package.json`);
       const directPackageJson = this.fileRepository
-        ? await this.fileRepository.getFileByPath(this.context.projectId, directPackageJsonApp).catch(() => null)
+        ? await this.fileRepository
+            .getFileByPath(this.context.projectId, directPackageJsonApp)
+            .catch(() => null)
         : null;
 
       if (directPackageJson?.content) {
@@ -680,7 +681,10 @@ export class ShellExecutor {
           const pkg = JSON.parse(directPackageJson.content);
           const binField = typeof pkg.bin === 'string' ? { [pkg.name || cmd]: pkg.bin } : pkg.bin;
           const selectedBin =
-            (binField && typeof binField === 'object' && (binField[cmd] || Object.values(binField)[0])) || null;
+            (binField &&
+              typeof binField === 'object' &&
+              (binField[cmd] || Object.values(binField)[0])) ||
+            null;
           if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
             absFs = toFSPath(
               this.context.projectName,
@@ -693,7 +697,9 @@ export class ShellExecutor {
       // Fallback: .bin shim
       if (!absFs && this.fileRepository) {
         const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${cmd}`);
-        const dotBinFile = await this.fileRepository.getFileByPath(this.context.projectId, dotBinApp).catch(() => null);
+        const dotBinFile = await this.fileRepository
+          .getFileByPath(this.context.projectId, dotBinApp)
+          .catch(() => null);
         if (dotBinFile) {
           absFs = toFSPath(this.context.projectName, dotBinApp);
         }
@@ -702,7 +708,8 @@ export class ShellExecutor {
       if (absFs) {
         const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
         const fmt = (...a: unknown[]) => proc.writeStdout(a.map(x => String(x)).join(' ') + '\n');
-        const fmtErr = (...a: unknown[]) => proc.writeStderr(a.map(x => String(x)).join(' ') + '\n');
+        const fmtErr = (...a: unknown[]) =>
+          proc.writeStderr(a.map(x => String(x)).join(' ') + '\n');
         const runtime = new NodeRuntime({
           projectId: this.context.projectId,
           projectName: this.context.projectName,

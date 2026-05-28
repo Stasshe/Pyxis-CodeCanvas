@@ -23,7 +23,7 @@ interface ResizeState {
  * requestAnimationFrameによりスムーズなリサイズを実現
  */
 export function usePaneResize(options: UsePaneResizeOptions) {
-  const { direction, leftSize, minSize = 10, onResize, containerRef } = options;
+  const { direction, minSize = 10, onResize, containerRef } = options;
 
   const stateRef = useRef<ResizeState>({
     isResizing: false,

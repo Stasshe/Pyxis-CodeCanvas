@@ -48,8 +48,6 @@ Commands:
         return 'usage: git pull [<remote>] [<branch>]\nFetch from and integrate with another repository or a local branch.';
       case 'init':
         return 'usage: git init\nCreate an empty Git repository or reinitialize an existing one.';
-      case 'clone':
-        return 'usage: git clone <url> [dir]';
       case 'add':
         return 'usage: git add <pathspec>\nAdd file contents to the index.';
       case 'commit':
@@ -189,7 +187,7 @@ Commands:
         const message = args
           .slice(messageIndex + 1)
           .join(' ')
-          .replace(/['\"]/g, '');
+          .replace(/['"]/g, '');
         const commitResult = await git.commit(message);
         await writeOutput(commitResult);
       } else {
@@ -377,7 +375,7 @@ Commands:
           message = args
             .slice(messageIndex + 1)
             .join(' ')
-            .replace(/['\"]/g, '');
+            .replace(/['"]/g, '');
         }
         const mergeResult = await git.merge(branchName, { noFf, message });
         await writeOutput(mergeResult);
@@ -397,7 +395,7 @@ Commands:
 
         let usedBranch = branch;
         if (!usedBranch && typeof pushResult === 'string') {
-          const match = pushResult.match(/\s([\w\-]+) -> [\w\-]+/);
+          const match = pushResult.match(/\s([\w-]+) -> [\w-]+/);
           if (match?.[1]) usedBranch = match[1];
         }
         if (usedBranch) {

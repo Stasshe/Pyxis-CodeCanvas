@@ -1,5 +1,5 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import JSZip from 'jszip';
+import { fileRepository } from '@/engine/core/fileRepository';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -29,7 +29,7 @@ export class ZipCommand extends UnixCommandBase {
     // オプション解析
     const optstring = 'rqvufdh';
     const longopts = ['recurse-paths', 'quiet', 'verbose', 'update', 'freshen', 'delete', 'help'];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
     // ヘルプ

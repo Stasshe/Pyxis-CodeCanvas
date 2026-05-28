@@ -21,5 +21,7 @@ export function createProcessExitSignal(code = 0): ProcessExitSignal {
 }
 
 export function isProcessExitSignal(error: unknown): error is ProcessExitSignal {
-  return !!error && typeof error === 'object' && (error as ProcessExitSignal).__pyxisProcessExit === true;
+  return (
+    !!error && typeof error === 'object' && (error as ProcessExitSignal).__pyxisProcessExit === true
+  );
 }

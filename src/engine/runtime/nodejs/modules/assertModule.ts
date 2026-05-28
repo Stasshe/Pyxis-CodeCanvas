@@ -58,6 +58,7 @@ export function createAssertModule() {
           fn();
           throw new Error(message || 'Expected function to throw');
         } catch (error) {
+          console.warn('[assertModule.ts] caught non-fatal error', error);
           // Expected behavior
         }
       },
@@ -65,6 +66,7 @@ export function createAssertModule() {
         try {
           fn();
         } catch (error) {
+          console.warn('[assertModule.ts] caught non-fatal error', error);
           throw new Error(message || 'Expected function to not throw');
         }
       },

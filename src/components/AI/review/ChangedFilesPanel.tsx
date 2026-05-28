@@ -4,11 +4,9 @@
 
 import { FileCode } from 'lucide-react';
 import React from 'react';
-
-import FileChangeItem from './FileChangeItem';
-
 import { useTheme } from '@/context/ThemeContext';
 import type { AIEditResponse } from '@/types';
+import FileChangeItem from './FileChangeItem';
 
 interface ChangedFilesPanelProps {
   changedFiles: AIEditResponse['changedFiles'];
@@ -23,8 +21,6 @@ export default function ChangedFilesPanel({
   onApplyChanges,
   onDiscardChanges,
 }: ChangedFilesPanelProps) {
-  // Always compact
-  const compact = true;
   const { colors } = useTheme();
 
   if (changedFiles.length === 0) {
@@ -47,9 +43,9 @@ export default function ChangedFilesPanel({
       </div>
 
       <div className="space-y-2">
-        {changedFiles.map((file, index) => (
+        {changedFiles.map(file => (
           <FileChangeItem
-            key={`${file.path}-${index}`}
+            key={file.path}
             file={file}
             onOpenReview={onOpenReview}
             onApply={onApplyChanges}

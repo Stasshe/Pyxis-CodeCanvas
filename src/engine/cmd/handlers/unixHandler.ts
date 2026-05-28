@@ -23,7 +23,7 @@ export async function handleUnixCommand(
     try {
       await writeOutput(str);
       streamed = true;
-    } catch (e) {
+    } catch (_e) {
       // ignore writeOutput errors
     }
     if (code !== undefined) exitCode = code;
@@ -35,7 +35,7 @@ export async function handleUnixCommand(
     try {
       await writeError(str);
       streamed = true;
-    } catch (e) {}
+    } catch (_e) {}
     if (code !== undefined) exitCode = code;
   };
 

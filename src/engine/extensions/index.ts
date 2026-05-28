@@ -2,9 +2,9 @@
  * Pyxis Extension System - Main Export
  */
 
-export * from './types';
-export * from './extensionManager';
+export * from './autoInstaller';
 export * from './extensionLoader';
+export * from './extensionManager';
 export * from './extensionRegistry';
 export * from './storage-adapter';
-export * from './autoInstaller';
+export * from './types';

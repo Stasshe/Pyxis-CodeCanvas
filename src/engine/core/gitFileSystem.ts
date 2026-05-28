@@ -9,10 +9,9 @@
 
 import FS from '@isomorphic-git/lightning-fs';
 
-import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
 import { IDB } from '@/constants/idb';
-
 import { coreError, coreInfo, coreWarn } from '@/engine/core/coreLogger';
+import { getProjectRoot, toAppPath, toFSPath, toGitPath } from './pathUtils';
 
 export class GitFileSystem {
   private fs: FS | null = null;
@@ -71,14 +70,6 @@ export class GitFileSystem {
    */
   getProjectDir(projectName: string): string {
     return getProjectRoot(projectName);
-  }
-
-  /**
-   * AppPath（先頭スラッシュ付き）をFSPath（プロジェクトディレクトリ + パス）に変換
-   * pathResolverのtoFSPathを使用
-   */
-  private toFullPath(projectName: string, filePath: string): string {
-    return toFSPath(projectName, filePath);
   }
 
   /**
@@ -205,6 +196,7 @@ export class GitFileSystem {
 
       await fs.promises.rmdir(dirPath);
     } catch (error) {
+      console.warn('[gitFileSystem.ts] caught non-fatal error', error);
       // エラーは無視
     }
   }
@@ -296,6 +288,7 @@ export class GitFileSystem {
       }
       coreInfo(`[GitFileSystem] Cleared project directory: ${projectDir}`);
     } catch (error) {
+      console.warn('[gitFileSystem.ts] caught non-fatal error', error);
       // ディレクトリが存在しない場合は無視
     }
   }
@@ -304,7 +297,6 @@ export class GitFileSystem {
    * プロジェクト全体を削除（ディレクトリごと削除）
    */
   async deleteProject(projectName: string): Promise<void> {
-    const fs = this.getFS();
     const projectDir = this.getProjectDir(projectName);
 
     try {

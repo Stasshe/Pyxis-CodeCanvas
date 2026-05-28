@@ -1,6 +1,6 @@
-import { type PyxisSession, sessionStore } from '@/stores/sessionStore';
 // src/hooks/useOptimizedUIStateSave.ts
 import { useCallback, useEffect, useRef } from 'react';
+import { type PyxisSession, sessionStore } from '@/stores/sessionStore';
 
 /**
  * 最適化された UI 保存フック

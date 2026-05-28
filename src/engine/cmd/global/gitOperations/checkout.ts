@@ -1,10 +1,8 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-
+import { syncManager } from '@/engine/core/syncManager';
 import { GitFileSystemHelper } from './fileSystemHelper';
 import { isRemoteRef, resolveRemoteRef, toFullRemoteRef } from './remoteUtils';
-
-import { syncManager } from '@/engine/core/syncManager';
 
 /**
  * Git checkout操作を管理するクラス
@@ -58,7 +56,6 @@ export class GitCheckoutOperations {
       }
 
       let targetCommitHash: string | undefined;
-      let isNewBranch = createNew;
       // resolvedFromRemote: whether the ref was resolved from refs/remotes/...
       let resolvedFromRemote = false;
       // resolvedFromLocal: whether the ref was resolved from refs/heads/...
@@ -111,7 +108,6 @@ export class GitCheckoutOperations {
                   oid: branchName,
                 });
                 targetCommitHash = expandedOid;
-                isNewBranch = false;
               } catch {
                 try {
                   const branches = await git.listBranches({ fs: this.fs, dir: this.dir });

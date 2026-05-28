@@ -1,4 +1,4 @@
-import { type VirtualItem, useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
@@ -155,6 +155,7 @@ export default function VirtualizedFileTree({
           if (mounted) setGitignoreRules([]);
         }
       } catch (e) {
+        console.warn('[VirtualizedFileTree.tsx] caught non-fatal error', e);
         if (mounted) setGitignoreRules([]);
       }
     };

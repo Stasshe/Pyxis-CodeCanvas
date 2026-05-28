@@ -28,23 +28,23 @@
  */
 
 import * as stream from 'node:stream';
+import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
+import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
 import { createAssertModule } from './modules/assertModule';
 import { Buffer } from './modules/bufferModule';
+import { createChildProcessModule } from './modules/childProcessModule';
+import { createCryptoModule } from './modules/cryptoModule';
 import { createEventsModule } from './modules/eventsModule';
-import { type FSModuleOptions, createFSModule } from './modules/fsModule';
+import { createFSModule, type FSModuleOptions } from './modules/fsModule';
 import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
 import { createModuleModule } from './modules/moduleModule';
 import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
 import { createReadlineModule } from './modules/readlineModule';
 import { createTTYModule } from './modules/ttyModule';
-import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import * as urlModule from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 import { createV8Module } from './modules/v8Module';
-import { createCryptoModule } from './modules/cryptoModule';
-import { createChildProcessModule } from './modules/childProcessModule';
-import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
 
 export interface BuiltInModulesOptions {
   projectDir: string;
@@ -134,27 +134,26 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
 }
 
 /**
- * 個別のモジュールを作成（必要に応じて使用）
- */
-export {
-  createFSModule,
-  createPathModule,
-  createOSModule,
-  createUtilModule,
-  createHTTPModule,
-  createHTTPSModule,
-  createEventsModule,
-  Buffer,
-  createReadlineModule,
-  createTTYModule,
-  createAssertModule,
-  createModuleModule,
-  createChildProcessModule,
-  urlModule,
-  stream,
-};
-
-/**
  * 型定義のエクスポート
  */
 export type { FSModuleOptions };
+/**
+ * 個別のモジュールを作成（必要に応じて使用）
+ */
+export {
+  Buffer,
+  createAssertModule,
+  createChildProcessModule,
+  createEventsModule,
+  createFSModule,
+  createHTTPModule,
+  createHTTPSModule,
+  createModuleModule,
+  createOSModule,
+  createPathModule,
+  createReadlineModule,
+  createTTYModule,
+  createUtilModule,
+  stream,
+  urlModule,
+};

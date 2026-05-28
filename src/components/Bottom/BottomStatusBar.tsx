@@ -1,10 +1,9 @@
 'use client';
-import type { ThemeColors } from '@/context/ThemeContext';
-import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 import { CheckCircle2, Loader2Icon } from 'lucide-react';
-import React, { useEffect, useState, useRef } from 'react';
-
+import React, { useEffect, useRef, useState } from 'react';
+import type { ThemeColors } from '@/context/ThemeContext';
 import { syncManager } from '@/engine/core/syncManager';
+import { formatKeyComboForDisplay, useKeyBindings } from '@/hooks/keybindings/useKeyBindings';
 
 type Props = {
   height?: number;

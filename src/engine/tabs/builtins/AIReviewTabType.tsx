@@ -1,20 +1,10 @@
 // src/engine/tabs/builtins/AIReviewTabType.tsx
 import type React from 'react';
 import { useEffect } from 'react';
-
-import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
-
 import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import {
-  addChangeListener,
-  initTabSaveSync,
-  tabActions,
-  updateFromExternal,
-} from '@/stores/tabState';
-
 /**
  * AIレビュータブのコンポーネント
  *
@@ -22,6 +12,13 @@ import {
  * ワーキングディレクトリのファイル変更を originalContent に反映。
  */
 import { useTabContent } from '@/stores/tabContentStore';
+import {
+  addChangeListener,
+  initTabSaveSync,
+  tabActions,
+  updateFromExternal,
+} from '@/stores/tabState';
+import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;

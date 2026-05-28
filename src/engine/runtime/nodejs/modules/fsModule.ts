@@ -182,36 +182,38 @@ export function createFSModule(options: FSModuleOptions) {
       callback?: FsCallback<string | Uint8Array>
     ): Promise<string | Uint8Array> | void => {
       const normalized = splitOptionsAndCallback(options, callback);
-      const readTask = trackTask((async (): Promise<string | Uint8Array> => {
-        try {
-          const { relativePath } = normalizeModulePath(path);
-          const mount = mountRouter.resolve(relativePath);
-          const syncContent = mount.getFileSync(relativePath);
-          const content =
-            syncContent !== undefined ? syncContent : await mount.getFile(relativePath);
+      const readTask = trackTask(
+        (async (): Promise<string | Uint8Array> => {
+          try {
+            const { relativePath } = normalizeModulePath(path);
+            const mount = mountRouter.resolve(relativePath);
+            const syncContent = mount.getFileSync(relativePath);
+            const content =
+              syncContent !== undefined ? syncContent : await mount.getFile(relativePath);
 
-          if (content === undefined) {
-            throw createFsError('ENOENT', 'open', path);
-          }
+            if (content === undefined) {
+              throw createFsError('ENOENT', 'open', path);
+            }
 
-          return formatReadContent(content, normalized.options);
-        } catch (error) {
-          if (
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            typeof (error as any).code === 'string'
-          ) {
-            throw error;
+            return formatReadContent(content, normalized.options);
+          } catch (error) {
+            if (
+              error &&
+              typeof error === 'object' &&
+              'code' in error &&
+              typeof (error as any).code === 'string'
+            ) {
+              throw error;
+            }
+            throw createFsError(
+              'EIO',
+              'open',
+              path,
+              `ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`
+            );
           }
-          throw createFsError(
-            'EIO',
-            'open',
-            path,
-            `ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`
-          );
-        }
-      })());
+        })()
+      );
 
       if (normalized.callback) {
         readTask
@@ -230,19 +232,17 @@ export function createFSModule(options: FSModuleOptions) {
       callback?: FsCallback<void>
     ): Promise<void> | void => {
       const normalized = splitOptionsAndCallback(options, callback);
-      const writeTask = trackTask((async (): Promise<void> => {
-        try {
-          const { relativePath } = normalizeModulePath(path);
-          await mountRouter.resolve(relativePath).setFile(relativePath, data);
-        } catch (error) {
-          throw createFsError(
-            'EIO',
-            'write',
-            path,
-            `ファイルの書き込みに失敗しました: ${path}`
-          );
-        }
-      })());
+      const writeTask = trackTask(
+        (async (): Promise<void> => {
+          try {
+            const { relativePath } = normalizeModulePath(path);
+            await mountRouter.resolve(relativePath).setFile(relativePath, data);
+          } catch (error) {
+            console.warn('[fsModule.ts] caught non-fatal error', error);
+            throw createFsError('EIO', 'write', path, `ファイルの書き込みに失敗しました: ${path}`);
+          }
+        })()
+      );
 
       if (normalized.callback) {
         writeTask
@@ -318,10 +318,12 @@ export function createFSModule(options: FSModuleOptions) {
     },
 
     mkdir: (path: string, options?: any): Promise<void> =>
-      trackTask((async (): Promise<void> => {
-        const { relativePath } = normalizeModulePath(path);
-        await mountRouter.resolve(relativePath).mkdir(relativePath, options?.recursive || false);
-      })()),
+      trackTask(
+        (async (): Promise<void> => {
+          const { relativePath } = normalizeModulePath(path);
+          await mountRouter.resolve(relativePath).mkdir(relativePath, options?.recursive || false);
+        })()
+      ),
 
     readdir: (path: string, options?: any, callback?: any): any => {
       let cb: FsCallback<any[]> | undefined;
@@ -337,22 +339,25 @@ export function createFSModule(options: FSModuleOptions) {
 
       const withFileTypes = opts?.encoding === 'buffer' ? false : opts?.withFileTypes === true;
 
-      const doReaddir = (): Promise<any[]> => trackTask((async (): Promise<any[]> => {
-        const { relativePath } = normalizeModulePath(path);
-        const mount = mountRouter.resolve(relativePath);
-        const names = await mount.listDir(relativePath);
+      const doReaddir = (): Promise<any[]> =>
+        trackTask(
+          (async (): Promise<any[]> => {
+            const { relativePath } = normalizeModulePath(path);
+            const mount = mountRouter.resolve(relativePath);
+            const names = await mount.listDir(relativePath);
 
-        if (!withFileTypes) return names;
+            if (!withFileTypes) return names;
 
-        return Promise.all(
-          names.map(async name => {
-            const childPath =
-              relativePath === '/' ? `/${name}` : `${relativePath.replace(/\/$/, '')}/${name}`;
-            const stat = await mount.stat(childPath);
-            return makeDirent(name, stat?.type === 'directory');
-          })
+            return Promise.all(
+              names.map(async name => {
+                const childPath =
+                  relativePath === '/' ? `/${name}` : `${relativePath.replace(/\/$/, '')}/${name}`;
+                const stat = await mount.stat(childPath);
+                return makeDirent(name, stat?.type === 'directory');
+              })
+            );
+          })()
         );
-      })());
 
       if (cb) {
         doReaddir()
@@ -396,42 +401,50 @@ export function createFSModule(options: FSModuleOptions) {
     },
 
     unlink: (path: string): Promise<void> =>
-      trackTask((async (): Promise<void> => {
-        const { relativePath } = normalizeModulePath(path);
-        const deleted = await mountRouter.resolve(relativePath).deleteFile(relativePath);
-        if (!deleted) {
-          throw createFsError('ENOENT', 'unlink', path);
-        }
-      })()),
+      trackTask(
+        (async (): Promise<void> => {
+          const { relativePath } = normalizeModulePath(path);
+          const deleted = await mountRouter.resolve(relativePath).deleteFile(relativePath);
+          if (!deleted) {
+            throw createFsError('ENOENT', 'unlink', path);
+          }
+        })()
+      ),
 
     appendFile: (path: string, data: string, options?: any): Promise<void> =>
-      trackTask((async (): Promise<void> => {
-        try {
-          const { relativePath } = normalizeModulePath(path);
-          const mount = mountRouter.resolve(relativePath);
-          const content = (await mount.getFile(relativePath)) ?? '';
-          await fsModule.writeFile(path, decodeContent(content) + data, options);
-        } catch (error) {
-          throw new Error(`ファイルへの追記に失敗しました: ${path}`);
-        }
-      })()),
+      trackTask(
+        (async (): Promise<void> => {
+          try {
+            const { relativePath } = normalizeModulePath(path);
+            const mount = mountRouter.resolve(relativePath);
+            const content = (await mount.getFile(relativePath)) ?? '';
+            await fsModule.writeFile(path, decodeContent(content) + data, options);
+          } catch (error) {
+            console.warn('[fsModule.ts] caught non-fatal error', error);
+            throw new Error(`ファイルへの追記に失敗しました: ${path}`);
+          }
+        })()
+      ),
 
     stat: (path: string, callback?: any): any => {
-      const doStat = () => trackTask((async () => {
-        try {
-          return await getStats(path, 'stat');
-        } catch (error) {
-          if (
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            typeof (error as any).code === 'string'
-          ) {
-            throw error;
-          }
-          throw createFsError('EIO', 'stat', path, `ファイル情報の取得に失敗しました: ${path}`);
-        }
-      })());
+      const doStat = () =>
+        trackTask(
+          (async () => {
+            try {
+              return await getStats(path, 'stat');
+            } catch (error) {
+              if (
+                error &&
+                typeof error === 'object' &&
+                'code' in error &&
+                typeof (error as any).code === 'string'
+              ) {
+                throw error;
+              }
+              throw createFsError('EIO', 'stat', path, `ファイル情報の取得に失敗しました: ${path}`);
+            }
+          })()
+        );
       if (typeof callback === 'function') {
         doStat()
           .then(s => callback(null, s))
@@ -442,21 +455,29 @@ export function createFSModule(options: FSModuleOptions) {
     },
 
     lstat: (path: string, callback?: any): any => {
-      const doLstat = () => trackTask((async () => {
-        try {
-          return await getStats(path, 'lstat');
-        } catch (error) {
-          if (
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            typeof (error as any).code === 'string'
-          ) {
-            throw error;
-          }
-          throw createFsError('EIO', 'lstat', path, `ファイル情報の取得に失敗しました: ${path}`);
-        }
-      })());
+      const doLstat = () =>
+        trackTask(
+          (async () => {
+            try {
+              return await getStats(path, 'lstat');
+            } catch (error) {
+              if (
+                error &&
+                typeof error === 'object' &&
+                'code' in error &&
+                typeof (error as any).code === 'string'
+              ) {
+                throw error;
+              }
+              throw createFsError(
+                'EIO',
+                'lstat',
+                path,
+                `ファイル情報の取得に失敗しました: ${path}`
+              );
+            }
+          })()
+        );
       if (typeof callback === 'function') {
         doLstat()
           .then(s => callback(null, s))

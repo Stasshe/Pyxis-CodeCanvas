@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import type { SearchWorkerApi } from '@/engine/workers/searchWorker';
+import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
@@ -482,15 +482,33 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   // Flat list for virtualizer: header rows + result rows (collapsed groups omit results)
   type FlatItem =
-    | { type: 'header'; groupKey: string; first: SearchResult; resultCount: number; isCollapsed: boolean }
-    | { type: 'result'; groupKey: string; result: SearchResult; globalIndex: number; idxInGroup: number };
+    | {
+        type: 'header';
+        groupKey: string;
+        first: SearchResult;
+        resultCount: number;
+        isCollapsed: boolean;
+      }
+    | {
+        type: 'result';
+        groupKey: string;
+        result: SearchResult;
+        globalIndex: number;
+        idxInGroup: number;
+      };
 
   const flatItems = useMemo((): FlatItem[] => {
     const items: FlatItem[] = [];
     for (const group of groupedResults) {
       const key = group.first.file.id || group.first.file.path;
       const isCollapsed = !!collapsedFiles[key];
-      items.push({ type: 'header', groupKey: key, first: group.first, resultCount: group.results.length, isCollapsed });
+      items.push({
+        type: 'header',
+        groupKey: key,
+        first: group.first,
+        resultCount: group.results.length,
+        isCollapsed,
+      });
       if (!isCollapsed) {
         for (let i = 0; i < group.results.length; i++) {
           const { result, globalIndex } = group.results[i];
@@ -739,7 +757,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         )}
 
         {flatItems.length > 0 && (
-          <div style={{ height: virtualizer.getTotalSize(), position: 'relative', padding: '0.14rem' }}>
+          <div
+            style={{ height: virtualizer.getTotalSize(), position: 'relative', padding: '0.14rem' }}
+          >
             {virtualizer.getVirtualItems().map(vItem => {
               const item = flatItems[vItem.index];
               if (!item) return null;
@@ -751,7 +771,15 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                     key={vItem.key}
                     data-index={vItem.index}
                     ref={virtualizer.measureElement}
-                    style={{ position: 'absolute', top: vItem.start, left: 0, right: 0, padding: '0.18rem 0.28rem', borderBottom: `1px solid ${colors.border}`, minWidth: 0 }}
+                    style={{
+                      position: 'absolute',
+                      top: vItem.start,
+                      left: 0,
+                      right: 0,
+                      padding: '0.18rem 0.28rem',
+                      borderBottom: `1px solid ${colors.border}`,
+                      minWidth: 0,
+                    }}
                   >
                     <div
                       role="button"
@@ -767,7 +795,14 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                       onMouseLeave={() => setHoveredFileKey(null)}
                       onFocus={() => setHoveredFileKey(groupKey)}
                       onBlur={() => setHoveredFileKey(null)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.22rem', cursor: 'pointer', userSelect: 'none', minWidth: 0 }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.22rem',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        minWidth: 0,
+                      }}
                     >
                       {isCollapsed ? (
                         <ChevronRight size={14} color={colors.mutedFg} />
@@ -775,20 +810,59 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                         <ChevronDown size={14} color={colors.mutedFg} />
                       )}
                       <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
-                      <span style={{ color: colors.foreground, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '40%', minWidth: 0 }}>
+                      <span
+                        style={{
+                          color: colors.foreground,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '40%',
+                          minWidth: 0,
+                        }}
+                      >
                         {first.file.name}
                       </span>
-                      <span style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}>
+                      <span
+                        style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}
+                      >
                         {resultCount} hits
                       </span>
-                      <span style={{ marginLeft: '0.5rem', color: colors.mutedFg, fontSize: '0.62rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '35%', minWidth: 0 }}>
+                      <span
+                        style={{
+                          marginLeft: '0.5rem',
+                          color: colors.mutedFg,
+                          fontSize: '0.62rem',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '35%',
+                          minWidth: 0,
+                        }}
+                      >
                         {first.file.path}
                       </span>
-                      {(hoveredFileKey === groupKey || flatResults[selectedIndex]?.file.id === first.file.id) && (
+                      {(hoveredFileKey === groupKey ||
+                        flatResults[selectedIndex]?.file.id === first.file.id) && (
                         <button
-                          onClick={e => { e.stopPropagation(); handleReplaceAllInFile(first.file, replaceQuery); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleReplaceAllInFile(first.file, replaceQuery);
+                          }}
                           title="Replace all in file"
-                          style={{ marginLeft: 'auto', padding: '0.12rem 0.3rem', borderRadius: '0.28rem', border: `1px solid ${colors.border}`, background: colors.mutedBg, color: colors.mutedFg, fontSize: '0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                          style={{
+                            marginLeft: 'auto',
+                            padding: '0.12rem 0.3rem',
+                            borderRadius: '0.28rem',
+                            border: `1px solid ${colors.border}`,
+                            background: colors.mutedBg,
+                            color: colors.mutedFg,
+                            fontSize: '0.6rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                          }}
                         >
                           <Repeat size={12} />
                           All
@@ -809,7 +883,13 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
                   key={vItem.key}
                   data-index={vItem.index}
                   ref={virtualizer.measureElement}
-                  style={{ position: 'absolute', top: vItem.start, left: 0, right: 0, paddingLeft: '1.6rem' }}
+                  style={{
+                    position: 'absolute',
+                    top: vItem.start,
+                    left: 0,
+                    right: 0,
+                    paddingLeft: '1.6rem',
+                  }}
                 >
                   <ResultRow
                     result={result}
