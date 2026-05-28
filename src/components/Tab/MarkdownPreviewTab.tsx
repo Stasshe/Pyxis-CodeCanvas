@@ -93,7 +93,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     return () => {
       mounted = false;
     };
-  }, [settings?.markdown?.singleLineBreaks, settings?.markdown?.math?.delimiter]);
+  }, [settings?.markdown?.singleLineBreaks]);
 
   // code コンポーネントは activeTab/colors に依存しないため分離して安定させる
   // — 参照が変わらない限り react-markdown は Mermaid を remount しない
@@ -265,7 +265,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         );
       },
     }),
-    [codeComponent, currentProject?.name, currentProject?.id, activeTab, openTab]
+    [codeComponent, currentProject?.name, currentProject?.id, activeTab, currentProject]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters

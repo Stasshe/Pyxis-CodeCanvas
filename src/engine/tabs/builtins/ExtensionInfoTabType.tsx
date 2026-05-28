@@ -301,9 +301,9 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                       Tags:
                     </span>
                     <div className="flex flex-wrap gap-2">
-                      {manifest.metadata.tags.map((tag: string, idx: number) => (
+                      {manifest.metadata.tags.map((tag: string) => (
                         <span
-                          key={idx}
+                          key={tag}
                           className="text-xs px-2 py-1 rounded"
                           style={{ background: `${colors.primary}15`, color: colors.primary }}
                         >

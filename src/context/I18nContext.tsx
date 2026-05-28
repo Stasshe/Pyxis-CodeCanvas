@@ -308,7 +308,7 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
     cleanExpiredCache().catch(err => {
       console.error('[i18n] Failed to clean expired cache:', err);
     });
-  }, [initialLocale, loadLocale]);
+  }, [loadLocale]);
 
   const value: I18nContextValue = {
     locale,

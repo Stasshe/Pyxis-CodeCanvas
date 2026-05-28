@@ -219,7 +219,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
     } else {
       console.warn('[DEBUG] iframeRefがnullです');
     }
-  }, [fileContent]);
+  }, [fileContent, applyHtmlTitle]);
 
   return (
     <div style={{ backgroundColor: '#ffffff', height: '100%', width: '100%' }}>

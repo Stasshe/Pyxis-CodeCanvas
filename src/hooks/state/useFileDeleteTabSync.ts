@@ -73,5 +73,5 @@ export function useFileDeleteTabSync() {
       }
       unsubscribe();
     };
-  }, [handleFileDeleted, handleFilesDeleted]);
+  }, []);
 }

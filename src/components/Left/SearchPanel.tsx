@@ -249,7 +249,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         searchTimer.current = null;
       }
     };
-  }, [searchQuery, isRealtimeSearch, minQueryLength, debounceDelay]);
+  }, [searchQuery, isRealtimeSearch]);
 
   // 検索オプション変更時にリアルタイム検索を再実行
   useEffect(() => {
@@ -258,15 +258,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       lastSearchResultsRef.current = [];
       performSearchRef.current(searchQuery);
     }
-  }, [
-    caseSensitive,
-    wholeWord,
-    useRegex,
-    searchInFilenames,
-    isRealtimeSearch,
-    searchQuery,
-    minQueryLength,
-  ]);
+  }, [isRealtimeSearch, searchQuery]);
 
   // Workerのクリーンアップ
   useEffect(() => {
@@ -281,7 +273,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // ファイルが変更されたのでキャッシュをクリア
     lastSearchResultsRef.current = [];
     lastSearchQueryRef.current = '';
-  }, [filesVersion]);
+  }, []);
 
   // flattened results for keyboard navigation
   const flatResults = searchResults;
@@ -310,8 +302,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     if (selectedIndex >= flatResults.length) {
       setSelectedIndex(Math.max(0, flatResults.length - 1));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flatResults.length]);
+  }, [flatResults.length, selectedIndex]);
 
   const handleResultClick = useCallback(
     async (result: SearchResult) => {
@@ -344,7 +335,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         console.error('Failed to open file from search result', err);
       }
     },
-    [projectId, openTab]
+    [projectId]
   );
 
   const handleReplaceResult = useCallback(

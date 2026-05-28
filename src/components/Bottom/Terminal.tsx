@@ -1006,7 +1006,7 @@ function ClientTerminal({
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
     };
-  }, [height, currentProjectId, isActive]);
+  }, [currentProjectId, isActive]);
 
   // ターミナルがアクティブになった時にフォーカスを当てる
   useEffect(() => {

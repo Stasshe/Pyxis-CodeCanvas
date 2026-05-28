@@ -23,13 +23,10 @@ interface Props {
 export const TabSessionManager: React.FC<Props> = ({ children }) => {
   const { loadSession, saveSession, setIsContentRestored } = tabActions;
   const isLoading = useSnapshot(tabState).isLoading;
-  const activePane = useSnapshot(tabState).activePane;
-  const globalActiveTab = useSnapshot(tabState).globalActiveTab;
-
   // IndexedDBからセッションを復元
   useEffect(() => {
     loadSession();
-  }, [loadSession]);
+  }, []);
 
   // Track a structural key derived from panes without re-rendering on frequent content updates
   const computeStructuralKey = (panes: readonly EditorPane[]) => {
@@ -91,7 +88,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
 
     window.addEventListener('pyxis-content-restored', handleContentRestored);
     return () => window.removeEventListener('pyxis-content-restored', handleContentRestored);
-  }, [setIsContentRestored]);
+  }, []);
 
   useEffect(() => {
     if (isLoading) return; // 初期ロード中は保存しない
@@ -101,7 +98,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [structuralKey, activePane, globalActiveTab, isLoading, saveSession]);
+  }, [isLoading]);
 
   return <>{children}</>;
 };

@@ -103,7 +103,7 @@ export function highlightMatch(
         if (tokens.some(tok => part.toLowerCase() === tok.toLowerCase())) {
           return (
             <span
-              key={i}
+              key={`${i}-${part}`}
               style={{
                 background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
                 color: isSelected ? colors.cardBg : colors.primary,
@@ -116,7 +116,7 @@ export function highlightMatch(
             </span>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <span key={`${i}-${part}`}>{part}</span>;
       })}
     </>
   );

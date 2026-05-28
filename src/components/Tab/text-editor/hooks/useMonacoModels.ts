@@ -244,7 +244,7 @@ export function useMonacoModels() {
         return null;
       }
     },
-    [isModelSafe]
+    []
   );
 
   const disposeModel = useCallback((modelKey: string) => {
@@ -273,7 +273,7 @@ export function useMonacoModels() {
     modelAccessOrder.length = 0;
     tabViewStates.clear();
     currentModelIdRef.current = null;
-  }, [currentModelIdRef]);
+  }, []);
 
   return {
     monacoModelMapRef,

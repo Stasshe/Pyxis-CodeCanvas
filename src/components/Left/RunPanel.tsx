@@ -99,8 +99,6 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [projectFilesForOperation, setProjectFilesForOperation] = useState<FileItem[]>([]);
   const outputRef = useRef<HTMLDivElement>(null);
   const interactiveInputRef = useRef<HTMLInputElement>(null);
-  const outputCount = output.length;
-
   // 出力エリアの自動スクロール
   useEffect(() => {
     if (outputRef.current) {
@@ -110,7 +108,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     if (isRunning) {
       interactiveInputRef.current?.focus();
     }
-  }, [outputCount, isRunning]);
+  }, [isRunning]);
 
   // 初期化時にlocalStorageから復元
   useEffect(() => {
@@ -118,7 +116,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     if (last) {
       setSelectedFile(last);
     }
-  }, [currentProject?.id]);
+  }, []);
 
   // 出力を追加
   const addOutput = (content: string, type: 'log' | 'error' | 'input') => {
