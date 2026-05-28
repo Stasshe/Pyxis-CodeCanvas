@@ -15,8 +15,7 @@ export async function handleNPMCommand(
 
   const npm = await terminalCommandRegistry.getNpmCommands(
     projectName,
-    projectId,
-    `/projects/${projectName}`
+    projectId
   );
   if (setLoading) {
     npm.setLoadingHandler(setLoading);

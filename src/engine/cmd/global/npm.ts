@@ -23,7 +23,6 @@ export class NpmCommands {
   constructor(
     projectName: string,
     projectId: string,
-    currentDir: string,
     setLoading?: (isLoading: boolean) => void
   ) {
     this.projectName = projectName;

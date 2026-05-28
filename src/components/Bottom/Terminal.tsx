@@ -91,8 +91,7 @@ function ClientTerminal({
         );
         npmCommandsRef.current = await terminalCommandRegistry.getNpmCommands(
           currentProject,
-          currentProjectId,
-          `/projects/${currentProject}`
+          currentProjectId
         );
         // create or obtain a StreamShell instance from the shared registry so it's a per-project singleton
         try {

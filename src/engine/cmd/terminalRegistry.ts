@@ -82,13 +82,12 @@ class TerminalCommandRegistry {
 
   async getNpmCommands(
     projectName: string,
-    projectId: string,
-    currentDir = '/'
+    projectId: string
   ): Promise<NpmCommands> {
     const entry = this.getOrCreateEntry(projectId);
     if (!entry.npm) {
       const { NpmCommands } = await this.loadNpmCommandsModule();
-      entry.npm = new NpmCommands(projectName, projectId, currentDir);
+      entry.npm = new NpmCommands(projectName, projectId);
       if (entry.terminalUI) entry.npm.setTerminalUI(entry.terminalUI);
     }
     return entry.npm!;
