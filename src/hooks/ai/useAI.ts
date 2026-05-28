@@ -56,7 +56,7 @@ export function useAI(props?: UseAIProps) {
         }))
       );
     }
-  }, [props?.selectedFiles]);
+  }, [props?.selectedFiles, fileContexts.length]);
 
   // メッセージを追加
   const addMessage = useCallback(
@@ -284,7 +284,7 @@ export function useAI(props?: UseAIProps) {
         setIsProcessing(false);
       }
     },
-    [fileContexts, addMessage, props?.messages]
+    [fileContexts, addMessage, props?.messages, props?.projectId, aiStorage]
   );
 
   // ファイルコンテキストを更新

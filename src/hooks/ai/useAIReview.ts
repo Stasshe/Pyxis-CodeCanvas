@@ -36,7 +36,7 @@ export function useAIReview() {
         },
       });
     },
-    [openTab]
+    []
   );
 
   // 変更を適用する
@@ -84,14 +84,11 @@ export function useAIReview() {
   );
 
   // レビュータブを閉じる
-  const closeAIReviewTab = useCallback(
-    (filePath: string) => {
-      const allTabs = tabActions.getAllTabs();
-      const aiTab = allTabs.find(t => t.kind === 'ai' && t.id.includes(filePath));
-      if (aiTab) closeTab(aiTab.paneId, aiTab.id);
-    },
-    [closeTab]
-  );
+  const closeAIReviewTab = useCallback((filePath: string) => {
+    const allTabs = tabActions.getAllTabs();
+    const aiTab = allTabs.find(t => t.kind === 'ai' && t.id.includes(filePath));
+    if (aiTab) closeTab(aiTab.paneId, aiTab.id);
+  }, []);
 
   // 部分的な変更を適用（行単位での適用/破棄）
   const applyPartialChanges = useCallback(

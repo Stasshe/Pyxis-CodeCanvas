@@ -238,7 +238,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
       }
       onClose();
     },
-    [setActivePane, flattenedPanes, onClose]
+    [flattenedPanes, onClose]
   );
 
   const handleSplit = useCallback(
@@ -258,7 +258,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
         if (newPane) setSelectedPaneId(newPane.id);
       });
     },
-    [selectedPaneId, splitPane, flattenedPanes]
+    [selectedPaneId, flattenedPanes]
   );
 
   const handleDelete = useCallback(() => {
@@ -267,7 +267,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
     const nextId = flattenedPanes[idx > 0 ? idx - 1 : 1]?.id || null;
     removePane(selectedPaneId);
     requestAnimationFrame(() => setSelectedPaneId(nextId));
-  }, [selectedPaneId, flattenedPanes, removePane]);
+  }, [selectedPaneId, flattenedPanes]);
 
   // Keyboard handler with number keys
   useEffect(() => {

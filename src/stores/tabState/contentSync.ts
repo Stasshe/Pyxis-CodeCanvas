@@ -16,7 +16,7 @@ const changeListeners = new Set<
 >();
 const DEBOUNCE_MS = 1000;
 let saveSyncInitialized = false;
-let unsubscribeFileRepository: (() => void) | null = null;
+let _unsubscribeFileRepository: (() => void) | null = null;
 
 const pendingModelUpdates = new Map<string, string>();
 let modelUpdateScheduled = false;
@@ -149,7 +149,7 @@ export function updateAllTabsByPath(path: string, content: string, isDirty: bool
 export async function initTabSaveSync(): Promise<void> {
   if (saveSyncInitialized) return;
   await fileRepository.init();
-  unsubscribeFileRepository = fileRepository.addChangeListener(handleFileRepositoryChange);
+  _unsubscribeFileRepository = fileRepository.addChangeListener(handleFileRepositoryChange);
   saveSyncInitialized = true;
 }
 

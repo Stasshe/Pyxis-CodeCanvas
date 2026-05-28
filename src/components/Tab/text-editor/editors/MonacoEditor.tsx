@@ -319,7 +319,16 @@ export default function MonacoEditor({
     if (isModelSafe(model) && !tabSwitched) {
       onCharCountChange(countCharsNoSpaces(model?.getValue()));
     }
-  }, [tabId, content, isEditorSafe, getOrCreateModel, isModelSafe, fileName, filePath]);
+  }, [
+    tabId,
+    content,
+    isEditorSafe,
+    getOrCreateModel,
+    isModelSafe,
+    fileName,
+    filePath,
+    onCharCountChange,
+  ]);
 
   // ジャンプ機能
   useEffect(() => {
