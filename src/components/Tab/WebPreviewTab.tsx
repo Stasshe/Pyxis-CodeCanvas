@@ -17,6 +17,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   currentProjectName,
   onTitleChange,
 }) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const onTitleChangeRef = useRef(onTitleChange);
   const lastAppliedTitleRef = useRef<string | null>(null);
   const [fileContent, setFileContent] = useState('');
@@ -62,20 +63,6 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
       }
     },
     [getDefaultTabName]
-  );
-
-  const handleIframeLoad = useCallback(
-    (event: React.SyntheticEvent<HTMLIFrameElement>) => {
-      const iframeDocument = event.currentTarget.contentDocument;
-      if (iframeDocument) {
-        iframeDocument.documentElement.style.backgroundColor = '#ffffff';
-        if (iframeDocument.body) {
-          iframeDocument.body.style.backgroundColor = '#ffffff';
-        }
-      }
-      applyHtmlTitle(fileContent);
-    },
-    [applyHtmlTitle, fileContent]
   );
 
   // ファイルシステムから直接ファイル内容を取得
@@ -161,6 +148,22 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
     console.log('file changed');
   }, [fetchFileContent, refreshTrigger]);
 
+  // ファイル内容が変わったらiframeに反映（document.writeで in-place更新 → ナビゲーションフラッシュなし）
+  useEffect(() => {
+    if (!iframeRef.current) return;
+    const iframeDocument = iframeRef.current.contentDocument;
+    if (!iframeDocument) return;
+    iframeDocument.open();
+    iframeDocument.write(fileContent);
+    iframeDocument.close();
+    iframeDocument.documentElement.style.backgroundColor = '#ffffff';
+    if (iframeDocument.body) {
+      iframeDocument.body.style.backgroundColor = '#ffffff';
+    }
+    iframeRef.current.style.backgroundColor = '#ffffff';
+    applyHtmlTitle(fileContent);
+  }, [fileContent, applyHtmlTitle]);
+
   // ファイル変更監視の設定（fileRepository のリスナーを使う）
   useEffect(() => {
     if (!currentProjectName) return;
@@ -231,8 +234,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   return (
     <div style={{ backgroundColor: '#ffffff', height: '100%', width: '100%' }}>
       <iframe
-        srcDoc={fileContent}
-        onLoad={handleIframeLoad}
+        ref={iframeRef}
         style={{ border: 'none', width: '100%', height: '100%', backgroundColor: '#ffffff' }}
       />
     </div>
