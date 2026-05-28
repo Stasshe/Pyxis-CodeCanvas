@@ -205,6 +205,7 @@ class PyxisStorage {
               if (containsBinary((obj as any)[key])) return true;
             }
           } catch (e) {
+            console.warn('[index.ts] caught non-fatal error', e);
             // ignore non-iterable objects
           }
         }
@@ -276,6 +277,7 @@ class PyxisStorage {
               if (containsBinary((obj as any)[key])) return true;
             }
           } catch (e) {
+            console.warn('[index.ts] caught non-fatal error', e);
             // ignore
           }
         }
@@ -374,7 +376,7 @@ class PyxisStorage {
       });
 
       // メモリキャッシュもクリア（該当ストアのみ）
-      const prefix = `${storeName}:`;
+      const _prefix = `${storeName}:`;
       this.cache.clear(); // 簡易的に全体をクリア
 
       console.log(`[PyxisStorage] Cleared store: ${storeName}`);

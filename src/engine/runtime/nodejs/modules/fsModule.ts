@@ -238,6 +238,7 @@ export function createFSModule(options: FSModuleOptions) {
             const { relativePath } = normalizeModulePath(path);
             await mountRouter.resolve(relativePath).setFile(relativePath, data);
           } catch (error) {
+            console.warn('[fsModule.ts] caught non-fatal error', error);
             throw createFsError('EIO', 'write', path, `ファイルの書き込みに失敗しました: ${path}`);
           }
         })()
@@ -419,6 +420,7 @@ export function createFSModule(options: FSModuleOptions) {
             const content = (await mount.getFile(relativePath)) ?? '';
             await fsModule.writeFile(path, decodeContent(content) + data, options);
           } catch (error) {
+            console.warn('[fsModule.ts] caught non-fatal error', error);
             throw new Error(`ファイルへの追記に失敗しました: ${path}`);
           }
         })()

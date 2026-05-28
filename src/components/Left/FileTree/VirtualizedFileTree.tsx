@@ -155,6 +155,7 @@ export default function VirtualizedFileTree({
           if (mounted) setGitignoreRules([]);
         }
       } catch (e) {
+        console.warn('[VirtualizedFileTree.tsx] caught non-fatal error', e);
         if (mounted) setGitignoreRules([]);
       }
     };

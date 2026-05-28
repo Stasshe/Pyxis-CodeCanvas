@@ -202,7 +202,9 @@ export default function MonacoEditor({
             if (markerListenerRef.current) {
               try {
                 markerListenerRef.current.dispose();
-              } catch (e) {}
+              } catch (e) {
+                console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
+              }
               markerListenerRef.current = null;
             }
 
@@ -238,11 +240,13 @@ export default function MonacoEditor({
                   editor.setSelection(restored);
                   editor.revealRangeInCenter(restored);
                 } catch (e) {
+                  console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
                   // 非致命
                 }
               }
             });
           } catch (e) {
+            console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
             // ignore
           }
 
@@ -296,6 +300,7 @@ export default function MonacoEditor({
             if (prevSelections) editor.setSelections(prevSelections);
             editor.layout();
           } catch (e) {
+            console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
             model?.setValue(content);
             editor.layout();
           }
@@ -397,7 +402,9 @@ export default function MonacoEditor({
       if (markerListenerRef.current) {
         try {
           markerListenerRef.current.dispose();
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[MonacoEditor.tsx] caught non-fatal error', e);
+        }
         markerListenerRef.current = null;
       }
     };

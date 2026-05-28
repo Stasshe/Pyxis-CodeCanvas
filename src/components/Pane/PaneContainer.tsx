@@ -202,7 +202,7 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
 
   // 拡張機能タブの場合、TabRegistryの変更を監視してリレンダーを促す
   // ※ このhookは早期リターンより前に置くこと（hook数を一定に保つため）
-  const [extensionLoaded, setExtensionLoaded] = useState(false);
+  const [_extensionLoaded, setExtensionLoaded] = useState(false);
   useEffect(() => {
     if (activeTab?.kind.startsWith('extension:') && !tabRegistry.has(activeTab.kind)) {
       setExtensionLoaded(false);
@@ -311,6 +311,7 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
     try {
       (drop as any)(node);
     } catch (err) {
+      console.warn('[PaneContainer.tsx] caught non-fatal error', err);
       // 安全のためエラーは無視
     }
   };

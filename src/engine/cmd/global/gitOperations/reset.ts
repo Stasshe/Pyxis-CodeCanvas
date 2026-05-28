@@ -156,10 +156,12 @@ export class GitResetOperations {
                   count++;
                 }
               } catch (error) {
+                console.warn('[reset.ts] caught non-fatal error', error);
                 // Ignore
               }
             }
           } catch (error) {
+            console.warn('[reset.ts] caught non-fatal error', error);
             // Ignore
           }
           return count;

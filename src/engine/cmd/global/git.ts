@@ -129,34 +129,6 @@ export class GitCommands {
     }, 'git clone failed');
   }
 
-  // ディレクトリ内の全ファイルを再帰的に取得
-  private async getAllFilesInDirectory(dirPath: string): Promise<string[]> {
-    const files: string[] = [];
-
-    const traverse = async (currentPath: string) => {
-      try {
-        const entries = await this.fs.promises.readdir(currentPath);
-        for (const entry of entries) {
-          if (entry === '.' || entry === '..' || entry === '.git') continue;
-
-          const fullPath = `${currentPath}/${entry}`;
-          const stat = await this.fs.promises.stat(fullPath);
-
-          if (stat.isDirectory()) {
-            await traverse(fullPath);
-          } else {
-            files.push(fullPath);
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to traverse ${currentPath}:`, error);
-      }
-    };
-
-    await traverse(dirPath);
-    return files;
-  }
-
   // git status - ステータス確認
   async status(): Promise<string> {
     await this.ensureGitRepository();
@@ -546,6 +518,7 @@ export class GitCommands {
       });
       return new TextDecoder().decode(blob);
     } catch (e) {
+      console.warn('[git.ts] caught non-fatal error', e);
       // File might not exist in HEAD (new file)
       return null;
     }

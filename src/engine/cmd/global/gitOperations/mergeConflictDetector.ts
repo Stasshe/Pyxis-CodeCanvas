@@ -164,6 +164,7 @@ export class MergeConflictDetector {
       try {
         return new TextDecoder('utf-8', { fatal: true }).decode(object as Uint8Array);
       } catch (decodeError) {
+        console.warn('[mergeConflictDetector.ts] caught non-fatal error', decodeError);
         console.warn(
           `[MergeConflictDetector] File ${oid} appears to be binary, cannot decode as text`
         );

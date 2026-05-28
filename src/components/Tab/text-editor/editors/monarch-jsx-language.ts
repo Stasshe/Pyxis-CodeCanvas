@@ -58,7 +58,7 @@ export function registerEnhancedJSXLanguage(monaco: Monaco) {
         'defaultLibrary',
       ],
     }),
-    provideDocumentSemanticTokens: async model => {
+    provideDocumentSemanticTokens: async _model => {
       // TypeScript の言語サービスが既にセマンティックトークンを提供しているため
       // ここでは null を返して標準の処理に任せる
       // （必要に応じて追加のトークンをここで生成できる）

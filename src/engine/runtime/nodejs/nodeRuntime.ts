@@ -350,42 +350,6 @@ export class NodeRuntime {
   }
 
   /**
-   * トランスパイルが必要か判定
-   */
-  private needsTranspile(filePath: string, content: string): boolean {
-    if (/\.(ts|tsx|mts|cts)$/.test(filePath)) {
-      return true;
-    }
-
-    if (/\.(jsx|tsx)$/.test(filePath)) {
-      return true;
-    }
-
-    if (this.isESModule(content)) {
-      return true;
-    }
-
-    // require()を含む場合も変換が必要（await __require__に変換）
-    if (/require\s*\(/.test(content)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * ES Moduleかどうかを判定
-   */
-  private isESModule(content: string): boolean {
-    const cleaned = content
-      .replace(/\/\/.*$/gm, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, '');
-
-    return /^\s*(import|export)\s+/m.test(cleaned);
-  }
-
-  /**
    * コードをラップ（同期実行）
    */
   private wrapCode(code: string, filePath: string): string {

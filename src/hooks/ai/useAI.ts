@@ -42,6 +42,7 @@ export function useAI(props?: UseAIProps) {
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     aiStorage = require('@/engine/storage/aiStorageAdapter');
   } catch (e) {
+    console.warn('[useAI.ts] caught non-fatal error', e);
     aiStorage = null;
   }
 

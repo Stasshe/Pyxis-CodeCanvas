@@ -56,6 +56,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
     try {
       return JSON.stringify(strip(panes));
     } catch (e) {
+      console.warn('[TabSessionManager.tsx] caught non-fatal error', e);
       try {
         return JSON.stringify(panes);
       } catch (_) {

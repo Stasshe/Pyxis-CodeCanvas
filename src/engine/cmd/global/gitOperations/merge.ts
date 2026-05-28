@@ -64,7 +64,7 @@ export class GitMergeOperations {
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
 
       // 変更されたファイルまたはステージされたファイルがあるかチェック
-      for (const [filepath, HEAD, workdir, stage] of status) {
+      for (const [_filepath, HEAD, workdir, stage] of status) {
         // 変更がある場合
         if (HEAD !== workdir || stage !== HEAD) {
           return false;

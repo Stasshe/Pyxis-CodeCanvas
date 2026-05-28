@@ -73,14 +73,6 @@ export class GitFileSystem {
   }
 
   /**
-   * AppPath（先頭スラッシュ付き）をFSPath（プロジェクトディレクトリ + パス）に変換
-   * pathResolverのtoFSPathを使用
-   */
-  private toFullPath(projectName: string, filePath: string): string {
-    return toFSPath(projectName, filePath);
-  }
-
-  /**
    * パスを正規化（先頭の/を削除し、プロジェクトディレクトリと正しく連結）
    * @deprecated toFullPath を使用してください
    */
@@ -204,6 +196,7 @@ export class GitFileSystem {
 
       await fs.promises.rmdir(dirPath);
     } catch (error) {
+      console.warn('[gitFileSystem.ts] caught non-fatal error', error);
       // エラーは無視
     }
   }
@@ -295,6 +288,7 @@ export class GitFileSystem {
       }
       coreInfo(`[GitFileSystem] Cleared project directory: ${projectDir}`);
     } catch (error) {
+      console.warn('[gitFileSystem.ts] caught non-fatal error', error);
       // ディレクトリが存在しない場合は無視
     }
   }
@@ -303,7 +297,6 @@ export class GitFileSystem {
    * プロジェクト全体を削除（ディレクトリごと削除）
    */
   async deleteProject(projectName: string): Promise<void> {
-    const fs = this.getFS();
     const projectDir = this.getProjectDir(projectName);
 
     try {

@@ -1,7 +1,6 @@
 import React from 'react';
 
 import AIPanel from '@/components/AI/AIPanel';
-import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { FileItem, Project } from '@/types';
 
@@ -24,7 +23,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   currentProjectId = '',
 }) => {
   const { colors } = useTheme();
-  const { t } = useTranslation();
 
   return (
     <>

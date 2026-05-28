@@ -108,6 +108,7 @@ function DraggableTabInner({
           item.fromPaneId = paneId;
           item.index = targetIndex;
         } catch (err) {
+          console.warn('[DraggableTab.tsx] caught non-fatal error', err);
           // ignore
         }
         setDragOverSide(null);

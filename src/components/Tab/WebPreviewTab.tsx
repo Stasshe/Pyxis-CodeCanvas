@@ -191,6 +191,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
         try {
           unsubscribe();
         } catch (e) {
+          console.warn('[WebPreviewTab.tsx] caught non-fatal error', e);
           /* ignore */
         }
       }

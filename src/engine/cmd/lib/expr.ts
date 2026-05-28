@@ -212,7 +212,7 @@ export class TokenStream {
  * 汎用式パーサーの基底クラス
  * 各コマンド（find, test等）がこれを継承してパーサーを実装
  */
-export abstract class ExprParser<T extends EvalContext> {
+export abstract class ExprParser<_T extends EvalContext> {
   protected stream: TokenStream;
 
   constructor(tokens: string[]) {

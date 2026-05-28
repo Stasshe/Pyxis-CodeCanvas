@@ -102,7 +102,7 @@ export class GitDiffOperations {
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       const diffs: string[] = [];
 
-      for (const [file, HEAD, workdir, stage] of status) {
+      for (const [file, HEAD, workdir, _stage] of status) {
         // 特定ファイルが指定されている場合はそのファイルのみ
         if (filepath && file !== filepath) continue;
 
@@ -210,7 +210,7 @@ export class GitDiffOperations {
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       const diffs: string[] = [];
 
-      for (const [file, HEAD, workdir, stage] of status) {
+      for (const [file, _HEAD, _workdir, stage] of status) {
         // 特定ファイルが指定されている場合はそのファイルのみ
         if (filepath && file !== filepath) continue;
 
@@ -374,7 +374,7 @@ export class GitDiffOperations {
         return '';
       }
 
-      const [, HEAD, workdir, stage] = fileStatus;
+      const [, _HEAD, _workdir, stage] = fileStatus;
 
       if (stage === 3) {
         // 新規ファイルがステージされた場合
@@ -388,87 +388,6 @@ export class GitDiffOperations {
       return '';
     } catch (error) {
       throw new Error(`Failed to generate staged diff: ${(error as Error).message}`);
-    }
-  }
-
-  // コミット間のファイル差分を生成
-  private async generateCommitFileDiff(
-    filepath: string,
-    commit1: string | null,
-    commit2: string | null
-  ): Promise<string> {
-    let content1 = '';
-    let content2 = '';
-
-    try {
-      // commit1がnullの場合（新規ファイル）
-      if (!commit1 && commit2) {
-        if (commit2) {
-          try {
-            const { blob } = await git.readBlob({
-              fs: this.fs,
-              dir: this.dir,
-              oid: commit2,
-              filepath,
-            });
-            content2 = new TextDecoder().decode(blob);
-          } catch {
-            content2 = '';
-          }
-        }
-        return this.formatDiff(filepath, '', content2);
-      }
-      // commit2がnullの場合（削除ファイル）
-      if (commit1 && !commit2) {
-        if (commit1) {
-          try {
-            const { blob } = await git.readBlob({
-              fs: this.fs,
-              dir: this.dir,
-              oid: commit1,
-              filepath,
-            });
-            content1 = new TextDecoder().decode(blob);
-          } catch {
-            content1 = '';
-          }
-        }
-        return this.formatDiff(filepath, content1, '');
-      }
-      // 両方に存在する場合
-      if (commit1) {
-        try {
-          const { blob } = await git.readBlob({
-            fs: this.fs,
-            dir: this.dir,
-            oid: commit1,
-            filepath,
-          });
-          content1 = new TextDecoder().decode(blob);
-        } catch {
-          content1 = '';
-        }
-      }
-      if (commit2) {
-        try {
-          const { blob } = await git.readBlob({
-            fs: this.fs,
-            dir: this.dir,
-            oid: commit2,
-            filepath,
-          });
-          content2 = new TextDecoder().decode(blob);
-        } catch {
-          content2 = '';
-        }
-      }
-      if (content1 === content2) {
-        return '';
-      }
-      return this.formatDiff(filepath, content1, content2);
-    } catch (error) {
-      console.warn(`Failed to generate commit file diff for ${filepath}:`, error);
-      return '';
     }
   }
 

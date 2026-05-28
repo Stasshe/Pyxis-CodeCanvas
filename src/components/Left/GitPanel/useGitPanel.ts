@@ -245,6 +245,7 @@ export function useGitPanel({
           try {
             await gitCommands.discardChanges(f);
           } catch (e) {
+            console.warn('[useGitPanel.ts] caught non-fatal error', e);
             // ignore individual discard errors
           }
         })

@@ -61,6 +61,7 @@ export class SyncManager {
       }
       return parseGitignore(gitignoreFile.content);
     } catch (error) {
+      console.warn('[syncManager.ts] caught non-fatal error', error);
       // No .gitignore file or error reading it
       return [];
     }

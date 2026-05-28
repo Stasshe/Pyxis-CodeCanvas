@@ -56,7 +56,6 @@ export class GitCheckoutOperations {
       }
 
       let targetCommitHash: string | undefined;
-      let isNewBranch = createNew;
       // resolvedFromRemote: whether the ref was resolved from refs/remotes/...
       let resolvedFromRemote = false;
       // resolvedFromLocal: whether the ref was resolved from refs/heads/...
@@ -109,7 +108,6 @@ export class GitCheckoutOperations {
                   oid: branchName,
                 });
                 targetCommitHash = expandedOid;
-                isNewBranch = false;
               } catch {
                 try {
                   const branches = await git.listBranches({ fs: this.fs, dir: this.dir });

@@ -78,6 +78,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
             const mod = await import('remark-breaks');
             if (mounted) plugins.push(mod.default || mod);
           } catch (e) {
+            console.warn('[MarkdownPreviewTab.tsx] caught non-fatal error', e);
             console.warn(
               '[MarkdownPreviewTab] remark-breaks not available, falling back to default linebreak behavior.'
             );
@@ -242,6 +243,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
                   return;
                 }
               } catch (err) {
+                console.warn('[MarkdownPreviewTab.tsx] caught non-fatal error', err);
                 // ignore and try next
               }
             }

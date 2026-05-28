@@ -66,6 +66,7 @@ function buildExecutableProjectFiles(files: FileItem[]): FileItem[] {
               });
             }
           } catch (e) {
+            console.warn('[RunPanel.tsx] caught non-fatal error', e);
             executableFiles.push({
               id: item.id || fullPath,
               name: item.name,

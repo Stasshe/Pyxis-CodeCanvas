@@ -72,7 +72,7 @@ export class AuthRepository {
 
         // 認証情報ストア（単一レコードのみ保存）
         if (!db.objectStoreNames.contains('auth')) {
-          const store = db.createObjectStore('auth', { keyPath: 'id' });
+          const _store = db.createObjectStore('auth', { keyPath: 'id' });
           console.log('[AuthRepository] Created "auth" object store');
         }
       };

@@ -106,6 +106,7 @@ export const exportPage = async (
       try {
         content = await repoRead(path);
       } catch (err: any) {
+        console.warn('[exportPage.ts] caught non-fatal error', err);
         await writeOutput(`指定されたファイルが見つかりません: ${path}`);
         return;
       }

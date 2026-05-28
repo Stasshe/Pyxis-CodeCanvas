@@ -104,6 +104,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
         try {
           if (l) l.dispose();
         } catch (e) {
+          console.warn('[DiffTab.tsx] caught non-fatal error', e);
           /* ignore */
         }
       });
@@ -159,6 +160,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
         try {
           existing.dispose();
         } catch (e) {
+          console.warn('[DiffTab.tsx] caught non-fatal error', e);
           /* ignore */
         }
       }

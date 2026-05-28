@@ -65,6 +65,7 @@ export function useGlobalScrollLock() {
             return true;
           }
         } catch (e) {
+          console.warn('[useGlobalScrollLock.ts] caught non-fatal error', e);
           // ignore
         }
         elCur = elCur.parentElement;
@@ -84,6 +85,7 @@ export function useGlobalScrollLock() {
           const userSelect = style.userSelect || (style as any).webkitUserSelect;
           if (userSelect && userSelect !== 'none') return true;
         } catch (e) {
+          console.warn('[useGlobalScrollLock.ts] caught non-fatal error', e);
           // ignore
         }
         elCur = elCur.parentElement;
@@ -151,10 +153,6 @@ export function useGlobalScrollLock() {
       return false;
     };
 
-    let touchStartY = 0;
-    const touchStart = (e: TouchEvent) => {
-      touchStartY = e.touches?.[0]?.clientY || 0;
-    };
     const touchMove = (e: TouchEvent) => {
       if (e.defaultPrevented) return;
       const target = e.target as Element | null;
@@ -198,13 +196,11 @@ export function useGlobalScrollLock() {
 
     // Use bubble phase so inner components (like Monaco) get first chance to handle events.
     window.addEventListener('wheel', wheelHandler, { passive: false, capture: false });
-    window.addEventListener('touchstart', touchStart, { passive: true, capture: false });
     window.addEventListener('touchmove', touchMove, { passive: false, capture: false });
     window.addEventListener('keydown', keyHandler, { passive: false, capture: false });
 
     return () => {
       window.removeEventListener('wheel', wheelHandler as any);
-      window.removeEventListener('touchstart', touchStart as any);
       window.removeEventListener('touchmove', touchMove as any);
       window.removeEventListener('keydown', keyHandler as any);
     };

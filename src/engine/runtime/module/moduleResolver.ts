@@ -570,6 +570,7 @@ export class ModuleResolver {
       this.fileCache.set(path, exists);
       return exists;
     } catch (error) {
+      console.warn('[moduleResolver.ts] caught non-fatal error', error);
       this.fileCache.set(path, false);
       return false;
     }

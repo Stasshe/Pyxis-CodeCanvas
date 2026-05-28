@@ -92,6 +92,7 @@ export function saveTabViewState(tabId: string, editor: monaco.editor.IStandalon
   try {
     tabViewStates.set(tabId, editor.saveViewState());
   } catch (e) {
+    console.warn('[useMonacoModels.ts] caught non-fatal error', e);
     // ignore
   }
 }
@@ -109,6 +110,7 @@ export function restoreTabViewState(
   try {
     editor.restoreViewState(state);
   } catch (e) {
+    console.warn('[useMonacoModels.ts] caught non-fatal error', e);
     // ignore
   }
 }
@@ -164,6 +166,7 @@ export function useMonacoModels() {
           mon.editor.setModelMarkers(model, 'typescript', []);
           mon.editor.setModelMarkers(model, 'javascript', []);
         } catch (e) {
+          console.warn('[useMonacoModels.ts] caught non-fatal error', e);
           // ignore
         }
         window.setTimeout(() => {
@@ -208,6 +211,7 @@ export function useMonacoModels() {
         try {
           (mon.editor as any).setModelLanguage(newModel, desiredLang);
         } catch (e) {
+          console.warn('[useMonacoModels.ts] caught non-fatal error', e);
           // ignore
         }
         sharedModelMap.set(modelKey, newModel);
@@ -227,6 +231,7 @@ export function useMonacoModels() {
                 // setValue bumps the model version → DiagnosticsAdapter schedules re-evaluation
                 m.setValue(m.getValue());
               } catch (e) {
+                console.warn('[useMonacoModels.ts] caught non-fatal error', e);
                 // ignore
               }
             }

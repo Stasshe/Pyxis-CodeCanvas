@@ -15,7 +15,6 @@ import { fileRepository } from '@/engine/core/fileRepository';
 import { NpmInstall } from './npmOperations/npmInstall';
 
 export class NpmCommands {
-  private currentDir: string;
   private projectName: string;
   private projectId: string;
   private setLoading?: (isLoading: boolean) => void;

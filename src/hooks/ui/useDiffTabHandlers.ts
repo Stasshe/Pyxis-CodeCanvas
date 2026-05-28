@@ -129,6 +129,7 @@ export function useDiffTabHandlers(currentProject: any) {
             formerContent = content || '';
             formerCommitId = 'HEAD';
           } catch (e2) {
+            console.warn('[useDiffTabHandlers.ts] caught non-fatal error', e2);
             formerContent = '';
           }
         }
@@ -162,6 +163,7 @@ export function useDiffTabHandlers(currentProject: any) {
           throw new Error('File not found in repository');
         }
       } catch (repoError) {
+        console.warn('[useDiffTabHandlers.ts] caught non-fatal error', repoError);
         console.log('[useDiffTabHandlers] Falling back to gitFileSystem');
         const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
 

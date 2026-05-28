@@ -48,7 +48,6 @@ function ClientTerminal({
   const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
   const shellRef = useRef<any>(null);
-  const spinnerInterval = useRef<NodeJS.Timeout | null>(null);
   const vimEditorRef = useRef<VimEditor | null>(null); // Track active Vim editor instance
 
   // xterm/fitAddonをrefで保持
@@ -56,17 +55,6 @@ function ClientTerminal({
     if (!terminalRef.current) return;
     if (!currentProject || !currentProjectId) return;
     pushLogMessage('Terminal initializing', 'info', 'Terminal');
-
-    // ファイルシステムとFileRepositoryの初期化
-    const setLoading = (isLoading: boolean) => {
-      try {
-        if (isLoading) {
-          terminalUIRef.current?.spinner.start('Loading...');
-        } else {
-          terminalUIRef.current?.spinner.stop();
-        }
-      } catch (e) {}
-    };
 
     const initializeTerminal = async () => {
       try {
@@ -301,10 +289,12 @@ function ClientTerminal({
             }
             term.scrollToBottom();
           } catch (error) {
+            console.warn('[Terminal.tsx] caught non-fatal error', error);
             term.scrollToBottom();
           }
         }, 50);
       } catch (error) {
+        console.warn('[Terminal.tsx] caught non-fatal error', error);
         term.scrollToBottom();
       }
     };
@@ -356,8 +346,6 @@ function ClientTerminal({
       setTimeout(() => scrollToBottom(), 150);
     };
 
-    let cmdOutputs = '';
-
     // 履歴の初期化・復元（storageServiceへ）
     let commandHistory: string[] = [];
     let historyIndex = -1;
@@ -386,7 +374,6 @@ function ClientTerminal({
 
     // 統一された出力関数 - すべての出力はこれを通る
     const writeOutput = async (output: string) => {
-      cmdOutputs += output;
       await outputManagerRef.current?.write(output);
     };
 
@@ -496,7 +483,7 @@ function ClientTerminal({
 
               // delegate entire command to StreamShell which handles pipes/redirection/subst
               // リアルタイム出力コールバックを渡す
-              const res = await shellRef.current.run(command, {
+              await shellRef.current.run(command, {
                 stdout: (data: string) => {
                   // 即座にTerminalに表示（リアルタイム出力）
                   if (!redirect) {
@@ -567,6 +554,7 @@ function ClientTerminal({
                   content = existingFile.content + content;
                 }
               } catch (e) {
+                console.warn('[Terminal.tsx] caught non-fatal error', e);
                 // ignore and proceed with content as-is
               }
             }
@@ -600,8 +588,6 @@ function ClientTerminal({
     };
 
     // 選択範囲管理
-    let selectionStart: number | null = null;
-    let selectionEnd: number | null = null;
     let isSelecting = false;
     let isComposing = false;
     // フラグ: onKey で処理した直後に onData の二重処理を抑止する
@@ -721,7 +707,6 @@ function ClientTerminal({
         if (cursorPos > 0) {
           for (let i = 0; i < cursorPos; i++) term.write('\b');
           cursorPos = 0;
-          if (isSelecting) selectionEnd = cursorPos;
         }
         ignoreNextOnData = true;
         domEvent.preventDefault();
@@ -732,7 +717,6 @@ function ClientTerminal({
         if (cursorPos < currentLine.length) {
           term.write(currentLine.slice(cursorPos));
           cursorPos = currentLine.length;
-          if (isSelecting) selectionEnd = cursorPos;
         }
         ignoreNextOnData = true;
         domEvent.preventDefault();
@@ -764,24 +748,20 @@ function ClientTerminal({
       if (domEvent.shiftKey && !domEvent.ctrlKey && !domEvent.altKey) {
         if (key === '\u001b[D') {
           if (!isSelecting) {
-            selectionStart = cursorPos;
             isSelecting = true;
           }
           if (cursorPos > 0) {
             cursorPos--;
-            selectionEnd = cursorPos;
             term.write('\b');
           }
           domEvent.preventDefault();
         } else if (key === '\u001b[C') {
           if (!isSelecting) {
-            selectionStart = cursorPos;
             isSelecting = true;
           }
           if (cursorPos < currentLine.length) {
             term.write(currentLine[cursorPos]);
             cursorPos++;
-            selectionEnd = cursorPos;
           }
           domEvent.preventDefault();
         }
@@ -892,8 +872,6 @@ function ClientTerminal({
           currentLine = '';
           cursorPos = 0;
           isSelecting = false;
-          selectionStart = null;
-          selectionEnd = null;
           break;
         case '\u007F':
           if (cursorPos > 0) {
@@ -918,8 +896,6 @@ function ClientTerminal({
             cursorPos = currentLine.length;
             term.write(currentLine);
             isSelecting = false;
-            selectionStart = null;
-            selectionEnd = null;
           }
           break;
         case '\u001b[B':
@@ -933,8 +909,6 @@ function ClientTerminal({
               cursorPos = currentLine.length;
               term.write(currentLine);
               isSelecting = false;
-              selectionStart = null;
-              selectionEnd = null;
             } else {
               historyIndex = -1;
               for (let i = 0; i < cursorPos; i++) term.write('\b');
@@ -943,8 +917,6 @@ function ClientTerminal({
               currentLine = '';
               cursorPos = 0;
               isSelecting = false;
-              selectionStart = null;
-              selectionEnd = null;
             }
           }
           break;
@@ -952,14 +924,12 @@ function ClientTerminal({
           if (cursorPos > 0) {
             term.write('\b');
             cursorPos--;
-            if (isSelecting) selectionEnd = cursorPos;
           }
           break;
         case '\u001b[C':
           if (cursorPos < currentLine.length) {
             term.write(currentLine[cursorPos]);
             cursorPos++;
-            if (isSelecting) selectionEnd = cursorPos;
           }
           break;
         default:
@@ -969,8 +939,6 @@ function ClientTerminal({
             cursorPos++;
             for (let i = 0; i < currentLine.length - cursorPos; i++) term.write('\b');
             isSelecting = false;
-            selectionStart = null;
-            selectionEnd = null;
           }
           break;
       }
@@ -1019,6 +987,7 @@ function ClientTerminal({
           xtermRef.current?.scrollToBottom();
         }, 100);
       } catch (e) {
+        console.warn('[Terminal.tsx] caught non-fatal error', e);
         // ignore fit errors (e.g. if element not visible)
       }
     };

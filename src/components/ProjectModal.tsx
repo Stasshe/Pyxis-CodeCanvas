@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { fileRepository } from '@/engine/core/fileRepository';
-import { authRepository } from '@/engine/user/authRepository';
 import type { Project } from '@/types';
 
 interface ProjectModalProps {
@@ -30,25 +29,13 @@ export default function ProjectModal({
   const [cloneProjectName, setCloneProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [isGitHubAuthenticated, setIsGitHubAuthenticated] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
     if (isOpen) {
       loadProjects();
-      checkGitHubAuth();
     }
   }, [isOpen]);
-
-  const checkGitHubAuth = async () => {
-    try {
-      const isAuth = await authRepository.isAuthenticated();
-      setIsGitHubAuthenticated(isAuth);
-    } catch (error) {
-      console.error('Failed to check GitHub auth:', error);
-      setIsGitHubAuthenticated(false);
-    }
-  };
 
   const loadProjects = async () => {
     setLoading(true);

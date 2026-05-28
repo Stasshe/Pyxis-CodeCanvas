@@ -28,9 +28,6 @@ export class TreeBuilder {
     const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: commitOid });
     const treeOid = commit.commit.tree;
 
-    // Check if this exact tree already exists remotely
-    const localTreeInfo = await git.readTree({ fs: this.fs, dir: this.dir, oid: treeOid });
-
     // If we have a remote tree SHA to compare against
     if (remoteTreeSha) {
       try {

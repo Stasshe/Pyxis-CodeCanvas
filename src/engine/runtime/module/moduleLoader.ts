@@ -53,7 +53,6 @@ export interface ModuleLoaderOptions {
 export class ModuleLoader {
   private projectId: string;
   private projectName: string;
-  private projectDir: string;
   private debugConsole?: ModuleLoaderOptions['debugConsole'];
   private builtinResolver?: (moduleName: string) => any;
   private cache: ModuleCache;
@@ -687,6 +686,7 @@ export class ModuleLoader {
         writable: true,
       });
     } catch (e) {
+      console.warn('[moduleLoader.ts] caught non-fatal error', e);
       // If we can't modify navigator, continue anyway
     }
 
@@ -759,6 +759,7 @@ export class ModuleLoader {
           writable: true,
         });
       } catch (e) {
+        console.warn('[moduleLoader.ts] caught non-fatal error', e);
         // Ignore restoration errors
       }
     }

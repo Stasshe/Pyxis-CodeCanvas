@@ -61,6 +61,7 @@ export default function OperationVirtualList({
       // align 'auto' lets it only scroll when needed
       (virtualizer as any).scrollToIndex?.(selectedIndex, { align: 'auto' });
     } catch (e) {
+      console.warn('[OperationVirtualList.tsx] caught non-fatal error', e);
       // ignore failures silently
     }
   }, [selectedIndex, virtualizer, count]);

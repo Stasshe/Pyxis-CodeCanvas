@@ -99,6 +99,7 @@ export default function CodeEditor({
           !!hasTouchPoints || (!!mqPointer && mqPointer.matches) || (!!mqWidth && mqWidth.matches);
         setIsMobileDevice(isMobile);
       } catch (e) {
+        console.warn('[CodeEditor.tsx] caught non-fatal error', e);
         setIsMobileDevice(false);
       }
     };

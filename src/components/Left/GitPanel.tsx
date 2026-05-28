@@ -71,7 +71,6 @@ export default function GitPanel({
     selectedBranches,
     setSelectedBranches,
     commitDepth,
-    setCommitDepth,
     fetchGitStatus,
     loadMoreCommits,
     stageFile,
@@ -85,26 +84,6 @@ export default function GitPanel({
     commit: commitOp,
     getDiff,
   } = useGitPanel({ currentProject, currentProjectId, onGitStatusChange });
-
-  const handleDiscardAllUnstaged = useCallback(async () => {
-    try {
-      await discardAllUnstaged();
-      if (onRefresh) onRefresh();
-    } catch (err) {
-      console.error('Failed to discard all unstaged:', err);
-      setUiError(err instanceof Error ? err.message : 'Failed to discard changes');
-    }
-  }, [discardAllUnstaged, onRefresh]);
-
-  const handleDiscardAllStaged = useCallback(async () => {
-    try {
-      await discardAllStaged();
-      if (onRefresh) onRefresh();
-    } catch (err) {
-      console.error('Failed to discard all staged:', err);
-      setUiError(err instanceof Error ? err.message : 'Failed to discard changes');
-    }
-  }, [discardAllStaged, onRefresh]);
 
   // Branch filter persistence restored from sessionStorage
   const getStoredBranchFilter = useCallback(() => {
@@ -148,14 +127,6 @@ export default function GitPanel({
       setSelectedBranches(branches);
     }
   }, [currentProjectId, getStoredBranchFilter]);
-
-  // プロジェクトごとのコミット深度をsessionStorageで永続化
-  const getStoredCommitDepth = useCallback(() => {
-    if (!currentProjectId) return 20;
-    const key = `gitCommitDepth_${currentProjectId}`;
-    const stored = sessionStorage.getItem(key);
-    return stored ? Number.parseInt(stored, 10) : 20;
-  }, [currentProjectId]);
 
   // commit depth, fetch and history logic moved to `useGitPanel` hook
   // VSCode-style diff handlers: staged = HEAD vs INDEX, unstaged = INDEX vs WORKDIR

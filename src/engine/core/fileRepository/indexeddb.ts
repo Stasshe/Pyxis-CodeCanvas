@@ -157,6 +157,7 @@ export class FileRepository {
           try {
             fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
           } catch (e) {
+            console.warn('[indexeddb.ts] caught non-fatal error', e);
             // ignore if not supported
           }
         } else {
@@ -168,6 +169,7 @@ export class FileRepository {
             try {
               fileStore.createIndex('projectId_path', ['projectId', 'path'], { unique: false });
             } catch (e) {
+              console.warn('[indexeddb.ts] caught non-fatal error', e);
               // ignore if not supported
             }
           }
@@ -1194,6 +1196,7 @@ export class FileRepository {
           req.onsuccess = () => resolve(req.result || null);
           return;
         } catch (e) {
+          console.warn('[indexeddb.ts] caught non-fatal error', e);
           // fallthrough to fallback
         }
       }
@@ -1254,6 +1257,7 @@ export class FileRepository {
           };
           return;
         } catch (e) {
+          console.warn('[indexeddb.ts] caught non-fatal error', e);
           // fallthrough
         }
       }

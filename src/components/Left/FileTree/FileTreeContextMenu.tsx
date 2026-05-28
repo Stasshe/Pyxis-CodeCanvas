@@ -238,6 +238,7 @@ export default function FileTreeContextMenu({
             try {
               await fileRepository.createFile(projectId, acc, '', 'folder');
             } catch (err) {
+              console.warn('[FileTreeContextMenu.tsx] caught non-fatal error', err);
               // ignore
             }
           }

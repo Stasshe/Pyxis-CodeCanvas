@@ -84,8 +84,6 @@ export interface CompareResult {
 export class GitHubAPI {
   private baseUrl: string;
   private token: string;
-  private owner: string;
-  private repo: string;
 
   constructor(token: string, owner: string, repo: string) {
     this.token = token;

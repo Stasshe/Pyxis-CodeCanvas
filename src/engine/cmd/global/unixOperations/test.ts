@@ -52,10 +52,6 @@ interface TestContext extends EvalContext {
  * test用の式パーサー
  */
 class TestExprParser extends ExprParser<TestContext> {
-  private checkFile: (
-    path: string
-  ) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
-
   constructor(tokens: string[], checkFile: TestContext['checkFile']) {
     super(tokens);
     this.checkFile = checkFile;

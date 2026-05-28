@@ -69,7 +69,9 @@ export default function ShortcutKeysTab() {
     const handler = (e: KeyboardEvent) => {
       try {
         e.preventDefault();
-      } catch (err) {}
+      } catch (err) {
+        console.warn('[ShortcutKeysTab.tsx] caught non-fatal error', err);
+      }
 
       if (e.key === 'Escape') {
         clearPending();

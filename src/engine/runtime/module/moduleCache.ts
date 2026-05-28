@@ -38,8 +38,6 @@ interface CacheMeta {
 }
 
 export class ModuleCache {
-  private projectId: string;
-  private projectName: string;
   private cacheMount: RuntimeCacheMount;
   private cache: Map<string, CacheEntry> = new Map(); // key = originalPath
   private maxCacheSize: number = 100 * 1024 * 1024;
@@ -225,6 +223,7 @@ export class ModuleCache {
             loadedCount++;
           }
         } catch (error) {
+          console.warn('[moduleCache.ts] caught non-fatal error', error);
           runtimeWarn('⚠️ Failed to parse cache meta:', name);
         }
       }
@@ -287,6 +286,7 @@ export class ModuleCache {
         currentSize -= entry.size;
         deletedCount++;
       } catch (error) {
+        console.warn('[moduleCache.ts] caught non-fatal error', error);
         runtimeWarn('⚠️ Failed to delete:', path);
       }
     }
