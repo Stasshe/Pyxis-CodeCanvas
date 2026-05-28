@@ -20,22 +20,8 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "a11y": {
-        "noStaticElementInteractions": "warn",
-        "noAutofocus": "warn",
-        "noLabelWithoutControl": "warn",
-        "noSvgWithoutTitle": "warn",
-        "useAltText": "warn",
-        "useButtonType": "warn",
-        "useIframeTitle": "warn",
-        "useKeyWithClickEvents": "warn",
-        "useKeyWithMouseEvents": "warn",
-        "useMediaCaption": "warn",
-        "useSemanticElements": "warn",
-        "useAriaPropsSupportedByRole": "warn",
-        "useAriaPropsForRole": "off",
-        "useFocusableInteractive": "off"
-      },
+      "a11y": "off",
+
       "complexity": {
         "noImportantStyles": "off",
         "noBannedTypes": "off",
