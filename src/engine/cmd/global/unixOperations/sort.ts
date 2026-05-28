@@ -11,7 +11,7 @@ export class SortCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
     const optstring = 'rnu';
     const longopts: string[] = ['help'];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {

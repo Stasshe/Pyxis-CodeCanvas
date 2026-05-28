@@ -1,7 +1,5 @@
 import { LOCALSTORAGE_KEY } from '@/constants/config';
-import type { GitCommands } from '@/engine/cmd/global/git';
 import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
-import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
@@ -21,12 +19,6 @@ export async function handlePyxisCommand(
 ) {
   // Obtain registry instances
   const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(projectName, projectId);
-  const gitInst: GitCommands = terminalCommandRegistry.getGitCommands(projectName, projectId);
-  const npmInst: NpmCommands = await terminalCommandRegistry.getNpmCommands(
-    projectName,
-    projectId,
-    `/projects/${projectName}`
-  );
 
   try {
     switch (cmd) {
@@ -68,7 +60,7 @@ export async function handlePyxisCommand(
               storageService.close();
               await writeOutput('  ✓ Closed pyxis-global connection');
             } catch (e) {
-              console.warn('Failed to close storageService:', e);
+              console.warn('Failed to close storageService:', (e as Error).message);
             }
 
             // Close fileRepository connection
@@ -76,7 +68,7 @@ export async function handlePyxisCommand(
               await fileRepository.close();
               await writeOutput('  ✓ Closed PyxisProjects connection');
             } catch (e) {
-              console.warn('Failed to close fileRepository:', e);
+              console.warn('Failed to close fileRepository:', (e as Error).message);
             }
 
             // Wait a bit for connections to fully close
@@ -117,7 +109,7 @@ export async function handlePyxisCommand(
                     };
                   });
                   return { name: dbInfo.name, success: true };
-                } catch (error) {
+                } catch (_error) {
                   return { name: dbInfo.name, success: false };
                 }
               })
@@ -449,7 +441,7 @@ export async function handlePyxisCommand(
                 }
               } catch {}
             }
-          } catch (e) {}
+          } catch (_e) {}
 
           if (cleaned.length > 0) {
             await writeOutput(

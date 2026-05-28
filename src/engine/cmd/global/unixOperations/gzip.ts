@@ -25,7 +25,7 @@ export class GzipCommand extends UnixCommandBase {
     // オプション解析
     const optstring = 'dkfvh';
     const longopts = ['decompress', 'keep', 'force', 'verbose', 'help', 'uncompress'];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
     // ヘルプ

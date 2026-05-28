@@ -12,7 +12,7 @@ export class DuCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
     const optstring = 'hs';
     const longopts = ['human-readable', 'help'];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
     if (flags.has('--help')) {

@@ -53,24 +53,13 @@ export default function TabBar({ paneId }: TabBarProps) {
   const { requestClose, ConfirmationDialog } = useTabCloseConfirmation();
   const { openFileSelector } = useFileSelector();
 
-  const {
-    getPane,
-    activateTab,
-    closeTab,
-    openTab,
-    removePane,
-    moveTab,
-    moveTabToIndex,
-    splitPane,
-  } = tabActions;
+  const { getPane, activateTab, closeTab, openTab, removePane, moveTab, splitPane } = tabActions;
   const snap = useSnapshot(tabState);
   const panes = snap.panes as EditorPane[];
 
   const pane = getPane(paneId);
-  if (!pane) return null;
-
-  const tabs = pane.tabs;
-  const activeTabId = pane.activeTabId;
+  const tabs = pane?.tabs ?? [];
+  const activeTabId = pane?.activeTabId;
 
   // ペインメニューの開閉状態
   const [paneMenuOpen, setPaneMenuOpen] = useState(false);
@@ -385,6 +374,8 @@ export default function TabBar({ paneId }: TabBarProps) {
   }, [activeTabId]);
 
   // DraggableTab moved to ./DraggableTab.tsx
+  if (!pane) return null;
+
   return (
     <div
       className="h-10 border-b flex items-center relative bg-muted border-border"
@@ -502,7 +493,7 @@ export default function TabBar({ paneId }: TabBarProps) {
       >
         {tabs.map((tab, tabIndex) => (
           <DraggableTab
-            key={`${paneId}-${tabIndex}-${tab.id}`}
+            key={`${paneId}-${tab.id}`}
             tab={tab}
             tabIndex={tabIndex}
             paneId={paneId}

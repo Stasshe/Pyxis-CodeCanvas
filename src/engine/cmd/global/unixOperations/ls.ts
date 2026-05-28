@@ -40,7 +40,7 @@ export class LsCommand extends UnixCommandBase {
       'inode',
       'size',
     ];
-    const { flags, values, positional, errors } = parseWithGetOpt(
+    const { flags, positional, errors } = parseWithGetOpt(
       args,
       optstring.replace(/\s+/g, ''),
       longopts

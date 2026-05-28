@@ -86,7 +86,6 @@ export class UnzipCommand extends UnixCommandBase {
         }
 
         const fileApp = pathResolve(destApp, relPath);
-        const normalizedFilePath = toFSPath(this.projectName, fileApp);
         const relativePath = fileApp;
 
         if (file.dir || relPath.endsWith('/')) {
@@ -132,6 +131,9 @@ export class UnzipCommand extends UnixCommandBase {
                 isBufferArray: true,
                 bufferContent: arrayBuffer,
               });
+              console.warn(
+                `[unzip] Warning: Failed to decode ${relativePath} as text. Saving as binary.${(e as Error).message}`
+              );
             }
           } else {
             entries.push({

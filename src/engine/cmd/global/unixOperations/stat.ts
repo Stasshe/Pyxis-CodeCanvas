@@ -48,7 +48,7 @@ export class StatCommand extends UnixCommandBase {
 
         return `  File: ${fileArg}\n  Size: ${size}\n  Modified: ${mtime}\n  Type: ${type}`;
       }
-    } catch (err) {
+    } catch (_err) {
       // Continue to fallback
       // console.warn('[StatCommand] fileRepository lookup failed:', err);
     }

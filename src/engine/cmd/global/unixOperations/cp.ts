@@ -39,7 +39,6 @@ export class CpCommand extends UnixCommandBase {
     }
 
     const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
-    const force = options.has('-f') || options.has('--force');
     const interactive = options.has('-i') || options.has('--interactive');
     const noClobber = options.has('-n') || options.has('--no-clobber');
     const verbose = options.has('-v') || options.has('--verbose');

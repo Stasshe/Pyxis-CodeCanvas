@@ -400,7 +400,7 @@ export class TarCommand extends UnixCommandBase {
                   type: 'file',
                   isBufferArray: false,
                 });
-              } catch (e) {
+              } catch (_e) {
                 // デコード失敗時はバイナリとして扱う
                 entries.push({
                   path: entryPath,

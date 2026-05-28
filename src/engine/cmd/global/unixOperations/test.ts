@@ -83,7 +83,6 @@ class TestExprParser extends ExprParser<TestContext> {
       const path = this.stream.consume();
       if (!path) return ExprBuilder.false();
 
-      const checkFile = this.checkFile;
       return ExprBuilder.predicate(tok, [path], (ctx: EvalContext) => {
         // 非同期なので、事前にチェック結果をコンテキストに入れておく必要あり
         const tc = ctx as TestContext & { fileCache?: Map<string, any> };

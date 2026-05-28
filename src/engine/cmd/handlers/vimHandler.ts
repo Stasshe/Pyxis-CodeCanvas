@@ -43,7 +43,7 @@ export async function handleVimCommand(
         entryPath = `${cwd.replace(/\/$/, '')}/${entryPath}`;
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // resolve failed, use original path
     entryPath = args[0];
   }
@@ -55,18 +55,14 @@ export async function handleVimCommand(
 
     // Try to load existing file
     let content = '';
-    let isNewFile = false;
 
     try {
       const file = await fileRepository.getFileByPath(currentProjectId, relativePath);
       if (file) {
         content = file.content || '';
-      } else {
-        isNewFile = true;
       }
-    } catch (e) {
+    } catch (_e) {
       // File doesn't exist, create new
-      isNewFile = true;
     }
 
     // Extract filename from path

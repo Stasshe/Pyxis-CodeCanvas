@@ -39,7 +39,6 @@ export class MvCommand extends UnixCommandBase {
       );
     }
 
-    const force = options.has('-f') || options.has('--force');
     const interactive = options.has('-i') || options.has('--interactive');
     const noClobber = options.has('-n') || options.has('--no-clobber');
     const verbose = options.has('-v') || options.has('--verbose');
