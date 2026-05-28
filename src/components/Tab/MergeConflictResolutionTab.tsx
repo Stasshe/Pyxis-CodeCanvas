@@ -295,7 +295,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                     {t('mergeConflict.resolved') || 'Resolved'}
                   </>
                 ) : (
-                  <>{t('mergeConflict.markAsResolved') || 'Mark as Resolved'}</>
+                  t('mergeConflict.markAsResolved') || 'Mark as Resolved'
                 )}
               </button>
             </div>

@@ -164,6 +164,7 @@ export function OutputPanel() {
               setTimeout(() => setCopyStatus('idle'), 1800);
             } catch (e) {
               setCopyStatus('error');
+              console.error('Failed to copy logs:', e);
               setTimeout(() => setCopyStatus('idle'), 1800);
             }
           }}

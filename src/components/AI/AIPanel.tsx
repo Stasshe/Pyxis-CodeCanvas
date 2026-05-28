@@ -39,7 +39,6 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [showSpaceList, setShowSpaceList] = useState(false);
   const [isChangedFilesMinimized, setIsChangedFilesMinimized] = useState(false);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const spaceButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Track if we're on the client for portal rendering
@@ -59,31 +58,10 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
     setIsClient(true);
   }, []);
 
-  // Compute dropdown position relative to viewport (fixed) so it appears under the button
-  const dropdownPosition = useMemo(() => {
-    if (!anchorRect || typeof window === 'undefined') return null;
-    const padding = 8;
-    const desiredWidth = 320;
-    const maxAvailableRight = window.innerWidth - padding - anchorRect.left;
-    const width = Math.min(desiredWidth, Math.max(160, Math.min(360, maxAvailableRight)));
-
-    // If the dropdown would overflow the right edge, shift it left
-    let left = anchorRect.left;
-    if (left + width + padding > window.innerWidth) {
-      left = Math.max(padding, window.innerWidth - width - padding);
-    }
-
-    // place just below the button
-    const top = anchorRect.bottom + 6;
-
-    return { left, top, width };
-  }, [anchorRect]);
-
   // チャットスペース管理
   const {
     chatSpaces,
     currentSpace,
-    loading: spacesLoading,
     createNewSpace,
     selectSpace,
     deleteSpace,
@@ -451,9 +429,6 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
               }}
               ref={spaceButtonRef}
               onClick={() => {
-                if (spaceButtonRef.current) {
-                  setAnchorRect(spaceButtonRef.current.getBoundingClientRect());
-                }
                 setShowSpaceList(prev => !prev);
               }}
             >
