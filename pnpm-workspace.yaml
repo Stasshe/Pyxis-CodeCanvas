@@ -6,4 +6,8 @@ allowBuilds:
   '@biomejs/biome': false
   core-js: false
   esbuild: false
+  msgpackr-extract: false
   sharp: false
+
+minimumReleaseAgeExclude:
+  - react-scan@0.5.7
