@@ -242,24 +242,16 @@ function ClientTerminal({
       terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
     }
 
-    // サイズ調整 — rAFで順次実行。timeoutでDOM安定を祈らない
+    // サイズ調整 — open後の次フレームでfit+scroll（useEffect実行時点でDOMコミット済み）
     const fitAndSync = () => {
       fitAddon.fit();
       terminalCommandRegistry.updateShellSize(currentProjectId, term.cols, term.rows);
     };
-    const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-    (async () => {
-      await nextFrame();
-      if (!mounted) return;
-      fitAndSync();
-      await nextFrame();
-      if (!mounted) return;
-      term.scrollToBottom();
-      await nextFrame();
+    requestAnimationFrame(() => {
       if (!mounted) return;
       fitAndSync();
       term.scrollToBottom();
-    })();
+    });
 
     // 初期化処理を非同期で実行
     const initializeMessages = async () => {
