@@ -17,13 +17,17 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   currentProjectName,
   onTitleChange,
 }) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const onTitleChangeRef = useRef(onTitleChange);
   const lastAppliedTitleRef = useRef<string | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { t } = useTranslation();
 
   console.log('[web previewtab]', filePath);
+
+  useEffect(() => {
+    onTitleChangeRef.current = onTitleChange;
+  }, [onTitleChange]);
 
   // ファイルパスを仮想ファイルシステムのルートに基づいて解決
   const resolveFilePath = useCallback(
@@ -42,7 +46,8 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
 
   const applyHtmlTitle = useCallback(
     (html: string) => {
-      if (!onTitleChange) return;
+      const handleTitleChange = onTitleChangeRef.current;
+      if (!handleTitleChange) return;
       if (typeof DOMParser === 'undefined') return;
 
       try {
@@ -51,12 +56,26 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
         const nextTitle = title || getDefaultTabName();
         if (lastAppliedTitleRef.current === nextTitle) return;
         lastAppliedTitleRef.current = nextTitle;
-        onTitleChange(nextTitle);
+        handleTitleChange(nextTitle);
       } catch (e) {
         console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
       }
     },
-    [onTitleChange, getDefaultTabName]
+    [getDefaultTabName]
+  );
+
+  const handleIframeLoad = useCallback(
+    (event: React.SyntheticEvent<HTMLIFrameElement>) => {
+      const iframeDocument = event.currentTarget.contentDocument;
+      if (iframeDocument) {
+        iframeDocument.documentElement.style.backgroundColor = '#ffffff';
+        if (iframeDocument.body) {
+          iframeDocument.body.style.backgroundColor = '#ffffff';
+        }
+      }
+      applyHtmlTitle(fileContent);
+    },
+    [applyHtmlTitle, fileContent]
   );
 
   // ファイルシステムから直接ファイル内容を取得
@@ -209,33 +228,11 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
     };
   }, [filePath, currentProjectName]);
 
-  // ファイル内容が変わったらiframeに反映
-  useEffect(() => {
-    if (iframeRef.current) {
-      const iframeDocument = iframeRef.current.contentDocument;
-      if (iframeDocument) {
-        console.log('[DEBUG] iframeに書き込む内容:', fileContent);
-        iframeDocument.open();
-        iframeDocument.write(fileContent);
-        iframeDocument.close();
-        iframeDocument.documentElement.style.backgroundColor = '#ffffff';
-        if (iframeDocument.body) {
-          iframeDocument.body.style.backgroundColor = '#ffffff';
-        }
-        applyHtmlTitle(fileContent);
-      } else {
-        console.warn('[DEBUG] iframeDocumentが取得できませんでした');
-      }
-      iframeRef.current.style.backgroundColor = '#ffffff';
-    } else {
-      console.warn('[DEBUG] iframeRefがnullです');
-    }
-  }, [fileContent, applyHtmlTitle]);
-
   return (
     <div style={{ backgroundColor: '#ffffff', height: '100%', width: '100%' }}>
       <iframe
-        ref={iframeRef}
+        srcDoc={fileContent}
+        onLoad={handleIframeLoad}
         style={{ border: 'none', width: '100%', height: '100%', backgroundColor: '#ffffff' }}
       />
     </div>
