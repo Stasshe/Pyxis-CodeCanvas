@@ -18,6 +18,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   onTitleChange,
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const lastAppliedTitleRef = useRef<string | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { t } = useTranslation();
@@ -47,7 +48,10 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
       try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const title = doc.querySelector('title')?.textContent?.trim();
-        onTitleChange(title || getDefaultTabName());
+        const nextTitle = title || getDefaultTabName();
+        if (lastAppliedTitleRef.current === nextTitle) return;
+        lastAppliedTitleRef.current = nextTitle;
+        onTitleChange(nextTitle);
       } catch (e) {
         console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
       }

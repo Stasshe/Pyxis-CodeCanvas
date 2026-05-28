@@ -18,6 +18,7 @@ const WebPreviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       filePath={webTab.path}
       currentProjectName={projectName}
       onTitleChange={title => {
+        if (webTab.name === title) return;
         tabActions.updateTab(webTab.paneId, webTab.id, { name: title });
       }}
     />
