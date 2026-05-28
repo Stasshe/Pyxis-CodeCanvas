@@ -310,7 +310,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     if (selectedIndex >= flatResults.length) {
       setSelectedIndex(Math.max(0, flatResults.length - 1));
     }
-  }, [flatResults.length, selectedIndex]);
+  }, [flatResults.length]);
 
   const handleResultClick = useCallback(
     async (result: SearchResult) => {

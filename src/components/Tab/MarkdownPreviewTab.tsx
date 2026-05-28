@@ -265,7 +265,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         );
       },
     }),
-    [codeComponent, currentProject?.name, currentProject?.id, activeTab, currentProject]
+    [codeComponent, currentProject?.name, currentProject?.id, activeTab]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters
