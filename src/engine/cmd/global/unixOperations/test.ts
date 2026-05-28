@@ -52,9 +52,8 @@ interface TestContext extends EvalContext {
  * test用の式パーサー
  */
 class TestExprParser extends ExprParser<TestContext> {
-  constructor(tokens: string[], checkFile: TestContext['checkFile']) {
+  constructor(tokens: string[], _checkFile: TestContext['checkFile']) {
     super(tokens);
-    this.checkFile = checkFile;
   }
 
   protected isOrOperator(tok: string | null): boolean {

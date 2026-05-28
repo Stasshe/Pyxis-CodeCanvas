@@ -65,7 +65,6 @@ export class ModuleLoader {
   constructor(options: ModuleLoaderOptions) {
     this.projectId = options.projectId;
     this.projectName = options.projectName;
-    this.projectDir = `/projects/${this.projectName}`;
     this.debugConsole = options.debugConsole;
     this.builtinResolver = options.builtinResolver;
 

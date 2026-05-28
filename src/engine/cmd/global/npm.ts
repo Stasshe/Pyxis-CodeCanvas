@@ -28,7 +28,6 @@ export class NpmCommands {
   ) {
     this.projectName = projectName;
     this.projectId = projectId;
-    this.currentDir = currentDir;
     this.setLoading = setLoading;
   }
 

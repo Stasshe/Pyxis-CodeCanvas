@@ -45,9 +45,7 @@ export class ModuleCache {
   private readonly metaDir = '/cache/meta';
   private initialized = false;
 
-  constructor(projectId: string, projectName: string, cacheMount: RuntimeCacheMount) {
-    this.projectId = projectId;
-    this.projectName = projectName;
+  constructor(_projectId: string, _projectName: string, cacheMount: RuntimeCacheMount) {
     this.cacheMount = cacheMount;
   }
   async init(): Promise<void> {
