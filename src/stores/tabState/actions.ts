@@ -210,6 +210,13 @@ export const tabActions = {
     }
   },
   activateTab(paneId: string, tabId: string) {
+    const pane = getPane(paneId);
+    if (
+      pane?.activeTabId === tabId &&
+      tabState.globalActiveTab === tabId &&
+      tabState.activePane === paneId
+    )
+      return;
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id === paneId) return { ...p, activeTabId: tabId };
