@@ -97,27 +97,27 @@ export function highlightMatch(
   const re = new RegExp(`(${escaped.join('|')})`, 'ig');
   const parts = text.split(re);
 
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (tokens.some(tok => part.toLowerCase() === tok.toLowerCase())) {
-          return (
-            <span
-              key={`${i}-${part}`}
-              style={{
-                background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
-                color: isSelected ? colors.cardBg : colors.primary,
-                fontWeight: 'bold',
-                borderRadius: '2px',
-                padding: '0 1px',
-              }}
-            >
-              {part}
-            </span>
-          );
-        }
-        return <span key={`${i}-${part}`}>{part}</span>;
-      })}
-    </>
-  );
+  const renderedParts = parts.map((part, i) => {
+    // parts can contain duplicate strings, so index prefix is required for unique keys
+    const partKey = `${i}-${part}`;
+    if (tokens.some(tok => part.toLowerCase() === tok.toLowerCase())) {
+      return (
+        <span
+          key={partKey}
+          style={{
+            background: isSelected ? 'rgba(255,255,255,0.3)' : colors.accentBg,
+            color: isSelected ? colors.cardBg : colors.primary,
+            fontWeight: 'bold',
+            borderRadius: '2px',
+            padding: '0 1px',
+          }}
+        >
+          {part}
+        </span>
+      );
+    }
+    return <span key={partKey}>{part}</span>;
+  });
+
+  return <>{renderedParts}</>;
 }

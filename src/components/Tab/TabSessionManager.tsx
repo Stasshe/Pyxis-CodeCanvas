@@ -69,6 +69,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
   );
   const structuralKeyRef = useRef(structuralKey);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: computeStructuralKey is a plain function with no state captures; run-once subscription
   useEffect(() => {
     // Subscribe to panes updates but only update local state when the structural key actually changes
     const unsub = subscribeKey(tabState, 'panes', () => {
@@ -92,6 +93,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
     return () => window.removeEventListener('pyxis-content-restored', handleContentRestored);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: structuralKey/activePane/globalActiveTab/saveSession are all needed trigger deps for session persistence
   useEffect(() => {
     if (isLoading) return; // 初期ロード中は保存しない
 

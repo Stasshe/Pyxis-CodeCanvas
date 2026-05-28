@@ -10,6 +10,7 @@ import type { Project } from '@/types';
 export function useProjectWelcome(currentProject: Project | null) {
   const { openTab } = tabActions;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id is the correct trigger; adding .name/.description would re-open welcome tab on rename
   useEffect(() => {
     if (!currentProject) {
       return;

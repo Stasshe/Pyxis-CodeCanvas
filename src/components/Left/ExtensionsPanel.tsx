@@ -59,6 +59,7 @@ export default function ExtensionsPanel() {
     extensionName: string;
   } | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadExtensions is a plain function that captures no changing state; run-once on mount
   useEffect(() => {
     loadExtensions();
   }, []);

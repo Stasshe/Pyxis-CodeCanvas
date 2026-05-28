@@ -78,6 +78,7 @@ export function GitHubUserProvider({ children }: { children: React.ReactNode }) 
   /**
    * 初回マウント時にキャッシュがあれば取得
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: user would cause infinite loop (fetch→setUser→re-run); fetchUser is stable useCallback; intentional run-once
   useEffect(() => {
     const initUser = async () => {
       const cached = githubUserManager.getCachedUser();

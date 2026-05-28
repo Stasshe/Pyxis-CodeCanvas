@@ -309,6 +309,7 @@ export default function OperationWindow({
   }, []);
 
   // send files to worker when file list changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: arraysEqualById/queryTokens are plain function and trigger dep respectively; no stale closure risk
   useEffect(() => {
     if (viewMode !== 'files') return;
 
@@ -331,6 +332,7 @@ export default function OperationWindow({
   }, [allFiles, viewMode]);
 
   // send search requests to worker when tokens change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: arraysEqualById/localComputeFilteredFiles are plain functions with no state captures
   useEffect(() => {
     if (viewMode !== 'files') return;
 

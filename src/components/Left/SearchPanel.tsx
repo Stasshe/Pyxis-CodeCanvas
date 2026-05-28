@@ -252,6 +252,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   }, [searchQuery, isRealtimeSearch]);
 
   // 検索オプション変更時にリアルタイム検索を再実行
+  // biome-ignore lint/correctness/useExhaustiveDependencies: caseSensitive/wholeWord/useRegex/searchInFilenames/minQueryLength are trigger deps used via performSearchRef
   useEffect(() => {
     if (isRealtimeSearch && searchQuery && searchQuery.length >= minQueryLength) {
       // キャッシュをクリアして検索
@@ -277,6 +278,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   }, []);
 
   // ファイルが変更された場合、キャッシュをクリア
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filesVersion is a trigger dep — clear cache when file tree changes
   useEffect(() => {
     // ファイルが変更されたのでキャッシュをクリア
     lastSearchResultsRef.current = [];
@@ -305,6 +307,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     return Object.values(groupsMap);
   }, [searchResults]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedIndex is intentionally excluded — effect only needs to run when results shrink; selectedIndex at that render is always current
   useEffect(() => {
     // keep selection within bounds
     if (selectedIndex >= flatResults.length) {
