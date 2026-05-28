@@ -258,7 +258,15 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       lastSearchResultsRef.current = [];
       performSearchRef.current(searchQuery);
     }
-  }, [isRealtimeSearch, searchQuery]);
+  }, [
+    caseSensitive,
+    wholeWord,
+    useRegex,
+    searchInFilenames,
+    isRealtimeSearch,
+    searchQuery,
+    minQueryLength,
+  ]);
 
   // Workerのクリーンアップ
   useEffect(() => {
@@ -273,7 +281,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     // ファイルが変更されたのでキャッシュをクリア
     lastSearchResultsRef.current = [];
     lastSearchQueryRef.current = '';
-  }, []);
+  }, [filesVersion]);
 
   // flattened results for keyboard navigation
   const flatResults = searchResults;

@@ -23,6 +23,8 @@ interface Props {
 export const TabSessionManager: React.FC<Props> = ({ children }) => {
   const { loadSession, saveSession, setIsContentRestored } = tabActions;
   const isLoading = useSnapshot(tabState).isLoading;
+  const activePane = useSnapshot(tabState).activePane;
+  const globalActiveTab = useSnapshot(tabState).globalActiveTab;
   // IndexedDBからセッションを復元
   useEffect(() => {
     loadSession();
@@ -98,7 +100,7 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isLoading]);
+  }, [structuralKey, activePane, globalActiveTab, isLoading, saveSession]);
 
   return <>{children}</>;
 };
