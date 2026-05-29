@@ -103,8 +103,16 @@ async function executeSave(path: string, content: string): Promise<boolean> {
     savingPaths.add(path);
     await fileRepository.saveFileByPath(projectId, path, content);
     savingPaths.delete(path);
-    clearSaveTimer(path);
-    updateAllTabsByPath(path, content, false);
+
+    // Check if the user typed new content during the async save.
+    // If so: do NOT overwrite the store/model (would revert edits) and do NOT
+    // cancel the new debounce timer (it must fire to persist the newer content).
+    const currentContent = getContentFromPanes(tabState.panes, path);
+    if (currentContent === undefined || currentContent === content) {
+      clearSaveTimer(path);
+      updateAllTabsByPath(path, content, false);
+    }
+
     for (const l of saveListeners) l(path, true);
     return true;
   } catch (error) {
