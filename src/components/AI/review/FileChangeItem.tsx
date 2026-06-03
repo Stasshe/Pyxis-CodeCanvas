@@ -1,7 +1,5 @@
 // 変更ファイルアイテム
 
-'use client';
-
 import { Check, Eye, FileCode, X } from 'lucide-react';
 import React from 'react';
 

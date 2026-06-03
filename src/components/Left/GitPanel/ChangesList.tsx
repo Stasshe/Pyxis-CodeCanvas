@@ -1,4 +1,3 @@
-'use client';
 import React, { memo } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import FileItem from './FileItem';

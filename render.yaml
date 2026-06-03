@@ -4,9 +4,9 @@ services:
     name: pyxis-code
     repo: https://github.com/Stasshe/Pyxis-CodeCanvas
     buildCommand: pnpm run build
-    staticPublishPath: out
+    staticPublishPath: dist
     envVars:
-      - key: NEXT_PUBLIC_IS_DEV_SERVER
+      - key: VITE_IS_DEV_SERVER
         value: "true"
     previews:
       generation: automatic

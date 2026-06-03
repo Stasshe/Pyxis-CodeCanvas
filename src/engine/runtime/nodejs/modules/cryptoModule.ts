@@ -85,7 +85,7 @@ export function createCryptoModule() {
     randomUUID: (): string => globalThis.crypto.randomUUID(),
 
     getRandomValues: (buffer: Uint8Array): Uint8Array => {
-      globalThis.crypto.getRandomValues(buffer);
+      globalThis.crypto.getRandomValues(buffer as Uint8Array<ArrayBuffer>);
       return buffer;
     },
 

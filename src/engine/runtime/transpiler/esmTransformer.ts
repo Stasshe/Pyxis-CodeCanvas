@@ -10,6 +10,8 @@
  * post-processingはcustom runtimeのwrapperとの衝突回避のみ。
  */
 
+import { assetPath } from '@/env';
+
 type EsbuildApi = {
   transform(
     code: string,
@@ -46,16 +48,11 @@ let api: EsbuildApi | null = null;
 let initPromise: Promise<EsbuildApi | null> | null = null;
 
 export function getEsbuildWasmURL(): string {
-  const basePath =
-    ((globalThis as any).__NEXT_PUBLIC_BASE_PATH__ as string | undefined) ||
-    process.env.NEXT_PUBLIC_BASE_PATH ||
-    '';
-  return `${basePath.replace(/\/$/, '')}/esbuild.wasm`;
+  return assetPath('/esbuild.wasm');
 }
 
 async function importModuleDynamically<T>(specifier: string): Promise<T> {
-  const importer = new Function('s', 'return import(s)') as (s: string) => Promise<T>;
-  return importer(specifier);
+  return import(/* @vite-ignore */ specifier) as Promise<T>;
 }
 
 async function getApi(): Promise<EsbuildApi | null> {

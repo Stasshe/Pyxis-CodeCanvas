@@ -1,4 +1,3 @@
-'use client';
 import { RefreshCw } from 'lucide-react';
 import type { ThemeColors } from '@/context/ThemeContext';
 

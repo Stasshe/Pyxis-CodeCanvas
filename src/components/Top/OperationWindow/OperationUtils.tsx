@@ -1,8 +1,7 @@
-'use client';
-
 import type React from 'react';
 import { getIconForFile } from 'vscode-icons-js';
 import type { ThemeColors } from '@/context/ThemeContext';
+import { assetPath } from '@/env';
 import type { FileItem } from '@/types';
 
 // FileItem[]を平坦化する関数（tab.tsと同じ実装）
@@ -71,9 +70,9 @@ export function getIconSrcForFile(name: string) {
   const iconPath = getIconForFile(name) || getIconForFile('');
   let src: string;
   if (iconPath?.endsWith('.svg')) {
-    src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+    src = assetPath(`/vscode-icons/${iconPath.split('/').pop()}`);
   } else {
-    src = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+    src = assetPath('/vscode-icons/file.svg');
   }
   ICON_SRC_CACHE.set(key, src);
   return src;

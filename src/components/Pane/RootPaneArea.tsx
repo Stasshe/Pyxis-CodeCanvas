@@ -1,5 +1,3 @@
-'use client';
-
 import { Fragment, memo } from 'react';
 
 import PaneContainer from '@/components/Pane/PaneContainer';

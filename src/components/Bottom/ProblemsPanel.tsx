@@ -1,5 +1,3 @@
-'use client';
-
 import { loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import type * as monaco from 'monaco-editor';

@@ -1,7 +1,5 @@
 // AI用ファイル選択コンポーネント（OperationWindowの再利用）
 
-'use client';
-
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import type { FileItem } from '@/types';
 

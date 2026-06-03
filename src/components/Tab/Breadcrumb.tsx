@@ -1,5 +1,3 @@
-'use client';
-
 import type React from 'react';
 import { useSnapshot } from 'valtio';
 import { useTheme } from '@/context/ThemeContext';

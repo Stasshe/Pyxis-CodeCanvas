@@ -1,4 +1,3 @@
-'use client';
 import { CheckCircle2, Loader2Icon } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import type { ThemeColors } from '@/context/ThemeContext';

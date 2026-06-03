@@ -1,7 +1,13 @@
-import { defineConfig } from 'vitest/config';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { defineConfig } from 'vitest/config';
+
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
 export default defineConfig({
+  define: {
+    __PYXIS_VERSION__: JSON.stringify(packageJson.version),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -17,11 +23,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/**/*.d.ts',
-        'src/types/**',
-        'src/components/**',
-      ],
+      exclude: ['src/**/*.d.ts', 'src/types/**', 'src/components/**'],
     },
   },
 });

@@ -44,8 +44,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     createTranspileWorkerPool = () => {
       if (transpileWorkerPool) return transpileWorkerPool;
 
-      const basePath =
-        typeof window !== 'undefined' ? (window as any).__NEXT_PUBLIC_BASE_PATH__ || '' : '';
+      const basePath = typeof window !== 'undefined' ? (window as any).__PYXIS_BASE_PATH__ || '' : '';
       const workerPath = `${basePath}/extensions/typescript-runtime/transpile.worker.js`;
 
       context.logger.info(`📦 Creating TypeScript worker pool from: ${workerPath}`);

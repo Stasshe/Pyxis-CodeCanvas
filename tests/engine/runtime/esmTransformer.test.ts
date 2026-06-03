@@ -7,38 +7,31 @@ import {
 
 describe('esmTransformer', () => {
   it('basePath なしの esbuild wasm URL を生成する', () => {
-    const originalBasePath = (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
-    const originalEnv = process.env.NEXT_PUBLIC_BASE_PATH;
-    delete (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
-    delete process.env.NEXT_PUBLIC_BASE_PATH;
+    const originalBasePath = (globalThis as any).__PYXIS_BASE_PATH__;
+    delete (globalThis as any).__PYXIS_BASE_PATH__;
 
     try {
       expect(getEsbuildWasmURL()).toBe('/esbuild.wasm');
     } finally {
       if (originalBasePath === undefined) {
-        delete (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+        delete (globalThis as any).__PYXIS_BASE_PATH__;
       } else {
-        (globalThis as any).__NEXT_PUBLIC_BASE_PATH__ = originalBasePath;
-      }
-      if (originalEnv === undefined) {
-        delete process.env.NEXT_PUBLIC_BASE_PATH;
-      } else {
-        process.env.NEXT_PUBLIC_BASE_PATH = originalEnv;
+        (globalThis as any).__PYXIS_BASE_PATH__ = originalBasePath;
       }
     }
   });
 
   it('runtime basePath つきの esbuild wasm URL を生成する', () => {
-    const originalBasePath = (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
-    (globalThis as any).__NEXT_PUBLIC_BASE_PATH__ = '/Pyxis-CodeCanvas/';
+    const originalBasePath = (globalThis as any).__PYXIS_BASE_PATH__;
+    (globalThis as any).__PYXIS_BASE_PATH__ = '/Pyxis-CodeCanvas/';
 
     try {
       expect(getEsbuildWasmURL()).toBe('/Pyxis-CodeCanvas/esbuild.wasm');
     } finally {
       if (originalBasePath === undefined) {
-        delete (globalThis as any).__NEXT_PUBLIC_BASE_PATH__;
+        delete (globalThis as any).__PYXIS_BASE_PATH__;
       } else {
-        (globalThis as any).__NEXT_PUBLIC_BASE_PATH__ = originalBasePath;
+        (globalThis as any).__PYXIS_BASE_PATH__ = originalBasePath;
       }
     }
   });
@@ -49,7 +42,7 @@ describe('esmTransformer', () => {
       '/test.js'
     );
 
-    expect(code).toContain("require(\"fs\")");
+    expect(code).toContain('require("fs")');
     expect(code).toContain('value: () => value');
     expect(code).toContain('module.exports = __toCommonJS');
   });
@@ -74,6 +67,6 @@ describe('esmTransformer', () => {
 
   it('dynamic import を require ベースに変換する', async () => {
     const code = await transformEsmToCjs("const mod = import('lodash');", '/dynamic.js');
-    expect(code).toContain('Promise.resolve(require("lodash"))');
+    expect(code).toContain('__pyxisImport("lodash")');
   });
 });

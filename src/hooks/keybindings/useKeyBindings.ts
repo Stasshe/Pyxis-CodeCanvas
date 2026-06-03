@@ -15,8 +15,6 @@
  * ```
  */
 
-'use client';
-
 import { useCallback, useEffect, useState } from 'react';
 import { STORES, storageService } from '@/engine/storage';
 import { DEFAULT_BINDINGS } from './defaultKeybindings';

@@ -1,5 +1,5 @@
 echo "Root" > tree.txt
-tree -I 'node_modules|.next|out|vscode-icons|locales' >> tree.txt
+tree -I 'node_modules|dist|vscode-icons|locales' >> tree.txt
 echo "" >> tree.txt
 echo "=================================" >> tree.txt
 echo "" >> tree.txt

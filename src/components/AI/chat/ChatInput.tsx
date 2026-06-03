@@ -1,14 +1,12 @@
 // 統合された入力コンポーネント（Ask/Edit共通）
 
-'use client';
-
 import { FileCode, Loader2, Plus, Send, X } from 'lucide-react';
-import Image from 'next/image';
 import React, { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { getIconForFile } from 'vscode-icons-js';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { assetPath } from '@/env';
 import { useInputHistory } from '@/hooks/ai/useInputHistory';
 
 interface ChatInputProps {
@@ -97,12 +95,12 @@ export default function ChatInput({
     try {
       const iconPath = getIconForFile(name) || getIconForFile('');
       if (iconPath?.endsWith('.svg')) {
-        return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+        return assetPath(`/vscode-icons/${iconPath.split('/').pop()}`);
       }
     } catch {
       // ignore and fallback
     }
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+    return assetPath('/vscode-icons/file.svg');
   }
 
   const placeholder = mode === 'ask' ? t('ai.mode.ask') : t('ai.mode.edit');
@@ -142,13 +140,10 @@ export default function ChatInput({
                   lineHeight: 1,
                 }}
               >
-                <Image
+                <img
                   src={getIconSrcForFile(activeTabPath.split('/').pop() || activeTabPath)}
                   alt="icon"
-                  width={10}
-                  height={10}
-                  unoptimized
-                  style={{ flex: '0 0 10px' }}
+                  style={{ flex: '0 0 10px', width: 10, height: 10 }}
                 />
                 <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                   {activeTabPath.split('/').pop()}
@@ -197,13 +192,10 @@ export default function ChatInput({
                     lineHeight: 1,
                   }}
                 >
-                  <Image
+                  <img
                     src={iconSrc}
                     alt="icon"
-                    width={10}
-                    height={10}
-                    unoptimized
-                    style={{ flex: '0 0 10px' }}
+                    style={{ flex: '0 0 10px', width: 10, height: 10 }}
                   />
                   <span className="truncate" style={{ maxWidth: 80, display: 'inline-block' }}>
                     {fileName}

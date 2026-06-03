@@ -3,6 +3,7 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
+import { assetPath } from '@/env';
 import { dataUrlToBlob, isBinaryExt, toDataUrlFromUint8 } from './binaryUtils';
 import { extensionError, extensionInfo } from './extensionsLogger';
 import type {
@@ -15,7 +16,7 @@ import type {
 /**
  * 拡張機能のベースURL（public/extensions/）
  */
-const EXTENSIONS_BASE_URL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/extensions`;
+const EXTENSIONS_BASE_URL = assetPath('/extensions');
 
 /**
  * 拡張機能のマニフェストを取得
@@ -25,7 +26,7 @@ export async function fetchExtensionManifest(
 ): Promise<ExtensionManifest | null> {
   try {
     const url = manifestUrl.startsWith('/')
-      ? (process.env.NEXT_PUBLIC_BASE_PATH || '') + manifestUrl
+      ? assetPath(manifestUrl)
       : `${EXTENSIONS_BASE_URL}/${manifestUrl}`;
 
     extensionInfo(`Fetching manifest from: ${url}`);
@@ -253,7 +254,7 @@ export async function loadExtensionModule(
       // Dynamic importでモジュールをロード
       let module: ExtensionExports;
       try {
-        module = await import(/* webpackIgnore: true */ entryUrl);
+        module = await import(/* @vite-ignore */ entryUrl);
       } catch (err) {
         console.error('[ExtensionLoader] Failed to import entryUrl', entryUrl, err);
         // 変換後コードの先頭1000文字も出力

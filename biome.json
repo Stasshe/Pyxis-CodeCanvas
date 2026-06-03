@@ -88,7 +88,7 @@
     "includes": [
       "**",
       "!**/node_modules",
-      "!**/.next",
+      "!**/dist",
       "!**/.git",
       "!**/dist",
       "!**/build",

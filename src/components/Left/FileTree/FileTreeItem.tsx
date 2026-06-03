@@ -5,6 +5,7 @@ import { getEmptyImage } from 'react-dnd-html5-backend';
 import { getIconForFile, getIconForFolder, getIconForOpenFolder } from 'vscode-icons-js';
 
 import { DND_FILE_TREE_ITEM } from '@/constants/dndTypes';
+import { assetPath, pyxisEnv } from '@/env';
 import type { FileItem } from '@/types';
 import type { DragItem, FileTreeItemProps } from './types';
 
@@ -18,17 +19,17 @@ function getFolderIconSrc(name: string, isExpanded: boolean) {
     ? getIconForOpenFolder(name) || getIconForFolder(name) || getIconForFolder('')
     : getIconForFolder(name) || getIconForFolder('');
   if (iconPath?.endsWith('.svg')) {
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+    return assetPath(`/vscode-icons/${iconPath.split('/').pop()}`);
   }
-  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/folder.svg`;
+  return assetPath('/vscode-icons/folder.svg');
 }
 
 function getFileIconSrc(name: string) {
   const iconPath = getIconForFile(name) || getIconForFile('');
   if (iconPath?.endsWith('.svg')) {
-    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`;
+    return assetPath(`/vscode-icons/${iconPath.split('/').pop()}`);
   }
-  return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+  return assetPath('/vscode-icons/file.svg');
 }
 
 function FileTreeItem({
@@ -47,7 +48,7 @@ function FileTreeItem({
 }: FileTreeItemProps & { isTouchDevice?: boolean }) {
   const [dropIndicator, setDropIndicator] = useState<boolean>(false);
   const [hovered, setHovered] = useState<boolean>(false);
-  const isDev = process.env.NEXT_PUBLIC_IS_DEV_SERVER === 'true';
+  const isDev = pyxisEnv.isDevServer;
 
   // Drag source
   const [{ isDragging }, drag, preview] = useDrag(

@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { getIconSrcForFile, highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type { ThemeColors } from '@/context/ThemeContext';

@@ -19,7 +19,6 @@
       "**/.git",
       "**/.pyxis",
       "**/coverage",
-      "**/.next",
       "**/.nuxt",
       "**/cache"
     ],

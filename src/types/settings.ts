@@ -68,7 +68,7 @@ export const DEFAULT_PYXIS_SETTINGS: PyxisSettings = {
       '**/.git',
       '**/.pyxis',
       '**/coverage',
-      '**/.next',
+      '**/dist',
       '**/.nuxt',
       '**/cache',
     ],

@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';

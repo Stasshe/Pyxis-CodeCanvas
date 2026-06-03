@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type { ThemeColors } from '@/context/ThemeContext';
