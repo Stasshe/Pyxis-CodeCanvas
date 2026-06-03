@@ -563,6 +563,21 @@ export class NodeRuntime {
   private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
     const process = this.createProcessObject(currentFilePath, argv);
     this.currentProcess = process;
+    const Buffer = this.builtInModules.Buffer;
+    const runtimeGlobal: Record<string, any> = {
+      ...globalThis,
+      navigator: {
+        ...(globalThis.navigator || {}),
+        userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
+        userAgentData: {
+          brands: [{ brand: 'Chromium', version: '120' }],
+        },
+      },
+      process,
+      Buffer,
+    };
+    runtimeGlobal.global = runtimeGlobal;
+    runtimeGlobal.globalThis = runtimeGlobal;
 
     return {
       // グローバルオブジェクト
@@ -590,6 +605,7 @@ export class NodeRuntime {
         },
         clear: () => this.debugConsole?.clear(),
       },
+      globalThis: runtimeGlobal,
       // ラップされたsetTimeout/setInterval（イベントループ追跡用）
       setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
         this.createTrackedTimer('timeout', handler, timeout, args),
@@ -629,18 +645,9 @@ export class NodeRuntime {
       // Create a custom global with spoofed navigator for color support detection
       // supports-color browser.js checks navigator.userAgent for Chromium
       // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
-      global: {
-        ...globalThis,
-        navigator: {
-          ...(globalThis.navigator || {}),
-          userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
-          userAgentData: {
-            brands: [{ brand: 'Chromium', version: '120' }],
-          },
-        },
-      },
+      global: runtimeGlobal,
       process,
-      Buffer: this.builtInModules.Buffer,
+      Buffer,
     };
   }
 

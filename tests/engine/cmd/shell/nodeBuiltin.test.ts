@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../../_helpers/testProject';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { fileRepository } from '@/engine/core/fileRepository';
+import { setupTestProject } from '../../../_helpers/testProject';
 
 describe('StreamShell node builtin', () => {
   let projectId: string;
@@ -48,5 +48,28 @@ describe('StreamShell node builtin', () => {
 
     expect(result.code).toBe(0);
     expect(result.stdout).toContain(`/projects/${projectName}/src`);
+  });
+
+  it('exposes runtime process.cwd() through global objects', async () => {
+    await fileRepository.createFile(
+      projectId,
+      '/src/global-cwd-node-entry.js',
+      [
+        'console.log(global.process.cwd());',
+        'console.log(globalThis.process.cwd());',
+        "console.log(require('process').cwd());",
+      ].join('\n'),
+      'file'
+    );
+
+    const shell = await terminalCommandRegistry.getShell(projectName, projectId, {
+      fileRepository,
+    });
+    await shell!.run('cd src');
+    const result = await shell!.run('node global-cwd-node-entry.js');
+
+    expect(result.code).toBe(0);
+    const cwd = `/projects/${projectName}/src`;
+    expect(result.stdout.match(new RegExp(cwd, 'g'))).toHaveLength(3);
   });
 });
