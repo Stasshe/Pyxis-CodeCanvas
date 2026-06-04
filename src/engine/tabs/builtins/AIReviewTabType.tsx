@@ -1,7 +1,6 @@
 // src/engine/tabs/builtins/AIReviewTabType.tsx
 import type React from 'react';
-import { useEffect } from 'react';
-import AIReviewTabComponent from '@/components/AI/AIReview/AIReviewTab';
+import { lazy, Suspense, useEffect } from 'react';
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
@@ -19,6 +18,8 @@ import {
   updateFromExternal,
 } from '@/stores/tabState';
 import type { AIReviewTab, TabComponentProps, TabTypeDefinition } from '../types';
+
+const AIReviewTabComponent = lazy(() => import('@/components/AI/AIReview/AIReviewTab'));
 
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
@@ -125,11 +126,19 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   };
 
   return (
-    <AIReviewTabComponent
-      tab={tabWithContent}
-      onApplyChanges={handleApplyChanges}
-      onDiscardChanges={handleDiscardChanges}
-    />
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading review...
+        </div>
+      }
+    >
+      <AIReviewTabComponent
+        tab={tabWithContent}
+        onApplyChanges={handleApplyChanges}
+        onDiscardChanges={handleDiscardChanges}
+      />
+    </Suspense>
   );
 };
 

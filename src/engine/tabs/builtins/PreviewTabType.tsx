@@ -1,6 +1,6 @@
 // src/engine/tabs/builtins/PreviewTabType.tsx
 import type React from 'react';
-import MarkdownPreviewTab from '@/components/Tab/MarkdownPreviewTab';
+import { lazy, Suspense } from 'react';
 import { useProjectSnapshot } from '@/stores/projectStore';
 import { setTabContent } from '@/stores/tabContentStore';
 import type { FileItem } from '@/types';
@@ -12,6 +12,8 @@ import type {
   TabTypeDefinition,
 } from '../types';
 
+const MarkdownPreviewTab = lazy(() => import('@/components/Tab/MarkdownPreviewTab'));
+
 /**
  * プレビュータブのコンポーネント
  *
@@ -22,7 +24,17 @@ const PreviewTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
   const previewTab = tab as PreviewTab;
   const { currentProject } = useProjectSnapshot();
 
-  return <MarkdownPreviewTab activeTab={previewTab} currentProject={currentProject || undefined} />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading preview...
+        </div>
+      }
+    >
+      <MarkdownPreviewTab activeTab={previewTab} currentProject={currentProject || undefined} />
+    </Suspense>
+  );
 };
 
 /**

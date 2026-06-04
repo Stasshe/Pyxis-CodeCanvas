@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 
-import AIPanel from '@/components/AI/AIPanel';
 import { useTheme } from '@/context/ThemeContext';
 import type { FileItem, Project } from '@/types';
+
+const AIPanel = lazy(() => import('@/components/AI/AIPanel'));
 
 interface RightSidebarProps {
   rightSidebarWidth: number;
@@ -51,11 +52,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         <div style={{ flex: 1, overflow: 'auto' }}>
           {children || (
             // デフォルトでAI Panelを表示
-            <AIPanel
-              projectFiles={projectFiles}
-              currentProject={currentProject}
-              currentProjectId={currentProjectId}
-            />
+            <Suspense fallback={null}>
+              <AIPanel
+                projectFiles={projectFiles}
+                currentProject={currentProject}
+                currentProjectId={currentProjectId}
+              />
+            </Suspense>
           )}
         </div>
       </aside>

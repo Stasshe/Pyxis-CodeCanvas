@@ -1,17 +1,18 @@
-import { active } from 'd3';
 import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
 import type { FileItem, MenuTab, Project } from '@/types';
-import ExtensionPanelRenderer from './ExtensionPanelRenderer';
-import ExtensionsPanel from './ExtensionsPanel';
 import FileTree from './FileTree';
-import GitPanel from './GitPanel';
-import RunPanel from './RunPanel';
-import SearchPanel from './SearchPanel';
-import SettingsPanel from './SettingsPanel';
+
+const ExtensionPanelRenderer = lazy(() => import('./ExtensionPanelRenderer'));
+const ExtensionsPanel = lazy(() => import('./ExtensionsPanel'));
+const GitPanel = lazy(() => import('./GitPanel'));
+const RunPanel = lazy(() => import('./RunPanel'));
+const SearchPanel = lazy(() => import('./SearchPanel'));
+const SettingsPanel = lazy(() => import('./SettingsPanel'));
 
 interface LeftSidebarProps {
   activeMenuTab: MenuTab;
@@ -153,41 +154,54 @@ export default function LeftSidebar({
           )}
           {activeMenuTab === 'search' && (
             <div className="h-full">
-              <SearchPanel files={files} projectId={currentProject.id} />
+              <Suspense fallback={null}>
+                <SearchPanel files={files} projectId={currentProject.id} />
+              </Suspense>
             </div>
           )}
           {activeMenuTab === 'git' && (
             <div className="h-full">
-              <GitPanel
-                currentProject={currentProject.name}
-                currentProjectId={currentProject.id}
-                onRefresh={onGitRefresh}
-                onGitStatusChange={onGitStatusChange}
-              />
+              <Suspense fallback={null}>
+                <GitPanel
+                  currentProject={currentProject.name}
+                  currentProjectId={currentProject.id}
+                  onRefresh={onGitRefresh}
+                  onGitStatusChange={onGitStatusChange}
+                />
+              </Suspense>
             </div>
           )}
           {activeMenuTab === 'run' && (
             <div className="h-full">
-              <RunPanel currentProject={currentProject} files={files} />
+              <Suspense fallback={null}>
+                <RunPanel currentProject={currentProject} files={files} />
+              </Suspense>
             </div>
           )}
           {activeMenuTab === 'extensions' && (
             <div className="h-full">
-              <ExtensionsPanel />
+              <Suspense fallback={null}>
+                <ExtensionsPanel />
+              </Suspense>
             </div>
           )}
-          {activeMenuTab === 'settings' && <SettingsPanel currentProject={currentProject} />}
+          {activeMenuTab === 'settings' && (
+            <Suspense fallback={null}>
+              <SettingsPanel currentProject={currentProject} />
+            </Suspense>
+          )}
           {/* 拡張パネルを全て表示（アクティブなものだけを表示） */}
           {extensionPanels.map(panel => {
             const panelMenuTab = `extension:${panel.extensionId}.${panel.panelId}`;
             if (activeMenuTab === panelMenuTab) {
               return (
-                <ExtensionPanelRenderer
-                  key={panelMenuTab}
-                  extensionId={panel.extensionId}
-                  panelId={panel.panelId}
-                  isActive={true}
-                />
+                <Suspense fallback={null} key={panelMenuTab}>
+                  <ExtensionPanelRenderer
+                    extensionId={panel.extensionId}
+                    panelId={panel.panelId}
+                    isActive={true}
+                  />
+                </Suspense>
               );
             }
             return null;

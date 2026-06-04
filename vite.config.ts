@@ -11,7 +11,7 @@ function normalizeBase(value: string | undefined): string {
 }
 
 const basePath = process.env.VITE_BASE_PATH;
-const isProductionBuild = process.env.BUILD_MODE === 'production';
+const ignoredBuildLogCodes = new Set(['INEFFECTIVE_DYNAMIC_IMPORT']);
 
 export default defineConfig({
   base: normalizeBase(basePath),
@@ -37,5 +37,15 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsInlineLimit: 0,
+    chunkSizeWarningLimit: 3500,
+    rolldownOptions: {
+      output: {
+        codeSplitting: true,
+      },
+      onLog(level, log, defaultHandler) {
+        if (log.code && ignoredBuildLogCodes.has(log.code)) return;
+        defaultHandler(level, log);
+      },
+    },
   },
 });

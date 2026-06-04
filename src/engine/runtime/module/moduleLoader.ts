@@ -717,7 +717,8 @@ export class ModuleLoader {
     `;
 
     try {
-      const executeFunc = eval(wrappedCode);
+      const indirectEval = globalThis.eval;
+      const executeFunc = indirectEval(wrappedCode);
       const result = executeFunc(
         module,
         exports,
