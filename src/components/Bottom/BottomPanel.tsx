@@ -1,12 +1,11 @@
-'use client';
-
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState, useTransition } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
-import OutputPanel from './OutputPanel';
-import ProblemsPanel from './ProblemsPanel';
-import Terminal from './Terminal';
+
+const OutputPanel = lazy(() => import('./OutputPanel'));
+const ProblemsPanel = lazy(() => import('./ProblemsPanel'));
+const Terminal = lazy(() => import('./Terminal'));
 
 type BottomPanelTab = 'output' | 'terminal' | 'problems';
 
@@ -231,27 +230,33 @@ export default function BottomPanel({
             isActive={activeTab === 'problems'}
             shouldRender={shouldRenderTab('problems')}
           >
-            <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
+            <Suspense fallback={null}>
+              <ProblemsPanel height={height} isActive={activeTab === 'problems'} />
+            </Suspense>
           </BottomPanelViewport>
 
           <BottomPanelViewport
             isActive={activeTab === 'output'}
             shouldRender={shouldRenderTab('output')}
           >
-            <OutputPanel />
+            <Suspense fallback={null}>
+              <OutputPanel />
+            </Suspense>
           </BottomPanelViewport>
 
           <BottomPanelViewport
             isActive={activeTab === 'terminal'}
             shouldRender={shouldRenderTab('terminal')}
           >
-            <Terminal
-              height={height}
-              currentProject={currentProject}
-              currentProjectId={currentProjectId}
-              isActive={activeTab === 'terminal'}
-              onVimModeChange={handleVimModeChange}
-            />
+            <Suspense fallback={null}>
+              <Terminal
+                height={height}
+                currentProject={currentProject}
+                currentProjectId={currentProjectId}
+                isActive={activeTab === 'terminal'}
+                onVimModeChange={handleVimModeChange}
+              />
+            </Suspense>
           </BottomPanelViewport>
         </div>
       </div>

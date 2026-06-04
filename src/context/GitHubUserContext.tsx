@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * GitHub User Context
  * ログイン済みユーザーの情報をキャッシュして管理

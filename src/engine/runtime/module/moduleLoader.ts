@@ -664,6 +664,10 @@ export class ModuleLoader {
     const clearTimeout = this.globals.clearTimeout || globalThis.clearTimeout;
     const clearInterval = this.globals.clearInterval || globalThis.clearInterval;
     const global = this.globals.global || globalThis;
+    global.process = process;
+    global.Buffer = Buffer;
+    global.global = global;
+    global.globalThis = global;
 
     // Temporarily spoof navigator for supports-color browser.js detection
     // supports-color checks globalThis.navigator.userAgentData and userAgent
@@ -703,6 +707,7 @@ export class ModuleLoader {
         var clearTimeout = __injected_clearTimeout;
         var clearInterval = __injected_clearInterval;
         var global = __injected_global;
+        var globalThis = __injected_global;
         var define = undefined;
         var window = undefined;
         var __pyxisImport = function(s) { return __injected_asyncLoad(s, __filename); };
@@ -712,7 +717,8 @@ export class ModuleLoader {
     `;
 
     try {
-      const executeFunc = eval(wrappedCode);
+      const indirectEval = globalThis.eval;
+      const executeFunc = indirectEval(wrappedCode);
       const result = executeFunc(
         module,
         exports,

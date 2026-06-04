@@ -1,7 +1,5 @@
 // 統合AIフック
 
-'use client';
-
 import { useCallback, useEffect, useState } from 'react';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
@@ -31,20 +29,18 @@ interface UseAIProps {
   projectId?: string;
 }
 
+async function loadAIStorage(): Promise<typeof import('@/engine/storage/aiStorageAdapter') | null> {
+  try {
+    return await import('@/engine/storage/aiStorageAdapter');
+  } catch (e) {
+    console.warn('[useAI.ts] caught non-fatal error', e);
+    return null;
+  }
+}
+
 export function useAI(props?: UseAIProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileContexts, setFileContexts] = useState<AIFileContext[]>([]);
-
-  // storage adapter for AI review metadata
-  // import dynamically to avoid circular deps in some build setups
-  let aiStorage: typeof import('@/engine/storage/aiStorageAdapter') | null = null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    aiStorage = require('@/engine/storage/aiStorageAdapter');
-  } catch (e) {
-    console.warn('[useAI.ts] caught non-fatal error', e);
-    aiStorage = null;
-  }
 
   // チャットスペースから選択ファイルが変更された時にファイルコンテキストに反映
   useEffect(() => {
@@ -261,6 +257,7 @@ export function useAI(props?: UseAIProps) {
 
         // Persist AI review metadata / snapshots using storage adapter when projectId provided
         try {
+          const aiStorage = await loadAIStorage();
           if (props?.projectId && aiStorage && typeof aiStorage.saveAIReviewEntry === 'function') {
             for (const f of editResponse.changedFiles) {
               aiStorage
@@ -284,7 +281,7 @@ export function useAI(props?: UseAIProps) {
         setIsProcessing(false);
       }
     },
-    [fileContexts, addMessage, props?.messages, props?.projectId, aiStorage]
+    [fileContexts, addMessage, props?.messages, props?.projectId]
   );
 
   // ファイルコンテキストを更新

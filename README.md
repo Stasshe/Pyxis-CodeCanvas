@@ -12,12 +12,12 @@
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
-  [![Next.js](https://img.shields.io/badge/Next.js-16-blue?logo=next.js)](https://nextjs.org/)
+  [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite)](https://vite.dev/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
-  [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
+  [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=vite)](#)
   
   **[🚀 Pyxis を今すぐ試す](https://Stasshe.github.io/Pyxis-CodeCanvas)**
 </div>
@@ -315,7 +315,7 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 ### [click me! 処理フローはこちら](./Development/all-flow.svg)
 
 ### **Front End**
-- **Next.js 15** と React 19 - 最新で最高
+- **React 19 + Vite** - 高速なクライアントサイドビルド
 - **TypeScript** - 型安全な開発
 - **Tailwind CSS** - 美しく、レスポンシブなデザイン
 
@@ -491,7 +491,7 @@ npx tauri dev
 Pyxisを可能にした素晴らしいオープンソースプロジェクトに心から感謝：
 - **Monaco Editor** - ブラウザでのVS Code
 - **isomorphic-git** - Gitをウェブに
-- **Next.js & React** - モダンウェブアプリの基盤
+- **React & Vite** - モダンウェブアプリの基盤
 
 ---
 

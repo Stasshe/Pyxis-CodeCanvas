@@ -1,7 +1,5 @@
 // 統合AIパネル - GitHub Copilot風
 
-'use client';
-
 import { Bot, ChevronDown, Edit2, MessageSquare, Plus, Terminal, Trash2, X } from 'lucide-react';
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';

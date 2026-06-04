@@ -1,5 +1,3 @@
-'use client';
-
 import type { GitCommit as GitCommitType, GitStatus } from '@/types/git';
 
 // Git logをパースしてコミット配列に変換（ブランチ情報付き）

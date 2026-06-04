@@ -1,7 +1,5 @@
 // メッセージ表示コンテナ
 
-'use client';
-
 import { Bot, Loader2, MessageSquare } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from '@/context/I18nContext';

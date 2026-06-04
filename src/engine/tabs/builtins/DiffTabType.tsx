@@ -1,8 +1,7 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useGitContext } from '@/components/Pane/PaneContainer';
-import DiffTabComponent from '@/components/Tab/DiffTab';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectSnapshot } from '@/stores/projectStore';
@@ -14,6 +13,8 @@ import {
   setContent as setTabContent,
 } from '@/stores/tabState';
 import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
+
+const DiffTabComponent = lazy(() => import('@/components/Tab/DiffTab'));
 
 /**
  * Diffタブのコンポーネント
@@ -88,13 +89,21 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   );
 
   return (
-    <DiffTabComponent
-      diffs={mergedDiffs}
-      editable={diffTab.editable}
-      wordWrapConfig={wordWrapConfig}
-      onImmediateContentChange={handleImmediateContentChange}
-      onContentChange={handleContentChange}
-    />
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading diff...
+        </div>
+      }
+    >
+      <DiffTabComponent
+        diffs={mergedDiffs}
+        editable={diffTab.editable}
+        wordWrapConfig={wordWrapConfig}
+        onImmediateContentChange={handleImmediateContentChange}
+        onContentChange={handleContentChange}
+      />
+    </Suspense>
   );
 };
 

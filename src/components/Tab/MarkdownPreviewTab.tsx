@@ -19,7 +19,8 @@ import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project, ProjectFile } from '@/types';
 
-import { CodeBlock, LocalImage } from './MarkdownPreview';
+import CodeBlock from './MarkdownPreview/CodeBlock';
+import LocalImage from './MarkdownPreview/LocalImage';
 
 interface MarkdownPreviewTabProps {
   activeTab: PreviewTab;

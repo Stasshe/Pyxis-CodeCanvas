@@ -1,5 +1,4 @@
 // src/components/Tab/TabBar.tsx
-'use client';
 import {
   Menu,
   Minus,

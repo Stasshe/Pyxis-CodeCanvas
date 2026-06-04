@@ -1,10 +1,10 @@
-'use client';
 import { memo, useEffect, useMemo } from 'react';
 import { useDragLayer } from 'react-dnd';
 import { getIconForFile, getIconForFolder } from 'vscode-icons-js';
 
 import { DND_FILE_TREE_ITEM, DND_TAB } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
+import { assetPath } from '@/env';
 
 /**
  * 共通カスタムドラッグレイヤー
@@ -44,8 +44,8 @@ const CustomDragLayer = memo(function CustomDragLayer() {
         ? getIconForFolder(fileItem.name) || getIconForFolder('')
         : getIconForFile(fileItem.name) || getIconForFile('');
       const iconSrc = iconPath?.endsWith('.svg')
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`;
+        ? assetPath(`/vscode-icons/${iconPath.split('/').pop()}`)
+        : assetPath(`/vscode-icons/${isFolder ? 'folder.svg' : 'file.svg'}`);
       return { iconSrc, name: fileItem.name, isFolder };
     }
 
@@ -53,8 +53,8 @@ const CustomDragLayer = memo(function CustomDragLayer() {
     if (itemType === DND_TAB && item.tabName) {
       const iconPath = getIconForFile(item.tabName) || getIconForFile('');
       const iconSrc = iconPath?.endsWith('.svg')
-        ? `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/${iconPath.split('/').pop()}`
-        : `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/vscode-icons/file.svg`;
+        ? assetPath(`/vscode-icons/${iconPath.split('/').pop()}`)
+        : assetPath('/vscode-icons/file.svg');
       return { iconSrc, name: item.tabName, isFolder: false };
     }
 

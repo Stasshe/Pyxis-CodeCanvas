@@ -1,4 +1,3 @@
-'use client';
 import type React from 'react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { snapshot, useSnapshot } from 'valtio';

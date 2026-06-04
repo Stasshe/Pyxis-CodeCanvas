@@ -1,8 +1,6 @@
 // AIレビュータブコンポーネント
 // Monaco Editorの差分表示を使用して、AI提案の変更を確認・編集できる
 
-'use client';
-
 import type { Monaco } from '@monaco-editor/react';
 import { DiffEditor } from '@monaco-editor/react';
 import { Check, X } from 'lucide-react';

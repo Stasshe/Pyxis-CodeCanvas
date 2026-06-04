@@ -1,7 +1,6 @@
 // src/engine/tabs/builtins/MergeConflictTabType.tsx
 import type React from 'react';
-import { useCallback } from 'react';
-import MergeConflictResolutionTab from '@/components/Tab/MergeConflictResolutionTab';
+import { lazy, Suspense, useCallback } from 'react';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { syncManager } from '@/engine/core/syncManager';
@@ -12,6 +11,10 @@ import type {
   TabComponentProps,
   TabTypeDefinition,
 } from '../types';
+
+const MergeConflictResolutionTab = lazy(
+  () => import('@/components/Tab/MergeConflictResolutionTab')
+);
 
 /**
  * Merge Conflict Resolution Tab Renderer
@@ -112,17 +115,25 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   );
 
   return (
-    <MergeConflictResolutionTab
-      conflicts={mergeTab.conflicts}
-      oursBranch={mergeTab.oursBranch}
-      theirsBranch={mergeTab.theirsBranch}
-      projectId={mergeTab.projectId}
-      projectName={mergeTab.projectName}
-      onResolve={handleResolve}
-      onCancel={handleCancel}
-      onUpdateResolvedContent={handleUpdateResolvedContent}
-      onToggleResolved={handleToggleResolved}
-    />
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading merge conflict...
+        </div>
+      }
+    >
+      <MergeConflictResolutionTab
+        conflicts={mergeTab.conflicts}
+        oursBranch={mergeTab.oursBranch}
+        theirsBranch={mergeTab.theirsBranch}
+        projectId={mergeTab.projectId}
+        projectName={mergeTab.projectName}
+        onResolve={handleResolve}
+        onCancel={handleCancel}
+        onUpdateResolvedContent={handleUpdateResolvedContent}
+        onToggleResolved={handleToggleResolved}
+      />
+    </Suspense>
   );
 };
 

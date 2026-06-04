@@ -1,13 +1,14 @@
 // src/engine/tabs/builtins/EditorTabType.tsx
 import type React from 'react';
-import { useCallback, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect } from 'react';
 import { useGitContext } from '@/components/Pane/PaneContainer';
-import CodeEditor from '@/components/Tab/CodeEditor';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectSnapshot } from '@/stores/projectStore';
 import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { addSaveListener, initTabSaveSync, tabActions } from '@/stores/tabState';
 import type { EditorTab, TabComponentProps, TabTypeDefinition } from '../types';
+
+const CodeEditor = lazy(() => import('@/components/Tab/CodeEditor'));
 
 /**
  * エディタタブのコンポーネント
@@ -60,17 +61,25 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   );
 
   return (
-    <CodeEditor
-      activeTab={editorTab}
-      currentProject={currentProject || undefined}
-      isCodeMirror={editorTab.isCodeMirror || false}
-      bottomPanelHeight={200}
-      isBottomPanelVisible={false}
-      wordWrapConfig={wordWrapConfig}
-      onContentChange={handleContentChange}
-      onImmediateContentChange={handleImmediateContentChange}
-      isActive={isActive}
-    />
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading editor...
+        </div>
+      }
+    >
+      <CodeEditor
+        activeTab={editorTab}
+        currentProject={currentProject || undefined}
+        isCodeMirror={editorTab.isCodeMirror || false}
+        bottomPanelHeight={200}
+        isBottomPanelVisible={false}
+        wordWrapConfig={wordWrapConfig}
+        onContentChange={handleContentChange}
+        onImmediateContentChange={handleImmediateContentChange}
+        isActive={isActive}
+      />
+    </Suspense>
   );
 };
 

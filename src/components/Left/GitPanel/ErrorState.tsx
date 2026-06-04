@@ -1,4 +1,3 @@
-'use client';
 import { X } from 'lucide-react';
 import { useTranslation } from '@/context/I18nContext';
 import type { ThemeColors } from '@/context/ThemeContext';

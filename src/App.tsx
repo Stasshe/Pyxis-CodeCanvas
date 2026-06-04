@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { TouchBackend } from 'react-dnd-touch-backend';
@@ -35,7 +33,7 @@ import { setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { MenuTab, Project } from '@/types';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from './context/ThemeContext';
 
 /**
  * Home: 新アーキテクチャのメインページ

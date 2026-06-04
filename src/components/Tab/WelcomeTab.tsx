@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
+import { pyxisEnv } from '@/env';
 
 export default function WelcomeTab() {
   const { t } = useTranslation();
@@ -23,7 +24,7 @@ export default function WelcomeTab() {
           </div>
 
           {/* 🟡 onrender.com向け注意表示 */}
-          {process.env.NEXT_PUBLIC_IS_DEV_SERVER && (
+          {pyxisEnv.isDevServer && (
             <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg shadow mb-8 border border-yellow-300">
               <p className="font-semibold mb-1">{t('welcome.devServer.warning')}</p>
               <p>

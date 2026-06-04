@@ -1,7 +1,5 @@
 // GitHub Copilot風のチャットメッセージコンポーネント
 
-'use client';
-
 import { Bot, Clock, FileCode, RotateCcw, User } from 'lucide-react';
 import type { ClassAttributes, HTMLAttributes, ImgHTMLAttributes, ReactNode } from 'react';
 import React from 'react';

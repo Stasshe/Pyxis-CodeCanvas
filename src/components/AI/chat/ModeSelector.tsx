@@ -1,7 +1,5 @@
 // Ask/Edit モード切り替えコンポーネント
 
-'use client';
-
 import { FileEdit, MessageCircle } from 'lucide-react';
 import React from 'react';
 

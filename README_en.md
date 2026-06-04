@@ -10,12 +10,12 @@
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
   [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
-  [![Next.js](https://img.shields.io/badge/Next.js-16-blue?logo=next.js)](https://nextjs.org/)
+  [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite)](https://vite.dev/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178c6?logo=typescript)](https://www.typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
   [![Last Commit](https://img.shields.io/github/last-commit/Stasshe/Pyxis-Client-Side-Code-Editor?logo=github)](https://github.com/Stasshe/Pyxis-Client-Side-Code-Editor/commits/main)
-  [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=next.js)](#)
+  [![Bundle Size](https://img.shields.io/badge/bundle--size-1.04MB-purple?logo=vite)](#)
   
   **[🚀 Try Pyxis Now](https://Stasshe.github.io/Pyxis-CodeCanvas)** | **[📖 日本語版](README.md)**
 </div>
@@ -287,7 +287,7 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 ## Tech
 
 ### **Frontend Powerhouse**
-- **Next.js 15** with React 19 - Latest and greatest
+- **React 19 + Vite** - Fast client-side builds
 - **TypeScript** - Type-safe development
 - **Tailwind CSS** - Beautiful, responsive design
 
@@ -469,7 +469,7 @@ Huge appreciation to the amazing open-source projects that make Pyxis possible:
 - **Monaco Editor** - The VS Code in browsers
 - **isomorphic-git** - Bringing Git to the web
 - **xtermjs** - Terminal emulator
-- **Next.js & React** - The foundation of modern web apps
+- **React & Vite** - The foundation of modern web apps
 
 ---
 

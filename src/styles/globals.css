@@ -10,7 +10,7 @@
 /* Force-disable vertical scrolling across the app root to ensure no page-level scrollbars */
 html,
 body,
-#__next {
+#root {
   height: 100vh;
   max-height: 100vh;
   overflow: hidden !important;
@@ -20,7 +20,7 @@ body,
 /* Global iOS text-size adjustment suppression to reduce Safari auto-scaling */
 html,
 body,
-#__next {
+#root {
   -webkit-text-size-adjust: none !important;
   text-size-adjust: none !important;
 }
@@ -89,7 +89,7 @@ body {
 /* Ensure root containers hide visual scrollbars but keep scrolling enabled where needed */
 html,
 body,
-#__next,
+#root,
 .cm-editor,
 .terminal-container,
 .bottom-panel-container {
@@ -99,7 +99,7 @@ body,
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
-#__next::-webkit-scrollbar,
+#root::-webkit-scrollbar,
 .cm-editor::-webkit-scrollbar,
 .terminal-container::-webkit-scrollbar,
 .bottom-panel-container::-webkit-scrollbar {
@@ -107,8 +107,7 @@ body::-webkit-scrollbar,
   height: 0px !important;
 }
 
-/* Next.js root container fix */
-#__next {
+#root {
   height: 100%;
   width: 100%;
   overflow: hidden;

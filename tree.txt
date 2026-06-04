@@ -169,6 +169,7 @@ Root
 │       └── transpile.worker.ts
 ├── helper-code.txt
 ├── i18n.sh
+├── index.html
 ├── initial_files
 │   ├── README.md
 │   ├── docs
@@ -198,8 +199,6 @@ Root
 │       ├── index.html
 │       ├── script.js
 │       └── style.css
-├── next-env.d.ts
-├── next.config.ts
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
@@ -386,11 +385,8 @@ Root
 │   └── tools
 │       └── analyze-metafiles.js
 ├── src
+│   ├── App.tsx
 │   ├── app
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   ├── markdown.css
-│   │   └── page.tsx
 │   ├── components
 │   │   ├── AI
 │   │   │   ├── AIPanel.tsx
@@ -745,6 +741,7 @@ Root
 │   │   └── workers
 │   │       ├── WorkerPool.ts
 │   │       └── searchWorker.ts
+│   ├── env.ts
 │   ├── hooks
 │   │   ├── ai
 │   │   │   ├── useAI.ts
@@ -769,6 +766,8 @@ Root
 │   │       └── useTabContentRestore.ts
 │   ├── lib
 │   │   └── ReactScan.tsx
+│   ├── main.tsx
+│   ├── polyfills.ts
 │   ├── stores
 │   │   ├── gitRefreshStore.ts
 │   │   ├── loggerStore.ts
@@ -782,13 +781,17 @@ Root
 │   │   │   └── state.ts
 │   │   ├── tabState.ts
 │   │   └── terminalHistoryStorage.ts
-│   └── types
-│       ├── css.d.ts
-│       ├── git.ts
-│       ├── index.ts
-│       ├── path-browserify.d.ts
-│       ├── settings.ts
-│       └── vm-browserify.d.ts
+│   ├── styles
+│   │   ├── globals.css
+│   │   └── markdown.css
+│   ├── types
+│   │   ├── css.d.ts
+│   │   ├── git.ts
+│   │   ├── index.ts
+│   │   ├── path-browserify.d.ts
+│   │   ├── settings.ts
+│   │   └── vm-browserify.d.ts
+│   └── vite-env.d.ts
 ├── tailwind.config.ts
 ├── tests
 │   ├── README.md
@@ -833,21 +836,19 @@ Root
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 ├── types
 │   └── esbuild-cdn.d.ts
+├── vite.config.ts
 └── vitest.config.ts
 
-169 directories, 668 files
+170 directories, 672 files
 
 =================================
 
 src/*.ts, *.tsx の統計:
-合計行数: 74271
-合計文字数: 2367237
-合計ファイルサイズ(bytes): 2498119
+合計行数: 74161
+合計文字数: 2364078
+合計ファイルサイズ(bytes): 2494358
 
 開発時のdev container全体のサイズ(bytes): 1.3G	.
-==========
-ビルト済みファイルの行数: 190595
-合計文字数: 40742266
-合計ファイルサイズ(bytes): 45895492

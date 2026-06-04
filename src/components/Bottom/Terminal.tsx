@@ -1,5 +1,6 @@
-'use client';
-
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Terminal as XTerm } from '@xterm/xterm';
 import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -15,6 +16,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import TerminalUI from '@/engine/cmd/terminalUI';
 import { fileRepository } from '@/engine/core/fileRepository';
 import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { pyxisEnv } from '@/env';
 import { pushLogMessage } from '@/stores/loggerStore';
 import {
   clearTerminalHistory,
@@ -133,11 +135,6 @@ function ClientTerminal({
 
     loadRegistry();
 
-    // xterm関連のモジュールをrequire（クライアントサイドでのみ実行）
-    const { Terminal: XTerm } = require('@xterm/xterm');
-    const { FitAddon } = require('@xterm/addon-fit');
-    const { WebLinksAddon } = require('@xterm/addon-web-links');
-
     // ターミナルの初期化
     const term = new XTerm({
       theme: {
@@ -166,7 +163,6 @@ function ClientTerminal({
       cursorBlink: true,
       scrollback: 5000,
       allowTransparency: false,
-      bellStyle: 'none',
     });
 
     // アドオンの追加
@@ -256,7 +252,7 @@ function ClientTerminal({
     // 初期化処理を非同期で実行
     const initializeMessages = async () => {
       // 初期メッセージ via TerminalUI
-      const pyxisVersion = process.env.NEXT_PUBLIC_PYXIS_VERSION || '(dev)';
+      const pyxisVersion = pyxisEnv.version || '(dev)';
       await terminalUI.info(`Pyxis Terminal v${pyxisVersion}`);
       await terminalUI.println('Type "help" for available commands.');
       // 初期プロンプト表示

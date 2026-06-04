@@ -1,5 +1,4 @@
 // src/context/FileSelectorContext.tsx
-'use client';
 import type React from 'react';
 import { createContext, type ReactNode, useContext, useState } from 'react';
 

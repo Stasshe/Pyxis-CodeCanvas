@@ -1,7 +1,8 @@
-'use client';
 import { Eye, FileText, GitBranch, Globe, Settings, Zap } from 'lucide-react';
 import React from 'react';
 import { getIconForFile } from 'vscode-icons-js';
+
+import { assetPath } from '@/env';
 
 interface TabIconProps {
   kind: string;
@@ -25,10 +26,9 @@ export function TabIcon({ kind, filename, size = 14, color = 'currentColor' }: T
   if (kind === 'editor' && filename) {
     const iconPath = getIconForFile(filename) || getIconForFile('');
     if (iconPath?.endsWith('.svg')) {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_PATH || '';
       return (
         <img
-          src={`${baseUrl}/vscode-icons/${iconPath}`}
+          src={assetPath(`/vscode-icons/${iconPath}`)}
           alt={filename}
           style={{
             width: size,

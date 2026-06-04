@@ -1,7 +1,5 @@
 // 変更ファイル一覧パネル
 
-'use client';
-
 import { FileCode } from 'lucide-react';
 import React from 'react';
 import { useTheme } from '@/context/ThemeContext';

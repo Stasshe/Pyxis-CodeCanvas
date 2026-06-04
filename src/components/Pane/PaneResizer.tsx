@@ -1,5 +1,4 @@
 // src/components/PaneResizer.tsx
-'use client';
 
 import type React from 'react';
 import { memo, useCallback, useRef, useState } from 'react';

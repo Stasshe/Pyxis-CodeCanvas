@@ -51,7 +51,7 @@ async function loadESBuild(): Promise<ESBuild> {
       return esbuildInstance;
     }
 
-    const runtimeBase = (typeof window !== 'undefined' && (window as any).__NEXT_PUBLIC_BASE_PATH__) || '';
+    const runtimeBase = (typeof window !== 'undefined' && (window as any).__PYXIS_BASE_PATH__) || '';
     const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
     const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
 

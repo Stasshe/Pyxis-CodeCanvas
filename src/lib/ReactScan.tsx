@@ -1,19 +1,19 @@
-'use client';
-import { type ReactElement, useEffect } from 'react';
 import { scan } from 'react-scan';
 
-export function ReactScan(): ReactElement | null {
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const isDev = process.env.NODE_ENV !== 'production';
-    const forceEnable = process.env.NEXT_PUBLIC_ENABLE_REACT_SCAN === 'true';
-    if (!isDev && !forceEnable) return; // 本番では無効（明示的なフラグがない限り）
-    try {
-      scan({ enabled: true });
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
+import { pyxisEnv } from '@/env';
 
-  return null;
+function installReactScan(): void {
+  if (typeof window === 'undefined') return;
+  if (!pyxisEnv.enableReactScan) return;
+
+  try {
+    scan({
+      enabled: true,
+      dangerouslyForceRunInProduction: pyxisEnv.isProductionBuild,
+    });
+  } catch (error) {
+    console.error(error);
+  }
 }
+
+installReactScan();

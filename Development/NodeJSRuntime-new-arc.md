@@ -1,12 +1,12 @@
 # Pyxis Runtime - Client-side Module Runtime Architecture Specification  
-*(Next.js / 完全クライアントサイド構成)*
+*(React + Vite / 完全クライアントサイド構成)*
 
 ---
 
 ## 🎯 目的
 
 Pyxis Runtime は、**完全ブラウザ環境で npm モジュール・TypeScript ファイルを安全かつ軽量に実行**するためのランタイムである。  
-Next.js アプリ内で動作し、サーバーは一切使用しない。  
+React + Vite アプリ内で動作し、サーバーは一切使用しない。  
 主要な目的は以下：
 
 - Node.js 互換の API 環境（`fs`, `path`, `process`, etc.）をブラウザ内に再現  
@@ -31,7 +31,7 @@ Next.js アプリ内で動作し、サーバーは一切使用しない。
 ## ⚙️ 処理プロセス概要
 
 ### 1️⃣ 起動フェーズ
-1. Next.js ページロード完了時に `PyxisRuntime.init()` 実行  
+1. React アプリのロード完了時に `PyxisRuntime.init()` 実行  
 2. Builtin modules (`fs`, `path`, `process` など) を `vm-browserify` の global 環境へ注入  
 3. IndexedDB ベースの FS が初期化され、キャッシュ領域 `/cache/modules` がマウント  
 4. `TranspileWorkerPool`（SWC wasm）をロード（初期化は重いが一度だけ）
@@ -132,7 +132,7 @@ fs, path, process, buffer, etc.
 
 
 動作基盤
-完全クライアントサイド (Next.js + vm-browserify)
+完全クライアントサイド (React + Vite + vm-browserify)
 型チェック
 Monaco Editor に委譲
 変換エンジン

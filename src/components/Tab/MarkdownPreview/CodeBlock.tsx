@@ -1,10 +1,10 @@
-import { memo, type ReactNode } from 'react';
+import { lazy, memo, type ReactNode, Suspense } from 'react';
 
 import type { FileItem } from '@/types';
 
 import InlineHighlightedCode from '../InlineHighlightedCode';
 
-import Mermaid from './Mermaid';
+const Mermaid = lazy(() => import('./Mermaid'));
 
 interface MemoizedCodeComponentProps {
   className?: string;
@@ -18,7 +18,11 @@ const MemoizedCodeComponent = memo<MemoizedCodeComponentProps>(({ className, chi
   const codeString = String(children).replace(/\n$/, '').trim();
 
   if (match && match[1] === 'mermaid') {
-    return <Mermaid chart={codeString} />;
+    return (
+      <Suspense fallback={<div style={{ minHeight: 120 }} />}>
+        <Mermaid chart={codeString} />
+      </Suspense>
+    );
   }
 
   if (className && match) {

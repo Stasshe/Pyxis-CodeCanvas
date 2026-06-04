@@ -7,8 +7,6 @@
  * - ユーザーが言語を切り替えるには、対応する言語パック拡張機能を有効化する必要がある
  */
 
-'use client';
-
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 

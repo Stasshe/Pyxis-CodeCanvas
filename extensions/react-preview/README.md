@@ -116,7 +116,7 @@ esbuildのWASMファイルは以下のパスに配置：
 /extensions/react-preview/esbuild.wasm
 ```
 
-ビルドシステムでNext.jsなどを使用している場合、`__NEXT_PUBLIC_BASE_PATH__`を考慮してWASMをロードします。
+Vite の `BASE_URL` から初期化される `__PYXIS_BASE_PATH__` を考慮してWASMをロードします。
 
 ### transformImportsモジュール
 

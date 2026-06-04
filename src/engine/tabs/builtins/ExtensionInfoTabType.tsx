@@ -1,5 +1,4 @@
 // src/engine/tabs/builtins/ExtensionInfoTabType.tsx
-'use client';
 import { Calendar, CheckCircle2, Package, Tag, User, XCircle } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';

@@ -10,7 +10,7 @@
  * - コンテンツ変更は onImmediateContentChange を通じて tabState に通知
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
@@ -18,11 +18,12 @@ import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { saveImmediately, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
-import CodeMirrorEditor from './text-editor/editors/CodeMirrorEditor';
-import MonacoEditor from './text-editor/editors/MonacoEditor';
 import { useCharCount } from './text-editor/hooks/useCharCount';
 import CharCountDisplay from './text-editor/ui/CharCountDisplay';
 import EditorPlaceholder from './text-editor/ui/EditorPlaceholder';
+
+const CodeMirrorEditor = lazy(() => import('./text-editor/editors/CodeMirrorEditor'));
+const MonacoEditor = lazy(() => import('./text-editor/editors/MonacoEditor'));
 
 interface CodeEditorProps {
   activeTab: EditorTab | undefined;
@@ -193,17 +194,19 @@ export default function CodeEditor({
   if (isCodeMirror) {
     return (
       <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
-        <CodeMirrorEditor
-          tabId={activeTab.id}
-          fileName={activeTab.name}
-          content={content}
-          onChange={handleEditorChange}
-          onSelectionChange={setSelectionCount}
-          tabSize={settings?.editor.tabSize ?? 2}
-          insertSpaces={settings?.editor.insertSpaces ?? true}
-          fontSize={settings?.editor.fontSize ?? 14}
-          isActive={isActive}
-        />
+        <Suspense fallback={<div className="h-full" />}>
+          <CodeMirrorEditor
+            tabId={activeTab.id}
+            fileName={activeTab.name}
+            content={content}
+            onChange={handleEditorChange}
+            onSelectionChange={setSelectionCount}
+            tabSize={settings?.editor.tabSize ?? 2}
+            insertSpaces={settings?.editor.insertSpaces ?? true}
+            fontSize={settings?.editor.fontSize ?? 14}
+            isActive={isActive}
+          />
+        </Suspense>
         <CharCountDisplay
           charCount={charCount}
           selectionCount={selectionCount}
@@ -220,22 +223,24 @@ export default function CodeEditor({
   // === Monaco Editorエディター（デフォルト）===
   return (
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
-      <MonacoEditor
-        tabId={activeTab.id}
-        fileName={activeTab.name}
-        filePath={activeTab.path}
-        content={content}
-        wordWrapConfig={wordWrapConfig}
-        jumpToLine={activeTab.jumpToLine}
-        jumpToColumn={activeTab.jumpToColumn}
-        onChange={handleEditorChange}
-        onCharCountChange={setCharCount}
-        onSelectionCountChange={setSelectionCount}
-        tabSize={settings?.editor.tabSize ?? 2}
-        insertSpaces={settings?.editor.insertSpaces ?? true}
-        fontSize={settings?.editor.fontSize ?? 14}
-        isActive={isActive}
-      />
+      <Suspense fallback={<div className="h-full" />}>
+        <MonacoEditor
+          tabId={activeTab.id}
+          fileName={activeTab.name}
+          filePath={activeTab.path}
+          content={content}
+          wordWrapConfig={wordWrapConfig}
+          jumpToLine={activeTab.jumpToLine}
+          jumpToColumn={activeTab.jumpToColumn}
+          onChange={handleEditorChange}
+          onCharCountChange={setCharCount}
+          onSelectionCountChange={setSelectionCount}
+          tabSize={settings?.editor.tabSize ?? 2}
+          insertSpaces={settings?.editor.insertSpaces ?? true}
+          fontSize={settings?.editor.fontSize ?? 14}
+          isActive={isActive}
+        />
+      </Suspense>
       <CharCountDisplay
         charCount={charCount}
         selectionCount={selectionCount}
