@@ -44,9 +44,8 @@ jobs:
         run: pnpm build
         env:
           BUILD_MODE: production
-          NEXT_PUBLIC_IS_PRODUCTION_BUILD: 'true'
-          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-          
+          VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
       - name: Disable Jekyll
         run: touch dist/.nojekyll
 
