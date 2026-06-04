@@ -48,12 +48,12 @@ jobs:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           
       - name: Disable Jekyll
-        run: touch out/.nojekyll
+        run: touch dist/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: out
+          path: dist
 
   deploy:
     name: Deploy
