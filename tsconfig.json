@@ -31,6 +31,8 @@
     "node_modules",
     "dist",
     "tests",
-    "scripts/extensions/samples"
+    "scripts/extensions/samples",
+    "initial_files",
+    "code-review"
   ]
 }

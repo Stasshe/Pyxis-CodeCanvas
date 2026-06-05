@@ -14,6 +14,10 @@
     ".next/**": true,
     "out/**": true
   },
+  "files.associations": {
+    "**/initial_files/**/*.ts": "plaintext",
+    "**/code-review/**/*.ts": "plaintext"
+  },
   "files.watcherExclude": {
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
