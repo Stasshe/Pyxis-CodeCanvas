@@ -177,12 +177,12 @@ Root
 │   │   ├── getting-started.md
 │   │   └── unix-commands.md
 │   ├── src
+│   │   ├── code-review
+│   │   │   ├── bad.comment.ts
+│   │   │   ├── bad.ts
+│   │   │   └── good.ts
 │   │   ├── fibonacci.py
 │   │   ├── fileOperationg.js
-│   │   ├── homepage
-│   │   │   ├── index.html
-│   │   │   ├── main.js
-│   │   │   └── style.css
 │   │   ├── index.js
 │   │   ├── math.js
 │   │   ├── react
@@ -386,7 +386,6 @@ Root
 │       └── analyze-metafiles.js
 ├── src
 │   ├── App.tsx
-│   ├── app
 │   ├── components
 │   │   ├── AI
 │   │   │   ├── AIPanel.tsx
@@ -836,19 +835,22 @@ Root
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
-├── tsconfig.tsbuildinfo
 ├── types
 │   └── esbuild-cdn.d.ts
 ├── vite.config.ts
 └── vitest.config.ts
 
-170 directories, 672 files
+169 directories, 671 files
 
 =================================
 
 src/*.ts, *.tsx の統計:
-合計行数: 74161
-合計文字数: 2364078
-合計ファイルサイズ(bytes): 2494358
+合計行数: 74205
+合計文字数: 2347584
+合計ファイルサイズ(bytes): 2477305
 
-開発時のdev container全体のサイズ(bytes): 1.3G	.
+開発時のdev container全体のサイズ(bytes): 937M	.
+==========
+ビルト済みファイルの行数: 0
+合計文字数: 0
+合計ファイルサイズ(bytes): 0
