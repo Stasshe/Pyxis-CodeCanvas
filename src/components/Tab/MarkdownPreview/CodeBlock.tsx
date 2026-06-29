@@ -19,7 +19,7 @@ const MemoizedCodeComponent = memo<MemoizedCodeComponentProps>(({ className, chi
 
   if (match && match[1] === 'mermaid') {
     return (
-      <Suspense fallback={<div style={{ minHeight: 120 }} />}>
+      <Suspense fallback={null}>
         <Mermaid chart={codeString} />
       </Suspense>
     );

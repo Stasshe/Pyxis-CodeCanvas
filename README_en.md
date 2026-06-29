@@ -77,7 +77,7 @@ Stackblitz is a sophisticated IDE, but has these challenges:
 **Pyxis focuses heavily on the Markdown viewer.**
 - 📄 **Technical docs** - Beautiful specifications and documentation
 - ✍️ **Blog writing** - Efficient writing with real-time preview
-- 📊 **Mermaid support** - Easy flowcharts and diagrams
+- 📊 **Mermaid support** - Easy flowcharts and diagrams. Hold `Alt` or `Ctrl` while dragging to pan or using the wheel to zoom on desktop; drag and pinch on touch devices
 - 🔢 **LaTeX math** - Perfect rendering of mathematical expressions
 
 Instant preview as you type! Perfect for long-form writing.

@@ -86,8 +86,87 @@
 }
 
 /* Mermaid compatibility - allow theme to control mermaid background */
+.markdown-body pre:has(> .mermaid-viewer) {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.markdown-body .mermaid-viewer {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.markdown-body .mermaid-viewer-placeholder,
+.markdown-body .mermaid-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.markdown-body .mermaid-loading {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.markdown-body .mermaid-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  display: flex;
+  padding: 4px;
+  border: 1px solid;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+}
+
+.markdown-body .mermaid-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.markdown-body .mermaid-control-button:hover {
+  filter: brightness(0.92);
+}
+
+.markdown-body .mermaid-control-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+@media (max-width: 640px) {
+  .markdown-body .mermaid-controls {
+    top: 4px;
+    right: 4px;
+    padding: 2px;
+  }
+
+  .markdown-body .mermaid-control-button {
+    width: 24px;
+    height: 24px;
+  }
+
+  .markdown-body .mermaid-control-button svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 .markdown-body .mermaid,
 .markdown-body svg.mermaid {
+  display: block;
+  width: 100%;
+  overflow: hidden;
   background: var(--markdown-mermaid-bg, transparent);
   color: inherit;
 }

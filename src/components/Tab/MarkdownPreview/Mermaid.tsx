@@ -257,6 +257,7 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
           };
 
           const onWheel = (e: WheelEvent): void => {
+            if (!e.altKey && !e.ctrlKey) return;
             e.preventDefault();
             const rect = container.getBoundingClientRect();
             const mx = e.clientX - rect.left;
@@ -321,6 +322,10 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
           };
 
           const onPointerDown = (e: PointerEvent): void => {
+            const isTouch = e.pointerType === 'touch';
+            if (!isTouch && !e.altKey && !e.ctrlKey) return;
+
+            e.preventDefault();
             (e.target as Element).setPointerCapture?.(e.pointerId);
             isPanningRef.current = true;
             lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -329,6 +334,14 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
 
           const onPointerMove = (e: PointerEvent): void => {
             if (!isPanningRef.current || !lastPointerRef.current) return;
+            if (e.pointerType !== 'touch' && !e.altKey && !e.ctrlKey) {
+              isPanningRef.current = false;
+              lastPointerRef.current = null;
+              container.style.cursor = 'default';
+              syncStateWithRefs();
+              return;
+            }
+
             const dx = e.clientX - lastPointerRef.current.x;
             const dy = e.clientY - lastPointerRef.current.y;
             lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -338,6 +351,7 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
           };
 
           const onPointerUp = (e: PointerEvent): void => {
+            if (!isPanningRef.current) return;
             try {
               (e.target as Element).releasePointerCapture?.(e.pointerId);
             } catch {
@@ -503,15 +517,7 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
   // Placeholder shown before the element comes into view
   if (!hasIntersected) {
     return (
-      <div
-        ref={containerRef}
-        style={{
-          minHeight: '120px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <div ref={containerRef} className="mermaid-viewer mermaid-viewer-placeholder">
         <div
           style={{
             padding: '16px',
@@ -528,152 +534,99 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
   }
 
   return (
-    <div ref={containerRef} style={{ gap: '8px', minHeight: '120px' }}>
+    <div ref={containerRef} className="mermaid-viewer">
       {svgContent && !error && (
         <div
+          className="mermaid-controls select-none"
           style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '8px',
-            position: 'relative',
-            zIndex: 20,
+            background: colors.background,
+            borderColor: colors.border,
           }}
         >
-          <div
-            className="select-none"
+          <button
+            type="button"
+            className="mermaid-control-button"
+            aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
+            title={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
+            onClick={handleZoomIn}
             style={{
-              display: 'flex',
-              gap: 6,
-              background: 'rgba(255,255,255,0.85)',
-              padding: '6px',
-              borderRadius: 6,
+              background: colors.background,
+              color: colors.foreground,
             }}
           >
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.zoomIn') : 'ズームイン'}
-              onClick={handleZoomIn}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ZoomIn size={18} style={{ verticalAlign: 'middle' }} />
-              {t ? t('markdownPreview.zoomIn') : 'ズームイン'}
-            </button>
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
-              onClick={handleZoomOut}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ZoomOut size={18} style={{ verticalAlign: 'middle' }} />
-              {t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
-            </button>
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.reset') : 'リセット'}
-              onClick={handleResetView}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <RefreshCw size={18} style={{ verticalAlign: 'middle' }} />
-              {t ? t('markdownPreview.reset') : 'リセット'}
-            </button>
-            <button
-              type="button"
-              aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
-              onClick={handleDownloadSvg}
-              style={{
-                margin: '0 4px',
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid #ccc',
-                background: colors.background,
-                color: colors.foreground,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Download size={18} style={{ verticalAlign: 'middle' }} />
-              {t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
-            </button>
-          </div>
+            <ZoomIn size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="mermaid-control-button"
+            aria-label={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+            title={t ? t('markdownPreview.zoomOut') : 'ズームアウト'}
+            onClick={handleZoomOut}
+            style={{
+              background: colors.background,
+              color: colors.foreground,
+            }}
+          >
+            <ZoomOut size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="mermaid-control-button"
+            aria-label={t ? t('markdownPreview.reset') : 'リセット'}
+            title={t ? t('markdownPreview.reset') : 'リセット'}
+            onClick={handleResetView}
+            style={{
+              background: colors.background,
+              color: colors.foreground,
+            }}
+          >
+            <RefreshCw size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="mermaid-control-button"
+            aria-label={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+            title={t ? t('markdownPreview.downloadSvg') : 'SVGダウンロード'}
+            onClick={handleDownloadSvg}
+            style={{
+              background: colors.background,
+              color: colors.foreground,
+            }}
+          >
+            <Download size={18} aria-hidden="true" />
+          </button>
         </div>
       )}
-      <div style={{ position: 'relative', zIndex: 10, overflow: 'hidden', paddingTop: 4 }}>
-        <div ref={ref} className="mermaid" style={{ minHeight: '120px' }} />
-        {/* ローディングは初回のみ表示 — 再レンダリング時はSVGを維持して静かに更新 */}
-        {isLoading && !svgContent && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '120px',
-              background: 'transparent',
-              pointerEvents: 'none',
-            }}
-          >
-            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle
-                cx="20"
-                cy="20"
-                r="18"
-                stroke="#4ade80"
-                strokeWidth="4"
-                fill="none"
-                strokeDasharray="90"
-                strokeDashoffset="60"
-              >
-                <animateTransform
-                  attributeName="transform"
-                  type="rotate"
-                  from="0 20 20"
-                  to="360 20 20"
-                  dur="1s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-            </svg>
-            <span style={{ marginLeft: '10px', color: '#4ade80', fontSize: '14px' }}>
-              {t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}
-            </span>
-          </div>
-        )}
-      </div>
+      <div ref={ref} className="mermaid" />
+      {/* ローディングは初回のみ表示 — 再レンダリング時はSVGを維持して静かに更新 */}
+      {isLoading && !svgContent && (
+        <div className="mermaid-loading">
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <circle
+              cx="20"
+              cy="20"
+              r="18"
+              stroke="#4ade80"
+              strokeWidth="4"
+              fill="none"
+              strokeDasharray="90"
+              strokeDashoffset="60"
+            >
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 20 20"
+                to="360 20 20"
+                dur="1s"
+                repeatCount="indefinite"
+              />
+            </circle>
+          </svg>
+          <span style={{ marginLeft: '10px', color: '#4ade80', fontSize: '14px' }}>
+            {t ? t('markdownPreview.generatingMermaid') : 'Mermaid図表を生成中...'}
+          </span>
+        </div>
+      )}
     </div>
   );
 });
