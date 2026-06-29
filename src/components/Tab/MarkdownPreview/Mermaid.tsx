@@ -543,6 +543,9 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
             borderColor: colors.border,
           }}
         >
+          <span className="mermaid-control-hint" style={{ color: colors.foreground }}>
+            Push ctrl/alt
+          </span>
           <button
             type="button"
             className="mermaid-control-button"

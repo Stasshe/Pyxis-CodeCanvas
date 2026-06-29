@@ -123,6 +123,19 @@
   box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
 }
 
+.markdown-body .mermaid-control-hint {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .markdown-body .mermaid-control-hint {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+}
+
 .markdown-body .mermaid-control-button {
   display: inline-flex;
   align-items: center;
