@@ -134,6 +134,7 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
           securityLevel: 'loose',
+          htmlLabels: false,
           themeVariables: {
             fontSize: '8px',
             // Text colors
@@ -163,7 +164,6 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
           maxEdges: 2000,
           flowchart: {
             useMaxWidth: false,
-            htmlLabels: true,
             curve: 'basis',
             rankSpacing: 80,
             nodeSpacing: 50,
