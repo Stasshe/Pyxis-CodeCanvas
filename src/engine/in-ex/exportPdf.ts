@@ -4,6 +4,29 @@ import { jsPDF } from 'jspdf';
 // High quality export setting for retina displays
 const HIGH_QUALITY_PIXEL_RATIO = 2;
 
+function createPngSource(element: HTMLElement): HTMLElement {
+  const source = element.cloneNode(true) as HTMLElement;
+  const width = element.getBoundingClientRect().width;
+
+  source.style.position = 'fixed';
+  source.style.top = '0';
+  source.style.left = `${-Math.ceil(width) - 1}px`;
+  source.style.width = `${width}px`;
+  source.style.maxWidth = 'none';
+  source.style.backgroundColor = '#ffffff';
+  source.style.color = '#000000';
+  source.style.pointerEvents = 'none';
+
+  for (const child of source.querySelectorAll('*')) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (child.closest('pre, code')) continue;
+    child.style.color = '#000000';
+  }
+
+  document.body.appendChild(source);
+  return source;
+}
+
 /**
  * Export HTML content as PDF using browser's print dialog
  * This method preserves text as actual text (searchable and selectable)
@@ -177,13 +200,20 @@ export async function exportPngFromElement(
 ): Promise<void> {
   if (typeof window === 'undefined') return;
 
+  const source = createPngSource(element);
+
   try {
     // Generate PNG from the element
-    const dataUrl = await toPng(element, {
+    const dataUrl = await toPng(source, {
       quality: 1.0,
       pixelRatio: HIGH_QUALITY_PIXEL_RATIO,
       backgroundColor: '#ffffff',
       cacheBust: true,
+      style: {
+        position: 'static',
+        top: 'auto',
+        left: 'auto',
+      },
     });
 
     // Create download link
@@ -194,6 +224,8 @@ export async function exportPngFromElement(
   } catch (error) {
     console.error('Failed to export PNG:', error);
     throw error;
+  } finally {
+    source.remove();
   }
 }
 
