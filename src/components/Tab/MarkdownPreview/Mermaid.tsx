@@ -18,8 +18,6 @@ interface ZoomState {
   translate: { x: number; y: number };
 }
 
-const VERTICAL_PADDING = 8;
-
 // グローバルカウンタ: ID衝突を確実に防ぐ
 let globalMermaidCounter = 0;
 
@@ -228,11 +226,6 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
 
         const svgElem = ref.current.querySelector('svg');
         if (svgElem) {
-          const { x, y, width, height } = svgElem.viewBox.baseVal;
-          svgElem.setAttribute(
-            'viewBox',
-            `${x} ${y - VERTICAL_PADDING} ${width} ${height + VERTICAL_PADDING * 2}`
-          );
           setSvgContent(svgElem.outerHTML);
 
           svgElem.style.maxWidth = '100%';

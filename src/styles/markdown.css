@@ -184,4 +184,8 @@
   color: inherit;
 }
 
+.markdown-body .mermaid {
+  padding-block: 12px;
+}
+
 /* Defer remaining styling to upstream `github-markdown-css` to avoid duplication */
