@@ -18,6 +18,8 @@ interface ZoomState {
   translate: { x: number; y: number };
 }
 
+const VERTICAL_PADDING = 8;
+
 // グローバルカウンタ: ID衝突を確実に防ぐ
 let globalMermaidCounter = 0;
 
@@ -223,10 +225,16 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
         if (!isMounted || !ref.current) return;
 
         ref.current.innerHTML = svg;
-        setSvgContent(svg);
 
         const svgElem = ref.current.querySelector('svg');
         if (svgElem) {
+          const { x, y, width, height } = svgElem.viewBox.baseVal;
+          svgElem.setAttribute(
+            'viewBox',
+            `${x} ${y - VERTICAL_PADDING} ${width} ${height + VERTICAL_PADDING * 2}`
+          );
+          setSvgContent(svgElem.outerHTML);
+
           svgElem.style.maxWidth = '100%';
           svgElem.style.height = 'auto';
           svgElem.style.maxHeight = '90vh';
@@ -544,7 +552,7 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
           }}
         >
           <span className="mermaid-control-hint" style={{ color: colors.foreground }}>
-            Push ctrl/alt
+            ctrl/alt
           </span>
           <button
             type="button"
