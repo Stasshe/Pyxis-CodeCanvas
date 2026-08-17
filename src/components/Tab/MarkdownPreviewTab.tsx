@@ -66,6 +66,16 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
   // Priority: live editor > preview runtime store
   const contentSource = editorTabContent ?? previewTabContent ?? '';
   const { openTab } = tabActions;
+  const markdownThemeStyle = {
+    color: colors.foreground,
+    backgroundColor: colors.background,
+    '--fgColor-default': colors.foreground,
+    '--fgColor-muted': colors.mutedFg,
+    '--bgColor-default': colors.background,
+    '--bgColor-muted': colors.mutedBg,
+    '--borderColor-default': colors.border,
+    '--borderColor-muted': colors.border,
+  } as React.CSSProperties;
 
   useEffect(() => {
     let mounted = true;
@@ -501,7 +511,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         className={`markdown-body prose prose-github max-w-none ${
           themeName?.toLowerCase().includes('light') ? 'markdown-light' : 'markdown-dark'
         }`}
-        style={{ color: colors.foreground, backgroundColor: colors.background }}
+        style={markdownThemeStyle}
       >
         {markdownContent}
       </div>
