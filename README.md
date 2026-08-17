@@ -77,6 +77,19 @@ StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxi
 - **Mermaid対応** - フローチャート、図表を簡単作成。PCでは`Alt`または`Ctrl`を押しながらドラッグで移動、ホイールでズーム。タッチ端末ではドラッグ・ピンチ操作に対応
 - **LaTeX数式** - 数学的な表現も完璧にレンダリング
 
+Mermaidコードブロックの先頭にYAML frontmatterを書くと、`elk`または`dagre`を選べます。
+
+````markdown
+```mermaid
+---
+config:
+  layout: elk
+---
+flowchart TD
+  A --> B
+```
+````
+
 タイプするだけで即座にプレビュー更新！長文の執筆にも最適です。
 
 ---

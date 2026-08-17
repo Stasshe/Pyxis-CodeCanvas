@@ -1,12 +1,11 @@
 import { Download, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
-import mermaid from 'mermaid';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 
-import { parseMermaidContent } from '../markdownUtils';
-
+import { createMermaidConfig } from './mermaidConfig';
+import { renderDiagram } from './mermaidRuntime';
 import { useIntersectionObserver } from './useIntersectionObserver';
 
 interface MermaidProps {
@@ -70,11 +69,17 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
     triggerOnce: true,
   });
 
-  // 設定パースをメモ化（パフォーマンス改善）
-  const { config, diagram } = useMemo(() => parseMermaidContent(chart), [chart]);
+  const mermaidConfig = useMemo(
+    () =>
+      createMermaidConfig({
+        colors,
+        isDark: !themeName?.includes('light'),
+      }),
+    [colors, themeName]
+  );
 
   // diagramキーを生成（ズーム状態の保持に使用）
-  const diagramKey = useMemo(() => generateDiagramKey(diagram), [diagram]);
+  const diagramKey = useMemo(() => generateDiagramKey(chart), [chart]);
 
   // ID生成をメモ化（chart変更時のみ再生成）
   const idRef = useMemo(() => generateSafeId(chart), [chart]);
@@ -129,96 +134,17 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
       // refs値はそのまま維持 — ズームリセットしない
 
       try {
-        const isDark = !themeName?.includes('light');
-        const mermaidConfig: Record<string, unknown> = {
-          startOnLoad: false,
-          theme: isDark ? 'dark' : 'default',
-          securityLevel: 'loose',
-          htmlLabels: false,
-          themeVariables: {
-            fontSize: '8px',
-            // Text colors
-            primaryTextColor: colors.foreground,
-            secondaryTextColor: colors.foreground,
-            tertiaryTextColor: colors.foreground,
-            textColor: colors.foreground,
-            // Background colors
-            primaryColor: colors.accent,
-            primaryBorderColor: colors.border,
-            secondaryColor: colors.mutedBg,
-            secondaryBorderColor: colors.border,
-            tertiaryColor: colors.cardBg,
-            tertiaryBorderColor: colors.border,
-            // Line colors
-            lineColor: colors.foreground,
-            // Node label colors
-            labelTextColor: colors.foreground,
-            nodeBorder: colors.border,
-            clusterBkg: colors.cardBg,
-            clusterBorder: colors.border,
-            // Edge label background
-            edgeLabelBackground: colors.background,
-          },
-          suppressErrorRendering: true,
-          maxTextSize: 100000,
-          maxEdges: 2000,
-          flowchart: {
-            useMaxWidth: false,
-            curve: 'basis',
-            rankSpacing: 80,
-            nodeSpacing: 50,
-          },
-          layout: 'dagre',
-        };
-
-        if (config.config) {
-          if (config.config.theme) mermaidConfig.theme = config.config.theme;
-          if (config.config.themeVariables) {
-            mermaidConfig.themeVariables = {
-              ...(mermaidConfig.themeVariables as Record<string, unknown>),
-              ...config.config.themeVariables,
-            };
-          }
-          if (config.config.flowchart) {
-            mermaidConfig.flowchart = {
-              ...(mermaidConfig.flowchart as Record<string, unknown>),
-              ...config.config.flowchart,
-            };
-          }
-          if (config.config.defaultRenderer === 'elk') {
-            (mermaidConfig.flowchart as Record<string, unknown>).defaultRenderer = 'elk';
-          }
-          if (config.config.layout) {
-            mermaidConfig.layout = config.config.layout;
-            if (config.config.layout === 'elk') {
-              (mermaidConfig.flowchart as Record<string, unknown>).defaultRenderer = 'elk';
-              mermaidConfig.elk = {
-                algorithm: 'layered',
-                'elk.direction': 'DOWN',
-                'elk.spacing.nodeNode': 50,
-                'elk.layered.spacing.nodeNodeBetweenLayers': 80,
-                ...(config.config.elk || {}),
-              };
-            }
-          }
-          if (config.config.look) {
-            mermaidConfig.look = config.config.look;
-          }
-        }
-
         console.log('[Mermaid] Initializing with config:', mermaidConfig);
-        console.log('[Mermaid] Rendering diagram (length:', diagram.length, ')');
-
-        mermaid.initialize(mermaidConfig as Parameters<typeof mermaid.initialize>[0]);
+        console.log('[Mermaid] Rendering diagram (length:', chart.length, ')');
 
         // タイムアウト処理追加（10秒）
         const timeoutMs = 10000;
-        const renderPromise = mermaid.render(idRef, diagram);
+        const renderPromise = renderDiagram(idRef, chart, mermaidConfig);
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Rendering timeout')), timeoutMs)
         );
 
-        const { svg } = (await Promise.race([renderPromise, timeoutPromise])) as { svg: string };
+        const svg = (await Promise.race([renderPromise, timeoutPromise])) as string;
 
         if (!isMounted || !ref.current) return;
 
@@ -440,20 +366,7 @@ const Mermaid = memo<MermaidProps>(({ chart }) => {
         // ignore
       }
     };
-  }, [
-    colors.mermaidBg,
-    themeName,
-    config,
-    diagram,
-    idRef,
-    hasIntersected,
-    colors.accent,
-    colors.border,
-    colors.mutedBg,
-    colors.foreground,
-    colors.background,
-    colors.cardBg,
-  ]);
+  }, [colors.mermaidBg, chart, idRef, hasIntersected, colors.background, mermaidConfig]);
 
   const handleDownloadSvg = useCallback(() => {
     if (!svgContent) return;
