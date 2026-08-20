@@ -451,6 +451,7 @@ export default function AIReviewTab({
           theme="pyxis-custom"
           onMount={handleDiffEditorMount}
           options={{
+            editContext: false,
             renderSideBySide: true,
             readOnly: false, // 編集可能
             minimap: { enabled: true },

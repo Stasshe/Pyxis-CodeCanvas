@@ -330,6 +330,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
                   theme="pyxis-custom"
                   onMount={(editor, monaco) => handleDiffEditorMount(editor, monaco, idx)}
                   options={{
+                    editContext: false,
                     renderSideBySide: true,
                     // 単一ファイルのdiffかつeditableがtrueの場合のみ編集可能
                     readOnly: !(editable && diffs.length === 1),

@@ -439,6 +439,7 @@ export default function MonacoEditor({
       }}
       theme="pyxis-custom"
       options={{
+        editContext: false,
         fontSize,
         lineNumbers: 'on',
         roundedSelection: false,

@@ -325,6 +325,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                   theme="pyxis-custom"
                   onMount={handleDiffEditorMount}
                   options={{
+                    editContext: false,
                     renderSideBySide: true,
                     readOnly: true,
                     minimap: { enabled: false },
@@ -345,6 +346,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                   onChange={handleResolvedContentChange}
                   onMount={handleEditorMount}
                   options={{
+                    editContext: false,
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
                     fontSize: 13,
@@ -414,6 +416,7 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
               theme="pyxis-custom"
               onMount={onMount}
               options={{
+                editContext: false,
                 renderSideBySide: false,
                 readOnly: true,
                 minimap: { enabled: false },
@@ -438,6 +441,7 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
               theme="pyxis-custom"
               onMount={onMount}
               options={{
+                editContext: false,
                 renderSideBySide: false,
                 readOnly: true,
                 minimap: { enabled: false },
@@ -464,6 +468,7 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
             onChange={onResolvedContentChange}
             onMount={handleEditorMount}
             options={{
+              editContext: false,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               fontSize: 13,
