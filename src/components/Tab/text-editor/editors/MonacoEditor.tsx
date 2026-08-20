@@ -465,7 +465,7 @@ export default function MonacoEditor({
           comments: true,
           strings: true,
         },
-        hover: { enabled: true },
+        hover: { enabled: 'on' },
         bracketPairColorization: { enabled: true },
         guides: {
           bracketPairs: true,
