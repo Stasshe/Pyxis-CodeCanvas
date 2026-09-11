@@ -1,4 +1,5 @@
 import { fileRepository } from '@/engine/core/fileRepository';
+import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 
 /**
  * ファイルアップロード(インポート)機能
@@ -14,13 +15,6 @@ export async function importSingleFile(
   projectName: string,
   projectId?: string
 ) {
-  // バイナリ拡張子リスト（SVGは特例でテキストファイルとして判定）
-  const fileName = file.name.toLowerCase();
-  const isSvg = /\.svg$/i.test(fileName);
-  const binaryExt =
-    /\.(png|jpg|jpeg|gif|bmp|webp|pdf|zip|ico|tar|gz|rar|exe|dll|so|mp3|mp4|avi|mov|woff|woff2|ttf|eot)$/i;
-  const isBinary = !isSvg && binaryExt.test(fileName);
-
   console.log(`[importSingleFile] ファイルアップロード開始: ${targetPath}`);
 
   // targetPath からプロジェクト内パスを抽出
@@ -32,13 +26,15 @@ export async function importSingleFile(
     return;
   }
 
-  if (!isBinary) {
+  const arrayBuffer = await file.arrayBuffer();
+  const content = new Uint8Array(arrayBuffer);
+  const isText = await isLikelyTextFile(file.name, content);
+
+  if (isText) {
     // テキストファイルは直接createFileで登録（touch+echoの代替）
-    const content = await file.text();
-    await fileRepository.createFile(projectId, filePath, content, 'file');
+    await fileRepository.createFile(projectId, filePath, new TextDecoder().decode(content), 'file');
   } else {
     // バイナリファイルはArrayBufferを渡して作成
-    const arrayBuffer = await file.arrayBuffer();
     await fileRepository.createFile(projectId, filePath, '', 'file', true, arrayBuffer);
   }
 

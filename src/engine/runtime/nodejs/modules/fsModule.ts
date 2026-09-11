@@ -7,6 +7,7 @@
  * - all other paths are backed by ProjectMount
  */
 
+import { Buffer } from 'buffer';
 import {
   fsPathToAppPath,
   normalizeDotSegments,
@@ -91,13 +92,27 @@ export function createFSModule(options: FSModuleOptions) {
     return options?.encoding;
   }
 
-  function formatReadContent(content: string | Uint8Array, options?: any): string | Uint8Array {
+  function formatReadContent(
+    path: string,
+    content: string | Uint8Array,
+    options?: any
+  ): string | Buffer {
     const encoding = normalizeEncoding(options);
-    if (encoding === null) {
-      return encodeContent(content);
+    const buffer = Buffer.from(encodeContent(content));
+
+    if (/\.svg$/i.test(path)) {
+      return buffer.toString('utf8');
     }
 
-    return typeof content === 'string' ? content : new TextDecoder().decode(content);
+    if (encoding === undefined || encoding === null || encoding === 'buffer') {
+      return buffer;
+    }
+
+    return buffer.toString(encoding as BufferEncoding);
+  }
+
+  function formatDirectoryName(name: string, options?: any): string | Buffer {
+    return normalizeEncoding(options) === 'buffer' ? Buffer.from(name) : name;
   }
 
   function makeStats(type: 'file' | 'directory', size = 0, mtime = new Date()) {
@@ -162,7 +177,7 @@ export function createFSModule(options: FSModuleOptions) {
     throw createFsError('ENOENT', syscall, path);
   }
 
-  function makeDirent(name: string, isDir: boolean) {
+  function makeDirent(name: string | Buffer, isDir: boolean) {
     return {
       name,
       isDirectory: () => isDir,
@@ -179,11 +194,11 @@ export function createFSModule(options: FSModuleOptions) {
     readFile: (
       path: string,
       options?: any,
-      callback?: FsCallback<string | Uint8Array>
-    ): Promise<string | Uint8Array> | void => {
+      callback?: FsCallback<string | Buffer>
+    ): Promise<string | Buffer> | void => {
       const normalized = splitOptionsAndCallback(options, callback);
       const readTask = trackTask(
-        (async (): Promise<string | Uint8Array> => {
+        (async (): Promise<string | Buffer> => {
           try {
             const { relativePath } = normalizeModulePath(path);
             const mount = mountRouter.resolve(relativePath);
@@ -195,7 +210,7 @@ export function createFSModule(options: FSModuleOptions) {
               throw createFsError('ENOENT', 'open', path);
             }
 
-            return formatReadContent(content, normalized.options);
+            return formatReadContent(path, content, normalized.options);
           } catch (error) {
             if (
               error &&
@@ -254,13 +269,13 @@ export function createFSModule(options: FSModuleOptions) {
       return writeTask;
     },
 
-    readFileSync: (path: string, options?: any): string | Uint8Array => {
+    readFileSync: (path: string, options?: any): string | Buffer => {
       const { relativePath } = normalizeModulePath(path);
       const content = mountRouter.resolve(relativePath).getFileSync(relativePath);
       if (content === undefined) {
         throw createFsError('ENOENT', 'open', path);
       }
-      return formatReadContent(content, options);
+      return formatReadContent(path, content, options);
     },
 
     writeFileSync: (path: string, data: string | Uint8Array, options?: any): void => {
@@ -305,7 +320,7 @@ export function createFSModule(options: FSModuleOptions) {
       await fsModule.writeFile(path, data, options);
     },
 
-    asyncReadFile: async (path: string, options?: any): Promise<string | Uint8Array> => {
+    asyncReadFile: async (path: string, options?: any): Promise<string | Buffer> => {
       const readTask = fsModule.readFile(path, options);
       if (!isPromiseLike(readTask)) {
         throw new Error(`fsModule.readFile returned void without a callback: ${path}`);
@@ -337,7 +352,7 @@ export function createFSModule(options: FSModuleOptions) {
         opts = options ?? {};
       }
 
-      const withFileTypes = opts?.encoding === 'buffer' ? false : opts?.withFileTypes === true;
+      const withFileTypes = opts?.withFileTypes === true;
 
       const doReaddir = (): Promise<any[]> =>
         trackTask(
@@ -346,14 +361,14 @@ export function createFSModule(options: FSModuleOptions) {
             const mount = mountRouter.resolve(relativePath);
             const names = await mount.listDir(relativePath);
 
-            if (!withFileTypes) return names;
+            if (!withFileTypes) return names.map(name => formatDirectoryName(name, opts));
 
             return Promise.all(
               names.map(async name => {
                 const childPath =
                   relativePath === '/' ? `/${name}` : `${relativePath.replace(/\/$/, '')}/${name}`;
                 const stat = await mount.stat(childPath);
-                return makeDirent(name, stat?.type === 'directory');
+                return makeDirent(formatDirectoryName(name, opts), stat?.type === 'directory');
               })
             );
           })()
@@ -392,11 +407,11 @@ export function createFSModule(options: FSModuleOptions) {
       }
 
       const result = [...names].filter(Boolean);
-      if (!withFileTypes) return result;
+      if (!withFileTypes) return result.map(name => formatDirectoryName(name, options));
 
       return result.map(name => {
         const childPath = dirPath + name;
-        return makeDirent(name, mount.hasDir(childPath));
+        return makeDirent(formatDirectoryName(name, options), mount.hasDir(childPath));
       });
     },
 

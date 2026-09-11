@@ -1,5 +1,6 @@
-import { createChildProcessModule } from '@/engine/runtime/nodejs/modules/childProcessModule';
+import { Buffer } from 'buffer';
 import { describe, expect, it } from 'vitest';
+import { createChildProcessModule } from '@/engine/runtime/nodejs/modules/childProcessModule';
 
 describe('child_process module', () => {
   it('exec runs through the injected shell runner and calls back', async () => {
@@ -58,5 +59,20 @@ describe('child_process module', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('v18.0.0\n');
+  });
+
+  it('returns Buffer output when encoding is null', async () => {
+    const childProcess = createChildProcessModule({
+      runShell: async () => ({ stdout: 'output', stderr: 'error', code: 0 }),
+    });
+
+    const result = await new Promise<{ stdout: unknown; stderr: unknown }>(resolve => {
+      childProcess.exec('command', { encoding: null }, (_error, stdout, stderr) => {
+        resolve({ stdout, stderr });
+      });
+    });
+
+    expect(Buffer.isBuffer(result.stdout)).toBe(true);
+    expect(Buffer.isBuffer(result.stderr)).toBe(true);
   });
 });

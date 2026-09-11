@@ -5,30 +5,23 @@
  * prettier の legacy-cli 等が内部で使用する。
  */
 
+import { Buffer } from 'buffer';
+
 class Hash {
-  private data: Uint8Array[] = [];
+  private data: Buffer[] = [];
 
   constructor(_algorithm: string) {}
 
-  update(data: string | Uint8Array, _encoding?: string): this {
-    if (typeof data === 'string') {
-      this.data.push(new TextEncoder().encode(data));
-    } else {
-      this.data.push(data);
-    }
+  update(data: string | Uint8Array, encoding?: BufferEncoding): this {
+    this.data.push(typeof data === 'string' ? Buffer.from(data, encoding) : Buffer.from(data));
     return this;
   }
 
-  digest(encoding?: string): string | Uint8Array {
+  digest(encoding?: BufferEncoding): string | Buffer {
     // Synchronous hash via SubtleCrypto is not available — use a simple fallback
     // that returns a consistent placeholder. Real use cases (prettier) just need
     // this not to throw.
-    const combined = new Uint8Array(this.data.reduce((acc, chunk) => acc + chunk.length, 0));
-    let offset = 0;
-    for (const chunk of this.data) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
-    }
+    const combined = Buffer.concat(this.data);
 
     // Simple djb2-based hash as synchronous fallback
     let h = 5381;
@@ -37,17 +30,8 @@ class Hash {
     }
     const hex = h.toString(16).padStart(8, '0').repeat(8).slice(0, 64);
 
-    if (encoding === 'hex') return hex;
-    if (encoding === 'base64') return btoa(hex);
-    if (encoding === 'latin1' || encoding === 'binary') return hex;
-    if (!encoding) {
-      const buf = new Uint8Array(32);
-      for (let i = 0; i < 32; i++) {
-        buf[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-      }
-      return buf;
-    }
-    return hex;
+    const buffer = Buffer.from(hex, 'hex');
+    return encoding ? buffer.toString(encoding) : buffer;
   }
 }
 
@@ -61,12 +45,12 @@ class Hmac {
     this.hash.update(this.key);
   }
 
-  update(data: string | Uint8Array, encoding?: string): this {
+  update(data: string | Uint8Array, encoding?: BufferEncoding): this {
     this.hash.update(data, encoding);
     return this;
   }
 
-  digest(encoding?: string): string | Uint8Array {
+  digest(encoding?: BufferEncoding): string | Buffer {
     return this.hash.digest(encoding);
   }
 }
@@ -76,10 +60,10 @@ export function createCryptoModule() {
     createHash: (algorithm: string) => new Hash(algorithm),
     createHmac: (algorithm: string, key: string | Uint8Array) => new Hmac(algorithm, key),
 
-    randomBytes: (size: number): Uint8Array => {
-      const buf = new Uint8Array(size);
-      globalThis.crypto.getRandomValues(buf);
-      return buf;
+    randomBytes: (size: number): Buffer => {
+      const buffer = Buffer.alloc(size);
+      globalThis.crypto.getRandomValues(buffer as Uint8Array<ArrayBuffer>);
+      return buffer;
     },
 
     randomUUID: (): string => globalThis.crypto.randomUUID(),
@@ -103,34 +87,34 @@ export function createCryptoModule() {
       _password: any,
       _salt: any,
       _iterations: number,
-      _keylen: number,
+      keylen: number,
       _digest: string,
       cb: (err: Error | null, key: Buffer) => void
     ) => {
-      cb(null, new Uint8Array(32) as any);
+      cb(null, Buffer.alloc(keylen));
     },
 
     pbkdf2Sync: (
       _password: any,
       _salt: any,
       _iterations: number,
-      _keylen: number,
+      keylen: number,
       _digest: string
-    ): Uint8Array => {
-      return new Uint8Array(32);
+    ): Buffer => {
+      return Buffer.alloc(keylen);
     },
 
     scrypt: (
       _password: any,
       _salt: any,
-      _keylen: number,
+      keylen: number,
       cb: (err: Error | null, key: Buffer) => void
     ) => {
-      cb(null, new Uint8Array(32) as any);
+      cb(null, Buffer.alloc(keylen));
     },
 
-    scryptSync: (_password: any, _salt: any, _keylen: number): Uint8Array => {
-      return new Uint8Array(32);
+    scryptSync: (_password: any, _salt: any, keylen: number): Buffer => {
+      return Buffer.alloc(keylen);
     },
 
     timingSafeEqual: (a: Uint8Array, b: Uint8Array): boolean => {

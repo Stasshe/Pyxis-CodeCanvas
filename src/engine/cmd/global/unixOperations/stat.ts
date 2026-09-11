@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';

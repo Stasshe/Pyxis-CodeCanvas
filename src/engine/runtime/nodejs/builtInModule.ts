@@ -28,10 +28,10 @@
  */
 
 import * as stream from 'node:stream';
+import * as buffer from 'buffer';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
 import { createAssertModule } from './modules/assertModule';
-import { Buffer } from './modules/bufferModule';
 import { createChildProcessModule } from './modules/childProcessModule';
 import { createCryptoModule } from './modules/cryptoModule';
 import { createEventsModule } from './modules/eventsModule';
@@ -74,7 +74,7 @@ export interface BuiltInModules {
   http: ReturnType<typeof createHTTPModule>;
   https: ReturnType<typeof createHTTPSModule>;
   events: ReturnType<typeof createEventsModule>;
-  Buffer: typeof Buffer;
+  buffer: typeof buffer;
   readline: ReturnType<typeof createReadlineModule>;
   tty: ReturnType<typeof createTTYModule>;
   assert: ReturnType<typeof createAssertModule>;
@@ -114,7 +114,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     http: createHTTPModule(),
     https: createHTTPSModule(),
     events: createEventsModule(),
-    Buffer: Buffer,
+    buffer,
     readline: createReadlineModule(processStdin, getTrackIO),
     tty: createTTYModule(terminalColumns, terminalRows),
     assert: createAssertModule(),
@@ -141,7 +141,7 @@ export type { FSModuleOptions };
  * 個別のモジュールを作成（必要に応じて使用）
  */
 export {
-  Buffer,
+  buffer,
   createAssertModule,
   createChildProcessModule,
   createEventsModule,

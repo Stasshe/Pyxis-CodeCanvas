@@ -563,7 +563,7 @@ export class NodeRuntime {
   private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
     const process = this.createProcessObject(currentFilePath, argv);
     this.currentProcess = process;
-    const Buffer = this.builtInModules.Buffer;
+    const Buffer = this.builtInModules.buffer.Buffer;
     const runtimeGlobal: Record<string, any> = {
       ...globalThis,
       navigator: {
@@ -808,7 +808,7 @@ export class NodeRuntime {
       util: this.builtInModules.util,
       http: this.builtInModules.http,
       https: this.builtInModules.https,
-      buffer: { Buffer: this.builtInModules.Buffer },
+      buffer: this.builtInModules.buffer,
       readline: this.builtInModules.readline,
       assert: this.builtInModules.assert,
       events: this.builtInModules.events,
