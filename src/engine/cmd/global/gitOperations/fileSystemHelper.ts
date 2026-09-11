@@ -17,17 +17,6 @@ export class GitFileSystemHelper {
 
     const traverse = async (currentPath: string, relativePath = '') => {
       try {
-        // ファイルシステムの同期を確実にする
-        if ((fs as any).sync) {
-          try {
-            await (fs as any).sync();
-            // 同期後の追加待機
-            await new Promise(resolve => setTimeout(resolve, 50));
-          } catch (syncError) {
-            console.warn(`[getAllFiles] Sync failed for ${currentPath}:`, syncError);
-          }
-        }
-
         const entries = await fs.promises.readdir(currentPath);
         console.log(`[getAllFiles] Reading directory ${currentPath}, found:`, entries);
 
@@ -61,6 +50,7 @@ export class GitFileSystemHelper {
       }
     };
 
+    await fs.promises.flush();
     await traverse(dirPath);
     console.log(`[getAllFiles] Total files found: ${files.length}`, files);
     return files;

@@ -67,10 +67,16 @@ export class GitCommands {
     errorPrefix: string
   ): Promise<T> {
     try {
-      return await operation();
+      return await this.executeGitMutation(operation);
     } catch (error) {
       throw new Error(`${errorPrefix}: ${(error as Error).message}`);
     }
+  }
+
+  private async executeGitMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = await operation();
+    await gitFileSystem.flush();
+    return result;
   }
 
   // ========================================
@@ -133,14 +139,7 @@ export class GitCommands {
   async status(): Promise<string> {
     await this.ensureGitRepository();
 
-    // ファイルシステムの同期処理
-    if ((this.fs as any).sync) {
-      try {
-        await (this.fs as any).sync();
-      } catch (syncError) {
-        console.warn('[git.status] FileSystem sync failed:', syncError);
-      }
-    }
+    await gitFileSystem.flush();
 
     let status: Array<[string, number, number, number]> = [];
     try {
@@ -248,7 +247,7 @@ export class GitCommands {
   async add(filepath: string): Promise<string> {
     await this.ensureProjectDirectory();
     const { add } = await import('./gitOperations/add');
-    return await add(this.fs, this.dir, filepath);
+    return this.executeGitMutation(() => add(this.fs, this.dir, filepath));
   }
 
   // すべてのファイルを取得（再帰的）
@@ -270,7 +269,7 @@ export class GitCommands {
   ): Promise<string> {
     await this.ensureGitRepository();
     const { commit } = await import('./gitOperations/commit');
-    return await commit(this.fs, this.dir, message, author);
+    return this.executeGitMutation(() => commit(this.fs, this.dir, message, author));
   }
 
   // git reset - ファイルをアンステージング、またはハードリセット
@@ -283,7 +282,7 @@ export class GitCommands {
       this.projectId,
       this.projectName
     );
-    return await resetOperations.reset(options);
+    return this.executeGitMutation(() => resetOperations.reset(options));
   }
 
   // git log - ログ表示
@@ -315,7 +314,7 @@ export class GitCommands {
       this.projectId,
       this.projectName
     );
-    return await checkoutOperations.checkout(branchName, createNew);
+    return this.executeGitMutation(() => checkoutOperations.checkout(branchName, createNew));
   }
 
   /**
@@ -344,7 +343,7 @@ export class GitCommands {
         this.projectName
       );
 
-      return await checkoutOperations.checkout(commitOid, false);
+      return await this.executeGitMutation(() => checkoutOperations.checkout(commitOid, false));
     } catch (error) {
       throw new Error(`Failed to checkout remote branch: ${(error as Error).message}`);
     }
@@ -358,7 +357,7 @@ export class GitCommands {
       this.projectId,
       this.projectName
     );
-    return await revertOperations.revert(commitHash);
+    return this.executeGitMutation(() => revertOperations.revert(commitHash));
   }
 
   /**
@@ -375,7 +374,7 @@ export class GitCommands {
   ): Promise<string> {
     const { GitSwitchOperations } = await import('./gitOperations/switch');
     const switchOps = new GitSwitchOperations(this.fs, this.dir, this.projectId, this.projectName);
-    return await switchOps.switch(targetRef, options);
+    return this.executeGitMutation(() => switchOps.switch(targetRef, options));
   }
 
   // git branch - ブランチ一覧/作成
@@ -385,7 +384,10 @@ export class GitCommands {
   ): Promise<string> {
     await this.ensureProjectDirectory();
     const { branch } = await import('./gitOperations/branch');
-    return await branch(this.fs, this.dir, branchName, options);
+    if (!branchName) {
+      return await branch(this.fs, this.dir, branchName, options);
+    }
+    return this.executeGitMutation(() => branch(this.fs, this.dir, branchName, options));
   }
 
   // git diff - 変更差分を表示
@@ -420,18 +422,22 @@ export class GitCommands {
       this.projectName
     );
 
-    return await mergeOperations.merge(branchName, {
-      noFf: options.noFf,
-      message: options.message,
-      abort: options.abort,
-    });
+    return this.executeGitMutation(() =>
+      mergeOperations.merge(branchName, {
+        noFf: options.noFf,
+        message: options.message,
+        abort: options.abort,
+      })
+    );
   }
 
   // ワーキングディレクトリの変更を破棄
   async discardChanges(filepath: string): Promise<string> {
     await this.ensureGitRepository();
     const { discardChanges } = await import('./gitOperations/discardChanges');
-    return await discardChanges(this.fs, this.dir, this.projectId, filepath);
+    return this.executeGitMutation(() =>
+      discardChanges(this.fs, this.dir, this.projectId, filepath)
+    );
   }
 
   // 指定コミット・ファイルの内容を取得 (git show 相当)
@@ -536,7 +542,7 @@ export class GitCommands {
 
     // 動的インポートで循環参照を回避
     const { push } = await import('./gitOperations/push');
-    return push(this.fs, this.dir, options, this.terminalUI);
+    return this.executeGitMutation(() => push(this.fs, this.dir, options, this.terminalUI));
   }
 
   /**
@@ -546,7 +552,7 @@ export class GitCommands {
     await this.ensureGitRepository();
 
     const { addRemote } = await import('./gitOperations/push');
-    return addRemote(this.fs, this.dir, remote, url);
+    return this.executeGitMutation(() => addRemote(this.fs, this.dir, remote, url));
   }
 
   /**
@@ -566,7 +572,7 @@ export class GitCommands {
     await this.ensureGitRepository();
 
     const { deleteRemote } = await import('./gitOperations/push');
-    return deleteRemote(this.fs, this.dir, remote);
+    return this.executeGitMutation(() => deleteRemote(this.fs, this.dir, remote));
   }
 
   /**
@@ -578,11 +584,11 @@ export class GitCommands {
     if (Array.isArray(options)) {
       // args array passed, delegate parsing to fetchFromArgs
       const { fetchFromArgs } = await import('./gitOperations/fetch');
-      return fetchFromArgs(this.fs, this.dir, options);
+      return this.executeGitMutation(() => fetchFromArgs(this.fs, this.dir, options));
     }
 
     const { fetch } = await import('./gitOperations/fetch');
-    return fetch(this.fs, this.dir, options);
+    return this.executeGitMutation(() => fetch(this.fs, this.dir, options));
   }
 
   /**
@@ -594,7 +600,7 @@ export class GitCommands {
     await this.ensureGitRepository();
 
     const { fetchAll } = await import('./gitOperations/fetch');
-    return fetchAll(this.fs, this.dir, options);
+    return this.executeGitMutation(() => fetchAll(this.fs, this.dir, options));
   }
 
   /**
@@ -625,7 +631,9 @@ export class GitCommands {
   ): Promise<string> {
     await this.ensureGitRepository();
     const { pull } = await import('./gitOperations/pull');
-    return await pull(this.fs, this.dir, this.projectId, this.projectName, options);
+    return this.executeGitMutation(() =>
+      pull(this.fs, this.dir, this.projectId, this.projectName, options)
+    );
   }
 
   /**

@@ -255,14 +255,8 @@ export class GitFileSystem {
    */
   async flush(): Promise<void> {
     const fs = this.getFS();
-    if ((fs as any).sync) {
-      try {
-        await (fs as any).sync();
-        coreInfo('[GitFileSystem] Cache flushed');
-      } catch (error) {
-        coreWarn('[GitFileSystem] Failed to flush cache:', error);
-      }
-    }
+    await fs.promises.flush();
+    coreInfo('[GitFileSystem] Cache flushed');
   }
 
   /**

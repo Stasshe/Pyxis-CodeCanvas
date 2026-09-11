@@ -7,14 +7,7 @@ export async function add(fs: any, dir: string, filepath: string): Promise<strin
     // Ensure project dir exists
     // Note: caller should already ensure directory exists, but double-check .git presence not required for add
 
-    // ファイルシステムの同期処理
-    if ((fs as any).sync) {
-      try {
-        await (fs as any).sync();
-      } catch (syncError) {
-        console.warn('[git.add] FileSystem sync failed:', syncError);
-      }
-    }
+    await fs.promises.flush();
 
     if (filepath === '.') {
       // すべてのファイルを追加（削除されたファイルも含む）
@@ -165,13 +158,7 @@ export async function addAll(fs: any, dir: string): Promise<string> {
   try {
     console.log('[git.add] Processing all files in current directory');
 
-    if ((fs as any).sync) {
-      try {
-        await (fs as any).sync();
-      } catch (syncError) {
-        console.warn('[git.add] FileSystem sync failed:', syncError);
-      }
-    }
+    await fs.promises.flush();
 
     const statusMatrix = await git.statusMatrix({ fs, dir });
     console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
