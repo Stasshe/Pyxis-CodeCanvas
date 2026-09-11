@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events';
 import { PassThrough, type Readable, type Writable } from 'node:stream';
+import { Buffer } from 'buffer';
 
 /**
  * Process - Stream-based process abstraction
@@ -83,6 +84,8 @@ export class Process extends EventEmitter {
     try {
       if (chunk === undefined || chunk === null) {
         this._stdout.write('');
+      } else if (Buffer.isBuffer(chunk)) {
+        this._stdout.write(chunk);
       } else if (typeof chunk === 'object') {
         try {
           this._stdout.write(JSON.stringify(chunk));
@@ -105,6 +108,8 @@ export class Process extends EventEmitter {
     try {
       if (chunk === undefined || chunk === null) {
         this._stderr.write('');
+      } else if (Buffer.isBuffer(chunk)) {
+        this._stderr.write(chunk);
       } else if (typeof chunk === 'object') {
         try {
           this._stderr.write(JSON.stringify(chunk));

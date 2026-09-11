@@ -1,4 +1,5 @@
 import { fileRepository } from '@/engine/core/fileRepository';
+import type { ProjectFile } from '@/types';
 import type { MountStat, VirtualMount } from './types';
 
 function contentSize(content: string | Uint8Array): number {
@@ -9,6 +10,12 @@ function toArrayBuffer(content: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(content.byteLength);
   copy.set(content);
   return copy.buffer;
+}
+
+function getStoredContent(file: ProjectFile): string | Uint8Array {
+  return file.isBufferArray && file.bufferContent
+    ? new Uint8Array(file.bufferContent)
+    : (file.content ?? '');
 }
 
 export class ProjectMount implements VirtualMount {
@@ -36,10 +43,7 @@ export class ProjectMount implements VirtualMount {
     const file = await fileRepository.getFileByPath(this.projectId, path);
     if (!file || file.type !== 'file') return undefined;
 
-    const content =
-      file.isBufferArray && file.bufferContent
-        ? new Uint8Array(file.bufferContent)
-        : (file.content ?? '');
+    const content = getStoredContent(file);
     this.rememberPath(path, 'file');
     this.files.set(path, content);
     return content;
@@ -123,8 +127,8 @@ export class ProjectMount implements VirtualMount {
       if (file.path.startsWith(dirPath) && file.path !== dirPath) {
         names.add(file.path.slice(dirPath.length).split('/')[0]);
         this.rememberPath(file.path, file.type);
-        if (file.type === 'file' && file.content !== undefined) {
-          this.files.set(file.path, file.content);
+        if (file.type === 'file') {
+          this.files.set(file.path, getStoredContent(file));
         }
       }
     }
@@ -151,10 +155,7 @@ export class ProjectMount implements VirtualMount {
       return { type: 'directory', size: 0, mtime: file.updatedAt };
     }
 
-    const content =
-      file.isBufferArray && file.bufferContent
-        ? new Uint8Array(file.bufferContent)
-        : (file.content ?? '');
+    const content = getStoredContent(file);
     this.files.set(path, content);
     return { type: 'file', size: contentSize(content), mtime: file.updatedAt };
   }
@@ -166,10 +167,9 @@ export class ProjectMount implements VirtualMount {
       this.rememberPath(file.path, file.type);
       if (
         file.type === 'file' &&
-        file.content !== undefined &&
         (extensions.length === 0 || extensions.some(ext => file.path.endsWith(ext)))
       ) {
-        this.files.set(file.path, file.content);
+        this.files.set(file.path, getStoredContent(file));
         count++;
       }
     }

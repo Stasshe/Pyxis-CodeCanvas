@@ -6,6 +6,8 @@
 import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 
+import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
+
 import type { GitHubAPI, GitTree, GitTreeEntry } from './GitHubAPI';
 
 export class TreeBuilder {
@@ -316,7 +318,7 @@ export class TreeBuilder {
 
     // バイナリかテキストかを判定
     const content = blobData.blob;
-    const isBinary = this.isBinaryContent(content);
+    const isBinary = !(await isLikelyTextFile(path, content));
 
     let contentStr: string;
     let encoding: 'utf-8' | 'base64';
@@ -342,22 +344,6 @@ export class TreeBuilder {
     this.remoteBlobCache.add(blobData2.sha);
 
     return blobData2.sha;
-  }
-
-  /**
-   * バイナリコンテンツかどうかを判定
-   */
-  private isBinaryContent(buffer: Uint8Array): boolean {
-    // 最初の8000バイトをチェック
-    const sample = buffer.slice(0, 8000);
-    for (let i = 0; i < sample.length; i++) {
-      const byte = sample[i];
-      // NULL文字やその他の制御文字があればバイナリと判定
-      if (byte === 0 || (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /**

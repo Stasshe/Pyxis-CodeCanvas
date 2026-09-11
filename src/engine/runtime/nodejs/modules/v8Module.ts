@@ -6,6 +6,8 @@
  * prettierなどのパッケージがimportするケースに対応。
  */
 
+import { Buffer } from 'buffer';
+
 export function createV8Module() {
   return {
     serialize: (_value: unknown): Buffer => Buffer.alloc(0),

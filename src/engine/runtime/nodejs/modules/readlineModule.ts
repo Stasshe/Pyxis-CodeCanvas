@@ -6,6 +6,7 @@
  * No callback chains, no pseudoStdin, no timing races.
  */
 
+import type { Buffer } from 'buffer';
 import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 
 interface ReadlineOptions {

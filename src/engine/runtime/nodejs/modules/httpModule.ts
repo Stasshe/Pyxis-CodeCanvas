@@ -2,6 +2,8 @@
  * http/https モジュールのエミュレーション
  */
 
+import { Buffer } from 'buffer';
+
 interface RequestOptions {
   hostname?: string;
   port?: number;
@@ -34,7 +36,7 @@ class IncomingMessage {
   public trailers: { [key: string]: string } = {};
   public rawTrailers: string[] = [];
   private _listeners: { [event: string]: Function[] } = {};
-  private _chunks: Uint8Array[] = [];
+  private _chunks: Buffer[] = [];
 
   on(event: string, listener: Function): this {
     if (!this._listeners[event]) {
@@ -79,8 +81,9 @@ class IncomingMessage {
   }
 
   _addData(chunk: Uint8Array): void {
-    this._chunks.push(chunk);
-    this.emit('data', chunk);
+    const buffer = Buffer.from(chunk);
+    this._chunks.push(buffer);
+    this.emit('data', buffer);
   }
 
   _end(): void {
@@ -93,8 +96,7 @@ class IncomingMessage {
   }
 
   getText(): string {
-    const decoder = new TextDecoder();
-    return this._chunks.map(chunk => decoder.decode(chunk)).join('');
+    return Buffer.concat(this._chunks).toString();
   }
 
   pause(): this {
@@ -121,7 +123,7 @@ class IncomingMessage {
 class ClientRequest {
   private _listeners: { [event: string]: Function[] } = {};
   private _options: RequestOptions;
-  private _body = '';
+  private _body: Buffer[] = [];
   private _aborted = false;
   private _response: IncomingMessage | null = null;
 
@@ -189,12 +191,11 @@ class ClientRequest {
   }
 
   write(chunk: string | Uint8Array, encoding?: string, callback?: Function): boolean {
-    if (typeof chunk === 'string') {
-      this._body += chunk;
-    } else {
-      const decoder = new TextDecoder();
-      this._body += decoder.decode(chunk);
-    }
+    this._body.push(
+      typeof chunk === 'string'
+        ? Buffer.from(chunk, encoding as BufferEncoding | undefined)
+        : Buffer.from(chunk)
+    );
     if (callback) callback();
     return true;
   }
@@ -238,7 +239,10 @@ class ClientRequest {
       const response = await fetch(url, {
         method,
         headers: this._options.headers,
-        body: method !== 'GET' && method !== 'HEAD' ? this._body : undefined,
+        body:
+          method !== 'GET' && method !== 'HEAD'
+            ? new Uint8Array(Buffer.concat(this._body))
+            : undefined,
       });
 
       const incomingMessage = new IncomingMessage();

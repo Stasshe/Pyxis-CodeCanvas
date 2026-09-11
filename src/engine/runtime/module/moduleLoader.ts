@@ -658,12 +658,18 @@ export class ModuleLoader {
 
     // グローバルオブジェクトの準備
     const process = this.globals.process || { env: {}, argv: [], cwd: () => '/' };
-    const Buffer = this.globals.Buffer || { from: () => {}, alloc: () => {} };
+    const Buffer = this.globals.Buffer;
+    if (!Buffer) {
+      throw new Error('Buffer global was not initialized');
+    }
     const setTimeout = this.globals.setTimeout || globalThis.setTimeout;
     const setInterval = this.globals.setInterval || globalThis.setInterval;
     const clearTimeout = this.globals.clearTimeout || globalThis.clearTimeout;
     const clearInterval = this.globals.clearInterval || globalThis.clearInterval;
-    const global = this.globals.global || globalThis;
+    const global = this.globals.global;
+    if (!global) {
+      throw new Error('Runtime global was not initialized');
+    }
     global.process = process;
     global.Buffer = Buffer;
     global.global = global;

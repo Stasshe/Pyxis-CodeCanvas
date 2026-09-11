@@ -1,5 +1,5 @@
 import { PassThrough } from 'node:stream';
-import { Buffer } from './bufferModule';
+import { Buffer } from 'buffer';
 import { createEventsModule } from './eventsModule';
 
 type Encoding = BufferEncoding | 'buffer' | null;

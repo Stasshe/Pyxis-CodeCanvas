@@ -17,11 +17,7 @@ describe('NodeRuntime process exit handling', () => {
     await fileRepository.createFile(
       projectId,
       '/exit.js',
-      [
-        "console.log('before exit');",
-        'process.exit(3);',
-        "console.log('after exit');",
-      ].join('\n'),
+      ["console.log('before exit');", 'process.exit(3);', "console.log('after exit');"].join('\n'),
       'file'
     );
 
@@ -54,21 +50,16 @@ describe('NodeRuntime process exit handling', () => {
     await fileRepository.createFile(
       projectId,
       '/dep.js',
-      [
-        "console.log('dep start');",
-        'process.exit(7);',
-        "console.log('dep after exit');",
-      ].join('\n'),
+      ["console.log('dep start');", 'process.exit(7);', "console.log('dep after exit');"].join(
+        '\n'
+      ),
       'file'
     );
 
     await fileRepository.createFile(
       projectId,
       '/main.js',
-      [
-        "require('./dep');",
-        "console.log('main after require');",
-      ].join('\n'),
+      ["require('./dep');", "console.log('main after require');"].join('\n'),
       'file'
     );
 
@@ -209,6 +200,63 @@ describe('NodeRuntime process exit handling', () => {
 
     expect(runtime.getExitCode()).toBe(0);
     expect(output.join('\n')).toContain('tty true true');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('uses one complete Buffer implementation for globals and built-in modules', async () => {
+    await fileRepository.createFile(
+      projectId,
+      '/buffer-entry.js',
+      [
+        "const buffer = require('buffer');",
+        "const nodeBuffer = require('node:buffer');",
+        "const value = Buffer.from('6869', 'hex');",
+        'value.writeUInt16BE(0x6f6b, 0);',
+        'const source = Buffer.from([1, 2]);',
+        'const view = source.slice(0, 1);',
+        'view[0] = 9;',
+        'console.log(JSON.stringify({',
+        '  same: Buffer === global.Buffer && Buffer === globalThis.Buffer && Buffer === buffer.Buffer && Buffer === nodeBuffer.Buffer,',
+        '  isBuffer: Buffer.isBuffer(value),',
+        '  text: value.toString(),',
+        "  base64: Buffer.from('ok').toString('base64'),",
+        "  byteLength: Buffer.byteLength('é'),",
+        '  sharedSlice: source[0] === 9,',
+        "  namespace: typeof buffer.SlowBuffer === 'function' && typeof buffer.INSPECT_MAX_BYTES === 'number' && typeof buffer.kMaxLength === 'number',",
+        '}));',
+      ].join('\n'),
+      'file'
+    );
+
+    const output: string[] = [];
+    const errors: string[] = [];
+    const entryPath = `/projects/${projectName}/buffer-entry.js`;
+    const runtime = new NodeRuntime({
+      projectId,
+      projectName,
+      filePath: entryPath,
+      debugConsole: {
+        log: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+        error: (...args: unknown[]) => errors.push(args.map(String).join(' ')),
+        warn: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+        clear: () => {},
+      },
+    });
+
+    await runtime.execute(entryPath, []);
+    await runtime.waitForEventLoop();
+
+    expect(output).toContain(
+      JSON.stringify({
+        same: true,
+        isBuffer: true,
+        text: 'ok',
+        base64: 'b2s=',
+        byteLength: 2,
+        sharedSlice: true,
+        namespace: true,
+      })
+    );
     expect(errors).toHaveLength(0);
   });
 });

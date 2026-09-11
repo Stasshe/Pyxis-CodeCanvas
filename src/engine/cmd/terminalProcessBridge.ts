@@ -10,6 +10,8 @@
  *   bridge.deactivate()     — called after process exits (sends EOF)
  */
 
+import { Buffer } from 'buffer';
+
 type DataListener = (chunk: Buffer) => void;
 type EndListener = () => void;
 

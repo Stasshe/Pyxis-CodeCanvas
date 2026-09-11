@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import pako from 'pako';
 import tarStream from 'tar-stream';
 
@@ -18,18 +19,7 @@ function isBinaryBuffer(buf: Uint8Array): boolean {
 }
 
 function uint8ArrayToBase64(buf: Uint8Array): string {
-  if (typeof btoa !== 'undefined') {
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < buf.length; i += chunkSize) {
-      binary += String.fromCharCode.apply(null, Array.from(buf.subarray(i, i + chunkSize)));
-    }
-    return btoa(binary);
-  }
-  if (typeof Buffer !== 'undefined') return Buffer.from(buf).toString('base64');
-  let result = '';
-  for (let i = 0; i < buf.length; i++) result += String.fromCharCode(buf[i]);
-  return typeof btoa !== 'undefined' ? btoa(result) : result;
+  return Buffer.from(buf).toString('base64');
 }
 
 export class TarExtractor {

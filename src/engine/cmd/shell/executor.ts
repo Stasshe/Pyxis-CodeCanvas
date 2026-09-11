@@ -5,6 +5,7 @@
  * without unnecessary provider abstraction layer.
  */
 
+import type { Buffer } from 'buffer';
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';

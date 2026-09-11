@@ -17,6 +17,7 @@ import http from 'isomorphic-git/http/web';
 
 import { fileRepository } from '@/engine/core/fileRepository';
 import { joinPath, toAppPath } from '@/engine/core/pathUtils';
+import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 import { authRepository } from '@/engine/user/authRepository';
 
 export interface CloneOptions {
@@ -280,11 +281,12 @@ export class GitCloneOperations {
                 await traverse(fullPath, relativePath.replace(/^\//, ''), depth + 1);
               } else {
                 const contentBuffer = await this.fs.promises.readFile(fullPath);
-                const isBinary = this.isBinaryFile(contentBuffer as Uint8Array);
+                const content = this.toUint8Array(contentBuffer);
+                const isBinary = !(await isLikelyTextFile(relativePath, content));
 
                 allFiles.push({
                   path: relativePath,
-                  content: contentBuffer,
+                  content,
                   isBinary,
                 });
               }
@@ -393,18 +395,5 @@ export class GitCloneOperations {
       return new TextEncoder().encode(content);
     }
     return new Uint8Array(content as unknown as ArrayBufferLike);
-  }
-
-  /**
-   * Check if file content is binary
-   */
-  private isBinaryFile(buffer: Uint8Array): boolean {
-    const sampleSize = Math.min(buffer.length, 8000);
-    for (let i = 0; i < sampleSize; i++) {
-      const byte = buffer[i];
-      if (byte === 0) return true;
-      if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) return true;
-    }
-    return false;
   }
 }
