@@ -8,7 +8,7 @@ const globalScope = globalThis as typeof globalThis & {
 };
 
 globalScope.global = globalScope;
-globalScope.Buffer = globalScope.Buffer || Buffer;
+globalScope.Buffer = Buffer;
 globalScope.process = globalScope.process || process;
 globalScope.process.env = {
   ...globalScope.process.env,

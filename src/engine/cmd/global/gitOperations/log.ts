@@ -16,6 +16,10 @@ export interface BranchFilterOptions {
   branches?: string[]; // mode === 'all' 時に特定のブランチのみ表示する場合に使用
 }
 
+function isUnbornBranchError(error: unknown): boolean {
+  return error instanceof git.Errors.NotFoundError && error.data.what.startsWith('refs/heads/');
+}
+
 /**
  * Git log操作を管理するクラス
  * リモートブランチはremoteUtilsを使用して標準化された処理を行う
@@ -56,6 +60,9 @@ export class GitLogOperations {
         })
         .join('\n');
     } catch (error) {
+      if (isUnbornBranchError(error)) {
+        return 'No commits yet';
+      }
       throw new Error(`git log failed: ${(error as Error).message}`);
     }
   }
@@ -192,7 +199,10 @@ export class GitLogOperations {
 
       return formattedCommits.join('\n');
     } catch (error) {
-      if (error instanceof Error && error.message.includes('not a git repository')) {
+      if (
+        isUnbornBranchError(error) ||
+        (error instanceof Error && error.message.includes('not a git repository'))
+      ) {
         return '';
       }
       throw new Error(`git log failed: ${(error as Error).message}`);
