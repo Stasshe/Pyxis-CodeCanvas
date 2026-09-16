@@ -457,6 +457,8 @@ Root
 │   │   │   │   ├── LocalImage.tsx
 │   │   │   │   ├── Mermaid.tsx
 │   │   │   │   ├── index.ts
+│   │   │   │   ├── mermaidConfig.ts
+│   │   │   │   ├── mermaidRuntime.ts
 │   │   │   │   └── useIntersectionObserver.ts
 │   │   │   ├── MarkdownPreviewTab.tsx
 │   │   │   ├── MergeConflictResolutionTab.tsx
@@ -684,7 +686,6 @@ Root
 │   │   │   │   ├── builtInModule.ts
 │   │   │   │   ├── modules
 │   │   │   │   │   ├── assertModule.ts
-│   │   │   │   │   ├── bufferModule.ts
 │   │   │   │   │   ├── childProcessModule.ts
 │   │   │   │   │   ├── cryptoModule.ts
 │   │   │   │   │   ├── eventsModule.ts
@@ -797,6 +798,8 @@ Root
 │   ├── _helpers
 │   │   ├── localNpmPackage.ts
 │   │   └── testProject.ts
+│   ├── components
+│   │   └── mermaidConfig.test.ts
 │   ├── engine
 │   │   ├── cmd
 │   │   │   ├── e2e
@@ -804,6 +807,9 @@ Root
 │   │   │   │   ├── errorHandling.test.ts
 │   │   │   │   ├── pipeline.test.ts
 │   │   │   │   └── subshell.test.ts
+│   │   │   ├── global
+│   │   │   │   └── gitOperations
+│   │   │   │       └── log.test.ts
 │   │   │   └── shell
 │   │   │       ├── braceExpand.test.ts
 │   │   │       ├── expansion.test.ts
@@ -813,8 +819,13 @@ Root
 │   │   ├── core
 │   │   │   ├── fileRepository
 │   │   │   │   └── inmemory.test.ts
+│   │   │   ├── gitFileSystem.test.ts
 │   │   │   ├── gitignore.test.ts
 │   │   │   └── pathUtils.test.ts
+│   │   ├── helper
+│   │   │   └── isLikelyTextFile.test.ts
+│   │   ├── in-ex
+│   │   │   └── importSingleFile.test.ts
 │   │   ├── npm
 │   │   │   ├── e2e
 │   │   │   │   ├── prettier.test.ts
@@ -824,11 +835,13 @@ Root
 │   │   │   ├── npx.test.ts
 │   │   │   └── versionUtils.test.ts
 │   │   └── runtime
+│   │       ├── bufferBoundaries.test.ts
 │   │       ├── childProcessModule.test.ts
 │   │       ├── esmTransformer.test.ts
 │   │       ├── fsModule.test.ts
 │   │       ├── moduleResolver.test.ts
 │   │       └── nodeRuntime.test.ts
+│   ├── polyfills.test.ts
 │   ├── setup.ts
 │   └── tsconfig.json
 ├── tree-built-out.sh
@@ -840,16 +853,16 @@ Root
 ├── vite.config.ts
 └── vitest.config.ts
 
-169 directories, 671 files
+174 directories, 679 files
 
 =================================
 
 src/*.ts, *.tsx の統計:
-合計行数: 74216
-合計文字数: 2347975
-合計ファイルサイズ(bytes): 2477696
+合計行数: 74103
+合計文字数: 2343679
+合計ファイルサイズ(bytes): 2473012
 
-開発時のdev container全体のサイズ(bytes): 918M	.
+開発時のdev container全体のサイズ(bytes): 1.1G	.
 ==========
 ビルト済みファイルの行数: 0
 合計文字数: 0
