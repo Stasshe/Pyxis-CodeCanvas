@@ -1,0 +1,21 @@
+# Storage再設計 INTENT
+
+## 背景
+- Node runtimeは同期の`require`と`fs.*Sync`を必要とする。今は実行前に依存を静的解析し、全fileをmemoryへpreloadしている。そのため動的`require`（変数やevalで組み立てたpath）が解決できない
+- file本体がIDB(`PyxisProjects.files`)とlightning-fs(`pyxis-fs`)に二重に書き込まれ、`syncManager`が同期している。書き込みは2倍になり、同期ずれも起きうる
+- pathが3形式ある（AppPath `/src/a.ts` / FSPath `/projects/<name>/src/a.ts` / GitPath）。形式間の変換が全層に散らばっている
+- 制約: Safariに対応する必要がある。WebPreviewのiframeは同一originの`document.write`で、ユーザーHTML内の外部CDN・画像を読み込む
+
+## 判断
+- **同期手段 = 同期XHR + Service Worker**。SharedArrayBufferにはCOOP/COEPが必須。COEPは同一originのiframeにも継承され、外部resourceを遮断する。Safariは`credentialless`に対応していないので回避できない。同期XHRはWorker内なら許容され、COEPも要らない
+- **runtimeはWorkerで動かす**。同期XHRで止まるのが呼び出したthreadだけになり、UIが固まらない
+- **`node`の実行1回 = Worker 1つ**。無限ループでも`terminate()`で確実に止められる。グローバル状態も実行ごとに新しくなり、Nodeのprocessと同じ意味を持つ
+- **メモリはpage全体で400MB以内**。PyxisはIDEで、ユーザーのprogramとbrowserの他のtabにメモリを残す必要がある。Workerは増やすほど、それぞれに読み込んだcodeやwasmの分だけメモリを食う。だから並列化で速度を買わず、常駐するWorkerを最小にする
+- **OPFSを唯一のfile置き場にする**。目的は二重管理の根絶。isomorphic-gitがworktreeと`.git`を同じFSから直接読むので、`.gitignore`による同期フィルタも要らなくなる
+- **`/`から始まるFSを1つ、project = folder（VS Code型）**。path形式を1つにまとめれば変換層が消える。workspace rootは表示と既定cwdを決めるだけで、pathの意味には関与しない
+- **fileの識別子 = 絶対path**。OPFSのentryには任意の属性を付けられない。idを別に管理すると二重管理が再発する
+- **workspaceの外へのアクセスは自由**。terminal・runtimeの挙動を実際のNode・shellに一致させる
+- **OPFSに書き込むのはFS Workerだけ**。SyncAccessHandleは排他lockなので所有者を1つに絞る。変更eventも1か所から出せる
+- **file I/Oはmainから外す**。gitやnpm installは1回の操作でfsを数千回呼ぶ。だからFS Workerと同じ場所で動かし、message往復をなくす。mainはUIと中継だけにする
+- **metadataはIDBに残す**。OPFSにはindexも任意属性もない。recent folders・chat・tab状態・AIレビューのように、検索と属性が必要なものはIDBに置く
+- **旧データの移行は時限処理**。ユーザーデータはbrowser内にしかなく、失うと復元できない。移行codeは1か所にまとめ、2027-04を目安に削除する
