@@ -9,20 +9,20 @@
  * Terminal側から渡される基本情報のみを含む
  * 実際にはExtensionManagerでExtensionContext全体とマージされる
  */
-import type { GetSystemModule } from './systemModuleTypes';
+import type { FsClientApi, GetSystemModule } from './systemModuleTypes';
 
 export interface CommandContext {
   /** プロジェクト名 */
   projectName: string;
 
-  /** プロジェクトID (IndexedDB参照用) */
-  projectId: string;
+  /** Absolute workspace root path. */
+  rootPath: string;
+
+  /** Filesystem API for the shared filesystem. */
+  fsClient: FsClientApi;
 
   /** 現在のディレクトリ (絶対パス) */
   currentDirectory: string;
-
-  /** ExtensionManagerによって拡張された追加プロパティ */
-  [key: string]: any;
 }
 
 /**

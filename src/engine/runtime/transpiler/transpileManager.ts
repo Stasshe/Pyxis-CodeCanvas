@@ -1,24 +1,10 @@
-/**
- * Transpile Manager
- *
- * ## 役割
- * - esbuildによるESM→CJS変換をサポート
- * - TypeScript/JSXのトランスパイルは拡張機能の責任
- * - Web Workerを使用してメインスレッドをブロックしない
- *
- * ## 設計方針
- * - TypeScriptはビルトインで保証されていないため、ここではサポートしない
- * - JSのESM→CJS変換のみを行う（transpileWorker経由でesbuild使用）
- * - moduleLoaderから使用される
- */
+/** Serializes transforms through one lazy Worker and applies registered loaders. */
 
 import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
+import type { TranspilerDescriptor } from '../core/RuntimeProvider';
 import { runtimeInfo } from '../core/runtimeLogger';
 import type { TranspileRequest, TranspileResult, TranspileWorkerApi } from './transpileWorker';
 
-/**
- * トランスパイルオプション
- */
 export interface TranspileOptions {
   code: string;
   filePath: string;
@@ -27,28 +13,31 @@ export interface TranspileOptions {
   isJSX?: boolean;
 }
 
-/**
- * Transpile Manager
- */
 export class TranspileManager {
   private requestId = 0;
   private readonly pool: WorkerPool<TranspileWorkerApi>;
+  private queue: Promise<void> = Promise.resolve();
+  private transpilers: TranspilerDescriptor[] = [];
 
   constructor() {
     this.pool = createWorkerPool<TranspileWorkerApi>({
       createWorker: () =>
         new Worker(new URL('./transpileWorker.ts', import.meta.url), { type: 'module' }),
+      maxWorkers: 1,
+      idleTimeoutMs: 30000,
       timeoutMs: 10000,
     });
   }
 
-  /**
-   * コードをトランスパイル
-   *
-   * Web Worker経由でesbuildによるESM→CJS変換を行う。
-   * TypeScript/JSXのトランスパイルは拡張機能の責任。
-   */
+  /** Transform source code using the registered loader for its extension. */
   async transpile(options: TranspileOptions): Promise<TranspileResult> {
+    const descriptor = this.getTranspiler(options.filePath);
+    const isTypeScriptPath = /\.(ts|tsx|mts|cts)$/.test(options.filePath);
+    if ((options.isTypeScript || isTypeScriptPath) && !descriptor) {
+      throw new Error(`No TypeScript transpiler is registered for ${options.filePath}.`);
+    }
+    const isTypeScript = descriptor?.workerTransform === 'typescript';
+    const isJSX = options.isJSX || options.filePath.endsWith('.tsx');
     const id = `transpile_${++this.requestId}_${Date.now()}`;
 
     runtimeInfo('🔄 Transforming ESM to CJS (Web Worker):', options.filePath);
@@ -58,17 +47,35 @@ export class TranspileManager {
       code: options.code,
       filePath: options.filePath,
       options: {
-        isTypeScript: options.isTypeScript || false,
+        isTypeScript,
         isESModule: options.isESModule || false,
-        isJSX: options.isJSX || false,
+        isJSX,
       },
     };
 
-    return this.pool.call(worker => worker.transpile(request));
+    const result = this.queue.then(() => this.pool.call(worker => worker.transpile(request)));
+    this.queue = result.then(
+      () => {},
+      () => {}
+    );
+    return result;
+  }
+
+  configureTranspilers(transpilers: TranspilerDescriptor[]): void {
+    this.transpilers = transpilers.map(transpiler => ({
+      ...transpiler,
+      supportedExtensions: [...transpiler.supportedExtensions],
+    }));
+  }
+
+  private getTranspiler(filePath: string): TranspilerDescriptor | undefined {
+    for (const transpiler of this.transpilers) {
+      if (transpiler.supportedExtensions.some(extension => filePath.endsWith(extension))) {
+        return transpiler;
+      }
+    }
+    return undefined;
   }
 }
 
-/**
- * シングルトンインスタンス
- */
 export const transpileManager = new TranspileManager();

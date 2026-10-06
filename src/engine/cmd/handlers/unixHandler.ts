@@ -3,13 +3,12 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 export async function handleUnixCommand(
   cmd: string,
   args: string[],
-  projectName: string,
-  projectId: string,
+  rootPath: string,
   writeOutput: (output: string) => Promise<void>,
   writeError: (err: string) => Promise<void>,
   stdin: NodeJS.ReadableStream | string | null = null
 ): Promise<{ code: number; output: string }> {
-  const unix = terminalCommandRegistry.getUnixCommands(projectName, projectId);
+  const unix = terminalCommandRegistry.getUnixCommands(rootPath);
 
   let out = '';
   let exitCode = 0;

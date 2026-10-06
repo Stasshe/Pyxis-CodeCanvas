@@ -3,7 +3,7 @@
  * ファイル削除イベントをタブストアに同期するカスタムフック
  *
  * 責務:
- * - fileRepositoryの削除イベントを監視
+ * - Filesystem deletion events are observed through the filesystem client.
  * - 削除されたファイルに対応するタブを閉じる
  * - tabStore.handleFileDeleted()を呼び出して適切に処理
  * - バッチ削除時のパフォーマンス最適化（デバウンス処理）
@@ -14,7 +14,7 @@
 
 import { useEffect, useRef } from 'react';
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs';
 import { tabActions } from '@/stores/tabState';
 
 /**
@@ -26,7 +26,7 @@ import { tabActions } from '@/stores/tabState';
 const DEBOUNCE_MS = 100;
 
 export function useFileDeleteTabSync() {
-  const { handleFileDeleted, handleFilesDeleted } = tabActions;
+  const { handleFileDeleted, handleFilesDeleted, handleFilesRenamed } = tabActions;
   const pendingDeletesRef = useRef<Set<string>>(new Set());
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -48,11 +48,15 @@ export function useFileDeleteTabSync() {
       handleFilesDeleted(pathsToDelete);
     };
 
-    // fileRepositoryの削除イベントを監視
-    const unsubscribe = fileRepository.addChangeListener(event => {
+    // Watch filesystem deletion and rename events.
+    const unsubscribe = fsClient.addChangeListener(event => {
+      if (event.type === 'rename' && event.oldPath) {
+        handleFilesRenamed(event.oldPath, event.path);
+        return;
+      }
       if (event.type === 'delete') {
         // 削除パスを収集
-        pendingDeletesRef.current.add(event.file.path);
+        pendingDeletesRef.current.add(event.path);
 
         // 既存のタイマーをクリア
         if (timeoutRef.current) {

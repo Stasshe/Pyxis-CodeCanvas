@@ -12,7 +12,7 @@ UI層は、ユーザーインターフェースを構成するReactコンポー�
 
 ```mermaid
 graph TB
-    A[page.tsx Root Controller] --> B[MenuBar]
+    A[App.tsx Root Controller] --> B[MenuBar]
     A --> C[LeftSidebar]
     A --> D[PaneContainer]
     A --> E[BottomPanel]
@@ -34,9 +34,8 @@ graph TB
     
     F --> F1[AIPanel]
     
-    G --> G1[ProjectModal]
-    G --> G2[FileSelectModal]
-    G --> G3[OperationWindow]
+    G --> G1[FileSelectModal]
+    G --> G2[OperationWindow]
 ```
 
 ### 1.2 Layout Structure
@@ -71,9 +70,9 @@ graph TB
 
 ---
 
-## 2. page.tsx: Main Controller
+## 2. App.tsx: Main Controller
 
-page.tsxは、アプリケーション全体の状態とレイアウトを管理するメインコントローラーです。
+App.tsxは、アプリケーション全体の状態とレイアウトを管理するメインコントローラーです。
 
 ### 2.1 State Management
 
@@ -81,34 +80,50 @@ page.tsxは、アプリケーション全体の状態とレイアウトを管理
 
 | Category | State | Type | Persistence |
 |----------|-------|------|-------------|
-| Layout | `leftSidebarWidth` | number | localStorage |
-| Layout | `rightSidebarWidth` | number | localStorage |
-| Layout | `bottomPanelHeight` | number | localStorage |
-| Layout | `isLeftSidebarVisible` | boolean | localStorage |
-| Layout | `isRightSidebarVisible` | boolean | localStorage |
-| Layout | `isBottomPanelVisible` | boolean | localStorage |
-| Editor | `editors` | EditorPane[] | localStorage |
+| Layout | Layout dimensions and visibility | numbers and booleans | IndexedDB user preferences |
 | Project | `currentProject` | Project or null | useProject hook |
 | Project | `projectFiles` | FileItem[] | useProject hook |
-| UI | `activeMenuTab` | MenuTab | Session |
-| UI | `isProjectModalOpen` | boolean | Session |
-| UI | `gitChangesCount` | number | Session |
-| UI | `nodeRuntimeOperationInProgress` | boolean | Session |
+| UI | `activeMenuTab` | MenuTab | App state |
+| UI | `gitChangesCount` | number | App state |
+| UI | `nodeRuntimeOperationInProgress` | boolean | App state |
+
+Before a workspace folder is selected, an active editor pane already exists and has no file, giving OperationWindow a target pane ID. `projectFiles` supplies metadata-only `FileItem` entries for the tree; file content is read from the filesystem when a file is opened.
 
 ### 2.2 Initialization Flow
 
-1. localStorageからレイアウト復元
-2. useProjectでFileRepository初期化
-3. 前回のプロジェクトがあれば読み込み
-4. イベントリスナー設定
-5. UI レンダリング
+```mermaid
+sequenceDiagram
+    participant STASSHE as Stasshe
+    participant MAIN as main.tsx
+    participant CLIENT as FS Client
+    participant WORKER as FS Worker
+    participant SW as Service Worker bridge
+    participant MIGRATION as Legacy migration
+    participant PROJECT as Project store
+    participant APP as App.tsx
+    participant INITIALIZER as AppInitializer
+
+    MAIN->>CLIENT: Initialize
+    CLIENT->>WORKER: Start worker and initialize OPFS
+    MAIN->>MIGRATION: Migrate legacy storage
+    MAIN->>WORKER: Ensure ~/demo exists and seed if absent
+    MAIN->>PROJECT: Read recent folders and restore current root
+    MAIN->>CLIENT: Create runtime MessagePort
+    MAIN->>SW: Ensure runtime bridge
+    MAIN->>APP: Render application and AppInitializer
+    APP->>APP: Restore UI layout state
+    INITIALIZER->>INITIALIZER: Register tabs and initialize runtimes
+    INITIALIZER->>INITIALIZER: Initialize extensions
+```
+
+The demo seed runs after legacy migration and before recent folders are read. The FS Client acquires the single-tab Web Lock before starting its worker.
 
 ### 2.3 主要なuseEffect
 
-- localStorage復元 (マウント時)
-- localStorage自動保存 (editors変更時)
-- プロジェクトファイル同期 (projectFiles, currentProject変更時)
-- タブコンテンツ復元 (editors, isRestoredFromLocalStorage)
+- IndexedDBのUI状態復元 (マウント時)
+- IndexedDBへのUI状態保存 (layout state変更時)
+- FS Clientの変更event後にworkspace file一覧を更新
+- タブコンテンツ復元 (tab state restoration後)
 - Git監視 (currentProject, gitRefreshTrigger)
 
 ### 2.4 Event Handlers
@@ -117,19 +132,23 @@ page.tsxは、アプリケーション全体の状態とレイアウトを管理
 
 ```mermaid
 sequenceDiagram
-    participant USER as User
-    participant PAGE as page.tsx
-    participant HOOK as useProject
-    participant REPO as FileRepository
+    participant STASSHE as Stasshe
+    participant UI as UI component or command
+    participant PROJECT as useProject
+    participant CLIENT as FS Client
+    participant WORKER as FS Worker
 
-    USER->>PAGE: Create file
-    PAGE->>HOOK: createFile(path, content)
-    HOOK->>REPO: createFile()
-    REPO-->>HOOK: File created
-    Note over REPO: Auto-sync to GitFS
-    REPO->>PAGE: Event: 'create'
-    PAGE->>PAGE: Update tabs if open
-    PAGE-->>USER: UI updated
+    STASSHE->>UI: Create or save file
+    UI->>CLIENT: writeFile(absolutePath, content)
+    CLIENT->>WORKER: Comlink request
+    WORKER->>WORKER: Write to OPFS and emit change event
+    WORKER-->>CLIENT: Result and change event
+    CLIENT-->>PROJECT: Notify filesystem listeners
+    PROJECT->>CLIENT: Refresh workspace entries with walk(rootPath)
+    CLIENT->>WORKER: Comlink request
+    WORKER-->>CLIENT: Workspace entries
+    CLIENT-->>UI: Updated project files
+    UI-->>STASSHE: Render updated view
 ```
 
 **Tab Operations:**
@@ -137,13 +156,13 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant USER as User
-    participant PAGE as page.tsx
+    participant PAGE as App.tsx
     participant PANE as PaneContainer
     participant TAB as TabBar
 
     USER->>TAB: Click tab
     TAB->>PAGE: setActiveTabIdForPane()
-    PAGE->>PAGE: Update editors state
+    PAGE->>PAGE: Update pane and tab state
     PAGE->>PANE: Re-render
     PANE->>TAB: Show active tab
     TAB-->>USER: Tab displayed
@@ -156,7 +175,7 @@ sequenceDiagram
     participant USER as User
     participant TERM as Terminal
     participant GIT as GitCommands
-    participant PAGE as page.tsx
+    participant PAGE as App.tsx
 
     USER->>TERM: git commit
     TERM->>GIT: commit()
@@ -251,7 +270,7 @@ stateDiagram-v2
 sequenceDiagram
     participant USER as User
     participant TAB as TabBar
-    participant PAGE as page.tsx
+    participant PAGE as App.tsx
     participant EDITOR as CodeEditor
 
     USER->>TAB: Open file
@@ -272,48 +291,29 @@ sequenceDiagram
 
 ### 3.3 Tab Synchronization
 
-**File Change Sync:**
+**Filesystem Change Events:**
 
 ```mermaid
 sequenceDiagram
-    participant REPO as FileRepository
-    participant HOOK as useProjectFilesSyncEffect
-    participant PAGE as page.tsx
-    participant TAB as Open Tabs
+    participant WORKER as FS Worker
+    participant CLIENT as FS Client
+    participant PROJECT as useProject
+    participant TABS as Tab content sync
+    participant APP as App.tsx
 
-    REPO->>REPO: File updated
-    REPO->>HOOK: Event: 'update'
-    HOOK->>PAGE: Trigger sync
-    PAGE->>TAB: Find tabs for file
-    
-    loop For each matching tab
-        PAGE->>TAB: Update content
-        TAB->>TAB: Refresh display
-    end
-    
-    PAGE-->>PAGE: Sync complete
+    WORKER->>WORKER: File updated in OPFS
+    WORKER-->>CLIENT: Absolute-path change event
+    CLIENT-->>PROJECT: Notify listeners
+    CLIENT-->>TABS: Notify listeners
+    PROJECT->>CLIENT: walk(currentRootPath)
+    CLIENT->>WORKER: Comlink request
+    WORKER-->>CLIENT: Current workspace entries
+    CLIENT-->>APP: Refresh project file state
+    TABS->>CLIENT: Reload affected clean open tabs
+    APP->>APP: Render updated file tree
 ```
 
-**NodeRuntime Sync:**
-
-When Node runtime writes files, tabs are synchronized differently:
-
-```mermaid
-sequenceDiagram
-    participant RUNTIME as NodeRuntime
-    participant REPO as FileRepository
-    participant PAGE as page.tsx
-    participant TAB as Open Tabs
-
-    RUNTIME->>REPO: Write file
-    REPO-->>RUNTIME: Success
-    Note over PAGE: nodeRuntimeOperationInProgress = true
-    PAGE->>PAGE: Skip normal sync
-    RUNTIME->>PAGE: Operation complete
-    PAGE->>PAGE: nodeRuntimeOperationInProgress = false
-    PAGE->>PAGE: Manual refresh tabs
-    PAGE->>TAB: Update all affected tabs
-```
+Runtime writes use the same FS Worker and change-event channel as other filesystem writes.
 
 ---
 
@@ -405,13 +405,11 @@ graph TB
 sequenceDiagram
     participant COMP as Terminal Component
     participant XTERM as XTerm
-    participant FS as GitFileSystem
-    participant REPO as FileRepository
+    participant CLIENT as FS Client
+    participant WORKER as FS Worker
 
-    COMP->>REPO: Initialize FileRepository
-    REPO-->>COMP: Ready
-    COMP->>FS: Initialize GitFileSystem
-    FS-->>COMP: Ready
+    COMP->>CLIENT: Use initialized filesystem API
+    CLIENT-->>COMP: Ready
     
     COMP->>XTERM: Create terminal instance
     XTERM-->>COMP: Terminal ready
@@ -581,33 +579,7 @@ sequenceDiagram
 
 ## 7. Modal Components
 
-### 7.1 ProjectModal
-
-**Project Creation Flow:**
-
-```mermaid
-sequenceDiagram
-    participant USER as User
-    participant MODAL as ProjectModal
-    participant PAGE as page.tsx
-    participant HOOK as useProject
-
-    USER->>PAGE: Click "New Project"
-    PAGE->>MODAL: Open modal
-    MODAL-->>USER: Show form
-    
-    USER->>MODAL: Enter name/description
-    USER->>MODAL: Click "Create"
-    
-    MODAL->>PAGE: Submit data
-    PAGE->>HOOK: createProject()
-    HOOK-->>PAGE: Project created
-    PAGE->>MODAL: Close modal
-    PAGE->>PAGE: Switch to new project
-    PAGE-->>USER: Show new project
-```
-
-### 7.2 FileSelectModal
+### 7.1 FileSelectModal
 
 **File Selection Flow:**
 
@@ -615,7 +587,7 @@ sequenceDiagram
 sequenceDiagram
     participant USER as User
     participant MODAL as FileSelectModal
-    participant PAGE as page.tsx
+    participant PAGE as App.tsx
 
     USER->>PAGE: Request file selection
     PAGE->>MODAL: Open modal (paneIdx)
@@ -631,20 +603,9 @@ sequenceDiagram
     PAGE-->>USER: Show file in editor
 ```
 
-### 7.3 OperationWindow
+### 7.2 OperationWindow
 
-**Operation Monitoring:**
-
-```mermaid
-graph TB
-    A[Operation Started] --> B[Show OperationWindow]
-    B --> C[Display Progress]
-    C --> D{Operation Complete?}
-    D -->|No| C
-    D -->|Yes| E[Show Result]
-    E --> F[Auto-close after delay]
-    F --> G[Hide OperationWindow]
-```
+OperationWindow is the shared operation surface with a file view and selectable operation views. Its `Folders` view starts at `/home/pyxis`: the path field accepts an absolute path or a path under `~`, the list combines subfolders with recent folders, and header actions navigate to the parent or open the current folder. Recent entries can be removed. The footer creates a workspace at `~/name` and opens it empty. The Open Folder command and initial no-workspace flow enter this view, so project selection does not use a separate ProjectModal.
 
 ---
 
@@ -661,7 +622,7 @@ graph TB
     E --> F{Still Dragging?}
     F -->|Yes| C
     F -->|No| G[Mouse Up]
-    G --> H[Save to localStorage]
+    G --> H[Save UI state to IndexedDB]
 ```
 
 **Resize Constraints:**
@@ -680,8 +641,8 @@ graph TB
 sequenceDiagram
     participant USER as User
     participant HANDLE as Resize Handle
-    participant PAGE as page.tsx
-    participant LS as localStorage
+    participant PAGE as App.tsx
+    participant STORE as IndexedDB UI preferences
 
     USER->>HANDLE: Drag handle
     HANDLE->>PAGE: Update state
@@ -689,8 +650,8 @@ sequenceDiagram
     
     USER->>HANDLE: Release mouse
     HANDLE->>PAGE: Resize complete
-    PAGE->>LS: Save layout
-    LS-->>PAGE: Saved
+    PAGE->>STORE: Save layout with sessionStore
+    STORE-->>PAGE: Saved
 ```
 
 **Restore Flow:**
@@ -698,12 +659,12 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant BROWSER as Browser
-    participant PAGE as page.tsx
-    participant LS as localStorage
+    participant PAGE as App.tsx
+    participant STORE as IndexedDB UI preferences
 
     BROWSER->>PAGE: Mount component
-    PAGE->>LS: Load layout
-    LS-->>PAGE: Layout data
+    PAGE->>STORE: Load layout with sessionStore
+    STORE-->>PAGE: Layout data
     PAGE->>PAGE: Apply dimensions
     PAGE->>PAGE: Set visibility flags
     PAGE-->>BROWSER: Render with saved layout
@@ -838,7 +799,7 @@ graph TB
 ```mermaid
 graph TB
     A[App Root] --> B[Error Boundary]
-    B --> C[page.tsx]
+    B --> C[App.tsx]
     C --> D[Component Error Boundary]
     D --> E[Editor]
     D --> F[Terminal]

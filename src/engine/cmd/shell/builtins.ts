@@ -1,7 +1,8 @@
 import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
-import { normalizeDotSegments, toFSPath } from '@/engine/core/pathUtils';
+import { resolvePath } from '@/engine/core/pathUtils';
+import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import handleUnixCommand from '../handlers/unixHandler';
 import { terminalProcessBridge } from '../terminalProcessBridge';
 
@@ -9,9 +10,9 @@ export type StreamCtx = {
   stdin: Readable;
   stdout: Writable;
   stderr: Writable;
-  onSignal: (fn: (sig: string) => void) => void;
-  projectName?: string;
-  projectId?: string;
+  onSignal: (fn: (sig: string) => void) => () => void;
+  signal?: AbortSignal;
+  rootPath: string;
   /** Terminal columns (width) */
   terminalColumns?: number;
   /** Terminal rows (height) */
@@ -48,9 +49,6 @@ const makeUnixBridge = (name: string) => {
     };
 
     try {
-      const projectName = ctx.projectName || '';
-      const projectId = ctx.projectId || '';
-
       // stdin内容を事前に読み取り（grep等で必要）
       // Pass the stdin stream directly to the handler so commands like grep
       // can read from stdin interactively (block until data) if needed.
@@ -66,8 +64,7 @@ const makeUnixBridge = (name: string) => {
       const result = await handleUnixCommand(
         name,
         nArgs,
-        projectName,
-        projectId,
+        ctx.rootPath,
         writeOutput,
         writeError,
         stdinStream
@@ -256,8 +253,7 @@ export default function adaptUnixToStream(unix: any) {
     }
 
     try {
-      // NodeRuntimeをdynamic importで読み込み
-      const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
+      const rootPath = ctx.rootPath;
 
       // デバッグコンソールを設定（即座に出力、バッファリングなし）
       const debugConsole = {
@@ -295,42 +291,34 @@ export default function adaptUnixToStream(unix: any) {
 
       // パスを解決（相対パス対応）
       let entryPath = args[0];
-      let cwd: string | undefined;
-      try {
-        if (unix && typeof unix.pwd === 'function') {
-          cwd = await unix.pwd();
-          if (!entryPath.startsWith('/')) {
-            const combined = `${cwd!.replace(/\/$/, '')}/${entryPath}`;
-            entryPath = normalizeDotSegments(combined);
-          } else if (!entryPath.startsWith('/projects/')) {
-            entryPath = toFSPath(ctx.projectName || '', entryPath);
-          } else {
-            entryPath = normalizeDotSegments(entryPath);
-          }
-        }
-      } catch (_e) {
-        // Fallback to original arg
-        entryPath = args[0];
+      let cwd = rootPath;
+      if (unix) {
+        cwd = await unix.pwd();
       }
+      entryPath = resolvePath(cwd, entryPath);
 
       terminalProcessBridge.activate();
-      const runtime = new NodeRuntime({
-        projectId: ctx.projectId || '',
-        projectName: ctx.projectName || '',
-        filePath: entryPath,
+      const runtime = runtimeRegistry.getRuntime('nodejs');
+      if (!runtime) throw new Error('Node.js runtime provider is unavailable.');
+      const result = await runtime.execute({
+        rootPath,
         cwd,
+        filePath: entryPath,
+        argv: args.slice(1),
+        subscribeInterrupt: handler =>
+          ctx.onSignal(signal => {
+            if (signal === 'SIGINT') handler();
+          }),
+        signal: ctx.signal,
         debugConsole,
         processStdin: terminalProcessBridge.stdin,
         terminalColumns: ctx.terminalColumns,
         terminalRows: ctx.terminalRows,
+        onStdout: output => ctx.stdout.write(output),
+        onStderr: output => ctx.stderr.write(output),
       });
-
-      // NodeRuntimeを実行
-      await runtime.execute(entryPath, args.slice(1));
-
-      await runtime.waitForEventLoop();
-
-      const exitCode = runtime.getExitCode();
+      if (result.stderr) ctx.stderr.write(result.stderr);
+      const exitCode = result.exitCode ?? 0;
 
       terminalProcessBridge.deactivate();
       ctx.stdout.end();

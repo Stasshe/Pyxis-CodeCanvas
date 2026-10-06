@@ -7,7 +7,7 @@ interface Props {
   prompt: { file: FileItem } | null;
   mdDialogSelected: 0 | 1;
   setMdDialogSelected: (v: 0 | 1) => void;
-  actuallyOpenFile: (file: FileItem, preview: boolean) => void;
+  actuallyOpenFile: (file: FileItem, preview: boolean) => void | Promise<void>;
   setMdPreviewPrompt: (v: null | { file: FileItem }) => void;
   colors: ThemeColors;
 }

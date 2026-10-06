@@ -1,20 +1,17 @@
-import { fileRepository } from '@/engine/core/fileRepository';
-import { transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
+import type { FsApi } from '@/engine/core/fs/types';
+import { transpileManager } from '@/engine/runtime/transpiler/transpileManager';
 
 type FileOp = {
   path: string;
   type: 'file' | 'folder' | 'delete';
-  content?: string;
+  content?: string | Uint8Array;
 };
 
 export class BatchFileWriter {
-  private projectId: string;
   private queue: FileOp[] = [];
   private active = false;
 
-  constructor(projectId: string) {
-    this.projectId = projectId;
-  }
+  constructor(private readonly fs: FsApi) {}
 
   get isBatchActive(): boolean {
     return this.active;
@@ -27,61 +24,45 @@ export class BatchFileWriter {
 
   async finish(): Promise<void> {
     if (!this.active) return;
-
-    const BATCH_SIZE = 500;
-    for (let i = 0; i < this.queue.length; i += BATCH_SIZE) {
-      const batch = this.queue.slice(i, i + BATCH_SIZE);
-      const filesToCreate = batch
-        .filter(b => b.type === 'file')
-        .map(b => ({ path: b.path, content: b.content || '', type: 'file' as const }));
-      const deletes = batch.filter(b => b.type === 'delete').map(b => b.path);
-
-      try {
-        if (filesToCreate.length > 0) {
-          await fileRepository.createFilesBulk(this.projectId, filesToCreate, true);
-        }
-        for (const delPath of deletes) {
-          const normalized = delPath.replace(/\/+$/, '');
-          const file = await fileRepository.getFileByPath(this.projectId, normalized);
-          if (file) await fileRepository.deleteFile(file.id);
-        }
-      } catch (error) {
-        console.warn('[BatchFileWriter] Batch failed:', error);
-      }
-    }
-
+    for (const operation of this.queue) await this.write(operation);
     this.active = false;
     this.queue = [];
   }
 
-  async execute(path: string, type: 'file' | 'folder' | 'delete', content?: string): Promise<void> {
+  async execute(path: string, type: FileOp['type'], content?: string | Uint8Array): Promise<void> {
     let finalContent = content;
-    if (type === 'file' && path.endsWith('.mjs') && content) {
-      finalContent = await transformEsmToCjs(content, path);
+    if (type === 'file' && path.endsWith('.mjs') && typeof content === 'string' && content) {
+      const result = await transpileManager.transpile({
+        code: content,
+        filePath: path,
+        isESModule: true,
+      });
+      finalContent = result.code;
     }
-
-    if (this.active) {
-      if (type === 'folder') {
-        await fileRepository.createFile(this.projectId, path, '', 'folder');
-      } else {
-        this.queue.push({ path, type, content: finalContent });
-      }
+    const operation = { path, type, content: finalContent };
+    if (this.active && type !== 'folder') {
+      this.queue.push(operation);
       return;
     }
-
-    // 即時実行
-    if (type === 'folder') {
-      await fileRepository.createFile(this.projectId, path, '', 'folder');
-    } else if (type === 'file') {
-      await fileRepository.createFile(this.projectId, path, finalContent || '', 'file');
-    } else {
-      const normalized = path.replace(/\/+$/, '');
-      const file = await fileRepository.getFileByPath(this.projectId, normalized);
-      if (file) await fileRepository.deleteFile(file.id);
-    }
+    await this.write(operation);
   }
 
-  enqueueFile(path: string, content: string): void {
+  enqueueFile(path: string, content: string | Uint8Array): void {
     this.queue.push({ path, type: 'file', content });
+  }
+
+  private async write(operation: FileOp): Promise<void> {
+    const path = operation.path;
+    if (operation.type === 'folder') {
+      await this.fs.mkdir(path, { recursive: true });
+      return;
+    }
+    if (operation.type === 'delete') {
+      await this.fs.rm(path, { recursive: true, force: true });
+      return;
+    }
+    let content = operation.content;
+    if (!content) content = '';
+    await this.fs.writeFile(path, content);
   }
 }

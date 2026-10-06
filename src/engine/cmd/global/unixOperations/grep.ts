@@ -1,3 +1,4 @@
+import { posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
@@ -152,44 +153,14 @@ export class GrepCommand extends UnixCommandBase {
     const showFilename = forceFilename || (multipleFiles && !noFilename);
 
     for (const fileArg of files) {
-      const expanded = await this.expandPathPattern(fileArg);
+      const path = this.resolvePath(fileArg);
+      try {
+        const isDir = await this.isDirectory(path);
 
-      for (const path of expanded) {
-        try {
-          const normalizedPath = this.normalizePath(path);
-          const isDir = await this.isDirectory(normalizedPath);
-
-          if (isDir) {
-            if (recursive) {
-              const dirResults = await this.grepDirectory(
-                normalizedPath,
-                regex,
-                invertMatch,
-                showLineNumber,
-                filesWithMatches,
-                filesWithoutMatch,
-                countOnly,
-                onlyMatching,
-                showFilename,
-                showAfter,
-                showBefore,
-                quiet,
-                includePattern,
-                excludePattern
-              );
-              if (dirResults.anyMatch) anyMatch = true;
-              results.push(...dirResults.lines);
-            } else if (!noMessages) {
-              results.push(`grep: ${path}: Is a directory`);
-            }
-          } else {
-            // include/exclude チェック
-            const basename = path.split('/').pop() || '';
-            if (includePattern && !this.matchGlob(includePattern, basename)) continue;
-            if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
-
-            const fileResult = await this.grepFile(
-              normalizedPath,
+        if (isDir) {
+          if (recursive) {
+            const dirResults = await this.grepDirectory(
+              path,
               regex,
               invertMatch,
               showLineNumber,
@@ -199,15 +170,41 @@ export class GrepCommand extends UnixCommandBase {
               onlyMatching,
               showFilename,
               showAfter,
-              showBefore
+              showBefore,
+              quiet,
+              includePattern,
+              excludePattern
             );
-            if (fileResult.matchCount > 0) anyMatch = true;
-            if (fileResult.output) results.push(fileResult.output);
+            if (dirResults.anyMatch) anyMatch = true;
+            results.push(...dirResults.lines);
+          } else if (!noMessages) {
+            results.push(`grep: ${path}: Is a directory`);
           }
-        } catch (error) {
-          if (!noMessages) {
-            results.push(`grep: ${path}: ${(error as Error).message}`);
-          }
+        } else {
+          // include/exclude チェック
+          const basename = posixPath.basename(path);
+          if (includePattern && !this.matchGlob(includePattern, basename)) continue;
+          if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
+
+          const fileResult = await this.grepFile(
+            path,
+            regex,
+            invertMatch,
+            showLineNumber,
+            filesWithMatches,
+            filesWithoutMatch,
+            countOnly,
+            onlyMatching,
+            showFilename,
+            showAfter,
+            showBefore
+          );
+          if (fileResult.matchCount > 0) anyMatch = true;
+          if (fileResult.output) results.push(fileResult.output);
+        }
+      } catch (error) {
+        if (!noMessages) {
+          results.push(`grep: ${path}: ${(error as Error).message}`);
         }
       }
     }
@@ -325,16 +322,12 @@ export class GrepCommand extends UnixCommandBase {
     afterContext: number,
     beforeContext: number
   ): Promise<{ output: string | null; matchCount: number }> {
-    const relative = this.getRelativePathFromProject(path);
-    const file = await this.getFileFromDB(relative);
+    const relative = path;
+    const file = await this.getFile(relative);
     if (!file) throw new Error('No such file or directory');
 
     let content = '';
-    if (file.isBufferArray && file.bufferContent) {
-      content = new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
-    } else if (typeof file.content === 'string') {
-      content = file.content;
-    }
+    content = await this.readText(path);
 
     const prefix = showFilename ? `${path}:` : '';
     const result = this.grepContent(
@@ -385,20 +378,18 @@ export class GrepCommand extends UnixCommandBase {
     includePattern: string | null,
     excludePattern: string | null
   ): Promise<{ lines: string[]; anyMatch: boolean }> {
-    const relativePath = this.getRelativePathFromProject(dirPath);
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const files: ProjectFile[] = await this.getDescendants(dirPath);
     const results: string[] = [];
     let anyMatch = false;
 
     for (const file of files) {
       if (file.type !== 'file') continue;
 
-      const basename = file.name || file.path.split('/').pop() || '';
+      const basename = posixPath.basename(file.path);
       if (includePattern && !this.matchGlob(includePattern, basename)) continue;
       if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
 
-      const fullPath = `${this.getProjectRoot()}${file.path}`;
+      const fullPath = file.path;
 
       try {
         const result = await this.grepFile(

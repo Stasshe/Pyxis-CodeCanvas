@@ -1,5 +1,5 @@
 import type { Terminal } from '@xterm/xterm';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs';
 
 type VimMode = 'NORMAL' | 'INSERT' | 'VISUAL' | 'COMMAND';
 
@@ -10,8 +10,7 @@ interface VimState {
   lines: string[];
   modified: boolean;
   fileName: string;
-  projectId: string;
-  relativePath: string;
+  absolutePath: string;
   commandLine: string;
   message: string;
   visualStart: { row: number; col: number } | null;
@@ -31,13 +30,7 @@ export class VimEditor {
   private keyHandler: ((e: { key: string; domEvent: KeyboardEvent }) => void) | null = null;
   private topLine = 0; // スクロール位置（表示開始行）
 
-  constructor(
-    term: Terminal,
-    fileName: string,
-    content: string,
-    projectId: string,
-    relativePath: string
-  ) {
+  constructor(term: Terminal, fileName: string, content: string, absolutePath: string) {
     this.term = term;
     this.state = {
       mode: 'NORMAL',
@@ -46,8 +39,7 @@ export class VimEditor {
       lines: content ? content.split('\n') : [''],
       modified: false,
       fileName,
-      projectId,
-      relativePath,
+      absolutePath,
       commandLine: '',
       message: '',
       visualStart: null,
@@ -348,25 +340,7 @@ export class VimEditor {
   private async saveFile() {
     try {
       const content = this.state.lines.join('\n');
-      const existingFile = await fileRepository.getFileByPath(
-        this.state.projectId,
-        this.state.relativePath
-      );
-
-      if (existingFile) {
-        await fileRepository.saveFile({
-          ...existingFile,
-          content,
-          updatedAt: new Date(),
-        });
-      } else {
-        await fileRepository.createFile(
-          this.state.projectId,
-          this.state.relativePath,
-          content,
-          'file'
-        );
-      }
+      await fsClient.writeFile(this.state.absolutePath, content);
 
       this.state.modified = false;
       this.state.message = `"${this.state.fileName}" ${this.state.lines.length}L written`;

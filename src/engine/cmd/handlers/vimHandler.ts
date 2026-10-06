@@ -1,15 +1,19 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { Terminal } from '@xterm/xterm';
+import { fsClient, normalizePath, resolvePath } from '@/engine/core/fs';
 import { VimEditor } from '../app/vim/VimEditor';
+
+interface UnixCommands {
+  pwd(): Promise<string>;
+}
 
 // Vim command handler that integrates VimEditor with the terminal
 // src/engine/cmd/handlers/vimHandler.ts
 export async function handleVimCommand(
   args: string[],
-  unixCommandsRef: { current: any } | null,
+  unixCommandsRef: { current: UnixCommands | null } | null,
   captureWriteOutput: (output: string) => Promise<void> | void,
-  currentProject: string,
-  currentProjectId: string,
-  xtermInstance?: any,
+  rootPath: string,
+  xtermInstance?: Terminal,
   onVimExit?: () => void
 ) {
   const write = async (s: string) => {
@@ -35,32 +39,15 @@ export async function handleVimCommand(
   xtermInstance.clear();
   xtermInstance.write('\x1b[2J\x1b[3J\x1b[H');
 
-  let entryPath = args[0];
   try {
-    if (unixCommandsRef?.current) {
-      if (!entryPath.startsWith('/')) {
-        const cwd = await unixCommandsRef.current.pwd();
-        entryPath = `${cwd.replace(/\/$/, '')}/${entryPath}`;
-      }
-    }
-  } catch (_e) {
-    // resolve failed, use original path
-    entryPath = args[0];
-  }
-
-  try {
-    const relativePath = unixCommandsRef?.current
-      ? unixCommandsRef.current.getRelativePathFromProject(entryPath)
-      : entryPath;
+    const cwd = unixCommandsRef?.current ? await unixCommandsRef.current.pwd() : rootPath;
+    const relativePath = normalizePath(resolvePath(cwd, args[0]));
 
     // Try to load existing file
     let content = '';
 
     try {
-      const file = await fileRepository.getFileByPath(currentProjectId, relativePath);
-      if (file) {
-        content = file.content || '';
-      }
+      content = await fsClient.readText(relativePath);
     } catch (_e) {
       // File doesn't exist, create new
     }
@@ -69,13 +56,7 @@ export async function handleVimCommand(
     const fileName = relativePath.split('/').pop() || relativePath;
 
     // Create and start Vim editor
-    const vimEditor = new VimEditor(
-      xtermInstance,
-      fileName,
-      content,
-      currentProjectId,
-      relativePath
-    );
+    const vimEditor = new VimEditor(xtermInstance, fileName, content, relativePath);
 
     vimEditor.start(() => {
       // On exit callback

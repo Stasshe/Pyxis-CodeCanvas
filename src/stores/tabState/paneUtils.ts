@@ -1,4 +1,4 @@
-import { toAppPath } from '@/engine/core/fileRepository';
+import { normalizePath } from '@/engine/core/fs';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
 
 export function flattenLeafPanes(
@@ -116,11 +116,11 @@ export function findInPanes(
   path: string,
   kind?: string
 ): { paneId: string; tab: Tab } | null {
-  const normalizedPath = toAppPath(path);
+  const normalizedPath = normalizePath(path);
 
   for (const pane of panes) {
     const tab = pane.tabs.find(t => {
-      const samePath = toAppPath(t.path || '') === normalizedPath;
+      const samePath = normalizePath(t.path || '/') === normalizedPath;
       const matchesKind = kind === undefined || t.kind === kind;
       return samePath && matchesKind;
     });

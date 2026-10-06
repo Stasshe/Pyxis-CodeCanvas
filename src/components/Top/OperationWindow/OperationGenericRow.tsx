@@ -1,7 +1,7 @@
 import React from 'react';
 import { highlightMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import type { ThemeColors } from '@/context/ThemeContext';
-import type { OperationListItem } from './OperationWindow';
+import type { OperationListItem } from './types';
 
 interface Props {
   item: OperationListItem;
@@ -9,9 +9,19 @@ interface Props {
   ITEM_HEIGHT: number;
   colors: ThemeColors;
   queryTokens: string[];
+  onActivate: (item: OperationListItem) => void;
+  disabled: boolean;
 }
 
-function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, queryTokens }: Props) {
+function OperationGenericRowInner({
+  item,
+  isSelected,
+  ITEM_HEIGHT,
+  colors,
+  queryTokens,
+  onActivate,
+  disabled,
+}: Props) {
   const highlightedLabel = highlightMatch(item.label, queryTokens, isSelected, colors);
   const highlightedDesc = item.description
     ? highlightMatch(item.description, queryTokens, isSelected, colors)
@@ -33,7 +43,7 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
         borderLeft: isSelected ? `3px solid ${colors.accentBg}` : '3px solid transparent',
         position: 'relative',
       }}
-      onClick={() => !item.isEditing && item.onClick?.()}
+      onClick={() => !item.isEditing && onActivate(item)}
     >
       {item.icon && (
         <div
@@ -93,6 +103,7 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               flex: 1,
+              minWidth: 0,
             }}
           >
             {highlightedLabel}
@@ -103,6 +114,11 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
                 fontSize: '11px',
                 color: isSelected ? 'rgba(255,255,255,0.8)' : colors.mutedFg,
                 marginLeft: '8px',
+                minWidth: 0,
+                maxWidth: '40%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
               {highlightedDesc}
@@ -116,6 +132,7 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
           {item.actions.map(action => (
             <button
               key={action.id}
+              disabled={disabled}
               onClick={e => {
                 e.stopPropagation();
                 action.onClick(e);
@@ -149,18 +166,4 @@ function OperationGenericRowInner({ item, isSelected, ITEM_HEIGHT, colors, query
   );
 }
 
-function arePropsEqualGeneric(prev: Props, next: Props) {
-  if (prev.item?.id !== next.item?.id) return false;
-  if (prev.isSelected !== next.isSelected) return false;
-  if (prev.ITEM_HEIGHT !== next.ITEM_HEIGHT) return false;
-  // shallow compare query tokens
-  const a = prev.queryTokens || [];
-  const b = next.queryTokens || [];
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  if (prev.colors?.foreground !== next.colors?.foreground) return false;
-  if (prev.colors?.primary !== next.colors?.primary) return false;
-  return true;
-}
-
-export default React.memo(OperationGenericRowInner, arePropsEqualGeneric);
+export default React.memo(OperationGenericRowInner);

@@ -4,8 +4,7 @@ import type { FileItem } from '@/types';
 export interface FileTreeProps {
   items: FileItem[];
   level?: number;
-  currentProjectName: string;
-  currentProjectId?: string;
+  rootPath: string;
   onRefresh?: () => void;
   isFileSelectModal?: boolean;
   onInternalFileDrop?: (draggedItem: FileItem, targetFolderPath: string) => void;
@@ -17,8 +16,7 @@ export interface FileTreeItemProps {
   isExpanded: boolean;
   isIgnored: boolean;
   colors: ThemeColors;
-  currentProjectName: string;
-  currentProjectId?: string;
+  rootPath: string;
   onRefresh?: () => void;
   onItemClick: (item: FileItem) => void;
   onContextMenu: (e: React.MouseEvent, item: FileItem) => void;

@@ -44,19 +44,22 @@ Application Layer → src/app/, src/hooks/, src/stores/
 Engine Layer     → src/engine/
 ```
 
-### Storage — Two-Layer Design (critical to understand)
+### Storage — OPFS Files and IndexedDB Metadata
 
 | Layer | Contents | Purpose |
 |-------|----------|---------|
-| **IndexedDB** (primary) | All files + metadata including node_modules | File tree, editor, search, Node.js runtime |
-| **lightning-fs** (secondary) | .gitignore-filtered files | Git operations via isomorphic-git |
+| **OPFS** | Workspace files, `.git`, `node_modules`, runtime cache `~/.cache/pyxis`, npm cache `~/.npm` | Sole persistent filesystem |
+| **IndexedDB** | Recent folders, chats, tabs, AI reviews, settings, translations, extension data | Searchable application metadata |
+| **Memory** | `/tmp` | Ephemeral files |
 
-All file operations go through `src/engine/core/fileRepository/` → IndexedDB, then auto-sync to lightning-fs via `syncManager.ts`. **Never write directly to lightning-fs from UI code.**
+The FS Worker in `src/engine/core/fs/` is the only OPFS owner. Main-thread code uses its FS Client. Git and npm installation run in the FS Worker against the same filesystem. `ProjectFile` contains only absolute path, entry type, size, and mtime. File identity is its normalized absolute path. A workspace root controls the file tree and default working directory; it does not create a separate path namespace. The Web Lock allows one active tab to own the filesystem.
+
+Temporary legacy migration lives in `src/engine/core/migration/`; keep its invocation centralized. Remove it after the migration window ending around April 2027. Virtual `HOME` is `/home/pyxis`; new workspaces at `~/<name>` start empty. Startup seeds the generated `initial_files/` content into `~/demo` only when that directory is absent; existing folders, including an existing `~/demo`, are left intact. Runtime cache is `~/.cache/pyxis`, npm cache is `~/.npm`, and `/tmp` is memory-backed. Legacy projects target `/home/pyxis/<name>` without a reserved suffix. A destination collision stops migration before project writes and preserves legacy data; persisted project-to-root mappings let retries reuse their assigned destination. Filesystem-worker seeding runs after legacy migration and before recent folders are read.
 
 ### State Management
 
 Global state uses **valtio** stores in `src/stores/`:
-- `projectStore.ts` — current project ID/name. **Always get `currentProjectId` and `currentProjectName` from here.**
+- `projectStore.ts` — current workspace and absolute root path. **Always get the current root path from this store.**
 - `tabState.ts` — tab state per pane
 - `tabContentStore.ts` — cached tab content
 - `sessionStore.ts` — session-level state
@@ -64,7 +67,8 @@ Global state uses **valtio** stores in `src/stores/`:
 
 ### Engine Subsystems (`src/engine/`)
 
-- `core/` — FileRepository, GitFileSystem, SyncManager, project operations
+- `core/fs/` — OPFS core, FS Worker, FS Client, path API, and Git adapter
+- `core/migration/` — temporary import from legacy storage
 - `extensions/` — Extension Manager, Loader, Registry, Command Registry (dynamic Blob URL loading)
 - `tabs/` — TabRegistry, builtin tab types
 - `runtime/` — Custom browser-based Node.js runtime (no WASM)
@@ -75,7 +79,7 @@ Global state uses **valtio** stores in `src/stores/`:
 
 ### Extension System
 
-Extensions are built via esbuild to `public/extensions/`, registered in `extensions/registry.json`. Each extension activates via a context API providing tabs, sidebar panels, terminal commands, and system modules (FileRepository access).
+Extensions are built via esbuild to `public/extensions/`, registered in `extensions/registry.json`. Each extension activates via a context API providing tabs, sidebar panels, terminal commands, and typed system modules. See `extensions/_shared/` for the extension-facing API types.
 
 Extensions live in `extensions/<name>/` with `manifest.json` + `index.tsx`.
 
@@ -160,4 +164,4 @@ mermaidの記述のルールとして、ノードネームに(,/,{などは使�
 既存ファイルかどうかは必ず注意すること。既存ファイルがあるのにファイルの作成はできませんよ。
 
 このリポジトリはpnpmです。npmは使うな。
-currentProjectId,NameはprojectStoreから必ず取得すること。
+currentRootPathは必ずprojectStoreから取得すること。

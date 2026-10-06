@@ -1,29 +1,16 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
 import { listAllRemoteRefs, toFullRemoteRef } from './remoteUtils';
 
-/**
- * ブランチフィルタモード
- * - auto: HEADからのコミットのみ（現行の動作）
- * - all: 全ブランチからのコミットを表示（branches指定時はそのブランチのみ）
- */
 export type BranchFilterMode = 'auto' | 'all';
 
 export interface BranchFilterOptions {
   mode: BranchFilterMode;
-  branches?: string[]; // mode === 'all' 時に特定のブランチのみ表示する場合に使用
+  branches?: string[];
 }
 
-function isUnbornBranchError(error: unknown): boolean {
-  return error instanceof git.Errors.NotFoundError && error.data.what.startsWith('refs/heads/');
-}
-
-/**
- * Git log操作を管理するクラス
- * リモートブランチはremoteUtilsを使用して標準化された処理を行う
- */
 export class GitLogOperations {
   private fs: FS;
   private dir: string;
@@ -33,12 +20,10 @@ export class GitLogOperations {
     this.dir = dir;
   }
 
-  // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
   }
 
-  // git log - ログ表示
   async log(depth = 10): Promise<string> {
     try {
       await this.ensureProjectDirectory();
@@ -60,15 +45,13 @@ export class GitLogOperations {
         })
         .join('\n');
     } catch (error) {
-      if (isUnbornBranchError(error)) {
+      if (error instanceof git.Errors.NotFoundError && error.data.what.startsWith('refs/heads/')) {
         return 'No commits yet';
       }
       throw new Error(`git log failed: ${(error as Error).message}`);
     }
   }
 
-  // UI用のGitログを取得（パイプ区切り形式、ブランチ情報付き）
-  // VSCode風: 選択したブランチのコミットを統合して表示
   async getFormattedLog(
     depth = 20,
     branchFilter: BranchFilterOptions = { mode: 'auto' }
@@ -76,31 +59,28 @@ export class GitLogOperations {
     try {
       await this.ensureProjectDirectory();
 
-      // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
       } catch {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
-      // 1. ブランチ情報を並列で取得（ローカル + リモート）
       const [localBranches, remoteBranches] = await Promise.all([
         git.listBranches({ fs: this.fs, dir: this.dir }),
         listAllRemoteRefs(this.fs, this.dir),
       ]);
 
-      // origin/HEAD, upstream/HEADなどのシンボリックリファレンスを除外
       const allBranches = [...localBranches, ...remoteBranches].filter(
         branch => !branch.endsWith('/HEAD')
       );
 
-      // 2. 各ブランチが指すコミットハッシュを並列で解決
       const refsByCommit = new Map<string, string[]>();
       const branchOids = new Map<string, string>();
 
       const resolvePromises = allBranches.map(async branch => {
         try {
-          const refName = branch.includes('/') ? toFullRemoteRef(branch) : branch;
+          let refName = branch;
+          if (branch.includes('/')) refName = toFullRemoteRef(branch);
           const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: refName });
           return { branch, oid };
         } catch {
@@ -121,30 +101,26 @@ export class GitLogOperations {
         }
       }
 
-      // 3. ブランチフィルタモードに応じてコミットを取得
       let allCommits: Awaited<ReturnType<typeof git.log>> = [];
 
       if (branchFilter.mode === 'auto') {
-        // 従来の動作: HEADからのみ取得
         allCommits = await git.log({
           fs: this.fs,
           dir: this.dir,
           depth: depth,
         });
       } else if (branchFilter.mode === 'all') {
-        // 全ブランチからコミットを取得
         const targetBranches =
           branchFilter.branches && branchFilter.branches.length > 0
             ? branchFilter.branches
             : allBranches;
 
-        // commitMapの型はgit.logの戻り値から推論させる
         const commitMap = new Map<string, Awaited<ReturnType<typeof git.log>>[number]>();
 
-        // 各ブランチからコミットを取得
         const logPromises = targetBranches.map(async branch => {
           try {
-            const refName = branch.includes('/') ? toFullRemoteRef(branch) : branch;
+            let refName = branch;
+            if (branch.includes('/')) refName = toFullRemoteRef(branch);
             const commits = await git.log({
               fs: this.fs,
               dir: this.dir,
@@ -159,7 +135,6 @@ export class GitLogOperations {
 
         const branchCommits = await Promise.all(logPromises);
 
-        // 重複を排除してマージ
         for (const commits of branchCommits) {
           for (const commit of commits) {
             if (!commitMap.has(commit.oid)) {
@@ -168,12 +143,10 @@ export class GitLogOperations {
           }
         }
 
-        // タイムスタンプでソート（新しい順）
         allCommits = Array.from(commitMap.values()).sort(
           (a, b) => b.commit.author.timestamp - a.commit.author.timestamp
         );
 
-        // depthの制限を適用
         if (allCommits.length > depth) {
           allCommits = allCommits.slice(0, depth);
         }
@@ -183,7 +156,6 @@ export class GitLogOperations {
         return '';
       }
 
-      // 4. コミットをフォーマット
       const formattedCommits = allCommits.map(commit => {
         const date = new Date(commit.commit.author.timestamp * 1000);
         const safeMessage = (commit.commit.message || 'No message')
@@ -200,7 +172,7 @@ export class GitLogOperations {
       return formattedCommits.join('\n');
     } catch (error) {
       if (
-        isUnbornBranchError(error) ||
+        (error instanceof git.Errors.NotFoundError && error.data.what.startsWith('refs/heads/')) ||
         (error instanceof Error && error.message.includes('not a git repository'))
       ) {
         return '';
@@ -209,9 +181,6 @@ export class GitLogOperations {
     }
   }
 
-  /**
-   * 利用可能なブランチ一覧を取得
-   */
   async getAvailableBranches(): Promise<{ local: string[]; remote: string[] }> {
     try {
       await this.ensureProjectDirectory();

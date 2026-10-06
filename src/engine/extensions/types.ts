@@ -187,11 +187,7 @@ export interface ExtensionContext {
   registerTranspiler?: (config: {
     id: string;
     supportedExtensions: string[];
-    needsTranspile?: (filePath: string) => boolean;
-    transpile: (
-      code: string,
-      options: any
-    ) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
+    workerTransform: 'typescript';
   }) => Promise<void>;
 
   /** ランタイムを登録（language-runtime拡張機能用） */
@@ -200,7 +196,7 @@ export interface ExtensionContext {
     name: string;
     supportedExtensions: string[];
     canExecute: (filePath: string) => boolean;
-    initialize?: (projectId: string, projectName: string) => Promise<void>;
+    initialize?: (rootPath: string) => Promise<void>;
     execute: (options: any) => Promise<any>;
     clearCache?: () => void;
     dispose?: () => Promise<void>;

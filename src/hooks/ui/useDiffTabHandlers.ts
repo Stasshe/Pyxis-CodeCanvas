@@ -1,81 +1,100 @@
 import { useCallback } from 'react';
 
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { normalizePath, toGitPath } from '@/engine/core/fileRepository'; //  toGitPath 追加
+import { basename, fsClient, normalizePath, posixPath, resolvePath } from '@/engine/core/fs';
 import { tabActions } from '@/stores/tabState';
-import type { SingleFileDiff } from '@/types';
+import type { Project, SingleFileDiff } from '@/types';
 
-/**
- * Git Diff タブを開くための Hook
- * パス正規化対応版 - Git APIには先頭スラッシュなしで渡す
- *
- * VSCode-style diff behavior:
- * - Staged files: HEAD vs INDEX (staged content)
- * - Unstaged files: INDEX vs WORKDIR (if file is also staged), otherwise HEAD vs WORKDIR
- */
-export function useDiffTabHandlers(currentProject: any) {
-  const { openTab } = tabActions;
+interface WorkingFile {
+  content?: string;
+  bufferContent?: ArrayBuffer;
+}
 
-  /**
-   * [VSCode-style] ステージ済みファイルのdiffを開く
-   * 比較: HEAD (コミット済み) vs INDEX (ステージ済み)
-   */
+function absolutePath(rootPath: string, path: string): string {
+  if (path.startsWith('/')) return normalizePath(path);
+  return resolvePath(rootPath, path);
+}
+
+function gitPath(rootPath: string, path: string): string {
+  return posixPath.relative(rootPath, absolutePath(rootPath, path));
+}
+
+async function readWorkingFile(path: string): Promise<WorkingFile | null> {
+  if (!(await fsClient.exists(path))) return null;
+  const entry = await fsClient.stat(path);
+  if (entry.type !== 'file') return null;
+
+  const bytes = await fsClient.readFile(path);
+  try {
+    const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    if (content.includes('\0')) return { bufferContent: Uint8Array.from(bytes).buffer };
+    return { content };
+  } catch {
+    return { bufferContent: Uint8Array.from(bytes).buffer };
+  }
+}
+
+async function openBinaryFile(path: string, bufferContent: ArrayBuffer): Promise<void> {
+  await tabActions.openTab(
+    {
+      path,
+      name: basename(path),
+      isBufferArray: true,
+      bufferContent,
+    },
+    { kind: 'binary', searchAllPanesForReuse: true }
+  );
+}
+
+function singleFileDiff(
+  path: string,
+  formerCommitId: string,
+  latterCommitId: string,
+  formerContent: string,
+  latterContent: string
+): SingleFileDiff {
+  return {
+    formerFullPath: path,
+    formerCommitId,
+    latterFullPath: path,
+    latterCommitId,
+    formerContent,
+    latterContent,
+  };
+}
+
+export function useDiffTabHandlers(currentProject: Project | null) {
   const handleStagedFileDiff = useCallback(
     async (filePath: string) => {
       if (!currentProject) return;
 
-      const normalizedPath = normalizePath(filePath);
-      const gitPath = toGitPath(normalizedPath);
-
-      // Prevent opening a diff view for binary files. If the file in the repository
-      // contains bufferContent, open the binary tab instead.
-      const { fileRepository } = await import('@/engine/core/fileRepository');
-      const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
-      if (file?.bufferContent) {
-        console.log(
-          `[useDiffTabHandlers] ${normalizedPath} has bufferContent — opening binary tab instead of diff`
-        );
-        await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
+      const { rootPath } = currentProject;
+      const path = absolutePath(rootPath, filePath);
+      const relativePath = gitPath(rootPath, path);
+      const workingFile = await readWorkingFile(path);
+      if (workingFile?.bufferContent) {
+        await openBinaryFile(path, workingFile.bufferContent);
         return;
       }
 
-      console.log(`[useDiffTabHandlers] Staged diff: "${gitPath}" (HEAD vs INDEX)`);
-
-      const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
-
-      // HEADの内容を取得
+      const git = terminalCommandRegistry.getGitCommands(rootPath);
       let headContent = '';
-      try {
-        const content = await git.getHeadFileContent(gitPath);
-        headContent = content || '';
-      } catch (e) {
-        console.warn('[useDiffTabHandlers] Failed to get HEAD content:', e);
-        headContent = '';
-      }
-
-      // INDEX (ステージ済み) の内容を取得
       let stagedContent = '';
       try {
-        const content = await git.getStagedFileContent(gitPath);
-        stagedContent = content || '';
-      } catch (e) {
-        console.warn('[useDiffTabHandlers] Failed to get staged content:', e);
-        stagedContent = '';
+        headContent = (await git.getHeadFileContent(relativePath)) || '';
+      } catch (error) {
+        console.warn('[useDiffTabHandlers] Failed to get HEAD content:', error);
+      }
+      try {
+        stagedContent = (await git.getStagedFileContent(relativePath)) || '';
+      } catch (error) {
+        console.warn('[useDiffTabHandlers] Failed to get staged content:', error);
       }
 
-      const diffData: SingleFileDiff = {
-        formerFullPath: normalizedPath,
-        formerCommitId: 'HEAD',
-        latterFullPath: normalizedPath,
-        latterCommitId: 'INDEX',
-        formerContent: headContent,
-        latterContent: stagedContent,
-      };
-
-      openTab(
+      await tabActions.openTab(
         {
-          files: diffData,
-          editable: false, // ステージ済みは編集不可
+          files: singleFileDiff(path, 'HEAD', 'INDEX', headContent, stagedContent),
+          editable: false,
         },
         { kind: 'diff', searchAllPanesForReuse: true }
       );
@@ -83,112 +102,56 @@ export function useDiffTabHandlers(currentProject: any) {
     [currentProject]
   );
 
-  /**
-   * [VSCode-style] 未ステージファイルのdiffを開く
-   * 比較:
-   * - ファイルがステージ済みの場合: INDEX vs WORKDIR
-   * - ファイルがステージされていない場合: HEAD vs WORKDIR
-   */
   const handleUnstagedFileDiff = useCallback(
     async (filePath: string, stagedFiles: string[] = []) => {
       if (!currentProject) return;
 
-      const normalizedPath = normalizePath(filePath);
-      const gitPath = toGitPath(normalizedPath);
-
-      // このファイルがステージ済みかどうかをチェック
-      const isAlsoStaged = stagedFiles.some(f => {
-        const normalizedStaged = normalizePath(f);
-        return normalizedStaged === normalizedPath || toGitPath(normalizedStaged) === gitPath;
-      });
-
-      console.log(
-        `[useDiffTabHandlers] Unstaged diff: "${gitPath}" (${isAlsoStaged ? 'INDEX' : 'HEAD'} vs WORKDIR)`
+      const { rootPath } = currentProject;
+      const path = absolutePath(rootPath, filePath);
+      const relativePath = gitPath(rootPath, path);
+      const isAlsoStaged = stagedFiles.some(
+        stagedPath => gitPath(rootPath, stagedPath) === relativePath
       );
+      const git = terminalCommandRegistry.getGitCommands(rootPath);
 
-      const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
-
-      // 比較元の内容を取得 (INDEX or HEAD)
       let formerContent = '';
       let formerCommitId = 'HEAD';
-
       if (isAlsoStaged) {
-        // ステージ済みの場合、INDEXの内容と比較
         try {
-          const content = await git.getStagedFileContent(gitPath);
-          formerContent = content || '';
+          formerContent = (await git.getStagedFileContent(relativePath)) || '';
           formerCommitId = 'INDEX';
-        } catch (e) {
-          console.warn(
-            '[useDiffTabHandlers] Failed to get staged content, falling back to HEAD:',
-            e
-          );
-          // フォールバック: HEADを使用
+        } catch (error) {
+          console.warn('[useDiffTabHandlers] Failed to get staged content:', error);
           try {
-            const content = await git.getHeadFileContent(gitPath);
-            formerContent = content || '';
-            formerCommitId = 'HEAD';
-          } catch (e2) {
-            console.warn('[useDiffTabHandlers.ts] caught non-fatal error', e2);
-            formerContent = '';
+            formerContent = (await git.getHeadFileContent(relativePath)) || '';
+          } catch (headError) {
+            console.warn('[useDiffTabHandlers] Failed to get HEAD content:', headError);
           }
         }
       } else {
-        // ステージされていない場合、HEADの内容と比較
         try {
-          const content = await git.getHeadFileContent(gitPath);
-          formerContent = content || '';
-        } catch (e) {
-          console.warn('[useDiffTabHandlers] Failed to get HEAD content:', e);
-          formerContent = '';
+          formerContent = (await git.getHeadFileContent(relativePath)) || '';
+        } catch (error) {
+          console.warn('[useDiffTabHandlers] Failed to get HEAD content:', error);
         }
       }
 
-      // Working directoryの内容を取得
-      let workdirContent = '';
-      try {
-        const { fileRepository } = await import('@/engine/core/fileRepository');
-        const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
-
-        // If the repository file contains bufferContent, open it as binary instead of a diff
-        if (file?.bufferContent) {
-          await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
-          return;
-        }
-
-        if (file?.content) {
-          workdirContent = file.content;
-          console.log('[useDiffTabHandlers] Read workdir content from fileRepository');
-        } else {
-          throw new Error('File not found in repository');
-        }
-      } catch (repoError) {
-        console.warn('[useDiffTabHandlers.ts] caught non-fatal error', repoError);
-        console.log('[useDiffTabHandlers] Falling back to gitFileSystem');
-        const { gitFileSystem } = await import('@/engine/core/gitFileSystem');
-
-        try {
-          workdirContent = await gitFileSystem.readFile(currentProject.name, gitPath);
-          console.log('[useDiffTabHandlers] Read workdir content from gitFileSystem');
-        } catch (fsError) {
-          console.error('[useDiffTabHandlers] Failed to read from gitFileSystem:', fsError);
-          workdirContent = '';
-        }
+      const workingFile = await readWorkingFile(path);
+      if (workingFile?.bufferContent) {
+        await openBinaryFile(path, workingFile.bufferContent);
+        return;
       }
 
-      const diffData: SingleFileDiff = {
-        formerFullPath: normalizedPath,
-        formerCommitId: formerCommitId,
-        latterFullPath: normalizedPath,
-        latterCommitId: 'WORKDIR',
-        formerContent,
-        latterContent: workdirContent,
-      };
-
-      openTab(
+      await tabActions.openTab(
         {
-          files: diffData,
-          editable: true, // 未ステージは編集可能
+          files: singleFileDiff(
+            path,
+            formerCommitId,
+            'WORKDIR',
+            formerContent,
+            workingFile?.content || ''
+          ),
+          editable: true,
         },
         { kind: 'diff', searchAllPanesForReuse: true }
       );
@@ -196,70 +159,43 @@ export function useDiffTabHandlers(currentProject: any) {
     [currentProject]
   );
 
-  // コミット履歴用: コミット間のファイル差分を開く（親コミット vs コミット）
   const handleCommitsDiff = useCallback(
     async ({ commitId, filePath }: { commitId: string; filePath: string }) => {
       if (!currentProject) return;
 
-      // fileRepository用に正規化（先頭スラッシュあり）
-      const normalizedPath = normalizePath(filePath);
-      // Git API用に変換（先頭スラッシュなし）
-      const gitPath = toGitPath(normalizedPath);
-
-      const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
-
-      // 親コミットを取得し、親⇄コミットの diff を表示する（履歴表示専用）
+      const { rootPath } = currentProject;
+      const path = absolutePath(rootPath, filePath);
+      const relativePath = gitPath(rootPath, path);
+      const git = terminalCommandRegistry.getGitCommands(rootPath);
       const parentHashes = await git.getParentCommitIds(commitId);
       const parentCommitId = parentHashes[0] || '';
 
       let latterContent = '';
       let formerContent = '';
-
       try {
-        if (commitId) {
-          latterContent = await git.getFileContentAtCommit(commitId, gitPath);
-        }
+        if (commitId) latterContent = await git.getFileContentAtCommit(commitId, relativePath);
       } catch (error) {
         console.error('[useDiffTabHandlers] Failed to get latter content:', error);
-        latterContent = '';
       }
-
       try {
         if (parentCommitId) {
-          formerContent = await git.getFileContentAtCommit(parentCommitId, gitPath);
+          formerContent = await git.getFileContentAtCommit(parentCommitId, relativePath);
         }
       } catch (error) {
         console.error('[useDiffTabHandlers] Failed to get former content:', error);
-        formerContent = '';
       }
 
-      // If both sides are empty, this may be a binary file (no text content available).
-      // Try to open it as a binary tab instead of showing an empty diff.
-      if (
-        (formerContent === '' || formerContent === undefined) &&
-        (latterContent === '' || latterContent === undefined)
-      ) {
-        const { fileRepository } = await import('@/engine/core/fileRepository');
-        const file = await fileRepository.getFileByPath(currentProject.id, normalizedPath);
-        if (file?.bufferContent) {
-          await openTab(file, { kind: 'binary', searchAllPanesForReuse: true });
-          return;
+      if (!formerContent && !latterContent) {
+        const workingFile = await readWorkingFile(path);
+        if (workingFile?.bufferContent) {
+          await openBinaryFile(path, workingFile.bufferContent);
         }
         return;
       }
 
-      const diffData: SingleFileDiff = {
-        formerFullPath: normalizedPath,
-        formerCommitId: parentCommitId,
-        latterFullPath: normalizedPath,
-        latterCommitId: commitId,
-        formerContent,
-        latterContent,
-      };
-
-      openTab(
+      await tabActions.openTab(
         {
-          files: diffData,
+          files: singleFileDiff(path, parentCommitId, commitId, formerContent, latterContent),
           editable: false,
         },
         { kind: 'diff', searchAllPanesForReuse: true }
@@ -268,100 +204,53 @@ export function useDiffTabHandlers(currentProject: any) {
     [currentProject]
   );
 
-  // コミット全体のdiffタブを開く
   const handleDiffAllFilesClick = useCallback(
     async ({ commitId, parentCommitId }: { commitId: string; parentCommitId: string }) => {
       if (!currentProject) return;
-      const git = terminalCommandRegistry.getGitCommands(currentProject.name, currentProject.id);
-
-      // defensive: parentCommitIdが無い場合は高速に親を取得
-      if (!parentCommitId) {
+      const { rootPath } = currentProject;
+      const git = terminalCommandRegistry.getGitCommands(rootPath);
+      let resolvedParentId = parentCommitId;
+      if (!resolvedParentId) {
         try {
-          const parentHashes = await git.getParentCommitIds(commitId);
-          parentCommitId = parentHashes[0] || '';
-        } catch (e) {
-          console.warn('[useDiffTabHandlers] Failed to resolve parentCommitId:', e);
+          resolvedParentId = (await git.getParentCommitIds(commitId))[0] || '';
+        } catch (error) {
+          console.warn('[useDiffTabHandlers] Failed to resolve parent commit:', error);
         }
       }
 
-      // 差分ファイル一覧を取得
-      const diffOutput = await git.diffCommits(parentCommitId, commitId);
-
-      // 変更ファイルを抽出
-      const files: Array<{ gitPath: string; normalizedPath: string }> = [];
-      const lines = diffOutput.split('\n');
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.startsWith('diff --git ')) {
-          const match = line.match(/diff --git a\/(.+) b\/(.+)/);
-          if (match) {
-            //  Gitから返されるパス（先頭スラッシュなし）
-            const rawGitPath = match[2];
-            //  fileRepository用に正規化（先頭スラッシュあり）
-            const normalizedFilePath = normalizePath(rawGitPath);
-
-            files.push({
-              gitPath: rawGitPath, // Git API用（スラッシュなし）
-              normalizedPath: normalizedFilePath, // fileRepository用（スラッシュあり）
-            });
-          }
-        }
+      const diffOutput = await git.diffCommits(resolvedParentId, commitId);
+      const files: Array<{ gitPath: string; path: string }> = [];
+      for (const line of diffOutput.split('\n')) {
+        if (!line.startsWith('diff --git ')) continue;
+        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+        if (!match) continue;
+        const relativePath = match[2];
+        files.push({ gitPath: relativePath, path: resolvePath(rootPath, relativePath) });
       }
 
-      // 各ファイルごとにdiff情報を取得
       const diffs: SingleFileDiff[] = [];
-
-      for (const { gitPath, normalizedPath } of files) {
+      for (const file of files) {
         let latterContent = '';
         let formerContent = '';
-
-        //  Git APIには先頭スラッシュなしで渡す
         try {
-          if (commitId) {
-            latterContent = await git.getFileContentAtCommit(commitId, gitPath);
-          }
-        } catch (e) {
-          console.warn('[useDiffTabHandlers] Failed to read latterContent', {
-            gitPath,
-            commitId,
-            error: e,
-          });
-          latterContent = '';
+          if (commitId) latterContent = await git.getFileContentAtCommit(commitId, file.gitPath);
+        } catch (error) {
+          console.warn('[useDiffTabHandlers] Failed to read latter content:', error);
         }
-
         try {
-          if (parentCommitId) {
-            formerContent = await git.getFileContentAtCommit(parentCommitId, gitPath);
-          } else {
-            formerContent = '';
+          if (resolvedParentId) {
+            formerContent = await git.getFileContentAtCommit(resolvedParentId, file.gitPath);
           }
-        } catch (e) {
-          console.warn('[useDiffTabHandlers] Failed to read formerContent', {
-            gitPath,
-            parentCommitId,
-            error: e,
-          });
-          formerContent = '';
+        } catch (error) {
+          console.warn('[useDiffTabHandlers] Failed to read former content:', error);
         }
-
-        //  DiffデータはfileRepository用の正規化されたパスで作成
-        diffs.push({
-          formerFullPath: normalizedPath, // fileRepository形式
-          formerCommitId: parentCommitId,
-          latterFullPath: normalizedPath, // fileRepository形式
-          latterCommitId: commitId,
-          formerContent,
-          latterContent,
-        });
+        diffs.push(
+          singleFileDiff(file.path, resolvedParentId, commitId, formerContent, latterContent)
+        );
       }
 
-      openTab(
-        {
-          files: diffs,
-          editable: false,
-          isMultiFile: true,
-        },
+      await tabActions.openTab(
+        { files: diffs, editable: false, isMultiFile: true },
         { kind: 'diff', searchAllPanesForReuse: true }
       );
     },

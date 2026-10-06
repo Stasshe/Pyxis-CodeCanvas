@@ -28,7 +28,8 @@ export enum ExtensionType {
  * Re-export from systemModuleTypes for convenience
  */
 import type { GetSystemModule } from './systemModuleTypes';
-export type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+
+export type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
 
 /**
  * 拡張機能用タブデータ
@@ -125,10 +126,7 @@ export interface ExtensionSidebarAPI {
   createPanel: (definition: SidebarPanelDefinition) => void;
   updatePanel: (panelId: string, state: any) => void;
   removePanel: (panelId: string) => void;
-  onPanelActivate: (
-    panelId: string,
-    callback: (panelId: string) => void | Promise<void>
-  ) => void;
+  onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
 }
 
 /**
@@ -137,12 +135,14 @@ export interface ExtensionSidebarAPI {
 export interface CommandContext {
   /** プロジェクト名 */
   projectName: string;
-  /** プロジェクトID */
-  projectId: string;
+  /** Absolute workspace root path. */
+  rootPath: string;
   /** 現在のディレクトリ */
   currentDirectory: string;
-  /** 拡張機能のコンテキスト全体（getSystemModule等も含む） */
-  [key: string]: any;
+  /** Filesystem API rooted in the shared OPFS filesystem. */
+  fsClient: import('./systemModuleTypes').FsClient;
+  getSystemModule: GetSystemModule;
+  tabs: ExtensionTabsAPI;
 }
 
 /**
@@ -153,10 +153,7 @@ export interface CommandContext {
  * 実行時には ExtensionManager により `getSystemModule` を含む形で拡張されるため
  * handler が受け取る context には getSystemModule が存在します。
  */
-export type CommandHandler = (
-  args: string[],
-  context: CommandContext & { getSystemModule: GetSystemModule }
-) => Promise<string>;
+export type CommandHandler = (args: string[], context: CommandContext) => Promise<string>;
 
 /**
  * Commands API - 拡張機能がターミナルコマンドを追加
@@ -212,10 +209,8 @@ export interface ExplorerMenuItemDefinition {
  * メニュー項目のアクションコンテキスト
  */
 export interface MenuActionContext {
-  /** 現在のプロジェクト名 */
-  projectName: string;
-  /** 現在のプロジェクトID */
-  projectId: string;
+  /** Absolute workspace root path. */
+  rootPath: string;
 }
 
 /**
@@ -258,8 +253,7 @@ export interface ExtensionContext {
   registerTranspiler?: (config: {
     id: string;
     supportedExtensions: string[];
-    needsTranspile?: (filePath: string) => boolean;
-    transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
+    workerTransform: 'typescript';
   }) => Promise<void>;
 
   /** ランタイムを登録（language-runtime拡張機能用） */
@@ -268,7 +262,7 @@ export interface ExtensionContext {
     name: string;
     supportedExtensions: string[];
     canExecute: (filePath: string) => boolean;
-    initialize?: (projectId: string, projectName: string) => Promise<void>;
+    initialize?: (rootPath: string) => Promise<void>;
     execute: (options: any) => Promise<any>;
     clearCache?: () => void;
     dispose?: () => Promise<void>;

@@ -1,4 +1,4 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient, isPathWithin, posixPath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -18,7 +18,7 @@ import { UnixCommandBase } from './base';
  * 動作:
  *   - source が1つでdestがディレクトリでない場合: リネーム
  *   - source が複数またはdestがディレクトリの場合: 移動
- *   - ワイルドカード対応（*, ?）
+ *   - Paths are expanded by the shell before this command runs.
  */
 export class MvCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
@@ -46,36 +46,11 @@ export class MvCommand extends UnixCommandBase {
     const destArg = positional[positional.length - 1];
     const sourceArgs = positional.slice(0, -1);
 
-    // ワイルドカード展開（ソースのみ）
-    const sources: string[] = [];
-    for (const sourceArg of sourceArgs) {
-      // ソースにワイルドカードがある場合のみ展開
-      if (sourceArg.includes('*') || sourceArg.includes('?') || sourceArg.includes('[')) {
-        const expanded = await this.expandPathPattern(sourceArg);
-        if (expanded.length === 0) {
-          throw new Error(`mv: cannot stat '${sourceArg}': No such file or directory`);
-        }
-        sources.push(...expanded);
-      } else {
-        // ワイルドカードなし→パス解決のみ
-        // 末尾スラッシュを削除
-        let cleanArg = sourceArg;
-        if (cleanArg.endsWith('/') && cleanArg !== '/') {
-          cleanArg = cleanArg.slice(0, -1);
-        }
-        const resolved = this.normalizePath(this.resolvePath(cleanArg));
-        sources.push(resolved);
-      }
-    }
+    const sources = sourceArgs.map(source => this.resolvePath(source));
 
-    // destは**絶対にグロブ展開しない**（..や.を含むパスを正しく解決）
-    // 末尾スラッシュを削除
-    let cleanDestArg = destArg;
+    // A trailing slash requires a directory destination.
     const destArgHasTrailingSlash = destArg.endsWith('/') && destArg !== '/';
-    if (destArgHasTrailingSlash) {
-      cleanDestArg = cleanDestArg.slice(0, -1);
-    }
-    const dest = this.normalizePath(this.resolvePath(cleanDestArg));
+    const dest = this.resolvePath(destArg);
     const destExists = await this.exists(dest);
     const destIsDir = destExists && (await this.isDirectory(dest));
 
@@ -88,7 +63,7 @@ export class MvCommand extends UnixCommandBase {
     }
 
     for (const source of sources) {
-      const normalizedSource = this.normalizePath(source);
+      const normalizedSource = source;
 
       const sourceExists = await this.exists(normalizedSource);
       if (!sourceExists) {
@@ -96,13 +71,12 @@ export class MvCommand extends UnixCommandBase {
       }
 
       const sourceIsDir = await this.isDirectory(normalizedSource);
-      const sourceName = normalizedSource.split('/').pop() || '';
+      const sourceName = posixPath.basename(normalizedSource);
 
       // 最終的な移動先パス
       let finalDest = dest;
       if (destIsDir) {
-        finalDest = `${dest}/${sourceName}`;
-        finalDest = this.normalizePath(finalDest);
+        finalDest = posixPath.join(dest, sourceName);
       }
 
       // 自分自身への移動をチェック
@@ -111,6 +85,9 @@ export class MvCommand extends UnixCommandBase {
           results.push(`'${normalizedSource}' and '${finalDest}' are the same file`);
         }
         continue;
+      }
+      if (sourceIsDir && isPathWithin(finalDest, normalizedSource)) {
+        throw new Error(`mv: cannot move a directory '${source}' into itself '${finalDest}'`);
       }
 
       // 上書きチェック
@@ -147,77 +124,13 @@ export class MvCommand extends UnixCommandBase {
    * ファイルまたはディレクトリを移動
    */
   private async moveFileOrDir(source: string, dest: string, isDir: boolean): Promise<void> {
-    const sourceRelative = this.getRelativePathFromProject(source);
-    const destRelative = this.getRelativePathFromProject(dest);
-    const sourceFile = await this.cachedGetFile(sourceRelative);
+    const sourceFile = await this.getFile(source);
 
     if (!sourceFile) {
       throw new Error('Source file not found in database');
     }
 
-    if (isDir) {
-      // ディレクトリの場合、中身も移動
-      const prefix = sourceRelative === '/' ? '' : `${sourceRelative}/`;
-      const childFiles = await this.cachedGetFilesByPrefix(prefix);
-
-      // 新しい場所にディレクトリを作成
-      await fileRepository.createFile(this.projectId, destRelative, '', 'folder');
-
-      // 子ファイルを移動
-      for (const child of childFiles) {
-        const newChildPath = child.path.replace(sourceRelative, destRelative);
-        await fileRepository.createFile(
-          this.projectId,
-          newChildPath,
-          child.content || '',
-          child.type,
-          child.isBufferArray,
-          child.bufferContent
-        );
-        await fileRepository.deleteFile(child.id);
-      }
-
-      // 元のディレクトリを削除
-      await fileRepository.deleteFile(sourceFile.id);
-
-      // キャッシュを無効化
-      try {
-        const srcPrefix = sourceRelative === '/' ? '/' : sourceRelative;
-        const dstPrefix = destRelative === '/' ? '/' : destRelative;
-        this.invalidatePrefix(srcPrefix);
-        this.invalidatePrefix(dstPrefix);
-        this.deleteCacheFile(sourceRelative);
-        this.deleteCacheFile(destRelative);
-      } catch (e) {
-        console.warn('[mv] cache invalidate error:', e);
-      }
-    } else {
-      // ファイルの場合
-      await fileRepository.createFile(
-        this.projectId,
-        destRelative,
-        sourceFile.content || '',
-        sourceFile.type,
-        sourceFile.isBufferArray,
-        sourceFile.bufferContent
-      );
-      await fileRepository.deleteFile(sourceFile.id);
-
-      // キャッシュを更新/削除
-      try {
-        this.deleteCacheFile(sourceRelative);
-        this.deleteCacheFile(destRelative);
-        const srcParent = sourceRelative.endsWith('/')
-          ? sourceRelative
-          : sourceRelative.replace(/\/[^/]*$/, '');
-        const dstParent = destRelative.endsWith('/')
-          ? destRelative
-          : destRelative.replace(/\/[^/]*$/, '');
-        this.invalidatePrefix(srcParent || '/');
-        this.invalidatePrefix(dstParent || '/');
-      } catch (e) {
-        console.warn('[mv] cache update error:', e);
-      }
-    }
+    if (isDir !== (sourceFile.type === 'folder')) throw new Error('Source type changed');
+    await fsClient.rename(source, dest);
   }
 }

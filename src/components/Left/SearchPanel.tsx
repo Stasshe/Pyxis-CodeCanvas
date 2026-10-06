@@ -1,41 +1,22 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronDown, ChevronRight, Edit3, File, FileText, Repeat, Search, X } from 'lucide-react';
+import { Edit3, File, Repeat, Search, X } from 'lucide-react';
+import type { KeyboardEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
-import { fileRepository } from '@/engine/core/fileRepository';
-import type { SearchWorkerApi } from '@/engine/workers/searchWorker';
-import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
+import { basename, fsClient, isPathWithin } from '@/engine/core/fs';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
-import ResultRow from './ResultRow';
+import SearchResults from './SearchPanel/SearchResults';
+import type { SearchFlatItem, SearchResult } from './SearchPanel/types';
 
 interface SearchPanelProps {
   files: FileItem[];
-  projectId: string;
-}
-
-interface SearchResult {
-  file: FileItem;
-  line: number;
-  column: number;
-  content: string;
-  matchStart: number;
-  matchEnd: number;
+  rootPath: string;
 }
 
 // シンプルなファイルペイロード型（Workerへ送信用）
-interface FilePayload {
-  id: string;
-  path: string;
-  name: string;
-  content: string | undefined;
-  isBufferArray: boolean | undefined;
-}
-
-// ファイル数閾値：この数以下ならリアルタイム検索
 const REALTIME_FILE_THRESHOLD = 50;
 
 // Module-level memoized ResultRow to avoid recreating component each render
@@ -52,7 +33,7 @@ export type ResultRowProps = {
   replaceQuery: string;
 };
 
-export default function SearchPanel({ files, projectId }: SearchPanelProps) {
+export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const { openTab } = tabActions;
@@ -67,7 +48,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [hoveredFileKey, setHoveredFileKey] = useState<string | null>(null);
   const [hoveredResultKey, setHoveredResultKey] = useState<string | null>(null);
-  const { isExcluded } = useSettings(projectId);
+  const { settings, isExcluded } = useSettings(rootPath);
 
   // 1文字から検索可能に
   const minQueryLength = 1;
@@ -75,13 +56,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const workerPoolRef = useRef<WorkerPool<SearchWorkerApi> | null>(null);
   const searchIdRef = useRef(0);
-
-  // キャッシュ用ref
-  const cachedFilesRef = useRef<FilePayload[] | null>(null);
-  const lastFilesVersionRef = useRef<string>('');
-  const lastFilesSentVersionRef = useRef<string | null>(null);
   const lastSearchOptionsRef = useRef<string>('');
   const lastSearchQueryRef = useRef<string>('');
   const lastSearchResultsRef = useRef<SearchResult[]>([]);
@@ -95,7 +70,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     const traverse = (items: FileItem[]) => {
       for (const item of items) {
         if (item.type === 'file') {
-          if (!isExcluded(item.path)) {
+          if (!isExcluded(item.path.slice(rootPath.length).replace(/^\//, ''))) {
             result.push(item);
           }
         } else if (item.children) {
@@ -105,7 +80,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     };
     traverse(files);
     return result;
-  }, [files, isExcluded]);
+  }, [files, isExcluded, rootPath]);
 
   // ファイル数
   const fileCount = allFiles.length;
@@ -118,33 +93,48 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     return `${allFiles.length}:${allFiles.map(f => f.path).join(',')}`;
   }, [allFiles]);
 
+  // Root and query changes invalidate both cached and in-flight results immediately.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these values are change triggers
+  useEffect(() => {
+    searchIdRef.current += 1;
+    lastSearchQueryRef.current = '';
+    lastSearchResultsRef.current = [];
+    setSearchResults([]);
+    setIsSearching(false);
+  }, [rootPath, searchQuery]);
+
+  useEffect(() => {
+    const removeListener = fsClient.addChangeListener(event => {
+      const eventPathInRoot = isPathWithin(event.path, rootPath);
+      let oldPathInRoot = false;
+      if (event.oldPath) oldPathInRoot = isPathWithin(event.oldPath, rootPath);
+      if (!eventPathInRoot && !oldPathInRoot) return;
+
+      searchIdRef.current += 1;
+      lastSearchQueryRef.current = '';
+      lastSearchResultsRef.current = [];
+      setSearchResults([]);
+      setIsSearching(false);
+
+      if (searchTimer.current) {
+        window.clearTimeout(searchTimer.current);
+        searchTimer.current = null;
+      }
+
+      if (searchQuery && isRealtimeSearch) {
+        searchTimer.current = window.setTimeout(() => {
+          performSearchRef.current(searchQuery);
+        }, debounceDelay);
+      }
+    });
+
+    return removeListener;
+  }, [rootPath, searchQuery, isRealtimeSearch]);
+
   // 検索オプションキー
   const searchOptionsKey = useMemo(() => {
-    return `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}`;
-  }, [caseSensitive, wholeWord, useRegex, searchInFilenames]);
-
-  // ファイルペイロード - memoized
-  const filePayloads = useMemo((): FilePayload[] => {
-    // キャッシュが有効な場合は再利用
-    if (cachedFilesRef.current && lastFilesVersionRef.current === filesVersion) {
-      return cachedFilesRef.current;
-    }
-
-    // 新しいペイロードを構築
-    const payloads: FilePayload[] = allFiles.map(f => ({
-      id: f.id,
-      path: f.path,
-      name: f.name,
-      content: f.content,
-      isBufferArray: f.isBufferArray,
-    }));
-
-    // キャッシュを更新
-    cachedFilesRef.current = payloads;
-    lastFilesVersionRef.current = filesVersion;
-
-    return payloads;
-  }, [allFiles, filesVersion]);
+    return `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}:${settings?.search?.exclude.join(',') ?? ''}`;
+  }, [caseSensitive, wholeWord, useRegex, searchInFilenames, settings]);
 
   // 検索実行関数をrefで保持（useEffectの依存関係からステートを分離するため）
   // このパターンは最新のステート値を参照しつつ、useEffectの再実行を防ぐ
@@ -168,24 +158,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       return;
     }
 
-    if (!workerPoolRef.current) {
-      try {
-        workerPoolRef.current = createWorkerPool<SearchWorkerApi>({
-          createWorker: () =>
-            new Worker(new URL('../../engine/workers/searchWorker.ts', import.meta.url), {
-              type: 'module',
-            }),
-          maxWorkers: 1,
-          timeoutMs: 10000,
-        });
-      } catch (err) {
-        console.error('Failed to create search worker pool', err);
-        setIsSearching(false);
-        return;
-      }
-    }
-
-    const pool = workerPoolRef.current;
     setIsSearching(true);
     const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
 
@@ -195,23 +167,31 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
 
     void (async () => {
       try {
-        // send files only if the file list/version changed to avoid expensive structured-clone copies on each search
-        if (lastFilesSentVersionRef.current !== filesVersion) {
-          await pool.call(worker => worker.updateFiles(filePayloads));
-          lastFilesSentVersionRef.current = filesVersion;
-        }
-
-        const results = await pool.call(worker =>
-          worker.search({
-            query,
-            options: { caseSensitive, wholeWord, useRegex, searchInFilenames },
-          })
-        );
+        const results = await fsClient.search(rootPath, {
+          query,
+          options: {
+            caseSensitive,
+            wholeWord,
+            useRegex,
+            searchInFilenames,
+            excludeGlobs: settings?.search?.exclude ?? [],
+          },
+        });
 
         if (sid !== searchIdRef.current) return;
-        setSearchResults(results);
+        const fileResults: SearchResult[] = results.map(result => ({
+          ...result,
+          file: {
+            id: result.file.path,
+            name: basename(result.file.path),
+            path: result.file.path,
+            type: result.file.type,
+            content: '',
+          },
+        }));
+        setSearchResults(fileResults);
         setIsSearching(false);
-        lastSearchResultsRef.current = results;
+        lastSearchResultsRef.current = fileResults;
       } catch (err) {
         if (sid !== searchIdRef.current) return;
         console.error('Search worker failed', err);
@@ -221,6 +201,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   };
 
   // 検索クエリ変更時の処理
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rootPath changes must rerun this search
   useEffect(() => {
     // タイマーをクリア
     if (searchTimer.current) {
@@ -249,7 +230,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         searchTimer.current = null;
       }
     };
-  }, [searchQuery, isRealtimeSearch]);
+  }, [rootPath, searchQuery, isRealtimeSearch]);
 
   // 検索オプション変更時にリアルタイム検索を再実行
   // biome-ignore lint/correctness/useExhaustiveDependencies: caseSensitive/wholeWord/useRegex/searchInFilenames/minQueryLength are trigger deps used via performSearchRef
@@ -264,18 +245,11 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     wholeWord,
     useRegex,
     searchInFilenames,
+    settings,
     isRealtimeSearch,
     searchQuery,
     minQueryLength,
   ]);
-
-  // Workerのクリーンアップ
-  useEffect(() => {
-    return () => {
-      workerPoolRef.current?.terminate();
-      workerPoolRef.current = null;
-    };
-  }, []);
 
   // ファイルが変更された場合、キャッシュをクリア
   // biome-ignore lint/correctness/useExhaustiveDependencies: filesVersion is a trigger dep — clear cache when file tree changes
@@ -315,62 +289,47 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   }, [flatResults.length]);
 
-  const handleResultClick = useCallback(
-    async (result: SearchResult) => {
-      try {
-        const projId = projectId;
-        const fileEntry = await fileRepository.getFileByPath(projId, result.file.path);
-
-        let isCodeMirror = false;
-        if (typeof window !== 'undefined') {
-          const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
-          isCodeMirror = defaultEditor === 'codemirror';
-        }
-
-        const fileWithJump = {
-          ...(fileEntry || result.file),
-          isCodeMirror,
-          isBufferArray: fileEntry ? fileEntry.isBufferArray : result.file.isBufferArray,
-          bufferContent: fileEntry
-            ? (fileEntry as any).bufferContent
-            : (result.file as any).bufferContent,
-        };
-
-        const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
-        await openTab(fileWithJump, {
-          kind,
-          jumpToLine: result.line,
-          jumpToColumn: result.column,
-        });
-      } catch (err) {
-        console.error('Failed to open file from search result', err);
+  const handleResultClick = useCallback(async (result: SearchResult) => {
+    try {
+      let isCodeMirror = false;
+      if (typeof window !== 'undefined') {
+        const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
+        isCodeMirror = defaultEditor === 'codemirror';
       }
-    },
-    [projectId]
-  );
+
+      const fileWithJump = {
+        ...result.file,
+        isCodeMirror,
+      };
+
+      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
+      await openTab(fileWithJump, {
+        kind,
+        jumpToLine: result.line,
+        jumpToColumn: result.column,
+      });
+    } catch (err) {
+      console.error('Failed to open file from search result', err);
+    }
+  }, []);
 
   const handleReplaceResult = useCallback(
     async (result: SearchResult, replacement: string) => {
       try {
-        const projId = projectId;
         const filePath = result.file.path;
 
         if (result.line === 0) {
           console.info('Skipping filename replace from SearchPanel');
           return;
         }
-        const fileEntry = await fileRepository.getFileByPath(projId, filePath);
-        if (!fileEntry || typeof fileEntry.content !== 'string')
-          throw new Error('file not found or not text');
-        const lines = fileEntry.content.split('\n');
+        const lines = (await fsClient.readText(filePath)).split('\n');
         const lineIdx = result.line - 1;
         const line = lines[lineIdx] || '';
         const before = line.substring(0, result.matchStart);
         const after = line.substring(result.matchEnd);
         lines[lineIdx] = before + replacement + after;
         const updatedContent = lines.join('\n');
-        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-        await fileRepository.saveFile(updated);
+        await fsClient.writeFile(filePath, updatedContent);
 
         // キャッシュをクリアして再検索
         lastSearchResultsRef.current = [];
@@ -379,20 +338,17 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         console.error('Replace error', e);
       }
     },
-    [projectId, searchQuery]
+    [searchQuery]
   );
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
     try {
-      const projId = projectId;
-      const fileEntry = await fileRepository.getFileByPath(projId, file.path);
-      if (!fileEntry || typeof fileEntry.content !== 'string') return;
+      const content = await fsClient.readText(file.path);
       const flags = caseSensitive ? 'g' : 'gi';
       const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
-      const updatedContent = fileEntry.content.replace(regex, replacement);
-      const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-      await fileRepository.saveFile(updated);
+      const updatedContent = content.replace(regex, replacement);
+      await fsClient.writeFile(file.path, updatedContent);
 
       // キャッシュをクリアして再検索
       lastSearchResultsRef.current = [];
@@ -412,11 +368,9 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
       for (const r of searchResults) {
         const filePath = r.file.path;
         if (filesUpdated.has(filePath)) continue;
-        const fileEntry = await fileRepository.getFileByPath(projectId, filePath);
-        if (!fileEntry || typeof fileEntry.content !== 'string') continue;
-        const updatedContent = fileEntry.content.replace(regex, replacement);
-        const updated: any = { ...fileEntry, content: updatedContent, updatedAt: new Date() };
-        await fileRepository.saveFile(updated);
+        const content = await fsClient.readText(filePath);
+        const updatedContent = content.replace(regex, replacement);
+        await fsClient.writeFile(filePath, updatedContent);
         filesUpdated.add(filePath);
       }
 
@@ -452,7 +406,7 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
   };
 
-  const handleKeyDown = (e: any) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (flatResults.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -483,24 +437,8 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
   };
 
   // Flat list for virtualizer: header rows + result rows (collapsed groups omit results)
-  type FlatItem =
-    | {
-        type: 'header';
-        groupKey: string;
-        first: SearchResult;
-        resultCount: number;
-        isCollapsed: boolean;
-      }
-    | {
-        type: 'result';
-        groupKey: string;
-        result: SearchResult;
-        globalIndex: number;
-        idxInGroup: number;
-      };
-
-  const flatItems = useMemo((): FlatItem[] => {
-    const items: FlatItem[] = [];
+  const flatItems = useMemo((): SearchFlatItem[] => {
+    const items: SearchFlatItem[] = [];
     for (const group of groupedResults) {
       const key = group.first.file.id || group.first.file.path;
       const isCollapsed = !!collapsedFiles[key];
@@ -520,15 +458,6 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
     }
     return items;
   }, [groupedResults, collapsedFiles]);
-
-  const resultsScrollRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: flatItems.length,
-    getScrollElement: () => resultsScrollRef.current,
-    estimateSize: i => (flatItems[i]?.type === 'header' ? 28 : 22),
-    overscan: 15,
-  });
 
   // 検索モードの表示用テキスト
   const searchModeText = isRealtimeSearch
@@ -741,176 +670,23 @@ export default function SearchPanel({ files, projectId }: SearchPanelProps) {
         </div>
       </div>
 
-      {/* 検索結果 */}
-      <div ref={resultsScrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {searchQuery && !isSearching && searchResults.length === 0 && (
-          <div style={{ padding: '0.5rem', textAlign: 'center', color: colors.mutedFg }}>
-            <Search
-              size={24}
-              style={{
-                display: 'block',
-                margin: '0 auto 0.5rem',
-                opacity: 0.5,
-                color: colors.mutedFg,
-              }}
-            />
-            <p style={{ fontSize: '0.75rem' }}>{t('searchPanel.noResults')}</p>
-          </div>
-        )}
-
-        {flatItems.length > 0 && (
-          <div
-            style={{ height: virtualizer.getTotalSize(), position: 'relative', padding: '0.14rem' }}
-          >
-            {virtualizer.getVirtualItems().map(vItem => {
-              const item = flatItems[vItem.index];
-              if (!item) return null;
-
-              if (item.type === 'header') {
-                const { groupKey, first, resultCount, isCollapsed } = item;
-                return (
-                  <div
-                    key={vItem.key}
-                    data-index={vItem.index}
-                    ref={virtualizer.measureElement}
-                    style={{
-                      position: 'absolute',
-                      top: vItem.start,
-                      left: 0,
-                      right: 0,
-                      padding: '0.18rem 0.28rem',
-                      borderBottom: `1px solid ${colors.border}`,
-                      minWidth: 0,
-                    }}
-                  >
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => toggleFileCollapse(groupKey)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          toggleFileCollapse(groupKey);
-                        }
-                      }}
-                      onMouseEnter={() => setHoveredFileKey(groupKey)}
-                      onMouseLeave={() => setHoveredFileKey(null)}
-                      onFocus={() => setHoveredFileKey(groupKey)}
-                      onBlur={() => setHoveredFileKey(null)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.22rem',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        minWidth: 0,
-                      }}
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight size={14} color={colors.mutedFg} />
-                      ) : (
-                        <ChevronDown size={14} color={colors.mutedFg} />
-                      )}
-                      <FileText size={12} color={colors.primary} style={{ flexShrink: 0 }} />
-                      <span
-                        style={{
-                          color: colors.foreground,
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxWidth: '40%',
-                          minWidth: 0,
-                        }}
-                      >
-                        {first.file.name}
-                      </span>
-                      <span
-                        style={{ color: colors.mutedFg, marginLeft: '0.3rem', fontSize: '0.6rem' }}
-                      >
-                        {resultCount} hits
-                      </span>
-                      <span
-                        style={{
-                          marginLeft: '0.5rem',
-                          color: colors.mutedFg,
-                          fontSize: '0.62rem',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxWidth: '35%',
-                          minWidth: 0,
-                        }}
-                      >
-                        {first.file.path}
-                      </span>
-                      {(hoveredFileKey === groupKey ||
-                        flatResults[selectedIndex]?.file.id === first.file.id) && (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleReplaceAllInFile(first.file, replaceQuery);
-                          }}
-                          title="Replace all in file"
-                          style={{
-                            marginLeft: 'auto',
-                            padding: '0.12rem 0.3rem',
-                            borderRadius: '0.28rem',
-                            border: `1px solid ${colors.border}`,
-                            background: colors.mutedBg,
-                            color: colors.mutedFg,
-                            fontSize: '0.6rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                          }}
-                        >
-                          <Repeat size={12} />
-                          All
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-
-              // type === 'result'
-              const { result, globalIndex, idxInGroup } = item;
-              const isSelected = globalIndex === selectedIndex;
-              const resultKey = `${result.file.id}-${result.line}-${idxInGroup}`;
-              const isHovered = hoveredResultKey === resultKey;
-              return (
-                <div
-                  key={vItem.key}
-                  data-index={vItem.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: vItem.start,
-                    left: 0,
-                    right: 0,
-                    paddingLeft: '1.6rem',
-                  }}
-                >
-                  <ResultRow
-                    result={result}
-                    globalIndex={globalIndex}
-                    isSelected={isSelected}
-                    resultKey={resultKey}
-                    colors={colors}
-                    isHovered={isHovered}
-                    onHoverChange={setHoveredResultKey}
-                    onClick={handleRowClick}
-                    onReplace={handleReplaceResult}
-                    replaceQuery={replaceQuery}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <SearchResults
+        searchQuery={searchQuery}
+        isSearching={isSearching}
+        searchResults={searchResults}
+        flatItems={flatItems}
+        flatResults={flatResults}
+        selectedIndex={selectedIndex}
+        replaceQuery={replaceQuery}
+        hoveredFileKey={hoveredFileKey}
+        hoveredResultKey={hoveredResultKey}
+        onToggleFile={toggleFileCollapse}
+        onHoverFile={setHoveredFileKey}
+        onHoverResult={setHoveredResultKey}
+        onResultClick={handleRowClick}
+        onReplaceResult={handleReplaceResult}
+        onReplaceAllInFile={handleReplaceAllInFile}
+      />
     </div>
   );
 }

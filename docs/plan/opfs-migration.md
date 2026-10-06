@@ -18,7 +18,7 @@ graph LR
     Search[Search]
   end
   RT[Runtime Worker]
-  TP[Transpile Worker Pool]
+  TP[One lazy Transpile Worker]
   SW[Service Worker]
   UI --> Client
   Cmd --> Client
@@ -29,21 +29,22 @@ graph LR
   FSCore --> OPFS[OPFS root]
   FSCore -->|change events| Client
   Client --> Meta[IDB metadata]
+  RT -->|async fs and transpile| FSCore
   RT -->|sync XHR| SW
-  SW -->|MessagePort fs and transpile| FSCore
-  SW -->|shell and stdin only| Client
-  Client --> TP
+  SW -->|sync RPC over retained MessagePort| FSCore
+  SW -->|shell and stdin host calls| Client
+  FSCore --> TP
 ```
 
-file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（shellやunixコマンドのparse）・Worker間の中継だけを担う。
+file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（shellやunixコマンドのparse）・shell/stdin host callsを担う。
 
 | 実行場所 | 担当 |
 |---|---|
-| main | React UI、xterm、エディタ、shell・unixコマンドのparse、FS Client、同期RPCの中継 |
+| main | React UI、xterm、エディタ、shell・unixコマンドのparse、FS Client、shell/stdin host calls |
 | FS Worker | OPFSの唯一の所有者。git・npm installの書き込み・検索もここで動かす（大量のfs呼び出しにmessageの往復を挟まないため） |
 | Runtime Worker | Node runtime。同期XHRで止まるので、FS Workerとは必ず別にする（同じWorkerだと自分自身を待ってdeadlockする） |
-| Transpile Worker Pool | 既存のWorkerPool。1 Workerに固定し、使われなければ破棄する（メモリ予算を参照） |
-| Service Worker | 同期XHRを捕まえてmainへ中継する |
+| Transpile Worker | FS Worker内のlazy pool。1 Workerに固定し、30秒間未使用なら破棄する |
+| Service Worker | 同期XHRを受け、保持しているFS WorkerのMessagePortへ直接中継する。portを失ったらmainへ再送を要求する |
 
 - SyncAccessHandleは「開く→操作→閉じる」で使い、開きっぱなしにしない
 - FS Client: API・変更eventの購読口・metadataへのアクセスを提供する。現行の`fileRepository`を置き換える
@@ -52,10 +53,13 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 ## Pathモデル
 
-- 絶対path1形式。AppPath / FSPath(`/projects/<name>`) / GitPathとその変換（`pathUtils`の大半）を廃止
+- 絶対path 1形式。AppPath / FSPath(`/projects/<name>`) / GitPathとその変換を廃止し、Node POSIX互換の字句path APIを共有する
+- `normalizePath`は絶対pathを正規化し、`resolvePath(cwd, ...parts)`は明示cwdから相対pathを解決する。FS/runtimeではcwdを暗黙にしない
+- path APIはpath文字列の字句処理のみを担当する。`~`・glob・quote・変数展開はshell parserの責務とし、shell入力を一度展開してからFS APIへ渡す。Nodeの`fs` pathへshell展開を持ち込まない
 - workspace root = 開いたfolder。`projectStore`は「project ID・名前」ではなく「root path」を持つ
 - file tree = root配下だけ。terminal・runtimeは`/`全体にアクセスできる
-- 予約path: `/tmp`（MemoryMount、揮発）、`/cache`（runtime cache。OPFS上のdirectoryにする）
+- Linux型の配置。`HOME=/home/pyxis`（単一userなので固定名）。workspaceは`~/<name>`、runtime cacheは`~/.cache/pyxis`（XDG）、npm cacheは`~/.npm`、`/tmp`はFS Worker内の揮発領域
+- shellの`~`、`process.env.HOME`、`os.homedir()`は同じHOMEを指す
 
 ## Storage配置
 
@@ -65,7 +69,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 | projects store | recent folders（key = root path） |
 | `pyxis-global`の tab_state / chat_spaces / ai_reviews | keyをprojectIdからroot pathに変更 |
 | `ProjectFile`のAIレビュー関連field | ai_reviewsへ統合し、file entryから外す |
-| `PyxisProjects.runtimeCache` | OPFSの`/cache` |
+| runtime cache | OPFSの`~/.cache/pyxis` |
 | `pyxis-fs`(lightning-fs) | 削除 |
 | `PyxisAuth`、translations / keybindings / user_preferences / extensions | 変更なし |
 
@@ -79,7 +83,8 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 ## UI
 
-- project選択をOpen Folder + recent一覧に置き換える。project作成 = mkdir + open
+- project選択をOpen Folder + recent一覧に置き換え、OperationWindowに統合する（専用UIを別に作らない）。新規workspace = `~/<name>`をmkdirしてopen（空）
+- `initial_files/`は`~/demo`に置く（`~/demo`が無いときだけ投入）
 - WebPreviewTab: `getProjects()`・`/projects/<name>`接頭辞の除去・`projectId`によるevent絞り込みをやめ、絶対pathで扱う
 - Markdownの`LocalImage`: `projectName` / `projectId`を渡す代わりに絶対pathを渡す
 
@@ -91,9 +96,8 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 ## 旧データ移行（時限・2027-04目安で削除）
 
 - 起動時に1回だけ実行。完了flagをIDBに保存する
-- 旧project `<name>`は`/<name>`へコピー。worktreeはPyxisProjects.filesから、**`.git`はlightning-fs `pyxis-fs`の`/projects/<name>/.git`から**（gitの履歴はlightning-fsにしかない）
-- chat・tab・ai_reviewsのkeyをprojectIdから`/<name>`に書き換える
-- 予約名（`tmp` / `cache`）と衝突するprojectにはsuffixを付けて移す
+- 旧project `<name>`は`/home/pyxis/<name>`へコピーし、予約suffixは付けない。割当済みproject-to-root mappingをstateへ先に保存し、retryでも同じdestinationを使う。未割当projectの実destinationが存在したら、projectへの書き込み前に停止してlegacy dataを残す。worktreeはPyxisProjects.filesから、**`.git`はlightning-fs `pyxis-fs`の`/projects/<name>/.git`から**（gitの履歴はlightning-fsにしかない）
+- chat・tab・ai_reviewsのkeyをprojectIdから`~/<name>`の絶対pathに書き換える
 - 旧DBの削除は、コピー後にfile数と内容の検証が通ってから。移行中は同一originのquotaを一時的に約2倍使う
 - 失敗したらUIとlogに表示し、旧DBは残す
 - 移行codeは1つのfolderにまとめ、本体から参照する箇所は1つだけにする
@@ -110,8 +114,8 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 ### fsの経路
 - 非同期（`fs.promises`等）: Runtime WorkerとFS Workerを`MessageChannel`で直接つなぎ、mainを通さない
 - 同期fs: 同期XHR → SW → FS Worker。mainを経由しない（main busy時にRuntimeが止まらないため）。`sync-message`を使う
-  - SWはFS Workerへの`MessagePort`を保持する。mainが起動時にportを渡し、SWが再起動で失ったらmainへ再送を要求する
-  - mainを経由するのはshell（`execSync`）とstdinだけ
+  - SWはFS Workerへの`MessagePort`を保持する。mainが初期化時にportを渡し、SWが再起動で失ったらmainへ再送を要求する
+  - mainを経由するのはshell（`child_process`）とstdinだけ
 - 複数tabは非対応（単一tab前提）。2つ目のtabはWeb Locksの取得に失敗したらエラー表示して止める
 - どちらもFS Workerだけが実際に書き込むので、内容の食い違いは起きない
 - SW未制御（Shift+reloadなど）を起動時に検出し、通常reloadを促すエラーを表示する
@@ -132,14 +136,14 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 ## メモリ予算
 
-page全体（main + 全Worker）を**400MB以内**に抑える（現状は約300MB）。ユーザーのprogram自身が使うメモリは予算に含めない。並列化で速度を買う設計にはしない。
+page全体（main + 全Worker）を**400 MB以内**に抑える目標。実行中program自身が使うメモリは予算に含めない。Safari実機を含む実測は未完了で、Development/TODO.mdに残す。
 
 - 減る: 実行のたびに行っていた全fileのpreload（node_modulesを含む）、ProjectMountのfile Map、lightning-fs
 - 増える: FS Workerの常駐分、実行中のRuntime Worker
-- Transpile Worker Pool: 現在は最大4 Worker（`WorkerPool.ts:146`）で、各Workerがesbuild-wasm（wasm本体14MB）を個別に読み込んでいる。**1 Workerに固定し、一定時間使われなければ破棄する**
+- Transpile Worker Pool: **FS Worker内で1 Workerに固定し、30秒間未使用なら破棄する**。JS module変換と拡張機能が登録したTypeScript変換を同じpoolで実行する
 - Runtime Worker: 実行中の分だけ存在させ、事前起動はしない
-- 計測: `performance.measureUserAgentSpecificMemory()`はcross-origin isolationが必須なので使えない。Chromeのタスクマネージャー（Workerごとの内訳が見られる）とDevToolsのMemoryタブで、移行の前後を比較する
-- ユーザーのprogramがメモリを使い切るのは許容する（browserのAPIで制限する手段もない）。Ctrl+Cでterminateすれば解放される
+- 計測: `performance.measureUserAgentSpecificMemory()`はcross-origin isolationが必須なので使えない。ブラウザのタスクマネージャーとDevToolsのMemoryタブで計測する
+- 実行中programがメモリを使い切るのは許容する（browserのAPIで制限する手段もない）。Ctrl+Cでterminateすれば実行Workerを終了できる
 
 ## 先行検証（Safari実機）
 

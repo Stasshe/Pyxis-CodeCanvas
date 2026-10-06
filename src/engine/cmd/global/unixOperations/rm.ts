@@ -1,4 +1,5 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { FSError, fsClient } from '@/engine/core/fs';
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -15,7 +16,7 @@ import { UnixCommandBase } from './base';
  *   -v, --verbose        詳細な情報を表示
  *
  * 動作:
- *   - ワイルドカード対応（*, ?）
+ *   - Paths are expanded by the shell before this command runs.
  *   - 再帰的削除対応
  *   - エラーが発生しても他のファイルの削除を継続
  *   - デフォルトで削除結果を表示（-v なしでも）
@@ -44,63 +45,22 @@ export class RmCommand extends UnixCommandBase {
     const deletedPaths: string[] = [];
     const errors: string[] = [];
 
-    // ワイルドカード展開
-    // シェル経由なら既に展開済み（ワイルドカードがないので即座にリターン）
-    // 直接API呼び出しなら内部で展開
-    const targetsToDelete: Array<{ path: string; file: any }> = [];
+    const targetsToDelete: Array<{ path: string; file: ProjectFile }> = [];
 
     for (const arg of positional) {
-      try {
-        const expanded = await this.expandPathPattern(arg);
-
-        if (expanded.length === 0) {
-          if (!force) {
-            errors.push(`rm: cannot remove '${arg}': No such file or directory`);
-          }
-          continue;
-        }
-
-        // 展開された各パスを処理
-        for (const expandedPath of expanded) {
-          const normalizedPath = this.normalizePath(expandedPath);
-          const relativePath = this.getRelativePathFromProject(normalizedPath);
-
-          try {
-            const file = await this.cachedGetFile(relativePath);
-
-            if (!file) {
-              // ファイルが見つからない場合
-              if (!force) {
-                errors.push(`rm: cannot remove '${expandedPath}': No such file or directory`);
-              }
-              continue;
-            }
-
-            const isDir = file.type === 'folder';
-
-            // ディレクトリだが -r なしの場合
-            if (isDir && !recursive) {
-              errors.push(`rm: cannot remove '${expandedPath}': Is a directory`);
-              continue;
-            }
-
-            // 削除対象としてリストに追加
-            targetsToDelete.push({
-              path: normalizedPath,
-              file: file,
-            });
-          } catch (error) {
-            if (!force) {
-              errors.push(`rm: cannot remove '${expandedPath}': ${(error as Error).message}`);
-            }
-          }
-        }
-      } catch (error) {
-        // ワイルドカード展開エラー
-        if (!force) {
-          errors.push(`rm: ${(error as Error).message}`);
-        }
+      const path = this.resolvePath(arg);
+      const file = await this.getFile(path);
+      if (!file) {
+        if (!force) errors.push(`rm: cannot remove '${arg}': No such file or directory`);
+        continue;
       }
+
+      const isDir = file.type === 'folder';
+      if (isDir && !recursive) {
+        errors.push(`rm: cannot remove '${arg}': Is a directory`);
+        continue;
+      }
+      targetsToDelete.push({ path, file });
     }
 
     // 削除対象がない場合は早期リターン
@@ -126,8 +86,8 @@ export class RmCommand extends UnixCommandBase {
       try {
         const isDir = target.file.type === 'folder';
 
-        // 削除実行（fileRepository.deleteFile は自動的に子ファイルも削除）
-        await fileRepository.deleteFile(target.file.id);
+        // Remove folders recursively through the FS client.
+        await fsClient.rm(target.path, { recursive: isDir, force: force });
 
         // 削除成功を記録
         if (verbose) {
@@ -139,8 +99,7 @@ export class RmCommand extends UnixCommandBase {
           deletedPaths.push(target.path);
         }
       } catch (error) {
-        // 削除失敗
-        if (!force) {
+        if (!force || !(error instanceof FSError && error.code === 'ENOENT')) {
           errors.push(`rm: cannot remove '${target.path}': ${(error as Error).message}`);
         }
       }

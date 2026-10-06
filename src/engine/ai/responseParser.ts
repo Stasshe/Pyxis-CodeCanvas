@@ -6,6 +6,7 @@
  * 2. Legacy full-file replacement format (fallback)
  */
 
+import { posixPath, resolvePath } from '@/engine/core/pathUtils';
 import { applyPatchBlock, type PatchBlock, type SearchReplaceBlock } from './patchApplier';
 
 export interface ParsedFile {
@@ -25,48 +26,38 @@ export interface ParseResult {
 }
 
 /**
- * Normalize path for case-insensitive comparison
- */
-export function normalizePath(path: string): string {
-  return path.replace(/^\/|\/$/g, '').toLowerCase();
-}
-
-/**
  * Extract file paths from response (supports both formats)
  */
-export function extractFilePathsFromResponse(response: string): string[] {
+export function extractFilePathsFromResponse(response: string, rootPath: string): string[] {
   const foundPaths: string[] = [];
   const seen = new Set<string>();
+  const addPath = (candidate: string): void => {
+    const path = resolvePath(rootPath, candidate);
+    if (seen.has(path)) return;
+    foundPaths.push(path);
+    seen.add(path);
+  };
 
   // Pattern 1: ### File: [path]
   const fileHeaderPattern = /###\s*File:\s*(.+?)(?:\n|$)/g;
   let match: RegExpExecArray | null;
   while ((match = fileHeaderPattern.exec(response)) !== null) {
     const filePath = match[1].trim();
-    if (filePath && !seen.has(filePath)) {
-      foundPaths.push(filePath);
-      seen.add(filePath);
-    }
+    if (filePath) addPath(filePath);
   }
 
   // Pattern 2: Legacy format <AI_EDIT_CONTENT_START:path>
   const legacyPattern = /<AI_EDIT_CONTENT_START:(.+?)>/g;
   while ((match = legacyPattern.exec(response)) !== null) {
     const filePath = match[1].trim();
-    if (filePath && !seen.has(filePath)) {
-      foundPaths.push(filePath);
-      seen.add(filePath);
-    }
+    if (filePath) addPath(filePath);
   }
 
   // Pattern 3: ## Changed File: [path]
   const changedFilePattern = /##\s*(?:Changed\s+)?File:\s*(.+?)(?:\n|$)/g;
   while ((match = changedFilePattern.exec(response)) !== null) {
     const filePath = match[1].trim();
-    if (filePath && !seen.has(filePath)) {
-      foundPaths.push(filePath);
-      seen.add(filePath);
-    }
+    if (filePath) addPath(filePath);
   }
 
   return foundPaths;
@@ -229,7 +220,7 @@ export function extractFileBlocks(response: string): Array<{ path: string; conte
     while ((looseMatch = loosePattern.exec(response)) !== null) {
       const startPath = looseMatch[1].trim();
       const endPath = looseMatch[3].trim();
-      if (normalizePath(startPath) === normalizePath(endPath)) {
+      if (posixPath.normalize(startPath) === posixPath.normalize(endPath)) {
         blocks.push({
           path: startPath,
           content: looseMatch[2].trim(),
@@ -399,26 +390,31 @@ function usesPatchFormat(response: string): boolean {
  */
 export function parseEditResponse(
   response: string,
-  originalFiles: Array<{ path: string; content: string }>
+  originalFiles: Array<{ path: string; content: string }>,
+  rootPath: string
 ): ParseResult {
   const changedFiles: ParsedFile[] = [];
   const usedPatchFormat = usesPatchFormat(response);
 
   // Create normalized path map
-  const normalizedOriginalFiles = new Map(originalFiles.map(f => [normalizePath(f.path), f]));
+  const normalizedOriginalFiles = new Map<string, { path: string; content: string }>();
+  for (const file of originalFiles) {
+    const path = resolvePath(rootPath, file.path);
+    normalizedOriginalFiles.set(path, { ...file, path });
+  }
 
   if (usedPatchFormat) {
     // Parse new SEARCH/REPLACE format
     const fileSections = extractFilePatchSections(response);
 
     fileSections.forEach((section, filePath) => {
-      const normalizedPath = normalizePath(filePath);
+      const normalizedPath = resolvePath(rootPath, filePath);
       const originalFile = normalizedOriginalFiles.get(normalizedPath);
 
       if (section.isNewFile && section.fullContent !== undefined) {
         // New file creation
         changedFiles.push({
-          path: filePath,
+          path: normalizedPath,
           originalContent: '',
           suggestedContent: section.fullContent,
           explanation: section.explanation || 'New file',
@@ -450,7 +446,7 @@ export function parseEditResponse(
     const reasonMap = extractReasons(response);
 
     for (const block of fileBlocks) {
-      const normalizedPath = normalizePath(block.path);
+      const normalizedPath = resolvePath(rootPath, block.path);
       const originalFile = normalizedOriginalFiles.get(normalizedPath);
 
       if (originalFile) {
@@ -459,7 +455,7 @@ export function parseEditResponse(
         // Search by normalized path if not found
         if (!explanation) {
           reasonMap.forEach((value, key) => {
-            if (normalizePath(key) === normalizedPath && !explanation) {
+            if (resolvePath(rootPath, key) === normalizedPath && !explanation) {
               explanation = value;
             }
           });
@@ -475,7 +471,7 @@ export function parseEditResponse(
         // New file in legacy format
         const explanation = reasonMap.get(block.path) || 'New file';
         changedFiles.push({
-          path: block.path,
+          path: normalizedPath,
           originalContent: '',
           suggestedContent: block.content,
           explanation,

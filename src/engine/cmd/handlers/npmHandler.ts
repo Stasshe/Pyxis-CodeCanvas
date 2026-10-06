@@ -1,10 +1,14 @@
+import { UnixCommands } from '@/engine/cmd/global/unix';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs/client';
+import type { RuntimeExecutionOptions } from '@/engine/runtime/core/RuntimeProvider';
+import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
+import { getCurrentRootPath } from '@/stores/projectStore';
+import { terminalProcessBridge } from '../terminalProcessBridge';
 
 export async function handleNPMCommand(
   args: string[],
-  projectName: string,
-  projectId: string,
+  rootPath: string,
   writeOutput: (output: string) => Promise<void>,
   setLoading?: (isLoading: boolean) => void
 ) {
@@ -13,7 +17,7 @@ export async function handleNPMCommand(
     return;
   }
 
-  const npm = await terminalCommandRegistry.getNpmCommands(projectName, projectId);
+  const npm = await terminalCommandRegistry.getNpmCommands(rootPath);
   if (setLoading) {
     npm.setLoadingHandler(setLoading);
   }
@@ -81,9 +85,9 @@ export default handleNPMCommand;
 
 export async function handleNPXCommand(
   args: string[],
-  projectName: string,
-  projectId: string,
-  writeOutput: (output: string) => Promise<void>
+  writeOutput: (output: string) => Promise<void>,
+  subscribeInterrupt?: RuntimeExecutionOptions['subscribeInterrupt'],
+  signal?: AbortSignal
 ): Promise<number> {
   // npx <bin> [args...]
   if (!args[0]) {
@@ -94,25 +98,23 @@ export async function handleNPXCommand(
   const binary = args[0];
   const binArgs = args.slice(1);
 
-  // Resolve using UnixCommands to access project FS
-  const unix = terminalCommandRegistry.getUnixCommands(projectName, projectId);
   try {
+    const rootPath = getCurrentRootPath();
+    if (!rootPath) throw new Error('No workspace folder is open.');
+    const unix = new UnixCommands(rootPath);
     const cwdFs = await unix.pwd();
     // Lazy import path utils and NodeRuntime to avoid cycles
-    const { fsPathToAppPath, resolvePath, toFSPath } = await import('@/engine/core/pathUtils');
-    const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
-    const cwdApp = fsPathToAppPath(cwdFs, projectName);
+    const { resolvePath } = await import('@/engine/core/pathUtils');
+    const cwdApp = cwdFs;
 
     const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${binary}/package.json`);
-    const directPackageJson = await fileRepository
-      .getFileByPath(projectId, directPackageJsonApp)
-      .catch(() => null);
+    const directPackageJson = await fsClient.readText(directPackageJsonApp).catch(() => null);
 
     let absFs: string | null = null;
 
-    if (directPackageJson?.content) {
+    if (directPackageJson) {
       try {
-        const pkg = JSON.parse(directPackageJson.content);
+        const pkg = JSON.parse(directPackageJson);
         const binField = typeof pkg.bin === 'string' ? { [pkg.name || binary]: pkg.bin } : pkg.bin;
         const selectedBin =
           (binField &&
@@ -121,10 +123,7 @@ export async function handleNPXCommand(
           null;
 
         if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
-          absFs = toFSPath(
-            projectName,
-            resolvePath(cwdApp, `node_modules/${binary}/${selectedBin.replace(/^\.\//, '')}`)
-          );
+          absFs = resolvePath(cwdApp, `node_modules/${binary}/${selectedBin.replace(/^\.\//, '')}`);
         }
       } catch (error: any) {
         await writeOutput(`npx: failed to resolve ${binary}: ${String(error?.message ?? error)}\n`);
@@ -135,9 +134,9 @@ export async function handleNPXCommand(
     // パッケージ名とバイナリ名が一致しない場合 (例: tsc → typescript) の fallback
     if (!absFs) {
       const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${binary}`);
-      const dotBinFile = await fileRepository.getFileByPath(projectId, dotBinApp).catch(() => null);
-      if (dotBinFile) {
-        absFs = toFSPath(projectName, dotBinApp);
+      const dotBinExists = await fsClient.exists(dotBinApp).catch(() => false);
+      if (dotBinExists) {
+        absFs = dotBinApp;
       }
     }
 
@@ -146,35 +145,34 @@ export async function handleNPXCommand(
       return 127;
     }
 
-    if (!absFs) {
+    const exists = await fsClient.exists(absFs).catch(() => false);
+    if (!exists) {
       await writeOutput(`${binary}: command not found`);
       return 127;
     }
 
-    const exists = await unix.cat([absFs]).catch(() => null);
-    if (exists === null) {
-      await writeOutput(`${binary}: command not found`);
-      return 127;
-    }
-
-    const fmt = (...a: unknown[]) => writeOutput(a.map(x => String(x)).join(' ') + '\n');
-    const runtime = new NodeRuntime({
-      projectId,
-      projectName,
-      filePath: absFs,
-      cwd: cwdFs,
-      debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
-      terminalColumns: 80,
-      terminalRows: 24,
-    });
-
+    const runtime = runtimeRegistry.getRuntime('nodejs');
+    if (!runtime) throw new Error('Node.js runtime provider is unavailable.');
+    const fmt = (...values: unknown[]) =>
+      writeOutput(values.map(value => String(value)).join(' ') + '\n');
+    terminalProcessBridge.activate();
     try {
-      await runtime.execute(absFs, binArgs);
-      await runtime.waitForEventLoop();
-      return runtime.getExitCode();
-    } catch (e: any) {
-      await writeOutput(String(e?.message ?? e) + '\n');
-      return 1;
+      const result = await runtime.execute({
+        rootPath,
+        filePath: absFs,
+        cwd: cwdFs,
+        argv: binArgs,
+        subscribeInterrupt,
+        signal,
+        debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
+        processStdin: terminalProcessBridge.stdin,
+        onStdout: output => writeOutput(output),
+        onStderr: output => writeOutput(output),
+      });
+      if (result.stderr) await writeOutput(result.stderr);
+      return result.exitCode ?? 0;
+    } finally {
+      terminalProcessBridge.deactivate();
     }
   } catch (e: any) {
     await writeOutput(String(e?.message ?? e) + '\n');

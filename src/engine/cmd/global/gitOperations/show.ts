@@ -1,12 +1,6 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
 
-/**
- * git show コマンドの実装
- * - <commit>:<file> でコミット時点のファイル内容を表示
- * - origin/branch、upstream/branch などのリモートブランチに対応
- * - コミットハッシュやブランチ名に対応
- */
 export async function show(fs: FS, dir: string, args: string[]): Promise<string> {
   try {
     if (args.length === 0) {
@@ -15,27 +9,20 @@ export async function show(fs: FS, dir: string, args: string[]): Promise<string>
 
     const arg = args[0];
 
-    // パターン解析: <commit>:<file> または単体のcommit
     const colonIndex = arg.indexOf(':');
 
     if (colonIndex !== -1) {
-      // <commit>:<file> 形式
       const commitRef = arg.substring(0, colonIndex);
       const filePath = arg.substring(colonIndex + 1);
 
       return await showCommitFile(fs, dir, commitRef, filePath);
     }
-    // 単体のcommit参照（ハッシュまたはブランチ名）
     return await showCommit(fs, dir, arg);
   } catch (error) {
     throw new Error(`git show: ${(error as Error).message}`);
   }
 }
 
-/**
- * コミット時点のファイル内容を表示
- * <commit>:<file> 形式に対応
- */
 async function showCommitFile(
   fs: FS,
   dir: string,
@@ -43,15 +30,13 @@ async function showCommitFile(
   filePath: string
 ): Promise<string> {
   try {
-    // commitRef を解決（ハッシュ、ブランチ名、リモートブランチなど）
     const commitOid = await resolveRef(fs, dir, commitRef);
 
     if (!commitOid) {
       return `fatal: ${commitRef}: unknown revision or path not in the working tree.`;
     }
 
-    // ファイルが存在するかチェック
-    const normalizedPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+    const normalizedPath = repositoryPath(dir, filePath);
 
     try {
       const { blob } = await git.readBlob({
@@ -61,8 +46,7 @@ async function showCommitFile(
         filepath: normalizedPath,
       });
 
-      const content =
-        typeof blob === 'string' ? blob : new TextDecoder().decode(blob as Uint8Array);
+      const content = new TextDecoder().decode(blob);
 
       return content;
     } catch (readError) {
@@ -77,20 +61,14 @@ async function showCommitFile(
   }
 }
 
-/**
- * コミット情報全体を表示（log形式）
- * コミットハッシュやブランチ名で呼び出される
- */
 async function showCommit(fs: FS, dir: string, commitRef: string): Promise<string> {
   try {
-    // commitRef を解決
     const commitOid = await resolveRef(fs, dir, commitRef);
 
     if (!commitOid) {
       return `fatal: ${commitRef}: unknown revision or path not in the working tree.`;
     }
 
-    // コミット情報を取得
     const commit = await git.readCommit({
       fs,
       dir,
@@ -99,7 +77,6 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
 
     const { author, message } = commit.commit;
 
-    // コミット情報をフォーマット
     let result = `commit ${commitOid}\n`;
 
     if (author) {
@@ -110,7 +87,6 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
 
     result += `\n    ${message}\n`;
 
-    // 親コミットがあれば表示
     if (commit.commit.parent && commit.commit.parent.length > 0) {
       result += `\nParent: ${commit.commit.parent.join(', ')}\n`;
     }
@@ -121,19 +97,11 @@ async function showCommit(fs: FS, dir: string, commitRef: string): Promise<strin
   }
 }
 
-/**
- * リファレンス（ブランチ、タグ、リモートブランチなど）を解決して、コミットOIDを取得
- * - origin/main, upstream/develop などのリモートブランチに対応
- * - HEAD~1, HEAD~2 などの相対参照に対応
- * - 短縮系コミットハッシュ（7文字以上）に対応
- */
 async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | null> {
   try {
-    // コミットハッシュかどうかを判定（4文字以上の16進数）
     const isCommitHash = /^[a-f0-9]{4,}$/i.test(ref);
 
     if (isCommitHash) {
-      // コミットハッシュの場合は expandOid を使用（短縮形ハッシュに対応）
       try {
         const oid = await git.expandOid({
           fs,
@@ -142,12 +110,10 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
         });
         return oid;
       } catch {
-        // 短縮系ハッシュが見つからない場合
         return null;
       }
     }
 
-    // HEAD~1 などの相対参照の場合
     if (ref.startsWith('HEAD')) {
       try {
         const oid = await git.resolveRef({
@@ -161,9 +127,7 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
       }
     }
 
-    // リモートブランチの場合（origin/main など）
     if (ref.includes('/')) {
-      // refs/remotes/origin/main 形式で試す
       try {
         const oid = await git.resolveRef({
           fs,
@@ -171,12 +135,9 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
           ref: `refs/remotes/${ref}`,
         });
         return oid;
-      } catch {
-        // リモートが存在しない場合、通常のref解決を試す
-      }
+      } catch {}
     }
 
-    // 直接解決を試みる（ブランチ、タグなど）
     try {
       const oid = await git.resolveRef({
         fs,
@@ -185,7 +146,6 @@ async function resolveRef(fs: FS, dir: string, ref: string): Promise<string | nu
       });
       return oid;
     } catch {
-      // 失敗した場合はnull
       return null;
     }
   } catch {

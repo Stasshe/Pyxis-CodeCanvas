@@ -36,12 +36,12 @@ Options:
       }
     } else {
       for (const p of positional) {
-        const resolved = this.normalizePath(this.resolvePath(p));
-        const rel = this.getRelativePathFromProject(resolved);
-        const file = await this.getFileFromDB(rel);
+        const resolved = this.resolvePath(p);
+        const rel = resolved;
+        const file = await this.getFile(rel);
         if (!file) throw new Error(`sort: ${p}: No such file or directory`);
         if (file.type === 'folder') throw new Error(`sort: ${p}: Is a directory`);
-        const content = file.content || '';
+        const content = await this.readText(resolved);
         lines = lines.concat(content.split(/\r?\n/));
       }
     }

@@ -1,25 +1,23 @@
-// src/engine/cmd/global/gitOperations/commit.ts
 import git from 'isomorphic-git';
-import { authRepository } from '@/engine/user/authRepository';
+import type { GitFs as FS } from '@/engine/core/fs/git';
+import type { GitHubUser } from '@/engine/user/authRepository';
 
 export async function commit(
-  fs: any,
+  fs: FS,
   dir: string,
   message: string,
   author = { name: 'User', email: 'user@pyxis.dev' }
 ): Promise<string> {
   try {
-    // Git repository check
     try {
       await fs.promises.stat(`${dir}/.git`);
     } catch {
       throw new Error('not a git repository (or any of the parent directories): .git');
     }
 
-    // Try to use GitHub info when available
     let commitAuthor = author;
     try {
-      const token = await authRepository.getAccessToken();
+      const token = (await fs.credentials())?.password;
       if (token) {
         const response = await fetch('https://api.github.com/user', {
           headers: {
@@ -29,7 +27,7 @@ export async function commit(
         });
 
         if (response.ok) {
-          const userData = await response.json();
+          const userData: GitHubUser = await response.json();
           commitAuthor = {
             name: userData.name || userData.login,
             email: userData.email || `${userData.login}@users.noreply.github.com`,

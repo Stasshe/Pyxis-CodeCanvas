@@ -56,7 +56,7 @@
 StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxisは**「VSCodeのようなエディタ・便利なファイルシステム・実行環境をWeb/iPadで実現する」**ことを目的としています。
 
 - **Stackblitzとの違い**: PyxisはWeb開発専用ではなく、ドキュメント作成やメモ、アルゴリズム学習など幅広い用途を想定。目的自体が異なります。
-- **WebContainerとの違い**: PyxisはWeb Workerの並列多用を避け、IndexedDBへの積極的なキャッシュでメモリ消費を大幅に抑制。WebContainerのような仮想化ではなく、軽量・高速な独自ランタイムを採用しています。
+- **WebContainerとの違い**: Pyxisは常駐Workerを最小限に抑え、OPFSを唯一のファイル保存先として使う独自ランタイムを採用しています。
 - **エディタ体験重視**: VSCodeのような操作性・ファイルシステム・実行体験を重視し、iPadやモバイルでも快適に動作。
 
 > 💡 **パソコンのような操作性とiPadの機動性を両立！**
@@ -137,16 +137,18 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-**WASMを使わない独自実装**で、Node.jsだけでなく**TypeScriptの実行にも対応**。TypeScriptはBabel Standaloneと独自の正規化システムで高速に変換・実行されます。
-- **瞬時に実行** - コンパイル不要、待ち時間ゼロ
+Node.jsコードを実行ごとの専用Workerで動かし、TypeScriptとJavaScriptのモジュールをブラウザ内で変換します。ファイルはOPFSに保存し、同期ファイル操作はService Worker経由で処理します。
+仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime module cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。npm metadataは毎回取得し、tarball URLのSHA-256で識別したarchiveを展開成功後にcacheします。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
+- **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
+- **分離した実行環境** - 実行ごとにWorkerを作成し、終了後に破棄
 - **ファイル操作** - `fs`, `readline`, `userinterface` など主要モジュールがそのまま使える
-- **TypeScript/Babel対応** - Babel Standaloneと複雑な正規化システムでTypeScriptも即時実行
+- **TypeScript対応** - 拡張機能のトランスパイル設定でTypeScriptを実行
 - **気軽にコード実行** - アルゴリズムテスト、学習、インタラクティブなコンソールアプリもOK
 
 JavaScriptでは不可能なファイルオペレーションやインタラクティブな入出力（readline, userinterface）もエミュレートし、本格的なNode.js/TypeScript学習環境を提供。
 
 
-> **制限事項**: WASMを使用していないため、ネイティブモジュールやchild_processなど一部機能は未対応です。基本的なNode.js/TypeScript学習や簡易スクリプト実行には十分です。
+> **制限事項**: ネイティブNode.jsアドオンは利用できません。`child_process` はPyxisのシェル機能を通じて実行します。
 
 ---
 
@@ -225,7 +227,7 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 - **Terminalコマンド拡張**：独自コマンドをAPIで追加し、PyxisターミナルUIから実行可能。
 - **VSCodeライクなUI拡張**：カスタムタブ・サイドバーパネルをAPIで追加。React/TSXで直感的にUI構築。
 - **多言語パック・サービス拡張**：言語パックや独自サービスも拡張機能として追加。
-- **安全なサンドボックス設計**：各拡張は独立・安全に動作。IndexedDBで永続化・キャッシュ。
+- **安全なサンドボックス設計**：各拡張は独立して動作し、拡張データはブラウザ内に永続化されます。
 
 「VSCode級のUI拡張がWeb/iPadで動く」「Terminalコマンドも拡張可能」「公式テンプレートで即開発」など、他にない柔軟性と拡張性を持っています。
 
@@ -339,17 +341,15 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 ### **エディターとターミナル**
 - **Monaco Editor** - VS Codeと同じエンジンを使用
 - **xterm.js** - フル機能ターミナル体験
-- **Lightning FS** - 超高速ファイルシステム
+- **OPFS** - プロジェクトファイルとGit履歴を保存するブラウザ内ファイルシステム
 
 ### **ランタイムイノベーション**
 - **node-stdlib-browser** - Node.js API互換性
 - **fs module** - 気合いのエミュレーター全書き
 - **isomorphic-git** - 純粋JavaScriptのGit実装
 
-### **Pyxisのデータベース・ファイルシステム設計に興味がある方へ**
-- Pyxisの内部アーキテクチャやデータベース設計、ファイルシステムの詳細な仕様\n
-- **非常に高度な内容**をまとめた[Development/DATABASE.md](Development/DATABASE.md)をご覧ください。
-データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、開発者・研究者向けの深い技術情報を掲載しています。
+### **ファイルシステム設計**
+OPFSを唯一のファイル保存先とし、IndexedDBにはフォルダー一覧やタブ、チャット、AIレビューなどのメタデータを保存します。詳細は[Two-Layer Architecture](docs/TWO-LAYER-ARCHITECTURE.md)と[Data Flow](docs/DATA-FLOW.md)をご覧ください。
 
 ### **作れるもの**
 

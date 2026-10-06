@@ -5,7 +5,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { basename, fsClient, getParentPath, resolvePath } from '@/engine/core/fs';
 import 'katex/dist/katex.min.css';
 import 'github-markdown-css/github-markdown.css';
 
@@ -17,7 +17,7 @@ import type { EditorPane, PreviewTab, Tab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
-import type { Project, ProjectFile } from '@/types';
+import type { Project } from '@/types';
 
 import CodeBlock from './MarkdownPreview/CodeBlock';
 import LocalImage from './MarkdownPreview/LocalImage';
@@ -29,9 +29,15 @@ interface MarkdownPreviewTabProps {
 
 type RemarkPlugins = NonNullable<Options['remarkPlugins']>;
 
+const resolveImagePath = (source: string, markdownPath: string): string => {
+  if (/^(https?:|data:|\/\/)/i.test(source)) return source;
+  if (source.startsWith('/')) return resolvePath('/', source);
+  return resolvePath(getParentPath(markdownPath), source);
+};
+
 const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors, themeName } = useTheme();
-  const { settings } = useSettings(currentProject?.id);
+  const { settings } = useSettings(currentProject?.rootPath);
   const { t } = useTranslation();
   // ref to markdown container for scrolling
   const markdownContainerRef = useRef<HTMLDivElement | null>(null);
@@ -60,7 +66,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // Subscribe to the editor tab's content from tabContentStore for real-time updates
   const editorTabContent = useTabContent(editorTabId ?? '');
-  // Preview tab's own runtime content (populated from fileRepository when tab is opened)
+  // Preview tab's own runtime content is restored from its file.
   const previewTabContent = useTabContent(activeTab.id);
 
   // Priority: live editor > preview runtime store
@@ -121,22 +127,13 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id/name are sufficient; !currentProject ≡ !currentProject?.id
   const markdownComponents = useMemo<Partial<Components>>(
     () => ({
       ...codeComponent,
       img: ({ src, alt, ...props }) => {
-        const srcString = typeof src === 'string' ? src : '';
-        return (
-          <LocalImage
-            src={srcString}
-            alt={alt || ''}
-            projectName={currentProject?.name}
-            projectId={currentProject?.id}
-            activeTab={activeTab}
-            {...props}
-          />
-        );
+        const source = typeof src === 'string' ? src : '';
+        const srcString = resolveImagePath(source, activeTab.path);
+        return <LocalImage src={srcString} alt={alt || ''} {...props} />;
       },
       a: ({ href, children, ...props }) => {
         const hrefString = typeof href === 'string' ? href : '';
@@ -168,39 +165,16 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
             // At this point, treat as a project-local link. Resolve relative to activeTab.path
             e.preventDefault();
-            if (!currentProject || !currentProject.id) {
-              // fallback: open in new tab
-              window.open(hrefString, '_blank', 'noopener');
-              return;
-            }
-
-            // Helper to normalize path segments and remove ./ and ..
-            const normalizeSegments = (p: string) => {
-              const parts = p.split('/');
-              const stack: string[] = [];
-              for (const part of parts) {
-                if (!part || part === '.') continue;
-                if (part === '..') {
-                  if (stack.length) stack.pop();
-                } else {
-                  stack.push(part);
-                }
-              }
-              return `/${stack.join('/')}`;
-            };
-
             // Remove any search/query/hash from href for file lookup
             const hrefNoHash = hrefString.split('#')[0].split('?')[0];
 
             // Build candidate paths: relative to current file and root-relative
             const candidates: string[] = [];
             if (hrefNoHash.startsWith('/')) {
-              candidates.push(normalizeSegments(hrefNoHash));
+              candidates.push(resolvePath('/', hrefNoHash));
             } else {
-              const base = activeTab.path || '/';
-              const dir = base.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
-              candidates.push(normalizeSegments(`${dir}/${hrefNoHash}`));
-              candidates.push(normalizeSegments(`/${hrefNoHash}`));
+              candidates.push(resolvePath(getParentPath(activeTab.path), hrefNoHash));
+              candidates.push(resolvePath('/', hrefNoHash));
             }
 
             // Try candidates and also try adding .md if missing
@@ -210,53 +184,33 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
               if (!c.toLowerCase().endsWith('.md')) tryCandidates.push(`${c}.md`);
             }
 
-            // Query fileRepository for existence
+            // Check candidates in the filesystem.
             for (const cand of Array.from(new Set(tryCandidates))) {
               try {
-                const f = await fileRepository.getFileByPath(currentProject.id, cand);
-                if (f && f.type === 'file') {
-                  const file = f as ProjectFile;
-
-                  // Determine if markdown
-                  const fileName = file.name || '';
-                  const isMarkdown =
-                    fileName.toLowerCase().endsWith('.md') || cand.toLowerCase().endsWith('.md');
-
-                  if (isMarkdown) {
-                    // Decode content if buffer
-                    let content = file.content || '';
-                    if (file.isBufferArray && file.bufferContent) {
-                      content = new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
-                    }
-
-                    await openTab(
-                      {
-                        name: fileName || cand.replace(/^\//, ''),
-                        path: cand,
-                        content,
-                        kind: 'preview',
-                      },
-                      { kind: 'preview', makeActive: true }
-                    );
-                    return;
-                  }
-
-                  // Non-markdown file - open with web preview
+                if (!(await fsClient.exists(cand))) continue;
+                const file = await fsClient.stat(cand);
+                if (file.type !== 'file') continue;
+                const fileName = basename(cand);
+                const isMarkdown = fileName.toLowerCase().endsWith('.md');
+                if (isMarkdown) {
                   await openTab(
                     {
-                      name: fileName || cand.replace(/^\//, ''),
+                      name: fileName,
                       path: cand,
-                      content: file.content || '',
-                      kind: 'webPreview',
-                      webPreviewUrl: undefined,
+                      content: await fsClient.readText(cand),
+                      kind: 'preview',
                     },
+                    { kind: 'preview', makeActive: true }
+                  );
+                } else {
+                  await openTab(
+                    { name: fileName, path: cand, content: '', kind: 'webPreview' },
                     { kind: 'webPreview', makeActive: true }
                   );
-                  return;
                 }
+                return;
               } catch (err) {
-                console.warn('[MarkdownPreviewTab.tsx] caught non-fatal error', err);
-                // ignore and try next
+                console.warn('[MarkdownPreviewTab] failed to resolve local link', err);
               }
             }
 
@@ -277,7 +231,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         );
       },
     }),
-    [codeComponent, currentProject?.id, currentProject?.name, activeTab]
+    [codeComponent, activeTab]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters

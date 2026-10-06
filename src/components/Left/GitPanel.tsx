@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Confirmation } from '@/components/Confirmation';
 import OperationWindow, {
   type OperationListItem,
 } from '@/components/Top/OperationWindow/OperationWindow';
@@ -20,17 +21,18 @@ import type { BranchFilterMode } from '@/engine/cmd/global/gitOperations/log';
 import { generateCommitMessage } from '@/engine/commitMsgAI';
 import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
 import { useGitRefreshVersion } from '@/stores/gitRefreshStore';
+import type { Project } from '@/types';
 import type { GitCommit, GitRepository, GitStatus } from '@/types/git';
 import GitHistory from './GitHistory';
 
 interface GitPanelProps {
   currentProject?: string;
-  currentProjectId?: string;
+  rootPath?: string;
+  project: Project;
   onRefresh?: () => void;
   onGitStatusChange?: (changesCount: number) => void;
 }
 
-import { Confirmation } from '@/components/Confirmation';
 import ChangesList from './GitPanel/ChangesList';
 import CommitBox from './GitPanel/CommitBox';
 import ErrorState from './GitPanel/ErrorState';
@@ -39,7 +41,8 @@ import { useGitPanel } from './GitPanel/useGitPanel';
 
 export default function GitPanel({
   currentProject,
-  currentProjectId,
+  rootPath,
+  project,
   onRefresh,
   onGitStatusChange,
 }: GitPanelProps) {
@@ -81,57 +84,51 @@ export default function GitPanel({
     discardAllStaged,
     commit: commitOp,
     getDiff,
-  } = useGitPanel({ currentProject, currentProjectId, onGitStatusChange });
+  } = useGitPanel({ currentProject, rootPath, onGitStatusChange });
 
   // Branch filter persistence restored from sessionStorage
   const getStoredBranchFilter = useCallback(() => {
-    if (!currentProjectId) return { mode: 'auto' as BranchFilterMode, branches: [] as string[] };
-    const modeKey = `gitBranchFilterMode_${currentProjectId}`;
-    const branchesKey = `gitBranchFilterBranches_${currentProjectId}`;
+    if (!rootPath) return { mode: 'auto' as BranchFilterMode, branches: [] as string[] };
+    const modeKey = `gitBranchFilterMode_${rootPath}`;
+    const branchesKey = `gitBranchFilterBranches_${rootPath}`;
     const storedMode = sessionStorage.getItem(modeKey) as BranchFilterMode | null;
     const storedBranches = sessionStorage.getItem(branchesKey);
     return {
       mode: storedMode || 'auto',
       branches: storedBranches ? JSON.parse(storedBranches) : [],
     };
-  }, [currentProjectId]);
+  }, [rootPath]);
 
   // setters that persist
   const setBranchFilterModeAndPersist = useCallback(
     (mode: BranchFilterMode) => {
       setBranchFilterMode(mode);
-      if (currentProjectId) sessionStorage.setItem(`gitBranchFilterMode_${currentProjectId}`, mode);
+      if (rootPath) sessionStorage.setItem(`gitBranchFilterMode_${rootPath}`, mode);
     },
-    [currentProjectId, setBranchFilterMode]
+    [rootPath, setBranchFilterMode]
   );
 
   const setSelectedBranchesAndPersist = useCallback(
     (branches: string[]) => {
       setSelectedBranches(branches);
-      if (currentProjectId)
-        sessionStorage.setItem(
-          `gitBranchFilterBranches_${currentProjectId}`,
-          JSON.stringify(branches)
-        );
+      if (rootPath)
+        sessionStorage.setItem(`gitBranchFilterBranches_${rootPath}`, JSON.stringify(branches));
     },
-    [currentProjectId, setSelectedBranches]
+    [rootPath, setSelectedBranches]
   );
 
   // プロジェクト変更時にsessionStorageから復元
   useEffect(() => {
-    if (currentProjectId) {
+    if (rootPath) {
       const { mode, branches } = getStoredBranchFilter();
       setBranchFilterMode(mode);
       setSelectedBranches(branches);
     }
-  }, [currentProjectId, getStoredBranchFilter, setBranchFilterMode, setSelectedBranches]);
+  }, [rootPath, getStoredBranchFilter, setBranchFilterMode, setSelectedBranches]);
 
   // commit depth, fetch and history logic moved to `useGitPanel` hook
   // VSCode-style diff handlers: staged = HEAD vs INDEX, unstaged = INDEX vs WORKDIR
-  const { handleStagedFileDiff, handleUnstagedFileDiff } = useDiffTabHandlers({
-    name: currentProject,
-    id: currentProjectId,
-  });
+  const { handleStagedFileDiff, handleUnstagedFileDiff } = useDiffTabHandlers(project);
 
   // wire simple wrappers to the hook's actions (keeps component intent explicit)
   const handleStageFile = stageFile;
@@ -681,7 +678,8 @@ export default function GitPanel({
             <GitHistory
               commits={gitRepo?.commits || []}
               currentProject={currentProject}
-              currentProjectId={currentProjectId}
+              rootPath={rootPath}
+              project={project}
               currentBranch={gitRepo?.currentBranch || ''}
               hasMore={hasMore}
               isLoadingMore={isLoadingMore}

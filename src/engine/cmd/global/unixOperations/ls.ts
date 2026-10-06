@@ -1,3 +1,4 @@
+import { posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import { fnmatch, parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
@@ -71,34 +72,27 @@ export class LsCommand extends UnixCommandBase {
     const results: string[] = [];
 
     for (const target of targets) {
-      const expanded = await this.expandPathPattern(target);
-
-      if (expanded.length === 0) {
-        throw new Error(`ls: cannot access '${target}': No such file or directory`);
-      }
-
-      for (const path of expanded) {
-        try {
-          const result = await this.listPath(path, {
-            showAll: showAll || almostAll,
-            longFormat,
-            humanReadable,
-            recursive,
-            sortByTime,
-            sortBySize,
-            reverseSort,
-            onePerLine,
-            dirOnly,
-            classify,
-            slashDir,
-            showInode,
-            showBlocks,
-            showHeader: targets.length > 1 || expanded.length > 1 || recursive,
-          });
-          results.push(result);
-        } catch (error) {
-          throw new Error(`ls: cannot access '${path}': ${(error as Error).message}`);
-        }
+      const path = this.resolvePath(target);
+      try {
+        const result = await this.listPath(path, {
+          showAll: showAll || almostAll,
+          longFormat,
+          humanReadable,
+          recursive,
+          sortByTime,
+          sortBySize,
+          reverseSort,
+          onePerLine,
+          dirOnly,
+          classify,
+          slashDir,
+          showInode,
+          showBlocks,
+          showHeader: targets.length > 1 || recursive,
+        });
+        results.push(result);
+      } catch (error) {
+        throw new Error(`ls: cannot access '${path}': ${(error as Error).message}`);
       }
     }
 
@@ -127,7 +121,7 @@ export class LsCommand extends UnixCommandBase {
       showHeader: boolean;
     }
   ): Promise<string> {
-    const normalizedPath = this.normalizePath(this.resolvePath(path));
+    const normalizedPath = path;
     const isDir = await this.isDirectory(normalizedPath);
 
     // -d: ディレクトリ自体を表示
@@ -135,28 +129,22 @@ export class LsCommand extends UnixCommandBase {
       if (opts.longFormat) {
         return await this.formatLongEntry(normalizedPath, opts);
       }
-      const name = normalizedPath.split('/').pop() || normalizedPath;
+      const name = posixPath.basename(normalizedPath) || normalizedPath;
       return this.formatName(name, isDir, opts);
     }
 
     // ディレクトリの場合
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const files: ProjectFile[] = await this.getDescendants(normalizedPath);
 
     // ディレクトリ直下のファイル/フォルダを取得
     let entries = files.filter((f: ProjectFile) => {
-      if (relativePath === '/') {
-        return f.path.split('/').filter((p: string) => p).length === 1;
-      }
-      const childPath = f.path.replace(prefix, '');
-      return f.path.startsWith(prefix) && !childPath.includes('/');
+      return posixPath.dirname(f.path) === normalizedPath;
     });
 
     // 隠しファイルフィルタ
     if (!opts.showAll) {
       entries = entries.filter(f => {
-        const name = f.path.split('/').pop() || '';
+        const name = posixPath.basename(f.path);
         return !name.startsWith('.');
       });
     }
@@ -172,18 +160,18 @@ export class LsCommand extends UnixCommandBase {
 
     if (opts.longFormat) {
       const totalBlocks = entries.reduce((sum, e) => {
-        const size = e.bufferContent?.byteLength || e.content?.length || 0;
+        const size = e.type === 'file' ? e.size : 0;
         return sum + Math.ceil(size / 512);
       }, 0);
       result += `total ${totalBlocks}\n`;
 
       for (const entry of entries) {
-        const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
+        const fullPath = posixPath.join(normalizedPath, posixPath.basename(entry.path));
         result += `${await this.formatLongEntry(fullPath, opts)}\n`;
       }
     } else {
       const names = entries.map(e => {
-        const name = e.path.split('/').pop() || '';
+        const name = posixPath.basename(e.path);
         return this.formatName(name, e.type === 'folder', opts);
       });
 
@@ -199,7 +187,7 @@ export class LsCommand extends UnixCommandBase {
     if (opts.recursive) {
       for (const entry of entries) {
         if (entry.type === 'folder') {
-          const fullPath = `${normalizedPath}/${entry.path.split('/').pop()}`;
+          const fullPath = posixPath.join(normalizedPath, posixPath.basename(entry.path));
           result += '\n\n';
           result += await this.listPath(fullPath, { ...opts, showHeader: true });
         }
@@ -224,20 +212,20 @@ export class LsCommand extends UnixCommandBase {
 
     if (opts.sortByTime) {
       sorted.sort((a, b) => {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        const timeA = a.mtime;
+        const timeB = b.mtime;
         return timeB - timeA;
       });
     } else if (opts.sortBySize) {
       sorted.sort((a, b) => {
-        const sizeA = a.bufferContent?.byteLength || a.content?.length || 0;
-        const sizeB = b.bufferContent?.byteLength || b.content?.length || 0;
+        const sizeA = a.type === 'file' ? a.size : 0;
+        const sizeB = b.type === 'file' ? b.size : 0;
         return sizeB - sizeA;
       });
     } else {
       sorted.sort((a, b) => {
-        const nameA = a.path.split('/').pop() || '';
-        const nameB = b.path.split('/').pop() || '';
+        const nameA = posixPath.basename(a.path);
+        const nameB = posixPath.basename(b.path);
         if (a.type !== b.type) {
           return a.type === 'folder' ? -1 : 1;
         }
@@ -299,21 +287,20 @@ export class LsCommand extends UnixCommandBase {
     path: string,
     opts: { humanReadable: boolean; showInode: boolean; showBlocks: boolean }
   ): Promise<string> {
-    const relativePath = this.getRelativePathFromProject(path);
-    const file = await this.getFileFromDB(relativePath);
+    const file = await this.getFile(path);
 
     if (!file) {
       // ファイルがDBにない場合（存在確認済みの場合はディレクトリとして扱う）
-      const name = path.split('/').pop() || '';
+      const name = posixPath.basename(path);
       return `drwxr-xr-x 1 user user        0 ${this.formatDate(new Date())} ${name}/`;
     }
 
     const type = file.type === 'folder' ? 'd' : '-';
     const perms = file.type === 'folder' ? 'rwxr-xr-x' : 'rw-r--r--';
-    const size = file.bufferContent?.byteLength || file.content?.length || 0;
+    const size = file.size;
     const sizeStr = opts.humanReadable ? this.formatSize(size) : size.toString().padStart(8);
-    const date = file.updatedAt ? new Date(file.updatedAt) : new Date();
-    const name = file.path.split('/').pop() || '';
+    const date = new Date(file.mtime);
+    const name = posixPath.basename(file.path);
 
     let prefix = '';
     if (opts.showInode) {

@@ -53,12 +53,26 @@ describe('child_process module', () => {
     expect(maxActive).toBe(1);
   });
 
-  it('supports common synchronous detection commands', () => {
-    const childProcess = createChildProcessModule({ getCwd: () => '/work' });
-    const result = childProcess.spawnSync('node', ['--version'], { encoding: 'utf8' });
+  it('runs synchronous commands through the host shell bridge', () => {
+    let received: { command: string; cwd?: string; env?: Record<string, string> } | undefined;
+    const childProcess = createChildProcessModule({
+      getCwd: () => '/work',
+      getEnv: () => ({ PATH: '/bin' }),
+      runShellSync: (command, options) => {
+        received = { command, cwd: options?.cwd, env: options?.env };
+        return { stdout: 'result', stderr: 'warning', exitCode: 7 };
+      },
+    });
+    const result = childProcess.spawnSync('tool', ['--flag'], { encoding: 'utf8' });
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe('v18.0.0\n');
+    expect(received).toEqual({
+      command: 'tool --flag',
+      cwd: '/work',
+      env: { PATH: '/bin' },
+    });
+    expect(result.status).toBe(7);
+    expect(result.stdout).toBe('result');
+    expect(result.stderr).toBe('warning');
   });
 
   it('returns Buffer output when encoding is null', async () => {

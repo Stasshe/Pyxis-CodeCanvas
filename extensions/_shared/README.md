@@ -2,6 +2,8 @@
 
 This directory provides the stable, extension-facing type definitions.
 
+Workspace files use absolute POSIX paths. `getSystemModule('fsClient')` provides byte/text reads, writes, metadata, directory operations, walking, existence checks, and change events. `getSystemModule('pathUtils')` provides lexical POSIX operations; `normalizePath` accepts absolute paths and `resolvePath(cwd, ...paths)` resolves relative paths explicitly. `getSystemModule('workspace')` returns the current root path and a subscription for root changes. Command contexts carry `rootPath`, `currentDirectory`, and `fsClient`; file identity is the absolute path.
+
 Quick guidance for extension authors:
 
 - Use `extensions/_shared/types.ts` (or import `ExtensionTabsAPI` / `ExtensionCreateTabOptions`) when writing code inside the `extensions/` folder. These types are intentionally minimal and stable.

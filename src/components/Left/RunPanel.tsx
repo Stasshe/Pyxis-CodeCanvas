@@ -6,12 +6,14 @@ import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
+import { resolvePath } from '@/engine/core/fs';
 import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { posixPath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import type { FileItem } from '@/types';
 
 interface RunPanelProps {
-  currentProject: { id: string; name: string } | null;
+  currentProject: { name: string; rootPath: string } | null;
   files: FileItem[];
 }
 
@@ -50,7 +52,7 @@ function buildExecutableProjectFiles(files: FileItem[]): FileItem[] {
 
   const walk = (items: FileItem[], parentPath = '') => {
     for (const item of items) {
-      const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+      const fullPath = posixPath.join(parentPath, item.name);
 
       if (item.type === 'file') {
         const isSupported = supportedExtensionsList.some(ext => item.name.endsWith(ext));
@@ -99,6 +101,11 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [projectFilesForOperation, setProjectFilesForOperation] = useState<FileItem[]>([]);
   const outputRef = useRef<HTMLDivElement>(null);
   const interactiveInputRef = useRef<HTMLInputElement>(null);
+  const executionAbort = useRef<AbortController | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: abort the active run when the workspace changes
+  useEffect(() => {
+    return () => executionAbort.current?.abort();
+  }, [currentProject?.rootPath]);
   // 出力エリアの自動スクロール
   // biome-ignore lint/correctness/useExhaustiveDependencies: output.length is a trigger dep — scroll when new output arrives
   useEffect(() => {
@@ -112,13 +119,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   }, [output.length, isRunning]);
 
   // 初期化時にlocalStorageから復元
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id is a trigger dep — restore saved file when project changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.rootPath is a trigger dep — restore saved file when workspace changes
   useEffect(() => {
     const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
     if (last) {
       setSelectedFile(last);
     }
-  }, [currentProject?.id]);
+  }, [currentProject?.rootPath]);
 
   // 出力を追加
   const addOutput = (content: string, type: 'log' | 'error' | 'input') => {
@@ -162,7 +169,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const executeFile = async () => {
     if (!selectedFile || !currentProject) return;
     setIsRunning(true);
-    const filePath = `/${selectedFile}`;
+    const filePath = resolvePath(currentProject.rootPath, selectedFile);
 
     // RuntimeRegistryからランタイムを取得
     const runtime = runtimeRegistry.getRuntimeForFile(filePath);
@@ -177,13 +184,17 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
 
     terminalProcessBridge.activate();
+    const controller = new AbortController();
+    executionAbort.current = controller;
     try {
       const result = await runtime.execute({
-        projectId: currentProject.id,
-        projectName: currentProject.name,
+        rootPath: currentProject.rootPath,
         filePath,
+        signal: controller.signal,
         debugConsole: createOutputConsole(),
         processStdin: terminalProcessBridge.stdin,
+        onStdout: data => addOutput(data, 'log'),
+        onStderr: data => addOutput(data, 'error'),
       });
 
       if (result.stderr) {
@@ -194,6 +205,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      executionAbort.current = null;
       terminalProcessBridge.deactivate();
       setIsRunning(false);
     }
@@ -209,8 +221,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
 
   // 実行を停止
   const stopExecution = () => {
-    terminalProcessBridge.deactivate();
-    setIsRunning(false);
+    executionAbort.current?.abort();
     addOutput(t('run.executionStopped'), 'log');
   };
 

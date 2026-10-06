@@ -248,7 +248,7 @@ export default function AIReviewTab({
           content: aiEntry.originalSnapshot,
           note: 'reverted',
         };
-        await updateAIReviewEntry(aiEntry.projectId, filePath, {
+        await updateAIReviewEntry(aiEntry.rootPath, filePath, {
           status: 'reverted',
           history: [historyEntry, ...hist],
         });

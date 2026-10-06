@@ -63,7 +63,7 @@ export class HeadCommand extends UnixCommandBase {
 
     for (let i = 0; i < positional.length; i++) {
       const file = positional[i];
-      const path = this.normalizePath(this.resolvePath(file));
+      const path = this.resolvePath(file);
 
       const isDir = await this.isDirectory(path);
       if (isDir) {
@@ -72,16 +72,7 @@ export class HeadCommand extends UnixCommandBase {
       }
 
       try {
-        const relative = this.getRelativePathFromProject(path);
-        const fileData = await this.getFileFromDB(relative);
-        if (!fileData) throw new Error('No such file or directory');
-
-        let content = '';
-        if (fileData.isBufferArray && fileData.bufferContent) {
-          content = new TextDecoder('utf-8').decode(fileData.bufferContent as ArrayBuffer);
-        } else if (typeof fileData.content === 'string') {
-          content = fileData.content;
-        }
+        const content = await this.readText(path);
 
         let output: string;
 

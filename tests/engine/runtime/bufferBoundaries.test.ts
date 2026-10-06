@@ -4,6 +4,7 @@ import { Process } from '@/engine/cmd/shell/process';
 import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { createCryptoModule } from '@/engine/runtime/nodejs/modules/cryptoModule';
 import { createHTTPModule } from '@/engine/runtime/nodejs/modules/httpModule';
+import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
 
 describe('Buffer boundaries', () => {
   afterEach(() => {
@@ -72,6 +73,20 @@ describe('Buffer boundaries', () => {
     process.writeStdout(Buffer.from([0, 255]));
 
     expect(Buffer.concat(chunks)).toEqual(Buffer.from([0, 255]));
+  });
+
+  it('preserves buffered input queued before a worker stdin listener attaches', async () => {
+    const stdin = new WorkerStdin(
+      () => {},
+      () => {},
+      () => {}
+    );
+    stdin.submit('日本語\n');
+    const chunk = new Promise<Buffer>(resolve => {
+      stdin.on('data', resolve);
+    });
+
+    await expect(chunk).resolves.toEqual(Buffer.from('日本語\n'));
   });
 
   it('submits terminal input as Buffer', () => {

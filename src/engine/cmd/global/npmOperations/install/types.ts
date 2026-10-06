@@ -14,5 +14,5 @@ export type InstallProgressCallback = (
 
 export type ExtractedFileMap = Map<
   string,
-  { isDirectory: boolean; content?: string; fullPath: string }
+  { isDirectory: boolean; content?: string | Uint8Array; fullPath: string }
 >;

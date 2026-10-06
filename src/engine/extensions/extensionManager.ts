@@ -3,6 +3,8 @@
  * 拡張機能のライフサイクルを統合管理
  */
 
+import { fsClient } from '@/engine/core/fs/client';
+import type { TranspilerDescriptor } from '@/engine/runtime/core/RuntimeProvider';
 import {
   activateExtension,
   deactivateExtension,
@@ -16,7 +18,7 @@ import {
   loadInstalledExtension,
   saveInstalledExtension,
 } from './storage-adapter';
-import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
+import { getSystemModule } from './systemModules';
 import {
   type ExtensionActivation,
   type ExtensionContext,
@@ -58,6 +60,7 @@ class ExtensionManager {
 
   /** 変更イベントリスナー */
   private changeListeners: Set<ExtensionChangeListener> = new Set();
+  private transpilerIdsByExtension = new Map<string, Set<string>>();
 
   /**
    * 変更イベントリスナーを登録
@@ -79,6 +82,12 @@ class ExtensionManager {
         console.error('[ExtensionManager] Error in change listener:', error);
       }
     });
+  }
+
+  private async configureRuntimeTranspilers(
+    registry: typeof import('@/engine/runtime/core/RuntimeRegistry').runtimeRegistry
+  ): Promise<void> {
+    await fsClient.configureTranspilers(registry.getAllTranspilers());
   }
 
   /**
@@ -474,6 +483,14 @@ class ExtensionManager {
       const { commandRegistry } = await import('./commandRegistry');
       commandRegistry.unregisterExtensionCommands(extensionId);
 
+      const transpilerIds = this.transpilerIdsByExtension.get(extensionId);
+      if (transpilerIds) {
+        const { runtimeRegistry } = await import('@/engine/runtime/core/RuntimeRegistry');
+        for (const id of transpilerIds) runtimeRegistry.unregisterTranspiler(id);
+        this.transpilerIdsByExtension.delete(extensionId);
+        await this.configureRuntimeTranspilers(runtimeRegistry);
+      }
+
       // デアクティベート
       await deactivateExtension(active.exports);
 
@@ -621,71 +638,19 @@ class ExtensionManager {
         warn: (...args: unknown[]) => console.warn(`[${extensionId}]`, ...args),
         error: (...args: unknown[]) => console.error(`[${extensionId}]`, ...args),
       },
-      getSystemModule: async <T extends SystemModuleName>(
-        moduleName: T
-      ): Promise<SystemModuleMap[T]> => {
-        // システムモジュールへのアクセスを提供（型安全）
-        switch (moduleName) {
-          case 'fileRepository': {
-            const { fileRepository } = await import('@/engine/core/fileRepository');
-            return fileRepository as SystemModuleMap[T];
-          }
-          case 'transpiler': {
-            const module = await import('@/engine/runtime/transpiler/esmTransformer');
-            // import() returns a module namespace object which may not structurally
-            // match the expected SystemModuleMap[T] type. Cast via unknown first
-            // to satisfy TypeScript and avoid unsafe direct casting warnings.
-            return module as unknown as SystemModuleMap[T];
-          }
-          case 'workerRuntime': {
-            const module = await import('@/engine/workers/WorkerPool');
-            return module as unknown as SystemModuleMap[T];
-          }
-          case 'pathUtils': {
-            const { toAppPath, getParentPath, toGitPath, fromGitPath, normalizePath } =
-              await import('@/engine/core/pathUtils');
-            return {
-              normalizePath,
-              toAppPath,
-              getParentPath,
-              toGitPath,
-              fromGitPath,
-            } as SystemModuleMap[T];
-          }
-          case 'commandRegistry': {
-            const { commandRegistry } = await import('./commandRegistry');
-            return commandRegistry as SystemModuleMap[T];
-          }
-          case 'systemBuiltinCommands': {
-            // Provide registry that returns singleton command instances per project
-            const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
-            return terminalCommandRegistry as unknown as SystemModuleMap[T];
-          }
-          default: {
-            // TypeScriptの網羅性チェック用の変数
-            // 実行時には到達しないが、型エラーメッセージを改善するために使用
-            const _exhaustiveCheck: never = moduleName;
-            // 実際のエラーメッセージでは元のmoduleNameを文字列として出力
-            throw new Error(`System module not found: ${String(moduleName)}`);
-          }
-        }
-      },
-      registerTranspiler: async (transpilerConfig: any) => {
+      getSystemModule,
+      registerTranspiler: async (transpilerConfig: TranspilerDescriptor) => {
         // RuntimeRegistryにトランスパイラーを登録
         try {
           const { runtimeRegistry } = await import('@/engine/runtime/core/RuntimeRegistry');
-          const { ExtensionTranspilerProvider } = await import(
-            '@/engine/runtime/transpiler/ExtensionTranspilerProvider'
-          );
-
-          const provider = new ExtensionTranspilerProvider(
-            transpilerConfig.id,
-            transpilerConfig.supportedExtensions || [],
-            transpilerConfig.transpile,
-            transpilerConfig.needsTranspile
-          );
-
-          runtimeRegistry.registerTranspiler(provider);
+          runtimeRegistry.registerTranspiler(transpilerConfig);
+          let ids = this.transpilerIdsByExtension.get(extensionId);
+          if (!ids) {
+            ids = new Set();
+            this.transpilerIdsByExtension.set(extensionId, ids);
+          }
+          ids.add(transpilerConfig.id);
+          await this.configureRuntimeTranspilers(runtimeRegistry);
           console.log(`[${extensionId}] Registered transpiler: ${transpilerConfig.id}`);
         } catch (error) {
           console.error(`[${extensionId}] Failed to register transpiler:`, error);

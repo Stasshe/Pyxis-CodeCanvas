@@ -3,19 +3,16 @@ import type { AIReviewEntry, AIReviewHistoryEntry } from '@/types';
 
 /**
  * Simple adapter to persist AI review metadata using storageService.
- * Stores entries under `AI_REVIEWS` store with keys: `aiReview:${projectId}:${filePath}`
+ * Stores entries under `AI_REVIEWS` using the workspace root and absolute file path.
  */
 export async function saveAIReviewEntry(
-  projectId: string,
+  rootPath: string,
   filePath: string,
   originalContent: string,
   suggestedContent: string,
   meta?: { message?: string; parentMessageId?: string }
 ): Promise<void> {
-  if (!projectId) return;
-  // Normalize filePath to avoid mismatches (leading slash, case differences)
-  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
-  const key = `aiReview:${projectId}:${normalizedPath}`;
+  const key = `aiReview:${rootPath}:${filePath}`;
 
   const existing = (await storageService.get(STORES.AI_REVIEWS, key)) as AIReviewEntry | null;
 
@@ -27,8 +24,8 @@ export async function saveAIReviewEntry(
   };
 
   const payload: AIReviewEntry = {
-    projectId,
-    filePath: normalizedPath,
+    rootPath,
+    filePath,
     suggestedContent,
     originalSnapshot: originalContent,
     status: 'pending',
@@ -45,31 +42,25 @@ export async function saveAIReviewEntry(
   console.log('[aiStorageAdapter] Saved AI review entry:', key);
 }
 
-export async function clearAIReviewEntry(projectId: string, filePath: string): Promise<void> {
-  if (!projectId) return;
-  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
-  const key = `aiReview:${projectId}:${normalizedPath}`;
+export async function clearAIReviewEntry(rootPath: string, filePath: string): Promise<void> {
+  const key = `aiReview:${rootPath}:${filePath}`;
   await storageService.delete(STORES.AI_REVIEWS, key);
 }
 
 export async function getAIReviewEntry(
-  projectId: string,
+  rootPath: string,
   filePath: string
 ): Promise<AIReviewEntry | null> {
-  if (!projectId) return null;
-  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
-  const key = `aiReview:${projectId}:${normalizedPath}`;
+  const key = `aiReview:${rootPath}:${filePath}`;
   return (await storageService.get(STORES.AI_REVIEWS, key)) as AIReviewEntry | null;
 }
 
 export async function updateAIReviewEntry(
-  projectId: string,
+  rootPath: string,
   filePath: string,
   patch: Partial<AIReviewEntry>
 ): Promise<AIReviewEntry | null> {
-  if (!projectId) return null;
-  const normalizedPath = String(filePath || '').replace(/^\/+/, '');
-  const key = `aiReview:${projectId}:${normalizedPath}`;
+  const key = `aiReview:${rootPath}:${filePath}`;
   const existing = (await storageService.get(STORES.AI_REVIEWS, key)) as AIReviewEntry | null;
   if (!existing) return null;
   const updated: AIReviewEntry = { ...existing, ...patch, updatedAt: Date.now() };

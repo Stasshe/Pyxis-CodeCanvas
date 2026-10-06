@@ -1,22 +1,17 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
-// Lightning-FSの仮想ファイルシステム取得関数
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { FsChangeEvent } from '@/engine/core/fs';
+import { basename, fsClient, normalizePath } from '@/engine/core/fs';
 import { inlineHtmlAssets } from '@/engine/in-ex/inlineHtmlAssets';
-import type { ProjectFile } from '@/types';
 
 interface WebPreviewTabProps {
   filePath: string;
-  currentProjectName?: string;
   onTitleChange?: (title: string) => void;
 }
 
-const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
-  filePath,
-  currentProjectName,
-  onTitleChange,
-}) => {
+const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, onTitleChange }) => {
+  const normalizedPath = normalizePath(filePath);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const onTitleChangeRef = useRef(onTitleChange);
   const lastAppliedTitleRef = useRef<string | null>(null);
@@ -24,32 +19,19 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { t } = useTranslation();
 
-  console.log('[web previewtab]', filePath);
-
   useEffect(() => {
     onTitleChangeRef.current = onTitleChange;
   }, [onTitleChange]);
 
-  // ファイルパスを仮想ファイルシステムのルートに基づいて解決
-  const resolveFilePath = useCallback(
-    (path: string): string => {
-      const root = `/projects/${currentProjectName}`; // 仮想ファイルシステムのルートを指定
-      return path.startsWith('/') ? `${root}${path}` : `${root}/${path}`;
-    },
-    [currentProjectName]
-  );
-
   const getDefaultTabName = useCallback(() => {
-    const trimmed = filePath.replace(/\/$/, '');
-    const name = trimmed.split('/').pop() || 'web';
+    const name = basename(normalizedPath) || 'web';
     return `Preview: ${name}`;
-  }, [filePath]);
+  }, [normalizedPath]);
 
   const applyHtmlTitle = useCallback(
     (html: string) => {
       const handleTitleChange = onTitleChangeRef.current;
-      if (!handleTitleChange) return;
-      if (typeof DOMParser === 'undefined') return;
+      if (!handleTitleChange || typeof DOMParser === 'undefined') return;
 
       try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -58,183 +40,81 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({
         if (lastAppliedTitleRef.current === nextTitle) return;
         lastAppliedTitleRef.current = nextTitle;
         handleTitleChange(nextTitle);
-      } catch (e) {
-        console.warn('[WebPreviewTab] HTML titleの解析に失敗しました:', e);
+      } catch (error) {
+        console.warn('[WebPreviewTab] Failed to parse HTML title.', error);
       }
     },
     [getDefaultTabName]
   );
 
-  // ファイルシステムから直接ファイル内容を取得
   const fetchFileContent = useCallback(async () => {
     try {
-      // Use fileRepository (IndexedDB) as the source of truth (new architecture)
-      await fileRepository.init();
-      const projects = await fileRepository.getProjects();
-      const project = projects.find(p => p.name === currentProjectName);
-      if (!project) {
-        console.error('[DEBUG] プロジェクトが見つかりません:', currentProjectName);
-        setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
+      await fsClient.init();
+      const entry = await fsClient.stat(normalizedPath);
+      if (entry.type === 'file') {
+        setFileContent(await fsClient.readText(normalizedPath));
         return;
       }
 
-      // Use prefix search and single-file lookup rather than loading whole project
-      const resolvedPath = resolveFilePath(filePath); // e.g. /projects/<project>/path
-      const targetRel = resolvedPath.replace(`/projects/${currentProjectName}`, '') || '/';
-
-      // get immediate children by prefix, then filter by parentPath
-      const prefix = targetRel === '/' ? '/' : `${targetRel}/`;
-      const childrenUnderPrefix = await fileRepository.getFilesByPrefix(project.id, prefix);
-      const immediateChildren = childrenUnderPrefix.filter(f => f.parentPath === targetRel);
-
-      const hasChildren = immediateChildren.length > 0;
-      const isFolderEntry = await fileRepository
-        .getFileByPath(project.id, targetRel)
-        .catch(() => null);
-
-      if (hasChildren || (isFolderEntry && (isFolderEntry as any).type === 'folder')) {
-        const files = immediateChildren.map(f => f.name);
-        if (files.length === 0) {
-          console.warn('[DEBUG] ディレクトリが空です:', resolvedPath);
-          setFileContent(`<h1>${t('webPreviewTab.emptyDirectory')}</h1>`);
-          return;
-        }
-
-        try {
-          const read = async (fullPath: string) => {
-            const rel = fullPath.replace(`/projects/${currentProjectName}`, '') || '/';
-            const f = await fileRepository.getFileByPath(project.id, rel);
-            if (!f) throw new Error(`ファイルが見つかりません: ${rel}`);
-            const file = f as ProjectFile;
-            if (file.isBufferArray && file.bufferContent) {
-              const decoder = new TextDecoder('utf-8');
-              return decoder.decode(file.bufferContent as ArrayBuffer);
-            }
-            return file.content || '';
-          };
-
-          const inlinedContent = await inlineHtmlAssets(files, resolvedPath, read);
-          console.log('[DEBUG] inlineHtmlAssetsの結果:', inlinedContent);
-          setFileContent(inlinedContent);
-        } catch (err) {
-          console.error('[DEBUG] HTMLアセットのインライン化に失敗しました:', err);
-          setFileContent(`<h1>${t('webPreviewTab.inlineHtmlFailed')}</h1>`);
-        }
-      } else {
-        try {
-          const f = await fileRepository.getFileByPath(project.id, targetRel);
-          if (!f) throw new Error(`ファイルが見つかりません: ${targetRel}`);
-          const file = f as ProjectFile;
-          const content =
-            file.isBufferArray && file.bufferContent
-              ? new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer)
-              : file.content || '';
-          console.log('[DEBUG] ファイル内容を取得しました:', content);
-          setFileContent(content);
-        } catch (e) {
-          console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
-          setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
-        }
+      const files = (await fsClient.readdir(normalizedPath))
+        .filter(file => file.type === 'file')
+        .map(file => basename(file.path));
+      if (files.length === 0) {
+        setFileContent(`<h1>${t('webPreviewTab.emptyDirectory')}</h1>`);
+        return;
       }
-    } catch (e) {
-      console.error('[DEBUG] ファイルまたはフォルダの取得中にエラーが発生しました:', e);
+
+      const content = await inlineHtmlAssets(files, normalizedPath, path =>
+        fsClient.readText(path)
+      );
+      setFileContent(content);
+    } catch (error) {
+      console.error('[WebPreviewTab] Failed to load preview content.', error);
       setFileContent(`<h1>${t('webPreviewTab.notFound')}</h1>`);
     }
-  }, [filePath, currentProjectName, t, resolveFilePath]);
+  }, [normalizedPath, t]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger is an increment counter used to force re-fetch, not read inside the callback
+  // refreshTrigger intentionally reruns this effect after filesystem change events.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger is an explicit reload counter.
   useEffect(() => {
-    fetchFileContent();
-    console.log('file changed');
+    void fetchFileContent();
   }, [fetchFileContent, refreshTrigger]);
 
-  // ファイル内容が変わったらiframeに反映（document.writeで in-place更新 → ナビゲーションフラッシュなし）
   useEffect(() => {
-    if (!iframeRef.current) return;
-    const iframeDocument = iframeRef.current.contentDocument;
+    const iframeDocument = iframeRef.current?.contentDocument;
     if (!iframeDocument) return;
     iframeDocument.open();
     iframeDocument.write(fileContent);
     iframeDocument.close();
     iframeDocument.documentElement.style.backgroundColor = '#ffffff';
-    if (iframeDocument.body) {
-      iframeDocument.body.style.backgroundColor = '#ffffff';
-    }
-    iframeRef.current.style.backgroundColor = '#ffffff';
+    if (iframeDocument.body) iframeDocument.body.style.backgroundColor = '#ffffff';
+    if (iframeRef.current) iframeRef.current.style.backgroundColor = '#ffffff';
     applyHtmlTitle(fileContent);
   }, [fileContent, applyHtmlTitle]);
 
-  // ファイル変更監視の設定（fileRepository のリスナーを使う）
   useEffect(() => {
-    if (!currentProjectName) return;
-
-    // 監視対象のパスを決定（ディレクトリの場合はそのまま、ファイルの場合は親ディレクトリ）
-    const watchPath = filePath.endsWith('/')
-      ? filePath
-      : filePath.substring(0, filePath.lastIndexOf('/')) || '/';
-
-    const normalize = (p: string) => (p?.startsWith('/') ? p : `/${p || ''}`);
-
-    console.log(
-      '[WebPreviewTab] Setting up repository watcher for path:',
-      watchPath,
-      'in project:',
-      currentProjectName
-    );
-
-    let unsubscribe: (() => void) | null = null;
-
-    (async () => {
-      try {
-        await fileRepository.init();
-        const projects = await fileRepository.getProjects();
-        const project = projects.find(p => p.name === currentProjectName);
-        if (!project) {
-          console.warn('[WebPreviewTab] Project not found for watcher:', currentProjectName);
-          return;
-        }
-
-        const projectId = project.id;
-        const normalizedWatch = normalize(watchPath);
-
-        const listener = (evt: any) => {
-          try {
-            if (!evt || evt.projectId !== projectId) return;
-            const rawPath = evt.file && (evt.file as any).path ? (evt.file as any).path : '';
-            const path = normalize(rawPath);
-            if (!path.startsWith(normalizedWatch)) return;
-            console.log('[WebPreviewTab] File change detected (repo):', path, evt.type);
-            // 少し遅延してから更新（ファイル操作が完了するのを待つ）
-            setTimeout(() => {
-              setRefreshTrigger(prev => prev + 1);
-            }, 100);
-          } catch (e) {
-            console.warn('[WebPreviewTab] watcher listener error:', e);
-          }
-        };
-
-        unsubscribe = fileRepository.addChangeListener(listener as any);
-      } catch (e) {
-        console.warn('[WebPreviewTab] failed to setup repository watcher:', e);
+    const isWithinPreview = (path: string): boolean => {
+      const normalized = normalizePath(path);
+      return normalized === normalizedPath || normalized.startsWith(`${normalizedPath}/`);
+    };
+    const onChange = (event: FsChangeEvent) => {
+      if (isWithinPreview(event.path)) {
+        setRefreshTrigger(value => value + 1);
       }
-    })();
-
-    return () => {
-      if (unsubscribe) {
-        try {
-          unsubscribe();
-        } catch (e) {
-          console.warn('[WebPreviewTab.tsx] caught non-fatal error', e);
-          /* ignore */
-        }
+      if (event.oldPath && isWithinPreview(event.oldPath)) {
+        setRefreshTrigger(value => value + 1);
       }
     };
-  }, [filePath, currentProjectName]);
+
+    const unsubscribe = fsClient.addChangeListener(onChange);
+    return unsubscribe;
+  }, [normalizedPath]);
 
   return (
     <div style={{ backgroundColor: '#ffffff', height: '100%', width: '100%' }}>
       <iframe
         ref={iframeRef}
+        title={getDefaultTabName()}
         style={{ border: 'none', width: '100%', height: '100%', backgroundColor: '#ffffff' }}
       />
     </div>

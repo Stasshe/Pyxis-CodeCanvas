@@ -9,12 +9,14 @@ type WorkerState<T extends object> = {
   proxy: Comlink.Remote<T>;
   inFlight: number;
   pending: Set<PendingCall>;
+  idleTimer: ReturnType<typeof setTimeout> | null;
 };
 
 export type WorkerPoolOptions = {
   createWorker: () => Worker;
   maxWorkers?: number;
   timeoutMs?: number;
+  idleTimeoutMs?: number;
 };
 
 export type UrlWorkerPoolOptions = Omit<WorkerPoolOptions, 'createWorker'> & {
@@ -27,11 +29,13 @@ export class WorkerPool<T extends object> {
   private readonly createWorker: () => Worker;
   private readonly maxWorkers: number;
   private readonly timeoutMs: number;
+  private readonly idleTimeoutMs: number;
 
   constructor(options: WorkerPoolOptions) {
     this.createWorker = options.createWorker;
     this.maxWorkers = options.maxWorkers ?? getDefaultWorkerCount();
     this.timeoutMs = options.timeoutMs ?? 10000;
+    this.idleTimeoutMs = options.idleTimeoutMs ?? 0;
   }
 
   async call<R>(fn: (api: Comlink.Remote<T>) => Promise<R>): Promise<R> {
@@ -62,6 +66,7 @@ export class WorkerPool<T extends object> {
       }
       state.pending.delete(pending);
       state.inFlight = Math.max(0, state.inFlight - 1);
+      this.scheduleIdleDisposal(state);
     }
   }
 
@@ -81,6 +86,10 @@ export class WorkerPool<T extends object> {
       return this.createWorkerState();
     }
 
+    if (leastBusy.idleTimer) {
+      clearTimeout(leastBusy.idleTimer);
+      leastBusy.idleTimer = null;
+    }
     return leastBusy;
   }
 
@@ -91,6 +100,7 @@ export class WorkerPool<T extends object> {
       proxy: Comlink.wrap<T>(worker),
       inFlight: 0,
       pending: new Set(),
+      idleTimer: null,
     };
 
     worker.onerror = event => {
@@ -109,12 +119,15 @@ export class WorkerPool<T extends object> {
   }
 
   private disposeWorker(state: WorkerState<T>, reason?: Error): void {
+    if (state.idleTimer) {
+      clearTimeout(state.idleTimer);
+      state.idleTimer = null;
+    }
     this.workers = this.workers.filter(item => item !== state);
 
-    if (reason) {
-      for (const pending of state.pending) {
-        pending.reject(reason);
-      }
+    const error = reason ?? new Error('Worker terminated');
+    for (const pending of state.pending) {
+      pending.reject(error);
     }
     state.pending.clear();
 
@@ -125,6 +138,16 @@ export class WorkerPool<T extends object> {
     }
 
     state.worker.terminate();
+  }
+
+  private scheduleIdleDisposal(state: WorkerState<T>): void {
+    if (this.idleTimeoutMs <= 0 || state.inFlight > 0 || !this.workers.includes(state)) {
+      return;
+    }
+    if (state.idleTimer) clearTimeout(state.idleTimer);
+    state.idleTimer = setTimeout(() => {
+      if (state.inFlight === 0) this.disposeWorker(state);
+    }, this.idleTimeoutMs);
   }
 }
 

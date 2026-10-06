@@ -31,7 +31,7 @@ Pyxis拡張機能は、Pyxisエディタに新しい機能を追加するため�
 
 ### 技術的制約・最新仕様
 
-Pyxis拡張機能は、完全なブラウザ動作・型安全なAPI・TSX構文推奨・IndexedDBキャッシュ・Reactグローバル提供など、最新の設計思想に基づいています。
+Pyxis拡張機能は、完全なブラウザ動作・型安全なAPI・TSX構文・IndexedDB上の拡張データキャッシュ・Reactグローバル提供をサポートします。workspace fileには`fsClient`の絶対path APIでアクセスします。
 
 1. **Static Site**: Pyxisは静的サイトとしてホスティングされるため、サーバーサイド処理は不可
 2. **動的Import**: 拡張機能はランタイムにBlob URL経由でimportされます
@@ -197,6 +197,8 @@ pnpm run setup-build
 
 これで`public/extensions/my-extension/`にバンドル済みJSファイルが生成されます。
 
+開発サーバーの`/extensions`は`public/extensions/`の生成済みファイルをそのまま配信します。参照先の生成物がない場合は404になるため、`pnpm run setup-build`後も必要なファイルが生成されていることを確認してください。
+
 
 ### ステップ 6: 開発サーバーで確認
 
@@ -331,7 +333,7 @@ interface ExtensionContext {
   // ロガーはランタイムが必ず提供します（非 optional）
   logger: Logger;
   // getSystemModule はランタイムが必ず提供します。拡張機能はこれを使って型安全にシステムモジュールへアクセスできます。
-  getSystemModule: <T extends 'fileRepository' | 'normalizeCjsEsm' | 'commandRegistry'>(
+  getSystemModule: <T extends 'fsClient' | 'pathUtils' | 'workspace' | 'normalizeCjsEsm' | 'commandRegistry'>(
     moduleName: T
   ) => Promise<import('../_shared/systemModuleTypes').SystemModuleMap[T]>;
   tabs?: TabAPI;              // タブAPI
@@ -342,6 +344,20 @@ interface ExtensionContext {
 注意: ランタイムの契約として、`ExtensionContext.logger` と `ExtensionContext.getSystemModule` は必ず提供されます。
 また、ターミナルコマンドのハンドラーに渡される `CommandContext` は実行時に拡張され、同じ `getSystemModule` ヘルパーを持ちます。
 従ってコマンドハンドラー内では `context.getSystemModule(...)` を直接呼び出してシステムモジュールへアクセスできます。
+
+### Workspace file access
+
+`fsClient` takes absolute paths and returns metadata only from `stat` and `readdir`. Read file contents explicitly with `readText` or `readFile`.
+
+```typescript
+const fs = await context.getSystemModule('fsClient');
+const file = await fs.stat('/workspace/src/index.ts');
+const source = await fs.readText(file.path);
+```
+
+For lexical path operations, retrieve `pathUtils`; it exposes the shared Node POSIX path API. Path normalization requires an absolute path, and relative resolution takes an explicit cwd. This module does not interpret shell syntax such as globs or `~`.
+
+Retrieve `workspace` to read the current root or subscribe to root changes. Its `subscribe` callback receives `string | null`; dispose the returned function when the extension no longer needs updates. Terminal command contexts also provide `rootPath`, `currentDirectory`, and `fsClient` directly. They do not use project IDs.
 
 
 ### Logger
@@ -852,7 +868,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     order: 10,              // 表示順序（小さいほど上）
     handler: async (file, menuContext) => {
       // file: FileItem オブジェクト
-      // menuContext: { projectName, projectId }
+      // menuContext: { projectName, rootPath }
       
       context.logger.info(`Opening file: ${file.path}`);
       
@@ -959,13 +975,13 @@ context.explorerMenu.removeMenuItem('open-hex-editor');
 
 | プロパティ | 型 | 説明 |
 |-----------|---|------|
-| `id` | string | ファイルの一意ID |
+| `id` | string | FileItem識別子 |
 | `name` | string | ファイル名 |
 | `path` | string | ファイルパス |
 | `type` | string | `'file'` または `'folder'` |
-| `content` | string | ファイル内容（テキストファイル） |
-| `isBufferArray` | boolean | バイナリファイルかどうか |
-| `bufferContent` | ArrayBuffer | バイナリ内容（バイナリファイル） |
+| `content` | string? | 読み込み済みのテキスト内容 |
+| `isBufferArray` | boolean? | バイナリファイルかどうか |
+| `bufferContent` | ArrayBuffer? | 読み込み済みのバイナリ内容 |
 
 #### menuContext (MenuActionContext)
 
@@ -973,8 +989,7 @@ context.explorerMenu.removeMenuItem('open-hex-editor');
 
 | プロパティ | 型 | 説明 |
 |-----------|---|------|
-| `projectName` | string | プロジェクト名 |
-| `projectId` | string | プロジェクトID |
+| `rootPath` | string | workspace rootの絶対path |
 
 ### 実践例: Binary Editor拡張機能
 

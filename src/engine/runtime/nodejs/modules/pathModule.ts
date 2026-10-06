@@ -1,19 +1,23 @@
 /**
- * path モジュールのエミュレーション
+ * POSIX path module backed by path-browserify.
  *
- * path-browserify の resolve() はブラウザの global process.cwd() (= '/') を使うため、
- * ランタイムの cwd を正しく反映しない。getCwd ゲッターで動的にオーバーライドする。
+ * Runtime resolve uses the current cwd because the browser process cwd is always '/'.
  */
 
-import pathBrowserify from 'path-browserify';
+import { posixPath } from '@/engine/core/pathUtils';
 
-export function createPathModule(getCwd: () => string) {
-  return {
-    ...pathBrowserify,
+type RuntimePathModule = typeof posixPath & { readonly posix: RuntimePathModule };
+
+export function createPathModule(getCwd: () => string): RuntimePathModule {
+  let runtimePath: RuntimePathModule;
+  runtimePath = {
+    ...posixPath,
+    get posix() {
+      return runtimePath;
+    },
     resolve: (...paths: string[]): string => {
-      // path-browserify は fallback に global process.cwd() を使うが、
-      // ブラウザ環境では '/' になる。代わりに runtime の cwd を先頭に置く。
-      return (pathBrowserify.resolve as (...args: string[]) => string)(getCwd(), ...paths);
+      return posixPath.resolve(getCwd(), ...paths);
     },
   };
+  return runtimePath;
 }

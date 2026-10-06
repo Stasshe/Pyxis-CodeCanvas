@@ -12,7 +12,7 @@ interface RightSidebarProps {
   // AI Agent用のプロパティ
   projectFiles?: FileItem[];
   currentProject?: Project | null;
-  currentProjectId?: string;
+  currentRootPath?: string | null;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -21,7 +21,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   children,
   projectFiles = [],
   currentProject = null,
-  currentProjectId = '',
+  currentRootPath = null,
 }) => {
   const { colors } = useTheme();
 
@@ -56,7 +56,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               <AIPanel
                 projectFiles={projectFiles}
                 currentProject={currentProject}
-                currentProjectId={currentProjectId}
+                rootPath={currentRootPath}
               />
             </Suspense>
           )}

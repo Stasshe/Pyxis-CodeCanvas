@@ -1,388 +1,133 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../_helpers/testProject';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { afterEach, describe, expect, it } from 'vitest';
+import { isBuiltInModule } from '@/engine/runtime/module/builtinModules';
+import { ModuleFileSystem } from '@/engine/runtime/module/moduleFileSystem';
 import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
-
-/**
- * ModuleResolver のテスト
- * fileRepository を使って node_modules のモジュール解決をテスト
- *
- * gitFileSystem / syncManager のモックは setup.ts でグローバル定義済み
- * fileRepository のモックは不要（Node 環境では自動的に InMemory に切り替わる）
- */
+import { createNodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
 describe('ModuleResolver', () => {
-  let projectId: string;
-  let projectName: string;
-  let repo: typeof fileRepository;
+  const fixtures: Awaited<ReturnType<typeof createNodeRuntimeFixture>>[] = [];
 
-  beforeEach(async () => {
-    const ctx = await setupTestProject();
-    repo = ctx.repo;
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
+  afterEach(() => {
+    for (const fixture of fixtures.splice(0)) fixture.close();
   });
 
-  describe('パッケージ解決の基盤テスト', () => {
-    it('node_modules 内の package.json を読み取れる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/lodash/package.json',
-        JSON.stringify({
-          name: 'lodash',
-          version: '4.17.21',
-          main: 'lodash.js',
-        }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/lodash/lodash.js',
-        'module.exports = { VERSION: "4.17.21" }',
-        'file'
-      );
+  it('recognizes only implemented Node built-ins', () => {
+    expect(isBuiltInModule('node:assert')).toBe(true);
+    expect(isBuiltInModule('node:worker_threads')).toBe(false);
+  });
 
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/lodash/package.json'
-      );
-      expect(pkgFile).not.toBeNull();
-      expect(pkgFile?.content).toContain('lodash');
+  async function createResolver() {
+    const rootPath = '/tmp/module-resolver';
+    const fixture = await createNodeRuntimeFixture(rootPath);
+    fixtures.push(fixture);
+    const resolver = new ModuleResolver(rootPath, new ModuleFileSystem(fixture.bridge));
+    return { fixture, resolver, rootPath };
+  }
 
-      const pkg = JSON.parse(pkgFile!.content);
-      expect(pkg.name).toBe('lodash');
-      expect(pkg.main).toBe('lodash.js');
-    });
+  it('resolves a package entry from its main field', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/sample/package.json`,
+      JSON.stringify({ main: 'lib/index.js' })
+    );
+    await fixture.writeFile(`${rootPath}/node_modules/sample/lib/index.js`, 'module.exports = 1');
 
-    it('スコープ付きパッケージを解決できる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/@babel/core/package.json',
-        JSON.stringify({
-          name: '@babel/core',
-          version: '7.0.0',
-          main: 'lib/index.js',
-        }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/@babel/core/lib/index.js',
-        'module.exports = {}',
-        'file'
-      );
+    const result = await resolver.resolve('sample', `${rootPath}/src/main.js`);
 
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/@babel/core/package.json'
-      );
-      expect(pkgFile).not.toBeNull();
+    expect(result?.path).toBe(`${rootPath}/node_modules/sample/lib/index.js`);
+  });
 
-      const pkg = JSON.parse(pkgFile!.content);
-      expect(pkg.name).toBe('@babel/core');
-    });
+  it('resolves scoped packages and conditional require exports synchronously', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/@scope/tool/package.json`,
+      JSON.stringify({ exports: { '.': { import: './esm.js', require: './cjs.js' } } })
+    );
+    await fixture.writeFile(`${rootPath}/node_modules/@scope/tool/cjs.js`, 'module.exports = 1');
 
-    it('package.json の module フィールドを読む', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/my-lib/package.json',
-        JSON.stringify({
-          name: 'my-lib',
-          main: 'dist/cjs/index.js',
-          module: 'dist/esm/index.js',
-        }),
-        'file'
-      );
+    const result = resolver.resolveSync('@scope/tool', `${rootPath}/src/main.js`);
 
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/my-lib/package.json'
-      );
-      const pkg = JSON.parse(pkgFile!.content);
+    expect(result?.path).toBe(`${rootPath}/node_modules/@scope/tool/cjs.js`);
+  });
 
-      expect(pkg.module).toBe('dist/esm/index.js');
-      expect(pkg.main).toBe('dist/cjs/index.js');
-    });
+  it('resolves wildcard exports in sync and async resolution', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/wildcard-package/package.json`,
+      JSON.stringify({ exports: { './features/*': './dist/*.js' } })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/wildcard-package/dist/one.js`,
+      'module.exports = 1'
+    );
+    const currentFilePath = `${rootPath}/src/main.js`;
 
-    it('exports フィールドの条件付きエクスポート', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/modern-pkg/package.json',
-        JSON.stringify({
-          name: 'modern-pkg',
-          exports: {
-            '.': {
-              import: './dist/esm/index.js',
-              require: './dist/cjs/index.js',
-            },
-            './utils': {
-              import: './dist/esm/utils.js',
-              require: './dist/cjs/utils.js',
-            },
-          },
-        }),
-        'file'
-      );
-
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/modern-pkg/package.json'
-      );
-      const pkg = JSON.parse(pkgFile!.content);
-
-      expect(pkg.exports['.']).toBeDefined();
-      expect(pkg.exports['.'].import).toBe('./dist/esm/index.js');
-      expect(pkg.exports['.'].require).toBe('./dist/cjs/index.js');
-      expect(pkg.exports['./utils']).toBeDefined();
-    });
-
-    it('getFilesByPrefix で node_modules 配下を列挙できる', async () => {
-      await repo.createFile(projectId, '/node_modules/pkg-a/index.js', 'a', 'file');
-      await repo.createFile(projectId, '/node_modules/pkg-b/index.js', 'b', 'file');
-
-      const files = await repo.getFilesByPrefix(projectId, '/node_modules');
-      const paths = files.map(f => f.path);
-
-      expect(paths.some(p => p.includes('pkg-a'))).toBe(true);
-      expect(paths.some(p => p.includes('pkg-b'))).toBe(true);
+    expect(resolver.resolveSync('wildcard-package/features/one', currentFilePath)?.path).toBe(
+      `${rootPath}/node_modules/wildcard-package/dist/one.js`
+    );
+    await expect(
+      resolver.resolve('wildcard-package/features/one', currentFilePath)
+    ).resolves.toMatchObject({
+      path: `${rootPath}/node_modules/wildcard-package/dist/one.js`,
     });
   });
 
-  describe('初期ファイルとの共存', () => {
-    it('initialFileContents が事前ロードされている', async () => {
-      const files = await repo.getProjectFiles(projectId);
-      const paths = files.map(f => f.path);
+  it('blocks package subpaths excluded by exports', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/private-package/package.json`,
+      JSON.stringify({ exports: { '.': './index.js' } })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/private-package/index.js`,
+      'module.exports = 1'
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/private-package/secret.js`,
+      'module.exports = 2'
+    );
+    const currentFilePath = `${rootPath}/src/main.js`;
 
-      expect(paths).toContain('/.gitignore');
-      expect(paths).toContain('/README.md');
-      expect(paths).toContain('/src/index.js');
-      expect(paths).toContain('/src/math.js');
-    });
-
-    it('既存ファイルの内容が読み取れる', async () => {
-      const mathFile = await repo.getFileByPath(projectId, '/src/math.js');
-      expect(mathFile).not.toBeNull();
-      expect(mathFile?.content).toContain('export function add');
-    });
-
-    it('node_modules を追加しても初期ファイルに影響しない', async () => {
-      const beforeCount = (await repo.getProjectFiles(projectId)).length;
-
-      await repo.createFile(
-        projectId,
-        '/node_modules/test-pkg/index.js',
-        'module.exports = {}',
-        'file'
-      );
-
-      const afterCount = (await repo.getProjectFiles(projectId)).length;
-      expect(afterCount).toBeGreaterThan(beforeCount);
-
-      const mathFile = await repo.getFileByPath(projectId, '/src/math.js');
-      expect(mathFile?.content).toContain('export function add');
-    });
+    expect(resolver.resolveSync('private-package/secret', currentFilePath)).toBeNull();
+    await expect(resolver.resolve('private-package/secret', currentFilePath)).resolves.toBeNull();
   });
 
-  describe('ファイル拡張子解決', () => {
-    it('拡張子なしで .js を探す', async () => {
-      const exact = await repo.getFileByPath(projectId, '/src/index');
-      const withExt = await repo.getFileByPath(projectId, '/src/index.js');
+  it('searches parent node_modules directories for nested dependencies', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/parent/node_modules/nested/package.json`,
+      JSON.stringify({ main: 'entry' })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/parent/node_modules/nested/entry.js`,
+      'module.exports = 1'
+    );
 
-      expect(exact).toBeNull();
-      expect(withExt).not.toBeNull();
-    });
+    const result = resolver.resolveSync('nested', `${rootPath}/node_modules/parent/lib/index.js`);
 
-    it('index.js をフォールバックとして探す', async () => {
-      await repo.createFile(projectId, '/src/components/index.js', 'export default {}', 'file');
-
-      const indexFile = await repo.getFileByPath(projectId, '/src/components/index.js');
-      expect(indexFile).not.toBeNull();
-    });
-
-    it('file URL のクエリ付き dynamic import をプロジェクトファイルに解決する', async () => {
-      await repo.createFile(projectId, '/eslint.config.js', 'export default [];', 'file');
-      const resolver = new ModuleResolver(projectId, projectName);
-      const result = await resolver.resolve(
-        `file:///projects/${projectName}/eslint.config.js?mtime=123#hash`,
-        `/projects/${projectName}/node_modules/eslint/lib/config/config-loader.js`
-      );
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/eslint.config.js`);
-    });
+    expect(result?.path).toBe(`${rootPath}/node_modules/parent/node_modules/nested/entry.js`);
   });
 
-  describe('npm バイナリ解決', () => {
-    it('.bin ディレクトリからバイナリを解決できる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/.bin/cowsay',
-        '#!/usr/bin/env node\nrequire("../cowsay/cli.js")',
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/cowsay/cli.js',
-        'console.log("moo")',
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/cowsay/package.json',
-        JSON.stringify({ name: 'cowsay', version: '1.0.0', bin: { cowsay: 'cli.js' } }),
-        'file'
-      );
+  it('resolves extensionless files and directory indexes synchronously', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/src/math.js`, 'module.exports = 1');
+    await fixture.writeFile(`${rootPath}/src/widgets/index.js`, 'module.exports = 2');
 
-      const binFile = await repo.getFileByPath(projectId, '/node_modules/.bin/cowsay');
-      expect(binFile).not.toBeNull();
-      expect(binFile?.content).toContain('cowsay/cli.js');
-
-      const cliFile = await repo.getFileByPath(projectId, '/node_modules/cowsay/cli.js');
-      expect(cliFile).not.toBeNull();
-    });
+    expect(resolver.resolveSync('./math', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/math.js`
+    );
+    expect(resolver.resolveSync('./widgets', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/widgets/index.js`
+    );
   });
 
-  describe('依存関係ツリー', () => {
-    it('ネストされた依存関係を解決できる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/package.json',
-        JSON.stringify({ name: 'uvu', version: '0.5.6', main: 'index.js' }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/index.js',
-        "const kleur = require('kleur');\nmodule.exports = { test: () => {} };",
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/kleur/package.json',
-        JSON.stringify({ name: 'kleur', version: '4.1.5', main: 'index.js' }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/kleur/index.js',
-        'module.exports = { red: (s) => s };',
-        'file'
-      );
+  it('does not cache a missing path before it is created', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    expect(resolver.resolveSync('./created-later', `${rootPath}/src/main.js`)).toBeNull();
+    await fixture.writeFile(`${rootPath}/src/created-later.js`, 'module.exports = true');
 
-      const uvuPkg = await repo.getFileByPath(projectId, '/node_modules/uvu/package.json');
-      expect(uvuPkg).not.toBeNull();
-
-      const kleurPkg = await repo.getFileByPath(projectId, '/node_modules/kleur/package.json');
-      expect(kleurPkg).not.toBeNull();
-
-      const uvuIndex = await repo.getFileByPath(projectId, '/node_modules/uvu/index.js');
-      expect(uvuIndex?.content).toContain("require('kleur')");
-    });
-  });
-
-  // ==================== ModuleResolver.resolve() の直接テスト ====================
-
-  describe('ModuleResolver.resolve() — 相対パスの拡張子解決', () => {
-    let resolver: ModuleResolver;
-
-    beforeEach(() => {
-      resolver = new ModuleResolver(projectId, projectName);
-    });
-
-    it("require('./package') が package.json に解決される", async () => {
-      // uvu/bin.js が require('./package') するパターンを再現
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/package.json',
-        JSON.stringify({ name: 'uvu', version: '0.5.6', main: 'index.js' }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/bin.js',
-        "const pkg = require('./package');\nmodule.exports = pkg;",
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/node_modules/uvu/bin.js`;
-      const result = await resolver.resolve('./package', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/node_modules/uvu/package.json`);
-    });
-
-    it("require('./lib/utils') が ./lib/utils.js に解決される", async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/test-pkg/lib/utils.js',
-        'module.exports = {}',
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
-      const result = await resolver.resolve('./lib/utils', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/node_modules/test-pkg/lib/utils.js`);
-    });
-
-    it("require('./data') が ./data.json に解決される", async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/test-pkg/data.json',
-        JSON.stringify({ key: 'value' }),
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
-      const result = await resolver.resolve('./data', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/node_modules/test-pkg/data.json`);
-    });
-
-    it('存在しない相対モジュールは null を返す', async () => {
-      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
-      const result = await resolver.resolve('./nonexistent', currentFile);
-
-      expect(result).toBeNull();
-    });
-
-    it('nested require/default exports を CJS entry に解決する', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/minimatch/package.json',
-        JSON.stringify({
-          name: 'minimatch',
-          exports: {
-            '.': {
-              import: {
-                types: './dist/mjs/index.d.ts',
-                default: './dist/mjs/index.js',
-              },
-              require: {
-                types: './dist/cjs/index.d.ts',
-                default: './dist/cjs/index-cjs.js',
-              },
-            },
-          },
-        }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/minimatch/dist/cjs/index-cjs.js',
-        'module.exports = {}',
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/src/index.js`;
-      const result = await resolver.resolve('minimatch', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(
-        `/projects/${projectName}/node_modules/minimatch/dist/cjs/index-cjs.js`
-      );
-    });
+    expect(resolver.resolveSync('./created-later', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/created-later.js`
+    );
   });
 });

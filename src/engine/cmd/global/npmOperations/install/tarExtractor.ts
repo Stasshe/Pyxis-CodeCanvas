@@ -1,46 +1,25 @@
-import { Buffer } from 'buffer';
 import pako from 'pako';
 import tarStream from 'tar-stream';
+import { isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
 
 import type { ExtractedFileMap } from './types';
-
-function isBinaryBuffer(buf: Uint8Array): boolean {
-  for (let i = 0; i < buf.length; i++) {
-    if (buf[i] === 0) return true;
-  }
-  const len = Math.min(buf.length, 512);
-  let nonPrintable = 0;
-  for (let i = 0; i < len; i++) {
-    const c = buf[i];
-    if (c === 9 || c === 10 || c === 13) continue;
-    if (c < 32 || c > 126) nonPrintable++;
-  }
-  return nonPrintable / Math.max(1, len) > 0.3;
-}
-
-function uint8ArrayToBase64(buf: Uint8Array): string {
-  return Buffer.from(buf).toString('base64');
-}
 
 export class TarExtractor {
   private textDecoder = new TextDecoder('utf-8', { fatal: false });
 
-  private encodeContent(buf: Uint8Array): string {
-    return isBinaryBuffer(buf) ? `base64:${uint8ArrayToBase64(buf)}` : this.textDecoder.decode(buf);
-  }
-
   private processEntry(
-    header: any,
+    header: tarStream.Headers,
     chunks: Uint8Array[],
     packageDir: string,
-    fileEntries: Map<string, { type: string; content?: string; fullPath: string }>,
+    fileEntries: Map<string, { type: string; content?: string | Uint8Array; fullPath: string }>,
     requiredDirs: Set<string>
   ): void {
-    let rel = header.name;
-    if (rel.startsWith('package/')) rel = rel.substring(8);
-    if (!rel || rel.includes('..') || rel.startsWith('/')) return;
-
-    const fullPath = `${packageDir}/${rel}`;
+    let entryName = header.name;
+    if (entryName.startsWith('package/')) entryName = entryName.substring(8);
+    if (!entryName || posixPath.isAbsolute(entryName)) return;
+    const fullPath = resolvePath(packageDir, entryName);
+    if (!isPathWithin(fullPath, packageDir) || fullPath === packageDir) return;
+    const rel = posixPath.relative(packageDir, fullPath);
     if (header.type === 'file') {
       const totalLen = chunks.reduce((s, c) => s + c.length, 0);
       const combined = new Uint8Array(totalLen);
@@ -49,7 +28,9 @@ export class TarExtractor {
         combined.set(c, offset);
         offset += c.length;
       }
-      fileEntries.set(rel, { type: 'file', content: this.encodeContent(combined), fullPath });
+      let content: string | Uint8Array = combined;
+      if (rel.endsWith('.mjs')) content = this.textDecoder.decode(combined);
+      fileEntries.set(rel, { type: 'file', content, fullPath });
       const parts = rel.split('/');
       for (let i = 0; i < parts.length - 1; i++) {
         requiredDirs.add(parts.slice(0, i + 1).join('/'));
@@ -62,7 +43,7 @@ export class TarExtractor {
 
   private buildExtractedFiles(
     packageDir: string,
-    fileEntries: Map<string, { type: string; content?: string; fullPath: string }>,
+    fileEntries: Map<string, { type: string; content?: string | Uint8Array; fullPath: string }>,
     requiredDirs: Set<string>
   ): ExtractedFileMap {
     const sortedDirs = Array.from(requiredDirs).sort(
@@ -90,10 +71,13 @@ export class TarExtractor {
     }
 
     const extract = tarStream.extract();
-    const fileEntries = new Map<string, { type: string; content?: string; fullPath: string }>();
+    const fileEntries = new Map<
+      string,
+      { type: string; content?: string | Uint8Array; fullPath: string }
+    >();
     const requiredDirs = new Set<string>();
 
-    extract.on('entry', (header: any, stream: any, next: any) => {
+    extract.on('entry', (header, stream, next) => {
       const chunks: Uint8Array[] = [];
       stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
       stream.on('end', () => {
@@ -118,10 +102,13 @@ export class TarExtractor {
     decompressedStream: ReadableStream<Uint8Array>
   ): Promise<ExtractedFileMap> {
     const extract = tarStream.extract();
-    const fileEntries = new Map<string, { type: string; content?: string; fullPath: string }>();
+    const fileEntries = new Map<
+      string,
+      { type: string; content?: string | Uint8Array; fullPath: string }
+    >();
     const requiredDirs = new Set<string>();
 
-    extract.on('entry', (header: any, stream: any, next: any) => {
+    extract.on('entry', (header, stream, next) => {
       const chunks: Uint8Array[] = [];
       stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
       stream.on('end', () => {
@@ -141,7 +128,7 @@ export class TarExtractor {
         }
         extract.end();
       } catch (err) {
-        extract.destroy(err as Error);
+        extract.destroy(err instanceof Error ? err : new Error(String(err)));
       }
     })();
 
@@ -162,11 +149,15 @@ export class TarExtractor {
 
     return new ReadableStream<Uint8Array>({
       start(controller) {
-        function pushResult() {
-          const out = (inflate as any).result;
-          if (!out) return;
-          if (out instanceof Uint8Array) controller.enqueue(out.slice());
-          else if (typeof out === 'string') controller.enqueue(new TextEncoder().encode(out));
+        inflate.onData = chunk => {
+          if (chunk instanceof Uint8Array) controller.enqueue(chunk);
+          else controller.enqueue(new Uint8Array(chunk));
+        };
+
+        function throwOnInflateError() {
+          if (inflate.err !== 0) {
+            throw new Error(inflate.msg || `Gzip decompression failed (${inflate.err})`);
+          }
         }
         (async () => {
           try {
@@ -174,10 +165,10 @@ export class TarExtractor {
               const { done, value } = await reader.read();
               if (done) break;
               inflate.push(value, false);
-              pushResult();
+              throwOnInflateError();
             }
             inflate.push(new Uint8Array(), true);
-            pushResult();
+            throwOnInflateError();
             controller.close();
           } catch (err) {
             controller.error(err);

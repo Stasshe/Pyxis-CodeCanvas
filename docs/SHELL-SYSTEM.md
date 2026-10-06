@@ -2,7 +2,7 @@
 
 ## 概要
 
-PyxisのShellシステムは、ブラウザ上でPOSIX準拠のシェルスクリプト実行環境を提供します。UnixCommandsをベースとしたシンプルなコマンド実行から、StreamShellによる本格的なシェル機能への進化により、パイプライン、リダイレクション、制御構文、コマンド置換など、実際のシェルスクリプトの多くの機能をサポートします。
+PyxisのShellシステムは、ブラウザ上でUnixコマンドとshell構文の一部を実行します。StreamShellはパイプライン、リダイレクション、制御構文、コマンド置換などをサポートします。実装済みの構文は本文の制約欄を参照してください。
 
 ## アーキテクチャ全体図
 
@@ -15,10 +15,16 @@ graph TB
     Process --> Builtins[Builtins Adapter]
     Builtins --> UnixCommands[Unix Commands]
     StreamShell --> UnixCommands
-    StreamShell --> FileRepository[File Repository]
+    StreamShell --> FsClient[FS Client]
 ```
 
 ## コア設計理念
+
+### Pathとshell展開の境界
+
+Filesystem path操作は共通のNode POSIX path APIを使います。FS境界では絶対pathを要求し、相対pathは明示したcwdから解決します。Shell parserだけがコマンド引数のtilde、quote、変数、brace、IFS、glob展開を処理し、解決済み引数を各commandへ一度渡します。Runtimeの`fs` APIはshell展開を行いません。
+
+Globはpath segmentごとにFS Clientの`readdir`を使い、`fnmatch`の`FNM_PERIOD | FNM_PATHNAME`で照合します。展開先がなければ入力patternをそのまま残します。`**`による再帰globはサポートしません。
 
 ### 1. プロセス抽象化
 
@@ -290,7 +296,7 @@ sequenceDiagram
     participant Proc as Process
     participant Builtin as Builtins
     participant Unix as UnixCommands
-    participant FS as FileRepository
+    participant FS as FS Client
     
     User->>Shell: run(commandLine)
     Shell->>Parser: parseCommandLine(line)
@@ -318,14 +324,14 @@ sequenceDiagram
             Proc-->>Shell: chunk
             Shell->>Shell: fdBuffers[fd].push(chunk)
             opt ファイルリダイレクト
-                Shell->>FS: enqueueWrite(path, chunk)
+                Shell->>FS: collect redirected output
             end
         end
         
         Proc->>Shell: emit('exit', code)
     end
     
-    Shell->>FS: ファイル書き込み完了待機
+    Shell->>FS: pipeline終了後にredirect先へ書き込み
     Shell-->>User: {stdout, stderr, code}
 ```
 
@@ -422,7 +428,7 @@ fdBuffers[3] = ['custom1', 'custom2', ...];
 各チャンクは文字列として保存されますが：
 
 1. PassThroughストリームの内部バッファ（16KB）により、一度に大量のデータがメモリに乗らない
-2. ファイルリダイレクトの場合、チャンクは即座にFileRepositoryに書き込まれる
+2. ファイルリダイレクトの場合、出力を収集し、process終了後にFS Clientへ書き込む
 3. パイプラインの場合、中間データは最終結果に含まれない
 
 **最終結果の構築**
@@ -631,71 +637,21 @@ if (seg.fdDup && Array.isArray(seg.fdDup)) {
 
 これにより、コマンド実行開始前にfdマッピングが確定します。
 
-**ストリーム監視とバッファリング**
+**ストリーム監視とリダイレクト**
 
-`run()`メソッドは、各fdのストリームに`data`イベントリスナーを登録します：
-
-```typescript
-const watchFdFor = (fd: number) => {
-  const stream = proc.getFdWrite(fd);
-  const fdFiles = seg.fdFiles || {};
-  const fileInfo = fdFiles[fd];
-  
-  if (fileInfo && this.fileRepository) {
-    // ファイル出力の場合：書き込みキューに追加
-    stream.on('data', (chunk: Buffer | string) => {
-      const s = String(chunk);
-      enqueueWrite(fileInfo.path, fileInfo.append, s);
-      fdBuffers[fd].push(s);  // 返却用にもバッファ
-    });
-  } else {
-    // 通常の場合：バッファに蓄積
-    stream.on('data', (chunk: Buffer | string) => {
-      fdBuffers[fd].push(String(chunk));
-    });
-  }
-};
-
-watchFdFor(1);  // stdout
-watchFdFor(2);  // stderr
-// fdFilesに記載された追加fdも監視
-for (const k of Object.keys(seg.fdFiles || {})) {
-  watchFdFor(Number(k));
-}
-```
-
-**書き込みキューによる競合回避**
-
-複数チャンクの非同期書き込みが競合しないよう、パスごとにPromiseチェーンを構築します：
+Shellは最後のprocessのstdout/stderrをストリームから集め、callbackへ順次渡します。リダイレクト先のpathは現在のworking directoryから解決し、pipeline終了後にFS Clientへ書き込みます。追記では既存テキストを読んでから内容を追加します。
 
 ```typescript
-const writeQueues: Record<string, Promise<void>> = {};
-
-const enqueueWrite = (path: string, append: boolean, chunk: string) => {
-  const key = normalizePath(path);
-  const job = async () => {
-    const existing = await findFile(key);
-    if (!existing) {
-      await createFile(key, chunk);
-    } else {
-      await saveFile(existing.content + chunk);
-    }
-  };
-  
-  // 既存のPromiseに連鎖
-  writeQueues[key] = (writeQueues[key] || Promise.resolve())
-    .then(job)
-    .catch(() => {});
-  
-  return writeQueues[key];
-};
+const path = resolvePath(cwd, redirectPath);
+const content = append
+  ? (await fsClient.readText(path).catch(() => '')) + output
+  : output;
+await fsClient.writeFile(path, content);
 ```
 
-この実装により：
+出力全体を保持してから書き込むため、大量出力のリダイレクトはメモリを使います。
 
-1. **順序保証**: 同じファイルへの複数書き込みが順序通りに実行される
-2. **並行性**: 異なるファイルへの書き込みは並行実行される
-3. **エラー分離**: 1つのファイルのエラーが他に影響しない
+リダイレクト書き込みはコマンド結果の収集後に行われます。FS Clientのエラーはshell実行結果のstdout/stderrには追加されません。
 
 **入力リダイレクションの実装**
 
@@ -735,22 +691,15 @@ fdFiles: {
 
 `cmd 2>&1 >output.txt`の場合：
 
-1. Parser解析: `fdDup: [{ from: 2, to: 1 }]`, `fdFiles: { 1: { path: 'output.txt', ... } }`
-2. プロセス生成時: `setFdDup(2, 1)` → fd 2とfd 1が同じストリームを指す
-3. ストリーム監視: fd 1に`output.txt`への書き込みリスナーを登録
-4. 実行結果: **stderrとstdoutの両方が`output.txt`に書き込まれる**
+Parserは`fdFiles`と`fdDup`を保持し、process生成時にfd mappingを適用します。最後のprocessから集めた出力を各fdのリダイレクト先に対応づけ、process終了後に書き込みます。
 
-**appendモードの実装**
+**appendモード**
 
 `>>`演算子の場合、既存ファイル内容を保持します：
 
 ```typescript
-if (appendMap[path]) {
-  const existing = await findFile(path);
-  if (existing && existing.content) {
-    contentToWrite = existing.content + contentToWrite;
-  }
-}
+if (append) content = (await fsClient.readText(path).catch(() => '')) + output;
+await fsClient.writeFile(path, content);
 ```
 
 通常の`>`の場合、ファイルは上書きされます（既存内容を読まずに新規作成）。
@@ -1129,11 +1078,11 @@ testコマンド（`[`）などは失敗時に出力を生成せず、終了コ�
 **コマンドレジストリ**
 
 ```typescript
-// 最初のアクセス時のみインスタンス化
-getUnixCommands(projectName, projectId): UnixCommands {
-  const entry = this.getOrCreateEntry(projectId);
+// 最初のアクセス時のみworkspaceごとにインスタンス化
+getUnixCommands(rootPath): UnixCommands {
+  const entry = this.getOrCreateEntry(rootPath);
   if (!entry.unix) {
-    entry.unix = new UnixCommands(projectName, projectId);
+    entry.unix = new UnixCommands(rootPath);
   }
   return entry.unix;
 }
@@ -1197,11 +1146,11 @@ proc.stdin.on('data', (chunk) => {
 // プロジェクトごとに1インスタンス
 private projects = new Map<string, { shell: StreamShell, ... }>();
 
-async getShell(projectName, projectId) {
-  const entry = this.getOrCreateEntry(projectId);
+async getShell(rootPath, opts) {
+  const entry = this.getOrCreateEntry(rootPath);
   if (entry.shell) return entry.shell;
   
-  entry.shell = new StreamShell({ projectName, projectId, ... });
+  entry.shell = new StreamShell({ rootPath, fsClient: opts?.fsClient, ... });
   return entry.shell;
 }
 ```
@@ -1279,33 +1228,9 @@ const watchProc = (proc: Process, seg: Segment) => {
 - **従来**: 10プロセス分の出力を全てメモリに保持 → ~数百MB
 - **最適化**: 最後のプロセスの出力のみ保持 → ~数十KB
 
-### ファイルリダイレクトの最適化
+### ファイルリダイレクト
 
-**ストリーミング書き込み**
-
-```typescript
-stream.on('data', (chunk) => {
-  enqueueWrite(fileInfo.path, fileInfo.append, chunk);
-});
-```
-
-各チャンクは即座にFileRepositoryに書き込まれるため：
-
-- 大きな出力でもメモリに全体が載らない
-- IndexedDBへの書き込みはバックグラウンドで進行
-- UIがブロックされない
-
-**書き込みキューによる最適化**
-
-```typescript
-writeQueues[path] = writeQueues[path].then(job);
-```
-
-同じファイルへの複数チャンクの書き込みが直列化されることで：
-
-- IndexedDBトランザクションの競合を回避
-- 不要なロック待ちを削減
-- スループット向上
+リダイレクト出力はprocess終了後に集約してFS Clientへ渡します。追記では既存内容を読み込み、新しい出力を加えて書き戻します。大きなリダイレクト出力はshell側のメモリに保持されます。
 
 ### キャッシュ戦略
 
@@ -1330,8 +1255,8 @@ const builtins = adaptUnixToStream(unix);
 |------|------|------|
 | 単一コマンド実行 | ~5ms | echo, pwd など |
 | 3段パイプライン | ~15ms | オーバーヘッド込み |
-| ファイル読み込み（1MB） | ~50ms | IndexedDB + 処理 |
-| ファイル書き込み（1MB） | ~100ms | IndexedDB書き込み |
+| ファイル読み込み（1MB） | 計測値なし | OPFS worker request + 処理 |
+| ファイル書き込み（1MB） | 計測値なし | OPFS worker request |
 | 複雑なスクリプト（50行） | ~200ms | 制御構文含む |
 
 ※ブラウザやマシンスペックにより変動します。
@@ -1349,10 +1274,9 @@ Shellシステムは依存性注入をサポートしており、テストでモ
 ```typescript
 const mockUnix = { /* mock methods */ }
 const shell = new StreamShell({
-  projectName: 'test',
-  projectId: 'test-id',
+  rootPath: '/test',
   unix: mockUnix,
-  fileRepository: mockFileRepo
+  fsClient: mockFsClient
 })
 ```
 
@@ -1362,7 +1286,7 @@ const shell = new StreamShell({
 
 | 項目 | 制約 | 理由 |
 |------|------|------|
-| グロブ展開 | `**`（再帰）は未サポート | FileRepository APIの制約とパフォーマンス考慮 |
+| グロブ展開 | `**`（再帰）は未サポート | glob matcher processes path segments without recursive `**` semantics |
 | ジョブ制御 | バックグラウンドジョブの管理は簡易的 | ブラウザ環境でのプロセステーブル管理の複雑さ |
 | シェル関数 | 関数定義は未サポート | スコープ管理とクロージャの実装コスト |
 | サブシェル | `( ... )`による独立実行は未サポート | 環境変数の分離とコピーオンライトの実装コスト |
@@ -1376,13 +1300,13 @@ const shell = new StreamShell({
 
 全てのストリーム処理はメインスレッドで実行されます：
 
-- **利点**: IndexedDBやDOMへの直接アクセスが可能
+- **利点**: UIとのイベント連携が直接できる
 - **欠点**: 長時間実行がUIをブロックする可能性
 - **緩和策**: タイムアウト（デフォルト5秒）で強制終了
 
 **ファイルシステムの非同期性**
 
-IndexedDBベースのFileRepositoryは全て非同期です：
+FS Clientのファイル操作は非同期です：
 
 ```typescript
 // 実OSでは同期的
@@ -1439,17 +1363,9 @@ cmd1 | cmd2 && cmd3 | cmd4
 - 各グループは独立したプロセスセットとして実行
 - 短絡評価が自然に実装できる
 
-**書き込みキューの実装**
+**ファイル操作**
 
-ファイルへの並行書き込みをPromiseチェーンで直列化する理由：
-
-```typescript
-writeQueues[path] = writeQueues[path].then(job);
-```
-
-- **代替案1**: ロック機構 → 実装が複雑、デッドロックのリスク
-- **代替案2**: 同期的書き込み → IndexedDBは非同期のみ
-- **採用理由**: シンプル、デッドロックなし、順序保証
+Shellは`fsClient`の非同期path APIを通じてOPFSへアクセスします。redirect pathはshellの現在cwdから絶対pathへ解決してから渡します。
 
 ### 拡張の方向性
 
@@ -1522,7 +1438,7 @@ ls !(*.txt)
 
 必要な実装：
 
-- FileRepository APIの拡張（再帰的リスト取得）
+- recursive `**` glob matching
 - 高度なパターンマッチングエンジン
 
 ## まとめ

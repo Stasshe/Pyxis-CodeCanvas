@@ -127,13 +127,13 @@ const transformImportsModule = await context.getSystemModule('transformImports')
 const transformed = transformImportsModule(bundled);
 ```
 
-### fileRepositoryモジュール
+### Workspace filesystem
 
-仮想ファイルシステムとして`fileRepository`が必要です。
+The extension reads source files through the shared absolute-path filesystem API.
 
 ```javascript
-const fileRepository = await context.getSystemModule('fileRepository');
-const file = await fileRepository.getFileByPath(projectId, filePath);
+const fsClient = await context.getSystemModule('fsClient');
+const source = await fsClient.readText(filePath);
 ```
 
 ## 制約

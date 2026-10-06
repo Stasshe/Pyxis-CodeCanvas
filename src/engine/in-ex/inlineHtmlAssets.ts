@@ -1,3 +1,5 @@
+import { resolvePath } from '@/engine/core/fs';
+
 // HTML/CSS/JSインライン化処理を切り出し
 // files: ディレクトリ内のファイル名配列
 // path: ディレクトリパス
@@ -17,7 +19,7 @@ export const inlineHtmlAssets = async (
   if (!htmlFile) {
     throw new Error('フォルダ内にHTMLファイルがありません。');
   }
-  const htmlPath = `${path}/${htmlFile}`;
+  const htmlPath = resolvePath(path, htmlFile);
   const read = fileReader;
 
   let htmlContent = await read(htmlPath);
@@ -32,7 +34,7 @@ export const inlineHtmlAssets = async (
   let cssContent = '';
   for (const css of cssFiles) {
     try {
-      const cssPath = `${path}/${css}`;
+      const cssPath = resolvePath(path, css);
       cssContent += `${await read(cssPath)}\n`;
     } catch (err) {
       console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
@@ -57,7 +59,7 @@ export const inlineHtmlAssets = async (
   let jsContent = '';
   for (const js of jsFiles) {
     try {
-      const jsPath = `${path}/${js}`;
+      const jsPath = resolvePath(path, js);
       jsContent += `${await read(jsPath)}\n`;
     } catch (err) {
       console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);

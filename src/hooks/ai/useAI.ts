@@ -11,7 +11,7 @@ import {
   parseEditResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs';
 import { pushLogMessage } from '@/stores/loggerStore';
 import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
 
@@ -26,7 +26,7 @@ interface UseAIProps {
   selectedFiles?: string[];
   onUpdateSelectedFiles?: (files: string[]) => void;
   messages?: ChatSpaceMessage[];
-  projectId?: string;
+  rootPath?: string | null;
 }
 
 async function loadAIStorage(): Promise<typeof import('@/engine/storage/aiStorageAdapter') | null> {
@@ -134,6 +134,10 @@ export function useAI(props?: UseAIProps) {
           return null;
         }
         // Edit モード
+        if (!props?.rootPath) {
+          throw new Error('A workspace root path is required to edit files.');
+        }
+
         const prompt = EDIT_PROMPT_TEMPLATE(
           selectedFiles,
           content,
@@ -152,7 +156,7 @@ export function useAI(props?: UseAIProps) {
         }
 
         // レスポンスをパース
-        const responsePaths = extractFilePathsFromResponse(response);
+        const responsePaths = extractFilePathsFromResponse(response, props.rootPath);
         console.log(
           '[useAI] Selected files:',
           selectedFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
@@ -165,22 +169,14 @@ export function useAI(props?: UseAIProps) {
 
         console.log('[useAI] New paths (not in selected):', newPaths);
 
-        // Fetch actual content for files not in selectedFiles from the repository
+        // Load existing file content for response paths outside the selected contexts.
         const newFilesWithContent = await Promise.all(
           newPaths.map(async (path: string) => {
-            try {
-              if (props?.projectId) {
-                await fileRepository.init();
-                const file = await fileRepository.getFileByPath(props.projectId, path);
-                if (file?.content) {
-                  console.log('[useAI] Fetched existing file content for:', path);
-                  return { path, content: file.content, isNewFile: false };
-                }
-              }
-            } catch (e) {
-              console.warn('[useAI] Could not fetch file content for:', path, e);
+            if (await fsClient.exists(path)) {
+              const fileContent = await fsClient.readText(path);
+              return { path, content: fileContent, isNewFile: false };
             }
-            // This is a new file that will be created
+
             return { path, content: '', isNewFile: true };
           })
         );
@@ -209,7 +205,7 @@ export function useAI(props?: UseAIProps) {
           }))
         );
 
-        const parseResult = parseEditResponse(response, allOriginalFiles);
+        const parseResult = parseEditResponse(response, allOriginalFiles, props.rootPath);
 
         console.log(
           '[useAI] Parse result:',
@@ -255,13 +251,13 @@ export function useAI(props?: UseAIProps) {
           editResponse
         );
 
-        // Persist AI review metadata / snapshots using storage adapter when projectId provided
+        // Persist AI review metadata / snapshots using storage adapter when rootPath provided
         try {
           const aiStorage = await loadAIStorage();
-          if (props?.projectId && aiStorage && typeof aiStorage.saveAIReviewEntry === 'function') {
+          if (props?.rootPath && aiStorage) {
             for (const f of editResponse.changedFiles) {
               aiStorage
-                .saveAIReviewEntry(props.projectId, f.path, f.originalContent, f.suggestedContent, {
+                .saveAIReviewEntry(props.rootPath, f.path, f.originalContent, f.suggestedContent, {
                   message: parseResult.message,
                   parentMessageId: assistantMsg?.id,
                 })
@@ -281,7 +277,7 @@ export function useAI(props?: UseAIProps) {
         setIsProcessing(false);
       }
     },
-    [fileContexts, addMessage, props?.messages, props?.projectId]
+    [fileContexts, addMessage, props?.messages, props?.rootPath]
   );
 
   // ファイルコンテキストを更新

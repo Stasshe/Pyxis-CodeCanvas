@@ -1,5 +1,3 @@
-import { fileRepository } from '@/engine/core/fileRepository';
-import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -23,7 +21,7 @@ import { UnixCommandBase } from './base';
  * 動作:
  *   - 複数のファイルを連結して表示
  *   - ファイル名が指定されない場合は空
- *   - ワイルドカード対応
+ *   - パスはシェルで展開された後に解決
  */
 export class CatCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
@@ -67,27 +65,20 @@ export class CatCommand extends UnixCommandBase {
     const results: string[] = [];
 
     for (const arg of positional) {
-      const expanded = await this.expandPathPattern(arg);
-
-      if (expanded.length === 0) {
-        throw new Error(`cat: ${arg}: No such file or directory`);
-      }
-
-      for (const path of expanded) {
-        try {
-          const content = await this.readFile(path);
-          const processed = this.processContent(content, {
-            numberAll,
-            numberNonblank,
-            squeezeBlank,
-            showEnds,
-            showTabs,
-            showNonprinting,
-          });
-          results.push(processed);
-        } catch (error) {
-          throw new Error(`cat: ${path}: ${(error as Error).message}`);
-        }
+      const path = this.resolvePath(arg);
+      try {
+        const content = await this.readFile(path);
+        const processed = this.processContent(content, {
+          numberAll,
+          numberNonblank,
+          squeezeBlank,
+          showEnds,
+          showTabs,
+          showNonprinting,
+        });
+        results.push(processed);
+      } catch (error) {
+        throw new Error(`cat: ${path}: ${(error as Error).message}`);
       }
     }
 
@@ -98,25 +89,12 @@ export class CatCommand extends UnixCommandBase {
    * ファイルの内容を読み取る
    */
   private async readFile(path: string): Promise<string> {
-    const normalizedPath = this.normalizePath(path);
-
-    const isDir = await this.isDirectory(normalizedPath);
+    const isDir = await this.isDirectory(path);
     if (isDir) {
       throw new Error('Is a directory');
     }
 
-    const relative = this.getRelativePathFromProject(normalizedPath);
-    const file: ProjectFile | null = await fileRepository.getFileByPath(this.projectId, relative);
-
-    if (!file) {
-      throw new Error('No such file or directory');
-    }
-
-    if (file.isBufferArray && file.bufferContent) {
-      return new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
-    }
-
-    return typeof file.content === 'string' ? file.content : '';
+    return this.readText(path);
   }
 
   /**

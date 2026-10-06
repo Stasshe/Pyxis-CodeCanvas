@@ -21,7 +21,7 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   const { t } = useTranslation();
   // If the tab doesn't have bufferContent, nothing to show here
   if (!('bufferContent' in activeTab)) return null;
-  const buffer = activeTab.bufferContent as ArrayBuffer | undefined;
+  const buffer = activeTab.bufferContent;
   if (!buffer) return null;
 
   const mime = guessMimeType(activeTab.name, buffer);

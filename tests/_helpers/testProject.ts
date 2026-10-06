@@ -1,18 +1,19 @@
 /**
- * テストプロジェクトヘルパー
- * fileRepository に initialFileContents を事前ロードするユーティリティ
+ * Load initial files into an explicitly injected test filesystem.
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import type { FsCore } from '@/engine/core/fs/core';
 import { initialFileContents } from '@/engine/initialFileContents';
+import { directoryTree } from './opfs';
+import { resetTestFs } from './testFs';
 
-// initialFileContents のノード型
+// Initial file tree.
 type FileNode =
   | { type: 'file'; content: string }
   | { type: 'folder'; children: Record<string, FileNode> };
 
 /**
- * initialFileContents のツリー構造をフラットなファイルエントリに変換する
+ * Flatten the initial file tree into entries.
  */
 export function flattenInitialFiles(
   tree: Record<string, FileNode> = initialFileContents as Record<string, FileNode>,
@@ -36,41 +37,23 @@ export function flattenInitialFiles(
   return entries;
 }
 
-/**
- * fileRepository のシングルトンをリセットする
- */
-export function resetRepository(): any {
-  const repo = fileRepository;
-  // @ts-expect-error -- テスト用に内部状態を直接リセット
-  repo.projects = new Map();
-  // @ts-expect-error
-  repo.files = new Map();
-  // @ts-expect-error
-  repo.listeners = new Set();
-  return repo;
+export function resetRepository(): FsCore {
+  return resetTestFs();
 }
 
-/**
- * テストプロジェクトを作成し、initialFileContents で事前ロードする
- * @returns { repo, projectId, projectName }
- */
-export async function setupTestProject(
-  projectName = 'TestProject'
-): Promise<{
-  repo: typeof fileRepository;
-  projectId: string;
+export async function setupTestProject(projectName = 'TestProject'): Promise<{
+  repo: FsCore;
+  rootPath: string;
   projectName: string;
 }> {
-  const repo = resetRepository();
-  await repo.init();
-
-  const project = await repo.createEmptyProject(projectName);
-  const entries = flattenInitialFiles();
-  await repo.createFilesBulk(project.id, entries);
-
-  return {
-    repo,
-    projectId: project.id,
-    projectName: project.name,
-  };
+  const repo = resetTestFs();
+  await repo.init(directoryTree());
+  const rootPath = `/tmp/${projectName}`;
+  await repo.mkdir(rootPath, { recursive: true });
+  for (const entry of flattenInitialFiles()) {
+    const path = `${rootPath}${entry.path}`;
+    if (entry.type === 'folder') await repo.mkdir(path, { recursive: true });
+    else await repo.writeFile(path, entry.content);
+  }
+  return { repo, rootPath, projectName };
 }

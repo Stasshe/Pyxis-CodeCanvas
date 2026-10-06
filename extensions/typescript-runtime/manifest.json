@@ -3,7 +3,7 @@
   "name": "TypeScript Runtime",
   "version": "1.0.0",
   "type": "transpiler",
-  "description": "TypeScript/JSX/TSXファイルのトランスパイルをサポート。Babel standaloneを使用した高速なコンパイル。",
+  "description": "TypeScriptファイルのトランスパイルを有効にします。",
   "author": "Pyxis Team",
   "defaultEnabled": false,
   "icon": "/extensions/pyxis/typescript-runtime/icon.svg",

@@ -1,3 +1,4 @@
+import { posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import {
   type EvalContext,
@@ -113,7 +114,7 @@ class FindExprParser extends ExprParser<FindContext> {
           const fc = ctx as FindContext;
           // ファイルの場合はサイズ0、ディレクトリの場合は空
           if (fc.fileType === 'file') {
-            return (fc.file.content?.length || 0) === 0;
+            return fc.file.size === 0;
           }
           return false; // ディレクトリの空判定は別途実装が必要
         });
@@ -253,7 +254,7 @@ export class FindCommand extends UnixCommandBase {
     const results: string[] = [];
 
     for (const p of paths) {
-      const normalizedPath = this.normalizePath(this.resolvePath(p));
+      const normalizedPath = this.resolvePath(p);
       const found = await this.findFiles(normalizedPath, expr, maxDepth, minDepth);
       results.push(...found);
     }
@@ -277,18 +278,17 @@ export class FindCommand extends UnixCommandBase {
     maxDepth: number,
     minDepth: number
   ): Promise<string[]> {
-    const relativePath = this.getRelativePathFromProject(startPath);
     const results: string[] = [];
-    const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
+    const normalizedStart = startPath === '/' ? '/' : startPath.replace(/\/$/, '');
     const pruned = new Set<string>();
 
     // 開始パス自体をチェック
-    const startFile = await this.cachedGetFile(relativePath);
+    const startFile = await this.getFile(startPath);
     if (startFile && 0 >= minDepth && 0 <= maxDepth) {
       const ctx: FindContext = {
         file: startFile,
         fullPath: normalizedStart,
-        baseName: startFile.name || '',
+        baseName: posixPath.basename(startFile.path),
         depth: 0,
         fileType: startFile.type as 'file' | 'folder',
       };
@@ -298,23 +298,21 @@ export class FindCommand extends UnixCommandBase {
     }
 
     // 子要素を取得
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const files: ProjectFile[] = await this.getDescendants(startPath);
 
     files.sort((a, b) => a.path.localeCompare(b.path));
 
     for (const file of files) {
-      let relativeToStart = file.path.startsWith(prefix)
-        ? file.path.substring(prefix.length)
-        : file.path;
-      relativeToStart = relativeToStart.replace(/^\/+/, '');
-
-      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length;
+      const relativeToStart = posixPath.relative(startPath, file.path);
+      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').length;
 
       if (depth < minDepth || depth > maxDepth) continue;
 
-      const fullPath =
-        relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
+      let fullPath = normalizedStart;
+      if (relativeToStart !== '') {
+        if (normalizedStart === '/') fullPath = `/${relativeToStart}`;
+        else fullPath = `${normalizedStart}/${relativeToStart}`;
+      }
 
       // pruneチェック
       let isPruned = false;
@@ -329,7 +327,7 @@ export class FindCommand extends UnixCommandBase {
       const ctx: FindContext = {
         file,
         fullPath,
-        baseName: file.name || '',
+        baseName: posixPath.basename(file.path),
         depth,
         fileType: file.type as 'file' | 'folder',
       };

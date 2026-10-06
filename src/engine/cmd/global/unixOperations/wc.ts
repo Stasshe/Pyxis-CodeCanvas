@@ -63,11 +63,8 @@ export class WcCommand extends UnixCommandBase {
     } else {
       // 各ファイルを処理
       for (const filePath of positional) {
-        const resolvedPath = this.resolvePath(filePath);
-        const normalizedPath = this.normalizePath(resolvedPath);
-        const relativePath = this.getRelativePathFromProject(normalizedPath);
-
-        const file = await this.cachedGetFile(relativePath);
+        const path = this.resolvePath(filePath);
+        const file = await this.getFile(path);
         if (!file) {
           throw new Error(`wc: ${filePath}: No such file or directory`);
         }
@@ -76,7 +73,7 @@ export class WcCommand extends UnixCommandBase {
           throw new Error(`wc: ${filePath}: Is a directory`);
         }
 
-        const content = file.content || '';
+        const content = await this.readText(path);
         const stats = this.countStats(content);
         results.push({ ...stats, name: filePath });
       }

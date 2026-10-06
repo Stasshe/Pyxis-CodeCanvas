@@ -1,28 +1,10 @@
-/**
- * ESM → CJS Transformer
- *
- * npmパッケージの.mjsファイルをinstall時にCJSへ変換するためのモジュール。
- *
- * - ブラウザ: esbuild-wasm (WASMベース、正確なESM→CJS変換)
- * - Node.js (テスト環境): esbuild (ネイティブ)
- *
- * esbuildが import/export・dynamic import() を正しく変換する。
- * post-processingはcustom runtimeのwrapperとの衝突回避のみ。
- */
+/** Transforms ESM to CJS in the browser, with native esbuild used in Node tests. */
 
 import { assetPath } from '@/env';
 
 type EsbuildApi = {
-  transform(
-    code: string,
-    options: {
-      format: string;
-      target: string;
-      loader: string;
-      platform: string;
-    }
-  ): Promise<{ code: string }>;
-  initialize?(options: { wasmURL: string }): Promise<void>;
+  transform: typeof import('esbuild-wasm')['transform'];
+  initialize?: (options: { wasmURL: string; worker: boolean }) => Promise<void>;
 };
 
 export function extractCjsDependencies(code: string): string[] {
@@ -34,7 +16,7 @@ export function extractCjsDependencies(code: string): string[] {
     if (/[{}<>]/.test(dep)) continue;
     deps.add(dep);
   }
-  // __pyxisImport("...") パターンも依存関係として抽出
+  // Include imports routed through the runtime loader.
   const pyxisImportRe = /\b__pyxisImport\s*\(\s*(['"])([^'"]+)\1\s*\)/g;
   while ((match = pyxisImportRe.exec(code)) !== null) {
     const dep = match[2];
@@ -51,8 +33,9 @@ export function getEsbuildWasmURL(): string {
   return assetPath('/esbuild.wasm');
 }
 
-async function importModuleDynamically<T>(specifier: string): Promise<T> {
-  return import(/* @vite-ignore */ specifier) as Promise<T>;
+async function importNativeEsbuild(): Promise<typeof import('esbuild')> {
+  const specifier = 'esbuild';
+  return import(/* @vite-ignore */ specifier) as Promise<typeof import('esbuild')>;
 }
 
 async function getApi(): Promise<EsbuildApi | null> {
@@ -63,21 +46,24 @@ async function getApi(): Promise<EsbuildApi | null> {
     const isNode =
       typeof process !== 'undefined' && process.versions != null && process.versions.node != null;
     if (isNode) {
-      // Node.js環境 (テスト): esbuildネイティブ
-      const mod = await importModuleDynamically<typeof import('esbuild')>('esbuild');
-      api = mod as unknown as EsbuildApi;
+      // Use native esbuild in Node tests.
+      const mod = await importNativeEsbuild();
+      api = { transform: mod.transform };
       return api;
     }
 
-    // ブラウザ環境 (WebWorker含む): esbuild-wasm
+    // Use esbuild-wasm in browser workers without creating another worker.
     const mod = await import('esbuild-wasm');
-    const esbuild = ((mod as any).default || mod) as EsbuildApi;
+    const esbuild: EsbuildApi = {
+      transform: mod.transform,
+      initialize: mod.initialize,
+    };
 
     if (esbuild.initialize) {
       try {
-        await esbuild.initialize({ wasmURL: getEsbuildWasmURL() });
+        await esbuild.initialize({ wasmURL: getEsbuildWasmURL(), worker: false });
       } catch (e) {
-        // 既に初期化済み → 続行
+        // Another module instance may already have initialized esbuild.
         if (!String(e).includes('already been initialized')) {
           throw e;
         }
@@ -91,51 +77,60 @@ async function getApi(): Promise<EsbuildApi | null> {
   return initPromise;
 }
 
-/**
- * ESMコードをCJSに変換する。
- * dynamic import() の変換はesbuildに委ねる。
- * post-processingはcustom runtimeのwrapperと衝突する宣言の修正のみ。
- */
-export async function transformEsmToCjs(code: string, _filePath: string): Promise<string> {
+/** Converts ESM or registered TypeScript input to CJS for the runtime wrapper. */
+export async function transformEsmToCjs(
+  code: string,
+  _filePath: string,
+  options: { isTypeScript?: boolean; isJSX?: boolean } = {}
+): Promise<string> {
   const esbuild = await getApi();
   if (!esbuild) throw new Error('esbuild not available');
 
   const result = await esbuild.transform(code, {
     format: 'cjs',
     target: 'es2020',
-    loader: 'js',
+    loader: getLoader(options),
     platform: 'node',
   });
-  let transformed = result.code;
+  return finalizeRuntimeCode(result.code);
+}
 
-  // import.meta → { url: "file:///" + __filename }
-  // esbuildは var/const import_meta = {} を生成するが url プロパティがない
+export function finalizeRuntimeCode(code: string): string {
+  let transformed = code;
+
+  // esbuild omits the URL property from its import.meta placeholder.
   transformed = transformed.replace(
     /\b(?:var|let|const)\s+import_meta\s*=\s*\{\s*\};/g,
     'var import_meta = { url: "file:///" + __filename };'
   );
 
-  // const __filename/__dirname はラッパーパラメータと strict mode で競合するため var に降格
+  // Avoid conflicts with the strict-mode wrapper parameters.
   transformed = transformed.replace(/\bconst\s+(__filename|__dirname)\b/g, 'var $1');
 
-  // process再宣言はラッパーが提供するため除去（単行のみ）
+  // The wrapper already provides process.
   transformed = transformed.replace(
     /^[ \t]*(?:var|let|const)\s+process\s*=\s*require\(['"](?:node:)?process['"]\)\s*;?\n/gm,
     ''
   );
 
-  // new Function('varName', 'return import(varName)') パターン:
-  // esbuildはFunction文字列内を解析しないため手動で変換（任意の変数名対応）
-  // __pyxisImport を使い動的ロードに対応（pre-load 外モジュールも実行時にロード可能）
+  // Rewrite the dynamic import pattern because esbuild does not parse Function strings.
   transformed = transformed.replace(
     /new\s+Function\s*\(\s*(['"])([\w$]+)\1\s*,\s*(['"])return\s+import\(\s*\2\s*\)\3\s*\)/g,
     '(($2) => __pyxisImport($2))'
   );
 
-  // esbuildが変換できなかった残存 import() を __pyxisImport() に置換
-  // (import.meta は除外: import_meta として変換済みのため対象外)
-  // これによりブラウザのネイティブ import() がランタイムの require() 経由になる
+  // Route remaining dynamic imports through the runtime loader.
   transformed = transformed.replace(/(?<![.\w])import\s*\(/g, '__pyxisImport(');
 
   return transformed;
+}
+
+function getLoader(options: {
+  isTypeScript?: boolean;
+  isJSX?: boolean;
+}): import('esbuild-wasm').Loader {
+  if (options.isTypeScript && options.isJSX) return 'tsx';
+  if (options.isTypeScript) return 'ts';
+  if (options.isJSX) return 'jsx';
+  return 'js';
 }

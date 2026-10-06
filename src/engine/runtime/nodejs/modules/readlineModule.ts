@@ -1,16 +1,17 @@
 /**
  * readline module emulation
  *
- * Uses a processStdin stream (ProcessStdin) as input.
- * Terminal feeds lines into processStdin; readline attaches via _attachInputListener naturally.
+ * Uses the runtime stdin stream as input.
+ * Terminal feeds lines into stdin; readline attaches through its stream listeners.
  * No callback chains, no pseudoStdin, no timing races.
  */
 
 import type { Buffer } from 'buffer';
-import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
+import { isProcessExitSignal } from '@/engine/runtime/nodejs/processExit';
+import type { RuntimeStdin } from '@/engine/runtime/nodejs/workerStdin';
 
 interface ReadlineOptions {
-  input?: ProcessStdin | null;
+  input?: RuntimeStdin | null;
   output?: { write: (text: string) => void } | null;
   terminal?: boolean;
   prompt?: string;
@@ -18,7 +19,7 @@ interface ReadlineOptions {
 }
 
 class Interface {
-  public input: ProcessStdin | null;
+  public input: RuntimeStdin | null;
   public output: { write: (text: string) => void } | null;
   public terminal: boolean;
   public promptStr = '> ';
@@ -66,6 +67,7 @@ class Interface {
         try {
           listener(...args);
         } catch (error) {
+          if (isProcessExitSignal(error)) throw error;
           console.error('Error in event listener:', error);
         }
       }
@@ -131,6 +133,7 @@ class Interface {
                 if (consumed) continue;
               }
             } catch (err) {
+              if (isProcessExitSignal(err)) throw err;
               console.error('Error in line consumer:', err);
             }
 
@@ -138,6 +141,7 @@ class Interface {
           }
         }
       } catch (err) {
+        if (isProcessExitSignal(err)) throw err;
         console.error('Error parsing input chunk for readline:', err);
       }
     };
@@ -220,16 +224,13 @@ const clearScreenDown = (stream: any): boolean => {
  * @param getTrackIO    — lazy getter so waitForEventLoop can track readline sessions
  */
 export function createReadlineModule(
-  processStdin?: ProcessStdin,
+  processStdin?: RuntimeStdin,
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined
 ) {
   return {
     createInterface: (options: ReadlineOptions): Interface => {
       // Use explicitly provided input stream, or fall back to processStdin
-      const input: ProcessStdin | null =
-        options.input && typeof options.input.on === 'function'
-          ? (options.input as ProcessStdin)
-          : (processStdin ?? null);
+      const input = options.input ?? processStdin ?? null;
 
       const iface = new Interface({ ...options, input });
 

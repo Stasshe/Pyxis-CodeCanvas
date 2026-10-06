@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
@@ -13,7 +13,63 @@ function normalizeBase(value: string | undefined): string {
 const basePath = process.env.VITE_BASE_PATH;
 const ignoredBuildLogCodes = new Set(['INEFFECTIVE_DYNAMIC_IMPORT']);
 
+function serveBuiltExtensions(): Plugin {
+  const extensionsDir = path.resolve(__dirname, 'public/extensions');
+  const extensionsPrefix = `${extensionsDir}${path.sep}`;
+
+  return {
+    name: 'serve-built-extensions',
+    configureServer(server) {
+      const routePrefix = `${server.config.base.replace(/\/$/, '')}/extensions/`;
+      server.middlewares.use((req, res, next) => {
+        if (!req.url || (req.method !== 'GET' && req.method !== 'HEAD')) {
+          return next();
+        }
+
+        let pathname: string;
+        try {
+          pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+        } catch {
+          res.statusCode = 400;
+          return res.end();
+        }
+
+        if (!pathname.startsWith(routePrefix)) {
+          return next();
+        }
+
+        const filePath = path.resolve(extensionsDir, pathname.slice(routePrefix.length));
+        if (!filePath.startsWith(extensionsPrefix) || !existsSync(filePath)) {
+          res.statusCode = 404;
+          return res.end();
+        }
+
+        const stat = statSync(filePath);
+        if (!stat.isFile()) {
+          res.statusCode = 404;
+          return res.end();
+        }
+
+        let contentType = 'application/octet-stream';
+        if (filePath.endsWith('.js')) {
+          contentType = 'application/javascript';
+        } else if (filePath.endsWith('.json')) {
+          contentType = 'application/json';
+        }
+
+        res.statusCode = 200;
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('Cache-Control', 'no-cache');
+        if (req.method === 'HEAD') return res.end();
+        return res.end(readFileSync(filePath));
+      });
+    },
+  };
+}
+
 export default defineConfig({
+  plugins: [serveBuiltExtensions()],
   base: normalizeBase(basePath),
   assetsInclude: ['**/*.wasm'],
   resolve: {

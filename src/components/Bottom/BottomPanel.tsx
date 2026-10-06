@@ -12,7 +12,7 @@ type BottomPanelTab = 'output' | 'terminal' | 'problems';
 interface BottomPanelProps {
   height: number;
   currentProject?: string;
-  currentProjectId?: string;
+  currentRootPath?: string;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
   activeTab?: BottomPanelTab;
   onActiveTabChange?: (tab: BottomPanelTab) => void;
@@ -48,7 +48,7 @@ function BottomPanelViewport({
 export default function BottomPanel({
   height,
   currentProject,
-  currentProjectId,
+  currentRootPath,
   onResize,
   activeTab: activeTabProp,
   onActiveTabChange,
@@ -252,7 +252,7 @@ export default function BottomPanel({
               <Terminal
                 height={height}
                 currentProject={currentProject}
-                currentProjectId={currentProjectId}
+                currentRootPath={currentRootPath}
                 isActive={activeTab === 'terminal'}
                 onVimModeChange={handleVimModeChange}
               />

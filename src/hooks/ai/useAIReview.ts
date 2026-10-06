@@ -45,7 +45,7 @@ export function useAIReview() {
       filePath: string,
       newContent: string,
       currentProject: Project | null,
-      saveFile: (projectId: string, filePath: string, content: string) => Promise<void>,
+      saveFile: (rootPath: string, filePath: string, content: string) => Promise<void>,
       clearAIReview: (filePath: string) => Promise<void>
     ) => {
       if (!currentProject) {
@@ -54,7 +54,7 @@ export function useAIReview() {
 
       try {
         // ファイルを保存
-        await saveFile(currentProject.id, filePath, newContent);
+        await saveFile(currentProject.rootPath, filePath, newContent);
 
         // AIレビュー状態をクリア
         await clearAIReview(filePath);

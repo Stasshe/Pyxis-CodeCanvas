@@ -1,10 +1,14 @@
 import { updateCachedModelContent } from '@/components/Tab/text-editor/hooks/useMonacoModels';
-import type { FileChangeEvent } from '@/engine/core/fileRepository';
-import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
+import { FSError, fsClient, normalizePath } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { EditorPane } from '@/engine/tabs/types';
-import { getCurrentProjectId } from '@/stores/projectStore';
-import { getTabContent, setTabContent } from '@/stores/tabContentStore';
+import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { getCurrentRootPath } from '@/stores/projectStore';
+import {
+  getTabContent,
+  isTabDirty,
+  setBufferContent,
+  setTabContent,
+} from '@/stores/tabContentStore';
 import { collectAllTabs, findInPanes } from './paneUtils';
 import { tabState } from './state';
 
@@ -16,7 +20,6 @@ const changeListeners = new Set<
 >();
 const DEBOUNCE_MS = 1000;
 let saveSyncInitialized = false;
-let _unsubscribeFileRepository: (() => void) | null = null;
 
 const pendingModelUpdates = new Map<string, string>();
 let modelUpdateScheduled = false;
@@ -54,15 +57,15 @@ export function getContentFromPanes(
   path: string
 ): string | undefined {
   const tabs = collectAllTabs(panes);
-  const p = toAppPath(path);
+  const p = normalizePath(path);
 
-  const editorTab = tabs.find(t => t.kind === 'editor' && toAppPath(t.path || '') === p);
+  const editorTab = tabs.find(t => t.kind === 'editor' && normalizePath(t.path || '/') === p);
   if (editorTab) return getTabContent(editorTab.id);
 
-  const diffTab = tabs.find(t => t.kind === 'diff' && toAppPath(t.path || '') === p);
+  const diffTab = tabs.find(t => t.kind === 'diff' && normalizePath(t.path || '/') === p);
   if (diffTab) return getTabContent(diffTab.id);
 
-  const aiTab = tabs.find(t => t.kind === 'ai' && toAppPath(t.path || '') === p);
+  const aiTab = tabs.find(t => t.kind === 'ai' && normalizePath(t.path || '/') === p);
   if (aiTab) return getTabContent(aiTab.id);
 
   return undefined;
@@ -93,15 +96,14 @@ function scheduleSave(path: string, getPanes: () => EditorPane[]): void {
 }
 
 async function executeSave(path: string, content: string): Promise<boolean> {
-  const projectId = getCurrentProjectId();
-  if (!projectId) {
-    console.error('[tabState] No project ID for save');
-    for (const l of saveListeners) l(path, false, new Error('No project ID'));
+  if (!getCurrentRootPath()) {
+    console.error('[tabState] No workspace root for save');
+    for (const l of saveListeners) l(path, false, new Error('No workspace root'));
     return false;
   }
   try {
     savingPaths.add(path);
-    await fileRepository.saveFileByPath(projectId, path, content);
+    await fsClient.writeFile(path, content);
     savingPaths.delete(path);
 
     // Check if the user typed new content during the async save.
@@ -124,12 +126,12 @@ async function executeSave(path: string, content: string): Promise<boolean> {
 }
 
 export function updateAllTabsByPath(path: string, content: string, isDirty: boolean): void {
-  const targetPath = toAppPath(path);
+  const targetPath = normalizePath(path);
   const allTabs = collectAllTabs(tabState.panes);
 
   for (const t of allTabs) {
     const tDef = tabRegistry.get(t.kind);
-    const tPath = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
+    const tPath = normalizePath(tDef?.getContentPath?.(t) ?? t.path ?? '/');
     if (tPath === targetPath) {
       const prev = getTabContent(t.id);
       const currentDirty = t.isDirty ?? false;
@@ -156,40 +158,68 @@ export function updateAllTabsByPath(path: string, content: string, isDirty: bool
 
 export async function initTabSaveSync(): Promise<void> {
   if (saveSyncInitialized) return;
-  await fileRepository.init();
-  _unsubscribeFileRepository = fileRepository.addChangeListener(handleFileRepositoryChange);
+  await fsClient.init();
+  fsClient.addChangeListener(event => {
+    void handleFsChange(event).catch(error => {
+      console.error('[tabState] Filesystem change handling failed:', error);
+    });
+  });
   saveSyncInitialized = true;
 }
 
-function handleFileRepositoryChange(event: FileChangeEvent): void {
+function tabsForPath(path: string): Tab[] {
+  return collectAllTabs(tabState.panes).filter(tab => {
+    const tabPath = tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path;
+    return normalizePath(tabPath || '/') === path;
+  });
+}
+
+function hasDirtyTab(tabs: readonly Tab[]): boolean {
+  return tabs.some(tab => tab.isDirty || isTabDirty(tab.id));
+}
+
+async function handleFsChange(event: { type: string; path: string }): Promise<void> {
   if (event.type === 'delete') return;
   if (event.type !== 'create' && event.type !== 'update') return;
 
-  const file = event.file as { path?: string; content?: string };
-  const filePath = toAppPath(file?.path ?? '');
-  const newContent = (file?.content ?? '') as string;
+  const filePath = normalizePath(event.path);
   if (savingPaths.has(filePath)) return;
+  const initialTabs = tabsForPath(filePath);
+  if (initialTabs.length === 0 || hasDirtyTab(initialTabs)) return;
 
-  const allTabs = collectAllTabs(tabState.panes);
-  const hasTab = allTabs.some(t => {
-    const tDef = tabRegistry.get(t.kind);
-    const p = toAppPath(tDef?.getContentPath?.(t) ?? t.path ?? '');
-    return p === filePath;
-  });
-  if (!hasTab) return;
+  try {
+    const binaryTabs = initialTabs.filter(tab => tab.kind === 'binary');
+    if (binaryTabs.length > 0) {
+      const bytes = await fsClient.readFile(filePath);
+      const currentTabs = tabsForPath(filePath);
+      if (hasDirtyTab(currentTabs)) return;
+      const buffer = Uint8Array.from(bytes).buffer;
+      for (const tab of currentTabs) {
+        if (tab.kind !== 'binary') continue;
+        tab.bufferContent = buffer;
+        setBufferContent(tab.id, buffer);
+      }
+    }
 
-  const current = getContentFromPanes(tabState.panes, filePath);
-  if (current === newContent) return;
-
-  updateFromExternal(filePath, newContent);
+    const textTabs = initialTabs.filter(tab => tab.kind !== 'binary');
+    if (textTabs.length === 0) return;
+    const newContent = await fsClient.readText(filePath);
+    const currentTabs = tabsForPath(filePath);
+    if (hasDirtyTab(currentTabs)) return;
+    const current = getContentFromPanes(tabState.panes, filePath);
+    if (current !== newContent) updateFromExternal(filePath, newContent);
+  } catch (error) {
+    if (error instanceof FSError && error.code === 'ENOENT') return;
+    console.error('[tabState] Failed to refresh changed file:', { path: filePath, error });
+  }
 }
 
 export function setContent(path: string, content: string): void {
-  const p = toAppPath(path);
+  const p = normalizePath(path);
   clearSaveTimer(p);
   const all = collectAllTabs(tabState.panes);
   const tab = all.find(
-    t => toAppPath(tabRegistry.get(t.kind)?.getContentPath?.(t) ?? t.path ?? '') === p
+    t => normalizePath(tabRegistry.get(t.kind)?.getContentPath?.(t) ?? t.path ?? '/') === p
   );
   if (tab) {
     updateTabContent(tab.id, content, true);
@@ -199,14 +229,14 @@ export function setContent(path: string, content: string): void {
 }
 
 export function updateFromExternal(path: string, content: string): void {
-  const p = toAppPath(path);
+  const p = normalizePath(path);
   clearSaveTimer(p);
   updateAllTabsByPath(p, content, false);
   for (const l of changeListeners) l(p, content, 'external');
 }
 
 export async function saveImmediately(path: string): Promise<boolean> {
-  const p = toAppPath(path);
+  const p = normalizePath(path);
   clearSaveTimer(p);
   const content = getContentFromPanes(tabState.panes, p);
   if (content === undefined) return false;
@@ -214,15 +244,32 @@ export async function saveImmediately(path: string): Promise<boolean> {
 }
 
 export function removeSaveTimerForPath(path: string): void {
-  clearSaveTimer(toAppPath(path));
+  clearSaveTimer(normalizePath(path));
+}
+
+export function renameContentPaths(oldPath: string, newPath: string): void {
+  const oldRoot = normalizePath(oldPath);
+  const newRoot = normalizePath(newPath);
+  for (const [path, timer] of saveTimers) {
+    if (path !== oldRoot && !path.startsWith(`${oldRoot}/`)) continue;
+    clearTimeout(timer);
+    saveTimers.delete(path);
+    const nextPath = normalizePath(`${newRoot}${path.slice(oldRoot.length)}`);
+    scheduleSave(nextPath, () => tabState.panes);
+  }
+  for (const [path, content] of pendingModelUpdates) {
+    if (path !== oldRoot && !path.startsWith(`${oldRoot}/`)) continue;
+    pendingModelUpdates.delete(path);
+    pendingModelUpdates.set(normalizePath(`${newRoot}${path.slice(oldRoot.length)}`), content);
+  }
 }
 
 export function getContent(path: string): string | undefined {
-  return getContentFromPanes(tabState.panes, toAppPath(path));
+  return getContentFromPanes(tabState.panes, normalizePath(path));
 }
 
 export function isDirty(path: string): boolean {
-  const info = findInPanes(tabState.panes, toAppPath(path));
+  const info = findInPanes(tabState.panes, normalizePath(path));
   if (!info) return false;
   const t = info.tab as { isDirty?: boolean };
   return t?.isDirty ?? false;
@@ -248,15 +295,20 @@ export async function loadAndUpdateTabContent(
   filePath: string | undefined
 ): Promise<void> {
   if ((kind !== 'editor' && kind !== 'binary' && kind !== 'preview') || !filePath) return;
+  if (kind === 'binary') return;
+  const openedTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
+  if (openedTab?.isDirty) return;
   try {
-    const projectId = getCurrentProjectId();
-    if (!projectId) return;
-    const fresh = await fileRepository.getFileByPath(projectId, filePath);
-    if (fresh?.content !== undefined) {
+    await fsClient.init();
+    if (!(await fsClient.exists(filePath))) return;
+    const content = await fsClient.readText(filePath);
+    if (content !== undefined) {
       if (kind === 'preview') {
-        setTabContent(tabId, fresh.content, false);
+        setTabContent(tabId, content, false);
       } else {
-        updateTabContent(tabId, fresh.content, false);
+        const currentTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
+        if (currentTab?.isDirty) return;
+        updateTabContent(tabId, content, false);
       }
     }
   } catch (e) {
@@ -270,7 +322,7 @@ export function updateTabContent(tabId: string, content: string, isDirty = false
   if (!tab) return;
 
   const tabDef = tabRegistry.get(tab.kind);
-  const targetPath = toAppPath(tabDef?.getContentPath?.(tab) ?? tab.path ?? '');
+  const targetPath = normalizePath(tabDef?.getContentPath?.(tab) ?? tab.path ?? '/');
 
   if (targetPath) {
     updateAllTabsByPath(targetPath, content, isDirty);

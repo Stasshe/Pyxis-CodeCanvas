@@ -6,11 +6,11 @@ import { parseGitBranches, parseGitLog, parseGitStatus } from './gitUtils';
 
 export function useGitPanel({
   currentProject,
-  currentProjectId,
+  rootPath,
   onGitStatusChange,
 }: {
   currentProject?: string;
-  currentProjectId?: string;
+  rootPath?: string;
   onGitStatusChange?: (changesCount: number) => void;
 }) {
   const [gitRepo, setGitRepo] = useState<GitRepository | null>(null);
@@ -30,26 +30,23 @@ export function useGitPanel({
   const [commitDepth, setCommitDepth] = useState(() => 20);
 
   const gitCommands = useMemo(
-    () =>
-      currentProject && currentProjectId
-        ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
-        : null,
-    [currentProject, currentProjectId]
+    () => (currentProject && rootPath ? terminalCommandRegistry.getGitCommands(rootPath) : null),
+    [currentProject, rootPath]
   );
 
   const getStoredCommitDepth = useCallback(() => {
-    if (!currentProjectId) return 20;
-    const key = `gitCommitDepth_${currentProjectId}`;
+    if (!rootPath) return 20;
+    const key = `gitCommitDepth_${rootPath}`;
     const stored = sessionStorage.getItem(key);
     return stored ? Number.parseInt(stored, 10) : 20;
-  }, [currentProjectId]);
+  }, [rootPath]);
 
   useEffect(() => {
-    if (currentProjectId) {
+    if (rootPath) {
       const stored = getStoredCommitDepth();
       setCommitDepth(stored);
     }
-  }, [currentProjectId, getStoredCommitDepth]);
+  }, [rootPath, getStoredCommitDepth]);
 
   const fetchGitStatus = useCallback(
     async (depth?: number, filterMode?: BranchFilterMode, filterBranches?: string[]) => {

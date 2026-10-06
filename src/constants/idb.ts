@@ -1,8 +1,4 @@
 export const IDB = {
-  PROJECTS: {
-    NAME: 'PyxisProjects',
-    VERSION: 6,
-  },
   AUTH: {
     NAME: 'PyxisAuth',
     VERSION: 1,
@@ -11,7 +7,8 @@ export const IDB = {
     NAME: 'pyxis-global',
     VERSION: 5,
   },
-  FS: {
-    NAME: 'pyxis-fs',
+  RECENT_FOLDERS: {
+    NAME: 'PyxisRecentFolders',
+    VERSION: 1,
   },
 } as const;

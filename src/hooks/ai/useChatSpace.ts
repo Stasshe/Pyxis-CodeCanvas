@@ -13,17 +13,17 @@ import {
 } from '@/engine/storage/chatStorageAdapter';
 import type { AIEditResponse, ChatSpace, ChatSpaceMessage } from '@/types';
 
-export const useChatSpace = (projectId: string | null) => {
+export const useChatSpace = (rootPath: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);
   const [currentSpace, setCurrentSpace] = useState<ChatSpace | null>(null);
   const [loading, setLoading] = useState(false);
 
   const currentSpaceRef = useRef<ChatSpace | null>(null);
-  const projectIdRef = useRef<string | null>(projectId);
+  const rootPathRef = useRef<string | null>(rootPath);
 
   useEffect(() => {
-    projectIdRef.current = projectId;
-  }, [projectId]);
+    rootPathRef.current = rootPath;
+  }, [rootPath]);
 
   useEffect(() => {
     currentSpaceRef.current = currentSpace;
@@ -31,7 +31,7 @@ export const useChatSpace = (projectId: string | null) => {
 
   useEffect(() => {
     const loadChatSpaces = async () => {
-      if (!projectId) {
+      if (!rootPath) {
         setChatSpaces([]);
         setCurrentSpace(null);
         currentSpaceRef.current = null;
@@ -40,7 +40,7 @@ export const useChatSpace = (projectId: string | null) => {
 
       setLoading(true);
       try {
-        const spaces = await getChatSpaces(projectId);
+        const spaces = await getChatSpaces(rootPath);
         setChatSpaces(spaces);
 
         if (spaces.length > 0) {
@@ -58,13 +58,13 @@ export const useChatSpace = (projectId: string | null) => {
     };
 
     loadChatSpaces();
-  }, [projectId]);
+  }, [rootPath]);
 
   const createNewSpace = async (name?: string): Promise<ChatSpace | null> => {
-    const pid = projectIdRef.current;
-    if (!pid) return null;
+    const workspacePath = rootPathRef.current;
+    if (!workspacePath) return null;
     try {
-      const spaces = await getChatSpaces(pid);
+      const spaces = await getChatSpaces(workspacePath);
       const spaceName = name || '新規チャット';
       const existingNewChat = spaces.find(s => s.name === spaceName);
       if (existingNewChat) {
@@ -82,13 +82,13 @@ export const useChatSpace = (projectId: string | null) => {
         toDelete = sorted.slice(0, spaces.length - 9);
         for (const space of toDelete) {
           try {
-            await deleteChatSpace(pid, space.id);
+            await deleteChatSpace(workspacePath, space.id);
           } catch (error) {
             console.error('Failed to delete old chat space:', error);
           }
         }
       }
-      const newSpace = await createChatSpace(pid, spaceName);
+      const newSpace = await createChatSpace(workspacePath, spaceName);
       const updatedSpaces = [
         newSpace,
         ...spaces.filter(s => !toDelete.some((d: ChatSpace) => d.id === s.id)),
@@ -109,8 +109,8 @@ export const useChatSpace = (projectId: string | null) => {
   };
 
   const deleteSpace = async (spaceId: string) => {
-    const pid = projectIdRef.current;
-    if (!pid) return;
+    const workspacePath = rootPathRef.current;
+    if (!workspacePath) return;
 
     if (chatSpaces.length <= 1) {
       console.log('最後のスペースは削除できません。');
@@ -118,7 +118,7 @@ export const useChatSpace = (projectId: string | null) => {
     }
 
     try {
-      await deleteChatSpace(pid, spaceId);
+      await deleteChatSpace(workspacePath, spaceId);
 
       setChatSpaces(prev => {
         const filtered = prev.filter(s => s.id !== spaceId);
@@ -148,9 +148,9 @@ export const useChatSpace = (projectId: string | null) => {
     editResponse?: AIEditResponse,
     options?: { parentMessageId?: string; action?: 'apply' | 'revert' | 'note' }
   ): Promise<ChatSpaceMessage | null> => {
-    const pid = projectIdRef.current;
-    if (!pid) {
-      console.error('[useChatSpace] No projectId available');
+    const workspacePath = rootPathRef.current;
+    if (!workspacePath) {
+      console.error('[useChatSpace] No rootPath available');
       return null;
     }
 
@@ -178,7 +178,7 @@ export const useChatSpace = (projectId: string | null) => {
         content.trim().length > 0
       ) {
         const newName = content.length > 30 ? `${content.slice(0, 30)}…` : content;
-        await renameChatSpace(pid, activeSpace.id, newName);
+        await renameChatSpace(workspacePath, activeSpace.id, newName);
         setCurrentSpace(prev => (prev ? { ...prev, name: newName } : prev));
         setChatSpaces(prev =>
           prev.map(s => (s.id === activeSpace?.id ? { ...s, name: newName } : s))
@@ -196,7 +196,7 @@ export const useChatSpace = (projectId: string | null) => {
         if (dup) return dup;
       }
 
-      const newMessage = await addMessageToChatSpace(pid, activeSpace.id, {
+      const newMessage = await addMessageToChatSpace(workspacePath, activeSpace.id, {
         type,
         content,
         timestamp: new Date(),
@@ -236,11 +236,11 @@ export const useChatSpace = (projectId: string | null) => {
     messageId: string,
     patch: Partial<ChatSpaceMessage>
   ) => {
-    const pid = projectIdRef.current;
-    if (!pid) return null;
+    const workspacePath = rootPathRef.current;
+    if (!workspacePath) return null;
 
     try {
-      const updated = await updateChatSpaceMessage(pid, spaceId, messageId, patch);
+      const updated = await updateChatSpaceMessage(workspacePath, spaceId, messageId, patch);
       if (!updated) return null;
 
       setCurrentSpace(prev => {
@@ -273,11 +273,11 @@ export const useChatSpace = (projectId: string | null) => {
   };
 
   const updateSelectedFiles = async (selectedFiles: string[]) => {
-    const pid = projectIdRef.current;
-    if (!pid || !currentSpace) return;
+    const workspacePath = rootPathRef.current;
+    if (!workspacePath || !currentSpace) return;
 
     try {
-      await updateChatSpaceSelectedFiles(pid, currentSpace.id, selectedFiles);
+      await updateChatSpaceSelectedFiles(workspacePath, currentSpace.id, selectedFiles);
 
       setCurrentSpace(prev => {
         if (!prev) return null;
@@ -318,10 +318,10 @@ export const useChatSpace = (projectId: string | null) => {
    * user message that prompted it (user message and AI response are a pair).
    */
   const revertToMessage = async (messageId: string): Promise<ChatSpaceMessage[]> => {
-    const pid = projectIdRef.current;
+    const workspacePath = rootPathRef.current;
     const activeSpace = currentSpaceRef.current;
 
-    if (!pid || !activeSpace) {
+    if (!workspacePath || !activeSpace) {
       console.warn('[useChatSpace] No project or space available for revert');
       return [];
     }
@@ -352,7 +352,7 @@ export const useChatSpace = (projectId: string | null) => {
       }
 
       const deletedMessages = await truncateMessagesFromMessage(
-        pid,
+        workspacePath,
         activeSpace.id,
         deleteFromMessageId
       );

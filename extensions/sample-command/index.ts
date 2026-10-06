@@ -3,12 +3,12 @@
  * ターミナルコマンドを追加するサンプル拡張機能
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+import type { CommandContext, ExtensionActivation, ExtensionContext } from '../_shared/types';
 
 /**
  * helloコマンドの実装
  */
-async function helloCommand(args: string[], context: any): Promise<string> {
+async function helloCommand(args: string[], context: CommandContext): Promise<string> {
   const name = args.length > 0 ? args.join(' ') : 'World';
   return `Hello, ${name}!\nProject: ${context.projectName}\nCurrent Directory: ${context.currentDirectory}`;
 }
@@ -16,10 +16,10 @@ async function helloCommand(args: string[], context: any): Promise<string> {
 /**
  * fileinfoコマンドの実装
  * 指定されたファイルの情報を表示
- * 
- * SSOT: fileRepository を使用
+ *
+ * Reads metadata and content from the workspace filesystem.
  */
-async function fileinfoCommand(args: string[], context: any): Promise<string> {
+async function fileinfoCommand(args: string[], context: CommandContext): Promise<string> {
   if (args.length === 0) {
     return 'Usage: fileinfo <filepath>';
   }
@@ -31,46 +31,31 @@ async function fileinfoCommand(args: string[], context: any): Promise<string> {
   }
 
   try {
-    // fileRepositoryを取得（SSOT）
-    const fileRepository = await context.getSystemModule('fileRepository');
-
-    // ファイルパスを正規化（相対パスを絶対パスに）
-    let normalizedPath = filePath;
-    if (!filePath.startsWith('/')) {
-      // 現在のディレクトリからの相対パス
-      const relativeCurrent = context.currentDirectory.replace(`/projects/${context.projectName}`, '');
-      normalizedPath = relativeCurrent === '' 
-        ? `/${filePath}` 
-        : `${relativeCurrent}/${filePath}`;
-    } else {
-      // 絶対パスの場合、プロジェクトルートからの相対パスに変換
-      normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
-    }
-
-    // 単一ファイルをインデックスで取得（推奨）
-    const file = await fileRepository.getFileByPath(context.projectId, normalizedPath);
-
-    if (!file) {
+    const fsClient = await context.getSystemModule('fsClient');
+    const { resolvePath } = await context.getSystemModule('pathUtils');
+    const normalizedPath = resolvePath(context.currentDirectory, filePath);
+    if (!(await fsClient.exists(normalizedPath))) {
       return `Error: File not found: ${normalizedPath}\nSearched in project: ${context.projectName}`;
     }
 
-    // ファイル情報を表示
-    let output = `File Information (from FileRepository):\n`;
+    const file = await fsClient.stat(normalizedPath);
+    let content = '';
+    if (file.type === 'file') content = await fsClient.readText(file.path);
+    let output = `File Information:\n`;
     output += `  Path: ${file.path}\n`;
-    output += `  Type: ${file.language}\n`;
-    output += `  Size: ${file.content ? file.content.length : 0} bytes\n`;
-    output += `  Created: ${new Date(file.createdAt).toLocaleString()}\n`;
-    output += `  Modified: ${new Date(file.updatedAt).toLocaleString()}\n`;
+    output += `  Type: ${file.type}\n`;
+    output += `  Size: ${file.size} bytes\n`;
+    output += `  Modified: ${new Date(file.mtime).toLocaleString()}\n`;
 
     // ファイルの内容の最初の数行を表示
-    if (file.content) {
-      const lines = file.content.split('\n').slice(0, 5);
+    if (content) {
+      const lines = content.split('\n').slice(0, 5);
       output += `\nFirst 5 lines:\n`;
       lines.forEach((line: string, i: number) => {
         output += `  ${i + 1}: ${line}\n`;
       });
-      if (file.content.split('\n').length > 5) {
-        output += `  ... (${file.content.split('\n').length - 5} more lines)\n`;
+      if (content.split('\n').length > 5) {
+        output += `  ... (${content.split('\n').length - 5} more lines)\n`;
       }
     } else {
       output += `\n(File is empty)\n`;
@@ -95,7 +80,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   context.commands.registerCommand('fileinfo', fileinfoCommand);
   context.logger.info('Registered command: fileinfo');
   context.logger.info('Sample Command Extension activated');
-  
+
   return {};
 }
 

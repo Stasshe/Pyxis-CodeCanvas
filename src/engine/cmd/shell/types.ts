@@ -1,4 +1,4 @@
-import type { fileRepository } from '@/engine/core/fileRepository';
+import type { FsApi } from '@/engine/core/fs';
 import type { UnixCommands } from '../global/unix';
 
 /**
@@ -27,15 +27,15 @@ export type Segment = {
 
 // Shell options for StreamShell constructor
 export type ShellOptions = {
-  projectName: string;
-  projectId: string;
-  unix: UnixCommands; // injection for tests
-  fileRepository?: typeof fileRepository; // injection for tests
+  rootPath: string;
+  unix: UnixCommands;
+  fsClient?: FsApi;
   commandRegistry?: any;
   /** Terminal columns (width). Updated dynamically on resize. */
   terminalColumns?: number;
   /** Terminal rows (height). Updated dynamically on resize. */
   terminalRows?: number;
+  env?: Record<string, string>;
 };
 
 // Shell run result

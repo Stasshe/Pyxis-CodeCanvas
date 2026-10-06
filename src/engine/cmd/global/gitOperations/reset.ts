@@ -1,31 +1,19 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
 
-import { syncManager } from '@/engine/core/syncManager';
-
-/**
- * Git reset操作を管理するクラス
- * - reset --hard後にsyncManager.syncFromFSToIndexedDB()で逆同期
- */
 export class GitResetOperations {
   private fs: FS;
   private dir: string;
-  private projectId: string;
-  private projectName: string;
 
-  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
+  constructor(fs: FS, dir: string) {
     this.fs = fs;
     this.dir = dir;
-    this.projectId = projectId;
-    this.projectName = projectName;
   }
 
-  // git reset - ファイルをアンステージング、またはハードリセット + 逆同期
   async reset(
     options: { filepath?: string; hard?: boolean; commit?: string } = {}
   ): Promise<string> {
     try {
-      // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
       } catch {
@@ -35,30 +23,25 @@ export class GitResetOperations {
       const { filepath, hard, commit } = options;
 
       if (filepath) {
-        // 特定のファイルをアンステージング
         console.log('Reset: Unstaging file:', filepath);
         await git.resetIndex({
           fs: this.fs,
           dir: this.dir,
-          filepath,
+          filepath: repositoryPath(this.dir, filepath),
         });
         return `Unstaged changes after reset:\nM\t${filepath}`;
       }
 
       if (hard) {
-        // ハードリセット: ワーキングディレクトリとインデックスを指定コミットの状態に戻す
         const targetRef = commit || 'HEAD';
 
         console.log('Reset: Hard reset to', targetRef);
 
-        // ターゲットコミットのOIDを取得（短縮形コミットIDも対応）
         let targetOid: string;
         try {
-          // まず expandOid で短縮形コミットIDを解決を試行
           try {
             targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
           } catch {
-            // expandOid が失敗した場合は resolveRef でブランチ/タグとして解決
             targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
           }
         } catch {
@@ -67,7 +50,6 @@ export class GitResetOperations {
           );
         }
 
-        // 現在のブランチを取得してHEADを更新
         let currentBranch: string;
         try {
           currentBranch =
@@ -80,7 +62,6 @@ export class GitResetOperations {
           currentBranch = 'HEAD';
         }
 
-        // ブランチが取得できた場合はブランチのHEADを更新、そうでなければHEADを直接更新
         await git.writeRef({
           fs: this.fs,
           dir: this.dir,
@@ -89,50 +70,16 @@ export class GitResetOperations {
           force: true,
         });
 
-        // ワーキングディレクトリをターゲットコミットの状態に復元
         const targetCommit = await git.readCommit({
           fs: this.fs,
           dir: this.dir,
           oid: targetOid,
         });
 
-        // reset 前の GitFS 側パスを控えておく。
-        // 逆同期時はこの tracked path 群だけを IndexedDB から読むことで、
-        // node_modules など .gitignore 済みの IndexedDB レコードを全走査しない。
-        const previousFsPaths = await this.collectFsPaths(this.dir);
-
-        // 現在のファイルをすべて削除（.gitディレクトリ以外）
-        const deleteAllFiles = async (dirPath: string): Promise<void> => {
-          try {
-            const entries = await this.fs.promises.readdir(dirPath);
-            for (const entry of entries) {
-              if (entry === '.git') continue;
-              const fullPath = `${dirPath}/${entry}`;
-              try {
-                const stats = await this.fs.promises.stat(fullPath);
-                if (stats.type === 'dir') {
-                  await deleteAllFiles(fullPath);
-                  await this.fs.promises.rmdir(fullPath);
-                } else {
-                  await this.fs.promises.unlink(fullPath);
-                }
-              } catch (error) {
-                console.warn(`Failed to delete ${fullPath}:`, error);
-              }
-            }
-          } catch (error) {
-            console.warn(`Failed to read directory ${dirPath}:`, error);
-          }
-        };
-
-        await deleteAllFiles(this.dir);
-
-        // git.checkoutを使用してターゲットコミットの状態を復元
-        // これによりディレクトリ構造も自動的に作成される
         console.log('Reset: Checking out target commit');
 
-        // ブランチが存在する場合はブランチ名でcheckout、detached HEAD状態の場合はOIDでcheckout
-        const checkoutRef = currentBranch !== 'HEAD' ? currentBranch : targetOid;
+        let checkoutRef = targetOid;
+        if (currentBranch !== 'HEAD') checkoutRef = currentBranch;
         await git.checkout({
           fs: this.fs,
           dir: this.dir,
@@ -140,7 +87,6 @@ export class GitResetOperations {
           force: true,
         });
 
-        // 復元されたファイル数をカウント
         const countFiles = async (dirPath: string): Promise<number> => {
           let count = 0;
           try {
@@ -150,19 +96,17 @@ export class GitResetOperations {
               const fullPath = `${dirPath}/${entry}`;
               try {
                 const stats = await this.fs.promises.stat(fullPath);
-                if (stats.type === 'dir') {
+                if (stats.isDirectory()) {
                   count += await countFiles(fullPath);
                 } else {
                   count++;
                 }
               } catch (error) {
                 console.warn('[reset.ts] caught non-fatal error', error);
-                // Ignore
               }
             }
           } catch (error) {
             console.warn('[reset.ts] caught non-fatal error', error);
-            // Ignore
           }
           return count;
         };
@@ -170,31 +114,19 @@ export class GitResetOperations {
         const restoredCount = await countFiles(this.dir);
         console.log('Reset: Restored files count:', restoredCount);
 
-        // GitFileSystem → IndexedDBへ逆同期
-        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-        const restoredFsPaths = await this.collectFsPaths(this.dir);
-        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName, {
-          candidatePaths: new Set([...previousFsPaths, ...restoredFsPaths]),
-        });
-        console.log('Reverse sync completed');
-
         const shortHash = targetOid.slice(0, 7);
         const commitMessage = targetCommit.commit.message.split('\n')[0];
-        return `HEAD is now at ${shortHash} ${commitMessage}\n\n${restoredCount} files synced to IndexedDB`;
+        return `HEAD is now at ${shortHash} ${commitMessage}\n\n${restoredCount} files restored`;
       }
 
-      // 通常のリセット（ソフトリセット）
       const targetRef = commit || 'HEAD';
       console.log('Reset: Soft reset to', targetRef);
 
-      // ソフトリセット用のOID解決（短縮形コミットIDも対応）
       let targetOid: string;
       try {
-        // まず expandOid で短縮形コミットIDを解決を試行
         try {
           targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
         } catch {
-          // expandOid が失敗した場合は resolveRef でブランチ/タグとして解決
           targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
         }
       } catch {
@@ -203,7 +135,6 @@ export class GitResetOperations {
         );
       }
 
-      // 現在のブランチを取得
       let currentBranch: string;
       try {
         currentBranch =
@@ -216,7 +147,6 @@ export class GitResetOperations {
         currentBranch = 'HEAD';
       }
 
-      // ソフトリセット: HEADを指定したコミットに移動
       await git.writeRef({
         fs: this.fs,
         dir: this.dir,
@@ -225,7 +155,6 @@ export class GitResetOperations {
         force: true,
       });
 
-      // コミット情報を取得して表示
       const targetCommit = await git.readCommit({
         fs: this.fs,
         dir: this.dir,
@@ -253,30 +182,5 @@ export class GitResetOperations {
 
       throw new Error(`git reset failed: ${errorMessage}`);
     }
-  }
-
-  private async collectFsPaths(dirPath: string, relativePath = ''): Promise<string[]> {
-    const paths: string[] = [];
-    try {
-      const entries = await this.fs.promises.readdir(dirPath);
-      for (const entry of entries) {
-        if (entry === '.git') continue;
-
-        const fullPath = `${dirPath}/${entry}`;
-        const appPath = relativePath ? `${relativePath}/${entry}` : `/${entry}`;
-        try {
-          const stats = await this.fs.promises.stat(fullPath);
-          paths.push(appPath);
-          if (stats.type === 'dir') {
-            paths.push(...(await this.collectFsPaths(fullPath, appPath)));
-          }
-        } catch {
-          // Ignore entries that disappear while collecting.
-        }
-      }
-    } catch {
-      // Treat unreadable directories as empty.
-    }
-    return paths;
   }
 }

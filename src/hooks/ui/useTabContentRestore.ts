@@ -5,7 +5,7 @@
  * 責務:
  * - ページリロード時のセッション復帰によるコンテンツ復元
  * - 各タブタイプの restoreContent メソッドを使用
- * - ファイルベースのタブは fileRepository から復元
+ * - File-based tabs are restored through the filesystem client.
  *
  * 注意:
  * - ファイル変更・リアルタイム同期は tabState (Valtio) が担当
@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { snapshot, useSnapshot } from 'valtio';
 
-import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
 import { projectState } from '@/stores/projectStore';
@@ -85,12 +85,12 @@ async function defaultFileRestore(
  * タブのコンテンツを復元するカスタムフック
  *
  * ページリロード時のセッション復帰によるコンテンツ復元専用。
- * 各タブタイプの restoreContent を使用し、未実装の場合は fileRepository から復元。
+ * 各タブタイプの restoreContent を使用し、未実装の場合は filesystem client から復元。
  * ファイル変更・リアルタイム同期は tabState (initTabSaveSync) が担当する。
  */
 export function useTabContentRestore(isRestored: boolean) {
   const { panes } = useSnapshot(tabState);
-  const { currentProjectId } = useSnapshot(projectState);
+  const { currentRootPath } = useSnapshot(projectState);
   const restorationCompleted = useRef(false);
   const restorationInProgress = useRef(false);
 
@@ -100,7 +100,7 @@ export function useTabContentRestore(isRestored: boolean) {
       return;
     }
 
-    if (!isRestored || panes.length === 0 || !currentProjectId) {
+    if (!isRestored || panes.length === 0 || !currentRootPath) {
       return;
     }
 
@@ -133,10 +133,12 @@ export function useTabContentRestore(isRestored: boolean) {
 
         // 復元コンテキストを準備
         const context: SessionRestoreContext = {
-          projectId: currentProjectId,
+          rootPath: currentRootPath,
           getFileByPath: async (path: string) => {
-            const normalizedPath = toAppPath(path);
-            return await fileRepository.getFileByPath(currentProjectId, normalizedPath);
+            if (!(await fsClient.exists(path))) return null;
+            const bytes = await fsClient.readFile(path);
+            const content = new TextDecoder().decode(bytes);
+            return { content, bufferContent: Uint8Array.from(bytes).buffer };
           },
         };
 
@@ -177,7 +179,7 @@ export function useTabContentRestore(isRestored: boolean) {
               return { ...tab, needsContentRestore: false } as any;
             }
 
-            // デフォルト: fileRepository からファイルを復元
+            // Default: restore file content through the filesystem client.
             return await defaultFileRestore(tab, context);
           } catch (error) {
             console.error(
@@ -256,7 +258,7 @@ export function useTabContentRestore(isRestored: boolean) {
         }, 100);
       }
     });
-  }, [isRestored, panes, currentProjectId]);
+  }, [isRestored, panes, currentRootPath]);
 
   // IndexedDB復元完了後、コンテンツを復元（1回だけ）
   useEffect(() => {

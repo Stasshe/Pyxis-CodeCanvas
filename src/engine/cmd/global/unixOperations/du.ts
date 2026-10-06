@@ -1,3 +1,4 @@
+import { posixPath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -26,42 +27,24 @@ export class DuCommand extends UnixCommandBase {
     const lines: string[] = [];
 
     for (const t of targets) {
-      const expanded = await this.expandPathPattern(t);
-      if (expanded.length === 0) {
-        throw new Error(`du: cannot access '${t}': No such file or directory`);
-      }
-
-      for (const p of expanded) {
-        const normalized = this.normalizePath(this.resolvePath(p));
-        const size = await this.sizeOfPath(normalized);
-        if (summary) {
+      const normalized = this.resolvePath(t);
+      const size = await this.sizeOfPath(normalized);
+      if (summary) {
+        lines.push(`${this.formatSize(size, human)}\t${normalized}`);
+      } else {
+        const isDir = await this.isDirectory(normalized);
+        if (!isDir) {
           lines.push(`${this.formatSize(size, human)}\t${normalized}`);
         } else {
-          // For directories, show each entry under it
-          const isDir = await this.isDirectory(normalized);
-          if (!isDir) {
-            lines.push(`${this.formatSize(size, human)}\t${normalized}`);
-          } else {
-            // list children and their sizes
-            const rel = this.getRelativePathFromProject(normalized);
-            const prefix = rel === '/' ? '' : `${rel}/`;
-            const files = await this.cachedGetFilesByPrefix(prefix);
-            const children = files.filter(f => {
-              if (rel === '/') {
-                return f.path.split('/').filter(p => p).length === 1;
-              }
-              const childRel = f.path.replace(prefix, '');
-              return f.path.startsWith(prefix) && !childRel.includes('/');
-            });
+          const files = await this.getDescendants(normalized);
+          const children = files.filter(f => posixPath.dirname(f.path) === normalized);
 
-            for (const c of children) {
-              const childFull = `${normalized}/${c.path.split('/').pop()}`;
-              const childSize = await this.sizeOfPath(childFull);
-              lines.push(`${this.formatSize(childSize, human)}\t${childFull}`);
-            }
-            // then the total
-            lines.push(`${this.formatSize(size, human)}\t${normalized}`);
+          for (const child of children) {
+            const childPath = posixPath.join(normalized, posixPath.basename(child.path));
+            const childSize = await this.sizeOfPath(childPath);
+            lines.push(`${this.formatSize(childSize, human)}\t${childPath}`);
           }
+          lines.push(`${this.formatSize(size, human)}\t${normalized}`);
         }
       }
     }
@@ -70,24 +53,19 @@ export class DuCommand extends UnixCommandBase {
   }
 
   private async sizeOfPath(path: string): Promise<number> {
-    const normalized = this.normalizePath(this.resolvePath(path));
-    const relPath = this.getRelativePathFromProject(normalized);
-
-    // if root
-    if (relPath === '/' || relPath === '') {
-      const all = await this.cachedGetFilesByPrefix('');
-      return all.reduce((s, f) => s + (f.bufferContent?.byteLength || f.content?.length || 0), 0);
+    if (path === '/') {
+      const all = await this.getDescendants('/');
+      return all.reduce((s, f) => s + (f.type === 'file' ? f.size : 0), 0);
     }
 
-    const file = await this.getFileFromDB(relPath);
+    const file = await this.getFile(path);
     if (file && file.type === 'file') {
-      return file.bufferContent ? file.bufferContent.byteLength : file.content?.length || 0;
+      return file.size;
     }
 
     // directory: sum of files under this prefix
-    const prefix = relPath.endsWith('/') ? relPath : `${relPath}/`;
-    const files = await this.cachedGetFilesByPrefix(prefix);
-    return files.reduce((s, f) => s + (f.bufferContent?.byteLength || f.content?.length || 0), 0);
+    const files = await this.getDescendants(path);
+    return files.reduce((s, f) => s + (f.type === 'file' ? f.size : 0), 0);
   }
 
   private formatSize(bytes: number, human: boolean): string {

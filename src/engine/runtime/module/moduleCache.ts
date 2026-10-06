@@ -1,334 +1,80 @@
-/**
- * Module Cache Manager
- *
- * キャッシュ戦略:
- * - キャッシュキーはファイルパスのみ(内容のハッシュは含めない)
- * - ファイル内容のハッシュはmetaに保存し、変更検出に使用
- * - 依存グラフを双方向管理(A→B と B←A)
- * - ファイル変更時:
- *   1. 変更されたファイル自体のキャッシュを削除
- *   2. そのファイルに依存する全ファイルのキャッシュも無効化
- *   3. 変更されていない依存ファイルはキャッシュ利用可能
- */
-
-import { runtimeError, runtimeInfo, runtimeWarn } from '@/engine/runtime/core/runtimeLogger';
-import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
+import { RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
+import { resolvePath } from '@/engine/core/pathUtils';
+import type { ModuleFileSystem } from './moduleFileSystem';
 
 export interface CacheEntry {
-  originalPath: string;
-  contentHash: string; // ファイル内容のハッシュ(変更検出用)
+  contentHash: string;
   code: string;
-  sourceMap?: string;
-  deps: string[]; // このファイルが依存しているファイル一覧
-  dependents: string[]; // このファイルに依存しているファイル一覧(逆参照)
-  mtime: number;
-  lastAccess: number;
-  size: number;
+  deps: string[];
 }
 
-interface CacheMeta {
-  originalPath?: string;
-  contentHash?: string;
-  sourceMap?: string;
-  deps?: string[];
-  dependents?: string[];
-  mtime?: number;
-  lastAccess?: number;
-  size?: number;
+interface CacheMetadata {
+  contentHash: string;
+  deps: string[];
 }
 
 export class ModuleCache {
-  private cacheMount: RuntimeCacheMount;
-  private cache: Map<string, CacheEntry> = new Map(); // key = originalPath
-  private maxCacheSize: number = 100 * 1024 * 1024;
-  private readonly cacheDir = '/cache/modules';
-  private readonly metaDir = '/cache/meta';
-  private initialized = false;
+  private readonly entries = new Map<string, CacheEntry>();
+  private readonly codeDirectory = resolvePath(RUNTIME_CACHE_PATH, 'modules');
+  private readonly metadataDirectory = resolvePath(RUNTIME_CACHE_PATH, 'meta');
 
-  constructor(_projectId: string, _projectName: string, cacheMount: RuntimeCacheMount) {
-    this.cacheMount = cacheMount;
-  }
+  constructor(private readonly fileSystem: ModuleFileSystem) {}
+
   async init(): Promise<void> {
-    if (this.initialized) return;
-
-    runtimeInfo('🗄️ Initializing module cache...');
-    await this.cacheMount.init();
-    await this.cacheMount.mkdir(this.cacheDir, true);
-    await this.cacheMount.mkdir(this.metaDir, true);
-    await this.loadFromMount();
-    this.initialized = true;
-
-    runtimeInfo('✅ Module cache initialized:', {
-      entries: this.cache.size,
-      totalSize: this.formatSize(this.getTotalSize()),
-    });
+    await this.fileSystem.mkdir(this.codeDirectory);
+    await this.fileSystem.mkdir(this.metadataDirectory);
   }
 
-  /**
-   * キャッシュを取得(内容ハッシュで検証)
-   * @param path ファイルパス
-   * @param currentContentHash 現在のファイル内容のハッシュ(変更検出用)
-   */
-  async get(path: string, currentContentHash?: string): Promise<CacheEntry | null> {
-    const entry = this.cache.get(path);
-
-    if (entry) {
-      // 内容ハッシュが変わっていたらキャッシュ無効
-      if (currentContentHash && entry.contentHash !== currentContentHash) {
-        runtimeWarn('⚠️ Cache INVALID (content changed):', path);
-        await this.invalidate(path);
-        return null;
-      }
-
-      entry.lastAccess = Date.now();
-      runtimeInfo('✅ Cache HIT:', path);
-      return entry;
+  async get(path: string, contentHash: string): Promise<CacheEntry | null> {
+    const cached = this.entries.get(path);
+    if (cached) {
+      if (cached.contentHash === contentHash) return cached;
+      this.entries.delete(path);
+      await this.delete(path);
+      return null;
     }
 
-    runtimeInfo('📭 Cache MISS (first load):', path);
-    return null;
-  }
-
-  /**
-   * キャッシュを保存
-   * @param path ファイルパス
-   * @param entry キャッシュエントリ(contentHash, deps含む)
-   */
-  async set(path: string, entry: Omit<CacheEntry, 'dependents' | 'lastAccess'>): Promise<void> {
-    // 既存キャッシュがあれば依存グラフから削除
-    const oldEntry = this.cache.get(path);
-    if (oldEntry) {
-      await this.removeDependencyLinks(path, oldEntry.deps);
-    }
-
-    // 新しいキャッシュエントリ
-    const cacheEntry: CacheEntry = {
-      ...entry,
-      dependents: [],
-      lastAccess: Date.now(),
-    };
-
-    this.cache.set(path, cacheEntry);
-    runtimeInfo('💾 Saving cache:', path, `(${this.formatSize(entry.size)})`);
-
-    // 依存グラフを更新(双方向リンク)
-    await this.updateDependencyLinks(path, entry.deps);
-
-    try {
-      await this.saveToMount(path, cacheEntry);
-      runtimeInfo('✅ Cache saved:', path);
-    } catch (error) {
-      runtimeError('❌ Failed to save cache:', error);
-      this.cache.delete(path);
-      throw error;
-    }
-
-    await this.checkCacheSize();
-  }
-
-  /**
-   * 指定ファイルとそれに依存する全ファイルのキャッシュを無効化
-   * @param path 変更されたファイルのパス
-   */
-  async invalidate(path: string): Promise<void> {
-    const entry = this.cache.get(path);
-    if (!entry) return;
-
-    runtimeInfo('🗑️ Invalidating cache:', path);
-
-    // このファイルに依存している全ファイルも無効化(再帰的)
-    const dependents = [...entry.dependents];
-    for (const dependent of dependents) {
-      await this.invalidate(dependent);
-    }
-
-    // 依存グラフから削除
-    await this.removeDependencyLinks(path, entry.deps);
-
-    // キャッシュとディスクから削除
-    this.cache.delete(path);
-    await this.deleteFromMount(path);
-  }
-
-  /**
-   * 依存グラフに双方向リンクを追加
-   */
-  private async updateDependencyLinks(path: string, deps: string[]): Promise<void> {
-    for (const dep of deps) {
-      const depEntry = this.cache.get(dep);
-      if (depEntry && !depEntry.dependents.includes(path)) {
-        depEntry.dependents.push(path);
-      }
-    }
-  }
-
-  /**
-   * 依存グラフから双方向リンクを削除
-   */
-  private async removeDependencyLinks(path: string, deps: string[]): Promise<void> {
-    for (const dep of deps) {
-      const depEntry = this.cache.get(dep);
-      if (depEntry) {
-        depEntry.dependents = depEntry.dependents.filter(d => d !== path);
-      }
-    }
-  }
-
-  async clear(): Promise<void> {
-    this.cache.clear();
-    await this.cacheMount.clear();
-    runtimeInfo('✅ Cache cleared');
-  }
-
-  private async loadFromMount(): Promise<void> {
-    try {
-      const metaFiles = await this.cacheMount.listDir(this.metaDir);
-      runtimeInfo(`📂 Found ${metaFiles.length} cache meta files`);
-      let loadedCount = 0;
-
-      for (const name of metaFiles) {
-        if (!name.endsWith('.json')) continue;
-        try {
-          const metaPath = `${this.metaDir}/${name}`;
-          const metaContent = this.cacheMount.getFileSync(metaPath);
-          if (!metaContent) continue;
-
-          const metaText =
-            typeof metaContent === 'string' ? metaContent : new TextDecoder().decode(metaContent);
-          if (!metaText.trim()) continue;
-
-          const meta = JSON.parse(metaText) as CacheMeta;
-          const originalPath = meta.originalPath;
-          if (!originalPath) continue;
-          const safeFileName = this.pathToSafeFileName(originalPath);
-          const codeContent = this.cacheMount.getFileSync(`${this.cacheDir}/${safeFileName}.js`);
-
-          if (codeContent && originalPath) {
-            const code =
-              typeof codeContent === 'string' ? codeContent : new TextDecoder().decode(codeContent);
-            const entry: CacheEntry = {
-              originalPath,
-              contentHash: meta.contentHash || '',
-              code,
-              sourceMap: meta.sourceMap,
-              deps: meta.deps || [],
-              dependents: meta.dependents || [],
-              mtime: meta.mtime || Date.now(),
-              lastAccess: meta.lastAccess || Date.now(),
-              size: meta.size || code.length,
-            };
-            this.cache.set(originalPath, entry);
-            loadedCount++;
-          }
-        } catch (error) {
-          console.warn('[moduleCache.ts] caught non-fatal error', error);
-          runtimeWarn('⚠️ Failed to parse cache meta:', name);
-        }
-      }
-
-      runtimeInfo(`✅ Loaded ${loadedCount} cache entries`);
-    } catch (error) {
-      runtimeWarn('⚠️ Failed to load cache:', error);
-    }
-  }
-
-  private async saveToMount(path: string, entry: CacheEntry): Promise<void> {
-    const safeFileName = this.pathToSafeFileName(path);
-
-    await this.cacheMount.setFile(`${this.cacheDir}/${safeFileName}.js`, entry.code);
-
-    const meta: Omit<CacheEntry, 'code'> = {
-      originalPath: entry.originalPath,
-      contentHash: entry.contentHash,
-      sourceMap: entry.sourceMap,
-      deps: entry.deps,
-      dependents: entry.dependents,
-      mtime: entry.mtime,
-      lastAccess: entry.lastAccess,
-      size: entry.size,
-    };
-
-    await this.cacheMount.setFile(
-      `${this.metaDir}/${safeFileName}.json`,
-      JSON.stringify(meta, null, 2)
+    const name = await this.pathKey(path);
+    const metadataText = await this.fileSystem.readOptionalFile(
+      `${this.metadataDirectory}/${name}.json`
     );
-  }
-
-  private async checkCacheSize(): Promise<void> {
-    const totalSize = this.getTotalSize();
-    if (totalSize > this.maxCacheSize) {
-      runtimeInfo(`🗑️ Cache size exceeded (${this.formatSize(totalSize)}), running GC...`);
-      await this.runGC();
+    if (metadataText === null) return null;
+    const metadata: CacheMetadata = JSON.parse(metadataText) as CacheMetadata;
+    if (metadata.contentHash !== contentHash) {
+      await this.delete(path);
+      return null;
     }
+
+    const code = await this.fileSystem.readOptionalFile(`${this.codeDirectory}/${name}.js`);
+    if (code === null) return null;
+    const entry = { contentHash, code, deps: metadata.deps };
+    this.entries.set(path, entry);
+    return entry;
   }
 
-  private async runGC(): Promise<void> {
-    const beforeSize = this.getTotalSize();
-    const entries = Array.from(this.cache.entries())
-      .map(([path, entry]) => ({ path, entry }))
-      .sort((a, b) => a.entry.lastAccess - b.entry.lastAccess);
-
-    let currentSize = beforeSize;
-    const targetSize = this.maxCacheSize * 0.7;
-    let deletedCount = 0;
-
-    for (const { path, entry } of entries) {
-      if (currentSize <= targetSize) break;
-
-      // 依存グラフから削除
-      await this.removeDependencyLinks(path, entry.deps);
-      this.cache.delete(path);
-
-      try {
-        await this.deleteFromMount(path);
-        currentSize -= entry.size;
-        deletedCount++;
-      } catch (error) {
-        console.warn('[moduleCache.ts] caught non-fatal error', error);
-        runtimeWarn('⚠️ Failed to delete:', path);
-      }
-    }
-    runtimeInfo('✅ GC completed:', {
-      deleted: deletedCount,
-      before: this.formatSize(beforeSize),
-      after: this.formatSize(this.getTotalSize()),
-    });
+  async set(path: string, entry: CacheEntry): Promise<void> {
+    const name = await this.pathKey(path);
+    await this.fileSystem.writeFile(`${this.codeDirectory}/${name}.js`, entry.code);
+    const metadata: CacheMetadata = { contentHash: entry.contentHash, deps: entry.deps };
+    await this.fileSystem.writeFile(
+      `${this.metadataDirectory}/${name}.json`,
+      JSON.stringify(metadata)
+    );
+    this.entries.set(path, entry);
   }
 
-  private async deleteFromMount(path: string): Promise<void> {
-    const safeFileName = this.pathToSafeFileName(path);
-    await this.cacheMount.deleteFile(`${this.cacheDir}/${safeFileName}.js`);
-    await this.cacheMount.deleteFile(`${this.metaDir}/${safeFileName}.json`);
+  clear(): void {
+    this.entries.clear();
   }
 
-  private getTotalSize(): number {
-    return Array.from(this.cache.values()).reduce((sum, entry) => sum + entry.size, 0);
+  private async delete(path: string): Promise<void> {
+    const name = await this.pathKey(path);
+    await this.fileSystem.rm(`${this.codeDirectory}/${name}.js`);
+    await this.fileSystem.rm(`${this.metadataDirectory}/${name}.json`);
   }
 
-  private formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
-  }
-
-  /**
-   * ファイル内容のハッシュを計算(変更検出用)
-   */
-  hashContent(content: string): string {
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(36);
-  }
-
-  /**
-   * ファイルパスを安全なファイル名に変換
-   * 例: /src/app.tsx → _src_app.tsx
-   */
-  private pathToSafeFileName(path: string): string {
-    return path.replace(/[^a-zA-Z0-9.]/g, '_');
+  private async pathKey(path: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(path));
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
   }
 }

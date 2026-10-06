@@ -6,7 +6,7 @@
  */
 
 import type TerminalUI from '@/engine/cmd/terminalUI';
-import type { fileRepository } from '@/engine/core/fileRepository';
+import type { FsApi } from '@/engine/core/fs';
 import type { UnixCommands } from '../global/unix';
 import {
   createShellExecutor,
@@ -24,13 +24,13 @@ export { type ProcExit, Process } from './process';
  * Shell Options (backward compatible)
  */
 export interface ShellOptions {
-  projectName: string;
-  projectId: string;
+  rootPath: string;
   unix: UnixCommands;
-  fileRepository?: typeof fileRepository;
+  fsClient?: FsApi;
   commandRegistry?: any;
   terminalColumns?: number;
   terminalRows?: number;
+  env?: Record<string, string>;
   terminalUI?: TerminalUI; // Optional TerminalUI instance
 }
 
@@ -48,13 +48,13 @@ export class StreamShell {
   constructor(opts: ShellOptions) {
     // Create executor with options
     const execOpts: ShellExecutorOptions = {
-      projectName: opts.projectName,
-      projectId: opts.projectId,
+      rootPath: opts.rootPath,
       unix: opts.unix,
-      fileRepository: opts.fileRepository,
+      fsClient: opts.fsClient,
       commandRegistry: opts.commandRegistry,
       terminalColumns: opts.terminalColumns ?? 80,
       terminalRows: opts.terminalRows ?? 24,
+      env: opts.env,
       terminalUI: opts.terminalUI,
       isInteractive: true,
     };

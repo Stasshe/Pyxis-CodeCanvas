@@ -3,42 +3,28 @@
  * Provides minimal URL utilities needed by Prettier
  */
 
+import { normalizePath } from '@/engine/core/pathUtils';
+
 /**
  * Convert file: URL to path
  */
 export function fileURLToPath(url: string | URL): string {
   const urlStr = typeof url === 'string' ? url : url.toString();
-
-  // Remove file:// protocol
-  if (urlStr.startsWith('file://')) {
-    let path = urlStr.slice(7); // Remove 'file://'
-
-    // Handle Windows paths (file:///C:/...)
-    if (path.startsWith('/') && /^\/[a-zA-Z]:/.test(path)) {
-      path = path.slice(1); // Remove leading /
-    }
-
-    // Decode URL encoding
-    path = decodeURIComponent(path);
-
-    return path;
+  const parsedUrl = new URL(urlStr);
+  if (parsedUrl.protocol !== 'file:') return urlStr;
+  if (parsedUrl.hostname && parsedUrl.hostname !== 'localhost') {
+    throw new TypeError(`File URL host must be empty or localhost: ${parsedUrl.hostname}`);
   }
-
-  return urlStr;
+  return normalizePath(decodeURIComponent(parsedUrl.pathname));
 }
 
 /**
  * Convert path to file: URL
  */
 export function pathToFileURL(path: string): URL {
-  let urlPath = path.replace(/\\/g, '/'); // Normalize backslashes
-
-  // Add leading slash if needed for absolute paths on Windows
-  if (/^[a-zA-Z]:/.test(urlPath)) {
-    urlPath = `/${urlPath}`;
-  }
-
-  return new URL(`file://${encodeURI(urlPath)}`);
+  const absolutePath = normalizePath(path);
+  const encodedPath = absolutePath.split('/').map(encodeURIComponent).join('/');
+  return new URL(`file://${encodedPath}`);
 }
 
 /**

@@ -22,8 +22,6 @@ interface MergeConflictResolutionTabProps {
   conflicts: ReadonlyArray<MergeConflictFileEntry>;
   oursBranch: string;
   theirsBranch: string;
-  projectId: string;
-  projectName: string;
   /** Confirm conflict resolution and save */
   onResolve: (resolvedFiles: ReadonlyArray<MergeConflictFileEntry>) => void;
   /** Cancel merge */
@@ -40,8 +38,6 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
   conflicts,
   oursBranch,
   theirsBranch,
-  projectId,
-  projectName,
   onResolve,
   onCancel,
   onUpdateResolvedContent,

@@ -1,29 +1,19 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-import { syncManager } from '@/engine/core/syncManager';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 import { GitFileSystemHelper } from './fileSystemHelper';
 import { isRemoteRef, resolveRemoteRef, toFullRemoteRef } from './remoteUtils';
 
-/**
- * Git checkout操作を管理するクラス
- * - checkout後にsyncManager.syncFromFSToIndexedDB()で逆同期
- * - リモートブランチはremoteUtilsを使用して標準化された処理を行う
- */
 export class GitCheckoutOperations {
   private fs: FS;
   private dir: string;
-  private projectId: string;
-  private projectName: string;
 
-  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
+  constructor(fs: FS, dir: string) {
     this.fs = fs;
     this.dir = dir;
-    this.projectId = projectId;
-    this.projectName = projectName;
   }
 
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
   }
 
   private async getCurrentBranch(): Promise<string> {
@@ -34,11 +24,6 @@ export class GitCheckoutOperations {
     }
   }
 
-  private async getAllFiles(dirPath: string): Promise<string[]> {
-    return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
-  }
-
-  // git checkout - ブランチ切り替え/作成 + 逆同期
   async checkout(branchName: string, createNew = false): Promise<string> {
     try {
       await this.ensureProjectDirectory();
@@ -56,9 +41,7 @@ export class GitCheckoutOperations {
       }
 
       let targetCommitHash: string | undefined;
-      // resolvedFromRemote: whether the ref was resolved from refs/remotes/...
       let resolvedFromRemote = false;
-      // resolvedFromLocal: whether the ref was resolved from refs/heads/...
       let resolvedFromLocal = false;
 
       if (createNew) {
@@ -69,9 +52,7 @@ export class GitCheckoutOperations {
         }
         await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
       } else {
-        // Use remoteUtils to check if this is a remote reference
         if (isRemoteRef(branchName)) {
-          // Try resolving as remote branch first
           const remoteOid = await resolveRemoteRef(this.fs, this.dir, branchName);
           if (remoteOid) {
             targetCommitHash = remoteOid;
@@ -79,7 +60,6 @@ export class GitCheckoutOperations {
           }
         }
 
-        // If not resolved from remote, try local heads
         if (!targetCommitHash) {
           try {
             targetCommitHash = await git.resolveRef({
@@ -89,15 +69,12 @@ export class GitCheckoutOperations {
             });
             resolvedFromLocal = true;
           } catch {
-            // try resolving as a full ref or oid-ish
             try {
-              // Sometimes callers pass a full ref or a short oid; try resolveRef as-is
               targetCommitHash = await git.resolveRef({
                 fs: this.fs,
                 dir: this.dir,
                 ref: branchName,
               });
-              // If caller passed a full ref like refs/remotes/origin/main, mark accordingly
               if (branchName.startsWith('refs/remotes/')) resolvedFromRemote = true;
               if (branchName.startsWith('refs/heads/')) resolvedFromLocal = true;
             } catch {
@@ -125,32 +102,13 @@ export class GitCheckoutOperations {
         }
       }
 
-      // チェックアウト前のファイル数を記録
-      const beforeFiles = await this.getAllFiles(this.dir);
-      console.log('Checkout: Before files count:', beforeFiles.length);
-
-      // チェックアウト実行:
-      // - createNew が true の場合: 新しく作成したブランチ名でチェックアウト
-      // - resolvedFromLocal が true の場合: ローカルブランチ名でチェックアウト
-      // - それ以外はコミットOIDでチェックアウト（detached HEAD）することで
-      //   "origin/<something>" の誤解釈や、短いOIDがリモート参照として扱われる問題を避ける
-      const checkoutRef =
-        createNew || resolvedFromLocal ? branchName : targetCommitHash || branchName;
+      let checkoutRef = targetCommitHash || branchName;
+      if (createNew || resolvedFromLocal) checkoutRef = branchName;
 
       console.log('Executing git checkout (ref):', checkoutRef);
       await git.checkout({ fs: this.fs, dir: this.dir, ref: checkoutRef });
       console.log('Checkout completed');
 
-      // チェックアウト後のファイル数を記録
-      const afterFiles = await this.getAllFiles(this.dir);
-      console.log('Checkout: After files count:', afterFiles.length);
-
-      // GitFileSystem → IndexedDBへ逆同期
-      console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-      await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-      console.log('Reverse sync completed');
-
-      // ターゲットコミットの情報を取得
       if (!targetCommitHash) {
         throw new Error(`Failed to resolve ref: ${branchName}`);
       }
@@ -161,7 +119,6 @@ export class GitCheckoutOperations {
         oid: targetCommitHash,
       });
 
-      // 結果メッセージを生成
       let result = '';
       if (createNew) {
         result = `Switched to a new branch '${branchName}'`;
@@ -174,12 +131,6 @@ export class GitCheckoutOperations {
         result = `Note: switching to '${branchName}'.\n\nYou are in 'detached HEAD' state.\nHEAD is now at ${shortHash} ${commitMessage}`;
       } else {
         result = `Switched to branch '${branchName}'`;
-      }
-
-      // ファイル変更数を追加
-      const filesChanged = Math.abs(afterFiles.length - beforeFiles.length);
-      if (filesChanged > 0) {
-        result += `\n\nFiles synced to IndexedDB: ${afterFiles.length}`;
       }
 
       return result;

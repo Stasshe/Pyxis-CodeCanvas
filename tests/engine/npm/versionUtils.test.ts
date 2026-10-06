@@ -1,8 +1,8 @@
+import { describe, expect, it } from 'vitest';
 import {
   resolveVersionSpec,
   satisfiesVersionSpec,
 } from '@/engine/cmd/global/npmOperations/install/versionUtils';
-import { describe, expect, it } from 'vitest';
 
 describe('npm version utils', () => {
   const versions = {

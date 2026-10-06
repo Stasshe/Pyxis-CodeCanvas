@@ -1,20 +1,13 @@
 /**
  * Module Resolver
  *
- * ## 役割
- * - モジュールパスの解決（Node.js互換）
- * - 相対パス、node_modules、エイリアスの解決
- * - package.jsonの解析とエントリーポイント決定
  */
 
-import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, getParentPath, toAppPath } from '@/engine/core/pathUtils';
+import { normalizePath, posixPath } from '@/engine/core/pathUtils';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import { isBuiltInModule } from './builtinModules';
+import type { ModuleFileSystem } from './moduleFileSystem';
 
-/**
- * パッケージ情報
- */
 export interface PackageJson {
   name?: string;
   version?: string;
@@ -27,9 +20,6 @@ export interface PackageJson {
   devDependencies?: Record<string, string>;
 }
 
-/**
- * 解決結果
- */
 export interface ResolveResult {
   path: string;
   packageJson?: PackageJson;
@@ -41,26 +31,20 @@ export interface ResolveResult {
  * Module Resolver
  */
 export class ModuleResolver {
-  private projectId: string;
-  private projectName: string;
-  private projectDir: string;
+  private rootPath: string;
+  private fileSystem: ModuleFileSystem;
   private packageJsonCache: Map<string, PackageJson> = new Map();
-  private fileCache: Map<string, boolean> = new Map(); // ファイル存在チェックキャッシュ
+  private fileCache: Map<string, boolean> = new Map(); // Cache successful file checks.
 
-  constructor(projectId: string, projectName: string) {
-    this.projectId = projectId;
-    this.projectName = projectName;
-    this.projectDir = `/projects/${projectName}`;
+  constructor(rootPath: string, fileSystem: ModuleFileSystem) {
+    this.rootPath = normalizePath(rootPath);
+    this.fileSystem = fileSystem;
   }
 
-  /**
-   * モジュールパスを解決
-   */
   async resolve(moduleName: string, currentFilePath: string): Promise<ResolveResult | null> {
     moduleName = this.normalizeSpecifier(moduleName);
     runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
 
-    // 1. ビルトインモジュール
     if (isBuiltInModule(moduleName)) {
       return {
         path: moduleName,
@@ -69,7 +53,6 @@ export class ModuleResolver {
       };
     }
 
-    // 2. Package imports (#で始まる)
     if (moduleName.startsWith('#')) {
       const resolved = await this.resolvePackageImports(moduleName, currentFilePath);
       if (resolved) {
@@ -82,7 +65,6 @@ export class ModuleResolver {
       }
     }
 
-    // 3. 絶対パス (/ で始まる)
     if (moduleName.startsWith('/')) {
       const finalPath = await this.addExtensionIfNeeded(moduleName);
       if (finalPath) {
@@ -94,10 +76,9 @@ export class ModuleResolver {
       }
     }
 
-    // 4. 相対パス (./, ../)
     if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
-      const currentDir = getParentPath(currentFilePath);
-      const resolved = this.resolvePath(currentDir, moduleName);
+      const currentDir = posixPath.dirname(currentFilePath);
+      const resolved = posixPath.resolve(currentDir, moduleName);
       const finalPath = await this.addExtensionIfNeeded(resolved);
 
       if (finalPath) {
@@ -109,9 +90,8 @@ export class ModuleResolver {
       }
     }
 
-    // 5. エイリアス (@/)
     if (moduleName.startsWith('@/')) {
-      const resolved = moduleName.replace('@/', `${this.projectDir}/src/`);
+      const resolved = posixPath.resolve(this.rootPath, 'src', moduleName.slice(2));
       const finalPath = await this.addExtensionIfNeeded(resolved);
 
       if (finalPath) {
@@ -124,7 +104,7 @@ export class ModuleResolver {
     }
 
     // 6. node_modules
-    const nodeModulePath = await this.resolveNodeModules(moduleName);
+    const nodeModulePath = await this.resolveNodeModules(moduleName, currentFilePath);
     if (nodeModulePath) {
       return {
         path: nodeModulePath.path,
@@ -135,6 +115,133 @@ export class ModuleResolver {
     }
 
     runtimeWarn('⚠️ Module not found:', moduleName);
+    return null;
+  }
+
+  resolveSync(moduleName: string, currentFilePath: string): ResolveResult | null {
+    const specifier = this.normalizeSpecifier(moduleName);
+    if (isBuiltInModule(specifier)) {
+      return { path: specifier, isBuiltIn: true, isNodeModule: false };
+    }
+
+    if (specifier.startsWith('#')) {
+      const packageDirectory = this.findPackageRootSync(currentFilePath);
+      let packageJson: PackageJson | null = null;
+      if (packageDirectory) {
+        packageJson = this.loadPackageJsonSync(posixPath.join(packageDirectory, 'package.json'));
+      }
+      let target: string | null = null;
+      if (packageJson?.imports) target = this.resolveImports(packageJson.imports, specifier);
+      if (target) {
+        if (!packageDirectory || !packageJson) return null;
+        const resolved = this.addExtensionIfNeededSync(posixPath.resolve(packageDirectory, target));
+        if (resolved) {
+          return { path: resolved, packageJson, isBuiltIn: false, isNodeModule: false };
+        }
+      }
+    }
+
+    if (specifier.startsWith('/') || specifier.startsWith('./') || specifier.startsWith('../')) {
+      let base = posixPath.dirname(currentFilePath);
+      if (specifier.startsWith('/')) base = '/';
+      let candidate = specifier;
+      if (!specifier.startsWith('/')) candidate = posixPath.resolve(base, specifier);
+      const path = this.addExtensionIfNeededSync(candidate);
+      if (path) return { path, isBuiltIn: false, isNodeModule: false };
+    }
+
+    let candidate = specifier;
+    if (specifier.startsWith('@/')) {
+      candidate = posixPath.resolve(this.rootPath, 'src', specifier.slice(2));
+    }
+    if (candidate.startsWith('/')) {
+      const path = this.addExtensionIfNeededSync(candidate);
+      if (path) return { path, isBuiltIn: false, isNodeModule: false };
+    }
+
+    const packageResult = this.resolveNodeModulesSync(specifier, currentFilePath);
+    if (packageResult) return packageResult;
+    return null;
+  }
+
+  private resolveNodeModulesSync(specifier: string, currentFilePath: string): ResolveResult | null {
+    const [packageName, ...subPathParts] = this.splitPackageSpecifier(specifier);
+    if (!packageName) return null;
+    const subPath = subPathParts.join('/');
+    let directory = posixPath.dirname(currentFilePath);
+
+    while (true) {
+      const packageDirectory = posixPath.resolve(directory, 'node_modules', packageName);
+      const packageJson = this.loadPackageJsonSync(
+        posixPath.join(packageDirectory, 'package.json')
+      );
+      if (packageJson) {
+        if (packageJson.exports) {
+          let exportKey = '.';
+          if (subPath) exportKey = `./${subPath}`;
+          const entry = this.resolveExports(packageJson.exports, exportKey);
+          if (!entry) return null;
+          const targetPath = posixPath.resolve(packageDirectory, entry);
+          if (this.fileSystem.statSync(targetPath)?.type === 'file') {
+            return { path: targetPath, packageJson, isBuiltIn: false, isNodeModule: true };
+          }
+          return null;
+        }
+
+        let entry = subPath;
+        if (!subPath) entry = packageJson.main || packageJson.module || 'index.js';
+        const target = this.addExtensionIfNeededSync(posixPath.resolve(packageDirectory, entry));
+        if (target) return { path: target, packageJson, isBuiltIn: false, isNodeModule: true };
+        if (subPath) return null;
+      }
+
+      if (!packageJson) {
+        let firstFallback = `${packageDirectory}/index.js`;
+        if (subPath) firstFallback = `${packageDirectory}/${subPath}`;
+        const fallbackPaths = [
+          firstFallback,
+          `${packageDirectory}/dist/index.js`,
+          `${packageDirectory}/lib/index.js`,
+          `${packageDirectory}/src/index.js`,
+        ];
+        for (const path of fallbackPaths) {
+          const target = this.addExtensionIfNeededSync(path);
+          if (target) return { path: target, isBuiltIn: false, isNodeModule: true };
+        }
+      }
+
+      if (directory === '/') break;
+      directory = posixPath.dirname(directory);
+    }
+    return null;
+  }
+
+  private splitPackageSpecifier(specifier: string): string[] {
+    const parts = specifier.split('/');
+    if (specifier.startsWith('@')) return [parts.slice(0, 2).join('/'), ...parts.slice(2)];
+    return parts;
+  }
+
+  private loadPackageJsonSync(path: string): PackageJson | null {
+    const cached = this.packageJsonCache.get(path);
+    if (cached) return cached;
+    const content = this.fileSystem.readOptionalFileSync(path);
+    if (content === null) return null;
+    const packageJson = JSON.parse(content) as PackageJson;
+    this.packageJsonCache.set(path, packageJson);
+    return packageJson;
+  }
+
+  private addExtensionIfNeededSync(path: string): string | null {
+    const extensions = ['', '.js', '.cjs', '.mjs', '.ts', '.mts', '.cts', '.tsx', '.jsx', '.json'];
+    for (const extension of extensions) {
+      const candidate = `${path}${extension}`;
+      if (this.fileSystem.statSync(candidate)?.type === 'file') return candidate;
+    }
+    for (const extension of ['index.js', 'index.cjs', 'index.mjs', 'index.ts', 'index.json']) {
+      const candidate = posixPath.join(path, extension);
+      if (this.fileSystem.statSync(candidate)?.type === 'file') return candidate;
+    }
     return null;
   }
 
@@ -151,11 +258,9 @@ export class ModuleResolver {
     }
   }
 
-  /**
-   * node_modulesからモジュールを解決
-   */
   private async resolveNodeModules(
-    moduleName: string
+    moduleName: string,
+    currentFilePath: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
     // Validate module name is not empty
     if (!moduleName || moduleName.trim() === '') {
@@ -163,12 +268,10 @@ export class ModuleResolver {
       return null;
     }
 
-    // パッケージ名とサブパスを分離
     let packageName: string;
     let subPath = '';
 
     if (moduleName.startsWith('@')) {
-      // スコープ付きパッケージ (@vue/runtime-core)
       const parts = moduleName.split('/');
       if (parts.length < 2) {
         runtimeWarn('⚠️ Invalid scoped package name:', moduleName);
@@ -177,7 +280,6 @@ export class ModuleResolver {
       packageName = `${parts[0]}/${parts[1]}`;
       subPath = parts.slice(2).join('/');
     } else {
-      // 通常のパッケージ (lodash/merge)
       const parts = moduleName.split('/');
       packageName = parts[0];
       if (!packageName) {
@@ -189,77 +291,53 @@ export class ModuleResolver {
 
     runtimeInfo('📦 Resolving node_modules:', { packageName, subPath });
 
-    // package.jsonを読み込み
-    const packageJsonPath = `${this.projectDir}/node_modules/${packageName}/package.json`;
-    runtimeInfo('🔍 Looking for package.json at:', packageJsonPath);
-
-    const packageJson = await this.loadPackageJson(packageJsonPath);
-
-    if (!packageJson) {
-      runtimeWarn('⚠️ package.json not found:', packageJsonPath);
-
-      // デバッグ: node_modulesにどんなファイルがあるか確認
-      try {
-        const nodeModuleFiles = await fileRepository.getFilesByPrefix(
-          this.projectId,
-          `/node_modules/${packageName}`
-        );
-        runtimeInfo(`📁 Found ${nodeModuleFiles.length} files for ${packageName}`);
-        runtimeInfo(
-          'Files:',
-          nodeModuleFiles.map(f => `${f.path} (type: ${f.type})`)
-        );
-      } catch (e) {
-        runtimeError('Failed to list files:', e);
+    const packageDirectories = this.getNodeModuleDirectories(
+      packageName,
+      posixPath.dirname(currentFilePath)
+    );
+    let packageDirectory = '';
+    let packageJson: PackageJson | null = null;
+    for (const directory of packageDirectories) {
+      const candidate = posixPath.join(directory, 'package.json');
+      packageJson = await this.loadPackageJson(candidate);
+      if (packageJson) {
+        packageDirectory = directory;
+        break;
       }
-
-      return this.tryFallbackPaths(packageName, subPath);
     }
 
-    // サブパス指定あり
-    if (subPath) {
-      // exportsフィールドをチェック
-      if (packageJson.exports) {
-        const exportPath = this.resolveExports(packageJson.exports, `./${subPath}`);
-        if (exportPath) {
-          const fullPath = `${this.projectDir}/node_modules/${packageName}/${exportPath}`;
-          if (await this.fileExists(fullPath)) {
-            return { path: fullPath, packageJson };
-          }
-        }
+    if (!packageJson) {
+      for (const directory of packageDirectories) {
+        const fallback = await this.tryFallbackPathsAt(directory, subPath);
+        if (fallback) return fallback;
       }
+      return null;
+    }
 
-      // 直接パス
-      const directPath = `${this.projectDir}/node_modules/${packageName}/${subPath}`;
+    if (packageJson.exports) {
+      let exportKey = '.';
+      if (subPath) exportKey = `./${subPath}`;
+      const exportPath = this.resolveExports(packageJson.exports, exportKey);
+      if (!exportPath) return null;
+      const fullPath = posixPath.resolve(packageDirectory, exportPath);
+      if (await this.fileExists(fullPath)) return { path: fullPath, packageJson };
+      return null;
+    }
+
+    if (subPath) {
+      const directPath = posixPath.resolve(packageDirectory, subPath);
       const finalPath = await this.addExtensionIfNeeded(directPath);
       if (finalPath) {
         return { path: finalPath, packageJson };
       }
     }
 
-    // パッケージルート - エントリーポイントを解決
-    // exportsフィールドを最優先でチェック（Node.js仕様準拠）
-    if (packageJson.exports) {
-      const exportPath = this.resolveExports(packageJson.exports, '.');
-      if (exportPath) {
-        let ep = exportPath;
-        if (ep.startsWith('./')) ep = ep.slice(2);
-        const fullExportPath = `${this.projectDir}/node_modules/${packageName}/${ep}`;
-        if (await this.fileExists(fullExportPath)) {
-          runtimeInfo('✅ Resolved via exports["."]:', fullExportPath);
-          return { path: fullExportPath, packageJson };
-        }
-      }
-    }
-
-    // CJSランタイムなのでmainを優先（moduleはESM用）
     let entryPoint = packageJson.main || packageJson.module || 'index.js';
-    // ./ プレフィックスを削除
     if (entryPoint.startsWith('./')) {
       entryPoint = entryPoint.slice(2);
     }
     runtimeInfo('📦 Entry point:', entryPoint, 'for', packageName);
-    const fullPath = `${this.projectDir}/node_modules/${packageName}/${entryPoint}`;
+    const fullPath = posixPath.resolve(packageDirectory, entryPoint);
     const finalPath = await this.addExtensionIfNeeded(fullPath);
 
     if (finalPath) {
@@ -268,26 +346,25 @@ export class ModuleResolver {
     }
 
     runtimeWarn('⚠️ Entry point not found, trying fallback');
-    return this.tryFallbackPaths(packageName, subPath);
+    for (const directory of packageDirectories) {
+      const fallback = await this.tryFallbackPathsAt(directory, subPath);
+      if (fallback) return fallback;
+    }
+    return null;
   }
 
-  /**
-   * package.jsonのimportsフィールドを解決 (#で始まるモジュール)
-   */
   private async resolvePackageImports(
     moduleName: string,
     currentFilePath: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
     runtimeInfo('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
 
-    // 現在のファイルが属するパッケージのpackage.jsonを探す
     const packageJson = await this.findPackageJson(currentFilePath);
     if (!packageJson) {
       runtimeWarn('⚠️ No package.json found for:', currentFilePath);
       return null;
     }
 
-    // importsフィールドをチェック
     if (!packageJson.imports) {
       runtimeWarn('⚠️ No imports field in package.json');
       return null;
@@ -303,19 +380,11 @@ export class ModuleResolver {
 
     runtimeInfo('📦 Import resolved:', moduleName, '→', importPath);
 
-    // 相対パスを絶対パスに変換（パッケージルートから）
-    let packageDir = getParentPath(currentFilePath);
-
-    // node_modules内のファイルの場合、パッケージルートを取得
-    if (packageDir.includes('/node_modules/')) {
-      const match = packageDir.match(/^(.*\/node_modules\/[^/]+)/);
-      if (match) {
-        packageDir = match[1];
-      }
-    }
+    const packageDir = await this.findPackageRoot(currentFilePath);
+    if (!packageDir) return null;
 
     runtimeInfo('📦 Package dir:', packageDir);
-    const resolved = this.resolvePath(packageDir, importPath);
+    const resolved = posixPath.resolve(packageDir, importPath);
     runtimeInfo('📦 Resolved path:', resolved);
     const finalPath = await this.addExtensionIfNeeded(resolved);
 
@@ -328,47 +397,57 @@ export class ModuleResolver {
     return null;
   }
 
-  /**
-   * 現在のファイルが属するパッケージのpackage.jsonを探す
-   */
   private async findPackageJson(filePath: string): Promise<PackageJson | null> {
-    let currentDir = getParentPath(filePath);
+    let currentDir = posixPath.dirname(filePath);
 
-    // node_modules内のファイルの場合、そのパッケージのpackage.jsonを探す
     if (currentDir.includes('/node_modules/')) {
-      // /projects/new/node_modules/chalk/source/index.js
-      // → /projects/new/node_modules/chalk/package.json
+      // /new/node_modules/chalk/source/index.js
+      // → /new/node_modules/chalk/package.json
       const match = currentDir.match(/^(.*\/node_modules\/[^/]+)/);
       if (match) {
         const packageDir = match[1];
-        const packageJsonPath = `${packageDir}/package.json`;
+        const packageJsonPath = posixPath.join(packageDir, 'package.json');
         return await this.loadPackageJson(packageJsonPath);
       }
     }
 
-    // プロジェクトルートまで遡る
-    while (currentDir !== '/' && currentDir !== this.projectDir) {
-      const packageJsonPath = `${currentDir}/package.json`;
+    while (currentDir !== '/' && currentDir !== this.rootPath) {
+      const packageJsonPath = posixPath.join(currentDir, 'package.json');
       const packageJson = await this.loadPackageJson(packageJsonPath);
       if (packageJson) {
         return packageJson;
       }
-      currentDir = getParentPath(currentDir);
+      currentDir = posixPath.dirname(currentDir);
     }
 
     return null;
   }
 
-  /**
-   * importsフィールドを解決
-   */
+  private async findPackageRoot(filePath: string): Promise<string | null> {
+    let directory = posixPath.dirname(filePath);
+    while (true) {
+      const packageJson = await this.loadPackageJson(posixPath.join(directory, 'package.json'));
+      if (packageJson) return directory;
+      if (directory === '/') return null;
+      directory = posixPath.dirname(directory);
+    }
+  }
+
+  private findPackageRootSync(filePath: string): string | null {
+    let directory = posixPath.dirname(filePath);
+    while (true) {
+      const packageJson = this.loadPackageJsonSync(posixPath.join(directory, 'package.json'));
+      if (packageJson) return directory;
+      if (directory === '/') return null;
+      directory = posixPath.dirname(directory);
+    }
+  }
+
   private resolveImports(imports: Record<string, unknown>, subPath: string): string | null {
-    // 完全一致
     if (imports[subPath]) {
       return this.resolveConditionalTarget(imports[subPath]);
     }
 
-    // ワイルドカード (#internal/*)
     for (const key of Object.keys(imports)) {
       if (key.endsWith('/*')) {
         const prefix = key.slice(0, -2);
@@ -419,49 +498,50 @@ export class ModuleResolver {
     return null;
   }
 
-  /**
-   * exportsフィールドを解決
-   */
   private resolveExports(
     exports: Record<string, unknown> | string,
     subPath: string
   ): string | null {
     if (typeof exports === 'string') {
-      return exports;
+      if (subPath === '.') return exports;
+      return null;
     }
 
-    // 完全一致
-    if (exports[subPath]) {
-      return this.resolveConditionalTarget(exports[subPath]);
+    if (subPath in exports) return this.resolveConditionalTarget(exports[subPath]);
+
+    if (subPath === '.') {
+      if ('.' in exports) return this.resolveConditionalTarget(exports['.']);
+      if (!Object.keys(exports).some(key => key.startsWith('.'))) {
+        return this.resolveConditionalTarget(exports);
+      }
     }
 
-    // . (デフォルト)
-    if (subPath === '.' && exports['.']) {
-      return this.resolveConditionalTarget(exports['.']);
-    }
-
-    if (subPath === '.' && !Object.keys(exports).some(key => key.startsWith('.'))) {
-      return this.resolveConditionalTarget(exports);
+    const patterns = Object.keys(exports)
+      .filter(key => key.includes('*'))
+      .sort((left, right) => right.length - left.length);
+    for (const pattern of patterns) {
+      const wildcard = pattern.indexOf('*');
+      const prefix = pattern.slice(0, wildcard);
+      const suffix = pattern.slice(wildcard + 1);
+      if (!subPath.startsWith(prefix) || !subPath.endsWith(suffix)) continue;
+      const matched = subPath.slice(prefix.length, subPath.length - suffix.length);
+      const target = this.resolveConditionalTarget(exports[pattern]);
+      if (target) return target.replace('*', matched);
     }
 
     return null;
   }
 
-  /**
-   * フォールバックパスを試す
-   */
-  private async tryFallbackPaths(
-    packageName: string,
+  private async tryFallbackPathsAt(
+    packageDirectory: string,
     subPath: string
   ): Promise<{ path: string; packageJson?: PackageJson } | null> {
-    const fallbackPaths = [
-      subPath
-        ? `${this.projectDir}/node_modules/${packageName}/${subPath}`
-        : `${this.projectDir}/node_modules/${packageName}/index.js`,
-      `${this.projectDir}/node_modules/${packageName}/dist/index.js`,
-      `${this.projectDir}/node_modules/${packageName}/lib/index.js`,
-      `${this.projectDir}/node_modules/${packageName}/src/index.js`,
-    ];
+    const fallbackPaths: string[] = [];
+    if (subPath) fallbackPaths.push(posixPath.resolve(packageDirectory, subPath));
+    if (!subPath) fallbackPaths.push(posixPath.join(packageDirectory, 'index.js'));
+    fallbackPaths.push(posixPath.join(packageDirectory, 'dist/index.js'));
+    fallbackPaths.push(posixPath.join(packageDirectory, 'lib/index.js'));
+    fallbackPaths.push(posixPath.join(packageDirectory, 'src/index.js'));
 
     for (const fallbackPath of fallbackPaths) {
       const finalPath = await this.addExtensionIfNeeded(fallbackPath);
@@ -473,41 +553,19 @@ export class ModuleResolver {
     return null;
   }
 
-  /**
-   * package.jsonを読み込み
-   */
   private async loadPackageJson(path: string): Promise<PackageJson | null> {
-    // キャッシュをチェック
     if (this.packageJsonCache.has(path)) {
       return this.packageJsonCache.get(path) ?? null;
     }
 
-    try {
-      await fileRepository.init();
-      // Normalize using pathUtils: convert FSPath to AppPath (handles fallback internally)
-      const normalizedPath = fsPathToAppPath(path, this.projectName);
-      runtimeInfo('🔍 Normalized path:', path, '→', normalizedPath);
-
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
-      if (!file) {
-        runtimeWarn('❌ File not found. Searched for:', normalizedPath);
-        return null;
-      }
-
-      const packageJson: PackageJson = JSON.parse(file.content);
-      this.packageJsonCache.set(path, packageJson);
-      return packageJson;
-    } catch (error) {
-      runtimeWarn('⚠️ Failed to load package.json:', path, error);
-      return null;
-    }
+    const content = await this.fileSystem.readPackageJson(path);
+    if (content === null) return null;
+    const packageJson: PackageJson = JSON.parse(content);
+    this.packageJsonCache.set(path, packageJson);
+    return packageJson;
   }
 
-  /**
-   * 拡張子が必要な場合に追加
-   */
   private async addExtensionIfNeeded(filePath: string): Promise<string | null> {
-    // 既に拡張子がある場合
     if (/\.(js|mjs|cjs|ts|mts|cts|tsx|jsx|json)$/.test(filePath)) {
       if (await this.fileExists(filePath)) {
         return filePath;
@@ -515,14 +573,10 @@ export class ModuleResolver {
       return null;
     }
 
-    // 拡張子がないパスだが、そのまま実ファイルとして存在する可能性がある。
-    // 例: `node_modules/.bin/cowsay` のようなシム（shebang付きスクリプト）は
-    // 拡張子無しでも実行可能なので、まずそのままのパスを確認する。
     if (await this.fileExists(filePath)) {
       return filePath;
     }
 
-    // 拡張子を試す順序
     const extensions = ['.js', '.cjs', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
     for (const ext of extensions) {
       const pathWithExt = filePath + ext;
@@ -531,14 +585,13 @@ export class ModuleResolver {
       }
     }
 
-    // index.jsを試す
     const indexPaths = [
-      `${filePath}/index.js`,
-      `${filePath}/index.cjs`,
-      `${filePath}/index.mjs`,
-      `${filePath}/index.ts`,
-      `${filePath}/index.mts`,
-      `${filePath}/index.tsx`,
+      posixPath.join(filePath, 'index.js'),
+      posixPath.join(filePath, 'index.cjs'),
+      posixPath.join(filePath, 'index.mjs'),
+      posixPath.join(filePath, 'index.ts'),
+      posixPath.join(filePath, 'index.mts'),
+      posixPath.join(filePath, 'index.tsx'),
     ];
 
     for (const indexPath of indexPaths) {
@@ -550,53 +603,33 @@ export class ModuleResolver {
     return null;
   }
 
-  /**
-   * ファイルが存在するかチェック（ディレクトリは除外）
-   */
   private async fileExists(path: string): Promise<boolean> {
-    // キャッシュをチェック
     if (this.fileCache.has(path)) {
       return this.fileCache.get(path) ?? false;
     }
 
     try {
-      await fileRepository.init();
-      const normalizedPath = fsPathToAppPath(path, this.projectName);
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
+      const stat = await this.fileSystem.stat(path);
+      const exists = stat?.type === 'file';
 
-      // ファイルが存在し、かつディレクトリではない場合のみtrueを返す
-      const exists = !!file && file.type === 'file';
-
-      this.fileCache.set(path, exists);
+      if (exists) this.fileCache.set(path, true);
       return exists;
     } catch (error) {
-      console.warn('[moduleResolver.ts] caught non-fatal error', error);
-      this.fileCache.set(path, false);
-      return false;
+      runtimeError('Failed to inspect module path:', path, error);
+      throw error;
     }
   }
 
-  /**
-   * パスを解決
-   */
-  private resolvePath(basePath: string, relativePath: string): string {
-    const parts = basePath.split('/').filter(Boolean);
-    const relParts = relativePath.split('/').filter(Boolean);
-
-    for (const part of relParts) {
-      if (part === '..') {
-        parts.pop();
-      } else if (part !== '.') {
-        parts.push(part);
-      }
+  private getNodeModuleDirectories(packageName: string, startDirectory: string): string[] {
+    const directories: string[] = [];
+    let current = startDirectory;
+    while (true) {
+      directories.push(posixPath.resolve(current, 'node_modules', packageName));
+      if (current === '/') return directories;
+      current = posixPath.dirname(current);
     }
-
-    return `/${parts.join('/')}`;
   }
 
-  /**
-   * キャッシュをクリア
-   */
   clearCache(): void {
     this.packageJsonCache.clear();
     this.fileCache.clear();

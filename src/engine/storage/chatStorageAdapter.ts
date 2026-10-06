@@ -2,11 +2,11 @@ import { STORES, storageService } from '@/engine/storage';
 import type { ChatSpace, ChatSpaceMessage } from '@/types';
 
 /**
- * キー形式: chatSpace:${projectId}:${spaceId}
+ * キー形式: chatSpace:${rootPath}:${spaceId}
  * プロジェクト単位での効率的な取得を可能にする
  */
-function makeKey(projectId: string, spaceId: string): string {
-  return `chatSpace:${projectId}:${spaceId}`;
+function makeKey(rootPath: string, spaceId: string): string {
+  return `chatSpace:${rootPath}:${spaceId}`;
 }
 
 /**
@@ -40,12 +40,12 @@ function debouncedSave(key: string, saveFunction: () => Promise<void>): void {
 /**
  * プロジェクトのチャットスペース一覧を取得
  */
-export async function getChatSpaces(projectId: string): Promise<ChatSpace[]> {
-  if (!projectId) return [];
+export async function getChatSpaces(rootPath: string): Promise<ChatSpace[]> {
+  if (!rootPath) return [];
 
   const all = (await storageService.getAll(STORES.CHAT_SPACES)) || [];
   const spaces: ChatSpace[] = [];
-  const prefix = `chatSpace:${projectId}:`;
+  const prefix = `chatSpace:${rootPath}:`;
 
   for (const e of all) {
     if (e.id.startsWith(prefix)) {
@@ -65,46 +65,44 @@ export async function getChatSpaces(projectId: string): Promise<ChatSpace[]> {
 /**
  * プロジェクトに属する全てのチャットスペースを削除
  */
-export async function deleteChatSpacesForProject(projectId: string): Promise<void> {
-  if (!projectId) return;
+export async function deleteChatSpacesForProject(rootPath: string): Promise<void> {
+  if (!rootPath) return;
 
-  const spaces = await getChatSpaces(projectId);
+  const spaces = await getChatSpaces(rootPath);
 
   // 全てのスペースを削除
-  await Promise.all(spaces.map(space => deleteChatSpace(projectId, space.id)));
+  await Promise.all(spaces.map(space => deleteChatSpace(rootPath, space.id)));
 
-  console.log(
-    `[chatStorageAdapter] Deleted ${spaces.length} chat space(s) for project: ${projectId}`
-  );
+  console.log(`[chatStorageAdapter] Deleted ${spaces.length} chat space(s) for root: ${rootPath}`);
 }
 
-export async function createChatSpace(projectId: string, name: string): Promise<ChatSpace> {
+export async function createChatSpace(rootPath: string, name: string): Promise<ChatSpace> {
   const id = `chatspace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const now = new Date();
   const space: ChatSpace = {
     id,
     name,
-    projectId,
+    rootPath,
     messages: [],
     selectedFiles: [],
     createdAt: now,
     updatedAt: now,
   };
   // 新規作成時は即座に保存（キャッシュ有効）
-  await storageService.set(STORES.CHAT_SPACES, makeKey(projectId, id), space);
+  await storageService.set(STORES.CHAT_SPACES, makeKey(rootPath, id), space);
   return space;
 }
 
-export async function deleteChatSpace(projectId: string, spaceId: string): Promise<void> {
-  await storageService.delete(STORES.CHAT_SPACES, makeKey(projectId, spaceId));
+export async function deleteChatSpace(rootPath: string, spaceId: string): Promise<void> {
+  await storageService.delete(STORES.CHAT_SPACES, makeKey(rootPath, spaceId));
 }
 
 export async function renameChatSpace(
-  projectId: string,
+  rootPath: string,
   spaceId: string,
   newName: string
 ): Promise<void> {
-  const key = makeKey(projectId, spaceId);
+  const key = makeKey(rootPath, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) throw new Error('chat space not found');
   const updated = { ...(sp as ChatSpace), name: newName, updatedAt: new Date() } as ChatSpace;
@@ -116,11 +114,11 @@ export async function renameChatSpace(
 }
 
 export async function addMessageToChatSpace(
-  projectId: string,
+  rootPath: string,
   spaceId: string,
   message: ChatSpaceMessage
 ): Promise<ChatSpaceMessage> {
-  const key = makeKey(projectId, spaceId);
+  const key = makeKey(rootPath, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) throw new Error('chat space not found');
   const space = { ...(sp as ChatSpace) } as ChatSpace;
@@ -140,12 +138,12 @@ export async function addMessageToChatSpace(
 }
 
 export async function updateChatSpaceMessage(
-  projectId: string,
+  rootPath: string,
   spaceId: string,
   messageId: string,
   patch: Partial<ChatSpaceMessage>
 ): Promise<ChatSpaceMessage | null> {
-  const key = makeKey(projectId, spaceId);
+  const key = makeKey(rootPath, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) return null;
   const space = { ...(sp as ChatSpace) } as ChatSpace;
@@ -164,11 +162,11 @@ export async function updateChatSpaceMessage(
 }
 
 export async function updateChatSpaceSelectedFiles(
-  projectId: string,
+  rootPath: string,
   spaceId: string,
   selectedFiles: string[]
 ): Promise<void> {
-  const key = makeKey(projectId, spaceId);
+  const key = makeKey(rootPath, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) return;
   const space = { ...(sp as ChatSpace) } as ChatSpace;
@@ -182,10 +180,10 @@ export async function updateChatSpaceSelectedFiles(
 }
 
 export async function saveChatSpace(space: ChatSpace): Promise<void> {
-  if (!space.projectId || !space.id) {
-    throw new Error('ChatSpace must have projectId and id');
+  if (!space.rootPath || !space.id) {
+    throw new Error('ChatSpace must have rootPath and id');
   }
-  const key = makeKey(space.projectId, space.id);
+  const key = makeKey(space.rootPath, space.id);
 
   // デバウンス保存を使用
   debouncedSave(key, async () => {
@@ -193,8 +191,8 @@ export async function saveChatSpace(space: ChatSpace): Promise<void> {
   });
 }
 
-export async function getChatSpace(projectId: string, spaceId: string): Promise<ChatSpace | null> {
-  const key = makeKey(projectId, spaceId);
+export async function getChatSpace(rootPath: string, spaceId: string): Promise<ChatSpace | null> {
+  const key = makeKey(rootPath, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) return null;
   return sp as ChatSpace;
@@ -205,11 +203,11 @@ export async function getChatSpace(projectId: string, spaceId: string): Promise<
  * Returns the list of deleted messages (for potential rollback operations).
  */
 export async function truncateMessagesFromMessage(
-  projectId: string,
+  rootPath: string,
   spaceId: string,
   messageId: string
 ): Promise<ChatSpaceMessage[]> {
-  const key = makeKey(projectId, spaceId);
+  const key = makeKey(rootPath, spaceId);
   const sp = await storageService.get(STORES.CHAT_SPACES, key);
   if (!sp) return [];
 

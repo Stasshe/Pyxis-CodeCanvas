@@ -5,14 +5,16 @@
  * without unnecessary provider abstraction layer.
  */
 
-import type { Buffer } from 'buffer';
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
-import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, resolvePath, toFSPath } from '@/engine/core/pathUtils';
+import type { FsApi } from '@/engine/core/fs';
+import { fsClient as defaultFsClient } from '@/engine/core/fs';
+import { HOME_DIR, resolvePath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
 import adaptBuiltins, { type StreamCtx } from './builtins';
 import { expandTokens } from './expansion';
+import { runLocalBinary } from './localBinary';
+import { ShellOutputHandler } from './outputHandler';
 import { parseCommandLine } from './parser';
 import { Process } from './process';
 import { runScript } from './scriptRunner';
@@ -22,10 +24,11 @@ import { isDevNull, type Segment, type TokenObj } from './types';
  * Shell Executor Options
  */
 export interface ShellExecutorOptions {
-  projectName: string;
-  projectId: string;
+  rootPath: string;
+  cwd?: string;
+  signal?: AbortSignal;
+  fsClient?: FsApi;
   unix?: UnixCommands;
-  fileRepository?: typeof FileRepository;
   commandRegistry?: any;
   terminalColumns?: number;
   terminalRows?: number;
@@ -55,13 +58,22 @@ export interface OutputCallbacks {
  * Execution Context - simplified version without provider overhead
  */
 interface ExecutionContext {
-  projectName: string;
-  projectId: string;
+  rootPath: string;
+  signal?: AbortSignal;
   cwd: string;
   env: Record<string, string>;
   aliases: Record<string, string>;
   terminalColumns: number;
   terminalRows: number;
+}
+
+function createEnvironment(overrides?: Record<string, string>): Record<string, string> {
+  const inherited = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string'
+    )
+  );
+  return { ...inherited, HOME: HOME_DIR, ...overrides };
 }
 
 /**
@@ -70,28 +82,36 @@ interface ExecutionContext {
  */
 export class ShellExecutor {
   private context: ExecutionContext;
+  private fsClient: FsApi;
+  private outputHandler: ShellOutputHandler;
   private unix: UnixCommands | null = null;
-  private fileRepository: typeof FileRepository | undefined;
   private commandRegistry: any;
   private terminalUI?: TerminalUI;
   private foregroundProc: Process | null = null;
+  private pendingSignal: string | null = null;
   private builtins: Record<string, any> | null = null;
 
   constructor(options: ShellExecutorOptions) {
     this.context = {
-      projectName: options.projectName,
-      projectId: options.projectId,
-      cwd: `/projects/${options.projectName}`,
-      env: options.env ?? {},
+      rootPath: options.rootPath,
+      signal: options.signal,
+      cwd: options.cwd ?? options.rootPath,
+      env: createEnvironment(options.env),
       aliases: {},
       terminalColumns: options.terminalColumns ?? 80,
       terminalRows: options.terminalRows ?? 24,
     };
 
     this.unix = options.unix ?? null;
-    this.fileRepository = options.fileRepository;
+    this.fsClient = options.fsClient ?? defaultFsClient;
+    this.outputHandler = new ShellOutputHandler(this.fsClient, async () => {
+      const unix = await this.getUnix();
+      return unix ? unix.pwd() : this.context.cwd;
+    });
     this.commandRegistry = options.commandRegistry;
     this.terminalUI = options.terminalUI;
+    options.signal?.addEventListener('abort', () => this.killForeground('SIGINT'), { once: true });
+    if (options.signal?.aborted) this.pendingSignal = 'SIGINT';
   }
 
   /**
@@ -102,10 +122,7 @@ export class ShellExecutor {
 
     try {
       const { terminalCommandRegistry } = await import('../terminalRegistry');
-      this.unix = terminalCommandRegistry.getUnixCommands(
-        this.context.projectName,
-        this.context.projectId
-      );
+      this.unix = terminalCommandRegistry.getUnixCommands(this.context.rootPath);
       return this.unix;
     } catch {
       return null;
@@ -173,7 +190,7 @@ export class ShellExecutor {
     // Parse command line
     let segments: Segment[];
     try {
-      segments = parseCommandLine(line) as Segment[];
+      segments = parseCommandLine(line, this.context.env) as Segment[];
     } catch (parseErr: any) {
       const msg = String(parseErr?.message || parseErr);
       return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
@@ -232,11 +249,15 @@ export class ShellExecutor {
       // Watch output from last process
       const lastProc = procs[procs.length - 1];
       const lastSegOfGroup = group.segs[group.segs.length - 1];
-      this.watchProcessOutput(lastProc, lastSegOfGroup, fdBuffers, callbacks);
+      this.outputHandler.watch(lastProc, lastSegOfGroup, fdBuffers, callbacks);
 
       // Set foreground process
       if (gi === groups.length - 1 && !lastSegOfGroup.background) {
         this.foregroundProc = lastProc;
+        if (this.pendingSignal) {
+          lastProc.kill(this.pendingSignal);
+          this.pendingSignal = null;
+        }
         lastProc.on('exit', () => {
           if (this.foregroundProc?.pid === lastProc.pid) {
             this.foregroundProc = null;
@@ -246,9 +267,12 @@ export class ShellExecutor {
 
       // Wait for all processes to complete
       const exits = await Promise.all(procs.map(p => p.wait()));
-      const exitOfLast = exits[exits.length - 1]?.code ?? 0;
+      const lastExit = exits[exits.length - 1];
+      let exitOfLast = lastExit?.code ?? 0;
+      if (lastExit?.signal === 'SIGINT') exitOfLast = 130;
       lastExitCode = exitOfLast;
       overallLastSeg = lastSegOfGroup;
+      if (exitOfLast === 130) break;
     }
 
     // Collect output
@@ -256,13 +280,15 @@ export class ShellExecutor {
     const finalErr = fdBuffers[2].join('');
 
     // Handle file redirections
-    if (overallLastSeg && this.fileRepository) {
-      await this.handleRedirections(overallLastSeg, fdBuffers, finalOut, finalErr);
+    if (overallLastSeg) {
+      await this.outputHandler.handleRedirections(overallLastSeg, fdBuffers, finalOut, finalErr);
     }
 
     // Determine returned output (suppress if redirected)
-    const returnedStdout = this.shouldSuppressOutput(overallLastSeg, 1) ? '' : finalOut;
-    const returnedStderr = this.shouldSuppressOutput(overallLastSeg, 2) ? '' : finalErr;
+    let returnedStdout = finalOut;
+    let returnedStderr = finalErr;
+    if (this.outputHandler.shouldSuppressOutput(overallLastSeg, 1)) returnedStdout = '';
+    if (this.outputHandler.shouldSuppressOutput(overallLastSeg, 2)) returnedStderr = '';
 
     return {
       stdout: returnedStdout,
@@ -316,10 +342,10 @@ export class ShellExecutor {
 
     // Expand tokens (IFS, globs, braces)
     const finalWords = await expandTokens(seg.tokens as TokenObj[], {
-      projectId: this.context.projectId,
-      projectName: this.context.projectName,
-      fileRepository: this.fileRepository,
-      unix: unix ?? undefined,
+      rootPath: this.context.rootPath,
+      cwd: unix ? await unix.pwd() : this.context.cwd,
+      fsClient: this.fsClient,
+      env: this.context.env,
     });
     (seg as any).tokens = finalWords;
 
@@ -368,6 +394,7 @@ export class ShellExecutor {
 
     const cmd = String(rawTokens[0] ?? '');
     const args = rawTokens.slice(1).map(t => String(t));
+    if (cmd === 'cd' && args.length === 0) args.push(this.context.env.HOME);
 
     // 'npx' is handled by npm handler now; let executeCommand route it
 
@@ -517,7 +544,7 @@ export class ShellExecutor {
     if (cmd === 'git') {
       try {
         const { handleGitCommand } = await import('../handlers/gitHandler');
-        await handleGitCommand(args, this.context.projectName, this.context.projectId, writeOutput);
+        await handleGitCommand(args, this.context.rootPath, writeOutput);
         return 0;
       } catch (e: any) {
         await writeError(`git: ${e.message}`);
@@ -531,8 +558,7 @@ export class ShellExecutor {
         const { handleNPMCommand } = await import('../handlers/npmHandler');
         await handleNPMCommand(
           args,
-          this.context.projectName,
-          this.context.projectId,
+          this.context.rootPath ?? '/',
           writeOutput,
           () => {} // setLoading - no-op in shell context
         );
@@ -549,9 +575,15 @@ export class ShellExecutor {
         const { handleNPXCommand } = await import('../handlers/npmHandler');
         const code = await handleNPXCommand(
           args,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput
+          writeOutput,
+          handler => {
+            const listener = (signal: string) => {
+              if (signal === 'SIGINT') handler();
+            };
+            proc.on('signal', listener);
+            return () => proc.off('signal', listener);
+          },
+          this.context.signal
         );
         return typeof code === 'number' ? code : 0;
       } catch (e: any) {
@@ -592,13 +624,7 @@ export class ShellExecutor {
           subArgs = args.slice(1);
         }
 
-        await handlePyxisCommand(
-          cmdToCall,
-          subArgs,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput
-        );
+        await handlePyxisCommand(cmdToCall, subArgs, this.context.rootPath, writeOutput);
         return 0;
       } catch (e: any) {
         await writeError(`pyxis: ${e.message}`);
@@ -610,7 +636,7 @@ export class ShellExecutor {
     if (cmd === 'dev') {
       try {
         const { handleDevCommand } = await import('../handlers/devHandler');
-        await handleDevCommand(args, this.context.projectName, this.context.projectId, writeOutput);
+        await handleDevCommand(args, this.context.rootPath, writeOutput);
         return 0;
       } catch (e: any) {
         await writeError(`dev: ${e.message}`);
@@ -624,9 +650,9 @@ export class ShellExecutor {
         const unix = await this.getUnix();
         const currentDir = unix ? await unix.pwd() : this.context.cwd;
         const result = await this.commandRegistry.executeCommand(cmd, args, {
-          projectName: this.context.projectName,
-          projectId: this.context.projectId,
+          rootPath: this.context.rootPath,
           currentDirectory: currentDir,
+          fsClient: this.fsClient,
         });
         await writeOutput(result);
         return 0;
@@ -643,9 +669,12 @@ export class ShellExecutor {
         stdin: proc.stdinStream,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
-        onSignal: fn => proc.on('signal', fn),
-        projectName: this.context.projectName,
-        projectId: this.context.projectId,
+        onSignal: fn => {
+          proc.on('signal', fn);
+          return () => proc.off('signal', fn);
+        },
+        signal: this.context.signal,
+        rootPath: this.context.rootPath,
         terminalColumns: this.context.terminalColumns,
         terminalRows: this.context.terminalRows,
       };
@@ -661,75 +690,21 @@ export class ShellExecutor {
       }
     }
 
-    // 7. node_modules/.bin lookup — run installed CLI binaries without npx
-    {
-      const unix = await this.getUnix();
-      const cwdFs = unix ? await unix.pwd() : this.context.cwd;
-      const cwdApp = fsPathToAppPath(cwdFs, this.context.projectName);
-
-      let absFs: string | null = null;
-
-      // Try package.json bin field first
-      const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${cmd}/package.json`);
-      const directPackageJson = this.fileRepository
-        ? await this.fileRepository
-            .getFileByPath(this.context.projectId, directPackageJsonApp)
-            .catch(() => null)
-        : null;
-
-      if (directPackageJson?.content) {
-        try {
-          const pkg = JSON.parse(directPackageJson.content);
-          const binField = typeof pkg.bin === 'string' ? { [pkg.name || cmd]: pkg.bin } : pkg.bin;
-          const selectedBin =
-            (binField &&
-              typeof binField === 'object' &&
-              (binField[cmd] || Object.values(binField)[0])) ||
-            null;
-          if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
-            absFs = toFSPath(
-              this.context.projectName,
-              resolvePath(cwdApp, `node_modules/${cmd}/${selectedBin.replace(/^\.\//, '')}`)
-            );
-          }
-        } catch {}
-      }
-
-      // Fallback: .bin shim
-      if (!absFs && this.fileRepository) {
-        const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${cmd}`);
-        const dotBinFile = await this.fileRepository
-          .getFileByPath(this.context.projectId, dotBinApp)
-          .catch(() => null);
-        if (dotBinFile) {
-          absFs = toFSPath(this.context.projectName, dotBinApp);
-        }
-      }
-
-      if (absFs) {
-        const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
-        const fmt = (...a: unknown[]) => proc.writeStdout(a.map(x => String(x)).join(' ') + '\n');
-        const fmtErr = (...a: unknown[]) =>
-          proc.writeStderr(a.map(x => String(x)).join(' ') + '\n');
-        const runtime = new NodeRuntime({
-          projectId: this.context.projectId,
-          projectName: this.context.projectName,
-          filePath: absFs,
-          cwd: cwdFs,
-          debugConsole: { log: fmt, error: fmtErr, warn: fmt, clear: () => {} },
-          terminalColumns: this.context.terminalColumns ?? 80,
-          terminalRows: this.context.terminalRows ?? 24,
-        });
-        try {
-          await runtime.execute(absFs, args);
-          await runtime.waitForEventLoop();
-          return runtime.getExitCode();
-        } catch (e: any) {
-          proc.writeStderr(String(e?.message ?? e) + '\n');
-          return 1;
-        }
-      }
-    }
+    // 7. Run installed local binaries.
+    const unix = await this.getUnix();
+    const cwd = unix ? await unix.pwd() : this.context.cwd;
+    const localExitCode = await runLocalBinary({
+      command: cmd,
+      args,
+      rootPath: this.context.rootPath,
+      cwd,
+      fsClient: this.fsClient,
+      terminalColumns: this.context.terminalColumns,
+      terminalRows: this.context.terminalRows,
+      process: proc,
+      signal: this.context.signal,
+    });
+    if (localExitCode !== null) return localExitCode;
 
     // 8. Command not found
     proc.writeStderr(`${cmd}: command not found\n`);
@@ -761,182 +736,14 @@ export class ShellExecutor {
   }
 
   /**
-   * Watch process output streams
-   */
-  private watchProcessOutput(
-    proc: Process,
-    seg: Segment,
-    fdBuffers: Record<number, string[]>,
-    callbacks?: OutputCallbacks
-  ): void {
-    const watchFd = (fd: number) => {
-      if (!fdBuffers[fd]) fdBuffers[fd] = [];
-
-      try {
-        const stream = proc.getFdWrite(fd);
-        const fdFiles = (seg as any)?.fdFiles || {};
-        const fileInfo = fdFiles[fd];
-
-        if (fileInfo && isDevNull(fileInfo.path)) {
-          stream.on('data', () => {}); // Discard
-          return;
-        }
-
-        stream.on('data', (chunk: Buffer | string) => {
-          const sRaw = String(chunk);
-          // Store raw output for internal buffers / redirection (no ANSI)
-          fdBuffers[fd].push(sRaw);
-
-          // Real-time callbacks (provide raw output; coloring is handled in Terminal layer)
-          if (fd === 1 && callbacks?.stdout) {
-            callbacks.stdout(sRaw);
-          } else if (fd === 2 && callbacks?.stderr) {
-            callbacks.stderr(sRaw);
-          }
-        });
-      } catch {}
-    };
-
-    watchFd(1);
-    watchFd(2);
-
-    // Watch additional fds
-    if ((seg as any)?.fdFiles) {
-      for (const k of Object.keys((seg as any).fdFiles)) {
-        const fdn = Number(k);
-        if (!Number.isNaN(fdn) && fdn > 2) {
-          watchFd(fdn);
-        }
-      }
-    }
-  }
-
-  /**
-   * Handle file redirections
-   */
-  private async handleRedirections(
-    seg: Segment,
-    fdBuffers: Record<number, string[]>,
-    finalOut: string,
-    finalErr: string
-  ): Promise<void> {
-    if (!this.fileRepository) return;
-
-    const writes: Record<string, string> = {};
-    const appendMap: Record<string, boolean> = {};
-
-    // Get current working directory for resolving relative paths
-    const unix = await this.getUnix();
-    const cwd = unix ? await unix.pwd() : this.context.cwd;
-
-    // Helper to resolve path relative to CWD and convert to AppPath
-    const resolveRedirectPath = (path: string): string => {
-      if (!path || isDevNull(path)) return path;
-
-      // If absolute path (within project), use it
-      if (path.startsWith('/')) {
-        return path;
-      }
-
-      // Resolve relative path against CWD, then convert to AppPath
-      const resolvedFsPath = resolvePath(cwd, path);
-      return fsPathToAppPath(resolvedFsPath, this.context.projectName);
-    };
-
-    const add = (path: string | undefined | null, content: string, append = false) => {
-      if (!path || isDevNull(path)) return;
-      const key = resolveRedirectPath(path);
-      if (!key || isDevNull(key)) return;
-      writes[key] = (writes[key] || '') + content;
-      appendMap[key] = appendMap[key] || append;
-    };
-
-    // Handle fdFiles
-    if ((seg as any).fdFiles) {
-      for (const k of Object.keys((seg as any).fdFiles)) {
-        const fdn = Number(k);
-        if (Number.isNaN(fdn)) continue;
-        const info = (seg as any).fdFiles[fdn];
-        if (isDevNull(info.path)) continue;
-        const content = (fdBuffers[fdn] || []).join('');
-        add(info.path, content, !!info.append);
-      }
-    }
-
-    // Legacy stdout/stderr fields
-    const hasFdFiles = (seg as any).fdFiles && Object.keys((seg as any).fdFiles).length > 0;
-    if (!hasFdFiles) {
-      if (seg.stdoutFile) {
-        add(seg.stdoutFile, finalOut, !!seg.append);
-      }
-      if (seg.stderrFile) {
-        add(seg.stderrFile, finalErr, false);
-      }
-    }
-
-    // Perform writes
-    for (const pth of Object.keys(writes)) {
-      try {
-        let contentToWrite = writes[pth];
-
-        if (appendMap[pth]) {
-          const existing =
-            typeof this.fileRepository.getFileByPath === 'function'
-              ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
-              : null;
-          if (existing?.content) {
-            contentToWrite = existing.content + contentToWrite;
-          }
-        }
-
-        const existing =
-          typeof this.fileRepository.getFileByPath === 'function'
-            ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
-            : null;
-
-        if (existing) {
-          await this.fileRepository.saveFile({
-            ...existing,
-            content: contentToWrite,
-            updatedAt: new Date(),
-          });
-        } else {
-          await this.fileRepository.createFile(this.context.projectId, pth, contentToWrite, 'file');
-        }
-      } catch {}
-    }
-  }
-
-  /**
-   * Check if output should be suppressed (redirected)
-   */
-  private shouldSuppressOutput(seg: Segment | null, fd: number): boolean {
-    if (!seg) return false;
-
-    const fdFiles = (seg as any)?.fdFiles;
-    const file = fdFiles?.[fd];
-    if (file) return true;
-
-    if (fd === 1) {
-      if (seg.stdoutFile || seg.stdoutToStderr) return true;
-      if (seg.stdoutFile && isDevNull(seg.stdoutFile)) return true;
-    }
-
-    if (fd === 2) {
-      if (seg.stderrFile || seg.stderrToStdout) return true;
-      if (seg.stderrFile && isDevNull(seg.stderrFile)) return true;
-    }
-
-    return false;
-  }
-
-  /**
    * Kill the foreground process
    */
   killForeground(signal = 'SIGINT'): void {
     try {
+      this.pendingSignal = signal;
       if (this.foregroundProc) {
         this.foregroundProc.kill(signal);
+        this.pendingSignal = null;
       }
     } catch {}
   }

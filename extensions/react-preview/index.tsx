@@ -3,9 +3,9 @@
  * React JSXをブラウザでビルド&プレビュー（Tailwind CSS + Multi-page対応）
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+import React, { useEffect, useRef, useState } from 'react';
+import type { FsClient, PathUtils } from '../_shared/systemModuleTypes';
+import type { CommandContext, ExtensionActivation, ExtensionContext } from '../_shared/types';
 
 interface ESBuild {
   initialize(options: { wasmURL: string }): Promise<void>;
@@ -51,13 +51,13 @@ async function loadESBuild(): Promise<ESBuild> {
       return esbuildInstance;
     }
 
-    const runtimeBase = (typeof window !== 'undefined' && (window as any).__PYXIS_BASE_PATH__) || '';
+    const runtimeBase = (typeof window !== 'undefined' && window.__PYXIS_BASE_PATH__) || '';
     const normalizedBase = runtimeBase.endsWith('/') ? runtimeBase.slice(0, -1) : runtimeBase;
     const wasmURL = `${normalizedBase}/extensions/react-preview/esbuild.wasm`;
 
     await esbuild.initialize({ wasmURL });
     esbuildInstance = esbuild;
-    
+
     return esbuild;
   } finally {
     isInitializing = false;
@@ -72,7 +72,7 @@ function createGlobalExternalsPlugin() {
     name: 'global-externals',
     setup(build: any) {
       const globalMap: Record<string, string> = {
-        'react': 'React',
+        react: 'React',
         'react-dom': 'ReactDOM',
         'react-dom/client': 'ReactDOM',
       };
@@ -97,98 +97,76 @@ function createGlobalExternalsPlugin() {
   };
 }
 
-function createVirtualFSPlugin(projectId: string, fileRepository: any) {
+function createVirtualFSPlugin(rootPath: string, fsClient: FsClient, pathUtils: PathUtils) {
+  const nodeModules = pathUtils.posixPath.join(rootPath, 'node_modules');
   return {
     name: 'virtual-fs',
     setup(build: any) {
       build.onResolve({ filter: /^[^./]/ }, async (args: any) => {
-        if (args.path === 'react' || args.path === 'react-dom' || args.path === 'react-dom/client') {
+        if (
+          args.path === 'react' ||
+          args.path === 'react-dom' ||
+          args.path === 'react-dom/client'
+        ) {
           return undefined;
         }
-        
+
         try {
-          const pkgJsonPath = `/node_modules/${args.path}/package.json`;
-          const pkgJsonFile = await fileRepository.getFileByPath(projectId, pkgJsonPath);
-          
-          if (pkgJsonFile) {
-            const pkgJson = JSON.parse(pkgJsonFile.content);
+          const pkgJsonPath = `${nodeModules}/${args.path}/package.json`;
+          if (await fsClient.exists(pkgJsonPath)) {
+            const pkgJson = JSON.parse(await fsClient.readText(pkgJsonPath));
             const entryPoint = pkgJson.module || pkgJson.main || 'index.js';
-            const resolvedPath = `/node_modules/${args.path}/${entryPoint}`;
-            
+            const resolvedPath = `${nodeModules}/${args.path}/${entryPoint}`;
+
             return { path: resolvedPath, namespace: 'virtual' };
           }
-        } catch (e) {
-          console.error(`Failed to resolve package.json for ${args.path}:`, e);
+        } catch (error) {
+          console.error(`Failed to resolve package.json for ${args.path}:`, error);
         }
-        
+
         try {
-          const distIndexPath = `/node_modules/${args.path}/dist/index.js`;
-          const file = await fileRepository.getFileByPath(projectId, distIndexPath);
-          if (file) {
+          const distIndexPath = `${nodeModules}/${args.path}/dist/index.js`;
+          if (await fsClient.exists(distIndexPath)) {
             return { path: distIndexPath, namespace: 'virtual' };
           }
-        } catch (e) {
+        } catch {
           // dist/index.jsもない
         }
-        
+
         return { path: args.path, external: true };
       });
 
       build.onResolve({ filter: /^\./ }, async (args: any) => {
-        const fromDir = args.importer === '<stdin>' 
-          ? args.resolveDir 
-          : args.importer.split('/').slice(0, -1).join('/');
-        
-        const parts = (fromDir + '/' + args.path).split('/');
-        const resolved: string[] = [];
-        
-        for (const part of parts) {
-          if (part === '' || part === '.') continue;
-          if (part === '..') {
-            if (resolved.length > 0) resolved.pop();
-            continue;
-          }
-          resolved.push(part);
-        }
-        
-        let path = '/' + resolved.join('/');
-        
+        const fromDir =
+          args.importer === '<stdin>'
+            ? args.resolveDir
+            : args.importer.split('/').slice(0, -1).join('/');
+        const path = pathUtils.resolvePath(fromDir, args.path);
+
         if (!path.match(/\.[^/]+$/)) {
           for (const ext of ['.js', '.ts', '.jsx', '.tsx']) {
-            try {
-              const testPath = path + ext;
-              const file = await fileRepository.getFileByPath(projectId, testPath);
-              if (file) {
-                return { path: testPath, namespace: 'virtual' };
-              }
-            } catch (e) {
-              // 次の拡張子を試す
+            const testPath = path + ext;
+            if (await fsClient.exists(testPath)) {
+              return { path: testPath, namespace: 'virtual' };
             }
           }
-          
-          try {
-            const indexPath = path + '/index.js';
-            const file = await fileRepository.getFileByPath(projectId, indexPath);
-            if (file) {
-              return { path: indexPath, namespace: 'virtual' };
-            }
-          } catch (e) {
-            // index.jsもない
+          const indexPath = pathUtils.resolvePath(path, 'index.js');
+          if (await fsClient.exists(indexPath)) {
+            return { path: indexPath, namespace: 'virtual' };
           }
         }
-        
+
         return { path, namespace: 'virtual' };
       });
 
       build.onLoad({ filter: /.*/, namespace: 'virtual' }, async (args: any) => {
-        const file = await fileRepository.getFileByPath(projectId, args.path);
-        
-        if (!file) {
+        if (!(await fsClient.exists(args.path))) {
           return { errors: [{ text: `File not found: ${args.path}` }] };
         }
+        const content = await fsClient.readText(args.path);
 
         if (args.path.match(/\.css$/i)) {
-          const cssContent = JSON.stringify(file.content);
+          const cssContent = JSON.stringify(content);
           const code = `
             (function() {
               var style = document.createElement('style');
@@ -210,7 +188,7 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
         else if (args.path.endsWith('.jsx')) loader = 'jsx';
 
         return {
-          contents: file.content,
+          contents: content,
           loader,
         };
       });
@@ -222,15 +200,15 @@ function createVirtualFSPlugin(projectId: string, fileRepository: any) {
  * /pages/ 配下のページファイルを検出
  */
 async function detectPages(
-  projectId: string,
-  context: ExtensionContext
+  rootPath: string,
+  context: Pick<ExtensionContext, 'getSystemModule'>
 ): Promise<PageInfo[]> {
-  const fileRepository = await context.getSystemModule('fileRepository');
-  const allFiles = await fileRepository.getProjectFiles(projectId);
-  
+  const fsClient = await context.getSystemModule('fsClient');
+  const allFiles = await fsClient.walk(rootPath);
+
   const pageFiles = allFiles.filter((f: any) => {
-    const path = f.path || '';
-    return path.match(/^\/pages\/.+\.(jsx|tsx)$/);
+    const relativePath = f.path.slice(rootPath.length);
+    return relativePath.match(/^\/pages\/.+\.(jsx|tsx)$/);
   });
 
   const pages: PageInfo[] = [];
@@ -242,10 +220,11 @@ async function detectPages(
     // /pages/blog/index.tsx → /blog
     // /pages/blog/post.tsx → /blog/post
     let route = filePath
+      .slice(rootPath.length)
       .replace(/^\/pages/, '')
       .replace(/\.(jsx|tsx)$/, '')
       .replace(/\/index$/, '');
-    
+
     if (route === '') route = '/';
     if (route !== '/' && !route.startsWith('/')) route = '/' + route;
 
@@ -266,21 +245,21 @@ async function detectPages(
  */
 async function buildJSX(
   filePath: string,
-  projectId: string,
-  context: ExtensionContext,
+  rootPath: string,
+  context: Pick<ExtensionContext, 'getSystemModule'>,
   globalName: string = '__ReactApp__'
 ): Promise<{ code: string; error?: string }> {
   try {
     const esbuild = await loadESBuild();
-    const fileRepository = await context.getSystemModule('fileRepository');
-    const file = await fileRepository.getFileByPath(projectId, filePath);
-    if (!file) {
+    const fsClient = await context.getSystemModule('fsClient');
+    if (!(await fsClient.exists(filePath))) {
       return { code: '', error: `File not found: ${filePath}` };
     }
-    
+    const contents = await fsClient.readText(filePath);
+
     const result = await esbuild.build({
       stdin: {
-        contents: file.content,
+        contents,
         resolveDir: filePath.split('/').slice(0, -1).join('/') || '/',
         sourcefile: filePath,
         loader: filePath.endsWith('.tsx') ? 'tsx' : 'jsx',
@@ -289,12 +268,15 @@ async function buildJSX(
       format: 'iife',
       globalName,
       write: false,
-      plugins: [createGlobalExternalsPlugin(), createVirtualFSPlugin(projectId, fileRepository)],
+      plugins: [
+        createGlobalExternalsPlugin(),
+        createVirtualFSPlugin(rootPath, fsClient, await context.getSystemModule('pathUtils')),
+      ],
       target: 'es2020',
       jsxFactory: 'React.createElement',
       jsxFragment: 'React.Fragment',
       define: {
-        'process.env.NODE_ENV': '"production"'
+        'process.env.NODE_ENV': '"production"',
       },
     });
 
@@ -310,16 +292,16 @@ async function buildJSX(
  */
 async function buildMultiPage(
   pages: PageInfo[],
-  projectId: string,
-  context: ExtensionContext
+  rootPath: string,
+  context: Pick<ExtensionContext, 'getSystemModule'>
 ): Promise<{ bundledPages: Record<string, string>; errors: Record<string, string> }> {
   const bundledPages: Record<string, string> = {};
   const errors: Record<string, string> = {};
 
   for (const page of pages) {
     const globalName = `__Page_${page.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-    const { code, error } = await buildJSX(page.filePath, projectId, context, globalName);
-    
+    const { code, error } = await buildJSX(page.filePath, rootPath, context, globalName);
+
     if (error) {
       errors[page.route] = error;
     } else {
@@ -333,7 +315,7 @@ async function buildMultiPage(
 /**
  * react-buildコマンド
  */
-async function reactBuildCommand(args: string[], context: any): Promise<string> {
+async function reactBuildCommand(args: string[], context: CommandContext): Promise<string> {
   if (args.length === 0) {
     return 'Usage: react-build <entry.jsx|pages> [--tailwind]\n\nExamples:\n  react-build App.jsx              # Single component\n  react-build App.jsx --tailwind   # With Tailwind CSS\n  react-build pages                # Multi-page app (auto-detect /pages/)\n  react-build pages --tailwind     # Multi-page with Tailwind';
   }
@@ -343,13 +325,13 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
 
   // Multi-page mode
   if (target === 'pages') {
-    const pages = await detectPages(context.projectId, context);
-    
+    const pages = await detectPages(context.rootPath, context);
+
     if (pages.length === 0) {
       return '❌ No pages found in /pages/ directory.\n\nCreate pages like:\n  /pages/index.tsx\n  /pages/about.tsx\n  /pages/blog/index.tsx';
     }
 
-    const { bundledPages, errors } = await buildMultiPage(pages, context.projectId, context);
+    const { bundledPages, errors } = await buildMultiPage(pages, context.rootPath, context);
 
     if (Object.keys(errors).length > 0) {
       let errorMsg = '❌ Some pages failed to build:\n';
@@ -366,12 +348,12 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
       icon: 'Eye',
       closable: true,
       activateAfterCreate: true,
-      data: { 
+      data: {
         mode: 'multipage',
         pages,
         bundledPages,
         builtAt: Date.now(),
-        useTailwind 
+        useTailwind,
       },
     });
 
@@ -382,20 +364,11 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
 
   // Single component mode
   const filePath = target;
-  
-  let normalizedPath = filePath;
-  if (!filePath.startsWith('/')) {
-    const relativeCurrent = (context.currentDirectory || '').replace(`/projects/${context.projectName}`, '');
-    normalizedPath = relativeCurrent === '' ? `/${filePath}` : `${relativeCurrent}/${filePath}`;
-  } else {
-    normalizedPath = filePath.replace(`/projects/${context.projectName}`, '');
-  }
 
-  const { code, error } = await buildJSX(
-    normalizedPath,
-    context.projectId,
-    context,
-  );
+  const pathUtils = await context.getSystemModule('pathUtils');
+  const normalizedPath = pathUtils.resolvePath(context.currentDirectory, filePath);
+
+  const { code, error } = await buildJSX(normalizedPath, context.rootPath, context);
 
   if (error) {
     return `[react-preview] Building: ${filePath}\n❌ Build failed:\n${error}\n`;
@@ -407,12 +380,12 @@ async function reactBuildCommand(args: string[], context: any): Promise<string> 
     icon: 'Eye',
     closable: true,
     activateAfterCreate: true,
-    data: { 
+    data: {
       mode: 'single',
       filePath: normalizedPath,
       code,
       builtAt: Date.now(),
-      useTailwind 
+      useTailwind,
     },
   });
 
@@ -497,17 +470,19 @@ function ReactPreviewTabComponent({ tab, isActive }: { tab: any; isActive: boole
           // Multi-page mode
           const pages = data.pages || [];
           const bundledPages = data.bundledPages || {};
-          
+
           // すべてのページのコードを埋め込み
-          for (const [route, code] of Object.entries(bundledPages)) {
+          for (const code of Object.values(bundledPages)) {
             html += `  <script>${code}<\/script>\n`;
           }
 
           // ルーティングロジック
-          const routeMap = pages.map((p: PageInfo) => {
-            const globalName = `__Page_${p.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
-            return `    '${p.route}': window.${globalName}.default || window.${globalName}`;
-          }).join(',\n');
+          const routeMap = pages
+            .map((p: PageInfo) => {
+              const globalName = `__Page_${p.route.replace(/\//g, '_').replace(/^_$/, 'root')}__`;
+              return `    '${p.route}': window.${globalName}.default || window.${globalName}`;
+            })
+            .join(',\n');
 
           html += `
   <script>
@@ -571,7 +546,16 @@ ${routeMap}
   }, [isActive, data, mode, useTailwind]);
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e', color: '#d4d4d4' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#1e1e1e',
+        color: '#d4d4d4',
+      }}
+    >
       <div style={{ padding: '12px 16px', borderBottom: '1px solid #333' }}>
         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
           {mode === 'multipage' && `Multi-page app (${data.pages?.length || 0} pages) | `}
@@ -581,7 +565,16 @@ ${routeMap}
       </div>
 
       {error && (
-        <div style={{ padding: '16px', background: '#3e1e1e', color: '#f88', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+        <div
+          style={{
+            padding: '16px',
+            background: '#3e1e1e',
+            color: '#f88',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
           ❌ Error: {error}
         </div>
       )}

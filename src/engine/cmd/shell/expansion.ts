@@ -1,6 +1,6 @@
-import type { fileRepository } from '@/engine/core/fileRepository';
-import type { ProjectFile } from '@/types';
-import type { UnixCommands } from '../global/unix';
+import type { FsApi } from '@/engine/core/fs';
+import { basename, resolvePath } from '@/engine/core/pathUtils';
+import { FNM_PATHNAME, FNM_PERIOD, fnmatch } from '../lib/fnmatch';
 import expandBraces from './braceExpand';
 import type { TokenObj } from './types';
 
@@ -17,172 +17,104 @@ export function hasGlob(s: string): boolean {
 }
 
 /**
- * Escape characters for use in a character class
- */
-function escapeForCharClass(ch: string): string {
-  if (ch === '\\') return '\\\\';
-  if (ch === ']') return '\\]';
-  if (ch === '-') return '\\-';
-  if (ch === '^') return '\\^';
-  return ch.replace(/([\\\]\-^])/g, m => `\\${m}`);
-}
-
-/**
  * Split on IFS (Internal Field Separator)
  */
 export function splitOnIFS(s: string, ifs?: string): string[] {
   if (!s) return [''];
-  const ifsValue = (ifs ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
-  const isIfsWhitespace = /[ \t\n]/.test(ifsValue);
+  const ifsValue = ifs ?? ' \t\n';
+  if (ifsValue === '') return [s];
 
-  if (isIfsWhitespace) {
-    // treat runs of whitespace as single separator and trim edges
-    return s.split(/\s+/).filter(Boolean);
+  const whitespace = new Set(Array.from(ifsValue).filter(char => /[ \t\n]/.test(char)));
+  const separators = new Set(Array.from(ifsValue));
+  const fields: string[] = [];
+  let field = '';
+  let previousWasNonWhitespaceSeparator = false;
+
+  for (const character of s) {
+    if (!separators.has(character)) {
+      field += character;
+      previousWasNonWhitespaceSeparator = false;
+      continue;
+    }
+
+    if (whitespace.has(character)) {
+      if (field) {
+        fields.push(field);
+        field = '';
+      }
+      continue;
+    }
+
+    if (field) fields.push(field);
+    else if (previousWasNonWhitespaceSeparator || fields.length === 0) fields.push('');
+    field = '';
+    previousWasNonWhitespaceSeparator = true;
   }
-  // split on any IFS char, preserve empty fields
-  const chars = Array.from(new Set(ifsValue.split('')))
-    .map(c => escapeForCharClass(c))
-    .join('');
-  const re = new RegExp(`[${chars}]`);
-  return s.split(re).filter(x => x !== undefined);
+
+  if (field) fields.push(field);
+  return fields;
 }
 
 /**
  * Glob expansion options
  */
 export interface GlobExpandOptions {
-  projectId: string;
-  projectName: string;
-  fileRepository?: typeof fileRepository;
-  unix?: UnixCommands;
+  rootPath: string;
+  cwd: string;
+  fsClient: FsApi;
+  env: Record<string, string>;
 }
 
 /**
  * Expand glob pattern to matching file paths
  */
 export async function globExpand(pattern: string, options: GlobExpandOptions): Promise<string[]> {
-  const { projectId, projectName, fileRepository: repo, unix } = options;
+  const absolute = pattern.startsWith('/');
+  const components = pattern.split('/').filter(Boolean);
+  let matches = [{ path: absolute ? '/' : options.cwd, display: absolute ? '/' : '' }];
 
-  if (!repo || !unix) return [pattern];
-
-  try {
-    const currentWorkingDir = await unix.pwd().catch(() => `/projects/${projectName}`);
-    const projectBase = `/projects/${projectName}`;
-
-    // Split pattern into directory prefix and filename glob
-    const lastSlashIndex = pattern.lastIndexOf('/');
-    const dirPrefix = lastSlashIndex >= 0 ? pattern.slice(0, lastSlashIndex + 1) : '';
-    const fileGlob = lastSlashIndex >= 0 ? pattern.slice(lastSlashIndex + 1) : pattern;
-
-    // Resolve dirPrefix into a normalized absolute project path
-    let resolvedTargetDir: string;
-    if (dirPrefix.startsWith('/')) {
-      resolvedTargetDir = projectBase + dirPrefix;
-    } else if (dirPrefix === '') {
-      const resolvedCwd = await unix.pwd().catch(() => projectBase);
-      resolvedTargetDir = resolvedCwd;
-    } else {
-      const resolvedCwd = await unix.pwd().catch(() => projectBase);
-      let combined = resolvedCwd === '/' ? `/${dirPrefix}` : `${resolvedCwd}/${dirPrefix}`;
-      combined = combined.replace(/\/+/g, '/');
-      const parts = combined.split('/').filter(p => p !== '' && p !== '.');
-      const stack: string[] = [];
-      for (const part of parts) {
-        if (part === '..') {
-          if (stack.length > 0) stack.pop();
-        } else {
-          stack.push(part);
+  for (const component of components) {
+    const next: typeof matches = [];
+    for (const current of matches) {
+      if (!hasGlob(component)) {
+        const path = resolvePath(current.path, component);
+        if (await options.fsClient.exists(path)) {
+          next.push({ path, display: appendPath(current.display, component, absolute) });
         }
+        continue;
       }
-      resolvedTargetDir = `/${stack.join('/')}`;
-    }
 
-    // Convert resolvedTargetDir into a project-relative prefix
-    let projectRelativeDir: string;
-    if (resolvedTargetDir === projectBase || resolvedTargetDir === `${projectBase}/`) {
-      projectRelativeDir = '';
-    } else if (resolvedTargetDir.startsWith(projectBase)) {
-      projectRelativeDir = resolvedTargetDir.substring(projectBase.length);
-    } else {
-      projectRelativeDir = resolvedTargetDir;
-    }
-
-    const searchPrefix =
-      projectRelativeDir === '' || projectRelativeDir === '/'
-        ? ''
-        : projectRelativeDir.endsWith('/')
-          ? projectRelativeDir
-          : `${projectRelativeDir}/`;
-
-    let projectFiles: ProjectFile[] = [];
-    if (repo.getFilesByPrefix) {
-      projectFiles = await repo.getFilesByPrefix(projectId, searchPrefix);
-    }
-
-    // Filter files to direct children under the target directory only
-    const directChildren = projectFiles.filter((file: any) => {
-      if (searchPrefix === '') {
-        const parts = file.path.split('/').filter((p: string) => p);
-        return parts.length === 1;
+      try {
+        const entries = await options.fsClient.readdir(current.path);
+        for (const entry of entries) {
+          const name = basename(entry.path);
+          if (fnmatch(component, name, FNM_PERIOD | FNM_PATHNAME) === 0) {
+            next.push({
+              path: entry.path,
+              display: appendPath(current.display, name, absolute),
+            });
+          }
+        }
+      } catch {
+        // An unreadable directory has no glob matches.
       }
-      const prefix = searchPrefix + (searchPrefix.endsWith('/') ? '' : '/');
-      if (!file.path.startsWith(prefix)) return false;
-      const remainder = file.path.substring(prefix.length);
-      return !remainder.includes('/');
-    });
-
-    const fileNames = directChildren
-      .map((file: any) => file.path.split('/').pop() || '')
-      .filter((n: string) => n !== '');
-
-    // Check if pattern explicitly starts with dot
-    const patternExplicitlyMatchesDotfiles = fileGlob.startsWith('.');
-
-    // Build regex from glob pattern
-    const regexParts: string[] = [];
-    for (let i = 0; i < fileGlob.length; i++) {
-      const ch = fileGlob[i];
-      if (ch === '*') regexParts.push('[^/]*');
-      else if (ch === '?') regexParts.push('[^/]');
-      else if (ch === '[') {
-        let j = i + 1;
-        let cls = '';
-        while (j < fileGlob.length && fileGlob[j] !== ']') {
-          const c = fileGlob[j++];
-          if (c === '\\' || c === ']' || c === '-') cls += `\\${c}`;
-          else cls += c;
-        }
-        i = Math.min(j, fileGlob.length - 1);
-        regexParts.push(`[${cls}]`);
-      } else if (/[\\.+^${}()|]/.test(ch)) regexParts.push(`\\${ch}`);
-      else regexParts.push(ch);
     }
-
-    const regexStr = `^${regexParts.join('')}$`;
-    const regex = new RegExp(regexStr);
-    const matchedNames = fileNames
-      .filter((n: string) => {
-        // POSIX-compliant: wildcards don't match dotfiles unless pattern explicitly starts with dot
-        if (n.startsWith('.') && !patternExplicitlyMatchesDotfiles) {
-          return false;
-        }
-        return regex.test(n);
-      })
-      .sort();
-
-    console.log('[globExpand] input:', pattern);
-    console.log('[globExpand] cwd:', currentWorkingDir);
-    console.log('[globExpand] dirPrefix:', dirPrefix, 'fileGlob:', fileGlob);
-    console.log('[globExpand] matched:', matchedNames);
-
-    if (matchedNames.length > 0) {
-      return matchedNames.map(name => dirPrefix + name);
-    }
-  } catch (e) {
-    console.warn('[globExpand] failed:', e);
+    matches = next;
+    if (matches.length === 0) return [pattern];
   }
 
-  return [pattern];
+  if (components.length === 0 || !patternHasGlob(components)) return [pattern];
+  return matches.map(match => match.display).sort();
+}
+
+function appendPath(parent: string, child: string, absolute: boolean): string {
+  if (parent === '/') return `/${child}`;
+  if (parent === '') return absolute ? `/${child}` : child;
+  return `${parent}/${child}`;
+}
+
+function patternHasGlob(components: string[]): boolean {
+  return components.some(hasGlob);
 }
 
 /**
@@ -192,7 +124,8 @@ export async function expandTokens(
   tokens: TokenObj[],
   options: GlobExpandOptions
 ): Promise<string[]> {
-  const ifs = (process.env.IFS ?? ' \t\n').replace(/\\t/g, '\t').replace(/\\n/g, '\n');
+  const homePath = options.env.HOME;
+  const ifs = options.env.IFS ?? ' \t\n';
 
   const finalWords: string[] = [];
 
@@ -202,8 +135,11 @@ export async function expandTokens(
       finalWords.push(tk.text);
       continue;
     }
-    // unquoted: perform IFS splitting
-    const parts = splitOnIFS(tk.text, ifs);
+    // Unquoted words receive tilde, field, brace, and glob expansion once.
+    let parts: string[];
+    if (homePath && tk.text === '~') parts = [homePath];
+    else if (homePath && tk.text.startsWith('~/')) parts = [`${homePath}${tk.text.slice(1)}`];
+    else parts = splitOnIFS(tk.text, ifs);
     for (const p of parts) {
       if (p === '') continue;
       // brace expansion
@@ -228,6 +164,5 @@ export async function expandTokens(
     }
   }
 
-  console.log('[shell] finalWords:', finalWords);
   return finalWords;
 }

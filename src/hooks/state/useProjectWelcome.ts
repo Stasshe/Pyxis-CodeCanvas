@@ -12,7 +12,7 @@ export function useProjectWelcome(currentProject: Project | null) {
   const { openTab } = tabActions;
   const openingRef = useRef(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id is the correct trigger; adding .name/.description would re-open welcome tab on rename
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rootPath is the project identity.
   useEffect(() => {
     if (!currentProject || openingRef.current) return;
 
@@ -25,11 +25,10 @@ export function useProjectWelcome(currentProject: Project | null) {
     if (hasAnyTabs) return;
 
     openingRef.current = true;
-    openTab(
-      { name: currentProject.name, description: currentProject.description },
-      { kind: 'welcome', paneId: leaves[0].id }
-    ).finally(() => {
-      openingRef.current = false;
-    });
-  }, [currentProject?.id]);
+    openTab({ name: currentProject.name }, { kind: 'welcome', paneId: leaves[0].id }).finally(
+      () => {
+        openingRef.current = false;
+      }
+    );
+  }, [currentProject?.rootPath]);
 }

@@ -7,12 +7,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { settingsManager } from '@/engine/helper/settingsManager';
 import type { PyxisSettings } from '@/types/settings';
 
-export function useSettings(projectId?: string) {
+export function useSettings(rootPath?: string) {
   const [settings, setSettings] = useState<PyxisSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!projectId) {
+    if (!rootPath) {
       setIsLoading(false);
       return;
     }
@@ -20,7 +20,7 @@ export function useSettings(projectId?: string) {
     const loadSettings = async () => {
       setIsLoading(true);
       try {
-        const loaded = await settingsManager.loadSettings(projectId);
+        const loaded = await settingsManager.loadSettings(rootPath);
         setSettings(loaded);
       } catch (error) {
         console.error('[useSettings] Failed to load settings:', error);
@@ -32,12 +32,12 @@ export function useSettings(projectId?: string) {
     loadSettings();
 
     // 設定変更リスナー
-    const unsubscribe = settingsManager.addListener(projectId, newSettings => {
+    const unsubscribe = settingsManager.addListener(rootPath, newSettings => {
       setSettings(newSettings);
     });
 
     return unsubscribe;
-  }, [projectId]);
+  }, [rootPath]);
 
   // 除外パターンを正規表現配列に変換
   const excludeRegexps = useMemo(() => {
@@ -89,9 +89,9 @@ export function useSettings(projectId?: string) {
   type UpdatesArg = Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>);
 
   const updateSettings = async (updates: UpdatesArg) => {
-    if (!projectId || !settings) return;
+    if (!rootPath || !settings) return;
     try {
-      await settingsManager.updateSettings(projectId, updates as any);
+      await settingsManager.updateSettings(rootPath, updates);
     } catch (error) {
       console.error('[useSettings] Failed to update settings:', error);
       throw error;

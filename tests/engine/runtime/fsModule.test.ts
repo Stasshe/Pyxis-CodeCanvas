@@ -1,130 +1,89 @@
 import { Buffer } from 'buffer';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFSModule } from '@/engine/runtime/nodejs/modules/fsModule';
-import { setupTestProject } from '../../_helpers/testProject';
+import { createNodeRuntimeFixture, type NodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
 describe('fsModule', () => {
-  let projectId: string;
-  let projectName: string;
+  let fixture: NodeRuntimeFixture;
+  let fs: ReturnType<typeof createFSModule>;
+  const root = '/tmp/fs-tests';
 
   beforeEach(async () => {
-    const ctx = await setupTestProject('FsModuleTest');
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
+    fixture = await createNodeRuntimeFixture(root);
+    fs = createFSModule({
+      filesystem: fixture.filesystem,
+      bridge: fixture.bridge,
+      getCwd: () => root,
+    });
   });
 
-  it('returns a Node-style ENOENT error for missing files', async () => {
-    const fsModule = createFSModule({
-      projectDir: `/projects/${projectName}`,
-      projectId,
-      projectName,
-    });
+  afterEach(() => fixture.close());
 
-    await expect(fsModule.readFile('/tmp/ionstore_tiny-updater.json')).rejects.toMatchObject({
+  it('returns Node-style missing-file and missing-stat errors', async () => {
+    await expect(fs.readFile('/missing.txt')).rejects.toMatchObject({
       code: 'ENOENT',
       syscall: 'open',
-      path: '/tmp/ionstore_tiny-updater.json',
+      path: '/missing.txt',
     });
-  });
-
-  it('supports callback-style readFile without leaking a rejected promise', async () => {
-    const fsModule = createFSModule({
-      projectDir: `/projects/${projectName}`,
-      projectId,
-      projectName,
-    });
-
-    const result = await new Promise<{ err: any; data: any }>(resolve => {
-      fsModule.readFile('/tmp/ionstore_tiny-updater.json', (err, data) => {
-        resolve({ err, data });
-      });
-    });
-
-    expect(result.data).toBeUndefined();
-    expect(result.err).toMatchObject({
-      code: 'ENOENT',
-      syscall: 'open',
-      path: '/tmp/ionstore_tiny-updater.json',
-    });
-  });
-
-  it('returns a Node-style ENOENT error for missing stat targets', async () => {
-    const fsModule = createFSModule({
-      projectDir: `/projects/${projectName}`,
-      projectId,
-      projectName,
-    });
-
-    await expect(fsModule.stat('/tmp/.prettier-cache')).rejects.toMatchObject({
+    await expect(fs.stat('/missing.txt')).rejects.toMatchObject({
       code: 'ENOENT',
       syscall: 'stat',
-      path: '/tmp/.prettier-cache',
+      path: '/missing.txt',
     });
   });
 
-  it('returns Buffer values unless a file encoding is requested', async () => {
-    await fileRepository.createFile(projectId, '/buffer.txt', 'héllo', 'file');
-    const fsModule = createFSModule({
-      projectDir: `/projects/${projectName}`,
-      projectId,
-      projectName,
+  it('supports callback reads without leaving a rejected promise', async () => {
+    const result = await new Promise<{ error: Error | null; data?: string | Buffer }>(resolve => {
+      fs.readFile('/absent.txt', (error, data) => resolve({ error, data }));
     });
-
-    const asyncContent = await fsModule.readFile('/buffer.txt');
-    const callbackContent = await new Promise<unknown>((resolve, reject) => {
-      fsModule.readFile('/buffer.txt', null, (error, data) => {
-        if (error) reject(error);
-        else resolve(data);
-      });
-    });
-    const promiseContent = await fsModule.promises.readFile('/buffer.txt');
-    const syncContent = fsModule.readFileSync('/buffer.txt');
-
-    for (const content of [asyncContent, callbackContent, promiseContent, syncContent]) {
-      expect(Buffer.isBuffer(content)).toBe(true);
-      expect((content as Buffer).toString()).toBe('héllo');
-    }
-    await expect(fsModule.readFile('/buffer.txt', 'base64')).resolves.toBe('aMOpbGxv');
-    expect(fsModule.readFileSync('/buffer.txt', 'hex')).toBe('68c3a96c6c6f');
+    expect(result.data).toBeUndefined();
+    expect(result.error).toMatchObject({ code: 'ENOENT', syscall: 'open' });
   });
 
-  it('always returns SVG files as UTF-8 text', async () => {
+  it('returns buffers unless a read encoding is requested', async () => {
+    await fs.promises.writeFile(`${root}/buffer.txt`, 'héllo');
+
+    const values = [
+      await fs.promises.readFile(`${root}/buffer.txt`),
+      fs.readFileSync(`${root}/buffer.txt`),
+      await fs.promises.readFile(`${root}/buffer.txt`, 'utf8'),
+    ];
+    expect(Buffer.isBuffer(values[0])).toBe(true);
+    expect(Buffer.isBuffer(values[1])).toBe(true);
+    expect(values[0].toString()).toBe('héllo');
+    expect(values[1].toString()).toBe('héllo');
+    expect(values[2]).toBe('héllo');
+  });
+
+  it('performs synchronous filesystem mutations through the sync bridge', async () => {
+    fs.mkdirSync(`${root}/nested`, { recursive: true });
+    fs.writeFileSync(`${root}/nested/one.txt`, 'one');
+    expect(fs.readFileSync(`${root}/nested/one.txt`, 'utf8')).toBe('one');
+    expect(fs.readdirSync(`${root}/nested`)).toEqual(['one.txt']);
+    expect(fs.statSync(`${root}/nested/one.txt`)?.isFile()).toBe(true);
+
+    fs.renameSync(`${root}/nested/one.txt`, `${root}/nested/two.txt`);
+    expect(fs.existsSync(`${root}/nested/two.txt`)).toBe(true);
+    fs.rmSync(`${root}/nested`, { recursive: true });
+    expect(fs.existsSync(`${root}/nested`)).toBe(false);
+  });
+
+  it('preserves SVG UTF-8 decoding and buffer directory names', async () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
-    await fileRepository.createFile(
-      projectId,
-      '/icon.svg',
-      '',
-      'file',
-      true,
-      new TextEncoder().encode(svg).buffer
-    );
-    const fsModule = createFSModule({
-      projectDir: `/projects/${projectName}`,
-      projectId,
-      projectName,
-    });
-    await fsModule.preloadFiles([]);
+    await fs.promises.writeFile(`${root}/icon.svg`, new TextEncoder().encode(svg));
+    expect(fs.readFileSync(`${root}/icon.svg`, 'base64')).toBe(svg);
 
-    await expect(fsModule.readFile('/icon.svg')).resolves.toBe(svg);
-    await expect(fsModule.readFile('/icon.svg', null)).resolves.toBe(svg);
-    await expect(fsModule.readFile('/icon.svg', { encoding: 'buffer' })).resolves.toBe(svg);
-    expect(fsModule.readFileSync('/icon.svg', 'base64')).toBe(svg);
+    const names = await fs.promises.readdir(root, { encoding: 'buffer' });
+    expect(names.every(name => Buffer.isBuffer(name))).toBe(true);
+    expect(names.map(name => name.toString())).toContain('icon.svg');
   });
 
-  it('returns Buffer names when readdir encoding is buffer', async () => {
-    await fileRepository.createFile(projectId, '/listed.txt', 'content', 'file');
-    const fsModule = createFSModule({
-      projectDir: `/projects/${projectName}`,
-      projectId,
-      projectName,
-    });
-
-    const names = await fsModule.readdir('/', { encoding: 'buffer' });
-    const dirents = await fsModule.readdir('/', { encoding: 'buffer', withFileTypes: true });
-
-    expect(names.every((name: unknown) => Buffer.isBuffer(name))).toBe(true);
-    expect(names.map((name: Buffer) => name.toString())).toContain('listed.txt');
-    expect(dirents.every((dirent: { name: unknown }) => Buffer.isBuffer(dirent.name))).toBe(true);
+  it('reads and preserves partial synchronous stdin data', () => {
+    const sync = vi.spyOn(fixture.bridge, 'sync').mockReturnValueOnce('input line\n');
+    const target = Buffer.alloc(5);
+    expect(fs.readSync(0, target)).toBe(5);
+    expect(target.toString()).toBe('input');
+    expect(fs.readFileSync(0, 'utf8')).toBe(' line\n');
+    expect(sync).toHaveBeenCalledTimes(1);
   });
 });

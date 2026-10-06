@@ -1,7 +1,29 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../_helpers/testProject';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { Buffer } from 'node:buffer';
+import pako from 'pako';
+import tarStream from 'tar-stream';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  extractCjsDependencies,
+  transformEsmToCjs,
+} from '@/engine/runtime/transpiler/esmTransformer';
+
+vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
+  transpileManager: {
+    async transpile(options: { code: string; filePath: string }) {
+      const code = await transformEsmToCjs(options.code, options.filePath);
+      return { code, dependencies: extractCjsDependencies(code) };
+    },
+  },
+}));
+
+import { TarExtractor } from '@/engine/cmd/global/npmOperations/install/tarExtractor';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
+import type { FsCore } from '@/engine/core/fs/core';
+import { testFsFiles as testFiles } from '../../_helpers/testFsFiles';
+import { setupTestProject } from '../../_helpers/testProject';
+
+let repository: FsCore;
+let rootPath: string;
 
 /**
  * NpmInstall テスト
@@ -12,19 +34,43 @@ import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
  */
 
 describe('NpmInstall', () => {
-  let projectId: string;
-  let projectName: string;
-
   beforeEach(async () => {
     const ctx = await setupTestProject('NpmInstallTest');
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
+    repository = ctx.repo;
+    rootPath = ctx.rootPath;
   });
 
   /** globalThis.fetch をそのまま使う NpmInstall を生成 */
-  function createInstaller(skipLoad = true) {
-    return new NpmInstall(projectId, skipLoad);
+  function createInstaller() {
+    return new NpmInstall(rootPath, repository);
   }
+
+  it('preserves package file bytes during tar extraction', async () => {
+    const bytes = new Uint8Array([...Array.from({ length: 31 }, () => 65), 255]);
+    const archive = tarStream.pack();
+    const chunks: Uint8Array[] = [];
+    const packed = new Promise<Uint8Array[]>((resolve, reject) => {
+      archive.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+      archive.on('end', () => resolve(chunks));
+      archive.on('error', reject);
+    });
+    archive.entry(
+      { name: 'package/assets/font.dat', type: 'file', size: bytes.byteLength },
+      Buffer.from(bytes)
+    );
+    archive.finalize();
+    const archiveChunks = await packed;
+    const archiveSize = archiveChunks.reduce((size, chunk) => size + chunk.byteLength, 0);
+    const tar = new Uint8Array(archiveSize);
+    let offset = 0;
+    for (const chunk of archiveChunks) {
+      tar.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const compressed = pako.gzip(tar).slice();
+    const extracted = await new TarExtractor().extractFromBuffer('/package', compressed.buffer);
+    expect(extracted.get('assets/font.dat')?.content).toEqual(bytes);
+  });
 
   // ==================== バッチ処理 ====================
 
@@ -45,14 +91,14 @@ describe('NpmInstall', () => {
 
   describe('ensureBinsForPackage', () => {
     it('bin フィールドが文字列の場合: パッケージ名で .bin を作成', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/cowsay/package.json',
         JSON.stringify({ name: 'cowsay', version: '1.6.0', bin: './cli.js' }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/cowsay/cli.js',
         'console.log("moo")',
         'file'
@@ -61,15 +107,15 @@ describe('NpmInstall', () => {
       const installer = createInstaller();
       await installer.ensureBinsForPackage('cowsay');
 
-      const shim = await fileRepository.getFileByPath(projectId, '/node_modules/.bin/cowsay');
+      const shim = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/cowsay');
       expect(shim).not.toBeNull();
       expect(shim!.content).toContain('#!/usr/bin/env node');
       expect(shim!.content).toContain("require('../cowsay/cli.js')");
     });
 
     it('bin フィールドがオブジェクトの場合: 各エントリで .bin を作成', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/uvu/package.json',
         JSON.stringify({
           name: 'uvu',
@@ -82,18 +128,18 @@ describe('NpmInstall', () => {
       const installer = createInstaller();
       await installer.ensureBinsForPackage('uvu');
 
-      const shimUvu = await fileRepository.getFileByPath(projectId, '/node_modules/.bin/uvu');
+      const shimUvu = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/uvu');
       expect(shimUvu).not.toBeNull();
       expect(shimUvu!.content).toContain("require('../uvu/bin.js')");
 
-      const shimRun = await fileRepository.getFileByPath(projectId, '/node_modules/.bin/uvu-run');
+      const shimRun = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/uvu-run');
       expect(shimRun).not.toBeNull();
       expect(shimRun!.content).toContain("require('../uvu/run.js')");
     });
 
     it('bin フィールドがない場合は何もしない', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/lodash/package.json',
         JSON.stringify({ name: 'lodash', version: '4.17.21' }),
         'file'
@@ -102,7 +148,7 @@ describe('NpmInstall', () => {
       const installer = createInstaller();
       await installer.ensureBinsForPackage('lodash');
 
-      const shim = await fileRepository.getFileByPath(projectId, '/node_modules/.bin/lodash');
+      const shim = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/lodash');
       expect(shim).toBeNull();
     });
 
@@ -112,8 +158,8 @@ describe('NpmInstall', () => {
     });
 
     it('bin パスの ./ プレフィックスを正しく処理する', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/prettier/package.json',
         JSON.stringify({
           name: 'prettier',
@@ -126,7 +172,7 @@ describe('NpmInstall', () => {
       const installer = createInstaller();
       await installer.ensureBinsForPackage('prettier');
 
-      const shim = await fileRepository.getFileByPath(projectId, '/node_modules/.bin/prettier');
+      const shim = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/prettier');
       expect(shim).not.toBeNull();
       expect(shim!.content).toContain("require('../prettier/bin/prettier.cjs')");
 
@@ -141,30 +187,30 @@ describe('NpmInstall', () => {
 
   describe('removeDirectory', () => {
     it('ディレクトリ配下のファイルをすべて削除する', async () => {
-      await fileRepository.createFile(projectId, '/node_modules/pkg/index.js', 'code', 'file');
-      await fileRepository.createFile(projectId, '/node_modules/pkg/lib/a.js', 'a', 'file');
-      await fileRepository.createFile(projectId, '/node_modules/pkg/lib/b.js', 'b', 'file');
-      await fileRepository.createFile(projectId, '/node_modules/other/index.js', 'keep', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/pkg/index.js', 'code', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/pkg/lib/a.js', 'a', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/pkg/lib/b.js', 'b', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/other/index.js', 'keep', 'file');
 
       const installer = createInstaller();
-      await installer.removeDirectory('/node_modules/pkg');
+      await installer.removeDirectory(`${rootPath}/node_modules/pkg`);
 
-      const pkgFiles = await fileRepository.getFilesByPrefix(projectId, '/node_modules/pkg');
+      const pkgFiles = await testFiles.getFilesByPrefix(rootPath, '/node_modules/pkg');
       expect(pkgFiles).toHaveLength(0);
 
-      const otherFiles = await fileRepository.getFilesByPrefix(projectId, '/node_modules/other');
+      const otherFiles = await testFiles.getFilesByPrefix(rootPath, '/node_modules/other');
       expect(otherFiles.some(f => f.path.includes('other'))).toBe(true);
     });
 
     it('フォルダエントリがある場合も正しく削除される (重複排除)', async () => {
-      await fileRepository.createFile(projectId, '/node_modules/pkg', '', 'folder');
-      await fileRepository.createFile(projectId, '/node_modules/pkg/index.js', 'code', 'file');
-      await fileRepository.createFile(projectId, '/node_modules/pkg/readme.md', '# hi', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/pkg', '', 'folder');
+      await testFiles.createFile(rootPath, '/node_modules/pkg/index.js', 'code', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/pkg/readme.md', '# hi', 'file');
 
       const installer = createInstaller();
-      await installer.removeDirectory('/node_modules/pkg');
+      await installer.removeDirectory(`${rootPath}/node_modules/pkg`);
 
-      const remaining = await fileRepository.getFilesByPrefix(projectId, '/node_modules/pkg');
+      const remaining = await testFiles.getFilesByPrefix(rootPath, '/node_modules/pkg');
       expect(remaining).toHaveLength(0);
     });
   });
@@ -173,8 +219,8 @@ describe('NpmInstall', () => {
 
   describe('uninstallWithDependencies', () => {
     it('孤立した推移的依存を一緒に削除する', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/package.json',
         JSON.stringify({
           name: 'app',
@@ -183,8 +229,8 @@ describe('NpmInstall', () => {
         }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/express/package.json',
         JSON.stringify({
           name: 'express',
@@ -193,20 +239,20 @@ describe('NpmInstall', () => {
         }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/express/index.js',
         'module.exports = {}',
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/body-parser/package.json',
         JSON.stringify({ name: 'body-parser', version: '1.20.0' }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/body-parser/index.js',
         'module.exports = {}',
         'file'
@@ -220,8 +266,8 @@ describe('NpmInstall', () => {
     });
 
     it('共有依存は削除しない', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/package.json',
         JSON.stringify({
           name: 'app',
@@ -230,20 +276,20 @@ describe('NpmInstall', () => {
         }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/A/package.json',
         JSON.stringify({ name: 'A', version: '1.0.0', dependencies: { shared: '1.0.0' } }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/B/package.json',
         JSON.stringify({ name: 'B', version: '1.0.0', dependencies: { shared: '1.0.0' } }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/shared/package.json',
         JSON.stringify({ name: 'shared', version: '1.0.0' }),
         'file'
@@ -257,8 +303,8 @@ describe('NpmInstall', () => {
     });
 
     it('ルート依存は削除しない', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/package.json',
         JSON.stringify({
           name: 'app',
@@ -267,14 +313,14 @@ describe('NpmInstall', () => {
         }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/A/package.json',
         JSON.stringify({ name: 'A', version: '1.0.0', dependencies: { B: '1.0.0' } }),
         'file'
       );
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/node_modules/B/package.json',
         JSON.stringify({ name: 'B', version: '1.0.0' }),
         'file'
@@ -288,8 +334,8 @@ describe('NpmInstall', () => {
     });
 
     it('存在しないパッケージはスキップ', async () => {
-      await fileRepository.createFile(
-        projectId,
+      await testFiles.createFile(
+        rootPath,
         '/package.json',
         JSON.stringify({ name: 'app', version: '1.0.0', dependencies: {} }),
         'file'
@@ -304,314 +350,235 @@ describe('NpmInstall', () => {
   // ==================== installWithDependencies — 本物のレジストリ ====================
 
   describe('installWithDependencies (実際のレジストリ)', () => {
-    it(
-      'kleur をインストールして fileRepository にファイルが展開される',
-      async () => {
-        const installer = createInstaller();
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('kleur', 'latest');
-        await installer.finishBatchProcessing();
+    it('kleur をインストールして fileRepository にファイルが展開される', async () => {
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('kleur', 'latest');
+      await installer.finishBatchProcessing();
 
-        // package.json
-        const pkgJson = await fileRepository.getFileByPath(
-          projectId,
-          '/node_modules/kleur/package.json'
-        );
-        expect(pkgJson).not.toBeNull();
-        const pkg = JSON.parse(pkgJson!.content);
-        expect(pkg.name).toBe('kleur');
-        expect(pkg.version).toBeDefined();
+      // package.json
+      const pkgJson = await testFiles.getFileByPath(rootPath, '/node_modules/kleur/package.json');
+      expect(pkgJson).not.toBeNull();
+      const pkg = JSON.parse(pkgJson!.content);
+      expect(pkg.name).toBe('kleur');
+      expect(pkg.version).toBeDefined();
 
-        // エントリポイントが存在する
-        const kleurFiles = await fileRepository.getFilesByPrefix(
-          projectId,
-          '/node_modules/kleur/'
-        );
-        expect(kleurFiles.length).toBeGreaterThan(1);
-      },
-      30000
-    );
+      // エントリポイントが存在する
+      const kleurFiles = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
+      expect(kleurFiles.length).toBeGreaterThan(1);
+    }, 30000);
 
-    it(
-      'uvu をインストールして推移的依存 (kleur, mri, dequal, diff) も展開される',
-      async () => {
-        const installer = createInstaller();
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('uvu', 'latest');
-        await installer.finishBatchProcessing();
+    it('uvu をインストールして推移的依存 (kleur, mri, dequal, diff) も展開される', async () => {
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('uvu', 'latest');
+      await installer.finishBatchProcessing();
 
-        // uvu 本体
-        const uvuPkg = await fileRepository.getFileByPath(
-          projectId,
-          '/node_modules/uvu/package.json'
-        );
-        expect(uvuPkg).not.toBeNull();
-        const uvu = JSON.parse(uvuPkg!.content);
-        expect(uvu.name).toBe('uvu');
+      // uvu 本体
+      const uvuPkg = await testFiles.getFileByPath(rootPath, '/node_modules/uvu/package.json');
+      expect(uvuPkg).not.toBeNull();
+      const uvu = JSON.parse(uvuPkg!.content);
+      expect(uvu.name).toBe('uvu');
 
-        // uvu の推移的依存が全てインストールされている
-        const expectedDeps = Object.keys(uvu.dependencies || {});
-        for (const dep of expectedDeps) {
-          const depPkg = await fileRepository.getFileByPath(
-            projectId,
-            `/node_modules/${dep}/package.json`
-          );
-          expect(depPkg).not.toBeNull();
-          const depJson = JSON.parse(depPkg!.content);
-          expect(depJson.name).toBe(dep);
+      // uvu の推移的依存が全てインストールされている
+      const expectedDeps = Object.keys(uvu.dependencies || {});
+      for (const dep of expectedDeps) {
+        const depPkg = await testFiles.getFileByPath(rootPath, `/node_modules/${dep}/package.json`);
+        expect(depPkg).not.toBeNull();
+        const depJson = JSON.parse(depPkg!.content);
+        expect(depJson.name).toBe(dep);
+      }
+    }, 60000);
+
+    it('uvu の .bin シムが正しく生成される', async () => {
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('uvu', 'latest');
+      await installer.finishBatchProcessing();
+
+      // .bin 作成
+      await installer.ensureBinsForPackage('uvu');
+
+      const uvuPkg = await testFiles.getFileByPath(rootPath, '/node_modules/uvu/package.json');
+      const uvu = JSON.parse(uvuPkg!.content);
+
+      // uvu の bin フィールドに対応する .bin エントリを検証
+      if (uvu.bin) {
+        const bins = typeof uvu.bin === 'string' ? { uvu: uvu.bin } : uvu.bin;
+        for (const binName of Object.keys(bins)) {
+          const shim = await testFiles.getFileByPath(rootPath, `/node_modules/.bin/${binName}`);
+          expect(shim).not.toBeNull();
+          expect(shim!.content).toContain('#!/usr/bin/env node');
+          expect(shim!.content).toContain('require(');
         }
-      },
-      60000
-    );
+      }
+    }, 60000);
 
-    it(
-      'uvu の .bin シムが正しく生成される',
-      async () => {
-        const installer = createInstaller();
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('uvu', 'latest');
-        await installer.finishBatchProcessing();
+    it('インストール済みパッケージは再 fetch しない', async () => {
+      // 1 回目: 本物のインストール
+      const installer1 = createInstaller();
+      installer1.startBatchProcessing();
+      await installer1.installWithDependencies('kleur', 'latest');
+      await installer1.finishBatchProcessing();
 
-        // .bin 作成
-        await installer.ensureBinsForPackage('uvu');
+      // kleur の version を記録
+      const pkgFile = await testFiles.getFileByPath(rootPath, '/node_modules/kleur/package.json');
+      const pkg = JSON.parse(pkgFile!.content);
+      const installedVersion = pkg.version;
 
-        const uvuPkg = await fileRepository.getFileByPath(
-          projectId,
-          '/node_modules/uvu/package.json'
-        );
-        const uvu = JSON.parse(uvuPkg!.content);
+      // 2 回目: 同じバージョンならスキップされる
+      const installer2 = createInstaller();
+      installer2.startBatchProcessing();
+      await installer2.installWithDependencies('kleur', installedVersion);
+      await installer2.finishBatchProcessing();
 
-        // uvu の bin フィールドに対応する .bin エントリを検証
-        if (uvu.bin) {
-          const bins = typeof uvu.bin === 'string' ? { uvu: uvu.bin } : uvu.bin;
-          for (const binName of Object.keys(bins)) {
-            const shim = await fileRepository.getFileByPath(
-              projectId,
-              `/node_modules/.bin/${binName}`
-            );
-            expect(shim).not.toBeNull();
-            expect(shim!.content).toContain('#!/usr/bin/env node');
-            expect(shim!.content).toContain('require(');
-          }
-        }
-      },
-      60000
-    );
+      // スキップ後もファイルが壊れていないこと
+      const pkgFileAfter = await testFiles.getFileByPath(
+        rootPath,
+        '/node_modules/kleur/package.json'
+      );
+      expect(pkgFileAfter).not.toBeNull();
+      expect(JSON.parse(pkgFileAfter!.content).version).toBe(installedVersion);
+    }, 60000);
 
-    it(
-      'インストール済みパッケージは再 fetch しない',
-      async () => {
-        // 1 回目: 本物のインストール
-        const installer1 = createInstaller(false);
-        installer1.startBatchProcessing();
-        await installer1.installWithDependencies('kleur', 'latest');
-        await installer1.finishBatchProcessing();
+    it('.gitignore に node_modules を追加する', async () => {
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('kleur', 'latest');
+      await installer.finishBatchProcessing();
 
-        // kleur の version を記録
-        const pkgFile = await fileRepository.getFileByPath(
-          projectId,
-          '/node_modules/kleur/package.json'
-        );
-        const pkg = JSON.parse(pkgFile!.content);
-        const installedVersion = pkg.version;
+      const gitignore = await testFiles.getFileByPath(rootPath, '/.gitignore');
+      expect(gitignore).not.toBeNull();
+      expect(gitignore!.content).toContain('node_modules');
+    }, 30000);
 
-        // 2 回目: 同じバージョンならスキップされる
-        const installer2 = createInstaller(false);
-        installer2.startBatchProcessing();
-        await installer2.installWithDependencies('kleur', installedVersion);
-        await installer2.finishBatchProcessing();
+    it('progress コールバックが呼ばれる', async () => {
+      const progress: Array<{ name: string; version: string; isDirect: boolean }> = [];
 
-        // スキップ後もファイルが壊れていないこと
-        const pkgFileAfter = await fileRepository.getFileByPath(
-          projectId,
-          '/node_modules/kleur/package.json'
-        );
-        expect(pkgFileAfter).not.toBeNull();
-        expect(JSON.parse(pkgFileAfter!.content).version).toBe(installedVersion);
-      },
-      60000
-    );
+      const installer = createInstaller();
+      installer.setInstallProgressCallback((name, version, isDirect) => {
+        progress.push({ name, version, isDirect });
+      });
 
-    it(
-      '.gitignore に node_modules を追加する',
-      async () => {
-        const installer = createInstaller(false);
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('kleur', 'latest');
-        await installer.finishBatchProcessing();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('kleur', 'latest', { isDirect: true });
+      await installer.finishBatchProcessing();
 
-        const gitignore = await fileRepository.getFileByPath(projectId, '/.gitignore');
-        expect(gitignore).not.toBeNull();
-        expect(gitignore!.content).toContain('node_modules');
-      },
-      30000
-    );
-
-    it(
-      'progress コールバックが呼ばれる',
-      async () => {
-        const progress: Array<{ name: string; version: string; isDirect: boolean }> = [];
-
-        const installer = createInstaller();
-        installer.setInstallProgressCallback((name, version, isDirect) => {
-          progress.push({ name, version, isDirect });
-        });
-
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('kleur', 'latest', { isDirect: true });
-        await installer.finishBatchProcessing();
-
-        // kleur 自体の progress が含まれる
-        expect(progress.length).toBeGreaterThanOrEqual(1);
-        const kleurEntry = progress.find(p => p.name === 'kleur');
-        expect(kleurEntry).toBeDefined();
-        expect(kleurEntry!.isDirect).toBe(true);
-      },
-      30000
-    );
+      // kleur 自体の progress が含まれる
+      expect(progress.length).toBeGreaterThanOrEqual(1);
+      const kleurEntry = progress.find(p => p.name === 'kleur');
+      expect(kleurEntry).toBeDefined();
+      expect(kleurEntry!.isDirect).toBe(true);
+    }, 30000);
   });
 
   // ==================== install → uninstall の統合フロー ====================
 
   describe('install → uninstall 統合', () => {
-    it(
-      'kleur をインストールしてからアンインストールする',
-      async () => {
-        // package.json 作成
-        await fileRepository.createFile(
-          projectId,
-          '/package.json',
-          JSON.stringify({
-            name: 'app',
-            version: '1.0.0',
-            dependencies: { kleur: '^4.0.0' },
-          }),
-          'file'
-        );
+    it('kleur をインストールしてからアンインストールする', async () => {
+      // package.json 作成
+      await testFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          dependencies: { kleur: '^4.0.0' },
+        }),
+        'file'
+      );
 
-        // インストール
-        const installer = createInstaller(false);
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('kleur', 'latest');
-        await installer.finishBatchProcessing();
+      // インストール
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('kleur', 'latest');
+      await installer.finishBatchProcessing();
 
-        // 確認
-        const beforeUninstall = await fileRepository.getFilesByPrefix(
-          projectId,
-          '/node_modules/kleur/'
-        );
-        expect(beforeUninstall.length).toBeGreaterThan(0);
+      // 確認
+      const beforeUninstall = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
+      expect(beforeUninstall.length).toBeGreaterThan(0);
 
-        // アンインストール
-        const removed = await installer.uninstallWithDependencies('kleur');
-        expect(removed).toContain('kleur');
+      // アンインストール
+      const removed = await installer.uninstallWithDependencies('kleur');
+      expect(removed).toContain('kleur');
 
-        // node_modules/kleur が消えている
-        const afterUninstall = await fileRepository.getFilesByPrefix(
-          projectId,
-          '/node_modules/kleur/'
-        );
-        expect(afterUninstall).toHaveLength(0);
-      },
-      30000
-    );
+      // node_modules/kleur が消えている
+      const afterUninstall = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
+      expect(afterUninstall).toHaveLength(0);
+    }, 30000);
 
-    it(
-      'uvu をインストール → uvu をアンインストール → 推移的依存も消える',
-      async () => {
-        await fileRepository.createFile(
-          projectId,
-          '/package.json',
-          JSON.stringify({
-            name: 'app',
-            version: '1.0.0',
-            dependencies: { uvu: '^0.5.0' },
-          }),
-          'file'
-        );
+    it('uvu をインストール → uvu をアンインストール → 推移的依存も消える', async () => {
+      await testFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          dependencies: { uvu: '^0.5.0' },
+        }),
+        'file'
+      );
 
-        // uvu インストール
-        const installer = createInstaller(false);
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('uvu', 'latest');
-        await installer.finishBatchProcessing();
+      // uvu インストール
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('uvu', 'latest');
+      await installer.finishBatchProcessing();
 
-        // uvu の依存関係を確認
-        const uvuPkg = await fileRepository.getFileByPath(
-          projectId,
-          '/node_modules/uvu/package.json'
-        );
-        const uvu = JSON.parse(uvuPkg!.content);
-        const transitiveDeps = Object.keys(uvu.dependencies || {});
+      // uvu の依存関係を確認
+      const uvuPkg = await testFiles.getFileByPath(rootPath, '/node_modules/uvu/package.json');
+      const uvu = JSON.parse(uvuPkg!.content);
+      const transitiveDeps = Object.keys(uvu.dependencies || {});
 
-        // アンインストール
-        const removed = await installer.uninstallWithDependencies('uvu');
-        expect(removed).toContain('uvu');
+      // アンインストール
+      const removed = await installer.uninstallWithDependencies('uvu');
+      expect(removed).toContain('uvu');
 
-        // 推移的依存で他のルート依存がないものは削除される
-        for (const dep of transitiveDeps) {
-          if (removed.includes(dep)) {
-            const depFiles = await fileRepository.getFilesByPrefix(
-              projectId,
-              `/node_modules/${dep}/`
-            );
-            expect(depFiles).toHaveLength(0);
-          }
+      // 推移的依存で他のルート依存がないものは削除される
+      for (const dep of transitiveDeps) {
+        if (removed.includes(dep)) {
+          const depFiles = await testFiles.getFilesByPrefix(rootPath, `/node_modules/${dep}/`);
+          expect(depFiles).toHaveLength(0);
         }
-      },
-      60000
-    );
+      }
+    }, 60000);
   });
 
   // ==================== エッジケース ====================
 
   describe('エッジケース', () => {
-    it(
-      '存在しないパッケージを install しようとするとエラー',
-      async () => {
-        const installer = createInstaller();
-        installer.startBatchProcessing();
-        await expect(
-          installer.installWithDependencies('nonexistent-pkg-xyz-99999', 'latest')
-        ).rejects.toThrow(/not found|404|Failed/i);
-        await installer.finishBatchProcessing();
-      },
-      15000
-    );
+    it('存在しないパッケージを install しようとするとエラー', async () => {
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await expect(
+        installer.installWithDependencies('nonexistent-pkg-xyz-99999', 'latest')
+      ).rejects.toThrow(/not found|404|Failed/i);
+      await installer.finishBatchProcessing();
+    }, 15000);
 
     it('node_modules が空の状態で removeDirectory しても安全', async () => {
       const installer = createInstaller();
-      await installer.removeDirectory('/node_modules/nonexistent');
+      await installer.removeDirectory(`${rootPath}/node_modules/nonexistent`);
     });
 
-    it(
-      '同じパッケージの2回連続 install は冪等',
-      async () => {
-        const installer = createInstaller();
-        installer.startBatchProcessing();
-        await installer.installWithDependencies('kleur', 'latest');
-        await installer.finishBatchProcessing();
+    it('同じパッケージの2回連続 install は冪等', async () => {
+      const installer = createInstaller();
+      installer.startBatchProcessing();
+      await installer.installWithDependencies('kleur', 'latest');
+      await installer.finishBatchProcessing();
 
-        // 1回目のファイル数を記録
-        const files1 = await fileRepository.getFilesByPrefix(
-          projectId,
-          '/node_modules/kleur/'
-        );
-        const count1 = files1.length;
+      // 1回目のファイル数を記録
+      const files1 = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
+      const count1 = files1.length;
 
-        // 2回目
-        const installer2 = createInstaller(false);
-        installer2.startBatchProcessing();
-        await installer2.installWithDependencies('kleur', 'latest');
-        await installer2.finishBatchProcessing();
+      // 2回目
+      const installer2 = createInstaller();
+      installer2.startBatchProcessing();
+      await installer2.installWithDependencies('kleur', 'latest');
+      await installer2.finishBatchProcessing();
 
-        const files2 = await fileRepository.getFilesByPrefix(
-          projectId,
-          '/node_modules/kleur/'
-        );
-        expect(files2.length).toBe(count1);
-      },
-      60000
-    );
+      const files2 = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
+      expect(files2.length).toBe(count1);
+    }, 60000);
   });
 });

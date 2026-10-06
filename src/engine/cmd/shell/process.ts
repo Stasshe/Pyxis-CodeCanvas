@@ -158,9 +158,8 @@ export class Process extends EventEmitter {
   }
 
   kill(signal = 'SIGINT') {
-    // Emit the signal event so the running handler may react
+    if (this.exited) return;
     this.emit('signal', signal);
-    // default behavior: mark as killed
-    this.exit(null, signal);
+    if (this.listenerCount('signal') === 0) this.exit(null, signal);
   }
 }

@@ -2,8 +2,7 @@
 import type React from 'react';
 import { lazy, Suspense, useCallback } from 'react';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { syncManager } from '@/engine/core/syncManager';
+import { fsClient } from '@/engine/core/fs';
 import { tabActions } from '@/stores/tabState';
 import type {
   MergeConflictFileEntry,
@@ -32,32 +31,19 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       try {
         console.log('[MergeConflictTabType] Resolving merge conflicts:', resolvedFiles.length);
 
-        // Save each file to IndexedDB via fileRepository
+        // Save resolved files through the filesystem client.
         for (const file of resolvedFiles) {
-          await fileRepository.saveFileByPath(
-            mergeTab.projectId,
-            file.filePath,
-            file.resolvedContent
-          );
+          await fsClient.writeFile(file.filePath, file.resolvedContent);
           console.log('[MergeConflictTabType] Saved resolved file:', file.filePath);
         }
 
-        // Sync IndexedDB → GitFileSystem
-        await syncManager.syncFromIndexedDBToFS(mergeTab.projectId, mergeTab.projectName);
-        console.log('[MergeConflictTabType] Synced to filesystem');
-
         // Get git commands instance
-        const git = terminalCommandRegistry.getGitCommands(
-          mergeTab.projectName,
-          mergeTab.projectId
-        );
+        const git = terminalCommandRegistry.getGitCommands(mergeTab.rootPath);
 
         // Stage all resolved files
         console.log('[MergeConflictTabType] Staging resolved files...');
         for (const file of resolvedFiles) {
-          // Remove leading slash for git add
-          const gitPath = file.filePath.startsWith('/') ? file.filePath.slice(1) : file.filePath;
-          await git.add(gitPath);
+          await git.add(file.filePath);
         }
 
         // Create merge commit
@@ -126,8 +112,6 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         conflicts={mergeTab.conflicts}
         oursBranch={mergeTab.oursBranch}
         theirsBranch={mergeTab.theirsBranch}
-        projectId={mergeTab.projectId}
-        projectName={mergeTab.projectName}
         onResolve={handleResolve}
         onCancel={handleCancel}
         onUpdateResolvedContent={handleUpdateResolvedContent}
@@ -153,8 +137,7 @@ export const MergeConflictTabType: TabTypeDefinition = {
     const conflicts = (data.conflicts as MergeConflictFileEntry[]) || [];
     const oursBranch = (data.oursBranch as string) || 'HEAD';
     const theirsBranch = (data.theirsBranch as string) || 'MERGE_HEAD';
-    const projectId = (data.projectId as string) || '';
-    const projectName = (data.projectName as string) || '';
+    const rootPath = (data.rootPath as string) || '';
 
     const tabId = `merge-conflict:${oursBranch}-${theirsBranch}-${Date.now()}`;
     const tabName = `Merge: ${theirsBranch} → ${oursBranch}`;
@@ -168,8 +151,7 @@ export const MergeConflictTabType: TabTypeDefinition = {
       conflicts,
       oursBranch,
       theirsBranch,
-      projectId,
-      projectName,
+      rootPath,
     };
   },
 

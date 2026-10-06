@@ -18,22 +18,24 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { useDiffTabHandlers } from '@/hooks/ui/useDiffTabHandlers';
+import type { Project } from '@/types';
 import type { GitCommit as GitCommitType } from '@/types/git';
+import {
+  assignLanes,
+  type CommitChanges,
+  parseDiffOutput,
+  topoSortCommits,
+} from './GitHistoryLayout';
 
 interface GitHistoryProps {
   commits: GitCommitType[];
   currentProject?: string;
-  currentProjectId?: string;
+  rootPath?: string;
+  project: Project;
   currentBranch: string;
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
-}
-
-interface CommitChanges {
-  added: string[];
-  modified: string[];
-  deleted: string[];
 }
 
 interface ExtendedCommit extends GitCommitType {
@@ -44,314 +46,11 @@ interface ExtendedCommit extends GitCommitType {
   changes?: CommitChanges;
 }
 
-/**
- * トポロジカルソート（Kahn's algorithm inspired by VSCode SCM）
- *
- * Gitグラフでは、子コミットが親コミットより前（上）に表示される必要があります。
- * このアルゴリズムは以下のステップで動作します：
- * 1. 各コミットの「子の数」（入次数）をカウント - 子から指されている数
- * 2. 子を持たないコミット（入次数0 = 最新のコミット）から処理を開始
- * 3. 処理したコミットの親の入次数を減らし、0になったら次の候補に
- * 4. 同じ入次数のコミットはtimestampで新しい順にソート
- */
-function topoSortCommits(commits: GitCommitType[]): GitCommitType[] {
-  if (commits.length === 0) return [];
-
-  const commitMap = new Map<string, GitCommitType>();
-  commits.forEach(c => {
-    commitMap.set(c.hash, c);
-  });
-
-  // 各コミットを指す子の数をカウント（入次数）
-  // 親コミットは子から指されているので、親の入次数を増やす
-  const inDegree = new Map<string, number>();
-
-  commits.forEach(c => {
-    inDegree.set(c.hash, 0);
-  });
-
-  // 親子関係を構築（表示されているコミットのみ）
-  // 子→親の辺があるので、親の入次数を増やす
-  commits.forEach(c => {
-    c.parentHashes.forEach(parentHash => {
-      if (commitMap.has(parentHash)) {
-        // 親コミットの入次数を増やす（子から指されている）
-        inDegree.set(parentHash, (inDegree.get(parentHash) || 0) + 1);
-      }
-    });
-  });
-
-  // 入次数が0のコミット（子がいないコミット = 最新のコミット）を収集
-  // timestampで新しい順にソート
-  const queue: GitCommitType[] = commits
-    .filter(c => (inDegree.get(c.hash) || 0) === 0)
-    .sort((a, b) => b.timestamp - a.timestamp);
-
-  const result: GitCommitType[] = [];
-  const visited = new Set<string>();
-
-  while (queue.length > 0) {
-    // キューの先頭から取得（既にソート済み）
-    const commit = queue.shift()!;
-
-    if (visited.has(commit.hash)) continue;
-    visited.add(commit.hash);
-    result.push(commit);
-
-    // このコミットの親の入次数を減らし、0になったものをキューに追加
-    const newReadyCommits: GitCommitType[] = [];
-    commit.parentHashes.forEach(parentHash => {
-      const parent = commitMap.get(parentHash);
-      if (parent && !visited.has(parentHash)) {
-        const newDegree = (inDegree.get(parentHash) || 0) - 1;
-        inDegree.set(parentHash, newDegree);
-        if (newDegree === 0) {
-          newReadyCommits.push(parent);
-        }
-      }
-    });
-
-    // 新たにキューに追加するコミットをソートしてマージ
-    if (newReadyCommits.length > 0) {
-      newReadyCommits.sort((a, b) => b.timestamp - a.timestamp);
-      // キューにマージ（timestampで新しい順を維持）
-      const merged: GitCommitType[] = [];
-      let i = 0;
-      let j = 0;
-      while (i < queue.length && j < newReadyCommits.length) {
-        if (queue[i].timestamp >= newReadyCommits[j].timestamp) {
-          merged.push(queue[i++]);
-        } else {
-          merged.push(newReadyCommits[j++]);
-        }
-      }
-      while (i < queue.length) merged.push(queue[i++]);
-      while (j < newReadyCommits.length) merged.push(newReadyCommits[j++]);
-      queue.length = 0;
-      queue.push(...merged);
-    }
-  }
-
-  // 循環がある場合、残りのコミットを追加
-  commits.forEach(c => {
-    if (!visited.has(c.hash)) {
-      result.push(c);
-    }
-  });
-
-  return result;
-}
-
-/**
- * Swimlane（レーン）の状態を表す型
- * VSCodeのSCM実装を参考に、各レーンがどのコミットIDを追跡しているかを管理
- */
-interface Swimlane {
-  id: string; // 追跡しているコミットのハッシュ
-  color: string;
-  lane: number;
-}
-
-/**
- * VSCodeスタイルのレーン割り当てアルゴリズム
- *
- * 新しいコミットから古いコミットへの順序で処理し、
- * inputSwimlanes（入力レーン）とoutputSwimlanes（出力レーン）を計算。
- *
- * ルール：
- * 1. 各コミットは入力レーンから自身のIDを見つけてそのレーンに配置
- * 2. 第1親は同じレーンを継承し、出力レーンに追加
- * 3. 第2親以降（マージ元）は新しいレーンを作成して出力レーンに追加
- * 4. マージコミットでは、マージされたブランチのレーンが収束する
- */
-function assignLanes(
-  commits: GitCommitType[],
-  branchColors: string[]
-): { commitLanes: Map<string, number>; commitColors: Map<string, string>; maxLane: number } {
-  const commitLanes = new Map<string, number>();
-  const commitColors = new Map<string, string>();
-
-  if (commits.length === 0) {
-    return { commitLanes, commitColors, maxLane: 0 };
-  }
-
-  const commitMap = new Map<string, GitCommitType>();
-  commits.forEach(c => {
-    commitMap.set(c.hash, c);
-  });
-
-  // デフォルトカラー（branchColorsが空の場合のフォールバック）
-  const defaultColor = '#3b82f6';
-  const colors = branchColors.length > 0 ? branchColors : [defaultColor];
-
-  let colorIndex = 0;
-  let currentSwimlanes: Swimlane[] = [];
-  let maxLane = 0;
-
-  // 次のカラーを取得
-  const getNextColor = (): string => {
-    const color = colors[colorIndex];
-    colorIndex = (colorIndex + 1) % colors.length;
-    return color;
-  };
-
-  // 空いている最小のレーン番号を取得
-  const getAvailableLane = (usedLanes: Set<number>): number => {
-    let lane = 0;
-    while (usedLanes.has(lane)) {
-      lane++;
-    }
-    return lane;
-  };
-
-  for (const commit of commits) {
-    // 入力レーンからこのコミットを見つける
-    const inputIndex = currentSwimlanes.findIndex(s => s.id === commit.hash);
-
-    // このコミットのレーンと色を決定
-    let commitLane: number;
-    let commitColor: string;
-
-    if (inputIndex !== -1) {
-      // 既存のレーンにある場合はそれを使用
-      commitLane = currentSwimlanes[inputIndex].lane;
-      commitColor = currentSwimlanes[inputIndex].color;
-    } else {
-      // 新しいレーンを割り当て
-      const usedLanes = new Set(currentSwimlanes.map(s => s.lane));
-      commitLane = getAvailableLane(usedLanes);
-      commitColor = getNextColor();
-    }
-
-    commitLanes.set(commit.hash, commitLane);
-    commitColors.set(commit.hash, commitColor);
-    maxLane = Math.max(maxLane, commitLane);
-
-    // 出力レーンを計算
-    const outputSwimlanes: Swimlane[] = [];
-    let firstParentAdded = false;
-
-    // 親がある場合、出力レーンを構築
-    if (commit.parentHashes.length > 0) {
-      // 既存のレーンを処理
-      for (const swimlane of currentSwimlanes) {
-        if (swimlane.id === commit.hash) {
-          // このコミットのレーンは第1親に継承される
-          if (!firstParentAdded && commitMap.has(commit.parentHashes[0])) {
-            outputSwimlanes.push({
-              id: commit.parentHashes[0],
-              color: commitColor,
-              lane: commitLane,
-            });
-            firstParentAdded = true;
-          }
-          // このコミット自身のレーンは出力から削除（収束）
-        } else {
-          // 他のレーンはそのまま維持
-          outputSwimlanes.push({ ...swimlane });
-        }
-      }
-
-      // 第1親がまだ追加されていない場合（このコミットが入力レーンになかった場合）
-      if (!firstParentAdded && commitMap.has(commit.parentHashes[0])) {
-        outputSwimlanes.push({
-          id: commit.parentHashes[0],
-          color: commitColor,
-          lane: commitLane,
-        });
-        firstParentAdded = true;
-      }
-
-      // 第2親以降を新しいレーンに追加
-      for (let i = 1; i < commit.parentHashes.length; i++) {
-        const parentHash = commit.parentHashes[i];
-        if (!commitMap.has(parentHash)) continue;
-
-        // 既に出力レーンに存在するかチェック
-        const existingIndex = outputSwimlanes.findIndex(s => s.id === parentHash);
-        if (existingIndex !== -1) continue;
-
-        // 新しいレーンを割り当て
-        const usedLanes = new Set(outputSwimlanes.map(s => s.lane));
-        const newLane = getAvailableLane(usedLanes);
-        const newColor = getNextColor();
-
-        outputSwimlanes.push({
-          id: parentHash,
-          color: newColor,
-          lane: newLane,
-        });
-        maxLane = Math.max(maxLane, newLane);
-      }
-    } else {
-      // 親がない場合、このコミットのレーンを除いた他のレーンを維持
-      for (const swimlane of currentSwimlanes) {
-        if (swimlane.id !== commit.hash) {
-          outputSwimlanes.push({ ...swimlane });
-        }
-      }
-    }
-
-    // 次のコミットの入力レーンとして使用
-    currentSwimlanes = outputSwimlanes;
-  }
-
-  return { commitLanes, commitColors, maxLane };
-}
-
-// diffOutputをパースしてCommitChangesに変換
-function parseDiffOutput(diffOutput: string): CommitChanges {
-  const changes: CommitChanges = {
-    added: [],
-    modified: [],
-    deleted: [],
-  };
-
-  if (!diffOutput || diffOutput.trim() === '' || diffOutput === 'No differences between commits') {
-    return changes;
-  }
-
-  const lines = diffOutput.split('\n');
-  let currentFile = '';
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.startsWith('diff --git ')) {
-      const match = line.match(/diff --git a\/(.+) b\/(.+)/);
-      if (match) {
-        currentFile = match[2];
-      } else {
-        currentFile = '';
-      }
-    }
-    if (line.startsWith('deleted file mode')) {
-      if (currentFile && !changes.deleted.includes(currentFile)) {
-        changes.deleted.push(currentFile);
-      }
-      currentFile = '';
-      continue;
-    }
-    if (line.startsWith('new file mode')) {
-      if (currentFile && !changes.added.includes(currentFile)) {
-        changes.added.push(currentFile);
-      }
-      continue;
-    }
-    if (line.startsWith('index ') && currentFile) {
-      if (!changes.added.includes(currentFile) && !changes.deleted.includes(currentFile)) {
-        if (!changes.modified.includes(currentFile)) {
-          changes.modified.push(currentFile);
-        }
-      }
-    }
-  }
-
-  return changes;
-}
-
 function GitHistoryComponent({
   commits,
   currentProject,
-  currentProjectId,
+  rootPath,
+  project,
   currentBranch,
   hasMore,
   isLoadingMore,
@@ -363,17 +62,11 @@ function GitHistoryComponent({
   const svgRef = useRef<SVGSVGElement>(null);
 
   const gitCommands = useMemo(
-    () =>
-      currentProject && currentProjectId
-        ? terminalCommandRegistry.getGitCommands(currentProject, currentProjectId)
-        : null,
-    [currentProject, currentProjectId]
+    () => (currentProject && rootPath ? terminalCommandRegistry.getGitCommands(rootPath) : null),
+    [currentProject, rootPath]
   );
 
-  const { handleCommitsDiff, handleDiffAllFilesClick } = useDiffTabHandlers({
-    name: currentProject,
-    id: currentProjectId,
-  });
+  const { handleCommitsDiff, handleDiffAllFilesClick } = useDiffTabHandlers(project);
 
   const { colors } = useTheme();
 

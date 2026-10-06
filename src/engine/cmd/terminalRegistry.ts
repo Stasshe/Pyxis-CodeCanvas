@@ -1,4 +1,4 @@
-import type { fileRepository } from '@/engine/core/fileRepository';
+import type { FsApi } from '@/engine/core/fs';
 import { GitCommands } from './global/git';
 import type { NpmCommands } from './global/npm';
 import { UnixCommands } from './global/unix';
@@ -24,11 +24,11 @@ class TerminalCommandRegistry {
   private projects = new Map<string, ProjectEntry>();
   private npmCommandsModulePromise: Promise<typeof import('./global/npm')> | null = null;
 
-  private getOrCreateEntry(projectId: string): ProjectEntry {
-    let entry = this.projects.get(projectId);
+  private getOrCreateEntry(rootPath: string): ProjectEntry {
+    let entry = this.projects.get(rootPath);
     if (!entry) {
       entry = { createdAt: Date.now() } as ProjectEntry;
-      this.projects.set(projectId, entry);
+      this.projects.set(rootPath, entry);
     }
     return entry;
   }
@@ -36,8 +36,8 @@ class TerminalCommandRegistry {
   /**
    * Register a TerminalUI instance for a project and propagate it to existing command instances
    */
-  setTerminalUI(projectId: string, ui: TerminalUI): void {
-    const entry = this.getOrCreateEntry(projectId);
+  setTerminalUI(rootPath: string, ui: TerminalUI): void {
+    const entry = this.getOrCreateEntry(rootPath);
     entry.terminalUI = ui;
 
     // Propagate to existing instances immediately
@@ -49,24 +49,24 @@ class TerminalCommandRegistry {
   /**
    * Retrieve the TerminalUI instance for a project (may be undefined)
    */
-  getTerminalUI(projectId: string): TerminalUI | undefined {
-    return this.projects.get(projectId)?.terminalUI;
+  getTerminalUI(rootPath: string): TerminalUI | undefined {
+    return this.projects.get(rootPath)?.terminalUI;
   }
 
-  getUnixCommands(projectName: string, projectId: string): UnixCommands {
-    const entry = this.getOrCreateEntry(projectId);
+  getUnixCommands(rootPath: string): UnixCommands {
+    const entry = this.getOrCreateEntry(rootPath);
     if (!entry.unix) {
       // Construct UnixCommands using the existing constructor signature
-      entry.unix = new UnixCommands(projectName, projectId);
+      entry.unix = new UnixCommands(rootPath);
       if (entry.terminalUI) entry.unix.setTerminalUI(entry.terminalUI);
     }
     return entry.unix!;
   }
 
-  getGitCommands(projectName: string, projectId: string): GitCommands {
-    const entry = this.getOrCreateEntry(projectId);
+  getGitCommands(rootPath: string): GitCommands {
+    const entry = this.getOrCreateEntry(rootPath);
     if (!entry.git) {
-      entry.git = new GitCommands(projectName, projectId);
+      entry.git = new GitCommands(rootPath);
       if (entry.terminalUI) entry.git.setTerminalUI(entry.terminalUI);
     }
     return entry.git!;
@@ -80,11 +80,11 @@ class TerminalCommandRegistry {
     return this.npmCommandsModulePromise;
   }
 
-  async getNpmCommands(projectName: string, projectId: string): Promise<NpmCommands> {
-    const entry = this.getOrCreateEntry(projectId);
+  async getNpmCommands(rootPath: string): Promise<NpmCommands> {
+    const entry = this.getOrCreateEntry(rootPath);
     if (!entry.npm) {
       const { NpmCommands } = await this.loadNpmCommandsModule();
-      entry.npm = new NpmCommands(projectName, projectId);
+      entry.npm = new NpmCommands(rootPath);
       if (entry.terminalUI) entry.npm.setTerminalUI(entry.terminalUI);
     }
     return entry.npm!;
@@ -92,45 +92,39 @@ class TerminalCommandRegistry {
 
   // Return or lazily construct a StreamShell instance for the project.
   async getShell(
-    projectName: string,
-    projectId: string,
+    rootPath: string,
     opts?: {
       unix?: UnixCommands;
       commandRegistry?: unknown;
-      fileRepository?: typeof fileRepository;
+      fsClient?: FsApi;
       terminalColumns?: number;
       terminalRows?: number;
+      env?: Record<string, string>;
     }
-  ) {
-    const entry = this.getOrCreateEntry(projectId);
+  ): Promise<StreamShell> {
+    const entry = this.getOrCreateEntry(rootPath);
     if (entry.shell) return entry.shell;
-    try {
-      const { default: StreamShell } = await import('./shell/streamShell');
-      // prefer provided unix from opts, otherwise use registry's unix commands
-      const unix = opts?.unix ? opts.unix : this.getUnixCommands(projectName, projectId);
-      const commandRegistry = opts?.commandRegistry ? opts.commandRegistry : undefined;
-      entry.shell = new StreamShell({
-        projectName,
-        projectId,
-        unix,
-        commandRegistry,
-        fileRepository: opts?.fileRepository,
-        terminalColumns: opts?.terminalColumns,
-        terminalRows: opts?.terminalRows,
-        terminalUI: entry.terminalUI,
-      });
-      return entry.shell;
-    } catch (e) {
-      console.error('[terminalRegistry] failed to construct StreamShell', e);
-      return null;
-    }
+    const { default: StreamShell } = await import('./shell/streamShell');
+    const unix = opts?.unix ? opts.unix : this.getUnixCommands(rootPath);
+    const commandRegistry = opts?.commandRegistry ? opts.commandRegistry : undefined;
+    entry.shell = new StreamShell({
+      rootPath,
+      unix,
+      fsClient: opts?.fsClient,
+      commandRegistry,
+      terminalColumns: opts?.terminalColumns,
+      terminalRows: opts?.terminalRows,
+      env: opts?.env,
+      terminalUI: entry.terminalUI,
+    });
+    return entry.shell;
   }
 
   /**
    * Update terminal size for a project's shell
    */
-  updateShellSize(projectId: string, columns: number, rows: number): void {
-    const entry = this.projects.get(projectId);
+  updateShellSize(rootPath: string, columns: number, rows: number): void {
+    const entry = this.projects.get(rootPath);
     if (entry?.shell) {
       entry.shell.setTerminalSize(columns, rows);
     }
@@ -139,8 +133,8 @@ class TerminalCommandRegistry {
   /**
    * Dispose and remove all command instances for a project
    */
-  async disposeProject(projectId: string): Promise<void> {
-    const entry = this.projects.get(projectId);
+  async disposeProject(rootPath: string): Promise<void> {
+    const entry = this.projects.get(rootPath);
     if (!entry) return;
 
     // Call dispose if provided on each command
@@ -166,7 +160,7 @@ class TerminalCommandRegistry {
       console.warn('[terminalRegistry] dispose npm failed', e);
     }
 
-    this.projects.delete(projectId);
+    this.projects.delete(rootPath);
   }
 
   /**

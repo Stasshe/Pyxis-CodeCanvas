@@ -1,6 +1,8 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { resolvePath } from '@/engine/core/fs';
+import { NPM_CACHE_PATH } from '@/engine/core/fs/layout';
+import type { FsApi } from '@/engine/core/fs/types';
 import { ensureGitignoreContains } from '@/engine/core/gitignore';
-import { transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
+import { transpileManager } from '@/engine/runtime/transpiler/transpileManager';
 
 import { BatchFileWriter } from './install/batchWriter';
 import {
@@ -8,28 +10,51 @@ import {
   findOrphanedPackages,
   getRootDependencies,
 } from './install/dependencyGraph';
+import { type NpmFile, NpmFiles } from './install/fsFiles';
 import { TarExtractor } from './install/tarExtractor';
 import type { ExtractedFileMap, InstallProgressCallback, PackageInfo } from './install/types';
 import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
 
 export type { InstallProgressCallback };
 
+interface InstalledPackage {
+  name?: string;
+  version?: string;
+  dependencies?: Record<string, string>;
+  bin?: string | Record<string, string>;
+}
+
+interface RegistryPackage {
+  name?: string;
+  'dist-tags'?: { latest?: string };
+  versions: Record<string, RegistryVersion>;
+}
+
+interface RegistryVersion {
+  dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  dist?: { tarball?: string };
+}
+
 export class NpmInstall {
-  private projectId: string;
+  private rootPath: string;
   private writer: BatchFileWriter;
+  private files: NpmFiles;
   private extractor = new TarExtractor();
   private onInstallProgress?: InstallProgressCallback;
-  private installedPackages: Map<string, string> = new Map();
   private installingPackages: Set<string> = new Set();
 
-  constructor(projectId: string, skipLoadingInstalledPackages = false) {
-    this.projectId = projectId;
-    this.writer = new BatchFileWriter(projectId);
-    if (!skipLoadingInstalledPackages) {
-      this.loadInstalledPackages().catch(err => {
-        console.warn('[npm.constructor] Failed to load installed packages:', err.message);
-      });
-    }
+  constructor(
+    rootPath: string,
+    private readonly fs: FsApi
+  ) {
+    this.rootPath = rootPath;
+    this.files = new NpmFiles(fs);
+    this.writer = new BatchFileWriter(fs);
+  }
+
+  private path(path: string): string {
+    return resolvePath(this.rootPath, path);
   }
 
   setInstallProgressCallback(callback: InstallProgressCallback): void {
@@ -44,46 +69,19 @@ export class NpmInstall {
     await this.writer.finish();
   }
 
-  private async loadInstalledPackages(snapshotFiles?: Array<any>): Promise<void> {
-    try {
-      const files =
-        snapshotFiles ?? (await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
-      for (const f of files.filter(
-        (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
-      )) {
-        try {
-          const pj = JSON.parse(f.content);
-          if (pj.name && pj.version) this.installedPackages.set(pj.name, pj.version);
-        } catch {}
-      }
-    } catch (error) {
-      console.warn('[npm.loadInstalledPackages] Error:', error);
-    }
-  }
-
   async removeDirectory(dirPath: string): Promise<void> {
-    const normalized = dirPath.replace(/\/+$/, '');
-    const folder = await fileRepository.getFileByPath(this.projectId, normalized);
-    if (folder) await fileRepository.deleteFile(folder.id);
-
-    const remaining = await fileRepository.getFilesByPrefix(this.projectId, normalized + '/');
-    for (const file of remaining) {
-      try {
-        await fileRepository.deleteFile(file.id);
-      } catch {}
-    }
+    await this.fs.rm(dirPath, { recursive: true, force: true });
   }
 
   async ensureBinsForPackage(packageName: string): Promise<void> {
     try {
-      const pkgFile = await fileRepository.getFileByPath(
-        this.projectId,
-        `/node_modules/${packageName}/package.json`
+      const pkgFile = await this.files.getFile(
+        this.path(`node_modules/${packageName}/package.json`)
       );
       if (!pkgFile?.content) return;
-      let pj: any;
+      let pj: InstalledPackage;
       try {
-        pj = JSON.parse(pkgFile.content);
+        pj = JSON.parse(pkgFile.content) as InstalledPackage;
       } catch {
         return;
       }
@@ -94,7 +92,7 @@ export class NpmInstall {
       else if (typeof binField === 'object' && binField !== null) bins = binField;
       if (Object.keys(bins).length === 0) return;
 
-      await this.writer.execute('/node_modules/.bin', 'folder');
+      await this.writer.execute(this.path('node_modules/.bin'), 'folder');
       for (const [name, relPath] of Object.entries(bins)) {
         try {
           const rel = String(relPath).replace(/^\.\//, '').replace(/^\/+/, '');
@@ -109,16 +107,16 @@ export class NpmInstall {
             '  process.exit(1);',
             '}',
           ].join('\n');
-          await this.writer.execute(`/node_modules/.bin/${name}`, 'file', shim);
+          await this.writer.execute(this.path(`node_modules/.bin/${name}`), 'file', shim);
         } catch {}
       }
     } catch {}
   }
 
   async uninstallWithDependencies(packageName: string): Promise<string[]> {
-    const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
-    const graph = await analyzeDependencies(this.projectId, snapshotFiles);
-    const rootDeps = await getRootDependencies(this.projectId, snapshotFiles);
+    const snapshotFiles = await this.fs.walk(this.path('node_modules')).catch(() => []);
+    const graph = await analyzeDependencies(this.fs, this.rootPath);
+    const rootDeps = await getRootDependencies(this.fs, this.rootPath);
     const orphaned = findOrphanedPackages(packageName, graph, rootDeps);
 
     const toRemove = [packageName, ...orphaned];
@@ -126,25 +124,26 @@ export class NpmInstall {
 
     for (const pkg of toRemove) {
       try {
-        const prefix = `/node_modules/${pkg}/`;
+        const packagePath = this.path(`node_modules/${pkg}`);
         const exists = snapshotFiles.some(
-          (f: any) => f.path === `/node_modules/${pkg}` || f.path.startsWith(prefix)
+          file => file.path === packagePath || file.path.startsWith(`${packagePath}/`)
         );
         if (!exists) continue;
-        await this.removeDirectory(`/node_modules/${pkg}`);
-        await this.writer.execute(`/node_modules/${pkg}`, 'delete');
+        await this.removeDirectory(packagePath);
         removed.push(pkg);
       } catch (error) {
-        console.warn(`[npm.uninstall] Failed to remove ${pkg}:`, (error as Error).message);
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[npm.uninstall] Failed to remove ${pkg}:`, message);
       }
     }
     return removed;
   }
 
   private async fetchPackageInfo(packageName: string, version = 'latest'): Promise<PackageInfo> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      timeoutId = setTimeout(() => controller.abort(), 15000);
       const response = await fetch(`https://registry.npmjs.org/${packageName}`, {
         signal: controller.signal,
         headers: { Accept: 'application/json' },
@@ -156,12 +155,13 @@ export class NpmInstall {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as RegistryPackage;
       if (!data.name || !data['dist-tags']?.latest) {
         throw new Error(`Invalid package data for '${packageName}'`);
       }
 
-      const rawVersion = version === 'latest' ? data['dist-tags'].latest : version;
+      let rawVersion = version;
+      if (version === 'latest') rawVersion = data['dist-tags'].latest ?? '';
       let resolvedKey = rawVersion;
       let versionData = data.versions[rawVersion];
 
@@ -185,27 +185,27 @@ export class NpmInstall {
         tarball: versionData.dist.tarball,
       };
     } catch (error) {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`Request timeout for package '${packageName}'`);
       }
-      throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to fetch package info: ${message}`);
     }
   }
 
   private async isPackageInstalled(
     packageName: string,
     version: string,
-    snapshotFiles?: Array<any>
+    snapshotFiles?: NpmFile[]
   ): Promise<boolean> {
     try {
-      const pkgFile = snapshotFiles
-        ? snapshotFiles.find((f: any) => f.path === `/node_modules/${packageName}/package.json`)
-        : await fileRepository.getFileByPath(
-            this.projectId,
-            `/node_modules/${packageName}/package.json`
-          );
+      const pkgPath = `node_modules/${packageName}/package.json`;
+      let pkgFile: NpmFile | undefined;
+      if (snapshotFiles) pkgFile = snapshotFiles.find(file => file.path === this.path(pkgPath));
+      else pkgFile = await this.files.getFile(this.path(pkgPath));
       if (!pkgFile) return false;
-      const pj = JSON.parse(pkgFile.content);
+      const pj = JSON.parse(pkgFile.content) as InstalledPackage;
       if (pj.version !== version) return false;
       return this.areDependenciesInstalled(pj.dependencies || {}, snapshotFiles);
     } catch {
@@ -215,19 +215,19 @@ export class NpmInstall {
 
   private async areDependenciesInstalled(
     dependencies: Record<string, string>,
-    snapshotFiles?: Array<any>
+    snapshotFiles?: NpmFile[]
   ): Promise<boolean> {
     for (const [depName, depSpec] of Object.entries(dependencies)) {
-      const depFile = snapshotFiles
-        ? snapshotFiles.find((f: any) => f.path === `/node_modules/${depName}/package.json`)
-        : await fileRepository.getFileByPath(
-            this.projectId,
-            `/node_modules/${depName}/package.json`
-          );
+      const depPath = `node_modules/${depName}/package.json`;
+      let depFile: NpmFile | undefined;
+      if (snapshotFiles) depFile = snapshotFiles.find(file => file.path === this.path(depPath));
+      else depFile = await this.files.getFile(this.path(depPath));
       if (!depFile) return false;
       try {
-        const depPackageJson = JSON.parse(depFile.content);
-        if (!satisfiesVersionSpec(depPackageJson.version, depSpec)) return false;
+        const depPackageJson = JSON.parse(depFile.content) as InstalledPackage;
+        if (!depPackageJson.version || !satisfiesVersionSpec(depPackageJson.version, depSpec)) {
+          return false;
+        }
       } catch {
         return false;
       }
@@ -249,21 +249,20 @@ export class NpmInstall {
 
     if (this.installingPackages.has(packageKey)) return;
 
-    const nodeFiles = await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
-    const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-    const gitignoreFile = await fileRepository.getFileByPath(this.projectId, '/.gitignore');
-    const snapshotFiles = [packageFile, gitignoreFile, ...(nodeFiles || [])].filter(Boolean as any);
+    const snapshotFiles = await this.files
+      .getPackageFiles(this.path('node_modules'))
+      .catch(() => []);
+    const gitignoreFile = await this.files.getFile(this.path('.gitignore'));
 
     // .gitignore に node_modules を追加
     try {
-      const gitignoreEntry = snapshotFiles.find((f: any) => f?.path === '/.gitignore');
       const entry = options?.ignoreEntry ?? 'node_modules';
       const { content: newContent, changed } = ensureGitignoreContains(
-        gitignoreEntry?.content,
+        gitignoreFile?.content,
         entry
       );
       if (changed) {
-        await fileRepository.createFile(this.projectId, '/.gitignore', newContent, 'file');
+        await this.files.write(this.path('.gitignore'), newContent);
       }
     } catch {}
 
@@ -271,7 +270,6 @@ export class NpmInstall {
       this.isConcreteVersion(version) &&
       (await this.isPackageInstalled(packageName, version, snapshotFiles))
     ) {
-      this.installedPackages.set(packageName, version);
       return;
     }
 
@@ -280,7 +278,6 @@ export class NpmInstall {
 
       const pkgInfo = await this.fetchPackageInfo(packageName, version);
       if (await this.isPackageInstalled(packageName, pkgInfo.version, snapshotFiles)) {
-        this.installedPackages.set(packageName, pkgInfo.version);
         return;
       }
 
@@ -309,17 +306,14 @@ export class NpmInstall {
             try {
               await this.installWithDependencies(depName, depVer, { isDirect: false });
             } catch (error) {
-              console.warn(
-                `[npm] Skipping optional dep ${depName}@${depVer}:`,
-                (error as Error).message
-              );
+              const message = error instanceof Error ? error.message : String(error);
+              console.warn(`[npm] Skipping optional dep ${depName}@${depVer}:`, message);
             }
           })
         );
       }
 
       await this.downloadAndInstallPackage(packageName, pkgInfo.version, pkgInfo.tarball);
-      this.installedPackages.set(packageName, pkgInfo.version);
     } catch (error) {
       console.error(`[npm] Failed to install ${packageKey}:`, error);
       throw error;
@@ -336,123 +330,117 @@ export class NpmInstall {
     try {
       const tgzUrl =
         tarballUrl ?? `https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`;
-
-      let tarballResponse: Response;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-        tarballResponse = await fetch(tgzUrl, {
-          signal: controller.signal,
-          headers: { Accept: 'application/octet-stream' },
-        });
-        clearTimeout(timeoutId);
-        if (!tarballResponse.ok) {
-          if (tarballResponse.status === 404)
-            throw new Error(`Package '${packageName}@${version}' not found`);
-          throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error(`Download timeout for ${packageName}@${version}`);
-        }
-        throw new Error(`Failed to download: ${(error as Error).message}`);
+      const cachePath = await this.getTarballCachePath(tgzUrl);
+      const cached = await this.fs.exists(cachePath);
+      let tarballData: Uint8Array;
+      if (cached) {
+        tarballData = await this.fs.readFile(cachePath);
+      } else {
+        tarballData = await this.downloadTarball(tgzUrl, packageName, version);
       }
-
-      const packageDir = `/node_modules/${packageName}`;
+      const packageDir = this.path(`node_modules/${packageName}`);
       let extractedFiles: ExtractedFileMap;
       try {
-        if (tarballResponse.body && typeof ReadableStream !== 'undefined') {
+        if (typeof ReadableStream !== 'undefined') {
+          const tarballBuffer = new ArrayBuffer(tarballData.byteLength);
+          const tarballChunk = new Uint8Array(tarballBuffer);
+          tarballChunk.set(tarballData);
+          const compressedStream = new ReadableStream<Uint8Array<ArrayBuffer>>({
+            start: controller => {
+              controller.enqueue(tarballChunk);
+              controller.close();
+            },
+          });
           let decompressedStream: ReadableStream<Uint8Array>;
-          if ((globalThis as any).DecompressionStream) {
+          if (typeof DecompressionStream !== 'undefined') {
             try {
-              decompressedStream = tarballResponse.body.pipeThrough(
-                new (globalThis as any).DecompressionStream('gzip')
-              );
+              decompressedStream = compressedStream.pipeThrough(new DecompressionStream('gzip'));
             } catch {
-              decompressedStream = this.extractor.createPakoDecompressedStream(
-                tarballResponse.body
-              );
+              decompressedStream = this.extractor.createPakoDecompressedStream(compressedStream);
             }
           } else {
-            decompressedStream = this.extractor.createPakoDecompressedStream(tarballResponse.body);
+            decompressedStream = this.extractor.createPakoDecompressedStream(compressedStream);
           }
           extractedFiles = await this.extractor.extractFromStream(packageDir, decompressedStream);
         } else {
-          extractedFiles = await this.extractor.extractFromBuffer(
-            packageDir,
-            await tarballResponse.arrayBuffer()
-          );
+          const tarballBuffer = new ArrayBuffer(tarballData.byteLength);
+          new Uint8Array(tarballBuffer).set(tarballData);
+          extractedFiles = await this.extractor.extractFromBuffer(packageDir, tarballBuffer);
         }
       } catch (error) {
-        try {
-          await this.removeDirectory(packageDir);
-        } catch {}
-        throw new Error(`Failed to extract package: ${(error as Error).message}`);
+        if (cached) await this.fs.rm(cachePath, { recursive: false, force: true });
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to extract package: ${message}`);
+      }
+      if (!cached) {
+        await this.fs.mkdir(NPM_CACHE_PATH, { recursive: true });
+        await this.fs.writeFile(cachePath, tarballData);
       }
 
-      try {
-        await this.writer.execute(packageDir, 'folder');
+      await this.writer.execute(packageDir, 'folder');
+      const foldersToCreate: string[] = [];
+      const filesToCreate: Array<{ path: string; content: string | Uint8Array }> = [];
 
-        const foldersToCreate: string[] = [];
-        const filesToCreate: Array<{
-          projectId: string;
-          path: string;
-          content: string;
-          type: string;
-        }> = [];
-
-        for (const [relPath, fileInfo] of extractedFiles) {
-          const fullPath = `${packageDir}/${relPath}`;
-          if (fileInfo.isDirectory) {
-            foldersToCreate.push(fullPath);
-          } else {
-            let content = fileInfo.content || '';
-            if (fullPath.endsWith('.mjs') && content) {
-              content = await transformEsmToCjs(content, fullPath);
-            }
-            filesToCreate.push({
-              projectId: this.projectId,
-              path: fullPath,
-              content,
-              type: 'file',
-            });
-          }
-        }
-
-        if (this.writer.isBatchActive) {
-          await Promise.all(foldersToCreate.map(p => this.writer.execute(p, 'folder')));
-          for (const f of filesToCreate) this.writer.enqueueFile(f.path, f.content);
+      for (const [relPath, fileInfo] of extractedFiles) {
+        const fullPath = `${packageDir}/${relPath}`;
+        if (fileInfo.isDirectory) {
+          foldersToCreate.push(fullPath);
         } else {
-          await Promise.all(
-            foldersToCreate.map(p =>
-              fileRepository.createFile(this.projectId, p, '', 'folder').catch(err => {
-                console.warn(`[npm] Failed to create folder ${p}:`, err);
-              })
-            )
-          );
-          const BATCH_SIZE = 500;
-          for (let i = 0; i < filesToCreate.length; i += BATCH_SIZE) {
-            const batch = filesToCreate.slice(i, i + BATCH_SIZE);
-            try {
-              await fileRepository.createFilesBulk(this.projectId, batch as any, true);
-            } catch {
-              await Promise.all(
-                batch.map(b =>
-                  fileRepository
-                    .createFile(this.projectId, b.path, b.content, 'file')
-                    .catch(() => {})
-                )
-              );
-            }
+          let content = fileInfo.content ?? '';
+          if (fullPath.endsWith('.mjs') && typeof content === 'string' && content) {
+            const result = await transpileManager.transpile({
+              code: content,
+              filePath: fullPath,
+              isESModule: true,
+            });
+            content = result.code;
           }
+          filesToCreate.push({ path: fullPath, content });
         }
-      } catch (error) {
-        console.warn(`[npm] Failed to sync to IndexedDB:`, (error as Error).message);
       }
+      for (const path of foldersToCreate) await this.writer.execute(path, 'folder');
+      for (const file of filesToCreate) this.writer.enqueueFile(file.path, file.content);
     } catch (error) {
-      throw new Error(
-        `Installation failed for ${packageName}@${version}: ${(error as Error).message}`
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Installation failed for ${packageName}@${version}: ${message}`);
     }
+  }
+
+  private async downloadTarball(
+    url: string,
+    packageName: string,
+    version: string
+  ): Promise<Uint8Array> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { Accept: 'application/octet-stream' },
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Package '${packageName}@${version}' not found`);
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Download timeout for ${packageName}@${version}`);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to download: ${message}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private async getTarballCachePath(url: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
+    const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(
+      ''
+    );
+    return resolvePath(NPM_CACHE_PATH, `${key}.tgz`);
   }
 }

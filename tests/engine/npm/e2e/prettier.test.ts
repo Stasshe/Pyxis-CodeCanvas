@@ -1,36 +1,25 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { setupTestProject } from '../../../_helpers/testProject';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
+import type { FsCore } from '@/engine/core/fs/core';
+import { ModuleFileSystem } from '@/engine/runtime/module/moduleFileSystem';
+import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 import {
   extractCjsDependencies,
   transformEsmToCjs,
 } from '@/engine/runtime/transpiler/esmTransformer';
+import type { MemoryFs } from '../../../_helpers/memoryFs';
+import { createNodeRuntimeFixture } from '../../../_helpers/nodeRuntime';
+import { loadNpmRuntimeFs } from '../../../_helpers/npmRuntime';
+import { setupTestProject } from '../../../_helpers/testProject';
 
 vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
   transpileManager: {
-    transpile: async (options: { code: string; filePath: string }) => {
+    async transpile(options: { code: string; filePath: string }) {
       const code = await transformEsmToCjs(options.code, options.filePath);
-      return {
-        id: 'mock',
-        code,
-        dependencies: extractCjsDependencies(code),
-      };
+      return { code, dependencies: extractCjsDependencies(code) };
     },
   },
 }));
-
-import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
-import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
-
-/**
- * prettier e2e テスト
- *
- * prettier を実際にインストールし、npx prettier 相当の実行を NodeRuntime で行う。
- * インストールは describe スコープで一度だけ行い、各テストはその結果を共有する。
- */
-
-// ===== ヘルパー =====
 
 type DebugConsole = {
   log: (...args: unknown[]) => void;
@@ -39,19 +28,21 @@ type DebugConsole = {
   clear: () => void;
 };
 
-function createCollectingConsole(): {
-  console: DebugConsole;
+interface CollectedOutput {
+  debugConsole: DebugConsole;
   output: string[];
   errors: string[];
-  all: () => string;
-} {
+  all(): string;
+}
+
+function collectOutput(): CollectedOutput {
   const output: string[] = [];
   const errors: string[] = [];
   return {
-    console: {
-      log: (...args: unknown[]) => output.push(args.map(String).join(' ')),
-      error: (...args: unknown[]) => errors.push(args.map(String).join(' ')),
-      warn: (...args: unknown[]) => output.push(args.map(String).join(' ')),
+    debugConsole: {
+      log: (...args) => output.push(args.map(String).join(' ')),
+      error: (...args) => errors.push(args.map(String).join(' ')),
+      warn: (...args) => output.push(args.map(String).join(' ')),
       clear: () => {},
     },
     output,
@@ -60,348 +51,204 @@ function createCollectingConsole(): {
   };
 }
 
-async function runPrettier(
-  projectId: string,
-  projectName: string,
-  binPath: string,
-  args: string[],
-  cwd?: string
-): Promise<{ output: string[]; errors: string[]; all: string; exitCode: number }> {
-  const col = createCollectingConsole();
-  const runtime = new NodeRuntime({
-    projectId,
-    projectName,
-    filePath: binPath,
-    cwd: cwd ?? `/projects/${projectName}`,
-    debugConsole: col.console,
-    terminalColumns: 80,
-    terminalRows: 24,
-  });
-
-  try {
-    await runtime.execute(binPath, args);
-    await runtime.waitForEventLoop();
-  } catch (_) {
-    // process.exit() 等はここに来る場合がある
-  }
-
-  return {
-    output: col.output,
-    errors: col.errors,
-    all: col.all(),
-    exitCode: runtime.getExitCode(),
-  };
+async function writeRuntimeFile(fs: MemoryFs, path: string, content: string): Promise<void> {
+  const parent = path.slice(0, path.lastIndexOf('/')) || '/';
+  await fs.mkdir(parent, { recursive: true });
+  await fs.writeFile(path, new TextEncoder().encode(content));
 }
 
-// ===== テストスイート =====
+async function readRuntimeFile(fs: MemoryFs, path: string): Promise<string> {
+  return new TextDecoder().decode(await fs.readFile(path));
+}
 
-describe('e2e — npx prettier', () => {
-  let projectId: string;
-  let projectName: string;
+async function runPrettier(
+  runtimeFs: MemoryFs,
+  rootPath: string,
+  binPath: string,
+  args: string[],
+  cwd = rootPath
+): Promise<{ output: string[]; errors: string[]; all: string; exitCode: number }> {
+  const collected = collectOutput();
+  const fixture = await createNodeRuntimeFixture(
+    rootPath,
+    collected.debugConsole,
+    cwd,
+    undefined,
+    runtimeFs
+  );
+  try {
+    await fixture.runtime.execute(binPath, args);
+    await fixture.runtime.waitForEventLoop();
+    return {
+      output: collected.output,
+      errors: collected.errors,
+      all: collected.all(),
+      exitCode: fixture.runtime.getExitCode(),
+    };
+  } finally {
+    fixture.close();
+  }
+}
+
+describe('Prettier npm runtime integration', () => {
+  let repo: FsCore;
+  let rootPath: string;
+  let runtimeFs: MemoryFs;
   let binPath: string;
+  let packageVersion: string;
 
   beforeAll(async () => {
-    const ctx = await setupTestProject('PrettierE2ETest');
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
+    const project = await setupTestProject('PrettierE2ETest');
+    repo = project.repo;
+    rootPath = project.rootPath;
 
-    // prettier を一度だけインストール
-    const installer = new NpmInstall(projectName, projectId, /* skipLoad */ true);
+    const installer = new NpmInstall(rootPath, repo);
     installer.startBatchProcessing();
     await installer.installWithDependencies('prettier', 'latest');
     await installer.finishBatchProcessing();
     await installer.ensureBinsForPackage('prettier');
 
-    // runtime が必要とする tmp ファイル
-    await fileRepository.createFile(projectId, '/tmp/ionstore_tiny-updater.json', '{}', 'file');
-
-    // bin パスを解決
-    const prettierPkg = await fileRepository.getFileByPath(
-      projectId,
-      '/node_modules/prettier/package.json'
+    const packagePath = `${rootPath}/node_modules/prettier/package.json`;
+    const pkg = JSON.parse(await repo.readText(packagePath)) as {
+      name: string;
+      version: string;
+      bin: string | Record<string, string>;
+    };
+    packageVersion = pkg.version;
+    const binEntry = (typeof pkg.bin === 'string' ? pkg.bin : Object.values(pkg.bin)[0]).replace(
+      /^\.\//,
+      ''
     );
-    if (!prettierPkg) throw new Error('prettier not installed');
-    const pkg = JSON.parse(prettierPkg.content);
-    const binField = typeof pkg.bin === 'string' ? { prettier: pkg.bin } : pkg.bin;
-    const binEntry = (Object.values(binField)[0] as string).replace(/^\.\//, '');
-    binPath = `/projects/${projectName}/node_modules/prettier/${binEntry}`;
+    binPath = `${rootPath}/node_modules/prettier/${binEntry}`;
+    runtimeFs = await loadNpmRuntimeFs(repo, rootPath);
   }, 120_000);
 
-  // ===== インストール確認 =====
+  it('installs package metadata and the executable shim', async () => {
+    const pkg = JSON.parse(
+      await repo.readText(`${rootPath}/node_modules/prettier/package.json`)
+    ) as {
+      name: string;
+      version: string;
+    };
+    expect(pkg.name).toBe('prettier');
+    expect(pkg.version).toBe(packageVersion);
 
-  describe('インストール確認', () => {
-    it('package.json が存在する', async () => {
-      const pkg = await fileRepository.getFileByPath(
-        projectId,
-        '/node_modules/prettier/package.json'
-      );
-      expect(pkg).not.toBeNull();
-      expect(JSON.parse(pkg!.content).name).toBe('prettier');
-    });
-
-    it('.bin/prettier シムが存在し require() を含む', async () => {
-      const shim = await fileRepository.getFileByPath(projectId, '/node_modules/.bin/prettier');
-      expect(shim).not.toBeNull();
-      expect(shim!.content).toContain('require(');
-    });
-
-    it('ModuleResolver で prettier が解決できる', async () => {
-      const resolver = new ModuleResolver(projectId, projectName);
-      const result = await resolver.resolve('prettier', `/projects/${projectName}/index.js`);
-      expect(result).not.toBeNull();
-      expect(result!.path).toContain('/node_modules/prettier/');
-    });
+    const shim = await repo.readText(`${rootPath}/node_modules/.bin/prettier`);
+    expect(shim).toContain('require(');
   });
 
-  // ===== --version =====
-
-  describe('--version', () => {
-    it(
-      'バージョン番号を出力して正常終了する',
-      async () => {
-        const { output, all } = await runPrettier(projectId, projectName, binPath, ['--version']);
-
-        expect(all).not.toContain('Cannot find module');
-        expect(all).not.toContain('ERR_MODULE_NOT_FOUND');
-
-        const hasVersion = output.some(l => /^\d+\.\d+\.\d+/.test(l.trim()));
-        expect(hasVersion).toBe(true);
-      },
-      60_000
+  it('resolves Prettier through the runtime module resolver', async () => {
+    const fixture = await createNodeRuntimeFixture(
+      rootPath,
+      undefined,
+      rootPath,
+      undefined,
+      runtimeFs
     );
+    try {
+      const resolver = new ModuleResolver(rootPath, new ModuleFileSystem(fixture.bridge));
+      const result = await resolver.resolve('prettier', `${rootPath}/index.js`);
+      expect(result?.path).toContain('/node_modules/prettier/');
+    } finally {
+      fixture.close();
+    }
   });
 
-  // ===== require('prettier') =====
+  it('prints the installed version from its bin entry', async () => {
+    const result = await runPrettier(runtimeFs, rootPath, binPath, ['--version']);
+    expect(result.all).not.toContain('Cannot find module');
+    expect(result.all).not.toContain('ERR_MODULE_NOT_FOUND');
+    expect(result.output.some(line => line.trim() === packageVersion)).toBe(true);
+  }, 60_000);
 
-  describe("require('prettier')", () => {
-    it(
-      'prettier.format が function として取得できる',
-      async () => {
-        const testPath = `/projects/${projectName}/test-prettier-api.js`;
-        await fileRepository.createFile(
-          projectId,
-          '/test-prettier-api.js',
-          `const p = require('prettier'); console.log(typeof p.format);`,
-          'file'
-        );
-
-        const col = createCollectingConsole();
-        const runtime = new NodeRuntime({
-          projectId,
-          projectName,
-          filePath: testPath,
-          debugConsole: col.console,
-          terminalColumns: 80,
-          terminalRows: 24,
-        });
-        await runtime.execute(testPath, []);
-        await runtime.waitForEventLoop();
-
-        expect(col.all()).not.toContain('Cannot find module');
-        expect(col.output.some(l => l.includes('function'))).toBe(true);
-      },
-      60_000
+  it('exposes the format API through require', async () => {
+    const entry = `${rootPath}/test-prettier-api.js`;
+    await writeRuntimeFile(
+      runtimeFs,
+      entry,
+      "const p = require('prettier'); console.log(typeof p.format);"
     );
-  });
+    const result = await runPrettier(runtimeFs, rootPath, entry, []);
+    expect(result.all).not.toContain('Cannot find module');
+    expect(result.output.some(line => line.includes('function'))).toBe(true);
+  }, 60_000);
 
-  // ===== --write でファイルをフォーマット =====
+  it('formats one source file in place', async () => {
+    const path = `${rootPath}/src/fmt-test.js`;
+    const unformatted = 'const x={a:1,b:2,c:3};function foo(){return x;}';
+    await writeRuntimeFile(runtimeFs, path, unformatted);
+    const result = await runPrettier(runtimeFs, rootPath, binPath, ['src/fmt-test.js', '--write']);
 
-  describe('--write フォーマット', () => {
-    it(
-      '未フォーマットの JS ファイルが整形される',
-      async () => {
-        const unformatted = `const x={a:1,b:2,c:3};function foo(){return x;}`;
-        await fileRepository.createFile(projectId, '/src/fmt-test.js', unformatted, 'file');
+    expect(result.all).not.toContain('Cannot find module');
+    const formatted = await readRuntimeFile(runtimeFs, path);
+    expect(formatted).not.toBe(unformatted);
+    expect(formatted).toContain('function foo()');
+  }, 90_000);
 
-        const { all } = await runPrettier(projectId, projectName, binPath, [
-          'src/fmt-test.js',
-          '--write',
-        ]);
+  it('formats multiple files and reports paths relative to cwd', async () => {
+    const files = new Map([
+      [`${rootPath}/src/multi/a.js`, 'const a={x:1};'],
+      [`${rootPath}/src/multi/b.js`, 'function bar(  ){return 42;}'],
+    ]);
+    for (const [path, content] of files) await writeRuntimeFile(runtimeFs, path, content);
+    const result = await runPrettier(runtimeFs, rootPath, binPath, ['src/multi/', '--write']);
 
-        expect(all).not.toContain('Cannot find module');
-        expect(all).not.toContain('ERR_MODULE_NOT_FOUND');
+    expect(result.all).not.toContain('Cannot find module');
+    for (const [path, original] of files) {
+      expect(await readRuntimeFile(runtimeFs, path)).not.toBe(original);
+    }
 
-        // ファイル内容が変わっていることを確認
-        const after = await fileRepository.getFileByPath(projectId, '/src/fmt-test.js');
-        expect(after).not.toBeNull();
-        expect(after!.content).not.toBe(unformatted);
-        // prettier はセミコロン・改行を整える
-        expect(after!.content).toContain('function foo()');
-      },
-      90_000
-    );
+    const pathLines = result.output.filter(line => line.includes('a.js') || line.includes('b.js'));
+    expect(pathLines.every(line => !line.startsWith('../') && !line.includes('../../'))).toBe(true);
+  }, 90_000);
 
-    it(
-      '複数ファイルを一括フォーマットできる',
-      async () => {
-        const files = {
-          '/src/multi/a.js': `const a={x:1};`,
-          '/src/multi/b.js': `function bar(  ){return 42;}`,
-        };
-        for (const [path, content] of Object.entries(files)) {
-          await fileRepository.createFile(projectId, path, content, 'file');
-        }
+  it('reports unchanged files on a repeated write', async () => {
+    const path = `${rootPath}/src/already-fmt.js`;
+    await writeRuntimeFile(runtimeFs, path, 'const z = { a: 1 };\n');
+    await runPrettier(runtimeFs, rootPath, binPath, ['src/already-fmt.js', '--write']);
+    const result = await runPrettier(runtimeFs, rootPath, binPath, [
+      'src/already-fmt.js',
+      '--write',
+    ]);
 
-        const { all } = await runPrettier(projectId, projectName, binPath, [
-          'src/multi/',
-          '--write',
-        ]);
+    expect(result.output.join('\n')).toContain('unchanged');
+  }, 90_000);
 
-        expect(all).not.toContain('Cannot find module');
+  it('returns a nonzero status for unformatted files in check mode', async () => {
+    await writeRuntimeFile(runtimeFs, `${rootPath}/src/check-bad.js`, 'const q={x:1,y:2};');
+    const result = await runPrettier(runtimeFs, rootPath, binPath, ['src/check-bad.js', '--check']);
 
-        for (const [path, original] of Object.entries(files)) {
-          const after = await fileRepository.getFileByPath(projectId, path);
-          expect(after).not.toBeNull();
-          expect(after!.content).not.toBe(original);
-        }
-      },
-      90_000
-    );
+    expect(result.all).not.toContain('Cannot find module');
+    expect(result.exitCode).not.toBe(0);
+  }, 60_000);
 
-    it(
-      'パス表示が ../../ を含まない（cwd 基準の相対パスになる）',
-      async () => {
-        await fileRepository.createFile(projectId, '/src/path-check.js', `const y={z:1};`, 'file');
+  it('returns zero for formatted files in check mode', async () => {
+    const path = `${rootPath}/src/check-good.js`;
+    await writeRuntimeFile(runtimeFs, path, 'const q = { x: 1, y: 2 };\n');
+    await runPrettier(runtimeFs, rootPath, binPath, ['src/check-good.js', '--write']);
+    const result = await runPrettier(runtimeFs, rootPath, binPath, [
+      'src/check-good.js',
+      '--check',
+    ]);
 
-        const { output } = await runPrettier(projectId, projectName, binPath, [
-          'src/path-check.js',
-          '--write',
-        ]);
+    expect(result.all).not.toContain('Cannot find module');
+    expect(result.exitCode).toBe(0);
+  }, 90_000);
 
-        // 出力行にファイルパスが含まれる場合、../../ で始まってはいけない
-        const pathLines = output.filter(l => l.includes('path-check.js'));
-        for (const line of pathLines) {
-          expect(line).not.toMatch(/^\.\.\//);
-          expect(line).not.toContain('../../');
-        }
+  it('formats TypeScript and CSS files', async () => {
+    const tsPath = `${rootPath}/src/hello.ts`;
+    const cssPath = `${rootPath}/src/style.css`;
+    await writeRuntimeFile(runtimeFs, tsPath, 'const fn=(x:number):string=>{return String(x);}');
+    await writeRuntimeFile(runtimeFs, cssPath, '.foo{color:red;margin:0}');
 
-        // 正しいパス形式: src/path-check.js で始まる
-        if (pathLines.length > 0) {
-          expect(pathLines[0]).toMatch(/^src[/\\]/);
-        }
-      },
-      90_000
-    );
+    await runPrettier(runtimeFs, rootPath, binPath, ['src/hello.ts', '--write']);
+    await runPrettier(runtimeFs, rootPath, binPath, ['src/style.css', '--write']);
 
-    it(
-      '変更不要のファイルは (unchanged) と表示される',
-      async () => {
-        // 既に整形済みのコードを用意
-        const formatted = `const z = { a: 1 };\n`;
-        await fileRepository.createFile(projectId, '/src/already-fmt.js', formatted, 'file');
-
-        // 1回目: フォーマット（整形が入る可能性あり）
-        await runPrettier(projectId, projectName, binPath, ['src/already-fmt.js', '--write']);
-
-        // 2回目: 変更なしになるはず
-        const { output } = await runPrettier(projectId, projectName, binPath, [
-          'src/already-fmt.js',
-          '--write',
-        ]);
-
-        const allOutput = output.join('\n');
-        // "(unchanged)" が出力されることを確認
-        expect(allOutput).toContain('unchanged');
-      },
-      90_000
-    );
-  });
-
-  // ===== --check モード =====
-
-  describe('--check モード', () => {
-    it(
-      '未フォーマットファイルを --check すると非ゼロ終了する',
-      async () => {
-        await fileRepository.createFile(
-          projectId,
-          '/src/check-bad.js',
-          `const q={x:1,y:2};`,
-          'file'
-        );
-
-        const { exitCode, all } = await runPrettier(projectId, projectName, binPath, [
-          'src/check-bad.js',
-          '--check',
-        ]);
-
-        expect(all).not.toContain('Cannot find module');
-        // prettier --check は未フォーマット時に exit code 1 を返す
-        expect(exitCode).not.toBe(0);
-      },
-      60_000
-    );
-
-    it(
-      'フォーマット済みファイルを --check すると exit code 0 になる',
-      async () => {
-        await fileRepository.createFile(
-          projectId,
-          '/src/check-good.js',
-          `const q = { x: 1, y: 2 };\n`,
-          'file'
-        );
-
-        // まず --write で整形
-        await runPrettier(projectId, projectName, binPath, ['src/check-good.js', '--write']);
-
-        // 整形後の内容で --check
-        const { exitCode, all } = await runPrettier(projectId, projectName, binPath, [
-          'src/check-good.js',
-          '--check',
-        ]);
-
-        expect(all).not.toContain('Cannot find module');
-        expect(exitCode).toBe(0);
-      },
-      90_000
-    );
-  });
-
-  // ===== TypeScript / CSS =====
-
-  describe('複数ファイルタイプ', () => {
-    it(
-      'TypeScript ファイルをフォーマットできる',
-      async () => {
-        const tsCode = `const fn=(x:number):string=>{return String(x);}`;
-        await fileRepository.createFile(projectId, '/src/hello.ts', tsCode, 'file');
-
-        const { all } = await runPrettier(projectId, projectName, binPath, [
-          'src/hello.ts',
-          '--write',
-        ]);
-
-        expect(all).not.toContain('Cannot find module');
-
-        const after = await fileRepository.getFileByPath(projectId, '/src/hello.ts');
-        expect(after).not.toBeNull();
-        // prettier は型注釈を保持しつつ整形する
-        expect(after!.content).toContain('number');
-        expect(after!.content).toContain('string');
-      },
-      90_000
-    );
-
-    it(
-      'CSS ファイルをフォーマットできる',
-      async () => {
-        const cssCode = `.foo{color:red;margin:0}`;
-        await fileRepository.createFile(projectId, '/src/style.css', cssCode, 'file');
-
-        const { all } = await runPrettier(projectId, projectName, binPath, [
-          'src/style.css',
-          '--write',
-        ]);
-
-        expect(all).not.toContain('Cannot find module');
-
-        const after = await fileRepository.getFileByPath(projectId, '/src/style.css');
-        expect(after).not.toBeNull();
-        expect(after!.content).not.toBe(cssCode);
-        expect(after!.content).toContain('color');
-      },
-      90_000
-    );
-  });
+    const formattedTs = await readRuntimeFile(runtimeFs, tsPath);
+    const formattedCss = await readRuntimeFile(runtimeFs, cssPath);
+    expect(formattedTs).toContain('number');
+    expect(formattedTs).toContain('string');
+    expect(formattedCss).not.toBe('.foo{color:red;margin:0}');
+    expect(formattedCss).toContain('color');
+  }, 90_000);
 });

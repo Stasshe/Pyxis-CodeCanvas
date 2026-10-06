@@ -41,7 +41,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     const loadSettings = async () => {
       setIsLoadingSettings(true);
       try {
-        const loadedSettings = await settingsManager.loadSettings(currentProject.id);
+        const loadedSettings = await settingsManager.loadSettings(currentProject.rootPath);
         setSettings(loadedSettings);
 
         // textarea 用の初期値をセット
@@ -80,7 +80,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     }
 
     // 設定変更リスナーを登録
-    const unsubscribe = settingsManager.addListener(currentProject.id, newSettings => {
+    const unsubscribe = settingsManager.addListener(currentProject.rootPath, newSettings => {
       setSettings(newSettings);
 
       // テーマをまず更新（基礎テーマに戻す）
@@ -109,7 +109,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     return () => {
       unsubscribe();
     };
-  }, [currentProject.id, setColor, setTheme]);
+  }, [currentProject.rootPath, setColor, setTheme]);
 
   // APIキー変更ハンドラ
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,7 +129,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   const updateSettings = async (updates: Partial<PyxisSettings>) => {
     if (!settings) return;
     try {
-      await settingsManager.updateSettings(currentProject.id, updates);
+      await settingsManager.updateSettings(currentProject.rootPath, updates);
     } catch (error) {
       console.error('[SettingsPanel] Failed to update settings:', error);
       alert('設定の保存に失敗しました');

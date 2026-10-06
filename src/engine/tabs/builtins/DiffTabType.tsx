@@ -4,7 +4,6 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useGitContext } from '@/components/Pane/PaneContainer';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
-import { useProjectSnapshot } from '@/stores/projectStore';
 import { useTabContent } from '@/stores/tabContentStore';
 import {
   addSaveListener,
@@ -26,10 +25,7 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
   const { setGitRefreshTrigger } = useGitContext();
 
-  const { currentProject } = useProjectSnapshot();
-  const projectId = currentProject?.id;
-
-  const { settings } = useSettings(projectId);
+  const { settings } = useSettings();
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   // tabContentStoreから最新コンテンツを取得

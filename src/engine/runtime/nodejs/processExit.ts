@@ -4,7 +4,10 @@ export interface ProcessExitSignal {
 }
 
 export function normalizeProcessExitCode(code: unknown): number {
-  const numeric = code === undefined ? 0 : Number(code);
+  let numeric = 0;
+  if (code !== undefined) {
+    numeric = Number(code);
+  }
 
   if (!Number.isFinite(numeric)) {
     return 0;
@@ -21,7 +24,13 @@ export function createProcessExitSignal(code = 0): ProcessExitSignal {
 }
 
 export function isProcessExitSignal(error: unknown): error is ProcessExitSignal {
-  return (
-    !!error && typeof error === 'object' && (error as ProcessExitSignal).__pyxisProcessExit === true
-  );
+  if (error === null || typeof error !== 'object') {
+    return false;
+  }
+
+  if (!('__pyxisProcessExit' in error) || error.__pyxisProcessExit !== true) {
+    return false;
+  }
+
+  return 'code' in error && typeof error.code === 'number';
 }

@@ -1,41 +1,58 @@
-/**
- * Vitest グローバルセットアップ
- * テスト環境共通の初期化処理
- *
- * ブラウザ専用モジュールのグローバルモックを定義し、
- * テストファイルごとに重複する vi.mock() を不要にする
- */
-
 import { vi } from 'vitest';
+import { getTestFs } from './_helpers/testFs';
 
-// ==================== ブラウザ専用モジュールのグローバルモック ====================
-// indexeddb.ts が import する gitFileSystem / syncManager は
-// ブラウザ API に依存するため、Node 環境では読み込みに失敗する。
-// ここでモックしておくことで、index.ts 経由の import が安全になる。
+// Production owns OPFS in a worker; test projects inject a fresh byte-backed OPFS root.
+vi.mock('@/engine/core/fs', async importOriginal => {
+  const original = await importOriginal<typeof import('@/engine/core/fs')>();
+  return {
+    ...original,
+    fsClient: {
+      init: async () => {},
+      close: () => {},
+      readFile: (path: string) => getTestFs().readFile(path),
+      readText: (path: string) => getTestFs().readText(path),
+      writeFile: (path: string, content: string | Uint8Array) =>
+        getTestFs().writeFile(path, content),
+      stat: (path: string) => getTestFs().stat(path),
+      readdir: (path: string) => getTestFs().readdir(path),
+      mkdir: (path: string, options?: { recursive?: boolean }) => getTestFs().mkdir(path, options),
+      rm: (path: string, options?: { recursive?: boolean; force?: boolean }) =>
+        getTestFs().rm(path, options),
+      rename: (oldPath: string, newPath: string) => getTestFs().rename(oldPath, newPath),
+      exists: (path: string) => getTestFs().exists(path),
+      walk: (root: string) => getTestFs().walk(root),
+      addChangeListener: () => () => {},
+    },
+  };
+});
 
-vi.mock('@/engine/core/gitFileSystem', () => ({
-  gitFileSystem: {
-    getProjectDir: (name: string) => `/projects/${name}`,
-    ensureDirectory: vi.fn(),
-    flush: vi.fn(),
-    readFile: vi.fn(),
-    writeFile: vi.fn(),
-    unlink: vi.fn(),
-    readdir: vi.fn().mockResolvedValue([]),
-    stat: vi.fn(),
-    mkdir: vi.fn(),
-  },
-}));
+vi.mock('@/engine/core/fs/client', async importOriginal => {
+  const original = await importOriginal<typeof import('@/engine/core/fs/client')>();
+  return {
+    ...original,
+    fsClient: {
+      ...original.fsClient,
+      init: async () => {},
+      readFile: (path: string) => getTestFs().readFile(path),
+      readText: (path: string) => getTestFs().readText(path),
+      writeFile: (path: string, content: string | Uint8Array) =>
+        getTestFs().writeFile(path, content),
+      stat: (path: string) => getTestFs().stat(path),
+      readdir: (path: string) => getTestFs().readdir(path),
+      mkdir: (path: string, options?: { recursive?: boolean }) => getTestFs().mkdir(path, options),
+      rm: (path: string, options?: { recursive?: boolean; force?: boolean }) =>
+        getTestFs().rm(path, options),
+      rename: (oldPath: string, newPath: string) => getTestFs().rename(oldPath, newPath),
+      exists: (path: string) => getTestFs().exists(path),
+      walk: (root: string) => getTestFs().walk(root),
+      getNpm: async (rootPath: string) => {
+        const { WorkerNpmCommands } = await import('@/engine/cmd/global/npmOperations/worker');
+        return new WorkerNpmCommands(getTestFs(), rootPath);
+      },
+    },
+  };
+});
 
-vi.mock('@/engine/core/syncManager', () => ({
-  syncManager: {
-    syncSingleFileToFS: vi.fn(),
-    syncFromIndexedDBToFS: vi.fn(),
-    syncFromFSToIndexedDB: vi.fn(),
-  },
-}));
-
-// loggerStore のモック（Node 環境では UI 呼び出しを実行しない）
 vi.mock('@/stores/loggerStore', () => ({
   pushLogMessage: () => {},
   loggerStore: { messages: [] },

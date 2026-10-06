@@ -4,6 +4,7 @@
  * Open various tab types with test data for quick testing.
  */
 
+import { resolvePath } from '@/engine/core/fs';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
 import { setTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
@@ -62,10 +63,10 @@ goodbye("World");
  * Open editable diff tab
  */
 async function openEditableDiffTab(args: string[], context: DevCommandContext): Promise<void> {
-  const { projectId, writeOutput } = context;
+  const { rootPath, writeOutput } = context;
 
-  if (!projectId) {
-    await writeOutput('Error: No active project. Please open a project first.');
+  if (!rootPath) {
+    await writeOutput('Error: No workspace is open. Please open a folder first.');
     return;
   }
 
@@ -86,9 +87,9 @@ console.log(message, greeting);
     {
       files: [
         {
-          formerFullPath: '/test/editable.ts',
+          formerFullPath: resolvePath(rootPath, 'test/editable.ts'),
           formerCommitId: 'HEAD~1',
-          latterFullPath: '/test/editable.ts',
+          latterFullPath: resolvePath(rootPath, 'test/editable.ts'),
           latterCommitId: 'working',
           formerContent: originalContent,
           latterContent: modifiedContent,

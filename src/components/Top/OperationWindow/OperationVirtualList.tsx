@@ -1,11 +1,11 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type React from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ThemeColors } from '@/context/ThemeContext';
 import type { FileItem } from '@/types';
 import OperationFileRow from './OperationFileRow';
 import OperationGenericRow from './OperationGenericRow';
-import type { OperationListItem } from './OperationWindow';
+import type { OperationListItem } from './types';
 
 interface Props {
   viewMode: 'files' | 'list';
@@ -17,6 +17,10 @@ interface Props {
   ITEM_HEIGHT: number;
   colors: ThemeColors;
   queryTokens: string[];
+  onActivateItem: (item: OperationListItem) => void;
+  loading: boolean;
+  emptyMessage?: string;
+  disabled: boolean;
   t: (k: string) => string;
   // allow nullable ref objects (useRef<HTMLDivElement | null>(null) is common)
   listRef?: React.RefObject<HTMLDivElement | null>;
@@ -32,6 +36,10 @@ export default function OperationVirtualList({
   ITEM_HEIGHT,
   colors,
   queryTokens,
+  onActivateItem,
+  loading,
+  emptyMessage,
+  disabled,
   t,
   listRef,
 }: Props) {
@@ -53,15 +61,7 @@ export default function OperationVirtualList({
   useEffect(() => {
     if (selectedIndex == null) return;
     if (selectedIndex < 0 || selectedIndex >= count) return;
-    // Let the virtualizer handle efficient scrolling/measurement
-    try {
-      // scrollToIndex is provided by @tanstack/react-virtual virtualizer
-      // align 'auto' lets it only scroll when needed
-      (virtualizer as any).scrollToIndex?.(selectedIndex, { align: 'auto' });
-    } catch (e) {
-      console.warn('[OperationVirtualList.tsx] caught non-fatal error', e);
-      // ignore failures silently
-    }
+    virtualizer.scrollToIndex(selectedIndex, { align: 'auto' });
   }, [selectedIndex, virtualizer, count]);
 
   // Empty states
@@ -69,12 +69,15 @@ export default function OperationVirtualList({
     return (
       <div
         ref={parentRef as React.RefObject<HTMLDivElement | null>}
-        style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
       >
         <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
-          {viewMode === 'files'
-            ? t('operationWindow.noFilesFound')
-            : t('operationWindow.noItemsFound')}
+          {loading
+            ? 'Loading…'
+            : (emptyMessage ??
+              (viewMode === 'files'
+                ? t('operationWindow.noFilesFound')
+                : t('operationWindow.noItemsFound')))}
         </div>
       </div>
     );
@@ -83,7 +86,7 @@ export default function OperationVirtualList({
   return (
     <div
       ref={parentRef as React.RefObject<HTMLDivElement | null>}
-      style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: 'calc(40vh - 80px)' }}
+      style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
     >
       <div
         style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
@@ -147,6 +150,8 @@ export default function OperationVirtualList({
                 ITEM_HEIGHT={ITEM_HEIGHT}
                 colors={colors}
                 queryTokens={queryTokens}
+                onActivate={onActivateItem}
+                disabled={disabled}
               />
             </div>
           );

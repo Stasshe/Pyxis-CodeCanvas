@@ -2,7 +2,7 @@ import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient, resolvePath } from '@/engine/core/fs';
 import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
 import type { FileItem, MenuTab, Project } from '@/types';
 import FileTree from './FileTree';
@@ -89,7 +89,7 @@ export default function LeftSidebar({
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>
                   ./
                 </span>
-                {/* 新規ファイル作成 - fileRepository直接呼び出し */}
+                {/* Create a file at the workspace root. */}
                 <button
                   title={t('leftSidebar.createFile')}
                   style={{
@@ -102,16 +102,16 @@ export default function LeftSidebar({
                   }}
                   onClick={async () => {
                     const fileName = prompt('新しいファイル名を入力してください:');
-                    if (fileName && currentProject?.id) {
-                      const newFilePath = fileName.startsWith('/') ? fileName : `/${fileName}`;
-                      await fileRepository.createFile(currentProject.id, newFilePath, '', 'file');
+                    if (fileName) {
+                      const newFilePath = resolvePath(currentProject.rootPath, fileName);
+                      await fsClient.writeFile(newFilePath, '');
                       if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}
                 >
                   <FilePlus size={16} color={colors.sidebarIconFg} />
                 </button>
-                {/* 新規フォルダ作成 - fileRepository直接呼び出し */}
+                {/* Create a folder at the workspace root. */}
                 <button
                   title={t('leftSidebar.createFolder')}
                   style={{
@@ -124,16 +124,9 @@ export default function LeftSidebar({
                   }}
                   onClick={async () => {
                     const folderName = prompt('新しいフォルダ名を入力してください:');
-                    if (folderName && currentProject?.id) {
-                      const newFolderPath = folderName.startsWith('/')
-                        ? folderName
-                        : `/${folderName}`;
-                      await fileRepository.createFile(
-                        currentProject.id,
-                        newFolderPath,
-                        '',
-                        'folder'
-                      );
+                    if (folderName) {
+                      const newFolderPath = resolvePath(currentProject.rootPath, folderName);
+                      await fsClient.mkdir(newFolderPath);
                       if (onRefresh) setTimeout(onRefresh, 100);
                     }
                   }}
@@ -143,19 +136,14 @@ export default function LeftSidebar({
               </div>
               {/* Virtualized file tree - scrolls independently */}
               <div className="flex-1 overflow-hidden">
-                <FileTree
-                  items={files}
-                  currentProjectName={currentProject?.name ?? ''}
-                  currentProjectId={currentProject?.id ?? ''}
-                  onRefresh={onRefresh}
-                />
+                <FileTree items={files} rootPath={currentProject.rootPath} onRefresh={onRefresh} />
               </div>
             </div>
           )}
           {activeMenuTab === 'search' && (
             <div className="h-full">
               <Suspense fallback={null}>
-                <SearchPanel files={files} projectId={currentProject.id} />
+                <SearchPanel files={files} rootPath={currentProject.rootPath} />
               </Suspense>
             </div>
           )}
@@ -164,7 +152,8 @@ export default function LeftSidebar({
               <Suspense fallback={null}>
                 <GitPanel
                   currentProject={currentProject.name}
-                  currentProjectId={currentProject.id}
+                  rootPath={currentProject.rootPath}
+                  project={currentProject}
                   onRefresh={onGitRefresh}
                   onGitStatusChange={onGitStatusChange}
                 />

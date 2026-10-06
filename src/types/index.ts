@@ -46,40 +46,16 @@ export interface SingleFileDiff {
 export type EditorLayoutType = 'vertical' | 'horizontal';
 
 export interface Project {
-  id: string;
+  rootPath: string;
   name: string;
-  createdAt: Date;
   updatedAt: Date;
-  description?: string;
 }
 
 export interface ProjectFile {
-  id: string;
-  projectId: string;
   path: string;
-  name: string;
-  content: string; // テキストファイル用
   type: 'file' | 'folder';
-  parentPath?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  isBufferArray?: boolean; // バイナリファイルの場合true
-  bufferContent?: ArrayBuffer; // バイナリデータ本体
-  isAiAgentReview?: boolean; // AIエージェントによるレビュー中フラグ
-  aiAgentCode?: string; // AIが提案するコード
-  // AIレビュー用メタデータ
-  aiReviewStatus?: string; // eg. 'pending' | 'applied' | 'discarded'
-  aiReviewComments?: string; // 簡易コメント/説明
-  aiAgentSuggestedContent?: string; // AIが提案した内容（最新）
-  aiAgentOriginalSnapshot?: string; // AI提案時のオリジナルスナップショット
-  aiReviewHistory?: ReadonlyArray<{
-    id: string;
-    timestamp: Date;
-    content: string; // 保存されたスナップショット
-    note?: string;
-  }>;
-  /** 拡張プロパティ許可（FileItemとの互換性） */
-  [key: string]: unknown;
+  size: number;
+  mtime: number;
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'run' | 'extensions' | 'settings';
@@ -97,7 +73,7 @@ export interface AIReviewHistoryEntry {
 
 /** AI Review entry (stored in IndexedDB) */
 export interface AIReviewEntry {
-  projectId: string;
+  rootPath: string;
   filePath: string;
   suggestedContent: string;
   originalSnapshot: string;
@@ -160,7 +136,7 @@ export interface ChatSpaceMessage {
 export interface ChatSpace {
   id: string;
   name: string;
-  projectId: string;
+  rootPath: string;
   messages: ChatSpaceMessage[];
   selectedFiles: string[]; // 選択されたファイルパスのリスト
   createdAt: Date;

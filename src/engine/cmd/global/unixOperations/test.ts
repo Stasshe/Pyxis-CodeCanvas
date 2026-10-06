@@ -42,10 +42,16 @@ import { UnixCommandBase } from './base';
  *   ( EXPR )       グループ化
  */
 
+interface FileTestResult {
+  exists: boolean;
+  isFile: boolean;
+  isDir: boolean;
+  size: number;
+}
+
 interface TestContext extends EvalContext {
-  checkFile: (
-    path: string
-  ) => Promise<{ exists: boolean; isFile: boolean; isDir: boolean; size: number } | null>;
+  checkFile: (path: string) => Promise<FileTestResult | null>;
+  fileCache?: Map<string, FileTestResult>;
 }
 
 /**
@@ -80,7 +86,7 @@ class TestExprParser extends ExprParser<TestContext> {
 
       return ExprBuilder.predicate(tok, [path], (ctx: EvalContext) => {
         // 非同期なので、事前にチェック結果をコンテキストに入れておく必要あり
-        const tc = ctx as TestContext & { fileCache?: Map<string, any> };
+        const tc = ctx as TestContext;
         const cached = tc.fileCache?.get(path);
         if (!cached) return false;
 
@@ -205,33 +211,20 @@ export class TestCommand extends UnixCommandBase {
     }
 
     // ファイルチェック用の関数
-    const checkFile = async (path: string) => {
-      try {
-        const resolvedPath = this.normalizePath(this.resolvePath(path));
-        const exists = await this.exists(resolvedPath);
-        if (!exists) return null;
-
-        const isDir = await this.isDirectory(resolvedPath);
-        const isFile = await this.isFile(resolvedPath);
-
-        // サイズ取得
-        let size = 0;
-        if (isFile) {
-          const relativePath = this.getRelativePathFromProject(resolvedPath);
-          const file = await this.getFileFromDB(relativePath);
-          if (file) {
-            size = file.bufferContent?.byteLength || file.content?.length || 0;
-          }
-        }
-
-        return { exists, isFile, isDir, size };
-      } catch {
-        return null;
-      }
+    const checkFile = async (path: string): Promise<FileTestResult | null> => {
+      const resolvedPath = this.resolvePath(path);
+      const file = await this.getFile(resolvedPath);
+      if (!file) return null;
+      return {
+        exists: true,
+        isDir: file.type === 'folder',
+        isFile: file.type === 'file',
+        size: file.size,
+      };
     };
 
     // ファイルパスを事前に収集してキャッシュ
-    const fileCache = new Map<string, any>();
+    const fileCache = new Map<string, FileTestResult>();
     const filePaths = this.extractFilePaths(tokens);
     for (const p of filePaths) {
       const result = await checkFile(p);
@@ -251,7 +244,7 @@ export class TestCommand extends UnixCommandBase {
     }
 
     // 評価
-    const ctx: TestContext & { fileCache: Map<string, any> } = {
+    const ctx: TestContext & { fileCache: Map<string, FileTestResult> } = {
       checkFile,
       fileCache,
     };

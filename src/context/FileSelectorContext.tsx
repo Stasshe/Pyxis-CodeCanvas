@@ -1,11 +1,12 @@
 // src/context/FileSelectorContext.tsx
 import type React from 'react';
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
 
 interface FileSelectorContextValue {
   isOpen: boolean;
   targetPaneId: string | null;
-  openFileSelector: (paneId: string) => void;
+  initialViewId: string | null;
+  openFileSelector: (paneId: string, initialViewId?: string) => void;
   closeFileSelector: () => void;
 }
 
@@ -26,22 +27,26 @@ interface FileSelectorProviderProps {
 export const FileSelectorProvider: React.FC<FileSelectorProviderProps> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [targetPaneId, setTargetPaneId] = useState<string | null>(null);
+  const [initialViewId, setInitialViewId] = useState<string | null>(null);
 
-  const openFileSelector = (paneId: string) => {
+  const openFileSelector = useCallback((paneId: string, viewId?: string) => {
     setTargetPaneId(paneId);
+    setInitialViewId(viewId ?? 'files');
     setIsOpen(true);
-  };
+  }, []);
 
-  const closeFileSelector = () => {
+  const closeFileSelector = useCallback(() => {
     setIsOpen(false);
     setTargetPaneId(null);
-  };
+    setInitialViewId(null);
+  }, []);
 
   return (
     <FileSelectorContext.Provider
       value={{
         isOpen,
         targetPaneId,
+        initialViewId,
         openFileSelector,
         closeFileSelector,
       }}

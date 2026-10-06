@@ -50,19 +50,14 @@ export default function CodeEditor({
   wordWrapConfig,
   isActive = false,
 }: CodeEditorProps) {
-  // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
-  const projectId =
-    currentProject?.id ||
-    (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
-  const { settings, updateSettings } = useSettings(projectId);
+  const rootPath = currentProject?.rootPath;
+  const { settings, updateSettings } = useSettings(rootPath);
   const { isContentRestored } = useSnapshot(tabState);
 
   // コンテンツ復元中かどうかを判定
   const isRestoringContent =
-    activeTab &&
-    'needsContentRestore' in activeTab &&
-    (activeTab as any).needsContentRestore &&
-    !isContentRestored;
+    (activeTab as (EditorTab & { needsContentRestore?: boolean }) | undefined)
+      ?.needsContentRestore && !isContentRestored;
 
   // tabContentStoreからコンテンツを取得（panesを更新せずに再レンダリング）
   const storeContent = useTabContent(activeTab?.id ?? '');
@@ -159,7 +154,7 @@ export default function CodeEditor({
 
   // 折り返しのトグルショートカット登録 (Alt+Z)
   useKeyBinding('toggleWordWrap', async () => {
-    if (!projectId || !updateSettings) return;
+    if (!rootPath || !updateSettings) return;
     const current = settings?.editor?.wordWrap ?? false;
     try {
       await updateSettings(prev => ({
@@ -171,7 +166,7 @@ export default function CodeEditor({
     } catch (e) {
       console.error('[CodeEditor] toggleWordWrap failed:', e);
     }
-  }, [projectId, settings?.editor?.wordWrap, updateSettings]);
+  }, [rootPath, settings?.editor?.wordWrap, updateSettings]);
 
   // === タブなし ===
   if (!activeTab) {

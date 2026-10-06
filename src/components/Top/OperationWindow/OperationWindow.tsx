@@ -2,48 +2,42 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
-import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
 import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
-
 import { useTranslation } from '@/context/I18nContext';
+import type { ThemeColors } from '@/context/ThemeContext';
 import { useTheme } from '@/context/ThemeContext';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
-import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
-import type { OperationWorkerApi } from './operationWorker';
+import type { OperationListItem, OperationWindowView } from './types';
 
-export interface OperationListItem {
-  id: string;
-  label: string;
-  description?: string;
-  icon?: React.ReactNode | string; // URL string or Component
-  onClick?: () => void;
-  isActive?: boolean;
-  // Editing state
-  isEditing?: boolean;
-  editValue?: string;
-  onEditChange?: (value: string) => void;
-  onEditConfirm?: () => void;
-  onEditCancel?: () => void;
-  // Actions
-  actions?: {
-    id: string;
-    icon: React.ReactNode;
-    label: string;
-    onClick: (e: React.MouseEvent) => void;
-    danger?: boolean;
-  }[];
+import { useFileSearch } from './useFileSearch';
+
+export type { OperationListItem, OperationWindowView } from './types';
+
+function getViewButtonStyle(selected: boolean, colors: ThemeColors): React.CSSProperties {
+  let color = colors.mutedFg;
+  let background = 'transparent';
+  if (selected) {
+    color = colors.primary;
+    background = colors.accentBg;
+  }
+  return {
+    border: 0,
+    borderRadius: 3,
+    padding: '4px 8px',
+    color,
+    background,
+    cursor: 'pointer',
+  };
 }
 
 interface OperationWindowProps {
   onClose: () => void;
   projectFiles: FileItem[];
-  onFileSelect?: (file: FileItem, preview?: boolean) => void; // AI用モード用
-  aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
-  targetPaneId?: string | null; // ファイルを開くペインのID
+  onFileSelect?: (file: FileItem, preview?: boolean) => void | Promise<void>; // AI file-selection callback
+  aiMode?: boolean; // Select files without opening editor tabs
+  targetPaneId?: string | null; // Pane that receives opened files
 
   // Generic List Props
   items?: OperationListItem[];
@@ -56,6 +50,9 @@ interface OperationWindowProps {
   }[];
 
   initialView?: 'files' | 'list';
+  views?: OperationWindowView[];
+  initialViewId?: string;
+  showViewSelector?: boolean;
 }
 
 export default function OperationWindow({
@@ -69,24 +66,38 @@ export default function OperationWindow({
   onSearchList,
   headerActions,
   initialView,
+  views = [],
+  initialViewId,
+  showViewSelector = false,
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
-  const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
-  const [viewMode, _setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isActing, setIsActing] = useState(false);
+  const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: preview, 1: editor
+  const getInitialViewId = () => {
+    if (initialViewId) return initialViewId;
+    if (initialView === 'list') return 'list';
+    return 'files';
+  };
+  const [activeViewId, setActiveViewId] = useState<string>(getInitialViewId);
+  let viewMode: 'files' | 'list' = 'list';
+  if (activeViewId === 'files') viewMode = 'files';
+  const activeView = views.find(view => view.id === activeViewId);
+  const isBusy = isActing || activeView?.loading === true;
+  const onEnterRef = useRef(activeView?.onEnter);
+  onEnterRef.current = activeView?.onEnter;
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [portalEl] = useState(() =>
     typeof document !== 'undefined' ? document.createElement('div') : null
   );
-  const { isExcluded } = useSettings();
-  // 検索クエリをスペースで分割してトークンにする（スペースは区切り）
+  // Split the query on whitespace so every token must match.
   const queryTokens = useMemo(() => searchQuery.trim().split(/\s+/).filter(Boolean), [searchQuery]);
-  // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
-  const ITEM_HEIGHT = 20; // slightly more compact
+  const ITEM_HEIGHT = 20;
 
   // Reset state on mount. Visibility is controlled by the parent mounting/unmounting this window.
   useEffect(() => {
@@ -107,58 +118,65 @@ export default function OperationWindow({
     portalEl.style.zIndex = '99999';
     document.body.appendChild(portalEl);
     return () => {
-      try {
-        document.body.removeChild(portalEl);
-      } catch (e) {
-        console.warn('[OperationWindow.tsx] caught non-fatal error', e);
-        // ignore
-      }
+      document.body.removeChild(portalEl);
     };
   }, [portalEl]);
 
-  // ファイル選択ハンドラ
-  // 実際にファイルを開く処理（mdプレビューかどうかを指定）
-  // NOTE: Tab system removed — delegate to `onFileSelect(file, preview)` if available.
+  // Open a file either in preview mode or in the editor.
   const actuallyOpenFile = useCallback(
     async (file: FileItem, preview: boolean) => {
-      if (onFileSelect) {
-        try {
-          onFileSelect(file, preview);
-        } catch (e) {
-          console.warn('[OperationWindow] onFileSelect threw:', e);
-        }
-        onClose();
-        return;
-      }
-
-      // Fallback: try to open via tab store if available (back-compat)
-      try {
-        const defaultEditor =
-          typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+      if (onFileSelect) await onFileSelect(file, preview);
+      else {
+        const defaultEditor = localStorage.getItem('pyxis-defaultEditor');
         const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
         const options = targetPaneId
           ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
           : { kind: preview ? 'preview' : 'editor' };
-
         await tabActions.openTab(fileWithEditor, options);
-        onClose();
-        return;
-      } catch (e) {
-        console.warn('[OperationWindow] tab fallback failed:', e);
       }
-
-      // No handler available — simply close and warn.
-      console.warn('[OperationWindow] No file open handler available (tabs removed).');
       onClose();
     },
     [onFileSelect, onClose, targetPaneId]
   );
 
+  const runAction = useCallback(
+    async (action: () => void | Promise<void>) => {
+      if (isBusy) return;
+      setActionError(null);
+      setIsActing(true);
+      try {
+        await action();
+      } catch (error) {
+        console.error('[OperationWindow] Action failed', error);
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        setActionError(message);
+      } finally {
+        setIsActing(false);
+      }
+    },
+    [isBusy]
+  );
+
+  const openFile = useCallback(
+    (file: FileItem, preview: boolean) => runAction(() => actuallyOpenFile(file, preview)),
+    [actuallyOpenFile, runAction]
+  );
+
+  const activateItem = useCallback(
+    (item: OperationListItem) =>
+      runAction(() => {
+        if (activeView?.onActivate) return activeView.onActivate(item);
+        return item.onClick?.();
+      }),
+    [activeView, runAction]
+  );
+
   const handleFileSelectInOperation = useCallback(
     (file: FileItem) => {
-      // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
+      // AI file selection does not need the Markdown preview prompt.
       if (aiMode) {
-        actuallyOpenFile(file, false);
+        void openFile(file, false);
         return;
       }
 
@@ -166,235 +184,70 @@ export default function OperationWindow({
         setMdPreviewPrompt({ file });
         return;
       }
-      actuallyOpenFile(file, false);
+      void openFile(file, false);
     },
-    [actuallyOpenFile, aiMode]
+    [openFile, aiMode]
   );
 
-  // Create a single flattened list once and reuse it to avoid multiple traversals
-  const flattenedFiles = useMemo(
-    () => (viewMode === 'files' ? flattenFileItems(projectFiles) : []),
-    [projectFiles, viewMode]
-  );
-
-  // 設定から除外パターンを取得
-  const gitignoreRules = useMemo((): GitIgnoreRule[] => {
-    try {
-      const git = flattenedFiles.find(f => f.name === '.gitignore' || f.path === '.gitignore');
-      if (!git || !git.content) return [];
-      return parseGitignore(git.content);
-    } catch (err) {
-      console.warn('[OperationWindow.tsx] caught non-fatal error', err);
-      return [];
-    }
-  }, [flattenedFiles]);
-
-  // Memoize file list to avoid changing identity on every render (prevents effect loops)
-  const allFiles = useMemo(() => {
-    try {
-      return flattenedFiles.filter(file => {
-        if (file.type !== 'file') return false;
-        if (isExcluded(file.path)) return false;
-        if (gitignoreRules && gitignoreRules.length > 0) {
-          try {
-            if (isPathIgnored(gitignoreRules, file.path, false)) return false;
-          } catch (e) {
-            console.warn('[OperationWindow.tsx] caught non-fatal error', e);
-            // ignore errors
-          }
-        }
-        return true;
-      });
-    } catch (e) {
-      console.warn('[OperationWindow.tsx] caught non-fatal error', e);
-      return [] as FileItem[];
-    }
-  }, [flattenedFiles, isExcluded, gitignoreRules]);
-
-  // Keep a ref to the latest allFiles so async worker results map against current list
-  const allFilesRef = useRef<FileItem[]>([]);
-  useEffect(() => {
-    allFilesRef.current = allFiles;
-  }, [allFiles]);
-
-  // Use a Web Worker for file scoring/filtering to avoid blocking the main thread.
-  const workerPoolRef = useRef<WorkerPool<OperationWorkerApi> | null>(null);
-  const searchIdRef = useRef<number>(0);
-  const latestSearchIdRef = useRef<number>(0);
-
-  // Helper: compare file arrays by id (shallow, order-sensitive)
-  function arraysEqualById(a: FileItem[] | null | undefined, b: FileItem[] | null | undefined) {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (a[i].id !== b[i].id) return false;
-    }
-    return true;
-  }
-
-  // local fallback implementation if worker is not available or fails
-  function localComputeFilteredFiles(tokens: string[], filesToScan: FileItem[]) {
-    if (!tokens || tokens.length === 0) return filesToScan;
-
-    const scored: Array<{ file: FileItem; score: number }> = [];
-
-    for (const file of filesToScan) {
-      let totalScore = 0;
-      let matchedAll = true;
-
-      for (const token of tokens) {
-        const fileName = file.name;
-        const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-        const pathParts = file.path.split('/');
-
-        const nameScore = scoreMatch(fileName, token);
-        const nameNoExtScore = scoreMatch(fileNameNoExt, token);
-        const pathScore = scoreMatch(file.path, token);
-        const partScores = pathParts.map(part => scoreMatch(part, token));
-        const bestPartScore = Math.max(...partScores, 0);
-
-        const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
-
-        if (best <= 0) {
-          matchedAll = false;
-          break;
-        }
-
-        totalScore += best;
-      }
-
-      if (matchedAll) {
-        scored.push({ file, score: totalScore / tokens.length });
-      }
-    }
-
-    scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.file.name.localeCompare(b.file.name);
-    });
-
-    return scored.map(s => s.file);
-  }
-
-  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>(() =>
-    viewMode === 'files' ? allFiles : []
-  );
-
-  // init worker once
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      workerPoolRef.current = createWorkerPool<OperationWorkerApi>({
-        createWorker: () =>
-          new Worker(new URL('./operationWorker.ts', import.meta.url), {
-            type: 'module',
-          }),
-        maxWorkers: 1,
-        timeoutMs: 10000,
-      });
-    } catch (err) {
-      console.error('Failed to create operation worker pool', err);
-      workerPoolRef.current = null;
-    }
-
-    return () => {
-      workerPoolRef.current?.terminate();
-      workerPoolRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // send files to worker when file list changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: arraysEqualById/queryTokens are plain function and trigger dep respectively; no stale closure risk
-  useEffect(() => {
-    if (viewMode !== 'files') return;
-
-    if (workerPoolRef.current) {
-      try {
-        const payload = allFiles.map(f => ({ id: f.id, name: f.name, path: f.path, type: f.type }));
-        const ver = Date.now();
-        void workerPoolRef.current
-          .call(worker => worker.updateFiles(payload, ver))
-          .catch(err => console.error('Failed to update operation worker files', err));
-      } catch (err) {
-        console.error('Failed to update operation worker files', err);
-      }
-    }
-
-    // if no query, keep list in sync (guard against unnecessary updates)
-    if (!queryTokens || queryTokens.length === 0) {
-      setFilteredFiles(prev => (arraysEqualById(prev, allFiles) ? prev : allFiles));
-    }
-  }, [allFiles, viewMode]);
-
-  // send search requests to worker when tokens change
-  // biome-ignore lint/correctness/useExhaustiveDependencies: arraysEqualById/localComputeFilteredFiles are plain functions with no state captures
-  useEffect(() => {
-    if (viewMode !== 'files') return;
-
-    if (!queryTokens || queryTokens.length === 0) {
-      setFilteredFiles(prev => (arraysEqualById(prev, allFiles) ? prev : allFiles));
-      return;
-    }
-
-    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
-    latestSearchIdRef.current = sid;
-
-    if (workerPoolRef.current) {
-      void workerPoolRef.current
-        .call(worker => worker.search(queryTokens))
-        .then(resultEntries => {
-          // only accept the latest search id
-          if (sid !== latestSearchIdRef.current) return;
-          const idMap = new Map((allFilesRef.current || []).map(f => [f.id, f]));
-          const mapped = resultEntries
-            .map(r => {
-              const file = idMap.get(r.id);
-              if (!file) return null;
-              // attach score (non-breaking, for potential UI use)
-              (file as any).__searchScore = r.score;
-              return file;
-            })
-            .filter(Boolean) as FileItem[];
-          setFilteredFiles(prev => (arraysEqualById(prev, mapped) ? prev : mapped));
-        })
-        .catch(err => {
-          console.error('operation worker search failed', err);
-          if (sid !== latestSearchIdRef.current) return;
-          const fallback = localComputeFilteredFiles(queryTokens, allFiles);
-          setFilteredFiles(fallback);
-        });
-      return;
-    }
-
-    // fallback to local compute if worker is not available
-    const fallback = localComputeFilteredFiles(queryTokens, allFiles);
-    setFilteredFiles(fallback);
-  }, [queryTokens, allFiles, viewMode]);
+  const fileSearch = useFileSearch(projectFiles, queryTokens, viewMode === 'files');
+  const filteredFiles = fileSearch.files;
 
   // Filtering for GENERIC ITEMS (support multi-token AND search)
   const filteredItems: OperationListItem[] = useMemo(() => {
-    if (viewMode !== 'list' || !items) return [];
-    if (!queryTokens || queryTokens.length === 0) return items;
+    const sourceItems = activeView?.items ?? items ?? [];
+    if (viewMode !== 'list') return [];
+    if (!queryTokens || queryTokens.length === 0) return sourceItems;
 
     const lowerTokens = queryTokens.map(t => t.toLowerCase());
 
-    return items.filter(item => {
+    return sourceItems.filter(item => {
       const label = item.label.toLowerCase();
       const desc = item.description?.toLowerCase() ?? '';
       // require every token to be found in either label or description
       return lowerTokens.every(tok => label.includes(tok) || desc.includes(tok));
     });
-  }, [items, queryTokens, viewMode]);
+  }, [activeView, items, queryTokens, viewMode]);
 
   const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
 
-  // ESCキーで閉じる、上下キーで選択、Enterで開く
+  useEffect(() => {
+    setSelectedIndex(index => Math.min(index, Math.max(currentListLength - 1, 0)));
+  }, [currentListLength]);
+
+  const selectView = (id: string) => {
+    if (isBusy || id === activeViewId) return;
+    setActiveViewId(id);
+    setSearchQuery('');
+    setSelectedIndex(0);
+    setActionError(null);
+  };
+
+  useEffect(() => {
+    const onEnter = onEnterRef.current;
+    if (!onEnter) return;
+    let isCurrent = true;
+    setActionError(null);
+    setIsActing(true);
+    Promise.resolve()
+      .then(() => onEnter())
+      .catch(error => {
+        console.error(`[OperationWindow] Failed to enter ${activeViewId}`, error);
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        if (isCurrent) setActionError(message);
+      })
+      .finally(() => {
+        if (isCurrent) setIsActing(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [activeViewId]);
+
+  // Escape closes the window; arrow keys move selection and Enter activates it.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // mdプレビュー選択ダイアログが表示中
+      // Handle keyboard input while the Markdown preview prompt is open.
       if (mdPreviewPrompt) {
         if (e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           e.preventDefault();
@@ -402,9 +255,9 @@ export default function OperationWindow({
         } else if (e.key === 'Enter') {
           e.preventDefault();
           if (mdDialogSelected === 0) {
-            actuallyOpenFile(mdPreviewPrompt.file, true);
+            void openFile(mdPreviewPrompt.file, true);
           } else {
-            actuallyOpenFile(mdPreviewPrompt.file, false);
+            void openFile(mdPreviewPrompt.file, false);
           }
           setMdPreviewPrompt(null);
         } else if (e.key === 'Escape') {
@@ -414,21 +267,34 @@ export default function OperationWindow({
         return;
       }
 
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        target !== inputRef.current &&
+        (target.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName))
+      )
+        return;
+
       // Editing mode in list item?
       // If an item is being edited, we might want to let the input handle keys.
       // But here we are handling global navigation.
       // Ideally, the input in the list item should stop propagation of keys it handles.
 
       switch (e.key) {
-        case 'Escape':
-          e.preventDefault();
-          onClose();
-          break;
         case 'ArrowUp':
+          if (currentListLength === 0) break;
           e.preventDefault();
           setSelectedIndex(prev => (prev > 0 ? prev - 1 : currentListLength - 1));
           break;
         case 'ArrowDown':
+          if (currentListLength === 0) break;
           e.preventDefault();
           setSelectedIndex(prev => (prev < currentListLength - 1 ? prev + 1 : 0));
           break;
@@ -440,7 +306,7 @@ export default function OperationWindow({
             handleFileSelectInOperation(filteredFiles[selectedIndex]);
           } else if (viewMode === 'list' && filteredItems[selectedIndex]) {
             e.preventDefault();
-            filteredItems[selectedIndex].onClick?.();
+            void activateItem(filteredItems[selectedIndex]);
           }
           break;
       }
@@ -461,16 +327,17 @@ export default function OperationWindow({
     mdDialogSelected,
     viewMode,
     currentListLength,
-    actuallyOpenFile,
+    openFile,
+    activateItem,
   ]);
 
-  // 検索クエリが変更されたときに選択インデックスをリセット
+  // Reset selection when the query changes.
   useEffect(() => {
     setSelectedIndex(0);
-    if (onSearchList && viewMode === 'list') {
+    if (onSearchList && viewMode === 'list' && !activeView) {
       onSearchList(searchQuery);
     }
-  }, [searchQuery, viewMode, onSearchList]);
+  }, [searchQuery, viewMode, onSearchList, activeView]);
 
   const jsx = (
     <>
@@ -478,7 +345,7 @@ export default function OperationWindow({
         prompt={mdPreviewPrompt}
         mdDialogSelected={mdDialogSelected}
         setMdDialogSelected={setMdDialogSelected}
-        actuallyOpenFile={actuallyOpenFile}
+        actuallyOpenFile={openFile}
         setMdPreviewPrompt={setMdPreviewPrompt}
         colors={colors}
       />
@@ -495,7 +362,7 @@ export default function OperationWindow({
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
-          paddingTop: '100px',
+          padding: '6vh 12px 0',
           zIndex: 2000,
         }}
         onClick={onClose}
@@ -505,8 +372,9 @@ export default function OperationWindow({
             background: colors.cardBg,
             border: `1px solid ${colors.border}`,
             borderRadius: '8px',
-            width: '600px',
-            maxHeight: '40vh',
+            maxHeight: 'min(88vh, 720px)',
+            width: 'min(680px, calc(100vw - 24px))',
+            boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
@@ -514,19 +382,69 @@ export default function OperationWindow({
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div style={{ padding: '12px' }}>
+          <div style={{ padding: '12px', minWidth: 0 }}>
             <div
-              style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                marginBottom: '8px',
+                gap: '8px',
+                minWidth: 0,
+              }}
             >
+              {showViewSelector && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', minWidth: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => selectView('files')}
+                    disabled={isBusy}
+                    aria-pressed={viewMode === 'files'}
+                    style={getViewButtonStyle(viewMode === 'files', colors)}
+                  >
+                    Files
+                  </button>
+                  {views.map(view => (
+                    <button
+                      type="button"
+                      key={view.id}
+                      onClick={() => selectView(view.id)}
+                      disabled={isBusy}
+                      aria-pressed={activeViewId === view.id}
+                      style={getViewButtonStyle(activeViewId === view.id, colors)}
+                    >
+                      {view.title}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div
-                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  flex: '1 1 220px',
+                  minWidth: 0,
+                }}
               >
-                {viewMode === 'list' && headerActions && (
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {headerActions.map(action => (
+                {viewMode === 'list' && (activeView?.headerActions ?? headerActions) && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-end',
+                      gap: '4px',
+                      minWidth: 0,
+                    }}
+                  >
+                    {(activeView?.headerActions ?? headerActions ?? []).map(action => (
                       <button
                         key={action.label}
-                        onClick={action.onClick}
+                        onClick={() => void runAction(action.onClick)}
+                        disabled={isBusy}
                         title={action.label}
                         style={{
                           background: 'transparent',
@@ -535,6 +453,10 @@ export default function OperationWindow({
                           cursor: 'pointer',
                           padding: '4px',
                           display: 'flex',
+                          flexWrap: 'wrap',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          minWidth: 0,
                           alignItems: 'center',
                           borderRadius: '4px',
                         }}
@@ -542,14 +464,25 @@ export default function OperationWindow({
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         {action.icon}
+                        <span>{action.label}</span>
                       </button>
                     ))}
                   </div>
                 )}
-                <div style={{ fontSize: '12px', color: colors.mutedFg }}>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: colors.mutedFg,
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {viewMode === 'files'
                     ? `${t('operationWindow.quickOpen') || 'Quick Open'} - ${formatKeyComboForDisplay('Ctrl+P')}`
-                    : listTitle || 'List'}
+                    : (activeView?.title ?? listTitle ?? 'List')}
                 </div>
               </div>
             </div>
@@ -562,6 +495,7 @@ export default function OperationWindow({
               onChange={e => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
+                boxSizing: 'border-box',
                 padding: '8px 12px',
                 background: colors.background,
                 border: `1px solid ${colors.border}`,
@@ -578,6 +512,24 @@ export default function OperationWindow({
             />
           </div>
 
+          {viewMode === 'list' && activeView?.breadcrumb && (
+            <fieldset disabled={isBusy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+              {activeView.breadcrumb}
+            </fieldset>
+          )}
+          {(actionError ?? fileSearch.error ?? activeView?.error) && (
+            <div
+              role="alert"
+              style={{
+                padding: '8px 12px',
+                color: colors.destructive,
+                borderTop: `1px solid ${colors.border}`,
+              }}
+            >
+              {actionError ?? fileSearch.error ?? activeView?.error}
+            </div>
+          )}
+
           <OperationVirtualList
             viewMode={viewMode}
             filteredFiles={filteredFiles}
@@ -588,9 +540,19 @@ export default function OperationWindow({
             ITEM_HEIGHT={ITEM_HEIGHT}
             colors={colors}
             queryTokens={queryTokens}
+            onActivateItem={item => void activateItem(item)}
+            loading={isBusy}
+            emptyMessage={activeView?.emptyMessage}
+            disabled={isBusy}
             t={t}
             listRef={listRef}
           />
+
+          {viewMode === 'list' && activeView?.footer && (
+            <fieldset disabled={isBusy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+              {activeView.footer}
+            </fieldset>
+          )}
 
           {/* Footer */}
           <div

@@ -1,12 +1,7 @@
 // Unixコマンド統合クラス（新アーキテクチャ: IndexedDB優先、自動同期）
 
 import type TerminalUI from '@/engine/cmd/terminalUI';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
-import {
-  fsPathToAppPath,
-  normalizeDotSegments,
-  resolvePath as pathResolvePath,
-} from '@/engine/core/pathUtils';
+import { normalizePath, resolvePath as pathResolvePath } from '@/engine/core/fs';
 import {
   CatCommand,
   CdCommand,
@@ -45,9 +40,7 @@ import {
  * - 各コマンドの実装は unixOperations/ 配下に分割
  * - このクラスは薄いファサードとして機能し、execute()に委譲
  *
- * パス形式:
- * - currentDir: FSPath形式（/projects/{projectName}/...）
- * - 外部API: AppPath形式（/src/hello.ts）
+ * Paths use absolute filesystem paths. The workspace root only sets the initial cwd.
  */
 export const UNIX_COMMANDS = [
   'echo',
@@ -84,8 +77,7 @@ export const UNIX_COMMANDS = [
 
 export class UnixCommands {
   private currentDir: string;
-  private projectId: string;
-  private projectName: string;
+  private rootPath: string;
 
   // 各コマンドのインスタンス
   private catCmd: CatCommand;
@@ -118,45 +110,40 @@ export class UnixCommands {
 
   private terminalUI?: TerminalUI;
 
-  constructor(projectName: string, projectId?: string) {
-    this.currentDir = gitFileSystem.getProjectDir(projectName);
-    this.projectId = projectId || '';
-    this.projectName = projectName;
-
-    if (!this.projectId) {
-      console.warn('[UnixCommands] projectId is empty! DB operations will fail.');
-    }
+  constructor(rootPath: string) {
+    this.rootPath = normalizePath(rootPath);
+    this.currentDir = this.rootPath;
 
     // 各コマンドを初期化
-    this.catCmd = new CatCommand(projectName, this.currentDir, projectId);
-    this.cdCmd = new CdCommand(projectName, this.currentDir, projectId);
-    this.cpCmd = new CpCommand(projectName, this.currentDir, projectId);
-    this.echoCmd = new EchoCommand(projectName, this.currentDir, projectId);
-    this.findCmd = new FindCommand(projectName, this.currentDir, projectId);
-    this.grepCmd = new GrepCommand(projectName, this.currentDir, projectId);
-    this.helpCmd = new HelpCommand(projectName, this.currentDir, projectId);
-    this.lsCmd = new LsCommand(projectName, this.currentDir, projectId);
-    this.mkdirCmd = new MkdirCommand(projectName, this.currentDir, projectId);
-    this.mvCmd = new MvCommand(projectName, this.currentDir, projectId);
-    this.pwdCmd = new PwdCommand(projectName, this.currentDir, projectId);
-    this.rmCmd = new RmCommand(projectName, this.currentDir, projectId);
-    this.testCmd = new TestCommand(projectName, this.currentDir, projectId);
-    this.touchCmd = new TouchCommand(projectName, this.currentDir, projectId);
-    this.treeCmd = new TreeCommand(projectName, this.currentDir, projectId);
-    this.unzipCmd = new UnzipCommand(projectName, this.currentDir, projectId);
-    this.headCmd = new HeadCommand(projectName, this.currentDir, projectId);
-    this.tailCmd = new TailCommand(projectName, this.currentDir, projectId);
-    this.statCmd = new StatCommand(projectName, this.currentDir, projectId);
-    this.wcCmd = new WcCommand(projectName, this.currentDir, projectId);
-    this.dateCmd = new DateCommand(projectName, this.currentDir, projectId);
+    this.catCmd = new CatCommand(this.rootPath, this.currentDir);
+    this.cdCmd = new CdCommand(this.rootPath, this.currentDir);
+    this.cpCmd = new CpCommand(this.rootPath, this.currentDir);
+    this.echoCmd = new EchoCommand(this.rootPath, this.currentDir);
+    this.findCmd = new FindCommand(this.rootPath, this.currentDir);
+    this.grepCmd = new GrepCommand(this.rootPath, this.currentDir);
+    this.helpCmd = new HelpCommand(this.rootPath, this.currentDir);
+    this.lsCmd = new LsCommand(this.rootPath, this.currentDir);
+    this.mkdirCmd = new MkdirCommand(this.rootPath, this.currentDir);
+    this.mvCmd = new MvCommand(this.rootPath, this.currentDir);
+    this.pwdCmd = new PwdCommand(this.rootPath, this.currentDir);
+    this.rmCmd = new RmCommand(this.rootPath, this.currentDir);
+    this.testCmd = new TestCommand(this.rootPath, this.currentDir);
+    this.touchCmd = new TouchCommand(this.rootPath, this.currentDir);
+    this.treeCmd = new TreeCommand(this.rootPath, this.currentDir);
+    this.unzipCmd = new UnzipCommand(this.rootPath, this.currentDir);
+    this.headCmd = new HeadCommand(this.rootPath, this.currentDir);
+    this.tailCmd = new TailCommand(this.rootPath, this.currentDir);
+    this.statCmd = new StatCommand(this.rootPath, this.currentDir);
+    this.wcCmd = new WcCommand(this.rootPath, this.currentDir);
+    this.dateCmd = new DateCommand(this.rootPath, this.currentDir);
 
     // new commands
-    this.duCmd = new DuCommand(projectName, this.currentDir, projectId);
-    this.dfCmd = new DfCommand(projectName, this.currentDir, projectId);
-    this.sortCmd = new SortCommand(projectName, this.currentDir, projectId);
-    this.tarCmd = new TarCommand(projectName, this.currentDir, projectId);
-    this.gzipCmd = new GzipCommand(projectName, this.currentDir, projectId);
-    this.zipCmd = new ZipCommand(projectName, this.currentDir, projectId);
+    this.duCmd = new DuCommand(this.rootPath, this.currentDir);
+    this.dfCmd = new DfCommand(this.rootPath, this.currentDir);
+    this.sortCmd = new SortCommand(this.rootPath, this.currentDir);
+    this.tarCmd = new TarCommand(this.rootPath, this.currentDir);
+    this.gzipCmd = new GzipCommand(this.rootPath, this.currentDir);
+    this.zipCmd = new ZipCommand(this.rootPath, this.currentDir);
   }
 
   /**
@@ -206,15 +193,6 @@ export class UnixCommands {
    */
   async pwd(): Promise<string> {
     return await this.pwdCmd.execute([]);
-  }
-
-  /**
-   * プロジェクトルートからの相対パスを取得
-   */
-  getRelativePath(): string {
-    const projectBase = this.currentDir.split('/')[2];
-    const relativePath = this.currentDir.replace(`/projects/${projectBase}`, '');
-    return relativePath || '/';
   }
 
   /**
@@ -426,23 +404,10 @@ export class UnixCommands {
   // ==================== ユーティリティメソッド ====================
 
   /**
-   * FSPath（/projects/...）からAppPath（/src/...）を取得
-   * pathResolverのfsPathToAppPathを使用
-   */
-  public getRelativePathFromProject(fullPath: string): string {
-    return fsPathToAppPath(fullPath, this.projectName);
-  }
-
-  /**
    * パスを正規化（..や.を解決）
    * pathResolverを使用
    */
   public normalizePath(path: string): string {
-    // 絶対パスならそのまま正規化
-    if (path.startsWith('/')) {
-      return normalizeDotSegments(path);
-    }
-    // カレントディレクトリ基準の相対パスを解決
-    return pathResolvePath(this.currentDir, path);
+    return path.startsWith('/') ? normalizePath(path) : pathResolvePath(this.currentDir, path);
   }
 }

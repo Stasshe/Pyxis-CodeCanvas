@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Resolve repo root (script lives in scripts/build/)
+// Resolve the repository root from scripts/build/.
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const inputDir = path.join(ROOT_DIR, 'initial_files');
 const outputFile = path.join(ROOT_DIR, 'src', 'engine', 'initialFileContents.ts');
@@ -19,7 +19,7 @@ function walk(dir) {
     } else {
       result[entry] = {
         type: 'file',
-                content: fs.readFileSync(fullPath, 'utf8')
+        content: fs.readFileSync(fullPath, 'utf8')
       };
     }
   }
@@ -30,8 +30,8 @@ const initialFileContents = walk(inputDir);
 
 function escapeString(str) {
   return str
-    .replace(/\\/g, "\\\\")// バックスラッシュ
-    .replace(/`/g, "\\x60")// バッククォート
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\x60")
     .replace(/'/g, "\\'")
     .replace(/\r/g, "\\r")
     .replace(/\n/g, "\\n");
@@ -53,9 +53,15 @@ ${entries.join(',\n')}
 ${indent.slice(2)}}`;
 }
 
-const ts = `export const initialFileContents = ${objToTs(initialFileContents)};\n`;
+const ts = `export type InitialFileEntry =
+  | { type: 'file'; content: string }
+  | { type: 'folder'; children: InitialFileTree };
 
-// ensure output directory exists
+export type InitialFileTree = Record<string, InitialFileEntry>;
+
+export const initialFileContents: InitialFileTree = ${objToTs(initialFileContents)};\n`;
+
+// Ensure the generated file's directory exists.
 fs.mkdirSync(path.dirname(outputFile), { recursive: true });
 fs.writeFileSync(outputFile, ts, 'utf8');
 console.log(`initialFileContents.ts generated at ${outputFile}`);

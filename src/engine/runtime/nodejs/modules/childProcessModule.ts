@@ -1,6 +1,6 @@
+import EventEmitter from 'node:events';
 import { PassThrough } from 'node:stream';
 import { Buffer } from 'buffer';
-import { createEventsModule } from './eventsModule';
 
 type Encoding = BufferEncoding | 'buffer' | null;
 
@@ -15,8 +15,15 @@ interface RunShellResult {
   code: number | null;
 }
 
+interface RunShellSyncResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
 export interface ChildProcessModuleOptions {
   runShell?: (command: string, options?: RunShellOptions) => Promise<RunShellResult>;
+  runShellSync?: (command: string, options?: RunShellOptions) => RunShellSyncResult;
   getCwd?: () => string;
   getEnv?: () => Record<string, string>;
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
@@ -41,13 +48,6 @@ interface SpawnOptions extends ExecOptions {
 }
 
 type ExecCallback = (error: Error | null, stdout: unknown, stderr: unknown) => void;
-
-const { EventEmitter } = createEventsModule();
-const EventEmitterBase = EventEmitter as unknown as new () => {
-  emit(event: string | symbol, ...args: unknown[]): boolean;
-  on(event: string | symbol, listener: (...args: unknown[]) => void): unknown;
-  listenerCount(event: string | symbol): number;
-};
 
 const DEFAULT_MAX_BUFFER = 1024 * 1024;
 const DEFAULT_MAX_PARALLEL = 2;
@@ -94,20 +94,20 @@ function shQuote(value: string): string {
 }
 
 function toOutput(value: string, encoding: Encoding | undefined): unknown {
-  if (encoding === 'buffer' || encoding === null) {
-    return Buffer.from(value);
-  }
+  if (encoding === 'buffer' || encoding === null) return Buffer.from(value);
   return value;
 }
 
-function commandLineForExecFile(
-  file: string,
-  args: readonly string[],
-  options: ExecOptions
-): string {
-  const command = [file, ...args].map(shQuote).join(' ');
-  if (options.shell) return command;
-  return command;
+function commandLineForExecFile(file: string, args: readonly string[]): string {
+  return [file, ...args].map(shQuote).join(' ');
+}
+
+function selectOptions<T>(
+  first: readonly unknown[] | T | undefined,
+  second: T | undefined
+): T | undefined {
+  if (Array.isArray(first)) return second;
+  return first as T | undefined;
 }
 
 class TaskQueue {
@@ -135,7 +135,7 @@ class TaskQueue {
   }
 }
 
-class BrowserChildProcess extends EventEmitterBase {
+class BrowserChildProcess extends EventEmitter {
   stdin = new PassThrough();
   stdout = new PassThrough();
   stderr = new PassThrough();
@@ -194,67 +194,60 @@ class BrowserChildProcess extends EventEmitterBase {
   }
 }
 
-function createNotSupportedResult(command: string, encoding: Encoding | undefined) {
-  const error = createError(
-    `spawnSync ${command} is not supported in the browser runtime`,
-    'ENOSYS',
-    { errno: -38, syscall: 'spawnSync', path: command }
-  );
+function createSyncResult(
+  command: string,
+  result: RunShellSyncResult,
+  encoding: Encoding | undefined
+) {
+  const stdout = toOutput(result.stdout, encoding);
+  const stderr = toOutput(result.stderr, encoding);
+  let error: Error | undefined;
+  if (result.exitCode !== 0) {
+    error = createError(`Command failed: ${command}`, result.exitCode, {
+      status: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    });
+  }
   return {
     pid: 0,
-    output: [null, toOutput('', encoding), toOutput(String(error.message), encoding)],
-    stdout: toOutput('', encoding),
-    stderr: toOutput(String(error.message), encoding),
-    status: null,
+    output: [null, stdout, stderr],
+    stdout,
+    stderr,
+    status: result.exitCode,
     signal: null,
     error,
   };
 }
 
-function simulateSync(command: string, args: string[], options: ExecOptions) {
-  const encoding = options.encoding;
-  const joined = [command, ...args].join(' ');
-  let stdout = '';
-  const stderr = '';
-  let status = 0;
-  let error: Error | undefined;
+function commandLineForSync(file: string, args: readonly string[]): string {
+  return [file, ...args].map(shQuote).join(' ');
+}
 
-  if (command === 'node' || command.endsWith('/node')) {
-    if (args.includes('-v') || args.includes('--version')) stdout = 'v18.0.0\n';
-    else return createNotSupportedResult(command, encoding);
-  } else if (command === 'npm') {
-    if (args.includes('-v') || args.includes('--version')) stdout = '10.0.0\n';
-    else return createNotSupportedResult(command, encoding);
-  } else if (command === 'true') {
-    status = 0;
-  } else if (command === 'false') {
-    status = 1;
-  } else if (command === 'pwd') {
-    stdout = `${options.cwd || '/'}\n`;
-  } else if (command === 'echo') {
-    stdout = `${args.join(' ')}\n`;
-  } else if (command === 'uname') {
-    stdout = 'Browser\n';
-  } else if (command === 'which' || joined.startsWith('command -v ')) {
-    const target = command === 'which' ? args[0] : args[1];
-    if (target) stdout = `/usr/bin/${target}\n`;
-    else status = 1;
-  } else {
-    return createNotSupportedResult(command, encoding);
+function syncResult(
+  command: string,
+  options: ExecOptions,
+  runShellSync: ChildProcessModuleOptions['runShellSync']
+) {
+  if (!runShellSync) {
+    throw createError('Synchronous shell bridge is unavailable.', 'ENOSYS');
   }
+  const result = runShellSync(command, {
+    cwd: options.cwd,
+    env: options.env,
+  });
+  return createSyncResult(command, result, options.encoding);
+}
 
-  if (status !== 0) {
-    error = createError(`Command failed: ${joined}`, status, { status });
-  }
-
+function syncShellOptions(
+  options: ExecOptions,
+  cwd: () => string,
+  env: () => Record<string, string>
+): ExecOptions {
   return {
-    pid: 0,
-    output: [null, toOutput(stdout, encoding), toOutput(stderr, encoding)],
-    stdout: toOutput(stdout, encoding),
-    stderr: toOutput(stderr, encoding),
-    status,
-    signal: null,
-    error,
+    ...options,
+    cwd: options.cwd ?? cwd(),
+    env: { ...env(), ...(options.env ?? {}) },
   };
 }
 
@@ -271,6 +264,7 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
       stderr: `child_process: no shell runner available for ${command}\n`,
       code: 127,
     }));
+  const runShellSync = options.runShellSync;
 
   const start = (
     child: BrowserChildProcess,
@@ -362,10 +356,11 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
       child.finish(code, null);
     });
 
-    promise.catch(error => {
-      finishWithError(error instanceof Error ? error : createError(String(error)));
+    const handledTask = promise.catch(error => {
+      if (error instanceof Error) finishWithError(error);
+      else finishWithError(createError(String(error)));
     });
-    track?.(promise.then(() => {}));
+    track?.(handledTask);
     return child;
   };
 
@@ -376,11 +371,11 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
   ) => {
     const args = normalizeArgs(argsOrOptions);
     const spawnOptions = normalizeOptions<SpawnOptions>(
-      Array.isArray(argsOrOptions) ? maybeOptions : (argsOrOptions as SpawnOptions | undefined),
+      selectOptions(argsOrOptions, maybeOptions),
       { encoding: 'utf8' }
     );
     const child = new BrowserChildProcess(command, args);
-    const commandLine = commandLineForExecFile(command, args, spawnOptions);
+    const commandLine = commandLineForExecFile(command, args);
     return start(child, commandLine, spawnOptions);
   };
 
@@ -403,14 +398,12 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
   ) => {
     const args = normalizeArgs(argsOrOptions);
     const execOptions = normalizeOptions<ExecOptions>(
-      Array.isArray(argsOrOptions)
-        ? optionsOrCallback
-        : (argsOrOptions as ExecOptions | Encoding | undefined),
+      selectOptions(argsOrOptions, optionsOrCallback),
       { encoding: 'utf8' }
     );
     const callback = getCallback(argsOrOptions, optionsOrCallback, maybeCallback);
     const child = new BrowserChildProcess(file, args);
-    return start(child, commandLineForExecFile(file, args, execOptions), execOptions, callback);
+    return start(child, commandLineForExecFile(file, args), execOptions, callback);
   };
 
   const spawnSync = (
@@ -419,11 +412,13 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
     maybeOptions?: ExecOptions
   ) => {
     const args = normalizeArgs(argsOrOptions);
-    const syncOptions = normalizeOptions<ExecOptions>(
-      Array.isArray(argsOrOptions) ? maybeOptions : (argsOrOptions as ExecOptions | undefined),
-      { encoding: 'buffer', cwd: getCwd(), env: getEnv() }
-    );
-    return simulateSync(command, args, syncOptions);
+    const syncOptions = normalizeOptions<ExecOptions>(selectOptions(argsOrOptions, maybeOptions), {
+      encoding: 'buffer',
+      cwd: getCwd(),
+      env: getEnv(),
+    });
+    const commandLine = commandLineForSync(command, args);
+    return syncResult(commandLine, syncShellOptions(syncOptions, getCwd, getEnv), runShellSync);
   };
 
   const execFileSync = (
@@ -445,8 +440,7 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
       cwd: getCwd(),
       env: getEnv(),
     });
-    const parts = command.trim().split(/\s+/);
-    const result = simulateSync(parts[0] || command, parts.slice(1), execOptions);
+    const result = syncResult(command, syncShellOptions(execOptions, getCwd, getEnv), runShellSync);
     if (result.error) throw result.error;
     if (result.status && result.status !== 0) {
       throw createError(`Command failed: ${command}`, result.status, result);

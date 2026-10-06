@@ -1,15 +1,11 @@
-/**
- * os モジュールのエミュレーション
- */
-
-export function createOSModule() {
+export function createOSModule(homePath: string) {
   return {
     platform: () => 'browser',
     type: () => 'Browser',
     arch: () => 'x64',
     hostname: () => 'localhost',
     tmpdir: () => '/tmp',
-    homedir: () => '/home/user',
+    homedir: () => homePath,
     EOL: '\n',
     cpus: () => [
       { model: 'Browser CPU', speed: 0, times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0 } },

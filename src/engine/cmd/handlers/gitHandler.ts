@@ -2,8 +2,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 
 export async function handleGitCommand(
   args: string[],
-  projectName: string,
-  projectId: string,
+  rootPath: string,
   writeOutput: (output: string) => Promise<void>
 ) {
   if (!args[0]) {
@@ -11,7 +10,7 @@ export async function handleGitCommand(
     return;
   }
 
-  const git = terminalCommandRegistry.getGitCommands(projectName, projectId);
+  const git = terminalCommandRegistry.getGitCommands(rootPath);
 
   const gitCmd = args[0];
 

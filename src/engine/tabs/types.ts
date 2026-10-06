@@ -59,7 +59,6 @@ export interface PreviewTab extends BaseTab {
 export interface WebPreviewTab extends BaseTab {
   kind: 'webPreview';
   url?: string;
-  projectName?: string; // プロジェクト名を保存
 }
 
 /**
@@ -70,7 +69,7 @@ export interface AIReviewTab extends BaseTab {
   originalContent: string;
   suggestedContent: string;
   filePath: string;
-  /** AIレビューエントリ (projectIdやoriginalSnapshotなどを含む) */
+  /** AIレビュー metadata and original snapshot. */
   aiEntry?: AIReviewEntry;
   /** 履歴 */
   history?: readonly AIReviewHistoryEntry[];
@@ -158,10 +157,8 @@ export interface MergeConflictTab extends BaseTab {
   oursBranch: string;
   /** THEIRS branch name/commit ID */
   theirsBranch: string;
-  /** Project ID */
-  projectId: string;
-  /** Project name */
-  projectName: string;
+  /** Absolute workspace root path */
+  rootPath: string;
 }
 
 /**
@@ -239,11 +236,11 @@ export interface TabFileInfo {
  * restoreContent で利用可能な情報
  */
 export interface SessionRestoreContext {
-  /** 現在のプロジェクトID */
-  projectId?: string;
+  /** Open workspace root path. */
+  rootPath: string;
   /**
    * ファイルをパスで取得する関数
-   * fileRepository.getFileByPath のラッパー
+   * Reads file content through the filesystem client.
    */
   getFileByPath: (
     path: string
@@ -289,11 +286,11 @@ export interface TabTypeDefinition {
   serializeForSession?: (tab: Tab) => Tab;
   /**
    * セッション復元時にタブのコンテンツを復元する
-   * - ファイルベースのタブはfileRepositoryから復元
+   * - File tabs are restored from the filesystem client.
    * - 自己完結型タブ（diff, ai等）はシリアライズされたデータから復元
    * - 未実装かつneedsContentRestore=trueの場合、デフォルトでファイルから復元を試みる
    * @param tab 復元対象のタブ
-   * @param context 復元コンテキスト（projectFiles, fileRepository等）
+   * @param context Restore context with absolute filesystem paths.
    * @returns 復元されたタブ（needsContentRestore=falseに設定される）
    */
   restoreContent?: (tab: Tab, context: SessionRestoreContext) => Promise<Tab>;

@@ -2,7 +2,8 @@
 import type React from 'react';
 import { lazy, Suspense, useEffect } from 'react';
 import { useGitContext } from '@/components/Pane/PaneContainer';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs';
+import { clearAIReviewEntry } from '@/engine/storage/aiStorageAdapter';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 /**
  * AIレビュータブのコンポーネント
@@ -24,7 +25,7 @@ const AIReviewTabComponent = lazy(() => import('@/components/AI/AIReview/AIRevie
 const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const aiTab = tab as AIReviewTab;
   const { setGitRefreshTrigger } = useGitContext();
-  const { addMessage } = useChatSpace(aiTab.aiEntry?.projectId || null);
+  const { addMessage } = useChatSpace(aiTab.aiEntry?.rootPath || null);
 
   // tabContentStoreから最新のファイルコンテンツを取得（これがoriginalContentになる）
   // fallbackとして、タブ作成時のoriginalContentを使用
@@ -43,15 +44,15 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   }, []);
 
   const handleApplyChanges = async (filePath: string, content: string) => {
-    const projectId = aiTab.aiEntry?.projectId;
+    const rootPath = aiTab.aiEntry?.rootPath;
 
-    if (!projectId) {
-      console.error('[AIReviewTabRenderer] No projectId available, cannot save file');
+    if (!rootPath) {
+      console.error('[AIReviewTabRenderer] No workspace root available, cannot save file');
       return;
     }
 
     try {
-      await fileRepository.saveFileByPath(projectId, filePath, content);
+      await fsClient.writeFile(filePath, content);
       updateFromExternal(filePath, content);
 
       // Git状態を更新
@@ -59,7 +60,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
       // AIレビュー状態をクリア
       try {
-        await fileRepository.clearAIReview(projectId, filePath);
+        await clearAIReviewEntry(rootPath, filePath);
       } catch (e) {
         console.warn('[AIReviewTabRenderer] clearAIReview failed (non-critical):', e);
       }
@@ -91,13 +92,11 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   };
 
   const handleDiscardChanges = async (filePath: string) => {
-    const projectId = aiTab.aiEntry?.projectId;
+    const rootPath = aiTab.aiEntry?.rootPath;
 
-    // AIレビュー状態をクリア（projectIdがある場合のみ）
-    if (projectId) {
+    if (rootPath) {
       try {
-        await fileRepository.init();
-        await fileRepository.clearAIReview(projectId, filePath);
+        await clearAIReviewEntry(rootPath, filePath);
       } catch (e) {
         console.warn('[AIReviewTabRenderer] clearAIReview failed (non-critical):', e);
       }
@@ -179,7 +178,7 @@ export const AIReviewTabType: TabTypeDefinition = {
       filePath: aiReviewProps?.filePath || filePath,
       // optional history passed by caller
       history: aiReviewProps?.history,
-      // raw aiEntry (contains projectId, originalSnapshot, etc.) if provided
+      // Preserve the review metadata when supplied.
       aiEntry: aiReviewProps?.aiEntry,
     };
 

@@ -5,6 +5,7 @@
  * Opens the resolution tab with generated test data.
  */
 
+import { resolvePath } from '@/engine/core/fs';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 import { tabActions } from '@/stores/tabState';
 import type { DevCommandContext, DevCommandInfo } from './types';
@@ -85,10 +86,10 @@ export const VERSION = '1.1.0';
  * Create merge conflict scenario and open tab
  */
 async function createMergeConflict(args: string[], context: DevCommandContext): Promise<void> {
-  const { projectName, projectId, writeOutput } = context;
+  const { rootPath, writeOutput } = context;
 
-  if (!projectId || !projectName) {
-    await writeOutput('Error: No active project. Please open a project first.');
+  if (!rootPath) {
+    await writeOutput('Error: No workspace is open. Please open a folder first.');
     return;
   }
 
@@ -99,11 +100,10 @@ async function createMergeConflict(args: string[], context: DevCommandContext): 
 
   // Default file paths, or paths specified in args
   const filePaths =
-    args.length > 0
-      ? args
-      : ['/src/utils/helpers.ts', '/src/components/Button.tsx', '/src/config.ts'];
+    args.length > 0 ? args : ['src/utils/helpers.ts', 'src/components/Button.tsx', 'src/config.ts'];
 
-  for (const path of filePaths) {
+  for (const inputPath of filePaths) {
+    const path = resolvePath(rootPath, inputPath);
     const conflict = generateSampleConflict(path);
     conflictFiles.push(conflict);
     await writeOutput(`  Created conflict for: ${path}`);
@@ -117,8 +117,7 @@ async function createMergeConflict(args: string[], context: DevCommandContext): 
       conflicts: conflictFiles,
       oursBranch: 'feature-a',
       theirsBranch: 'feature-b',
-      projectId,
-      projectName,
+      rootPath,
     },
     {
       kind: 'merge-conflict',
@@ -134,15 +133,15 @@ async function createMergeConflict(args: string[], context: DevCommandContext): 
  * Open merge conflict tab with existing data
  */
 async function openMergeConflictTab(args: string[], context: DevCommandContext): Promise<void> {
-  const { projectName, projectId, writeOutput } = context;
+  const { rootPath, writeOutput } = context;
 
-  if (!projectId || !projectName) {
-    await writeOutput('Error: No active project. Please open a project first.');
+  if (!rootPath) {
+    await writeOutput('Error: No workspace is open. Please open a folder first.');
     return;
   }
 
   // Simple single-file conflict
-  const conflict = generateSampleConflict('/test/conflict.ts');
+  const conflict = generateSampleConflict(resolvePath(rootPath, 'test/conflict.ts'));
 
   const { openTab } = tabActions;
 
@@ -151,8 +150,7 @@ async function openMergeConflictTab(args: string[], context: DevCommandContext):
       conflicts: [conflict],
       oursBranch: 'main',
       theirsBranch: 'feature',
-      projectId,
-      projectName,
+      rootPath,
     },
     {
       kind: 'merge-conflict',
@@ -169,10 +167,10 @@ async function createComplexMergeConflict(
   args: string[],
   context: DevCommandContext
 ): Promise<void> {
-  const { projectName, projectId, writeOutput } = context;
+  const { rootPath, writeOutput } = context;
 
-  if (!projectId || !projectName) {
-    await writeOutput('Error: No active project. Please open a project first.');
+  if (!rootPath) {
+    await writeOutput('Error: No workspace is open. Please open a folder first.');
     return;
   }
 
@@ -181,10 +179,10 @@ async function createComplexMergeConflict(
   // Generate multiple conflict types
   const conflicts: MergeConflictFileEntry[] = [
     // TypeScript file
-    generateSampleConflict('/src/services/api.ts'),
+    generateSampleConflict(resolvePath(rootPath, 'src/services/api.ts')),
     // React component
     {
-      filePath: '/src/components/Header.tsx',
+      filePath: resolvePath(rootPath, 'src/components/Header.tsx'),
       baseContent: `import React from 'react';
 
 export const Header: React.FC = () => {
@@ -224,7 +222,7 @@ export const Header: React.FC = () => {
     },
     // Config file
     {
-      filePath: '/config/settings.json',
+      filePath: resolvePath(rootPath, 'config/settings.json'),
       baseContent: `{
   "version": "1.0.0",
   "api": {
@@ -272,8 +270,7 @@ export const Header: React.FC = () => {
       conflicts,
       oursBranch: 'develop',
       theirsBranch: 'feature/complex-merge',
-      projectId,
-      projectName,
+      rootPath,
     },
     {
       kind: 'merge-conflict',

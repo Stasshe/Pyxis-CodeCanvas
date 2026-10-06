@@ -1,12 +1,6 @@
-/**
- * git fetch 実装
- * GitHub APIを使用してリモートの参照を取得
- */
-
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
-import { authRepository } from '@/engine/user/authRepository';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 import { parseGitHubUrl } from './github/utils';
 
 export interface FetchOptions {
@@ -21,9 +15,8 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
   const { remote = 'origin', branch, depth, prune = false, tags = false } = options;
 
   try {
-    const token = await authRepository.getAccessToken();
+    const token = (await fs.credentials())?.password;
 
-    // リモート情報を取得
     const remotes = await git.listRemotes({ fs, dir });
     const remoteInfo = remotes.find(r => r.remote === remote);
 
@@ -39,7 +32,6 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
     console.log('[git fetch] Repository:', `${repoInfo.owner}/${repoInfo.repo}`);
     console.log('[git fetch] Remote:', remote);
 
-    // まず、リモートブランチの存在を確認
     if (!token) {
       throw new Error('GitHub authentication required for fetch');
     }
@@ -47,21 +39,18 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
     const { GitHubAPI } = await import('./github/GitHubAPI');
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
 
-    // ブランチ指定がない場合はデフォルトブランチを取得
     let targetBranch = branch;
     if (!targetBranch) {
       const currentBranch = await git.currentBranch({ fs, dir });
       targetBranch = currentBranch || 'main';
     }
 
-    // リモートブランチの存在確認
     const remoteRef = await githubAPI.getRef(targetBranch);
     if (!remoteRef) {
       console.log('[git fetch] Remote branch does not exist:', targetBranch);
       return `From ${remoteInfo.url}\nRemote branch '${targetBranch}' does not exist yet.\nUse 'git push' to create it.`;
     }
 
-    // fetch実行
     let fetchResult: Awaited<ReturnType<typeof git.fetch>>;
     try {
       fetchResult = await git.fetch({
@@ -89,18 +78,16 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
           }
         },
       });
-    } catch (fetchError: any) {
+    } catch (fetchError) {
       console.error('[git fetch] Fetch failed:', fetchError);
-      throw new Error(`Fetch failed: ${fetchError.message}`);
+      throw new Error(`Fetch failed: ${String(fetchError)}`);
     }
 
-    // フェッチ結果を整形
     let result = `From ${remoteInfo.url}\n`;
 
     if (fetchResult.fetchHead) {
       result += ` * branch            ${targetBranch}       -> FETCH_HEAD\n`;
 
-      // リモート追跡ブランチの更新を確認
       try {
         const remoteTrackingRef = await git.resolveRef({
           fs,
@@ -125,15 +112,12 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
 
     console.log('[git fetch] Fetch completed successfully');
     return result.trim() || 'Fetch completed successfully';
-  } catch (error: any) {
+  } catch (error) {
     console.error('[git fetch] Error:', error);
-    throw new Error(`Fetch failed: ${error.message}`);
+    throw new Error(`Fetch failed: ${String(error)}`);
   }
 }
 
-/**
- * git fetch --all - 全リモートをフェッチ
- */
 export async function fetchAll(
   fs: FS,
   dir: string,
@@ -159,14 +143,9 @@ export async function fetchAll(
   return results.join('\n\n');
 }
 
-/**
- * Parse raw `git fetch` args and delegate to fetch / fetchAll
- */
 import { parseWithGetOpt } from '../../lib';
 
 export async function fetchFromArgs(fs: FS, dir: string, args: string[]): Promise<string> {
-  // Use centralized parser to handle options consistently
-  // Options: --all/-a, --prune/-p, --tags, --depth/-d
   const optstring = 'ad:p';
   const longopts = ['all', 'prune', 'tags', 'depth='];
   const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
@@ -177,10 +156,13 @@ export async function fetchFromArgs(fs: FS, dir: string, args: string[]): Promis
   const tags = flags.has('--tags');
 
   const depthVal = values.get('--depth') || values.get('-d');
-  const depth = depthVal !== undefined ? Number(depthVal) : undefined;
+  let depth: number | undefined;
+  if (depthVal !== undefined) depth = Number(depthVal);
 
-  const remote = positional[0] && positional[0].trim() !== '' ? positional[0] : undefined;
-  const branch = positional[1] && positional[1].trim() !== '' ? positional[1] : undefined;
+  let remote: string | undefined;
+  if (positional[0]?.trim()) remote = positional[0];
+  let branch: string | undefined;
+  if (positional[1]?.trim()) branch = positional[1];
 
   if (all) {
     return await fetchAll(fs, dir, { depth, prune, tags });
@@ -189,9 +171,6 @@ export async function fetchFromArgs(fs: FS, dir: string, args: string[]): Promis
   return await fetch(fs, dir, { remote, branch, depth, prune, tags });
 }
 
-/**
- * リモートブランチ一覧を取得
- */
 export async function listRemoteBranches(
   fs: FS,
   dir: string,
@@ -206,9 +185,6 @@ export async function listRemoteBranches(
   }
 }
 
-/**
- * リモートタグ一覧を取得
- */
 export async function listRemoteTags(fs: FS, dir: string): Promise<string[]> {
   try {
     const tags = await git.listTags({ fs, dir });

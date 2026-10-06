@@ -4,6 +4,7 @@ import { snapshot, useSnapshot } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 
 import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { projectState } from '@/stores/projectStore';
 import { tabActions, tabState } from '@/stores/tabState';
 
 /**
@@ -21,12 +22,12 @@ interface Props {
 
 export const TabSessionManager: React.FC<Props> = ({ children }) => {
   const { loadSession, saveSession, setIsContentRestored } = tabActions;
-  const isLoading = useSnapshot(tabState).isLoading;
-  const activePane = useSnapshot(tabState).activePane;
-  const globalActiveTab = useSnapshot(tabState).globalActiveTab;
+  const { isLoading, activePane, globalActiveTab } = useSnapshot(tabState);
+  const { currentRootPath } = useSnapshot(projectState);
+  const initialRootPath = useRef(currentRootPath);
   // IndexedDBからセッションを復元
   useEffect(() => {
-    loadSession();
+    loadSession(initialRootPath.current);
   }, []);
 
   // Track a structural key derived from panes without re-rendering on frequent content updates
@@ -95,13 +96,15 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: structuralKey/activePane/globalActiveTab/saveSession are all needed trigger deps for session persistence
   useEffect(() => {
     if (isLoading) return; // 初期ロード中は保存しない
+    if (!currentRootPath) return;
+    const rootPath = currentRootPath;
 
     const timer = setTimeout(() => {
-      saveSession().catch(console.error);
+      saveSession(rootPath).catch(console.error);
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [structuralKey, activePane, globalActiveTab, isLoading, saveSession]);
+  }, [structuralKey, activePane, globalActiveTab, isLoading, currentRootPath, saveSession]);
 
   return <>{children}</>;
 };

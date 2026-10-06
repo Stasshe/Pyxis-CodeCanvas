@@ -1,19 +1,5 @@
-/**
- * git push 実装 - 高速化版
- *
- * GitHub Git Data API + REST APIを使用して効率的にプッシュ
- *
- * 最適化ポイント:
- * 1. Compare APIで差分を一度に取得
- * 2. バッチでコミット履歴を取得（1回のAPIで最大100件）
- * 3. ローカル履歴との比較をメモリ上で実行
- * 4. 不要なAPI呼び出しを削減
- */
-
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-import type { TerminalUI } from '@/engine/cmd/terminalUI';
-import { authRepository } from '@/engine/user/authRepository';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 import { GitHubAPI } from './github/GitHubAPI';
 import { TreeBuilder } from './github/TreeBuilder';
 import { parseGitHubUrl } from './github/utils';
@@ -24,10 +10,6 @@ export interface PushOptions {
   force?: boolean;
 }
 
-/**
- * コミット履歴取得時の最大深度
- * GitHub REST APIは1回のリクエストで最大100件まで取得可能
- */
 const MAX_COMMIT_HISTORY_DEPTH = 100;
 
 interface LocalCommit {
@@ -40,14 +22,6 @@ interface LocalCommit {
   };
 }
 
-/**
- * 効率的な方法で未プッシュのコミットを取得
- *
- * 方針:
- * 1. リモートHEADのコミットSHAがローカル履歴にあるか確認（fast-forward判定）
- * 2. なければツリーSHAで内容の同一性を確認
- * 3. 差分のみをプッシュ
- */
 async function getCommitsToPushOptimized(
   fs: FS,
   dir: string,
@@ -55,11 +29,9 @@ async function getCommitsToPushOptimized(
   remoteHeadSha: string | null,
   githubAPI: GitHubAPI
 ): Promise<{ commits: LocalCommit[]; remoteParentSha: string | null }> {
-  // ローカルの履歴を取得（最大100件で十分）
   const localLog = await git.log({ fs, dir, ref: branch, depth: MAX_COMMIT_HISTORY_DEPTH });
 
   if (!remoteHeadSha) {
-    // リモートが空の場合は全コミットを返す
     console.log('[git push] Remote is empty, pushing all commits');
     return {
       commits: localLog.reverse() as LocalCommit[],
@@ -67,18 +39,14 @@ async function getCommitsToPushOptimized(
     };
   }
 
-  // ステップ1: リモートHEADがローカル履歴に存在するか確認（高速判定）
   const remoteHeadIndex = localLog.findIndex((c: { oid: string }) => c.oid === remoteHeadSha);
 
   if (remoteHeadIndex !== -1) {
-    // Fast-forward可能: リモートHEADはローカル履歴に存在
     if (remoteHeadIndex === 0) {
-      // 最新コミットがリモートHEAD = 何もプッシュする必要なし
       console.log('[git push] Already up-to-date (same commit)');
       return { commits: [], remoteParentSha: remoteHeadSha };
     }
 
-    // リモートHEAD以降のコミットを返す
     const commitsToPush = localLog.slice(0, remoteHeadIndex);
     console.log(`[git push] Fast-forward: ${commitsToPush.length} commit(s) to push`);
     return {
@@ -87,8 +55,6 @@ async function getCommitsToPushOptimized(
     };
   }
 
-  // ステップ2: リモートHEADのツリーSHAを取得し、同じツリーを持つローカルコミットを探す
-  // これは履歴が異なっていても内容が同じ場合を検出
   console.log('[git push] Remote HEAD not in local history, checking tree SHA...');
 
   let remoteTreeSha: string;
@@ -103,11 +69,9 @@ async function getCommitsToPushOptimized(
     );
   }
 
-  // ローカル履歴で同じツリーSHAを持つコミットを探す
   for (let i = 0; i < localLog.length; i++) {
     const localCommit = localLog[i];
     if (localCommit.commit.tree === remoteTreeSha) {
-      // 内容は同じだが履歴が異なる
       if (i === 0) {
         console.log('[git push] Already up-to-date (same tree content)');
         return { commits: [], remoteParentSha: remoteHeadSha };
@@ -122,7 +86,6 @@ async function getCommitsToPushOptimized(
     }
   }
 
-  // ツリーの一致も見つからない = non-fast-forward
   throw new Error(
     'Updates were rejected because the remote contains work that you do not have locally.\n' +
       'This is usually caused by another repository pushing to the same ref.\n' +
@@ -130,13 +93,6 @@ async function getCommitsToPushOptimized(
   );
 }
 
-/**
- * Force push用: 共通の祖先を効率的に探す
- *
- * 方針:
- * 1. Compare APIで差分を取得（merge_base_commitが共通祖先）
- * 2. ローカルのツリーSHAと比較して最も近い祖先を特定
- */
 async function findCommonAncestorOptimized(
   fs: FS,
   dir: string,
@@ -145,23 +101,19 @@ async function findCommonAncestorOptimized(
   githubAPI: GitHubAPI
 ): Promise<{ remoteAncestorSha: string; localAncestorTreeSha: string } | null> {
   try {
-    // リモートのコミット履歴をバッチ取得（1回のAPIで最大100件）
     const remoteCommits = await githubAPI.getCommitHistory(remoteHeadSha, MAX_COMMIT_HISTORY_DEPTH);
 
     if (remoteCommits.length === 0) {
       return null;
     }
 
-    // リモートコミットのツリーSHAをSetに格納（高速検索用）
     const remoteTreeMap = new Map<string, string>(); // treeSha -> commitSha
     for (const commit of remoteCommits) {
       remoteTreeMap.set(commit.commit.tree.sha, commit.sha);
     }
 
-    // ローカルの履歴を取得
     const localLog = await git.log({ fs, dir, ref: branch, depth: MAX_COMMIT_HISTORY_DEPTH });
 
-    // ローカルの各コミットのツリーSHAと比較
     for (const localCommit of localLog) {
       const localTreeSha = localCommit.commit.tree;
       const matchingRemoteSha = remoteTreeMap.get(localTreeSha);
@@ -190,19 +142,15 @@ export async function push(
   fs: FS,
   dir: string,
   options: PushOptions = {},
-  ui?: TerminalUI
+  progress?: (message: string) => void
 ): Promise<string> {
   const { remote = 'origin', branch, force = false } = options;
 
   try {
-    // Start spinner if TerminalUI is available
-    if (ui) {
-      await ui.spinner.start('Enumerating objects...');
-    }
+    progress?.('Enumerating objects...');
 
-    const token = await authRepository.getAccessToken();
+    const token = (await fs.credentials())?.password;
     if (!token) {
-      if (ui) await ui.spinner.stop();
       throw new Error('GitHub authentication required. Please sign in first.');
     }
 
@@ -229,20 +177,17 @@ export async function push(
 
     const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
 
-    // 1. リモートHEADを取得
     const remoteRef = await githubAPI.getRef(targetBranch);
 
     let remoteHeadSha: string | null = null;
     let isNewBranch = false;
 
     if (!remoteRef) {
-      // リモートにブランチが存在しない場合
       console.log(
         `[git push] Remote branch '${targetBranch}' does not exist. Creating new branch...`
       );
       isNewBranch = true;
 
-      // デフォルトブランチが存在するか確認
       const defaultBranch = await githubAPI.getRef('main').catch(() => githubAPI.getRef('master'));
 
       if (!defaultBranch) {
@@ -259,12 +204,10 @@ export async function push(
       console.log('[git push] Remote HEAD:', remoteHeadSha.slice(0, 7));
     }
 
-    // 2. 未プッシュコミットを取得
     let commitsToPush: LocalCommit[];
     let remoteParentSha: string | null;
 
     if (isNewBranch) {
-      // 新しいブランチの場合は全コミットをプッシュ
       const localLog = await git.log({ fs, dir, ref: targetBranch });
       commitsToPush = localLog.reverse() as LocalCommit[];
       remoteParentSha = null;
@@ -281,12 +224,12 @@ export async function push(
         commitsToPush = result.commits;
         remoteParentSha = result.remoteParentSha;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        let errorMessage = String(error);
+        if (error instanceof Error) errorMessage = error.message;
         if (!force && errorMessage.includes('Updates were rejected')) {
           throw error;
         }
 
-        // Force push: 共通祖先を探して、そこからプッシュ
         if (force && remoteHeadSha) {
           const localLog = await git.log({ fs, dir, ref: targetBranch });
           const ancestor = await findCommonAncestorOptimized(
@@ -298,7 +241,6 @@ export async function push(
           );
 
           if (ancestor) {
-            // 共通祖先が見つかった
             const ancestorIndex = localLog.findIndex(
               (c: { commit: { tree: string } }) => c.commit.tree === ancestor.localAncestorTreeSha
             );
@@ -314,7 +256,6 @@ export async function push(
               remoteParentSha = null;
             }
           } else {
-            // 共通祖先がない = 全コミットをプッシュ
             commitsToPush = localLog.reverse() as LocalCommit[];
             remoteParentSha = null;
             console.log('[git push] Force push: no common ancestor, pushing all commits');
@@ -326,7 +267,6 @@ export async function push(
     }
 
     if (commitsToPush.length === 0) {
-      // Force pushの場合、コミットがなくてもリモートを巻き戻す必要があるかチェック
       if (force && remoteHeadSha) {
         const localHead = await git.resolveRef({ fs, dir, ref: targetBranch });
 
@@ -337,28 +277,22 @@ export async function push(
 
           await githubAPI.updateRef(targetBranch, localHead, true);
 
-          // リモート追跡ブランチを更新
           await updateRemoteTrackingBranch(fs, dir, remote, targetBranch, localHead);
-
-          if (ui) await ui.spinner.stop();
 
           return `To ${remoteInfo.url}\n + ${remoteHeadSha.slice(0, 7)}...${localHead.slice(0, 7)} ${targetBranch} -> ${targetBranch} (forced update)\n`;
         }
       }
 
-      if (ui) await ui.spinner.stop();
       return 'Everything up-to-date';
     }
 
     console.log(`[git push] Pushing ${commitsToPush.length} commit(s)...`);
 
-    // 3. ツリーを構築してコミットを作成
     const treeBuilder = new TreeBuilder(fs, dir, githubAPI);
     let parentSha = remoteParentSha;
     let lastCommitSha: string | null = remoteParentSha;
     let remoteTreeSha: string | undefined;
 
-    // 親コミットのツリーSHAを取得（差分アップロード用）
     if (remoteParentSha) {
       try {
         remoteTreeSha = await githubAPI.getCommitTree(remoteParentSha);
@@ -372,14 +306,15 @@ export async function push(
         `[git push] Processing: ${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\n')[0]}`
       );
 
-      // ツリーを構築
       const treeSha = await treeBuilder.buildTree(commit.oid, remoteTreeSha);
 
-      // コミットを作成
+      const parents: string[] = [];
+      if (parentSha) parents.push(parentSha);
+      progress?.(`Uploading commit ${commit.oid.slice(0, 7)}`);
       const commitData = await githubAPI.createCommit({
         message: commit.commit.message,
         tree: treeSha,
-        parents: parentSha ? [parentSha] : [],
+        parents,
         author: {
           name: commit.commit.author.name,
           email: commit.commit.author.email,
@@ -403,7 +338,6 @@ export async function push(
       throw new Error('Failed to create commits');
     }
 
-    // 4. ブランチrefを更新
     console.log('[git push] Updating branch reference...');
 
     if (isNewBranch) {
@@ -413,10 +347,7 @@ export async function push(
       await githubAPI.updateRef(targetBranch, lastCommitSha, force);
     }
 
-    // リモート追跡ブランチを更新
     await updateRemoteTrackingBranch(fs, dir, remote, targetBranch, lastCommitSha);
-
-    if (ui) await ui.spinner.stop();
 
     let result = `To ${remoteInfo.url}\n`;
     if (isNewBranch) {
@@ -428,15 +359,13 @@ export async function push(
     return result;
   } catch (error) {
     console.error('[git push] Error:', error);
-    if (ui) await ui.spinner.stop();
-    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    let errorMessage = String(error);
+    if (error instanceof Error) errorMessage = error.message;
     throw new Error(`Push failed: ${errorMessage}`);
   }
 }
 
-/**
- * リモート追跡ブランチを更新するヘルパー関数
- */
 async function updateRemoteTrackingBranch(
   fs: FS,
   dir: string,

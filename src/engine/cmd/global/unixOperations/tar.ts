@@ -1,478 +1,143 @@
-// src/engine/cmd/global/unixOperations/tar.ts
-
-import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, resolvePath as pathResolve } from '@/engine/core/pathUtils';
-import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
+import { fsClient, isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
-// TextEncoder/TextDecoder: prefer browser globals, fall back to Node's `util` on server.
-// This avoids bundling an undefined TextEncoder when running client-side.
-const TextEncoder =
-  typeof globalThis !== 'undefined' && (globalThis as any).TextEncoder
-    ? (globalThis as any).TextEncoder
-    : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextEncoder;
-const TextDecoder =
-  typeof globalThis !== 'undefined' && (globalThis as any).TextDecoder
-    ? (globalThis as any).TextDecoder
-    : /* eslint-disable-next-line @typescript-eslint/no-var-requires */ require('util').TextDecoder;
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
-/**
- * tar - POSIX準拠のtarアーカイブ作成/一覧/展開（ネイティブ実装）
- */
 export class TarCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
-    const optstring = 'cxtvf:h';
-    const longopts = ['create', 'extract', 'list', 'verbose', 'file=', 'help'];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, values, positional, errors } = parseWithGetOpt(args, 'cxtvf:h', [
+      'create',
+      'extract',
+      'list',
+      'verbose',
+      'file=',
+      'help',
+    ]);
     if (errors.length) throw new Error(errors.join('; '));
-
-    if (flags.has('-h') || flags.has('--help')) {
-      return this.showHelp();
-    }
-
-    const create = flags.has('-c') || flags.has('--create');
-    const extract = flags.has('-x') || flags.has('--extract');
-    const list = flags.has('-t') || flags.has('--list');
-    const verbose = flags.has('-v') || flags.has('--verbose');
-
-    const modeCount = [create, extract, list].filter(Boolean).length;
-    if (modeCount === 0) {
-      throw new Error('tar: You must specify one of -c, -t, or -x');
-    }
-    if (modeCount > 1) {
-      throw new Error('tar: Cannot specify multiple modes (-c/-t/-x)');
-    }
-
+    if (flags.has('-h') || flags.has('--help')) return 'Usage: tar -c|-t|-x -f ARCHIVE [FILE...]';
+    const modes = [
+      flags.has('-c') || flags.has('--create'),
+      flags.has('-t') || flags.has('--list'),
+      flags.has('-x') || flags.has('--extract'),
+    ];
+    if (modes.filter(Boolean).length !== 1)
+      throw new Error('tar: specify exactly one of -c, -t, or -x');
     const archiveName = values.get('-f') || values.get('--file');
-    if (!archiveName) {
-      throw new Error('tar: Option -f is required');
-    }
-
-    // Dispatch to the selected operation
-    if (create) {
-      return await this.createArchive(archiveName, positional, verbose);
-    }
-    if (list) {
-      return await this.listArchive(archiveName, verbose);
-    }
-    if (extract) {
-      return await this.extractArchive(archiveName, verbose);
-    }
-
-    // Should be unreachable due to validation above, but keep a guard
-    throw new Error('tar: Unhandled operation');
+    if (!archiveName) throw new Error('tar: Option -f is required');
+    if (modes[0]) return this.createArchive(archiveName, positional);
+    if (modes[1]) return this.listArchive(archiveName);
+    return this.extractArchive(archiveName);
   }
 
-  /**
-   * Create a 512-byte tar header for a single entry
-   */
-  private createTarHeader(name: string, size: number, isDir: boolean): Uint8Array {
-    const header = new Uint8Array(512);
-    const encoder = new TextEncoder();
-
-    const writeString = (str: string, offset: number, length: number) => {
-      const bytes = encoder.encode(str);
-      const len = Math.min(bytes.length, length);
-      header.set(bytes.slice(0, len), offset);
-      if (len < length) header[offset + len] = 0;
-    };
-
-    const writeOctal = (value: number, offset: number, length: number, terminator = 0) => {
-      const octal = value.toString(8).padStart(length - 1, '0');
-      writeString(octal, offset, length - 1);
-      header[offset + length - 1] = terminator;
-    };
-
-    // File name (0-99)
-    const nameToWrite = isDir && !name.endsWith('/') ? `${name}/` : name;
-    writeString(nameToWrite, 0, 100);
-
-    // Mode (100-107)
-    writeOctal(isDir ? 0o755 : 0o644, 100, 8);
-
-    // UID (108-115)
-    writeOctal(0, 108, 8);
-
-    // GID (116-123)
-    writeOctal(0, 116, 8);
-
-    // Size (124-135)
-    writeOctal(size, 124, 12);
-
-    // Mtime (136-147)
-    const now = Math.floor(Date.now() / 1000);
-    writeOctal(now, 136, 12);
-
-    // Checksum (148-155) - fill with spaces
-    for (let i = 148; i < 156; i++) header[i] = 32; // space
-
-    // Typeflag (156)
-    header[156] = isDir ? 53 : 48; // '5' or '0'
-
-    // USTAR indicator (257-262)
-    writeString('ustar', 257, 6);
-    header[263] = 48; // '0'
-    header[264] = 48; // '0'
-
-    // Username (265-296)
-    writeString('root', 265, 32);
-
-    // Groupname (297-328)
-    writeString('root', 297, 32);
-
-    // Calculate checksum
+  private header(name: string, size: number, directory: boolean): Uint8Array {
+    const bytes = new Uint8Array(512);
+    const string = (value: string, start: number, length: number) =>
+      bytes.set(encoder.encode(value).subarray(0, length), start);
+    const octal = (value: number, start: number, length: number) =>
+      string(`${value.toString(8).padStart(length - 1, '0')}\0`, start, length);
+    string(name, 0, 100);
+    octal(directory ? 0o755 : 0o644, 100, 8);
+    octal(0, 108, 8);
+    octal(0, 116, 8);
+    octal(size, 124, 12);
+    octal(Math.floor(Date.now() / 1000), 136, 12);
+    bytes.fill(32, 148, 156);
+    bytes[156] = directory ? 53 : 48;
+    string('ustar', 257, 6);
     let checksum = 0;
-    for (let i = 0; i < 512; i++) checksum += header[i];
-
-    // Write checksum (148-155)
-    writeOctal(checksum, 148, 7);
-    header[155] = 32; // space
-
-    return header;
+    for (const byte of bytes) checksum += byte;
+    string(`${checksum.toString(8).padStart(6, '0')}\0 `, 148, 8);
+    return bytes;
   }
 
-  /**
-   * アーカイブ作成（ネイティブ実装）
-   */
-  private async createArchive(
-    archiveName: string,
-    files: string[],
-    verbose: boolean
-  ): Promise<string> {
-    if (files.length === 0) {
-      throw new Error('tar: Cowardly refusing to create an empty archive');
-    }
-
-    if (this.terminalUI) {
-      await this.terminalUI.spinner.start('Creating tar archive...');
-    }
-
-    try {
-      const chunks: Uint8Array[] = [];
-      let totalFiles = 0;
-      const addedPaths = new Set<string>(); // 重複チェック用
-
-      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-
-      for (const fileName of files) {
-        const fileAppPath = pathResolve(baseApp, fileName);
-        const file = await this.getFileFromDB(fileAppPath);
-
-        if (!file) {
-          throw new Error(`tar: ${fileName}: Cannot stat: No such file or directory`);
+  private async createArchive(name: string, inputs: string[]): Promise<string> {
+    if (inputs.length === 0) throw new Error('tar: Cowardly refusing to create an empty archive');
+    const archivePath = resolvePath(this.currentDir, name);
+    const chunks: Uint8Array[] = [];
+    const added = new Set<string>();
+    for (const input of inputs) {
+      const path = resolvePath(this.currentDir, input);
+      const stat = await fsClient.stat(path);
+      const entryName = posixPath.relative(this.currentDir, path);
+      if (stat.type === 'folder') {
+        const descendants = [stat, ...(await fsClient.walk(path))];
+        for (const entry of descendants) {
+          const relative = posixPath.relative(this.currentDir, entry.path);
+          if (added.has(relative)) continue;
+          const directory = entry.type === 'folder';
+          const entryPath = directory && !relative.endsWith('/') ? `${relative}/` : relative;
+          const content = directory ? new Uint8Array() : await fsClient.readFile(entry.path);
+          chunks.push(this.header(entryPath, content.length, directory));
+          if (content.length) {
+            chunks.push(content);
+            chunks.push(new Uint8Array((512 - (content.length % 512)) % 512));
+          }
+          added.add(relative);
         }
-
-        // tar内のパス名（先頭スラッシュなし）
-        const entryName = fileAppPath.replace(/^\/+/, '');
-
-        if (file.type === 'folder') {
-          // フォルダ自身を追加（重複チェック）
-          if (!addedPaths.has(entryName)) {
-            const dirHeader = this.createTarHeader(entryName, 0, true);
-            chunks.push(dirHeader);
-            addedPaths.add(entryName);
-            if (verbose) console.log(`${entryName}/`);
-            totalFiles++;
-          }
-
-          // フォルダ内のファイルを取得
-          const folderFiles = await fileRepository.getFilesByPrefix(this.projectId, fileAppPath);
-
-          // フォルダ内のファイルを追加
-          for (const child of folderFiles) {
-            const childEntryName = child.path.replace(/^\/+/, '');
-
-            // 重複チェック
-            if (addedPaths.has(childEntryName)) {
-              continue;
-            }
-
-            if (child.type === 'folder') {
-              const childDirHeader = this.createTarHeader(childEntryName, 0, true);
-              chunks.push(childDirHeader);
-              addedPaths.add(childEntryName);
-              if (verbose) console.log(`${childEntryName}/`);
-            } else {
-              const contentBuf = child.bufferContent
-                ? new Uint8Array(child.bufferContent)
-                : new TextEncoder().encode(child.content || '');
-
-              const fileHeader = this.createTarHeader(childEntryName, contentBuf.length, false);
-              chunks.push(fileHeader);
-              chunks.push(contentBuf);
-
-              // 512バイト境界にパディング
-              const padding = (512 - (contentBuf.length % 512)) % 512;
-              if (padding > 0) {
-                chunks.push(new Uint8Array(padding));
-              }
-
-              addedPaths.add(childEntryName);
-              if (verbose) console.log(childEntryName);
-            }
-            totalFiles++;
-          }
-        } else {
-          // 単一ファイル（重複チェック）
-          if (!addedPaths.has(entryName)) {
-            const contentBuf = file.bufferContent
-              ? new Uint8Array(file.bufferContent)
-              : new TextEncoder().encode(file.content || '');
-
-            const fileHeader = this.createTarHeader(entryName, contentBuf.length, false);
-            chunks.push(fileHeader);
-            chunks.push(contentBuf);
-
-            const padding = (512 - (contentBuf.length % 512)) % 512;
-            if (padding > 0) {
-              chunks.push(new Uint8Array(padding));
-            }
-
-            addedPaths.add(entryName);
-            if (verbose) console.log(entryName);
-            totalFiles++;
-          }
-        }
+      } else if (!added.has(entryName)) {
+        const content = await fsClient.readFile(path);
+        chunks.push(this.header(entryName, content.length, false), content);
+        chunks.push(new Uint8Array((512 - (content.length % 512)) % 512));
+        added.add(entryName);
       }
-
-      if (totalFiles === 0) {
-        throw new Error('tar: Cowardly refusing to create an empty archive');
-      }
-
-      // 終端マーカー（1024バイトのゼロ）
-      chunks.push(new Uint8Array(1024));
-
-      // すべてのチャンクを結合
-      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      const tarBuffer = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        tarBuffer.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      console.log(`[TarCommand] Created tar buffer: ${tarBuffer.length} bytes`);
-      console.log(`[TarCommand] First 512 bytes:`, tarBuffer.slice(0, 512));
-
-      // ArrayBufferに変換
-      const archiveArrayBuffer = tarBuffer.buffer;
-
-      const archiveAppPath = pathResolve(baseApp, archiveName);
-      await fileRepository.createFile(
-        this.projectId,
-        archiveAppPath,
-        '',
-        'file',
-        true,
-        archiveArrayBuffer
-      );
-
-      if (this.terminalUI) {
-        await this.terminalUI.spinner.success('Archive created successfully');
-      }
-
-      return verbose ? '' : `Created ${archiveName} (${totalFiles} files)`;
-    } catch (err: any) {
-      if (this.terminalUI) {
-        await this.terminalUI.spinner.error(`Archive failed: ${err?.message || String(err)}`);
-      }
-      throw err;
     }
-  }
-
-  /**
-   * アーカイブ一覧表示
-   */
-  private async listArchive(archiveName: string, verbose: boolean): Promise<string> {
-    const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-    const archiveAppPath = pathResolve(baseApp, archiveName);
-    const file = await this.getFileFromDB(archiveAppPath);
-
-    if (!file) {
-      throw new Error(`tar: ${archiveName}: Cannot open: No such file or directory`);
-    }
-
-    const buf = file.bufferContent
-      ? new Uint8Array(file.bufferContent)
-      : new TextEncoder().encode(file.content || '');
-
-    const entries: string[] = [];
+    chunks.push(new Uint8Array(1024));
+    const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, 0));
     let offset = 0;
-    const decoder = new TextDecoder();
-
-    while (offset + 512 <= buf.length) {
-      const header = buf.slice(offset, offset + 512);
-
-      // ゼロブロックチェック
-      if (header.every((b: number) => b === 0)) break;
-
-      const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
-      const sizeStr = decoder.decode(header.slice(124, 136)).replace(/\0.*$/, '').trim();
-      const size = Number.parseInt(sizeStr, 8) || 0;
-
-      if (name) {
-        if (verbose) {
-          const mtimeStr = decoder.decode(header.slice(136, 148)).trim();
-          const mtime = Number.parseInt(mtimeStr, 8) || 0;
-          const date = new Date(mtime * 1000).toISOString().split('T')[0];
-          entries.push(`-rw-r--r-- 0/0 ${size.toString().padStart(8)} ${date} ${name}`);
-        } else {
-          entries.push(name);
-        }
-      }
-
-      offset += 512;
-      if (size > 0) {
-        const padding = (512 - (size % 512)) % 512;
-        offset += size + padding;
-      }
+    for (const chunk of chunks) {
+      output.set(chunk, offset);
+      offset += chunk.length;
     }
-
-    return entries.join('\n');
+    await fsClient.writeFile(archivePath, output);
+    return `Created ${name} (${added.size} files)`;
   }
 
-  /**
-   * アーカイブ展開
-   */
-  private async extractArchive(archiveName: string, verbose: boolean): Promise<string> {
-    if (this.terminalUI) {
-      await this.terminalUI.spinner.start('Extracting tar archive...');
+  private async readEntries(
+    name: string
+  ): Promise<Array<{ name: string; directory: boolean; content: Uint8Array }>> {
+    const data = await fsClient.readFile(resolvePath(this.currentDir, name));
+    const entries: Array<{ name: string; directory: boolean; content: Uint8Array }> = [];
+    let offset = 0;
+    while (offset + 512 <= data.length) {
+      const header = data.subarray(offset, offset + 512);
+      if (header.every(byte => byte === 0)) break;
+      const entryName = decoder.decode(header.subarray(0, 100)).replace(/\0.*$/, '');
+      const sizeField = decoder.decode(header.subarray(124, 136)).replace(/\0.*$/, '').trim();
+      const size = Number.parseInt(sizeField, 8) || 0;
+      const contentStart = offset + 512;
+      entries.push({
+        name: entryName,
+        directory: header[156] === 53 || entryName.endsWith('/'),
+        content: data.slice(contentStart, contentStart + size),
+      });
+      offset = contentStart + size + ((512 - (size % 512)) % 512);
     }
-
-    try {
-      const baseApp = fsPathToAppPath(this.currentDir, this.projectName);
-      const archiveAppPath = pathResolve(baseApp, archiveName);
-      const file = await this.getFileFromDB(archiveAppPath);
-
-      if (!file) {
-        throw new Error(`tar: ${archiveName}: Cannot open: No such file or directory`);
-      }
-
-      const buf = file.bufferContent
-        ? new Uint8Array(file.bufferContent)
-        : new TextEncoder().encode(file.content || '');
-
-      const entries: Array<{
-        path: string;
-        content: string;
-        type: 'file' | 'folder';
-        isBufferArray?: boolean;
-        bufferContent?: ArrayBuffer;
-      }> = [];
-
-      let offset = 0;
-      const decoder = new TextDecoder();
-
-      while (offset + 512 <= buf.length) {
-        const header = buf.slice(offset, offset + 512);
-
-        if (header.every((b: number) => b === 0)) break;
-
-        const name = decoder.decode(header.slice(0, 100)).replace(/\0.*$/, '');
-        const typeFlag = String.fromCharCode(header[156]);
-        const sizeStr = decoder.decode(header.slice(124, 136)).trim();
-        const size = Number.parseInt(sizeStr, 8) || 0;
-
-        if (name) {
-          const entryPath = name.startsWith('/')
-            ? name.replace(/\/$/, '')
-            : `/${name.replace(/\/$/, '')}`;
-          const isDir = typeFlag === '5' || name.endsWith('/');
-
-          offset += 512;
-
-          if (isDir) {
-            entries.push({ path: entryPath, content: '', type: 'folder' });
-          } else {
-            const contentBuf = buf.slice(offset, offset + size);
-
-            // テキストファイルかバイナリファイルかを判定
-            const isTextFile = await isLikelyTextFile(entryPath, contentBuf);
-
-            if (isTextFile) {
-              // テキストファイルとして展開
-              try {
-                const textContent = decoder.decode(contentBuf);
-                entries.push({
-                  path: entryPath,
-                  content: textContent,
-                  type: 'file',
-                  isBufferArray: false,
-                });
-              } catch (_e) {
-                // デコード失敗時はバイナリとして扱う
-                entries.push({
-                  path: entryPath,
-                  content: '',
-                  type: 'file',
-                  isBufferArray: true,
-                  bufferContent: contentBuf.buffer.slice(
-                    contentBuf.byteOffset,
-                    contentBuf.byteOffset + contentBuf.length
-                  ),
-                });
-              }
-            } else {
-              // バイナリファイルとして展開
-              entries.push({
-                path: entryPath,
-                content: '',
-                type: 'file',
-                isBufferArray: true,
-                bufferContent: contentBuf.buffer.slice(
-                  contentBuf.byteOffset,
-                  contentBuf.byteOffset + contentBuf.length
-                ),
-              });
-            }
-
-            const padding = (512 - (size % 512)) % 512;
-            offset += size + padding;
-          }
-
-          if (verbose) console.log(name);
-        } else {
-          offset += 512;
-        }
-      }
-
-      if (entries.length > 0) {
-        await fileRepository.createFilesBulk(this.projectId, entries);
-      }
-
-      if (this.terminalUI) {
-        await this.terminalUI.spinner.success('Archive extracted successfully');
-      }
-
-      return `Extracted ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`;
-    } catch (err: any) {
-      if (this.terminalUI) {
-        await this.terminalUI.spinner.error(`Extract failed: ${err?.message || String(err)}`);
-      }
-      throw err;
-    }
+    return entries;
   }
 
-  private showHelp(): string {
-    return `Usage: tar [OPTION]... [FILE]...
+  private async listArchive(name: string): Promise<string> {
+    return (await this.readEntries(name)).map(entry => entry.name).join('\n');
+  }
 
-Main operation mode:
-  -c, --create    create a new archive
-  -x, --extract   extract files from an archive
-  -t, --list      list the contents of an archive
-
-Required:
-  -f, --file=FILE use archive file FILE
-
-Other options:
-  -v, --verbose   verbosely list files processed
-  -h, --help      display this help and exit
-
-Examples:
-  tar -cf archive.tar file1 file2    # Create archive
-  tar -tf archive.tar                # List contents
-  tar -xf archive.tar                # Extract archive
-  tar -cvf archive.tar dir/          # Create with verbose output`;
+  private async extractArchive(name: string): Promise<string> {
+    const destination = this.currentDir;
+    const entries = await this.readEntries(name);
+    const targets = entries.map(entry => {
+      const target = resolvePath(destination, entry.name);
+      if (!isPathWithin(target, destination))
+        throw new Error(`tar: Path escapes destination: ${entry.name}`);
+      return { entry, target };
+    });
+    for (const { entry, target } of targets) {
+      if (entry.directory) await fsClient.mkdir(target, { recursive: true });
+      else {
+        const parent = target.slice(0, target.lastIndexOf('/')) || '/';
+        await fsClient.mkdir(parent, { recursive: true });
+        await fsClient.writeFile(target, entry.content);
+      }
+    }
+    return `Extracted ${targets.length} file(s)`;
   }
 }

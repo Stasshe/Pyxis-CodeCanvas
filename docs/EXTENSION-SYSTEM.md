@@ -1,6 +1,6 @@
 # Extension System
 
-Pyxisの拡張機能システムは、動的なモジュール読み込み、型安全なAPI、IndexedDBによる永続化を組み合わせ、ブラウザ環境で完全に独立した拡張機能エコシステムを実現しています。
+Pyxisの拡張機能システムは、動的なモジュール読み込みと型安全なAPIを提供します。拡張機能自身の保存データはIndexedDBに保存され、workspace fileへのアクセスはFS Workerのpath APIを通します。
 
 ## 目次
 
@@ -36,7 +36,7 @@ graph TB
     Context -->|Tabs API| TabRegistry
     Context -->|Sidebar API| SidebarRegistry
     Context -->|Commands API| CommandRegistry
-    Context -->|System Modules| FileRepository
+    Context -->|System Modules| FsClient
 ```
 
 ### Extension Manager
@@ -232,15 +232,35 @@ const React = window.__PYXIS_REACT__;
 
 ```typescript
 // systemModuleTypes.ts
+export interface PathUtilsModule {
+  posixPath: PosixPathApi;
+  normalizePath(path: string): string;
+  resolvePath(cwd: string, ...paths: string[]): string;
+  getParentPath(path: string): string;
+  basename(path: string): string;
+  isPathWithin(path: string, root: string): boolean;
+}
+
 export interface SystemModuleMap {
-  fileRepository: FileRepository;
+  fsClient: FsApi;
+  pathUtils: PathUtilsModule;
+  workspace: {
+    getRootPath(): string | null;
+    subscribe(listener: (rootPath: string | null) => void): () => void;
+  };
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
 }
 
 // 使用例（拡張機能内）
-const fileRepo = await context.getSystemModule('fileRepository');
-// fileRepoはFileRepository型として推論される
+const fs = await context.getSystemModule('fsClient');
+// fsはFsApi型として推論される
+
+const workspace = await context.getSystemModule('workspace');
+const rootPath = workspace.getRootPath();
+const unsubscribe = workspace.subscribe(nextRootPath => {
+  // null means no workspace is currently open
+});
 ```
 
 ### 変更イベント
@@ -265,88 +285,9 @@ UIコンポーネントはこのイベントを購読し、リアルタイムで
 
 ---
 
-## TypeScriptトランスパイル拡張機能
+## TypeScript transpiler extension
 
-TypeScriptトランスパイル機能は`pyxis.typescript-runtime`拡張機能として実装されています。
-
-### 動作の仕組み
-
-```mermaid
-graph TB
-    Runtime[Node Runtime]
-    Manager[Transpile Manager]
-    Worker[Transpile Worker]
-    Extension[typescript-runtime Extension]
-    Babel[Babel Standalone]
-    
-    Runtime -->|Request transpile| Manager
-    Manager -->|Check| Extension
-    Extension -->|Provide| TranspilerFunc[transpiler Function]
-    Manager -->|Offload| Worker
-    Worker -->|Use| Babel
-    Worker -->|Return| TranspiledCode[Transpiled Code]
-    TranspiledCode --> Runtime
-```
-
-**transpiler拡張機能の登録**
-
-拡張機能は`activate()`で`runtimeFeatures.transpiler`を返します。
-
-```typescript
-export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
-  return {
-    runtimeFeatures: {
-      transpiler: async (code: string, options: any) => {
-        // Babelを使用してTypeScript/JSXをトランスパイル
-        const result = Babel.transform(code, {
-          presets: ['typescript', 'react'],
-          filename: options.filename || 'module.ts',
-        });
-        return { code: result.code || '' };
-      },
-    },
-  };
-}
-```
-
-**TranspileManagerによる統合**
-
-TranspileManagerは有効化されたtranspiler拡張機能を検出し、Node Runtimeに提供します。
-
-```typescript
-// TranspileManager
-export function getActiveTranspiler(): TranspilerFunction | null {
-  const extensions = extensionManager.getActiveExtensions();
-  
-  for (const ext of extensions) {
-    if (ext.activation.runtimeFeatures?.transpiler) {
-      return ext.activation.runtimeFeatures.transpiler;
-    }
-  }
-  
-  return null;
-}
-```
-
-**Web Workerでの並列処理**
-
-実際のトランスパイル処理はWeb Workerに委譲され、UIスレッドをブロックしません。
-
-```mermaid
-sequenceDiagram
-    participant Runtime
-    participant Manager
-    participant Worker
-    participant Extension
-    
-    Runtime->>Manager: transpile(code)
-    Manager->>Extension: get transpiler()
-    Extension-->>Manager: transpiler function
-    Manager->>Worker: postMessage(code, transpiler)
-    Worker->>Worker: execute transpiler
-    Worker-->>Manager: onmessage(result)
-    Manager-->>Runtime: transpiled code
-```
+`pyxis.typescript-runtime` registers the supported extensions and the `typescript` worker transform. Extension code never crosses the worker boundary. The FS Worker sends JavaScript, TypeScript, TSX, and npm-installed `.mjs` transforms through one lazy worker pool; disabling the extension removes its TypeScript loader registration.
 
 ---
 
@@ -565,31 +506,25 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 ```typescript
 export interface CommandContext extends ExtensionContext {
   projectName: string;        // プロジェクト名
-  projectId: string;          // プロジェクトID
+  rootPath: string;           // workspace rootの絶対path
   currentDirectory: string;   // 現在のディレクトリ
+  fsClient: FsApi;            // filesystem API
 }
 ```
 
 **システムモジュールへのアクセス**
 
-コマンドハンドラー内で`getSystemModule`を使用して、fileRepositoryなどにアクセスできます。
+コマンドハンドラー内で`getSystemModule`を使用して、絶対pathでファイル操作ができます。
 
 ```typescript
 async function fileinfoCommand(args: string[], context: CommandContext): Promise<string> {
   const filePath = args[0];
   
-  // fileRepositoryを取得
-  const fileRepository = await context.getSystemModule('fileRepository');
+  const fs = await context.getSystemModule('fsClient');
   
-  // ファイル情報を取得
-  const files = await fileRepository.getProjectFiles(context.projectId);
-  const file = files.find(f => f.path === filePath);
+  const file = await fs.stat(filePath);
   
-  if (!file) {
-    return `Error: File not found: ${filePath}`;
-  }
-  
-  return `Path: ${file.path}\nSize: ${file.content.length} bytes`;
+  return `Path: ${file.path}\nSize: ${file.size} bytes`;
 }
 ```
 
@@ -601,8 +536,6 @@ sequenceDiagram
     participant Terminal
     participant Registry
     participant Extension
-    participant FileRepo
-    
     User->>Terminal: hello world
     Terminal->>Registry: executeCommand('hello', ['world'], context)
     Registry->>Extension: handler(['world'], context)
@@ -642,7 +575,7 @@ graph TB
     
     ExtensionContext -->|getSystemModule| SystemModules
     
-    SystemModules -->|fileRepository| FileRepo[File Repository]
+    SystemModules -->|fsClient| FsClient[Filesystem API]
     SystemModules -->|commandRegistry| CommandReg[Command Registry]
     SystemModules -->|normalizeCjsEsm| Normalizer[CJS/ESM Normalizer]
     
@@ -740,7 +673,12 @@ System ModulesはPyxisの内部APIへの型安全なアクセスを提供しま�
 ```typescript
 // systemModuleTypes.ts
 export interface SystemModuleMap {
-  fileRepository: FileRepository;
+  fsClient: FsApi;
+  pathUtils: PathUtilsModule;
+  workspace: {
+    getRootPath(): string | null;
+    subscribe(listener: (rootPath: string | null) => void): () => void;
+  };
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
 }
@@ -750,8 +688,12 @@ getSystemModule: async <T extends SystemModuleName>(
   moduleName: T
 ): Promise<SystemModuleMap[T]> => {
   switch (moduleName) {
-    case 'fileRepository':
-      return fileRepository as SystemModuleMap[T];
+    case 'fsClient':
+      return fsClient as SystemModuleMap[T];
+    case 'pathUtils':
+      return pathUtils as SystemModuleMap[T];
+    case 'workspace':
+      return workspace as SystemModuleMap[T];
     case 'normalizeCjsEsm':
       return module as SystemModuleMap[T];
     case 'commandRegistry':
@@ -766,8 +708,16 @@ getSystemModule: async <T extends SystemModuleName>(
 
 ```typescript
 // 拡張機能内
-const fileRepo = await context.getSystemModule('fileRepository');
-// fileRepoはFileRepository型
+const fs = await context.getSystemModule('fsClient');
+// fsはFsApi型
+
+const paths = await context.getSystemModule('pathUtils');
+const absolute = paths.resolvePath(rootPath, 'src/index.ts');
+
+const workspace = await context.getSystemModule('workspace');
+const unsubscribe = workspace.subscribe(nextRootPath => {
+  // update workspace-scoped extension state
+});
 
 const normalizer = await context.getSystemModule('normalizeCjsEsm');
 // normalizerはNormalizeCjsEsmModule型

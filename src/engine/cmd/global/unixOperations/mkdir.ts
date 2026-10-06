@@ -1,4 +1,4 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -69,8 +69,7 @@ export class MkdirCommand extends UnixCommandBase {
     parents: boolean,
     verbose: boolean
   ): Promise<string | null> {
-    const normalizedPath = this.normalizePath(this.resolvePath(dir));
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
+    const normalizedPath = this.resolvePath(dir);
 
     // 既に存在するかチェック
     const exists = await this.exists(normalizedPath);
@@ -83,35 +82,11 @@ export class MkdirCommand extends UnixCommandBase {
       throw new Error('File exists');
     }
 
-    if (parents) {
-      // 親ディレクトリも作成
-      const parts = relativePath.split('/').filter(p => p);
-      let currentPath = '';
-
-      for (const part of parts) {
-        currentPath += `/${part}`;
-        const exists = await this.exists(
-          this.normalizePath(`${this.getProjectRoot()}${currentPath}`)
-        );
-
-        if (!exists) {
-          await fileRepository.createFile(this.projectId, currentPath, '', 'folder');
-        }
-      }
-    } else {
-      // 親ディレクトリの存在チェック
-      const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
-      if (parentPath !== '/') {
-        const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`);
-        const parentExists = await this.exists(parentFullPath);
-
-        if (!parentExists) {
-          throw new Error('No such file or directory');
-        }
-      }
-
-      await fileRepository.createFile(this.projectId, relativePath, '', 'folder');
+    if (!parents) {
+      const parentPath = normalizedPath.slice(0, normalizedPath.lastIndexOf('/')) || '/';
+      if (!(await this.exists(parentPath))) throw new Error('No such file or directory');
     }
+    await fsClient.mkdir(normalizedPath, { recursive: parents });
 
     if (verbose) {
       return `mkdir: created directory '${normalizedPath}'`;

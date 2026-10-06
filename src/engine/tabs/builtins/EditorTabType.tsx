@@ -21,8 +21,7 @@ const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
   const editorTab = tab as EditorTab;
   // グローバルストアからプロジェクト情報を取得
   const { currentProject } = useProjectSnapshot();
-  const projectId = currentProject?.id;
-  const { settings } = useSettings(projectId);
+  const { settings } = useSettings();
   const { setGitRefreshTrigger } = useGitContext();
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 

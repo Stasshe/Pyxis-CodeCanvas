@@ -1,33 +1,21 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
-import { syncManager } from '@/engine/core/syncManager';
-import { tabActions } from '@/stores/tabState';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 import { GitFileSystemHelper } from './fileSystemHelper';
 import { MergeConflictDetector } from './mergeConflictDetector';
 
-/**
- * Git merge操作を管理するクラス
- * - merge後にsyncManager.syncFromFSToIndexedDB()で逆同期
- */
 export class GitMergeOperations {
   private fs: FS;
   private dir: string;
-  private projectId: string;
-  private projectName: string;
 
-  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
+  constructor(fs: FS, dir: string) {
     this.fs = fs;
     this.dir = dir;
-    this.projectId = projectId;
-    this.projectName = projectName;
   }
 
-  // プロジェクトディレクトリの存在を確認し、なければ作成
   private async ensureProjectDirectory(): Promise<void> {
-    await GitFileSystemHelper.ensureDirectory(this.dir);
+    await GitFileSystemHelper.ensureDirectory(this.fs, this.dir);
   }
 
-  // Gitリポジトリが初期化されているかチェック
   private async ensureGitRepository(): Promise<void> {
     await this.ensureProjectDirectory();
     try {
@@ -37,18 +25,16 @@ export class GitMergeOperations {
     }
   }
 
-  // 現在のブランチ名を取得
   private async getCurrentBranch(): Promise<string | null> {
     try {
       await this.ensureGitRepository();
       const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-      return branch || null; // undefinedをnullに変換
+      return branch || null;
     } catch {
       return null;
     }
   }
 
-  // ブランチが存在するかチェック
   private async branchExists(branchName: string): Promise<boolean> {
     try {
       await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${branchName}` });
@@ -58,14 +44,11 @@ export class GitMergeOperations {
     }
   }
 
-  // ワーキングディレクトリがクリーンかチェック
   private async isWorkingDirectoryClean(): Promise<boolean> {
     try {
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
 
-      // 変更されたファイルまたはステージされたファイルがあるかチェック
       for (const [_filepath, HEAD, workdir, stage] of status) {
-        // 変更がある場合
         if (HEAD !== workdir || stage !== HEAD) {
           return false;
         }
@@ -73,34 +56,24 @@ export class GitMergeOperations {
 
       return true;
     } catch {
-      return true; // エラーの場合はクリーンとみなす
+      return true;
     }
   }
 
-  // すべてのファイルを取得（再帰的）
   private async getAllFiles(dirPath: string): Promise<string[]> {
     return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
   }
 
-  // Resolve a branch name which may be local or remote into a commit OID
   private async resolveBranchCommit(branchName: string): Promise<string> {
-    // Try multiple possible refs: heads, remotes, full ref
-    const tryRefs = [
-      `refs/heads/${branchName}`,
-      `refs/remotes/${branchName}`,
-      branchName, // allow full refs
-    ];
+    const tryRefs = [`refs/heads/${branchName}`, `refs/remotes/${branchName}`, branchName];
 
     for (let i = 0; i < tryRefs.length; i++) {
       try {
         const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: tryRefs[i] });
         return oid;
-      } catch {
-        // try next
-      }
+      } catch {}
     }
 
-    // As a fallback, attempt to interpret branchName like 'origin/main' -> refs/remotes/origin/main
     try {
       const remoteRef = `refs/remotes/${branchName}`;
       const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: remoteRef });
@@ -112,7 +85,6 @@ export class GitMergeOperations {
     }
   }
 
-  // Fast-forward マージかチェック
   private async canFastForward(
     sourceBranch: string,
     targetBranch: string
@@ -121,7 +93,6 @@ export class GitMergeOperations {
       const sourceCommit = await this.resolveBranchCommit(sourceBranch);
       const targetCommit = await this.resolveBranchCommit(targetBranch);
 
-      // targetCommit が sourceCommit の子孫（descendent）であれば fast-forward 可能
       const isDescendent = await git.isDescendent({
         fs: this.fs,
         dir: this.dir,
@@ -139,7 +110,6 @@ export class GitMergeOperations {
     }
   }
 
-  // git merge - ブランチをマージ
   async merge(
     branchName: string,
     options: { noFf?: boolean; message?: string; abort?: boolean } = {}
@@ -147,48 +117,38 @@ export class GitMergeOperations {
     try {
       await this.ensureGitRepository();
 
-      // git merge --abort の処理
       if (options.abort) {
-        // 簡易実装: マージ中の状態をリセット
         return 'Merge aborted (not fully implemented yet)';
       }
 
-      // ワーキングディレクトリがクリーンかチェック
       const isClean = await this.isWorkingDirectoryClean();
       if (!isClean) {
         return 'error: Your local changes to the following files would be overwritten by merge:\nPlease commit your changes or stash them before you merge.';
       }
 
-      // 現在のブランチを取得
       const currentBranch = await this.getCurrentBranch();
 
-      // detached HEAD状態ではマージできない
       if (!currentBranch) {
         return 'fatal: You are not currently on a branch.\nTo make a commit, create a new branch or switch to an existing branch.';
       }
 
-      // 自分自身をマージしようとした場合
       if (currentBranch === branchName) {
         return 'Already up to date.';
       }
 
-      // マージ対象のブランチが存在するかチェック
       if (!(await this.branchExists(branchName))) {
         const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
         return `merge: ${branchName} - not something we can merge\nAvailable branches: ${branches.join(', ')}`;
       }
 
-      // Fast-forward チェック
       const { canFF, sourceCommit, targetCommit } = await this.canFastForward(
         currentBranch,
         branchName
       );
 
-      // Fast-forward マージの場合
       if (canFF && !options.noFf) {
         console.log('Performing fast-forward merge');
 
-        // Fast-forward マージを実行（HEADを対象ブランチに移動）
         await git.writeRef({
           fs: this.fs,
           dir: this.dir,
@@ -196,25 +156,17 @@ export class GitMergeOperations {
           value: targetCommit,
         });
 
-        // ワーキングディレクトリを更新
         await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch });
 
-        // GitFileSystem → IndexedDBへ逆同期
-        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('Reverse sync completed');
-
         const shortTarget = targetCommit.slice(0, 7);
-        return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward\n\nChanges synced to IndexedDB`;
+        return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward`;
       }
 
-      // 3-way マージを実行
       console.log('Performing 3-way merge');
 
       const commitMessage = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
 
       try {
-        // isomorphic-git の merge 関数を使用
         const result = await git.merge({
           fs: this.fs,
           dir: this.dir,
@@ -233,112 +185,77 @@ export class GitMergeOperations {
 
         console.log('Merge result:', result);
 
-        // マージが成功した場合
         if (result && !result.alreadyMerged) {
-          // マージコミットのOIDをcheckoutし、その状態を反映
           if (result.oid) {
             await git.checkout({ fs: this.fs, dir: this.dir, ref: result.oid });
           }
 
-          // GitFileSystem → IndexedDBへ逆同期
-          console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-          await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-          console.log('Reverse sync completed');
-
-          const mergeCommit = result.oid ? result.oid.slice(0, 7) : 'unknown';
-          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}\n\nChanges synced to IndexedDB`;
+          let mergeCommit = 'unresolved';
+          if (result.oid) mergeCommit = result.oid.slice(0, 7);
+          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}`;
         }
         if (result?.alreadyMerged) {
           return 'Already up to date.';
         }
-        // GitFileSystem → IndexedDBへ逆同期
-        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('Reverse sync completed');
 
-        return 'Merge completed successfully.\n\nChanges synced to IndexedDB';
+        return 'Merge completed successfully.';
       } catch (mergeError) {
         const error = mergeError as Error & { code?: string };
-        // マージコンフリクトの場合
         if (error.code === 'MergeNotSupportedError' || error.message?.includes('conflict')) {
           console.log('Merge conflict detected, opening resolution tab');
 
-          // Detect conflicts
           const detector = new MergeConflictDetector(this.fs, this.dir);
           const conflicts = await detector.detectConflicts(currentBranch, branchName);
 
           if (conflicts.length > 0) {
-            // Open merge conflict tab
-            const { openTab } = tabActions;
-            await openTab(
-              {
-                conflicts,
-                oursBranch: currentBranch,
-                theirsBranch: branchName,
-                projectId: this.projectId,
-                projectName: this.projectName,
-              },
-              {
-                kind: 'merge-conflict',
-              }
-            );
+            await this.fs.reportMergeConflict({
+              conflicts,
+              oursBranch: currentBranch,
+              theirsBranch: branchName,
+              root: this.dir,
+            });
 
             return `CONFLICT: Automatic merge failed.\n${conflicts.length} conflicting file(s) detected.\nMerge conflict resolution tab has been opened.`;
           }
 
           return 'CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected but could not extract conflict details.';
         }
-        // その他のマージエラー
         throw new Error(`Merge failed: ${error.message}`);
       }
     } catch (error) {
       const errorMessage = (error as Error).message;
 
-      // 特定のエラーは再スロー
       if (errorMessage.includes('not a git repository')) {
         throw error;
       }
 
-      // その他のエラーは詳細なメッセージで包む
       throw new Error(`git merge failed: ${errorMessage}`);
     }
   }
 
-  // git merge --abort - マージを中止（簡易実装）
   async mergeAbort(): Promise<string> {
     try {
       await this.ensureGitRepository();
 
-      // マージ状態をチェック（MERGE_HEADファイルの存在確認）
       try {
         await this.fs.promises.stat(`${this.dir}/.git/MERGE_HEAD`);
       } catch {
         return 'fatal: There is no merge to abort (MERGE_HEAD missing).';
       }
 
-      // MERGE_HEAD ファイルを削除してマージ状態をクリア
       try {
         await this.fs.promises.unlink(`${this.dir}/.git/MERGE_HEAD`);
 
-        // MERGE_MSG ファイルも削除（存在する場合）
         try {
           await this.fs.promises.unlink(`${this.dir}/.git/MERGE_MSG`);
-        } catch {
-          // MERGE_MSG がない場合は無視
-        }
+        } catch {}
 
-        // 現在のブランチにハードリセット
         const currentBranch = await this.getCurrentBranch();
         if (currentBranch) {
           await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
         }
 
-        // GitFileSystem → IndexedDBへ逆同期
-        console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-        await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-        console.log('Reverse sync completed');
-
-        return 'Merge aborted. Working tree has been reset.\n\nChanges synced to IndexedDB';
+        return 'Merge aborted. Working tree has been reset.';
       } catch (error) {
         throw new Error(`Failed to abort merge: ${(error as Error).message}`);
       }

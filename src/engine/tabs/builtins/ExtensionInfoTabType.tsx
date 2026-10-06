@@ -148,7 +148,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                           <LocalImage
                             src={typeof src === 'string' ? src : ''}
                             alt={alt || ''}
-                            // manifest readmes are not project-scoped, so do not pass projectName/projectId
+                            // Manifest readmes have no workspace base path.
                             {...props}
                           />
                         ),

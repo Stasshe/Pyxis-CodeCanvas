@@ -123,16 +123,18 @@ Pyxis features an AI assistant that helps you review and adopt code diffs. This 
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-**Custom implementation without WASM**—incredibly fast, and supports not only Node.js but also TypeScript execution (via Babel Standalone and advanced normalization). The runtime allows you to use `fs`, `readline`, and even `userinterface` (for interactive console apps), just like in a real Node.js environment.
-- ⚡ **Instant execution** - No compilation, zero wait time
+Node.js code runs in a dedicated Worker for each execution. JavaScript modules and TypeScript are transformed in the browser, and synchronous filesystem operations go through the Service Worker to OPFS.
+The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm tarball cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. npm metadata is fetched fresh; package tarballs are keyed by the SHA-256 of the exact resolved URL and cached after successful extraction. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
+- **Stop controls** - RunPanel Stop ends the run; Terminal Ctrl+C invokes the program's SIGINT handler
+- ⚡ **Isolated execution** - A fresh Worker is created for each run and discarded when it ends
 - 📁 **File operations** - Full support for `fs`, `path`, `readline`, and `userinterface` modules
-- 🌀 **TypeScript/Babel support** - TypeScript runs instantly via Babel Standalone and normalization system
+- 🌀 **TypeScript support** - TypeScript is transformed through the extension transpiler configuration
 - 🎯 **Casual coding** - Perfect for algorithm testing, learning, and interactive console apps
 
 Emulates file operations and interactive user input/output that are impossible in plain JavaScript, providing a genuine Node.js/TypeScript learning environment.
 
 
-> **Limitations**: No WASM means some features like native modules and child_process are unsupported. Sufficient for basic Node.js/TypeScript learning and simple scripts.
+> **Limitations**: Native Node.js addons are unavailable. `child_process` commands run through Pyxis's shell implementation.
 
 ---
 
@@ -208,7 +210,7 @@ One of Pyxis's biggest features is its "Extension System." You can add VSCode-li
 - **Terminal Command Extensions**: Add custom commands via API and run them from Pyxis's terminal UI.
 - **VSCode-like UI Extensions**: Add custom tabs and sidebar panels via API. Build intuitive UIs with React/TSX.
 - **Language Packs & Service Extensions**: Add language packs or custom services as extensions.
-- **Safe Sandbox Architecture**: Each extension runs independently and safely. IndexedDB is used for persistence and caching.
+- **Safe Sandbox Architecture**: Extensions run independently, and extension data persists in browser storage.
 
 Pyxis extensions offer flexibility and power unmatched by any other browser IDE: VSCode-level UI extensions on Web/iPad, extensible terminal commands, and instant development with official templates.
 
@@ -298,18 +300,16 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 ### **Editor & Terminal**
 - **Monaco Editor** - The same engine that powers VS Code
 - **xterm.js** - Full-featured terminal experience
-- **Lightning FS** - Blazing-fast file system
+- **OPFS** - Browser filesystem for project files and Git history
 
 ### **Runtime Innovation**
 - **fs module** - File System
 - **node-stdlib-browser** - Node.js API compatibility
 - **isomorphic-git** - Pure JavaScript Git implementation
 
-### **Interested in Pyxis Database & File System Design?**
+### **File System Design**
 
-For an in-depth look at Pyxis's internal architecture, database design, and file system specifications, check out the **advanced documentation** in [Development/DATABASE.md](Development/DATABASE.md).
-
-> Covers data flow, IndexedDB structure, virtual file system mechanisms, and more—packed with deep technical insights for developers and researchers.
+OPFS is the only store for file contents. IndexedDB stores metadata such as recent folders, tabs, chats, and AI reviews. See [Two-Layer Architecture](docs/TWO-LAYER-ARCHITECTURE.md) and [Data Flow](docs/DATA-FLOW.md) for details.
 
 ### 🎨 **What You Can Build**
 
