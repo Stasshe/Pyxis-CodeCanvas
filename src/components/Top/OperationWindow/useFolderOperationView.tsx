@@ -2,13 +2,22 @@ import { Clock3, Folder, FolderOpen, FolderPlus, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { basename, fsClient, getParentPath, HOME_DIR, normalizePath } from '@/engine/core/fs';
 import { listRecentFolders, removeRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
+import { getCurrentRootPath } from '@/stores/projectStore';
 import type { Project, ProjectFile } from '@/types';
-import { isWorkspaceNameValid, resolveFolderInput, workspaceDestination } from './folderPath';
+import {
+  displayRecentFolderPath,
+  folderSearchLocation,
+  isWorkspaceNameValid,
+  resolveFolderInput,
+} from './folderPath';
 import type { OperationListItem, OperationWindowView } from './types';
 
 interface FolderOperationOptions {
   onOpenFolder: (project: Project) => Promise<void>;
   onCreateFolder: (name: string) => Promise<void>;
+  onOpenRecent: () => void;
+  onOpenFolderView: () => void;
+  currentRootPath: string | null;
   initialError?: string | null;
 }
 
@@ -18,14 +27,24 @@ function projectFromPath(rootPath: string): Project {
   return { rootPath: normalizedPath, name, updatedAt: new Date() };
 }
 
+function withTrailingSlash(path: string): string {
+  if (path === '/') return path;
+  return `${path}/`;
+}
+
 export function useFolderOperationView({
   onOpenFolder,
   onCreateFolder,
+  onOpenRecent,
+  onOpenFolderView,
+  currentRootPath,
   initialError,
-}: FolderOperationOptions): OperationWindowView {
-  const [path, setPath] = useState(HOME_DIR);
-  const [pathInput, setPathInput] = useState(HOME_DIR);
+}: FolderOperationOptions): { folderView: OperationWindowView; recentView: OperationWindowView } {
+  const initialPath = currentRootPath ?? HOME_DIR;
+  const [path, setPath] = useState(initialPath);
+  const [pathInput, setPathInput] = useState(withTrailingSlash(initialPath));
   const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [folders, setFolders] = useState<ProjectFile[]>([]);
   const [recentFolders, setRecentFolders] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,14 +53,34 @@ export function useFolderOperationView({
   const generation = useRef(0);
   const busy = useRef(false);
 
-  const loadRecentFolders = useCallback(async () => {
-    try {
-      setRecentFolders(await listRecentFolders());
-    } catch (loadError) {
-      console.error('[Folders] Failed to load recent folders', loadError);
-      setError(String(loadError));
-    }
-  }, []);
+  const loadCandidates = useCallback(
+    async (input: string, basePath = path) => {
+      const request = ++generation.current;
+      setLoading(true);
+      try {
+        const location = folderSearchLocation(input, basePath);
+        const entries = await fsClient.readdir(location.directory);
+        if (request !== generation.current) return;
+        const prefix = location.prefix.toLocaleLowerCase();
+        setFolders(
+          entries.filter(entry => {
+            if (entry.type !== 'folder') return false;
+            return basename(entry.path).toLocaleLowerCase().startsWith(prefix);
+          })
+        );
+        setError(null);
+      } catch (loadError) {
+        console.error(`[Folders] Failed to match directories for ${input}`, loadError);
+        if (request === generation.current) {
+          setFolders([]);
+          setError(String(loadError));
+        }
+      } finally {
+        if (request === generation.current) setLoading(false);
+      }
+    },
+    [path]
+  );
 
   const browse = useCallback(async (directory: string) => {
     if (busy.current) return;
@@ -53,157 +92,167 @@ export function useFolderOperationView({
       const entries = await fsClient.readdir(normalizedPath);
       if (request !== generation.current) return;
       setPath(normalizedPath);
-      setPathInput(normalizedPath);
+      setPathInput(withTrailingSlash(normalizedPath));
       setFolders(entries.filter(entry => entry.type === 'folder'));
     } catch (loadError) {
       console.error(`[Folders] Failed to browse ${directory}`, loadError);
-      if (request === generation.current) setError(String(loadError));
+      if (request === generation.current) {
+        setFolders([]);
+        setError(String(loadError));
+      }
     } finally {
       if (request === generation.current) setLoading(false);
     }
   }, []);
 
-  const enter = useCallback(async () => {
-    await browse(HOME_DIR);
-    await loadRecentFolders();
+  const loadRecentFolders = useCallback(async () => {
+    try {
+      setRecentFolders(await listRecentFolders());
+      setError(null);
+    } catch (loadError) {
+      console.error('[Folders] Failed to load recent folders', loadError);
+      setError(String(loadError));
+    }
+  }, []);
+
+  const enterFolders = useCallback(async () => {
+    const rootPath = getCurrentRootPath() ?? HOME_DIR;
+    setPath(rootPath);
+    setPathInput(withTrailingSlash(rootPath));
+    await browse(rootPath);
     if (initialError) setError(initialError);
-  }, [browse, initialError, loadRecentFolders]);
+  }, [browse, initialError]);
+
+  const enterRecent = useCallback(async () => {
+    await loadRecentFolders();
+  }, [loadRecentFolders]);
+
+  const withBusy = useCallback(
+    async (action: () => Promise<void>) => {
+      if (busy.current || loading) return;
+      busy.current = true;
+      setIsBusy(true);
+      setError(null);
+      try {
+        await action();
+      } catch (actionError) {
+        let message = String(actionError);
+        if (actionError instanceof Error) message = actionError.message;
+        setError(message);
+        throw actionError;
+      } finally {
+        busy.current = false;
+        setIsBusy(false);
+      }
+    },
+    [loading]
+  );
 
   const openFolder = useCallback(
-    async (rootPath: string) => {
-      if (busy.current || loading) return;
-      busy.current = true;
-      setIsBusy(true);
-      setError(null);
+    (rootPath: string) =>
+      withBusy(async () => {
+        try {
+          const entry = await fsClient.stat(rootPath);
+          if (entry.type !== 'folder') throw new Error(`${rootPath} is not a folder.`);
+          await onOpenFolder(projectFromPath(rootPath));
+        } catch (openError) {
+          console.error(`[Folders] Failed to open ${rootPath}`, openError);
+          throw openError;
+        }
+      }),
+    [onOpenFolder, withBusy]
+  );
+
+  const openTypedFolder = useCallback(
+    async (selectedItem?: OperationListItem) => {
+      let destination = pathInput;
       try {
-        await onOpenFolder(projectFromPath(rootPath));
-      } catch (openError) {
-        console.error(`[Folders] Failed to open ${rootPath}`, openError);
-        throw openError;
-      } finally {
-        busy.current = false;
-        setIsBusy(false);
+        if (selectedItem) destination = selectedItem.id.slice('directory:'.length);
+        else destination = resolveFolderInput(pathInput, path);
+        const entry = await fsClient.stat(destination);
+        if (entry.type !== 'folder') throw new Error(`${destination} is not a folder.`);
+        await browse(destination);
+      } catch (pathError) {
+        console.error(`[Folders] Invalid or unavailable path ${destination}`, pathError);
+        setError(String(pathError));
+        throw pathError;
       }
     },
-    [loading, onOpenFolder]
+    [browse, path, pathInput]
   );
+
+  const confirmOpenFolder = useCallback(async () => {
+    let destination = '';
+    try {
+      destination = resolveFolderInput(pathInput, path);
+      await openFolder(destination);
+    } catch (openError) {
+      console.error(`[Folders] Failed to open ${destination || pathInput}`, openError);
+      throw openError;
+    }
+  }, [openFolder, path, pathInput]);
 
   const forgetFolder = useCallback(
-    async (rootPath: string) => {
-      if (busy.current || loading) return;
-      busy.current = true;
-      setIsBusy(true);
-      setError(null);
-      try {
+    (rootPath: string) =>
+      withBusy(async () => {
         await removeRecentFolder(rootPath);
         await loadRecentFolders();
-      } catch (removeError) {
+      }).catch(removeError => {
         console.error(`[Folders] Failed to remove recent folder ${rootPath}`, removeError);
-        setError(String(removeError));
-      } finally {
-        busy.current = false;
-        setIsBusy(false);
-      }
-    },
-    [loadRecentFolders, loading]
+      }),
+    [loadRecentFolders, withBusy]
   );
 
-  const submitPath = useCallback(async () => {
-    try {
-      await browse(resolveFolderInput(pathInput));
-    } catch (pathError) {
-      console.error(`[Folders] Invalid or unavailable path ${pathInput}`, pathError);
-      setError(String(pathError));
-    }
-  }, [browse, pathInput]);
-
   const createFolder = useCallback(async () => {
-    if (busy.current || loading) return;
     const name = newFolderName.trim();
     if (!isWorkspaceNameValid(name)) {
       setError('Enter a single folder name.');
       return;
     }
-    setError(null);
-    busy.current = true;
-    setIsBusy(true);
-    try {
+    await withBusy(async () => {
       await onCreateFolder(name);
       setNewFolderName('');
-    } catch (createError) {
+      setIsCreatingFolder(false);
+    }).catch(createError => {
       console.error(`[Folders] Failed to create workspace ${name}`, createError);
-      setError(String(createError));
-    } finally {
-      busy.current = false;
-      setIsBusy(false);
-    }
-  }, [loading, newFolderName, onCreateFolder]);
+    });
+  }, [newFolderName, onCreateFolder, withBusy]);
 
-  const items = useMemo(() => {
-    const directoryItems: OperationListItem[] = folders.map(folder => ({
-      id: `directory:${folder.path}`,
-      label: basename(folder.path),
-      description: folder.path,
-      icon: <Folder size={15} />,
-      onClick: () => browse(folder.path),
-    }));
-    const recentItems: OperationListItem[] = recentFolders.map(folder => ({
-      id: `recent:${folder.rootPath}`,
-      label: folder.name,
-      description: folder.rootPath,
-      icon: <Clock3 size={15} />,
-      onClick: () => openFolder(folder.rootPath),
-      actions: [
-        {
-          id: 'forget',
-          icon: <Trash2 size={14} />,
-          label: `Remove ${folder.name} from recent folders`,
-          danger: true,
-          onClick: () => void forgetFolder(folder.rootPath),
-        },
-      ],
-    }));
-    return [...directoryItems, ...recentItems];
-  }, [browse, folders, forgetFolder, openFolder, recentFolders]);
+  const directoryItems = useMemo(
+    () =>
+      folders.map(folder => ({
+        id: `directory:${folder.path}`,
+        label: basename(folder.path),
+        icon: <Folder size={15} />,
+        onClick: () => browse(folder.path),
+      })),
+    [browse, folders]
+  );
 
-  return {
-    id: 'folders',
-    title: 'Folders',
-    items,
-    onActivate: (item: OperationListItem) => item.onClick?.(),
-    onEnter: enter,
-    headerActions: [
-      {
-        id: 'parent',
-        icon: <FolderOpen size={15} />,
-        label: 'Parent folder',
-        onClick: () => browse(getParentPath(path)),
-      },
-      {
-        id: 'open',
-        icon: <FolderOpen size={15} />,
-        label: 'Open current folder',
-        onClick: () => openFolder(path),
-      },
-    ],
-    breadcrumb: (
-      <form
-        className="flex items-center gap-2 border-b border-border px-3 py-2"
-        onSubmit={event => {
-          event.preventDefault();
-          void submitPath();
-        }}
-      >
-        <input
-          aria-label="Folder path"
-          value={pathInput}
-          onChange={event => setPathInput(event.target.value)}
-          className="min-w-0 flex-1 border border-border bg-background px-2 py-1 font-mono text-sm"
-        />
-        <button type="submit">Go</button>
-      </form>
-    ),
-    footer: (
+  const recentItems = useMemo(
+    () =>
+      recentFolders.map(folder => ({
+        id: `recent:${folder.rootPath}`,
+        label: basename(folder.rootPath) || '/',
+        description: displayRecentFolderPath(folder.rootPath),
+        icon: <Clock3 size={15} />,
+        onClick: () => openFolder(folder.rootPath),
+        actions: [
+          {
+            id: 'forget',
+            icon: <Trash2 size={14} />,
+            label: `Remove ${folder.name} from recent folders`,
+            danger: true,
+            onClick: () => void forgetFolder(folder.rootPath),
+          },
+        ],
+      })),
+    [forgetFolder, openFolder, recentFolders]
+  );
+
+  const folderFooter = useMemo(() => {
+    if (!isCreatingFolder) return null;
+    return (
       <form
         className="flex items-center gap-2 border-t border-border px-3 py-2"
         onSubmit={event => {
@@ -211,31 +260,109 @@ export function useFolderOperationView({
           void createFolder();
         }}
       >
-        <FolderPlus size={15} />
         <input
           aria-label="New workspace name"
           value={newFolderName}
           onChange={event => setNewFolderName(event.target.value)}
-          placeholder={`New folder in ${HOME_DIR}`}
+          placeholder="New workspace name"
           className="min-w-0 flex-1 border border-border bg-background px-2 py-1 text-sm"
         />
-        <span
-          title={workspaceDestination(newFolderName)}
-          className="max-w-40 min-w-0 truncate font-mono text-xs text-muted-foreground"
-        >
-          {workspaceDestination(newFolderName)}
-        </span>
-        <button
-          type="submit"
-          disabled={!isWorkspaceNameValid(newFolderName) || loading || isBusy}
-          aria-label="Create folder"
-        >
+        <button type="submit" disabled={!isWorkspaceNameValid(newFolderName) || loading || isBusy}>
           Create
         </button>
       </form>
-    ),
-    loading: loading || isBusy,
-    error,
-    emptyMessage: 'No folders or recent folders',
-  };
+    );
+  }, [createFolder, isBusy, isCreatingFolder, loading, newFolderName]);
+
+  const folderView = useMemo<OperationWindowView>(
+    () => ({
+      id: 'folders',
+      title: 'Open Folder',
+      showTitle: true,
+      items: directoryItems,
+      onActivate: item => browse(item.id.slice('directory:'.length)),
+      onEnter: enterFolders,
+      headerActions: [
+        {
+          id: 'open-recent',
+          icon: <Clock3 size={15} />,
+          label: 'Open Recent',
+          onClick: onOpenRecent,
+        },
+        {
+          id: 'parent',
+          icon: <FolderOpen size={15} />,
+          label: 'Parent folder',
+          onClick: () => browse(getParentPath(path)),
+        },
+        {
+          id: 'open-folder',
+          icon: <FolderOpen size={15} />,
+          label: 'Open Folder',
+          onClick: () => confirmOpenFolder(),
+        },
+        {
+          id: 'new-folder',
+          icon: <FolderPlus size={15} />,
+          label: 'New Workspace',
+          onClick: () => setIsCreatingFolder(value => !value),
+        },
+      ],
+      input: {
+        value: pathInput,
+        placeholder: 'Type a folder path',
+        onChange: value => {
+          setPathInput(value);
+          void loadCandidates(value);
+        },
+        onConfirm: selectedItem => openTypedFolder(selectedItem),
+      },
+      footer: folderFooter,
+      loading,
+      actionBusy: isBusy,
+      error,
+      emptyMessage: 'No matching folders',
+    }),
+    [
+      browse,
+      confirmOpenFolder,
+      directoryItems,
+      enterFolders,
+      error,
+      folderFooter,
+      isBusy,
+      loadCandidates,
+      onOpenRecent,
+      openTypedFolder,
+      path,
+      pathInput,
+      loading,
+    ]
+  );
+
+  const recentView = useMemo<OperationWindowView>(
+    () => ({
+      id: 'recent',
+      title: 'Open Recent',
+      placeholder: 'Select a recently opened folder',
+      showTitle: true,
+      items: recentItems,
+      onActivate: item => item.onClick?.(),
+      onEnter: enterRecent,
+      headerActions: [
+        {
+          id: 'open-folder',
+          icon: <FolderOpen size={15} />,
+          label: 'Open Folder',
+          onClick: onOpenFolderView,
+        },
+      ],
+      actionBusy: isBusy,
+      error,
+      emptyMessage: 'No recent folders',
+    }),
+    [enterRecent, error, isBusy, onOpenFolderView, recentItems]
+  );
+
+  return { folderView, recentView };
 }

@@ -15,12 +15,5 @@ export default function FileSelector({ isOpen, onClose, files, onFileSelect }: F
 
   // OperationWindowを使用してファイル選択（AI用）
   // AIの場合はファイルをタブで開くのではなく、コンテキストに追加するだけ
-  return (
-    <OperationWindow
-      onClose={onClose}
-      projectFiles={files}
-      onFileSelect={onFileSelect}
-      aiMode={true} // AI用モード
-    />
-  );
+  return <OperationWindow onClose={onClose} projectFiles={files} onFileSelect={onFileSelect} />;
 }

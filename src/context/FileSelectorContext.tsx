@@ -2,11 +2,13 @@
 import type React from 'react';
 import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
 
+export type OperationViewId = 'files' | 'folders' | 'recent';
+
 interface FileSelectorContextValue {
   isOpen: boolean;
   targetPaneId: string | null;
-  initialViewId: string | null;
-  openFileSelector: (paneId: string, initialViewId?: string) => void;
+  initialViewId: OperationViewId | null;
+  openFileSelector: (paneId: string, initialViewId?: OperationViewId) => void;
   closeFileSelector: () => void;
 }
 
@@ -27,11 +29,11 @@ interface FileSelectorProviderProps {
 export const FileSelectorProvider: React.FC<FileSelectorProviderProps> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [targetPaneId, setTargetPaneId] = useState<string | null>(null);
-  const [initialViewId, setInitialViewId] = useState<string | null>(null);
+  const [initialViewId, setInitialViewId] = useState<OperationViewId | null>(null);
 
-  const openFileSelector = useCallback((paneId: string, viewId?: string) => {
+  const openFileSelector = useCallback((paneId: string, viewId: OperationViewId = 'files') => {
     setTargetPaneId(paneId);
-    setInitialViewId(viewId ?? 'files');
+    setInitialViewId(viewId);
     setIsOpen(true);
   }, []);
 

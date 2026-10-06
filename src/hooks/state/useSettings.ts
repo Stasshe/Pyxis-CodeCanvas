@@ -9,23 +9,32 @@ import type { PyxisSettings } from '@/types/settings';
 
 export function useSettings(rootPath?: string) {
   const [settings, setSettings] = useState<PyxisSettings | null>(null);
+  const [settingsRootPath, setSettingsRootPath] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     if (!rootPath) {
+      setSettings(null);
+      setSettingsRootPath(null);
       setIsLoading(false);
-      return;
+      return () => {
+        active = false;
+      };
     }
 
+    setIsLoading(true);
     const loadSettings = async () => {
-      setIsLoading(true);
       try {
         const loaded = await settingsManager.loadSettings(rootPath);
-        setSettings(loaded);
+        if (active) {
+          setSettings(loaded);
+          setSettingsRootPath(rootPath);
+        }
       } catch (error) {
         console.error('[useSettings] Failed to load settings:', error);
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
@@ -33,15 +42,23 @@ export function useSettings(rootPath?: string) {
 
     // 設定変更リスナー
     const unsubscribe = settingsManager.addListener(rootPath, newSettings => {
-      setSettings(newSettings);
+      if (active) {
+        setSettings(newSettings);
+        setSettingsRootPath(rootPath);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [rootPath]);
+
+  const currentSettings = settingsRootPath === rootPath ? settings : null;
 
   // 除外パターンを正規表現配列に変換
   const excludeRegexps = useMemo(() => {
-    const patterns = settings?.search?.exclude || [];
+    const patterns = currentSettings?.search?.exclude || [];
     return patterns.map((pat: string) => {
       // VSCodeのglob仕様に近い除外パターン変換
       // 1. **/dir → どこかの階層に現れるdirディレクトリとその配下すべて
@@ -79,7 +96,7 @@ export function useSettings(rootPath?: string) {
       if (pat.endsWith('/*')) regexStr = `${regexStr.slice(0, -2)}/[^/]*`;
       return new RegExp(`^${regexStr}$`);
     });
-  }, [settings]);
+  }, [currentSettings]);
 
   const isExcluded = useCallback(
     (path: string): boolean => excludeRegexps.some(re => re.test(path)),
@@ -89,7 +106,7 @@ export function useSettings(rootPath?: string) {
   type UpdatesArg = Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>);
 
   const updateSettings = async (updates: UpdatesArg) => {
-    if (!rootPath || !settings) return;
+    if (!rootPath || !currentSettings) return;
     try {
       await settingsManager.updateSettings(rootPath, updates);
     } catch (error) {
@@ -98,5 +115,5 @@ export function useSettings(rootPath?: string) {
     }
   };
 
-  return { settings, isLoading, updateSettings, isExcluded };
+  return { settings: currentSettings, isLoading, updateSettings, isExcluded };
 }

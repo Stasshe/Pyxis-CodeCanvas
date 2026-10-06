@@ -51,3 +51,10 @@ tmp/の扱い
 - [x] Focused tabState regression: 3 files / 11 tests passed。
 - [ ] Whole suite: 56 files / 460 tests、52 files / 388 passed、4 files / 72 failed、0 skipped。失敗は既記録のenv expansion (26)、error handling (13)、pipeline (11)、subshell (22) suiteのみ。
 - [x] Browser verification: agent-browserでdesktop (1280×900) とmobile (390×844) を確認。folder選択、file open/edit/save/reload、Terminal、Node実行、binary-editorを検証。final buildのextension JSは200、欠落assetは404を確認し、browser sessionを終了。
+
+## OperationWindow verification (2026-10-06)
+
+- [x] `format` (373 files, 1 fix), `lint` (373 files), `tsc --noEmit`, `git diff --check`, and build (30 extensions, 25 TypeScript checks) passed.
+- [ ] Whole suite: 58 files / 469 tests; 397 passed, 72 known shell E2E failures, 0 skipped. Failures: env expansion (26), error handling (13), pipeline (11), subshell (22).
+- [x] agent-browser desktop (1280×900) and mobile (390×844): picker modes, configured/custom shortcuts, MRU, excludes, line/column jump, split open, AI context, rename, and workspace creation verified; no console errors. Browser sessions closed.
+- [ ] Safari device and 400 MB memory checks remain open above.

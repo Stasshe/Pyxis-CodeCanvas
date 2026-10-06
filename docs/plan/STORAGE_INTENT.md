@@ -21,7 +21,7 @@
 - **workspaceの外へのアクセスは自由**。terminal・runtimeの挙動を実際のNode・shellに一致させる
 - **OPFSに書き込むのはFS Workerだけ**。SyncAccessHandleは排他lockなので所有者を1つに絞る。変更eventも1か所から出せる
 - **file I/Oはmainから外す**。gitやnpm installは1回の操作でfsを数千回呼ぶ。だからFS Workerと同じ場所で動かし、message往復をなくす。mainはUIと中継だけにする
-- **metadataはIDBに残す**。OPFSにはindexも任意属性もない。recent folders・chat・tab状態・AIレビューのように、検索と属性が必要なものはIDBに置く
+- **metadataはIDBに残す**。OPFSにはindexも任意属性もない。recent folders・root-scoped Quick Open MRU file paths・chat・tab状態・AIレビューのように、検索と属性が必要なものはIDBに置く
 - **seed内容は`~/demo`に一度だけ置き、新workspaceは空にする**。新しいworkspaceごとにtemplateを複製すると、生成物が各workspaceの永続内容に混ざる。`~/demo`が無い場合だけ起動時に用意し、既にあるfolderの内容を保つ。seedは旧データ移行後、recent folders読込前に行い、移行済みデータとworkspace選択の順序を保つ
-- **folder操作は共有OperationWindowにまとめる**。Open Folder・recent folder・workspace追加を同じ操作導線に置き、project専用UIの重複を避ける
+- **file検索・folder browsing・recent folder選択は1つのcompact OperationWindowの独立modeにする**。Quick Openはfile検索、Open Folderはpath navigationと明示的な確定、Open RecentはMRU選択に専念させ、browse結果とrecent folderを混ぜない。同じsurfaceを共有しつつ、各操作の対象と選択動作を保つ
 - **旧データの移行は時限処理**。ユーザーデータはbrowser内にしかなく、失うと復元できない。移行codeは1か所にまとめ、2027-04を目安に削除する

@@ -69,4 +69,17 @@ describe('tabActions.openTab', () => {
 
     expect(tabState.panes[0].tabs).toHaveLength(0);
   });
+
+  it('does not split a pane when reading the new file fails', async () => {
+    const path = `${rootPath}/index.js`;
+    await getTestFs().writeFile(path, 'keep this content');
+    vi.spyOn(fsClient, 'readText').mockRejectedValue(new Error('read failed'));
+
+    await expect(
+      tabActions.splitPaneAndOpenFile('pane', 'horizontal', { path, name: 'index.js' }, 'after')
+    ).rejects.toThrow('read failed');
+
+    expect(tabState.panes).toHaveLength(1);
+    expect(tabState.panes[0].children).toBeUndefined();
+  });
 });

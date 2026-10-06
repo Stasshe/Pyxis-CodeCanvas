@@ -25,7 +25,14 @@ export interface OperationHeaderAction {
   id: string;
   icon: React.ReactNode;
   label: string;
-  onClick: () => void | Promise<void>;
+  onClick: (selectedItem?: OperationListItem) => void | Promise<void>;
+}
+
+export interface OperationWindowInput {
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  onConfirm: (selectedItem?: OperationListItem) => void | Promise<void>;
 }
 
 export interface OperationWindowView {
@@ -34,10 +41,13 @@ export interface OperationWindowView {
   items: OperationListItem[];
   onActivate?: (item: OperationListItem) => void | Promise<void>;
   onEnter?: () => void | Promise<void>;
+  input?: OperationWindowInput;
   headerActions?: OperationHeaderAction[];
-  breadcrumb?: React.ReactNode;
   footer?: React.ReactNode;
   loading?: boolean;
+  actionBusy?: boolean;
   error?: string | null;
   emptyMessage?: string;
+  placeholder?: string;
+  showTitle?: boolean;
 }

@@ -39,7 +39,7 @@ export default function TopBar({
       <button
         className="absolute left-1/2 transform -translate-x-1/2 h-6 flex items-center justify-center border rounded transition-colors"
         onClick={toggleOperationWindow}
-        title={`${t('topBar.searchTitle')}`}
+        title="Quick Open"
         style={{
           zIndex: 50,
           background: isOperationWindowVisible ? colors.accentBg : colors.mutedBg,
@@ -53,9 +53,7 @@ export default function TopBar({
         }}
       >
         <Search size={14} color={isOperationWindowVisible ? colors.primary : colors.mutedFg} />
-        <span className="ml-2 truncate">
-          {currentProjectName} [{t('topBar.searchLabel')}]
-        </span>
+        <span className="ml-2 truncate">{currentProjectName ?? 'Pyxis'} [Quick Open]</span>
       </button>
       <button
         className={

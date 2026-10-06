@@ -26,6 +26,12 @@ import {
 } from './keybindingUtils';
 
 const KEYBINDINGS_STORAGE_ID = 'user-keybindings';
+type QuickInputAction = 'quickOpen' | 'openProject' | 'openRecent';
+const quickInputShortcuts = new WeakMap<HTMLElement, (action: QuickInputAction) => void>();
+
+function isQuickInputAction(action: string): action is QuickInputAction {
+  return action === 'quickOpen' || action === 'openProject' || action === 'openRecent';
+}
 
 /**
  * グローバルキーバインディング管理
@@ -132,7 +138,12 @@ class KeyBindingsManager {
   /**
    * キーイベントハンドラ
    */
-  handleKeyDown(e: KeyboardEvent): boolean {
+  handleKeyDown(
+    e: KeyboardEvent,
+    bindings = this.bindings,
+    quickInputAction?: (action: QuickInputAction) => void,
+    suppressActions = false
+  ): boolean {
     // CRITICAL: If we're waiting for chord completion, block ALL input IMMEDIATELY
     // This must happen before formatKeyEvent to prevent keys from leaking into the editor
     // when Japanese IME is active (e.key might be "Process" or "Unidentified")
@@ -148,7 +159,7 @@ class KeyBindingsManager {
         firstPart: string | null,
         secondPart: string | null
       ): Binding | null => {
-        for (const b of this.bindings) {
+        for (const b of bindings) {
           const normalized = normalizeKeyCombo(b.combo);
           const parts = normalized.split(/\s+/);
 
@@ -179,6 +190,11 @@ class KeyBindingsManager {
       this.clearPendingChord();
 
       if (binding) {
+        if (suppressActions) return true;
+        if (quickInputAction && isQuickInputAction(binding.id)) {
+          quickInputAction(binding.id);
+          return true;
+        }
         const callbacks = this.actions.get(binding.id);
         if (callbacks && callbacks.size > 0) {
           callbacks.forEach(cb => {
@@ -210,7 +226,7 @@ class KeyBindingsManager {
     }
 
     // Check if this key starts a chord sequence
-    const possibleChord = this.bindings.find(b => {
+    const possibleChord = bindings.find(b => {
       const normalized = normalizeKeyCombo(b.combo);
       const parts = normalized.split(/\s+/);
       return parts.length === 2 && parts[0] === keyCombo;
@@ -224,12 +240,20 @@ class KeyBindingsManager {
     }
 
     // Check for single-key binding
-    const singleBinding = this.bindings.find(b => {
+    const singleBinding = bindings.find(b => {
       const normalized = normalizeKeyCombo(b.combo);
       return normalized === keyCombo && !normalized.includes(' ');
     });
 
     if (singleBinding) {
+      if (suppressActions || (quickInputAction && isQuickInputAction(singleBinding.id))) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!suppressActions && quickInputAction && isQuickInputAction(singleBinding.id)) {
+          quickInputAction(singleBinding.id);
+        }
+        return true;
+      }
       const callbacks = this.actions.get(singleBinding.id);
       if (callbacks && callbacks.size > 0) {
         e.preventDefault();
@@ -293,6 +317,24 @@ class KeyBindingsManager {
 // グローバルインスタンス
 const keyBindingsManager = new KeyBindingsManager();
 
+export function registerQuickInputShortcut(
+  dialog: HTMLElement,
+  callback: (action: QuickInputAction) => void
+): () => void {
+  quickInputShortcuts.set(dialog, callback);
+  return () => quickInputShortcuts.delete(dialog);
+}
+
+function getQuickInputScope(target: HTMLElement): HTMLElement | null {
+  const localScope = target.closest<HTMLElement>('[data-keybinding-scope="quick-input"]');
+  if (localScope) return localScope;
+  return document.querySelector<HTMLElement>('[data-keybinding-scope="quick-input"]');
+}
+
+function getQuickInputBindings(): Binding[] {
+  return keyBindingsManager.getBindings().filter(binding => isQuickInputAction(binding.id));
+}
+
 // グローバルキーイベントリスナーの設定
 if (typeof window !== 'undefined') {
   keyBindingsManager.init().catch(console.error);
@@ -305,9 +347,68 @@ if (typeof window !== 'undefined') {
   const onKeyDown = (e: KeyboardEvent) => {
     modifierActive = e.ctrlKey || e.metaKey || e.altKey;
 
-    const target = e.target as HTMLElement;
+    if (e.isComposing || e.keyCode === 229 || e.key === 'Process' || e.key === 'Unidentified') {
+      keyBindingsManager.clearActiveChord();
+      return;
+    }
+
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
     const isTextInput =
       target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+    const quickInput = getQuickInputScope(target);
+
+    if (quickInput) {
+      const bindings = getQuickInputBindings();
+      const quickInputAction = quickInputShortcuts.get(quickInput);
+      const suppressActions = quickInput.getAttribute('data-busy') === 'true' || !quickInputAction;
+
+      const pendingChord = keyBindingsManager.getActiveChord();
+      if (
+        pendingChord &&
+        !bindings.some(binding => normalizeKeyCombo(binding.combo).startsWith(`${pendingChord} `))
+      ) {
+        keyBindingsManager.clearActiveChord();
+      }
+
+      if (keyBindingsManager.getActiveChord()) {
+        keyBindingsManager.handleKeyDown(e, bindings, quickInputAction, suppressActions);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      const isNativeEdit =
+        isTextInput &&
+        (e.ctrlKey || e.metaKey) &&
+        [
+          'a',
+          'c',
+          'x',
+          'v',
+          'z',
+          'y',
+          'backspace',
+          'delete',
+          'arrowleft',
+          'arrowright',
+          'home',
+          'end',
+        ].includes(e.key.toLowerCase());
+      if (
+        isNativeEdit ||
+        (e.shiftKey &&
+          ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key))
+      )
+        return;
+
+      keyBindingsManager.handleKeyDown(e, bindings, quickInputAction, suppressActions);
+      return;
+    }
 
     // If we're waiting for chord completion, ALWAYS handle the event
     // regardless of whether we're in a text input or IME state
@@ -344,12 +445,28 @@ if (typeof window !== 'undefined') {
   const onBeforeInput = (ev: InputEvent) => {
     // Prevent text insertion when a modifier key is active or a chord is pending.
     // Exception: allow paste operations (e.g., Ctrl/Cmd+V) to proceed so clipboard paste works in inputs.
-    const target = ev.target as HTMLElement | null;
-    if (!target) return;
+    const target = ev.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (ev.isComposing) {
+      keyBindingsManager.clearActiveChord();
+      return;
+    }
     const isTextInput =
       target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
     if (!isTextInput) return;
+
+    const quickInput = getQuickInputScope(target);
+    const pendingChord = keyBindingsManager.getActiveChord();
+    if (
+      quickInput &&
+      pendingChord &&
+      !getQuickInputBindings().some(binding => {
+        return normalizeKeyCombo(binding.combo).startsWith(`${pendingChord} `);
+      })
+    ) {
+      keyBindingsManager.clearActiveChord();
+    }
 
     // Always block when a chord is pending
     if (keyBindingsManager.getActiveChord()) {
@@ -361,6 +478,8 @@ if (typeof window !== 'undefined') {
       }
       return;
     }
+
+    if (quickInput) return;
 
     // When modifier is active, allow paste operations to proceed.
     if (modifierActive) {

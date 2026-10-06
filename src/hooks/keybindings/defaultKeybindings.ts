@@ -58,5 +58,6 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K J', category: 'pane' },
 
   // Project
-  { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
+  { id: 'openProject', name: 'Open Folder', combo: 'Ctrl+K Ctrl+O', category: 'project' },
+  { id: 'openRecent', name: 'Open Recent', combo: 'Ctrl+R', category: 'project' },
 ];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  folderSearchLocation,
   isWorkspaceNameValid,
   resolveFolderInput,
   workspaceDestination,
@@ -13,8 +14,16 @@ describe('folder palette paths', () => {
     expect(resolveFolderInput('/tmp/work/../demo')).toBe('/tmp/demo');
   });
 
-  it('rejects relative paths outside the home shorthand', () => {
-    expect(() => resolveFolderInput('workspace')).toThrow('absolute path');
+  it('resolves partial paths from the currently browsed directory', () => {
+    expect(resolveFolderInput('workspace', `${HOME_DIR}/demo`)).toBe(`${HOME_DIR}/demo/workspace`);
+    expect(folderSearchLocation('src/in', `${HOME_DIR}/demo`)).toEqual({
+      directory: `${HOME_DIR}/demo/src`,
+      prefix: 'in',
+    });
+    expect(folderSearchLocation('~/de', `${HOME_DIR}/demo`)).toEqual({
+      directory: HOME_DIR,
+      prefix: 'de',
+    });
   });
 
   it('shows a safe destination while the workspace name is incomplete', () => {

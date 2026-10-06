@@ -1,6 +1,8 @@
 import { fsClient, isPathWithin, normalizePath } from '@/engine/core/fs';
+import { recordRecentFilePath } from '@/engine/storage/recentFileHistoryAdapter';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { DiffTab, EditorPane, OpenTabOptions, Tab, TabFileInfo } from '@/engine/tabs/types';
+import { getCurrentRootPath } from '@/stores/projectStore';
 import {
   clearTabContent,
   getBufferContent,
@@ -40,6 +42,23 @@ function toLeafPaneId(paneId: string | null | undefined): string | null {
 
 function resolveOpenTargetPaneId(preferredPaneId?: string | null): string | null {
   return resolveOpenTargetPaneIdForPanes(tabState.panes, tabState.activePane, preferredPaneId);
+}
+
+async function rememberOpenedFile(filePath: string | undefined, kind: string): Promise<void> {
+  const rootPath = getCurrentRootPath();
+  if (!rootPath || !filePath || (kind !== 'editor' && kind !== 'binary' && kind !== 'preview')) {
+    return;
+  }
+  try {
+    if (!isPathWithin(filePath, rootPath)) return;
+  } catch {
+    return;
+  }
+  try {
+    await recordRecentFilePath(rootPath, filePath);
+  } catch (error) {
+    console.warn('[tabState] Failed to save recent file history', error);
+  }
 }
 // ---------------------------------------------------------------------------
 // tabActions（旧 useTabStore のアクション）
@@ -215,6 +234,15 @@ export const tabActions = {
   },
   activateTab(paneId: string, tabId: string) {
     const pane = getPane(paneId);
+    const activatedTab = pane?.tabs.find(tab => tab.id === tabId);
+    if (
+      activatedTab?.path &&
+      (activatedTab.kind === 'editor' ||
+        activatedTab.kind === 'binary' ||
+        activatedTab.kind === 'preview')
+    ) {
+      void rememberOpenedFile(activatedTab.path, activatedTab.kind);
+    }
     if (
       pane?.activeTabId === tabId &&
       tabState.globalActiveTab === tabId &&
@@ -530,14 +558,19 @@ export const tabActions = {
     ) {
       try {
         await fsClient.init();
+        const metadata = await fsClient.stat(filePath);
+        if (metadata.type !== 'file') {
+          throw new Error(`Cannot open ${filePath}: path is not a file.`);
+        }
         if (kind === 'binary') {
           const bytes = await fsClient.readFile(filePath);
           bufferContent = Uint8Array.from(bytes).buffer;
         } else {
           content = await fsClient.readText(filePath);
         }
-      } catch {
-        // keep existing content on error
+      } catch (error) {
+        console.error('[tabState] Failed to load fresh content for split tab:', error);
+        throw error;
       }
     }
 
@@ -609,6 +642,7 @@ export const tabActions = {
     tabState.panes = up(tabState.panes);
     tabState.activePane = newId;
     tabState.globalActiveTab = newTab.id;
+    await rememberOpenedFile(filePath, kind);
   },
   resizePane(paneId: string, newSize: number) {
     tabActions.updatePane(paneId, { size: newSize });
@@ -646,7 +680,10 @@ export const tabActions = {
                   jumpToColumn: options.jumpToColumn,
                 } as Partial<Tab>);
               }
-              if (options.makeActive !== false) tabActions.activateTab(sp.id, t.id);
+              if (options.makeActive !== false) {
+                tabActions.activateTab(sp.id, t.id);
+                await rememberOpenedFile(file.path, kind);
+              }
               return;
             }
           }
@@ -661,7 +698,10 @@ export const tabActions = {
                 jumpToColumn: options.jumpToColumn,
               } as Partial<Tab>);
             }
-            if (options.makeActive !== false) tabActions.activateTab(targetPaneId, t.id);
+            if (options.makeActive !== false) {
+              tabActions.activateTab(targetPaneId, t.id);
+              await rememberOpenedFile(file.path, kind);
+            }
             return;
           }
         }
@@ -674,7 +714,10 @@ export const tabActions = {
       );
       if (existing) {
         await loadAndUpdateTabContent(existing.id, kind, file.path);
-        if (options.makeActive !== false) tabActions.activateTab(targetPaneId, existing.id);
+        if (options.makeActive !== false) {
+          tabActions.activateTab(targetPaneId, existing.id);
+          await rememberOpenedFile(file.path, kind);
+        }
         if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
           tabActions.updateTab(targetPaneId, existing.id, {
             jumpToLine: options.jumpToLine,
@@ -733,6 +776,7 @@ export const tabActions = {
     if (options.makeActive !== false) {
       tabState.globalActiveTab = newTab.id;
       tabState.activePane = targetPaneId;
+      await rememberOpenedFile(file.path, kind);
     }
   },
   async saveSession(rootPath?: string | null) {

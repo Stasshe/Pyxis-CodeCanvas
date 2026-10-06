@@ -404,7 +404,7 @@ export default function MenuBar({
             cursor: 'pointer',
           }}
           onClick={onProjectClick}
-          title={t('menu.project')}
+          title="Open Folder"
         >
           <FolderOpen size={20} />
         </button>

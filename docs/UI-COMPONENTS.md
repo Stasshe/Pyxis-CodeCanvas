@@ -605,7 +605,9 @@ sequenceDiagram
 
 ### 7.2 OperationWindow
 
-OperationWindow is the shared operation surface with a file view and selectable operation views. Its `Folders` view starts at `/home/pyxis`: the path field accepts an absolute path or a path under `~`, the list combines subfolders with recent folders, and header actions navigate to the parent or open the current folder. Recent entries can be removed. The footer creates a workspace at `~/name` and opens it empty. The Open Folder command and initial no-workspace flow enter this view, so project selection does not use a separate ProjectModal.
+OperationWindow is a compact picker centered near the top of the window, about 600 px wide, with a scrollable result area capped at 440 px. It has three distinct modes: `Quick Open` (`Ctrl+P`) searches files from one query field and shows root-scoped MRU history, including closed files; `Open Folder` (`Ctrl+K`, then `Ctrl+O`) browses one path at a time with explicit parent and open actions; `Open Recent` (`Ctrl+R`) lists recently opened folders in MRU order, with a remove action on each row. Recent folders do not appear in the folder browser. A separate `New Workspace` action creates a workspace under HOME. The initial no-workspace flow opens the folder picker with its existing active pane as the target.
+
+Quick Open fuzzy-matches workspace-relative file paths and honors `files.exclude`, `search.exclude`, and `useIgnoreFiles`/`.gitignore`. Its query can end with `:line:column` to position the editor. Enter opens a file in the active pane; Ctrl+Enter opens it beside that pane. Selecting a result for AI context adds it to context without opening it in the editor. Repeating Ctrl+P cycles file results; configured shortcuts switch modes while preserving custom chords and normal input behavior.
 
 ---
 

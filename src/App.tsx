@@ -14,13 +14,14 @@ import RightSidebar from '@/components/Right/RightSidebar';
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import { useFolderOperationView } from '@/components/Top/OperationWindow/useFolderOperationView';
 import TopBar from '@/components/Top/TopBar';
-import { useFileSelector } from '@/context/FileSelectorContext';
+import { type OperationViewId, useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
 import {
   useBottomPanelResize,
   useLeftSidebarResize,
   useRightSidebarResize,
 } from '@/engine/helper/resize';
+import { saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
 import type { EditorPane } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
@@ -99,9 +100,14 @@ export default function Home() {
   } = useProject();
 
   const folderPalettePaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
-  const openFolderPalette = useCallback(() => {
-    if (folderPalettePaneId) openFileSelector(folderPalettePaneId, 'folders');
-  }, [folderPalettePaneId, openFileSelector]);
+  const openOperationView = useCallback(
+    (viewId: OperationViewId) => {
+      if (folderPalettePaneId) openFileSelector(folderPalettePaneId, viewId);
+    },
+    [folderPalettePaneId, openFileSelector]
+  );
+  const openFolderPalette = useCallback(() => openOperationView('folders'), [openOperationView]);
+  const openRecentPalette = useCallback(() => openOperationView('recent'), [openOperationView]);
 
   useEffect(() => {
     if (currentProject && !startupError) {
@@ -233,16 +239,19 @@ export default function Home() {
       // アクティブなペインを使用（tabStoreのactivePaneを優先）
       const targetPaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
       if (targetPaneId) {
-        openFileSelector(targetPaneId);
+        openFileSelector(targetPaneId, 'files');
       }
     }
   };
+
+  const openQuickOpen = useCallback(() => openOperationView('files'), [openOperationView]);
 
   // プロジェクト選択
   const handleProjectSelect = useCallback(
     async (project: Project) => {
       const oldRootPath = getCurrentRootPath();
       if (oldRootPath === project.rootPath && !startupError) {
+        await saveRecentFolder(project);
         closeFileSelector();
         return;
       }
@@ -267,14 +276,17 @@ export default function Home() {
     [closeFileSelector, createProject]
   );
 
-  const folderView = useFolderOperationView({
+  const { folderView, recentView } = useFolderOperationView({
     onOpenFolder: handleProjectSelect,
     onCreateFolder: handleProjectCreate,
     initialError: startupError,
+    currentRootPath: getCurrentRootPath(),
+    onOpenRecent: openRecentPalette,
+    onOpenFolderView: openFolderPalette,
   });
 
   // ショートカットキーの登録
-  useKeyBinding('quickOpen', toggleOperationWindow, [panes, activePane]);
+  useKeyBinding('quickOpen', openQuickOpen, [openQuickOpen]);
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
@@ -302,6 +314,7 @@ export default function Home() {
   }, []);
   useKeyBinding('openTerminal', () => setIsBottomPanelVisible(true), []);
   useKeyBinding('openProject', openFolderPalette, [openFolderPalette]);
+  useKeyBinding('openRecent', openRecentPalette, [openRecentPalette]);
   useKeyBinding('globalSearch', () => {
     setActiveMenuTab('search');
     setIsLeftSidebarVisible(true);
@@ -507,9 +520,8 @@ export default function Home() {
               onClose={closeFileSelector}
               projectFiles={projectFiles}
               targetPaneId={operationWindowTargetPaneId}
-              views={[folderView]}
+              views={[folderView, recentView]}
               initialViewId={operationWindowInitialViewId ?? 'files'}
-              showViewSelector
             />
           )}
 

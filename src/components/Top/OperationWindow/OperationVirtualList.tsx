@@ -22,6 +22,8 @@ interface Props {
   emptyMessage?: string;
   disabled: boolean;
   t: (k: string) => string;
+  listId: string;
+  rootPath: string | null;
   // allow nullable ref objects (useRef<HTMLDivElement | null>(null) is common)
   listRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -41,12 +43,16 @@ export default function OperationVirtualList({
   emptyMessage,
   disabled,
   t,
+  listId,
+  rootPath,
   listRef,
 }: Props) {
   const localRef = useRef<HTMLDivElement | null>(null);
   const parentRef = listRef ?? localRef;
 
   const count = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
+
+  const optionId = (index: number) => `${listId}-option-${index}`;
 
   const virtualizer = useVirtualizer({
     count,
@@ -68,8 +74,11 @@ export default function OperationVirtualList({
   if (count === 0) {
     return (
       <div
+        id={listId}
+        role="listbox"
+        aria-label="Quick pick results"
         ref={parentRef as React.RefObject<HTMLDivElement | null>}
-        style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+        style={{ maxHeight: 440, overflowY: 'auto', minHeight: 0 }}
       >
         <div style={{ padding: '20px', textAlign: 'center', color: colors.mutedFg }}>
           {loading
@@ -85,8 +94,11 @@ export default function OperationVirtualList({
 
   return (
     <div
+      id={listId}
+      role="listbox"
+      aria-label="Quick pick results"
       ref={parentRef as React.RefObject<HTMLDivElement | null>}
-      style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+      style={{ maxHeight: 440, overflowY: 'auto', minHeight: 0 }}
     >
       <div
         style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
@@ -113,7 +125,7 @@ export default function OperationVirtualList({
                   height: `${size}px`,
                   transform: `translateY(${top}px)`,
                 }}
-                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseMove={() => setSelectedIndex(index)}
               >
                 <OperationFileRow
                   file={file}
@@ -121,6 +133,8 @@ export default function OperationVirtualList({
                   ITEM_HEIGHT={ITEM_HEIGHT}
                   colors={colors}
                   queryTokens={queryTokens}
+                  optionId={optionId(index)}
+                  rootPath={rootPath}
                   onActivate={handleFileSelectInOperation}
                 />
               </div>
@@ -142,7 +156,7 @@ export default function OperationVirtualList({
                 height: `${size}px`,
                 transform: `translateY(${top}px)`,
               }}
-              onMouseEnter={() => setSelectedIndex(index)}
+              onMouseMove={() => setSelectedIndex(index)}
             >
               <OperationGenericRow
                 item={item}
@@ -150,6 +164,7 @@ export default function OperationVirtualList({
                 ITEM_HEIGHT={ITEM_HEIGHT}
                 colors={colors}
                 queryTokens={queryTokens}
+                optionId={optionId(index)}
                 onActivate={onActivateItem}
                 disabled={disabled}
               />

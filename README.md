@@ -138,7 +138,7 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
 </div>
 
 Node.jsコードを実行ごとの専用Workerで動かし、TypeScriptとJavaScriptのモジュールをブラウザ内で変換します。ファイルはOPFSに保存し、同期ファイル操作はService Worker経由で処理します。
-仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime module cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。npm metadataは毎回取得し、tarball URLのSHA-256で識別したarchiveを展開成功後にcacheします。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
+仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime module cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npm metadataは毎回取得し、tarball URLのSHA-256で識別したarchiveを展開成功後にcacheします。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
 - **分離した実行環境** - 実行ごとにWorkerを作成し、終了後に破棄
 - **ファイル操作** - `fs`, `readline`, `userinterface` など主要モジュールがそのまま使える

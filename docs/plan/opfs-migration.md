@@ -83,7 +83,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 ## UI
 
-- project選択をOpen Folder + recent一覧に置き換え、OperationWindowに統合する（専用UIを別に作らない）。新規workspace = `~/<name>`をmkdirしてopen（空）
+- project選択はOperationWindowの独立したOpen Folder・Open Recent modeに置く。Open Folderはpath browsingと明示的な確定、Open RecentはMRU選択に専念させ、browse resultsとrecent foldersを混在させない。新規workspaceは`~/<name>`をmkdirしてopen（空）
 - `initial_files/`は`~/demo`に置く（`~/demo`が無いときだけ投入）
 - WebPreviewTab: `getProjects()`・`/projects/<name>`接頭辞の除去・`projectId`によるevent絞り込みをやめ、絶対pathで扱う
 - Markdownの`LocalImage`: `projectName` / `projectId`を渡す代わりに絶対pathを渡す
