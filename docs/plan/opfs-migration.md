@@ -127,14 +127,14 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 ## メモリ予算
 
-page全体（main + 全Worker）を**400MB以内**に抑える（現状は約300MB）。並列化で速度を買う設計にはしない。
+page全体（main + 全Worker）を**400MB以内**に抑える（現状は約300MB）。ユーザーのprogram自身が使うメモリは予算に含めない。並列化で速度を買う設計にはしない。
 
 - 減る: 実行のたびに行っていた全fileのpreload（node_modulesを含む）、ProjectMountのfile Map、lightning-fs
 - 増える: FS Workerの常駐分、実行中のRuntime Worker
 - Transpile Worker Pool: 現在は最大4 Worker（`WorkerPool.ts:146`）で、各Workerがesbuild-wasm（wasm本体14MB）を個別に読み込んでいる。**1 Workerに固定し、一定時間使われなければ破棄する**
 - Runtime Worker: 実行中の分だけ存在させ、事前起動はしない
 - 計測: `performance.measureUserAgentSpecificMemory()`はcross-origin isolationが必須なので使えない。Chromeのタスクマネージャー（Workerごとの内訳が見られる）とDevToolsのMemoryタブで、移行の前後を比較する
-- ユーザーのprogramがメモリを使い切ることは、browserのAPIでは制限できない。Ctrl+Cでterminateして解放する
+- ユーザーのprogramがメモリを使い切るのは許容する（browserのAPIで制限する手段もない）。Ctrl+Cでterminateすれば解放される
 
 ## 先行検証（Safari実機）
 
