@@ -30,7 +30,8 @@ graph LR
   FSCore -->|change events| Client
   Client --> Meta[IDB metadata]
   RT -->|sync XHR| SW
-  SW --> Client
+  SW -->|MessagePort fs and transpile| FSCore
+  SW -->|shell and stdin only| Client
   Client --> TP
 ```
 
@@ -108,8 +109,12 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 ### fsの経路
 - 非同期（`fs.promises`等）: Runtime WorkerとFS Workerを`MessageChannel`で直接つなぎ、mainを通さない
-- 同期: 同期XHR → SW → main → FS Worker。`sync-message`を使う
+- 同期fs: 同期XHR → SW → FS Worker。mainを経由しない（main busy時にRuntimeが止まらないため）。`sync-message`を使う
+  - SWはFS Workerへの`MessagePort`を保持する。mainが起動時にportを渡し、SWが再起動で失ったらmainへ再送を要求する
+  - mainを経由するのはshell（`execSync`）とstdinだけ
+- 複数tabは非対応（単一tab前提）。2つ目のtabはWeb Locksの取得に失敗したらエラー表示して止める
 - どちらもFS Workerだけが実際に書き込むので、内容の食い違いは起きない
+- SW未制御（Shift+reloadなど）を起動時に検出し、通常reloadを促すエラーを表示する
 
 ### 同期RPCで扱う操作
 - fsの`*Sync`、`require`のパス解決
@@ -141,7 +146,9 @@ page全体（main + 全Worker）を**400MB以内**に抑える（現状は約300
 - dedicated WorkerからのrequestをSWが捕捉できるか（Runtime方式の前提）
 - Worker内でのSyncAccessHandle、directoryの`FileSystemHandle.move()`対応
 - 小さいfileが大量にある場合（node_modules）、tree walkの速度がIDBの`getAll`と比べてどうか
-- 複数tabでSyncAccessHandleのlockが衝突したときの調停（Web Locks）
+- SWが停止→再起動した後、`MessagePort`の再受け渡しを経て同期XHRが復帰するか
+- main busy時にも同期fsが遅延しないか（SW → FS Worker直結の確認）
+- 同期XHR 1回あたりの往復時間（`require`の連続解決で許容できるか）
 
 ## 影響範囲（2026-10-03時点）
 
