@@ -2,9 +2,11 @@
 import type React from 'react';
 import { lazy, Suspense, useEffect } from 'react';
 import { useGitContext } from '@/components/Pane/PaneContainer';
+import { prepareAITextWrite } from '@/engine/ai/textEdits';
 import { fsClient } from '@/engine/core/fs';
 import { clearAIReviewEntry } from '@/engine/storage/aiStorageAdapter';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
+import { pushLogMessage } from '@/stores/loggerStore';
 /**
  * AIレビュータブのコンポーネント
  *
@@ -48,12 +50,13 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
     if (!rootPath) {
       console.error('[AIReviewTabRenderer] No workspace root available, cannot save file');
-      return;
+      return false;
     }
 
     try {
-      await fsClient.writeFile(filePath, content);
-      updateFromExternal(filePath, content);
+      const savedContent = await prepareAITextWrite(filePath, content);
+      await fsClient.writeFile(filePath, savedContent);
+      updateFromExternal(filePath, savedContent);
 
       // Git状態を更新
       setGitRefreshTrigger(prev => prev + 1);
@@ -66,7 +69,11 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
       }
     } catch (error) {
       console.error('[AIReviewTabRenderer] Failed to save file:', error);
-      return;
+      if (error instanceof Error) {
+        pushLogMessage(error.message, 'error', 'AI');
+        alert(error.message);
+      }
+      return false;
     }
 
     // Add a chat message indicating the apply action, branching from parent if available
@@ -89,6 +96,7 @@ const AIReviewTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     }
 
     tabActions.closeTab(aiTab.paneId, aiTab.id);
+    return true;
   };
 
   const handleDiscardChanges = async (filePath: string) => {

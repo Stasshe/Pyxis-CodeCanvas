@@ -136,6 +136,34 @@ describe('legacy storage import', () => {
     expect(migrateMetadata).toHaveBeenCalledWith(fixture.state?.mappings, fixture.files, []);
   });
 
+  it('preserves legacy binary project and cache bytes exactly', async () => {
+    const fs = memoryFs();
+    const projectBytes = new Uint8Array([0, 255, 128, 9]);
+    const cacheBytes = new Uint8Array([88, 0, 254, 91]);
+    fixture.files.push({
+      id: 'f2',
+      projectId: 'p1',
+      path: '/assets/image.bin',
+      type: 'file',
+      content: '',
+      isBufferArray: true,
+      bufferContent: projectBytes.buffer,
+    });
+    fixture.caches.push({
+      key: 'global:/cache/assets/image.bin',
+      value: cacheBytes.buffer,
+      mtime: 0,
+      isDir: false,
+    });
+
+    await migrateLegacyStorage(fs);
+
+    expect(await fs.readFile('/home/pyxis/tmp/assets/image.bin')).toEqual(projectBytes);
+    expect(
+      await fs.readFile('/home/pyxis/.cache/pyxis/legacy/global/assets/image.bin')
+    ).toEqual(cacheBytes);
+  });
+
   it('rejects an existing home destination before writes without renaming it', async () => {
     const fs = memoryFs();
     await fs.mkdir('/home/pyxis/tmp');

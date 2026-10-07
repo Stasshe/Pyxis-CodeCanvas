@@ -28,7 +28,14 @@ export interface BaseTab {
   path: string;
   paneId: string; // どのペインに属するか
   isDirty?: boolean;
+  needsContentRestore?: boolean;
   icon?: string; // アイコン名（lucide-react等）
+}
+
+export interface ExtensionTab extends BaseTab {
+  kind: `extension:${string}`;
+  closable?: boolean;
+  data?: Record<string, unknown>;
 }
 
 /**
@@ -113,9 +120,11 @@ export interface WelcomeTab extends BaseTab {
  * バイナリタブ
  */
 export interface BinaryTab extends BaseTab {
+  isSnapshot?: boolean;
   kind: 'binary';
   content: string;
   bufferContent?: ArrayBuffer;
+  mimeType?: string;
   type?: string;
 }
 
@@ -132,6 +141,13 @@ export interface ExtensionInfoTab extends BaseTab {
  * Merge conflict file entry
  */
 export interface MergeConflictFileEntry {
+  /** Exact versions for an opaque binary conflict; null represents deletion. */
+  binary?: {
+    base: Uint8Array | null;
+    ours: Uint8Array | null;
+    theirs: Uint8Array | null;
+    resolved: Uint8Array | null;
+  };
   /** File path */
   filePath: string;
   /** Base (common ancestor) content */
@@ -174,7 +190,8 @@ export type Tab =
   | WelcomeTab
   | BinaryTab
   | ExtensionInfoTab
-  | MergeConflictTab;
+  | MergeConflictTab
+  | ExtensionTab;
 
 /**
  * タブを開くときのオプション
@@ -221,12 +238,17 @@ export interface TabComponentProps {
 export interface TabFileInfo {
   id?: string;
   name?: string;
+  title?: string;
   path?: string;
+  icon?: string;
+  closable?: boolean;
+  data?: Record<string, unknown>;
   content?: string;
   kind?: TabKind;
   isCodeMirror?: boolean;
   isBufferArray?: boolean;
   bufferContent?: ArrayBuffer;
+  mimeType?: string;
   /** 拡張プロパティ - 各タブタイプ固有の追加データ */
   [key: string]: unknown;
 }
@@ -244,7 +266,7 @@ export interface SessionRestoreContext {
    */
   getFileByPath: (
     path: string
-  ) => Promise<{ content?: string; bufferContent?: ArrayBuffer } | null>;
+  ) => Promise<{ content?: string; bufferContent?: ArrayBuffer; mimeType?: string } | null>;
 }
 
 /**

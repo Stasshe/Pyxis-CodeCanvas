@@ -10,6 +10,7 @@
  *   bridge.deactivate()     — called after process exits (sends EOF)
  */
 
+import type { Readable } from 'node:stream';
 import { Buffer } from 'buffer';
 
 type DataListener = (chunk: Buffer) => void;
@@ -20,9 +21,22 @@ export class ProcessStdin {
   private _endListeners: EndListener[] = [];
   _active = false;
 
+  constructor(private readonly source?: Readable) {
+    if (source) {
+      this._active = !source.readableEnded;
+      this.isTTY = false;
+    }
+  }
+
   on(event: 'data', fn: DataListener): this;
   on(event: 'end' | 'close', fn: EndListener): this;
   on(event: string, fn: DataListener | EndListener): this {
+    if (this.source) {
+      if ((event === 'end' || event === 'close') && this.source.readableEnded) {
+        queueMicrotask(() => (fn as EndListener)());
+      } else this.source.on(event, fn);
+      return this;
+    }
     if (event === 'data') this._dataListeners.push(fn as DataListener);
     else if (event === 'end' || event === 'close') this._endListeners.push(fn as EndListener);
     return this;
@@ -31,6 +45,12 @@ export class ProcessStdin {
   once(event: 'data', fn: DataListener): this;
   once(event: 'end' | 'close', fn: EndListener): this;
   once(event: string, fn: DataListener | EndListener): this {
+    if (this.source) {
+      if ((event === 'end' || event === 'close') && this.source.readableEnded) {
+        queueMicrotask(() => (fn as EndListener)());
+      } else this.source.once(event, fn);
+      return this;
+    }
     if (event === 'data') {
       const w: DataListener = (chunk: Buffer) => {
         this._dataListeners = this._dataListeners.filter(f => f !== w);
@@ -50,6 +70,10 @@ export class ProcessStdin {
   removeListener(event: 'data', fn: DataListener): this;
   removeListener(event: 'end' | 'close', fn: EndListener): this;
   removeListener(event: string, fn: DataListener | EndListener): this {
+    if (this.source) {
+      this.source.removeListener(event, fn);
+      return this;
+    }
     if (event === 'data') this._dataListeners = this._dataListeners.filter(f => f !== fn);
     else if (event === 'end' || event === 'close')
       this._endListeners = this._endListeners.filter(f => f !== fn);
@@ -79,8 +103,12 @@ export class ProcessStdin {
 
   isTTY = true;
   setRawMode(_: boolean) {}
-  pause() {}
-  resume() {}
+  pause() {
+    this.source?.pause();
+  }
+  resume() {
+    this.source?.resume();
+  }
 }
 
 class TerminalProcessBridge {

@@ -4,7 +4,7 @@ import { fsClient } from '@/engine/core/fs/client';
 import type { RuntimeExecutionOptions } from '@/engine/runtime/core/RuntimeProvider';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { getCurrentRootPath } from '@/stores/projectStore';
-import { terminalProcessBridge } from '../terminalProcessBridge';
+import { type ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
 
 export async function handleNPMCommand(
   args: string[],
@@ -85,9 +85,10 @@ export default handleNPMCommand;
 
 export async function handleNPXCommand(
   args: string[],
-  writeOutput: (output: string) => Promise<void>,
+  writeOutput: (output: string | Uint8Array) => Promise<void>,
   subscribeInterrupt?: RuntimeExecutionOptions['subscribeInterrupt'],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  processStdin?: ProcessStdin
 ): Promise<number> {
   // npx <bin> [args...]
   if (!args[0]) {
@@ -165,7 +166,7 @@ export async function handleNPXCommand(
         subscribeInterrupt,
         signal,
         debugConsole: { log: fmt, error: fmt, warn: fmt, clear: () => {} },
-        processStdin: terminalProcessBridge.stdin,
+        processStdin: processStdin ?? terminalProcessBridge.stdin,
         onStdout: output => writeOutput(output),
         onStderr: output => writeOutput(output),
       });

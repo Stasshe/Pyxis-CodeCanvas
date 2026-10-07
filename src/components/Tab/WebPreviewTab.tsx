@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import type { FsChangeEvent } from '@/engine/core/fs';
-import { basename, fsClient, normalizePath } from '@/engine/core/fs';
+import { basename, fsClient, getParentPath, normalizePath } from '@/engine/core/fs';
 import { inlineHtmlAssets } from '@/engine/in-ex/inlineHtmlAssets';
 
 interface WebPreviewTabProps {
@@ -52,7 +52,24 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, onTitleChange }
       await fsClient.init();
       const entry = await fsClient.stat(normalizedPath);
       if (entry.type === 'file') {
-        setFileContent(await fsClient.readText(normalizedPath));
+        if (
+          normalizedPath.toLowerCase().endsWith('.html') ||
+          normalizedPath.toLowerCase().endsWith('.htm')
+        ) {
+          const directoryPath = getParentPath(normalizedPath);
+          const files = (await fsClient.readdir(directoryPath))
+            .filter(file => file.type === 'file')
+            .map(file => basename(file.path));
+          const content = await inlineHtmlAssets(
+            files,
+            directoryPath,
+            path => fsClient.readFile(path),
+            basename(normalizedPath)
+          );
+          setFileContent(content);
+        } else {
+          setFileContent(await fsClient.readText(normalizedPath));
+        }
         return;
       }
 
@@ -65,7 +82,7 @@ const WebPreviewTab: React.FC<WebPreviewTabProps> = ({ filePath, onTitleChange }
       }
 
       const content = await inlineHtmlAssets(files, normalizedPath, path =>
-        fsClient.readText(path)
+        fsClient.readFile(path)
       );
       setFileContent(content);
     } catch (error) {

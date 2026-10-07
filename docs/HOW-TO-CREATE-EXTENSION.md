@@ -347,7 +347,7 @@ interface ExtensionContext {
 
 ### Workspace file access
 
-`fsClient` takes absolute paths and returns metadata only from `stat` and `readdir`. Read file contents explicitly with `readText` or `readFile`.
+`fsClient` takes absolute paths and returns metadata from `stat` and `readdir`. Read contents explicitly: `readText` decodes UTF-8, while `readFile` returns the file's raw bytes as a `Uint8Array`.
 
 ```typescript
 const fs = await context.getSystemModule('fsClient');
@@ -560,6 +560,7 @@ context.logger.info(`Created tab with ID: ${tabId}`);
 | `tabId` | string | ✅ | 更新するタブのID |
 | `options.title` | string | ❌ | 新しいタイトル |
 | `options.icon` | string | ❌ | 新しいアイコン |
+| `options.isDirty` | boolean | ❌ | 未保存変更の有無 |
 | `options.data` | object | ❌ | データの**部分更新**（マージされます） |
 
 **戻り値:** 成功したかどうか (boolean)
@@ -882,7 +883,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         data: {
           fileName: file.name,
           filePath: file.path,
-          bufferContent: file.bufferContent,
           projectName: menuContext.projectName,
         },
       });
@@ -979,9 +979,8 @@ context.explorerMenu.removeMenuItem('open-hex-editor');
 | `name` | string | ファイル名 |
 | `path` | string | ファイルパス |
 | `type` | string | `'file'` または `'folder'` |
-| `content` | string? | 読み込み済みのテキスト内容 |
-| `isBufferArray` | boolean? | バイナリファイルかどうか |
-| `bufferContent` | ArrayBuffer? | 読み込み済みのバイナリ内容 |
+
+`FileItem`はtree entryのmetadataです。バイナリ編集時はtabにpathを渡し、必要になった時点で`fsClient.readFile(path)`からraw `Uint8Array`を読み込みます。ファイル名だけでテキスト/バイナリを決めないでください。
 
 #### menuContext (MenuActionContext)
 
@@ -1023,7 +1022,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         activateAfterCreate: true,
         data: {
           fileName: file.name,
-          bufferContent: file.bufferContent,
+          filePath: file.path,
         },
       });
     },

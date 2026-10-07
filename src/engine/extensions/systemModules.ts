@@ -8,6 +8,7 @@ import {
   posixPath,
   resolvePath,
 } from '@/engine/core/pathUtils';
+import { registerAction } from '@/hooks/keybindings/useKeyBindings';
 import { getCurrentRootPath, projectState } from '@/stores/projectStore';
 import type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
 
@@ -31,6 +32,7 @@ const systemModuleGetters = {
     subscribe: (listener: (rootPath: string | null) => void) =>
       subscribeKey(projectState, 'currentRootPath', listener),
   }),
+  keybindings: async () => ({ registerAction }),
   commandRegistry: async () => (await import('./commandRegistry')).commandRegistry,
   systemBuiltinCommands: async () =>
     (await import('@/engine/cmd/terminalRegistry')).terminalCommandRegistry,

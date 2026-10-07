@@ -2,6 +2,8 @@
 
 import { useCallback } from 'react';
 
+import { prepareAITextWrite } from '@/engine/ai/textEdits';
+import { pushLogMessage } from '@/stores/loggerStore';
 import { tabActions } from '@/stores/tabState';
 import type { AIReviewEntry, FileItem, Project } from '@/types';
 
@@ -54,7 +56,8 @@ export function useAIReview() {
 
       try {
         // ファイルを保存
-        await saveFile(currentProject.rootPath, filePath, newContent);
+        const content = await prepareAITextWrite(filePath, newContent);
+        await saveFile(currentProject.rootPath, filePath, content);
 
         // AIレビュー状態をクリア
         await clearAIReview(filePath);
@@ -62,6 +65,7 @@ export function useAIReview() {
         return true;
       } catch (error) {
         console.error('Failed to apply changes:', error);
+        if (error instanceof Error) pushLogMessage(error.message, 'error', 'AI');
         throw error;
       }
     },

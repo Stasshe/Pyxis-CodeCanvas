@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
+import { readFileContent } from '@/engine/core/fileContent';
 import { basename, fsClient, isPathWithin } from '@/engine/core/fs';
 import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
@@ -18,6 +19,19 @@ interface SearchPanelProps {
 
 // シンプルなファイルペイロード型（Workerへ送信用）
 const REALTIME_FILE_THRESHOLD = 50;
+
+async function readTextForReplace(path: string): Promise<string> {
+  const loaded = await readFileContent(path);
+  if (loaded.kind === 'binary') {
+    throw new Error(`Cannot replace binary file: ${path}`);
+  }
+  return loaded.content;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 // Module-level memoized ResultRow to avoid recreating component each render
 export type ResultRowProps = {
@@ -45,6 +59,8 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
   const [useRegex, setUseRegex] = useState(false);
   const [searchInFilenames, setSearchInFilenames] = useState(false);
   const [replaceQuery, setReplaceQuery] = useState('');
+  const [replaceError, setReplaceError] = useState<string | null>(null);
+  const [fileActionError, setFileActionError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [hoveredFileKey, setHoveredFileKey] = useState<string | null>(null);
   const [hoveredResultKey, setHoveredResultKey] = useState<string | null>(null);
@@ -302,27 +318,42 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
         isCodeMirror,
       };
 
-      const kind = fileWithJump.isBufferArray ? 'binary' : 'editor';
-      await openTab(fileWithJump, {
+      const loaded = await readFileContent(fileWithJump.path);
+      setFileActionError(null);
+      let kind: 'binary' | 'editor' = 'editor';
+      let fileToOpen = fileWithJump;
+      if (loaded.kind === 'binary') {
+        kind = 'binary';
+        fileToOpen = {
+          ...fileWithJump,
+          isBufferArray: true,
+          bufferContent: loaded.bufferContent,
+        };
+      } else {
+        fileToOpen = { ...fileWithJump, isBufferArray: false, content: loaded.content };
+      }
+      await openTab(fileToOpen, {
         kind,
         jumpToLine: result.line,
         jumpToColumn: result.column,
       });
     } catch (err) {
       console.error('Failed to open file from search result', err);
+      setFileActionError(`Failed to open ${result.file.path}: ${errorMessage(err)}`);
     }
   }, []);
 
   const handleReplaceResult = useCallback(
     async (result: SearchResult, replacement: string) => {
       try {
+        setReplaceError(null);
         const filePath = result.file.path;
 
         if (result.line === 0) {
           console.info('Skipping filename replace from SearchPanel');
           return;
         }
-        const lines = (await fsClient.readText(filePath)).split('\n');
+        const lines = (await readTextForReplace(filePath)).split('\n');
         const lineIdx = result.line - 1;
         const line = lines[lineIdx] || '';
         const before = line.substring(0, result.matchStart);
@@ -336,6 +367,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
         performSearchRef.current(searchQuery);
       } catch (e) {
         console.error('Replace error', e);
+        setReplaceError(errorMessage(e));
       }
     },
     [searchQuery]
@@ -343,7 +375,8 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
     try {
-      const content = await fsClient.readText(file.path);
+      setReplaceError(null);
+      const content = await readTextForReplace(file.path);
       const flags = caseSensitive ? 'g' : 'gi';
       const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
@@ -355,23 +388,27 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace all error', e);
+      setReplaceError(errorMessage(e));
     }
   };
 
   const handleReplaceAllResults = async (replacement: string) => {
     try {
+      setReplaceError(null);
       const flags = caseSensitive ? 'g' : 'gi';
       const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
 
       const filesUpdated = new Set<string>();
+      const contents = new Map<string, string>();
       for (const r of searchResults) {
         const filePath = r.file.path;
         if (filesUpdated.has(filePath)) continue;
-        const content = await fsClient.readText(filePath);
-        const updatedContent = content.replace(regex, replacement);
-        await fsClient.writeFile(filePath, updatedContent);
+        contents.set(filePath, await readTextForReplace(filePath));
         filesUpdated.add(filePath);
+      }
+      for (const [filePath, content] of contents) {
+        await fsClient.writeFile(filePath, content.replace(regex, replacement));
       }
 
       // キャッシュをクリアして再検索
@@ -379,6 +416,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       performSearchRef.current(searchQuery);
     } catch (e) {
       console.error('Replace all results error', e);
+      setReplaceError(errorMessage(e));
     }
   };
 
@@ -665,6 +703,16 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
               {isSearching
                 ? t('searchPanel.searching')
                 : t('searchPanel.resultCount', { params: { count: searchResults.length } })}
+            </div>
+          )}
+          {replaceError && (
+            <div role="alert" style={{ color: colors.red, fontSize: '0.62rem' }}>
+              {replaceError}
+            </div>
+          )}
+          {fileActionError && (
+            <div role="alert" style={{ color: colors.red, fontSize: '0.62rem' }}>
+              {fileActionError}
             </div>
           )}
         </div>

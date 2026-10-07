@@ -58,4 +58,22 @@ describe('worker filesystem search', () => {
     expect(matches.every(match => match.file.path.endsWith('needle.txt'))).toBe(true);
     expect(matches[2]).toMatchObject({ column: 8, matchStart: 7, matchEnd: 13 });
   });
+
+  it('classifies invalid UTF-8 and binary signatures before scanning contents', async () => {
+    await core.writeFile('/tmp/app/src/needle-invalid.txt', new Uint8Array([0xff, 0xfe]));
+    await core.writeFile('/tmp/app/src/needle-nul.txt', new Uint8Array([0x6e, 0x00, 0x65]));
+    await core.writeFile(
+      '/tmp/app/src/needle-document.dat',
+      new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x6e, 0x65, 0x65, 0x64, 0x6c, 0x65])
+    );
+
+    const matches = await search('needle', { searchInFilenames: true });
+
+    expect(matches.map(match => match.file.path)).toEqual([
+      '/tmp/app/src/needle-document.dat',
+      '/tmp/app/src/needle-invalid.txt',
+      '/tmp/app/src/needle-nul.txt',
+    ]);
+    expect(matches.map(match => match.line)).toEqual([0, 0, 0]);
+  });
 });

@@ -3,7 +3,7 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 export async function handleGitCommand(
   args: string[],
   rootPath: string,
-  writeOutput: (output: string) => Promise<void>
+  writeOutput: (output: string | Uint8Array) => Promise<void>
 ) {
   if (!args[0]) {
     await writeOutput('git: missing command');

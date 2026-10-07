@@ -8,6 +8,7 @@ export interface FileItem {
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true
   bufferContent?: ArrayBuffer; // バイナリデータ本体
+  mimeType?: string;
   /** 拡張プロパティ許可（TabFileInfoとの互換性） */
   [key: string]: unknown;
 }

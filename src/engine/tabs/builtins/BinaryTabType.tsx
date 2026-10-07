@@ -7,6 +7,7 @@ import type {
   BinaryTab,
   OpenTabOptions,
   SessionRestoreContext,
+  Tab,
   TabComponentProps,
   TabTypeDefinition,
 } from '../types';
@@ -22,7 +23,9 @@ const BinaryTabComponent: React.FC<TabComponentProps> = ({ tab }) => {
       activeTab={binaryTab}
       editorHeight="100%"
       // ファイル名・buffer から MIME を推定
-      guessMimeType={(fileName: string, buffer?: ArrayBuffer) => guessMimeType(fileName, buffer)}
+      guessMimeType={(fileName: string, buffer?: ArrayBuffer, mimeType?: string) =>
+        guessMimeType(fileName, buffer, mimeType)
+      }
     />
   );
 };
@@ -36,7 +39,7 @@ export const BinaryTabType: TabTypeDefinition = {
   canEdit: false,
   canPreview: false,
 
-  createTab: (data: unknown, options?: OpenTabOptions) => {
+  createTab: (data, options?: OpenTabOptions) => {
     const fileItem = data as FileItem;
     const tabId = `binary-${fileItem.path}`;
     const paneId = options?.targetPaneId || '';
@@ -49,6 +52,8 @@ export const BinaryTabType: TabTypeDefinition = {
       paneId,
       content: fileItem.content || '',
       bufferContent: fileItem.bufferContent,
+      mimeType: fileItem.mimeType,
+      isSnapshot: data.isSnapshot === true,
       type: fileItem.type,
     } as BinaryTab;
   },
@@ -60,6 +65,7 @@ export const BinaryTabType: TabTypeDefinition = {
    */
   serializeForSession: (tab): BinaryTab => {
     const binaryTab = tab as BinaryTab;
+    if (binaryTab.isSnapshot) return binaryTab;
     const { content, bufferContent, ...rest } = binaryTab;
     return rest as BinaryTab;
   },
@@ -67,8 +73,9 @@ export const BinaryTabType: TabTypeDefinition = {
   /**
    * セッション復元時: bufferContent をファイルから復元
    */
-  restoreContent: async (tab, context: SessionRestoreContext): Promise<BinaryTab> => {
+  restoreContent: async (tab, context: SessionRestoreContext): Promise<Tab> => {
     const binaryTab = tab as BinaryTab;
+    if (binaryTab.isSnapshot) return binaryTab;
     const filePath = binaryTab.path;
 
     if (!filePath) {
@@ -78,10 +85,14 @@ export const BinaryTabType: TabTypeDefinition = {
     const file = await context.getFileByPath(filePath);
 
     if (file) {
+      if (file.bufferContent === undefined) {
+        return { ...binaryTab, kind: 'editor', content: file.content ?? '', isDirty: false };
+      }
       console.log('[BinaryTabType] ✓ Restored bufferContent for:', filePath);
       return {
         ...binaryTab,
-        content: (file.content as string) || '',
+        content: '',
+        mimeType: file.mimeType,
         bufferContent: file.bufferContent,
       };
     }

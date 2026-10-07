@@ -258,7 +258,7 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 ### 🌐 **Universal Compatibility**
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
-- **Buffer content support** - unzip files, view PDFs, images, videos
+- **Binary file support** - Preserve file bytes across OPFS, Git, runtime, uploads/downloads, and ZIP extraction; decode only for text reads, explicit Node encodings, `.mjs` transpilation, or terminal display
 - **🌍 18 Languages Support** - Available in Japanese, English, Chinese, Traditional Chinese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, Swedish, and Polish
 - **Extension System** - Dynamically add language packs, transpilers, and custom features
 

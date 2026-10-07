@@ -248,6 +248,9 @@ export interface SystemModuleMap {
     getRootPath(): string | null;
     subscribe(listener: (rootPath: string | null) => void): () => void;
   };
+  keybindings: {
+    registerAction(actionId: string, callback: () => void): () => void;
+  };
   normalizeCjsEsm: NormalizeCjsEsmModule;
   commandRegistry: CommandRegistry;
 }
@@ -261,6 +264,10 @@ const rootPath = workspace.getRootPath();
 const unsubscribe = workspace.subscribe(nextRootPath => {
   // null means no workspace is currently open
 });
+
+const keybindings = await context.getSystemModule('keybindings');
+const unregisterSave = keybindings.registerAction('saveFile', saveCurrentTab);
+// Call unregisterSave when the tab is inactive or disposed.
 ```
 
 ### 変更イベント
@@ -438,6 +445,7 @@ private isOwnedTab(tabId: string): boolean {
 // タブの内容を更新
 context.tabs.updateTab(tabId, {
   title: 'New Title',
+  isDirty: true,
   data: { content: 'Updated content' },
 });
 

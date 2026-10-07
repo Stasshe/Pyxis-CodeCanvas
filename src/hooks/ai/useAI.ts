@@ -11,6 +11,7 @@ import {
   parseEditResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
+import { readAIText } from '@/engine/ai/textEdits';
 import { fsClient } from '@/engine/core/fs';
 import { pushLogMessage } from '@/stores/loggerStore';
 import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
@@ -167,13 +168,19 @@ export function useAI(props?: UseAIProps) {
         const selectedPathsSet = new Set(selectedFiles.map(f => f.path));
         const newPaths = responsePaths.filter((path: string) => !selectedPathsSet.has(path));
 
+        for (const path of responsePaths) {
+          if (selectedPathsSet.has(path) && (await fsClient.exists(path))) {
+            await readAIText(path);
+          }
+        }
+
         console.log('[useAI] New paths (not in selected):', newPaths);
 
         // Load existing file content for response paths outside the selected contexts.
         const newFilesWithContent = await Promise.all(
           newPaths.map(async (path: string) => {
             if (await fsClient.exists(path)) {
-              const fileContent = await fsClient.readText(path);
+              const fileContent = await readAIText(path);
               return { path, content: fileContent, isNewFile: false };
             }
 

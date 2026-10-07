@@ -66,8 +66,8 @@ describe('tab filesystem synchronization', () => {
     const started = new Promise<void>(resolve => {
       markStarted = resolve;
     });
-    let finishRead: (content: string) => void = () => {};
-    vi.spyOn(fsClient, 'readText').mockImplementation(
+    let finishRead: (content: Uint8Array) => void = () => {};
+    vi.spyOn(fsClient, 'readFile').mockImplementation(
       () =>
         new Promise(resolve => {
           finishRead = resolve;
@@ -78,7 +78,7 @@ describe('tab filesystem synchronization', () => {
     onFsChange?.({ type: 'update', path });
     await started;
     setContent(path, 'local edit');
-    finishRead('external edit');
+    finishRead(new TextEncoder().encode('external edit'));
     await flushMicrotasks();
 
     expect(getTabContent('editor-tab')).toBe('local edit');
@@ -119,11 +119,11 @@ describe('tab filesystem synchronization', () => {
     const readText = vi.spyOn(fsClient, 'readText');
 
     onFsChange?.({ type: 'update', path });
-    await flushMicrotasks();
-
-    expect(Array.from(new Uint8Array(getBufferContent(tab.id) as ArrayBuffer))).toEqual([
-      0, 255, 8,
-    ]);
+    await vi.waitFor(() => {
+      expect(Array.from(new Uint8Array(getBufferContent(tab.id) as ArrayBuffer))).toEqual([
+        0, 255, 8,
+      ]);
+    });
     expect(Array.from(new Uint8Array(tab.bufferContent as ArrayBuffer))).toEqual([0, 255, 8]);
     expect(readText).not.toHaveBeenCalled();
   });

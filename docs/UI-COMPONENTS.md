@@ -87,7 +87,7 @@ App.tsxは、アプリケーション全体の状態とレイアウトを管理�
 | UI | `gitChangesCount` | number | App state |
 | UI | `nodeRuntimeOperationInProgress` | boolean | App state |
 
-Before a workspace folder is selected, an active editor pane already exists and has no file, giving OperationWindow a target pane ID. `projectFiles` supplies metadata-only `FileItem` entries for the tree; file content is read from the filesystem when a file is opened.
+Before a workspace folder is selected, an active editor pane already exists and has no file, giving OperationWindow a target pane ID. `projectFiles` supplies metadata-only `FileItem` entries for the tree; opening a file reads bytes from the filesystem and classifies content before selecting a text editor, binary editor, or preview.
 
 ### 2.2 Initialization Flow
 
@@ -791,6 +791,7 @@ graph TB
 - Role attributes for custom components
 - Focus management for modals
 - Keyboard-accessible context menus
+- TabBar menus render in a portal above the editor and clamp within the viewport.
 
 ---
 

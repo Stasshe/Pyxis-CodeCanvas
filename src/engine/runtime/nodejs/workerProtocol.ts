@@ -13,7 +13,9 @@ export interface WorkerExecutionOptions {
 export type OutputChannel = 'stdout' | 'stderr' | 'log' | 'warn' | 'error' | 'clear' | 'debug';
 export type OutputEntry =
   | { channel: 'debug'; text: string; level: RuntimeLogLevel }
-  | { channel: Exclude<OutputChannel, 'debug'>; text: string };
+  | { channel: 'stdout'; text: string | Uint8Array }
+  | { channel: 'stderr'; text: string | Uint8Array }
+  | { channel: Exclude<OutputChannel, 'debug' | 'stdout' | 'stderr'>; text: string };
 
 export interface ShellResult {
   stdout: string;
@@ -29,7 +31,7 @@ export type MainMessage =
       options: WorkerExecutionOptions;
       fsPort: MessagePort;
     }
-  | { type: 'stdin'; data: string }
+  | { type: 'stdin'; data: Uint8Array }
   | { type: 'stdin-end' }
   | { type: 'interrupt' }
   | { type: 'shell-result'; id: number; result: ShellResult }

@@ -48,7 +48,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 - SyncAccessHandleは「開く→操作→閉じる」で使い、開きっぱなしにしない
 - FS Client: API・変更eventの購読口・metadataへのアクセスを提供する。現行の`fileRepository`を置き換える
-- API: Node fs風のpath基準（readFile / writeFile / readdir / stat / mkdir / rm / rename）。runtimeの`fsModule`とunixコマンドは同じIFを使う
+- API: Node fs風のpath基準（readFile / writeFile / readdir / stat / mkdir / rm / rename）。`readFile`はraw bytes、`readText`は明示UTF-8 decode、`writeFile`はtextまたはbytesを扱う。runtimeの`fsModule`とunixコマンドは同じIFを使う
 - 拡張機能はmainで読み込む（現状維持）
 
 ## Pathモデル

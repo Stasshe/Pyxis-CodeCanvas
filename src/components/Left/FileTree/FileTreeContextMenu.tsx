@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { fsClient, getParentPath, resolvePath } from '@/engine/core/fs';
@@ -34,6 +34,19 @@ export default function FileTreeContextMenu({
   const { openTab } = tabActions;
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [, forceUpdate] = useState(0);
+
+  useLayoutEffect(() => {
+    const menu = contextMenuRef.current;
+    if (!menu) return;
+    const placeMenu = () => {
+      const bounds = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(0, Math.min(contextMenu.x, window.innerWidth - bounds.width))}px`;
+      menu.style.top = `${Math.max(0, Math.min(contextMenu.y, window.innerHeight - bounds.height))}px`;
+    };
+    placeMenu();
+    window.addEventListener('resize', placeMenu);
+    return () => window.removeEventListener('resize', placeMenu);
+  });
 
   useEffect(
     () => explorerMenuRegistry.addChangeListener(() => forceUpdate(value => value + 1)),
@@ -196,6 +209,9 @@ export default function FileTreeContextMenu({
         border: `1px solid ${colors.border}`,
         borderRadius: '0.5rem',
         minWidth: '120px',
+        maxWidth: '100vw',
+        maxHeight: '100vh',
+        overflowY: 'auto',
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         top: contextMenu.y,
         left: contextMenu.x,

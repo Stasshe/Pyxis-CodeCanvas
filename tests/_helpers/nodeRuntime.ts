@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import { attachRuntimePort } from '@/engine/runtime/bridge/endpoint';
 import type { RpcValue, TranspileRequest } from '@/engine/runtime/bridge/protocol';
-import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
+import { type ExecutionOptions, NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
 import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
 import { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
 import {
@@ -22,6 +22,7 @@ export interface NodeRuntimeFixture {
   bridge: RuntimeBridge;
   filesystem: RuntimeFsMount;
   fs: MemoryFs;
+  stdin: WorkerStdin;
   close(): void;
   writeFile(path: string, content: string | Uint8Array): Promise<void>;
 }
@@ -38,7 +39,8 @@ export async function createNodeRuntimeFixture(
   debugConsole?: RuntimeDebugConsole,
   cwd = rootPath,
   onExit?: (code: number) => void,
-  sharedFs?: MemoryFs
+  sharedFs?: MemoryFs,
+  outputStreams?: Pick<ExecutionOptions, 'onStdout' | 'onStderr'>
 ): Promise<NodeRuntimeFixture> {
   const fs = sharedFs ?? new MemoryFs();
   await fs.mkdir(rootPath, { recursive: true });
@@ -54,18 +56,21 @@ export async function createNodeRuntimeFixture(
   attachRuntimePort(channel.port1, fs, transpile);
   vi.spyOn(bridge, 'sync').mockImplementation(request => fs.sync(request));
   const filesystem = new RuntimeFsMount(bridge);
-  const runtime = new NodeRuntime({
+  let runtime: NodeRuntime;
+  const stdin = new WorkerStdin(
+    promise => runtime.trackIO(promise),
+    () => {},
+    () => {}
+  );
+  runtime = new NodeRuntime({
     rootPath,
     cwd,
     filePath: `${rootPath}/entry.js`,
     bridge,
     filesystem,
     runShell: async () => ({ stdout: '', stderr: '', code: 0 }),
-    processStdin: new WorkerStdin(
-      () => {},
-      () => {},
-      () => {}
-    ),
+    processStdin: stdin,
+    ...outputStreams,
     debugConsole,
     onExit,
   });
@@ -75,6 +80,7 @@ export async function createNodeRuntimeFixture(
     bridge,
     filesystem,
     fs,
+    stdin,
     close() {
       bridge.close();
       channel.port1.close();

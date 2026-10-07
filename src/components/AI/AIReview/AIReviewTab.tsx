@@ -16,7 +16,7 @@ import type { AIReviewTab as AIReviewTabType, Tab } from '@/types';
 
 interface AIReviewTabProps {
   tab: Tab;
-  onApplyChanges: (filePath: string, content: string) => void;
+  onApplyChanges: (filePath: string, content: string) => Promise<boolean>;
   onDiscardChanges: (filePath: string) => void;
   onUpdateSuggestedContent?: (tabId: string, newContent: string) => void;
   onCloseTab?: (filePath: string) => void;
@@ -223,8 +223,9 @@ export default function AIReviewTab({
   };
 
   // 全体適用（suggestedContent -> 本体のcontentへコピー）
-  const handleApplyAll = () => {
-    onApplyChanges(filePath, currentSuggestedContent);
+  const handleApplyAll = async () => {
+    const applied = await onApplyChanges(filePath, currentSuggestedContent);
+    if (applied === false) return;
     // レビュータブを閉じる
     if (onCloseTab) {
       onCloseTab(filePath);
@@ -236,7 +237,8 @@ export default function AIReviewTab({
     try {
       if (!aiEntry || !aiEntry.originalSnapshot) return;
       // Apply original snapshot
-      await onApplyChanges(filePath, aiEntry.originalSnapshot);
+      const applied = await onApplyChanges(filePath, aiEntry.originalSnapshot);
+      if (applied === false) return;
 
       // mark entry as reverted and push history
       try {

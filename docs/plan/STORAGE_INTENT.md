@@ -13,7 +13,7 @@
 - **transpile poolはFS Workerが所有する**。必要時のみ1 Workerを起動して、30秒idle後に破棄する。FS Worker内で順序を保ち、wasmを複数Workerに常駐させない
 - **`node`の実行1回 = Worker 1つ**。無限ループでも`terminate()`で確実に止められる。グローバル状態も実行ごとに新しくなり、Nodeのprocessと同じ意味を持つ
 - **メモリはpage全体で400MB以内**。PyxisはIDEで、ユーザーのprogramとbrowserの他のtabにメモリを残す必要がある。Workerは増やすほど、それぞれに読み込んだcodeやwasmの分だけメモリを食う。だから並列化で速度を買わず、常駐するWorkerを最小にする
-- **OPFSを唯一のfile置き場にする**。目的は二重管理の根絶。isomorphic-gitがworktreeと`.git`を同じFSから直接読むので、`.gitignore`による同期フィルタも要らなくなる
+- **OPFSを唯一のfile置き場にする**。目的は二重管理の根絶。file payloadはraw bytesとして保存・移送し、text decodingは明示した読込境界に限る。isomorphic-gitがworktreeと`.git`を同じFSから直接読むので、`.gitignore`による同期フィルタも要らなくなる
 - **`/`から始まるFSを1つ、project = folder（VS Code型）**。Nodeと同じPOSIX path APIを共通実装として使い、normalize・resolve・relative等の字句処理を各サブシステムで再実装しない。絶対pathを正規化する関数と、明示したcwdから相対pathを解決する関数を分け、FSとruntimeではcwdを暗黙にしない
 - **path解釈とshell展開は別責務**。FS/runtimeのpath APIはPOSIXの字句処理だけを担い、`~`・glob・quote・変数展開を行わない。shell parserがコマンド入力を一度だけ展開してから、解決済みpathをFS APIへ渡す。これによりNodeの`fs`とterminalで同じpath文字列を別の意味に解釈しない
 - **fileの識別子 = 絶対path**。OPFSのentryには任意の属性を付けられない。idを別に管理すると二重管理が再発する

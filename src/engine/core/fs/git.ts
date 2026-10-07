@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 import { isPathWithin, normalizePath, posixPath, resolvePath } from '../pathUtils';
 import { FSError } from './errors';
@@ -27,7 +28,7 @@ export interface GitStat {
 export interface GitPromises {
   readFile(path: string): Promise<Uint8Array>;
   readFile(path: string, encoding: string | { encoding: string }): Promise<string>;
-  readFile(path: string, options: { encoding?: undefined }): Promise<Uint8Array>;
+  readFile(path: string, encoding: null | { encoding?: undefined | null }): Promise<Uint8Array>;
   writeFile(path: string, data: string | Uint8Array): Promise<void>;
   readdir(path: string): Promise<string[]>;
   stat(path: string): Promise<GitStat>;
@@ -82,16 +83,23 @@ export function createGitFs(core: FsApi): GitFs {
   }
   async function readFile(path: string): Promise<Uint8Array>;
   async function readFile(path: string, encoding: string | { encoding: string }): Promise<string>;
-  async function readFile(path: string, options: { encoding?: undefined }): Promise<Uint8Array>;
   async function readFile(
     path: string,
-    encoding?: string | { encoding?: string }
+    encoding: null | { encoding?: undefined | null }
+  ): Promise<Uint8Array>;
+  async function readFile(
+    path: string,
+    encoding?: string | { encoding?: string | null } | null
   ): Promise<string | Uint8Array> {
     let requestedEncoding: string | undefined;
     if (typeof encoding === 'string') requestedEncoding = encoding;
-    if (typeof encoding === 'object') requestedEncoding = encoding.encoding;
-    if (requestedEncoding) return core.readText(path);
-    return core.readFile(path);
+    if (encoding && typeof encoding === 'object')
+      requestedEncoding = encoding.encoding ?? undefined;
+    if (requestedEncoding === undefined) return core.readFile(path);
+    if (!Buffer.isEncoding(requestedEncoding)) {
+      throw new TypeError(`Unknown encoding: ${requestedEncoding}`);
+    }
+    return Buffer.from(await core.readFile(path)).toString(requestedEncoding);
   }
   return {
     reportMergeConflict: conflict => reporter(conflict),

@@ -16,7 +16,7 @@
 
 ## Filesystem API
 
-The filesystem API accepts normalized absolute paths. `readFile` returns bytes; `readText` decodes UTF-8. `writeFile` accepts text or bytes. `readdir` returns immediate child metadata, `walk` returns descendant metadata, and `stat` returns one entry. None of these metadata records include contents. `pathUtils` uses the shared POSIX path implementation for lexical operations; `normalizePath` requires an absolute path, while `resolvePath(cwd, ...parts)` requires the caller to supply its cwd.
+The filesystem API accepts normalized absolute paths. `readFile` returns raw `Uint8Array` bytes; `readText` explicitly decodes UTF-8. `writeFile` accepts text or bytes. UI consumers use `readFileContent(path)` to classify freshly read bytes as `{kind: 'text', content}` or `{kind: 'binary', bufferContent, mimeType?}`; only text is decoded. Classification checks bytes and known binary extensions; a text suffix never bypasses byte checks. `readdir`, `walk`, and `stat` return metadata only. `pathUtils` uses the shared POSIX path implementation for lexical operations; `normalizePath` requires an absolute path, while `resolvePath(cwd, ...parts)` requires the caller to supply its cwd.
 
 Path normalization does not expand shell syntax. Tilde, glob, quotes, and variables belong to shell parsing and are handled before a command passes paths to the filesystem API. Runtime filesystem calls receive ordinary Node-style path strings.
 
@@ -28,7 +28,7 @@ The FS Worker opens a SyncAccessHandle for each file operation and closes it bef
 
 The client acquires the `pyxis-fs-owner` Web Lock before creating the worker. Lock contention rejects initialization, enforcing one active application tab. The client proxies the FS API and broadcasts worker change events to registered listeners. `createPort()` creates a Comlink endpoint for worker-to-worker access.
 
-Git and npm operations execute in the FS Worker, where filesystem access is direct. Git uses `createGitFs` to adapt the core methods to isomorphic-git's promises interface. This keeps the worktree and `.git` in the same OPFS tree.
+Git and npm operations execute in the FS Worker, where filesystem access is direct. Git uses `createGitFs` to adapt the core methods to isomorphic-git's promises interface. This keeps the worktree and `.git` in the same OPFS tree; file bytes remain unchanged through the adapter. npm archives are extracted from bytes and payloads are written without text decoding, except `.mjs` source intentionally strict-UTF-8-decoded for transpilation.
 
 ## Workspace model
 

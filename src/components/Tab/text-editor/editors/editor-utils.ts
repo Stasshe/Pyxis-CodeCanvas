@@ -89,7 +89,12 @@ export const getLanguage = (filename: string): string => {
 /**
  * バイナリファイルのMIMEタイプ推定
  */
-export function guessMimeType(fileName: string, buffer?: ArrayBuffer): string {
+export function guessMimeType(
+  fileName: string,
+  _buffer?: ArrayBuffer,
+  detectedMimeType?: string
+): string {
+  if (detectedMimeType) return detectedMimeType;
   const ext = fileName.toLowerCase();
   if (ext.match(/\.(png)$/)) return 'image/png';
   if (ext.match(/\.(jpg|jpeg)$/)) return 'image/jpeg';

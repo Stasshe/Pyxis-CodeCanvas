@@ -39,6 +39,8 @@ FS Workerの`FsCore`がOPFSと揮発性`/tmp`を所有する。Runtime Workerは
 
 静的に見つかる依存モジュールは非同期に先読みする。先読みされていないrequireも同期でpath解決し、FS Workerからfileを読み、必要なら同じ同期経路でtranspileして実行する。CommonJSの循環requireはロード途中のpartial exportsを返し、`module.exports`の置換も反映する。`fs`の同期APIも同じbridgeを使う。
 
+Node `fs` and shell streams preserve file bytes. `readFile` returns a Buffer unless an encoding is explicitly requested; an encoding such as `utf8`, `hex`, or `base64` converts only at that call. Stdin, stdout, pipes, and redirection retain bytes; terminal rendering is the decoding boundary.
+
 Runtimeの仮想HOMEは`/home/pyxis`。新規workspaceの配置先は`~/<name>`で、module cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`。npm metadataは必要時にregistryから取得し、cacheしない。tarball URLのSHA-256で名前を決めたarchiveだけを展開成功後にcacheする。`/tmp`はFS Worker内の揮発領域で、Node実行をまたいで共有される。
 
 ## トランスパイル

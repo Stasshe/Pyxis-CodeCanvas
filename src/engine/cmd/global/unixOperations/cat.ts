@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -24,7 +25,7 @@ import { UnixCommandBase } from './base';
  *   - パスはシェルで展開された後に解決
  */
 export class CatCommand extends UnixCommandBase {
-  async execute(args: string[]): Promise<string> {
+  async execute(args: string[]): Promise<string | Uint8Array> {
     const optstring = 'nbsETvAet';
     const longopts = [
       'number',
@@ -48,6 +49,20 @@ export class CatCommand extends UnixCommandBase {
       return '';
     }
 
+    if (flags.size === 0) {
+      const chunks: Uint8Array[] = [];
+      for (const arg of positional) {
+        const path = this.resolvePath(arg);
+        try {
+          if (await this.isDirectory(path)) throw new Error('Is a directory');
+          chunks.push(await this.readBytes(path));
+        } catch (error) {
+          throw new Error(`cat: ${path}: ${String(error)}`);
+        }
+      }
+      return Buffer.concat(chunks);
+    }
+
     // オプション解析
     const showAll = flags.has('-A') || flags.has('--show-all');
     const numberAll = flags.has('-n') || flags.has('--number');
@@ -67,7 +82,8 @@ export class CatCommand extends UnixCommandBase {
     for (const arg of positional) {
       const path = this.resolvePath(arg);
       try {
-        const content = await this.readFile(path);
+        if (await this.isDirectory(path)) throw new Error('Is a directory');
+        const content = await this.readText(path);
         const processed = this.processContent(content, {
           numberAll,
           numberNonblank,
@@ -83,18 +99,6 @@ export class CatCommand extends UnixCommandBase {
     }
 
     return results.join('');
-  }
-
-  /**
-   * ファイルの内容を読み取る
-   */
-  private async readFile(path: string): Promise<string> {
-    const isDir = await this.isDirectory(path);
-    if (isDir) {
-      throw new Error('Is a directory');
-    }
-
-    return this.readText(path);
   }
 
   /**

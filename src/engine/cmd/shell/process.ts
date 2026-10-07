@@ -1,6 +1,5 @@
 import EventEmitter from 'node:events';
 import { PassThrough, type Readable, type Writable } from 'node:stream';
-import { Buffer } from 'buffer';
 
 /**
  * Process - Stream-based process abstraction
@@ -18,6 +17,7 @@ export class Process extends EventEmitter {
   // map of additional file-descriptor write streams (1 and 2 point to stdout/stderr)
   private _fdMap: Map<number, PassThrough>;
   public pid: number;
+  public stdinRedirected = false;
   private exited = false;
   private exitPromise: Promise<ProcExit>;
   private resolveExit!: (r: ProcExit) => void;
@@ -31,9 +31,9 @@ export class Process extends EventEmitter {
     // fd 1 -> stdout, fd 2 -> stderr
     this._fdMap.set(1, this._stdout);
     this._fdMap.set(2, this._stderr);
-    this.stdin = this._stdin as unknown as Writable;
-    this.stdout = this._stdout as unknown as Readable;
-    this.stderr = this._stderr as unknown as Readable;
+    this.stdin = this._stdin;
+    this.stdout = this._stdout;
+    this.stderr = this._stderr;
     this.pid = Math.floor(Math.random() * 1e9);
     this.exitPromise = new Promise(resolve => {
       this.resolveExit = resolve;
@@ -57,12 +57,12 @@ export class Process extends EventEmitter {
     // that write to ctx.stdout / ctx.stderr see the duplicated destination
     if (from === 1) {
       this._stdout = target;
-      this.stdout = this._stdout as unknown as Readable;
+      this.stdout = this._stdout;
       this._fdMap.set(1, target);
     }
     if (from === 2) {
       this._stderr = target;
-      this.stderr = this._stderr as unknown as Readable;
+      this.stderr = this._stderr;
       this._fdMap.set(2, target);
     }
   }
@@ -80,52 +80,12 @@ export class Process extends EventEmitter {
     return this._stderr;
   }
 
-  writeStdout(chunk: string | Buffer) {
-    try {
-      if (chunk === undefined || chunk === null) {
-        this._stdout.write('');
-      } else if (Buffer.isBuffer(chunk)) {
-        this._stdout.write(chunk);
-      } else if (typeof chunk === 'object') {
-        try {
-          this._stdout.write(JSON.stringify(chunk));
-        } catch (_e) {
-          this._stdout.write(String(chunk));
-        }
-      } else if (typeof chunk === 'string') {
-        this._stdout.write(chunk);
-      } else {
-        this._stdout.write(String(chunk));
-      }
-    } catch (_e) {
-      try {
-        this._stdout.write(String(chunk));
-      } catch {}
-    }
+  writeStdout(chunk: string | Uint8Array) {
+    this._stdout.write(chunk);
   }
 
-  writeStderr(chunk: string | Buffer) {
-    try {
-      if (chunk === undefined || chunk === null) {
-        this._stderr.write('');
-      } else if (Buffer.isBuffer(chunk)) {
-        this._stderr.write(chunk);
-      } else if (typeof chunk === 'object') {
-        try {
-          this._stderr.write(JSON.stringify(chunk));
-        } catch (_e) {
-          this._stderr.write(String(chunk));
-        }
-      } else if (typeof chunk === 'string') {
-        this._stderr.write(chunk);
-      } else {
-        this._stderr.write(String(chunk));
-      }
-    } catch (_e) {
-      try {
-        this._stderr.write(String(chunk));
-      } catch {}
-    }
+  writeStderr(chunk: string | Uint8Array) {
+    this._stderr.write(chunk);
   }
 
   endStdout() {

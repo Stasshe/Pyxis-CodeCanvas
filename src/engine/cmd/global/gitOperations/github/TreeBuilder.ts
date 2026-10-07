@@ -1,7 +1,6 @@
+import { Buffer } from 'buffer';
 import git from 'isomorphic-git';
 import type { GitFs as FS } from '@/engine/core/fs/git';
-
-import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
 
 import type { GitHubAPI, GitTree, GitTreeEntry } from './GitHubAPI';
 
@@ -168,19 +167,8 @@ export class TreeBuilder {
       oid: blobOid,
     });
 
-    const content = blobData.blob;
-    const isBinary = !(await isLikelyTextFile(path, content));
-
-    let contentStr: string;
-    let encoding: 'utf-8' | 'base64';
-
-    if (isBinary) {
-      contentStr = this.arrayBufferToBase64(content);
-      encoding = 'base64';
-    } else {
-      contentStr = new TextDecoder().decode(content);
-      encoding = 'utf-8';
-    }
+    const contentStr = Buffer.from(blobData.blob).toString('base64');
+    const encoding = 'base64';
 
     const cacheKey = `${contentStr}:${encoding}`;
     const cachedValue = this.blobCache.get(cacheKey);
@@ -193,14 +181,5 @@ export class TreeBuilder {
     this.remoteBlobCache.add(blobData2.sha);
 
     return blobData2.sha;
-  }
-
-  private arrayBufferToBase64(buffer: Uint8Array): string {
-    let binary = '';
-    const len = buffer.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(buffer[i]);
-    }
-    return btoa(binary);
   }
 }

@@ -52,7 +52,10 @@ function enqueue(entry: OutputEntry): void {
   else if (flushTimer === undefined) flushTimer = setTimeout(flush, 8);
 }
 
-function output(channel: Exclude<OutputChannel, 'debug'>, text: string): void {
+function output(
+  channel: Exclude<OutputChannel, 'debug' | 'stdout' | 'stderr'>,
+  text: string
+): void {
   enqueue({ channel, text });
 }
 
@@ -74,8 +77,8 @@ async function start(message: Extract<MainMessage, { type: 'start' }>): Promise<
       bridge,
       onExit: code => complete({ exitCode: code }),
       processStdin: stdin,
-      onStdout: text => output('stdout', text),
-      onStderr: text => output('stderr', text),
+      onStdout: text => enqueue({ channel: 'stdout', text }),
+      onStderr: text => enqueue({ channel: 'stderr', text }),
       debugConsole: {
         log: (...args) => output('log', formatRuntimeArgs(args)),
         warn: (...args) => output('warn', formatRuntimeArgs(args)),

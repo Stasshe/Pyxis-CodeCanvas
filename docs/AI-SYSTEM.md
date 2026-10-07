@@ -388,6 +388,8 @@ graph TB
 | Apply Partially | User selects changes | Mixed content, tab remains |
 | Edit in Review | Modify suggestion | Custom changes applied |
 
+AI review applies only to text files. Before requesting or saving a response, the current file bytes are classified again; binary files are rejected. Existing UTF-8 BOMs are preserved, and a failed save leaves the review open.
+
 ### 3.2 Commit Message Generation
 
 **Generation Flow:**

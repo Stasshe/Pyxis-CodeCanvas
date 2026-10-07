@@ -3,8 +3,9 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
+import { detectFileContent } from '@/engine/core/fileBytes';
 import { assetPath } from '@/env';
-import { dataUrlToBlob, isBinaryExt, toDataUrlFromUint8 } from './binaryUtils';
+import { dataUrlToBlob, toDataUrlFromUint8 } from './binaryUtils';
 import { extensionError, extensionInfo } from './extensionsLogger';
 import type {
   ExtensionActivation,
@@ -50,7 +51,8 @@ export async function fetchExtensionManifest(
  */
 export async function fetchExtensionFile(
   manifest: ExtensionManifest,
-  filePath: string
+  filePath: string,
+  textOnly = false
 ): Promise<string | null> {
   try {
     // マニフェストのディレクトリを取得
@@ -75,14 +77,14 @@ export async function fetchExtensionFile(
       return null;
     }
 
-    // Determine if this file should be treated as binary (images, wasm, fonts, videos, audio, etc.)
-    if (isBinaryExt(filePath)) {
-      const arrayBuffer = await response.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuffer);
-      return toDataUrlFromUint8(uint8, filePath);
-    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (textOnly) return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
 
-    return await response.text();
+    const content = await detectFileContent(filePath, bytes);
+    if (content.kind === 'binary') {
+      return toDataUrlFromUint8(bytes, filePath, content.mimeType);
+    }
+    return content.content;
   } catch (error) {
     extensionError('Error fetching file:', error);
     return null;
@@ -99,8 +101,8 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
   try {
     extensionInfo(`Fetching extension code for: ${manifest.id}`);
     // エントリーポイントを取得
-    const entryCode = await fetchExtensionFile(manifest, manifest.entry || 'index.js');
-    if (!entryCode) {
+    const entryCode = await fetchExtensionFile(manifest, manifest.entry || 'index.js', true);
+    if (entryCode === null) {
       extensionError('Failed to load entry point');
       return null;
     }
@@ -111,7 +113,7 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
       await Promise.all(
         manifest.files.map(async filePath => {
           const code = await fetchExtensionFile(manifest, filePath);
-          if (code) {
+          if (code !== null) {
             files[filePath] = code;
             extensionInfo(`Loaded additional file: ${filePath}`);
           }

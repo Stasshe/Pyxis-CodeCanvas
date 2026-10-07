@@ -14,11 +14,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { snapshot, useSnapshot } from 'valtio';
 
+import { readFileContent } from '@/engine/core/fileContent';
 import { fsClient } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
 import { projectState } from '@/stores/projectStore';
-import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
+import { isTabDirty, setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane } from '@/types';
 
@@ -57,28 +58,45 @@ async function defaultFileRestore(
   tab: Tab & { needsContentRestore?: boolean },
   context: SessionRestoreContext
 ): Promise<Tab> {
+  if (tab.kind !== 'editor' && tab.kind !== 'preview' && tab.kind !== 'binary') {
+    return { ...tab, needsContentRestore: false };
+  }
   const filePath = extractFilePathFromTab(tab.path);
   if (!filePath) {
     console.warn('[useTabContentRestore] No path for tab:', tab.name);
-    return { ...tab, needsContentRestore: false } as any;
+    return { ...tab, needsContentRestore: false };
   }
 
   const file = await context.getFileByPath(filePath);
 
   if (!file) {
     console.warn('[useTabContentRestore] File not found for tab:', filePath);
-    return { ...tab, needsContentRestore: false } as any;
+    return { ...tab, needsContentRestore: false };
+  }
+
+  if (file.bufferContent !== undefined) {
+    return {
+      ...tab,
+      kind: 'binary',
+      content: '',
+      bufferContent: file.bufferContent,
+      mimeType: file.mimeType,
+      needsContentRestore: false,
+    };
   }
 
   console.log('[useTabContentRestore] ✓ Restored (default):', filePath);
 
+  if (tab.kind === 'preview') {
+    return { ...tab, kind: 'preview', content: file.content ?? '', needsContentRestore: false };
+  }
   return {
     ...tab,
-    content: file.content || '',
-    bufferContent: (tab as any).isBufferArray ? file.bufferContent : undefined,
+    kind: 'editor',
+    content: file.content ?? '',
     isDirty: false,
     needsContentRestore: false,
-  } as any;
+  };
 }
 
 /**
@@ -106,7 +124,7 @@ export function useTabContentRestore(isRestored: boolean) {
 
     const flatPanes = flattenPanes(panes);
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
-      pane.tabs.filter((tab: any) => tab.needsContentRestore)
+      pane.tabs.filter(tab => tab.needsContentRestore)
     );
 
     // 復元が不要な場合も完了イベントを発火
@@ -136,9 +154,10 @@ export function useTabContentRestore(isRestored: boolean) {
           rootPath: currentRootPath,
           getFileByPath: async (path: string) => {
             if (!(await fsClient.exists(path))) return null;
-            const bytes = await fsClient.readFile(path);
-            const content = new TextDecoder().decode(bytes);
-            return { content, bufferContent: Uint8Array.from(bytes).buffer };
+            const file = await readFileContent(path);
+            if (file.kind === 'binary')
+              return { bufferContent: file.bufferContent, mimeType: file.mimeType };
+            return { content: file.content };
           },
         };
 
@@ -161,12 +180,12 @@ export function useTabContentRestore(isRestored: boolean) {
                 tab.kind,
                 tab.path || tab.name
               );
-              return { ...restored, needsContentRestore: false } as any;
+              return { ...restored, needsContentRestore: false };
             }
 
             // needsSessionRestore === false のタブはそのまま返す
             if (tabDef?.needsSessionRestore === false) {
-              return { ...tab, needsContentRestore: false } as any;
+              return { ...tab, needsContentRestore: false };
             }
 
             // 拡張機能タブ（まだ登録されていない可能性がある）はそのまま返す
@@ -176,7 +195,7 @@ export function useTabContentRestore(isRestored: boolean) {
                 '[useTabContentRestore] Extension tab type not registered yet, preserving data:',
                 tab.kind
               );
-              return { ...tab, needsContentRestore: false } as any;
+              return { ...tab, needsContentRestore: false };
             }
 
             // Default: restore file content through the filesystem client.
@@ -188,7 +207,7 @@ export function useTabContentRestore(isRestored: boolean) {
               tab.path,
               error
             );
-            return { ...tab, needsContentRestore: false } as any;
+            return { ...tab, needsContentRestore: false };
           }
         };
 
@@ -219,19 +238,40 @@ export function useTabContentRestore(isRestored: boolean) {
           return results;
         };
 
-        const restoredPanes = await updatePaneRecursive(currentPanes);
+        const loadedPanes = await updatePaneRecursive(currentPanes);
+        const restoredById = new Map(
+          flattenPanes(loadedPanes)
+            .flatMap(pane => pane.tabs)
+            .map(tab => [tab.id, tab])
+        );
+        const mergeCurrentPanes = (current: readonly EditorPane[]): EditorPane[] =>
+          current.map(pane => {
+            if (pane.children) return { ...pane, children: mergeCurrentPanes(pane.children) };
+            return {
+              ...pane,
+              tabs: pane.tabs.map(tab => {
+                if (tab.isDirty || isTabDirty(tab.id)) return tab;
+                return restoredById.get(tab.id) ?? tab;
+              }),
+            };
+          });
+        const restoredPanes = mergeCurrentPanes(snapshot(tabState).panes);
         tabActions.setPanes(restoredPanes);
 
         // Populate tabContentStore from restored tab.content so components
         // don't need tab.content as a fallback
         for (const pane of flattenPanes(restoredPanes)) {
           for (const tab of pane.tabs) {
-            const t = tab as any;
-            if (typeof t.content === 'string') {
-              setTabContent(tab.id, t.content, t.isDirty ?? false);
+            if (isTabDirty(tab.id)) continue;
+            if ('content' in tab && typeof tab.content === 'string') {
+              setTabContent(tab.id, tab.content, tab.isDirty ?? false);
             }
-            if (t.isBufferArray && t.bufferContent instanceof ArrayBuffer) {
-              setBufferContent(tab.id, t.bufferContent);
+            if (
+              'bufferContent' in tab &&
+              tab.kind === 'binary' &&
+              tab.bufferContent instanceof ArrayBuffer
+            ) {
+              setBufferContent(tab.id, tab.bufferContent);
             }
           }
         }

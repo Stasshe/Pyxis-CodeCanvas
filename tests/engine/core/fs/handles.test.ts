@@ -69,6 +69,33 @@ describe('OPFS access handle lifecycle', () => {
     expect(backing.access.close).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves subviews and loops over partial access-handle reads and writes', async () => {
+    const backing = storage(new Uint8Array());
+    const core = new FsCore();
+    await core.init(backing.root);
+
+    const source = new Uint8Array([99, 1, 2, 3, 88]);
+    await core.writeFile('/file', source.subarray(1, 4));
+    expect(backing.bytes()).toEqual(new Uint8Array([1, 2, 3]));
+
+    const fullWrite = backing.access.write.getMockImplementation();
+    if (!fullWrite) throw new Error('The OPFS write mock has no implementation.');
+    backing.access.write.mockImplementation((bytes, { at }) =>
+      fullWrite(bytes.subarray(0, 2), { at })
+    );
+    const replacement = new Uint8Array([9, 8, 7, 6, 5]);
+    await core.writeFile('/file', replacement);
+    expect(backing.bytes()).toEqual(replacement);
+
+    const stored = backing.bytes();
+    backing.access.read.mockImplementation((target, { at }) => {
+      const chunk = stored.subarray(at, at + Math.min(target.length, 2));
+      target.set(chunk);
+      return chunk.length;
+    });
+    expect(await core.readFile('/file')).toEqual(replacement);
+  });
+
   it('closes the handle after read or write failure and allows later operations', async () => {
     const backing = storage(new Uint8Array([1]));
     const core = new FsCore();

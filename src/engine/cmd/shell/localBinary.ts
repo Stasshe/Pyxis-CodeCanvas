@@ -1,7 +1,7 @@
 import type { FsApi } from '@/engine/core/fs';
 import { resolvePath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
-import { terminalProcessBridge } from '../terminalProcessBridge';
+import { ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
 import type { Process } from './process';
 
 export interface LocalBinaryOptions {
@@ -64,6 +64,8 @@ export async function runLocalBinary(options: LocalBinaryOptions): Promise<numbe
     process.writeStderr(`${values.map(value => String(value)).join(' ')}\n`);
   terminalProcessBridge.activate();
   try {
+    let processStdin = terminalProcessBridge.stdin;
+    if (process.stdinRedirected) processStdin = new ProcessStdin(process.stdinStream);
     const result = await runtime.execute({
       rootPath,
       filePath,
@@ -83,7 +85,7 @@ export async function runLocalBinary(options: LocalBinaryOptions): Promise<numbe
         warn: writeConsole,
         clear: () => {},
       },
-      processStdin: terminalProcessBridge.stdin,
+      processStdin,
       terminalColumns,
       terminalRows,
       onStdout: data => process.writeStdout(data),

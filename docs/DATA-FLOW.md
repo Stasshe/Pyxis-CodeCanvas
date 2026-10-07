@@ -23,6 +23,8 @@ sequenceDiagram
 
 The worker opens and closes a SyncAccessHandle around each file operation. Writes flush before closing. File-change events carry absolute paths and metadata; consumers refresh the affected tree entry or tab content. File contents are read only by callers that need them.
 
+OPFS, FS Worker, local Git, checkout, legacy migration, uploads, downloads, and ZIP extraction preserve file bytes. npm archives and extracted payloads are byte-based; `.mjs` source is strict-UTF-8-decoded only when intentional transpilation requires it. The GitHub push path Base64-encodes raw bytes only for transport. Text decoding is explicit at `readText`, runtime encoding options, and `.mjs` transpilation. UI consumers classify freshly read bytes before choosing a text editor, binary editor, or preview; local preview assets are inlined using MIME detected from bytes, while external URLs remain unchanged. Runtime streams, pipes, and redirection preserve bytes until terminal display decodes them.
+
 All layers share Node-compatible POSIX lexical path operations. Filesystem boundaries accept absolute paths; relative resolution receives an explicit working directory. Shell syntax such as `~`, globs, quotes, and variable expansion is interpreted by the shell parser before filesystem calls. Runtime `fs` calls do not perform shell expansion.
 
 ## Git and package installation

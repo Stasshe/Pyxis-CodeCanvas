@@ -254,7 +254,7 @@ export class UnixCommands {
     return await this.rmCmd.execute(args);
   }
 
-  async cat(args: string[]): Promise<string> {
+  async cat(args: string[]): Promise<string | Uint8Array> {
     return await this.catCmd.execute(args);
   }
 

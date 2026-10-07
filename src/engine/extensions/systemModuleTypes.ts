@@ -54,11 +54,16 @@ export interface WorkspaceModule {
   subscribe(listener: (rootPath: string | null) => void): () => void;
 }
 
+export interface KeybindingsModule {
+  registerAction(actionId: string, callback: () => void): () => void;
+}
+
 export interface SystemModuleMap {
   fsClient: FsClientApi;
   workerRuntime: WorkerRuntimeModule;
   pathUtils: PathUtilsModule;
   workspace: WorkspaceModule;
+  keybindings: KeybindingsModule;
   commandRegistry: CommandRegistry;
   systemBuiltinCommands: {
     getUnixCommands: (rootPath: string) => UnixCommands;

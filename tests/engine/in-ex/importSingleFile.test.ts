@@ -14,14 +14,16 @@ describe('importSingleFile', () => {
     vi.clearAllMocks();
   });
 
-  it('writes the file bytes to its absolute path', async () => {
-    const bytes = new Uint8Array([80, 75, 3, 4, 0, 255]);
-    const file = createFile('slides.pptx', bytes);
+  it('writes every uploaded byte, including empty files and bytes outside ASCII', async () => {
+    const fixtures = [new Uint8Array(0), Uint8Array.from({ length: 256 }, (_, index) => index)];
 
-    await importSingleFile(file, '/workspace/slides.pptx');
+    for (const [index, bytes] of fixtures.entries()) {
+      const path = `/workspace/upload-${index}.bin`;
+      await importSingleFile(createFile(`upload-${index}.bin`, bytes), path);
+      expect(fsClient.writeFile).toHaveBeenLastCalledWith(path, bytes);
+    }
 
-    expect(fsClient.writeFile).toHaveBeenCalledTimes(1);
-    expect(fsClient.writeFile).toHaveBeenCalledWith('/workspace/slides.pptx', bytes);
+    expect(fsClient.writeFile).toHaveBeenCalledTimes(fixtures.length);
   });
 });
 

@@ -1,7 +1,7 @@
 import git from 'isomorphic-git';
 import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
 
-export async function show(fs: FS, dir: string, args: string[]): Promise<string> {
+export async function show(fs: FS, dir: string, args: string[]): Promise<string | Uint8Array> {
   try {
     if (args.length === 0) {
       return 'git show: missing commit or file';
@@ -28,7 +28,7 @@ async function showCommitFile(
   dir: string,
   commitRef: string,
   filePath: string
-): Promise<string> {
+): Promise<string | Uint8Array> {
   try {
     const commitOid = await resolveRef(fs, dir, commitRef);
 
@@ -46,9 +46,7 @@ async function showCommitFile(
         filepath: normalizedPath,
       });
 
-      const content = new TextDecoder().decode(blob);
-
-      return content;
+      return blob;
     } catch (readError) {
       const err = readError as Error;
       if (err.message.includes('not found') || err.message.includes('Could not find')) {

@@ -24,7 +24,7 @@ export class WorkerStdin implements RuntimeStdin {
   private ended = false;
   private sourceEnded = false;
   private paused = false;
-  private readonly queued: string[] = [];
+  private readonly queued: Buffer[] = [];
 
   constructor(
     private readonly track: (promise: Promise<void>) => void,
@@ -81,9 +81,9 @@ export class WorkerStdin implements RuntimeStdin {
     return this;
   }
 
-  submit(data: string): void {
+  submit(data: string | Uint8Array): void {
     if (this.sourceEnded) return;
-    this.queued.push(data);
+    this.queued.push(Buffer.from(data));
     this.drain();
   }
 
@@ -91,7 +91,7 @@ export class WorkerStdin implements RuntimeStdin {
     if (this.ended || this.paused) return;
     while (this.data.size > 0 && this.queued.length > 0 && !this.paused) {
       const listener = [...this.data].at(-1)!;
-      listener(Buffer.from(this.queued.shift()!));
+      listener(this.queued.shift()!);
     }
     if (this.sourceEnded && this.queued.length === 0 && !this.paused) {
       this.ended = true;

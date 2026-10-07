@@ -27,7 +27,7 @@ graph LR
   Runtime[Runtime Worker] -->|filesystem RPC| Worker
 ```
 
-The FS Worker is the only OPFS owner. It implements path-based operations such as `readFile`, `readText`, `writeFile`, `readdir`, `stat`, `mkdir`, `rm`, `rename`, `walk`, and `exists`. The FS Client provides the main-thread API and change-event subscription. Git operations and package installation run in the FS Worker so their filesystem calls do not cross the worker boundary individually.
+The FS Worker is the only OPFS owner. It implements path-based operations such as `readFile`, `readText`, `writeFile`, `readdir`, `stat`, `mkdir`, `rm`, `rename`, `walk`, and `exists`. `readFile` returns raw bytes; text decoding is explicit. The FS Client provides the main-thread API and change-event subscription. Git operations and package installation run in the FS Worker so their filesystem calls do not cross the worker boundary individually. Git and npm keep file payloads as bytes through filesystem operations; `.mjs` source is strict-UTF-8-decoded only for intentional transpilation.
 
 OPFS file access uses a SyncAccessHandle only for one operation: open, read or write, flush when writing, and close. Access is serialized per path. `/tmp` is memory-backed. Virtual HOME is `/home/pyxis`; runtime module cache is under `~/.cache/pyxis`, and `~/.npm` is the canonical npm cache directory.
 
@@ -47,7 +47,7 @@ IndexedDB remains useful for data that needs lookup by application keys or has s
 
 ## Legacy migration
 
-A temporary startup migration copies legacy project data and Git history into OPFS and rewrites metadata keys to root paths. Legacy projects target `/home/pyxis/<name>` without a reserved suffix. If an unassigned destination already exists, migration stops before project writes and preserves legacy data; persisted project-to-root mappings let retries reuse their assigned destinations. Legacy runtime-cache records contain old project paths or IDs; their old `/cache/...` suffixes are preserved under `~/.cache/pyxis/legacy/<namespace>` while the runtime rebuilds current cache entries. Migration code is isolated under `src/engine/core/migration/`; it verifies copied content before removing legacy stores. This migration is temporary and is intended for removal around April 2027.
+A temporary startup migration copies legacy project data and Git history into OPFS and rewrites metadata keys to root paths. File payloads are copied from legacy `ArrayBuffer`/`Uint8Array` values without text decoding. Legacy projects target `/home/pyxis/<name>` without a reserved suffix. If an unassigned destination already exists, migration stops before project writes and preserves legacy data; persisted project-to-root mappings let retries reuse their assigned destinations. Legacy runtime-cache records contain old project paths or IDs; their old `/cache/...` suffixes are preserved under `~/.cache/pyxis/legacy/<namespace>` while the runtime rebuilds current cache entries. Migration code is isolated under `src/engine/core/migration/`; it verifies copied content before removing legacy stores. This migration is temporary and is intended for removal around April 2027.
 
 ## Related documents
 

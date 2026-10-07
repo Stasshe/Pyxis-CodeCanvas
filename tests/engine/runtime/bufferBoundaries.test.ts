@@ -41,6 +41,16 @@ describe('Buffer boundaries', () => {
     expect(message.getText()).toBe('日本語');
   });
 
+  it('preserves binary response subviews without decoding', () => {
+    const { IncomingMessage } = createHTTPModule();
+    const message = new IncomingMessage();
+    const chunks: Buffer[] = [];
+    message.on('data', (chunk: Buffer) => chunks.push(chunk));
+    const view = Buffer.from([9, 0, 255, 128, 9]).subarray(1, 4);
+    message._addData(view);
+    expect(Buffer.concat(chunks)).toEqual(view);
+  });
+
   it('preserves Buffer bytes in HTTP request bodies', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       status: 200,
@@ -55,7 +65,7 @@ describe('Buffer boundaries', () => {
       hostname: 'example.test',
       method: 'POST',
     });
-    request.write(Buffer.from([0, 255]));
+    request.write(Buffer.from([9, 0, 255, 9]).subarray(1, 3));
 
     await new Promise<void>(resolve => {
       request.on('response', () => resolve());

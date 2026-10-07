@@ -186,7 +186,7 @@ export class FsCore {
   }
 
   async readText(path: string): Promise<string> {
-    return new TextDecoder().decode(await this.readFile(path));
+    return new TextDecoder('utf-8').decode(await this.readFile(path));
   }
 
   async writeFile(input: string, content: string | Uint8Array, emit = true): Promise<void> {

@@ -1,3 +1,5 @@
+import { PassThrough } from 'node:stream';
+import { Buffer } from 'buffer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { fsClient } from '@/engine/core/fs';
@@ -104,8 +106,40 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
 
     const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
     expect(hostHandler).toBeDefined();
-    await expect(hostHandler?.({ kind: 'stdin' })).resolves.toBe('entered early\n');
+    await expect(hostHandler?.({ kind: 'stdin' })).resolves.toEqual([
+      ...new TextEncoder().encode('entered early\n'),
+    ]);
 
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
+  it('preserves binary subviews across worker input, synchronous input, and worker output', async () => {
+    const source = new PassThrough();
+    const stdin = new ProcessStdin(source);
+    const bytes = Buffer.from([9, 0, 255, 128, 9]).subarray(1, 4);
+    const output: Buffer[] = [];
+    const run = new NodeRuntimeProvider().execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+      processStdin: stdin,
+      onStdout: data => output.push(Buffer.from(data)),
+    });
+    const worker = await waitForWorker(1);
+    worker.emit({ type: 'stdin-request' });
+    source.write(bytes);
+    await vi.waitFor(() => {
+      expect(worker.posted.find(message => message.type === 'stdin')).toEqual({
+        type: 'stdin',
+        data: bytes,
+      });
+    });
+    source.write(bytes);
+    const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
+    await expect(hostHandler?.({ kind: 'stdin' })).resolves.toEqual([...bytes]);
+    worker.emit({ type: 'output', entries: [{ channel: 'stdout', text: bytes }] });
+    expect(Buffer.concat(output)).toEqual(bytes);
+    source.end();
     worker.emit({ type: 'complete', result: { exitCode: 0 } });
     await expect(run).resolves.toEqual({ exitCode: 0 });
   });
@@ -128,8 +162,8 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     stdin.submitLine('first');
     stdin.submitLine('second');
 
-    await expect(firstRead).resolves.toBe('first\n');
-    await expect(secondRead).resolves.toBe('second\n');
+    await expect(firstRead).resolves.toEqual([...new TextEncoder().encode('first\n')]);
+    await expect(secondRead).resolves.toEqual([...new TextEncoder().encode('second\n')]);
     worker.emit({ type: 'complete', result: { exitCode: 0 } });
     await expect(run).resolves.toEqual({ exitCode: 0 });
   });
@@ -150,7 +184,7 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
 
     worker.emit({ type: 'complete', result: { exitCode: 0 } });
 
-    await expect(read).resolves.toBe('');
+    await expect(read).resolves.toEqual([]);
     await expect(run).resolves.toEqual({ exitCode: 0 });
   });
 

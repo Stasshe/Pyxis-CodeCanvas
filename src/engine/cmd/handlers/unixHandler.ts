@@ -4,7 +4,7 @@ export async function handleUnixCommand(
   cmd: string,
   args: string[],
   rootPath: string,
-  writeOutput: (output: string) => Promise<void>,
+  writeOutput: (output: string | Uint8Array) => Promise<void>,
   writeError: (err: string) => Promise<void>,
   stdin: NodeJS.ReadableStream | string | null = null
 ): Promise<{ code: number; output: string }> {
@@ -14,7 +14,13 @@ export async function handleUnixCommand(
   let exitCode = 0;
   let streamed = false;
 
-  const append = async (s: string, code?: number) => {
+  const append = async (s: string | Uint8Array, code?: number) => {
+    if (s instanceof Uint8Array) {
+      await writeOutput(s);
+      streamed = true;
+      if (code !== undefined) exitCode = code;
+      return;
+    }
     // Normalize non-string values to avoid '[object Object]' when concatenating
     const str =
       s === undefined || s === null ? '' : typeof s === 'object' ? JSON.stringify(s) : String(s);

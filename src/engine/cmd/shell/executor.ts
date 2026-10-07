@@ -5,12 +5,14 @@
  * without unnecessary provider abstraction layer.
  */
 
+import { Buffer } from 'buffer';
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 import type { FsApi } from '@/engine/core/fs';
 import { fsClient as defaultFsClient } from '@/engine/core/fs';
 import { HOME_DIR, resolvePath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
+import { ProcessStdin } from '../terminalProcessBridge';
 import adaptBuiltins, { type StreamCtx } from './builtins';
 import { expandTokens } from './expansion';
 import { runLocalBinary } from './localBinary';
@@ -205,9 +207,8 @@ export class ShellExecutor {
     const groups = this.groupByLogicalOperators(segments);
 
     // Execution state
-    const fdBuffers: Record<number, string[]> = { 1: [], 2: [] };
+    const fdBuffers: Record<number, Buffer[]> = { 1: [], 2: [] };
     let lastExitCode: number | null = 0;
-    let overallLastSeg: Segment | null = null;
 
     // Execute groups sequentially
     for (let gi = 0; gi < groups.length; gi++) {
@@ -226,7 +227,7 @@ export class ShellExecutor {
         }
       }
 
-      // Execute all commands in this group as a pipeline
+      const groupBuffers: Record<number, Buffer[]> = { 1: [], 2: [] };
       const procs: Process[] = [];
 
       for (const seg of group.segs) {
@@ -236,6 +237,7 @@ export class ShellExecutor {
 
       // Wire up pipes
       for (let i = 0; i < procs.length - 1; i++) {
+        procs[i + 1].stdinRedirected = true;
         procs[i].stdout.pipe(procs[i + 1].stdin);
       }
 
@@ -249,7 +251,7 @@ export class ShellExecutor {
       // Watch output from last process
       const lastProc = procs[procs.length - 1];
       const lastSegOfGroup = group.segs[group.segs.length - 1];
-      this.outputHandler.watch(lastProc, lastSegOfGroup, fdBuffers, callbacks);
+      this.outputHandler.watch(lastProc, lastSegOfGroup, groupBuffers, callbacks);
 
       // Set foreground process
       if (gi === groups.length - 1 && !lastSegOfGroup.background) {
@@ -271,28 +273,29 @@ export class ShellExecutor {
       let exitOfLast = lastExit?.code ?? 0;
       if (lastExit?.signal === 'SIGINT') exitOfLast = 130;
       lastExitCode = exitOfLast;
-      overallLastSeg = lastSegOfGroup;
+      for (const fd of [1, 2]) {
+        if (!this.outputHandler.shouldSuppressOutput(lastSegOfGroup, fd)) {
+          fdBuffers[fd].push(...groupBuffers[fd]);
+        }
+      }
+      try {
+        await this.outputHandler.handleRedirections(lastSegOfGroup, groupBuffers);
+      } catch (error) {
+        const message = `Redirection failed: ${String(error)}\n`;
+        fdBuffers[2].push(Buffer.from(message));
+        callbacks?.stderr?.(message);
+        if (exitOfLast !== 130) lastExitCode = 1;
+      }
       if (exitOfLast === 130) break;
     }
 
     // Collect output
-    const finalOut = fdBuffers[1].join('');
-    const finalErr = fdBuffers[2].join('');
-
-    // Handle file redirections
-    if (overallLastSeg) {
-      await this.outputHandler.handleRedirections(overallLastSeg, fdBuffers, finalOut, finalErr);
-    }
-
-    // Determine returned output (suppress if redirected)
-    let returnedStdout = finalOut;
-    let returnedStderr = finalErr;
-    if (this.outputHandler.shouldSuppressOutput(overallLastSeg, 1)) returnedStdout = '';
-    if (this.outputHandler.shouldSuppressOutput(overallLastSeg, 2)) returnedStderr = '';
+    const finalOut = Buffer.concat(fdBuffers[1]).toString('utf8');
+    const finalErr = Buffer.concat(fdBuffers[2]).toString('utf8');
 
     return {
-      stdout: returnedStdout,
-      stderr: returnedStderr,
+      stdout: finalOut,
+      stderr: finalErr,
       code: lastExitCode ?? 0,
     };
   }
@@ -349,22 +352,7 @@ export class ShellExecutor {
     });
     (seg as any).tokens = finalWords;
 
-    // Handle stdin redirection
-    if (seg.stdinFile && unix) {
-      if (isDevNull(seg.stdinFile)) {
-        proc.stdin.end();
-      } else {
-        (async () => {
-          try {
-            const content = await unix.cat([seg.stdinFile!]).catch(() => '');
-            if (content !== undefined && content !== null) {
-              proc.stdin.write(String(content));
-            }
-          } catch {}
-          proc.stdin.end();
-        })();
-      }
-    }
+    proc.stdinRedirected = Boolean(seg.stdinFile);
 
     // Launch command handler
     this.executeSegment(proc, seg, originalLine, unix);
@@ -383,6 +371,21 @@ export class ShellExecutor {
   ): Promise<void> {
     // Yield to allow caller to attach listeners
     await new Promise(r => setTimeout(r, 0));
+
+    if (seg.stdinFile) {
+      try {
+        if (!isDevNull(seg.stdinFile)) {
+          let cwd = this.context.cwd;
+          if (unix) cwd = await unix.pwd();
+          proc.stdin.write(await this.fsClient.readFile(resolvePath(cwd, seg.stdinFile)));
+        }
+        proc.stdin.end();
+      } catch (error) {
+        proc.writeStderr(`Input redirection failed: ${String(error)}\n`);
+        proc.exit(1);
+        return;
+      }
+    }
 
     const rawTokens = seg.tokens as string[];
     if (!rawTokens || rawTokens.length === 0) {
@@ -417,7 +420,9 @@ export class ShellExecutor {
       if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
         const maybeContent = await unix.cat([cmd]).catch(() => null);
         if (maybeContent !== null) {
-          const text = String(maybeContent);
+          let text = maybeContent;
+          if (typeof text !== 'string')
+            text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(text);
           const firstLine = text.split('\n', 1)[0] || '';
           if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
             // Detect node shebangs or JS entrypoints and execute via Node runtime
@@ -486,7 +491,10 @@ export class ShellExecutor {
         const savedCwd = unix ? await this.saveCwd(unix) : null;
 
         // Run script in isolated context
-        await runScript(String(content), args, proc, this as any).catch(() => {});
+        let script = content;
+        if (typeof script !== 'string')
+          script = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(script);
+        await runScript(script, args, proc, this as any).catch(() => {});
 
         // Restore parent context CWD after script completes
         if (unix) {
@@ -526,9 +534,9 @@ export class ShellExecutor {
    * Execute a command through appropriate handler
    */
   private async executeCommand(cmd: string, args: string[], proc: Process): Promise<number> {
-    const writeOutput = async (output: string) => {
+    const writeOutput = async (output: string | Uint8Array) => {
       proc.writeStdout(output);
-      if (!output.endsWith('\n')) {
+      if (typeof output === 'string' && !output.endsWith('\n')) {
         proc.writeStdout('\n');
       }
     };
@@ -573,6 +581,8 @@ export class ShellExecutor {
     if (cmd === 'npx') {
       try {
         const { handleNPXCommand } = await import('../handlers/npmHandler');
+        let processStdin: ProcessStdin | undefined;
+        if (proc.stdinRedirected) processStdin = new ProcessStdin(proc.stdinStream);
         const code = await handleNPXCommand(
           args,
           writeOutput,
@@ -583,7 +593,8 @@ export class ShellExecutor {
             proc.on('signal', listener);
             return () => proc.off('signal', listener);
           },
-          this.context.signal
+          this.context.signal,
+          processStdin
         );
         return typeof code === 'number' ? code : 0;
       } catch (e: any) {
@@ -667,6 +678,7 @@ export class ShellExecutor {
     if (builtins[cmd]) {
       const ctx: StreamCtx = {
         stdin: proc.stdinStream,
+        stdinRedirected: proc.stdinRedirected,
         stdout: proc.stdoutStream,
         stderr: proc.stderrStream,
         onSignal: fn => {

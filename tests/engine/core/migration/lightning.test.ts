@@ -46,7 +46,8 @@ describe('legacy lightning filesystem reader', () => {
     ]);
     fixture.values.set('!root', tree(git));
     fixture.values.set(4, new Uint8Array([]));
-    fixture.values.set(6, new Uint8Array([0, 255, 128, 7]));
+    const packed = new Uint8Array([99, 0, 255, 128, 7, 88]);
+    fixture.values.set(6, packed.subarray(1, 5));
     expect(await gitProjectNames(db)).toEqual(['demo']);
     expect(await readGitEntries(db, 'demo')).toEqual([
       { path: '/.git', directory: true },

@@ -1,5 +1,7 @@
 import git from 'isomorphic-git';
+import { detectFileContent } from '@/engine/core/fileBytes';
 import type { GitFs as FS } from '@/engine/core/fs/git';
+import type { FsApi } from '@/engine/core/fs/types';
 
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 
@@ -27,7 +29,7 @@ export class MergeConflictDetector {
       return null;
     } catch (error) {
       console.error('[MergeConflictDetector] Failed to find merge base:', error);
-      return null;
+      throw error;
     }
   }
 
@@ -109,57 +111,61 @@ export class MergeConflictDetector {
       console.log('[MergeConflictDetector] Detected conflicts:', changedFiles.size);
 
       for (const [filepath, oids] of Array.from(changedFiles.entries())) {
-        let baseContent = '';
-        if (oids.baseOid) baseContent = await this.readBlobContent(oids.baseOid);
-        let oursContent = '';
-        if (oids.oursOid) oursContent = await this.readBlobContent(oids.oursOid);
-        let theirsContent = '';
-        if (oids.theirsOid) theirsContent = await this.readBlobContent(oids.theirsOid);
-
-        const normalizedPath = `${this.dir}/${filepath}`;
-
-        conflicts.push({
-          filePath: normalizedPath,
-          baseContent,
-          oursContent,
-          theirsContent,
-          resolvedContent: oursContent,
+        const versions = await Promise.all([
+          this.readBlob(filepath, oids.baseOid),
+          this.readBlob(filepath, oids.oursOid),
+          this.readBlob(filepath, oids.theirsOid),
+        ]);
+        const [base, ours, theirs] = versions;
+        const conflict: MergeConflictFileEntry = {
+          filePath: `${this.dir}/${filepath}`,
+          baseContent: '',
+          oursContent: '',
+          theirsContent: '',
+          resolvedContent: '',
           isResolved: false,
-        });
+        };
+        if (versions.some(version => version?.content.kind === 'binary')) {
+          conflict.binary = {
+            base: base?.bytes ?? null,
+            ours: ours?.bytes ?? null,
+            theirs: theirs?.bytes ?? null,
+            resolved: ours?.bytes ?? null,
+          };
+        } else {
+          if (base?.content.kind === 'text') conflict.baseContent = base.content.content;
+          if (ours?.content.kind === 'text') conflict.oursContent = ours.content.content;
+          if (theirs?.content.kind === 'text') conflict.theirsContent = theirs.content.content;
+          conflict.resolvedContent = conflict.oursContent;
+        }
+        conflicts.push(conflict);
       }
 
       return conflicts;
     } catch (error) {
       console.error('[MergeConflictDetector] Error detecting conflicts:', error);
-      return [];
+      throw error;
     }
   }
 
-  private async readBlobContent(oid: string): Promise<string> {
-    try {
-      const { object, type } = await git.readObject({
-        fs: this.fs,
-        dir: this.dir,
-        oid,
-      });
-
-      if (type !== 'blob') {
-        console.warn(`[MergeConflictDetector] Object ${oid} is not a blob (type: ${type})`);
-        return '';
-      }
-
-      try {
-        return new TextDecoder('utf-8', { fatal: true }).decode(object as Uint8Array);
-      } catch (decodeError) {
-        console.warn('[mergeConflictDetector.ts] caught non-fatal error', decodeError);
-        console.warn(
-          `[MergeConflictDetector] File ${oid} appears to be binary, cannot decode as text`
-        );
-        return '[Binary file - cannot display content]';
-      }
-    } catch (error) {
-      console.warn(`[MergeConflictDetector] Failed to read blob ${oid}:`, error);
-      return '';
-    }
+  private async readBlob(path: string, oid: string | undefined) {
+    if (!oid) return null;
+    const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid });
+    return { bytes: Uint8Array.from(blob), content: await detectFileContent(path, blob) };
   }
+}
+
+export async function saveResolvedConflict(
+  fs: Pick<FsApi, 'writeFile' | 'rm'>,
+  file: MergeConflictFileEntry
+): Promise<void> {
+  if (file.binary) {
+    if (file.binary.resolved === null) {
+      await fs.rm(file.filePath, { force: true });
+    } else {
+      await fs.writeFile(file.filePath, file.binary.resolved);
+    }
+    return;
+  }
+  await fs.writeFile(file.filePath, file.resolvedContent);
 }

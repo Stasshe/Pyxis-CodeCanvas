@@ -1,5 +1,6 @@
 import { FileText } from 'lucide-react';
 import type React from 'react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
 import type { BinaryTab, EditorTab } from '@/engine/tabs/types';
@@ -7,7 +8,7 @@ import type { BinaryTab, EditorTab } from '@/engine/tabs/types';
 interface BinaryTabContentProps {
   activeTab: BinaryTab | EditorTab;
   editorHeight: string;
-  guessMimeType: (fileName: string, buffer?: ArrayBuffer) => string;
+  guessMimeType: (fileName: string, buffer?: ArrayBuffer, mimeType?: string) => string;
 }
 
 /**
@@ -20,15 +21,28 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
 }) => {
   const { t } = useTranslation();
   // If the tab doesn't have bufferContent, nothing to show here
-  if (!('bufferContent' in activeTab)) return null;
-  const buffer = activeTab.bufferContent;
-  if (!buffer) return null;
+  let buffer: ArrayBuffer | undefined;
+  if ('bufferContent' in activeTab) buffer = activeTab.bufferContent;
 
-  const mime = guessMimeType(activeTab.name, buffer);
+  let detectedMimeType: string | undefined;
+  if ('mimeType' in activeTab) detectedMimeType = activeTab.mimeType;
+  const mime = guessMimeType(activeTab.name, buffer, detectedMimeType);
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (buffer == null) {
+      setUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(new Blob([buffer], { type: mime }));
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [buffer, mime]);
+
+  if (buffer == null) return null;
+  if (!url) return null;
   // 画像ならimg表示
   if (mime.startsWith('image/') && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -50,8 +64,6 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   }
   // 動画ならvideo表示
   if (mime.startsWith('video/') && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -68,8 +80,6 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   }
   // PDFならiframeで表示
   if (mime === 'application/pdf' && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"
@@ -92,8 +102,6 @@ const BinaryTabContent: React.FC<BinaryTabContentProps> = ({
   }
   // 音声ファイルならaudio表示
   if ((mime === 'audio/mpeg' || mime === 'audio/wav' || mime === 'audio/ogg') && buffer) {
-    const blob = new Blob([buffer], { type: mime });
-    const url = URL.createObjectURL(blob);
     return (
       <div
         className="flex-1 min-h-0 flex flex-col items-center justify-center"

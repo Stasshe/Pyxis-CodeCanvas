@@ -78,7 +78,7 @@ export function updateCachedModelContent(modelKey: string, content: string): voi
   const model = sharedModelMap.get(modelKey);
   if (!model || model.isDisposed()) return;
   try {
-    if (model.getValue() !== content) model.setValue(content);
+    if (model.getValue(undefined, true) !== content) model.setValue(content);
   } catch (e) {
     console.warn('[useMonacoModels] updateCachedModelContent failed:', e);
   }
@@ -156,7 +156,7 @@ export function useMonacoModels() {
             }
           }
           // Sync content
-          if (model.getValue() !== content) model.setValue(content);
+          if (model.getValue(undefined, true) !== content) model.setValue(content);
           return model;
         }
 
@@ -200,7 +200,7 @@ export function useMonacoModels() {
               console.warn('[useMonacoModels] Failed to update existing model language:', e);
             }
           }
-          if (existingModel.getValue() !== content) existingModel.setValue(content);
+          if (existingModel.getValue(undefined, true) !== content) existingModel.setValue(content);
           sharedModelMap.set(modelKey, existingModel);
           updateModelAccessOrder(modelKey);
           return existingModel;
@@ -229,7 +229,7 @@ export function useMonacoModels() {
               if (lang !== 'typescript' && lang !== 'javascript') continue;
               try {
                 // setValue bumps the model version → DiagnosticsAdapter schedules re-evaluation
-                m.setValue(m.getValue());
+                m.setValue(m.getValue(undefined, true));
               } catch (e) {
                 console.warn('[useMonacoModels.ts] caught non-fatal error', e);
                 // ignore

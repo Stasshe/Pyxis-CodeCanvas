@@ -4,10 +4,11 @@ import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
 import { resolvePath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import handleUnixCommand from '../handlers/unixHandler';
-import { terminalProcessBridge } from '../terminalProcessBridge';
+import { ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
 
 export type StreamCtx = {
   stdin: Readable;
+  stdinRedirected?: boolean;
   stdout: Writable;
   stderr: Writable;
   onSignal: (fn: (sig: string) => void) => () => void;
@@ -39,10 +40,10 @@ const makeUnixBridge = (name: string) => {
     const nArgs = normalizeArgs(args || []);
     let exitCode = 0;
 
-    const writeOutput = async (s: string) => {
+    const writeOutput = async (s: string | Uint8Array) => {
       if (s === undefined || s === null) return;
       try {
-        ctx.stdout.write(String(s));
+        ctx.stdout.write(s);
       } catch (_e) {
         // ignore
       }
@@ -300,6 +301,8 @@ export default function adaptUnixToStream(unix: any) {
       terminalProcessBridge.activate();
       const runtime = runtimeRegistry.getRuntime('nodejs');
       if (!runtime) throw new Error('Node.js runtime provider is unavailable.');
+      let processStdin = terminalProcessBridge.stdin;
+      if (ctx.stdinRedirected) processStdin = new ProcessStdin(ctx.stdin);
       const result = await runtime.execute({
         rootPath,
         cwd,
@@ -311,7 +314,7 @@ export default function adaptUnixToStream(unix: any) {
           }),
         signal: ctx.signal,
         debugConsole,
-        processStdin: terminalProcessBridge.stdin,
+        processStdin,
         terminalColumns: ctx.terminalColumns,
         terminalRows: ctx.terminalRows,
         onStdout: output => ctx.stdout.write(output),

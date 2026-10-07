@@ -186,6 +186,18 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     terminalProcessBridge.activate();
     const controller = new AbortController();
     executionAbort.current = controller;
+    const stdoutDecoder = new TextDecoder();
+    const stderrDecoder = new TextDecoder();
+    const displayOutput = (data: string | Uint8Array, type: 'log' | 'error') => {
+      if (typeof data === 'string') {
+        addOutput(data, type);
+        return;
+      }
+      let decoder = stdoutDecoder;
+      if (type === 'error') decoder = stderrDecoder;
+      const content = decoder.decode(data, { stream: true });
+      if (content) addOutput(content, type);
+    };
     try {
       const result = await runtime.execute({
         rootPath: currentProject.rootPath,
@@ -193,8 +205,8 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
         signal: controller.signal,
         debugConsole: createOutputConsole(),
         processStdin: terminalProcessBridge.stdin,
-        onStdout: data => addOutput(data, 'log'),
-        onStderr: data => addOutput(data, 'error'),
+        onStdout: data => displayOutput(data, 'log'),
+        onStderr: data => displayOutput(data, 'error'),
       });
 
       if (result.stderr) {
@@ -205,6 +217,10 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
+      const stdoutTail = stdoutDecoder.decode();
+      const stderrTail = stderrDecoder.decode();
+      if (stdoutTail) addOutput(stdoutTail, 'log');
+      if (stderrTail) addOutput(stderrTail, 'error');
       executionAbort.current = null;
       terminalProcessBridge.deactivate();
       setIsRunning(false);

@@ -1,83 +1,131 @@
-import { resolvePath } from '@/engine/core/fs';
+import { detectFileContent } from '@/engine/core/fileBytes';
+import { getParentPath, resolvePath } from '@/engine/core/fs';
 
-// HTML/CSS/JSインライン化処理を切り出し
-// files: ディレクトリ内のファイル名配列
-// path: ディレクトリパス
-// fs: ファイルシステム
-// 戻り値: インライン化済みhtmlContent
-// fileReader: optional async function(fullPath: string) => string
+const mimeTypes: Record<string, string> = {
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  css: 'text/css',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  js: 'text/javascript',
+  mp3: 'audio/mpeg',
+  mp4: 'video/mp4',
+  ogg: 'audio/ogg',
+  pdf: 'application/pdf',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  wav: 'audio/wav',
+  webm: 'video/webm',
+  webp: 'image/webp',
+};
+
+const toDataUrl = async (path: string, bytes: Uint8Array): Promise<string> => {
+  const content = await detectFileContent(path, bytes);
+  const extension = path.toLowerCase().split('.').pop() ?? '';
+  let mimeType = mimeTypes[extension] ?? 'application/octet-stream';
+  if (content.kind === 'binary' && content.mimeType) mimeType = content.mimeType;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+};
+
+const isLocal = (source: string): boolean =>
+  !source.startsWith('//') && !/^[a-z][a-z\d+\-.]*:/i.test(source);
+
+const resolveAssetPath = (source: string, directoryPath: string): string => {
+  const filePath = source.split(/[?#]/, 1)[0];
+  if (filePath.startsWith('/')) return resolvePath('/', filePath);
+  return resolvePath(directoryPath, filePath);
+};
+
+const inlineCssAssets = async (
+  css: string,
+  cssPath: string,
+  readBytes: (fullPath: string) => Promise<Uint8Array>
+): Promise<string> => {
+  const references = [...css.matchAll(/url\((['"]?)(.*?)\1\)/gi)];
+  for (const match of references) {
+    const source = match[2].trim();
+    if (!source || !isLocal(source)) continue;
+    try {
+      const assetPath = resolveAssetPath(source, getParentPath(cssPath));
+      const dataUrl = await toDataUrl(assetPath, await readBytes(assetPath));
+      css = css.replace(match[0], `url("${dataUrl}")`);
+    } catch (error) {
+      console.warn(`[inlineHtmlAssets] Failed to load CSS asset ${source}.`, error);
+    }
+  }
+  return css;
+};
+
 export const inlineHtmlAssets = async (
   files: string[],
   path: string,
-  fileReader: (fullPath: string) => Promise<string>
+  fileReader: (fullPath: string) => Promise<Uint8Array>,
+  requestedHtmlFile?: string
 ): Promise<string> => {
-  // index.htmlまたは最初のhtmlファイルを探す
-  let htmlFile = files.find(f => f.toLowerCase() === 'index.html');
-  if (!htmlFile) {
-    htmlFile = files.find(f => f.endsWith('.html'));
-  }
-  if (!htmlFile) {
-    throw new Error('フォルダ内にHTMLファイルがありません。');
-  }
+  const htmlFile =
+    requestedHtmlFile ??
+    files.find(file => file.toLowerCase() === 'index.html') ??
+    files.find(file => file.toLowerCase().endsWith('.html'));
+  if (!htmlFile) throw new Error('The directory does not contain an HTML file.');
+
   const htmlPath = resolvePath(path, htmlFile);
-  const read = fileReader;
+  const directoryPath = htmlPath.slice(0, htmlPath.lastIndexOf('/')) || '/';
+  const readText = async (fullPath: string): Promise<string> =>
+    new TextDecoder().decode(await fileReader(fullPath));
+  let html = await readText(htmlPath);
 
-  let htmlContent = await read(htmlPath);
-
-  // ローカル判定関数
-  const isLocal = (src: string) => {
-    return !src.startsWith('//') && !/^[a-z][a-z\d+\-.]*:/i.test(src);
+  const getAttribute = (tag: string, name: string): string | null => {
+    const attribute = tag.match(new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, 'i'));
+    return attribute?.[2] ?? null;
   };
 
-  // CSS
-  const cssFiles = files.filter(f => f.endsWith('.css'));
-  let cssContent = '';
-  for (const css of cssFiles) {
+  const stylesheetTags = [...html.matchAll(/<link\b[^>]*>\s*/gi)];
+  for (const match of stylesheetTags) {
+    const tag = match[0];
+    if (getAttribute(tag, 'rel')?.toLowerCase() !== 'stylesheet') continue;
+    const source = getAttribute(tag, 'href');
+    if (!source || !isLocal(source)) continue;
     try {
-      const cssPath = resolvePath(path, css);
-      cssContent += `${await read(cssPath)}\n`;
-    } catch (err) {
-      console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
+      const cssPath = resolveAssetPath(source, directoryPath);
+      const css = await inlineCssAssets(await readText(cssPath), cssPath, fileReader);
+      html = html.replace(tag, `<style>\n${css}\n</style>`);
+    } catch (error) {
+      console.warn(`[inlineHtmlAssets] Failed to load stylesheet ${source}.`, error);
     }
-  }
-  // ローカルCSSのみインライン化し、ローカルCSSの<link>タグは完全に削除
-  htmlContent = htmlContent.replace(
-    /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>\s*/gi,
-    (match: string, href: string) => {
-      if (isLocal(href)) {
-        return '';
-      }
-      return match;
-    }
-  );
-  if (cssContent) {
-    htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`);
   }
 
-  // JS
-  const jsFiles = files.filter(f => f.endsWith('.js'));
-  let jsContent = '';
-  for (const js of jsFiles) {
+  const scriptTags = [...html.matchAll(/<script\b[^>]*src=["'][^"']+["'][^>]*>\s*<\/script>\s*/gi)];
+  for (const match of scriptTags) {
+    const tag = match[0];
+    const source = getAttribute(tag, 'src');
+    if (!source || !isLocal(source)) continue;
     try {
-      const jsPath = resolvePath(path, js);
-      jsContent += `${await read(jsPath)}\n`;
-    } catch (err) {
-      console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);
+      const scriptPath = resolveAssetPath(source, directoryPath);
+      const script = await readText(scriptPath);
+      html = html.replace(tag, `<script>\n${script}\n</script>`);
+    } catch (error) {
+      console.warn(`[inlineHtmlAssets] Failed to load script ${source}.`, error);
     }
-  }
-  // ローカルJSのみインライン化し、ローカルJSの<script>タグは完全に削除
-  htmlContent = htmlContent.replace(
-    /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>\s*/gi,
-    (match: string, src: string) => {
-      if (isLocal(src)) {
-        return '';
-      }
-      return match;
-    }
-  );
-  if (jsContent) {
-    htmlContent = htmlContent.replace(/<\/body>/i, `<script>\n${jsContent}\n<\/script></body>`);
   }
 
-  return htmlContent;
+  const assetAttributes = /\b(src|poster)=(['"])(.*?)\2/gi;
+  const matches = [...html.matchAll(assetAttributes)];
+  for (const match of matches) {
+    const source = match[3];
+    if (!source || !isLocal(source)) continue;
+    try {
+      const assetPath = resolveAssetPath(source, directoryPath);
+      const dataUrl = await toDataUrl(assetPath, await fileReader(assetPath));
+      html = html.replace(match[0], `${match[1]}=${match[2]}${dataUrl}${match[2]}`);
+    } catch (error) {
+      console.warn(`[inlineHtmlAssets] Failed to load HTML asset ${source}.`, error);
+    }
+  }
+  return html;
 };

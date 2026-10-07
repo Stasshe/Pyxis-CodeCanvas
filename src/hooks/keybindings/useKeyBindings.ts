@@ -518,6 +518,10 @@ export function triggerAction(actionId: string) {
   }
 }
 
+export function registerAction(actionId: string, callback: () => void): () => void {
+  return keyBindingsManager.registerAction(actionId, callback);
+}
+
 /**
  * キーバインディングを使用するカスタムフック
  */

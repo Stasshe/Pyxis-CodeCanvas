@@ -5,7 +5,7 @@ import { isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
 import type { ExtractedFileMap } from './types';
 
 export class TarExtractor {
-  private textDecoder = new TextDecoder('utf-8', { fatal: false });
+  private textDecoder = new TextDecoder('utf-8', { fatal: true });
 
   private processEntry(
     header: tarStream.Headers,
@@ -63,12 +63,7 @@ export class TarExtractor {
 
   async extractFromBuffer(packageDir: string, tarballData: ArrayBuffer): Promise<ExtractedFileMap> {
     const uint8Array = new Uint8Array(tarballData);
-    let decompressed: Uint8Array;
-    try {
-      decompressed = pako.inflate(uint8Array);
-    } catch {
-      decompressed = uint8Array;
-    }
+    const decompressed = pako.inflate(uint8Array);
 
     const extract = tarStream.extract();
     const fileEntries = new Map<
@@ -81,8 +76,12 @@ export class TarExtractor {
       const chunks: Uint8Array[] = [];
       stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
       stream.on('end', () => {
-        this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
-        next();
+        try {
+          this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
+          next();
+        } catch (error) {
+          extract.destroy(new Error(String(error)));
+        }
       });
       stream.resume();
     });
@@ -112,8 +111,12 @@ export class TarExtractor {
       const chunks: Uint8Array[] = [];
       stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
       stream.on('end', () => {
-        this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
-        next();
+        try {
+          this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
+          next();
+        } catch (error) {
+          extract.destroy(new Error(String(error)));
+        }
       });
       stream.resume();
     });

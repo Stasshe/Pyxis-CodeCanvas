@@ -1,4 +1,6 @@
 import { updateCachedModelContent } from '@/components/Tab/text-editor/hooks/useMonacoModels';
+import type { FileContent } from '@/engine/core/fileBytes';
+import { readFileContent } from '@/engine/core/fileContent';
 import { FSError, fsClient, normalizePath } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
@@ -102,6 +104,14 @@ async function executeSave(path: string, content: string): Promise<boolean> {
     return false;
   }
   try {
+    if (await fsClient.exists(path)) {
+      const currentFile = await readFileContent(path);
+      if (currentFile.kind === 'binary') {
+        throw new Error(`Cannot save text over binary file: ${path}`);
+      }
+    }
+    const currentContentBeforeSave = getContentFromPanes(tabState.panes, path);
+    if (currentContentBeforeSave !== content) return false;
     savingPaths.add(path);
     await fsClient.writeFile(path, content);
     savingPaths.delete(path);
@@ -132,7 +142,7 @@ export function updateAllTabsByPath(path: string, content: string, isDirty: bool
   for (const t of allTabs) {
     const tDef = tabRegistry.get(t.kind);
     const tPath = normalizePath(tDef?.getContentPath?.(t) ?? t.path ?? '/');
-    if (tPath === targetPath) {
+    if (tPath === targetPath && t.kind !== 'binary') {
       const prev = getTabContent(t.id);
       const currentDirty = t.isDirty ?? false;
       const shouldUpdate = prev !== content || currentDirty !== isDirty;
@@ -188,30 +198,50 @@ async function handleFsChange(event: { type: string; path: string }): Promise<vo
   if (initialTabs.length === 0 || hasDirtyTab(initialTabs)) return;
 
   try {
-    const binaryTabs = initialTabs.filter(tab => tab.kind === 'binary');
-    if (binaryTabs.length > 0) {
-      const bytes = await fsClient.readFile(filePath);
-      const currentTabs = tabsForPath(filePath);
-      if (hasDirtyTab(currentTabs)) return;
-      const buffer = Uint8Array.from(bytes).buffer;
-      for (const tab of currentTabs) {
-        if (tab.kind !== 'binary') continue;
-        tab.bufferContent = buffer;
-        setBufferContent(tab.id, buffer);
-      }
-    }
-
-    const textTabs = initialTabs.filter(tab => tab.kind !== 'binary');
-    if (textTabs.length === 0) return;
-    const newContent = await fsClient.readText(filePath);
+    const content = await readFileContent(filePath);
     const currentTabs = tabsForPath(filePath);
     if (hasDirtyTab(currentTabs)) return;
-    const current = getContentFromPanes(tabState.panes, filePath);
-    if (current !== newContent) updateFromExternal(filePath, newContent);
+    applyFileContent(filePath, content);
   } catch (error) {
     if (error instanceof FSError && error.code === 'ENOENT') return;
     console.error('[tabState] Failed to refresh changed file:', { path: filePath, error });
   }
+}
+
+function applyFileContent(path: string, content: FileContent): void {
+  const updatePanes = (panes: readonly EditorPane[]): EditorPane[] =>
+    panes.map(pane => {
+      if (pane.children) return { ...pane, children: updatePanes(pane.children) };
+      const tabs = pane.tabs.map(tab => {
+        if (normalizePath(tab.path || '/') !== normalizePath(path)) return tab;
+        if (tab.kind !== 'editor' && tab.kind !== 'preview' && tab.kind !== 'binary') return tab;
+        if (content.kind === 'binary') {
+          clearSaveTimer(normalizePath(path));
+          setBufferContent(tab.id, content.bufferContent);
+          if (tab.kind === 'binary' && 'bufferContent' in tab) {
+            tab.bufferContent = content.bufferContent;
+            tab.mimeType = content.mimeType;
+            return tab;
+          }
+          return {
+            ...tab,
+            kind: 'binary' as const,
+            content: '',
+            isDirty: false,
+            bufferContent: content.bufferContent,
+            mimeType: content.mimeType,
+          };
+        }
+        setTabContent(tab.id, content.content, false);
+        if (tab.kind === 'binary') {
+          return { ...tab, kind: 'editor' as const, content: content.content, isDirty: false };
+        }
+        return { ...tab, content: content.content, isDirty: false };
+      });
+      return { ...pane, tabs };
+    });
+  tabState.panes = updatePanes(tabState.panes);
+  if (content.kind === 'text') updateFromExternal(path, content.content);
 }
 
 export function setContent(path: string, content: string): void {
@@ -295,22 +325,15 @@ export async function loadAndUpdateTabContent(
   filePath: string | undefined
 ): Promise<void> {
   if ((kind !== 'editor' && kind !== 'binary' && kind !== 'preview') || !filePath) return;
-  if (kind === 'binary') return;
   const openedTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
-  if (openedTab?.isDirty) return;
+  if (openedTab?.isDirty || isTabDirty(tabId)) return;
   try {
     await fsClient.init();
     if (!(await fsClient.exists(filePath))) return;
-    const content = await fsClient.readText(filePath);
-    if (content !== undefined) {
-      if (kind === 'preview') {
-        setTabContent(tabId, content, false);
-      } else {
-        const currentTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
-        if (currentTab?.isDirty) return;
-        updateTabContent(tabId, content, false);
-      }
-    }
+    const content = await readFileContent(filePath);
+    const currentTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
+    if (!currentTab || currentTab.isDirty || isTabDirty(tabId)) return;
+    applyFileContent(filePath, content);
   } catch (e) {
     console.warn('[tabState] Failed to load fresh content for reused tab:', e);
   }
@@ -319,7 +342,7 @@ export async function loadAndUpdateTabContent(
 export function updateTabContent(tabId: string, content: string, isDirty = false): void {
   const allTabs = collectAllTabs(tabState.panes);
   const tab = allTabs.find(t => t.id === tabId);
-  if (!tab) return;
+  if (!tab || tab.kind === 'binary') return;
 
   const tabDef = tabRegistry.get(tab.kind);
   const targetPath = normalizePath(tabDef?.getContentPath?.(tab) ?? tab.path ?? '/');

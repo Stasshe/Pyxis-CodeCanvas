@@ -1,5 +1,6 @@
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal as XTerm } from '@xterm/xterm';
+import { Buffer } from 'buffer';
 import { useEffect, useRef, useState } from 'react';
 
 import { useTranslation } from '@/context/I18nContext';
@@ -398,6 +399,7 @@ export function ClientTerminal({
               )) ?? null;
 
             // Store Vim editor instance for ESC button
+            if (!vimEditor) vimModeActive = false;
             vimEditorRef.current = vimEditor;
             if (onVimModeChange) onVimModeChange(vimEditor);
 
@@ -468,19 +470,9 @@ export function ClientTerminal({
             : `${await unixCommandsRef.current.pwd()}/${fileName}`;
           const normalizedPath = unixCommandsRef.current.normalizePath(fullPath);
           try {
-            let content = outputContent;
-
-            // 追記モードの場合、既存のコンテンツを先頭に追加
-            if (append) {
-              // Use indexed single-file lookup for append
-              try {
-                if (await fsClient.exists(normalizedPath)) {
-                  content = `${await fsClient.readText(normalizedPath)}${content}`;
-                }
-              } catch (e) {
-                console.warn('[Terminal.tsx] caught non-fatal error', e);
-                // ignore and proceed with content as-is
-              }
+            let content = Buffer.from(outputContent);
+            if (append && (await fsClient.exists(normalizedPath))) {
+              content = Buffer.concat([await fsClient.readFile(normalizedPath), content]);
             }
 
             // ファイルを保存または更新

@@ -20,7 +20,7 @@ graph TB
     
     subgraph "Git操作層"
         E[GitCommands<br/>isomorphic-git]
-        F[Lightning FS<br/>IndexedDB]
+        F[FS Worker<br/>FS Core]
     end
     
     subgraph "GitHub連携層"
@@ -31,6 +31,7 @@ graph TB
     subgraph "外部サービス"
         I[(IndexedDB)]
         J[GitHub API]
+        K[(OPFS)]
     end
     
     A --> C
@@ -39,6 +40,7 @@ graph TB
     C --> D
     D --> J
     E --> F
+    F --> K
     E --> G
     F --> I
     G --> J
@@ -227,11 +229,9 @@ graph TD
     A[ローカルGitツリー] --> B{エントリ種別}
     B -->|Blob| C[ファイル読み込み]
     B -->|Tree| D[再帰的に処理]
-    C --> E{バイナリ判定}
-    E -->|テキスト| F[UTF-8エンコード]
-    E -->|バイナリ| G[Base64エンコード]
+    C --> E[raw bytes]
+    E --> F[Base64エンコード]
     F --> H[POST /git/blobs]
-    G --> H
     H --> I[Blob SHA取得]
     D --> J[サブツリー構築]
     J --> K[Tree SHA取得]
@@ -246,7 +246,7 @@ graph TD
 | 手法 | 実装 | 効果 |
 |------|------|------|
 | Blobキャッシュ | `Map<content, sha>` | 同一ファイルの重複アップロード防止 |
-| バイナリ判定 | 共通の拡張子・MIME・内容判定（SVGはテキスト固定） | 適切なエンコーディング選択 |
+| Blob encoding | 全fileのraw bytesをBase64で送信 | 拡張子やMIMEによる分岐なし。textとbinaryのbytesを保持 |
 | 再帰構築 | 深さ優先探索 | ディレクトリ構造の完全再現 |
 
 ### GitHubAPI

@@ -52,6 +52,15 @@ tmp/の扱い
 - [ ] Whole suite: 56 files / 460 tests、52 files / 388 passed、4 files / 72 failed、0 skipped。失敗は既記録のenv expansion (26)、error handling (13)、pipeline (11)、subshell (22) suiteのみ。
 - [x] Browser verification: agent-browserでdesktop (1280×900) とmobile (390×844) を確認。folder選択、file open/edit/save/reload、Terminal、Node実行、binary-editorを検証。final buildのextension JSは200、欠落assetは404を確認し、browser sessionを終了。
 
+## Binary byte preservation audit (2026-10-07)
+
+- [x] `format` / `lint` (377 files), `tsc --noEmit`, build (30 extensions, 25 TypeScript checks), and `git diff --check` passed.
+- [x] Focused binary regressions: 35/35 passed; extension tab identity 1/1 and inline-asset regressions 3/3 passed. Final ExtensionTab factory regression: 4 suites / 13 tests passed (TabAPI, openTab, contentSync, fileLoading).
+- [ ] Full suite: 71 files / 519 tests; 446 passed, 73 failed. One obsolete SVG expectation was fixed in focused coverage; the remaining 72 failures are the known shell E2E suites (env expansion 26, error handling 13, pipeline 11, subshell 22).
+- [x] Browser verified byte-signature PNGs, misleading extensions, Markdown/HTML local assets, zero-byte hex editing, exact-byte save, canceled close/discard dialog preservation, raw download and ZIP hashes, runtime stdout/pipeline bytes, UTF-8 BOM preservation, and reload restoration. Final page errors: none.
+- [x] TabBar menu portal/clamping: actual row right-click opened Preview and rendered Markdown; no console errors.
+- [ ] Safari device and 400 MB memory checks remain open above.
+
 ## OperationWindow verification (2026-10-06)
 
 - [x] `format` (373 files, 1 fix), `lint` (373 files), `tsc --noEmit`, `git diff --check`, and build (30 extensions, 25 TypeScript checks) passed.

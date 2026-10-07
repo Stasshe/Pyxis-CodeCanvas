@@ -3,8 +3,10 @@
  * 拡張機能のライフサイクルを統合管理
  */
 
+import { detectFileContent } from '@/engine/core/fileBytes';
 import { fsClient } from '@/engine/core/fs/client';
 import type { TranspilerDescriptor } from '@/engine/runtime/core/RuntimeProvider';
+import { uint8ToBlob } from './binaryUtils';
 import {
   activateExtension,
   deactivateExtension,
@@ -233,7 +235,7 @@ class ExtensionManager {
       const JSZipModule = await import('jszip');
       const JSZip = (JSZipModule as any).default || JSZipModule;
 
-      const zip = await JSZip.loadAsync(file);
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
 
       // manifest.json を探す: まずルートの manifest.json を優先
       let manifestPath: string | null = null;
@@ -289,7 +291,10 @@ class ExtensionManager {
       }
 
       // エントリのコードを読み込む
-      const entryCode = await zip.file(resolvedEntryPath)?.async('string');
+      const entryFile = zip.file(resolvedEntryPath);
+      if (!entryFile) throw new Error(`Entry file not found in ZIP: ${manifest.entry}`);
+      const entryBytes = await entryFile.async('uint8array');
+      const entryCode = new TextDecoder('utf-8', { fatal: true }).decode(entryBytes);
 
       // manifest.entry を extension root 相対（manifestDir を削った形）に更新
       let normalizedEntry = resolvedEntryPath;
@@ -299,7 +304,7 @@ class ExtensionManager {
       manifest.entry = normalizedEntry;
 
       // 追加ファイルは manifest.files に基づいて読み込む（extensionLoader.fetchExtensionCode と同じ挙動）
-      const filesMap: Record<string, string> = {};
+      const filesMap: Record<string, string | Blob> = {};
       if (manifest.files && manifest.files.length > 0) {
         for (const filePath of manifest.files) {
           const candidates = [filePath, `./${filePath}`, filePath.replace(/^\//, '')];
@@ -312,17 +317,15 @@ class ExtensionManager {
             continue;
           }
 
-          // decide whether to read as binary based on extension (use shared util)
-          const { isBinaryExt, uint8ToBlob } = await import('./binaryUtils');
-          if (isBinaryExt(filePath)) {
-            const uint8 = await zip.file(resolved)?.async('uint8array');
-            const blob = uint8ToBlob(uint8, filePath);
-            const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
-            filesMap[normalizedKey] = blob as any;
+          const assetFile = zip.file(resolved);
+          if (!assetFile) throw new Error(`Extension asset not found in ZIP: ${filePath}`);
+          const bytes = await assetFile.async('uint8array');
+          const content = await detectFileContent(filePath, bytes);
+          const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
+          if (content.kind === 'binary') {
+            filesMap[normalizedKey] = uint8ToBlob(bytes, filePath, content.mimeType);
           } else {
-            const content = await zip.file(resolved)?.async('string');
-            const normalizedKey = filePath.replace(/^\.\//, '').replace(/^\//, '');
-            filesMap[normalizedKey] = content;
+            filesMap[normalizedKey] = content.content;
           }
         }
 

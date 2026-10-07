@@ -11,7 +11,8 @@ import OperationWindow, {
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
+import { loadAIFileContext, loadAIFileContexts } from '@/engine/ai/contextBuilder';
+import { prepareAITextWrite } from '@/engine/ai/textEdits';
 import { fsClient } from '@/engine/core/fs';
 import { useAI } from '@/hooks/ai/useAI';
 import { useAIReview } from '@/hooks/ai/useAIReview';
@@ -92,6 +93,7 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
   // Prompt debug modal state
   const [showPromptDebug, setShowPromptDebug] = useState(false);
   const [promptDebugText, setPromptDebugText] = useState('');
+  const [fileContextError, setFileContextError] = useState<string | null>(null);
 
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
@@ -105,22 +107,14 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
   useEffect(() => {
     if (projectFiles.length > 0) {
       const selectedMap = new Map(fileContextsRef.current.map(ctx => [ctx.path, ctx.selected]));
-      void Promise.all(
-        projectFiles.map(async file => {
-          const name = file.path.split('/').pop() || file.path;
-          if (file.type !== 'file' || file.isBufferArray === true) return { ...file, name };
-          return { ...file, name, content: await fsClient.readText(file.path) };
-        })
-      )
-        .then(files => {
-          const contexts = buildAIFileContextList(files).map(ctx => ({
-            ...ctx,
-            selected: selectedMap.get(ctx.path) ?? false,
-          }));
+      void loadAIFileContexts(projectFiles, selectedMap)
+        .then(contexts => {
           updateFileContextsRef.current(contexts);
+          setFileContextError(null);
         })
         .catch(error => {
           console.error('[AIPanel] Failed to load file contexts:', error);
+          setFileContextError('Failed to load file context. Check the console for details.');
         });
     }
   }, [projectFiles]);
@@ -185,7 +179,7 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
   }, [globalActiveTabId, activePaneId]);
 
   // アクティブタブをコンテキストに追加/削除するユーティリティ
-  const handleToggleActiveTabContext = () => {
+  const handleToggleActiveTabContext = async () => {
     if (!activeTab || !activeTab.path) return;
 
     const already = fileContexts.find(ctx => ctx.path === activeTab.path);
@@ -195,11 +189,21 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
       return;
     }
 
-    // content は Tab のユニオン型によって存在しない場合があるため型ガード
-    const isContentTab = activeTab.kind === 'editor' || activeTab.kind === 'preview';
+    if (activeTab.kind !== 'editor' && activeTab.kind !== 'preview') {
+      const error = new Error(`Cannot add non-text tab content to AI context: ${activeTab.path}`);
+      console.error('[AIPanel] Failed to add file context:', error);
+      setFileContextError(error.message);
+      return;
+    }
+
     let content = '';
-    if (isContentTab && 'content' in activeTab) {
-      content = String(activeTab.content) || '';
+    if ('content' in activeTab) content = String(activeTab.content) || '';
+    try {
+      await loadAIFileContext(activeTab.path, content);
+    } catch (error) {
+      console.error('[AIPanel] Failed to add file context:', error);
+      setFileContextError(error instanceof Error ? error.message : String(error));
+      return;
     }
 
     // FileItem は必須で `id` を持つため、path を id として使う
@@ -212,6 +216,7 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
     };
 
     handleFileSelect(newFile);
+    setFileContextError(null);
   };
 
   // レビューを開く（ストレージから履歴を取得してタブに渡す）
@@ -240,21 +245,22 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
 
   // 変更を適用（suggestedContent -> contentへコピー）
   // 同一ファイルを開いている他タブに変更を同期
-  const handleApplyChanges = async (filePath: string, newContent: string) => {
+  const handleApplyChanges = async (filePath: string, newContent: string): Promise<boolean> => {
     if (!rootPath) {
       console.error('[AIPanel] No workspace root path available, cannot apply changes');
       alert('プロジェクトが選択されていません');
-      return;
+      return false;
     }
 
     try {
       console.log('[AIPanel] Applying changes to:', filePath);
 
-      await fsClient.writeFile(filePath, newContent);
+      const preparedContent = await prepareAITextWrite(filePath, newContent);
+      await fsClient.writeFile(filePath, preparedContent);
 
       // 他タブに変更を通知
       // 同一ファイルを開いている全タブに即時反映
-      updateFromExternal(filePath, newContent);
+      updateFromExternal(filePath, preparedContent);
 
       // Clear AI review metadata for this file (non-blocking)
       try {
@@ -287,9 +293,11 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
       } catch (e) {
         console.warn('[AIPanel] Failed to update chat message after apply:', e);
       }
+      return true;
     } catch (error) {
       console.error('[AIPanel] Failed to apply changes:', error);
-      alert(`変更の適用に失敗しました: ${(error as Error).message}`);
+      alert(`変更の適用に失敗しました: ${String(error)}`);
+      return false;
     }
   };
 
@@ -571,6 +579,12 @@ function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
       <div className="px-2 pb-2 flex justify-end">
         <ModeSelector mode={mode} onChange={setMode} disabled={isProcessing} />
       </div>
+
+      {fileContextError && (
+        <div role="alert" className="px-2 pb-1 text-xs text-red-500">
+          {fileContextError}
+        </div>
+      )}
 
       {/* 入力エリア */}
       <ChatInput

@@ -38,8 +38,8 @@ export interface ExecutionOptions {
     options?: { cwd?: string; env?: Record<string, string> }
   ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
   onExit?: (code: number) => void;
-  onStdout?: (data: string) => void;
-  onStderr?: (data: string) => void;
+  onStdout?: (data: string | Uint8Array) => void;
+  onStderr?: (data: string | Uint8Array) => void;
   debugConsole?: {
     log: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -67,8 +67,8 @@ export class NodeRuntime {
   private filesystem: RuntimeFsMount;
   private runShell: ExecutionOptions['runShell'];
   private onExit: ExecutionOptions['onExit'];
-  private onStdout: (data: string) => void;
-  private onStderr: (data: string) => void;
+  private onStdout: (data: string | Uint8Array) => void;
+  private onStderr: (data: string | Uint8Array) => void;
   private cwd: string;
   private terminalColumns: number;
   private terminalRows: number;
@@ -110,8 +110,8 @@ export class NodeRuntime {
     this.bridge = options.bridge;
     this.runShell = options.runShell;
     this.onExit = options.onExit;
-    this.onStdout = options.onStdout ?? (data => this.debugConsole?.log(data));
-    this.onStderr = options.onStderr ?? (data => this.debugConsole?.error(data));
+    this.onStdout = options.onStdout ?? (data => this.debugConsole?.log(this.formatOutput(data)));
+    this.onStderr = options.onStderr ?? (data => this.debugConsole?.error(this.formatOutput(data)));
     this.cwd = options.cwd ?? this.rootPath;
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
@@ -341,6 +341,12 @@ export class NodeRuntime {
     };
   }
 
+  private outputBytes(data: string | Uint8Array, encoding?: BufferEncoding): Uint8Array {
+    const buffer = this.builtInModules.buffer.Buffer;
+    if (typeof data === 'string') return buffer.from(data, encoding);
+    return buffer.from(data);
+  }
+
   private formatOutput(data: string | Uint8Array): string {
     if (typeof data === 'string') return data;
     return new TextDecoder().decode(data);
@@ -538,8 +544,8 @@ export class NodeRuntime {
       },
       stdin: this.processStdin,
       stdout: {
-        write: (data: string | Uint8Array) => {
-          this.onStdout(this.formatOutput(data));
+        write: (data: string | Uint8Array, encoding?: BufferEncoding) => {
+          this.onStdout(this.outputBytes(data, encoding));
           return true;
         },
         isTTY: true,
@@ -549,8 +555,8 @@ export class NodeRuntime {
         hasColors: (count?: number) => count === undefined || count <= 16777216,
       },
       stderr: {
-        write: (data: string | Uint8Array) => {
-          this.onStderr(this.formatOutput(data));
+        write: (data: string | Uint8Array, encoding?: BufferEncoding) => {
+          this.onStderr(this.outputBytes(data, encoding));
           return true;
         },
         isTTY: true,

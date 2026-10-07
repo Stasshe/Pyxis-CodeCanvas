@@ -52,7 +52,7 @@ describe('tabActions.openTab', () => {
   it('does not create an empty editable tab when reading a file fails', async () => {
     const path = `${rootPath}/index.js`;
     await getTestFs().writeFile(path, 'keep this content');
-    vi.spyOn(fsClient, 'readText').mockRejectedValue(new Error('read failed'));
+    vi.spyOn(fsClient, 'readFile').mockRejectedValue(new Error('read failed'));
 
     await expect(tabActions.openTab({ path, name: 'index.js' })).rejects.toThrow('read failed');
 
@@ -73,7 +73,7 @@ describe('tabActions.openTab', () => {
   it('does not split a pane when reading the new file fails', async () => {
     const path = `${rootPath}/index.js`;
     await getTestFs().writeFile(path, 'keep this content');
-    vi.spyOn(fsClient, 'readText').mockRejectedValue(new Error('read failed'));
+    vi.spyOn(fsClient, 'readFile').mockRejectedValue(new Error('read failed'));
 
     await expect(
       tabActions.splitPaneAndOpenFile('pane', 'horizontal', { path, name: 'index.js' }, 'after')

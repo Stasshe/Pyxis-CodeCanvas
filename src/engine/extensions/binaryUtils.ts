@@ -40,26 +40,25 @@ const mimeMap: Record<string, string> = {
   '.ogg': 'audio/ogg',
 };
 
-export function isBinaryExt(filePath: string): boolean {
-  const lower = (filePath || '').toLowerCase();
-  return binaryExts.some(e => lower.endsWith(e));
-}
-
 export function extToMime(ext: string): string {
   return mimeMap[ext] || 'application/octet-stream';
 }
 
-export function toDataUrlFromUint8(uint8: Uint8Array, filePath?: string): string {
+export function toDataUrlFromUint8(
+  uint8: Uint8Array,
+  filePath?: string,
+  detectedMimeType?: string
+): string {
   // convert to base64 in chunks to avoid stack limits
   let binary = '';
   const chunkSize = 0x8000;
   for (let i = 0; i < uint8.length; i += chunkSize) {
     const chunk = uint8.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk as any));
+    binary += String.fromCharCode(...chunk);
   }
   const base64 = btoa(binary);
-  let mime = 'application/octet-stream';
-  if (filePath) {
+  let mime = detectedMimeType || 'application/octet-stream';
+  if (!detectedMimeType && filePath) {
     const lower = filePath.toLowerCase();
     const ext = binaryExts.find(e => lower.endsWith(e)) || '';
     mime = extToMime(ext);
@@ -79,19 +78,14 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
-export { binaryExts };
-
-export function uint8ToBlob(uint8: Uint8Array, filePath?: string): Blob {
-  let mime = 'application/octet-stream';
-  if (filePath) {
+export function uint8ToBlob(uint8: Uint8Array, filePath?: string, detectedMimeType?: string): Blob {
+  let mime = detectedMimeType || 'application/octet-stream';
+  if (!detectedMimeType && filePath) {
     const lower = filePath.toLowerCase();
     const ext = binaryExts.find(e => lower.endsWith(e)) || '';
     mime = extToMime(ext);
   }
   // Ensure we pass an ArrayBuffer (not the entire underlying buffer)
-  const ab = uint8.buffer.slice(
-    uint8.byteOffset,
-    uint8.byteOffset + uint8.byteLength
-  ) as unknown as ArrayBuffer;
+  const ab = Uint8Array.from(uint8).buffer;
   return new Blob([ab], { type: mime });
 }

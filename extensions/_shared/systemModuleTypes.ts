@@ -54,6 +54,10 @@ export interface Workspace {
   subscribe(listener: (rootPath: string | null) => void): () => void;
 }
 
+export interface Keybindings {
+  registerAction(actionId: string, callback: () => void): () => void;
+}
+
 export type WorkerPoolCall<T extends object> = <R>(fn: (api: T) => Promise<R>) => Promise<R>;
 
 export interface WorkerPool<T extends object> {
@@ -150,6 +154,7 @@ export interface SystemModuleMap {
   workerRuntime: WorkerRuntimeModule;
   pathUtils: PathUtils;
   workspace: Workspace;
+  keybindings: Keybindings;
   commandRegistry: CommandRegistry;
   systemBuiltinCommands: {
     getUnixCommands(rootPath: string): UnixCommandsPublic;

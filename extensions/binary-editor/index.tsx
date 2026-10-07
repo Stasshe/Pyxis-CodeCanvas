@@ -4,6 +4,7 @@
  * Monaco-likeなスクロール管理と仮想化による高パフォーマンス
  */
 
+// biome-ignore lint/style/useImportType: Extension builds use the classic JSX runtime.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ExtensionActivation, ExtensionContext } from '../_shared/types';
@@ -20,6 +21,7 @@ import {
   toHex,
   VISIBLE_ROWS_BUFFER,
 } from './binaryUtils';
+import { useBinaryEditorDocument } from './useBinaryEditorDocument';
 
 // グローバルコンテキスト参照（拡張機能はコンポーネント外からコンテキストにアクセスする必要があるため）
 let globalContext: ExtensionContext | null = null;
@@ -30,17 +32,17 @@ let globalContext: ExtensionContext | null = null;
 interface BinaryEditorTabData {
   filePath?: string;
   fileName?: string;
-  bufferContent?: ArrayBuffer | Uint8Array | string;
 }
 
 interface BinaryEditorTab {
+  id: string;
   data?: BinaryEditorTabData;
 }
 
 function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isActive: boolean }) {
   const tabData = tab.data ?? {};
-  const [binaryData, setBinaryData] = useState<Uint8Array>(new Uint8Array(0));
-  const [originalData, setOriginalData] = useState<Uint8Array>(new Uint8Array(0));
+  const editorDocument = useBinaryEditorDocument(globalContext, tab.id, tabData.filePath);
+  const binaryData = editorDocument.bytes;
   const [selectedOffset, setSelectedOffset] = useState<number | null>(null);
   const [editingOffset, setEditingOffset] = useState<number | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -49,91 +51,30 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isA
   const [replaceQuery, setReplaceQuery] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
-  const [isModified, setIsModified] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // ファイルデータの読み込み
+  const handleSave = editorDocument.save;
+
   useEffect(() => {
-    if (tabData.bufferContent) {
-      const buffer = tabData.bufferContent;
-      let data: Uint8Array;
-      if (buffer instanceof ArrayBuffer) {
-        data = new Uint8Array(buffer);
-      } else if (buffer instanceof Uint8Array) {
-        data = new Uint8Array(buffer);
-      } else if (typeof buffer === 'string') {
-        try {
-          const binary = atob(buffer);
-          data = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            data[i] = binary.charCodeAt(i);
-          }
-        } catch (e) {
-          console.error('Failed to decode base64:', e);
-          data = new Uint8Array(0);
-        }
-      } else {
-        data = new Uint8Array(0);
-      }
-      setBinaryData(data);
-      setOriginalData(new Uint8Array(data));
-    }
-  }, [tabData.bufferContent]);
-
-  // 変更検出
-  useEffect(() => {
-    if (binaryData.length !== originalData.length) {
-      setIsModified(true);
-      return;
-    }
-    for (let i = 0; i < binaryData.length; i++) {
-      if (binaryData[i] !== originalData[i]) {
-        setIsModified(true);
-        return;
-      }
-    }
-    setIsModified(false);
-  }, [binaryData, originalData]);
-
-  // 保存機能
-  const handleSave = useCallback(async () => {
-    if (!globalContext || !tabData.filePath) {
-      console.error('Cannot save: missing context or file info');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const fsClient = await globalContext.getSystemModule('fsClient');
-      if (!(await fsClient.exists(tabData.filePath))) {
-        throw new Error('File not found');
-      }
-      await fsClient.writeFile(tabData.filePath, binaryData);
-
-      setOriginalData(new Uint8Array(binaryData));
-      setIsModified(false);
-      globalContext.logger.info(`Saved: ${tabData.filePath}`);
-    } catch (error) {
-      console.error('Failed to save:', error);
-      globalContext?.logger.error(`Failed to save: ${error}`);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [binaryData, tabData.filePath]);
-
-  // Ctrl+Sで保存
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's' && isActive) {
-        e.preventDefault();
-        handleSave();
-      }
+    const context = globalContext;
+    if (!isActive || !context) return;
+    let cancelled = false;
+    let unregister = () => {};
+    const register = async () => {
+      const keybindings = await context.getSystemModule('keybindings');
+      if (cancelled) return;
+      unregister = keybindings.registerAction('saveFile', () => {
+        if (window.document.querySelector('[data-keybinding-scope="quick-input"]')) return;
+        void handleSave();
+      });
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    void register();
+    return () => {
+      cancelled = true;
+      unregister();
+    };
   }, [handleSave, isActive]);
 
   // スクロールハンドラー
@@ -182,12 +123,12 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isA
     if (newValue !== null) {
       const newData = new Uint8Array(binaryData);
       newData[editingOffset] = newValue;
-      setBinaryData(newData);
+      editorDocument.setBytes(newData);
     }
 
     setEditingOffset(null);
     setEditValue('');
-  }, [editingOffset, editValue, binaryData]);
+  }, [editingOffset, editValue, binaryData, editorDocument.setBytes]);
 
   // キーボードナビゲーション
   const handleKeyDown = useCallback(
@@ -301,11 +242,20 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isA
     if (!searchBytes) return;
 
     const offset = searchResults[currentSearchIndex];
-    setBinaryData(replaceByteSequence(binaryData, offset, searchBytes.length, replaceBytes));
+    editorDocument.setBytes(
+      replaceByteSequence(binaryData, offset, searchBytes.length, replaceBytes)
+    );
     // 検索結果をクリア（次回検索で再計算）
     setSearchResults([]);
     setCurrentSearchIndex(-1);
-  }, [currentSearchIndex, searchResults, replaceQuery, searchQuery, binaryData]);
+  }, [
+    currentSearchIndex,
+    searchResults,
+    replaceQuery,
+    searchQuery,
+    binaryData,
+    editorDocument.setBytes,
+  ]);
 
   // 全置換
   const handleReplaceAll = useCallback(() => {
@@ -313,12 +263,12 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isA
     const replaceBytes = parseHexString(replaceQuery);
     if (!searchBytes || !replaceBytes || searchResults.length === 0) return;
 
-    setBinaryData(
+    editorDocument.setBytes(
       replaceByteSequences(binaryData, searchResults, searchBytes.length, replaceBytes)
     );
     setSearchResults([]);
     setCurrentSearchIndex(-1);
-  }, [searchQuery, replaceQuery, searchResults, binaryData]);
+  }, [searchQuery, replaceQuery, searchResults, binaryData, editorDocument.setBytes]);
 
   // 行のレンダリング
   const renderRow = useCallback(
@@ -655,23 +605,26 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isA
               @ 0x{formatAddress(selectedOffset)}
             </span>
           )}
-          {isModified && (
+          {editorDocument.isModified && (
             <span style={{ color: '#f48771', fontSize: '12px', fontWeight: 'bold' }}>Modified</span>
           )}
           <button
             onClick={handleSave}
-            disabled={!isModified || isSaving}
+            disabled={
+              !editorDocument.isModified || editorDocument.isSaving || !editorDocument.isLoaded
+            }
             style={{
               padding: '4px 12px',
-              background: isModified && !isSaving ? '#0e639c' : '#333',
+              background:
+                editorDocument.isModified && !editorDocument.isSaving ? '#0e639c' : '#333',
               border: 'none',
               borderRadius: '4px',
-              color: isModified && !isSaving ? '#fff' : '#666',
+              color: editorDocument.isModified && !editorDocument.isSaving ? '#fff' : '#666',
               fontSize: '12px',
-              cursor: isModified && !isSaving ? 'pointer' : 'default',
+              cursor: editorDocument.isModified && !editorDocument.isSaving ? 'pointer' : 'default',
             }}
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            {editorDocument.isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
@@ -720,9 +673,16 @@ function BinaryEditorTabComponent({ tab, isActive }: { tab: BinaryEditorTab; isA
           position: 'relative',
         }}
       >
-        <div style={{ height: totalHeight, position: 'relative' }}>
-          {visibleRows.map(rowIndex => renderRow(rowIndex))}
-        </div>
+        {editorDocument.isLoaded && (
+          <div style={{ height: totalHeight, position: 'relative' }}>
+            {visibleRows.map(rowIndex => renderRow(rowIndex))}
+          </div>
+        )}
+        {!editorDocument.isLoaded && (
+          <div style={{ padding: '16px', color: editorDocument.error ? '#f48771' : '#888' }}>
+            {editorDocument.error || 'Loading file...'}
+          </div>
+        )}
       </div>
 
       {/* ステータスバー */}
@@ -764,9 +724,8 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     label: 'Open with Binary Editor',
     icon: 'Binary',
     when: 'file',
-    binaryOnly: true,
     order: 10,
-    handler: async (file, menuContext) => {
+    handler: async file => {
       context.logger.info(`Opening file with Binary Editor: ${file.path}`);
 
       context.tabs.createTab({
@@ -778,8 +737,6 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         data: {
           fileName: file.name,
           filePath: file.path,
-          bufferContent: file.bufferContent,
-          rootPath: menuContext.rootPath,
         },
       });
     },

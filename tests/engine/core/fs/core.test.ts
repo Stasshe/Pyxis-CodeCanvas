@@ -33,6 +33,14 @@ describe('filesystem memory mount', () => {
     ]);
   });
 
+  it('decodes text as UTF-8 with the standard replacement and BOM behavior', async () => {
+    await core.writeFile('/tmp/bom.txt', new Uint8Array([0xef, 0xbb, 0xbf, 0x68, 0x69]));
+    await core.writeFile('/tmp/invalid.txt', new Uint8Array([0xc3, 0x28]));
+
+    expect(await core.readText('/tmp/bom.txt')).toBe('hi');
+    expect(await core.readText('/tmp/invalid.txt')).toBe('\ufffd(');
+  });
+
   it('lists immediate children while walking all descendants', async () => {
     await core.mkdir('/tmp/app/src', { recursive: true });
     await core.writeFile('/tmp/app/src/main.ts', 'hello');

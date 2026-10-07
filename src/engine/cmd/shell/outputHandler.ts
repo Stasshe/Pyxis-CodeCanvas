@@ -1,4 +1,4 @@
-import type { Buffer } from 'buffer';
+import { Buffer } from 'buffer';
 import type { FsApi } from '@/engine/core/fs';
 import { resolvePath } from '@/engine/core/pathUtils';
 import type { OutputCallbacks } from './executor';
@@ -14,79 +14,104 @@ export class ShellOutputHandler {
   watch(
     process: Process,
     segment: Segment,
-    fdBuffers: Record<number, string[]>,
+    fdBuffers: Record<number, Buffer[]>,
     callbacks?: OutputCallbacks
   ): void {
+    const watched = new Set<ReturnType<Process['getFdWrite']>>();
+    const fileBuffers = new Map<string, Buffer[]>();
+    for (const [descriptor, info] of Object.entries(segment.fdFiles ?? {})) {
+      let chunks = fileBuffers.get(info.path);
+      if (!chunks) {
+        chunks = [];
+        fileBuffers.set(info.path, chunks);
+      }
+      fdBuffers[Number(descriptor)] = chunks;
+    }
     const watchFd = (fd: number) => {
       if (!fdBuffers[fd]) fdBuffers[fd] = [];
       try {
         const stream = process.getFdWrite(fd);
+        if (watched.has(stream)) return;
+        watched.add(stream);
         const fdFiles = segment.fdFiles ?? {};
         const fileInfo = fdFiles[fd];
         if (fileInfo && isDevNull(fileInfo.path)) {
           stream.on('data', () => {});
           return;
         }
+        const decoder = new TextDecoder();
+        const display = (text: string) => {
+          if (!text) return;
+          if (fd === 1) callbacks?.stdout?.(text);
+          if (fd === 2) callbacks?.stderr?.(text);
+        };
         stream.on('data', (chunk: Buffer | string) => {
-          const output = String(chunk);
-          fdBuffers[fd].push(output);
-          if (fd === 1) callbacks?.stdout?.(output);
-          if (fd === 2) callbacks?.stderr?.(output);
+          const bytes = Buffer.from(chunk);
+          fdBuffers[fd].push(bytes);
+          display(decoder.decode(bytes, { stream: true }));
         });
+        stream.on('end', () => display(decoder.decode()));
       } catch {
         return;
       }
     };
 
-    watchFd(1);
-    watchFd(2);
+    if (segment.stdoutToStderr) {
+      watchFd(2);
+      watchFd(1);
+    } else {
+      watchFd(1);
+      watchFd(2);
+    }
     for (const descriptor of Object.keys(segment.fdFiles ?? {})) {
       const fd = Number(descriptor);
       if (!Number.isNaN(fd) && fd > 2) watchFd(fd);
     }
   }
 
-  async handleRedirections(
-    segment: Segment,
-    fdBuffers: Record<number, string[]>,
-    stdout: string,
-    stderr: string
-  ): Promise<void> {
-    const writes: Record<string, string> = {};
+  async handleRedirections(segment: Segment, fdBuffers: Record<number, Buffer[]>): Promise<void> {
+    const writes: Record<string, Buffer[]> = {};
     const appendMap: Record<string, boolean> = {};
+    const addedBuffers = new Map<string, Set<Buffer[]>>();
     const cwd = await this.getWorkingDirectory();
     const resolveRedirectPath = (path: string): string => {
       if (!path || isDevNull(path)) return path;
       return resolvePath(cwd, path);
     };
-    const add = (path: string | undefined | null, content: string, append = false) => {
+    const add = (path: string | undefined | null, content: Buffer[], append = false) => {
       if (!path || isDevNull(path)) return;
       const key = resolveRedirectPath(path);
       if (!key || isDevNull(key)) return;
-      writes[key] = (writes[key] || '') + content;
+      let added = addedBuffers.get(key);
+      if (!added) {
+        added = new Set();
+        addedBuffers.set(key, added);
+      }
+      if (added.has(content)) return;
+      added.add(content);
+      if (!writes[key]) writes[key] = [];
+      writes[key].push(...content);
       appendMap[key] = appendMap[key] || append;
     };
 
     for (const [descriptor, info] of Object.entries(segment.fdFiles ?? {})) {
       const fd = Number(descriptor);
       if (Number.isNaN(fd) || isDevNull(info.path)) continue;
-      add(info.path, (fdBuffers[fd] ?? []).join(''), info.append);
+      add(info.path, fdBuffers[fd] ?? [], info.append);
     }
 
     if (Object.keys(segment.fdFiles ?? {}).length === 0) {
-      if (segment.stdoutFile) add(segment.stdoutFile, stdout, segment.append);
-      if (segment.stderrFile) add(segment.stderrFile, stderr);
+      if (segment.stdoutFile) add(segment.stdoutFile, fdBuffers[1] ?? [], segment.append);
+      if (segment.stderrFile) add(segment.stderrFile, fdBuffers[2] ?? []);
     }
 
     for (const path of Object.keys(writes)) {
-      try {
-        let content = writes[path];
-        if (appendMap[path])
-          content = (await this.fsClient.readText(path).catch(() => '')) + content;
-        await this.fsClient.writeFile(path, content);
-      } catch {
-        // Redirection failures do not change command output streams.
+      let content = Buffer.concat(writes[path]);
+      if (appendMap[path] && (await this.fsClient.exists(path))) {
+        const previous = await this.fsClient.readFile(path);
+        content = Buffer.concat([previous, content]);
       }
+      await this.fsClient.writeFile(path, content);
     }
   }
 

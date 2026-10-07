@@ -1,4 +1,5 @@
 import { Worker } from 'node:worker_threads';
+import { Buffer } from 'buffer';
 import { build } from 'esbuild';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ExecutionOptions } from '@/engine/runtime/nodejs/nodeRuntime';
@@ -207,6 +208,25 @@ describe('runtime worker boundaries', () => {
       entries: [{ channel: 'stdout', text: 'buffered output' }],
     });
     expect(harness.posted[1]).toEqual({ type: 'complete', result: { exitCode: 5 } });
+  });
+
+  it('keeps worker stdin and output payloads as bytes', async () => {
+    const harness = await startWorker();
+    const bytes = Buffer.from([9, 0, 255, 128, 9]).subarray(1, 4);
+    const received: Buffer[] = [];
+    harness.options()?.processStdin.on('data', chunk => received.push(chunk));
+    const messageListener = harness.listeners.get('message');
+    if (!messageListener) throw new Error('Worker message listener missing');
+    const message: MainMessage = { type: 'stdin', data: bytes };
+    messageListener(new MessageEvent<MainMessage>('message', { data: message }));
+    harness.options()?.onStdout?.(bytes);
+    harness.options()?.onExit?.(0);
+    await vi.waitFor(() =>
+      expect(harness.posted.some(message => message.type === 'complete')).toBe(true)
+    );
+    expect(Buffer.concat(received)).toEqual(bytes);
+    const output = harness.posted.find(message => message.type === 'output');
+    expect(output).toEqual({ type: 'output', entries: [{ channel: 'stdout', text: bytes }] });
   });
 
   it('completes with failure for an uncaught worker error', async () => {

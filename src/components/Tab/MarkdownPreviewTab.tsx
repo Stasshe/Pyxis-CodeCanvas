@@ -12,6 +12,7 @@ import 'github-markdown-css/github-markdown.css';
 import { useSnapshot } from 'valtio';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { readFileContent } from '@/engine/core/fileContent';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
 import type { EditorPane, PreviewTab, Tab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
@@ -192,12 +193,28 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
                 if (file.type !== 'file') continue;
                 const fileName = basename(cand);
                 const isMarkdown = fileName.toLowerCase().endsWith('.md');
+                const fileContent = await readFileContent(cand);
+                if (fileContent.kind === 'binary') {
+                  await openTab(
+                    {
+                      name: fileName,
+                      path: cand,
+                      content: '',
+                      bufferContent: fileContent.bufferContent,
+                      mimeType: fileContent.mimeType,
+                      isBufferArray: true,
+                      kind: 'binary',
+                    },
+                    { kind: 'binary', makeActive: true }
+                  );
+                  return;
+                }
                 if (isMarkdown) {
                   await openTab(
                     {
                       name: fileName,
                       path: cand,
-                      content: await fsClient.readText(cand),
+                      content: fileContent.content,
                       kind: 'preview',
                     },
                     { kind: 'preview', makeActive: true }

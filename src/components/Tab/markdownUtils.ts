@@ -1,3 +1,4 @@
+import { detectFileContent } from '@/engine/core/fileBytes';
 import { fsClient } from '@/engine/core/fs';
 
 const imageMimeTypes: Record<string, string> = {
@@ -11,8 +12,12 @@ const imageMimeTypes: Record<string, string> = {
 
 export const loadImageAsDataURL = async (imagePath: string): Promise<string> => {
   const extension = imagePath.toLowerCase().split('.').pop() ?? '';
-  const mimeType = imageMimeTypes[extension] ?? 'application/octet-stream';
   const bytes = await fsClient.readFile(imagePath);
+  const fileContent = await detectFileContent(imagePath, bytes);
+  let mimeType = imageMimeTypes[extension] ?? 'application/octet-stream';
+  if (fileContent.kind === 'binary' && fileContent.mimeType) {
+    mimeType = fileContent.mimeType;
+  }
   let binary = '';
   const chunkSize = 0x8000;
 

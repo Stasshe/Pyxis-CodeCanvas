@@ -8,8 +8,8 @@ export interface RuntimeExecutionOptions {
   /** Abort forcibly cancels this execution. Terminal interrupts use subscribeInterrupt. */
   signal?: AbortSignal;
   subscribeInterrupt?: (handler: () => void) => () => void;
-  onStdout?: (data: string) => void;
-  onStderr?: (data: string) => void;
+  onStdout?: (data: string | Uint8Array) => void;
+  onStderr?: (data: string | Uint8Array) => void;
   debugConsole?: {
     log: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;

@@ -15,8 +15,8 @@ export async function add(fs: FS, dir: string, filepath: string): Promise<string
       const deletedFiles: string[] = [];
 
       for (let i = 0; i < status.length; i++) {
-        const [file, head, workdir, stage] = status[i];
-        if (head === 1 && workdir === 0 && stage === 1) {
+        const [file, head, workdir] = status[i];
+        if (head === 1 && workdir === 0) {
           deletedFiles.push(file);
         }
       }
@@ -67,7 +67,7 @@ export async function add(fs: FS, dir: string, filepath: string): Promise<string
     if (fileStatus) {
       const [path, HEAD, workdir, stage] = fileStatus;
 
-      if (HEAD === 1 && workdir === 0 && stage === 1) {
+      if (HEAD === 1 && workdir === 0) {
         console.log(`[git.add] Staging deleted file: ${path}`);
         await git.remove({ fs, dir, filepath: normalizedPath });
         return `Staged deletion of ${filepath}`;
@@ -157,7 +157,7 @@ export async function addAll(fs: FS, dir: string): Promise<string> {
     for (let i = 0; i < statusMatrix.length; i++) {
       const [file, head, workdir, stage] = statusMatrix[i];
       try {
-        if (workdir === 0 && head === 1 && stage === 1) {
+        if (workdir === 0 && head === 1) {
           await git.remove({ fs, dir, filepath: file });
           deletedCount++;
         } else if (head === 0 && workdir > 0 && stage === 0) {

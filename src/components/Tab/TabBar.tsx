@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { createPortal } from 'react-dom';
 import { snapshot, useSnapshot } from 'valtio';
@@ -73,6 +73,20 @@ export default function TabBar({ paneId }: TabBarProps) {
     tabRect: null,
   });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const menu = tabContextMenuRef.current;
+    const anchor = tabContextMenu.tabRect;
+    if (!menu || !anchor) return;
+    const placeMenu = () => {
+      const bounds = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(0, Math.min(anchor.left, window.innerWidth - bounds.width))}px`;
+      menu.style.top = `${Math.max(0, Math.min(anchor.bottom, window.innerHeight - bounds.height))}px`;
+    };
+    placeMenu();
+    window.addEventListener('resize', placeMenu);
+    return () => window.removeEventListener('resize', placeMenu);
+  }, [tabContextMenu]);
 
   // タッチ検出用
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -515,67 +529,73 @@ export default function TabBar({ paneId }: TabBarProps) {
       </div>
 
       {/* タブコンテキストメニュー（タブの真下に固定） */}
-      {tabContextMenu.isOpen && tabContextMenu.tabRect && (
-        <div
-          ref={tabContextMenuRef}
-          className="fixed bg-card border border-border rounded shadow-lg z-50 min-w-[150px] p-2 select-none"
-          style={{
-            background: colors.cardBg,
-            borderColor: colors.border,
-            left: `${tabContextMenu.tabRect.left}px`,
-            top: `${tabContextMenu.tabRect.bottom}px`,
-          }}
-        >
-          {/* Markdownプレビュー */}
-          {tabs
-            .find(t => t.id === tabContextMenu.tabId)
-            ?.name.toLowerCase()
-            .endsWith('.md') && (
+      {tabContextMenu.isOpen &&
+        tabContextMenu.tabRect &&
+        createPortal(
+          <div
+            ref={tabContextMenuRef}
+            className="fixed bg-card border border-border rounded shadow-lg z-[100] min-w-[150px] p-2 select-none"
+            style={{
+              maxWidth: '100vw',
+              maxHeight: '100vh',
+              overflowY: 'auto',
+              background: colors.cardBg,
+              borderColor: colors.border,
+              left: `${tabContextMenu.tabRect.left}px`,
+              top: `${tabContextMenu.tabRect.bottom}px`,
+            }}
+          >
+            {/* Markdownプレビュー */}
+            {tabs
+              .find(t => t.id === tabContextMenu.tabId)
+              ?.name.toLowerCase()
+              .endsWith('.md') && (
+              <button
+                className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                onClick={() => {
+                  const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+                  if (tab) {
+                    openTab(
+                      { name: tab.name, path: tab.path, content: (tab as any).content },
+                      { kind: 'preview', paneId, targetPaneId: paneId }
+                    );
+                  }
+                  setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
+                }}
+              >
+                {t('tabBar.openPreview')}
+              </button>
+            )}
             <button
               className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
               onClick={() => {
-                const tab = tabs.find(t => t.id === tabContextMenu.tabId);
-                if (tab) {
-                  openTab(
-                    { name: tab.name, path: tab.path, content: (tab as any).content },
-                    { kind: 'preview', paneId, targetPaneId: paneId }
-                  );
-                }
+                handleTabClose(tabContextMenu.tabId);
                 setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
               }}
             >
-              {t('tabBar.openPreview')}
+              {t('tabBar.closeTab')}
             </button>
-          )}
-          <button
-            className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
-            onClick={() => {
-              handleTabClose(tabContextMenu.tabId);
-              setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
-            }}
-          >
-            {t('tabBar.closeTab')}
-          </button>
-          {availablePanes.length > 1 && (
-            <>
-              <div className="text-xs text-muted-foreground px-2 py-1 mt-2">
-                {t('tabBar.moveToPane')}
-              </div>
-              {availablePanes
-                .filter(p => p.id !== paneId)
-                .map(p => (
-                  <button
-                    key={p.id}
-                    className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
-                    onClick={() => handleMoveTabToPane(tabContextMenu.tabId, p.id)}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-            </>
-          )}
-        </div>
-      )}
+            {availablePanes.length > 1 && (
+              <>
+                <div className="text-xs text-muted-foreground px-2 py-1 mt-2">
+                  {t('tabBar.moveToPane')}
+                </div>
+                {availablePanes
+                  .filter(p => p.id !== paneId)
+                  .map(p => (
+                    <button
+                      key={p.id}
+                      className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                      onClick={() => handleMoveTabToPane(tabContextMenu.tabId, p.id)}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+              </>
+            )}
+          </div>,
+          document.body
+        )}
 
       {ConfirmationDialog}
     </div>

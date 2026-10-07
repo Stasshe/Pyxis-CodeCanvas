@@ -4,7 +4,8 @@
  */
 
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { tabActions, tabState } from '@/stores/tabState';
+import type { ExtensionTab, OpenTabOptions, TabFileInfo } from '@/engine/tabs/types';
+import { tabActions } from '@/stores/tabState';
 import type { ExtensionContext } from '../types';
 
 /**
@@ -43,6 +44,8 @@ export interface UpdateTabOptions {
   title?: string;
   /** 新しいアイコン */
   icon?: string;
+  /** Whether the tab has unsaved changes. */
+  isDirty?: boolean;
   /** 拡張機能固有のデータ */
   data?: Partial<ExtensionTabData>;
 }
@@ -59,7 +62,7 @@ export class TabAPI {
   private extensionId: string;
   private closeCallbacks = new Map<string, TabCloseCallback>();
 
-  constructor(context: ExtensionContext) {
+  constructor(context: Pick<ExtensionContext, 'extensionId'>) {
     this.extensionId = context.extensionId;
   }
 
@@ -68,15 +71,15 @@ export class TabAPI {
    * 拡張機能はactivate時にこれを呼ぶべき
    */
   registerTabType(component: any): void {
-    const tabKind = `extension:${this.extensionId}`;
+    const tabKind: ExtensionTab['kind'] = `extension:${this.extensionId}`;
 
-    if (tabRegistry.has(tabKind as any)) {
+    if (tabRegistry.has(tabKind)) {
       console.warn(`[TabAPI] Tab type already registered: ${tabKind}`);
       return;
     }
 
     tabRegistry.register({
-      kind: tabKind as any,
+      kind: tabKind,
       displayName: `Extension: ${this.extensionId}`,
       icon: 'Package',
       canEdit: false,
@@ -84,21 +87,21 @@ export class TabAPI {
       component: component,
       // Extension tabs preserve all data in the tab object, so they don't need session restoration
       needsSessionRestore: false,
-      createTab: (data: any, opts?: any) =>
-        ({
-          // id: logical resource id within the extension (e.g. note id)
-          id: data.id || `ext-${data.name}`,
-          // name/title for display
+      createTab: (data: TabFileInfo, opts?: OpenTabOptions): ExtensionTab => {
+        const resourcePath = data.path || data.id || data.name || '';
+        const tabId = `${tabKind}:${resourcePath}`;
+        return {
+          ...data,
+          id: tabId,
           name: data.title || data.name || 'Extension Tab',
-          kind: tabKind as any,
-          // path: resource identifier WITHOUT the kind prefix. The TabStore
-          // composes the final tab id as `${kind}:${path}`. For extensions,
-          // use data.path or data.id (resource id) here.
-          path: data.path || data.id || data.name || '',
+          kind: tabKind,
+          path: resourcePath,
           paneId: opts?.paneId || '',
           closable: data.closable !== false,
-          ...data,
-        }) as any,
+          icon: data.icon,
+          data: data.data,
+        };
+      },
     });
 
     console.log(`[TabAPI] Registered extension tab type: ${tabKind}`);
@@ -152,35 +155,21 @@ export class TabAPI {
       return false;
     }
 
-    let updated = false;
-    const panes = tabState.panes;
-
-    tabActions.setPanes(
-      panes.map(pane => ({
-        ...pane,
-        tabs: pane.tabs.map(tab => {
-          if (tab.id === tabId) {
-            updated = true;
-            return {
-              ...tab,
-              // title オプションは name フィールドを更新
-              ...(options.title && { name: options.title }),
-              ...(options.icon && { icon: options.icon }),
-              // 拡張機能用の任意データフィールド（型定義外）
-              ...(options.data && {
-                data: { ...(tab as any).data, ...options.data },
-              }),
-            };
-          }
-          return tab;
-        }),
-      }))
-    );
-
-    if (updated) {
-      console.log(`[TabAPI] Updated tab: ${tabId}`);
-    }
-    return updated;
+    const tab = tabActions
+      .getAllTabs()
+      .find(
+        (candidate): candidate is ExtensionTab =>
+          candidate.id === tabId && candidate.kind === `extension:${this.extensionId}`
+      );
+    if (!tab) return false;
+    const updates: Partial<Omit<ExtensionTab, 'kind'>> = {};
+    if (options.title) updates.name = options.title;
+    if (options.icon) updates.icon = options.icon;
+    if (options.isDirty !== undefined) updates.isDirty = options.isDirty;
+    if (options.data) updates.data = { ...tab.data, ...options.data };
+    tabActions.updateTab(tab.paneId, tabId, updates);
+    console.log(`[TabAPI] Updated tab: ${tabId}`);
+    return true;
   }
 
   /**
@@ -248,7 +237,7 @@ export class TabAPI {
   private isOwnedTab(tabId: string): boolean {
     // createTab()で生成された正確なプレフィックスのみを許可
     const expectedPrefix = `extension:${this.extensionId}`;
-    return tabId.startsWith(expectedPrefix);
+    return tabId.startsWith(`${expectedPrefix}:`);
   }
 
   /**

@@ -17,6 +17,11 @@ export const exportPage = async (
       childFiles = entries
         .filter(entry => entry.type === 'file')
         .map(entry => basename(entry.path));
+    } else if (/\.html?$/i.test(targetPath)) {
+      const entries = await fsClient.readdir(directoryPath);
+      childFiles = entries
+        .filter(entry => entry.type === 'file')
+        .map(entry => basename(entry.path));
     }
     const newWindow = window.open('about:blank', '_blank');
     if (!newWindow) {
@@ -42,7 +47,14 @@ export const exportPage = async (
     let htmlContent: string;
     if (isDirectory) {
       htmlContent = await inlineHtmlAssets(childFiles, directoryPath, fullPath =>
-        fsClient.readText(fullPath)
+        fsClient.readFile(fullPath)
+      );
+    } else if (/\.html?$/i.test(targetPath)) {
+      htmlContent = await inlineHtmlAssets(
+        childFiles,
+        directoryPath,
+        fullPath => fsClient.readFile(fullPath),
+        basename(targetPath)
       );
     } else {
       htmlContent = await fsClient.readText(targetPath);

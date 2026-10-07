@@ -1,6 +1,7 @@
 // src/engine/tabs/builtins/MergeConflictTabType.tsx
 import type React from 'react';
 import { lazy, Suspense, useCallback } from 'react';
+import { saveResolvedConflict } from '@/engine/cmd/global/gitOperations/mergeConflictDetector';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fsClient } from '@/engine/core/fs';
 import { tabActions } from '@/stores/tabState';
@@ -33,7 +34,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
         // Save resolved files through the filesystem client.
         for (const file of resolvedFiles) {
-          await fsClient.writeFile(file.filePath, file.resolvedContent);
+          await saveResolvedConflict(fsClient, file);
           console.log('[MergeConflictTabType] Saved resolved file:', file.filePath);
         }
 
@@ -74,10 +75,16 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
    * Update resolved content
    */
   const handleUpdateResolvedContent = useCallback(
-    (filePath: string, content: string) => {
-      const updatedConflicts = mergeTab.conflicts.map(c =>
-        c.filePath === filePath ? { ...c, resolvedContent: content } : c
-      );
+    (filePath: string, content: string | Uint8Array | null) => {
+      const updatedConflicts = mergeTab.conflicts.map(conflict => {
+        if (conflict.filePath !== filePath) return conflict;
+        if (conflict.binary) {
+          if (typeof content === 'string') throw new Error('Binary conflict requires exact bytes.');
+          return { ...conflict, binary: { ...conflict.binary, resolved: content } };
+        }
+        if (typeof content !== 'string') throw new Error('Text conflict requires text.');
+        return { ...conflict, resolvedContent: content };
+      });
       updateTab(mergeTab.paneId, mergeTab.id, {
         conflicts: updatedConflicts,
       } as Partial<MergeConflictTab>);

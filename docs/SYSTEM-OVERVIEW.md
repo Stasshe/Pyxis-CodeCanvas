@@ -31,7 +31,7 @@ graph TD
 
 Virtual HOME is `/home/pyxis`; workspaces live at `~/<name>`. OPFS stores workspace files, `.git`, `node_modules`, runtime cache at `~/.cache/pyxis`, and the canonical npm cache directory at `~/.npm`. It is the sole persistent filesystem. The FS Worker owns its handles, and its client exposes path-based operations and change events to the page. `/tmp` is ephemeral and memory-backed.
 
-IndexedDB stores recent folder records, root-scoped tab and chat state, AI reviews, settings, translations, and extension data. File contents are not duplicated there. `ProjectFile` tree entries contain metadata only: absolute path, entry type, size, and modification time. File content is read from OPFS when a file is opened.
+IndexedDB stores recent folder records, root-scoped tab and chat state, AI reviews, settings, translations, and extension data. File contents are not duplicated there. `ProjectFile` tree entries contain metadata only: absolute path, entry type, size, and modification time. Content is read from OPFS on demand and classified from bytes before the UI selects a text editor, binary editor, or preview.
 
 A workspace is an opened absolute folder under HOME. It scopes the file tree and default working directory, while filesystem paths remain absolute. The single-tab Web Lock ensures only one page owns the filesystem worker at a time.
 

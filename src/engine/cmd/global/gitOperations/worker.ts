@@ -255,7 +255,7 @@ export class WorkerGitCommands {
     return this.executeGitMutation(() => discardChanges(this.fs, this.dir, filepath));
   }
 
-  async getFileContentAtCommit(commitId: string, filePath: string): Promise<string> {
+  async getFileContentAtCommit(commitId: string, filePath: string): Promise<Uint8Array> {
     await this.ensureGitRepository();
     try {
       const { blob } = await git.readBlob({
@@ -264,7 +264,7 @@ export class WorkerGitCommands {
         oid: commitId,
         filepath: repositoryPath(this.dir, filePath),
       });
-      return new TextDecoder().decode(blob);
+      return blob;
     } catch (e) {
       throw new Error(`Failed to read file at commit ${commitId}: ${(e as Error).message}`);
     }
@@ -282,54 +282,57 @@ export class WorkerGitCommands {
     }
   }
 
-  async getStagedFileContent(filePath: string): Promise<string | null> {
+  async getStagedFileContent(filePath: string): Promise<Uint8Array | null> {
     await this.ensureGitRepository();
-
-    let stagedContent: string | null = null;
-
-    try {
-      await git.walk({
-        fs: this.fs,
-        dir: this.dir,
-        trees: [git.STAGE()],
-        map: async (filepath, [entry]) => {
-          if (filepath === repositoryPath(this.dir, filePath) && entry) {
-            const oid = await entry.oid();
-            if (oid) {
-              const { blob } = await git.readBlob({
-                fs: this.fs,
-                dir: this.dir,
-                oid,
-              });
-              stagedContent = new TextDecoder().decode(blob);
-            }
+    const normalizedPath = repositoryPath(this.dir, filePath);
+    let stagedContent: Uint8Array | null = null;
+    await git.walk({
+      fs: this.fs,
+      dir: this.dir,
+      trees: [git.STAGE()],
+      map: async (filepath, [entry]) => {
+        if (filepath === normalizedPath && entry) {
+          const oid = await entry.oid();
+          if (oid) {
+            const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid });
+            stagedContent = blob;
           }
-          return undefined;
-        },
-      });
-    } catch (e) {
-      console.warn(`Failed to get staged content for ${filePath}:`, e);
-      return null;
-    }
-
+        }
+        return undefined;
+      },
+    });
     return stagedContent;
   }
 
-  async getHeadFileContent(filePath: string): Promise<string | null> {
+  async getHeadFileContent(filePath: string): Promise<Uint8Array | null> {
     await this.ensureGitRepository();
-
+    const normalizedPath = repositoryPath(this.dir, filePath);
+    let headCommitHash: string;
     try {
-      const headCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
+      headCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
+    } catch (error) {
+      if (
+        error instanceof git.Errors.NotFoundError &&
+        (error.data.what === 'HEAD' || error.data.what.startsWith('refs/heads/'))
+      )
+        return null;
+      throw error;
+    }
+    try {
       const { blob } = await git.readBlob({
         fs: this.fs,
         dir: this.dir,
         oid: headCommitHash,
-        filepath: repositoryPath(this.dir, filePath),
+        filepath: normalizedPath,
       });
-      return new TextDecoder().decode(blob);
-    } catch (e) {
-      console.warn('[git.ts] caught non-fatal error', e);
-      return null;
+      return blob;
+    } catch (error) {
+      if (
+        error instanceof git.Errors.NotFoundError &&
+        error.data.what === `file or directory found at "${headCommitHash}:${normalizedPath}"`
+      )
+        return null;
+      throw error;
     }
   }
 
@@ -407,7 +410,7 @@ export class WorkerGitCommands {
     return this.executeGitMutation(() => pull(this.fs, this.dir, options));
   }
 
-  async show(args: string[]): Promise<string> {
+  async show(args: string[]): Promise<string | Uint8Array> {
     await this.ensureGitRepository();
 
     const { show } = await import('./show');

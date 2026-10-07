@@ -48,7 +48,7 @@ export interface FsDirent {
 export type FsCallback<T = void> = (error: Error | null, data?: T) => void;
 type IoTracker = <T>(task: Promise<T>) => Promise<T>;
 type ReadOptionsArg = ReadOptions | FsEncoding | FsCallback<string | Buffer>;
-type WriteOptionsArg = ReadOptions | FsCallback<void>;
+type WriteOptionsArg = ReadOptions | FsEncoding | FsCallback<void>;
 type DirectoryEntry = string | Buffer | FsDirent;
 
 export interface FSModuleOptions {
@@ -79,18 +79,18 @@ function callbackError(error: unknown): Error {
   return new Error(String(error));
 }
 
-function encode(value: string | Uint8Array): Uint8Array {
-  if (typeof value === 'string') return new TextEncoder().encode(value);
-  return value;
+function encode(value: string | Uint8Array, options?: ReadOptions | FsEncoding): Uint8Array {
+  if (typeof value !== 'string') return value;
+  const encoding = optionEncoding(options);
+  if (encoding === 'buffer') throw new TypeError('Invalid string encoding: buffer');
+  return Buffer.from(value, encoding ?? 'utf8');
 }
 
 function readResult(
-  path: string,
   content: string | Uint8Array,
   options?: ReadOptions | FsEncoding
 ): string | Buffer {
   const bytes = Buffer.from(encode(content));
-  if (/\.svg$/i.test(path)) return bytes.toString('utf8');
   const encoding = optionEncoding(options);
   if (encoding === undefined || encoding === null || encoding === 'buffer') return bytes;
   return bytes.toString(encoding);
@@ -167,7 +167,9 @@ export function createFSModule(options: FSModuleOptions) {
 
   function requestStdin(): Buffer {
     const value = options.bridge.sync({ kind: 'stdin' });
-    if (typeof value !== 'string') throw new Error('stdin bridge returned an invalid value.');
+    if (!Array.isArray(value) || !value.every(byte => typeof byte === 'number')) {
+      throw new Error('stdin bridge returned an invalid byte value.');
+    }
     return Buffer.from(value);
   }
 
@@ -187,16 +189,46 @@ export function createFSModule(options: FSModuleOptions) {
     const normalized = normalize(path);
     const content = await filesystem.getFile(normalized);
     if (content === undefined) throw fsError('ENOENT', 'open', path);
-    return readResult(path, content, encoding);
+    return readResult(content, encoding);
   }
 
-  async function writeFile(path: string, data: string | Uint8Array): Promise<void> {
+  async function writeFile(
+    path: string,
+    data: string | Uint8Array,
+    writeOptions?: ReadOptions | FsEncoding
+  ): Promise<void> {
     const normalized = normalize(path);
+    const content = encode(data, writeOptions);
     try {
-      await filesystem.setFile(normalized, data);
+      await filesystem.setFile(normalized, content);
     } catch (error) {
       rethrowAsFsError(error, 'EIO', 'write', path);
     }
+  }
+
+  async function appendFile(
+    path: string,
+    data: string | Uint8Array,
+    writeOptions?: ReadOptions | FsEncoding
+  ): Promise<void> {
+    const normalized = normalize(path);
+    const current = await filesystem.getFile(normalized);
+    const oldBytes = current ?? new Uint8Array();
+    const newBytes = encode(data, writeOptions);
+    const combined = new Uint8Array(oldBytes.length + newBytes.length);
+    combined.set(oldBytes);
+    combined.set(newBytes, oldBytes.length);
+    await filesystem.setFile(normalized, combined);
+  }
+
+  function completeWrite(task: Promise<void>, callback?: FsCallback<void>): Promise<void> | void {
+    if (!callback) return track(task);
+    track(
+      task.then(
+        () => callback(null),
+        error => callback(callbackError(error))
+      )
+    );
   }
 
   async function getStats(path: string, syscall: 'stat' | 'lstat'): Promise<FsStats> {
@@ -280,30 +312,28 @@ export function createFSModule(options: FSModuleOptions) {
       optionsOrCallback?: WriteOptionsArg,
       callback?: FsCallback<void>
     ): Promise<void> | void => {
-      let done = callback;
-      if (isCallback<void>(optionsOrCallback)) done = optionsOrCallback;
-      const task = writeFile(path, data);
-      if (!done) return track(task);
-      track(
-        task.then(
-          () => done(null),
-          error => done(callbackError(error))
-        )
-      );
+      if (isCallback<void>(optionsOrCallback)) {
+        return completeWrite(writeFile(path, data), optionsOrCallback);
+      }
+      return completeWrite(writeFile(path, data, optionsOrCallback), callback);
     },
     readFileSync: (path: string | number, encoding?: ReadOptions | FsEncoding): string | Buffer => {
       if (typeof path === 'number' && path === 0) {
-        return readResult('/dev/stdin', readStdinLine(), encoding);
+        return readResult(readStdinLine(), encoding);
       }
       if (typeof path !== 'string') throw fsError('EBADF', 'open', path);
       const normalized = normalize(path);
       const content = filesystem.getFileSync(normalized);
       if (content === undefined) throw fsError('ENOENT', 'open', path);
-      return readResult(path, content, encoding);
+      return readResult(content, encoding);
     },
-    writeFileSync: (path: string, data: string | Uint8Array): void => {
+    writeFileSync: (
+      path: string,
+      data: string | Uint8Array,
+      writeOptions?: ReadOptions | FsEncoding
+    ): void => {
       const normalized = normalize(path);
-      filesystem.setFileSync(normalized, data);
+      filesystem.setFileSync(normalized, encode(data, writeOptions));
     },
     readSync: (
       fd: number,
@@ -375,28 +405,28 @@ export function createFSModule(options: FSModuleOptions) {
       if (filesystem.statSync(normalized)?.type !== 'file') throw fsError('ENOENT', 'unlink', path);
       filesystem.deleteFileSync(normalized);
     },
-    appendFile: (path: string, data: string | Uint8Array): Promise<void> =>
-      track(
-        (async () => {
-          const normalized = normalize(path);
-          const mount = filesystem;
-          const current = await mount.getFile(normalized);
-          let oldBytes: Uint8Array = new Uint8Array();
-          if (current !== undefined) oldBytes = encode(current);
-          const newBytes = encode(data);
-          const combined = new Uint8Array(oldBytes.length + newBytes.length);
-          combined.set(oldBytes);
-          combined.set(newBytes, oldBytes.length);
-          await mount.setFile(normalized, combined);
-        })()
-      ),
-    appendFileSync: (path: string, data: string | Uint8Array): void => {
+    appendFile: (
+      path: string,
+      data: string | Uint8Array,
+      optionsOrCallback?: WriteOptionsArg,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      if (isCallback<void>(optionsOrCallback)) {
+        return completeWrite(appendFile(path, data), optionsOrCallback);
+      }
+      return completeWrite(appendFile(path, data, optionsOrCallback), callback);
+    },
+    appendFileSync: (
+      path: string,
+      data: string | Uint8Array,
+      writeOptions?: ReadOptions | FsEncoding
+    ): void => {
       const normalized = normalize(path);
       const mount = filesystem;
       const current = mount.getFileSync(normalized);
       let oldBytes: Uint8Array = new Uint8Array();
       if (current !== undefined) oldBytes = encode(current);
-      const newBytes = encode(data);
+      const newBytes = encode(data, writeOptions);
       const combined = new Uint8Array(oldBytes.length + newBytes.length);
       combined.set(oldBytes);
       combined.set(newBytes, oldBytes.length);
@@ -464,14 +494,19 @@ export function createFSModule(options: FSModuleOptions) {
   const promises = {
     readFile: (path: string, encoding?: ReadOptions | FsEncoding) =>
       track(readFile(path, encoding)),
-    writeFile: (path: string, data: string | Uint8Array) => track(writeFile(path, data)),
+    writeFile: (path: string, data: string | Uint8Array, writeOptions?: ReadOptions | FsEncoding) =>
+      track(writeFile(path, data, writeOptions)),
     readdir: (path: string, readdirOptions?: ReaddirOptions) =>
       track(readDirectory(path, readdirOptions)),
     stat: (path: string) => track(getStats(path, 'stat')),
     lstat: (path: string) => track(getStats(path, 'lstat')),
     mkdir: operations.mkdir,
     unlink: operations.unlink,
-    appendFile: operations.appendFile,
+    appendFile: (
+      path: string,
+      data: string | Uint8Array,
+      writeOptions?: ReadOptions | FsEncoding
+    ) => track(appendFile(path, data, writeOptions)),
     rename: operations.rename,
     rm: operations.rm,
   };

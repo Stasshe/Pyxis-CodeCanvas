@@ -1,5 +1,6 @@
 import type { Terminal } from '@xterm/xterm';
-import { fsClient, normalizePath, resolvePath } from '@/engine/core/fs';
+import { readFileContent } from '@/engine/core/fileContent';
+import { normalizePath, resolvePath } from '@/engine/core/fs';
 import { VimEditor } from '../app/vim/VimEditor';
 
 interface UnixCommands {
@@ -47,9 +48,11 @@ export async function handleVimCommand(
     let content = '';
 
     try {
-      content = await fsClient.readText(relativePath);
-    } catch (_e) {
-      // File doesn't exist, create new
+      const loaded = await readFileContent(relativePath);
+      if (loaded.kind === 'binary') throw new Error(`Cannot edit binary file: ${relativePath}`);
+      content = loaded.content;
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
     }
 
     // Extract filename from path

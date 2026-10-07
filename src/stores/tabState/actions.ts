@@ -17,6 +17,7 @@ import {
   renameContentPaths,
   updateTabContent,
 } from './contentSync';
+import { prepareFileForTab } from './fileLoading';
 import {
   collectAllTabs,
   createUniquePaneId as createUniquePaneIdForPanes,
@@ -538,41 +539,39 @@ export const tabActions = {
     const existingId = createUniquePaneId(reserved);
     const defEditor =
       typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-    const kind = file.isBufferArray || file.bufferContent ? 'binary' : 'editor';
     const filePath = file.path || '';
     const name = file.name || filePath.split('/').pop() || 'untitled';
-    let bufferContent = file.bufferContent;
-
-    // Resolve content: prefer content from an already-open tab (preserves unsaved changes),
-    // otherwise load fresh from the file repository.
-    let content = (file.content as string) || '';
     const existingTabForPath = collectAllTabs(tabState.panes).find(
-      t => t.path === filePath && t.kind === kind
+      t => t.path === filePath && (t.kind === 'editor' || t.kind === 'binary')
     );
+    let kind: 'editor' | 'binary' = 'editor';
+    if (file.isBufferArray || file.bufferContent) kind = 'binary';
+    else if (existingTabForPath?.kind === 'binary') kind = 'binary';
+    let fileToOpen: TabFileInfo = file;
     if (existingTabForPath) {
-      content = getTabContent(existingTabForPath.id) ?? content;
-      bufferContent = getBufferContent(existingTabForPath.id) ?? bufferContent;
-    } else if (
-      filePath &&
-      (kind === 'binary' ? bufferContent === undefined : file.content === undefined)
-    ) {
-      try {
-        await fsClient.init();
-        const metadata = await fsClient.stat(filePath);
-        if (metadata.type !== 'file') {
-          throw new Error(`Cannot open ${filePath}: path is not a file.`);
+      if (kind === 'binary') {
+        let bufferContent = getBufferContent(existingTabForPath.id);
+        if (bufferContent === undefined && 'bufferContent' in existingTabForPath) {
+          bufferContent = existingTabForPath.bufferContent;
         }
-        if (kind === 'binary') {
-          const bytes = await fsClient.readFile(filePath);
-          bufferContent = Uint8Array.from(bytes).buffer;
-        } else {
-          content = await fsClient.readText(filePath);
+        if (bufferContent) fileToOpen = { ...file, isBufferArray: true, bufferContent };
+      } else {
+        let content = getTabContent(existingTabForPath.id);
+        if (
+          content === undefined &&
+          'content' in existingTabForPath &&
+          typeof existingTabForPath.content === 'string'
+        ) {
+          content = existingTabForPath.content;
         }
-      } catch (error) {
-        console.error('[tabState] Failed to load fresh content for split tab:', error);
-        throw error;
+        fileToOpen = { ...file, content };
       }
     }
+    const prepared = await prepareFileForTab(fileToOpen, kind);
+    kind = prepared.kind === 'binary' ? 'binary' : 'editor';
+    fileToOpen = prepared.file;
+    const content = fileToOpen.content ?? '';
+    const bufferContent = fileToOpen.bufferContent;
 
     // Use a unique tabId so each pane instance has its own entry in tabContentStore.
     const newTabId = `${filePath || name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -588,7 +587,9 @@ export const tabActions = {
       content,
       isDirty: false,
       isCodeMirror: defEditor === 'codemirror',
-      ...(bufferContent ? { isBufferArray: true, bufferContent } : {}),
+      ...(kind === 'binary'
+        ? { isBufferArray: true, bufferContent, mimeType: fileToOpen.mimeType }
+        : {}),
     };
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
@@ -648,10 +649,20 @@ export const tabActions = {
     tabActions.updatePane(paneId, { size: newSize });
   },
   async openTab(file: TabFileInfo, options: OpenTabOptions = {}) {
-    const kind =
+    const requestedKind =
       options.kind ??
       file.kind ??
       (file?.isBufferArray === true || file?.isBufferArray ? 'binary' : 'editor');
+    let kind = requestedKind;
+    let fileToCreate = file;
+    try {
+      const prepared = await prepareFileForTab(file, requestedKind);
+      kind = prepared.kind;
+      fileToCreate = prepared.file;
+    } catch (error) {
+      console.error('[tabState] Failed to load fresh content for new tab:', error);
+      throw error;
+    }
     let targetPaneId = resolveOpenTargetPaneId(options.paneId);
 
     if (!targetPaneId) {
@@ -725,34 +736,6 @@ export const tabActions = {
           } as Partial<Tab>);
         }
         return;
-      }
-    }
-
-    let fileToCreate = file;
-    if (
-      file.path &&
-      (kind === 'editor' || kind === 'binary' || kind === 'preview') &&
-      (kind === 'binary' ? file.bufferContent === undefined : file.content === undefined)
-    ) {
-      try {
-        await fsClient.init();
-        const metadata = await fsClient.stat(file.path);
-        if (metadata.type !== 'file') {
-          throw new Error(`Cannot open ${file.path}: path is not a file.`);
-        }
-        if (kind === 'binary') {
-          const bytes = await fsClient.readFile(file.path);
-          fileToCreate = {
-            ...file,
-            isBufferArray: true,
-            bufferContent: Uint8Array.from(bytes).buffer,
-          };
-        } else {
-          fileToCreate = { ...file, content: await fsClient.readText(file.path) };
-        }
-      } catch (error) {
-        console.error('[tabState] Failed to load fresh content for new tab:', error);
-        throw error;
       }
     }
 

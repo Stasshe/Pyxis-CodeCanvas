@@ -21,7 +21,7 @@ export interface RuntimeTimerModule {
 }
 
 export interface ProcessOutputStream {
-  write(data: string | Uint8Array): boolean;
+  write(data: string | Uint8Array, encoding?: BufferEncoding): boolean;
   isTTY: boolean;
   columns: number;
   rows: number;

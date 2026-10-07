@@ -72,6 +72,8 @@ export interface UpdateTabOptions {
   title?: string;
   /** 新しいアイコン */
   icon?: string;
+  /** Whether the tab has unsaved changes. */
+  isDirty?: boolean;
   /** 拡張機能固有のデータ（部分更新） */
   data?: Partial<ExtensionTabData>;
 }

@@ -1,4 +1,4 @@
-import type { Buffer } from 'buffer';
+import { Buffer } from 'buffer';
 import { fsClient } from '@/engine/core/fs';
 import { pushLogMessage } from '@/stores/loggerStore';
 import { ensureRuntimeBridge, registerRuntimeHost } from '../bridge/main';
@@ -91,10 +91,10 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       let interruptTimer: ReturnType<typeof setTimeout> | undefined;
       let unsubscribeInterrupt: (() => void) | undefined;
       const shells = new Set<AbortController>();
-      const stdinQueue: string[] = [];
+      const stdinQueue: Uint8Array[] = [];
       let stdinRequested = false;
       let stdinEnded = !options.processStdin?._active;
-      const stdinReaders: Array<(data: string) => void> = [];
+      const stdinReaders: Array<(data: number[]) => void> = [];
       const post = (message: MainMessage) => worker.postMessage(message);
       const runShell = async (
         command: string,
@@ -115,9 +115,9 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         runtimeId,
         async (request: HostRequest): Promise<RpcValue> => {
           if (request.kind === 'stdin') {
-            return new Promise<string>(read => {
+            return new Promise<number[]>(read => {
               if (!options.processStdin) {
-                read('');
+                read([]);
                 return;
               }
               stdinReaders.push(read);
@@ -131,7 +131,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       const drainStdin = () => {
         while (stdinReaders.length > 0 && (stdinQueue.length > 0 || stdinEnded)) {
           const read = stdinReaders.shift()!;
-          read(stdinQueue.shift() ?? '');
+          read([...(stdinQueue.shift() ?? new Uint8Array())]);
         }
         if (stdinReaders.length > 0) return;
         if (stdinRequested && stdinQueue.length > 0) {
@@ -143,7 +143,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         }
       };
       const onData = (data: Buffer) => {
-        stdinQueue.push(data.toString());
+        stdinQueue.push(Buffer.from(data));
         drainStdin();
       };
       const onEnd = () => {
@@ -159,7 +159,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         unsubscribeInterrupt?.();
         options.processStdin?.removeListener('data', onData);
         options.processStdin?.removeListener('end', onEnd);
-        for (const read of stdinReaders.splice(0)) read('');
+        for (const read of stdinReaders.splice(0)) read([]);
         cleanup();
         worker.terminate();
         fsPort.close();
@@ -253,14 +253,16 @@ export class NodeRuntimeProvider implements RuntimeProvider {
   private dispatchOutput(entry: OutputEntry, options: RuntimeExecutionOptions): void {
     if (entry.channel === 'stdout') {
       if (options.onStdout) options.onStdout(entry.text);
-      else if (options.debugConsole) options.debugConsole.log(entry.text);
-      else pushLogMessage(entry.text, 'info', 'Runtime');
+      else if (options.debugConsole)
+        options.debugConsole.log(Buffer.from(entry.text).toString('utf8'));
+      else pushLogMessage(Buffer.from(entry.text).toString('utf8'), 'info', 'Runtime');
       return;
     }
     if (entry.channel === 'stderr') {
       if (options.onStderr) options.onStderr(entry.text);
-      else if (options.debugConsole) options.debugConsole.error(entry.text);
-      else pushLogMessage(entry.text, 'error', 'Runtime');
+      else if (options.debugConsole)
+        options.debugConsole.error(Buffer.from(entry.text).toString('utf8'));
+      else pushLogMessage(Buffer.from(entry.text).toString('utf8'), 'error', 'Runtime');
       return;
     }
     if (entry.channel === 'clear') {
