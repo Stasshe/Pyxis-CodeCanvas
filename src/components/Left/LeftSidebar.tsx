@@ -20,7 +20,6 @@ interface LeftSidebarProps {
   files: FileItem[];
   currentProject: Project;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onGitRefresh?: () => void;
   onRefresh?: () => void; // ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
 }
@@ -31,7 +30,6 @@ export default function LeftSidebar({
   files,
   currentProject,
   onResize,
-  onGitRefresh,
   onRefresh,
   onGitStatusChange,
 }: LeftSidebarProps) {
@@ -154,7 +152,6 @@ export default function LeftSidebar({
                   currentProject={currentProject.name}
                   rootPath={currentProject.rootPath}
                   project={currentProject}
-                  onRefresh={onGitRefresh}
                   onGitStatusChange={onGitStatusChange}
                 />
               </Suspense>

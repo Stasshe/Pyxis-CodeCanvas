@@ -25,6 +25,7 @@ import { saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
 import type { EditorPane } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
+import { useGitFilesystemRefresh } from '@/hooks/state/useGitFilesystemRefresh';
 import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
 import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
@@ -129,6 +130,7 @@ export default function Home() {
 
   // ファイル削除時のタブ同期
   useFileDeleteTabSync();
+  useGitFilesystemRefresh(currentProject?.rootPath ?? null);
 
   // プロジェクト読み込み時のWelcomeタブ
   useProjectWelcome(currentProject);
@@ -141,20 +143,11 @@ export default function Home() {
   // グローバルスクロールロック
   useGlobalScrollLock();
 
-  // Stable callbacks for refresh handlers to avoid passing new function refs each render
-  const handleGitRefresh = useCallback(() => {
-    if (currentProject && loadProject) {
-      loadProject(currentProject);
-    }
-  }, [currentProject, loadProject]);
-
   const handleFilesRefresh = useCallback(() => {
     if (refreshProjectFiles) {
       refreshProjectFiles().then(() => triggerGitRefresh());
     }
   }, [refreshProjectFiles]);
-
-  // File changes refresh the workspace through the FS Client listener.
 
   // UI状態の復元（sessionStorage統合）
   useEffect(() => {
@@ -476,7 +469,6 @@ export default function Home() {
               files={projectFiles}
               currentProject={currentProject}
               onResize={handleLeftResize}
-              onGitRefresh={handleGitRefresh}
               onGitStatusChange={setGitChangesCount}
               onRefresh={handleFilesRefresh}
             />

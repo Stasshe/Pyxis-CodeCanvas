@@ -21,7 +21,9 @@ sequenceDiagram
   Client-->>UI: result and listeners
 ```
 
-The worker opens and closes a SyncAccessHandle around each file operation. Writes flush before closing. File-change events carry absolute paths and metadata; consumers refresh the affected tree entry or tab content. File contents are read only by callers that need them.
+The worker opens and closes a SyncAccessHandle around each file operation. Writes flush before closing. File-change events carry absolute paths and metadata. Existing-file `update` events refresh tab content but do not rebuild the Explorer tree: its `FileItem` projection uses path, name, type, and children, so a file-content change cannot alter its structure. Create, delete, and rename events inside the active root, including `.git`, trigger a 100 ms coalesced tree walk. At most one walk runs at a time, with one pending refresh for changes received during that walk. Results from an old root or an unmounted view are discarded.
+
+The Git panel restores its persisted branch filter before its initial status fetch. Changes to callback identity or commit-history depth do not repeat that fetch. Filesystem changes under the active root, including `.git`, invalidate Git status through a 100 ms debounce; refreshes are serialized with one latest pending refresh. Git actions rely on these filesystem events instead of issuing a second full status fetch. Discard does not reload the workspace.
 
 OPFS, FS Worker, local Git, checkout, legacy migration, uploads, downloads, and ZIP extraction preserve file bytes. npm archives and extracted payloads are byte-based; `.mjs` source is strict-UTF-8-decoded only when intentional transpilation requires it. The GitHub push path Base64-encodes raw bytes only for transport. Text decoding is explicit at `readText`, runtime encoding options, and `.mjs` transpilation. UI consumers classify freshly read bytes before choosing a text editor, binary editor, or preview; local preview assets are inlined using MIME detected from bytes, while external URLs remain unchanged. Runtime streams, pipes, and redirection preserve bytes until terminal display decodes them.
 
@@ -30,6 +32,8 @@ All layers share Node-compatible POSIX lexical path operations. Filesystem bound
 ## Git and package installation
 
 Git and npm installation run inside the FS Worker against FS Core. isomorphic-git uses a filesystem adapter over the same OPFS tree as editors and terminal operations. There is no file-copy synchronization layer, and `.gitignore` does not decide which files are copied to a Git filesystem.
+
+Git diff tabs compare HEAD with the index as read-only content. Editable worktree diffs compare against the index when the file is staged, and against HEAD otherwise. Reopening a matching clean diff refreshes its comparison and editable cache from current Git state; an unsaved diff keeps its edits.
 
 ## Workspace and metadata
 

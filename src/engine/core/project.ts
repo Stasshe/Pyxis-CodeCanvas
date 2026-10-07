@@ -94,10 +94,12 @@ export function useProject() {
   );
 
   const refreshProjectFiles = useCallback(async () => {
-    if (!currentProject) return;
-    const files = await fsClient.walk(currentProject.rootPath);
+    const rootPath = getCurrentProject()?.rootPath;
+    if (!rootPath) return;
+    const files = await fsClient.walk(rootPath);
+    if (getCurrentProject()?.rootPath !== rootPath) return;
     setProjectFiles(files);
-  }, [currentProject]);
+  }, []);
 
   const loadProject = useCallback(async (project: Project) => {
     const rootPath = normalizePath(project.rootPath);
@@ -149,17 +151,58 @@ export function useProject() {
 
   useEffect(() => {
     if (!currentProject) return;
-    return fsClient.addChangeListener(event => {
-      let affectedPath = event.path;
-      if (event.type === 'rename' && event.oldPath) affectedPath = event.oldPath;
-      const pathIsInside = isPathWithin(event.path, currentProject.rootPath);
-      const oldPathIsInside = isPathWithin(affectedPath, currentProject.rootPath);
-      if (!pathIsInside && !oldPathIsInside) return;
-      refreshProjectFiles().catch(error => {
+    const subscribedRootPath = currentProject.rootPath;
+    let active = true;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let walkInFlight = false;
+    let refreshPending = false;
+
+    const walkCurrentRoot = async () => {
+      const rootPath = getCurrentProject()?.rootPath;
+      if (!active || rootPath !== subscribedRootPath || walkInFlight) return;
+      walkInFlight = true;
+      try {
+        const files = await fsClient.walk(rootPath);
+        if (active && getCurrentProject()?.rootPath === subscribedRootPath) setProjectFiles(files);
+      } catch (error) {
         console.error('[Project] Failed to refresh after filesystem change:', error);
-      });
+      } finally {
+        walkInFlight = false;
+        if (active && refreshPending) {
+          refreshPending = false;
+          void walkCurrentRoot();
+        }
+      }
+    };
+
+    const scheduleRefresh = () => {
+      if (timeout !== null) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        timeout = null;
+        if (walkInFlight) {
+          refreshPending = true;
+          return;
+        }
+        void walkCurrentRoot();
+      }, 100);
+    };
+
+    const unsubscribe = fsClient.addChangeListener(event => {
+      if (event.type === 'update') return;
+      if (!active || getCurrentProject()?.rootPath !== subscribedRootPath) return;
+      const pathIsInside = isPathWithin(event.path, subscribedRootPath);
+      let oldPathIsInside = false;
+      if (event.oldPath) oldPathIsInside = isPathWithin(event.oldPath, subscribedRootPath);
+      if (!pathIsInside && !oldPathIsInside) return;
+      scheduleRefresh();
     });
-  }, [currentProject, refreshProjectFiles]);
+
+    return () => {
+      active = false;
+      if (timeout !== null) clearTimeout(timeout);
+      unsubscribe();
+    };
+  }, [currentProject]);
 
   return {
     currentProject,

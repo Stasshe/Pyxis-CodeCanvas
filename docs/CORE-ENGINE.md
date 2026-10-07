@@ -7,7 +7,8 @@
 | Module | Responsibility |
 |---|---|
 | `fs/core.ts` | OPFS operations, `/tmp`, path normalization, per-path access serialization, and change events |
-| `fs/worker.ts` | Worker endpoint; serializes operations and hosts Git operations on the same FS Core |
+| `fs/worker.ts` | Worker entry; imports the Buffer bootstrap before the endpoint |
+| `fs/endpoint.ts` | Serializes filesystem operations and hosts Git operations on the same FS Core |
 | `fs/client.ts` | Comlink client, single-tab Web Lock, change listeners, and MessagePort creation |
 | `fs/git.ts` | POSIX-style adapter used by isomorphic-git over FS Core |
 | `pathUtils.ts` | Shared Node POSIX lexical path operations plus strict absolute-path boundary helpers |
@@ -28,11 +29,13 @@ The FS Worker opens a SyncAccessHandle for each file operation and closes it bef
 
 The client acquires the `pyxis-fs-owner` Web Lock before creating the worker. Lock contention rejects initialization, enforcing one active application tab. The client proxies the FS API and broadcasts worker change events to registered listeners. `createPort()` creates a Comlink endpoint for worker-to-worker access.
 
-Git and npm operations execute in the FS Worker, where filesystem access is direct. Git uses `createGitFs` to adapt the core methods to isomorphic-git's promises interface. This keeps the worktree and `.git` in the same OPFS tree; file bytes remain unchanged through the adapter. npm archives are extracted from bytes and payloads are written without text decoding, except `.mjs` source intentionally strict-UTF-8-decoded for transpilation.
+Git and npm operations execute in the FS Worker, where filesystem access is direct. Its entry statically imports the Buffer bootstrap before the endpoint, so `globalThis.Buffer` exists when isomorphic-git's Git index modules initialize. The main-thread polyfill does not cross the Worker boundary. Git uses `createGitFs` to adapt the core methods to isomorphic-git's promises interface. This keeps the worktree and `.git` in the same OPFS tree; file bytes remain unchanged through the adapter. npm archives are extracted from bytes and payloads are written without text decoding, except `.mjs` source intentionally strict-UTF-8-decoded for transpilation.
 
 ## Workspace model
 
 A workspace is a selected absolute root path. The file tree walks that root, while filesystem operations retain absolute paths and may address entries outside it. Recent-folder metadata is indexed by root path. Project state stores the current root path, not an ID used to construct a second filesystem namespace.
+
+The Explorer tree is a structural projection of filesystem metadata. Existing-file updates do not change its path/name/type/children entries, so they refresh open-file consumers without walking the workspace. Create, delete, and rename events under the active root, including `.git`, coalesce for 100 ms and schedule a tree walk. Walks are serialized with one pending refresh; a root change or unmount prevents stale results from reaching the view.
 
 `ProjectFile` contains only `path`, `type`, `size`, and `mtime`. File content remains in OPFS and is fetched only when needed. Chat, tab, and AI review metadata is stored separately in IndexedDB with root-path scope.
 

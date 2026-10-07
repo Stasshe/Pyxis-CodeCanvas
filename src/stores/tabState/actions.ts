@@ -17,6 +17,7 @@ import {
   renameContentPaths,
   updateTabContent,
 } from './contentSync';
+import { refreshDiffTab } from './diff';
 import { prepareFileForTab } from './fileLoading';
 import {
   collectAllTabs,
@@ -684,7 +685,15 @@ export const tabActions = {
         for (const sp of leaves) {
           for (const t of sp.tabs) {
             if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
-              await loadAndUpdateTabContent(t.id, kind, file.path);
+              if (t.kind === 'diff') {
+                const freshTab = tabDef.createTab(fileToCreate, { ...options, paneId: sp.id });
+                if (freshTab.kind === 'diff') {
+                  const updatedTab = refreshDiffTab(t, freshTab);
+                  if (updatedTab) tabActions.updateTab(sp.id, t.id, updatedTab);
+                }
+              } else {
+                await loadAndUpdateTabContent(t.id, kind, file.path);
+              }
               if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
                 tabActions.updateTab(sp.id, t.id, {
                   jumpToLine: options.jumpToLine,
@@ -702,7 +711,15 @@ export const tabActions = {
       } else {
         for (const t of pane.tabs) {
           if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
-            await loadAndUpdateTabContent(t.id, kind, file.path);
+            if (t.kind === 'diff') {
+              const freshTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
+              if (freshTab.kind === 'diff') {
+                const updatedTab = refreshDiffTab(t, freshTab);
+                if (updatedTab) tabActions.updateTab(targetPaneId, t.id, updatedTab);
+              }
+            } else {
+              await loadAndUpdateTabContent(t.id, kind, file.path);
+            }
             if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
               tabActions.updateTab(targetPaneId, t.id, {
                 jumpToLine: options.jumpToLine,

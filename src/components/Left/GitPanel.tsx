@@ -29,7 +29,6 @@ interface GitPanelProps {
   currentProject?: string;
   rootPath?: string;
   project: Project;
-  onRefresh?: () => void;
   onGitStatusChange?: (changesCount: number) => void;
 }
 
@@ -43,7 +42,6 @@ export default function GitPanel({
   currentProject,
   rootPath,
   project,
-  onRefresh,
   onGitStatusChange,
 }: GitPanelProps) {
   const { colors } = useTheme();
@@ -58,6 +56,8 @@ export default function GitPanel({
   const [showBranchSelector, setShowBranchSelector] = useState(false);
   const branchButtonRef = useRef<HTMLButtonElement | null>(null);
   const gitRefreshVersion = useGitRefreshVersion();
+  const previousGitRefreshVersion = useRef(gitRefreshVersion);
+  const [filtersRestoredForRoot, setFiltersRestoredForRoot] = useState<string | null>(null);
 
   // use the extracted hook for git operations/state
   const {
@@ -85,6 +85,10 @@ export default function GitPanel({
     commit: commitOp,
     getDiff,
   } = useGitPanel({ currentProject, rootPath, onGitStatusChange });
+  const fetchStatusRef = useRef(fetchGitStatus);
+  fetchStatusRef.current = fetchGitStatus;
+  const commitDepthRef = useRef(commitDepth);
+  commitDepthRef.current = commitDepth;
 
   // Branch filter persistence restored from sessionStorage
   const getStoredBranchFilter = useCallback(() => {
@@ -124,6 +128,7 @@ export default function GitPanel({
       setBranchFilterMode(mode);
       setSelectedBranches(branches);
     }
+    setFiltersRestoredForRoot(rootPath ?? null);
   }, [rootPath, getStoredBranchFilter, setBranchFilterMode, setSelectedBranches]);
 
   // commit depth, fetch and history logic moved to `useGitPanel` hook
@@ -135,13 +140,7 @@ export default function GitPanel({
   const handleUnstageFile = unstageFile;
   const handleStageAll = stageAll;
   const handleUnstageAll = unstageAll;
-  const handleDiscardChanges = useCallback(
-    async (file: string) => {
-      await discardChanges(file);
-      if (onRefresh) onRefresh();
-    },
-    [discardChanges, onRefresh]
-  );
+  const handleDiscardChanges = discardChanges;
 
   // confirmation dialog state for destructive actions
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -202,9 +201,8 @@ export default function GitPanel({
     const message = `${t('git.discardAllAndRevert')} (${count})`;
     openConfirm(title, message, async () => {
       await discardAllUnstaged();
-      if (onRefresh) onRefresh();
     });
-  }, [gitRepo?.status, discardAllUnstaged, onRefresh, t, openConfirm]);
+  }, [gitRepo?.status, discardAllUnstaged, t, openConfirm]);
 
   const handleRequestDiscardAllStaged = useCallback(async () => {
     const count = gitRepo?.status?.staged?.length || 0;
@@ -213,9 +211,8 @@ export default function GitPanel({
     const message = `${t('git.discardAllAndRevert')} (${count})`;
     openConfirm(title, message, async () => {
       await discardAllStaged();
-      if (onRefresh) onRefresh();
     });
-  }, [gitRepo?.status, discardAllStaged, onRefresh, t, openConfirm]);
+  }, [gitRepo?.status, discardAllStaged, t, openConfirm]);
 
   const handleCommit = useCallback(async () => {
     if (!commitMessage.trim()) return;
@@ -257,22 +254,18 @@ export default function GitPanel({
     setApiKey(savedKey);
   }, []);
 
-  // 初期化とプロジェクト変更時の更新
+  // Initial load waits for the root's saved branch filter to be restored.
   useEffect(() => {
-    if (currentProject) {
-      fetchGitStatus();
-    }
-  }, [currentProject, fetchGitStatus]);
+    if (!currentProject || !rootPath || filtersRestoredForRoot !== rootPath) return;
+    void fetchStatusRef.current();
+  }, [currentProject, rootPath, filtersRestoredForRoot]);
 
-  // Git更新通知を受けたときの更新
+  // Refresh only when the store version changes, using the latest filter and depth.
   useEffect(() => {
-    if (currentProject && gitRefreshVersion > 0) {
-      const timer = setTimeout(() => {
-        fetchGitStatus(commitDepth);
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [gitRefreshVersion, currentProject, fetchGitStatus, commitDepth]);
+    if (previousGitRefreshVersion.current === gitRefreshVersion) return;
+    previousGitRefreshVersion.current = gitRefreshVersion;
+    if (currentProject) void fetchStatusRef.current(commitDepthRef.current);
+  }, [gitRefreshVersion, currentProject]);
 
   // Diffファイルクリックハンドラー（メモ化）
   // VSCode-style: ステージ済みファイルは HEAD vs INDEX を比較

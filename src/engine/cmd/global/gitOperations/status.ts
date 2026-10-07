@@ -1,63 +1,32 @@
 export function categorizeStatusFiles(status: Array<[string, number, number, number]>): {
   untracked: string[];
   modified: string[];
-  staged: string[];
+  stagedAdded: string[];
+  stagedModified: string[];
+  stagedDeleted: string[];
   deleted: string[];
 } {
   const untracked: string[] = [];
   const modified: string[] = [];
-  const staged: string[] = [];
+  const stagedAdded: string[] = [];
+  const stagedModified: string[] = [];
+  const stagedDeleted: string[] = [];
   const deleted: string[] = [];
 
-  console.log('[categorizeStatusFiles] Processing', status.length, 'files');
-
-  for (let i = 0; i < status.length; i++) {
-    const [filepath, HEAD, workdir, stage] = status[i];
-
-    if (HEAD === 0 && (workdir === 1 || workdir === 2) && stage === 0) {
-      untracked.push(filepath);
-      console.log('[categorizeStatusFiles]  -> untracked');
-    } else if (HEAD === 0 && stage === 3) {
-      staged.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged (new, stage=3)');
-    } else if (HEAD === 0 && stage === 2) {
-      staged.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged (new, stage=2)');
-    } else if (HEAD === 1 && workdir === 2 && stage === 1) {
-      modified.push(filepath);
-      console.log('[categorizeStatusFiles]  -> modified (unstaged)');
-    } else if (HEAD === 1 && workdir === 2 && stage === 2) {
-      staged.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged (modified)');
-    } else if (HEAD === 1 && workdir === 2 && stage === 3) {
-      staged.push(filepath);
-      modified.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged + modified (staged file was modified)');
-    } else if (HEAD === 1 && workdir === 1 && stage === 3) {
-      staged.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged (stage=3, workdir unchanged)');
-    } else if (HEAD === 1 && workdir === 0 && stage === 1) {
-      deleted.push(filepath);
-      console.log('[categorizeStatusFiles]  -> deleted (unstaged)');
-    } else if (HEAD === 1 && workdir === 0 && stage === 0) {
-      staged.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged (deleted)');
-    } else if (HEAD === 1 && workdir === 0 && stage === 3) {
-      staged.push(filepath);
-      console.log('[categorizeStatusFiles]  -> staged (deleted, stage=3)');
-    } else {
-      console.log('[categorizeStatusFiles]  -> no change or unhandled case');
+  for (const [filepath, head, workdir, stage] of status) {
+    if (head !== stage) {
+      if (head === 0) stagedAdded.push(filepath);
+      else if (stage === 0) stagedDeleted.push(filepath);
+      else stagedModified.push(filepath);
     }
+
+    if (workdir === stage) continue;
+    if (workdir === 0) deleted.push(filepath);
+    else if (stage === 0) untracked.push(filepath);
+    else modified.push(filepath);
   }
 
-  console.log('[categorizeStatusFiles] Result:', {
-    untracked: untracked.length,
-    modified: modified.length,
-    staged: staged.length,
-    deleted: deleted.length,
-  });
-
-  return { untracked, modified, staged, deleted };
+  return { untracked, modified, stagedAdded, stagedModified, stagedDeleted, deleted };
 }
 
 export async function formatStatusResult(
@@ -68,15 +37,23 @@ export async function formatStatusResult(
     return `On branch ${currentBranch}\nnothing to commit, working tree clean`;
   }
 
-  const { untracked, modified, staged, deleted } = categorizeStatusFiles(status);
+  const { untracked, modified, stagedAdded, stagedModified, stagedDeleted, deleted } =
+    categorizeStatusFiles(status);
+  const hasStagedChanges =
+    stagedAdded.length > 0 || stagedModified.length > 0 || stagedDeleted.length > 0;
 
   let result = `On branch ${currentBranch}\n`;
 
-  if (staged.length > 0) {
+  if (hasStagedChanges) {
     result += '\nChanges to be committed:\n';
-    for (let i = 0; i < staged.length; i++) {
-      const file = staged[i];
+    for (const file of stagedAdded) {
       result += `  new file:   ${file}\n`;
+    }
+    for (const file of stagedModified) {
+      result += `  modified:   ${file}\n`;
+    }
+    for (const file of stagedDeleted) {
+      result += `  deleted:    ${file}\n`;
     }
   }
 
@@ -102,11 +79,13 @@ export async function formatStatusResult(
     for (let i = 0; i < untracked.length; i++) {
       result += `  ${untracked[i]}\n`;
     }
-    result += '\nnothing added to commit but untracked files present (use "git add" to track)';
+    if (!hasStagedChanges) {
+      result += '\nnothing added to commit but untracked files present (use "git add" to track)';
+    }
   }
 
   if (
-    staged.length === 0 &&
+    !hasStagedChanges &&
     modified.length === 0 &&
     untracked.length === 0 &&
     deleted.length === 0
