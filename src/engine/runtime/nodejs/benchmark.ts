@@ -1,8 +1,32 @@
 /** Opt-in measurements scoped to one execution in a reusable runtime worker. */
 import { RuntimeBridge } from '../bridge/client';
-import type { RpcValue } from '../bridge/protocol';
+import type { FsRequest, RpcValue } from '../bridge/protocol';
 import { ModuleCode } from '../module/moduleCode';
+import { ModuleLoader } from '../module/moduleLoader';
 import { ModuleResolver } from '../module/moduleResolver';
+import { NodeRuntime } from './nodeRuntime';
+
+interface Span {
+  start: number;
+  end: number;
+}
+
+function coveredMs(spans: Span[], bounds: Span): number {
+  const clipped = spans
+    .map(span => ({
+      start: Math.max(span.start, bounds.start),
+      end: Math.min(span.end, bounds.end),
+    }))
+    .filter(span => span.end > span.start)
+    .sort((first, second) => first.start - second.start);
+  let end = bounds.start;
+  let total = 0;
+  for (const span of clipped) {
+    total += Math.max(0, span.end - Math.max(span.start, end));
+    end = Math.max(end, span.end);
+  }
+  return total;
+}
 
 export interface BenchmarkSession {
   report(): string;
@@ -20,6 +44,13 @@ export function startBenchmark(
 ): BenchmarkSession {
   const benchmark = {
     workerStartMs,
+    preloadWallMs: 0,
+    executeWallMs: 0,
+    eventLoopWallMs: 0,
+    fsOperations: {} as Record<
+      string,
+      { calls: number; wallMs: number; queueMs: number; coreMs: number }
+    >,
     ...acquisition,
     parseCalls: 0,
     parseMs: 0,
@@ -44,6 +75,35 @@ export function startBenchmark(
     actualXhrCalls: 0,
     actualXhrMs: 0,
   };
+  const rpcSpans: Span[] = [];
+  const analyzeSpans: Span[] = [];
+  const preloadSpans: Span[] = [];
+  function fsOperation(request: FsRequest) {
+    const key = `${request.op} ${request.path}`;
+    let operation = benchmark.fsOperations[key];
+    if (!operation) {
+      operation = { calls: 0, wallMs: 0, queueMs: 0, coreMs: 0 };
+      benchmark.fsOperations[key] = operation;
+    }
+    return operation;
+  }
+  const originalBenchmarkReply = RuntimeBridge.prototype.benchmarkReply;
+  RuntimeBridge.prototype.benchmarkReply = (request, metrics) => {
+    const operation = fsOperation(request);
+    operation.queueMs += metrics.queueMs;
+    operation.coreMs += metrics.coreMs;
+  };
+  function recordRpc(request: Parameters<RuntimeBridge['sync']>[0], start: number): number {
+    const end = performance.now();
+    rpcSpans.push({ start, end });
+    const elapsed = end - start;
+    if (request.kind === 'fs') {
+      const operation = fsOperation(request);
+      operation.calls++;
+      operation.wallMs += elapsed;
+    }
+    return elapsed;
+  }
   function recordReply(value: RpcValue): void {
     if (typeof value === 'object' && value !== null && 'benchmark' in value && value.benchmark) {
       benchmark.esbuildInitMs += value.benchmark.initMs;
@@ -54,7 +114,10 @@ export function startBenchmark(
   RuntimeBridge.prototype.sync = function (request) {
     const startedAt = performance.now();
     benchmark.syncXhr++;
-    if (request.kind === 'fs') benchmark.fsRpc++;
+    if (request.kind === 'fs') {
+      benchmark.fsRpc++;
+      request = { ...request, benchmark: true };
+    }
     if (request.kind === 'transpile') {
       benchmark.transpileCalls++;
       request = { ...request, benchmark: true };
@@ -68,7 +131,7 @@ export function startBenchmark(
       }
       return value;
     } finally {
-      const elapsed = performance.now() - startedAt;
+      const elapsed = recordRpc(request, startedAt);
       benchmark.syncMs += elapsed;
       if (request.kind === 'fs' && request.op === 'readFile') benchmark.readFileMs += elapsed;
       if (request.kind === 'transpile') benchmark.transpileMs += elapsed;
@@ -78,7 +141,10 @@ export function startBenchmark(
   RuntimeBridge.prototype.async = async function (request) {
     const startedAt = performance.now();
     benchmark.asyncRpc++;
-    if (request.kind === 'fs') benchmark.fsRpc++;
+    if (request.kind === 'fs') {
+      benchmark.fsRpc++;
+      request = { ...request, benchmark: true };
+    }
     if (request.kind === 'transpile') {
       benchmark.transpileCalls++;
       request = { ...request, benchmark: true };
@@ -92,7 +158,7 @@ export function startBenchmark(
       }
       return value;
     } finally {
-      const elapsed = performance.now() - startedAt;
+      const elapsed = recordRpc(request, startedAt);
       benchmark.asyncMs += elapsed;
       if (request.kind === 'fs' && request.op === 'readFile') benchmark.readFileMs += elapsed;
       if (request.kind === 'transpile') benchmark.transpileMs += elapsed;
@@ -168,15 +234,75 @@ export function startBenchmark(
     try {
       return originalAnalyze.apply(this, args);
     } finally {
-      benchmark.analyzeMs += performance.now() - startedAt;
+      const end = performance.now();
+      benchmark.analyzeMs += end - startedAt;
+      analyzeSpans.push({ start: startedAt, end });
+    }
+  };
+  const originalPreload = ModuleLoader.prototype.preloadDependencies;
+  ModuleLoader.prototype.preloadDependencies = async function (...args) {
+    const start = performance.now();
+    try {
+      return await originalPreload.apply(this, args);
+    } finally {
+      const end = performance.now();
+      benchmark.preloadWallMs += end - start;
+      preloadSpans.push({ start, end });
+    }
+  };
+  const originalExecute = NodeRuntime.prototype.execute;
+  NodeRuntime.prototype.execute = async function (...args) {
+    const start = performance.now();
+    try {
+      return await originalExecute.apply(this, args);
+    } finally {
+      benchmark.executeWallMs += performance.now() - start;
+    }
+  };
+  const originalWaitForEventLoop = NodeRuntime.prototype.waitForEventLoop;
+  NodeRuntime.prototype.waitForEventLoop = async function (...args) {
+    const start = performance.now();
+    try {
+      return await originalWaitForEventLoop.apply(this, args);
+    } finally {
+      benchmark.eventLoopWallMs += performance.now() - start;
     }
   };
   let disposed = false;
   return {
-    report: () => `__RUNTIME_BENCH__${JSON.stringify(benchmark)}\n`,
+    report() {
+      let preloadAnalyzeMs = 0;
+      let preloadRpcActiveMs = 0;
+      let preloadRpcWhileAnalyzeMs = 0;
+      for (const preload of preloadSpans) {
+        preloadAnalyzeMs += coveredMs(analyzeSpans, preload);
+        preloadRpcActiveMs += coveredMs(rpcSpans, preload);
+        for (const analyze of analyzeSpans) {
+          const bounds = {
+            start: Math.max(analyze.start, preload.start),
+            end: Math.min(analyze.end, preload.end),
+          };
+          preloadRpcWhileAnalyzeMs += coveredMs(rpcSpans, bounds);
+        }
+      }
+      const preloadRpcOutsideAnalyzeMs = preloadRpcActiveMs - preloadRpcWhileAnalyzeMs;
+      const phases = {
+        executeOutsidePreloadMs: benchmark.executeWallMs - benchmark.preloadWallMs,
+        preloadAnalyzeMs,
+        preloadRpcOutsideAnalyzeMs,
+        preloadOtherMs: benchmark.preloadWallMs - preloadAnalyzeMs - preloadRpcOutsideAnalyzeMs,
+        preloadRpcActiveMs,
+        preloadRpcWhileAnalyzeMs,
+      };
+      return `__RUNTIME_BENCH__${JSON.stringify({ ...benchmark, ...phases })}\n`;
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
+      RuntimeBridge.prototype.benchmarkReply = originalBenchmarkReply;
+      ModuleLoader.prototype.preloadDependencies = originalPreload;
+      NodeRuntime.prototype.execute = originalExecute;
+      NodeRuntime.prototype.waitForEventLoop = originalWaitForEventLoop;
       RuntimeBridge.prototype.sync = originalSync;
       RuntimeBridge.prototype.async = originalAsync;
       ModuleResolver.prototype.resolve = originalResolve;

@@ -137,7 +137,7 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。詳細は[Node.js Runtime](docs/NODE-RUNTIME.md)を参照してください。
+Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。FS Workerは直近の成功path lookupのdirectory handle chainを保持して共通ancestorを再利用しますが、file handleやfile内容はcacheしません。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。詳細は[Node.js Runtime](docs/NODE-RUNTIME.md)を参照してください。
 仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npm metadataは毎回取得し、tarball URLのSHA-256で識別したarchiveを展開成功後にcacheします。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
 - **分離した実行環境** - 実行ごとにmodule cacheやtimerなどの状態を作り直し、Workerは正常終了時に再利用

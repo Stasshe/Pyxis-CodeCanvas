@@ -14,7 +14,7 @@ sequenceDiagram
   UI->>Client: read or write absolute path
   Client->>Worker: Comlink request
   Worker->>Core: filesystem operation
-  Core->>OPFS: open, operate, close
+  Core->>OPFS: resolve shared directory prefix; perform filesystem operation
   OPFS-->>Core: result
   Core-->>Worker: result and change event
   Worker-->>Client: response and event

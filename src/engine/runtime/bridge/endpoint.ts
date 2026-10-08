@@ -15,7 +15,11 @@ export interface RuntimeFilesystem {
   readdir(path: string, benchmark?: FsBenchmark): Promise<string[]>;
   stat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
   mkdir(path: string, options: { recursive: boolean }, benchmark?: FsBenchmark): Promise<void>;
-  rm(path: string, options: { recursive: boolean; force: boolean }, benchmark?: FsBenchmark): Promise<void>;
+  rm(
+    path: string,
+    options: { recursive: boolean; force: boolean },
+    benchmark?: FsBenchmark
+  ): Promise<void>;
   rename(path: string, newPath: string, benchmark?: FsBenchmark): Promise<void>;
 }
 

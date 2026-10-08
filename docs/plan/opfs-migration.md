@@ -47,6 +47,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 | Service Worker | 同期XHRを受け、保持しているFS WorkerのMessagePortへ直接中継する。portを失ったらmainへ再送を要求する |
 
 - SyncAccessHandleは「開く→操作→閉じる」で使い、開きっぱなしにしない
+- FS Coreは直近の成功pathのdirectory handle prefixだけを保持し、次のpathとの共通prefixを再利用する。Core再初期化とdirectory削除時にgenerationを更新して無効化し、古いin-flight lookupはchainを更新できない。directory renameはsource削除時に無効化される。file handleやpayloadはcacheしない
 - FS Client: API・変更eventの購読口・metadataへのアクセスを提供する。現行の`fileRepository`を置き換える
 - API: Node fs風のpath基準（readFile / writeFile / readdir / stat / mkdir / rm / rename）。`readFile`はraw bytes、`readText`は明示UTF-8 decode、`writeFile`はtextまたはbytesを扱う。runtimeの`fsModule`とunixコマンドは同じIFを使う
 - 拡張機能はmainで読み込む（現状維持）

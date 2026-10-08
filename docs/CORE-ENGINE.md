@@ -23,7 +23,7 @@ Path normalization does not expand shell syntax. Tilde, glob, quotes, and variab
 
 `mkdir` supports recursive creation. `rm` accepts recursive and force options. `rename` moves files or directory trees and emits change events. `exists` distinguishes a missing entry from other filesystem errors. Errors expose filesystem-style codes such as `ENOENT`, `ENOTDIR`, `EISDIR`, and `ENOSPC`.
 
-The FS Worker opens a SyncAccessHandle for each file operation and closes it before returning. Operations against a path are queued to avoid overlapping handles. `/tmp` uses an in-memory map. HOME is `/home/pyxis`; runtime module cache is `~/.cache/pyxis`, and npm's canonical cache directory is `~/.npm`.
+FS Core retains only the directory-handle chain for its last successful path lookup and reuses shared ancestors on the next lookup. Initialization resets the chain; directory removal invalidates it before and after removal, including source removal during a directory rename. An in-flight lookup from an earlier generation cannot republish stale handles. File handles and contents are never cached. Each file operation opens a SyncAccessHandle and closes it before returning, and operations against a path are queued to avoid overlapping handles. `/tmp` uses an in-memory map. HOME is `/home/pyxis`; runtime module cache is `~/.cache/pyxis`, and npm's canonical cache directory is `~/.npm`.
 
 ## Worker and events
 

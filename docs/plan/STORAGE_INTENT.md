@@ -4,6 +4,7 @@
 - Node runtimeは同期の`require`と`fs.*Sync`を必要とする。今は実行前に依存を静的解析し、全fileをmemoryへpreloadしている。そのため動的`require`（変数やevalで組み立てたpath）が解決できない
 - file本体がIDB(`PyxisProjects.files`)とlightning-fs(`pyxis-fs`)に二重に書き込まれ、`syncManager`が同期している。書き込みは2倍になり、同期ずれも起きうる
 - pathが3形式ある（AppPath `/src/a.ts` / FSPath `/projects/<name>/src/a.ts` / GitPath）。形式間の変換が全層に散らばっている
+- OPFSのpath lookupはancestorを順に解決する。Node module preloadは兄弟fileを連続して読むため、同じroot-to-parent探索がFS service時間に繰り返し現れる。保持量を増やさずこれを避けるため、直近のdirectory handle chainだけを再利用する
 - 制約: Safariに対応する必要がある。WebPreviewのiframeは同一originの`document.write`で、ユーザーHTML内の外部CDN・画像を読み込む
 
 ## 判断
@@ -21,6 +22,7 @@
 - **配置はLinuxのFHS・XDGに従う**（`HOME=/home/pyxis`、新規workspace `~/<name>`、runtime cache `~/.cache/pyxis`、npm cache `~/.npm`）。`/`直下にuser folderとsystem directoryを混ぜず、shell・Node・npmがHOME基準で期待する配置を使う。既存folderは名前にかかわらず開け、旧projectの移行destinationが既存ならsuffixで避けずに停止する
 - **workspaceの外へのアクセスは自由**。terminal・runtimeの挙動を実際のNode・shellに一致させる
 - **OPFSに書き込むのはFS Workerだけ**。SyncAccessHandleは排他lockなので所有者を1つに絞る。変更eventも1か所から出せる
+- **FS Coreは直近の成功pathのdirectory handle chainだけを再利用する**。共通ancestorの探索を省き、保持量を1 chainに抑える。Core再初期化とdirectory削除はchainを無効化し（directory renameはsource削除時）、古いin-flight lookupはchainを更新できない。file handleや内容はcacheせず、OPFSを唯一のpayload保管先に保つ
 - **file I/Oはmainから外す**。gitやnpm installは1回の操作でfsを数千回呼ぶ。だからFS Workerと同じ場所で動かし、message往復をなくす。mainはUIと中継だけにする
 - **npm installは配布file bytesを保存する**。install時にruntime変換を混ぜず、packageの元の内容を保つ。module formatの判定と必要な変換はNode実行時のpackage条件に基づいて行う
 - **metadataはIDBに残す**。OPFSにはindexも任意属性もない。recent folders・root-scoped Quick Open MRU file paths・chat・tab状態・AIレビューのように、検索と属性が必要なものはIDBに置く

@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import { ModuleCode } from '@/engine/runtime/module/moduleCode';
+import { ModuleLoader } from '@/engine/runtime/module/moduleLoader';
 import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 import { startBenchmark } from '@/engine/runtime/nodejs/benchmark';
+import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
+import { createNodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
 vi.mock('sync-message', () => ({
   makeServiceWorkerChannel: vi.fn(),
@@ -15,6 +18,14 @@ interface BenchmarkCounters {
   workerStartMs: number;
   acquisitionMs?: number;
   preparedWorker?: boolean;
+  preloadWallMs: number;
+  executeWallMs: number;
+  executeOutsidePreloadMs: number;
+  preloadAnalyzeMs: number;
+  preloadRpcOutsideAnalyzeMs: number;
+  preloadOtherMs: number;
+  eventLoopWallMs: number;
+  fsOperations: Record<string, { calls: number; wallMs: number; queueMs: number; coreMs: number }>;
 }
 
 function counters(report: string): BenchmarkCounters {
@@ -29,6 +40,10 @@ describe('runtime benchmark lifecycle', () => {
       send() {}
     }
     vi.stubGlobal('XMLHttpRequest', Xhr);
+    const benchmarkReply = RuntimeBridge.prototype.benchmarkReply;
+    const preload = ModuleLoader.prototype.preloadDependencies;
+    const execute = NodeRuntime.prototype.execute;
+    const wait = NodeRuntime.prototype.waitForEventLoop;
     const sync = RuntimeBridge.prototype.sync;
     const asyncRpc = RuntimeBridge.prototype.async;
     const resolve = ModuleResolver.prototype.resolve;
@@ -46,6 +61,10 @@ describe('runtime benchmark lifecycle', () => {
       first.dispose();
     }
     first.dispose();
+    expect(RuntimeBridge.prototype.benchmarkReply).toBe(benchmarkReply);
+    expect(ModuleLoader.prototype.preloadDependencies).toBe(preload);
+    expect(NodeRuntime.prototype.execute).toBe(execute);
+    expect(NodeRuntime.prototype.waitForEventLoop).toBe(wait);
     expect(RuntimeBridge.prototype.sync).toBe(sync);
     expect(RuntimeBridge.prototype.async).toBe(asyncRpc);
     expect(ModuleResolver.prototype.resolve).toBe(resolve);
@@ -74,5 +93,37 @@ describe('runtime benchmark lifecycle', () => {
     }
     expect(ModuleCode.parse).toBe(parse);
     expect(ModuleCode.analyze).toBe(analyze);
+  });
+
+  it('partitions preload wall time without summing overlapping RPC or parser spans', async () => {
+    class Xhr {
+      send() {}
+    }
+    vi.stubGlobal('XMLHttpRequest', Xhr);
+    const fixture = await createNodeRuntimeFixture('/tmp/benchmark');
+    const path = `${fixture.rootPath}/entry.cjs`;
+    await fixture.writeFile(path, 'module.exports = 1;');
+    await fixture.writeFile(`${fixture.rootPath}/package.json`, '{"type":"commonjs"}');
+    const session = startBenchmark(0);
+    try {
+      await fixture.runtime.execute(path);
+      await fixture.runtime.waitForEventLoop();
+      const metrics = counters(session.report());
+      expect(metrics.preloadWallMs).toBeGreaterThan(0);
+      expect(metrics.eventLoopWallMs).toBeGreaterThan(0);
+      expect(
+        metrics.preloadAnalyzeMs + metrics.preloadRpcOutsideAnalyzeMs + metrics.preloadOtherMs
+      ).toBeCloseTo(metrics.preloadWallMs, 8);
+      expect(metrics.preloadWallMs + metrics.executeOutsidePreloadMs).toBeCloseTo(
+        metrics.executeWallMs,
+        8
+      );
+      expect(metrics.preloadOtherMs).toBeGreaterThanOrEqual(0);
+      expect(metrics.fsOperations[`readFile ${path}`].calls).toBe(1);
+    } finally {
+      session.dispose();
+      fixture.runtime.dispose();
+      fixture.close();
+    }
   });
 });

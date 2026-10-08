@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FsCore } from '@/engine/core/fs/core';
 import { NPM_CACHE_PATH, RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
 import { HOME_DIR } from '@/engine/core/pathUtils';
@@ -53,6 +53,95 @@ describe('Linux filesystem layout', () => {
       await expect(core.rm(path, { recursive: true })).rejects.toMatchObject({ code: 'EBUSY' });
       await expect(core.rename(path, '/moved')).rejects.toMatchObject({ code: 'EBUSY' });
     }
+  });
+});
+
+describe('OPFS directory handle reuse', () => {
+  it('reuses ancestors for sibling reads and alternating child directories', async () => {
+    const root = directoryTree();
+    const core = new FsCore();
+    await core.init(root);
+    await core.mkdir('/parent/left', { recursive: true });
+    await core.mkdir('/parent/right');
+    await core.writeFile('/parent/left/first', 'left');
+    await core.writeFile('/parent/left/second', 'sibling');
+    await core.writeFile('/parent/right/first', 'right');
+    const parent = await root.getDirectoryHandle('parent');
+    const rootLookup = vi.spyOn(root, 'getDirectoryHandle');
+    const childLookup = vi.spyOn(parent, 'getDirectoryHandle');
+    await core.readText('/parent/left/first');
+    rootLookup.mockClear();
+    childLookup.mockClear();
+    expect(await core.readText('/parent/left/second')).toBe('sibling');
+    expect(rootLookup).not.toHaveBeenCalled();
+    expect(childLookup).not.toHaveBeenCalled();
+    expect(await core.readText('/parent/right/first')).toBe('right');
+    expect(await core.readText('/parent/left/first')).toBe('left');
+    expect(rootLookup).not.toHaveBeenCalled();
+    expect(childLookup.mock.calls.map(call => call[0])).toEqual(['right', 'left']);
+  });
+
+  it('drops removed and renamed directory handles before path recreation', async () => {
+    const core = new FsCore();
+    await core.init(directoryTree());
+    await core.mkdir('/parent/child', { recursive: true });
+    await core.writeFile('/parent/child/file', 'original');
+    await core.readText('/parent/child/file');
+    await core.rename('/parent', '/moved');
+    await core.mkdir('/parent/child', { recursive: true });
+    await core.writeFile('/parent/child/file', 'replacement');
+    expect(await core.readText('/parent/child/file')).toBe('replacement');
+    expect(await core.readText('/moved/child/file')).toBe('original');
+    await core.rm('/parent', { recursive: true });
+    await core.mkdir('/parent/child', { recursive: true });
+    await core.writeFile('/parent/child/file', 'recreated');
+    expect(await core.readText('/parent/child/file')).toBe('recreated');
+  });
+
+  it('drops directory handles when initialized with a different root', async () => {
+    const core = new FsCore();
+    await core.init(directoryTree());
+    await core.mkdir('/parent');
+    await core.writeFile('/parent/file', 'old');
+    await core.readText('/parent/file');
+    await core.init(directoryTree());
+    await expect(core.readText('/parent/file')).rejects.toMatchObject({ code: 'ENOENT' });
+    await core.mkdir('/parent');
+    await core.writeFile('/parent/file', 'new');
+    expect(await core.readText('/parent/file')).toBe('new');
+  });
+
+  it('does not publish an in-flight lookup after its directory is removed', async () => {
+    const root = directoryTree();
+    const core = new FsCore();
+    await core.init(root);
+    await core.mkdir('/parent/child', { recursive: true });
+    await core.writeFile('/parent/child/file', 'old');
+    const parent = await root.getDirectoryHandle('parent');
+    const child = await parent.getDirectoryHandle('child');
+    await expect(core.stat('/parent/missing')).rejects.toMatchObject({ code: 'ENOENT' });
+    let release!: () => void;
+    let started!: () => void;
+    const waiting = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    const entered = new Promise<void>(resolve => {
+      started = resolve;
+    });
+    vi.spyOn(parent, 'getDirectoryHandle').mockImplementationOnce(async () => {
+      started();
+      await waiting;
+      return child;
+    });
+    const pending = core.readText('/parent/child/file');
+    await entered;
+    await core.rm('/parent', { recursive: true });
+    await core.mkdir('/parent/child', { recursive: true });
+    release();
+    await pending;
+    await expect(core.stat('/parent/child/file')).rejects.toMatchObject({ code: 'ENOENT' });
+    await core.writeFile('/parent/child/file', 'new');
+    expect(await core.readText('/parent/child/file')).toBe('new');
   });
 });
 

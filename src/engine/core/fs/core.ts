@@ -25,9 +25,16 @@ interface MemoryEntry {
   data?: Uint8Array;
 }
 
+interface DirectoryEntry {
+  segment: string;
+  handle: FileSystemDirectoryHandle;
+}
+
 /** The worker owns persistent handles; /tmp is an ephemeral mount. */
 export class FsCore {
   private root: FileSystemDirectoryHandle | null = null;
+  private directoryChain: DirectoryEntry[] = [];
+  private directoryEpoch = 0;
   private readonly memory = new Map<string, MemoryEntry>();
   private readonly accessQueues = new Map<string, Promise<void>>();
   private changeListener: ((event: FsChangeEvent) => void) | null = null;
@@ -37,8 +44,10 @@ export class FsCore {
   }
 
   async init(root?: FileSystemDirectoryHandle): Promise<void> {
+    this.invalidateDirectories();
     if (root) this.root = root;
     else this.root = await navigator.storage.getDirectory();
+    this.invalidateDirectories();
     for (const path of [HOME_DIR, RUNTIME_CACHE_PATH, NPM_CACHE_PATH]) {
       let directory = this.root;
       for (const segment of path.split('/').filter(Boolean)) {
@@ -107,16 +116,32 @@ export class FsCore {
 
   private async directory(path: string): Promise<FileSystemDirectoryHandle> {
     if (!this.root) throw new Error('FS Core is not initialized');
+    const epoch = this.directoryEpoch;
+    const segments = path.split('/').filter(Boolean);
+    const previous = this.directoryChain;
+    let shared = 0;
+    while (shared < segments.length && previous[shared]?.segment === segments[shared]) {
+      shared += 1;
+    }
+    const chain = previous.slice(0, shared);
     let directory = this.root;
+    if (shared > 0) directory = chain[shared - 1].handle;
     try {
-      for (const segment of path.split('/').filter(Boolean)) {
+      for (const segment of segments.slice(shared)) {
         directory = await directory.getDirectoryHandle(segment);
+        chain.push({ segment, handle: directory });
       }
+      if (epoch === this.directoryEpoch) this.directoryChain = chain;
       return directory;
     } catch (error) {
       if (error instanceof Error) throw this.translate(error, path);
       throw error;
     }
+  }
+
+  private invalidateDirectories(): void {
+    this.directoryEpoch += 1;
+    this.directoryChain = [];
   }
 
   private async fileHandle(path: string, create = false): Promise<OpfsFileHandle> {
@@ -294,11 +319,14 @@ export class FsCore {
       }
     } else {
       const parent = await this.directory(getParentPath(path));
+      if (metadata.type === 'folder') this.invalidateDirectories();
       try {
         await parent.removeEntry(basename(path), { recursive: options.recursive });
       } catch (error) {
         if (error instanceof Error) throw this.translate(error, path);
         throw error;
+      } finally {
+        if (metadata.type === 'folder') this.invalidateDirectories();
       }
     }
     if (emit) this.emit({ type: 'delete', path });
