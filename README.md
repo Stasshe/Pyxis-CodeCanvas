@@ -221,7 +221,7 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 
 #### 主なポイント
 - **CLIテンプレート生成**：`pnpm run create-extension`で対話式テンプレート自動生成。初心者でも即拡張開発可能。
-- **npm registry package対応**：package-lock.json v3を使った依存固定と、異なるversionを含む依存treeのinstallに対応。
+- **npm registry package対応**：package-lock.json v3を使った依存固定と、異なるversionを含む依存treeのinstallに対応。互換lock entryを優先し、新しいrangeでは条件を満たす`latest`を選びます。
 - **Terminalコマンド拡張**：独自コマンドをAPIで追加し、PyxisターミナルUIから実行可能。
 - **VSCodeライクなUI拡張**：カスタムタブ・サイドバーパネルをAPIで追加。React/TSXで直感的にUI構築。
 - **多言語パック・サービス拡張**：言語パックや独自サービスも拡張機能として追加。

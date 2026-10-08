@@ -12,6 +12,37 @@ function packageInfo(name: string, dependencies: Record<string, string> = {}): P
 }
 
 describe('dependency graph discovery', () => {
+  it('uses all six bounded metadata slots without exceeding the shared network limit', async () => {
+    let active = 0;
+    let peak = 0;
+    let release: () => void = () => {};
+    let reportStarted: () => void = () => {};
+    const gate = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    const started = new Promise<void>(resolve => {
+      reportStarted = resolve;
+    });
+    const requests = Array.from({ length: 7 }, (_, index) => ({
+      name: `package-${index}`,
+      version: '1.0.0',
+      isDirect: true,
+    }));
+    const pending = resolveDependencyPlan(requests, async name => {
+      active += 1;
+      peak = Math.max(peak, active);
+      if (active === 6) reportStarted();
+      await gate;
+      active -= 1;
+      return packageInfo(name);
+    });
+    await started;
+    expect(active).toBe(6);
+    release();
+    expect(await pending).toHaveLength(7);
+    expect(peak).toBe(6);
+  });
+
   it('resolves overlapping roots with a cycle without waiting on ancestor promises', async () => {
     const packages = new Map([
       ['a', packageInfo('a', { b: '^1.0.0' })],

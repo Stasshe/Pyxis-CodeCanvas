@@ -37,6 +37,7 @@ interface Freshness {
 
 export class RegistryClient {
   private readonly packuments = new Map<string, Promise<RegistryPackument>>();
+  private registryCacheDirectory: Promise<void> | undefined;
 
   constructor(
     private readonly fs: FsApi,
@@ -120,7 +121,6 @@ export class RegistryClient {
   }
 
   private async readCache(path: string): Promise<CachedPackument | undefined> {
-    if (!(await this.fs.exists(path))) return undefined;
     let content: string;
     try {
       content = await this.fs.readText(path);
@@ -149,8 +149,19 @@ export class RegistryClient {
       await this.fs.rm(path, { force: true });
       return;
     }
-    await this.fs.mkdir(REGISTRY_CACHE_PATH, { recursive: true });
+    await this.ensureRegistryCacheDirectory();
     await this.fs.writeFile(path, JSON.stringify(entry));
+  }
+
+  private ensureRegistryCacheDirectory(): Promise<void> {
+    if (this.registryCacheDirectory) return this.registryCacheDirectory;
+    let request: Promise<void>;
+    request = this.fs.mkdir(REGISTRY_CACHE_PATH, { recursive: true }).catch(error => {
+      if (this.registryCacheDirectory === request) this.registryCacheDirectory = undefined;
+      throw error;
+    });
+    this.registryCacheDirectory = request;
+    return request;
   }
 
   private async cachePath(url: string): Promise<string> {

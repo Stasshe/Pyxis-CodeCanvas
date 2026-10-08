@@ -204,7 +204,7 @@ One of Pyxis's biggest features is its "Extension System." You can add VSCode-li
 
 #### Highlights
 - **CLI Template Generation**: Instantly scaffold new extensions with `pnpm run create-extension`. Even beginners can start developing extensions right away.
-- **npm Registry Package Support**: Registry tarball installs use npm v3 lockfiles and support nested dependency versions.
+- **npm Registry Package Support**: Registry tarball installs use npm v3 lockfiles and support nested dependency versions. Compatible lock entries take priority; new ranges prefer `latest` when it satisfies the range.
 - **Terminal Command Extensions**: Add custom commands via API and run them from Pyxis's terminal UI.
 - **VSCode-like UI Extensions**: Add custom tabs and sidebar panels via API. Build intuitive UIs with React/TSX.
 - **Language Packs & Service Extensions**: Add language packs or custom services as extensions.

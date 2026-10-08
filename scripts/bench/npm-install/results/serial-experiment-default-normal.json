@@ -1,0 +1,156 @@
+{
+  "benchmark": "npm-install-cold-trials",
+  "sourceLabel": "combined-source-default-normal",
+  "instrumented": false,
+  "serialExtraction": false,
+  "trialCount": 5,
+  "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+  "cachePolicy": "Each trial clears OPFS ~/.npm, uses a new project root, and fetches with cache:no-store.",
+  "setupMs": 10811.300000000745,
+  "results": {
+    "medium-express": {
+      "trials": [
+        {
+          "trial": 1,
+          "rootPath": "/home/pyxis/.bench/npm-install/trials-1791470302992-1/medium-express-cold-1",
+          "sample": {
+            "wallMs": 3557.900000002235,
+            "output": "added 68 packages, and audited 1 packages in 3.6s\n\nfound 0 vulnerabilities",
+            "succeeded": true,
+            "manifest": {
+              "name": "pyxis-bench-medium-express",
+              "version": "1.0.0",
+              "dependencies": {
+                "express": "5.1.0"
+              },
+              "devDependencies": {}
+            },
+            "metrics": null,
+            "fileCount": 601,
+            "manifestCount": 68,
+            "bytes": 2335974
+          }
+        },
+        {
+          "trial": 2,
+          "rootPath": "/home/pyxis/.bench/npm-install/trials-1791470302992-1/medium-express-cold-2",
+          "sample": {
+            "wallMs": 1498.8999999985099,
+            "output": "added 68 packages, and audited 1 packages in 1.5s\n\nfound 0 vulnerabilities",
+            "succeeded": true,
+            "manifest": {
+              "name": "pyxis-bench-medium-express",
+              "version": "1.0.0",
+              "dependencies": {
+                "express": "5.1.0"
+              },
+              "devDependencies": {}
+            },
+            "metrics": null,
+            "fileCount": 601,
+            "manifestCount": 68,
+            "bytes": 2335974
+          }
+        },
+        {
+          "trial": 3,
+          "rootPath": "/home/pyxis/.bench/npm-install/trials-1791470302992-1/medium-express-cold-3",
+          "sample": {
+            "wallMs": 1361.1000000014901,
+            "output": "added 68 packages, and audited 1 packages in 1.4s\n\nfound 0 vulnerabilities",
+            "succeeded": true,
+            "manifest": {
+              "name": "pyxis-bench-medium-express",
+              "version": "1.0.0",
+              "dependencies": {
+                "express": "5.1.0"
+              },
+              "devDependencies": {}
+            },
+            "metrics": null,
+            "fileCount": 601,
+            "manifestCount": 68,
+            "bytes": 2335974
+          }
+        },
+        {
+          "trial": 4,
+          "rootPath": "/home/pyxis/.bench/npm-install/trials-1791470302992-1/medium-express-cold-4",
+          "sample": {
+            "wallMs": 1405.300000000745,
+            "output": "added 68 packages, and audited 1 packages in 1.4s\n\nfound 0 vulnerabilities",
+            "succeeded": true,
+            "manifest": {
+              "name": "pyxis-bench-medium-express",
+              "version": "1.0.0",
+              "dependencies": {
+                "express": "5.1.0"
+              },
+              "devDependencies": {}
+            },
+            "metrics": null,
+            "fileCount": 601,
+            "manifestCount": 68,
+            "bytes": 2335974
+          }
+        },
+        {
+          "trial": 5,
+          "rootPath": "/home/pyxis/.bench/npm-install/trials-1791470302992-1/medium-express-cold-5",
+          "sample": {
+            "wallMs": 1401.3999999985099,
+            "output": "added 68 packages, and audited 1 packages in 1.4s\n\nfound 0 vulnerabilities",
+            "succeeded": true,
+            "manifest": {
+              "name": "pyxis-bench-medium-express",
+              "version": "1.0.0",
+              "dependencies": {
+                "express": "5.1.0"
+              },
+              "devDependencies": {}
+            },
+            "metrics": null,
+            "fileCount": 601,
+            "manifestCount": 68,
+            "bytes": 2335974
+          }
+        }
+      ],
+      "timings": {
+        "samples": 5,
+        "medianMs": 1405.300000000745,
+        "p25Ms": 1401.3999999985099,
+        "p75Ms": 1498.8999999985099,
+        "minMs": 1361.1000000014901,
+        "maxMs": 3557.900000002235
+      },
+      "footprint": {
+        "fileCount": {
+          "samples": 5,
+          "medianMs": 601,
+          "p25Ms": 601,
+          "p75Ms": 601,
+          "minMs": 601,
+          "maxMs": 601
+        },
+        "manifestCount": {
+          "samples": 5,
+          "medianMs": 68,
+          "p25Ms": 68,
+          "p75Ms": 68,
+          "minMs": 68,
+          "maxMs": 68
+        },
+        "bytes": {
+          "samples": 5,
+          "medianMs": 2335974,
+          "p25Ms": 2335974,
+          "p75Ms": 2335974,
+          "minMs": 2335974,
+          "maxMs": 2335974
+        }
+      },
+      "allSucceeded": true
+    }
+  }
+}

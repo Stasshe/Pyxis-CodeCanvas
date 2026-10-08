@@ -30,4 +30,5 @@ export class NpmNetwork {
   }
 }
 
-export const npmNetwork = new NpmNetwork(6);
+export const NPM_NETWORK_CONCURRENCY = 6;
+export const npmNetwork = new NpmNetwork(NPM_NETWORK_CONCURRENCY);

@@ -1,3 +1,4 @@
+import { NPM_NETWORK_CONCURRENCY } from './npmNetwork';
 import type { PackageInfo } from './types';
 
 export interface DependencyRequest {
@@ -34,7 +35,7 @@ const TARGET_CPU = 'x64';
 export async function resolveDependencyPlan(
   roots: DependencyRequest[],
   resolvePackageInfo: PackageInfoResolver,
-  concurrency = 4,
+  concurrency = NPM_NETWORK_CONCURRENCY,
   onOptionalFailure: OptionalDependencyFailure = () => {}
 ): Promise<ResolvedDependency[]> {
   if (roots.length === 0) return [];

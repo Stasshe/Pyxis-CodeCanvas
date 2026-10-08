@@ -41,4 +41,13 @@ describe('npm version utils', () => {
     expect(satisfiesVersionSpec('2.9.9', '>= 2.1.2 < 3.0.0')).toBe(true);
     expect(satisfiesVersionSpec('3.0.0', '>= 2.1.2 < 3.0.0')).toBe(false);
   });
+
+  it('prefers a satisfying latest tag without changing exact or out-of-range requests', () => {
+    const available = { '1.3.0': {}, '1.3.1': {}, '2.0.0': {} };
+
+    expect(resolveVersionSpec('^1.3.0', available, '1.3.0')).toBe('1.3.0');
+    expect(resolveVersionSpec('1.3.1', available, '1.3.0')).toBe('1.3.1');
+    expect(resolveVersionSpec('>=1.3.1 <2.0.0', available, '1.3.0')).toBe('1.3.1');
+    expect(resolveVersionSpec('^1.3.0', available, '9.0.0')).toBe('1.3.1');
+  });
 });

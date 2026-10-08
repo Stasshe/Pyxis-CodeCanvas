@@ -46,7 +46,10 @@ async function closeFsClient(fsClient) {
 
 async function sampleInstall(fsClient, rootPath, fixture, id, options) {
   await closeFsClient(fsClient);
-  await initProfiledFsClient(fsClient, { profile: options.profile });
+  await initProfiledFsClient(fsClient, {
+    profile: options.profile,
+    serialExtraction: options.serialExtraction,
+  });
   const manifest = await writeManifest(fsClient, rootPath, fixture);
   if (options.lockfile) {
     await fsClient.writeFile(
@@ -119,29 +122,38 @@ function summarizeFootprint(trials) {
 
 export async function runColdTrials({
   profile = false,
+  serialExtraction = false,
+  fixtureNames,
   trialCount = 7,
   sourceLabel,
   onTrial,
 } = {}) {
   if (!sourceLabel) throw new Error('A sourceLabel is required for repeated cold trials.');
-  if (!Number.isInteger(trialCount) || trialCount < 5) {
-    throw new Error('Cold-trial count must be an integer of at least 5.');
+  if (!Number.isInteger(trialCount) || trialCount < 3) {
+    throw new Error('Cold-trial count must be an integer of at least 3.');
   }
 
   const { fsClient } = await import('/src/engine/core/fs/client.ts');
   runNumber += 1;
   const runId = `trials-${Date.now()}-${runNumber}`;
-  const results = Object.fromEntries(fixtureData.fixtures.map(fixture => [fixture.name, []]));
+  const selectedFixtures = fixtureNames
+    ? fixtureData.fixtures.filter(fixture => fixtureNames.includes(fixture.name))
+    : fixtureData.fixtures;
+  if (selectedFixtures.length === 0) {
+    throw new Error('No matching npm benchmark fixtures were requested.');
+  }
+  const results = Object.fromEntries(selectedFixtures.map(fixture => [fixture.name, []]));
   const startedAt = performance.now();
 
   for (let trialIndex = 0; trialIndex < trialCount; trialIndex += 1) {
-    for (let offset = 0; offset < fixtureData.fixtures.length; offset += 1) {
-      const fixtureIndex = (offset + trialIndex) % fixtureData.fixtures.length;
-      const fixture = fixtureData.fixtures[fixtureIndex];
+    for (let offset = 0; offset < selectedFixtures.length; offset += 1) {
+      const fixtureIndex = (offset + trialIndex) % selectedFixtures.length;
+      const fixture = selectedFixtures[fixtureIndex];
       const rootPath = `${BENCH_ROOT}/${runId}/${fixture.name}-cold-${trialIndex + 1}`;
       const id = `${runId}-${fixture.name}-cold-${trialIndex + 1}`;
       const sample = await sampleInstall(fsClient, rootPath, fixture, id, {
         profile,
+        serialExtraction,
         clearCache: true,
       });
       const trial = { trial: trialIndex + 1, rootPath, sample };
@@ -151,7 +163,7 @@ export async function runColdTrials({
   }
 
   const fixtures = {};
-  for (const fixture of fixtureData.fixtures) {
+  for (const fixture of selectedFixtures) {
     const trials = results[fixture.name];
     fixtures[fixture.name] = {
       trials,
@@ -165,6 +177,7 @@ export async function runColdTrials({
     benchmark: 'npm-install-cold-trials',
     sourceLabel,
     instrumented: profile,
+    serialExtraction,
     trialCount,
     browser: navigator.userAgent,
     cachePolicy:
@@ -243,7 +256,7 @@ export async function runInstall(name, cacheState = 'cold', profile = true) {
     rootPath,
     fixture,
     `${runId}-${fixture.name}-${cacheState}`,
-    { profile, clearCache: cacheState === 'cold' }
+    { profile, serialExtraction: false, clearCache: cacheState === 'cold' }
   );
   return { name, cacheState, rootPath, ...sample };
 }

@@ -6,7 +6,14 @@ export function satisfiesVersionSpec(version: string, spec: string): boolean {
   return satisfies(version, range);
 }
 
-export function resolveVersionSpec(spec: string, versions: Record<string, object>): string | null {
+export function resolveVersionSpec(
+  spec: string,
+  versions: Record<string, object>,
+  preferredVersion?: string
+): string | null {
   if (versions[spec]) return spec;
+  if (preferredVersion && versions[preferredVersion] && satisfies(preferredVersion, spec)) {
+    return preferredVersion;
+  }
   return maxSatisfying(Object.keys(versions), spec);
 }

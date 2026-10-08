@@ -19,7 +19,7 @@ import {
   replayLockedTree,
   rootDependencyRequests,
 } from './install/lockfile';
-import { npmNetwork } from './install/npmNetwork';
+import { NPM_NETWORK_CONCURRENCY, npmNetwork } from './install/npmNetwork';
 import { RegistryClient, type RegistryVersion } from './install/registryClient';
 import { type TarEntry, TarExtractor } from './install/tarExtractor';
 import {
@@ -47,6 +47,7 @@ export class NpmInstall {
   private extractor = new TarExtractor();
   private onInstallProgress?: InstallProgressCallback;
   private manifests = new Map<string, Promise<InstalledPackage | null>>();
+  private cacheDirectory?: Promise<void>;
 
   constructor(
     rootPath: string,
@@ -164,7 +165,7 @@ export class NpmInstall {
     if (data['dist-tags']?.[version]) resolvedVersion = data['dist-tags'][version];
     let versionData: RegistryVersion | undefined = data.versions[resolvedVersion];
     if (!versionData) {
-      const matchedVersion = resolveVersionSpec(version, data.versions);
+      const matchedVersion = resolveVersionSpec(version, data.versions, latest);
       if (matchedVersion) {
         resolvedVersion = matchedVersion;
         versionData = data.versions[matchedVersion];
@@ -221,7 +222,7 @@ export class NpmInstall {
           if (locked) return Promise.resolve(locked);
           return this.resolvePackageInfo(name, version);
         },
-        4,
+        NPM_NETWORK_CONCURRENCY,
         (name, version, message) =>
           console.warn(`[npm] Skipping optional dep ${name}@${version}: ${message}`)
       );
@@ -374,7 +375,7 @@ export class NpmInstall {
         }
       }
     };
-    const workerCount = Math.min(4, queue.length);
+    const workerCount = Math.min(NPM_NETWORK_CONCURRENCY, queue.length);
     const workers: Promise<void>[] = [];
     for (let index = 0; index < workerCount; index += 1) workers.push(runJob());
     await Promise.all(workers);
@@ -428,13 +429,16 @@ export class NpmInstall {
           if (!touchedPackage) await this.fs.rm(packageDir, { recursive: true, force: true });
           touchedPackage = true;
           try {
+            if (!createdDirectories.has(packageDir)) {
+              await this.fs.mkdir(packageDir, { recursive: true });
+              createdDirectories.add(packageDir);
+            }
             await this.writeTarEntry(entry, packageDir, createdDirectories);
           } catch (error) {
             filesystemFailure = true;
             throw error;
           }
         });
-        await this.fs.mkdir(packageDir, { recursive: true });
         if (!(await this.files.getFile(`${packageDir}/package.json`))) {
           throw new Error(`Package archive has no package.json: ${packageName}@${version}`);
         }
@@ -446,7 +450,7 @@ export class NpmInstall {
         throw new Error(`Failed to extract package: ${message}`);
       }
       if (!cached) {
-        await this.fs.mkdir(NPM_CACHE_PATH, { recursive: true });
+        await this.ensureTarballCacheDirectory();
         await this.fs.writeFile(cachePath, tarballData);
       }
     } catch (error) {
@@ -481,9 +485,10 @@ export class NpmInstall {
       createdPaths.push(current);
       current = getParentPath(current);
     }
-    await this.fs.mkdir(path, { recursive: true });
-    for (const createdPath of createdPaths) createdDirectories.add(createdPath);
-    createdDirectories.add(packageDir);
+    for (const createdPath of createdPaths.reverse()) {
+      await this.fs.mkdir(createdPath);
+      createdDirectories.add(createdPath);
+    }
   }
 
   private async downloadTarball(
@@ -517,6 +522,16 @@ export class NpmInstall {
     } finally {
       clearTimeout(timeoutId);
     }
+  }
+
+  private ensureTarballCacheDirectory(): Promise<void> {
+    if (this.cacheDirectory) return this.cacheDirectory;
+    const request = this.fs.mkdir(NPM_CACHE_PATH, { recursive: true });
+    this.cacheDirectory = request;
+    request.then(undefined, () => {
+      if (this.cacheDirectory === request) this.cacheDirectory = undefined;
+    });
+    return request;
   }
 
   private async getTarballCachePath(url: string): Promise<string> {

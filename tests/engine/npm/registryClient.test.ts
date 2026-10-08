@@ -45,12 +45,14 @@ describe('npm registry metadata cache', () => {
     const { repo } = await setupTestProject('RegistryFreshCache');
     const fetchMock = setupFetch([installResponse('1.2.3', 'public, max-age=60')]);
     const first = await new RegistryClient(repo).getPackument('registry-fixture');
+    const exists = vi.spyOn(repo, 'exists');
     const second = await new RegistryClient(repo).getPackument('registry-fixture');
 
     expect(first['dist-tags']?.latest).toBe('1.2.3');
     expect(second.versions['1.2.3'].dist?.tarball).toBe('https://example.test/1.2.3.tgz');
     expect('readme' in second.versions['1.2.3']).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(exists).not.toHaveBeenCalled();
     const request = fetchMock.mock.calls[0][1];
     expect(new Headers(request?.headers).get('Accept')).toBe('application/vnd.npm.install-v1+json');
   });
@@ -151,6 +153,40 @@ describe('npm registry metadata cache', () => {
 
     await expect(new RegistryClient(repo).getPackument('registry-fixture')).rejects.toThrow('EIO');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates the registry cache directory once per client', async () => {
+    const { repo } = await setupTestProject('RegistryCacheDirectory');
+    setupFetch([installResponse('1.0.0', 'max-age=60'), installResponse('2.0.0', 'max-age=60')]);
+    const mkdir = vi.spyOn(repo, 'mkdir');
+    const client = new RegistryClient(repo);
+
+    await Promise.all([
+      client.getPackument('registry-fixture-a'),
+      client.getPackument('registry-fixture-b'),
+    ]);
+
+    expect(mkdir).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries cache directory creation after a failed write', async () => {
+    const { repo } = await setupTestProject('RegistryCacheDirectoryRetry');
+    const fetchMock = setupFetch([
+      installResponse('1.0.0', 'max-age=60'),
+      installResponse('2.0.0', 'max-age=60'),
+    ]);
+    const mkdir = vi
+      .spyOn(repo, 'mkdir')
+      .mockRejectedValueOnce(new FSError('EIO', '/cache/registry'));
+    const client = new RegistryClient(repo);
+
+    await expect(client.getPackument('registry-fixture')).rejects.toThrow('EIO');
+    await expect(client.getPackument('registry-fixture')).resolves.toMatchObject({
+      'dist-tags': { latest: '2.0.0' },
+    });
+
+    expect(mkdir).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('removes null cache entries and fetches fresh metadata', async () => {

@@ -12,7 +12,10 @@ const tarballUrl = 'https://registry.npmjs.org/cache-fixture/-/cache-fixture-1.0
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function packageTarball(name: string): Promise<Uint8Array<ArrayBuffer>> {
+async function packageTarball(
+  name: string,
+  nestedEntries = false
+): Promise<Uint8Array<ArrayBuffer>> {
   const tar = await new Promise<Uint8Array>((resolve, reject) => {
     const archive = tarStream.pack();
     const chunks: Uint8Array[] = [];
@@ -35,6 +38,13 @@ async function packageTarball(name: string): Promise<Uint8Array<ArrayBuffer>> {
     );
     const source = Buffer.from('module.exports = "cached package";');
     archive.entry({ name: 'package/index.js', type: 'file', size: source.byteLength }, source);
+    if (nestedEntries) {
+      archive.entry({ name: 'package/deep/child/value.txt' }, Buffer.from('first'));
+      archive.entry({ name: 'package/deep', type: 'directory' });
+      archive.entry({ name: 'package/deep/child', type: 'directory' });
+      archive.entry({ name: 'package/deep/empty', type: 'directory' });
+      archive.entry({ name: 'package/deep/child/value.txt' }, Buffer.from('last'));
+    }
     archive.finalize();
   });
   return pako.gzip(tar).slice();
@@ -68,6 +78,25 @@ async function install(repo: FsCore, rootPath: string, name: string): Promise<vo
 }
 
 describe('npm tarball cache', () => {
+  it('creates missing archive parents and preserves repeated directories and empty directories', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmArchiveDirectories');
+    const tarball = await packageTarball('cache-fixture', true);
+    const path = await cachePath(tarballUrl);
+    await repo.mkdir(NPM_CACHE_PATH, { recursive: true });
+    await repo.writeFile(path, tarball);
+
+    await new NpmInstall(rootPath, repo).downloadAndInstallPackage(
+      'cache-fixture',
+      '1.0.0',
+      tarballUrl
+    );
+
+    const packagePath = `${rootPath}/node_modules/cache-fixture`;
+    expect(await repo.readText(`${packagePath}/deep/child/value.txt`)).toBe('last');
+    expect((await repo.stat(`${packagePath}/deep/empty`)).type).toBe('folder');
+    expect(await repo.readFile(path)).toEqual(tarball);
+  });
+
   it('reuses exact tarball bytes and fresh metadata across workspaces', async () => {
     const { repo, rootPath } = await setupTestProject('NpmCacheFirst');
     await repo.rm(NPM_CACHE_PATH, { recursive: true });

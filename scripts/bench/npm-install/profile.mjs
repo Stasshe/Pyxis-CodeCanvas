@@ -278,12 +278,36 @@ export async function installProfileHooks() {
   });
 }
 
-export async function initProfiledFsClient(fsClient, { profile = true } = {}) {
+export async function installSerialExtractionHook() {
+  const { TarExtractor } = await import(
+    '/src/engine/cmd/global/npmOperations/install/tarExtractor.ts'
+  );
+  const extract = TarExtractor.prototype.extractFromStream;
+  let queue = Promise.resolve();
+  TarExtractor.prototype.extractFromStream = function (...args) {
+    const queued = enter('install.extractQueue');
+    const task = queue.then(() => {
+      queued?.(false);
+      return extract.apply(this, args);
+    });
+    queue = task.then(
+      () => {},
+      () => {}
+    );
+    return task;
+  };
+}
+
+export async function initProfiledFsClient(
+  fsClient,
+  { profile = true, serialExtraction = false } = {}
+) {
   fsClient.close();
   const OriginalWorker = globalThis.Worker;
   const workerUrl = new URL('./worker.mjs', import.meta.url);
   workerUrl.search = '?worker_file&type=module';
   workerUrl.searchParams.set('profile', String(Number(profile)));
+  workerUrl.searchParams.set('serialExtraction', String(Number(serialExtraction)));
   globalThis.Worker = class extends OriginalWorker {
     constructor(url, options) {
       let target = url;
