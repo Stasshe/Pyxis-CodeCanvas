@@ -123,10 +123,10 @@ Pyxis features an AI assistant that helps you review and adopt code diffs. This 
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-Node.js code runs in a dedicated Worker for each execution. JavaScript modules and TypeScript are transformed in the browser, and synchronous filesystem operations go through the Service Worker to OPFS.
+Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when available. Normal completion clears execution state and returns the Worker to the idle pool; termination or an unexpected failure discards it. The Runtime Worker accesses files through the FS Worker; the FS Worker owns the persistent transformed-module cache, while CommonJS modules load once per execution. JavaScript and TypeScript resolution follows package type, `exports` / `imports` conditions, and file extensions. See the [Node.js Runtime documentation](docs/en/NODE-RUNTIME.md) for details.
 The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm tarball cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. OperationWindow offers separate Quick Open, Open Folder, and Open Recent modes. npm metadata is fetched fresh; package tarballs are keyed by the SHA-256 of the exact resolved URL and cached after successful extraction. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
 - **Stop controls** - RunPanel Stop ends the run; Terminal Ctrl+C invokes the program's SIGINT handler
-- ⚡ **Isolated execution** - A fresh Worker is created for each run and discarded when it ends
+- ⚡ **Isolated execution** - Per-run module caches and timers are reset; normally completed Workers are reused
 - 📁 **File operations** - Full support for `fs`, `path`, `readline`, and `userinterface` modules
 - 🌀 **TypeScript support** - TypeScript is transformed through the extension transpiler configuration
 - 🎯 **Casual coding** - Perfect for algorithm testing, learning, and interactive console apps

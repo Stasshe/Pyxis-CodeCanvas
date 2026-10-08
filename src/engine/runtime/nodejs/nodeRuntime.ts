@@ -4,6 +4,7 @@ import { getParentPath, HOME_DIR } from '@/engine/core/pathUtils';
 import type { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
 import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import { createRuntimeFunction } from '../module/dynamicFunction';
 import { ModuleLoader } from '../module/moduleLoader';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
 import { formatNodeError } from './nodeErrors';
@@ -23,6 +24,12 @@ import {
   type RuntimeTimerModule,
 } from './runtimeTypes';
 import type { RuntimeStdin } from './workerStdin';
+
+const retiredPromises = new WeakSet<Promise<unknown>>();
+
+export function isRetiredRuntimePromise(promise: Promise<unknown>): boolean {
+  return retiredPromises.has(promise);
+}
 
 /**
  * Runtime execution options.
@@ -75,7 +82,13 @@ export class NodeRuntime {
   private currentProcess: ProcessObject | null = null;
   private exitCode = 0;
   private didExit = false;
+  private emittingExitListeners = false;
   private exitNotified = false;
+  private disposed = false;
+  private resolveProcessExit!: (code: number) => void;
+  private readonly processExit = new Promise<number>(resolve => {
+    this.resolveProcessExit = resolve;
+  });
 
   // Event loop tracking.
   private activeTimers: Set<object> = new Set();
@@ -135,6 +148,7 @@ export class NodeRuntime {
       rootPath: this.rootPath,
       bridge: this.bridge,
       debugConsole: this.debugConsole,
+      trackIO: promise => this.trackIO(promise),
       builtinResolver: this.resolveBuiltInModule.bind(this),
     });
 
@@ -155,24 +169,26 @@ export class NodeRuntime {
     try {
       runtimeInfo('▶️ Executing file:', filePath);
 
-      // Initialize the module loader.
-      await this.moduleLoader.init();
-
       // Prepare globals and inject them into the module loader for dependencies.
       const globals = this.createGlobals(filePath, argv);
       this.moduleLoader.setGlobals(globals);
 
       // Pre-load dependencies ONLY (do not execute the entry file yet)
       runtimeInfo('📦 Pre-loading dependencies...');
-      await this.moduleLoader.preloadDependencies(filePath, filePath);
+      const code = await this.moduleLoader.preloadDependencies(filePath, filePath);
       runtimeInfo('✅ All dependencies pre-loaded');
 
       // Build the execution sandbox with the shared globals.
       const requireFn = this.createRequire(filePath);
+      const importModule = (specifier: string) => this.moduleLoader.asyncLoad(specifier, filePath);
       const sandbox = {
         ...globals,
         require: requireFn,
-        __pyxisImport: (s: string) => this.moduleLoader.asyncLoad(s, filePath),
+        __pyxisImport: importModule,
+        __pyxisRequireCommonJs: requireFn,
+        __pyxisRequireImport: (specifier: string) =>
+          this.moduleLoader.requireSync(specifier, filePath, 'import'),
+        Function: createRuntimeFunction(importModule),
         module: { exports: {} },
         exports: {},
         __filename: filePath,
@@ -182,28 +198,20 @@ export class NodeRuntime {
       // Keep exports linked to module.exports.
       sandbox.exports = sandbox.module.exports;
 
-      // Read the entry file.
-      const fileBytes = await this.filesystem.getFile(filePath);
-      if (fileBytes === undefined) {
-        const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
-        err.name = 'Error [ERR_FS_ENOENT]';
-        throw err;
-      }
-      const fileContent = new TextDecoder().decode(fileBytes);
-
-      // Dependencies are loaded; retrieve only the entry file's transpiled code.
-      const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
-
       // Wrap and execute the code synchronously.
-      const wrappedCode = this.wrapCode(code, filePath);
+      const wrappedCode = this.wrapCode(code);
       const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
 
       runtimeInfo('✅ Code compiled successfully');
       const executionResult = executeFunc(...Object.values(sandbox));
       const executionPromise = this.getExecutionPromise(executionResult);
       if (executionPromise) {
-        await this.trackIO(executionPromise);
+        await Promise.race([
+          this.trackIO(executionPromise).then(() => undefined),
+          this.processExit.then(() => undefined),
+        ]);
       }
+      if (this.didExit) return;
       runtimeInfo('✅ Execution completed');
     } catch (error) {
       if (isProcessExitSignal(error)) {
@@ -223,11 +231,21 @@ export class NodeRuntime {
    * Track interactive I/O such as readline until its promise settles.
    */
   trackIO<T>(p: Promise<T>): Promise<T> {
-    this.pendingIO.add(p);
-    return p.finally(() => {
-      this.pendingIO.delete(p);
+    if (this.disposed) {
+      retiredPromises.add(p);
+      void p.catch(() => {});
+      return p;
+    }
+    const tracked = p.finally(() => {
+      this.pendingIO.delete(tracked);
       this.checkEventLoop();
     });
+    this.pendingIO.add(tracked);
+    return tracked;
+  }
+
+  waitForProcessExit(): Promise<number> {
+    return this.processExit;
   }
 
   /**
@@ -254,6 +272,7 @@ export class NodeRuntime {
   }
 
   private checkEventLoop() {
+    if (this.disposed) return;
     if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
       this.eventLoopResolve();
@@ -267,6 +286,15 @@ export class NodeRuntime {
     timeout?: number,
     args: unknown[] = []
   ): RuntimeTimer {
+    if (this.disposed || this.didExit) {
+      const timer: RuntimeTimer = {
+        ref: () => timer,
+        unref: () => timer,
+        hasRef: () => false,
+        [Symbol.toPrimitive]: () => 0,
+      };
+      return timer;
+    }
     let nativeId: ReturnType<typeof setTimeout>;
     const timerRef: RuntimeTimer = {
       ref: () => {
@@ -283,6 +311,7 @@ export class NodeRuntime {
     };
 
     const invoke = () => {
+      if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
       if (kind === 'timeout') {
         this.activeTimers.delete(timerRef);
         this.timerCancels.delete(timerRef);
@@ -326,18 +355,24 @@ export class NodeRuntime {
   private createRuntimeConsole(): RuntimeConsole {
     return {
       log: (...args: unknown[]) => {
+        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
         if (this.debugConsole?.log) this.debugConsole.log(...args);
         else runtimeInfo(...args);
       },
       error: (...args: unknown[]) => {
+        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
         if (this.debugConsole?.error) this.debugConsole.error(...args);
         else runtimeError(...args);
       },
       warn: (...args: unknown[]) => {
+        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
         if (this.debugConsole?.warn) this.debugConsole.warn(...args);
         else runtimeWarn(...args);
       },
-      clear: () => this.debugConsole?.clear(),
+      clear: () => {
+        if (!this.disposed && (!this.didExit || this.emittingExitListeners))
+          this.debugConsole?.clear();
+      },
     };
   }
 
@@ -373,11 +408,10 @@ export class NodeRuntime {
   private finalizeProcessExit(code: number): void {
     this.exitCode = normalizeProcessExitCode(code);
     this.didExit = true;
+    this.resolveProcessExit(this.exitCode);
     for (const cancel of this.timerCancels.values()) cancel();
     this.timerCancels.clear();
     this.activeTimers.clear();
-    this.pendingIO.clear();
-
     if (this.eventLoopResolve) {
       this.eventLoopResolve();
       this.eventLoopResolve = null;
@@ -402,24 +436,20 @@ export class NodeRuntime {
   /**
    * Wrap code for synchronous execution.
    */
-  private wrapCode(code: string, filePath: string): string {
+  private wrapCode(code: string): string {
     // Comment out a shebang because eval and Function do not support it.
     if (code.startsWith('#!')) {
       code = `//${code}`; // Preserve line numbers.
     }
 
     return `
-      return (() => {
+      return (function() {
         'use strict';
-        const module = { exports: {} };
-        const exports = module.exports;
-        const __filename = ${JSON.stringify(filePath)};
-        const __dirname = ${JSON.stringify(getParentPath(filePath))};
         
         ${code}
         
         return module.exports;
-      })();
+      }).call(module.exports);
     `;
   }
 
@@ -476,7 +506,12 @@ export class NodeRuntime {
         if (resolvedCode === undefined)
           resolvedCode = normalizeProcessExitCode(processObj.exitCode);
         this.finalizeProcessExit(normalizeProcessExitCode(resolvedCode));
-        processObj.emit('exit', this.exitCode);
+        this.emittingExitListeners = true;
+        try {
+          processObj.emit('exit', this.exitCode);
+        } finally {
+          this.emittingExitListeners = false;
+        }
         throw createProcessExitSignal(this.exitCode);
       },
       nextTick: (fn: (...args: unknown[]) => void, ...args: unknown[]) =>
@@ -497,6 +532,7 @@ export class NodeRuntime {
         ),
       // EventEmitter methods — many npm packages call process.on('exit', ...)
       on: (event: string, cb: ProcessListener) => {
+        if (this.disposed || this.didExit) return processObj;
         if (!listeners[event]) listeners[event] = [];
         listeners[event].push(cb);
         return processObj;
@@ -521,6 +557,7 @@ export class NodeRuntime {
         return processObj.on(event, cb);
       },
       emit: (event: string, ...args: unknown[]) => {
+        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return false;
         if (listeners[event]?.length) {
           for (const fn of [...listeners[event]]) {
             fn(...args);
@@ -545,6 +582,7 @@ export class NodeRuntime {
       stdin: this.processStdin,
       stdout: {
         write: (data: string | Uint8Array, encoding?: BufferEncoding) => {
+          if (this.disposed || (this.didExit && !this.emittingExitListeners)) return false;
           this.onStdout(this.outputBytes(data, encoding));
           return true;
         },
@@ -556,6 +594,7 @@ export class NodeRuntime {
       },
       stderr: {
         write: (data: string | Uint8Array, encoding?: BufferEncoding) => {
+          if (this.disposed || (this.didExit && !this.emittingExitListeners)) return false;
           this.onStderr(this.outputBytes(data, encoding));
           return true;
         },
@@ -697,5 +736,27 @@ export class NodeRuntime {
    */
   clearCache(): void {
     this.moduleLoader.clearCache();
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const cancel of this.timerCancels.values()) cancel();
+    this.timerCancels.clear();
+    this.activeTimers.clear();
+    for (const event of Object.keys(this.processListeners)) delete this.processListeners[event];
+    for (const promise of this.pendingIO) {
+      retiredPromises.add(promise);
+      void promise.catch(() => {});
+    }
+    this.pendingIO.clear();
+    this.eventLoopResolve?.();
+    this.eventLoopResolve = null;
+    this.moduleLoader.clearCache();
+    this.currentProcess = null;
+    this.onExit = undefined;
+    this.onStdout = () => {};
+    this.onStderr = () => {};
+    this.debugConsole = undefined;
   }
 }

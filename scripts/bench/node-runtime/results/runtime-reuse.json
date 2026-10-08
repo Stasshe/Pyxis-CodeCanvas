@@ -1,0 +1,3285 @@
+{
+  "source": "Runtime Worker reuse measurements after provider/state implementation",
+  "origin": "http://localhost:5173",
+  "runner": "scripts/bench/node-runtime/run.mjs",
+  "fixtures": [
+    "runtime-fixtures.json",
+    "runtime-diff-fixture.json"
+  ],
+  "invocation": "agent-browser in one local tab; each mode ran four direct provider samples per case and four npm run bench samples; setup and fixture seeding excluded from per-sample wallMs",
+  "cacheNote": "Browser reload occurred before these series, but browser OPFS and transpile caches persisted from earlier measurement setup; TypeScript compiler-cold time is not represented.",
+  "normalModeInitial": {
+    "benchmark": false,
+    "results": {
+      "diff9": {
+        "command": "node bench-diff.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 69.30000000074506
+          },
+          {
+            "output": "",
+            "wallMs": 58.40000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 64.29999999888241
+          },
+          {
+            "output": "",
+            "wallMs": 64.60000000149012
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 58.40000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 64.29999999888241
+          },
+          {
+            "output": "",
+            "wallMs": 64.60000000149012
+          }
+        ]
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 9.400000000372527
+          },
+          {
+            "output": "",
+            "wallMs": 5.799999998882413
+          },
+          {
+            "output": "",
+            "wallMs": 5.200000001117587
+          },
+          {
+            "output": "",
+            "wallMs": 7.199999999254942
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 5.799999998882413
+          },
+          {
+            "output": "",
+            "wallMs": 5.200000001117587
+          },
+          {
+            "output": "",
+            "wallMs": 7.199999999254942
+          }
+        ]
+      },
+      "npm": {
+        "command": "npm run bench",
+        "samples": [
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 8.200000001117587
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.5
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.799999998882413
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.800000000745058
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.5
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.799999998882413
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.800000000745058
+          }
+        ]
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 38
+          },
+          {
+            "output": "",
+            "wallMs": 35.40000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 39
+          },
+          {
+            "output": "",
+            "wallMs": 36.20000000111759
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 35.40000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 39
+          },
+          {
+            "output": "",
+            "wallMs": 36.20000000111759
+          }
+        ]
+      },
+      "small": {
+        "command": "node bench-small.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 12.199999999254942
+          },
+          {
+            "output": "",
+            "wallMs": 3.800000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 3.699999999254942
+          },
+          {
+            "output": "",
+            "wallMs": 4.5
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 3.800000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 3.699999999254942
+          },
+          {
+            "output": "",
+            "wallMs": 4.5
+          }
+        ]
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 5.699999999254942
+          },
+          {
+            "output": "",
+            "wallMs": 4.900000000372529
+          },
+          {
+            "output": "",
+            "wallMs": 4.5
+          },
+          {
+            "output": "",
+            "wallMs": 4.5
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 4.900000000372529
+          },
+          {
+            "output": "",
+            "wallMs": 4.5
+          },
+          {
+            "output": "",
+            "wallMs": 4.5
+          }
+        ]
+      }
+    },
+    "setupMs": 168.7000000011176
+  },
+  "normalModeRepeat": {
+    "benchmark": false,
+    "results": {
+      "diff9": {
+        "command": "node bench-diff.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 66.40000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 62.90000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 64.19999999925494
+          },
+          {
+            "output": "",
+            "wallMs": 58.30000000074506
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 62.90000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 64.19999999925494
+          },
+          {
+            "output": "",
+            "wallMs": 58.30000000074506
+          }
+        ]
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 7
+          },
+          {
+            "output": "",
+            "wallMs": 5.299999998882413
+          },
+          {
+            "output": "",
+            "wallMs": 5.300000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 6.099999999627471
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 5.299999998882413
+          },
+          {
+            "output": "",
+            "wallMs": 5.300000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 6.099999999627471
+          }
+        ]
+      },
+      "npm": {
+        "command": "npm run bench",
+        "samples": [
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.299999998882413
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.600000001490116
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.600000001490116
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4
+          }
+        ]
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 35.59999999962747
+          },
+          {
+            "output": "",
+            "wallMs": 37.90000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 34.29999999888241
+          },
+          {
+            "output": "",
+            "wallMs": 36.80000000074506
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 37.90000000037253
+          },
+          {
+            "output": "",
+            "wallMs": 34.29999999888241
+          },
+          {
+            "output": "",
+            "wallMs": 36.80000000074506
+          }
+        ]
+      },
+      "small": {
+        "command": "node bench-small.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 3.800000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 2.599999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 2.900000000372529
+          },
+          {
+            "output": "",
+            "wallMs": 3.300000000745058
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 2.599999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 2.900000000372529
+          },
+          {
+            "output": "",
+            "wallMs": 3.300000000745058
+          }
+        ]
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 4.700000001117587
+          },
+          {
+            "output": "",
+            "wallMs": 5.099999999627471
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 4.700000001117587
+          },
+          {
+            "output": "",
+            "wallMs": 5.099999999627471
+          }
+        ]
+      }
+    },
+    "setupMs": 164.69999999925494
+  },
+  "instrumentedModeInitial": {
+    "benchmark": true,
+    "results": {
+      "diff9": {
+        "command": "node bench-diff.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 28.69999999180436,
+              "asyncMs": 367.199999993667,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 81.80000000447035,
+              "parseCalls": 20,
+              "parseMs": 25.39999999664724,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 234.59999999776483,
+              "resolveCalls": 61,
+              "resolveMs": 134.29999999701977,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":25.39999999664724,\"analyzeCalls\":20,\"analyzeMs\":28.69999999180436,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":234.59999999776483,\"asyncRpc\":60,\"asyncMs\":367.199999993667,\"resolveCalls\":61,\"resolveMs\":134.29999999701977,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":81.80000000447035,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 78.79999999888241
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.799999998882413,
+              "asyncMs": 327.20000000856817,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 61.09999999962747,
+              "parseCalls": 20,
+              "parseMs": 18.100000001490116,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 184.8000000026077,
+              "resolveCalls": 61,
+              "resolveMs": 144.00000000558794,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":18.100000001490116,\"analyzeCalls\":20,\"analyzeMs\":18.799999998882413,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":184.8000000026077,\"asyncRpc\":60,\"asyncMs\":327.20000000856817,\"resolveCalls\":61,\"resolveMs\":144.00000000558794,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":61.09999999962747,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 65.70000000111759
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.89999999664724,
+              "asyncMs": 327.20000001229346,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 57.1000000089407,
+              "parseCalls": 20,
+              "parseMs": 18.09999999962747,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 188.60000000335276,
+              "resolveCalls": 61,
+              "resolveMs": 140.50000000931325,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":18.09999999962747,\"analyzeCalls\":20,\"analyzeMs\":18.89999999664724,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":188.60000000335276,\"asyncRpc\":60,\"asyncMs\":327.20000001229346,\"resolveCalls\":61,\"resolveMs\":140.50000000931323,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":57.1000000089407,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 64.59999999962747
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.300000000745055,
+              "asyncMs": 297.5999999977648,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 57.000000001862645,
+              "parseCalls": 20,
+              "parseMs": 17.799999998882413,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 181.30000000074503,
+              "resolveCalls": 61,
+              "resolveMs": 117.89999999664724,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":17.799999998882413,\"analyzeCalls\":20,\"analyzeMs\":18.300000000745058,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":181.30000000074506,\"asyncRpc\":60,\"asyncMs\":297.5999999977648,\"resolveCalls\":61,\"resolveMs\":117.89999999664724,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":57.000000001862645,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 60.69999999925494
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.799999998882413,
+              "asyncMs": 327.20000000856817,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 61.09999999962747,
+              "parseCalls": 20,
+              "parseMs": 18.100000001490116,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 184.8000000026077,
+              "resolveCalls": 61,
+              "resolveMs": 144.00000000558794,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":18.100000001490116,\"analyzeCalls\":20,\"analyzeMs\":18.799999998882413,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":184.8000000026077,\"asyncRpc\":60,\"asyncMs\":327.20000000856817,\"resolveCalls\":61,\"resolveMs\":144.00000000558794,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":61.09999999962747,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 65.70000000111759
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.89999999664724,
+              "asyncMs": 327.20000001229346,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 57.1000000089407,
+              "parseCalls": 20,
+              "parseMs": 18.09999999962747,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 188.60000000335276,
+              "resolveCalls": 61,
+              "resolveMs": 140.50000000931325,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":18.09999999962747,\"analyzeCalls\":20,\"analyzeMs\":18.89999999664724,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":188.60000000335276,\"asyncRpc\":60,\"asyncMs\":327.20000001229346,\"resolveCalls\":61,\"resolveMs\":140.50000000931323,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":57.1000000089407,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 64.59999999962747
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.300000000745055,
+              "asyncMs": 297.5999999977648,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 57.000000001862645,
+              "parseCalls": 20,
+              "parseMs": 17.799999998882413,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 181.30000000074503,
+              "resolveCalls": 61,
+              "resolveMs": 117.89999999664724,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":17.799999998882413,\"analyzeCalls\":20,\"analyzeMs\":18.300000000745058,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":181.30000000074506,\"asyncRpc\":60,\"asyncMs\":297.5999999977648,\"resolveCalls\":61,\"resolveMs\":117.89999999664724,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":57.000000001862645,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 60.69999999925494
+          }
+        ]
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.40000000037252903,
+              "asyncMs": 4.5,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 2,
+              "parseMs": 0.2000000011175871,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 2.800000000745058,
+              "resolveCalls": 3,
+              "resolveMs": 2.699999999254942,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.2000000011175871,\"analyzeCalls\":2,\"analyzeMs\":0.40000000037252903,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":2.800000000745058,\"asyncRpc\":6,\"asyncMs\":4.5,\"resolveCalls\":3,\"resolveMs\":2.699999999254942,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 7.899999998509884
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 4.400000000372529,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 1,
+              "parseCalls": 2,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 3.400000000372529,
+              "resolveCalls": 3,
+              "resolveMs": 1.900000000372529,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.09999999962747097,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":3.400000000372529,\"asyncRpc\":6,\"asyncMs\":4.400000000372529,\"resolveCalls\":3,\"resolveMs\":1.900000000372529,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 5.800000000745058
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0,
+              "asyncMs": 3.699999999254942,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 2,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 2.599999999627471,
+              "resolveCalls": 3,
+              "resolveMs": 1.900000000372529,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0,\"analyzeCalls\":2,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":2.599999999627471,\"asyncRpc\":6,\"asyncMs\":3.699999999254942,\"resolveCalls\":3,\"resolveMs\":1.900000000372529,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 5.400000000372529
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0.09999999962747096,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.10000000149011612,
+              "asyncMs": 4.499999998137355,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 2,
+              "parseMs": 0.10000000149011612,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 3.299999998882413,
+              "resolveCalls": 3,
+              "resolveMs": 2.399999998509884,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0.099853515625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0.099853515625,\"acquisitionMs\":0.09999999962747097,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.10000000149011612,\"analyzeCalls\":2,\"analyzeMs\":0.10000000149011612,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":3.299999998882413,\"asyncRpc\":6,\"asyncMs\":4.499999998137355,\"resolveCalls\":3,\"resolveMs\":2.399999998509884,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 8.400000000372529
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 4.400000000372529,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 1,
+              "parseCalls": 2,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 3.400000000372529,
+              "resolveCalls": 3,
+              "resolveMs": 1.900000000372529,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.09999999962747097,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":3.400000000372529,\"asyncRpc\":6,\"asyncMs\":4.400000000372529,\"resolveCalls\":3,\"resolveMs\":1.900000000372529,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 5.800000000745058
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0,
+              "asyncMs": 3.699999999254942,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 2,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 2.599999999627471,
+              "resolveCalls": 3,
+              "resolveMs": 1.900000000372529,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0,\"analyzeCalls\":2,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":2.599999999627471,\"asyncRpc\":6,\"asyncMs\":3.699999999254942,\"resolveCalls\":3,\"resolveMs\":1.900000000372529,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 5.400000000372529
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0.09999999962747096,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.10000000149011612,
+              "asyncMs": 4.499999998137355,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 2,
+              "parseMs": 0.10000000149011612,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 3.299999998882413,
+              "resolveCalls": 3,
+              "resolveMs": 2.399999998509884,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0.099853515625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0.099853515625,\"acquisitionMs\":0.09999999962747097,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.10000000149011612,\"analyzeCalls\":2,\"analyzeMs\":0.10000000149011612,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":3.299999998882413,\"asyncRpc\":6,\"asyncMs\":4.499999998137355,\"resolveCalls\":3,\"resolveMs\":2.399999998509884,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 8.400000000372529
+          }
+        ]
+      },
+      "npm": {
+        "command": "npm run bench",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.300000000745058,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.900000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.40000000037252903,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.900000000372529,\"asyncRpc\":3,\"asyncMs\":2.300000000745058,\"resolveCalls\":1,\"resolveMs\":0.40000000037252903,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 7.900000000372529
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 1.799999998882413,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.299999998882413,\"asyncRpc\":3,\"asyncMs\":1.799999998882413,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 6.599999999627471
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2.300000000745058,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7000000011175871,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.700000001117587,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.700000001117587,\"asyncRpc\":3,\"asyncMs\":2.300000000745058,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7000000011175871,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 6
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 1.900000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7999999988824129,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.400000000372529,\"asyncRpc\":3,\"asyncMs\":1.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7999999988824129,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.5
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 1.799999998882413,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.299999998882413,\"asyncRpc\":3,\"asyncMs\":1.799999998882413,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 6.599999999627471
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2.300000000745058,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7000000011175871,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.700000001117587,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.700000001117587,\"asyncRpc\":3,\"asyncMs\":2.300000000745058,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7000000011175871,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 6
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 1.900000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7999999988824129,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.400000000372529,\"asyncRpc\":3,\"asyncMs\":1.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7999999988824129,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.5
+          }
+        ]
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 2.900000000372529,
+              "asyncMs": 273.39999999292195,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 0.8999999985098839,
+              "parseCalls": 25,
+              "parseMs": 2.199999997392297,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 115.99999999813735,
+              "resolveCalls": 49,
+              "resolveMs": 158.1999999973923,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":2.199999997392297,\"analyzeCalls\":25,\"analyzeMs\":2.900000000372529,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":115.99999999813735,\"asyncRpc\":75,\"asyncMs\":273.39999999292195,\"resolveCalls\":49,\"resolveMs\":158.1999999973923,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":0.8999999985098839,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 44.90000000037253
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0.10000000149011612,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 2.3000000044703484,
+              "asyncMs": 286.0999999977648,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1.300000000745058,
+              "parseCalls": 25,
+              "parseMs": 1.600000001490116,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 110.7999999988824,
+              "resolveCalls": 49,
+              "resolveMs": 175.39999999850988,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0.10000000149011612,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":1.6000000014901161,\"analyzeCalls\":25,\"analyzeMs\":2.3000000044703484,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":110.79999999888241,\"asyncRpc\":75,\"asyncMs\":286.0999999977648,\"resolveCalls\":49,\"resolveMs\":175.39999999850988,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1.300000000745058,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 45.30000000074506
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.9999999981373549,
+              "asyncMs": 276.6000000052154,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1,
+              "parseCalls": 25,
+              "parseMs": 0.7999999970197678,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 124.2999999988824,
+              "resolveCalls": 49,
+              "resolveMs": 152.70000000670552,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.7999999970197678,\"analyzeCalls\":25,\"analyzeMs\":0.9999999981373549,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":124.29999999888241,\"asyncRpc\":75,\"asyncMs\":276.6000000052154,\"resolveCalls\":49,\"resolveMs\":152.70000000670552,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 42.40000000037253
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 1.699999999254942,
+              "asyncMs": 287.6000000014901,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1.099999999627471,
+              "parseCalls": 25,
+              "parseMs": 1.299999998882413,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 134.70000000298023,
+              "resolveCalls": 49,
+              "resolveMs": 153.59999999776483,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":1.299999998882413,\"analyzeCalls\":25,\"analyzeMs\":1.699999999254942,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":134.70000000298023,\"asyncRpc\":75,\"asyncMs\":287.6000000014901,\"resolveCalls\":49,\"resolveMs\":153.59999999776483,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1.099999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 44.5
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0.10000000149011612,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 2.3000000044703484,
+              "asyncMs": 286.0999999977648,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1.300000000745058,
+              "parseCalls": 25,
+              "parseMs": 1.600000001490116,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 110.7999999988824,
+              "resolveCalls": 49,
+              "resolveMs": 175.39999999850988,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0.10000000149011612,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":1.6000000014901161,\"analyzeCalls\":25,\"analyzeMs\":2.3000000044703484,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":110.79999999888241,\"asyncRpc\":75,\"asyncMs\":286.0999999977648,\"resolveCalls\":49,\"resolveMs\":175.39999999850988,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1.300000000745058,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 45.30000000074506
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.9999999981373549,
+              "asyncMs": 276.6000000052154,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1,
+              "parseCalls": 25,
+              "parseMs": 0.7999999970197678,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 124.2999999988824,
+              "resolveCalls": 49,
+              "resolveMs": 152.70000000670552,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.7999999970197678,\"analyzeCalls\":25,\"analyzeMs\":0.9999999981373549,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":124.29999999888241,\"asyncRpc\":75,\"asyncMs\":276.6000000052154,\"resolveCalls\":49,\"resolveMs\":152.70000000670552,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 42.40000000037253
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 1.699999999254942,
+              "asyncMs": 287.6000000014901,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1.099999999627471,
+              "parseCalls": 25,
+              "parseMs": 1.299999998882413,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 134.70000000298023,
+              "resolveCalls": 49,
+              "resolveMs": 153.59999999776483,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":1.299999998882413,\"analyzeCalls\":25,\"analyzeMs\":1.699999999254942,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":134.70000000298023,\"asyncRpc\":75,\"asyncMs\":287.6000000014901,\"resolveCalls\":49,\"resolveMs\":153.59999999776483,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1.099999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 44.5
+          }
+        ]
+      },
+      "small": {
+        "command": "node bench-small.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 2.5,
+              "asyncMs": 3.399999998509884,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1.299999998882413,
+              "parseCalls": 1,
+              "parseMs": 1.800000000745058,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 2.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 1.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0.39990234375
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0.39990234375,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":1.800000000745058,\"analyzeCalls\":1,\"analyzeMs\":2.5,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":2.299999998882413,\"asyncRpc\":3,\"asyncMs\":3.399999998509884,\"resolveCalls\":1,\"resolveMs\":1.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1.299999998882413,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 1486.0999999996277
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0.09999999962747096,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.1999999992549419,
+              "asyncMs": 85.5,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1,
+              "parseCalls": 1,
+              "parseMs": 0.1999999992549419,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 2.100000001490116,
+              "resolveCalls": 1,
+              "resolveMs": 83.39999999850988,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0.09999999962747097,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.19999999925494194,\"analyzeCalls\":1,\"analyzeMs\":0.19999999925494194,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":2.100000001490116,\"asyncRpc\":3,\"asyncMs\":85.5,\"resolveCalls\":1,\"resolveMs\":83.39999999850988,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 108.39999999850988
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.2000000011175871,
+              "asyncMs": 73.19999999925494,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1,
+              "parseCalls": 1,
+              "parseMs": 0.2000000011175871,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.699999999254942,
+              "resolveCalls": 1,
+              "resolveMs": 71.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.2000000011175871,\"analyzeCalls\":1,\"analyzeMs\":0.2000000011175871,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.699999999254942,\"asyncRpc\":3,\"asyncMs\":73.19999999925494,\"resolveCalls\":1,\"resolveMs\":71.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 86.79999999888241
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.200000001117587,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.8000000007450581,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.600000001490116,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.6000000014901161,\"asyncRpc\":3,\"asyncMs\":2.200000001117587,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.8000000007450581,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.099999999627471
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0.09999999962747096,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.1999999992549419,
+              "asyncMs": 85.5,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1,
+              "parseCalls": 1,
+              "parseMs": 0.1999999992549419,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 2.100000001490116,
+              "resolveCalls": 1,
+              "resolveMs": 83.39999999850988,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0.09999999962747097,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.19999999925494194,\"analyzeCalls\":1,\"analyzeMs\":0.19999999925494194,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":2.100000001490116,\"asyncRpc\":3,\"asyncMs\":85.5,\"resolveCalls\":1,\"resolveMs\":83.39999999850988,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 108.39999999850988
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.2000000011175871,
+              "asyncMs": 73.19999999925494,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1,
+              "parseCalls": 1,
+              "parseMs": 0.2000000011175871,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.699999999254942,
+              "resolveCalls": 1,
+              "resolveMs": 71.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.2000000011175871,\"analyzeCalls\":1,\"analyzeMs\":0.2000000011175871,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.699999999254942,\"asyncRpc\":3,\"asyncMs\":73.19999999925494,\"resolveCalls\":1,\"resolveMs\":71.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 86.79999999888241
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.200000001117587,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.8000000007450581,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.600000001490116,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.6000000014901161,\"asyncRpc\":3,\"asyncMs\":2.200000001117587,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.8000000007450581,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.099999999627471
+          }
+        ]
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.599999999627471,
+              "asyncMs": 3.599999999627471,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.8000000007450581,
+              "parseCalls": 1,
+              "parseMs": 0.599999999627471,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.800000000745058,
+              "resolveCalls": 1,
+              "resolveMs": 0.6999999992549419,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 1.199999999254942,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.599999999627471,\"analyzeCalls\":1,\"analyzeMs\":0.599999999627471,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.800000000745058,\"asyncRpc\":4,\"asyncMs\":3.599999999627471,\"resolveCalls\":1,\"resolveMs\":0.6999999992549419,\"transpileCalls\":1,\"transpileMs\":1.199999999254942,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.8000000007450581,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 6.199999999254942
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.30000000074505806,
+              "asyncMs": 2.299999998882413,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 1,
+              "parseMs": 0.30000000074505806,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.199999999254942,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.599999999627471,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.30000000074505806,\"analyzeCalls\":1,\"analyzeMs\":0.30000000074505806,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.199999999254942,\"asyncRpc\":4,\"asyncMs\":2.299999998882413,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":1,\"transpileMs\":0.599999999627471,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.300000000745058
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.2000000011175871,
+              "asyncMs": 2.599999999627471,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 0.40000000037252903,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.900000000372529,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.2000000011175871,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.299999998882413,\"asyncRpc\":4,\"asyncMs\":2.599999999627471,\"resolveCalls\":1,\"resolveMs\":0.40000000037252903,\"transpileCalls\":1,\"transpileMs\":0.900000000372529,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.5,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.099999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.900000000372529,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.099999999627471,\"asyncRpc\":4,\"asyncMs\":2.5,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":1,\"transpileMs\":0.900000000372529,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.900000000372529
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.30000000074505806,
+              "asyncMs": 2.299999998882413,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 1,
+              "parseMs": 0.30000000074505806,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.199999999254942,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.599999999627471,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.30000000074505806,\"analyzeCalls\":1,\"analyzeMs\":0.30000000074505806,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.199999999254942,\"asyncRpc\":4,\"asyncMs\":2.299999998882413,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":1,\"transpileMs\":0.599999999627471,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.300000000745058
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.2000000011175871,
+              "asyncMs": 2.599999999627471,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 0.40000000037252903,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.900000000372529,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.2000000011175871,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.299999998882413,\"asyncRpc\":4,\"asyncMs\":2.599999999627471,\"resolveCalls\":1,\"resolveMs\":0.40000000037252903,\"transpileCalls\":1,\"transpileMs\":0.900000000372529,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.099999999627471
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.5,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.099999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.900000000372529,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.099999999627471,\"asyncRpc\":4,\"asyncMs\":2.5,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":1,\"transpileMs\":0.900000000372529,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.900000000372529
+          }
+        ]
+      }
+    },
+    "setupMs": 236.40000000037253
+  },
+  "instrumentedModeRepeat": {
+    "benchmark": true,
+    "results": {
+      "diff9": {
+        "command": "node bench-diff.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 16.199999997392297,
+              "asyncMs": 293.69999999180436,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 64.699999993667,
+              "parseCalls": 20,
+              "parseMs": 15.299999997019768,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 177.5,
+              "resolveCalls": 61,
+              "resolveMs": 117.49999999254942,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":15.299999997019768,\"analyzeCalls\":20,\"analyzeMs\":16.199999997392297,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":177.5,\"asyncRpc\":60,\"asyncMs\":293.69999999180436,\"resolveCalls\":61,\"resolveMs\":117.49999999254942,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":64.699999993667,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 58.90000000037253
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.100000001490116,
+              "asyncMs": 332.7999999951571,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 70.99999999441206,
+              "parseCalls": 20,
+              "parseMs": 17.09999999962747,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 175.89999999664724,
+              "resolveCalls": 61,
+              "resolveMs": 158.2000000011176,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":17.09999999962747,\"analyzeCalls\":20,\"analyzeMs\":18.100000001490116,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":175.89999999664724,\"asyncRpc\":60,\"asyncMs\":332.7999999951571,\"resolveCalls\":61,\"resolveMs\":158.2000000011176,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":70.99999999441206,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 64
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 16.49999999627471,
+              "asyncMs": 307.4999999832362,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 70.69999999180436,
+              "parseCalls": 20,
+              "parseMs": 15.89999999664724,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 186.30000000074503,
+              "resolveCalls": 61,
+              "resolveMs": 122.4999999832362,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":15.899999996647239,\"analyzeCalls\":20,\"analyzeMs\":16.49999999627471,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":186.30000000074506,\"asyncRpc\":60,\"asyncMs\":307.4999999832362,\"resolveCalls\":61,\"resolveMs\":122.4999999832362,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":70.69999999180436,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 59.90000000037253
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 16.800000002607703,
+              "asyncMs": 276.99999999441206,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 72.10000000335276,
+              "parseCalls": 20,
+              "parseMs": 16.000000005587935,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 168.09999999962747,
+              "resolveCalls": 61,
+              "resolveMs": 110.29999999515712,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":16.000000005587935,\"analyzeCalls\":20,\"analyzeMs\":16.800000002607703,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":168.09999999962747,\"asyncRpc\":60,\"asyncMs\":276.99999999441206,\"resolveCalls\":61,\"resolveMs\":110.29999999515712,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":72.10000000335276,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 57.09999999962747
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 18.100000001490116,
+              "asyncMs": 332.7999999951571,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 70.99999999441206,
+              "parseCalls": 20,
+              "parseMs": 17.09999999962747,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 175.89999999664724,
+              "resolveCalls": 61,
+              "resolveMs": 158.2000000011176,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":17.09999999962747,\"analyzeCalls\":20,\"analyzeMs\":18.100000001490116,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":175.89999999664724,\"asyncRpc\":60,\"asyncMs\":332.7999999951571,\"resolveCalls\":61,\"resolveMs\":158.2000000011176,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":70.99999999441206,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 64
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 16.49999999627471,
+              "asyncMs": 307.4999999832362,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 70.69999999180436,
+              "parseCalls": 20,
+              "parseMs": 15.89999999664724,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 186.30000000074503,
+              "resolveCalls": 61,
+              "resolveMs": 122.4999999832362,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":15.899999996647239,\"analyzeCalls\":20,\"analyzeMs\":16.49999999627471,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":186.30000000074506,\"asyncRpc\":60,\"asyncMs\":307.4999999832362,\"resolveCalls\":61,\"resolveMs\":122.4999999832362,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":70.69999999180436,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 59.90000000037253
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 20,
+              "analyzeMs": 16.800000002607703,
+              "asyncMs": 276.99999999441206,
+              "asyncRpc": 60,
+              "esbuildInitMs": 0,
+              "fsRpc": 60,
+              "packageTypeCalls": 20,
+              "packageTypeMs": 72.10000000335276,
+              "parseCalls": 20,
+              "parseMs": 16.000000005587935,
+              "preparedWorker": true,
+              "readFileBytes": 116783,
+              "readFileCalls": 23,
+              "readFileMs": 168.09999999962747,
+              "resolveCalls": 61,
+              "resolveMs": 110.29999999515712,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":20,\"parseMs\":16.000000005587935,\"analyzeCalls\":20,\"analyzeMs\":16.800000002607703,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":60,\"readFileCalls\":23,\"readFileBytes\":116783,\"readFileMs\":168.09999999962747,\"asyncRpc\":60,\"asyncMs\":276.99999999441206,\"resolveCalls\":61,\"resolveMs\":110.29999999515712,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":20,\"packageTypeMs\":72.10000000335276,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 57.09999999962747
+          }
+        ]
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0,
+              "asyncMs": 5.300000000745058,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 1.200000001117587,
+              "parseCalls": 2,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 3.900000000372529,
+              "resolveCalls": 3,
+              "resolveMs": 2.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0,\"analyzeCalls\":2,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":3.900000000372529,\"asyncRpc\":6,\"asyncMs\":5.300000000745058,\"resolveCalls\":3,\"resolveMs\":2.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":1.200000001117587,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 7.400000000372529
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 5.800000000745058,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.900000000372529,
+              "parseCalls": 2,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 4.100000001490116,
+              "resolveCalls": 3,
+              "resolveMs": 3.099999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":4.100000001490116,\"asyncRpc\":6,\"asyncMs\":5.800000000745058,\"resolveCalls\":3,\"resolveMs\":3.099999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.900000000372529,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 7.299999998882413
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 3.599999997764826,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 2,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 2.799999998882413,
+              "resolveCalls": 3,
+              "resolveMs": 1.699999999254942,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.09999999962747097,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":2.799999998882413,\"asyncRpc\":6,\"asyncMs\":3.599999997764826,\"resolveCalls\":3,\"resolveMs\":1.699999999254942,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 5.400000000372529
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 6.199999999254942,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 1.699999999254942,
+              "parseCalls": 2,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 4.600000001490116,
+              "resolveCalls": 3,
+              "resolveMs": 2.699999999254942,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0.099853515625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0.099853515625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.09999999962747097,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":4.600000001490116,\"asyncRpc\":6,\"asyncMs\":6.199999999254942,\"resolveCalls\":3,\"resolveMs\":2.699999999254942,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":1.699999999254942,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 8.099999999627471
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 5.800000000745058,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.900000000372529,
+              "parseCalls": 2,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 4.100000001490116,
+              "resolveCalls": 3,
+              "resolveMs": 3.099999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":4.100000001490116,\"asyncRpc\":6,\"asyncMs\":5.800000000745058,\"resolveCalls\":3,\"resolveMs\":3.099999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.900000000372529,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 7.299999998882413
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 3.599999997764826,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 2,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 2.799999998882413,
+              "resolveCalls": 3,
+              "resolveMs": 1.699999999254942,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.09999999962747097,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":2.799999998882413,\"asyncRpc\":6,\"asyncMs\":3.599999997764826,\"resolveCalls\":3,\"resolveMs\":1.699999999254942,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 5.400000000372529
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 2,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 6.199999999254942,
+              "asyncRpc": 6,
+              "esbuildInitMs": 0,
+              "fsRpc": 6,
+              "packageTypeCalls": 2,
+              "packageTypeMs": 1.699999999254942,
+              "parseCalls": 2,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 216,
+              "readFileCalls": 4,
+              "readFileMs": 4.600000001490116,
+              "resolveCalls": 3,
+              "resolveMs": 2.699999999254942,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0.099853515625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0.099853515625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":2,\"parseMs\":0.09999999962747097,\"analyzeCalls\":2,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":6,\"readFileCalls\":4,\"readFileBytes\":216,\"readFileMs\":4.600000001490116,\"asyncRpc\":6,\"asyncMs\":6.199999999254942,\"resolveCalls\":3,\"resolveMs\":2.699999999254942,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":2,\"packageTypeMs\":1.699999999254942,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 8.099999999627471
+          }
+        ]
+      },
+      "npm": {
+        "command": "npm run bench",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2.599999999627471,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 1.299999998882413,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 2.099999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":2.099999999627471,\"asyncRpc\":3,\"asyncMs\":2.599999999627471,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":1.299999998882413,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.599999999627471
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 1.900000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.300000000745058,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.300000000745058,\"asyncRpc\":3,\"asyncMs\":1.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.199999999254942
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2.099999999627471,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.900000000372529,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.599999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.599999999627471,\"asyncRpc\":3,\"asyncMs\":2.099999999627471,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.900000000372529,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.399999998509884
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 1.5,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.099999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.40000000037252903,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.099999999627471,\"asyncRpc\":3,\"asyncMs\":1.5,\"resolveCalls\":1,\"resolveMs\":0.40000000037252903,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 1.900000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.300000000745058,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.300000000745058,\"asyncRpc\":3,\"asyncMs\":1.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.199999999254942
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2.099999999627471,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.900000000372529,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.599999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.599999999627471,\"asyncRpc\":3,\"asyncMs\":2.099999999627471,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.900000000372529,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.399999998509884
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 1.5,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.099999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.40000000037252903,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.10009765625
+            },
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n__RUNTIME_BENCH__{\"workerStartMs\":-0.10009765625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.099999999627471,\"asyncRpc\":3,\"asyncMs\":1.5,\"resolveCalls\":1,\"resolveMs\":0.40000000037252903,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n\nScript 'bench' completed successfully.",
+            "wallMs": 5
+          }
+        ]
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 1.3000000026077032,
+              "asyncMs": 223.39999999664724,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 0.7999999988824129,
+              "parseCalls": 25,
+              "parseMs": 1,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 99.09999999962749,
+              "resolveCalls": 49,
+              "resolveMs": 124.79999999701975,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":1,\"analyzeCalls\":25,\"analyzeMs\":1.3000000026077032,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":99.09999999962747,\"asyncRpc\":75,\"asyncMs\":223.39999999664724,\"resolveCalls\":49,\"resolveMs\":124.79999999701977,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":0.7999999988824129,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 35
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.8000000026077032,
+              "asyncMs": 265.30000000074506,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 0.7999999988824129,
+              "parseCalls": 25,
+              "parseMs": 0.6000000033527613,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 114.2999999988824,
+              "resolveCalls": 49,
+              "resolveMs": 151.10000000149012,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.6000000033527613,\"analyzeCalls\":25,\"analyzeMs\":0.8000000026077032,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":114.29999999888241,\"asyncRpc\":75,\"asyncMs\":265.30000000074506,\"resolveCalls\":49,\"resolveMs\":151.10000000149012,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":0.7999999988824129,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 40
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.900000000372529,
+              "asyncMs": 248.1999999973923,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1.099999999627471,
+              "parseCalls": 25,
+              "parseMs": 0.5999999977648258,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 105.40000000223516,
+              "resolveCalls": 49,
+              "resolveMs": 143.19999999552965,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.5999999977648258,\"analyzeCalls\":25,\"analyzeMs\":0.900000000372529,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":105.40000000223517,\"asyncRpc\":75,\"asyncMs\":248.1999999973923,\"resolveCalls\":49,\"resolveMs\":143.19999999552965,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1.099999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 38
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0.09999999962747096,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.6999999992549419,
+              "asyncMs": 225.90000000409785,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 0.8999999985098839,
+              "parseCalls": 25,
+              "parseMs": 0.3999999985098839,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 98.40000000037251,
+              "resolveCalls": 49,
+              "resolveMs": 127.6000000052154,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0.09999999962747097,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.3999999985098839,\"analyzeCalls\":25,\"analyzeMs\":0.6999999992549419,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":98.40000000037253,\"asyncRpc\":75,\"asyncMs\":225.90000000409782,\"resolveCalls\":49,\"resolveMs\":127.6000000052154,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":0.8999999985098839,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 35.90000000037253
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.8000000026077032,
+              "asyncMs": 265.30000000074506,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 0.7999999988824129,
+              "parseCalls": 25,
+              "parseMs": 0.6000000033527613,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 114.2999999988824,
+              "resolveCalls": 49,
+              "resolveMs": 151.10000000149012,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.6000000033527613,\"analyzeCalls\":25,\"analyzeMs\":0.8000000026077032,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":114.29999999888241,\"asyncRpc\":75,\"asyncMs\":265.30000000074506,\"resolveCalls\":49,\"resolveMs\":151.10000000149012,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":0.7999999988824129,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 40
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.900000000372529,
+              "asyncMs": 248.1999999973923,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 1.099999999627471,
+              "parseCalls": 25,
+              "parseMs": 0.5999999977648258,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 105.40000000223516,
+              "resolveCalls": 49,
+              "resolveMs": 143.19999999552965,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.100341796875
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.100341796875,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.5999999977648258,\"analyzeCalls\":25,\"analyzeMs\":0.900000000372529,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":105.40000000223517,\"asyncRpc\":75,\"asyncMs\":248.1999999973923,\"resolveCalls\":49,\"resolveMs\":143.19999999552965,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":1.099999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 38
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0.09999999962747096,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 25,
+              "analyzeMs": 0.6999999992549419,
+              "asyncMs": 225.90000000409785,
+              "asyncRpc": 75,
+              "esbuildInitMs": 0,
+              "fsRpc": 75,
+              "packageTypeCalls": 25,
+              "packageTypeMs": 0.8999999985098839,
+              "parseCalls": 25,
+              "parseMs": 0.3999999985098839,
+              "preparedWorker": true,
+              "readFileBytes": 1272,
+              "readFileCalls": 26,
+              "readFileMs": 98.40000000037251,
+              "resolveCalls": 49,
+              "resolveMs": 127.6000000052154,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0.09999999962747097,\"preparedWorker\":true,\"parseCalls\":25,\"parseMs\":0.3999999985098839,\"analyzeCalls\":25,\"analyzeMs\":0.6999999992549419,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":75,\"readFileCalls\":26,\"readFileBytes\":1272,\"readFileMs\":98.40000000037253,\"asyncRpc\":75,\"asyncMs\":225.90000000409782,\"resolveCalls\":49,\"resolveMs\":127.6000000052154,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":25,\"packageTypeMs\":0.8999999985098839,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 35.90000000037253
+          }
+        ]
+      },
+      "small": {
+        "command": "node bench-small.js",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.300000000745058,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.8000000007450581,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.300000000745058,
+              "resolveCalls": 1,
+              "resolveMs": 1,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.300000000745058,\"asyncRpc\":3,\"asyncMs\":2.300000000745058,\"resolveCalls\":1,\"resolveMs\":1,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.8000000007450581,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.299999998882413
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 1.900000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7000000011175871,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.400000000372529,\"asyncRpc\":3,\"asyncMs\":1.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7000000011175871,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.5
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.400000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.900000000372529,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.700000001117587,
+              "resolveCalls": 1,
+              "resolveMs": 0.6999999992549419,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.700000001117587,\"asyncRpc\":3,\"asyncMs\":2.400000000372529,\"resolveCalls\":1,\"resolveMs\":0.6999999992549419,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.900000000372529,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.5
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.400000000372529,\"asyncRpc\":3,\"asyncMs\":2,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.200000001117587
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 1.900000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7000000011175871,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.400000000372529,\"asyncRpc\":3,\"asyncMs\":1.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7000000011175871,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.5
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.400000000372529,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.900000000372529,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.700000001117587,
+              "resolveCalls": 1,
+              "resolveMs": 0.6999999992549419,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": 0
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":0,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.700000001117587,\"asyncRpc\":3,\"asyncMs\":2.400000000372529,\"resolveCalls\":1,\"resolveMs\":0.6999999992549419,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.900000000372529,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.5
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0,
+              "asyncMs": 2,
+              "asyncRpc": 3,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.6999999992549419,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 110,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 0,
+              "transpileMs": 0,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":110,\"readFileMs\":1.400000000372529,\"asyncRpc\":3,\"asyncMs\":2,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":0,\"transpileMs\":0,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.6999999992549419,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 3.200000001117587
+          }
+        ]
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "samples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 2.900000000372529,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.7000000011175871,
+              "parseCalls": 1,
+              "parseMs": 0,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.400000000372529,
+              "resolveCalls": 1,
+              "resolveMs": 0.7000000011175871,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.7999999988824129,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.400000000372529,\"asyncRpc\":4,\"asyncMs\":2.900000000372529,\"resolveCalls\":1,\"resolveMs\":0.7000000011175871,\"transpileCalls\":1,\"transpileMs\":0.7999999988824129,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.7000000011175871,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.699999999254942
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.10000000149011612,
+              "asyncMs": 2.599999997764826,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.10000000149011612,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.7999999988824129,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.10000000149011612,\"analyzeCalls\":1,\"analyzeMs\":0.10000000149011612,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.299999998882413,\"asyncRpc\":4,\"asyncMs\":2.599999997764826,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":1,\"transpileMs\":0.7999999988824129,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.5
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 3.099999999627471,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.8000000007450581,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.599999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 1,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.599999999627471,\"asyncRpc\":4,\"asyncMs\":3.099999999627471,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":1,\"transpileMs\":1,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.8000000007450581,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.300000000745058
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.1999999992549419,
+              "asyncMs": 2.700000001117587,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.300000000745058,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.8000000007450581,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.19999999925494194,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.300000000745058,\"asyncRpc\":4,\"asyncMs\":2.700000001117587,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":1,\"transpileMs\":0.8000000007450581,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.599999999627471
+          }
+        ],
+        "warmSamples": [
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.10000000149011612,
+              "asyncMs": 2.599999997764826,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.10000000149011612,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.299999998882413,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.7999999988824129,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.10000000149011612,\"analyzeCalls\":1,\"analyzeMs\":0.10000000149011612,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.299999998882413,\"asyncRpc\":4,\"asyncMs\":2.599999997764826,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":1,\"transpileMs\":0.7999999988824129,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.5
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.09999999962747096,
+              "asyncMs": 3.099999999627471,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.8000000007450581,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.599999999627471,
+              "resolveCalls": 1,
+              "resolveMs": 0.5,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 1,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.09999999962747097,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.599999999627471,\"asyncRpc\":4,\"asyncMs\":3.099999999627471,\"resolveCalls\":1,\"resolveMs\":0.5,\"transpileCalls\":1,\"transpileMs\":1,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.8000000007450581,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.300000000745058
+          },
+          {
+            "metrics": {
+              "acquisitionMs": 0,
+              "actualXhrCalls": 0,
+              "actualXhrMs": 0,
+              "analyzeCalls": 1,
+              "analyzeMs": 0.1999999992549419,
+              "asyncMs": 2.700000001117587,
+              "asyncRpc": 4,
+              "esbuildInitMs": 0,
+              "fsRpc": 3,
+              "packageTypeCalls": 1,
+              "packageTypeMs": 0.599999999627471,
+              "parseCalls": 1,
+              "parseMs": 0.09999999962747096,
+              "preparedWorker": true,
+              "readFileBytes": 190,
+              "readFileCalls": 2,
+              "readFileMs": 1.300000000745058,
+              "resolveCalls": 1,
+              "resolveMs": 0.599999999627471,
+              "syncMs": 0,
+              "syncXhr": 0,
+              "transformMs": 0,
+              "transpileCalls": 1,
+              "transpileMs": 0.8000000007450581,
+              "workerStartMs": -0.000244140625
+            },
+            "output": "__RUNTIME_BENCH__{\"workerStartMs\":-0.000244140625,\"acquisitionMs\":0,\"preparedWorker\":true,\"parseCalls\":1,\"parseMs\":0.09999999962747097,\"analyzeCalls\":1,\"analyzeMs\":0.19999999925494194,\"syncXhr\":0,\"syncMs\":0,\"fsRpc\":3,\"readFileCalls\":2,\"readFileBytes\":190,\"readFileMs\":1.300000000745058,\"asyncRpc\":4,\"asyncMs\":2.700000001117587,\"resolveCalls\":1,\"resolveMs\":0.599999999627471,\"transpileCalls\":1,\"transpileMs\":0.8000000007450581,\"esbuildInitMs\":0,\"transformMs\":0,\"packageTypeCalls\":1,\"packageTypeMs\":0.599999999627471,\"actualXhrCalls\":0,\"actualXhrMs\":0}\n",
+            "wallMs": 4.599999999627471
+          }
+        ]
+      }
+    },
+    "setupMs": 166.40000000037253
+  },
+  "functional": {
+    "origin": "http://localhost:5173",
+    "workspace": "/home/pyxis/demo",
+    "browserSession": "Single agent-browser tab; browser errors output was empty.",
+    "fixtureSources": {
+      "bench-reuse-check.js": "console.log(process.emit('reuse-check') ? 'leaked' : 'clean');\n",
+      "bench-reuse-exit-stdout.js": "process.on('exit', () => process.stdout.write('exit stdout')); process.exit(0);\n",
+      "bench-reuse-exit.js": "process.on('exit', () => console.log('exit listener ran')); process.exit(0);\n",
+      "bench-reuse-loop.js": "while (true) {}\n",
+      "bench-reuse-module.js": "self.__reuseCounter = (self.__reuseCounter || 0) + 1; module.exports = self.__reuseCounter;\n",
+      "bench-reuse-register.js": "process.on('reuse-check', () => console.log('leaked')); console.log('registered');\n",
+      "bench-reuse-state.js": "console.log(require('./bench-reuse-module.js')); console.log(require('./bench-reuse-module.js'));\n",
+      "bench-reuse-stdin-check.js": "process.stdin.once('data', data => console.log('current stdin', data.toString()));\n",
+      "bench-reuse-stdin-register.js": "process.stdin.on('data', () => console.log('leaked stdin')); process.stdin.pause(); console.log('stdin paused');\n",
+      "bench-reuse-timer.js": "setTimeout(() => console.log('leaked timer'), 100).unref(); console.log('timer set');\n",
+      "bench-reuse-wait.js": "(async () => { await new Promise(resolve => setTimeout(resolve, 150)); console.log('timer clean'); })();\n"
+    },
+    "terminalFixtures": [
+      {
+        "command": "node bench-small.js",
+        "output": [
+          "bench-small"
+        ]
+      },
+      {
+        "command": "node bench-requires.js",
+        "output": [
+          "24"
+        ]
+      },
+      {
+        "command": "node bench-ts.ts",
+        "output": [
+          "7"
+        ]
+      },
+      {
+        "command": "node bench-node-modules.js",
+        "output": [
+          "bench-package"
+        ]
+      },
+      {
+        "command": "npm run bench",
+        "output": [
+          "bench-small",
+          "Script bench completed successfully."
+        ]
+      },
+      {
+        "command": "node bench-diff.js",
+        "output": [
+          "7"
+        ]
+      }
+    ],
+    "reuseState": {
+      "command": "node bench-reuse-state.js",
+      "firstRunOutput": [
+        "1",
+        "1"
+      ],
+      "secondRunOutput": [
+        "2",
+        "2"
+      ]
+    },
+    "processListenerReset": {
+      "registerOutput": [
+        "registered"
+      ],
+      "checkOutput": [
+        "clean"
+      ]
+    },
+    "timerReset": {
+      "registerOutput": [
+        "timer set"
+      ],
+      "followUpOutput": [
+        "timer clean"
+      ],
+      "waitMs": 150
+    },
+    "stdinReset": {
+      "registerOutput": [
+        "stdin paused"
+      ],
+      "input": "hello",
+      "followUpOutput": [
+        "hello",
+        "current stdin hello"
+      ]
+    },
+    "interruptRecovery": {
+      "source": "while (true) {}",
+      "action": "Terminal Ctrl+C",
+      "observed": [
+        "Prompt returned",
+        "node bench-small.js printed bench-small"
+      ]
+    },
+    "processExit": {
+      "listenerOutput": [
+        "exit listener ran"
+      ],
+      "stdoutOutput": "exit stdout",
+      "stdoutOccurrenceCount": 1,
+      "followUpOutput": [
+        "bench-small"
+      ]
+    },
+    "concurrency": {
+      "api": "Promise.all of NodeRuntimeProvider.execute",
+      "runs": [
+        {
+          "exitCode": 0
+        },
+        {
+          "exitCode": 0
+        },
+        {
+          "exitCode": 0
+        }
+      ],
+      "followUp": {
+        "exitCode": 0,
+        "debugOutput": [
+          "bench-small"
+        ],
+        "preparedWorker": true
+      },
+      "poolCap": "This browser check verifies the retained follow-up idle Worker; RuntimeWorkerPool tests cover the idle cap."
+    },
+    "pageErrors": []
+  },
+  "metricSemantics": {
+    "acquisitionMs": "Time from pool acquisition request until the acquired Worker is confirmed ready.",
+    "preparedWorker": "True when execution borrowed a prewarmed idle slot.",
+    "workerStartMs": "Time from immediately before start-message send until Worker start-handler entry; excludes prewarm/construct time and is not comparable to the earlier construct-to-handler metric.",
+    "clockResolution": "Small negative workerStartMs values are preserved and can occur below clock resolution."
+  }
+}

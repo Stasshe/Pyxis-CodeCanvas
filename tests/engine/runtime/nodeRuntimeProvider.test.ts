@@ -5,6 +5,7 @@ import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { fsClient } from '@/engine/core/fs';
 import { ensureRuntimeBridge, registerRuntimeHost } from '@/engine/runtime/bridge/main';
 import { NodeRuntimeProvider } from '@/engine/runtime/nodejs/NodeRuntimeProvider';
+import { disposeRuntimeWorkerPool } from '@/engine/runtime/nodejs/runtimeWorkerPool';
 import { executeRuntimeShell } from '@/engine/runtime/nodejs/shellHost';
 import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
 
@@ -21,14 +22,29 @@ vi.mock('@/engine/runtime/nodejs/shellHost', () => ({
 
 class FakeWorker {
   static instances: FakeWorker[] = [];
+  private readonly listeners = new Map<string, Set<(event: never) => void>>();
   onmessage: ((event: MessageEvent<WorkerMessage>) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
-  onmessageerror: (() => void) | null = null;
+  onmessageerror: ((event: MessageEvent) => void) | null = null;
   readonly posted: MainMessage[] = [];
   terminated = false;
 
   constructor() {
     FakeWorker.instances.push(this);
+    queueMicrotask(() => this.emit({ type: 'ready' }));
+  }
+
+  addEventListener(type: string, listener: (event: never) => void): void {
+    let listeners = this.listeners.get(type);
+    if (!listeners) {
+      listeners = new Set();
+      this.listeners.set(type, listeners);
+    }
+    listeners.add(listener);
+  }
+
+  removeEventListener(type: string, listener: (event: never) => void): void {
+    this.listeners.get(type)?.delete(listener);
   }
 
   postMessage(message: MainMessage): void {
@@ -41,6 +57,9 @@ class FakeWorker {
 
   emit(message: WorkerMessage): void {
     this.onmessage?.({ data: message } as MessageEvent<WorkerMessage>);
+    for (const listener of this.listeners.get('message') ?? []) {
+      listener({ data: message } as never);
+    }
   }
 }
 
@@ -52,8 +71,13 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   return { promise, resolve };
 }
 
-async function waitForWorker(index: number): Promise<FakeWorker> {
-  await vi.waitFor(() => expect(FakeWorker.instances).toHaveLength(index));
+async function waitForWorker(index: number, startCount = 1): Promise<FakeWorker> {
+  await vi.waitFor(() => {
+    expect(FakeWorker.instances).toHaveLength(index);
+    expect(
+      FakeWorker.instances[index - 1].posted.filter(message => message.type === 'start')
+    ).toHaveLength(startCount);
+  });
   return FakeWorker.instances[index - 1];
 }
 
@@ -67,9 +91,12 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
+    return disposeRuntimeWorkerPool().then(() => {
+      FakeWorker.instances = [];
+    });
   });
 
-  it('creates a fresh worker for each run and terminates it after completion', async () => {
+  it('reuses the prepared worker after normal completion', async () => {
     const provider = new NodeRuntimeProvider();
     const firstRun = provider.execute({
       rootPath: '/workspace/app',
@@ -79,17 +106,17 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     expect(firstWorker.posted[0]?.type).toBe('start');
     firstWorker.emit({ type: 'complete', result: { exitCode: 0 } });
     await expect(firstRun).resolves.toEqual({ exitCode: 0 });
-    expect(firstWorker.terminated).toBe(true);
+    expect(firstWorker.terminated).toBe(false);
 
     const secondRun = provider.execute({
       rootPath: '/workspace/app',
       filePath: '/workspace/app/b.js',
     });
-    const secondWorker = await waitForWorker(2);
-    expect(secondWorker).not.toBe(firstWorker);
+    const secondWorker = await waitForWorker(1, 2);
+    expect(secondWorker).toBe(firstWorker);
     secondWorker.emit({ type: 'complete', result: { exitCode: 0 } });
     await expect(secondRun).resolves.toEqual({ exitCode: 0 });
-    expect(secondWorker.terminated).toBe(true);
+    expect(secondWorker.terminated).toBe(false);
   });
 
   it('keeps terminal input queued until a synchronous stdin read requests it', async () => {
@@ -208,7 +235,7 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     await provider.dispose();
 
     await expect(run).resolves.toEqual({ exitCode: 130 });
-    expect(FakeWorker.instances).toHaveLength(0);
+    expect(FakeWorker.instances).toHaveLength(1);
     expect(fsClient.createRuntimePort).not.toHaveBeenCalled();
     readiness.resolve('/');
     await Promise.resolve();
@@ -228,7 +255,7 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     controller.abort();
 
     await expect(run).resolves.toEqual({ exitCode: 130 });
-    expect(FakeWorker.instances).toHaveLength(0);
+    expect(FakeWorker.instances).toHaveLength(1);
     readiness.resolve('/');
     await Promise.resolve();
   });
@@ -243,7 +270,7 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     await provider.dispose();
 
     await expect(run).resolves.toEqual({ exitCode: 130 });
-    expect(FakeWorker.instances).toHaveLength(0);
+    expect(FakeWorker.instances).toHaveLength(1);
     const port = new MessageChannel().port1;
     portRequest.resolve(port);
     await Promise.resolve();
@@ -283,7 +310,7 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
 
     worker.emit({ type: 'complete', result: { exitCode: 130 } });
     await expect(run).resolves.toEqual({ exitCode: 130 });
-    expect(worker.terminated).toBe(true);
+    expect(worker.terminated).toBe(false);
   });
 
   it('continues to send SIGINT after a handled interrupt acknowledgement', async () => {

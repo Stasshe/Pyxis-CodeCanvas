@@ -1,5 +1,6 @@
 import { makeServiceWorkerChannel, readMessage } from 'sync-message';
 import {
+  type FsBenchmark,
   type FsRequest,
   type RpcCall,
   type RpcReply,
@@ -30,6 +31,8 @@ export class RuntimeBridge {
     port.onmessageerror = () => this.close();
   }
 
+  benchmarkReply(_request: FsRequest, _metrics: FsBenchmark): void {}
+
   sync(request: RuntimeRequest): RpcValue {
     if (this.closed) throw new Error('Runtime closed.');
     const call: RpcCall = { id: crypto.randomUUID(), request, runtimeId: this.runtimeId };
@@ -39,16 +42,26 @@ export class RuntimeBridge {
       timeout: 120000,
     });
     if (!result) throw new Error('Runtime synchronous request timed out.');
+    if (request.kind === 'fs' && request.benchmark && result.fsBenchmark) {
+      this.benchmarkReply(request, result.fsBenchmark);
+    }
     return unwrapResult(result);
   }
 
   async(request: FsRequest | TranspileRequest): Promise<RpcValue> {
     if (this.closed) return Promise.reject(new Error('Runtime closed.'));
     const call: RpcCall = { id: crypto.randomUUID(), request, runtimeId: this.runtimeId };
-    return new Promise<RpcResult>(resolve => {
+    const reply = new Promise<RpcResult>(resolve => {
       this.pending.set(call.id, resolve);
       this.port.postMessage(call);
-    }).then(unwrapResult);
+    });
+    if (request.kind === 'fs' && request.benchmark) {
+      return reply.then(result => {
+        if (result.fsBenchmark) this.benchmarkReply(request, result.fsBenchmark);
+        return unwrapResult(result);
+      });
+    }
+    return reply.then(unwrapResult);
   }
 
   close(): void {

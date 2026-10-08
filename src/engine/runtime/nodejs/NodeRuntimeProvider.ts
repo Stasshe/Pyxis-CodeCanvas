@@ -9,6 +9,12 @@ import type {
   RuntimeProvider,
 } from '../core/RuntimeProvider';
 import { setRuntimeLogSink } from '../core/runtimeLogger';
+import {
+  acquireRuntimeWorker,
+  discardRuntimeWorker,
+  releaseRuntimeWorker,
+  warmRuntimeWorkerPool,
+} from './runtimeWorkerPool';
 import { executeRuntimeShell } from './shellHost';
 import type { MainMessage, OutputEntry, WorkerMessage } from './workerProtocol';
 
@@ -21,6 +27,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
 
   constructor() {
     setRuntimeLogSink((message, level) => pushLogMessage(message, level, 'Runtime'));
+    warmRuntimeWorkerPool();
   }
 
   canExecute(filePath: string): boolean {
@@ -53,11 +60,23 @@ export class NodeRuntimeProvider implements RuntimeProvider {
           fsPort.close();
           return { exitCode: 130 };
         }
+        let acquisitionStartedAt: number | undefined;
+        if (options.benchmark) acquisitionStartedAt = performance.now();
+        const acquired = await acquireRuntimeWorker();
+        let acquisitionMs: number | undefined;
+        if (acquisitionStartedAt !== undefined) {
+          acquisitionMs = performance.now() - acquisitionStartedAt;
+        }
+        if (cancelled || options.signal?.aborted || generation !== this.generation) {
+          discardRuntimeWorker(acquired.worker);
+          fsPort.close();
+          return { exitCode: 130 };
+        }
         this.executions.delete(cancelPreparation);
         options.signal?.removeEventListener('abort', cancelPreparation);
         unsubscribePreparation?.();
         unsubscribePreparation = undefined;
-        return await this.runWorker(options, scope, fsPort);
+        return await this.runWorker(options, scope, fsPort, acquired, acquisitionMs);
       } catch (error) {
         fsPort?.close();
         return { exitCode: 1, stderr: String(error) };
@@ -72,20 +91,17 @@ export class NodeRuntimeProvider implements RuntimeProvider {
     }
   }
 
-  private runWorker(
+  private async runWorker(
     options: RuntimeExecutionOptions,
     scope: string,
-    fsPort: MessagePort
+    fsPort: MessagePort,
+    acquired: Awaited<ReturnType<typeof acquireRuntimeWorker>>,
+    acquisitionMs: number | undefined
   ): Promise<RuntimeExecutionResult> {
+    const { worker, prepared } = acquired;
     return new Promise(resolve => {
-      let worker: Worker;
-      try {
-        worker = new Worker(new URL('./runtimeWorker.ts', import.meta.url), { type: 'module' });
-      } catch (error) {
-        fsPort.close();
-        resolve({ exitCode: 1, stderr: String(error) });
-        return;
-      }
+      let benchmarkStartedAt: number | undefined;
+      if (options.benchmark) benchmarkStartedAt = performance.timeOrigin + performance.now();
       const runtimeId = crypto.randomUUID();
       let completed = false;
       let interruptTimer: ReturnType<typeof setTimeout> | undefined;
@@ -150,20 +166,24 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         stdinEnded = true;
         drainStdin();
       };
-      const finish = (result: RuntimeExecutionResult) => {
+      const finish = (result: RuntimeExecutionResult, reusable = false) => {
         if (completed) return;
         completed = true;
         for (const controller of shells) controller.abort();
+        shells.clear();
         clearTimeout(interruptTimer);
         options.signal?.removeEventListener('abort', terminate);
         unsubscribeInterrupt?.();
         options.processStdin?.removeListener('data', onData);
         options.processStdin?.removeListener('end', onEnd);
         for (const read of stdinReaders.splice(0)) read([]);
+        stdinQueue.length = 0;
+        stdinRequested = false;
         cleanup();
-        worker.terminate();
         fsPort.close();
         this.executions.delete(terminate);
+        if (reusable) releaseRuntimeWorker(worker);
+        else discardRuntimeWorker(worker);
         resolve(result);
       };
       const terminate = () => finish({ exitCode: 130 });
@@ -197,7 +217,11 @@ export class NodeRuntimeProvider implements RuntimeProvider {
             finish({ exitCode: 1, stderr: String(error) });
           }
         } else if (message.type === 'complete') {
-          finish(message.result);
+          finish(message.result, true);
+        } else if (message.type === 'fatal') {
+          finish({ exitCode: 1, stderr: message.error });
+        } else if (message.type === 'ready') {
+          finish({ exitCode: 1, stderr: 'Runtime worker became ready during execution.' });
         } else if (message.type === 'interrupt-result') {
           if (!message.handled) terminate();
           else {
@@ -223,6 +247,7 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         finish({ exitCode: 1, stderr: 'Runtime worker message could not be decoded.' });
       const start: MainMessage = {
         type: 'start',
+        benchmarkStartedAt,
         runtimeId,
         scope,
         fsPort,
@@ -235,6 +260,10 @@ export class NodeRuntimeProvider implements RuntimeProvider {
           terminalRows: options.terminalRows,
         },
       };
+      if (options.benchmark) {
+        start.benchmarkPreparedWorker = prepared;
+        start.benchmarkAcquisitionMs = acquisitionMs;
+      }
       try {
         worker.postMessage(start, [fsPort]);
       } catch (error) {

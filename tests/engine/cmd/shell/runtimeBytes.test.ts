@@ -8,6 +8,7 @@ import { attachRuntimePort, type RuntimeFilesystem } from '@/engine/runtime/brid
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { NodeRuntimeProvider } from '@/engine/runtime/nodejs/NodeRuntimeProvider';
 import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
+import { disposeRuntimeWorkerPool } from '@/engine/runtime/nodejs/runtimeWorkerPool';
 import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
 import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
 import { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
@@ -37,11 +38,29 @@ vi.mock('@/engine/runtime/bridge/main', () => ({
 class RuntimeWorker {
   onmessage: ((event: MessageEvent<WorkerMessage>) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
-  onmessageerror: (() => void) | null = null;
+  onmessageerror: ((event: MessageEvent) => void) | null = null;
+  private readonly listeners = new Map<string, Set<EventListener>>();
   private runtime: NodeRuntime | undefined;
   private stdin: WorkerStdin | undefined;
   private bridge: RuntimeBridge | undefined;
   private terminated = false;
+
+  constructor() {
+    queueMicrotask(() => this.emit({ type: 'ready' }));
+  }
+
+  addEventListener(type: string, listener: EventListener): void {
+    let listeners = this.listeners.get(type);
+    if (!listeners) {
+      listeners = new Set();
+      this.listeners.set(type, listeners);
+    }
+    listeners.add(listener);
+  }
+
+  removeEventListener(type: string, listener: EventListener): void {
+    this.listeners.get(type)?.delete(listener);
+  }
 
   postMessage(message: MainMessage): void {
     if (message.type === 'start') void this.start(message);
@@ -56,9 +75,11 @@ class RuntimeWorker {
 
   private emit(message: WorkerMessage): void {
     if (!this.terminated) {
-      this.onmessage?.(
-        new MessageEvent<WorkerMessage>('message', { data: structuredClone(message) })
-      );
+      const event = new MessageEvent<WorkerMessage>('message', {
+        data: structuredClone(message),
+      });
+      this.onmessage?.(event);
+      for (const listener of this.listeners.get('message') ?? []) listener(event);
     }
   }
 
@@ -87,6 +108,11 @@ class RuntimeWorker {
       this.emit({ type: 'complete', result: { exitCode: runtime.getExitCode() } });
     } catch (error) {
       this.emit({ type: 'complete', result: { exitCode: 1, stderr: String(error) } });
+    } finally {
+      this.bridge?.close();
+      this.bridge = undefined;
+      this.runtime = undefined;
+      this.stdin = undefined;
     }
   }
 }
@@ -142,6 +168,7 @@ describe('Runtime byte transport through shell pipelines', () => {
     runtimeRegistry.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    return disposeRuntimeWorkerPool();
   });
 
   it('preserves binary bytes through provider messages, stdin, redirects, and append', async () => {

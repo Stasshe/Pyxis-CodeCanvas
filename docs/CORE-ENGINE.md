@@ -29,7 +29,7 @@ The FS Worker opens a SyncAccessHandle for each file operation and closes it bef
 
 The client acquires the `pyxis-fs-owner` Web Lock before creating the worker. Lock contention rejects initialization, enforcing one active application tab. The client proxies the FS API and broadcasts worker change events to registered listeners. `createPort()` creates a Comlink endpoint for worker-to-worker access.
 
-Git and npm operations execute in the FS Worker, where filesystem access is direct. Its entry statically imports the Buffer bootstrap before the endpoint, so `globalThis.Buffer` exists when isomorphic-git's Git index modules initialize. The main-thread polyfill does not cross the Worker boundary. Git uses `createGitFs` to adapt the core methods to isomorphic-git's promises interface. This keeps the worktree and `.git` in the same OPFS tree; file bytes remain unchanged through the adapter. npm archives are extracted from bytes and payloads are written without text decoding, except `.mjs` source intentionally strict-UTF-8-decoded for transpilation.
+Git and npm operations execute in the FS Worker, where filesystem access is direct. Its entry statically imports the Buffer bootstrap before the endpoint, so `globalThis.Buffer` exists when isomorphic-git's Git index modules initialize. The main-thread polyfill does not cross the Worker boundary. Git uses `createGitFs` to adapt the core methods to isomorphic-git's promises interface. This keeps the worktree and `.git` in the same OPFS tree; file bytes remain unchanged through the adapter. npm archives are extracted from bytes and payloads are written without text decoding. Runtime decodes `.mjs` source as UTF-8 only when applying a module transform.
 
 ## Workspace model
 

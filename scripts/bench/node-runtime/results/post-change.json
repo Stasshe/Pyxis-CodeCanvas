@@ -1,0 +1,508 @@
+{
+  "source": "current runtime after parser/resolver/transpile changes; opt-in benchmark:true instrumentation",
+  "origin": "http://localhost:5173",
+  "fixtures": "scripts/bench/node-runtime/runtime-fixtures.json + runtime-diff-fixture.json",
+  "invocation": "NodeRuntimeProvider.execute and npm.run awaited directly in agent-browser; fixtures seeded before each series",
+  "boundary": "workerStartMs is captured at Runtime Worker message-handler entry before dynamic benchmark helper import. Runtime wallMs includes benchmark helper fetch/compile/setup for the first worker after page reload. RPC and stage durations are accumulated and may overlap.",
+  "firstPageReloadSeries": {
+    "note": "First response output was clipped in the middle by the browser tool. The following cold samples were visible; requires24 and npm cold samples were not recoverable from window state and are intentionally omitted.",
+    "small": {
+      "wallMs": 43.3,
+      "workerStartMs": 29.2,
+      "syncXhr": 0,
+      "fsRpc": 3,
+      "readFileCalls": 2,
+      "readFileBytes": 110,
+      "readFileMs": 2.6,
+      "asyncRpc": 3,
+      "asyncMs": 3.9,
+      "resolveCalls": 1,
+      "resolveMs": 1.6,
+      "packageTypeCalls": 1,
+      "packageTypeMs": 1.7
+    },
+    "typescript": {
+      "wallMs": 216.7,
+      "workerStartMs": 25.5,
+      "syncXhr": 0,
+      "fsRpc": 3,
+      "readFileCalls": 2,
+      "readFileBytes": 190,
+      "readFileMs": 2.1,
+      "asyncRpc": 4,
+      "asyncMs": 181.6,
+      "resolveCalls": 1,
+      "resolveMs": 1.3,
+      "transpileCalls": 1,
+      "transpileMs": 178.4,
+      "esbuildInitMs": 52.2,
+      "transformMs": 97.8,
+      "packageTypeCalls": 1,
+      "packageTypeMs": 1.4
+    },
+    "nodeModules": {
+      "wallMs": 42.7,
+      "workerStartMs": 25.5,
+      "syncXhr": 0,
+      "fsRpc": 6,
+      "readFileCalls": 4,
+      "readFileBytes": 216,
+      "readFileMs": 5.3,
+      "asyncRpc": 6,
+      "asyncMs": 7.0,
+      "resolveCalls": 3,
+      "resolveMs": 2.8,
+      "packageTypeCalls": 2,
+      "packageTypeMs": 2.7
+    },
+    "diff9": {
+      "wallMs": 108.4,
+      "workerStartMs": 28.5,
+      "syncXhr": 0,
+      "fsRpc": 60,
+      "readFileCalls": 23,
+      "readFileBytes": 116783,
+      "readFileMs": 220.0,
+      "asyncRpc": 60,
+      "asyncMs": 340.8,
+      "resolveCalls": 61,
+      "resolveMs": 122.9,
+      "packageTypeCalls": 20,
+      "packageTypeMs": 71.2
+    }
+  },
+  "supplementalSeries": {
+    "note": "Run after the first page-reload series, in the same page. Each Runtime Worker is fresh; benchmark helper code and TS transform cache are already warm. For each case, warmWallMs is samples 2–4 and warmMedianMs is their median.",
+    "small": {
+      "wallMs": [45.7, 37.4, 38.8, 37.2],
+      "warmWallMs": [37.4, 38.8, 37.2],
+      "warmMedianMs": 37.4,
+      "firstMetrics": {
+        "workerStartMs": 32.4,
+        "syncXhr": 0,
+        "actualXhrCalls": 0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 110,
+        "readFileMs": 2.1,
+        "asyncRpc": 3,
+        "asyncMs": 3.6,
+        "resolveCalls": 1,
+        "resolveMs": 1.7,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.5
+      }
+    },
+    "requires24": {
+      "wallMs": [72.3, 78.0, 77.6, 79.4],
+      "warmWallMs": [78.0, 77.6, 79.4],
+      "warmMedianMs": 78.0,
+      "firstMetrics": {
+        "workerStartMs": 25.5,
+        "syncXhr": 0,
+        "actualXhrCalls": 0,
+        "fsRpc": 75,
+        "readFileCalls": 26,
+        "readFileBytes": 1272,
+        "readFileMs": 98.0,
+        "asyncRpc": 75,
+        "asyncMs": 229.7,
+        "resolveCalls": 49,
+        "resolveMs": 132.5,
+        "packageTypeCalls": 25,
+        "packageTypeMs": 1.6
+      }
+    },
+    "typescript": {
+      "wallMs": [42.7, 39.7, 41.2, 42.1],
+      "warmWallMs": [39.7, 41.2, 42.1],
+      "warmMedianMs": 41.2,
+      "firstMetrics": {
+        "workerStartMs": 29.0,
+        "syncXhr": 0,
+        "actualXhrCalls": 0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 190,
+        "readFileMs": 2.3,
+        "asyncRpc": 4,
+        "asyncMs": 4.7,
+        "resolveCalls": 1,
+        "resolveMs": 1.4,
+        "transpileCalls": 1,
+        "transpileMs": 1.2,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.5
+      }
+    },
+    "nodeModules": {
+      "wallMs": [42.1, 45.9, 42.4, 43.4],
+      "warmWallMs": [45.9, 42.4, 43.4],
+      "warmMedianMs": 43.4,
+      "firstMetrics": {
+        "workerStartMs": 26.9,
+        "syncXhr": 0,
+        "actualXhrCalls": 0,
+        "fsRpc": 6,
+        "readFileCalls": 4,
+        "readFileBytes": 216,
+        "readFileMs": 4.2,
+        "asyncRpc": 6,
+        "asyncMs": 5.6,
+        "resolveCalls": 3,
+        "resolveMs": 3.0,
+        "packageTypeCalls": 2,
+        "packageTypeMs": 1.3
+      }
+    },
+    "npm": {
+      "wallMs": [45.1, 41.9, 42.2, 41.5],
+      "warmWallMs": [41.9, 42.2, 41.5],
+      "warmMedianMs": 41.9,
+      "firstMetrics": {
+        "workerStartMs": 30.4,
+        "syncXhr": 0,
+        "actualXhrCalls": 0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 110,
+        "readFileMs": 2.0,
+        "asyncRpc": 3,
+        "asyncMs": 2.9,
+        "resolveCalls": 1,
+        "resolveMs": 1.2,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.4
+      }
+    },
+    "diff9": {
+      "wallMs": [113.3, 111.0, 116.5, 111.2],
+      "warmWallMs": [111.0, 116.5, 111.2],
+      "warmMedianMs": 111.2,
+      "firstMetrics": {
+        "workerStartMs": 26.6,
+        "syncXhr": 0,
+        "actualXhrCalls": 0,
+        "fsRpc": 60,
+        "readFileCalls": 23,
+        "readFileBytes": 116783,
+        "readFileMs": 236.4,
+        "asyncRpc": 60,
+        "asyncMs": 360.9,
+        "resolveCalls": 61,
+        "resolveMs": 126.2,
+        "packageTypeCalls": 20,
+        "packageTypeMs": 69.0
+      }
+    }
+  },
+  "normalModeSupplement": {
+    "note": "After global checks completed, benchmark:false runs were timed directly in agent-browser. Four samples per case were taken; sample 1 was excluded and warmMedianMs is the median of samples 2–4. Output capture was empty for direct Node cases because the provider routes console output separately; npm output was captured. No metrics marker was emitted in normal mode.",
+    "small": {
+      "wallMs": [42.5, 55.3, 38.5, 38.9],
+      "warmWallMs": [55.3, 38.5, 38.9],
+      "warmMedianMs": 38.9
+    },
+    "requires24": {
+      "wallMs": [70.2, 75.8, 72.3, 76.3],
+      "warmWallMs": [75.8, 72.3, 76.3],
+      "warmMedianMs": 75.8
+    },
+    "typescript": {
+      "wallMs": [204.0, 54.4, 58.4, 48.0],
+      "warmWallMs": [54.4, 58.4, 48.0],
+      "warmMedianMs": 54.4
+    },
+    "nodeModules": {
+      "wallMs": [39.8, 38.8, 37.5, 41.4],
+      "warmWallMs": [38.8, 37.5, 41.4],
+      "warmMedianMs": 38.8
+    },
+    "diff9": {
+      "wallMs": [111.4, 105.8, 111.9, 112.0],
+      "warmWallMs": [105.8, 111.9, 112.0],
+      "warmMedianMs": 111.9
+    },
+    "npm": {
+      "wallMs": [40.0, 41.6, 40.3, 42.0],
+      "warmWallMs": [41.6, 40.3, 42.0],
+      "warmMedianMs": 41.6
+    }
+  },
+  "typescriptAlternatingCheck": {
+    "note": "Four normal and four instrumented executions alternated on the same page with warm module/transform caches. No esbuild initialization or transform was needed; instrumented worker start and stage durations were captured. This check did not reproduce the earlier 54.4 ms normal-mode median.",
+    "samples": [
+      { "iteration": 1, "benchmark": false, "wallMs": 46.0 },
+      {
+        "iteration": 1,
+        "benchmark": true,
+        "wallMs": 40.8,
+        "workerStartMs": 25.5002,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 190,
+        "readFileMs": 2.2,
+        "asyncRpc": 4,
+        "asyncMs": 4.4,
+        "resolveCalls": 1,
+        "resolveMs": 1.5,
+        "transpileCalls": 1,
+        "transpileMs": 1.1,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.7,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      },
+      { "iteration": 2, "benchmark": false, "wallMs": 43.8 },
+      {
+        "iteration": 2,
+        "benchmark": true,
+        "wallMs": 44.0,
+        "workerStartMs": 29.1003,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 190,
+        "readFileMs": 2.6,
+        "asyncRpc": 4,
+        "asyncMs": 5.0,
+        "resolveCalls": 1,
+        "resolveMs": 1.7,
+        "transpileCalls": 1,
+        "transpileMs": 1.1,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.6,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      },
+      { "iteration": 3, "benchmark": false, "wallMs": 41.0 },
+      {
+        "iteration": 3,
+        "benchmark": true,
+        "wallMs": 42.3,
+        "workerStartMs": 28.0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 190,
+        "readFileMs": 2.6,
+        "asyncRpc": 4,
+        "asyncMs": 4.9,
+        "resolveCalls": 1,
+        "resolveMs": 1.5,
+        "transpileCalls": 1,
+        "transpileMs": 1.0,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.6,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      },
+      { "iteration": 4, "benchmark": false, "wallMs": 41.4 },
+      {
+        "iteration": 4,
+        "benchmark": true,
+        "wallMs": 42.7,
+        "workerStartMs": 28.2002,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 190,
+        "readFileMs": 2.9,
+        "asyncRpc": 4,
+        "asyncMs": 5.1,
+        "resolveCalls": 1,
+        "resolveMs": 1.5,
+        "transpileCalls": 1,
+        "transpileMs": 0.9,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.6,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    ],
+    "normalWarmMedianMs": 41.4,
+    "instrumentedMedianMs": 42.5
+  },
+  "cleanPageMetricSeries": {
+    "note": "Collected after page reload using a cache-busted import of the retained runner. This is a fresh Runtime Worker series; browser, OPFS, and transform caches persist. Four samples are included per case. The first wall sample includes the first benchmark helper fetch/compile, while workerStartMs is captured before that helper import.",
+    "setupMs": 173.3,
+    "small": {
+      "wallMs": [44.4, 37.2, 41.3, 39.6],
+      "firstMetrics": {
+        "workerStartMs": 28.3999,
+        "syncXhr": 0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 110,
+        "readFileMs": 2.3,
+        "asyncRpc": 3,
+        "asyncMs": 3.7,
+        "resolveCalls": 1,
+        "resolveMs": 1.6,
+        "transpileCalls": 0,
+        "transpileMs": 0,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.3,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    },
+    "requires24": {
+      "wallMs": [76.3, 77.5, 79.2, 74.3],
+      "firstMetrics": {
+        "workerStartMs": 27.9998,
+        "syncXhr": 0,
+        "fsRpc": 75,
+        "readFileCalls": 26,
+        "readFileBytes": 1272,
+        "readFileMs": 110.7,
+        "asyncRpc": 75,
+        "asyncMs": 246.2,
+        "resolveCalls": 49,
+        "resolveMs": 136.3,
+        "transpileCalls": 0,
+        "transpileMs": 0,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 25,
+        "packageTypeMs": 1.4,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    },
+    "typescript": {
+      "wallMs": [38.9, 40.3, 43.6, 41.1],
+      "firstMetrics": {
+        "workerStartMs": 25.2,
+        "syncXhr": 0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 190,
+        "readFileMs": 1.9,
+        "asyncRpc": 4,
+        "asyncMs": 4.8,
+        "resolveCalls": 1,
+        "resolveMs": 1.6,
+        "transpileCalls": 1,
+        "transpileMs": 1.5,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.1,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    },
+    "nodeModules": {
+      "wallMs": [43.9, 44.3, 41.8, 42.8],
+      "firstMetrics": {
+        "workerStartMs": 27.0999,
+        "syncXhr": 0,
+        "fsRpc": 6,
+        "readFileCalls": 4,
+        "readFileBytes": 216,
+        "readFileMs": 4.2,
+        "asyncRpc": 6,
+        "asyncMs": 6.0,
+        "resolveCalls": 3,
+        "resolveMs": 3.3,
+        "transpileCalls": 0,
+        "transpileMs": 0,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 2,
+        "packageTypeMs": 1.5,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    },
+    "diff9": {
+      "wallMs": [113.0, 115.8, 109.5, 115.7],
+      "firstMetrics": {
+        "workerStartMs": 26.3999,
+        "syncXhr": 0,
+        "fsRpc": 60,
+        "readFileCalls": 23,
+        "readFileBytes": 116783,
+        "readFileMs": 216.1,
+        "asyncRpc": 60,
+        "asyncMs": 356.7,
+        "resolveCalls": 61,
+        "resolveMs": 142.8,
+        "transpileCalls": 0,
+        "transpileMs": 0,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 20,
+        "packageTypeMs": 70.6,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    },
+    "npm": {
+      "wallMs": [42.5, 39.9, 40.2, 40.1],
+      "firstMetrics": {
+        "workerStartMs": 27.1997,
+        "syncXhr": 0,
+        "fsRpc": 3,
+        "readFileCalls": 2,
+        "readFileBytes": 110,
+        "readFileMs": 2.7,
+        "asyncRpc": 3,
+        "asyncMs": 4.3,
+        "resolveCalls": 1,
+        "resolveMs": 1.7,
+        "transpileCalls": 0,
+        "transpileMs": 0,
+        "esbuildInitMs": 0,
+        "transformMs": 0,
+        "packageTypeCalls": 1,
+        "packageTypeMs": 1.6,
+        "actualXhrCalls": 0,
+        "actualXhrMs": 0
+      }
+    }
+  },
+  "retainedRunnerNormalCheck": {
+    "note": "Cache-busted browser import of scripts/bench/node-runtime/run.mjs with benchmark:false. The compact response retained sample counts and warm samples 2–4 only; first-sample wall times were not included. No metrics marker appeared. Full raw samples from a separate inline run are in normalModeSupplement.",
+    "sampleCount": 4,
+    "warmSampleCount": 3,
+    "small": { "warmWallMs": [39.5, 36.5, 40.1], "warmMedianMs": 39.5 },
+    "requires24": { "warmWallMs": [73.6, 71.7, 73.2], "warmMedianMs": 73.2 },
+    "typescript": { "warmWallMs": [39.2, 41.7, 39.0], "warmMedianMs": 39.2 },
+    "nodeModules": { "warmWallMs": [40.1, 41.5, 38.9], "warmMedianMs": 40.1 },
+    "diff9": { "warmWallMs": [117.0, 110.6, 109.4], "warmMedianMs": 110.6 },
+    "npm": { "warmWallMs": [37.0, 40.0, 39.2], "warmMedianMs": 39.2 }
+  },
+  "terminalVerification": {
+    "current": {
+      "passed": [
+        "node bench-small.js -> bench-small",
+        "node bench-requires.js -> 24",
+        "node bench-ts.ts -> 7",
+        "node bench-node-modules.js -> bench-package",
+        "npm run bench -> completed successfully",
+        "node bench-diff.js -> 7"
+      ]
+    },
+    "main": {
+      "passed": [
+        "node bench-small.js -> bench-small",
+        "node bench-requires.js -> 24",
+        "node bench-node-modules.js -> bench-package",
+        "npm run bench -> completed successfully",
+        "node bench-diff.js -> 7"
+      ],
+      "typescript": "not run successfully: baseline Welcome-Project has no TypeScript runtime extension installed; direct timing activated its transpiler registration separately"
+    }
+  }
+}

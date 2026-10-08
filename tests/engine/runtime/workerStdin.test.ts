@@ -63,4 +63,25 @@ describe('WorkerStdin', () => {
     expect(tracked).toHaveLength(2);
     await tracked[1];
   });
+
+  it('releases pending input and discards listeners and queued data on disposal', async () => {
+    const tracked: Promise<void>[] = [];
+    const requestInput = vi.fn();
+    const stdin = new WorkerStdin(
+      promise => tracked.push(promise),
+      requestInput,
+      () => {}
+    );
+    const listener = vi.fn();
+    stdin.on('data', listener);
+    await Promise.resolve();
+    stdin.dispose();
+    stdin.submit('late input');
+    await Promise.resolve();
+
+    expect(tracked).toHaveLength(1);
+    await tracked[0];
+    expect(listener).not.toHaveBeenCalled();
+    expect(requestInput).toHaveBeenCalledOnce();
+  });
 });

@@ -1,6 +1,6 @@
 # Node.js Runtime
 
-Pyxis runs Node.js-compatible code in the browser. Each execution gets a dedicated Runtime Worker that is discarded when the run ends, so process and module state start fresh for every run.
+Pyxis runs Node.js-compatible code in the browser. The provider prewarms one idle Runtime Worker. Executions reuse it when available, and a normally completed Worker returns to the idle pool. When no idle Worker is available, concurrent runs create Workers on demand; at most one idle Worker is retained after they finish. A terminated or unexpectedly failed Worker is discarded and replaced. Per-run module caches, timers, process listeners, stdin, and other execution state are disposed at completion. Values added to the Worker global scope may remain for the next run.
 
 ## Execution path
 
@@ -21,7 +21,7 @@ sequenceDiagram
     Provider-->>Caller: stdout / stderr / exit code
 ```
 
-`NodeRuntimeProvider` starts one Worker per call from `runtimeRegistry`. Stdout, stderr, console, and debugConsole output is batched from the Worker. Terminal Ctrl+C sends a catchable SIGINT; if no handler processes it, or SIGINT is repeated, the Worker is terminated with exit code 130. RunPanel Stop and component unmount force-cancel through an AbortSignal, including nested ShellExecutor work.
+`NodeRuntimeProvider` acquires a prewarmed Worker for calls from `runtimeRegistry`. Stdout, stderr, console, and debugConsole output is batched from the Worker. Terminal Ctrl+C sends a catchable SIGINT; if no handler processes it, or SIGINT is repeated, the Worker is terminated with exit code 130. RunPanel Stop and component unmount force-cancel through an AbortSignal, including nested ShellExecutor work.
 
 Startup registers and updates the Service Worker, waits for activation and control, then confirms the FS Worker port. An initially uncontrolled page reloads once; if it remains uncontrolled, startup shows an error. After a Service Worker restart, sync requests wait for a new FS port, while retired ports stay open until their pending replies arrive. Reconnection has a timeout. `setup-build` bundles `src/engine/runtime/bridge/serviceWorker.js` into `public/sw.js`.
 
@@ -37,13 +37,19 @@ Interrupt signals also abort an active `ShellExecutor` started through `child_pr
 - If the Service Worker restarts and loses its FS Worker port, it asks the main page for a replacement and resumes after the port is acknowledged.
 - Shell execution through `child_process` and stdin go through the main page.
 
-Statically discovered dependencies are preloaded asynchronously. An uncached `require` also works synchronously: it resolves the path, reads the file from the FS Worker, and transpiles it over the same synchronous route when needed. CommonJS circular dependencies return partial exports while loading, and replacement of `module.exports` is reflected. Sync `fs` APIs use that bridge too.
+One resolver serves asynchronous preloading and synchronous `require`, retaining successful resolutions for the duration of an execution. The sync route asks the FS Worker only about unresolved candidates. A CommonJS file is read once into the per-execution module cache; the FS Worker owns the persistent transformed-module cache. These caches have different lifetimes, and the Runtime Worker has no separate file map. CommonJS circular dependencies return partial exports while loading, and replacement of `module.exports` is reflected. CommonJS and ESM namespace creation use the same per-execution module cache. Sync `fs` APIs use the same bridge.
+
+Module format is determined by a JavaScript parser. `.mjs` and `.mts` are ESM; `.cjs` and `.cts` are CommonJS. `.js` and `.ts` follow the nearest `package.json` `type`, with source grammar detection when `type` is absent. Package `exports` and `imports` resolve using execution conditions such as `import` and `require` and Node path rules. Function-constructor bodies are also parsed, so imports in those bodies use the existing I/O tracking path.
 
 The runtime's virtual HOME is `/home/pyxis`. Newly created workspaces use `~/<name>`. The module cache path is `~/.cache/pyxis`, and the npm tarball cache path is `~/.npm`. npm metadata is fetched fresh; only package tarballs are cached, keyed by the SHA-256 of the exact resolved tarball URL and written after successful extraction. `/tmp` is a volatile FS Worker mount shared across Node runs.
 
+## Repeating the benchmark
+
+`scripts/bench/node-runtime/` contains fixture manifests and a browser runner. With Pyxis open in agent-browser, evaluate `import('/scripts/bench/node-runtime/run.mjs').then(m => m.measureRuntimeBenchmarks())`. It seeds the demo workspace, then runs the JavaScript/TypeScript and dependency cases plus `npm run bench` four times each. `warmSamples` contains runs 2–4. The default `benchmark: true` adds per-execution Worker acquisition/startup, RPC, resolver, parse/analyze, and transpile metrics to captured output; `measureRuntimeBenchmarks({ benchmark: false })` measures normal execution wall time. `acquisitionMs` spans the pool request until the acquired Worker is confirmed ready; `preparedWorker` marks a borrowed prewarmed slot. `workerStartMs` spans the `start` message send to Worker handler entry, excluding prewarm time, so it does not match the earlier construct-to-handler metric. Small negative values can occur below clock resolution. Seeding and setup are outside each run's wall timer, as are UI submission and terminal rendering. The first measured sample includes the benchmark helper's first load. Results compare the development fixtures and do not guarantee performance on other browsers or devices.
+
 ## Transpilation
 
-The FS Worker serializes transpile requests and starts a dedicated Worker on demand. The pool has one Worker and disposes it after 30 seconds idle; a later request starts a new one. JavaScript ESM transforms and `.mjs` transforms in both npm installation paths use esbuild through this pool. TypeScript uses the registered extension transform configuration through the same pool. Persistent cache entries are validated using SHA-256 hashes of their paths and transform inputs.
+The FS Worker serializes transpile requests and starts a dedicated Worker on demand. The pool has one Worker and disposes it after 30 seconds idle; a later request starts a new one. Runtime JavaScript ESM transforms use esbuild through this pool. TypeScript uses the registered extension transform configuration through the same pool. npm archives and extracted files preserve bytes; transforms occur when runtime code loads modules. Persistent cache entries are validated using SHA-256 hashes of their paths and transform inputs.
 
 ## Supported scope
 

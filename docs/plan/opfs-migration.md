@@ -105,7 +105,9 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 ## Runtime
 
 ### 実行モデル
-- `node`を1回実行するたびにRuntime Workerを1つ作り、終了したら破棄する。グローバル変数とモジュールのキャッシュは実行ごとに新しくなる。待機用Workerの事前起動はしない（メモリ予算のため）
+- Runtime Workerは使い回す。待機Workerを常に1つ先行起動しておき、`node`実行はそれを取って使う。正常終了したWorkerは待機へ戻す。terminateしたら破棄し、次の待機Workerを先行起動する。同時実行で待機が無ければ追加で起動し、終了後は待機1つを超える分を破棄する
+- 実行ごとにmodule cache・timer・`process`のlistener・stdin状態を破棄する。Worker global scopeへ追加された値は次の実行に残りうる（許容）
+- ProviderがFS WorkerのportをRuntime Workerへ渡し、Runtime Workerが作る`RuntimeFsMount`を`NodeRuntime`の必須filesystem依存にする。file accessと変換済みmoduleの永続cacheはFS Workerが所有し、Runtime Workerには実行内module cacheだけを置く
 - 呼び出し元（shellの`node`コマンド・`npmHandler`・`RunPanel`）は従来通り`runtimeRegistry` → `NodeRuntimeProvider`を使う。ProviderがWorkerを管理する
 - Ctrl+C: `process.on('SIGINT')`に処理が登録されていればそれを呼ぶ。登録がない場合や同期XHRで止まっている場合は`worker.terminate()`し、exit code 130で終わる
 - stdout / stderr / console・debugConsoleは`postMessage`でまとめて流す
@@ -125,7 +127,9 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 - transpile（esbuild-wasmは`transformSync`が使えない。拡張機能が提供するTypeScriptのtranspilerも同じ経路）
 - `child_process.execSync` / `spawnSync`（mainのshellを呼ぶ）
 - stdinの同期読み込み（`fs.readFileSync(0)`、`fs.readSync(0)`。terminalの入力行を待つ）
-- 静的に分かる依存は従来通りasyncで先読みし、同期RPCは先読みで拾えなかったものだけに使う。1回のcallごとに数msの往復がかかるため、回数を抑える
+- 静的に分かる依存はasyncで先読みし、同じresolverが成功したpathを実行内に保持する。同期RPCは未知の解決先だけに使う。CommonJSのentryは一度だけ読み、未解決候補の存在確認を繰り返さない
+- `.mjs` / `.mts`はESM、`.cjs` / `.cts`はCommonJSとして扱う。`.js` / `.ts`はpackageの`type`で判定し、未指定時はsource grammarを見る。`exports` / `imports`は`import` / `require`条件に沿って解決する。Function constructorのbodyもJavaScript parserで解析し、importは既存I/O追跡へ渡す。ESM/CJS namespace生成は同じ実行内module cacheを使う
+- npm installはregistry tarballのbytesを展開して保存する。runtime変換はinstall時に行わず、実行時に必要なfileだけ変換する
 
 ### SW
 - 必須にする。初回訪問時は1回reloadする。devでも有効にする（現在の`sw-register.js`はlocalhostでSWを解除している）
@@ -141,7 +145,7 @@ page全体（main + 全Worker）を**400 MB以内**に抑える目標。実行�
 - 減る: 実行のたびに行っていた全fileのpreload（node_modulesを含む）、ProjectMountのfile Map、lightning-fs
 - 増える: FS Workerの常駐分、実行中のRuntime Worker
 - Transpile Worker Pool: **FS Worker内で1 Workerに固定し、30秒間未使用なら破棄する**。JS module変換と拡張機能が登録したTypeScript変換を同じpoolで実行する
-- Runtime Worker: 実行中の分だけ存在させ、事前起動はしない
+- Runtime Worker: 待機最大1つ＋実行中の分。同時実行の終了後も余分な待機Workerは保持しない
 - 計測: `performance.measureUserAgentSpecificMemory()`はcross-origin isolationが必須なので使えない。ブラウザのタスクマネージャーとDevToolsのMemoryタブで計測する
 - 実行中programがメモリを使い切るのは許容する（browserのAPIで制限する手段もない）。Ctrl+Cでterminateすれば実行Workerを終了できる
 

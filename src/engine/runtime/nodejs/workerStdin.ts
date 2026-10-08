@@ -24,6 +24,7 @@ export class WorkerStdin implements RuntimeStdin {
   private ended = false;
   private sourceEnded = false;
   private paused = false;
+  private disposed = false;
   private readonly queued: Buffer[] = [];
 
   constructor(
@@ -35,11 +36,13 @@ export class WorkerStdin implements RuntimeStdin {
   on(event: 'data', listener: DataListener): this;
   on(event: 'end' | 'close', listener: EndListener): this;
   on(event: string, listener: DataListener | EndListener): this {
+    if (this.disposed) return this;
     if (event === 'data') {
       this.data.add(listener as DataListener);
       this.ref();
       queueMicrotask(() => {
         try {
+          if (this.disposed) return;
           this.drain();
         } catch (error) {
           if (!isProcessExitSignal(error)) throw error;
@@ -71,6 +74,7 @@ export class WorkerStdin implements RuntimeStdin {
   removeListener(event: 'data', listener: DataListener): this;
   removeListener(event: 'end' | 'close', listener: EndListener): this;
   removeListener(event: string, listener: DataListener | EndListener): this {
+    if (this.disposed) return this;
     if (event === 'data') {
       this.data.delete(listener as DataListener);
       if (this.data.size === 0) {
@@ -82,13 +86,13 @@ export class WorkerStdin implements RuntimeStdin {
   }
 
   submit(data: string | Uint8Array): void {
-    if (this.sourceEnded) return;
+    if (this.disposed || this.sourceEnded) return;
     this.queued.push(Buffer.from(data));
     this.drain();
   }
 
   private drain(): void {
-    if (this.ended || this.paused) return;
+    if (this.disposed || this.ended || this.paused) return;
     while (this.data.size > 0 && this.queued.length > 0 && !this.paused) {
       const listener = [...this.data].at(-1)!;
       listener(this.queued.shift()!);
@@ -103,12 +107,13 @@ export class WorkerStdin implements RuntimeStdin {
   }
 
   eof(): void {
+    if (this.disposed) return;
     this.sourceEnded = true;
     this.drain();
   }
 
   private ref(): void {
-    if (this.release || this.ended || this.paused || this.data.size === 0) return;
+    if (this.disposed || this.release || this.ended || this.paused || this.data.size === 0) return;
     this.track(
       new Promise<void>(resolve => {
         this.release = resolve;
@@ -122,14 +127,25 @@ export class WorkerStdin implements RuntimeStdin {
   }
 
   pause(): void {
+    if (this.disposed) return;
     this.paused = true;
     this.pauseInput();
     this.unref();
   }
 
   resume(): void {
+    if (this.disposed) return;
     this.paused = false;
     this.ref();
     this.drain();
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.data.clear();
+    this.end.clear();
+    this.queued.length = 0;
+    this.unref();
   }
 }

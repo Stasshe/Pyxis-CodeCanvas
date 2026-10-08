@@ -5,6 +5,8 @@ export interface RuntimeExecutionOptions {
   cwd?: string;
   filePath: string;
   argv?: string[];
+  /** Emit runtime stage metrics for an explicitly measured execution. */
+  benchmark?: boolean;
   /** Abort forcibly cancels this execution. Terminal interrupts use subscribeInterrupt. */
   signal?: AbortSignal;
   subscribeInterrupt?: (handler: () => void) => () => void;

@@ -1,5 +1,4 @@
 import type { FsApi } from '@/engine/core/fs/types';
-import { transpileManager } from '@/engine/runtime/transpiler/transpileManager';
 
 type FileOp = {
   path: string;
@@ -30,16 +29,7 @@ export class BatchFileWriter {
   }
 
   async execute(path: string, type: FileOp['type'], content?: string | Uint8Array): Promise<void> {
-    let finalContent = content;
-    if (type === 'file' && path.endsWith('.mjs') && typeof content === 'string' && content) {
-      const result = await transpileManager.transpile({
-        code: content,
-        filePath: path,
-        isESModule: true,
-      });
-      finalContent = result.code;
-    }
-    const operation = { path, type, content: finalContent };
+    const operation = { path, type, content };
     if (this.active && type !== 'folder') {
       this.queue.push(operation);
       return;

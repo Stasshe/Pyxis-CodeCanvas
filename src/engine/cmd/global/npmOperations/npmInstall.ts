@@ -2,7 +2,6 @@ import { resolvePath } from '@/engine/core/fs';
 import { NPM_CACHE_PATH } from '@/engine/core/fs/layout';
 import type { FsApi } from '@/engine/core/fs/types';
 import { ensureGitignoreContains } from '@/engine/core/gitignore';
-import { transpileManager } from '@/engine/runtime/transpiler/transpileManager';
 
 import { BatchFileWriter } from './install/batchWriter';
 import {
@@ -386,15 +385,7 @@ export class NpmInstall {
         if (fileInfo.isDirectory) {
           foldersToCreate.push(fullPath);
         } else {
-          let content = fileInfo.content ?? '';
-          if (fullPath.endsWith('.mjs') && typeof content === 'string' && content) {
-            const result = await transpileManager.transpile({
-              code: content,
-              filePath: fullPath,
-              isESModule: true,
-            });
-            content = result.code;
-          }
+          const content = fileInfo.content ?? '';
           filesToCreate.push({ path: fullPath, content });
         }
       }

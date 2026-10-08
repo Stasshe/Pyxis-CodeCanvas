@@ -4,7 +4,7 @@ import { WorkerNpmCommands } from '@/engine/cmd/global/npmOperations/worker';
 import { attachRuntimePort } from '@/engine/runtime/bridge/endpoint';
 import type { FsStat } from '@/engine/runtime/bridge/protocol';
 import type { TranspilerDescriptor } from '@/engine/runtime/core/RuntimeProvider';
-import { transpileManager } from '@/engine/runtime/transpiler/transpileManager';
+import { TranspileManager } from '@/engine/runtime/transpiler/transpileManager';
 import { FsCore } from './core';
 import { registerFsErrors } from './errors';
 import { type SearchRequest, searchFiles } from './search';
@@ -14,6 +14,7 @@ import { createWorkspace, ensureDemoWorkspace } from './workspace';
 registerFsErrors();
 
 const core = new FsCore();
+const transpileManager = new TranspileManager(core);
 let queue: Promise<void> = Promise.resolve();
 
 /** Client endpoints share a queue; direct services use Core access-handle locks. */

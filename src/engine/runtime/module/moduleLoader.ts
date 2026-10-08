@@ -16,19 +16,27 @@ import type {
   RuntimeTimer,
 } from '../nodejs/runtimeTypes';
 import { isBuiltInModule } from './builtinModules';
-import { ModuleCache } from './moduleCache';
-import { ModuleCode } from './moduleCode';
+import { createRuntimeFunction } from './dynamicFunction';
+import {
+  ModuleCode,
+  type ModuleDependency,
+  type ModuleFormat,
+  type ModuleKind,
+} from './moduleCode';
 import { ModuleFileSystem } from './moduleFileSystem';
 import { ModuleResolver } from './moduleResolver';
 
+interface ModuleExecutionEntry {
+  exports: unknown;
+  loaded: boolean;
+  loading: boolean;
+  code: string;
+  format: ModuleFormat;
+  namespace: Record<string, unknown> | null;
+}
+
 interface ModuleExecutionCache {
-  [key: string]: {
-    exports: unknown;
-    loaded: boolean;
-    loading: boolean;
-    code?: string;
-    dependencies?: string[];
-  };
+  [key: string]: ModuleExecutionEntry;
 }
 
 interface CommonJsModule {
@@ -52,6 +60,7 @@ interface ModuleGlobals {
 export interface ModuleLoaderOptions {
   rootPath: string;
   bridge: RuntimeBridge;
+  trackIO: <T>(promise: Promise<T>) => Promise<T>;
   debugConsole?: {
     log: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -64,72 +73,43 @@ export interface ModuleLoaderOptions {
  * Module Loader
  */
 export class ModuleLoader {
-  private rootPath: string;
   private debugConsole?: ModuleLoaderOptions['debugConsole'];
   private builtinResolver?: (moduleName: string) => unknown | null;
-  private cache: ModuleCache;
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
   private preparePromises = new Map<string, Promise<void>>();
   private readonly maxParallelPreloads = 8;
   private fileSystem: ModuleFileSystem;
+  private readonly trackIO: ModuleLoaderOptions['trackIO'];
 
   constructor(options: ModuleLoaderOptions) {
-    this.rootPath = options.rootPath;
     this.debugConsole = options.debugConsole;
     this.builtinResolver = options.builtinResolver;
+    this.trackIO = options.trackIO;
     this.fileSystem = new ModuleFileSystem(options.bridge);
-    this.cache = new ModuleCache(this.fileSystem);
-    this.resolver = new ModuleResolver(this.rootPath, this.fileSystem);
-  }
-
-  async init(): Promise<void> {
-    runtimeInfo('🚀 Initializing ModuleLoader...');
-
-    await this.cache.init();
-
-    runtimeInfo('✅ ModuleLoader initialized');
-  }
-
-  async load(moduleName: string, currentFilePath: string): Promise<unknown> {
-    runtimeInfo('📦 Loading module:', moduleName, 'from', currentFilePath);
-
-    const prepared = await this.prepareModule(moduleName, currentFilePath);
-    if (prepared.__isBuiltIn) {
-      runtimeInfo('✅ Built-in module:', moduleName);
-      return prepared;
-    }
-
-    try {
-      const moduleExports = this.executePreparedModule(prepared.resolvedPath);
-      runtimeInfo('✅ Module loaded:', prepared.resolvedPath);
-      return moduleExports;
-    } catch (error) {
-      delete this.executionCache[prepared.resolvedPath];
-      runtimeError('❌ Failed to load module:', prepared.resolvedPath, error);
-      throw error;
-    }
+    this.resolver = new ModuleResolver(options.rootPath, this.fileSystem);
   }
 
   private async prepareModule(
     moduleName: string,
     currentFilePath: string,
-    prepareStack: Set<string> = new Set()
+    prepareStack: Set<string> = new Set(),
+    kind: ModuleKind = 'require'
   ): Promise<
     { __isBuiltIn: true; moduleName: string } | { __isBuiltIn: false; resolvedPath: string }
   > {
-    const resolved = await this.resolver.resolve(moduleName, currentFilePath);
+    const resolved = await this.resolver.resolve(moduleName, currentFilePath, kind);
     if (!resolved) {
       throw createModuleNotFoundError(moduleName, currentFilePath);
     }
 
     if (resolved.isBuiltIn) {
-      return { __isBuiltIn: true, moduleName };
+      return { __isBuiltIn: true, moduleName: resolved.path };
     }
 
     const resolvedPath = resolved.path;
     const existing = this.executionCache[resolvedPath];
-    if (existing?.code) {
+    if (existing?.code !== undefined) {
       return { __isBuiltIn: false, resolvedPath };
     }
 
@@ -144,11 +124,14 @@ export class ModuleLoader {
       return { __isBuiltIn: false, resolvedPath };
     }
 
-    const preparePromise = this.prepareResolvedModule(resolvedPath, moduleName, prepareStack);
+    const preparePromise = this.prepareResolvedModule(resolvedPath, prepareStack);
     this.preparePromises.set(resolvedPath, preparePromise);
 
     try {
       await preparePromise;
+    } catch (error) {
+      delete this.executionCache[resolvedPath];
+      throw error;
     } finally {
       this.preparePromises.delete(resolvedPath);
     }
@@ -158,20 +141,11 @@ export class ModuleLoader {
 
   private async prepareResolvedModule(
     resolvedPath: string,
-    moduleName: string,
     prepareStack: Set<string>
   ): Promise<void> {
     const existing = this.executionCache[resolvedPath];
-    if (existing?.code) {
+    if (existing?.code !== undefined) {
       return;
-    }
-
-    if (!existing) {
-      this.executionCache[resolvedPath] = {
-        exports: {},
-        loaded: false,
-        loading: false,
-      };
     }
 
     const fileContent = await this.readFile(resolvedPath);
@@ -182,34 +156,36 @@ export class ModuleLoader {
     }
 
     const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-    const { code, dependencies } = transpileResult;
+    const { code, dependencies, format } = transpileResult;
 
     runtimeInfo('📝 Code type:', typeof code, 'Dependencies type:', typeof dependencies);
 
-    this.executionCache[resolvedPath].code = code;
-    this.executionCache[resolvedPath].dependencies = dependencies;
+    this.executionCache[resolvedPath] = {
+      exports: {},
+      loaded: false,
+      loading: false,
+      code,
+      format,
+      namespace: null,
+    };
 
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Preparing dependencies for', resolvedPath, ':', dependencies);
       const nextStack = new Set(prepareStack);
       nextStack.add(resolvedPath);
-      await this.runWithConcurrency(
-        Array.from(new Set(dependencies)),
-        this.maxParallelPreloads,
-        async dep => {
-          try {
-            if (isBuiltInModule(dep)) {
-              return;
-            }
-            await this.prepareModule(dep, resolvedPath, nextStack);
-          } catch (error) {
-            if (isProcessExitSignal(error)) {
-              throw error;
-            }
-            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+      await this.runWithConcurrency(dependencies, this.maxParallelPreloads, async dep => {
+        try {
+          if (isBuiltInModule(dep.specifier)) {
+            return;
           }
+          await this.prepareModule(dep.specifier, resolvedPath, nextStack, dep.kind);
+        } catch (error) {
+          if (isProcessExitSignal(error)) {
+            throw error;
+          }
+          runtimeWarn('⚠️ Failed to pre-load dependency:', dep.specifier, 'from', resolvedPath);
         }
-      );
+      });
     }
   }
 
@@ -227,10 +203,6 @@ export class ModuleLoader {
     if (cached.loading) {
       runtimeWarn('⚠️ Circular dependency detected:', resolvedPath);
       return cached.exports;
-    }
-
-    if (!cached.code) {
-      throw new Error(`Prepared module is missing transpiled code: ${resolvedPath}`);
     }
 
     cached.loading = true;
@@ -261,55 +233,35 @@ export class ModuleLoader {
   async getTranspiledCodeWithDeps(
     filePath: string,
     content: string
-  ): Promise<{ code: string; dependencies: string[] }> {
-    const isTypeScript = /\.(ts|tsx|mts|cts)$/.test(filePath);
-    const isESModule = ModuleCode.isESModule(content);
-    const version = await ModuleCode.contentVersion(
-      JSON.stringify({ filePath, content, isTypeScript, isESModule })
-    );
-    const cached = await this.cache.get(filePath, version);
-    if (cached) {
-      runtimeInfo('📦 Using transpile cache (with dependencies):', filePath);
-      runtimeInfo(
-        '📝 Cache structure:',
-        typeof cached,
-        'code type:',
-        typeof cached.code,
-        'deps:',
-        cached.deps
-      );
-      const dependencies = Array.from(
-        new Set([...(cached.deps || []), ...ModuleCode.requireDependencies(cached.code)])
-      );
-      return { code: cached.code, dependencies };
-    }
-
+  ): Promise<{ code: string; dependencies: ModuleDependency[]; format: ModuleFormat }> {
     if (filePath.endsWith('.json')) {
       return {
         code: `module.exports = ${content};`,
         dependencies: [],
+        format: 'commonjs',
       };
     }
 
-    const needsTranspile = ModuleCode.needsTranspile(filePath, content);
+    const analysis = ModuleCode.analyze(content, filePath);
+    const type = await this.resolver.packageType(filePath);
+    const format = ModuleCode.format(filePath, analysis, type);
+    this.validateFormat(filePath, analysis.hasEsmSyntax, format);
+    const needsTranspile = ModuleCode.needsTranspile(filePath, analysis, type);
     if (!needsTranspile) {
       return {
         code: content,
-        dependencies: [...ModuleCode.requireDependencies(content)],
+        dependencies: analysis.dependencies,
+        format,
       };
     }
 
     runtimeInfo('🔄 Transpiling module (extracting dependencies):', filePath);
-    const result = await this.fileSystem.transpile(content, filePath, isTypeScript, isESModule);
-    const dependencies = result.dependencies;
-
-    await this.cache.set(filePath, {
-      contentHash: version,
-      code: result.code,
-      deps: dependencies,
-    });
-
-    return { ...result, dependencies };
+    const result = await this.fileSystem.transpile(
+      content,
+      filePath,
+      ModuleCode.isTypeScript(filePath)
+    );
+    return { ...result, format };
   }
 
   private globals: ModuleGlobals | null = null;
@@ -318,7 +270,7 @@ export class ModuleLoader {
     this.globals = globals;
   }
 
-  async preloadDependencies(moduleName: string, currentFilePath: string): Promise<void> {
+  async preloadDependencies(moduleName: string, currentFilePath: string): Promise<string> {
     runtimeInfo('📦 Pre-loading dependencies for entry:', moduleName);
 
     const resolved = await this.resolver.resolve(moduleName, currentFilePath);
@@ -327,7 +279,7 @@ export class ModuleLoader {
     }
 
     if (resolved.isBuiltIn) {
-      return;
+      throw new Error('A built-in module cannot be an entry file.');
     }
 
     const resolvedPath = resolved.path;
@@ -340,32 +292,29 @@ export class ModuleLoader {
     }
 
     const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-    const { dependencies } = transpileResult;
+    const { code, dependencies } = transpileResult;
 
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
       const prepareStack = new Set<string>([resolvedPath]);
-      await this.runWithConcurrency(
-        Array.from(new Set(dependencies)),
-        this.maxParallelPreloads,
-        async dep => {
-          try {
-            if (isBuiltInModule(dep)) {
-              return;
-            }
-
-            await this.prepareModule(dep, resolvedPath, prepareStack);
-          } catch (error) {
-            if (isProcessExitSignal(error)) {
-              throw error;
-            }
-            runtimeWarn('⚠️ Failed to pre-load dependency:', dep, 'from', resolvedPath);
+      await this.runWithConcurrency(dependencies, this.maxParallelPreloads, async dep => {
+        try {
+          if (isBuiltInModule(dep.specifier)) {
+            return;
           }
+
+          await this.prepareModule(dep.specifier, resolvedPath, prepareStack, dep.kind);
+        } catch (error) {
+          if (isProcessExitSignal(error)) {
+            throw error;
+          }
+          runtimeWarn('⚠️ Failed to pre-load dependency:', dep.specifier, 'from', resolvedPath);
         }
-      );
+      });
     }
 
     runtimeInfo('✅ Dependencies pre-loaded for:', resolvedPath);
+    return code;
   }
 
   private async runWithConcurrency<T>(
@@ -398,6 +347,8 @@ export class ModuleLoader {
 
     // Modules must be pre-loaded into execution cache before they can be required
     const require = (moduleName: string): unknown => this.requireSync(moduleName, filePath);
+    const requireImport = (moduleName: string): unknown =>
+      this.requireSync(moduleName, filePath, 'import');
 
     // Prepare a sandboxed console that forwards to the ModuleLoader's debugConsole
     // if present, otherwise falls back to runtime logger. This console will be
@@ -473,23 +424,18 @@ export class ModuleLoader {
     }
 
     const asyncLoadFn = this.asyncLoad.bind(this);
+    const runtimeFunction = createRuntimeFunction(specifier => this.asyncLoad(specifier, filePath));
     const wrappedCode = `
-      (function(module, exports, require, __filename, __dirname, console, __injected_process, __injected_Buffer, __injected_setTimeout, __injected_setInterval, __injected_setImmediate, __injected_clearTimeout, __injected_clearInterval, __injected_clearImmediate, __injected_global, __injected_asyncLoad) {
-        var process = __injected_process;
-        var Buffer = __injected_Buffer;
-        var setTimeout = __injected_setTimeout;
-        var setInterval = __injected_setInterval;
-        var setImmediate = __injected_setImmediate;
-        var clearTimeout = __injected_clearTimeout;
-        var clearInterval = __injected_clearInterval;
-        var clearImmediate = __injected_clearImmediate;
-        var global = __injected_global;
-        var globalThis = __injected_global;
-        var define = undefined;
-        var window = undefined;
+      (function(module, exports, require, __filename, __dirname, console, process, Buffer, setTimeout, setInterval, setImmediate, clearTimeout, clearInterval, clearImmediate, global, __injected_asyncLoad, __pyxisRequireImport, Function) {
+        const globalThis = global;
+        const define = undefined;
+        const window = undefined;
+        const __pyxisRequireCommonJs = require;
         var __pyxisImport = function(s) { return __injected_asyncLoad(s, __filename); };
-        ${code}
-        return module.exports;
+        return (function() {
+          ${code}
+          return module.exports;
+        }).call(exports);
       })
     `;
 
@@ -512,7 +458,9 @@ export class ModuleLoader {
         clearInterval,
         clearImmediate,
         global,
-        asyncLoadFn
+        asyncLoadFn,
+        requireImport,
+        runtimeFunction
       );
       return result;
     } catch (error) {
@@ -557,70 +505,134 @@ export class ModuleLoader {
   }
 
   clearCache(): void {
-    this.cache.clear();
     this.executionCache = {};
     this.preparePromises.clear();
+    this.resolver.clearCache();
   }
 
-  requireSync(moduleName: string, currentFilePath: string): unknown {
+  requireSync(moduleName: string, currentFilePath: string, kind: ModuleKind = 'require'): unknown {
     if (isBuiltInModule(moduleName)) {
       const builtIn = this.builtinResolver?.(moduleName);
-      if (builtIn !== null && builtIn !== undefined) return builtIn;
+      if (builtIn !== null && builtIn !== undefined) {
+        if (kind === 'import') return this.builtinNamespace(moduleName, builtIn);
+        return builtIn;
+      }
     }
 
-    const resolved = this.resolver.resolveSync(moduleName, currentFilePath);
+    const resolved = this.resolver.resolveSync(moduleName, currentFilePath, kind);
     if (!resolved) throw createModuleNotFoundError(moduleName, currentFilePath);
-    if (resolved.isBuiltIn) return this.builtinResolver?.(moduleName) ?? null;
+    if (resolved.isBuiltIn) {
+      const builtIn = this.builtinResolver?.(resolved.path) ?? null;
+      if (kind === 'import') return this.builtinNamespace(resolved.path, builtIn);
+      return builtIn;
+    }
 
     let cached = this.executionCache[resolved.path];
     if (!cached) {
       const content = this.fileSystem.readFileSync(resolved.path);
       let code = content;
-      let dependencies: string[] = [];
+      let format: ModuleFormat = 'commonjs';
       if (resolved.path.endsWith('.json')) {
         code = `module.exports = ${content};`;
-      } else if (ModuleCode.needsTranspile(resolved.path, content)) {
-        const result = this.fileSystem.transpileSync(content, resolved.path);
-        code = result.code;
-        dependencies = result.dependencies;
       } else {
-        dependencies = ModuleCode.requireDependencies(content);
+        const analysis = ModuleCode.analyze(content, resolved.path);
+        const type = this.resolver.packageTypeSync(resolved.path);
+        format = ModuleCode.format(resolved.path, analysis, type);
+        this.validateFormat(resolved.path, analysis.hasEsmSyntax, format);
+        if (ModuleCode.needsTranspile(resolved.path, analysis, type)) {
+          const result = this.fileSystem.transpileSync(content, resolved.path);
+          code = result.code;
+        }
       }
-      cached = { exports: {}, loaded: false, loading: false, code, dependencies };
+      cached = { exports: {}, loaded: false, loading: false, code, format, namespace: null };
       this.executionCache[resolved.path] = cached;
     }
-    return this.executePreparedModule(resolved.path);
+    const exports = this.executePreparedModule(resolved.path);
+    if (kind === 'import') return this.importNamespace(exports, cached);
+    return exports;
   }
 
-  async asyncLoad(moduleName: string, currentFilePath: string): Promise<unknown> {
+  asyncLoad(moduleName: string, currentFilePath: string): Promise<unknown> {
+    return this.trackIO(this.loadImport(moduleName, currentFilePath));
+  }
+
+  private async loadImport(moduleName: string, currentFilePath: string): Promise<unknown> {
     if (isBuiltInModule(moduleName)) {
       if (this.builtinResolver) {
         const result = this.builtinResolver(moduleName);
-        if (result !== null) return result;
+        if (result !== null) return this.builtinNamespace(moduleName, result);
       }
       return null;
     }
 
-    const resolved = await this.resolver.resolve(moduleName, currentFilePath);
+    const resolved = await this.resolver.resolve(moduleName, currentFilePath, 'import');
     if (!resolved) throw createModuleNotFoundError(moduleName, currentFilePath);
     if (resolved.isBuiltIn) {
-      return this.builtinResolver?.(moduleName) ?? null;
+      return this.builtinNamespace(resolved.path, this.builtinResolver?.(resolved.path) ?? null);
     }
 
     const resolvedPath = resolved.path;
-    if (this.executionCache[resolvedPath]?.code) {
-      return this.executePreparedModule(resolvedPath);
+    if (this.executionCache[resolvedPath]?.code !== undefined) {
+      return this.importNamespace(
+        this.executePreparedModule(resolvedPath),
+        this.executionCache[resolvedPath]
+      );
     }
 
     runtimeInfo('🔄 Async loading module (not pre-loaded):', resolvedPath);
-    const prepared = await this.prepareModule(moduleName, currentFilePath);
+    const prepared = await this.prepareModule(moduleName, currentFilePath, new Set(), 'import');
     if (prepared.__isBuiltIn) {
-      return this.builtinResolver?.(moduleName) ?? null;
+      return this.builtinNamespace(
+        prepared.moduleName,
+        this.builtinResolver?.(prepared.moduleName) ?? null
+      );
     }
-    return this.executePreparedModule(prepared.resolvedPath);
+    return this.importNamespace(
+      this.executePreparedModule(prepared.resolvedPath),
+      this.executionCache[prepared.resolvedPath]
+    );
+  }
+
+  private importNamespace(exports: unknown, cached: ModuleExecutionEntry): unknown {
+    if (cached.format === 'module') return exports;
+    if (cached.namespace) return cached.namespace;
+    const namespace: Record<string, unknown> = Object.create(null);
+    if (exports !== null && (typeof exports === 'object' || typeof exports === 'function')) {
+      Object.assign(namespace, exports);
+    }
+    namespace.default = exports;
+    Object.defineProperty(namespace, '__esModule', { value: true, enumerable: false });
+    cached.namespace = namespace;
+    return namespace;
+  }
+
+  private builtinNamespace(name: string, exports: unknown): unknown {
+    let key = name;
+    if (!key.startsWith('node:')) key = `node:${key}`;
+    let cached = this.executionCache[key];
+    if (!cached) {
+      cached = {
+        exports,
+        loaded: true,
+        loading: false,
+        code: '',
+        format: 'commonjs',
+        namespace: null,
+      };
+      this.executionCache[key] = cached;
+    }
+    return this.importNamespace(exports, cached);
   }
 
   private error(...args: unknown[]): void {
     this.debugConsole?.error(...args);
+  }
+
+  private validateFormat(filePath: string, hasEsmSyntax: boolean, format: ModuleFormat): void {
+    const extension = posixPath.extname(filePath);
+    if (extension === '.node') throw new Error('Native Node.js addons are not supported.');
+    if (hasEsmSyntax && format === 'commonjs') {
+      throw new SyntaxError(`ES module syntax is not allowed in CommonJS file '${filePath}'.`);
+    }
   }
 }

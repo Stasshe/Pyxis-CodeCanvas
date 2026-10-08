@@ -2,7 +2,6 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { FsCore } from '@/engine/core/fs/core';
-import { transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
 
 const requireFromTests = createRequire(path.join(process.cwd(), 'tests/package.json'));
 
@@ -42,12 +41,7 @@ async function collectPackageFiles(sourceDir: string, targetDir: string): Promis
       }
       if (!entry.isFile() && !entry.isSymbolicLink()) continue;
       const bytes = new Uint8Array(await fs.readFile(sourcePath));
-      let content: string | Uint8Array = bytes;
-      if (targetPath.endsWith('.mjs')) {
-        const source = new TextDecoder().decode(bytes);
-        content = await transformEsmToCjs(source, targetPath);
-      }
-      entries.push({ path: targetPath, content, type: 'file' });
+      entries.push({ path: targetPath, content: bytes, type: 'file' });
     }
   }
 

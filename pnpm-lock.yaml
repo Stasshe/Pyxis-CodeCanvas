@@ -53,6 +53,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.9
         version: 6.43.9
+      '@lezer/javascript':
+        specifier: ^1.5.4
+        version: 1.5.4
       '@mermaid-js/layout-elk':
         specifier: ^0.2.3
         version: 0.2.3(mermaid@11.17.0)

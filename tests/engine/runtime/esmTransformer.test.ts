@@ -42,7 +42,7 @@ describe('esmTransformer', () => {
       '/test.js'
     );
 
-    expect(code).toContain('require("fs")');
+    expect(code).toContain('__pyxisRequireImport("fs")');
     expect(code).toContain('value: () => value');
     expect(code).toContain('module.exports = __toCommonJS');
   });
@@ -71,12 +71,12 @@ describe('esmTransformer', () => {
 
   it('normalizes import.meta.url for the runtime wrapper', async () => {
     const code = await transformEsmToCjs('console.log(import.meta.url);', '/test.mjs');
-    expect(code).toContain('var import_meta = { url: "file:///" + __filename };');
+    expect(code).toContain('"file:///test.mjs"');
   });
 
-  it('removes a local process redeclaration', async () => {
+  it('preserves local process bindings in the source', async () => {
     const code = await transformEsmToCjs("const process = require('process');", '/test.js');
-    expect(code).not.toContain("const process = require('process');");
+    expect(code).toContain('const process = __pyxisRequireCommonJs("process")');
   });
 
   it('extracts require dependencies from transformed code', async () => {
@@ -84,11 +84,28 @@ describe('esmTransformer', () => {
       "import fs from 'fs'; import { join } from 'path'; export default join;",
       '/dep.js'
     );
-    expect(extractCjsDependencies(code)).toEqual(expect.arrayContaining(['fs', 'path']));
+    expect(extractCjsDependencies(code)).toEqual(
+      expect.arrayContaining([
+        { specifier: 'fs', kind: 'import' },
+        { specifier: 'path', kind: 'import' },
+      ])
+    );
   });
 
   it('routes dynamic imports through the runtime loader', async () => {
     const code = await transformEsmToCjs("const mod = import('lodash');", '/dynamic.js');
     expect(code).toContain('__pyxisImport("lodash")');
+  });
+
+  it('preserves distinct import and require conditions and shadowed require calls', async () => {
+    const code = await transformEsmToCjs(
+      'import value from "dual"; const other = require("dual"); function call(require) { return require("local"); } export { value, other, call };',
+      '/dual.mjs'
+    );
+    expect(extractCjsDependencies(code)).toEqual([
+      { specifier: 'dual', kind: 'import' },
+      { specifier: 'dual', kind: 'require' },
+    ]);
+    expect(code).toContain('return require2("local")');
   });
 });

@@ -1,24 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import type { FsCore } from '@/engine/core/fs/core';
 import { ModuleFileSystem } from '@/engine/runtime/module/moduleFileSystem';
 import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
-import {
-  extractCjsDependencies,
-  transformEsmToCjs,
-} from '@/engine/runtime/transpiler/esmTransformer';
 import type { NodeRuntimeFixture } from '../../../_helpers/nodeRuntime';
 import { createNpmRuntimeFixture } from '../../../_helpers/npmRuntime';
 import { setupTestProject } from '../../../_helpers/testProject';
-
-vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
-  transpileManager: {
-    async transpile(options: { code: string; filePath: string }) {
-      const code = await transformEsmToCjs(options.code, options.filePath);
-      return { code, dependencies: extractCjsDependencies(code) };
-    },
-  },
-}));
 
 interface OutputCapture {
   debugConsole: {

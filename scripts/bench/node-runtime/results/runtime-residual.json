@@ -1,0 +1,242 @@
+{
+  "source": "Fresh normal-mode baseline for Runtime Worker residual investigation",
+  "mainBaseline": {
+    "reference": "e0e30d0",
+    "existingArtifact": "scripts/bench/node-runtime/results/baseline.json",
+    "warmMediansMs": {
+      "requires24": 17.9,
+      "diff9": 38.3,
+      "small": 3.0
+    },
+    "diffWarmSamples": 1
+  },
+  "method": {
+    "runner": "scripts/bench/node-runtime/run.mjs",
+    "benchmark": false,
+    "samplesPerCase": 4,
+    "warmSamples": "Samples 2–4",
+    "scope": "Same current application code and fixtures; all cases are sequential; no tests or builds ran concurrently. Short JS is the smoke control.",
+    "browserSession": "reuse-measure on existing localhost:5173 server",
+    "browserErrors": []
+  },
+  "current": {
+    "benchmark": false,
+    "results": {
+      "diff9": {
+        "command": "node bench-diff.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 107.30000000074506
+          },
+          {
+            "output": "",
+            "wallMs": 64.5
+          },
+          {
+            "output": "",
+            "wallMs": 62.5
+          },
+          {
+            "output": "",
+            "wallMs": 64.19999999925494
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 64.5
+          },
+          {
+            "output": "",
+            "wallMs": 62.5
+          },
+          {
+            "output": "",
+            "wallMs": 64.19999999925494
+          }
+        ]
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 6.900000000372529
+          },
+          {
+            "output": "",
+            "wallMs": 7.599999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 9.5
+          },
+          {
+            "output": "",
+            "wallMs": 9.300000000745058
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 7.599999999627471
+          },
+          {
+            "output": "",
+            "wallMs": 9.5
+          },
+          {
+            "output": "",
+            "wallMs": 9.300000000745058
+          }
+        ]
+      },
+      "npm": {
+        "command": "npm run bench",
+        "samples": [
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 11.900000000372527
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.5
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.700000001117587
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.599999999627471
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 5.5
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.700000001117587
+          },
+          {
+            "output": "> demo@undefined bench\n> node bench-small.js\nbench-small\n\nScript 'bench' completed successfully.",
+            "wallMs": 4.599999999627471
+          }
+        ]
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 42.5
+          },
+          {
+            "output": "",
+            "wallMs": 44.09999999962747
+          },
+          {
+            "output": "",
+            "wallMs": 40.09999999962747
+          },
+          {
+            "output": "",
+            "wallMs": 41.5
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 44.09999999962747
+          },
+          {
+            "output": "",
+            "wallMs": 40.09999999962747
+          },
+          {
+            "output": "",
+            "wallMs": 41.5
+          }
+        ]
+      },
+      "small": {
+        "command": "node bench-small.js",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 12.900000000372527
+          },
+          {
+            "output": "",
+            "wallMs": 4
+          },
+          {
+            "output": "",
+            "wallMs": 4.300000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 3.699999999254942
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 4
+          },
+          {
+            "output": "",
+            "wallMs": 4.300000000745058
+          },
+          {
+            "output": "",
+            "wallMs": 3.699999999254942
+          }
+        ]
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "samples": [
+          {
+            "output": "",
+            "wallMs": 181.30000000074503
+          },
+          {
+            "output": "",
+            "wallMs": 8
+          },
+          {
+            "output": "",
+            "wallMs": 7.699999999254942
+          },
+          {
+            "output": "",
+            "wallMs": 6
+          }
+        ],
+        "warmSamples": [
+          {
+            "output": "",
+            "wallMs": 8
+          },
+          {
+            "output": "",
+            "wallMs": 7.699999999254942
+          },
+          {
+            "output": "",
+            "wallMs": 6
+          }
+        ]
+      }
+    },
+    "setupMs": 183.2999999988824
+  },
+  "residualGapsMs": {
+    "requires24": 23.99999999975165,
+    "diff9": 25.43333333308498
+  }
+}

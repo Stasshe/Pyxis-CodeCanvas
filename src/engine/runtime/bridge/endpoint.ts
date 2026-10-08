@@ -1,4 +1,5 @@
 import type {
+  FsBenchmark,
   FsRequest,
   FsStat,
   RpcCall,
@@ -9,34 +10,38 @@ import type {
 } from './protocol';
 
 export interface RuntimeFilesystem {
-  readFile(path: string): Promise<Uint8Array>;
-  writeFile(path: string, data: Uint8Array): Promise<void>;
-  readdir(path: string): Promise<string[]>;
-  stat(path: string): Promise<FsStat>;
-  mkdir(path: string, options: { recursive: boolean }): Promise<void>;
-  rm(path: string, options: { recursive: boolean; force: boolean }): Promise<void>;
-  rename(path: string, newPath: string): Promise<void>;
+  readFile(path: string, benchmark?: FsBenchmark): Promise<Uint8Array>;
+  writeFile(path: string, data: Uint8Array, benchmark?: FsBenchmark): Promise<void>;
+  readdir(path: string, benchmark?: FsBenchmark): Promise<string[]>;
+  stat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
+  mkdir(path: string, options: { recursive: boolean }, benchmark?: FsBenchmark): Promise<void>;
+  rm(path: string, options: { recursive: boolean; force: boolean }, benchmark?: FsBenchmark): Promise<void>;
+  rename(path: string, newPath: string, benchmark?: FsBenchmark): Promise<void>;
 }
 
-async function executeFs(fs: RuntimeFilesystem, request: FsRequest): Promise<RpcValue> {
+async function executeFs(
+  fs: RuntimeFilesystem,
+  request: FsRequest,
+  benchmark?: FsBenchmark
+): Promise<RpcValue> {
   switch (request.op) {
     case 'readFile':
-      return Array.from(await fs.readFile(request.path));
+      return Array.from(await fs.readFile(request.path, benchmark));
     case 'readdir':
-      return fs.readdir(request.path);
+      return fs.readdir(request.path, benchmark);
     case 'stat':
-      return fs.stat(request.path);
+      return fs.stat(request.path, benchmark);
     case 'writeFile':
-      await fs.writeFile(request.path, new Uint8Array(request.data));
+      await fs.writeFile(request.path, new Uint8Array(request.data), benchmark);
       break;
     case 'mkdir':
-      await fs.mkdir(request.path, { recursive: request.recursive });
+      await fs.mkdir(request.path, { recursive: request.recursive }, benchmark);
       break;
     case 'rm':
-      await fs.rm(request.path, { recursive: request.recursive, force: request.force });
+      await fs.rm(request.path, { recursive: request.recursive, force: request.force }, benchmark);
       break;
     case 'rename':
-      await fs.rename(request.path, request.newPath);
+      await fs.rename(request.path, request.newPath, benchmark);
       break;
   }
   return null;
@@ -50,9 +55,11 @@ export function attachRuntimePort(
   port.onmessage = async (event: MessageEvent<RpcCall>) => {
     const { id, request } = event.data;
     let result: RpcResult;
+    let fsBenchmark: FsBenchmark | undefined;
+    if (request.kind === 'fs' && request.benchmark) fsBenchmark = { queueMs: 0, coreMs: 0 };
     try {
       let value: RpcValue;
-      if (request.kind === 'fs') value = await executeFs(fs, request);
+      if (request.kind === 'fs') value = await executeFs(fs, request, fsBenchmark);
       else if (request.kind === 'transpile') value = await transpile(request);
       else throw new Error('Shell and stdin requests must be handled by main.');
       result = { ok: true, value };
@@ -65,6 +72,7 @@ export function attachRuntimePort(
       }
       result = { ok: false, error: message, code };
     }
+    if (fsBenchmark) result.fsBenchmark = fsBenchmark;
     const reply: RpcReply = { id, result };
     port.postMessage(reply);
   };

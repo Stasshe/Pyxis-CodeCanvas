@@ -1,637 +1,470 @@
-/**
- * Module Resolver
- *
- */
-
 import { normalizePath, posixPath } from '@/engine/core/pathUtils';
-import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import type { FsStat } from '../bridge/protocol';
 import { isBuiltInModule } from './builtinModules';
+import type { ModuleKind } from './moduleCode';
 import type { ModuleFileSystem } from './moduleFileSystem';
 
+export type PackageTarget = string | number | boolean | null | PackageTarget[] | PackageConditions;
+export interface PackageConditions {
+  [key: string]: PackageTarget;
+}
 export interface PackageJson {
   name?: string;
-  version?: string;
   main?: string;
-  module?: string;
   type?: 'module' | 'commonjs';
-  exports?: Record<string, unknown> | string;
-  imports?: Record<string, unknown>;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
+  exports?: PackageTarget;
+  imports?: PackageConditions;
 }
-
 export interface ResolveResult {
   path: string;
   packageJson?: PackageJson;
   isBuiltIn: boolean;
   isNodeModule: boolean;
 }
+interface PackageScope {
+  directory: string;
+  packageJson: PackageJson;
+}
+type Lookup = { kind: 'stat' | 'package'; path: string };
+type LookupValue = FsStat | PackageJson | null;
+type Resolution<T> = Generator<Lookup, T, LookupValue>;
 
-/**
- * Module Resolver
- */
+/** One resolution algorithm serves async preparation and synchronous require. */
 export class ModuleResolver {
-  private rootPath: string;
-  private fileSystem: ModuleFileSystem;
-  private packageJsonCache: Map<string, PackageJson> = new Map();
-  private fileCache: Map<string, boolean> = new Map(); // Cache successful file checks.
+  private readonly rootPath: string;
+  private readonly packageJsonCache = new Map<string, PackageJson>();
+  private readonly packagePromises = new Map<string, Promise<PackageJson | null>>();
+  private readonly resolutions = new Map<string, ResolveResult>();
 
-  constructor(rootPath: string, fileSystem: ModuleFileSystem) {
+  constructor(
+    rootPath: string,
+    private readonly fileSystem: ModuleFileSystem
+  ) {
     this.rootPath = normalizePath(rootPath);
-    this.fileSystem = fileSystem;
   }
 
-  async resolve(moduleName: string, currentFilePath: string): Promise<ResolveResult | null> {
-    moduleName = this.normalizeSpecifier(moduleName);
-    runtimeInfo('🔍 Resolving module:', moduleName, 'from', currentFilePath);
-
-    if (isBuiltInModule(moduleName)) {
-      return {
-        path: moduleName,
-        isBuiltIn: true,
-        isNodeModule: false,
-      };
-    }
-
-    if (moduleName.startsWith('#')) {
-      const resolved = await this.resolvePackageImports(moduleName, currentFilePath);
-      if (resolved) {
-        return {
-          path: resolved.path,
-          isBuiltIn: false,
-          isNodeModule: true,
-          packageJson: resolved.packageJson,
-        };
-      }
-    }
-
-    if (moduleName.startsWith('/')) {
-      const finalPath = await this.addExtensionIfNeeded(moduleName);
-      if (finalPath) {
-        return {
-          path: finalPath,
-          isBuiltIn: false,
-          isNodeModule: false,
-        };
-      }
-    }
-
-    if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
-      const currentDir = posixPath.dirname(currentFilePath);
-      const resolved = posixPath.resolve(currentDir, moduleName);
-      const finalPath = await this.addExtensionIfNeeded(resolved);
-
-      if (finalPath) {
-        return {
-          path: finalPath,
-          isBuiltIn: false,
-          isNodeModule: false,
-        };
-      }
-    }
-
-    if (moduleName.startsWith('@/')) {
-      const resolved = posixPath.resolve(this.rootPath, 'src', moduleName.slice(2));
-      const finalPath = await this.addExtensionIfNeeded(resolved);
-
-      if (finalPath) {
-        return {
-          path: finalPath,
-          isBuiltIn: false,
-          isNodeModule: false,
-        };
-      }
-    }
-
-    // 6. node_modules
-    const nodeModulePath = await this.resolveNodeModules(moduleName, currentFilePath);
-    if (nodeModulePath) {
-      return {
-        path: nodeModulePath.path,
-        packageJson: nodeModulePath.packageJson,
-        isBuiltIn: false,
-        isNodeModule: true,
-      };
-    }
-
-    runtimeWarn('⚠️ Module not found:', moduleName);
-    return null;
+  async resolve(
+    specifier: string,
+    currentFilePath: string,
+    kind: ModuleKind = 'require'
+  ): Promise<ResolveResult | null> {
+    const key = this.resolutionKey(specifier, currentFilePath, kind);
+    const cached = this.resolutions.get(key);
+    if (cached) return cached;
+    const resolved = await this.runAsync(this.resolveModule(specifier, currentFilePath, kind));
+    if (resolved) this.resolutions.set(key, resolved);
+    return resolved;
   }
 
-  resolveSync(moduleName: string, currentFilePath: string): ResolveResult | null {
-    const specifier = this.normalizeSpecifier(moduleName);
-    if (isBuiltInModule(specifier)) {
+  resolveSync(
+    specifier: string,
+    currentFilePath: string,
+    kind: ModuleKind = 'require'
+  ): ResolveResult | null {
+    const key = this.resolutionKey(specifier, currentFilePath, kind);
+    const cached = this.resolutions.get(key);
+    if (cached) return cached;
+    const resolved = this.runSync(this.resolveModule(specifier, currentFilePath, kind));
+    if (resolved) this.resolutions.set(key, resolved);
+    return resolved;
+  }
+
+  async packageType(filePath: string): Promise<PackageJson['type']> {
+    return (await this.runAsync(this.packageScope(filePath)))?.packageJson.type;
+  }
+
+  packageTypeSync(filePath: string): PackageJson['type'] {
+    return this.runSync(this.packageScope(filePath))?.packageJson.type;
+  }
+
+  private resolutionKey(specifier: string, path: string, kind: ModuleKind): string {
+    return JSON.stringify([kind, posixPath.dirname(path), specifier]);
+  }
+
+  private *resolveModule(
+    specifier: string,
+    currentFilePath: string,
+    kind: ModuleKind
+  ): Resolution<ResolveResult | null> {
+    if (isBuiltInModule(specifier))
       return { path: specifier, isBuiltIn: true, isNodeModule: false };
+    if (!specifier) return null;
+    if (specifier.startsWith('file:')) {
+      if (kind !== 'import') return null;
+      const url = new URL(specifier);
+      if (url.protocol !== 'file:' || (url.hostname && url.hostname !== 'localhost')) return null;
+      const encodedPath = url.pathname.toLowerCase();
+      if (encodedPath.includes('%2f') || encodedPath.includes('%5c')) {
+        throw this.packageError(
+          'ERR_INVALID_MODULE_SPECIFIER',
+          `Invalid encoded separator in ${specifier}.`
+        );
+      }
+      specifier = decodeURIComponent(url.pathname);
+    }
+    if (specifier.startsWith('#'))
+      return yield* this.packageImport(specifier, currentFilePath, kind);
+    if (specifier.startsWith('@/'))
+      specifier = posixPath.resolve(this.rootPath, 'src', specifier.slice(2));
+    if (specifier.startsWith('/') || specifier.startsWith('./') || specifier.startsWith('../')) {
+      const path = posixPath.resolve(posixPath.dirname(currentFilePath), specifier);
+      let resolved: string | null;
+      if (kind === 'import') resolved = yield* this.exactFile(path);
+      else resolved = yield* this.fileOrDirectory(path);
+      if (!resolved) return null;
+      return { path: resolved, isBuiltIn: false, isNodeModule: false };
     }
 
-    if (specifier.startsWith('#')) {
-      const packageDirectory = this.findPackageRootSync(currentFilePath);
-      let packageJson: PackageJson | null = null;
-      if (packageDirectory) {
-        packageJson = this.loadPackageJsonSync(posixPath.join(packageDirectory, 'package.json'));
-      }
-      let target: string | null = null;
-      if (packageJson?.imports) target = this.resolveImports(packageJson.imports, specifier);
-      if (target) {
-        if (!packageDirectory || !packageJson) return null;
-        const resolved = this.addExtensionIfNeededSync(posixPath.resolve(packageDirectory, target));
-        if (resolved) {
-          return { path: resolved, packageJson, isBuiltIn: false, isNodeModule: false };
+    const parts = specifier.split('/');
+    let packageName = parts.shift() || '';
+    if (packageName.startsWith('@')) {
+      const name = parts.shift();
+      if (!name) return null;
+      packageName += `/${name}`;
+    }
+    if (packageName.startsWith('.') || packageName.includes('%') || packageName.includes('\\'))
+      return null;
+    const subpath = parts.join('/');
+    const scope = yield* this.packageScope(currentFilePath);
+    if (scope?.packageJson.name === packageName && scope.packageJson.exports !== undefined) {
+      return yield* this.packageEntry(scope.directory, scope.packageJson, subpath, kind);
+    }
+    let directory = posixPath.dirname(currentFilePath);
+    while (true) {
+      if (posixPath.basename(directory) !== 'node_modules') {
+        const packageDirectory = posixPath.join(directory, 'node_modules', packageName);
+        const packageJson = yield* this.readPackage(
+          posixPath.join(packageDirectory, 'package.json')
+        );
+        if (packageJson)
+          return yield* this.packageEntry(packageDirectory, packageJson, subpath, kind);
+        const stat = yield* this.stat(packageDirectory);
+        if (stat?.type === 'directory') {
+          const target = posixPath.join(packageDirectory, subpath);
+          let path: string | null;
+          if (subpath && kind === 'import') path = yield* this.exactFile(target);
+          else if (subpath) path = yield* this.fileOrDirectory(target);
+          else path = yield* this.directoryEntry(packageDirectory, null);
+          if (!path) return null;
+          return { path, isBuiltIn: false, isNodeModule: true };
         }
       }
+      if (directory === '/') return null;
+      directory = posixPath.dirname(directory);
     }
-
-    if (specifier.startsWith('/') || specifier.startsWith('./') || specifier.startsWith('../')) {
-      let base = posixPath.dirname(currentFilePath);
-      if (specifier.startsWith('/')) base = '/';
-      let candidate = specifier;
-      if (!specifier.startsWith('/')) candidate = posixPath.resolve(base, specifier);
-      const path = this.addExtensionIfNeededSync(candidate);
-      if (path) return { path, isBuiltIn: false, isNodeModule: false };
-    }
-
-    let candidate = specifier;
-    if (specifier.startsWith('@/')) {
-      candidate = posixPath.resolve(this.rootPath, 'src', specifier.slice(2));
-    }
-    if (candidate.startsWith('/')) {
-      const path = this.addExtensionIfNeededSync(candidate);
-      if (path) return { path, isBuiltIn: false, isNodeModule: false };
-    }
-
-    const packageResult = this.resolveNodeModulesSync(specifier, currentFilePath);
-    if (packageResult) return packageResult;
-    return null;
   }
 
-  private resolveNodeModulesSync(specifier: string, currentFilePath: string): ResolveResult | null {
-    const [packageName, ...subPathParts] = this.splitPackageSpecifier(specifier);
-    if (!packageName) return null;
-    const subPath = subPathParts.join('/');
-    let directory = posixPath.dirname(currentFilePath);
+  private *packageEntry(
+    directory: string,
+    packageJson: PackageJson,
+    subpath: string,
+    kind: ModuleKind
+  ): Resolution<ResolveResult | null> {
+    let path: string | null = null;
+    if (packageJson.exports !== undefined) {
+      let key = '.';
+      if (subpath) key = `./${subpath}`;
+      const target = this.packageMap(packageJson.exports, key, kind, false);
+      if (!target) return null;
+      path = yield* this.exactFile(this.packageTargetPath(directory, target));
+    } else if (subpath) {
+      const target = posixPath.join(directory, subpath);
+      if (kind === 'import') path = yield* this.exactFile(target);
+      else path = yield* this.fileOrDirectory(target);
+    } else {
+      path = yield* this.directoryEntry(directory, packageJson);
+    }
+    if (!path) return null;
+    return { path, packageJson, isBuiltIn: false, isNodeModule: true };
+  }
 
-    while (true) {
-      const packageDirectory = posixPath.resolve(directory, 'node_modules', packageName);
-      const packageJson = this.loadPackageJsonSync(
-        posixPath.join(packageDirectory, 'package.json')
+  private *packageImport(
+    specifier: string,
+    currentFilePath: string,
+    kind: ModuleKind
+  ): Resolution<ResolveResult | null> {
+    const scope = yield* this.packageScope(currentFilePath);
+    if (!scope?.packageJson.imports) return null;
+    const target = this.packageMap(scope.packageJson.imports, specifier, kind, true);
+    if (!target) return null;
+    if (!target.startsWith('./')) {
+      return yield* this.resolveModule(
+        target,
+        posixPath.join(scope.directory, 'package.json'),
+        kind
       );
-      if (packageJson) {
-        if (packageJson.exports) {
-          let exportKey = '.';
-          if (subPath) exportKey = `./${subPath}`;
-          const entry = this.resolveExports(packageJson.exports, exportKey);
-          if (!entry) return null;
-          const targetPath = posixPath.resolve(packageDirectory, entry);
-          if (this.fileSystem.statSync(targetPath)?.type === 'file') {
-            return { path: targetPath, packageJson, isBuiltIn: false, isNodeModule: true };
-          }
-          return null;
-        }
+    }
+    const path = yield* this.exactFile(this.packageTargetPath(scope.directory, target));
+    if (!path) return null;
+    return { path, packageJson: scope.packageJson, isBuiltIn: false, isNodeModule: false };
+  }
 
-        let entry = subPath;
-        if (!subPath) entry = packageJson.main || packageJson.module || 'index.js';
-        const target = this.addExtensionIfNeededSync(posixPath.resolve(packageDirectory, entry));
-        if (target) return { path: target, packageJson, isBuiltIn: false, isNodeModule: true };
-        if (subPath) return null;
-      }
-
-      if (!packageJson) {
-        let firstFallback = `${packageDirectory}/index.js`;
-        if (subPath) firstFallback = `${packageDirectory}/${subPath}`;
-        const fallbackPaths = [
-          firstFallback,
-          `${packageDirectory}/dist/index.js`,
-          `${packageDirectory}/lib/index.js`,
-          `${packageDirectory}/src/index.js`,
-        ];
-        for (const path of fallbackPaths) {
-          const target = this.addExtensionIfNeededSync(path);
-          if (target) return { path: target, isBuiltIn: false, isNodeModule: true };
-        }
-      }
-
+  private *packageScope(filePath: string): Resolution<PackageScope | null> {
+    let directory = posixPath.dirname(filePath);
+    while (posixPath.basename(directory) !== 'node_modules') {
+      const packageJson = yield* this.readPackage(posixPath.join(directory, 'package.json'));
+      if (packageJson) return { directory, packageJson };
       if (directory === '/') break;
       directory = posixPath.dirname(directory);
     }
     return null;
   }
 
-  private splitPackageSpecifier(specifier: string): string[] {
-    const parts = specifier.split('/');
-    if (specifier.startsWith('@')) return [parts.slice(0, 2).join('/'), ...parts.slice(2)];
-    return parts;
-  }
-
-  private loadPackageJsonSync(path: string): PackageJson | null {
-    const cached = this.packageJsonCache.get(path);
-    if (cached) return cached;
-    const content = this.fileSystem.readOptionalFileSync(path);
-    if (content === null) return null;
-    const packageJson = JSON.parse(content) as PackageJson;
-    this.packageJsonCache.set(path, packageJson);
-    return packageJson;
-  }
-
-  private addExtensionIfNeededSync(path: string): string | null {
-    const extensions = ['', '.js', '.cjs', '.mjs', '.ts', '.mts', '.cts', '.tsx', '.jsx', '.json'];
-    for (const extension of extensions) {
-      const candidate = `${path}${extension}`;
-      if (this.fileSystem.statSync(candidate)?.type === 'file') return candidate;
+  private *fileOrDirectory(path: string): Resolution<string | null> {
+    const stat = yield* this.stat(path);
+    if (stat?.type === 'file') return path;
+    for (const extension of ['.js', '.json', '.node']) {
+      const found = yield* this.exactFile(`${path}${extension}`);
+      if (found) return found;
     }
-    for (const extension of ['index.js', 'index.cjs', 'index.mjs', 'index.ts', 'index.json']) {
-      const candidate = posixPath.join(path, extension);
-      if (this.fileSystem.statSync(candidate)?.type === 'file') return candidate;
+    if (stat?.type !== 'directory') return null;
+    const packageJson = yield* this.readPackage(posixPath.join(path, 'package.json'));
+    return yield* this.directoryEntry(path, packageJson);
+  }
+
+  private *file(path: string): Resolution<string | null> {
+    for (const extension of ['', '.js', '.json', '.node']) {
+      const found = yield* this.exactFile(`${path}${extension}`);
+      if (found) return found;
     }
     return null;
   }
 
-  private normalizeSpecifier(moduleName: string): string {
-    if (!moduleName.startsWith('file://')) {
-      return moduleName;
+  private *directoryEntry(
+    directory: string,
+    packageJson: PackageJson | null
+  ): Resolution<string | null> {
+    if (packageJson?.main) {
+      const target = posixPath.resolve(directory, packageJson.main);
+      const file = yield* this.file(target);
+      if (file) return file;
+      const index = yield* this.index(target);
+      if (index) return index;
     }
-
-    try {
-      const url = new URL(moduleName);
-      return decodeURIComponent(url.pathname);
-    } catch {
-      return moduleName.replace(/^file:\/\/\/?/, '/').replace(/[?#].*$/, '');
-    }
+    return yield* this.index(directory);
   }
 
-  private async resolveNodeModules(
-    moduleName: string,
-    currentFilePath: string
-  ): Promise<{ path: string; packageJson?: PackageJson } | null> {
-    // Validate module name is not empty
-    if (!moduleName || moduleName.trim() === '') {
-      runtimeWarn('⚠️ Empty module name provided');
-      return null;
-    }
-
-    let packageName: string;
-    let subPath = '';
-
-    if (moduleName.startsWith('@')) {
-      const parts = moduleName.split('/');
-      if (parts.length < 2) {
-        runtimeWarn('⚠️ Invalid scoped package name:', moduleName);
-        return null;
-      }
-      packageName = `${parts[0]}/${parts[1]}`;
-      subPath = parts.slice(2).join('/');
-    } else {
-      const parts = moduleName.split('/');
-      packageName = parts[0];
-      if (!packageName) {
-        runtimeWarn('⚠️ Invalid package name:', moduleName);
-        return null;
-      }
-      subPath = parts.slice(1).join('/');
-    }
-
-    runtimeInfo('📦 Resolving node_modules:', { packageName, subPath });
-
-    const packageDirectories = this.getNodeModuleDirectories(
-      packageName,
-      posixPath.dirname(currentFilePath)
-    );
-    let packageDirectory = '';
-    let packageJson: PackageJson | null = null;
-    for (const directory of packageDirectories) {
-      const candidate = posixPath.join(directory, 'package.json');
-      packageJson = await this.loadPackageJson(candidate);
-      if (packageJson) {
-        packageDirectory = directory;
-        break;
-      }
-    }
-
-    if (!packageJson) {
-      for (const directory of packageDirectories) {
-        const fallback = await this.tryFallbackPathsAt(directory, subPath);
-        if (fallback) return fallback;
-      }
-      return null;
-    }
-
-    if (packageJson.exports) {
-      let exportKey = '.';
-      if (subPath) exportKey = `./${subPath}`;
-      const exportPath = this.resolveExports(packageJson.exports, exportKey);
-      if (!exportPath) return null;
-      const fullPath = posixPath.resolve(packageDirectory, exportPath);
-      if (await this.fileExists(fullPath)) return { path: fullPath, packageJson };
-      return null;
-    }
-
-    if (subPath) {
-      const directPath = posixPath.resolve(packageDirectory, subPath);
-      const finalPath = await this.addExtensionIfNeeded(directPath);
-      if (finalPath) {
-        return { path: finalPath, packageJson };
-      }
-    }
-
-    let entryPoint = packageJson.main || packageJson.module || 'index.js';
-    if (entryPoint.startsWith('./')) {
-      entryPoint = entryPoint.slice(2);
-    }
-    runtimeInfo('📦 Entry point:', entryPoint, 'for', packageName);
-    const fullPath = posixPath.resolve(packageDirectory, entryPoint);
-    const finalPath = await this.addExtensionIfNeeded(fullPath);
-
-    if (finalPath) {
-      runtimeInfo('✅ Resolved:', finalPath);
-      return { path: finalPath, packageJson };
-    }
-
-    runtimeWarn('⚠️ Entry point not found, trying fallback');
-    for (const directory of packageDirectories) {
-      const fallback = await this.tryFallbackPathsAt(directory, subPath);
-      if (fallback) return fallback;
+  private *index(directory: string): Resolution<string | null> {
+    for (const extension of ['.js', '.json', '.node']) {
+      const file = yield* this.exactFile(posixPath.join(directory, `index${extension}`));
+      if (file) return file;
     }
     return null;
   }
 
-  private async resolvePackageImports(
-    moduleName: string,
-    currentFilePath: string
-  ): Promise<{ path: string; packageJson?: PackageJson } | null> {
-    runtimeInfo('📦 Resolving package imports:', moduleName, 'from', currentFilePath);
-
-    const packageJson = await this.findPackageJson(currentFilePath);
-    if (!packageJson) {
-      runtimeWarn('⚠️ No package.json found for:', currentFilePath);
-      return null;
-    }
-
-    if (!packageJson.imports) {
-      runtimeWarn('⚠️ No imports field in package.json');
-      return null;
-    }
-
-    const imports = packageJson.imports as Record<string, unknown>;
-    const importPath = this.resolveImports(imports, moduleName);
-
-    if (!importPath) {
-      runtimeWarn('⚠️ Import not found in package.json:', moduleName);
-      return null;
-    }
-
-    runtimeInfo('📦 Import resolved:', moduleName, '→', importPath);
-
-    const packageDir = await this.findPackageRoot(currentFilePath);
-    if (!packageDir) return null;
-
-    runtimeInfo('📦 Package dir:', packageDir);
-    const resolved = posixPath.resolve(packageDir, importPath);
-    runtimeInfo('📦 Resolved path:', resolved);
-    const finalPath = await this.addExtensionIfNeeded(resolved);
-
-    if (finalPath) {
-      runtimeInfo('✅ Final path:', finalPath);
-      return { path: finalPath, packageJson };
-    }
-
-    runtimeWarn('⚠️ Failed to resolve import path:', resolved);
+  private *exactFile(path: string): Resolution<string | null> {
+    if ((yield* this.stat(path))?.type === 'file') return path;
     return null;
   }
 
-  private async findPackageJson(filePath: string): Promise<PackageJson | null> {
-    let currentDir = posixPath.dirname(filePath);
+  private *stat(path: string): Resolution<FsStat | null> {
+    return (yield { kind: 'stat', path }) as FsStat | null;
+  }
 
-    if (currentDir.includes('/node_modules/')) {
-      // /new/node_modules/chalk/source/index.js
-      // → /new/node_modules/chalk/package.json
-      const match = currentDir.match(/^(.*\/node_modules\/[^/]+)/);
-      if (match) {
-        const packageDir = match[1];
-        const packageJsonPath = posixPath.join(packageDir, 'package.json');
-        return await this.loadPackageJson(packageJsonPath);
+  private *readPackage(path: string): Resolution<PackageJson | null> {
+    return (yield { kind: 'package', path }) as PackageJson | null;
+  }
+
+  private packageMap(
+    map: PackageTarget,
+    key: string,
+    kind: ModuleKind,
+    isImports: boolean
+  ): string | null | undefined {
+    if (map === null) return null;
+    if (typeof map === 'number' || typeof map === 'boolean') {
+      throw this.packageError('ERR_INVALID_PACKAGE_TARGET', `Invalid package target: ${map}`);
+    }
+    if (typeof map === 'string' || Array.isArray(map)) {
+      if (key !== '.') return undefined;
+      return this.conditionalTarget(map, kind, isImports);
+    }
+    const keys = Object.keys(map);
+    const subpaths = keys.some(item => item.startsWith('.'));
+    if (!isImports && subpaths && keys.some(item => !item.startsWith('.'))) {
+      throw this.packageError(
+        'ERR_INVALID_PACKAGE_CONFIG',
+        'Exports cannot mix subpaths and conditions.'
+      );
+    }
+    if (!isImports && !subpaths) {
+      if (key !== '.') return undefined;
+      return this.conditionalTarget(map, kind, false);
+    }
+    if (Object.hasOwn(map, key) && !key.includes('*'))
+      return this.conditionalTarget(map[key], kind, isImports);
+    const patterns = keys
+      .filter(item => item.includes('*'))
+      .sort((left, right) => {
+        const prefixDifference = right.indexOf('*') - left.indexOf('*');
+        if (prefixDifference) return prefixDifference;
+        return right.length - left.length;
+      });
+    for (const pattern of patterns) {
+      const wildcard = pattern.indexOf('*');
+      if (pattern.indexOf('*', wildcard + 1) !== -1) continue;
+      const prefix = pattern.slice(0, wildcard);
+      const suffix = pattern.slice(wildcard + 1);
+      if (!key.startsWith(prefix) || !key.endsWith(suffix) || key.length < pattern.length) continue;
+      const matched = key.slice(prefix.length, key.length - suffix.length);
+      this.validateSegments(matched);
+      const target = this.conditionalTarget(map[pattern], kind, isImports);
+      if (typeof target === 'string') return target.replaceAll('*', matched);
+      return target;
+    }
+    return undefined;
+  }
+
+  private conditionalTarget(
+    target: PackageTarget,
+    kind: ModuleKind,
+    isImports: boolean
+  ): string | null | undefined {
+    if (target === null) return null;
+    if (typeof target === 'number' || typeof target === 'boolean') {
+      throw this.packageError('ERR_INVALID_PACKAGE_TARGET', `Invalid package target: ${target}`);
+    }
+    if (typeof target === 'string') {
+      if (target.startsWith('./')) {
+        this.validateSegments(target.slice(2));
+        return target;
+      }
+      if (
+        isImports &&
+        !target.startsWith('../') &&
+        !target.startsWith('/') &&
+        !target.includes(':')
+      )
+        return target;
+      throw this.packageError('ERR_INVALID_PACKAGE_TARGET', `Invalid package target: ${target}`);
+    }
+    if (Array.isArray(target)) {
+      let lastError: Error | undefined;
+      for (const entry of target) {
+        try {
+          const resolved = this.conditionalTarget(entry, kind, isImports);
+          if (resolved !== undefined) return resolved;
+        } catch (error) {
+          if (
+            !(error instanceof Error) ||
+            !('code' in error) ||
+            error.code !== 'ERR_INVALID_PACKAGE_TARGET'
+          )
+            throw error;
+          lastError = error;
+        }
+      }
+      if (lastError) throw lastError;
+      return null;
+    }
+    for (const [condition, value] of Object.entries(target)) {
+      const index = Number(condition);
+      if (
+        Number.isInteger(index) &&
+        index >= 0 &&
+        index < 2 ** 32 - 1 &&
+        String(index) === condition
+      ) {
+        throw this.packageError(
+          'ERR_INVALID_PACKAGE_CONFIG',
+          `Numeric package condition: ${condition}`
+        );
+      }
+      if (
+        condition === 'default' ||
+        condition === 'node' ||
+        condition === 'module-sync' ||
+        condition === kind
+      ) {
+        const resolved = this.conditionalTarget(value, kind, isImports);
+        if (resolved !== undefined) return resolved;
       }
     }
+    return undefined;
+  }
 
-    while (currentDir !== '/' && currentDir !== this.rootPath) {
-      const packageJsonPath = posixPath.join(currentDir, 'package.json');
-      const packageJson = await this.loadPackageJson(packageJsonPath);
-      if (packageJson) {
-        return packageJson;
+  private validateSegments(path: string): void {
+    const decoded = decodeURIComponent(path).replaceAll('\\', '/');
+    for (const segment of decoded.split('/')) {
+      if (
+        segment === '' ||
+        segment === '.' ||
+        segment === '..' ||
+        segment.toLowerCase() === 'node_modules'
+      ) {
+        throw this.packageError(
+          'ERR_INVALID_PACKAGE_TARGET',
+          `Invalid package target segment: ${segment}`
+        );
       }
-      currentDir = posixPath.dirname(currentDir);
-    }
-
-    return null;
-  }
-
-  private async findPackageRoot(filePath: string): Promise<string | null> {
-    let directory = posixPath.dirname(filePath);
-    while (true) {
-      const packageJson = await this.loadPackageJson(posixPath.join(directory, 'package.json'));
-      if (packageJson) return directory;
-      if (directory === '/') return null;
-      directory = posixPath.dirname(directory);
     }
   }
 
-  private findPackageRootSync(filePath: string): string | null {
-    let directory = posixPath.dirname(filePath);
-    while (true) {
-      const packageJson = this.loadPackageJsonSync(posixPath.join(directory, 'package.json'));
-      if (packageJson) return directory;
-      if (directory === '/') return null;
-      directory = posixPath.dirname(directory);
-    }
+  private packageTargetPath(directory: string, target: string): string {
+    return posixPath.resolve(directory, target);
   }
 
-  private resolveImports(imports: Record<string, unknown>, subPath: string): string | null {
-    if (imports[subPath]) {
-      return this.resolveConditionalTarget(imports[subPath]);
-    }
+  private packageError(code: string, message: string): Error {
+    return Object.assign(new Error(message), { code });
+  }
 
-    for (const key of Object.keys(imports)) {
-      if (key.endsWith('/*')) {
-        const prefix = key.slice(0, -2);
-        if (subPath.startsWith(prefix)) {
-          const remainder = subPath.slice(prefix.length);
-          const value = imports[key];
-          if (typeof value === 'string') {
-            return value.replace('*', remainder);
+  private async runAsync<T>(resolution: Resolution<T>): Promise<T> {
+    let step = resolution.next();
+    while (!step.done) {
+      const request = step.value;
+      let value: LookupValue;
+      if (request.kind === 'stat') value = await this.fileSystem.stat(request.path);
+      else value = await this.loadPackage(request.path);
+      step = resolution.next(value);
+    }
+    return step.value;
+  }
+
+  private runSync<T>(resolution: Resolution<T>): T {
+    let step = resolution.next();
+    while (!step.done) {
+      const request = step.value;
+      let value: LookupValue;
+      if (request.kind === 'stat') value = this.fileSystem.statSync(request.path);
+      else {
+        value = this.packageJsonCache.get(request.path) || null;
+        if (!value) {
+          const content = this.fileSystem.readOptionalFileSync(request.path);
+          if (content !== null) {
+            const packageJson: PackageJson = JSON.parse(content);
+            this.packageJsonCache.set(request.path, packageJson);
+            value = packageJson;
           }
         }
       }
+      step = resolution.next(value);
     }
-
-    return null;
+    return step.value;
   }
 
-  private resolveConditionalTarget(value: unknown): string | null {
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        const resolved = this.resolveConditionalTarget(entry);
-        if (resolved) return resolved;
-      }
-      return null;
-    }
-
-    if (typeof value !== 'object' || value === null) {
-      return null;
-    }
-
-    const obj = value as Record<string, unknown>;
-    for (const condition of ['require', 'node', 'default', 'import']) {
-      if (condition in obj) {
-        const resolved = this.resolveConditionalTarget(obj[condition]);
-        if (resolved) return resolved;
-      }
-    }
-
-    for (const [condition, target] of Object.entries(obj)) {
-      if (condition === 'types' || condition.startsWith('.')) continue;
-      const resolved = this.resolveConditionalTarget(target);
-      if (resolved) return resolved;
-    }
-
-    return null;
-  }
-
-  private resolveExports(
-    exports: Record<string, unknown> | string,
-    subPath: string
-  ): string | null {
-    if (typeof exports === 'string') {
-      if (subPath === '.') return exports;
-      return null;
-    }
-
-    if (subPath in exports) return this.resolveConditionalTarget(exports[subPath]);
-
-    if (subPath === '.') {
-      if ('.' in exports) return this.resolveConditionalTarget(exports['.']);
-      if (!Object.keys(exports).some(key => key.startsWith('.'))) {
-        return this.resolveConditionalTarget(exports);
-      }
-    }
-
-    const patterns = Object.keys(exports)
-      .filter(key => key.includes('*'))
-      .sort((left, right) => right.length - left.length);
-    for (const pattern of patterns) {
-      const wildcard = pattern.indexOf('*');
-      const prefix = pattern.slice(0, wildcard);
-      const suffix = pattern.slice(wildcard + 1);
-      if (!subPath.startsWith(prefix) || !subPath.endsWith(suffix)) continue;
-      const matched = subPath.slice(prefix.length, subPath.length - suffix.length);
-      const target = this.resolveConditionalTarget(exports[pattern]);
-      if (target) return target.replace('*', matched);
-    }
-
-    return null;
-  }
-
-  private async tryFallbackPathsAt(
-    packageDirectory: string,
-    subPath: string
-  ): Promise<{ path: string; packageJson?: PackageJson } | null> {
-    const fallbackPaths: string[] = [];
-    if (subPath) fallbackPaths.push(posixPath.resolve(packageDirectory, subPath));
-    if (!subPath) fallbackPaths.push(posixPath.join(packageDirectory, 'index.js'));
-    fallbackPaths.push(posixPath.join(packageDirectory, 'dist/index.js'));
-    fallbackPaths.push(posixPath.join(packageDirectory, 'lib/index.js'));
-    fallbackPaths.push(posixPath.join(packageDirectory, 'src/index.js'));
-
-    for (const fallbackPath of fallbackPaths) {
-      const finalPath = await this.addExtensionIfNeeded(fallbackPath);
-      if (finalPath) {
-        return { path: finalPath };
-      }
-    }
-
-    return null;
-  }
-
-  private async loadPackageJson(path: string): Promise<PackageJson | null> {
-    if (this.packageJsonCache.has(path)) {
-      return this.packageJsonCache.get(path) ?? null;
-    }
-
-    const content = await this.fileSystem.readPackageJson(path);
-    if (content === null) return null;
-    const packageJson: PackageJson = JSON.parse(content);
-    this.packageJsonCache.set(path, packageJson);
-    return packageJson;
-  }
-
-  private async addExtensionIfNeeded(filePath: string): Promise<string | null> {
-    if (/\.(js|mjs|cjs|ts|mts|cts|tsx|jsx|json)$/.test(filePath)) {
-      if (await this.fileExists(filePath)) {
-        return filePath;
-      }
-      return null;
-    }
-
-    if (await this.fileExists(filePath)) {
-      return filePath;
-    }
-
-    const extensions = ['.js', '.cjs', '.mjs', '.ts', '.mts', '.tsx', '.jsx', '.json'];
-    for (const ext of extensions) {
-      const pathWithExt = filePath + ext;
-      if (await this.fileExists(pathWithExt)) {
-        return pathWithExt;
-      }
-    }
-
-    const indexPaths = [
-      posixPath.join(filePath, 'index.js'),
-      posixPath.join(filePath, 'index.cjs'),
-      posixPath.join(filePath, 'index.mjs'),
-      posixPath.join(filePath, 'index.ts'),
-      posixPath.join(filePath, 'index.mts'),
-      posixPath.join(filePath, 'index.tsx'),
-    ];
-
-    for (const indexPath of indexPaths) {
-      if (await this.fileExists(indexPath)) {
-        return indexPath;
-      }
-    }
-
-    return null;
-  }
-
-  private async fileExists(path: string): Promise<boolean> {
-    if (this.fileCache.has(path)) {
-      return this.fileCache.get(path) ?? false;
-    }
-
+  private async loadPackage(path: string): Promise<PackageJson | null> {
+    const cached = this.packageJsonCache.get(path);
+    if (cached) return cached;
+    const pending = this.packagePromises.get(path);
+    if (pending) return pending;
+    const read = async () => {
+      const content = await this.fileSystem.readPackageJson(path);
+      if (content === null) return null;
+      const packageJson: PackageJson = JSON.parse(content);
+      this.packageJsonCache.set(path, packageJson);
+      return packageJson;
+    };
+    const promise = read();
+    this.packagePromises.set(path, promise);
     try {
-      const stat = await this.fileSystem.stat(path);
-      const exists = stat?.type === 'file';
-
-      if (exists) this.fileCache.set(path, true);
-      return exists;
-    } catch (error) {
-      runtimeError('Failed to inspect module path:', path, error);
-      throw error;
-    }
-  }
-
-  private getNodeModuleDirectories(packageName: string, startDirectory: string): string[] {
-    const directories: string[] = [];
-    let current = startDirectory;
-    while (true) {
-      directories.push(posixPath.resolve(current, 'node_modules', packageName));
-      if (current === '/') return directories;
-      current = posixPath.dirname(current);
+      return await promise;
+    } finally {
+      this.packagePromises.delete(path);
     }
   }
 
   clearCache(): void {
     this.packageJsonCache.clear();
-    this.fileCache.clear();
+    this.resolutions.clear();
   }
 }

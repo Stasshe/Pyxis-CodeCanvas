@@ -27,7 +27,7 @@ graph LR
   Runtime[Runtime Worker] -->|filesystem RPC| Worker
 ```
 
-The FS Worker is the only OPFS owner. It implements path-based operations such as `readFile`, `readText`, `writeFile`, `readdir`, `stat`, `mkdir`, `rm`, `rename`, `walk`, and `exists`. `readFile` returns raw bytes; text decoding is explicit. The FS Client provides the main-thread API and change-event subscription. Git operations and package installation run in the FS Worker so their filesystem calls do not cross the worker boundary individually. Git and npm keep file payloads as bytes through filesystem operations; `.mjs` source is strict-UTF-8-decoded only for intentional transpilation.
+The FS Worker is the only OPFS owner. It implements path-based operations such as `readFile`, `readText`, `writeFile`, `readdir`, `stat`, `mkdir`, `rm`, `rename`, `walk`, and `exists`. `readFile` returns raw bytes; text decoding is explicit. The FS Client provides the main-thread API and change-event subscription. Git operations and package installation run in the FS Worker so their filesystem calls do not cross the worker boundary individually. Git and npm preserve file payload bytes through filesystem operations. npm installation does not decode `.mjs` source; runtime transforms decode it as UTF-8 when required.
 
 OPFS file access uses a SyncAccessHandle only for one operation: open, read or write, flush when writing, and close. Access is serialized per path. `/tmp` is memory-backed. Virtual HOME is `/home/pyxis`; runtime module cache is under `~/.cache/pyxis`, and `~/.npm` is the canonical npm cache directory.
 

@@ -11,7 +11,8 @@
 - **runtimeはWorkerで動かす**。同期XHRで止まるのが呼び出したthreadだけになり、UIが固まらない
 - **同期要求はSWからFS Workerへ直結する**。SWがFS WorkerのMessagePortを保持し、再起動後はmainからportを再取得する。main busy中もファイルI/Oを待たせないため
 - **transpile poolはFS Workerが所有する**。必要時のみ1 Workerを起動して、30秒idle後に破棄する。FS Worker内で順序を保ち、wasmを複数Workerに常駐させない
-- **`node`の実行1回 = Worker 1つ**。無限ループでも`terminate()`で確実に止められる。グローバル状態も実行ごとに新しくなり、Nodeのprocessと同じ意味を持つ
+- **runtimeのfile accessと変換cacheはFS Workerに集約する**。Runtime Workerには実行内module cacheだけを置き、file bytesと変換結果はFS WorkerのOPFS境界で扱う。非同期先読みと同期`require`で同じresolverの成功結果を共有し、所有権を増やさず未解決候補のRPCを抑える
+- **Runtime Workerは先行起動して使い回す**。Worker起動は1回25〜32msかかり、短いscriptではmain比で約10倍遅くなった（実測）。待機Worker 1つのメモリと引き換えに起動待ちを消す。正常完了時は実行状態を破棄してWorkerを待機へ戻し、停止・異常終了時はWorkerを破棄して補充する。同時実行で待機Workerがなければ追加し、終了時は待機Workerを最大1つに保つ。module cache、timer、process listener、stdinなど実行単位の状態は毎回破棄し、global変数の残存は許容する
 - **メモリはpage全体で400MB以内**。PyxisはIDEで、ユーザーのprogramとbrowserの他のtabにメモリを残す必要がある。Workerは増やすほど、それぞれに読み込んだcodeやwasmの分だけメモリを食う。だから並列化で速度を買わず、常駐するWorkerを最小にする
 - **OPFSを唯一のfile置き場にする**。目的は二重管理の根絶。file payloadはraw bytesとして保存・移送し、text decodingは明示した読込境界に限る。isomorphic-gitがworktreeと`.git`を同じFSから直接読むので、`.gitignore`による同期フィルタも要らなくなる
 - **`/`から始まるFSを1つ、project = folder（VS Code型）**。Nodeと同じPOSIX path APIを共通実装として使い、normalize・resolve・relative等の字句処理を各サブシステムで再実装しない。絶対pathを正規化する関数と、明示したcwdから相対pathを解決する関数を分け、FSとruntimeではcwdを暗黙にしない
@@ -21,6 +22,7 @@
 - **workspaceの外へのアクセスは自由**。terminal・runtimeの挙動を実際のNode・shellに一致させる
 - **OPFSに書き込むのはFS Workerだけ**。SyncAccessHandleは排他lockなので所有者を1つに絞る。変更eventも1か所から出せる
 - **file I/Oはmainから外す**。gitやnpm installは1回の操作でfsを数千回呼ぶ。だからFS Workerと同じ場所で動かし、message往復をなくす。mainはUIと中継だけにする
+- **npm installは配布file bytesを保存する**。install時にruntime変換を混ぜず、packageの元の内容を保つ。module formatの判定と必要な変換はNode実行時のpackage条件に基づいて行う
 - **metadataはIDBに残す**。OPFSにはindexも任意属性もない。recent folders・root-scoped Quick Open MRU file paths・chat・tab状態・AIレビューのように、検索と属性が必要なものはIDBに置く
 - **workspace treeは構造変更時だけwalkする**。Explorerの`FileItem`はpath・name・type・childrenの投影で、既存fileの内容更新は構造を変えない。`update`でworkspace全体を再走査せず、create/delete/renameだけをdebounceしてwalkする。Git panelは`.git`を含むroot内のfilesystem eventをstatus invalidationに使い、Git操作からの重複fetchを避ける
 - **seed内容は`~/demo`に一度だけ置き、新workspaceは空にする**。新しいworkspaceごとにtemplateを複製すると、生成物が各workspaceの永続内容に混ざる。`~/demo`が無い場合だけ起動時に用意し、既にあるfolderの内容を保つ。seedは旧データ移行後、recent folders読込前に行い、移行済みデータとworkspace選択の順序を保つ

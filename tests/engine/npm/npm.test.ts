@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NpmCommands } from '@/engine/cmd/global/npm';
-import {
-  extractCjsDependencies,
-  transformEsmToCjs,
-} from '@/engine/runtime/transpiler/esmTransformer';
 import { getTestFs } from '../../_helpers/testFs';
 import { testFsFiles } from '../../_helpers/testFsFiles';
 import { createTestModuleResolver } from '../../_helpers/testModuleResolver';
@@ -12,15 +8,6 @@ import { setupTestProject } from '../../_helpers/testProject';
 vi.mock('sync-message', () => ({
   makeServiceWorkerChannel: vi.fn(() => ({})),
   readMessage: vi.fn(() => null),
-}));
-
-vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
-  transpileManager: {
-    async transpile(options: { code: string; filePath: string }) {
-      const code = await transformEsmToCjs(options.code, options.filePath);
-      return { code, dependencies: extractCjsDependencies(code) };
-    },
-  },
 }));
 
 /**

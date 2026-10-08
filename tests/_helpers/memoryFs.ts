@@ -4,6 +4,7 @@ import type { FsRequest, FsStat, RpcValue, RuntimeRequest } from '@/engine/runti
 import {
   extractCjsDependencies,
   finalizeRuntimeCode,
+  runtimeDefines,
 } from '@/engine/runtime/transpiler/esmTransformer';
 
 type Entry = { type: 'file'; data: Uint8Array } | { type: 'directory' };
@@ -130,6 +131,7 @@ export class MemoryFs implements RuntimeFilesystem {
         target: 'es2020',
         loader,
         platform: 'node',
+        define: runtimeDefines(request.filePath),
       });
       const code = finalizeRuntimeCode(result.code);
       return { code, dependencies: extractCjsDependencies(code) };

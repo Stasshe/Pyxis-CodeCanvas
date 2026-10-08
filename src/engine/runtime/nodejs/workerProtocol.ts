@@ -26,6 +26,9 @@ export interface ShellResult {
 export type MainMessage =
   | {
       type: 'start';
+      benchmarkStartedAt?: number;
+      benchmarkPreparedWorker?: boolean;
+      benchmarkAcquisitionMs?: number;
       runtimeId: string;
       scope: string;
       options: WorkerExecutionOptions;
@@ -38,6 +41,8 @@ export type MainMessage =
   | { type: 'shell-error'; id: number; error: string };
 
 export type WorkerMessage =
+  | { type: 'ready' }
+  | { type: 'fatal'; error: string }
   | { type: 'stdin-request' }
   | { type: 'stdin-pause' }
   | { type: 'output'; entries: OutputEntry[] }

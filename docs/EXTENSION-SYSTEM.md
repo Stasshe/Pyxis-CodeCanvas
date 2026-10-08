@@ -294,7 +294,7 @@ UIコンポーネントはこのイベントを購読し、リアルタイムで
 
 ## TypeScript transpiler extension
 
-`pyxis.typescript-runtime` registers the supported extensions and the `typescript` worker transform. Extension code never crosses the worker boundary. The FS Worker sends JavaScript, TypeScript, TSX, and npm-installed `.mjs` transforms through one lazy worker pool; disabling the extension removes its TypeScript loader registration.
+`pyxis.typescript-runtime` registers the supported extensions and the `typescript` worker transform. Extension code never crosses the worker boundary. Runtime JavaScript, TypeScript, TSX, and modules loaded from npm-installed `.mjs` files use one lazy worker pool; disabling the extension removes its TypeScript loader registration.
 
 ---
 

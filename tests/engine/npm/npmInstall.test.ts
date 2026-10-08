@@ -1,24 +1,12 @@
 import { Buffer } from 'node:buffer';
 import pako from 'pako';
 import tarStream from 'tar-stream';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  extractCjsDependencies,
-  transformEsmToCjs,
-} from '@/engine/runtime/transpiler/esmTransformer';
-
-vi.mock('@/engine/runtime/transpiler/transpileManager', () => ({
-  transpileManager: {
-    async transpile(options: { code: string; filePath: string }) {
-      const code = await transformEsmToCjs(options.code, options.filePath);
-      return { code, dependencies: extractCjsDependencies(code) };
-    },
-  },
-}));
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { TarExtractor } from '@/engine/cmd/global/npmOperations/install/tarExtractor';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import type { FsCore } from '@/engine/core/fs/core';
+import { NPM_CACHE_PATH } from '@/engine/core/fs/layout';
 import { testFsFiles as testFiles } from '../../_helpers/testFsFiles';
 import { setupTestProject } from '../../_helpers/testProject';
 
@@ -45,8 +33,10 @@ describe('NpmInstall', () => {
     return new NpmInstall(rootPath, repository);
   }
 
-  it('preserves package file bytes during tar extraction', async () => {
+  it('preserves binary files and module source during cached tarball installation', async () => {
     const bytes = new Uint8Array([...Array.from({ length: 31 }, () => 65), 255]);
+    const source = 'import value from "dependency";\nexport default value;\n';
+    const sourceBytes = new TextEncoder().encode(source);
     const archive = tarStream.pack();
     const chunks: Uint8Array[] = [];
     const packed = new Promise<Uint8Array[]>((resolve, reject) => {
@@ -57,6 +47,10 @@ describe('NpmInstall', () => {
     archive.entry(
       { name: 'package/assets/font.dat', type: 'file', size: bytes.byteLength },
       Buffer.from(bytes)
+    );
+    archive.entry(
+      { name: 'package/index.mjs', type: 'file', size: sourceBytes.byteLength },
+      Buffer.from(sourceBytes)
     );
     archive.finalize();
     const archiveChunks = await packed;
@@ -70,6 +64,20 @@ describe('NpmInstall', () => {
     const compressed = pako.gzip(tar).slice();
     const extracted = await new TarExtractor().extractFromBuffer('/package', compressed.buffer);
     expect(extracted.get('assets/font.dat')?.content).toEqual(bytes);
+    const url = 'https://registry.npmjs.org/source-fixture/-/source-fixture-1.0.0.tgz';
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
+    const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(
+      ''
+    );
+    await repository.mkdir(NPM_CACHE_PATH, { recursive: true });
+    await repository.writeFile(`${NPM_CACHE_PATH}/${key}.tgz`, compressed);
+    const installer = createInstaller();
+    installer.startBatchProcessing();
+    await installer.downloadAndInstallPackage('source-fixture', '1.0.0', url);
+    await installer.finishBatchProcessing();
+    const directory = `${rootPath}/node_modules/source-fixture`;
+    expect(await repository.readFile(`${directory}/assets/font.dat`)).toEqual(bytes);
+    expect(await repository.readFile(`${directory}/index.mjs`)).toEqual(sourceBytes);
   });
 
   // ==================== バッチ処理 ====================

@@ -26,7 +26,7 @@ The Node.js provider uses virtual HOME `/home/pyxis`; a newly created workspace 
 
 ## Node.js provider lifecycle
 
-`NodeRuntimeProvider` creates one Runtime Worker for each `execute()` call and terminates it on completion, disposal, or an unhandled interrupt. Runtime output is forwarded to the caller as it arrives. `AbortSignal` force-cancels the Worker and returns exit code 130. `subscribeInterrupt` delivers catchable SIGINT events; an unhandled or repeated SIGINT terminates the Worker with exit code 130. Runtime host shell work receives its own abort signal and is stopped when the run is interrupted or terminated.
+`NodeRuntimeProvider` prewarms one idle Runtime Worker. `execute()` reuses it when available and creates a Worker on demand for concurrent runs. Normal completion returns a Worker to the idle pool, which retains at most one; termination or an unhandled worker failure discards it and starts a replacement. Runtime output is forwarded to the caller as it arrives. `AbortSignal` force-cancels the Worker and returns exit code 130. `subscribeInterrupt` delivers catchable SIGINT events; an unhandled or repeated SIGINT terminates the Worker with exit code 130. Runtime host shell work receives its own abort signal and is stopped when the run is interrupted or terminated.
 
 Runtime calls come through the registry:
 
@@ -51,8 +51,8 @@ export interface TranspilerProvider {
 }
 ```
 
-The registry maps extensions to descriptors. The FS Worker owns one lazy transpile pool with one Worker, shared by JavaScript module transforms, `.mjs` transforms during npm installation, and registered TypeScript transforms. The pool retires its Worker after 30 seconds without work.
+The registry maps extensions to descriptors. The FS Worker owns one lazy transpile pool with one Worker, shared by JavaScript module transforms and registered TypeScript transforms. The pool retires its Worker after 30 seconds without work. npm installation preserves package file bytes; runtime transforms occur when modules load.
 
 ## Lifecycle responsibilities
 
-Providers own their execution resources. The Node.js provider disposes its Runtime Worker after each run and its `dispose()` method stops active executions. Callers pass an `AbortSignal` for forced cancellation and `subscribeInterrupt` for catchable, repeatable SIGINT events. The registry does not cache NodeRuntime instances between runs.
+Providers own their active execution resources. The Node.js provider keeps Runtime Workers in a page-shared pool; `dispose()` stops that provider's active executions, while the pool's idle Worker remains available for the page lifetime. Callers pass an `AbortSignal` for forced cancellation and `subscribeInterrupt` for catchable, repeatable SIGINT events. The registry does not cache NodeRuntime instances between runs.

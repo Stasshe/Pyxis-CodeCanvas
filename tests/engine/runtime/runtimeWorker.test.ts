@@ -14,6 +14,9 @@ interface WorkerHarness {
 }
 
 let runtimeOptions: ExecutionOptions | undefined;
+let finishMockExecution: (() => void) | undefined;
+let mockExecutionCount = 0;
+let retiredRuntimeEvent = false;
 let isolatedRuntimeBundle: Promise<string> | undefined;
 
 class MockRuntimeBridge {
@@ -37,12 +40,21 @@ class MockNodeRuntime {
   }
 
   execute(): Promise<void> {
-    return new Promise<void>(() => {});
+    mockExecutionCount++;
+    return new Promise<void>(resolve => {
+      finishMockExecution = resolve;
+    });
   }
 
   waitForEventLoop(): Promise<void> {
-    return new Promise<void>(() => {});
+    return Promise.resolve();
   }
+
+  waitForProcessExit(): Promise<number> {
+    return new Promise<number>(() => {});
+  }
+
+  dispose(): void {}
 
   trackIO(): void {}
 
@@ -57,6 +69,9 @@ class MockNodeRuntime {
 
 async function startWorker(): Promise<WorkerHarness> {
   runtimeOptions = undefined;
+  finishMockExecution = undefined;
+  mockExecutionCount = 0;
+  retiredRuntimeEvent = false;
   vi.resetModules();
 
   const posted: WorkerMessage[] = [];
@@ -71,8 +86,12 @@ async function startWorker(): Promise<WorkerHarness> {
   vi.doMock('@/engine/runtime/storage/RuntimeFsMount', () => ({
     RuntimeFsMount: MockRuntimeFilesystem,
   }));
-  vi.doMock('@/engine/runtime/nodejs/nodeRuntime', () => ({ NodeRuntime: MockNodeRuntime }));
+  vi.doMock('@/engine/runtime/nodejs/nodeRuntime', () => ({
+    NodeRuntime: MockNodeRuntime,
+    isRetiredRuntimePromise: () => retiredRuntimeEvent,
+  }));
   await import('@/engine/runtime/nodejs/runtimeWorker');
+  await vi.waitFor(() => expect(posted).toContainEqual({ type: 'ready' }));
 
   const start: MainMessage = {
     type: 'start',
@@ -200,14 +219,19 @@ describe('runtime worker boundaries', () => {
   it('flushes buffered output and completes on exit while execute remains pending', async () => {
     const harness = await startWorker();
     harness.options()?.onStdout?.('buffered output');
-    harness.options()?.onExit?.(5);
+    finishMockExecution?.();
 
-    await vi.waitFor(() => expect(harness.posted).toHaveLength(2));
-    expect(harness.posted[0]).toEqual({
+    await vi.waitFor(() =>
+      expect(harness.posted.some(item => item.type === 'complete')).toBe(true)
+    );
+    expect(harness.posted.find(item => item.type === 'output')).toEqual({
       type: 'output',
       entries: [{ channel: 'stdout', text: 'buffered output' }],
     });
-    expect(harness.posted[1]).toEqual({ type: 'complete', result: { exitCode: 5 } });
+    expect(harness.posted.find(item => item.type === 'complete')).toEqual({
+      type: 'complete',
+      result: { exitCode: 0 },
+    });
   });
 
   it('keeps worker stdin and output payloads as bytes', async () => {
@@ -220,7 +244,8 @@ describe('runtime worker boundaries', () => {
     const message: MainMessage = { type: 'stdin', data: bytes };
     messageListener(new MessageEvent<MainMessage>('message', { data: message }));
     harness.options()?.onStdout?.(bytes);
-    harness.options()?.onExit?.(0);
+    await Promise.resolve();
+    finishMockExecution?.();
     await vi.waitFor(() =>
       expect(harness.posted.some(message => message.type === 'complete')).toBe(true)
     );
@@ -231,6 +256,7 @@ describe('runtime worker boundaries', () => {
 
   it('completes with failure for an uncaught worker error', async () => {
     const harness = await startWorker();
+    harness.options()?.onStdout?.('output before fatal');
     const errorEventListener = harness.listeners.get('error');
     if (!errorEventListener) throw new Error('Runtime worker did not register its error listener.');
     const errorEvent = new Event('error');
@@ -238,8 +264,18 @@ describe('runtime worker boundaries', () => {
     Object.defineProperty(errorEvent, 'error', { value: new Error('worker error') });
     errorEventListener(errorEvent);
 
-    await vi.waitFor(() => expect(harness.posted).toHaveLength(1));
-    expect(harness.posted[0]).toMatchObject({ type: 'complete', result: { exitCode: 1 } });
+    await vi.waitFor(() => expect(harness.posted.some(item => item.type === 'fatal')).toBe(true));
+    expect(harness.posted.find(item => item.type === 'fatal')).toMatchObject({
+      type: 'fatal',
+      error: 'worker error',
+    });
+    expect(harness.posted.find(item => item.type === 'output')).toEqual({
+      type: 'output',
+      entries: [{ channel: 'stdout', text: 'output before fatal' }],
+    });
+    expect(harness.posted.findIndex(item => item.type === 'output')).toBeLessThan(
+      harness.posted.findIndex(item => item.type === 'fatal')
+    );
   });
 
   it('completes with failure for an unhandled worker rejection', async () => {
@@ -252,7 +288,67 @@ describe('runtime worker boundaries', () => {
     Object.defineProperty(rejectionEvent, 'reason', { value: new Error('worker rejection') });
     rejectionListener(rejectionEvent);
 
-    await vi.waitFor(() => expect(harness.posted).toHaveLength(1));
-    expect(harness.posted[0]).toMatchObject({ type: 'complete', result: { exitCode: 1 } });
+    await vi.waitFor(() => expect(harness.posted.some(item => item.type === 'fatal')).toBe(true));
+    expect(harness.posted.find(item => item.type === 'fatal')).toMatchObject({
+      type: 'fatal',
+      error: 'Error: worker rejection',
+    });
+  });
+
+  it('accepts a new execution only after the prior execution cleanup completes', async () => {
+    const harness = await startWorker();
+    finishMockExecution?.();
+    await vi.waitFor(() =>
+      expect(harness.posted.filter(item => item.type === 'complete')).toHaveLength(1)
+    );
+
+    const start: MainMessage = {
+      type: 'start',
+      runtimeId: 'runtime-2',
+      scope: '/',
+      fsPort: new MessageChannel().port1,
+      options: { rootPath: '/workspace', filePath: '/workspace/next.js', argv: [] },
+    };
+    const messageListener = harness.listeners.get('message');
+    if (!messageListener) throw new Error('Runtime worker did not register its message listener.');
+    messageListener(new MessageEvent<MainMessage>('message', { data: start }));
+    await vi.waitFor(() => expect(mockExecutionCount).toBe(2));
+    finishMockExecution?.();
+    await vi.waitFor(() =>
+      expect(harness.posted.filter(item => item.type === 'complete')).toHaveLength(2)
+    );
+  });
+
+  it('rejects outstanding shell work when an execution completes', async () => {
+    const harness = await startWorker();
+    const shellResult = harness.options()?.runShell('long running command');
+    const rejection = expect(shellResult).rejects.toThrow('Runtime execution has ended.');
+    finishMockExecution?.();
+    await vi.waitFor(() =>
+      expect(harness.posted.some(item => item.type === 'complete')).toBe(true)
+    );
+    await rejection;
+  });
+
+  it('ignores only the retired promise when its rejection arrives after reuse', async () => {
+    const harness = await startWorker();
+    finishMockExecution?.();
+    await vi.waitFor(() =>
+      expect(harness.posted.filter(item => item.type === 'complete')).toHaveLength(1)
+    );
+
+    const rejectionListener = harness.listeners.get('unhandledrejection');
+    if (!rejectionListener) throw new Error('Runtime worker rejection listener missing.');
+    const rejectionEvent = new Event('unhandledrejection');
+    Object.defineProperty(rejectionEvent, 'promise', { value: Promise.resolve() });
+    Object.defineProperty(rejectionEvent, 'reason', { value: new Error('Runtime closed.') });
+    retiredRuntimeEvent = true;
+    rejectionListener(rejectionEvent);
+
+    expect(harness.posted.some(item => item.type === 'fatal')).toBe(false);
+
+    retiredRuntimeEvent = false;
+    rejectionListener(rejectionEvent);
+    expect(harness.posted.some(item => item.type === 'fatal')).toBe(true);
   });
 });
