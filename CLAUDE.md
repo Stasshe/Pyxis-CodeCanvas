@@ -7,26 +7,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Dev server (turbopack)
 pnpm run dev
-
-# Production build
-pnpm run build
-
 # Lint (biome)
 pnpm run lint
 pnpm run lint:fix
-
 # Format (biome + i18n locale formatter)
 pnpm run format
-
 # Tests
 pnpm run test
 pnpm run test:watch
-
 # Create new extension
 pnpm run create-extension
 ```
-
-Always use `pnpm`. Never use `npm`.
 
 Single test file: `pnpm exec vitest run tests/engine/some.test.ts`
 
@@ -36,14 +27,6 @@ Single test file: `pnpm exec vitest run tests/engine/some.test.ts`
 
 Pyxis is a fully client-side browser IDE. No server-side persistence. All data lives in the browser.
 
-### Layer Structure
-
-```
-UI Layer         → src/components/
-Application Layer → src/app/, src/hooks/, src/stores/
-Engine Layer     → src/engine/
-```
-
 ### Storage — OPFS Files and IndexedDB Metadata
 
 | Layer | Contents | Purpose |
@@ -52,7 +35,7 @@ Engine Layer     → src/engine/
 | **IndexedDB** | Recent folders, chats, tabs, AI reviews, settings, translations, extension data | Searchable application metadata |
 | **Memory** | `/tmp` | Ephemeral files |
 
-The FS Worker in `src/engine/core/fs/` is the only OPFS owner. Main-thread code uses its FS Client. Git and npm installation run in the FS Worker against the same filesystem. `ProjectFile` contains only absolute path, entry type, size, and mtime. File identity is its normalized absolute path. A workspace root controls the file tree and default working directory; it does not create a separate path namespace. The Web Lock allows one active tab to own the filesystem.
+The FS Worker in `src/engine/core/fs/` is the only OPFS owner. Main-thread code uses its FS Client. Git and npm installation run in the FS Worker against the same filesystem. `ProjectFile` contains only absolute path, entry type, size, and mtime. File identity is its normalized absolute path. Virtual symlinks use authoritative per-link records under the reserved OPFS root `.pyxis-fs-links`; `/tmp` links are memory-backed. A workspace root controls the file tree and default working directory; it does not create a separate path namespace. The Web Lock allows one active tab to own the filesystem.
 
 Temporary legacy migration lives in `src/engine/core/migration/`; keep its invocation centralized. Remove it after the migration window ending around April 2027. Virtual `HOME` is `/home/pyxis`; new workspaces at `~/<name>` start empty. Startup seeds the generated `initial_files/` content into `~/demo` only when that directory is absent; existing folders, including an existing `~/demo`, are left intact. Runtime cache is `~/.cache/pyxis`, npm cache is `~/.npm`, and `/tmp` is memory-backed. Legacy projects target `/home/pyxis/<name>` without a reserved suffix. A destination collision stops migration before project writes and preserves legacy data; persisted project-to-root mappings let retries reuse their assigned destination. Filesystem-worker seeding runs after legacy migration and before recent folders are read.
 
@@ -110,58 +93,10 @@ Goal: convey processing flow, design rationale, and architecture accurately to o
 - Mermaid node names: English only, no `(`, `/`, `{` in node names.
 - No speculation — only write what matches the actual implementation.
 
-
-
-
-
-Do not optimize code to satisfy linters by default.
-Prioritize domain intent, responsibility boundaries, and invariants first.
-Use linters only to catch bugs, unsafe patterns, and mechanical mistakes.
-
-If a value is conceptually required at a given layer, assert its existence
-(e.g., early return or non-null assertion) instead of defensive null checks.
-Do not propagate optionality upward just to silence warnings.
-
-Avoid introducing conditional logic, optional chaining, or abstractions
-whose sole purpose is to appease static rules.
-If a linter rule degrades clarity or distorts design, override or disable it
-with explicit justification.
-
-Design comes first. Linters serve the design, not the other way around.
-
-
-
-必ず、5行以上の大きな変更をしたときは、ファイルをもう一度読み直し、エラーをチェックすること。
-
-常に正しい位置を読み取り、正しい位置で修正すること。
-JSX構文に気をつけること。
-
-エラー修正の際にはエラーをチェックしてから修正。
-
-編集ツールは正しいものを使うこと。新しいものを使うように。
-
-私が指示する時は、いつも全てテストをしてからなので、開発サーバーを立てるように最初に促すのは絶対にやめろ。
-
-あなたはAgentGPT、優秀なプログラマーです。自律的に行動し、指示に従い、コードを編集します。
-
-
-use lucide-react for icons
-Don't use ▷ 🔽。
-
-
 後方互換性は一切気にしなくてよい。
-
 
 docsを書く場合の注意点
 docsの目標は、他の開発者にPyxisがどういう構成で、どういう処理フロー、またなぜそういう設計になっているのかの情報を、正しくわかりやすく伝えること。
 だから、コードブロックは多用せず、図やmermaid,表、テキストを適切に使い分けて、嘘偽りなく、推測なく実装にそった内容を書くこと。
 mermaidの記述のルールとして、ノードネームに(,/,{などは使えない。また、ノードネームは基本的に英語で書くこと。
 コードブロックは必要最低限に。
-また、私の指示なくdocsの新規作成はしないこと。
-
-ファイルに大幅な変更を加えたいとき、大幅な設計変更時には、ファイルをターミナルコマンドからEOFを使い、強制的に一気に書き換える方式を取ること。
-
-既存ファイルかどうかは必ず注意すること。既存ファイルがあるのにファイルの作成はできませんよ。
-
-このリポジトリはpnpmです。npmは使うな。
-currentRootPathは必ずprojectStoreから取得すること。
