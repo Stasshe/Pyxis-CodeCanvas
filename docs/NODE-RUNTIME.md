@@ -37,6 +37,8 @@ FS Workerの`FsCore`がOPFSと揮発性`/tmp`を所有する。Runtime Workerは
 - Service Workerが再起動してFS Workerのportを失うと、main pageへ新しいportを要求し、受領確認後に処理を再開する。
 - `child_process`のshell実行とstdinはmain pageを経由する。
 
+`child_process`の`.sh`とコマンド置換は、親のcwd・環境変数を引き継ぐ子shellで実行します。変更は親に反映せず、shellの最後または明示された終了statusを返します。`.sh`の解決pathは`BASH_SOURCE[0]`で参照できます。対応構文はPOSIX shellの一部です（[Shell System](SHELL-SYSTEM.md)）。
+
 module解決は1つのresolverを使い、非同期の先読みと同期`require`の両方で成功した解決先を実行内に保持する。同期経路は未解決の候補だけをFS Workerへ問い合わせる。通常のCommonJS fileは実行ごとのmodule cacheで一度読み込み、変換済みmoduleの永続cacheはFS Workerが所有する。これらのcacheは用途と寿命が異なり、Runtime Workerに独立したfile Mapは持たない。CommonJSの循環requireはロード途中のpartial exportsを返し、`module.exports`の置換も反映する。CommonJSとESMのnamespace生成も同じ実行内module cacheを使う。`fs`の同期APIも同じbridgeを使う。
 
 module種別はJavaScript parserで判定する。`.mjs` / `.mts`はESM、`.cjs` / `.cts`はCommonJSとして扱い、`.js` / `.ts`は最寄りの`package.json`の`type`に従う。`type`がない場合はsource grammarで判定する。packageの`exports`と`imports`は`import` / `require`などの実行条件とNodeのpath規則で解決する。Function constructorのbodyもparserで解析し、そこにあるimportを同じI/O追跡経路へ渡す。regexでsource構文を推測してmodule種別を決めない。

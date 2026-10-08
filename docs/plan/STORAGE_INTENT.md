@@ -25,6 +25,7 @@
 - **FS Coreは直近の成功pathのdirectory handle chainだけを再利用する**。共通ancestorの探索を省き、保持量を1 chainに抑える。Core再初期化とdirectory削除はchainを無効化し（directory renameはsource削除時）、古いin-flight lookupはchainを更新できない。file handleや内容はcacheせず、OPFSを唯一のpayload保管先に保つ
 - **file I/Oはmainから外す**。gitやnpm installは1回の操作でfsを数千回呼ぶ。だからFS Workerと同じ場所で動かし、message往復をなくす。mainはUIと中継だけにする
 - **npm installは配布file bytesを保存する**。install時にruntime変換を混ぜず、packageの元の内容を保つ。module formatの判定と必要な変換はNode実行時のpackage条件に基づいて行う
+- **npm installは依存解決の待ち時間を隠しつつ、再現性と記憶量を保つ**。依存graphのpackage配置をlockfileで固定すれば、registry metadataの鮮度に左右されず同じ解決結果を再利用できる。異なるtransitive versionにはNodeと同じnested placementが要る。展開済みgraph全体のpayloadやbrowserで使えないnative optional packagesはpage全体400 MBの目標を圧迫しうるため、bounded concurrency、tar entry単位の書き込みbackpressure、`os` / `cpu` metadataによるtarget判定で同時保持量と不要payloadを抑える。archive integrityはOPFSへ書く前に確認し、破損bytesを永続化しない。単独FS Worker所有とSyncAccessHandleのopen-operation-closeは維持する
 - **metadataはIDBに残す**。OPFSにはindexも任意属性もない。recent folders・root-scoped Quick Open MRU file paths・chat・tab状態・AIレビューのように、検索と属性が必要なものはIDBに置く
 - **workspace treeは構造変更時だけwalkする**。Explorerの`FileItem`はpath・name・type・childrenの投影で、既存fileの内容更新は構造を変えない。`update`でworkspace全体を再走査せず、create/delete/renameだけをdebounceしてwalkする。Git panelは`.git`を含むroot内のfilesystem eventをstatus invalidationに使い、Git操作からの重複fetchを避ける
 - **seed内容は`~/demo`に一度だけ置き、新workspaceは空にする**。新しいworkspaceごとにtemplateを複製すると、生成物が各workspaceの永続内容に混ざる。`~/demo`が無い場合だけ起動時に用意し、既にあるfolderの内容を保つ。seedは旧データ移行後、recent folders読込前に行い、移行済みデータとworkspace選択の順序を保つ

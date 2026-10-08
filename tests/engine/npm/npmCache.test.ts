@@ -12,7 +12,7 @@ const tarballUrl = 'https://registry.npmjs.org/cache-fixture/-/cache-fixture-1.0
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function packageTarball(name: string): Promise<Uint8Array> {
+async function packageTarball(name: string): Promise<Uint8Array<ArrayBuffer>> {
   const tar = await new Promise<Uint8Array>((resolve, reject) => {
     const archive = tarStream.pack();
     const chunks: Uint8Array[] = [];
@@ -40,6 +40,11 @@ async function packageTarball(name: string): Promise<Uint8Array> {
   return pako.gzip(tar).slice();
 }
 
+async function integrity(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-512', bytes);
+  return `sha512-${Buffer.from(digest).toString('base64')}`;
+}
+
 function registryMetadata(name: string, url: string): Response {
   return new Response(
     JSON.stringify({
@@ -47,7 +52,7 @@ function registryMetadata(name: string, url: string): Response {
       'dist-tags': { latest: '1.0.0' },
       versions: { '1.0.0': { dist: { tarball: url }, dependencies: {} } },
     }),
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=60' } }
   );
 }
 
@@ -59,55 +64,43 @@ async function cachePath(url: string): Promise<string> {
 
 async function install(repo: FsCore, rootPath: string, name: string): Promise<void> {
   const installer = new NpmInstall(rootPath, repo);
-  installer.startBatchProcessing();
-  try {
-    await installer.installWithDependencies(name, 'latest');
-  } finally {
-    await installer.finishBatchProcessing();
-  }
+  await installer.installWithDependencies(name, 'latest');
 }
 
 describe('npm tarball cache', () => {
-  it.each([
-    { name: 'native decompression', usePako: false },
-    { name: 'pako fallback', usePako: true },
-  ])(
-    'reuses exact tarball bytes across workspaces while fetching current metadata ($name)',
-    async ({ usePako }) => {
-      if (usePako) vi.stubGlobal('DecompressionStream', undefined);
-      const { repo, rootPath } = await setupTestProject('NpmCacheFirst');
-      await repo.rm(NPM_CACHE_PATH, { recursive: true });
-      const secondRoot = '/tmp/NpmCacheSecond';
-      await repo.mkdir(secondRoot, { recursive: true });
-      const tarball = await packageTarball('cache-fixture');
-      const requests: string[] = [];
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (input: RequestInfo | URL) => {
-          const url = String(input);
-          requests.push(url);
-          if (url === 'https://registry.npmjs.org/cache-fixture') {
-            return registryMetadata('cache-fixture', tarballUrl);
-          }
-          if (url === tarballUrl) return new Response(tarball.slice().buffer);
-          return new Response('unexpected URL', { status: 404 });
-        })
-      );
+  it('reuses exact tarball bytes and fresh metadata across workspaces', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmCacheFirst');
+    await repo.rm(NPM_CACHE_PATH, { recursive: true });
+    const secondRoot = '/tmp/NpmCacheSecond';
+    await repo.mkdir(secondRoot, { recursive: true });
+    const tarball = await packageTarball('cache-fixture');
+    const requests: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        requests.push(url);
+        if (url === 'https://registry.npmjs.org/cache-fixture') {
+          return registryMetadata('cache-fixture', tarballUrl);
+        }
+        if (url === tarballUrl) return new Response(tarball.slice().buffer);
+        return new Response('unexpected URL', { status: 404 });
+      })
+    );
 
-      await install(repo, rootPath, 'cache-fixture');
-      await install(repo, secondRoot, 'cache-fixture');
+    await install(repo, rootPath, 'cache-fixture');
+    await install(repo, secondRoot, 'cache-fixture');
 
-      expect(
-        requests.filter(url => url === 'https://registry.npmjs.org/cache-fixture')
-      ).toHaveLength(2);
-      expect(requests.filter(url => url === tarballUrl)).toHaveLength(1);
-      expect((await repo.stat(NPM_CACHE_PATH)).type).toBe('folder');
-      expect(await repo.readFile(await cachePath(tarballUrl))).toEqual(tarball);
-      expect(await repo.readText(`${secondRoot}/node_modules/cache-fixture/index.js`)).toContain(
-        'cached package'
-      );
-    }
-  );
+    expect(requests.filter(url => url === 'https://registry.npmjs.org/cache-fixture')).toHaveLength(
+      1
+    );
+    expect(requests.filter(url => url === tarballUrl)).toHaveLength(1);
+    expect((await repo.stat(NPM_CACHE_PATH)).type).toBe('folder');
+    expect(await repo.readFile(await cachePath(tarballUrl))).toEqual(tarball);
+    expect(await repo.readText(`${secondRoot}/node_modules/cache-fixture/index.js`)).toContain(
+      'cached package'
+    );
+  });
 
   it('uses separate cache keys for distinct scoped tarball URLs', async () => {
     const { repo, rootPath } = await setupTestProject('NpmScopedCache');
@@ -190,21 +183,123 @@ describe('npm tarball cache', () => {
     expect(requests.filter(url => url === tarballUrl)).toHaveLength(1);
   });
 
-  it('rejects invalid gzip data when the pako decompression fallback is used', async () => {
-    const { repo, rootPath } = await setupTestProject('NpmInvalidPakoCache');
-    const path = await cachePath(tarballUrl);
-    vi.stubGlobal('DecompressionStream', undefined);
+  it('removes a partially extracted package when the tar ends after its manifest', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmTruncatedTar');
+    const tar = pako.inflate(await packageTarball('cache-fixture'));
+    const sourceLength = Buffer.byteLength('module.exports = "cached package";');
+    const sourceHeaderEnd = 3 * 512;
+    const truncated = pako.gzip(tar.subarray(0, sourceHeaderEnd + sourceLength - 1)).slice();
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         if (String(input) === 'https://registry.npmjs.org/cache-fixture') {
           return registryMetadata('cache-fixture', tarballUrl);
         }
-        return new Response(new Uint8Array([1, 2, 3]).buffer);
+        return new Response(truncated.buffer);
       })
     );
 
-    await expect(install(repo, rootPath, 'cache-fixture')).rejects.toThrow('Failed to extract');
+    await expect(install(repo, rootPath, 'cache-fixture')).rejects.toThrow();
+    expect(await repo.exists(`${rootPath}/node_modules/cache-fixture`)).toBe(false);
+    expect(await repo.exists(await cachePath(tarballUrl))).toBe(false);
+  });
+
+  it('removes partial package files after a write error and retains a valid cached tarball', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmCachedWriteFailure');
+    const tarball = await packageTarball('cache-fixture');
+    const path = await cachePath(tarballUrl);
+    await repo.writeFile(path, tarball);
+    const original = repo.writeFile.bind(repo);
+    const write = vi
+      .spyOn(repo, 'writeFile')
+      .mockImplementation(async (filePath, content, emit) => {
+        if (filePath === `${rootPath}/node_modules/cache-fixture/index.js`) {
+          throw new Error('Package write failed');
+        }
+        await original(filePath, content, emit);
+      });
+
+    try {
+      const installer = new NpmInstall(rootPath, repo);
+      await expect(
+        installer.downloadAndInstallPackage('cache-fixture', '1.0.0', tarballUrl)
+      ).rejects.toThrow('Package write failed');
+      expect(await repo.exists(`${rootPath}/node_modules/cache-fixture`)).toBe(false);
+      expect(await repo.readFile(path)).toEqual(tarball);
+    } finally {
+      write.mockRestore();
+    }
+  });
+
+  it('verifies downloaded tarball integrity before writing package files or cache bytes', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmDownloadedIntegrity');
+    const tarball = await packageTarball('cache-fixture');
+    const expected = await integrity(new Uint8Array([0]));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(tarball.slice().buffer))
+    );
+    const writes = vi.spyOn(repo, 'writeFile');
+    try {
+      await expect(
+        new NpmInstall(rootPath, repo).downloadAndInstallPackage(
+          'cache-fixture',
+          '1.0.0',
+          tarballUrl,
+          undefined,
+          expected
+        )
+      ).rejects.toThrow('integrity mismatch');
+      expect(writes).not.toHaveBeenCalled();
+      expect(await repo.exists(`${rootPath}/node_modules/cache-fixture`)).toBe(false);
+      expect(await repo.exists(await cachePath(tarballUrl))).toBe(false);
+    } finally {
+      writes.mockRestore();
+    }
+  });
+
+  it('evicts a cached integrity mismatch while preserving existing package files', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmCachedIntegrity');
+    const path = await cachePath(tarballUrl);
+    const expected = await integrity(await packageTarball('cache-fixture'));
+    await repo.writeFile(path, await packageTarball('tampered-fixture'));
+    const packagePath = `${rootPath}/node_modules/cache-fixture`;
+    await repo.mkdir(packagePath, { recursive: true });
+    await repo.writeFile(`${packagePath}/keep.txt`, 'existing package');
+
+    await expect(
+      new NpmInstall(rootPath, repo).downloadAndInstallPackage(
+        'cache-fixture',
+        '1.0.0',
+        tarballUrl,
+        undefined,
+        expected
+      )
+    ).rejects.toThrow('integrity mismatch');
+
     expect(await repo.exists(path)).toBe(false);
+    expect(await repo.readText(`${packagePath}/keep.txt`)).toBe('existing package');
+  });
+
+  it('installs and caches tarball bytes that match their declared integrity', async () => {
+    const { repo, rootPath } = await setupTestProject('NpmValidIntegrity');
+    const tarball = await packageTarball('cache-fixture');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(tarball.slice().buffer))
+    );
+
+    await new NpmInstall(rootPath, repo).downloadAndInstallPackage(
+      'cache-fixture',
+      '1.0.0',
+      tarballUrl,
+      undefined,
+      await integrity(tarball)
+    );
+
+    expect(await repo.readFile(await cachePath(tarballUrl))).toEqual(tarball);
+    expect(await repo.readText(`${rootPath}/node_modules/cache-fixture/index.js`)).toContain(
+      'cached package'
+    );
   });
 });

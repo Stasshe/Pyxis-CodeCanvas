@@ -43,9 +43,7 @@ describe('uvu npm runtime integration', () => {
     repo = project.repo;
     rootPath = project.rootPath;
     const installer = new NpmInstall(rootPath, repo);
-    installer.startBatchProcessing();
     await installer.installWithDependencies('uvu', 'latest');
-    await installer.finishBatchProcessing();
     await installer.ensureBinsForPackage('uvu');
     await installer.ensureBinsForPackage('sade');
     fixture = await createNpmRuntimeFixture(repo, rootPath);

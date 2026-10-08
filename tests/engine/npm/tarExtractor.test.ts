@@ -4,7 +4,13 @@ import tarStream from 'tar-stream';
 import { describe, expect, it } from 'vitest';
 import { TarExtractor } from '@/engine/cmd/global/npmOperations/install/tarExtractor';
 
-async function archive(name: string, content: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
+interface ArchiveFile {
+  name: string;
+  content: Uint8Array;
+  type?: 'file' | 'directory';
+}
+
+async function archive(files: ArchiveFile[]): Promise<Uint8Array<ArrayBuffer>> {
   const pack = tarStream.pack();
   const chunks: Buffer[] = [];
   const finished = new Promise<void>((resolve, reject) => {
@@ -12,45 +18,121 @@ async function archive(name: string, content: Uint8Array): Promise<Uint8Array<Ar
     pack.on('end', resolve);
     pack.on('error', reject);
   });
-  pack.entry({ name: `package/${name}`, type: 'file' }, Buffer.from(content));
+  for (const file of files) {
+    pack.entry({ name: file.name, type: file.type ?? 'file' }, Buffer.from(file.content));
+  }
   pack.finalize();
   await finished;
   return pako.gzip(Buffer.concat(chunks)).slice();
 }
 
-function stream(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  return new ReadableStream({
+function decompress(bytes: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array<ArrayBuffer>>({
     start(controller) {
       controller.enqueue(bytes.subarray(0, 3));
       controller.enqueue(bytes.subarray(3));
       controller.close();
     },
-  });
+  }).pipeThrough(new DecompressionStream('gzip'));
 }
 
-describe('npm tar extraction bytes', () => {
-  it('preserves binary bytes with a misleading extension in buffer and streamed extraction', async () => {
-    const bytes = Buffer.from([9, 0, 255, 128, 9]).subarray(1, 4);
-    const compressed = await archive('binary.txt', bytes);
-    const extractor = new TarExtractor();
-    const buffered = await extractor.extractFromBuffer('/package', compressed.buffer);
-    const streamed = await extractor.extractFromStream(
-      '/package',
-      extractor.createPakoDecompressedStream(stream(compressed))
-    );
-    expect(buffered.get('binary.txt')?.content).toEqual(Uint8Array.from(bytes));
-    expect(streamed.get('binary.txt')?.content).toEqual(Uint8Array.from(bytes));
+describe('streamed npm tar extraction', () => {
+  it('preserves binary bytes and undecoded module bytes', async () => {
+    const bytes = Uint8Array.from([0, 255, 128]);
+    const compressed = await archive([
+      { name: 'package/binary.txt', content: bytes },
+      { name: 'package/invalid.mjs', content: bytes },
+    ]);
+    const files = new Map<string, Uint8Array>();
+    await new TarExtractor().extractFromStream('/package', decompress(compressed), async entry => {
+      if (entry.type === 'file') files.set(entry.path, entry.content);
+    });
+    expect(files.get('/package/binary.txt')).toEqual(bytes);
+    expect(files.get('/package/invalid.mjs')).toEqual(bytes);
   });
 
-  it('rejects invalid UTF-8 in compile input instead of replacing bytes', async () => {
-    const compressed = await archive('invalid.mjs', new Uint8Array([255, 128]));
-    const extractor = new TarExtractor();
-    await expect(extractor.extractFromBuffer('/package', compressed.buffer)).rejects.toThrow();
+  it('awaits each file consumer before advancing the archive', async () => {
+    const compressed = await archive([
+      { name: 'package/first.js', content: new Uint8Array(64 * 1024) },
+      { name: 'package/second.js', content: new Uint8Array(64 * 1024) },
+    ]);
+    let release: () => void = () => {};
+    const blocked = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    let entered: () => void = () => {};
+    const firstEntered = new Promise<void>(resolve => {
+      entered = resolve;
+    });
+    const paths: string[] = [];
+    const result = new TarExtractor().extractFromStream(
+      '/package',
+      decompress(compressed),
+      async entry => {
+        paths.push(entry.path);
+        if (paths.length === 1) {
+          entered();
+          await blocked;
+        }
+      }
+    );
+    await firstEntered;
+    expect(paths).toEqual(['/package/first.js']);
+    release();
+    await result;
+    expect(paths).toEqual(['/package/first.js', '/package/second.js']);
+  });
+
+  it('skips archive paths outside the package', async () => {
+    const compressed = await archive([
+      { name: 'package/../../escape.js', content: new Uint8Array([1]) },
+      { name: '/absolute.js', content: new Uint8Array([2]) },
+      { name: 'package/lib/valid.js', content: new Uint8Array([3]) },
+    ]);
+    const paths: string[] = [];
+    await new TarExtractor().extractFromStream('/package', decompress(compressed), async entry => {
+      paths.push(entry.path);
+    });
+    expect(paths).toEqual(['/package/lib/valid.js']);
+  });
+
+  it('rejects consumer failures and releases the stream reader', async () => {
+    const compressed = await archive([
+      { name: 'package/first.js', content: new Uint8Array(128 * 1024) },
+      { name: 'package/second.js', content: new Uint8Array(128 * 1024) },
+    ]);
+    const stream = decompress(compressed);
+    const paths: string[] = [];
+    const result = new TarExtractor().extractFromStream('/package', stream, async entry => {
+      paths.push(entry.path);
+      throw new Error('write failed');
+    });
+    await expect(result).rejects.toThrow('write failed');
+    expect(paths).toEqual(['/package/first.js']);
+    expect(stream.locked).toBe(false);
+  });
+
+  it('rejects invalid gzip input and releases the stream reader', async () => {
+    const stream = decompress(new Uint8Array([1, 2, 3]));
     await expect(
-      extractor.extractFromStream(
-        '/package',
-        extractor.createPakoDecompressedStream(stream(compressed))
-      )
+      new TarExtractor().extractFromStream('/package', stream, async () => {})
     ).rejects.toThrow();
+    expect(stream.locked).toBe(false);
+  });
+
+  it('preserves empty directories and the last entry for duplicate paths', async () => {
+    const compressed = await archive([
+      { name: 'package/empty/', type: 'directory', content: new Uint8Array() },
+      { name: 'package/value.js', content: new Uint8Array([1]) },
+      { name: 'package/value.js', content: new Uint8Array([2]) },
+    ]);
+    const files = new Map<string, Uint8Array>();
+    const directories: string[] = [];
+    await new TarExtractor().extractFromStream('/package', decompress(compressed), async entry => {
+      if (entry.type === 'directory') directories.push(entry.path);
+      else files.set(entry.path, entry.content);
+    });
+    expect(directories).toEqual(['/package/empty']);
+    expect(files.get('/package/value.js')).toEqual(new Uint8Array([2]));
   });
 });

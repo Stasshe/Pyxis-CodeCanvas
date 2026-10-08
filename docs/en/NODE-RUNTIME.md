@@ -37,6 +37,8 @@ Interrupt signals also abort an active `ShellExecutor` started through `child_pr
 - If the Service Worker restarts and loses its FS Worker port, it asks the main page for a replacement and resumes after the port is acknowledged.
 - Shell execution through `child_process` and stdin go through the main page.
 
+`child_process` `.sh` scripts and command substitutions run in child shells that inherit the parent's cwd and environment; their changes stay isolated, and shell execution returns its final or explicit exit status. A script's resolved path is available as `BASH_SOURCE[0]`. Shell syntax coverage is a POSIX subset; see [Shell System](../SHELL-SYSTEM.md).
+
 One resolver serves asynchronous preloading and synchronous `require`, retaining successful resolutions for the duration of an execution. The sync route asks the FS Worker only about unresolved candidates. A CommonJS file is read once into the per-execution module cache; the FS Worker owns the persistent transformed-module cache. These caches have different lifetimes, and the Runtime Worker has no separate file map. CommonJS circular dependencies return partial exports while loading, and replacement of `module.exports` is reflected. CommonJS and ESM namespace creation use the same per-execution module cache. Sync `fs` APIs use the same bridge.
 
 Module format is determined by a JavaScript parser. `.mjs` and `.mts` are ESM; `.cjs` and `.cts` are CommonJS. `.js` and `.ts` follow the nearest `package.json` `type`, with source grammar detection when `type` is absent. Package `exports` and `imports` resolve using execution conditions such as `import` and `require` and Node path rules. Function-constructor bodies are also parsed, so imports in those bodies use the existing I/O tracking path.

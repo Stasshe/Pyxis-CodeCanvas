@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../../_helpers/testProject';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { setupTestProject } from '../../../_helpers/testProject';
 
 /**
  * エラーハンドリングと終了コードのe2eテスト
@@ -40,7 +40,10 @@ describe('e2e — エラーハンドリングと終了コード実行テスト',
     return {
       output: result.stdout.split('\n').filter(Boolean),
       errors: result.stderr.split('\n').filter(Boolean),
-      executionError: result.code !== 0 ? new Error(`Script exited with code ${result.code}\n${result.stderr}`) : null,
+      executionError:
+        result.code !== 0
+          ? new Error(`Script exited with code ${result.code}\n${result.stderr}`)
+          : null,
     };
   }
 
@@ -441,7 +444,7 @@ echo "pipe statuses: \${PIPESTATUS[@]}"
       assertNoUnexpectedErrors(output, errors, executionError);
 
       const result = output.join('\n');
-      expect(result).toContain('pipe statuses:');
+      expect(result).toContain('pipe statuses: 0 1 0');
     }, 30000);
   });
 

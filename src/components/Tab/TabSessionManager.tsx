@@ -10,7 +10,6 @@ import { tabActions, tabState } from '@/stores/tabState';
 /**
  * TabSessionManager
  * - セッションの初期化 / 自動保存
- * - コンテンツ復元完了イベントのリスナー登録
  *
  * 以前の `TabProvider` にあった副作用をここに移植しました。
  * これにより、コンテキストの公開（useTabContext）は廃止され、
@@ -21,7 +20,7 @@ interface Props {
 }
 
 export const TabSessionManager: React.FC<Props> = ({ children }) => {
-  const { loadSession, saveSession, setIsContentRestored } = tabActions;
+  const { loadSession, saveSession } = tabActions;
   const { isLoading, activePane, globalActiveTab } = useSnapshot(tabState);
   const { currentRootPath } = useSnapshot(projectState);
   const initialRootPath = useRef(currentRootPath);
@@ -80,17 +79,6 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
       }
     });
     return unsub;
-  }, []);
-
-  // コンテンツ復元完了イベントのリスナー
-  useEffect(() => {
-    const handleContentRestored = () => {
-      console.log('[TabSessionManager] Content restoration completed');
-      setIsContentRestored(true);
-    };
-
-    window.addEventListener('pyxis-content-restored', handleContentRestored);
-    return () => window.removeEventListener('pyxis-content-restored', handleContentRestored);
   }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: structuralKey/activePane/globalActiveTab/saveSession are all needed trigger deps for session persistence

@@ -124,7 +124,7 @@ Pyxis features an AI assistant that helps you review and adopt code diffs. This 
 </div>
 
 Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when available. Normal completion clears execution state and returns the Worker to the idle pool; termination or an unexpected failure discards it. The Runtime Worker accesses files through the FS Worker. The FS Worker retains the directory-handle chain for its most recent successful path lookup and reuses shared ancestors; it does not cache file handles or contents. It owns the persistent transformed-module cache, while CommonJS modules load once per execution. JavaScript and TypeScript resolution follows package type, `exports` / `imports` conditions, and file extensions. See the [Node.js Runtime documentation](docs/en/NODE-RUNTIME.md) for details.
-The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm tarball cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. OperationWindow offers separate Quick Open, Open Folder, and Open Recent modes. npm metadata is fetched fresh; package tarballs are keyed by the SHA-256 of the exact resolved URL and cached after successful extraction. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
+The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. OperationWindow offers separate Quick Open, Open Folder, and Open Recent modes. npm stores compact abbreviated registry metadata under `~/.npm/registry` according to HTTP freshness and revalidates expired entries with ETag. Tarballs are keyed by the SHA-256 of the exact resolved URL, checked against available registry or lockfile integrity before extraction, and cached after successful extraction. npm v3 `package-lock.json` records registry package placements and supports nested dependency versions. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
 - **Stop controls** - RunPanel Stop ends the run; Terminal Ctrl+C invokes the program's SIGINT handler
 - ⚡ **Isolated execution** - Per-run module caches and timers are reset; normally completed Workers are reused
 - 📁 **File operations** - Full support for `fs`, `path`, `readline`, and `userinterface` modules
@@ -138,28 +138,28 @@ Emulates file operations and interactive user input/output that are impossible i
 
 ---
 
-### 🐚 **Advanced Shell System - Full POSIX Shell Support**
+### 🐚 **Advanced Shell System - POSIX Shell Subset**
 <div align="center">
   <img src="readme-assets/IMG_0126.png" alt="Advanced Shell System" width="80%" />
 </div>
 
-**Achieve a full POSIX-compliant shell script execution environment in the browser!** Pyxis's unique StreamShell architecture supports most features of real Unix shells, including pipelines, redirections, control structures, variable expansion, and command substitution.
+**Run practical shell scripts in the browser.** Pyxis's StreamShell supports a subset of POSIX shell syntax, including pipelines, redirections, control structures, and variable expansion.
 
 #### 🚀 Key Features
 - **Pipeline Processing** - `cmd1 | cmd2 | cmd3` for stream connections
-- **Redirections** - `cmd > file`, `cmd >> file`, `cmd < file`, `cmd 2>&1`, etc. fully supported
+- **Redirections** - `cmd > file`, `cmd >> file`, `cmd < file`, `cmd 2>&1`, and related operators
 - **Control Structures** - `if/then/else`, `for/while` loops, `break/continue`
 - **Variable Expansion** - `$VAR`, `$(command)` command substitution, `((arithmetic))` arithmetic expansion
 - **Logical Operators** - `&&`, `||` for conditional execution
 - **Background Execution** - `cmd &` for asynchronous processing
 - **File Operations** - `ls`, `cat`, `grep`, `head`, `tail`, and other Unix commands
-- **Script Execution** - Direct execution of `.sh` files
+- **Script Execution** - Resolve `.sh` files from the current working directory and return their exit status
 
 #### ⚡ Technical Features
 - **Streaming Architecture** - True streaming processing using Node.js Stream API
 - **Backpressure Support** - Memory-efficient data flow control
 - **Process Abstraction** - Virtual process management in browser environment
-- **fd Management** - Complete file descriptor emulation
+- **fd Management** - File descriptor mapping and duplication
 - **Timeout Protection** - Automatic timeout to prevent infinite loops
 
 **Shell Script Examples:**
@@ -184,9 +184,7 @@ COUNT=$((COUNT + 1))
 echo "Current count: $COUNT"
 ```
 
-**Real shell experience in the browser!** Complex scripts and data processing all run smoothly in Pyxis's terminal.
-
-> **StreamShell architecture ensures high memory efficiency for comfortable large data processing.**
+Command substitution does not change the parent Terminal's working directory. To use an assignment value, enter the assignment and its use as separate Terminal commands; same-line expansion happens before the assignment takes effect. Some syntax and commands remain unsupported; see [SHELL-SYSTEM.md](/docs/SHELL-SYSTEM.md).
 
 > Note: Some system commands, bugs, and features are not yet fully supported. Further enhancements are planned for future updates. Please submit requests via issues.
 
@@ -202,11 +200,11 @@ echo "Current count: $COUNT"
   <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
 </div>
 
-One of Pyxis's biggest features is its "Extension System." You can add VSCode-like UI extensions, use any npm library, create custom terminal commands, language packs, transpilers, and service extensions—all in TypeScript/TSX.
+One of Pyxis's biggest features is its "Extension System." You can add VSCode-like UI extensions, install npm registry packages, create custom terminal commands, language packs, transpilers, and service extensions—all in TypeScript/TSX.
 
 #### Highlights
 - **CLI Template Generation**: Instantly scaffold new extensions with `pnpm run create-extension`. Even beginners can start developing extensions right away.
-- **Full npm Library Support**: Use any external library you want.
+- **npm Registry Package Support**: Registry tarball installs use npm v3 lockfiles and support nested dependency versions.
 - **Terminal Command Extensions**: Add custom commands via API and run them from Pyxis's terminal UI.
 - **VSCode-like UI Extensions**: Add custom tabs and sidebar panels via API. Build intuitive UIs with React/TSX.
 - **Language Packs & Service Extensions**: Add language packs or custom services as extensions.

@@ -47,6 +47,8 @@ describe('tab session root switching', () => {
     tabState.isLoading = false;
     tabState.isRestored = true;
     tabState.isContentRestored = true;
+    tabState.sessionGeneration = 0;
+    tabState.sessionRootPath = null;
     setCurrentProject({ rootPath: '/workspace/a', name: 'a', updatedAt: new Date() });
   });
 
@@ -59,6 +61,18 @@ describe('tab session root switching', () => {
     expect(tabState.activePane).toBe('pane-1');
     expect(tabState.isRestored).toBe(true);
     expect(tabState.isContentRestored).toBe(true);
+  });
+
+  it('advances the restore generation when the same root is reopened', async () => {
+    vi.spyOn(sessionStore, 'load').mockResolvedValue(sessionWithTab('tab', '/workspace/a/main.ts'));
+
+    await tabActions.loadSession('/workspace/a');
+    const firstGeneration = tabState.sessionGeneration;
+
+    await tabActions.loadSession('/workspace/a');
+
+    expect(tabState.sessionGeneration).toBeGreaterThan(firstGeneration);
+    expect(tabState.sessionRootPath).toBe('/workspace/a');
   });
 
   it('ignores a slower session load after switching to another root', async () => {

@@ -1,6 +1,6 @@
 import type { Readable, Writable } from 'node:stream';
 
-import { UNIX_COMMANDS } from '@/engine/cmd/global/unix';
+import { UNIX_COMMANDS, type UnixCommands } from '@/engine/cmd/global/unix';
 import { resolvePath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import handleUnixCommand from '../handlers/unixHandler';
@@ -14,6 +14,7 @@ export type StreamCtx = {
   onSignal: (fn: (sig: string) => void) => () => void;
   signal?: AbortSignal;
   rootPath: string;
+  unix: UnixCommands;
   /** Terminal columns (width) */
   terminalColumns?: number;
   /** Terminal rows (height) */
@@ -65,9 +66,9 @@ const makeUnixBridge = (name: string) => {
       const result = await handleUnixCommand(
         name,
         nArgs,
-        ctx.rootPath,
         writeOutput,
         writeError,
+        ctx.unix,
         stdinStream
       );
 
@@ -127,6 +128,10 @@ export default function adaptUnixToStream(unix: any) {
   obj.test = evaluateTest;
   obj.true = async (ctx: StreamCtx) => {
     ctx.stdout.end();
+  };
+  obj.false = async (ctx: StreamCtx) => {
+    ctx.stdout.end();
+    throw { __silent: true, code: 1 };
   };
 
   // exit: POSIX builtin

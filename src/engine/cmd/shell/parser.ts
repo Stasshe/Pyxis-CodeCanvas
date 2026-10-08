@@ -10,7 +10,11 @@ export class ParseError extends Error {
   }
 }
 
-export type Token = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
+export type Token = {
+  text: string;
+  quote: 'single' | 'double' | null;
+  cmdSubs?: Array<{ placeholder: string; command: string }>;
+};
 
 export type Segment = {
   raw: string;
@@ -30,16 +34,27 @@ export type Segment = {
 // our tokenizer can safely treat them as words. Supports backticks and $(...).
 function extractCommandSubstitutions(line: string): {
   line: string;
-  map: Record<string, { cmd: string; quote: 'single' | 'double' | null }>;
+  map: Record<string, { cmd: string }>;
 } {
-  const map: Record<string, { cmd: string; quote: 'single' | 'double' | null }> = {};
+  const map: Record<string, { cmd: string }> = {};
   let out = '';
   let i = 0;
   let id = 0;
+  const createPlaceholder = () => {
+    while (true) {
+      const key = `__CMD_SUB_${id++}__`;
+      if (!line.includes(key)) return key;
+    }
+  };
   let inSingle = false;
   let inDouble = false;
   while (i < line.length) {
     const ch = line[i];
+    if (ch === '\\' && !inSingle && i + 1 < line.length) {
+      out += ch + line[i + 1];
+      i += 2;
+      continue;
+    }
     if (ch === "'" && !inDouble) {
       inSingle = !inSingle;
       out += ch;
@@ -61,9 +76,9 @@ function extractCommandSubstitutions(line: string): {
       }
       if (j >= line.length || line[j] !== '`')
         throw new ParseError('Unterminated backtick command substitution', i);
-      const key = `__CMD_SUB_${id++}__`;
+      const key = createPlaceholder();
       // If we're inside double quotes, record that so the executor can avoid field-splitting
-      map[key] = { cmd: buf, quote: inDouble ? 'double' : null };
+      map[key] = { cmd: buf };
       out += key;
       i = j + 1;
       continue;
@@ -136,8 +151,8 @@ function extractCommandSubstitutions(line: string): {
         buf += line[j++];
       }
       if (depth > 0) throw new ParseError('Unterminated $(...) command substitution', i);
-      const key = `__CMD_SUB_${id++}__`;
-      map[key] = { cmd: buf, quote: inSingle ? 'single' : inDouble ? 'double' : null };
+      const key = createPlaceholder();
+      map[key] = { cmd: buf };
       out += key;
       i = j;
       continue;
@@ -149,13 +164,18 @@ function extractCommandSubstitutions(line: string): {
 }
 
 // Variable expansion similar to previous implementation (respect single quotes)
-function expandVariables(input: string, env: Record<string, string>): string {
+function expandVariables(input: string, env: Record<string, string>, nounset: boolean): string {
   let out = '';
   let i = 0;
   let inSingle = false;
   let inDouble = false;
   while (i < input.length) {
     const ch = input[i];
+    if (ch === '\\' && !inSingle && i + 1 < input.length) {
+      out += ch + input[i + 1];
+      i += 2;
+      continue;
+    }
     if (ch === "'" && !inDouble) {
       inSingle = !inSingle;
       out += ch;
@@ -169,19 +189,83 @@ function expandVariables(input: string, env: Record<string, string>): string {
       continue;
     }
     if (ch === '$' && !inSingle) {
+      if (input[i + 1] === '?') {
+        if (env['?'] === undefined && nounset) throw new ParseError('?: unbound variable', i);
+        out += env['?'] ?? '';
+        i += 2;
+        continue;
+      }
+      if (input[i + 1] === '@') {
+        if (env['@'] === undefined && nounset) throw new ParseError('@: unbound variable', i);
+        out += env['@'] ?? '';
+        i += 2;
+        continue;
+      }
       if (input[i + 1] === '{') {
-        let j = i + 2;
-        let name = '';
-        while (j < input.length && /[A-Za-z0-9_]/.test(input[j])) name += input[j++];
-        if (input[j] === '}') j++;
-        out += env[name] ?? '';
-        i = j;
+        const end = input.indexOf('}', i + 2);
+        if (end === -1) throw new ParseError('Unterminated parameter expansion', i);
+        const expression = input.slice(i + 2, end);
+        const prefix = expression.match(/^!([A-Za-z_][A-Za-z0-9_]*)[@*]$/);
+        if (prefix) {
+          out += Object.keys(env)
+            .filter(name => name.startsWith(prefix[1]))
+            .sort()
+            .join(' ');
+          i = end + 1;
+          continue;
+        }
+        const indirect = expression.match(/^!([A-Za-z_][A-Za-z0-9_]*)$/);
+        if (indirect) {
+          const name = env[indirect[1]];
+          const value = name === undefined ? undefined : env[name];
+          if (value === undefined && nounset) {
+            throw new ParseError(`${name ?? indirect[1]}: unbound variable`, i);
+          }
+          out += value ?? '';
+          i = end + 1;
+          continue;
+        }
+        const indexed = expression.match(/^([A-Za-z_][A-Za-z0-9_]*)\[(\d+|@|\*)\]$/);
+        if (indexed) {
+          const indexedValue = env[expression];
+          if (indexedValue === undefined && nounset) {
+            throw new ParseError(`${indexed[1]}: unbound variable`, i);
+          }
+          out += indexedValue ?? '';
+          i = end + 1;
+          continue;
+        }
+        const match = expression.match(/^([A-Za-z_][A-Za-z0-9_]*)(?:(:?[-+])([\s\S]*))?$/);
+        if (!match) throw new ParseError('Invalid parameter expansion', i);
+        const name = match[1];
+        const operator = match[2];
+        const word = match[3] ?? '';
+        const value = env[name];
+        if (operator === ':-' && (value === undefined || value === '')) {
+          out += expandVariables(word, env, nounset);
+        } else if (operator === '-' && value === undefined) {
+          out += expandVariables(word, env, nounset);
+        } else if (operator === ':+' && value !== undefined && value !== '') {
+          out += expandVariables(word, env, nounset);
+        } else if (operator === '+' && value !== undefined) {
+          out += expandVariables(word, env, nounset);
+        } else if (operator === '+' || operator === ':+') {
+          out += '';
+        } else if (value === undefined && nounset && operator === undefined) {
+          throw new ParseError(`${name}: unbound variable`, i);
+        } else {
+          out += value ?? '';
+        }
+        i = end + 1;
         continue;
       }
       let j = i + 1;
       let name = '';
       while (j < input.length && /[A-Za-z0-9_]/.test(input[j])) name += input[j++];
       if (name.length > 0) {
+        if (env[name] === undefined && nounset) {
+          throw new ParseError(`${name}: unbound variable`, i);
+        }
         out += env[name] ?? '';
         i = j;
         continue;
@@ -286,7 +370,7 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
     // handle escapes
     if (ch === '\\') {
       if (i + 1 < line.length) {
-        cur += line[i + 1];
+        cur += ch + line[i + 1];
         i += 2;
         continue;
       }
@@ -363,10 +447,11 @@ function tokenizeLine(line: string): Array<string | { op: string }> {
 
 export function parseCommandLine(
   line: string,
-  env: Record<string, string> = process.env as any
+  env: Record<string, string> = process.env as Record<string, string>,
+  options: { nounset?: boolean } = {}
 ): Segment[] {
   const extracted = extractCommandSubstitutions(line);
-  const expanded = expandVariables(extracted.line, env);
+  const expanded = expandVariables(extracted.line, env, options.nounset ?? false);
   // expand arithmetic $(( ... )) before tokenizing (but respect single quotes)
   const arithmeticExpanded = expandArithmetic(expanded);
   const toks = tokenizeLine(arithmeticExpanded);
@@ -396,17 +481,31 @@ export function parseCommandLine(
     };
   };
 
-  const makeTokenFromRaw = (raw: any): Token => {
-    const s = String(raw);
+  const makeTokenFromRaw = (raw: string | { op: string }): Token => {
+    const s = typeof raw === 'string' ? raw : raw.op;
     let quote: 'single' | 'double' | null = null;
-    let text = s;
-    if (text.length >= 2) {
-      const f = text[0];
-      const l = text[text.length - 1];
-      if ((f === '"' && l === '"') || (f === "'" && l === "'")) {
-        quote = f === "'" ? 'single' : 'double';
-        text = text.slice(1, -1);
+    let activeQuote: 'single' | 'double' | null = null;
+    let text = '';
+    for (let index = 0; index < s.length; index++) {
+      const character = s[index];
+      if (character === "'" && activeQuote !== 'double') {
+        activeQuote = activeQuote === 'single' ? null : 'single';
+        if (quote === null) quote = 'single';
+        continue;
       }
+      if (character === '"' && activeQuote !== 'single') {
+        activeQuote = activeQuote === 'double' ? null : 'double';
+        if (quote === null) quote = 'double';
+        continue;
+      }
+      if (character === '\\' && activeQuote !== 'single' && index + 1 < s.length) {
+        const next = s[index + 1];
+        const escapable = activeQuote !== 'double' || '$`"\\\n'.includes(next);
+        text += escapable ? next : `\\${next}`;
+        index++;
+        continue;
+      }
+      text += character;
     }
     return { text, quote };
   };
@@ -519,14 +618,14 @@ export function parseCommandLine(
     const rawTok = String(tok);
     const tkn = makeTokenFromRaw(rawTok);
 
-    // If this token is exactly a command-substitution placeholder, attach cmdSub
-    if (tkn.text.startsWith('__CMD_SUB_') && extracted.map[tkn.text]) {
-      const info = extracted.map[tkn.text];
-      cur.tokens.push({ text: tkn.text, quote: info.quote ?? tkn.quote, cmdSub: info.cmd });
-      continue;
-    }
+    // Attach substitutions even when they are embedded in another word.
+    const cmdSubs = Object.entries(extracted.map)
+      .filter(([placeholder]) => tkn.text.includes(placeholder))
+      .map(([placeholder, info]) => ({ placeholder, command: info.cmd }));
 
-    cur.tokens.push({ text: tkn.text, quote: tkn.quote, cmdSub: undefined });
+    const token: Token = { text: tkn.text, quote: tkn.quote };
+    if (cmdSubs.length > 0) token.cmdSubs = cmdSubs;
+    cur.tokens.push(token);
   }
 
   pushCur();

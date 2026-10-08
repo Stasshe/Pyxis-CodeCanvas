@@ -1,11 +1,12 @@
 import { Buffer } from 'node:buffer';
 import pako from 'pako';
 import tarStream from 'tar-stream';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TarExtractor } from '@/engine/cmd/global/npmOperations/install/tarExtractor';
+import { NpmFiles } from '@/engine/cmd/global/npmOperations/install/fsFiles';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import type { FsCore } from '@/engine/core/fs/core';
+import { FSError } from '@/engine/core/fs/errors';
 import { NPM_CACHE_PATH } from '@/engine/core/fs/layout';
 import { testFsFiles as testFiles } from '../../_helpers/testFsFiles';
 import { setupTestProject } from '../../_helpers/testProject';
@@ -13,13 +14,7 @@ import { setupTestProject } from '../../_helpers/testProject';
 let repository: FsCore;
 let rootPath: string;
 
-/**
- * NpmInstall テスト
- *
- * バッチ処理、.bin シム生成、依存関係グラフ分析、uninstall、
- * そして本物のレジストリからの install を検証する。
- * mock なし。
- */
+/** Package bytes, bin shims, dependency removal, and real registry installations. */
 
 describe('NpmInstall', () => {
   beforeEach(async () => {
@@ -32,6 +27,20 @@ describe('NpmInstall', () => {
   function createInstaller() {
     return new NpmInstall(rootPath, repository);
   }
+
+  it('treats missing manifests and directories as absent while preserving read failures', async () => {
+    const files = new NpmFiles(repository);
+    expect(await files.getFile(`${rootPath}/missing/package.json`)).toBeUndefined();
+    await repository.mkdir(`${rootPath}/directory/package.json`, { recursive: true });
+    expect(await files.getFile(`${rootPath}/directory/package.json`)).toBeUndefined();
+    const failure = new FSError('EIO', `${rootPath}/package.json`);
+    const read = vi.spyOn(repository, 'readText').mockRejectedValueOnce(failure);
+    try {
+      await expect(files.getFile(`${rootPath}/package.json`)).rejects.toBe(failure);
+    } finally {
+      read.mockRestore();
+    }
+  });
 
   it('preserves binary files and module source during cached tarball installation', async () => {
     const bytes = new Uint8Array([...Array.from({ length: 31 }, () => 65), 255]);
@@ -52,6 +61,10 @@ describe('NpmInstall', () => {
       { name: 'package/index.mjs', type: 'file', size: sourceBytes.byteLength },
       Buffer.from(sourceBytes)
     );
+    archive.entry(
+      { name: 'package/package.json', type: 'file' },
+      Buffer.from(JSON.stringify({ name: 'source-fixture', version: '1.0.0' }))
+    );
     archive.finalize();
     const archiveChunks = await packed;
     const archiveSize = archiveChunks.reduce((size, chunk) => size + chunk.byteLength, 0);
@@ -62,8 +75,6 @@ describe('NpmInstall', () => {
       offset += chunk.byteLength;
     }
     const compressed = pako.gzip(tar).slice();
-    const extracted = await new TarExtractor().extractFromBuffer('/package', compressed.buffer);
-    expect(extracted.get('assets/font.dat')?.content).toEqual(bytes);
     const url = 'https://registry.npmjs.org/source-fixture/-/source-fixture-1.0.0.tgz';
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
     const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(
@@ -72,27 +83,10 @@ describe('NpmInstall', () => {
     await repository.mkdir(NPM_CACHE_PATH, { recursive: true });
     await repository.writeFile(`${NPM_CACHE_PATH}/${key}.tgz`, compressed);
     const installer = createInstaller();
-    installer.startBatchProcessing();
     await installer.downloadAndInstallPackage('source-fixture', '1.0.0', url);
-    await installer.finishBatchProcessing();
     const directory = `${rootPath}/node_modules/source-fixture`;
     expect(await repository.readFile(`${directory}/assets/font.dat`)).toEqual(bytes);
     expect(await repository.readFile(`${directory}/index.mjs`)).toEqual(sourceBytes);
-  });
-
-  // ==================== バッチ処理 ====================
-
-  describe('バッチ処理', () => {
-    it('startBatchProcessing / finishBatchProcessing の基本フロー', async () => {
-      const installer = createInstaller();
-      installer.startBatchProcessing();
-      await installer.finishBatchProcessing();
-    });
-
-    it('finishBatchProcessing をバッチモード外で呼んでも安全', async () => {
-      const installer = createInstaller();
-      await installer.finishBatchProcessing();
-    });
   });
 
   // ==================== .bin シム生成 ====================
@@ -360,9 +354,7 @@ describe('NpmInstall', () => {
   describe('installWithDependencies (実際のレジストリ)', () => {
     it('kleur をインストールして fileRepository にファイルが展開される', async () => {
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('kleur', 'latest');
-      await installer.finishBatchProcessing();
 
       // package.json
       const pkgJson = await testFiles.getFileByPath(rootPath, '/node_modules/kleur/package.json');
@@ -378,9 +370,7 @@ describe('NpmInstall', () => {
 
     it('uvu をインストールして推移的依存 (kleur, mri, dequal, diff) も展開される', async () => {
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('uvu', 'latest');
-      await installer.finishBatchProcessing();
 
       // uvu 本体
       const uvuPkg = await testFiles.getFileByPath(rootPath, '/node_modules/uvu/package.json');
@@ -400,9 +390,7 @@ describe('NpmInstall', () => {
 
     it('uvu の .bin シムが正しく生成される', async () => {
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('uvu', 'latest');
-      await installer.finishBatchProcessing();
 
       // .bin 作成
       await installer.ensureBinsForPackage('uvu');
@@ -425,9 +413,7 @@ describe('NpmInstall', () => {
     it('インストール済みパッケージは再 fetch しない', async () => {
       // 1 回目: 本物のインストール
       const installer1 = createInstaller();
-      installer1.startBatchProcessing();
       await installer1.installWithDependencies('kleur', 'latest');
-      await installer1.finishBatchProcessing();
 
       // kleur の version を記録
       const pkgFile = await testFiles.getFileByPath(rootPath, '/node_modules/kleur/package.json');
@@ -436,9 +422,7 @@ describe('NpmInstall', () => {
 
       // 2 回目: 同じバージョンならスキップされる
       const installer2 = createInstaller();
-      installer2.startBatchProcessing();
       await installer2.installWithDependencies('kleur', installedVersion);
-      await installer2.finishBatchProcessing();
 
       // スキップ後もファイルが壊れていないこと
       const pkgFileAfter = await testFiles.getFileByPath(
@@ -451,9 +435,7 @@ describe('NpmInstall', () => {
 
     it('.gitignore に node_modules を追加する', async () => {
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('kleur', 'latest');
-      await installer.finishBatchProcessing();
 
       const gitignore = await testFiles.getFileByPath(rootPath, '/.gitignore');
       expect(gitignore).not.toBeNull();
@@ -468,9 +450,7 @@ describe('NpmInstall', () => {
         progress.push({ name, version, isDirect });
       });
 
-      installer.startBatchProcessing();
       await installer.installWithDependencies('kleur', 'latest', { isDirect: true });
-      await installer.finishBatchProcessing();
 
       // kleur 自体の progress が含まれる
       expect(progress.length).toBeGreaterThanOrEqual(1);
@@ -498,9 +478,7 @@ describe('NpmInstall', () => {
 
       // インストール
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('kleur', 'latest');
-      await installer.finishBatchProcessing();
 
       // 確認
       const beforeUninstall = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
@@ -529,9 +507,7 @@ describe('NpmInstall', () => {
 
       // uvu インストール
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('uvu', 'latest');
-      await installer.finishBatchProcessing();
 
       // uvu の依存関係を確認
       const uvuPkg = await testFiles.getFileByPath(rootPath, '/node_modules/uvu/package.json');
@@ -557,11 +533,9 @@ describe('NpmInstall', () => {
   describe('エッジケース', () => {
     it('存在しないパッケージを install しようとするとエラー', async () => {
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await expect(
         installer.installWithDependencies('nonexistent-pkg-xyz-99999', 'latest')
       ).rejects.toThrow(/not found|404|Failed/i);
-      await installer.finishBatchProcessing();
     }, 15000);
 
     it('node_modules が空の状態で removeDirectory しても安全', async () => {
@@ -571,9 +545,7 @@ describe('NpmInstall', () => {
 
     it('同じパッケージの2回連続 install は冪等', async () => {
       const installer = createInstaller();
-      installer.startBatchProcessing();
       await installer.installWithDependencies('kleur', 'latest');
-      await installer.finishBatchProcessing();
 
       // 1回目のファイル数を記録
       const files1 = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
@@ -581,9 +553,7 @@ describe('NpmInstall', () => {
 
       // 2回目
       const installer2 = createInstaller();
-      installer2.startBatchProcessing();
       await installer2.installWithDependencies('kleur', 'latest');
-      await installer2.finishBatchProcessing();
 
       const files2 = await testFiles.getFilesByPrefix(rootPath, '/node_modules/kleur/');
       expect(files2.length).toBe(count1);

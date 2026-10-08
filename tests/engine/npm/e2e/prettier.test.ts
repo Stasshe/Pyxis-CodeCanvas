@@ -90,9 +90,7 @@ describe('Prettier npm runtime integration', () => {
     rootPath = project.rootPath;
 
     const installer = new NpmInstall(rootPath, repo);
-    installer.startBatchProcessing();
     await installer.installWithDependencies('prettier', 'latest');
-    await installer.finishBatchProcessing();
     await installer.ensureBinsForPackage('prettier');
 
     const packagePath = `${rootPath}/node_modules/prettier/package.json`;

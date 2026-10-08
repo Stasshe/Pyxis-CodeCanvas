@@ -71,6 +71,15 @@ function serveBuiltExtensions(): Plugin {
 export default defineConfig({
   plugins: [serveBuiltExtensions()],
   base: normalizeBase(basePath),
+  optimizeDeps: {
+    rolldownOptions: {
+      transform: {
+        define: {
+          define: 'undefined',
+        },
+      },
+    },
+  },
   assetsInclude: ['**/*.wasm'],
   resolve: {
     alias: {
@@ -88,6 +97,7 @@ export default defineConfig({
   },
   define: {
     __PYXIS_VERSION__: JSON.stringify(packageJson.version),
+    define: 'undefined',
     global: 'globalThis',
   },
   build: {

@@ -1,15 +1,13 @@
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import type { UnixCommands } from '@/engine/cmd/global/unix';
 
 export async function handleUnixCommand(
   cmd: string,
   args: string[],
-  rootPath: string,
   writeOutput: (output: string | Uint8Array) => Promise<void>,
   writeError: (err: string) => Promise<void>,
+  unix: UnixCommands,
   stdin: NodeJS.ReadableStream | string | null = null
 ): Promise<{ code: number; output: string }> {
-  const unix = terminalCommandRegistry.getUnixCommands(rootPath);
-
   let out = '';
   let exitCode = 0;
   let streamed = false;
@@ -43,11 +41,6 @@ export async function handleUnixCommand(
     } catch (_e) {}
     if (code !== undefined) exitCode = code;
   };
-
-  if (!unix) {
-    await appendError('Error: Unix commands not initialized\n', 1);
-    return { code: exitCode, output: out };
-  }
 
   try {
     switch (cmd) {
@@ -172,6 +165,18 @@ export async function handleUnixCommand(
 
       case 'echo': {
         const result = await unix.echo(args);
+        await append(result);
+        break;
+      }
+
+      case 'dirname': {
+        const result = await unix.dirname(args);
+        await append(result);
+        break;
+      }
+
+      case 'printf': {
+        const result = await unix.printf(args);
         await append(result);
         break;
       }

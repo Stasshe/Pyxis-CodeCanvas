@@ -4,8 +4,6 @@ import type { EditorPane } from '@/engine/tabs/types';
 import { getCurrentRootPath } from '@/stores/projectStore';
 import { tabState } from './state';
 
-let loadGeneration = 0;
-
 function hasTabs(panes: readonly EditorPane[]): boolean {
   for (const pane of panes) {
     if (pane.tabs.length > 0) return true;
@@ -35,7 +33,9 @@ export async function loadTabSession(
   rootPath: string | null = getCurrentRootPath()
 ): Promise<void> {
   if (rootPath !== getCurrentRootPath()) return;
-  const generation = ++loadGeneration;
+  const generation = tabState.sessionGeneration + 1;
+  tabState.sessionGeneration = generation;
+  tabState.sessionRootPath = rootPath;
   tabState.isLoading = true;
   tabState.isRestored = false;
   tabState.isContentRestored = false;
@@ -55,18 +55,18 @@ export async function loadTabSession(
   try {
     const { sessionStore } = await import('@/stores/sessionStore');
     const session = await sessionStore.load(rootPath);
-    if (generation !== loadGeneration || getCurrentRootPath() !== rootPath) return;
+    if (generation !== tabState.sessionGeneration || getCurrentRootPath() !== rootPath) return;
 
     tabState.panes = session.tabs.panes;
     tabState.activePane = session.tabs.activePane;
     tabState.globalActiveTab = session.tabs.globalActiveTab;
     if (!hasTabs(session.tabs.panes)) tabState.isContentRestored = true;
   } catch (error) {
-    if (generation !== loadGeneration || getCurrentRootPath() !== rootPath) return;
+    if (generation !== tabState.sessionGeneration || getCurrentRootPath() !== rootPath) return;
     console.error('[tabState] loadSession failed:', error);
     tabState.isContentRestored = true;
   } finally {
-    if (generation === loadGeneration && getCurrentRootPath() === rootPath) {
+    if (generation === tabState.sessionGeneration && getCurrentRootPath() === rootPath) {
       tabState.isLoading = false;
       tabState.isRestored = true;
     }

@@ -48,6 +48,9 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 
 - SyncAccessHandleは「開く→操作→閉じる」で使い、開きっぱなしにしない
 - FS Coreは直近の成功pathのdirectory handle prefixだけを保持し、次のpathとの共通prefixを再利用する。Core再初期化とdirectory削除時にgenerationを更新して無効化し、古いin-flight lookupはchainを更新できない。directory renameはsource削除時に無効化される。file handleやpayloadはcacheしない
+- npm installはFS Worker内でdependency graphを解決し、packument取得をinstall内で共有する。registryのabbreviated metadataは`~/.npm/registry`にHTTP freshnessとETagに従ってcacheし、tarballはURL digestで`~/.npm`にcacheする。metadata requestとpackage installはそれぞれ上限付き並列で進め、各packageのtar entry書き込みはawaitして順序を保つ。これにより多数の小fileでmessage往復を増やさず、単一のOPFS所有者とSyncAccessHandleの開閉規則も維持する
+- package metadataの`os` / `cpu`制約はbrowser/x64 targetに照合する。optional dependencyの不一致はskipし、required dependencyの不一致は明示的に失敗させる。browserで利用できないnative packageの取得・展開を避け、不要なbytesとmemory pressureを抑える
+- npm v3 `package-lock.json`はregistry packageの配置・resolved URL・integrityを固定する。root dependency mapが一致するlockfileはmetadata fetchを行わずtreeを再生し、lockfile bytesを保つ。manifest変更時は互換lock entryを再利用してNode lookupに沿うhoisted/nested treeを組み直し、lockを更新する。tarball integrityはarchiveを展開・書き込みする前に検証する
 - FS Client: API・変更eventの購読口・metadataへのアクセスを提供する。現行の`fileRepository`を置き換える
 - API: Node fs風のpath基準（readFile / writeFile / readdir / stat / mkdir / rm / rename）。`readFile`はraw bytes、`readText`は明示UTF-8 decode、`writeFile`はtextまたはbytesを扱う。runtimeの`fsModule`とunixコマンドは同じIFを使う
 - 拡張機能はmainで読み込む（現状維持）
@@ -130,7 +133,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 - stdinの同期読み込み（`fs.readFileSync(0)`、`fs.readSync(0)`。terminalの入力行を待つ）
 - 静的に分かる依存はasyncで先読みし、同じresolverが成功したpathを実行内に保持する。同期RPCは未知の解決先だけに使う。CommonJSのentryは一度だけ読み、未解決候補の存在確認を繰り返さない
 - `.mjs` / `.mts`はESM、`.cjs` / `.cts`はCommonJSとして扱う。`.js` / `.ts`はpackageの`type`で判定し、未指定時はsource grammarを見る。`exports` / `imports`は`import` / `require`条件に沿って解決する。Function constructorのbodyもJavaScript parserで解析し、importは既存I/O追跡へ渡す。ESM/CJS namespace生成は同じ実行内module cacheを使う
-- npm installはregistry tarballのbytesを展開して保存する。runtime変換はinstall時に行わず、実行時に必要なfileだけ変換する
+- npm installはregistry tarballのbytesを展開して保存する。gzip解凍はstreamで行い、各package内ではtar entryごとに書き込みをawaitする。runtime変換はinstall時に行わず、実行時に必要なfileだけ変換する
 
 ### SW
 - 必須にする。初回訪問時は1回reloadする。devでも有効にする（現在の`sw-register.js`はlocalhostでSWを解除している）

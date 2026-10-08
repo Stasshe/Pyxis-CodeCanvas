@@ -138,7 +138,7 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
 </div>
 
 Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。FS Workerは直近の成功path lookupのdirectory handle chainを保持して共通ancestorを再利用しますが、file handleやfile内容はcacheしません。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。詳細は[Node.js Runtime](docs/NODE-RUNTIME.md)を参照してください。
-仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npm metadataは毎回取得し、tarball URLのSHA-256で識別したarchiveを展開成功後にcacheします。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
+仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npmはinstall中に依存metadataを共有し、npm registryのabbreviated packumentを`~/.npm/registry`へ保存します。HTTP freshnessに従い、期限切れmetadataはETagで再検証します。tarball archiveはURLのSHA-256で識別し、registryまたはlockfileにintegrity値があれば展開前に検証します。tarball cacheは展開成功後に`~/.npm`へ保存します。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
 - **分離した実行環境** - 実行ごとにmodule cacheやtimerなどの状態を作り直し、Workerは正常終了時に再利用
 - **ファイル操作** - `fs`, `readline`, `userinterface` など主要モジュールがそのまま使える
@@ -152,28 +152,28 @@ JavaScriptでは不可能なファイルオペレーションやインタラク�
 
 ---
 
-### **Advanced Shell System - Full POSIX Shell Support**
+### **Advanced Shell System - POSIX Shell Subset**
 <div align="center">
   <img src="readme-assets/IMG_0126.png" alt="Advanced Shell System" width="80%" />
 </div>
 
-**ブラウザ上で本格的なPOSIX準拠シェルスクリプト実行環境を実現！** Pyxis独自のStreamShellアーキテクチャにより、パイプライン、リダイレクション、制御構文、変数展開など、実Unixシェルのほとんどの機能をサポートします。
+**ブラウザ上で実用的なシェルスクリプトを実行できます。** Pyxis独自のStreamShellは、パイプライン、リダイレクション、制御構文、変数展開など、POSIX shell構文の一部をサポートします。
 
 #### 主な機能
 - **パイプライン処理** - `cmd1 | cmd2 | cmd3` によるストリーム接続
-- **リダイレクション** - `cmd > file`、`cmd >> file`、`cmd < file`、`cmd 2>&1` など完全対応
+- **リダイレクション** - `cmd > file`、`cmd >> file`、`cmd < file`、`cmd 2>&1` など
 - **制御構文** - `if/then/else`、`for/while` ループ、`break/continue`
 - **変数展開** - `$VAR`、`$(command)` コマンド置換、`((算術))` 算術展開
 - **論理演算子** - `&&`、`||` による条件実行
 - **バックグラウンド実行** - `cmd &` 非同期処理
 - **ファイル操作** - `ls`、`cat`、`grep`、`head`、`tail` などUnixコマンド
-- **スクリプト実行** - `.sh` ファイルの直接実行
+- **スクリプト実行** - 現在の作業ディレクトリから解決した `.sh` ファイルを実行し、終了コードを返す
 
 #### 技術的特徴
 - **ストリーミングアーキテクチャ** - Node.js Stream APIによる真のストリーミング処理
 - **バックプレッシャー対応** - メモリ効率の高いデータフロー制御
 - **プロセス抽象化** - ブラウザ環境での仮想プロセス管理
-- **fd管理** - ファイルディスクリプタの完全エミュレーション
+- **fd管理** - ファイルディスクリプタのマッピングと複製
 - **タイムアウト保護** - 無限ループ防止のための自動タイムアウト
 
 **シェルスクリプトの例：**
@@ -198,9 +198,7 @@ COUNT=$((COUNT + 1))
 echo "Current count: $COUNT"
 ```
 
-**ブラウザで本物のシェル体験！** 複雑なスクリプトも、データ処理も、すべてPyxisのターミナルで実行可能です。
-
-> **StreamShellアーキテクチャにより、メモリ効率が高く、大規模データ処理も快適に動作します。**
+コマンド置換は親Terminalの作業ディレクトリを変更しません。同じコマンド行の代入値をその行の展開で使う場合は、代入と利用を別々のTerminalコマンドに分けてください。未対応の構文やコマンドがあります。詳細は[SHELL-SYSTEM.md](/docs/SHELL-SYSTEM.md)を参照してください。
 
 
 > Note: 一部のシステムコマンドやバグ、機能はまだ完全には対応していません。今後のアップデートでさらに強化予定です。
@@ -219,11 +217,11 @@ issueで要望をお寄せください。
   <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
 </div>
 
-Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npmライブラリ完全対応・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張など、あらゆる機能をTypeScript/TSXで自由に追加できます。
+Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npm registry packageのinstall・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張などをTypeScript/TSXで追加できます。
 
 #### 主なポイント
 - **CLIテンプレート生成**：`pnpm run create-extension`で対話式テンプレート自動生成。初心者でも即拡張開発可能。
-- **npmライブラリ完全対応**：外部ライブラリを自由に利用。
+- **npm registry package対応**：package-lock.json v3を使った依存固定と、異なるversionを含む依存treeのinstallに対応。
 - **Terminalコマンド拡張**：独自コマンドをAPIで追加し、PyxisターミナルUIから実行可能。
 - **VSCodeライクなUI拡張**：カスタムタブ・サイドバーパネルをAPIで追加。React/TSXで直感的にUI構築。
 - **多言語パック・サービス拡張**：言語パックや独自サービスも拡張機能として追加。

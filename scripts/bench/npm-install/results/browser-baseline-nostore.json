@@ -1,0 +1,205 @@
+{
+  "benchmark": "npm-install",
+  "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+  "cachePolicy": "Cold clears OPFS ~/.npm; warm reuses it. Browser fetch uses cache:no-store.",
+  "instrumented": false,
+  "results": {
+    "large-dev": {
+      "cold": {
+        "bytes": 713491259,
+        "fileCount": 637,
+        "manifest": {
+          "dependencies": {},
+          "devDependencies": {
+            "esbuild": "0.28.2",
+            "prettier": "3.9.9",
+            "typescript": "6.0.3",
+            "vite": "8.2.1"
+          },
+          "name": "pyxis-bench-large-dev",
+          "version": "1.0.0"
+        },
+        "manifestCount": 72,
+        "metrics": null,
+        "output": "added 4 packages, and audited 4 packages in 9.9s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "wallMs": 10735.39999999851
+      },
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/large-dev-cold",
+      "manifest": {
+        "dependencies": {},
+        "devDependencies": {
+          "esbuild": "0.28.2",
+          "prettier": "3.9.9",
+          "typescript": "6.0.3",
+          "vite": "8.2.1"
+        },
+        "name": "pyxis-bench-large-dev",
+        "version": "1.0.0"
+      },
+      "warm": {
+        "bytes": 713491259,
+        "fileCount": 637,
+        "manifest": {
+          "dependencies": {},
+          "devDependencies": {
+            "esbuild": "0.28.2",
+            "prettier": "3.9.9",
+            "typescript": "6.0.3",
+            "vite": "8.2.1"
+          },
+          "name": "pyxis-bench-large-dev",
+          "version": "1.0.0"
+        },
+        "manifestCount": 72,
+        "metrics": null,
+        "output": "added 4 packages, and audited 4 packages in 5.7s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "wallMs": 6539.5
+      },
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/large-dev-warm"
+    },
+    "medium-express": {
+      "cold": {
+        "bytes": 10809,
+        "fileCount": 5,
+        "manifest": {
+          "dependencies": {
+            "express": "5.1.0"
+          },
+          "devDependencies": {},
+          "name": "pyxis-bench-medium-express",
+          "version": "1.0.0"
+        },
+        "manifestCount": 1,
+        "metrics": null,
+        "output": "npm WARN express@5.1.0: Failed to fetch package info: No download URL found for 'wrappy@1'\n\nup to date, audited 1 packages in 0.6s\n\nfound 0 vulnerabilities",
+        "succeeded": false,
+        "wallMs": 590.6999999992549
+      },
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/medium-express-cold",
+      "manifest": {
+        "dependencies": {
+          "express": "5.1.0"
+        },
+        "devDependencies": {},
+        "name": "pyxis-bench-medium-express",
+        "version": "1.0.0"
+      },
+      "warm": {
+        "bytes": 10809,
+        "fileCount": 5,
+        "manifest": {
+          "dependencies": {
+            "express": "5.1.0"
+          },
+          "devDependencies": {},
+          "name": "pyxis-bench-medium-express",
+          "version": "1.0.0"
+        },
+        "manifestCount": 1,
+        "metrics": null,
+        "output": "npm WARN express@5.1.0: Failed to fetch package info: No download URL found for 'wrappy@1'\n\nup to date, audited 1 packages in 0.1s\n\nfound 0 vulnerabilities",
+        "succeeded": false,
+        "wallMs": 140.89999999850988
+      },
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/medium-express-warm"
+    },
+    "medium-react": {
+      "cold": {
+        "bytes": 7573682,
+        "fileCount": 85,
+        "manifest": {
+          "dependencies": {
+            "react": "19.2.0",
+            "react-dom": "19.2.0"
+          },
+          "devDependencies": {},
+          "name": "pyxis-bench-medium-react",
+          "version": "1.0.0"
+        },
+        "manifestCount": 3,
+        "metrics": null,
+        "output": "added 2 packages, and audited 2 packages in 0.8s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "wallMs": 919.6999999992548
+      },
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/medium-react-cold",
+      "manifest": {
+        "dependencies": {
+          "react": "19.2.0",
+          "react-dom": "19.2.0"
+        },
+        "devDependencies": {},
+        "name": "pyxis-bench-medium-react",
+        "version": "1.0.0"
+      },
+      "warm": {
+        "bytes": 7573682,
+        "fileCount": 85,
+        "manifest": {
+          "dependencies": {
+            "react": "19.2.0",
+            "react-dom": "19.2.0"
+          },
+          "devDependencies": {},
+          "name": "pyxis-bench-medium-react",
+          "version": "1.0.0"
+        },
+        "manifestCount": 3,
+        "metrics": null,
+        "output": "added 2 packages, and audited 2 packages in 0.6s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "wallMs": 704.1000000014901
+      },
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/medium-react-warm"
+    },
+    "small": {
+      "cold": {
+        "bytes": 15470,
+        "fileCount": 8,
+        "manifest": {
+          "dependencies": {
+            "is-odd": "3.0.1"
+          },
+          "devDependencies": {},
+          "name": "pyxis-bench-small",
+          "version": "1.0.0"
+        },
+        "manifestCount": 2,
+        "metrics": null,
+        "output": "added 1 packages, and audited 1 packages in 0.5s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "wallMs": 510
+      },
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/small-cold",
+      "manifest": {
+        "dependencies": {
+          "is-odd": "3.0.1"
+        },
+        "devDependencies": {},
+        "name": "pyxis-bench-small",
+        "version": "1.0.0"
+      },
+      "warm": {
+        "bytes": 15470,
+        "fileCount": 8,
+        "manifest": {
+          "dependencies": {
+            "is-odd": "3.0.1"
+          },
+          "devDependencies": {},
+          "name": "pyxis-bench-small",
+          "version": "1.0.0"
+        },
+        "manifestCount": 2,
+        "metrics": null,
+        "output": "added 1 packages, and audited 1 packages in 0.1s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "wallMs": 88.30000000074506
+      },
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791466478385-1/small-warm"
+    }
+  },
+  "setupMs": 21343.800000000745
+}

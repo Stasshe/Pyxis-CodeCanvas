@@ -1,3 +1,4 @@
+import type TerminalUI from '@/engine/cmd/terminalUI';
 import type { FsApi } from '@/engine/core/fs';
 import type { UnixCommands } from '../global/unix';
 
@@ -6,7 +7,11 @@ import type { UnixCommands } from '../global/unix';
  */
 
 // Token object from parser
-export type TokenObj = { text: string; quote: 'single' | 'double' | null; cmdSub?: string };
+export type TokenObj = {
+  text: string;
+  quote: 'single' | 'double' | null;
+  cmdSubs?: Array<{ placeholder: string; command: string }>;
+};
 
 // Segment representing a single command in a pipeline
 export type Segment = {
@@ -23,6 +28,7 @@ export type Segment = {
   append?: boolean;
   background?: boolean;
   logicalOp?: string | null;
+  commandSubStatus?: number;
 };
 
 // Shell options for StreamShell constructor
@@ -38,11 +44,32 @@ export type ShellOptions = {
   env?: Record<string, string>;
 };
 
+export interface ShellExecutorOptions {
+  rootPath: string;
+  cwd?: string;
+  signal?: AbortSignal;
+  fsClient?: FsApi;
+  unix?: UnixCommands;
+  commandRegistry?: any;
+  terminalColumns?: number;
+  terminalRows?: number;
+  terminalUI?: TerminalUI;
+  env?: Record<string, string>;
+  isInteractive?: boolean;
+}
+
+export interface OutputCallbacks {
+  stdout?: (data: string) => void;
+  stderr?: (data: string) => void;
+}
+
 // Shell run result
 export type ShellRunResult = {
   stdout: string;
   stderr: string;
   code: number | null;
+  errexitEligible?: boolean;
+  fatalError?: boolean;
 };
 
 // Special files that should be handled differently

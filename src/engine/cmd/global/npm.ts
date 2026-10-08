@@ -59,7 +59,7 @@ export class NpmCommands {
         if (ui) await ui.spinner.stop();
         let message = String(error);
         if (error instanceof Error) message = error.message;
-        throw new Error(`npm install failed: ${message}`);
+        throw new Error(message);
       }
     });
   }

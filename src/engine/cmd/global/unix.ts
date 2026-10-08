@@ -8,6 +8,7 @@ import {
   CpCommand,
   DateCommand,
   DfCommand,
+  DirnameCommand,
   DuCommand,
   EchoCommand,
   FindCommand,
@@ -18,6 +19,7 @@ import {
   LsCommand,
   MkdirCommand,
   MvCommand,
+  PrintfCommand,
   PwdCommand,
   RmCommand,
   SortCommand,
@@ -44,6 +46,7 @@ import {
  */
 export const UNIX_COMMANDS = [
   'echo',
+  'printf',
   'pwd',
   'ls',
   'cd',
@@ -64,6 +67,7 @@ export const UNIX_COMMANDS = [
   'grep',
   'wc',
   'date',
+  'dirname',
   'whoami',
   'chmod',
   'chown',
@@ -91,6 +95,7 @@ export class UnixCommands {
   private mkdirCmd: MkdirCommand;
   private mvCmd: MvCommand;
   private pwdCmd: PwdCommand;
+  private printfCmd: PrintfCommand;
   private rmCmd: RmCommand;
   private testCmd: TestCommand;
   private touchCmd: TouchCommand;
@@ -101,6 +106,7 @@ export class UnixCommands {
   private statCmd: StatCommand;
   private wcCmd: WcCommand;
   private dateCmd: DateCommand;
+  private dirnameCmd: DirnameCommand;
   private duCmd: DuCommand;
   private dfCmd: DfCommand;
   private sortCmd: SortCommand;
@@ -126,6 +132,7 @@ export class UnixCommands {
     this.mkdirCmd = new MkdirCommand(this.rootPath, this.currentDir);
     this.mvCmd = new MvCommand(this.rootPath, this.currentDir);
     this.pwdCmd = new PwdCommand(this.rootPath, this.currentDir);
+    this.printfCmd = new PrintfCommand(this.rootPath, this.currentDir);
     this.rmCmd = new RmCommand(this.rootPath, this.currentDir);
     this.testCmd = new TestCommand(this.rootPath, this.currentDir);
     this.touchCmd = new TouchCommand(this.rootPath, this.currentDir);
@@ -136,6 +143,7 @@ export class UnixCommands {
     this.statCmd = new StatCommand(this.rootPath, this.currentDir);
     this.wcCmd = new WcCommand(this.rootPath, this.currentDir);
     this.dateCmd = new DateCommand(this.rootPath, this.currentDir);
+    this.dirnameCmd = new DirnameCommand(this.rootPath, this.currentDir);
 
     // new commands
     this.duCmd = new DuCommand(this.rootPath, this.currentDir);
@@ -164,6 +172,7 @@ export class UnixCommands {
     this.mkdirCmd.setTerminalUI?.(ui);
     this.mvCmd.setTerminalUI?.(ui);
     this.pwdCmd.setTerminalUI?.(ui);
+    this.printfCmd.setTerminalUI?.(ui);
     this.rmCmd.setTerminalUI?.(ui);
     this.testCmd.setTerminalUI?.(ui);
     this.touchCmd.setTerminalUI?.(ui);
@@ -174,6 +183,7 @@ export class UnixCommands {
     this.statCmd.setTerminalUI?.(ui);
     this.wcCmd.setTerminalUI?.(ui);
     this.dateCmd.setTerminalUI?.(ui);
+    this.dirnameCmd.setTerminalUI?.(ui);
     this.duCmd.setTerminalUI?.(ui);
     this.dfCmd.setTerminalUI?.(ui);
     this.sortCmd.setTerminalUI?.(ui);
@@ -195,6 +205,10 @@ export class UnixCommands {
     return await this.pwdCmd.execute([]);
   }
 
+  async printf(args: string[]): Promise<string> {
+    return await this.printfCmd.execute(args);
+  }
+
   /**
    * 現在のディレクトリを設定
    */
@@ -212,6 +226,7 @@ export class UnixCommands {
     this.mkdirCmd.currentDir = dir;
     this.mvCmd.currentDir = dir;
     this.pwdCmd.currentDir = dir;
+    this.printfCmd.currentDir = dir;
     this.rmCmd.currentDir = dir;
     this.testCmd.currentDir = dir;
     this.touchCmd.currentDir = dir;
@@ -222,6 +237,7 @@ export class UnixCommands {
     this.statCmd.currentDir = dir;
     this.wcCmd.currentDir = dir;
     this.dateCmd.currentDir = dir;
+    this.dirnameCmd.currentDir = dir;
     this.duCmd.currentDir = dir;
     this.dfCmd.currentDir = dir;
     this.sortCmd.currentDir = dir;
@@ -272,6 +288,10 @@ export class UnixCommands {
 
   async echo(args: string[]): Promise<string> {
     return await this.echoCmd.execute(args);
+  }
+
+  async dirname(args: string[]): Promise<string> {
+    return await this.dirnameCmd.execute(args);
   }
 
   async mv(args: string[]): Promise<string> {

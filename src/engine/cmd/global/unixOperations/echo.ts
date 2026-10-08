@@ -1,4 +1,3 @@
-import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 /**
@@ -21,17 +20,29 @@ export class EchoCommand extends UnixCommandBase {
       return '';
     }
 
-    const { flags: options, positional, errors } = parseWithGetOpt(args, 'ne', ['help']);
-    if (errors.length) throw new Error(errors.join('; '));
+    let noNewline = false;
+    let interpretEscapes = false;
+    let index = 0;
 
-    if (options.has('--help') || options.has('-h')) {
-      return 'Usage: echo [string...]\n\nOptions:\n  -n\tdo not output trailing newline\n  -e\tinterpret backslash escapes';
+    while (index < args.length) {
+      const option = args[index];
+      if (option === '--help' || option === '-h') {
+        return 'Usage: echo [string...]\n\nOptions:\n  -n\tdo not output trailing newline\n  -e\tinterpret backslash escapes';
+      }
+      if (option === '--') {
+        index++;
+        break;
+      }
+      if (/^-[ne]+$/.test(option)) {
+        if (option.includes('n')) noNewline = true;
+        if (option.includes('e')) interpretEscapes = true;
+        index++;
+        continue;
+      }
+      break;
     }
 
-    const noNewline = options.has('-n');
-    const interpretEscapes = options.has('-e');
-
-    let text = positional.join(' ');
+    let text = args.slice(index).join(' ');
 
     // エスケープ解釈
     if (interpretEscapes) {

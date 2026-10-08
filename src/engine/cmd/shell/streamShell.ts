@@ -105,6 +105,14 @@ export class StreamShell {
     return this.executor.run(line, callbacks);
   }
 
+  async runInSubshell(line: string): Promise<ShellRunResult> {
+    return this.executor.runInSubshell(line);
+  }
+
+  async expandWords(source: string, callbacks?: OutputCallbacks): Promise<string[]> {
+    return this.executor.expandWords(source, callbacks);
+  }
+
   /**
    * Kill the current foreground process with given signal
    */
@@ -138,6 +146,22 @@ export class StreamShell {
    */
   getEnv(key: string): string | undefined {
     return this.executor.getEnv(key);
+  }
+
+  getEnvironment(): Readonly<Record<string, string>> {
+    return this.executor.getEnvironment();
+  }
+
+  unsetEnv(key: string): void {
+    this.executor.unsetEnv(key);
+  }
+
+  setPipefail(enabled: boolean): void {
+    this.executor.setPipefail(enabled);
+  }
+
+  setNounset(enabled: boolean): void {
+    this.executor.setNounset(enabled);
   }
 
   /**

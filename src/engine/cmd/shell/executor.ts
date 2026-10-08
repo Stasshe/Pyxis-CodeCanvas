@@ -1,64 +1,30 @@
-/**
- * Shell Executor
- * POSIX-compliant shell execution engine.
- * Directly uses existing handlers (gitHandler, npmHandler, pyxisHandler, unixHandler)
- * without unnecessary provider abstraction layer.
- */
-
 import { Buffer } from 'buffer';
 import type TerminalUI from '@/engine/cmd/terminalUI';
 import { ANSI } from '@/engine/cmd/terminalUI';
 import type { FsApi } from '@/engine/core/fs';
 import { fsClient as defaultFsClient } from '@/engine/core/fs';
-import { HOME_DIR, resolvePath } from '@/engine/core/pathUtils';
+import { resolvePath } from '@/engine/core/pathUtils';
 import type { UnixCommands } from '../global/unix';
 import { ProcessStdin } from '../terminalProcessBridge';
 import adaptBuiltins, { type StreamCtx } from './builtins';
-import { expandTokens } from './expansion';
+import { createEnvironment } from './environment';
+import { createForkedShell } from './forkShell';
 import { runLocalBinary } from './localBinary';
 import { ShellOutputHandler } from './outputHandler';
 import { parseCommandLine } from './parser';
 import { Process } from './process';
 import { runScript } from './scriptRunner';
-import { isDevNull, type Segment, type TokenObj } from './types';
+import {
+  isDevNull,
+  type OutputCallbacks,
+  type Segment,
+  type ShellExecutorOptions,
+  type ShellRunResult,
+} from './types';
+import { expandShellTokens, expandShellWords } from './wordExpansion';
 
-/**
- * Shell Executor Options
- */
-export interface ShellExecutorOptions {
-  rootPath: string;
-  cwd?: string;
-  signal?: AbortSignal;
-  fsClient?: FsApi;
-  unix?: UnixCommands;
-  commandRegistry?: any;
-  terminalColumns?: number;
-  terminalRows?: number;
-  terminalUI?: TerminalUI; // Optional UI instance for advanced display
-  env?: Record<string, string>;
-  isInteractive?: boolean;
-}
+export type { OutputCallbacks, ShellExecutorOptions, ShellRunResult } from './types';
 
-/**
- * Shell Run Result
- */
-export interface ShellRunResult {
-  stdout: string;
-  stderr: string;
-  code: number | null;
-}
-
-/**
- * Real-time output callbacks
- */
-export interface OutputCallbacks {
-  stdout?: (data: string) => void;
-  stderr?: (data: string) => void;
-}
-
-/**
- * Execution Context - simplified version without provider overhead
- */
 interface ExecutionContext {
   rootPath: string;
   signal?: AbortSignal;
@@ -67,21 +33,10 @@ interface ExecutionContext {
   aliases: Record<string, string>;
   terminalColumns: number;
   terminalRows: number;
+  pipefail: boolean;
+  nounset: boolean;
 }
 
-function createEnvironment(overrides?: Record<string, string>): Record<string, string> {
-  const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => typeof entry[1] === 'string'
-    )
-  );
-  return { ...inherited, HOME: HOME_DIR, ...overrides };
-}
-
-/**
- * Shell Executor
- * Executes shell commands using existing handlers directly.
- */
 export class ShellExecutor {
   private context: ExecutionContext;
   private fsClient: FsApi;
@@ -92,6 +47,8 @@ export class ShellExecutor {
   private foregroundProc: Process | null = null;
   private pendingSignal: string | null = null;
   private builtins: Record<string, any> | null = null;
+  private abortSignal?: AbortSignal;
+  private abortListener?: () => void;
 
   constructor(options: ShellExecutorOptions) {
     this.context = {
@@ -102,7 +59,11 @@ export class ShellExecutor {
       aliases: {},
       terminalColumns: options.terminalColumns ?? 80,
       terminalRows: options.terminalRows ?? 24,
+      pipefail: false,
+      nounset: false,
     };
+    this.context.env.PWD = this.context.cwd;
+    this.context.env['?'] = '0';
 
     this.unix = options.unix ?? null;
     this.fsClient = options.fsClient ?? defaultFsClient;
@@ -112,13 +73,14 @@ export class ShellExecutor {
     });
     this.commandRegistry = options.commandRegistry;
     this.terminalUI = options.terminalUI;
-    options.signal?.addEventListener('abort', () => this.killForeground('SIGINT'), { once: true });
+    if (options.signal) {
+      this.abortSignal = options.signal;
+      this.abortListener = () => this.killForeground('SIGINT');
+      options.signal.addEventListener('abort', this.abortListener, { once: true });
+    }
     if (options.signal?.aborted) this.pendingSignal = 'SIGINT';
   }
 
-  /**
-   * Get unix commands instance
-   */
   private async getUnix(): Promise<UnixCommands | null> {
     if (this.unix) return this.unix;
 
@@ -131,9 +93,6 @@ export class ShellExecutor {
     }
   }
 
-  /**
-   * Get builtins (lazy initialization)
-   */
   private async getBuiltins(): Promise<Record<string, any>> {
     if (this.builtins) return this.builtins;
     const unix = await this.getUnix();
@@ -141,37 +100,6 @@ export class ShellExecutor {
     return this.builtins;
   }
 
-  /**
-   * Save current working directory for process isolation
-   * Returns the saved CWD or null if unable to save
-   */
-  private async saveCwd(unix: UnixCommands): Promise<string | null> {
-    try {
-      return await unix.pwd();
-    } catch (e) {
-      // Non-fatal: CWD save failed, script will run without isolation
-      console.warn('[ShellExecutor] Failed to save CWD for process isolation:', e);
-      return null;
-    }
-  }
-
-  /**
-   * Restore working directory after script execution (POSIX process isolation)
-   * Script's CWD changes are discarded, parent CWD is restored
-   */
-  private async restoreCwd(unix: UnixCommands, savedCwd: string | null): Promise<void> {
-    if (!savedCwd) return;
-    try {
-      await unix.cd([savedCwd]);
-    } catch (e) {
-      // Non-fatal: CWD restore failed, may affect subsequent commands
-      console.warn('[ShellExecutor] Failed to restore CWD after script execution:', e);
-    }
-  }
-
-  /**
-   * Update terminal size
-   */
   setTerminalSize(columns: number, rows: number): void {
     this.context.terminalColumns = columns;
     this.context.terminalRows = rows;
@@ -185,22 +113,25 @@ export class ShellExecutor {
     return this.context.terminalRows;
   }
 
-  /**
-   * Run a command line
-   */
   async run(line: string, callbacks?: OutputCallbacks): Promise<ShellRunResult> {
     // Parse command line
     let segments: Segment[];
     try {
-      segments = parseCommandLine(line, this.context.env) as Segment[];
+      segments = parseCommandLine(line, this.context.env, {
+        nounset: this.context.nounset,
+      }) as Segment[];
     } catch (parseErr: any) {
       const msg = String(parseErr?.message || parseErr);
-      return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
+      const stderr = `Parse error: ${msg}\n`;
+      callbacks?.stderr?.(stderr);
+      this.context.env['?'] = '2';
+      return { stdout: '', stderr, code: 2, errexitEligible: true, fatalError: true };
     }
 
     // Empty command
     if (!segments || segments.length === 0) {
-      return { stdout: '', stderr: '', code: 0 };
+      this.context.env['?'] = '0';
+      return { stdout: '', stderr: '', code: 0, errexitEligible: false };
     }
 
     // Group segments by logical operators (&&, ||)
@@ -209,6 +140,7 @@ export class ShellExecutor {
     // Execution state
     const fdBuffers: Record<number, Buffer[]> = { 1: [], 2: [] };
     let lastExitCode: number | null = 0;
+    let errexitEligible = false;
 
     // Execute groups sequentially
     for (let gi = 0; gi < groups.length; gi++) {
@@ -218,11 +150,9 @@ export class ShellExecutor {
       if (gi > 0) {
         const prevOp = groups[gi - 1].opAfter;
         if (prevOp === '&&' && lastExitCode !== 0) {
-          lastExitCode = 1;
           continue;
         }
         if (prevOp === '||' && lastExitCode === 0) {
-          lastExitCode = 0;
           continue;
         }
       }
@@ -269,10 +199,21 @@ export class ShellExecutor {
 
       // Wait for all processes to complete
       const exits = await Promise.all(procs.map(p => p.wait()));
+      this.context.env['PIPESTATUS[@]'] = exits
+        .map(exit => (exit?.signal === 'SIGINT' ? 130 : (exit?.code ?? 0)))
+        .join(' ');
       const lastExit = exits[exits.length - 1];
       let exitOfLast = lastExit?.code ?? 0;
       if (lastExit?.signal === 'SIGINT') exitOfLast = 130;
+      if (this.context.pipefail) {
+        const failedProcess = [...exits].reverse().find(exit => exit?.code !== 0);
+        if (failedProcess) {
+          exitOfLast = failedProcess.signal === 'SIGINT' ? 130 : (failedProcess.code ?? 1);
+        }
+      }
       lastExitCode = exitOfLast;
+      this.context.env['?'] = String(lastExitCode);
+      errexitEligible = group.opAfter === undefined;
       for (const fd of [1, 2]) {
         if (!this.outputHandler.shouldSuppressOutput(lastSegOfGroup, fd)) {
           fdBuffers[fd].push(...groupBuffers[fd]);
@@ -293,19 +234,92 @@ export class ShellExecutor {
     const finalOut = Buffer.concat(fdBuffers[1]).toString('utf8');
     const finalErr = Buffer.concat(fdBuffers[2]).toString('utf8');
 
+    const code = lastExitCode ?? 0;
+    this.context.env['?'] = String(code);
     return {
       stdout: finalOut,
       stderr: finalErr,
-      code: lastExitCode ?? 0,
+      code,
+      errexitEligible,
     };
   }
 
-  /**
-   * Create a process for a single command segment
-   */
+  async runInSubshell(line: string): Promise<ShellRunResult> {
+    const subshell = await this.fork();
+    try {
+      return await subshell.run(line);
+    } finally {
+      subshell.dispose();
+    }
+  }
+
+  async expandWords(source: string, callbacks?: OutputCallbacks): Promise<string[]> {
+    const unix = await this.getUnix();
+    const cwd = unix ? await unix.pwd() : this.context.cwd;
+    return expandShellWords(
+      source,
+      {
+        rootPath: this.context.rootPath,
+        cwd,
+        fsClient: this.fsClient,
+        env: this.context.env,
+        nounset: this.context.nounset,
+      },
+      this,
+      callbacks
+    );
+  }
+
+  async fork(): Promise<ShellExecutor> {
+    const unix = await this.getUnix();
+    return createForkedShell(
+      {
+        rootPath: this.context.rootPath,
+        cwd: this.context.cwd,
+        signal: this.context.signal,
+        fsClient: this.fsClient,
+        unix: unix ?? undefined,
+        commandRegistry: this.commandRegistry,
+        terminalColumns: this.context.terminalColumns,
+        terminalRows: this.context.terminalRows,
+        terminalUI: this.terminalUI,
+        env: this.context.env,
+        aliases: this.context.aliases,
+        pipefail: this.context.pipefail,
+        nounset: this.context.nounset,
+      },
+      options => new ShellExecutor(options)
+    );
+  }
+
+  private async runScriptInChild(text: string, args: string[], proc: Process): Promise<number> {
+    const child = await this.fork();
+    const forwardSignal = (signal: string) => child.killForeground(signal);
+    proc.on('signal', forwardSignal);
+    try {
+      return await runScript(text, args, proc, child);
+    } finally {
+      proc.off('signal', forwardSignal);
+      child.dispose();
+    }
+  }
+
+  setPipefail(enabled: boolean): void {
+    this.context.pipefail = enabled;
+  }
+
+  setNounset(enabled: boolean): void {
+    this.context.nounset = enabled;
+  }
+
   private async createProcessForSegment(seg: Segment, originalLine: string): Promise<Process> {
     const proc = new Process();
     const unix = await this.getUnix();
+    const assignmentOnly =
+      seg.tokens.length === 1 &&
+      /^[A-Za-z_][A-Za-z0-9_]*=/.test(
+        typeof seg.tokens[0] === 'string' ? seg.tokens[0] : seg.tokens[0].text
+      );
 
     // Apply fd duplication
     if ((seg as any).fdDup) {
@@ -318,39 +332,23 @@ export class ShellExecutor {
       }
     }
 
-    // Resolve command substitutions
-    if (seg.tokens?.length > 0) {
-      const withCmdSub: TokenObj[] = [];
-      for (const tk of seg.tokens) {
-        if (typeof tk !== 'string' && tk.cmdSub) {
-          try {
-            const subRes = await this.run(tk.cmdSub);
-            const rawOut = String(subRes.stdout || '');
-            const normalized = rawOut.replace(/\r?\n/g, ' ').replace(/\s+$/g, '');
-            withCmdSub.push({
-              text: normalized,
-              quote: tk.quote ?? null,
-            });
-          } catch {
-            withCmdSub.push({ text: '', quote: tk.quote ?? null });
-          }
-        } else if (typeof tk === 'string') {
-          withCmdSub.push({ text: tk, quote: null });
-        } else {
-          withCmdSub.push(tk as TokenObj);
-        }
-      }
-      seg.tokens = withCmdSub;
+    const expansion = await expandShellTokens(
+      seg.tokens,
+      {
+        rootPath: this.context.rootPath,
+        cwd: unix ? await unix.pwd() : this.context.cwd,
+        fsClient: this.fsClient,
+        env: this.context.env,
+        nounset: this.context.nounset,
+        assignmentOnly,
+      },
+      this,
+      { stderr: message => proc.writeStderr(message) }
+    );
+    seg.tokens = expansion.words;
+    if (expansion.commandSubStatus !== undefined) {
+      seg.commandSubStatus = expansion.commandSubStatus;
     }
-
-    // Expand tokens (IFS, globs, braces)
-    const finalWords = await expandTokens(seg.tokens as TokenObj[], {
-      rootPath: this.context.rootPath,
-      cwd: unix ? await unix.pwd() : this.context.cwd,
-      fsClient: this.fsClient,
-      env: this.context.env,
-    });
-    (seg as any).tokens = finalWords;
 
     proc.stdinRedirected = Boolean(seg.stdinFile);
 
@@ -360,9 +358,6 @@ export class ShellExecutor {
     return proc;
   }
 
-  /**
-   * Execute a command segment
-   */
   private async executeSegment(
     proc: Process,
     seg: Segment,
@@ -397,6 +392,14 @@ export class ShellExecutor {
 
     const cmd = String(rawTokens[0] ?? '');
     const args = rawTokens.slice(1).map(t => String(t));
+    const assignment = cmd.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s);
+    if (assignment && args.length === 0) {
+      this.context.env[assignment[1]] = assignment[2];
+      proc.endStdout();
+      proc.endStderr();
+      proc.exit(seg.commandSubStatus ?? 0);
+      return;
+    }
     if (cmd === 'cd' && args.length === 0) args.push(this.context.env.HOME);
 
     // 'npx' is handled by npm handler now; let executeCommand route it
@@ -429,20 +432,15 @@ export class ShellExecutor {
             const isNodeShebang = /node/.test(firstLine);
             const isJsFile = cmd.endsWith('.js') || /\.js$/.test(cmd);
 
-            // Save parent context CWD before script execution (POSIX isolation)
-            const savedCwd = await this.saveCwd(unix);
-
             if (isNodeShebang || isJsFile) {
               try {
                 const exitCode = await this.executeCommand('node', [cmd, ...args], proc);
-                await this.restoreCwd(unix, savedCwd);
                 proc.endStdout();
                 proc.endStderr();
                 proc.exit(typeof exitCode === 'number' ? exitCode : 0);
                 return;
               } catch (e: any) {
                 proc.writeStderr(e?.message ?? String(e));
-                await this.restoreCwd(unix, savedCwd);
                 proc.endStdout();
                 proc.endStderr();
                 proc.exit(1);
@@ -452,18 +450,10 @@ export class ShellExecutor {
 
             // Otherwise treat as a shell script
             const scriptArgs = [cmd, ...args];
-            try {
-              await runScript(text, scriptArgs, proc, this as any);
-            } catch (e: any) {
-              proc.writeStderr(e?.message ?? String(e));
-            }
-
-            // Restore parent context CWD after script completes
-            await this.restoreCwd(unix, savedCwd);
-
+            const exitCode = await this.runScriptInChild(text, scriptArgs, proc);
             proc.endStdout();
             proc.endStderr();
-            proc.exit(0);
+            proc.exit(exitCode);
             return;
           }
         }
@@ -487,23 +477,15 @@ export class ShellExecutor {
           return;
         }
 
-        // Save parent context CWD before script execution
-        const savedCwd = unix ? await this.saveCwd(unix) : null;
-
         // Run script in isolated context
         let script = content;
         if (typeof script !== 'string')
           script = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(script);
-        await runScript(script, args, proc, this as any).catch(() => {});
-
-        // Restore parent context CWD after script completes
-        if (unix) {
-          await this.restoreCwd(unix, savedCwd);
-        }
+        const exitCode = await this.runScriptInChild(script, args, proc);
 
         proc.endStdout();
         proc.endStderr();
-        proc.exit(0);
+        proc.exit(exitCode);
         return;
       }
 
@@ -676,6 +658,8 @@ export class ShellExecutor {
     // 6. Builtin commands (echo, ls, cat, grep, etc.)
     const builtins = await this.getBuiltins();
     if (builtins[cmd]) {
+      const unix = await this.getUnix();
+      if (!unix) throw new Error(`Unix command support is unavailable for ${cmd}`);
       const ctx: StreamCtx = {
         stdin: proc.stdinStream,
         stdinRedirected: proc.stdinRedirected,
@@ -687,12 +671,17 @@ export class ShellExecutor {
         },
         signal: this.context.signal,
         rootPath: this.context.rootPath,
+        unix,
         terminalColumns: this.context.terminalColumns,
         terminalRows: this.context.terminalRows,
       };
 
       try {
         await builtins[cmd](ctx, args);
+        if (cmd === 'cd') {
+          const unix = await this.getUnix();
+          if (unix) this.context.env.PWD = await unix.pwd();
+        }
         return 0;
       } catch (e: any) {
         if (e?.__silent) {
@@ -723,9 +712,6 @@ export class ShellExecutor {
     return 127;
   }
 
-  /**
-   * Group segments by logical operators
-   */
   private groupByLogicalOperators(
     segments: Segment[]
   ): Array<{ segs: Segment[]; opAfter?: string }> {
@@ -747,9 +733,6 @@ export class ShellExecutor {
     return groups;
   }
 
-  /**
-   * Kill the foreground process
-   */
   killForeground(signal = 'SIGINT'): void {
     try {
       this.pendingSignal = signal;
@@ -786,6 +769,22 @@ export class ShellExecutor {
    */
   getEnv(key: string): string | undefined {
     return this.context.env[key];
+  }
+
+  getEnvironment(): Readonly<Record<string, string>> {
+    return { ...this.context.env };
+  }
+
+  unsetEnv(key: string): void {
+    delete this.context.env[key];
+  }
+
+  dispose(): void {
+    if (this.abortSignal && this.abortListener) {
+      this.abortSignal.removeEventListener('abort', this.abortListener);
+    }
+    this.abortSignal = undefined;
+    this.abortListener = undefined;
   }
 }
 
