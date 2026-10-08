@@ -119,6 +119,7 @@ if (!window.__npmTerminalCapture) {
     if (run?.enterAt) inspect(run);
   });
   const container = document.querySelector('.terminal-container');
-  if (container) observer.observe(container, { childList: true, subtree: true, characterData: true });
+  if (container)
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
   window.__npmTerminalCapture.observer = observer;
 }

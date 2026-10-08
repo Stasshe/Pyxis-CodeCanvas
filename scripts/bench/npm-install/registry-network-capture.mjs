@@ -45,6 +45,9 @@ export class RegistryNetworkCapture {
     this.requests = new Map();
     this.enabledTargets = [];
     this.errors = [];
+    this.eventCounts = new Map();
+    this.methodCounts = new Map();
+    this.ignoredHosts = new Map();
     this.active = false;
   }
 
@@ -56,6 +59,7 @@ export class RegistryNetworkCapture {
       this.socket.addEventListener('error', reject, { once: true });
     });
 
+    await this.send('Target.setDiscoverTargets', { discover: true });
     const { targetInfos } = await this.send('Target.getTargets');
     const page = targetInfos.find(
       target => target.type === 'page' && target.url.startsWith(this.pagePrefix)
@@ -68,14 +72,9 @@ export class RegistryNetworkCapture {
     });
     this.targets.set(sessionId, page);
     await this.enableTarget(sessionId, page);
-    await this.send(
-      'Target.setAutoAttach',
-      { autoAttach: true, waitForDebuggerOnStart: false, flatten: true },
-      sessionId
-    );
 
     for (const target of targetInfos) {
-      if (target.type !== 'worker' || !this.isFsWorker(target.url)) continue;
+      if (!this.isNetworkTarget(target)) continue;
       await this.attachTarget(target);
     }
     return this;
@@ -84,6 +83,9 @@ export class RegistryNetworkCapture {
   beginTrial() {
     this.requests.clear();
     this.errors = [];
+    this.eventCounts.clear();
+    this.methodCounts.clear();
+    this.ignoredHosts.clear();
     this.active = true;
   }
 
@@ -92,6 +94,9 @@ export class RegistryNetworkCapture {
     return {
       targets: this.enabledTargets.map(target => ({ ...target })),
       errors: [...this.errors],
+      eventCounts: Object.fromEntries(this.eventCounts),
+      methodCounts: Object.fromEntries(this.methodCounts),
+      ignoredHosts: Object.fromEntries(this.ignoredHosts),
       requests: [...this.requests.values()].map(request => ({ ...request })),
     };
   }
@@ -113,6 +118,12 @@ export class RegistryNetworkCapture {
     return url.includes('/core/fs/worker.ts') || url.includes('/npm-install/worker.mjs');
   }
 
+  isNetworkTarget(target) {
+    if (target.type === 'worker') return this.isFsWorker(target.url);
+    if (target.type === 'service_worker') return target.url.startsWith(this.pagePrefix);
+    return false;
+  }
+
   async attachTarget(target) {
     const alreadyAttached = [...this.targets.values()].some(
       attached => attached.targetId === target.targetId
@@ -127,6 +138,7 @@ export class RegistryNetworkCapture {
   }
 
   async enableTarget(sessionId, target) {
+    await this.send('Runtime.enable', {}, sessionId);
     await this.send('Network.enable', {}, sessionId);
     this.enabledTargets.push({ type: target.type, url: target.url });
   }
@@ -159,21 +171,17 @@ export class RegistryNetworkCapture {
       return;
     }
 
-    if (message.method === 'Target.attachedToTarget') {
-      this.onAttachedTarget(message);
-      return;
+    if (this.active) {
+      const scope = message.sessionId ?? 'browser';
+      const methodKey = `${scope}:${message.method}`;
+      this.methodCounts.set(methodKey, (this.methodCounts.get(methodKey) ?? 0) + 1);
     }
     if (!message.method?.startsWith('Network.')) return;
+    if (this.active) {
+      const key = `${message.sessionId ?? 'page'}:${message.method}`;
+      this.eventCounts.set(key, (this.eventCounts.get(key) ?? 0) + 1);
+    }
     this.onNetworkEvent(message);
-  }
-
-  onAttachedTarget(message) {
-    const { sessionId, targetInfo } = message.params;
-    if (targetInfo.type !== 'worker' || !this.isFsWorker(targetInfo.url)) return;
-    this.targets.set(sessionId, targetInfo);
-    this.enableTarget(sessionId, targetInfo).catch(() => {
-      this.errors.push(`Failed to enable Network for ${targetInfo.url}.`);
-    });
   }
 
   onNetworkEvent(message) {
@@ -182,7 +190,15 @@ export class RegistryNetworkCapture {
     const key = `${sessionId}:${params.requestId}`;
 
     if (message.method === 'Network.requestWillBeSent') {
-      if (!this.active || !isRegistryUrl(params.request.url)) return;
+      if (!this.active) return;
+      if (!isRegistryUrl(params.request.url)) {
+        let hostname = 'invalid-url';
+        try {
+          hostname = new URL(params.request.url).hostname;
+        } catch {}
+        this.ignoredHosts.set(hostname, (this.ignoredHosts.get(hostname) ?? 0) + 1);
+        return;
+      }
       this.requests.set(key, {
         sessionId,
         target: this.targets.get(sessionId)?.url ?? 'unknown',
@@ -195,6 +211,9 @@ export class RegistryNetworkCapture {
         protocol: null,
         connectionId: null,
         connectionReused: null,
+        fromDiskCache: null,
+        fromPrefetchCache: null,
+        fromServiceWorker: null,
         remoteIPAddress: null,
         responseTiming: null,
         timingPhases: null,
@@ -215,6 +234,9 @@ export class RegistryNetworkCapture {
       request.protocol = response.protocol;
       request.connectionId = response.connectionId;
       request.connectionReused = response.connectionReused;
+      request.fromDiskCache = response.fromDiskCache;
+      request.fromPrefetchCache = response.fromPrefetchCache;
+      request.fromServiceWorker = response.fromServiceWorker;
       request.remoteIPAddress = response.remoteIPAddress;
       request.responseTiming = response.timing ?? null;
       request.timingPhases = timingPhases(response.timing);

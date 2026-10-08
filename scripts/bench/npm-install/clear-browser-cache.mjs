@@ -28,9 +28,14 @@ socket.addEventListener('message', event => {
 socket.addEventListener('open', async () => {
   try {
     const { targetInfos } = await send('Target.getTargets');
-    const target = targetInfos.find(entry => entry.type === 'page' && entry.url.startsWith('http://pyxis.localhost:5174/'));
+    const target = targetInfos.find(
+      entry => entry.type === 'page' && entry.url.startsWith('http://pyxis.localhost:5174/')
+    );
     if (!target) throw new Error('The npm-terminal page is not open.');
-    const { sessionId } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
+    const { sessionId } = await send('Target.attachToTarget', {
+      targetId: target.targetId,
+      flatten: true,
+    });
     await send('Network.enable', {}, sessionId);
     await send('Network.clearBrowserCache', {}, sessionId);
     process.stdout.write(JSON.stringify({ cleared: true, url: target.url }));

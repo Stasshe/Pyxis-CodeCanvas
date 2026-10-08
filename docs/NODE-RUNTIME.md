@@ -71,7 +71,7 @@ FS Workerはtranspile要求を一つずつ処理し、必要になったとき�
 
 ## 対応範囲
 
-Runtimeは`fs`、`path`、`readline`、`child_process`などのブラウザ内実装を提供する。`child_process`はPyxisのshell機能に接続される。`net`はIP address helperに限り、native socketは作成しない。`node:http`には`ServerResponse`とHTTP server実装がなく、server-side HTTP APIは提供しない。ネイティブNode.js addon、`worker_threads`、完全なOS process環境は提供しない。
+Runtimeは`fs`、`path`、`readline`、`child_process`などのブラウザ内実装を提供する。`child_process`はPyxisのshell機能に接続される。`net`はIP address helperに限り、native socketは作成しない。`node:http`には`ServerResponse`とHTTP server実装がなく、server-side HTTP APIは提供しない。ネイティブNode.js addon、native実行ファイルを配るpackage（TypeScript 7、Biome CLI等）、`worker_threads`、完全なOS process環境は提供しない。
 
 ## 未検証項目
 

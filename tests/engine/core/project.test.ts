@@ -25,8 +25,8 @@ vi.mock('react', () => ({
     let value: State;
     if (typeof initial === 'function') value = (initial as () => State)();
     else value = initial;
-    const setState = () => {
-      if (Array.isArray(value)) mocks.setProjectFiles();
+    const setState = (next: State) => {
+      if (Array.isArray(value)) mocks.setProjectFiles(next);
     };
     return [value, setState];
   },
@@ -39,6 +39,7 @@ vi.mock('@/engine/core/fs', async importOriginal => {
     fsClient: {
       init: vi.fn().mockResolvedValue(undefined),
       walk: mocks.walk,
+      stat: vi.fn(async (path: string) => ({ path, type: 'folder', size: 0, mtime: 123 })),
       addChangeListener: (listener: (event: FsChangeEvent) => void) => {
         mocks.listeners.push(listener);
         return mocks.unsubscribe;
@@ -61,7 +62,11 @@ vi.mock('@/stores/projectStore', () => ({
 
 import { useProject } from '@/engine/core/project';
 
-describe('useProject filesystem tree refresh', () => {
+function file(path: string, type: ProjectFile['type'] = 'file'): ProjectFile {
+  return { path, type, size: 12, mtime: 123 };
+}
+
+describe('useProject filesystem tree publication', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mocks.listeners = [];
@@ -79,98 +84,51 @@ describe('useProject filesystem tree refresh', () => {
     vi.useRealTimers();
   });
 
-  function mountProject(): (event: FsChangeEvent) => void {
-    useProject();
+  async function useMountedProject() {
+    const project = useProject();
+    if (!mocks.root) throw new Error('Project root is not initialized.');
+    await project.loadProject(mocks.root);
+    mocks.setProjectFiles.mockClear();
     const listener = mocks.listeners[0];
     if (!listener) throw new Error('Filesystem listener was not registered.');
-    return listener;
+    return { project, listener };
   }
 
-  it('skips file updates and batches structural changes within the root', async () => {
-    const listener = mountProject();
-    listener({ type: 'update', path: '/repo/.git/index' });
-    listener({ type: 'create', path: '/repo/a.ts' });
-    listener({ type: 'delete', path: '/repo/b.ts' });
-    listener({ type: 'rename', path: '/elsewhere/a.ts', oldPath: '/repo/a.ts' });
-    listener({ type: 'rename', path: '/repo/moved.ts', oldPath: '/elsewhere/moved.ts' });
-    listener({ type: 'create', path: '/repos/outside.ts' });
-
+  it('batches npm-style structural metadata without walking the workspace again', async () => {
+    const { listener } = await useMountedProject();
+    for (let index = 0; index < 100; index += 1) {
+      const entry = file(`/repo/node_modules/package-${index}`, 'folder');
+      listener({ type: 'create', path: entry.path, file: entry });
+    }
+    listener({ type: 'create', path: '/repos/outside.ts', file: file('/repos/outside.ts') });
     await vi.advanceTimersByTimeAsync(99);
-    expect(mocks.walk).not.toHaveBeenCalled();
+    expect(mocks.setProjectFiles).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
-    expect(mocks.walk).toHaveBeenCalledTimes(1);
-    expect(mocks.walk).toHaveBeenCalledWith('/repo');
+    expect(mocks.walk.mock.calls).toEqual([['/repo']]);
+    expect(mocks.setProjectFiles).toHaveBeenCalledTimes(1);
+    expect(mocks.setProjectFiles.mock.calls[0][0]).toHaveLength(100);
   });
 
-  it('does not walk the tree for file updates alone', async () => {
-    const listener = mountProject();
-    listener({ type: 'update', path: '/repo/.git/index' });
-    await vi.advanceTimersByTimeAsync(100);
-    expect(mocks.walk).not.toHaveBeenCalled();
-  });
-
-  it('coalesces events arriving during an in-flight walk', async () => {
-    let finishWalk: ((files: ProjectFile[] | PromiseLike<ProjectFile[]>) => void) | null = null;
-    mocks.walk.mockImplementation(
-      () =>
-        new Promise(resolve => {
-          finishWalk = resolve;
-        })
-    );
-    const listener = mountProject();
-    listener({ type: 'create', path: '/repo/first.ts' });
+  it('does not publish or walk for file updates alone', async () => {
+    const { listener } = await useMountedProject();
+    listener({ type: 'update', path: '/repo/.git/index', file: file('/repo/.git/index') });
     await vi.advanceTimersByTimeAsync(100);
     expect(mocks.walk).toHaveBeenCalledTimes(1);
-
-    listener({ type: 'delete', path: '/repo/second.ts' });
-    await vi.advanceTimersByTimeAsync(100);
-    expect(mocks.walk).toHaveBeenCalledTimes(1);
-    finishWalk?.([]);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(mocks.walk).toHaveBeenCalledTimes(2);
-  });
-
-  it('ignores results from an old root and cancels pending work on cleanup', async () => {
-    let finishWalk: ((files: ProjectFile[] | PromiseLike<ProjectFile[]>) => void) | null = null;
-    mocks.walk.mockImplementation(
-      () =>
-        new Promise(resolve => {
-          finishWalk = resolve;
-        })
-    );
-    const listener = mountProject();
-    listener({ type: 'create', path: '/repo/old.ts' });
-    await vi.advanceTimersByTimeAsync(100);
-    mocks.root = { rootPath: '/next', name: 'next', updatedAt: new Date() };
-    finishWalk?.([]);
-    await Promise.resolve();
     expect(mocks.setProjectFiles).not.toHaveBeenCalled();
+  });
 
-    mocks.root = { rootPath: '/repo', name: 'repo', updatedAt: new Date() };
-    listener({ type: 'create', path: '/repo/pending.ts' });
+  it('retains an explicit manual refresh and cancels pending publication on cleanup', async () => {
+    const { project, listener } = await useMountedProject();
+    mocks.walk.mockResolvedValueOnce([file('/repo/manual.ts')]);
+    await project.refreshProjectFiles();
+    expect(mocks.walk.mock.calls).toEqual([['/repo'], ['/repo']]);
+    expect(mocks.setProjectFiles).toHaveBeenLastCalledWith([file('/repo/manual.ts')]);
+    mocks.setProjectFiles.mockClear();
+    listener({ type: 'create', path: '/repo/pending.ts', file: file('/repo/pending.ts') });
+    await Promise.resolve();
     for (const cleanup of mocks.cleanups) cleanup();
     await vi.advanceTimersByTimeAsync(100);
-    expect(mocks.walk).toHaveBeenCalledTimes(1);
+    expect(mocks.setProjectFiles).not.toHaveBeenCalled();
     expect(mocks.unsubscribe).toHaveBeenCalled();
-  });
-
-  it('does not publish a walk that finishes after unmount', async () => {
-    let finishWalk: ((files: ProjectFile[] | PromiseLike<ProjectFile[]>) => void) | null = null;
-    mocks.walk.mockImplementation(
-      () =>
-        new Promise(resolve => {
-          finishWalk = resolve;
-        })
-    );
-    const listener = mountProject();
-    listener({ type: 'create', path: '/repo/file.ts' });
-    await vi.advanceTimersByTimeAsync(100);
-    expect(mocks.walk).toHaveBeenCalledTimes(1);
-    for (const cleanup of mocks.cleanups) cleanup();
-    finishWalk?.([]);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(mocks.setProjectFiles).not.toHaveBeenCalled();
   });
 });
