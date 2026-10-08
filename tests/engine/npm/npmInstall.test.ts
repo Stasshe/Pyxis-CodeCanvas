@@ -61,6 +61,11 @@ describe('NpmInstall', () => {
       { name: 'package/index.mjs', type: 'file', size: sourceBytes.byteLength },
       Buffer.from(sourceBytes)
     );
+    archive.entry({ name: 'package/empty/nested/', type: 'directory' }, Buffer.alloc(0));
+    archive.entry(
+      { name: 'package/bin/index.mjs', type: 'symlink', linkname: '../index.mjs' },
+      Buffer.alloc(0)
+    );
     archive.entry(
       { name: 'package/package.json', type: 'file' },
       Buffer.from(JSON.stringify({ name: 'source-fixture', version: '1.0.0' }))
@@ -87,6 +92,50 @@ describe('NpmInstall', () => {
     const directory = `${rootPath}/node_modules/source-fixture`;
     expect(await repository.readFile(`${directory}/assets/font.dat`)).toEqual(bytes);
     expect(await repository.readFile(`${directory}/index.mjs`)).toEqual(sourceBytes);
+    expect((await repository.stat(`${directory}/empty/nested`)).type).toBe('folder');
+    expect(await repository.readlink(`${directory}/bin/index.mjs`)).toBe('../index.mjs');
+  });
+
+  it('rejects archive writes through symlinks that resolve outside the package', async () => {
+    const archive = tarStream.pack();
+    const chunks: Uint8Array[] = [];
+    const packed = new Promise<Uint8Array[]>((resolve, reject) => {
+      archive.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+      archive.on('end', () => resolve(chunks));
+      archive.on('error', reject);
+    });
+    archive.entry(
+      { name: 'package/package.json', type: 'file' },
+      Buffer.from(JSON.stringify({ name: 'escape-fixture', version: '1.0.0' }))
+    );
+    archive.entry(
+      { name: 'package/alias', type: 'symlink', linkname: '../../outside' },
+      Buffer.alloc(0)
+    );
+    archive.entry({ name: 'package/alias/escape.js', type: 'file' }, Buffer.from('outside'));
+    archive.finalize();
+    const archiveChunks = await packed;
+    const archiveSize = archiveChunks.reduce((size, chunk) => size + chunk.byteLength, 0);
+    const tar = new Uint8Array(archiveSize);
+    let offset = 0;
+    for (const chunk of archiveChunks) {
+      tar.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const compressed = pako.gzip(tar).slice();
+    const url = 'https://registry.npmjs.org/escape-fixture/-/escape-fixture-1.0.0.tgz';
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
+    const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(
+      ''
+    );
+    await repository.mkdir(NPM_CACHE_PATH, { recursive: true });
+    await repository.writeFile(`${NPM_CACHE_PATH}/${key}.tgz`, compressed);
+    await repository.mkdir(`${rootPath}/outside`, { recursive: true });
+
+    await expect(
+      createInstaller().downloadAndInstallPackage('escape-fixture', '1.0.0', url)
+    ).rejects.toThrow('Archive path escapes package');
+    expect(await repository.exists(`${rootPath}/outside/escape.js`)).toBe(false);
   });
 
   // ==================== .bin シム生成 ====================
@@ -109,10 +158,9 @@ describe('NpmInstall', () => {
       const installer = createInstaller();
       await installer.ensureBinsForPackage('cowsay');
 
-      const shim = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/cowsay');
-      expect(shim).not.toBeNull();
-      expect(shim!.content).toContain('#!/usr/bin/env node');
-      expect(shim!.content).toContain("require('../cowsay/cli.js')");
+      expect(await repository.readlink(`${rootPath}/node_modules/.bin/cowsay`)).toBe(
+        '../cowsay/cli.js'
+      );
     });
 
     it('bin フィールドがオブジェクトの場合: 各エントリで .bin を作成', async () => {
@@ -126,17 +174,16 @@ describe('NpmInstall', () => {
         }),
         'file'
       );
+      await testFiles.createFile(rootPath, '/node_modules/uvu/bin.js', 'run uvu', 'file');
+      await testFiles.createFile(rootPath, '/node_modules/uvu/run.js', 'run uvu', 'file');
 
       const installer = createInstaller();
       await installer.ensureBinsForPackage('uvu');
 
-      const shimUvu = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/uvu');
-      expect(shimUvu).not.toBeNull();
-      expect(shimUvu!.content).toContain("require('../uvu/bin.js')");
-
-      const shimRun = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/uvu-run');
-      expect(shimRun).not.toBeNull();
-      expect(shimRun!.content).toContain("require('../uvu/run.js')");
+      expect(await repository.readlink(`${rootPath}/node_modules/.bin/uvu`)).toBe('../uvu/bin.js');
+      expect(await repository.readlink(`${rootPath}/node_modules/.bin/uvu-run`)).toBe(
+        '../uvu/run.js'
+      );
     });
 
     it('bin フィールドがない場合は何もしない', async () => {
@@ -159,6 +206,22 @@ describe('NpmInstall', () => {
       await installer.ensureBinsForPackage('nonexistent');
     });
 
+    it('rejects bin targets that resolve outside their package', async () => {
+      await testFiles.createFile(
+        rootPath,
+        '/node_modules/escaped/package.json',
+        JSON.stringify({ name: 'escaped', bin: './cli.js' }),
+        'file'
+      );
+      await testFiles.createFile(rootPath, '/outside.js', 'outside', 'file');
+      await repository.symlink('../../outside.js', `${rootPath}/node_modules/escaped/cli.js`);
+
+      await expect(createInstaller().ensureBinsForPackage('escaped')).rejects.toThrow(
+        "Bin 'escaped' escapes package directory"
+      );
+      expect(await repository.exists(`${rootPath}/node_modules/.bin/escaped`)).toBe(false);
+    });
+
     it('bin パスの ./ プレフィックスを正しく処理する', async () => {
       await testFiles.createFile(
         rootPath,
@@ -170,18 +233,19 @@ describe('NpmInstall', () => {
         }),
         'file'
       );
+      await testFiles.createFile(
+        rootPath,
+        '/node_modules/prettier/bin/prettier.cjs',
+        'run prettier',
+        'file'
+      );
 
       const installer = createInstaller();
       await installer.ensureBinsForPackage('prettier');
 
-      const shim = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/prettier');
-      expect(shim).not.toBeNull();
-      expect(shim!.content).toContain("require('../prettier/bin/prettier.cjs')");
-
-      const requireMatch = shim!.content.match(/require\('([^']+)'\)/);
-      expect(requireMatch).not.toBeNull();
-      expect(requireMatch![1]).toBe('../prettier/bin/prettier.cjs');
-      expect(requireMatch![1].startsWith('./')).toBe(false);
+      expect(await repository.readlink(`${rootPath}/node_modules/.bin/prettier`)).toBe(
+        '../prettier/bin/prettier.cjs'
+      );
     });
   });
 
@@ -402,10 +466,8 @@ describe('NpmInstall', () => {
       if (uvu.bin) {
         const bins = typeof uvu.bin === 'string' ? { uvu: uvu.bin } : uvu.bin;
         for (const binName of Object.keys(bins)) {
-          const shim = await testFiles.getFileByPath(rootPath, `/node_modules/.bin/${binName}`);
-          expect(shim).not.toBeNull();
-          expect(shim!.content).toContain('#!/usr/bin/env node');
-          expect(shim!.content).toContain('require(');
+          const link = await repository.readlink(`${rootPath}/node_modules/.bin/${binName}`);
+          expect(link).toContain('../uvu/');
         }
       }
     }, 60000);

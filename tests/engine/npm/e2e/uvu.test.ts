@@ -64,10 +64,9 @@ describe('uvu npm runtime integration', () => {
     expect(result?.path).toBe(`${rootPath}/node_modules/uvu/package.json`);
   }, 60_000);
 
-  it('prints the installed version from its bin entry', async () => {
+  it('prints the installed version through its executable symlink', async () => {
     const shimPath = `${rootPath}/node_modules/.bin/uvu`;
-    const shim = await repo.readText(shimPath);
-    expect(shim).toContain('require(');
+    expect(await repo.readlink(shimPath)).toMatch(/^\.\.\/uvu\//);
 
     const capture = collectOutput();
     fixture.close();

@@ -52,7 +52,10 @@ export class ModuleResolver {
     const cached = this.resolutions.get(key);
     if (cached) return cached;
     const resolved = await this.runAsync(this.resolveModule(specifier, currentFilePath, kind));
-    if (resolved) this.resolutions.set(key, resolved);
+    if (resolved) {
+      if (!resolved.isBuiltIn) resolved.path = await this.fileSystem.realpath(resolved.path);
+      this.resolutions.set(key, resolved);
+    }
     return resolved;
   }
 
@@ -65,7 +68,10 @@ export class ModuleResolver {
     const cached = this.resolutions.get(key);
     if (cached) return cached;
     const resolved = this.runSync(this.resolveModule(specifier, currentFilePath, kind));
-    if (resolved) this.resolutions.set(key, resolved);
+    if (resolved) {
+      if (!resolved.isBuiltIn) resolved.path = this.fileSystem.realpathSync(resolved.path);
+      this.resolutions.set(key, resolved);
+    }
     return resolved;
   }
 

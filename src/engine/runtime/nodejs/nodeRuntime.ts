@@ -136,6 +136,8 @@ export class NodeRuntime {
       requireFactory: (filename: string) => this.createRequire(filename),
       getCwd: () => this.cwd,
       getEnv: () => ({ ...(this.currentProcess?.env ?? {}) }),
+      writeStdout: this.onStdout,
+      writeStderr: this.onStderr,
       runShell: this.runShell,
       filesystem: this.filesystem,
       bridge: this.bridge,
@@ -168,9 +170,11 @@ export class NodeRuntime {
 
     try {
       runtimeInfo('▶️ Executing file:', filePath);
+      const invocationPath = filePath;
+      filePath = await this.moduleLoader.realpath(filePath);
 
       // Prepare globals and inject them into the module loader for dependencies.
-      const globals = this.createGlobals(filePath, argv);
+      const globals = this.createGlobals(invocationPath, argv);
       this.moduleLoader.setGlobals(globals);
 
       // Pre-load dependencies ONLY (do not execute the entry file yet)
@@ -181,6 +185,7 @@ export class NodeRuntime {
       // Build the execution sandbox with the shared globals.
       const requireFn = this.createRequire(filePath);
       const importModule = (specifier: string) => this.moduleLoader.asyncLoad(specifier, filePath);
+      const mainModule = this.moduleLoader.createMainModule(filePath);
       const sandbox = {
         ...globals,
         require: requireFn,
@@ -189,14 +194,11 @@ export class NodeRuntime {
         __pyxisRequireImport: (specifier: string) =>
           this.moduleLoader.requireSync(specifier, filePath, 'import'),
         Function: createRuntimeFunction(importModule),
-        module: { exports: {} },
-        exports: {},
+        module: mainModule,
+        exports: mainModule.exports,
         __filename: filePath,
         __dirname: getParentPath(filePath),
       };
-
-      // Keep exports linked to module.exports.
-      sandbox.exports = sandbox.module.exports;
 
       // Wrap and execute the code synchronously.
       const wrappedCode = this.wrapCode(code);
@@ -204,6 +206,7 @@ export class NodeRuntime {
 
       runtimeInfo('✅ Code compiled successfully');
       const executionResult = executeFunc(...Object.values(sandbox));
+      this.moduleLoader.completeMainModule(filePath);
       const executionPromise = this.getExecutionPromise(executionResult);
       if (executionPromise) {
         await Promise.race([
@@ -488,6 +491,7 @@ export class NodeRuntime {
       argv: ['node', currentFilePath || '/'].concat(argv),
       cwd: () => this.cwd,
       platform: 'browser',
+      arch: this.builtInModules.os.arch(),
       version: 'v18.0.0',
       versions: {
         node: '18.0.0',
@@ -700,12 +704,16 @@ export class NodeRuntime {
       assert: this.builtInModules.assert,
       events: this.builtInModules.events,
       module: this.builtInModules.module,
+      net: this.builtInModules.net,
       url: this.builtInModules.url,
       stream: this.builtInModules.stream,
       tty: this.builtInModules.tty,
       v8: this.builtInModules.v8,
       crypto: this.builtInModules.crypto,
       child_process: this.builtInModules.child_process,
+      constants: this.builtInModules.constants,
+      zlib: this.builtInModules.zlib,
+      querystring: this.builtInModules.querystring,
       'stream/consumers': {
         text: async (stream: ConsumerStream) =>
           new TextDecoder().decode(await collectStream(stream)),
@@ -713,6 +721,7 @@ export class NodeRuntime {
           JSON.parse(new TextDecoder().decode(await collectStream(stream))),
         buffer: collectStream,
       },
+      string_decoder: this.builtInModules.string_decoder,
       'timers/promises': {
         setTimeout: (delay?: number) =>
           new Promise<void>(resolve => this.createTrackedTimer('timeout', () => resolve(), delay)),

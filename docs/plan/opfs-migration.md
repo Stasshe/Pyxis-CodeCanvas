@@ -46,13 +46,15 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 | Transpile Worker | FS Worker内のlazy pool。1 Workerに固定し、30秒間未使用なら破棄する |
 | Service Worker | 同期XHRを受け、保持しているFS WorkerのMessagePortへ直接中継する。portを失ったらmainへ再送を要求する |
 
-- SyncAccessHandleは「開く→操作→閉じる」で使い、開きっぱなしにしない
+- SyncAccessHandleは「開く→操作→閉じる」で使い、開きっぱなしにしない。path operationはpath単位でqueueし、親・file handleは探索からaccessとmetadata取得まで同じoperation内でだけ再利用する
 - FS Coreは直近の成功pathのdirectory handle prefixだけを保持し、次のpathとの共通prefixを再利用する。Core再初期化とdirectory削除時にgenerationを更新して無効化し、古いin-flight lookupはchainを更新できない。directory renameはsource削除時に無効化される。file handleやpayloadはcacheしない
 - npm installはFS Worker内でdependency graphを解決し、packument取得をinstall内で共有する。compatibleなlock entryを優先し、新しいrange解決では`latest` dist-tagがrangeを満たせば選び、そうでなければ最大のsatisfying versionを選ぶ。registryのabbreviated metadataは`~/.npm/registry`にHTTP freshnessとETagに従ってcacheし、tarballはURL digestで`~/.npm`にcacheする。dependency lookupは最大6並列で、registry requestとtarball downloadは共通の6 request gateを使い、package installは最大6並列。tar entry書き込みはawaitして順序を保つ。manifest・registry metadata cacheはexists/statを先行させず直接readし、cache directoryはinstallerごとに一度、archive内のdirectoryはpackageごとに一度作る。これにより多数の小fileでmessage往復を増やさず、単一のOPFS所有者とSyncAccessHandleの開閉規則も維持する
 - package metadataの`os` / `cpu`制約はbrowser/x64 targetに照合する。optional dependencyの不一致はskipし、required dependencyの不一致は明示的に失敗させる。browserで利用できないnative packageの取得・展開を避け、不要なbytesとmemory pressureを抑える
+- tarball展開はfile・directory・symlink entryの先頭wrapper componentを1つ除き、literal symlink targetを保持する。package root外へ解決される書込みは拒否する。`.bin/<name>`はpackageの宣言する実行fileへのrelative symlinkとし、Terminalと`npx`はcwdからancestor方向へ`node_modules/.bin`を検索する。tar hardlink entryは未対応
 - npm v3 `package-lock.json`はregistry packageの配置・resolved URL・integrityを固定する。root dependency mapが一致するlockfileはmetadata fetchを行わずtreeを再生し、lockfile bytesを保つ。manifest変更時は互換lock entryを再利用してNode lookupに沿うhoisted/nested treeを組み直し、lockを更新する。tarball integrityはarchiveを展開・書き込みする前に検証する
 - FS Client: API・変更eventの購読口・metadataへのアクセスを提供する。現行の`fileRepository`を置き換える
 - API: Node fs風のpath基準（readFile / writeFile / readdir / stat / mkdir / rm / rename）。`readFile`はraw bytes、`readText`は明示UTF-8 decode、`writeFile`はtextまたはbytesを扱う。runtimeの`fsModule`とunixコマンドは同じIFを使う
+- symlink: OPFS entryではなく、FS Workerがreserved root `.pyxis-fs-links`内のpath-keyed recordを正本として管理する。recordにはliteral targetを保持し、`/tmp`のrecordは揮発性。`stat`・通常のopen/read/writeはlinkを追い、`lstat`・`readlink`・rename・removeは最後のcomponentを追わない。中間componentは追い、relative targetはlink parent基準で解決し、target中の`..`はlink traversal後に処理する。`readdir`とtree walkはlink entryを表示するが再帰しない。40回を超えるlink追跡は`ELOOP`。Git adapterはmode `120777`とsymlink操作を公開する
 - 拡張機能はmainで読み込む（現状維持）
 
 ## Pathモデル

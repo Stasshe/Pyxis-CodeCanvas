@@ -108,7 +108,7 @@ describe('Prettier npm runtime integration', () => {
     runtimeFs = await loadNpmRuntimeFs(repo, rootPath);
   }, 120_000);
 
-  it('installs package metadata and the executable shim', async () => {
+  it('installs package metadata and a relative executable symlink', async () => {
     const pkg = JSON.parse(
       await repo.readText(`${rootPath}/node_modules/prettier/package.json`)
     ) as {
@@ -118,8 +118,9 @@ describe('Prettier npm runtime integration', () => {
     expect(pkg.name).toBe('prettier');
     expect(pkg.version).toBe(packageVersion);
 
-    const shim = await repo.readText(`${rootPath}/node_modules/.bin/prettier`);
-    expect(shim).toContain('require(');
+    expect(await repo.readlink(`${rootPath}/node_modules/.bin/prettier`)).toBe(
+      `../prettier/${binPath.slice(`${rootPath}/node_modules/prettier/`.length)}`
+    );
   });
 
   it('resolves Prettier through the runtime module resolver', async () => {

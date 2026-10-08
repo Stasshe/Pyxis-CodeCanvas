@@ -2,12 +2,16 @@ import { Buffer } from 'buffer';
 import pako from 'pako';
 import tarStream from 'tar-stream';
 import { describe, expect, it } from 'vitest';
-import { TarExtractor } from '@/engine/cmd/global/npmOperations/install/tarExtractor';
+import {
+  type TarEntry,
+  TarExtractor,
+} from '@/engine/cmd/global/npmOperations/install/tarExtractor';
 
 interface ArchiveFile {
   name: string;
   content: Uint8Array;
-  type?: 'file' | 'directory';
+  type?: 'file' | 'directory' | 'symlink';
+  linkname?: string;
 }
 
 async function archive(files: ArchiveFile[]): Promise<Uint8Array<ArrayBuffer>> {
@@ -19,7 +23,15 @@ async function archive(files: ArchiveFile[]): Promise<Uint8Array<ArrayBuffer>> {
     pack.on('error', reject);
   });
   for (const file of files) {
-    pack.entry({ name: file.name, type: file.type ?? 'file' }, Buffer.from(file.content));
+    if (file.type === 'symlink') {
+      if (!file.linkname) throw new Error('Symlink archive fixture requires linkname.');
+      pack.entry(
+        { name: file.name, type: 'symlink', linkname: file.linkname },
+        Buffer.from(file.content)
+      );
+    } else {
+      pack.entry({ name: file.name, type: file.type ?? 'file' }, Buffer.from(file.content));
+    }
   }
   pack.finalize();
   await finished;
@@ -134,5 +146,25 @@ describe('streamed npm tar extraction', () => {
     });
     expect(directories).toEqual(['/package/empty']);
     expect(files.get('/package/value.js')).toEqual(new Uint8Array([2]));
+  });
+
+  it('strips one archive root component and preserves relative symlink targets', async () => {
+    const compressed = await archive([
+      { name: 'ejs-archive/lib/ejs.js', content: new Uint8Array([7]) },
+      {
+        name: 'ejs-archive/bin/ejs',
+        type: 'symlink',
+        linkname: '../lib/ejs.js',
+        content: new Uint8Array(),
+      },
+    ]);
+    const entries: TarEntry[] = [];
+    await new TarExtractor().extractFromStream('/package', decompress(compressed), async entry => {
+      entries.push(entry);
+    });
+    expect(entries).toEqual([
+      { type: 'file', path: '/package/lib/ejs.js', content: new Uint8Array([7]) },
+      { type: 'symlink', path: '/package/bin/ejs', target: '../lib/ejs.js' },
+    ]);
   });
 });

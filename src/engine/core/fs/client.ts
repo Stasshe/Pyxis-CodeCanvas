@@ -78,6 +78,18 @@ export class FsClient implements FsApi {
   async stat(path: string): Promise<ProjectFile> {
     return (await this.api()).stat(path);
   }
+  async lstat(path: string): Promise<ProjectFile> {
+    return (await this.api()).lstat(path);
+  }
+  async realpath(path: string): Promise<string> {
+    return (await this.api()).realpath(path);
+  }
+  async readlink(path: string): Promise<string> {
+    return (await this.api()).readlink(path);
+  }
+  async symlink(target: string, path: string): Promise<void> {
+    await (await this.api()).symlink(target, path);
+  }
   async mkdir(path: string, options?: MkdirOptions): Promise<void> {
     await (await this.api()).mkdir(path, options);
   }

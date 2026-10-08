@@ -137,18 +137,18 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。FS Workerは直近の成功path lookupのdirectory handle chainを保持して共通ancestorを再利用しますが、file handleやfile内容はcacheしません。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。詳細は[Node.js Runtime](docs/NODE-RUNTIME.md)を参照してください。
+Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。FS Workerは直近の成功path lookupのdirectory handle chainを保持して共通ancestorを再利用しますが、file handleやfile内容はcacheしません。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。symlinkはFS WorkerがOPFS上のreserved recordで表し、module cacheとNode metadataはrealpathを基準にします。npmの`.bin`はsymlinkとして作られ、Terminalと`npx`から解決できます。`node:constants`はfsと共有する定数を公開し、`node:zlib`はgzip/deflate系の同期・callback APIとstream変換を提供します。`node:string_decoder`にはNode-maintained実装を使い、`node:querystring`はNode互換のparse/stringifyを提供します。`process.arch`は`os.arch()`と同じ値を返します。詳細は[Node.js Runtime](docs/NODE-RUNTIME.md)を参照してください。
 仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npmはinstall中に依存metadataを共有し、npm registryのabbreviated packumentを`~/.npm/registry`へ保存します。HTTP freshnessに従い、期限切れmetadataはETagで再検証します。tarball archiveはURLのSHA-256で識別し、registryまたはlockfileにintegrity値があれば展開前に検証します。tarball cacheは展開成功後に`~/.npm`へ保存します。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
 - **分離した実行環境** - 実行ごとにmodule cacheやtimerなどの状態を作り直し、Workerは正常終了時に再利用
-- **ファイル操作** - `fs`, `readline`, `userinterface` など主要モジュールがそのまま使える
+- **ファイル操作** - `fs`, `path`, `readline`, `userinterface` の対応APIを提供
 - **TypeScript対応** - 拡張機能のトランスパイル設定でTypeScriptを実行
 - **気軽にコード実行** - アルゴリズムテスト、学習、インタラクティブなコンソールアプリもOK
 
 JavaScriptでは不可能なファイルオペレーションやインタラクティブな入出力（readline, userinterface）もエミュレートし、本格的なNode.js/TypeScript学習環境を提供。
 
 
-> **制限事項**: ネイティブNode.jsアドオンは利用できません。`child_process` はPyxisのシェル機能を通じて実行します。
+> **制限事項**: ネイティブNode.jsアドオン、socket、HTTP server APIは利用できません。`child_process` はPyxisのシェル機能を通じて実行します。
 
 ---
 

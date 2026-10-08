@@ -41,11 +41,21 @@ FS Workerの`FsCore`がOPFSと揮発性`/tmp`を所有する。Runtime Workerは
 
 module解決は1つのresolverを使い、非同期の先読みと同期`require`の両方で成功した解決先を実行内に保持する。同期経路は未解決の候補だけをFS Workerへ問い合わせる。通常のCommonJS fileは実行ごとのmodule cacheで一度読み込み、変換済みmoduleの永続cacheはFS Workerが所有する。これらのcacheは用途と寿命が異なり、Runtime Workerに独立したfile Mapは持たない。CommonJSの循環requireはロード途中のpartial exportsを返し、`module.exports`の置換も反映する。CommonJSとESMのnamespace生成も同じ実行内module cacheを使う。`fs`の同期APIも同じbridgeを使う。
 
+解決済みmoduleは`realpath`をcache identityに使う。symlink経由のentryは実targetのfilename・package探索・module metadataを使い、`process.argv[1]`には起動時のpathを保つ。CommonJSの`module.id`はentryで`.`、dependencyではcanonical filenameとなる。`module.path`と`module.paths`はNodeのancestor `node_modules`探索を示し、`module.parent`・`module.children`・`module.loaded`はロード関係を反映する。`module.require()`はそのmoduleのcontextから同じresolverを使う。entry自身をrequireした場合も実行中moduleのexportsを返す。
+
+OPFSにsymlink entryはないため、FS Workerはreserved root `.pyxis-fs-links`内にlink pathごとのrecordを保存する。recordはliteral targetを含む正本でfile payloadはraw bytesのまま保ち、Worker内のMapは小さなlookup indexに限る。`fs`はcallback・sync・promises APIの`symlink`・`readlink`・`lstat`・`realpath`を提供し、`realpath.native` / `realpathSync.native`は対応実装のaliasとなる。callbackとpromiseの両形式も`mkdir`・`rename`・`rm`・`unlink`・`access`で利用できる。通常のpath operationはfinal linkを追い、`lstat`・`readlink`・rename・removeは追わない。intermediate linkは追い、相対targetはlink parentを基準に解決し、target内の`..`はlink traversal後に処理する。`readdir`とtree walkにはlinkが現れるが、walkは辿らない。40回を超えるlink追跡は`ELOOP`となる。`/tmp`のlinkは揮発性。`Stats`と`Dirent`はsymlinkを識別し、`Stats`は`bigint: true`を扱う。`mode`はfile `0644`、directory `0755`、symlink `0777`の固定virtual値で、inode・device fieldとOS permission変更APIは提供しない。directory renameは既存のcopy-then-remove動作でliteral targetを保つため、POSIXのatomic renameではない。
+
+File descriptor対応はpathをkeyにした同期subsetで、`openSync`・`readSync`・`writeSync`・`closeSync`・`fstatSync`を提供する。stdout/stderrのfd 1・2は`writeSync`できる。descriptorはopen時のpathを参照し、rename/unlink後もinode identityを保つOS descriptorではない。完全なasync descriptor APIは提供しない。
+
 module種別はJavaScript parserで判定する。`.mjs` / `.mts`はESM、`.cjs` / `.cts`はCommonJSとして扱い、`.js` / `.ts`は最寄りの`package.json`の`type`に従う。`type`がない場合はsource grammarで判定する。packageの`exports`と`imports`は`import` / `require`などの実行条件とNodeのpath規則で解決する。Function constructorのbodyもparserで解析し、そこにあるimportを同じI/O追跡経路へ渡す。regexでsource構文を推測してmodule種別を決めない。
+
+`node:constants`はfilesystem access、file type、open、copyの定数を公開し、`fs.constants`と共有する。`node:zlib`はgzip、deflate、raw deflate、inflate、raw inflate、gunzip、unzipを同期API・callback API・stream変換で提供する。圧縮処理にはpakoを使い、Brotliとzlib promisesは提供しない。`node:string_decoder`はNode-maintained実装を使う。`node:querystring`はNode準拠のparse/stringify alias、escape/unescape、`maxKeys`、custom URI decode/encode callbackを提供する。`node:net`は`isIP`・`isIPv4`・`isIPv6`だけを提供し、Socket・Serverと通信APIは未対応。`process.arch`は`os.arch()`と同じ値を返す。
 
 Node `fs` and shell streams preserve file bytes. `readFile` returns a Buffer unless an encoding is explicitly requested; an encoding such as `utf8`, `hex`, or `base64` converts only at that call. Stdin, stdout, pipes, and redirection retain bytes; terminal rendering is the decoding boundary.
 
 Runtimeの仮想HOMEは`/home/pyxis`。新規workspaceの配置先は`~/<name>`で、module cacheは`~/.cache/pyxis`、npm tarball cacheは`~/.npm`。npm metadataは必要時にregistryから取得し、cacheしない。tarball URLのSHA-256で名前を決めたarchiveだけを展開成功後にcacheする。`/tmp`はFS Worker内の揮発領域で、Node実行をまたいで共有される。
+
+npm archive展開はfile・directory・symlink entryで先頭のwrapper componentを1つ除き、link targetはliteralのまま保存する。package root外へ解決される書込みは拒否する。packageの`.bin/<name>`は宣言された実行fileへのrelative symlinkで、Terminalと`npx`はcwdから上位へ`node_modules/.bin`を探して実行する。tar hardlinkは未対応。
 
 ## 計測の再実行
 
@@ -61,7 +71,7 @@ FS Workerはtranspile要求を一つずつ処理し、必要になったとき�
 
 ## 対応範囲
 
-Runtimeは`fs`、`path`、`readline`、`child_process`などのブラウザ内実装を提供する。`child_process`はPyxisのshell機能に接続される。ネイティブNode.js addon、`worker_threads`、完全なOS process環境は提供しない。
+Runtimeは`fs`、`path`、`readline`、`child_process`などのブラウザ内実装を提供する。`child_process`はPyxisのshell機能に接続される。`net`はIP address helperに限り、native socketは作成しない。`node:http`には`ServerResponse`とHTTP server実装がなく、server-side HTTP APIは提供しない。ネイティブNode.js addon、`worker_threads`、完全なOS process環境は提供しない。
 
 ## 未検証項目
 

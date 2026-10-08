@@ -1,7 +1,7 @@
 import { resolvePath } from '@/engine/core/fs';
 import type { FsApi } from '@/engine/core/fs/types';
 import { rootDependencyRequests } from './install/lockfile';
-import type { InstallProgressCallback } from './install/types';
+import type { InstallProgressCallback, InstallResult } from './install/types';
 import { NpmInstall } from './npmInstall';
 
 interface PackageJson {
@@ -51,17 +51,8 @@ export class WorkerNpmCommands {
     try {
       if (!packageName) {
         const requests = rootDependencyRequests(packageJson);
-        const names = requests.map(request => request.name);
-        const installed = await installer.installDependencies(
-          requests,
-          'node_modules',
-          packageJson
-        );
-        const elapsed = secondsSince(started);
-        if (installed === 0) {
-          return `up to date, audited ${names.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        }
-        return `added ${installed} packages, and audited ${names.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        const result = await installer.installDependencies(requests, 'node_modules', packageJson);
+        return installSummary(result, started);
       }
       const isDev = flags.includes('--save-dev') || flags.includes('-D');
       let requestedVersion = 'latest';
@@ -85,11 +76,8 @@ export class WorkerNpmCommands {
       const requests = rootDependencyRequests(packageJson);
       const requested = requests.find(request => request.name === packageName);
       if (requested) requested.version = packageInfo.version;
-      const installed = await installer.installDependencies(requests, 'node_modules', packageJson);
-      const audited = requests.length;
-      if (installed === 0)
-        return `up to date, audited ${audited} packages in ${secondsSince(started)}s\n\nfound 0 vulnerabilities`;
-      return `added ${installed} packages, and audited ${audited} packages in ${secondsSince(started)}s\n\nfound 0 vulnerabilities`;
+      const result = await installer.installDependencies(requests, 'node_modules', packageJson);
+      return installSummary(result, started);
     } catch (error) {
       let message = String(error);
       if (error instanceof Error) message = error.message;
@@ -119,7 +107,7 @@ export class WorkerNpmCommands {
     let removedCount = removed.length;
     if (removedCount === 0) removedCount = 1;
     else removedCount += 1;
-    return `removed ${removedCount} packages in ${secondsSince(started)}s\n\nfound 0 vulnerabilities`;
+    return `removed ${removedCount} packages in ${secondsSince(started)}s`;
   }
 
   async list(projectName: string): Promise<string> {
@@ -174,4 +162,15 @@ export class WorkerNpmCommands {
 
 function secondsSince(started: number): string {
   return ((Date.now() - started) / 1000).toFixed(1);
+}
+
+function packages(count: number): string {
+  if (count === 1) return '1 package';
+  return `${count} packages`;
+}
+
+function installSummary(result: InstallResult, started: number): string {
+  let action = 'up to date';
+  if (result.installed > 0) action = `added ${packages(result.installed)}`;
+  return `${action}, checked ${packages(result.packageCount + 1)} in ${secondsSince(started)}s`;
 }

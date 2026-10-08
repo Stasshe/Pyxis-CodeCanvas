@@ -1,46 +1,6 @@
-/**
- * Module Module
- *
- * Node.js 'module' module implementation
- */
+import { NODE_BUILTIN_MODULES } from '@/engine/runtime/module/builtinModules';
 
-export const builtinModules = [
-  'assert',
-  'buffer',
-  'child_process',
-  'cluster',
-  'console',
-  'constants',
-  'crypto',
-  'dgram',
-  'dns',
-  'domain',
-  'events',
-  'fs',
-  'fs/promises',
-  'http',
-  'https',
-  'module',
-  'net',
-  'os',
-  'path',
-  'process',
-  'punycode',
-  'querystring',
-  'readline',
-  'repl',
-  'stream',
-  'string_decoder',
-  'sys',
-  'timers',
-  'tls',
-  'tty',
-  'url',
-  'util',
-  'v8',
-  'vm',
-  'zlib',
-];
+export const builtinModules = NODE_BUILTIN_MODULES;
 
 export function createModuleModule(requireFactory?: (filename: string) => (id: string) => unknown) {
   return {

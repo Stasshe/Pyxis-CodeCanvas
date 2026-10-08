@@ -34,6 +34,7 @@ export interface ProcessObject {
   argv: string[];
   cwd(): string;
   platform: string;
+  arch: string;
   version: string;
   versions: Record<string, string>;
   hrtime: ((time?: [number, number]) => [number, number]) & { bigint(): bigint };

@@ -8,6 +8,7 @@ vi.mock('sync-message', () => ({
 
 import { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import { attachRuntimePort } from '@/engine/runtime/bridge/endpoint';
+import type { FsStat } from '@/engine/runtime/bridge/protocol';
 import { ModuleFileSystem } from '@/engine/runtime/module/moduleFileSystem';
 import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 
@@ -29,6 +30,16 @@ export function createTestModuleResolver(repo: FsCore, rootPath: string) {
         if (entry.type === 'folder') type = 'directory';
         return { type, size: entry.size, mtime: entry.mtime };
       },
+      async lstat(path) {
+        const entry = await repo.lstat(path);
+        let type: FsStat['type'] = 'file';
+        if (entry.type === 'folder') type = 'directory';
+        if (entry.type === 'symlink') type = 'symlink';
+        return { type, size: entry.size, mtime: entry.mtime };
+      },
+      realpath: path => repo.realpath(path),
+      readlink: path => repo.readlink(path),
+      symlink: (target, path) => repo.symlink(target, path),
       mkdir: (path, options) => repo.mkdir(path, options),
       rm: (path, options) => repo.rm(path, options),
       rename: (path, newPath) => repo.rename(path, newPath),

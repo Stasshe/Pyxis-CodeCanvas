@@ -1,7 +1,7 @@
 export interface FileItem {
   id: string;
   name: string;
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'symlink';
   content?: string;
   children?: FileItem[];
   path: string;
@@ -54,7 +54,7 @@ export interface Project {
 
 export interface ProjectFile {
   path: string;
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'symlink';
   size: number;
   mtime: number;
 }

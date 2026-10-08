@@ -4,6 +4,12 @@ const timelinePhases = new Set([
   'install.jobs',
   'registry.total',
   'network.queue',
+  'worker.install',
+  'worker.readPackage',
+  'worker.writePackage',
+  'worker.progress',
+  'worker.promptGit',
+  'fs.walk',
 ]);
 let active = null;
 
@@ -116,6 +122,8 @@ function installFetchHooks() {
       endMs: null,
       status: 0,
       bytes: 0,
+      contentEncoding: null,
+      contentLength: null,
     };
     sample.network.push(request);
     const complete = enter(`network.${group}`);
@@ -130,6 +138,8 @@ function installFetchHooks() {
       response = await original.call(this, input, options);
       request.headersMs = performance.now() - sample.started;
       request.status = response.status;
+      request.contentEncoding = response.headers.get('content-encoding');
+      request.contentLength = response.headers.get('content-length');
       headersComplete(false);
     } catch (error) {
       headersComplete(true);
@@ -197,14 +207,23 @@ function installOpfsHooks() {
 }
 
 export async function installProfileHooks() {
-  const [{ FsCore }, { NpmInstall }, { TarExtractor }, { NpmNetwork }, { RegistryClient }] =
-    await Promise.all([
-      import('/src/engine/core/fs/core.ts'),
-      import('/src/engine/cmd/global/npmOperations/npmInstall.ts'),
-      import('/src/engine/cmd/global/npmOperations/install/tarExtractor.ts'),
-      import('/src/engine/cmd/global/npmOperations/install/npmNetwork.ts'),
-      import('/src/engine/cmd/global/npmOperations/install/registryClient.ts'),
-    ]);
+  const [
+    { FsCore },
+    { NpmInstall },
+    { TarExtractor },
+    { NpmNetwork },
+    { RegistryClient },
+    { WorkerNpmCommands },
+    { WorkerGitCommands },
+  ] = await Promise.all([
+    import('/src/engine/core/fs/core.ts'),
+    import('/src/engine/cmd/global/npmOperations/npmInstall.ts'),
+    import('/src/engine/cmd/global/npmOperations/install/tarExtractor.ts'),
+    import('/src/engine/cmd/global/npmOperations/install/npmNetwork.ts'),
+    import('/src/engine/cmd/global/npmOperations/install/registryClient.ts'),
+    import('/src/engine/cmd/global/npmOperations/worker.ts'),
+    import('/src/engine/cmd/global/gitOperations/worker.ts'),
+  ]);
   for (const method of ['stat', 'exists', 'readText', 'mkdir', 'readdir', 'walk']) {
     wrapAsync(FsCore.prototype, method, `fs.${method}`);
   }
@@ -222,6 +241,25 @@ export async function installProfileHooks() {
     }
   );
   wrapAsync(FsCore.prototype, 'directory', 'fs.directory');
+  wrapSync(FsCore.prototype, 'emit', 'fs.emit');
+  wrapAsync(WorkerNpmCommands.prototype, 'install', 'worker.install');
+  wrapAsync(WorkerNpmCommands.prototype, 'readPackage', 'worker.readPackage');
+  wrapAsync(WorkerNpmCommands.prototype, 'writePackage', 'worker.writePackage');
+  wrapAsync(WorkerGitCommands.prototype, 'getCurrentBranch', 'worker.promptGit');
+  const setProgress = NpmInstall.prototype.setInstallProgressCallback;
+  NpmInstall.prototype.setInstallProgressCallback = function (callback) {
+    return setProgress.call(this, async (...args) => {
+      const end = enter('worker.progress');
+      try {
+        const result = await callback(...args);
+        end?.(false);
+        return result;
+      } catch (error) {
+        end?.(true);
+        throw error;
+      }
+    });
+  };
   wrapAsync(NpmInstall.prototype, 'resolvePackageInfo', 'install.resolve');
   wrapAsync(NpmInstall.prototype, 'installDependencies', 'install.total');
   wrapAsync(NpmInstall.prototype, 'installPackageJobs', 'install.jobs');
@@ -252,6 +290,8 @@ export async function installProfileHooks() {
     const { action, id } = event.data;
     let metrics = null;
     if (action === 'start') {
+      performance.clearResourceTimings();
+      performance.setResourceTimingBufferSize(2000);
       active = {
         metrics: {},
         bytes: { registry: 0, tarball: 0 },
@@ -264,11 +304,35 @@ export async function installProfileHooks() {
     } else if (action === 'finish') {
       if (!active) throw new Error('No active npm benchmark profile.');
       metrics = {
+        startedAt: performance.timeOrigin + active.started,
         wallMs: performance.now() - active.started,
         phases: active.metrics,
         bytes: active.bytes,
         requests: active.urls,
         network: active.network,
+        resourceTimeOrigin: performance.timeOrigin,
+        resources: performance
+          .getEntriesByType('resource')
+          .filter(entry => active.urls[entry.name])
+          .map(entry => ({
+            name: entry.name,
+            initiatorType: entry.initiatorType,
+            startTime: entry.startTime,
+            duration: entry.duration,
+            fetchStart: entry.fetchStart,
+            domainLookupStart: entry.domainLookupStart,
+            domainLookupEnd: entry.domainLookupEnd,
+            connectStart: entry.connectStart,
+            connectEnd: entry.connectEnd,
+            secureConnectionStart: entry.secureConnectionStart,
+            requestStart: entry.requestStart,
+            responseStart: entry.responseStart,
+            responseEnd: entry.responseEnd,
+            transferSize: entry.transferSize,
+            encodedBodySize: entry.encodedBodySize,
+            decodedBodySize: entry.decodedBodySize,
+            nextHopProtocol: entry.nextHopProtocol,
+          })),
         timeline: active.timeline,
         pending: Array.from(active.pending, ([name, value]) => ({ name, count: value.count })),
       };

@@ -348,6 +348,7 @@ interface ExtensionContext {
 ### Workspace file access
 
 `fsClient` takes absolute paths and returns metadata from `stat` and `readdir`. Read contents explicitly: `readText` decodes UTF-8, while `readFile` returns the file's raw bytes as a `Uint8Array`.
+For symbolic links, `lstat` returns link metadata, `readlink` returns the stored target, `realpath` resolves a canonical path, and `symlink(target, path)` creates a link.
 
 ```typescript
 const fs = await context.getSystemModule('fsClient');

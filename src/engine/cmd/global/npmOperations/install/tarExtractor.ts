@@ -3,7 +3,8 @@ import { isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
 
 export type TarEntry =
   | { type: 'file'; path: string; content: Uint8Array }
-  | { type: 'directory'; path: string };
+  | { type: 'directory'; path: string }
+  | { type: 'symlink'; path: string; target: string };
 
 type EntryConsumer = (entry: TarEntry) => Promise<void>;
 
@@ -37,10 +38,13 @@ function drain(extract: tarStream.Extract): Promise<void> {
 
 export class TarExtractor {
   private entryPath(packageDir: string, header: tarStream.Headers): string | null {
-    if (header.type !== 'file' && header.type !== 'directory') return null;
-    let name = header.name;
-    if (name.startsWith('package/')) name = name.slice(8);
-    if (!name || posixPath.isAbsolute(name)) return null;
+    if (header.type !== 'file' && header.type !== 'directory' && header.type !== 'symlink')
+      return null;
+    const archivePath = posixPath.normalize(header.name);
+    if (posixPath.isAbsolute(archivePath) || archivePath === '..' || archivePath.startsWith('../'))
+      return null;
+    const name = archivePath.split('/').slice(1).join('/');
+    if (!name) return null;
     const path = resolvePath(packageDir, name);
     if (path === packageDir || !isPathWithin(path, packageDir)) return null;
     return path;
@@ -82,6 +86,9 @@ export class TarExtractor {
             await onEntry({ type: 'file', path, content });
           } else if (path && entry.header.type === 'directory') {
             await onEntry({ type: 'directory', path });
+          } else if (path && entry.header.type === 'symlink') {
+            if (!entry.header.linkname) throw new Error(`Symlink has no target: ${path}`);
+            await onEntry({ type: 'symlink', path, target: entry.header.linkname });
           }
         } catch (error) {
           let failure = new Error(String(error));

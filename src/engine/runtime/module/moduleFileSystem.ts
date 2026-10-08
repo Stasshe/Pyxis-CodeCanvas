@@ -5,6 +5,19 @@ import { ModuleCode, type ModuleDependency } from './moduleCode';
 export class ModuleFileSystem {
   constructor(private readonly bridge: RuntimeBridge) {}
 
+  async realpath(path: string): Promise<string> {
+    return this.decodePath(await this.bridge.async({ kind: 'fs', op: 'realpath', path }));
+  }
+
+  realpathSync(path: string): string {
+    return this.decodePath(this.bridge.sync({ kind: 'fs', op: 'realpath', path }));
+  }
+
+  private decodePath(value: RpcValue): string {
+    if (typeof value !== 'string') throw new Error('Filesystem returned invalid realpath data.');
+    return value;
+  }
+
   async readFile(path: string): Promise<string> {
     const result = await this.bridge.async({ kind: 'fs', op: 'readFile', path });
     return this.decodeText(result, path);

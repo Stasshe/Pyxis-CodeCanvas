@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FsCore } from '@/engine/core/fs/core';
 import { NPM_CACHE_PATH, RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
+import type { FsChangeEvent } from '@/engine/core/fs/types';
 import { HOME_DIR } from '@/engine/core/pathUtils';
 import { directoryTree, storage } from '../../../_helpers/opfs';
 
@@ -146,6 +147,99 @@ describe('OPFS directory handle reuse', () => {
 });
 
 describe('OPFS access handle lifecycle', () => {
+  it('serializes creation, replacement and committed event metadata for the same path', async () => {
+    const root = directoryTree();
+    const core = new FsCore();
+    await core.init(root);
+    const events: FsChangeEvent[] = [];
+    core.setChangeListener(event => events.push(event));
+    const lookup = root.getFileHandle.bind(root);
+    let configured = false;
+    vi.spyOn(root, 'getFileHandle').mockImplementation(async (name, options) => {
+      const handle = await lookup(name, options);
+      if (name === 'file' && !configured) {
+        configured = true;
+        const read = handle.getFile.bind(handle);
+        let mtime = 1234;
+        vi.spyOn(handle, 'getFile').mockImplementation(async () => {
+          const file = await read();
+          const result = new File([await file.arrayBuffer()], 'file', { lastModified: mtime });
+          mtime = 5678;
+          return result;
+        });
+      }
+      return handle;
+    });
+
+    await Promise.all([core.writeFile('/file', 'first'), core.writeFile('/file', 'x')]);
+
+    expect(events).toEqual([
+      {
+        type: 'create',
+        path: '/file',
+        file: { path: '/file', type: 'file', size: 5, mtime: 1234 },
+      },
+      {
+        type: 'update',
+        path: '/file',
+        file: { path: '/file', type: 'file', size: 1, mtime: 5678 },
+      },
+    ]);
+    expect(await core.readText('/file')).toBe('x');
+  });
+
+  it('writes through a dangling link and preserves directory path errors', async () => {
+    const core = new FsCore();
+    await core.init(directoryTree());
+    await core.mkdir('/directory');
+    await core.symlink('/directory/file', '/link');
+    const events: FsChangeEvent[] = [];
+    core.setChangeListener(event => events.push(event));
+
+    await core.writeFile('/link', 'payload');
+    expect(await core.readText('/directory/file')).toBe('payload');
+    expect(await core.readlink('/link')).toBe('/directory/file');
+    expect(events).toEqual([
+      {
+        type: 'create',
+        path: '/directory/file',
+        file: expect.objectContaining({ path: '/directory/file', type: 'file', size: 7 }),
+      },
+    ]);
+    events.length = 0;
+    await expect(core.writeFile('/link/', 'x')).rejects.toMatchObject({ code: 'ENOTDIR' });
+    await expect(core.writeFile('/directory', 'x')).rejects.toMatchObject({ code: 'EISDIR' });
+    await expect(core.writeFile('/missing/file', 'x')).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(events).toEqual([]);
+    expect(await core.readText('/directory/file')).toBe('payload');
+  });
+
+  it('closes before event metadata and releases the queue after metadata failure', async () => {
+    const backing = storage(new Uint8Array([1]));
+    const core = new FsCore();
+    await core.init(backing.root);
+    const events: FsChangeEvent[] = [];
+    core.setChangeListener(event => events.push(event));
+    const metadata = backing.file.getFile.bind(backing.file);
+    vi.spyOn(backing.file, 'getFile').mockImplementationOnce(async () => {
+      expect(backing.access.close).toHaveBeenCalledOnce();
+      throw new Error('metadata failed');
+    });
+
+    await expect(core.writeFile('/file', 'first')).rejects.toThrow('metadata failed');
+    expect(events).toEqual([]);
+    await core.writeFile('/file', 'next');
+    const file = await metadata();
+    expect(events).toEqual([
+      {
+        type: 'update',
+        path: '/file',
+        file: expect.objectContaining({ path: '/file', type: 'file', size: file.size }),
+      },
+    ]);
+    expect(await core.readText('/file')).toBe('next');
+  });
+
   it('closes reads and writes and truncates shorter replacements', async () => {
     const backing = storage(new Uint8Array([1, 2, 3, 4]));
     const core = new FsCore();

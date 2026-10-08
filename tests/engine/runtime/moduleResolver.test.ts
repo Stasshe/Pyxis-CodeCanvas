@@ -342,6 +342,21 @@ describe('ModuleResolver', () => {
     }
   });
 
+  it('canonicalizes linked files before determining their package type', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/package.json`, '{"type":"commonjs"}');
+    await fixture.writeFile(`${rootPath}/target/package.json`, '{"type":"module"}');
+    const target = `${rootPath}/target/file.js`;
+    await fixture.writeFile(target, 'export const value = 1;');
+    await fixture.fs.symlink('./target/file.js', `${rootPath}/linked.js`);
+    const asynchronous = await resolver.resolve('./linked.js', `${rootPath}/entry.js`);
+    expect(asynchronous?.path).toBe(target);
+    expect(await resolver.packageType(asynchronous!.path)).toBe('module');
+    const linked = resolver.resolveSync('../linked.js', `${rootPath}/other/entry.js`);
+    expect(linked?.path).toBe(target);
+    expect(resolver.packageTypeSync(linked!.path)).toBe('module');
+  });
+
   it('rejects encoded file URL separators before resolving filesystem paths', async () => {
     const { fixture, resolver, rootPath } = await createResolver();
     await fixture.writeFile(`${rootPath}/source/file.js`, 'module.exports = 1');

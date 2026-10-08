@@ -1,5 +1,5 @@
 import type { RuntimeBridge } from '../bridge/client';
-import type { FsStat } from '../bridge/protocol';
+import type { FsStat, RpcValue } from '../bridge/protocol';
 import type { MountStat } from './types';
 
 function bytes(value: string | Uint8Array): number[] {
@@ -16,6 +16,13 @@ function isNotFound(error: unknown): boolean {
 
 function mountStat(value: FsStat): MountStat {
   return { type: value.type, size: value.size, mtime: new Date(value.mtime) };
+}
+
+function stringValue(value: RpcValue, operation: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Runtime filesystem returned an invalid ${operation} value.`);
+  }
+  return value;
 }
 
 export class RuntimeFsMount {
@@ -59,8 +66,16 @@ export class RuntimeFsMount {
   }
 
   statSync(path: string): MountStat | null {
+    return this.statRequestSync(path, 'stat');
+  }
+
+  lstatSync(path: string): MountStat | null {
+    return this.statRequestSync(path, 'lstat');
+  }
+
+  private statRequestSync(path: string, op: 'stat' | 'lstat'): MountStat | null {
     try {
-      const value = this.bridge.sync({ kind: 'fs', op: 'stat', path });
+      const value = this.bridge.sync({ kind: 'fs', op, path });
       if (value === null) return null;
       if (typeof value !== 'object' || Array.isArray(value) || !isFsStat(value)) {
         throw new Error('Runtime filesystem returned invalid stat data.');
@@ -70,6 +85,18 @@ export class RuntimeFsMount {
       if (isNotFound(error)) return null;
       throw error;
     }
+  }
+
+  readlinkSync(path: string): string {
+    return stringValue(this.bridge.sync({ kind: 'fs', op: 'readlink', path }), 'readlink');
+  }
+
+  realpathSync(path: string): string {
+    return stringValue(this.bridge.sync({ kind: 'fs', op: 'realpath', path }), 'realpath');
+  }
+
+  symlinkSync(target: string, path: string): void {
+    this.bridge.sync({ kind: 'fs', op: 'symlink', target, path });
   }
 
   renameSync(oldPath: string, newPath: string): void {
@@ -114,8 +141,16 @@ export class RuntimeFsMount {
   }
 
   async stat(path: string): Promise<MountStat | null> {
+    return this.statRequest(path, 'stat');
+  }
+
+  async lstat(path: string): Promise<MountStat | null> {
+    return this.statRequest(path, 'lstat');
+  }
+
+  private async statRequest(path: string, op: 'stat' | 'lstat'): Promise<MountStat | null> {
     try {
-      const value = await this.bridge.async({ kind: 'fs', op: 'stat', path });
+      const value = await this.bridge.async({ kind: 'fs', op, path });
       if (value === null) return null;
       if (typeof value !== 'object' || Array.isArray(value) || !isFsStat(value)) {
         throw new Error('Runtime filesystem returned invalid stat data.');
@@ -125,6 +160,18 @@ export class RuntimeFsMount {
       if (isNotFound(error)) return null;
       throw error;
     }
+  }
+
+  async readlink(path: string): Promise<string> {
+    return stringValue(await this.bridge.async({ kind: 'fs', op: 'readlink', path }), 'readlink');
+  }
+
+  async realpath(path: string): Promise<string> {
+    return stringValue(await this.bridge.async({ kind: 'fs', op: 'realpath', path }), 'realpath');
+  }
+
+  async symlink(target: string, path: string): Promise<void> {
+    await this.bridge.async({ kind: 'fs', op: 'symlink', target, path });
   }
 
   async rename(oldPath: string, newPath: string): Promise<void> {

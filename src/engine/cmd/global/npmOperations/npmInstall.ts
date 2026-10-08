@@ -1,4 +1,5 @@
-import { getParentPath, resolvePath } from '@/engine/core/fs';
+import { getParentPath, isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
+import { FSError } from '@/engine/core/fs/errors';
 import { NPM_CACHE_PATH } from '@/engine/core/fs/layout';
 import type { FsApi } from '@/engine/core/fs/types';
 import { ensureGitignoreContains } from '@/engine/core/gitignore';
@@ -28,8 +29,10 @@ import {
   parseDependencySpec,
   pruneFailedOptionalPackages,
 } from './install/tree';
-import type { InstallProgressCallback, PackageInfo } from './install/types';
+import type { InstallProgressCallback, InstallResult, PackageInfo } from './install/types';
 import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
+
+const PACKAGE_INSTALL_CONCURRENCY = 6;
 
 export type { InstallProgressCallback };
 
@@ -93,26 +96,21 @@ export class NpmInstall {
       0,
       packagePath.lastIndexOf('node_modules/') + 'node_modules'.length
     );
-    await this.fs.mkdir(this.path(`${modulesPath}/.bin`), { recursive: true });
+    const packageDirectory = this.path(packagePath);
+    const packageRoot = await this.fs.realpath(packageDirectory);
+    const binDirectory = this.path(`${modulesPath}/.bin`);
+    await this.fs.mkdir(binDirectory, { recursive: true });
     for (const [name, relPath] of Object.entries(bins)) {
       if (!name || name === '.' || name === '..' || /[/\\]/.test(name))
         throw new Error(`Invalid bin name '${name}'`);
-      const target = resolvePath(this.path(packagePath), relPath);
-      if (!target.startsWith(`${this.path(packagePath)}/`))
+      const target = resolvePath(packageDirectory, relPath);
+      const realTarget = await this.fs.realpath(target);
+      if (!isPathWithin(realTarget, packageRoot))
         throw new Error(`Bin '${name}' escapes package directory`);
-      const rel = relPath.replace(/^\.\//, '').replace(/^\/+/, '');
-      const shim = [
-        '#!/usr/bin/env node',
-        `// shim for ${packageName} bin: ${name}`,
-        'try {',
-        `  require('../${packageName}/${rel}');`,
-        '} catch (e) {',
-        "  if (e && typeof e === 'object' && e.__pyxisProcessExit === true) throw e;",
-        `  console.error('Failed to run ${name}:', e?.message ?? e);`,
-        '  process.exit(1);',
-        '}',
-      ].join('\n');
-      await this.fs.writeFile(this.path(`${modulesPath}/.bin/${name}`), shim);
+      const binPath = resolvePath(binDirectory, name);
+      const linkTarget = posixPath.relative(binDirectory, target);
+      await this.fs.rm(binPath, { force: true });
+      await this.fs.symlink(linkTarget, binPath);
     }
   }
 
@@ -191,7 +189,7 @@ export class NpmInstall {
     requests: DependencyRequest[],
     ignoreEntry = 'node_modules',
     manifest?: RootManifest
-  ): Promise<number> {
+  ): Promise<InstallResult> {
     await this.ensureGitignoreEntry(ignoreEntry);
     let lock: PackageLock | undefined;
     const lockPath = this.path('package-lock.json');
@@ -280,7 +278,10 @@ export class NpmInstall {
         `${JSON.stringify(createLockfile(manifest, plan), null, 2)}\n`
       );
     }
-    return pending.filter(dependency => !skipped.has(dependency.path)).length;
+    return {
+      installed: pending.filter(dependency => !skipped.has(dependency.path)).length,
+      packageCount: plan.length,
+    };
   }
 
   async installWithDependencies(
@@ -375,7 +376,7 @@ export class NpmInstall {
         }
       }
     };
-    const workerCount = Math.min(NPM_NETWORK_CONCURRENCY, queue.length);
+    const workerCount = Math.min(PACKAGE_INSTALL_CONCURRENCY, queue.length);
     const workers: Promise<void>[] = [];
     for (let index = 0; index < workerCount; index += 1) workers.push(runJob());
     await Promise.all(workers);
@@ -423,23 +424,30 @@ export class NpmInstall {
       }
       let touchedPackage = false;
       let filesystemFailure = false;
+      let packageRoot = '';
       const createdDirectories = new Set<string>();
       try {
         await this.extractor.extractFromStream(packageDir, decompressedStream, async entry => {
-          if (!touchedPackage) await this.fs.rm(packageDir, { recursive: true, force: true });
-          touchedPackage = true;
           try {
-            if (!createdDirectories.has(packageDir)) {
+            if (!touchedPackage) {
+              await this.fs.rm(packageDir, { recursive: true, force: true });
+              touchedPackage = true;
               await this.fs.mkdir(packageDir, { recursive: true });
               createdDirectories.add(packageDir);
+              packageRoot = await this.fs.realpath(packageDir);
             }
-            await this.writeTarEntry(entry, packageDir, createdDirectories);
+            await this.writeTarEntry(entry, packageDir, packageRoot, createdDirectories);
           } catch (error) {
             filesystemFailure = true;
             throw error;
           }
         });
-        if (!(await this.files.getFile(`${packageDir}/package.json`))) {
+        const packageJsonPath = `${packageDir}/package.json`;
+        if (!touchedPackage || !packageRoot) {
+          throw new Error(`Package archive has no package.json: ${packageName}@${version}`);
+        }
+        await this.assertPackagePath(packageJsonPath, packageRoot);
+        if (!(await this.files.getFile(packageJsonPath))) {
           throw new Error(`Package archive has no package.json: ${packageName}@${version}`);
         }
       } catch (error) {
@@ -463,19 +471,46 @@ export class NpmInstall {
   private async writeTarEntry(
     entry: TarEntry,
     packageDir: string,
+    packageRoot: string,
     createdDirectories: Set<string>
   ): Promise<void> {
     if (entry.type === 'directory') {
-      await this.ensurePackageDirectory(entry.path, packageDir, createdDirectories);
+      await this.ensurePackageDirectory(entry.path, packageDir, packageRoot, createdDirectories);
+      await this.assertPackagePath(entry.path, packageRoot);
       return;
     }
-    await this.ensurePackageDirectory(getParentPath(entry.path), packageDir, createdDirectories);
+    await this.ensurePackageDirectory(
+      getParentPath(entry.path),
+      packageDir,
+      packageRoot,
+      createdDirectories
+    );
+    await this.assertPackagePath(getParentPath(entry.path), packageRoot);
+    if (entry.type === 'symlink') {
+      await this.fs.symlink(entry.target, entry.path);
+      return;
+    }
+    const exists = await this.fs.lstat(entry.path).then(
+      () => true,
+      error => {
+        if (error instanceof FSError && error.code === 'ENOENT') return false;
+        throw error;
+      }
+    );
+    if (exists) await this.assertPackagePath(entry.path, packageRoot);
     await this.fs.writeFile(entry.path, entry.content);
+  }
+
+  private async assertPackagePath(path: string, packageRoot: string): Promise<void> {
+    const realPath = await this.fs.realpath(path);
+    if (!isPathWithin(realPath, packageRoot))
+      throw new Error(`Archive path escapes package: ${path}`);
   }
 
   private async ensurePackageDirectory(
     path: string,
     packageDir: string,
+    packageRoot: string,
     createdDirectories: Set<string>
   ): Promise<void> {
     if (createdDirectories.has(path)) return;
@@ -486,7 +521,22 @@ export class NpmInstall {
       current = getParentPath(current);
     }
     for (const createdPath of createdPaths.reverse()) {
-      await this.fs.mkdir(createdPath);
+      await this.assertPackagePath(getParentPath(createdPath), packageRoot);
+      const exists = await this.fs.lstat(createdPath).then(
+        () => true,
+        error => {
+          if (error instanceof FSError && error.code === 'ENOENT') return false;
+          throw error;
+        }
+      );
+      if (exists) {
+        await this.assertPackagePath(createdPath, packageRoot);
+        if ((await this.fs.stat(createdPath)).type !== 'folder')
+          throw new Error(`Archive directory conflicts with existing file: ${createdPath}`);
+      } else {
+        await this.fs.mkdir(createdPath);
+        await this.assertPackagePath(createdPath, packageRoot);
+      }
       createdDirectories.add(createdPath);
     }
   }

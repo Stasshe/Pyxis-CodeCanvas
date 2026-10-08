@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
+import type { ProjectFile } from '@/types';
 import { isPathWithin, normalizePath, posixPath, resolvePath } from '../pathUtils';
 import { FSError } from './errors';
 import type { FsApi } from './types';
@@ -63,10 +64,10 @@ export function createGitFs(core: FsApi): GitFs {
     throw new Error('Merge conflict UI is unavailable');
   };
   let provider: GitCredentialProvider = async () => null;
-  async function stat(path: string): Promise<GitStat> {
-    const entry = await core.stat(path);
+  function metadata(entry: ProjectFile): GitStat {
     let mode = 0o100644;
     if (entry.type === 'folder') mode = 0o40755;
+    else if (entry.type === 'symlink') mode = 0o120777;
     return {
       size: entry.size,
       mtimeMs: entry.mtime,
@@ -78,7 +79,7 @@ export function createGitFs(core: FsApi): GitFs {
       dev: 0,
       isFile: () => entry.type === 'file',
       isDirectory: () => entry.type === 'folder',
-      isSymbolicLink: () => false,
+      isSymbolicLink: () => entry.type === 'symlink',
     };
   }
   async function readFile(path: string): Promise<Uint8Array>;
@@ -115,8 +116,8 @@ export function createGitFs(core: FsApi): GitFs {
       writeFile: (path, data) => core.writeFile(path, data),
       readdir: async path =>
         (await core.readdir(path)).map(entry => entry.path.slice(entry.path.lastIndexOf('/') + 1)),
-      stat,
-      lstat: stat,
+      stat: async path => metadata(await core.stat(path)),
+      lstat: async path => metadata(await core.lstat(path)),
       mkdir: (path, options) => core.mkdir(path, options),
       rmdir: async path => {
         const entries = await core.readdir(path);
@@ -125,12 +126,8 @@ export function createGitFs(core: FsApi): GitFs {
       },
       unlink: path => core.rm(path),
       rename: (oldPath, newPath) => core.rename(oldPath, newPath),
-      readlink: async path => {
-        throw new Error(`Symbolic links are unavailable: ${path}`);
-      },
-      symlink: async (_target, path) => {
-        throw new Error(`Symbolic links are unavailable: ${path}`);
-      },
+      readlink: path => core.readlink(path),
+      symlink: (target, path) => core.symlink(target, path),
     },
   };
 }

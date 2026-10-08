@@ -14,6 +14,10 @@ vi.mock('@/engine/core/fs', async importOriginal => {
       writeFile: (path: string, content: string | Uint8Array) =>
         getTestFs().writeFile(path, content),
       stat: (path: string) => getTestFs().stat(path),
+      lstat: (path: string) => getTestFs().lstat(path),
+      realpath: (path: string) => getTestFs().realpath(path),
+      readlink: (path: string) => getTestFs().readlink(path),
+      symlink: (target: string, path: string) => getTestFs().symlink(target, path),
       readdir: (path: string) => getTestFs().readdir(path),
       mkdir: (path: string, options?: { recursive?: boolean }) => getTestFs().mkdir(path, options),
       rm: (path: string, options?: { recursive?: boolean; force?: boolean }) =>
@@ -38,6 +42,10 @@ vi.mock('@/engine/core/fs/client', async importOriginal => {
       writeFile: (path: string, content: string | Uint8Array) =>
         getTestFs().writeFile(path, content),
       stat: (path: string) => getTestFs().stat(path),
+      lstat: (path: string) => getTestFs().lstat(path),
+      realpath: (path: string) => getTestFs().realpath(path),
+      readlink: (path: string) => getTestFs().readlink(path),
+      symlink: (target: string, path: string) => getTestFs().symlink(target, path),
       readdir: (path: string) => getTestFs().readdir(path),
       mkdir: (path: string, options?: { recursive?: boolean }) => getTestFs().mkdir(path, options),
       rm: (path: string, options?: { recursive?: boolean; force?: boolean }) =>

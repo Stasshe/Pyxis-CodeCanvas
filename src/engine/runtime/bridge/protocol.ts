@@ -4,7 +4,7 @@ export interface TranspileBenchmark {
 }
 
 export interface FsStat {
-  type: 'file' | 'directory';
+  type: 'file' | 'directory' | 'symlink';
   size: number;
   mtime: number;
 }
@@ -15,7 +15,12 @@ export interface FsBenchmark {
 }
 
 export type FsRequest = { benchmark?: boolean } & (
-  | { kind: 'fs'; op: 'readFile' | 'readdir' | 'stat'; path: string }
+  | {
+      kind: 'fs';
+      op: 'readFile' | 'readdir' | 'stat' | 'lstat' | 'readlink' | 'realpath';
+      path: string;
+    }
+  | { kind: 'fs'; op: 'symlink'; target: string; path: string }
   | { kind: 'fs'; op: 'writeFile'; path: string; data: number[] }
   | { kind: 'fs'; op: 'mkdir'; path: string; recursive: boolean }
   | { kind: 'fs'; op: 'rm'; path: string; recursive: boolean; force: boolean }

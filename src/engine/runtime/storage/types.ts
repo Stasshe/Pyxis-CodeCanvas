@@ -1,5 +1,5 @@
 export interface MountStat {
-  type: 'file' | 'directory';
+  type: 'file' | 'directory' | 'symlink';
   size: number;
   mtime: Date;
 }

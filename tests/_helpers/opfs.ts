@@ -35,6 +35,7 @@ export function storage(initial: Uint8Array) {
     kind: 'directory' as const,
     name: '',
     getDirectoryHandle: async () => root,
+    async *entries() {},
     getFileHandle: async () => file,
   } as FileSystemDirectoryHandle;
   return { root, access, file, bytes: () => data };

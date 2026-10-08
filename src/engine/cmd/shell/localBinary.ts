@@ -1,5 +1,5 @@
 import type { FsApi } from '@/engine/core/fs';
-import { resolvePath } from '@/engine/core/pathUtils';
+import { getParentPath, resolvePath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
 import type { Process } from './process';
@@ -16,40 +16,24 @@ export interface LocalBinaryOptions {
   signal?: AbortSignal;
 }
 
-async function resolveBinary(
+export async function resolveLocalBinary(
   command: string,
   cwd: string,
   fsClient: FsApi
 ): Promise<string | null> {
-  const packagePath = resolvePath(cwd, `node_modules/${command}/package.json`);
-  const source = await fsClient.readText(packagePath).catch(() => null);
-  if (source) {
-    try {
-      const metadata = JSON.parse(source) as {
-        bin?: string | Record<string, string>;
-      };
-      let binary: string | undefined;
-      if (typeof metadata.bin === 'string') binary = metadata.bin;
-      if (typeof metadata.bin === 'object') {
-        binary = metadata.bin[command] ?? Object.values(metadata.bin)[0];
-      }
-      if (binary) {
-        return resolvePath(cwd, `node_modules/${command}/${binary.replace(/^\.\//, '')}`);
-      }
-    } catch {
-      // Invalid package metadata falls back to the installed .bin shim.
-    }
+  let directory = resolvePath(cwd);
+  while (true) {
+    const binaryPath = resolvePath(directory, `node_modules/.bin/${command}`);
+    if (await fsClient.exists(binaryPath)) return binaryPath;
+    if (directory === '/') return null;
+    directory = getParentPath(directory);
   }
-
-  const shimPath = resolvePath(cwd, `node_modules/.bin/${command}`);
-  if (await fsClient.exists(shimPath).catch(() => false)) return shimPath;
-  return null;
 }
 
 export async function runLocalBinary(options: LocalBinaryOptions): Promise<number | null> {
   const { command, args, rootPath, cwd, terminalColumns, terminalRows, process, fsClient } =
     options;
-  const filePath = await resolveBinary(command, cwd, fsClient);
+  const filePath = await resolveLocalBinary(command, cwd, fsClient);
   if (!filePath) return null;
 
   const runtime = runtimeRegistry.getRuntime('nodejs');

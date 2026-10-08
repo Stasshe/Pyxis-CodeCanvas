@@ -12,7 +12,7 @@ function packageInfo(name: string, dependencies: Record<string, string> = {}): P
 }
 
 describe('dependency graph discovery', () => {
-  it('uses all six bounded metadata slots without exceeding the shared network limit', async () => {
+  it('uses all fifteen bounded metadata slots without exceeding the shared network limit', async () => {
     let active = 0;
     let peak = 0;
     let release: () => void = () => {};
@@ -23,7 +23,7 @@ describe('dependency graph discovery', () => {
     const started = new Promise<void>(resolve => {
       reportStarted = resolve;
     });
-    const requests = Array.from({ length: 7 }, (_, index) => ({
+    const requests = Array.from({ length: 16 }, (_, index) => ({
       name: `package-${index}`,
       version: '1.0.0',
       isDirect: true,
@@ -31,16 +31,16 @@ describe('dependency graph discovery', () => {
     const pending = resolveDependencyPlan(requests, async name => {
       active += 1;
       peak = Math.max(peak, active);
-      if (active === 6) reportStarted();
+      if (active === 15) reportStarted();
       await gate;
       active -= 1;
       return packageInfo(name);
     });
     await started;
-    expect(active).toBe(6);
+    expect(active).toBe(15);
     release();
-    expect(await pending).toHaveLength(7);
-    expect(peak).toBe(6);
+    expect(await pending).toHaveLength(16);
+    expect(peak).toBe(15);
   });
 
   it('resolves overlapping roots with a cycle without waiting on ancestor promises', async () => {

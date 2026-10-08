@@ -4,6 +4,7 @@ import { fsClient } from '@/engine/core/fs/client';
 import type { RuntimeExecutionOptions } from '@/engine/runtime/core/RuntimeProvider';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { getCurrentRootPath } from '@/stores/projectStore';
+import { resolveLocalBinary } from '../shell/localBinary';
 import { type ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
 
 export async function handleNPMCommand(
@@ -104,50 +105,9 @@ export async function handleNPXCommand(
     if (!rootPath) throw new Error('No workspace folder is open.');
     const unix = new UnixCommands(rootPath);
     const cwdFs = await unix.pwd();
-    // Lazy import path utils and NodeRuntime to avoid cycles
-    const { resolvePath } = await import('@/engine/core/pathUtils');
-    const cwdApp = cwdFs;
-
-    const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${binary}/package.json`);
-    const directPackageJson = await fsClient.readText(directPackageJsonApp).catch(() => null);
-
-    let absFs: string | null = null;
-
-    if (directPackageJson) {
-      try {
-        const pkg = JSON.parse(directPackageJson);
-        const binField = typeof pkg.bin === 'string' ? { [pkg.name || binary]: pkg.bin } : pkg.bin;
-        const selectedBin =
-          (binField &&
-            typeof binField === 'object' &&
-            (binField[binary] || Object.values(binField)[0])) ||
-          null;
-
-        if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
-          absFs = resolvePath(cwdApp, `node_modules/${binary}/${selectedBin.replace(/^\.\//, '')}`);
-        }
-      } catch (error: any) {
-        await writeOutput(`npx: failed to resolve ${binary}: ${String(error?.message ?? error)}\n`);
-        return 1;
-      }
-    }
-
-    // パッケージ名とバイナリ名が一致しない場合 (例: tsc → typescript) の fallback
-    if (!absFs) {
-      const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${binary}`);
-      const dotBinExists = await fsClient.exists(dotBinApp).catch(() => false);
-      if (dotBinExists) {
-        absFs = dotBinApp;
-      }
-    }
+    const absFs = await resolveLocalBinary(binary, cwdFs, fsClient);
 
     if (!absFs) {
-      await writeOutput(`${binary}: command not found`);
-      return 127;
-    }
-
-    const exists = await fsClient.exists(absFs).catch(() => false);
-    if (!exists) {
       await writeOutput(`${binary}: command not found`);
       return 127;
     }
@@ -175,8 +135,10 @@ export async function handleNPXCommand(
     } finally {
       terminalProcessBridge.deactivate();
     }
-  } catch (e: any) {
-    await writeOutput(String(e?.message ?? e) + '\n');
+  } catch (error) {
+    let message = String(error);
+    if (error instanceof Error) message = error.message;
+    await writeOutput(`${message}\n`);
     return 1;
   }
 }

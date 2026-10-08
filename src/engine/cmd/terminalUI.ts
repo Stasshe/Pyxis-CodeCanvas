@@ -1,3 +1,4 @@
+import stringWidth from 'string-width';
 import type TerminalOutputManager from './terminalOutputManager';
 
 export type WriteCallback = (text: string) => Promise<void> | void;
@@ -86,6 +87,24 @@ export const SPINNERS = {
 
 export type SpinnerType = keyof typeof SPINNERS;
 
+function fitToWidth(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return '';
+  if (stringWidth(text) <= maxWidth) return text;
+
+  const ellipsis = '…';
+  const ellipsisWidth = stringWidth(ellipsis);
+  const segmenter = new Intl.Segmenter();
+  let fitted = '';
+  let width = 0;
+  for (const { segment } of segmenter.segment(text)) {
+    const segmentWidth = stringWidth(segment);
+    if (width + segmentWidth + ellipsisWidth > maxWidth) break;
+    fitted += segment;
+    width += segmentWidth;
+  }
+  return `${fitted}${ellipsis}`;
+}
+
 export class SpinnerController {
   private frames: string[];
   private frameIndex = 0;
@@ -109,8 +128,19 @@ export class SpinnerController {
   }
 
   private renderFrame(): string {
-    const frame = `${this.color}${this.frames[this.frameIndex % this.frames.length]}${ANSI.RESET}`;
-    return this.message ? `${frame} ${this.message}` : frame;
+    const maxWidth = Math.max(0, this.outputManager.columns - 1);
+    const rawFrame = this.frames[this.frameIndex % this.frames.length];
+    const fittedFrame = fitToWidth(rawFrame, maxWidth);
+    const frame = `${this.color}${fittedFrame}${ANSI.RESET}`;
+    const frameWidth = stringWidth(fittedFrame);
+    if (!this.message || frameWidth >= maxWidth) return frame;
+
+    const messageWidth = maxWidth - frameWidth - 1;
+    if (messageWidth <= 0) return frame;
+    const singleLineMessage = this.message.replace(/[\r\n\t]/g, ' ');
+    const message = fitToWidth(singleLineMessage, messageWidth);
+    if (!message) return frame;
+    return `${frame} ${message}`;
   }
 
   async start(message = ''): Promise<void> {

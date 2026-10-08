@@ -39,8 +39,16 @@ interface ModuleExecutionCache {
   [key: string]: ModuleExecutionEntry;
 }
 
-interface CommonJsModule {
-  exports: unknown;
+export interface CommonJsModule {
+  exports: ModuleExecutionEntry['exports'];
+  id: string;
+  filename: string;
+  path: string;
+  paths: string[];
+  parent: CommonJsModule | null;
+  children: CommonJsModule[];
+  loaded: boolean;
+  require: (specifier: string) => ModuleExecutionEntry['exports'];
 }
 
 interface ModuleGlobals {
@@ -77,6 +85,7 @@ export class ModuleLoader {
   private builtinResolver?: (moduleName: string) => unknown | null;
   private resolver: ModuleResolver;
   private executionCache: ModuleExecutionCache = {};
+  private modules = new Map<string, CommonJsModule>();
   private preparePromises = new Map<string, Promise<void>>();
   private readonly maxParallelPreloads = 8;
   private fileSystem: ModuleFileSystem;
@@ -208,21 +217,19 @@ export class ModuleLoader {
     cached.loading = true;
     try {
       runtimeInfo('📝 About to execute module with code type:', typeof cached.code);
-      const runtimeModule: CommonJsModule = {
-        get exports() {
-          return cached.exports;
-        },
-        set exports(exports) {
-          cached.exports = exports;
-        },
-      };
+      const runtimeModule = this.getModule(resolvedPath);
       const moduleExports = this.executeModule(cached.code, resolvedPath, runtimeModule);
       cached.exports = moduleExports;
       cached.loaded = true;
+      runtimeModule.loaded = true;
       cached.loading = false;
       return moduleExports;
     } catch (error) {
-      cached.loading = false;
+      delete this.executionCache[resolvedPath];
+      this.modules.delete(resolvedPath);
+      for (const parent of this.modules.values()) {
+        parent.children = parent.children.filter(child => child.filename !== resolvedPath);
+      }
       throw error;
     }
   }
@@ -292,7 +299,15 @@ export class ModuleLoader {
     }
 
     const transpileResult = await this.getTranspiledCodeWithDeps(resolvedPath, fileContent);
-    const { code, dependencies } = transpileResult;
+    const { code, dependencies, format } = transpileResult;
+    this.executionCache[resolvedPath] = {
+      exports: {},
+      loaded: false,
+      loading: false,
+      code,
+      format,
+      namespace: null,
+    };
 
     if (dependencies && dependencies.length > 0) {
       runtimeInfo('📦 Pre-loading dependencies for', resolvedPath, ':', dependencies);
@@ -315,6 +330,57 @@ export class ModuleLoader {
 
     runtimeInfo('✅ Dependencies pre-loaded for:', resolvedPath);
     return code;
+  }
+
+  async realpath(path: string): Promise<string> {
+    return this.fileSystem.realpath(path);
+  }
+
+  createMainModule(filePath: string): CommonJsModule {
+    this.executionCache[filePath].loading = true;
+    const module = this.getModule(filePath);
+    module.id = '.';
+    return module;
+  }
+
+  completeMainModule(filePath: string): void {
+    const cached = this.executionCache[filePath];
+    cached.loaded = true;
+    cached.loading = false;
+    this.getModule(filePath).loaded = true;
+  }
+
+  private getModule(filePath: string): CommonJsModule {
+    const existing = this.modules.get(filePath);
+    if (existing) return existing;
+    const cached = this.executionCache[filePath];
+    const paths: string[] = [];
+    let directory = posixPath.dirname(filePath);
+    while (true) {
+      if (posixPath.basename(directory) !== 'node_modules') {
+        paths.push(posixPath.join(directory, 'node_modules'));
+      }
+      if (directory === '/') break;
+      directory = posixPath.dirname(directory);
+    }
+    const module: CommonJsModule = {
+      get exports() {
+        return cached.exports;
+      },
+      set exports(value) {
+        cached.exports = value;
+      },
+      id: filePath,
+      filename: filePath,
+      path: posixPath.dirname(filePath),
+      paths,
+      parent: null,
+      children: [],
+      loaded: cached.loaded,
+      require: specifier => this.requireSync(specifier, filePath),
+    };
+    this.modules.set(filePath, module);
+    return module;
   }
 
   private async runWithConcurrency<T>(
@@ -507,6 +573,7 @@ export class ModuleLoader {
   clearCache(): void {
     this.executionCache = {};
     this.preparePromises.clear();
+    this.modules.clear();
     this.resolver.clearCache();
   }
 
@@ -546,6 +613,12 @@ export class ModuleLoader {
       }
       cached = { exports: {}, loaded: false, loading: false, code, format, namespace: null };
       this.executionCache[resolved.path] = cached;
+    }
+    const child = this.getModule(resolved.path);
+    const parent = this.modules.get(currentFilePath);
+    if (parent && !parent.children.includes(child)) {
+      parent.children.push(child);
+      if (!child.parent && child.id !== '.') child.parent = parent;
     }
     const exports = this.executePreparedModule(resolved.path);
     if (kind === 'import') return this.importNamespace(exports, cached);

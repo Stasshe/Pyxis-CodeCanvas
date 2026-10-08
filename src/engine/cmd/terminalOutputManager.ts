@@ -21,6 +21,7 @@
 import { ANSI } from './terminalUI';
 
 export interface IXTermInstance {
+  cols: number;
   write(data: string, callback?: () => void): void;
   writeln(data: string): void;
   buffer: {
@@ -43,6 +44,10 @@ export class TerminalOutputManager {
   }> = [];
   private isWriting = false;
   private lastWriteEndedWithNewline = true;
+
+  get columns(): number {
+    return this.term.cols;
+  }
 
   constructor(term: IXTermInstance) {
     this.term = term;

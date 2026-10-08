@@ -10,6 +10,11 @@ export interface PackageInfo {
   bin?: string | Record<string, string>;
 }
 
+export interface InstallResult {
+  installed: number;
+  packageCount: number;
+}
+
 export type InstallProgressCallback = (
   packageName: string,
   version: string,

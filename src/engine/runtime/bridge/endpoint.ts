@@ -14,6 +14,10 @@ export interface RuntimeFilesystem {
   writeFile(path: string, data: Uint8Array, benchmark?: FsBenchmark): Promise<void>;
   readdir(path: string, benchmark?: FsBenchmark): Promise<string[]>;
   stat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
+  lstat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
+  readlink(path: string, benchmark?: FsBenchmark): Promise<string>;
+  realpath(path: string, benchmark?: FsBenchmark): Promise<string>;
+  symlink(target: string, path: string, benchmark?: FsBenchmark): Promise<void>;
   mkdir(path: string, options: { recursive: boolean }, benchmark?: FsBenchmark): Promise<void>;
   rm(
     path: string,
@@ -35,6 +39,15 @@ async function executeFs(
       return fs.readdir(request.path, benchmark);
     case 'stat':
       return fs.stat(request.path, benchmark);
+    case 'lstat':
+      return fs.lstat(request.path, benchmark);
+    case 'readlink':
+      return fs.readlink(request.path, benchmark);
+    case 'realpath':
+      return fs.realpath(request.path, benchmark);
+    case 'symlink':
+      await fs.symlink(request.target, request.path, benchmark);
+      break;
     case 'writeFile':
       await fs.writeFile(request.path, new Uint8Array(request.data), benchmark);
       break;

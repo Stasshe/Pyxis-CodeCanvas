@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import { handleNPXCommand } from '@/engine/cmd/handlers/npmHandler';
+import { resolveLocalBinary } from '@/engine/cmd/shell/localBinary';
 import { fsClient } from '@/engine/core/fs';
 import type { FsCore } from '@/engine/core/fs/core';
 import type {
@@ -84,22 +85,6 @@ describe('handleNPXCommand', () => {
 
     const installer = new NpmInstall(rootPath, getTestFs());
     await installer.ensureBinsForPackage('prettier');
-
-    // Simulate an old stale shim left behind from a previous build.
-    await testFsFiles.createFile(
-      rootPath,
-      '/node_modules/.bin/prettier',
-      [
-        '#!/usr/bin/env node',
-        'try {',
-        "  require('../prettier/bin/prettier.cjs');",
-        '} catch (e) {',
-        "  console.error('Failed to run prettier:', e && e.message ? e.message : e);",
-        '  process.exit(1);',
-        '}',
-      ].join('\n'),
-      'file'
-    );
   }
 
   it('does not execute CLI dependencies during preload for --version', async () => {
@@ -133,29 +118,35 @@ describe('handleNPXCommand', () => {
     expect(combined).not.toContain('legacy-cli executed during dependency preload');
   });
 
-  it('does not fall back to a stale .bin shim when package bin exists', async () => {
-    await installFakePrettier();
-
+  it('does not resolve a package by its name when it has no matching bin link', async () => {
     await testFsFiles.createFile(
       rootPath,
-      '/node_modules/.bin/prettier',
-      [
-        '#!/usr/bin/env node',
-        "console.error('stale shim should not run');",
-        'process.exit(1);',
-      ].join('\n'),
+      '/node_modules/package-only/package.json',
+      JSON.stringify({ name: 'package-only', bin: { 'different-command': './bin.js' } }),
       'file'
     );
+    await testFsFiles.createFile(rootPath, '/node_modules/package-only/bin.js', 'void 0;', 'file');
 
     const output: string[] = [];
-    const code = await handleNPXCommand(['prettier', '--version'], async text => {
+    const code = await handleNPXCommand(['package-only'], async text => {
       output.push(text);
     });
 
     const combined = output.join('');
-    expect(code).toBe(0);
-    expect(combined).toContain('3.8.3');
-    expect(combined).not.toContain('stale shim should not run');
+    expect(code).toBe(127);
+    expect(combined).toContain('package-only: command not found');
+  });
+
+  it('finds an ancestor .bin link from nested working directories', async () => {
+    await repo.mkdir(`${rootPath}/node_modules/.bin`, { recursive: true });
+    await testFsFiles.createFile(rootPath, '/node_modules/typescript/bin/tsc.js', '', 'file');
+    await repo.rm(`${rootPath}/node_modules/.bin/tsc`, { recursive: true, force: true });
+    await repo.symlink('../typescript/bin/tsc.js', `${rootPath}/node_modules/.bin/tsc`);
+    await repo.mkdir(`${rootPath}/packages/app/src`, { recursive: true });
+
+    const path = await resolveLocalBinary('tsc', `${rootPath}/packages/app/src`, repo);
+
+    expect(path).toBe(`${rootPath}/node_modules/.bin/tsc`);
   });
 });
 

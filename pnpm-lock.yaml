@@ -188,6 +188,12 @@ importers:
       stream-browserify:
         specifier: ^3.0.0
         version: 3.0.0
+      string-width:
+        specifier: ^7.2.0
+        version: 7.2.0
+      string_decoder:
+        specifier: 1.3.0
+        version: 1.3.0
       sync-message:
         specifier: ^0.0.12
         version: 0.0.12

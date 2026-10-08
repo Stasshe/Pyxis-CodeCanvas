@@ -140,10 +140,21 @@ describe('Runtime byte transport through shell pipelines', () => {
         (await core.readdir(path)).map(entry => entry.path.split('/').pop() ?? ''),
       stat: async path => {
         const entry = await core.stat(path);
-        let type: 'file' | 'directory' = 'file';
+        let type: 'file' | 'directory' | 'symlink' = 'file';
         if (entry.type === 'folder') type = 'directory';
+        if (entry.type === 'symlink') type = 'symlink';
         return { type, size: entry.size, mtime: entry.mtime };
       },
+      lstat: async path => {
+        const entry = await core.lstat(path);
+        let type: 'file' | 'directory' | 'symlink' = 'file';
+        if (entry.type === 'folder') type = 'directory';
+        if (entry.type === 'symlink') type = 'symlink';
+        return { type, size: entry.size, mtime: entry.mtime };
+      },
+      readlink: path => core.readlink(path),
+      realpath: path => core.realpath(path),
+      symlink: (target, path) => core.symlink(target, path),
       mkdir: (path, options) => core.mkdir(path, options),
       rm: (path, options) => core.rm(path, options),
       rename: (path, newPath) => core.rename(path, newPath),

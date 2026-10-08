@@ -114,7 +114,9 @@ async function lockfile(repo: FsCore, rootPath: string): Promise<PackageLock> {
 describe('npm package-lock installation', () => {
   it('locks conflicting versions at the paths where Node resolves them', async () => {
     const { repo, rootPath, fixtures } = await setup();
-    await new WorkerNpmCommands(repo, rootPath).install();
+    const output = await new WorkerNpmCommands(repo, rootPath).install();
+    expect(output).toMatch(/^added 3 packages, checked 4 packages in/);
+    expect(output).not.toContain('vulnerabilities');
     const lock = await lockfile(repo, rootPath);
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.packages[''].dependencies).toEqual({
@@ -142,8 +144,10 @@ describe('npm package-lock installation', () => {
     });
     vi.stubGlobal('fetch', network);
 
-    await new WorkerNpmCommands(repo, rootPath).install();
-
+    const replay = await new WorkerNpmCommands(repo, rootPath).install();
+    expect(replay).toMatch(/^added 3 packages, checked 4 packages in/);
+    const noop = await new WorkerNpmCommands(repo, rootPath).install();
+    expect(noop).toMatch(/^up to date, checked 4 packages in/);
     expect(network).not.toHaveBeenCalled();
     expect(await lockfile(repo, rootPath)).toEqual(original);
     expect(
@@ -151,14 +155,14 @@ describe('npm package-lock installation', () => {
         `${rootPath}/node_modules/fixture-parent/node_modules/fixture-shared/index.js`
       )
     ).toContain("'1.0.0'");
-    expect(await repo.readText(`${rootPath}/node_modules/.bin/fixture-parent`)).toContain(
+    expect(await repo.readlink(`${rootPath}/node_modules/.bin/fixture-parent`)).toBe(
       '../fixture-parent/cli.js'
     );
     expect(
-      await repo.readText(
+      await repo.readlink(
         `${rootPath}/node_modules/fixture-parent/node_modules/.bin/fixture-shared`
       )
-    ).toContain('../fixture-shared/cli.js');
+    ).toBe('../fixture-shared/cli.js');
   });
 
   it('updates the lock and tree when a root dependency changes', async () => {
@@ -222,6 +226,42 @@ describe('npm package-lock installation', () => {
     ).toContain("'1.0.0'");
   });
 
+  it('reports the full tree for named installs instead of counting only direct dependencies', async () => {
+    const { repo, rootPath } = await setup();
+    const output = await new WorkerNpmCommands(repo, rootPath).install('fixture-parent', [
+      '--version=1.0.0',
+    ]);
+    expect(output).toMatch(/^added 3 packages, checked 4 packages in/);
+    const noop = await new WorkerNpmCommands(repo, rootPath).install('fixture-parent', [
+      '--version=1.0.0',
+    ]);
+    expect(noop).toMatch(/^up to date, checked 4 packages in/);
+  });
+
+  it('excludes a failed optional branch and its unreachable children from the checked count', async () => {
+    const { repo, rootPath, fixtures, requests, manifest } = await setup();
+    fixtures.push(
+      await fixturePackage('fixture-optional', '1.0.0', {
+        'fixture-missing': '1.0.0',
+        'fixture-leaf': '1.0.0',
+      }),
+      await fixturePackage('fixture-leaf', '1.0.0')
+    );
+    await repo.writeFile(
+      `${rootPath}/package.json`,
+      JSON.stringify({ ...manifest, optionalDependencies: { 'fixture-optional': '1.0.0' } })
+    );
+    const output = await new WorkerNpmCommands(repo, rootPath).install();
+    expect(output).toMatch(/^added 3 packages, checked 4 packages in/);
+    expect(requests).not.toContain(fixtures[4].tarball);
+    expect(requests).not.toContain(fixtures[5].tarball);
+    const lock = await lockfile(repo, rootPath);
+    expect(lock.packages['node_modules/fixture-optional']).toBeUndefined();
+    expect(lock.packages['node_modules/fixture-leaf']).toBeUndefined();
+    const noop = await new WorkerNpmCommands(repo, rootPath).install();
+    expect(noop).toMatch(/^up to date, checked 4 packages in/);
+  });
+
   it('installs named cowsay with each requester resolving its required string-width major', async () => {
     const { repo, rootPath } = await setupTestProject('CowsayLockfile');
     await repo.writeFile(
@@ -253,7 +293,7 @@ describe('npm package-lock installation', () => {
       expect(cowsayManifest.version).toMatch(/^2\./);
       expect(yargsManifest.version).toMatch(/^4\./);
       expect(cowsayWidth!.path).not.toBe(yargsWidth!.path);
-      expect(await repo.readText(`${rootPath}/node_modules/.bin/cowsay`)).toContain('require(');
+      expect(await repo.readlink(`${rootPath}/node_modules/.bin/cowsay`)).toBe('../cowsay/cli.js');
     } finally {
       fixture.close();
     }

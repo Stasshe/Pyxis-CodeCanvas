@@ -123,18 +123,18 @@ Pyxis features an AI assistant that helps you review and adopt code diffs. This 
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when available. Normal completion clears execution state and returns the Worker to the idle pool; termination or an unexpected failure discards it. The Runtime Worker accesses files through the FS Worker. The FS Worker retains the directory-handle chain for its most recent successful path lookup and reuses shared ancestors; it does not cache file handles or contents. It owns the persistent transformed-module cache, while CommonJS modules load once per execution. JavaScript and TypeScript resolution follows package type, `exports` / `imports` conditions, and file extensions. See the [Node.js Runtime documentation](docs/en/NODE-RUNTIME.md) for details.
+Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when available. Normal completion clears execution state and returns the Worker to the idle pool; termination or an unexpected failure discards it. The Runtime Worker accesses files through the FS Worker. The FS Worker retains the directory-handle chain for its most recent successful path lookup and reuses shared ancestors; it does not cache file handles or contents. It owns the persistent transformed-module cache, while CommonJS modules load once per execution. JavaScript and TypeScript resolution follows package type, `exports` / `imports` conditions, and file extensions. Symlinks use reserved FS Worker records on OPFS, and module cache identity follows realpaths. npm `.bin` entries are symlinks resolved by Terminal and `npx`. The runtime also exposes `node:constants`, `node:zlib`, Node-maintained `node:string_decoder`, and Node-compatible `node:querystring`; `process.arch` matches `os.arch()`. See the [Node.js Runtime documentation](docs/en/NODE-RUNTIME.md) for details.
 The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. OperationWindow offers separate Quick Open, Open Folder, and Open Recent modes. npm stores compact abbreviated registry metadata under `~/.npm/registry` according to HTTP freshness and revalidates expired entries with ETag. Tarballs are keyed by the SHA-256 of the exact resolved URL, checked against available registry or lockfile integrity before extraction, and cached after successful extraction. npm v3 `package-lock.json` records registry package placements and supports nested dependency versions. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
 - **Stop controls** - RunPanel Stop ends the run; Terminal Ctrl+C invokes the program's SIGINT handler
 - ⚡ **Isolated execution** - Per-run module caches and timers are reset; normally completed Workers are reused
-- 📁 **File operations** - Full support for `fs`, `path`, `readline`, and `userinterface` modules
+- 📁 **File operations** - Supported APIs from `fs`, `path`, `readline`, and `userinterface`
 - 🌀 **TypeScript support** - TypeScript is transformed through the extension transpiler configuration
 - 🎯 **Casual coding** - Perfect for algorithm testing, learning, and interactive console apps
 
 Emulates file operations and interactive user input/output that are impossible in plain JavaScript, providing a genuine Node.js/TypeScript learning environment.
 
 
-> **Limitations**: Native Node.js addons are unavailable. `child_process` commands run through Pyxis's shell implementation.
+> **Limitations**: Native Node.js addons, sockets, and HTTP server APIs are unavailable. `child_process` commands run through Pyxis's shell implementation.
 
 ---
 

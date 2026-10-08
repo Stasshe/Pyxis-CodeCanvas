@@ -70,6 +70,53 @@ describe('NodeRuntime execution', () => {
     expect(output.join('\n')).toContain(`${HOME_DIR} ${HOME_DIR}`);
   });
 
+  it('loads node:string_decoder and reports the runtime architecture', async () => {
+    await run(
+      'string-decoder.js',
+      [
+        "const { StringDecoder } = require('node:string_decoder');",
+        "const decoder = new StringDecoder('utf8');",
+        'const first = decoder.write(Buffer.from([0xe7, 0x8c]));',
+        "console.log(first + decoder.end(Buffer.from([0xab])), process.arch, require('os').arch());",
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('猫 x64 x64');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('resolves node:querystring through the runtime builtin map', async () => {
+    await run(
+      'querystring.js',
+      [
+        "const querystring = require('node:querystring');",
+        "console.log(JSON.stringify(querystring.decode('q=hello+world&tag=a&tag=b')));",
+        'console.log(querystring.encode === querystring.stringify);',
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('{"q":"hello world","tag":["a","b"]}');
+    expect(output.join('\n')).toContain('true');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('resolves node:net address helpers without exposing socket APIs', async () => {
+    await run(
+      'net.js',
+      [
+        "const net = require('node:net');",
+        "console.log(net.isIP('127.0.0.1'), net.isIPv4('127.000.000.001'));",
+        "console.log(net.isIP('::ffff:192.0.2.1'), net.isIPv6('fe80::1%eth0'));",
+        'console.log(typeof net.createServer, typeof net.Socket);',
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('4 false');
+    expect(output.join('\n')).toContain('6 true');
+    expect(output.join('\n')).toContain('undefined undefined');
+    expect(errors).toHaveLength(0);
+  });
+
   it('propagates process.exit from a dynamically required module', async () => {
     await fixture.writeFile(
       `${fixture.rootPath}/dep.js`,
@@ -382,6 +429,125 @@ describe('NodeRuntime execution', () => {
     await run('empty-entry.js', 'console.log(Object.keys(require("./empty")).length);');
     expect(output.join('\n')).toContain('0');
     expect(errors).toHaveLength(0);
+  });
+
+  it('loads a symlinked entry and dependencies from its real directory', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/real/node_modules/local/index.js`,
+      "module.exports = 'real dependency';"
+    );
+    await fixture.writeFile(
+      `${fixture.rootPath}/real/entry.js`,
+      `console.log(require('local'), __filename, module.filename, process.argv[1]);
+       console.log(require('../alias') === module.exports);`
+    );
+    await fixture.fs.symlink('./real/entry.js', `${fixture.rootPath}/alias.js`);
+    await fixture.runtime.execute(`${fixture.rootPath}/alias.js`, []);
+    expect(output.join('\n')).toContain(
+      `real dependency ${fixture.rootPath}/real/entry.js ${fixture.rootPath}/real/entry.js ${fixture.rootPath}/alias.js`
+    );
+    expect(output.join('\n')).toContain('true');
+  });
+
+  it('shares the cache and searches real ancestors for linked packages', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/packages/node_modules/nested/index.js`,
+      "module.exports = 'target dependency';"
+    );
+    await fixture.writeFile(
+      `${fixture.rootPath}/packages/tool/index.js`,
+      "console.log('target loaded'); module.exports = { value: require('nested'), filename: module.filename };"
+    );
+    await fixture.fs.mkdir(`${fixture.rootPath}/node_modules`, { recursive: true });
+    await fixture.fs.symlink('../packages/tool', `${fixture.rootPath}/node_modules/tool`);
+    await run(
+      'linked-package.js',
+      `
+      const linked = require('tool');
+      const direct = require('./packages/tool');
+      console.log(linked === direct, linked.value, linked.filename);
+    `
+    );
+    const combined = output.join('\n');
+    expect(combined).toContain(`true target dependency ${fixture.rootPath}/packages/tool/index.js`);
+    expect(output.filter(line => line === 'target loaded')).toHaveLength(1);
+  });
+
+  it('lets a directory loader require files relative to the supplied module', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/loader/index.js`,
+      `module.exports = function(caller, directory) {
+        const fs = require('fs');
+        const path = require('path');
+        const files = fs.readdirSync(path.resolve(path.dirname(caller.filename), directory));
+        return files.map(file => caller.require(path.resolve(path.dirname(caller.filename), directory, file)));
+      };`
+    );
+    await fixture.writeFile(`${fixture.rootPath}/handlers/one.js`, "module.exports = 'handler';");
+    await fixture.writeFile(
+      `${fixture.rootPath}/nested/handlers/one.js`,
+      "module.exports = 'nested handler';"
+    );
+    await fixture.writeFile(
+      `${fixture.rootPath}/nested/caller.js`,
+      "module.exports = require('../loader')(module, './handlers');"
+    );
+    await run(
+      'directory-main.js',
+      `
+      const loader = require('./loader');
+      console.log(loader(module, './handlers').join(','));
+      console.log(module.require('./nested/caller').join(','));
+      console.log(module.require('./directory-main') === module.exports);
+      console.log(module.children.map(child => child.filename).join(','));
+    `
+    );
+    const combined = output.join('\n');
+    expect(combined).toContain('handler');
+    expect(combined).toContain('nested handler');
+    expect(combined).toContain('true');
+    expect(combined).toContain(`${fixture.rootPath}/handlers/one.js`);
+    expect(combined).toContain(`${fixture.rootPath}/nested/caller.js`);
+  });
+
+  it('exposes CommonJS filenames, parent relationships and load state', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/metadata-child.js`,
+      `exports.duringLoad = module.loaded;
+       exports.parent = module.parent;
+       exports.module = module;
+       exports.paths = module.paths;`
+    );
+    await run(
+      'metadata-main.js',
+      `
+      const child = require('./metadata-child');
+      console.log(module.id, module.filename === __filename, module.loaded);
+      console.log(child.module.id === child.module.filename, child.module.loaded, child.duringLoad);
+      console.log(child.parent === module, module.children[0] === child.module);
+      console.log(child.paths.join(','));
+    `
+    );
+    const combined = output.join('\n');
+    expect(combined).toContain('. true false');
+    expect(combined).toContain('true true false');
+    expect(combined).toContain('true true');
+    expect(combined).toContain('/tmp/runtime-tests/node_modules,/tmp/node_modules,/node_modules');
+  });
+
+  it('keeps entry partial exports available during circular require', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/entry-child.js`,
+      "module.exports = require('./entry-cycle').marker;"
+    );
+    await run(
+      'entry-cycle.js',
+      `
+      exports.marker = 'entry partial';
+      console.log(require('./entry-child'));
+    `
+    );
+    expect(output.join('\n')).toContain('entry partial');
   });
 
   it('preserves reassigned exports while resolving a circular require', async () => {

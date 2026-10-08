@@ -51,6 +51,11 @@ const api = {
     run(() => core.writeFile(path, data), benchmark),
   readdir: (path: string, benchmark?: FsBenchmark) => run(() => core.readdir(path), benchmark),
   stat: (path: string, benchmark?: FsBenchmark) => run(() => core.stat(path), benchmark),
+  lstat: (path: string, benchmark?: FsBenchmark) => run(() => core.lstat(path), benchmark),
+  realpath: (path: string, benchmark?: FsBenchmark) => run(() => core.realpath(path), benchmark),
+  readlink: (path: string, benchmark?: FsBenchmark) => run(() => core.readlink(path), benchmark),
+  symlink: (target: string, path: string, benchmark?: FsBenchmark) =>
+    run(() => core.symlink(target, path), benchmark),
   mkdir: (path: string, options?: MkdirOptions, benchmark?: FsBenchmark) =>
     run(() => core.mkdir(path, options), benchmark),
   rm: (path: string, options?: RmOptions, benchmark?: FsBenchmark) =>
@@ -80,6 +85,16 @@ const api = {
         mkdir: api.mkdir,
         rm: api.rm,
         rename: api.rename,
+        realpath: api.realpath,
+        readlink: api.readlink,
+        symlink: api.symlink,
+        async lstat(path, benchmark): Promise<FsStat> {
+          const entry = await api.lstat(path, benchmark);
+          let type: FsStat['type'] = 'file';
+          if (entry.type === 'folder') type = 'directory';
+          else if (entry.type === 'symlink') type = 'symlink';
+          return { type, size: entry.size, mtime: entry.mtime };
+        },
         async readdir(path, benchmark) {
           return (await api.readdir(path, benchmark)).map(entry =>
             entry.path.slice(entry.path.lastIndexOf('/') + 1)

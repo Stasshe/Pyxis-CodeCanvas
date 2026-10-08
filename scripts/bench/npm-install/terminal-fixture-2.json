@@ -1,0 +1,14 @@
+{
+  "name": "canonical-2-is-odd-no-lock",
+  "manifestText": "{\n  \"name\": \"npm-e2e-small\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"dependencies\": {\n    \"is-odd\": \"3.0.1\"\n  }\n}\n",
+  "lockfileText": null,
+  "expectedAddedPackages": 2,
+  "pyxisExpectedAuditedPackages": 1,
+  "nativeExpectedAuditedPackages": 3,
+  "pyxisExpectedCheckedPackages": 3,
+  "nativeExpectedAddedPackages": 2,
+  "command": "npm i is-odd",
+  "expectedPyxisPlacedPackages": 2,
+  "expectedNativePlacedPackages": 2,
+  "expectedLockPackages": 0
+}

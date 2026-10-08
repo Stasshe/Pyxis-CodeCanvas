@@ -324,7 +324,8 @@ describe('NpmCommands 統合テスト', () => {
       const npm = createNpm();
       const result = await npm.install();
       expect(result).toContain('up to date');
-      expect(result).toContain('audited 0 packages');
+      expect(result).toContain('checked 1 package');
+      expect(result).not.toContain('vulnerabilities');
     });
   });
 

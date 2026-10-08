@@ -9,6 +9,8 @@ export async function loadNpmRuntimeFs(repo: FsCore, rootPath: string): Promise<
   for (const entry of await repo.walk(rootPath)) {
     if (entry.type === 'folder') {
       await fs.mkdir(entry.path, { recursive: true });
+    } else if (entry.type === 'symlink') {
+      await fs.symlink(await repo.readlink(entry.path), entry.path);
     } else {
       await fs.writeFile(entry.path, await repo.readFile(entry.path));
     }

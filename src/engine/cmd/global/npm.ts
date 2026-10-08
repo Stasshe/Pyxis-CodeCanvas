@@ -43,14 +43,12 @@ export class NpmCommands {
       const ui = this.terminalUI;
       let target = 'dependencies';
       if (packageName) target = packageName;
-      if (ui) await ui.spinner.start(`reify: resolving ${target}...`);
+      if (ui) await ui.spinner.start(`Installing ${target}...`);
       try {
         const service = await this.servicePromise;
         const progress = async (name: string, version: string): Promise<void> => {
           if (!ui) return;
-          await ui.spinner.update(
-            `reify:${name}@${version}: timing reifyNode:node_modules/${name} (${version})`
-          );
+          await ui.spinner.update(`Installing ${name}@${version}`);
         };
         const output = await service.install(packageName, flags, Comlink.proxy(progress));
         if (ui) await ui.spinner.stop();
