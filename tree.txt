@@ -1,15 +1,23 @@
 Root
 .
+├── biome.json
 ├── CLAUDE.md
 ├── CODE_OF_CONDUCT.md
 ├── Development
+│   ├── ai-agent-implementation-plan.md
+│   ├── all-flow.svg
+│   ├── code-flow-verification.md
 │   ├── COMMAND-EXTENSION.md
+│   ├── docs
+│   │   ├── CONTENT-RESTORATION.md
+│   │   └── STORAGE-KEYBINDINGS.md
+│   ├── EditorMemoryManager-PR-Evaluation.md
+│   ├── EditorMemoryManager-Usage-Guide.md
 │   ├── EXTENSION-CODE-SPLITTING.md
 │   ├── EXTENSION-NPM-LIBRARIES.md
 │   ├── EXTENSION-TAB-SIDEBAR-API.md
-│   ├── EditorMemoryManager-PR-Evaluation.md
-│   ├── EditorMemoryManager-Usage-Guide.md
 │   ├── FILE_REPOSITORY_BEST_PRACTICES.md
+│   ├── git-deletion-detection-analysis.md
 │   ├── MODULE-CACHE-STRATEGY.md
 │   ├── MULTI-FILE-EXTENSION-SUPPORT.md
 │   ├── NEW-ARCHITECTURE.md
@@ -17,63 +25,48 @@ Root
 │   ├── PROJECT-ID-BEST-PRACTICES.md
 │   ├── SHELL-PARSER-PLAN.md
 │   ├── TAB-MANAGEMENT-ARCHITECTURE.md
-│   ├── TODO.md
 │   ├── Tauri-Setup.md
-│   ├── ai-agent-implementation-plan.md
-│   ├── all-flow.svg
-│   ├── code-flow-verification.md
-│   ├── docs
-│   │   ├── CONTENT-RESTORATION.md
-│   │   └── STORAGE-KEYBINDINGS.md
-│   └── git-deletion-detection-analysis.md
-├── FreeAPIGenerativeAI-Model.md
-├── LICENSE
-├── README.md
-├── README_en.md
-├── SHORT_README.md
-├── System-Design
-│   └── COMMAND-EXECUTION-ARCHITECTURE.md
-├── biome.json
+│   └── TODO.md
 ├── docs
 │   ├── AI-SYSTEM.md
+│   ├── architecture
+│   │   └── terminal-output-management.md
 │   ├── CORE-ENGINE.md
 │   ├── DATA-FLOW.md
+│   ├── en
+│   │   └── NODE-RUNTIME.md
 │   ├── EXTENSION-SYSTEM.md
 │   ├── GITHUB-INTEGRATION.md
 │   ├── HOW-TO-CREATE-EXTENSION.md
 │   ├── I18N-SYSTEM.md
 │   ├── NODE-RUNTIME.md
+│   ├── plan
+│   │   ├── opfs-migration.md
+│   │   └── STORAGE_INTENT.md
+│   ├── pyxis-all.svg.svg
 │   ├── README.md
 │   ├── RUNTIME-PROVIDER.md
+│   ├── runtime-storage-refactor.md
 │   ├── SHELL-SYSTEM.md
 │   ├── SYSTEM-OVERVIEW.md
 │   ├── TWO-LAYER-ARCHITECTURE.md
-│   ├── UI-COMPONENTS.md
-│   ├── architecture
-│   │   └── terminal-output-management.md
-│   ├── en
-│   │   └── NODE-RUNTIME.md
-│   ├── pyxis-all.svg.svg
-│   └── runtime-storage-refactor.md
+│   └── UI-COMPONENTS.md
 ├── extensions
-│   ├── README.md
-│   ├── _shared
-│   │   ├── README.md
-│   │   ├── systemModuleTypes.ts
-│   │   └── types.ts
 │   ├── binary-editor
+│   │   ├── binaryUtils.ts
 │   │   ├── index.tsx
-│   │   └── manifest.json
+│   │   ├── manifest.json
+│   │   └── useBinaryEditorDocument.ts
 │   ├── calc
-│   │   ├── README.md
 │   │   ├── index.tsx
 │   │   ├── manifest.json
-│   │   └── package.json
+│   │   ├── package.json
+│   │   └── README.md
 │   ├── chart-extension
-│   │   ├── README.md
 │   │   ├── index.tsx
 │   │   ├── manifest.json
-│   │   └── package.json
+│   │   ├── package.json
+│   │   └── README.md
 │   ├── lang-packs
 │   │   ├── ar
 │   │   │   ├── index.ts
@@ -143,16 +136,21 @@ Root
 │   │   ├── manifest.json
 │   │   └── package.json
 │   ├── react-preview
-│   │   ├── README.md
 │   │   ├── _build.js
 │   │   ├── index.tsx
 │   │   ├── manifest.json
-│   │   └── package.json
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── README.md
 │   ├── registry.json
 │   ├── sample-command
-│   │   ├── README.md
 │   │   ├── index.ts
-│   │   └── manifest.json
+│   │   ├── manifest.json
+│   │   └── README.md
+│   ├── _shared
+│   │   ├── README.md
+│   │   ├── systemModuleTypes.ts
+│   │   └── types.ts
 │   ├── test-multi-file
 │   │   ├── helper.ts
 │   │   ├── index.tsx
@@ -162,20 +160,19 @@ Root
 │   │   ├── index.tsx
 │   │   └── manifest.json
 │   └── typescript-runtime
-│       ├── _build.js
 │       ├── index.ts
 │       ├── manifest.json
-│       ├── package.json
-│       └── transpile.worker.ts
+│       └── package.json
+├── FreeAPIGenerativeAI-Model.md
 ├── helper-code.txt
 ├── i18n.sh
 ├── index.html
 ├── initial_files
-│   ├── README.md
 │   ├── docs
 │   │   ├── docs_git-commands.md
 │   │   ├── getting-started.md
 │   │   └── unix-commands.md
+│   ├── README.md
 │   ├── src
 │   │   ├── code-review
 │   │   │   ├── bad.comment.ts
@@ -199,23 +196,23 @@ Root
 │       ├── index.html
 │       ├── script.js
 │       └── style.css
+├── LICENSE
 ├── package.json
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
 ├── postcss.config.js
 ├── public
-│   ├── apple-touch-icon-precomposed.png
 │   ├── apple-touch-icon.png
+│   ├── apple-touch-icon-precomposed.png
 │   ├── base-path-init.js
 │   ├── eruda-init.js
 │   ├── esbuild.wasm
 │   ├── extensions
-│   │   ├── _shared
-│   │   │   ├── systemModuleTypes.js
-│   │   │   └── types.js
 │   │   ├── binary-editor
+│   │   │   ├── binaryUtils.js
 │   │   │   ├── index.js
-│   │   │   └── manifest.json
+│   │   │   ├── manifest.json
+│   │   │   └── useBinaryEditorDocument.js
 │   │   ├── calc
 │   │   │   ├── index.js
 │   │   │   ├── index.js.meta.json
@@ -301,6 +298,9 @@ Root
 │   │   ├── sample-command
 │   │   │   ├── index.js
 │   │   │   └── manifest.json
+│   │   ├── _shared
+│   │   │   ├── systemModuleTypes.js
+│   │   │   └── types.js
 │   │   ├── test-multi-file
 │   │   │   ├── helper.js
 │   │   │   ├── index.js
@@ -312,8 +312,7 @@ Root
 │   │   └── typescript-runtime
 │   │       ├── index.js
 │   │       ├── index.js.meta.json
-│   │       ├── manifest.json
-│   │       └── transpile.worker.js
+│   │       └── manifest.json
 │   ├── favicon.ico
 │   ├── favicon.png
 │   ├── file.svg
@@ -322,8 +321,8 @@ Root
 │   ├── icon0.svg
 │   ├── icon1.png
 │   ├── manifest.json
-│   ├── sw-register.js
 │   ├── sw.js
+│   ├── sw-register.js
 │   ├── web-app-manifest-192x192.png
 │   ├── web-app-manifest-512x512.png
 │   └── window.svg
@@ -341,23 +340,37 @@ Root
 │   ├── IMG_1470.png
 │   ├── IMG_1471.png
 │   └── IMG_1473.png
+├── README_en.md
+├── README.md
 ├── render.yaml
 ├── scripts
+│   ├── bench
+│   │   └── node-runtime
+│   │       ├── results
+│   │       │   ├── baseline.json
+│   │       │   ├── post-change.json
+│   │       │   ├── runtime-residual.json
+│   │       │   └── runtime-reuse.json
+│   │       ├── run.mjs
+│   │       ├── runtime-diff-fixture.json
+│   │       ├── runtime-fixtures.json
+│   │       └── seed.mjs
 │   ├── build
 │   │   ├── build-extensions.js
-│   │   └── initial_files_to_ts.js
+│   │   ├── initial_files_to_ts.js
+│   │   └── service-worker.js
 │   ├── check-pnpm.js
 │   ├── chore
 │   │   └── update-readmes-version.js
 │   ├── extensions
-│   │   ├── EXTENSION-PNPM-GUIDE.md
 │   │   ├── create-extension-guide.md
 │   │   ├── create-extension.js
+│   │   ├── EXTENSION-PNPM-GUIDE.md
 │   │   └── samples
-│   │       ├── README.md
 │   │       ├── builtin-module-extension.template.ts
 │   │       ├── command-extension.template.ts
 │   │       ├── open-tab-button.template.tsx
+│   │       ├── README.md
 │   │       ├── service-extension.template.ts
 │   │       ├── sidebar-component.template.tsx
 │   │       ├── sidebar-registration.template.ts
@@ -366,7 +379,6 @@ Root
 │   │       ├── transpiler-extension.template.ts
 │   │       └── ui-extension.template.tsx
 │   ├── i18n
-│   │   ├── README.md
 │   │   ├── add-hardcoded-translations.js
 │   │   ├── add-remaining-translations.js
 │   │   ├── apply_missing_keys.js
@@ -381,9 +393,11 @@ Root
 │   │   ├── i18n-missing-keys.sh
 │   │   ├── one_file_i18n_extract.pl
 │   │   ├── one_file_t_extract.pl
+│   │   ├── README.md
 │   │   └── remove_unused_i18n_keys.js
 │   └── tools
 │       └── analyze-metafiles.js
+├── SHORT_README.md
 ├── src
 │   ├── App.tsx
 │   ├── components
@@ -391,12 +405,12 @@ Root
 │   │   │   ├── AIPanel.tsx
 │   │   │   ├── AIReview
 │   │   │   │   └── AIReviewTab.tsx
-│   │   │   ├── FileSelector.tsx
 │   │   │   ├── chat
 │   │   │   │   ├── ChatContainer.tsx
 │   │   │   │   ├── ChatInput.tsx
 │   │   │   │   ├── ChatMessage.tsx
 │   │   │   │   └── ModeSelector.tsx
+│   │   │   ├── FileSelector.tsx
 │   │   │   └── review
 │   │   │       ├── ChangedFilesPanel.tsx
 │   │   │       └── FileChangeItem.tsx
@@ -404,8 +418,11 @@ Root
 │   │   ├── Bottom
 │   │   │   ├── BottomPanel.tsx
 │   │   │   ├── BottomStatusBar.tsx
+│   │   │   ├── ClientTerminal.tsx
+│   │   │   ├── createTerminalInstance.ts
 │   │   │   ├── OutputPanel.tsx
 │   │   │   ├── ProblemsPanel.tsx
+│   │   │   ├── terminalInput.ts
 │   │   │   └── Terminal.tsx
 │   │   ├── Confirmation.tsx
 │   │   ├── DnD
@@ -416,22 +433,26 @@ Root
 │   │   │   ├── FileTree
 │   │   │   │   ├── FileTreeContextMenu.tsx
 │   │   │   │   ├── FileTreeItem.tsx
-│   │   │   │   ├── VirtualizedFileTree.tsx
 │   │   │   │   ├── index.tsx
-│   │   │   │   └── types.ts
+│   │   │   │   ├── types.ts
+│   │   │   │   └── VirtualizedFileTree.tsx
+│   │   │   ├── GitHistoryLayout.ts
 │   │   │   ├── GitHistory.tsx
 │   │   │   ├── GitPanel
 │   │   │   │   ├── ChangesList.tsx
 │   │   │   │   ├── CommitBox.tsx
 │   │   │   │   ├── ErrorState.tsx
 │   │   │   │   ├── FileItem.tsx
-│   │   │   │   ├── LoadingState.tsx
 │   │   │   │   ├── gitUtils.ts
+│   │   │   │   ├── LoadingState.tsx
 │   │   │   │   └── useGitPanel.ts
 │   │   │   ├── GitPanel.tsx
 │   │   │   ├── LeftSidebar.tsx
 │   │   │   ├── ResultRow.tsx
 │   │   │   ├── RunPanel.tsx
+│   │   │   ├── SearchPanel
+│   │   │   │   ├── SearchResults.tsx
+│   │   │   │   └── types.ts
 │   │   │   ├── SearchPanel.tsx
 │   │   │   └── SettingsPanel.tsx
 │   │   ├── MenuBar.tsx
@@ -440,7 +461,6 @@ Root
 │   │   │   ├── PaneNavigator.tsx
 │   │   │   ├── PaneResizer.tsx
 │   │   │   └── RootPaneArea.tsx
-│   │   ├── ProjectModal.tsx
 │   │   ├── Right
 │   │   │   ├── PanelRightIcon.tsx
 │   │   │   └── RightSidebar.tsx
@@ -454,48 +474,54 @@ Root
 │   │   │   ├── LocalImage.tsx
 │   │   │   ├── MarkdownPreview
 │   │   │   │   ├── CodeBlock.tsx
-│   │   │   │   ├── LocalImage.tsx
-│   │   │   │   ├── Mermaid.tsx
 │   │   │   │   ├── index.ts
+│   │   │   │   ├── LocalImage.tsx
+│   │   │   │   ├── mermaidConfig.ts
+│   │   │   │   ├── mermaidRuntime.ts
+│   │   │   │   ├── Mermaid.tsx
 │   │   │   │   └── useIntersectionObserver.ts
 │   │   │   ├── MarkdownPreviewTab.tsx
+│   │   │   ├── markdownUtils.ts
 │   │   │   ├── MergeConflictResolutionTab.tsx
 │   │   │   ├── ShortcutKeysTab.tsx
 │   │   │   ├── TabBar.tsx
 │   │   │   ├── TabIcon.tsx
 │   │   │   ├── TabSessionManager.tsx
-│   │   │   ├── WebPreviewTab.tsx
-│   │   │   ├── WelcomeTab.tsx
-│   │   │   ├── markdownUtils.ts
 │   │   │   ├── text-editor
-│   │   │   │   ├── MONACO_MODEL_MANAGEMENT.md
 │   │   │   │   ├── editors
 │   │   │   │   │   ├── CodeMirrorEditor.tsx
-│   │   │   │   │   ├── MonacoEditor.tsx
 │   │   │   │   │   ├── codemirror-utils.ts
 │   │   │   │   │   ├── editor-utils.ts
+│   │   │   │   │   ├── MonacoEditor.tsx
 │   │   │   │   │   ├── monaco-language-defaults.ts
 │   │   │   │   │   ├── monaco-themes.ts
 │   │   │   │   │   └── monarch-jsx-language.ts
 │   │   │   │   ├── hooks
 │   │   │   │   │   ├── useCharCount.ts
 │   │   │   │   │   └── useMonacoModels.ts
+│   │   │   │   ├── MONACO_MODEL_MANAGEMENT.md
 │   │   │   │   ├── ui
 │   │   │   │   │   ├── CharCountDisplay.tsx
 │   │   │   │   │   └── EditorPlaceholder.tsx
 │   │   │   │   └── utils
 │   │   │   │       ├── CharCountDetails.tsx
 │   │   │   │       └── monacoPathUtils.ts
-│   │   │   └── useTabCloseConfirmation.tsx
+│   │   │   ├── useTabCloseConfirmation.tsx
+│   │   │   ├── WebPreviewTab.tsx
+│   │   │   └── WelcomeTab.tsx
 │   │   └── Top
-│   │       ├── MdPreviewDialog.tsx
 │   │       ├── OperationWindow
+│   │       │   ├── fileSearchUtils.ts
+│   │       │   ├── folderPath.ts
 │   │       │   ├── OperationFileRow.tsx
 │   │       │   ├── OperationGenericRow.tsx
 │   │       │   ├── OperationUtils.tsx
 │   │       │   ├── OperationVirtualList.tsx
 │   │       │   ├── OperationWindow.tsx
-│   │       │   └── operationWorker.ts
+│   │       │   ├── operationWorker.ts
+│   │       │   ├── types.ts
+│   │       │   ├── useFileSearch.ts
+│   │       │   └── useFolderOperationView.tsx
 │   │       └── TopBar.tsx
 │   ├── constants
 │   │   ├── config.ts
@@ -513,7 +539,8 @@ Root
 │   │   │   ├── fetchAI.ts
 │   │   │   ├── patchApplier.ts
 │   │   │   ├── prompts.ts
-│   │   │   └── responseParser.ts
+│   │   │   ├── responseParser.ts
+│   │   │   └── textEdits.ts
 │   │   ├── cmd
 │   │   │   ├── app
 │   │   │   │   ├── dev
@@ -521,10 +548,9 @@ Root
 │   │   │   │   │   ├── tabScenario.ts
 │   │   │   │   │   └── types.ts
 │   │   │   │   └── vim
-│   │   │   │       ├── VimEditor.ts
-│   │   │   │       └── index.ts
+│   │   │   │       ├── index.ts
+│   │   │   │       └── VimEditor.ts
 │   │   │   ├── global
-│   │   │   │   ├── git.ts
 │   │   │   │   ├── gitOperations
 │   │   │   │   │   ├── add.ts
 │   │   │   │   │   ├── branch.ts
@@ -540,58 +566,64 @@ Root
 │   │   │   │   │   │   ├── TreeBuilder.ts
 │   │   │   │   │   │   └── utils.ts
 │   │   │   │   │   ├── log.ts
-│   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── mergeConflictDetector.ts
+│   │   │   │   │   ├── merge.ts
 │   │   │   │   │   ├── pull.ts
 │   │   │   │   │   ├── push.ts
 │   │   │   │   │   ├── remoteUtils.ts
 │   │   │   │   │   ├── reset.ts
 │   │   │   │   │   ├── revert.ts
+│   │   │   │   │   ├── service.ts
 │   │   │   │   │   ├── show.ts
 │   │   │   │   │   ├── status.ts
 │   │   │   │   │   ├── switch.ts
-│   │   │   │   │   └── tree.ts
-│   │   │   │   ├── npm.ts
+│   │   │   │   │   ├── tree.ts
+│   │   │   │   │   └── worker.ts
+│   │   │   │   ├── git.ts
 │   │   │   │   ├── npmOperations
 │   │   │   │   │   ├── install
 │   │   │   │   │   │   ├── batchWriter.ts
 │   │   │   │   │   │   ├── dependencyGraph.ts
+│   │   │   │   │   │   ├── fsFiles.ts
 │   │   │   │   │   │   ├── tarExtractor.ts
 │   │   │   │   │   │   ├── types.ts
 │   │   │   │   │   │   └── versionUtils.ts
 │   │   │   │   │   ├── npmDependencySize.ts
-│   │   │   │   │   └── npmInstall.ts
-│   │   │   │   ├── unix.ts
-│   │   │   │   └── unixOperations
-│   │   │   │       ├── base.ts
-│   │   │   │       ├── cat.ts
-│   │   │   │       ├── cd.ts
-│   │   │   │       ├── cp.ts
-│   │   │   │       ├── date.ts
-│   │   │   │       ├── df.ts
-│   │   │   │       ├── du.ts
-│   │   │   │       ├── echo.ts
-│   │   │   │       ├── find.ts
-│   │   │   │       ├── grep.ts
-│   │   │   │       ├── gzip.ts
-│   │   │   │       ├── head.ts
-│   │   │   │       ├── help.ts
-│   │   │   │       ├── index.ts
-│   │   │   │       ├── ls.ts
-│   │   │   │       ├── mkdir.ts
-│   │   │   │       ├── mv.ts
-│   │   │   │       ├── pwd.ts
-│   │   │   │       ├── rm.ts
-│   │   │   │       ├── sort.ts
-│   │   │   │       ├── stat.ts
-│   │   │   │       ├── tail.ts
-│   │   │   │       ├── tar.ts
-│   │   │   │       ├── test.ts
-│   │   │   │       ├── touch.ts
-│   │   │   │       ├── tree.ts
-│   │   │   │       ├── unzip.ts
-│   │   │   │       ├── wc.ts
-│   │   │   │       └── zip.ts
+│   │   │   │   │   ├── npmInstall.ts
+│   │   │   │   │   └── worker.ts
+│   │   │   │   ├── npm.ts
+│   │   │   │   ├── unixOperations
+│   │   │   │   │   ├── base.ts
+│   │   │   │   │   ├── cat.ts
+│   │   │   │   │   ├── cd.ts
+│   │   │   │   │   ├── cp.ts
+│   │   │   │   │   ├── date.ts
+│   │   │   │   │   ├── df.ts
+│   │   │   │   │   ├── du.ts
+│   │   │   │   │   ├── echo.ts
+│   │   │   │   │   ├── find.ts
+│   │   │   │   │   ├── grep.ts
+│   │   │   │   │   ├── gzip.ts
+│   │   │   │   │   ├── head.ts
+│   │   │   │   │   ├── helpTexts.ts
+│   │   │   │   │   ├── help.ts
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── ls.ts
+│   │   │   │   │   ├── mkdir.ts
+│   │   │   │   │   ├── mv.ts
+│   │   │   │   │   ├── pwd.ts
+│   │   │   │   │   ├── rm.ts
+│   │   │   │   │   ├── sort.ts
+│   │   │   │   │   ├── stat.ts
+│   │   │   │   │   ├── tail.ts
+│   │   │   │   │   ├── tar.ts
+│   │   │   │   │   ├── test.ts
+│   │   │   │   │   ├── touch.ts
+│   │   │   │   │   ├── tree.ts
+│   │   │   │   │   ├── unzip.ts
+│   │   │   │   │   ├── wc.ts
+│   │   │   │   │   └── zip.ts
+│   │   │   │   └── unix.ts
 │   │   │   ├── handlers
 │   │   │   │   ├── devHandler.ts
 │   │   │   │   ├── gitHandler.ts
@@ -600,10 +632,10 @@ Root
 │   │   │   │   ├── unixHandler.ts
 │   │   │   │   └── vimHandler.ts
 │   │   │   ├── lib
-│   │   │   │   ├── GUIDELINES.md
 │   │   │   │   ├── expr.ts
 │   │   │   │   ├── fnmatch.ts
 │   │   │   │   ├── getopt.ts
+│   │   │   │   ├── GUIDELINES.md
 │   │   │   │   └── index.ts
 │   │   │   ├── shell
 │   │   │   │   ├── braceExpand.ts
@@ -611,6 +643,8 @@ Root
 │   │   │   │   ├── executor.ts
 │   │   │   │   ├── expansion.ts
 │   │   │   │   ├── index.ts
+│   │   │   │   ├── localBinary.ts
+│   │   │   │   ├── outputHandler.ts
 │   │   │   │   ├── parser.ts
 │   │   │   │   ├── process.ts
 │   │   │   │   ├── scriptRunner.ts
@@ -623,15 +657,30 @@ Root
 │   │   ├── commitMsgAI.ts
 │   │   ├── core
 │   │   │   ├── coreLogger.ts
-│   │   │   ├── fileRepository
+│   │   │   ├── fileBytes.ts
+│   │   │   ├── fileContent.ts
+│   │   │   ├── fs
+│   │   │   │   ├── buffer.ts
+│   │   │   │   ├── client.ts
+│   │   │   │   ├── core.ts
+│   │   │   │   ├── endpoint.ts
+│   │   │   │   ├── errors.ts
+│   │   │   │   ├── git.ts
 │   │   │   │   ├── index.ts
-│   │   │   │   ├── indexeddb.ts
-│   │   │   │   └── inmemory.ts
-│   │   │   ├── gitFileSystem.ts
+│   │   │   │   ├── layout.ts
+│   │   │   │   ├── search.ts
+│   │   │   │   ├── types.ts
+│   │   │   │   ├── worker.ts
+│   │   │   │   └── workspace.ts
 │   │   │   ├── gitignore.ts
+│   │   │   ├── migration
+│   │   │   │   ├── idb.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── lightning.ts
+│   │   │   │   ├── metadata.ts
+│   │   │   │   └── types.ts
 │   │   │   ├── pathUtils.ts
-│   │   │   ├── project.ts
-│   │   │   └── syncManager.ts
+│   │   │   └── project.ts
 │   │   ├── extensions
 │   │   │   ├── autoInstaller.ts
 │   │   │   ├── binaryUtils.ts
@@ -646,6 +695,7 @@ Root
 │   │   │   │   ├── ExplorerMenuAPI.ts
 │   │   │   │   ├── SidebarAPI.ts
 │   │   │   │   └── TabAPI.ts
+│   │   │   ├── systemModules.ts
 │   │   │   ├── systemModuleTypes.ts
 │   │   │   ├── transformImports.ts
 │   │   │   └── types.ts
@@ -669,22 +719,29 @@ Root
 │   │   │   └── inlineHtmlAssets.ts
 │   │   ├── initialFileContents.ts
 │   │   ├── runtime
+│   │   │   ├── bridge
+│   │   │   │   ├── client.ts
+│   │   │   │   ├── endpoint.ts
+│   │   │   │   ├── main.ts
+│   │   │   │   ├── protocol.ts
+│   │   │   │   └── serviceWorker.js
 │   │   │   ├── core
-│   │   │   │   ├── RuntimeProvider.ts
-│   │   │   │   ├── RuntimeRegistry.ts
 │   │   │   │   ├── builtinRuntimes.ts
-│   │   │   │   └── runtimeLogger.ts
+│   │   │   │   ├── runtimeLogger.ts
+│   │   │   │   ├── RuntimeProvider.ts
+│   │   │   │   └── RuntimeRegistry.ts
 │   │   │   ├── module
 │   │   │   │   ├── builtinModules.ts
-│   │   │   │   ├── moduleCache.ts
+│   │   │   │   ├── dynamicFunction.ts
+│   │   │   │   ├── moduleCode.ts
+│   │   │   │   ├── moduleFileSystem.ts
 │   │   │   │   ├── moduleLoader.ts
 │   │   │   │   └── moduleResolver.ts
 │   │   │   ├── nodejs
-│   │   │   │   ├── NodeRuntimeProvider.ts
+│   │   │   │   ├── benchmark.ts
 │   │   │   │   ├── builtInModule.ts
 │   │   │   │   ├── modules
 │   │   │   │   │   ├── assertModule.ts
-│   │   │   │   │   ├── bufferModule.ts
 │   │   │   │   │   ├── childProcessModule.ts
 │   │   │   │   │   ├── cryptoModule.ts
 │   │   │   │   │   ├── eventsModule.ts
@@ -699,52 +756,55 @@ Root
 │   │   │   │   │   ├── utilModule.ts
 │   │   │   │   │   └── v8Module.ts
 │   │   │   │   ├── nodeErrors.ts
+│   │   │   │   ├── NodeRuntimeProvider.ts
 │   │   │   │   ├── nodeRuntime.ts
-│   │   │   │   └── processExit.ts
+│   │   │   │   ├── processExit.ts
+│   │   │   │   ├── runtimeTypes.ts
+│   │   │   │   ├── runtimeWorkerPool.ts
+│   │   │   │   ├── runtimeWorker.ts
+│   │   │   │   ├── shellHost.ts
+│   │   │   │   ├── workerProtocol.ts
+│   │   │   │   └── workerStdin.ts
 │   │   │   ├── storage
-│   │   │   │   ├── MemoryMount.ts
-│   │   │   │   ├── MountRouter.ts
-│   │   │   │   ├── ProjectMount.ts
-│   │   │   │   ├── RuntimeCacheMount.ts
-│   │   │   │   ├── RuntimeStorageRegistry.ts
+│   │   │   │   ├── RuntimeFsMount.ts
 │   │   │   │   └── types.ts
 │   │   │   └── transpiler
-│   │   │       ├── ExtensionTranspilerProvider.ts
 │   │   │       ├── esmTransformer.ts
 │   │   │       ├── transpileManager.ts
 │   │   │       └── transpileWorker.ts
 │   │   ├── storage
 │   │   │   ├── aiStorageAdapter.ts
 │   │   │   ├── chatStorageAdapter.ts
-│   │   │   └── index.ts
+│   │   │   ├── index.ts
+│   │   │   ├── recentFileHistoryAdapter.ts
+│   │   │   └── recentFolderStorageAdapter.ts
 │   │   ├── tabs
-│   │   │   ├── TabRegistry.ts
 │   │   │   ├── builtins
 │   │   │   │   ├── AIReviewTabType.tsx
 │   │   │   │   ├── BinaryTabType.tsx
 │   │   │   │   ├── DiffTabType.tsx
 │   │   │   │   ├── EditorTabType.tsx
 │   │   │   │   ├── ExtensionInfoTabType.tsx
+│   │   │   │   ├── index.ts
 │   │   │   │   ├── MergeConflictTabType.tsx
 │   │   │   │   ├── PreviewTabType.tsx
 │   │   │   │   ├── SettingsTabType.tsx
 │   │   │   │   ├── WebPreviewTabType.tsx
-│   │   │   │   ├── WelcomeTabType.tsx
-│   │   │   │   └── index.ts
+│   │   │   │   └── WelcomeTabType.tsx
 │   │   │   ├── registerBuiltinTabs.ts
+│   │   │   ├── TabRegistry.ts
 │   │   │   └── types.ts
 │   │   ├── user
 │   │   │   ├── authRepository.ts
 │   │   │   ├── crypto.ts
 │   │   │   └── githubUserManager.ts
 │   │   └── workers
-│   │       ├── WorkerPool.ts
-│   │       └── searchWorker.ts
+│   │       └── WorkerPool.ts
 │   ├── env.ts
 │   ├── hooks
 │   │   ├── ai
-│   │   │   ├── useAI.ts
 │   │   │   ├── useAIReview.ts
+│   │   │   ├── useAI.ts
 │   │   │   ├── useChatSpace.ts
 │   │   │   └── useInputHistory.ts
 │   │   ├── keybindings
@@ -753,6 +813,7 @@ Root
 │   │   │   └── useKeyBindings.ts
 │   │   ├── state
 │   │   │   ├── useFileDeleteTabSync.ts
+│   │   │   ├── useGitFilesystemRefresh.ts
 │   │   │   ├── useProjectWelcome.ts
 │   │   │   └── useSettings.ts
 │   │   └── ui
@@ -776,7 +837,10 @@ Root
 │   │   ├── tabState
 │   │   │   ├── actions.ts
 │   │   │   ├── contentSync.ts
+│   │   │   ├── diff.ts
+│   │   │   ├── fileLoading.ts
 │   │   │   ├── paneUtils.ts
+│   │   │   ├── sessionActions.ts
 │   │   │   └── state.ts
 │   │   ├── tabState.ts
 │   │   └── terminalHistoryStorage.ts
@@ -791,66 +855,147 @@ Root
 │   │   ├── settings.ts
 │   │   └── vm-browserify.d.ts
 │   └── vite-env.d.ts
+├── System-Design
+│   └── COMMAND-EXECUTION-ARCHITECTURE.md
 ├── tailwind.config.ts
 ├── tests
-│   ├── README.md
-│   ├── _helpers
-│   │   ├── localNpmPackage.ts
-│   │   └── testProject.ts
+│   ├── components
+│   │   ├── Left
+│   │   │   └── GitPanel
+│   │   │       └── useGitPanel.test.ts
+│   │   ├── mermaidConfig.test.ts
+│   │   └── Top
+│   │       └── OperationWindow
+│   │           ├── fileSearchUtils.test.ts
+│   │           └── folderPath.test.ts
 │   ├── engine
+│   │   ├── ai
+│   │   │   ├── contextBuilder.test.ts
+│   │   │   └── responseParser.test.ts
 │   │   ├── cmd
 │   │   │   ├── e2e
 │   │   │   │   ├── envExpansion.test.ts
 │   │   │   │   ├── errorHandling.test.ts
+│   │   │   │   ├── pathContext.test.ts
 │   │   │   │   ├── pipeline.test.ts
 │   │   │   │   └── subshell.test.ts
+│   │   │   ├── global
+│   │   │   │   └── gitOperations
+│   │   │   │       ├── log.test.ts
+│   │   │   │       ├── status.test.ts
+│   │   │   │       └── treeBuilder.test.ts
+│   │   │   ├── handlers
+│   │   │   │   └── vimHandler.test.ts
+│   │   │   ├── pyxisHandler.test.ts
 │   │   │   └── shell
 │   │   │       ├── braceExpand.test.ts
 │   │   │       ├── expansion.test.ts
 │   │   │       ├── nodeBuiltin.test.ts
 │   │   │       ├── parser.test.ts
+│   │   │       ├── runtimeBytes.test.ts
 │   │   │       └── types.test.ts
 │   │   ├── core
-│   │   │   ├── fileRepository
-│   │   │   │   └── inmemory.test.ts
+│   │   │   ├── fileBytes.test.ts
+│   │   │   ├── fs
+│   │   │   │   ├── core.test.ts
+│   │   │   │   ├── errors.test.ts
+│   │   │   │   ├── git.test.ts
+│   │   │   │   ├── handles.test.ts
+│   │   │   │   ├── search.test.ts
+│   │   │   │   └── workspace.test.ts
 │   │   │   ├── gitignore.test.ts
-│   │   │   └── pathUtils.test.ts
+│   │   │   ├── git.test.ts
+│   │   │   ├── migration
+│   │   │   │   ├── lightning.test.ts
+│   │   │   │   ├── metadata.test.ts
+│   │   │   │   └── storage.test.ts
+│   │   │   ├── pathUtils.test.ts
+│   │   │   └── project.test.ts
+│   │   ├── extensions
+│   │   │   ├── binaryAssets.test.ts
+│   │   │   ├── storageAdapterBinary.test.ts
+│   │   │   └── tabAPI.test.ts
+│   │   ├── helper
+│   │   │   ├── isLikelyTextFile.test.ts
+│   │   │   └── settingsManager.test.ts
+│   │   ├── in-ex
+│   │   │   ├── exportFolderZip.test.ts
+│   │   │   ├── exportSingleFile.test.ts
+│   │   │   ├── importSingleFile.test.ts
+│   │   │   └── inlineHtmlAssets.test.ts
 │   │   ├── npm
+│   │   │   ├── batchWriter.test.ts
 │   │   │   ├── e2e
 │   │   │   │   ├── prettier.test.ts
 │   │   │   │   └── uvu.test.ts
-│   │   │   ├── npm.test.ts
+│   │   │   ├── npmCache.test.ts
 │   │   │   ├── npmInstall.test.ts
+│   │   │   ├── npm.test.ts
 │   │   │   ├── npx.test.ts
+│   │   │   ├── tarExtractor.test.ts
 │   │   │   └── versionUtils.test.ts
-│   │   └── runtime
-│   │       ├── childProcessModule.test.ts
-│   │       ├── esmTransformer.test.ts
-│   │       ├── fsModule.test.ts
-│   │       ├── moduleResolver.test.ts
-│   │       └── nodeRuntime.test.ts
+│   │   ├── runtime
+│   │   │   ├── benchmark.test.ts
+│   │   │   ├── bridgeEndpoint.test.ts
+│   │   │   ├── bridge.test.ts
+│   │   │   ├── bufferBoundaries.test.ts
+│   │   │   ├── childProcessModule.test.ts
+│   │   │   ├── dynamicFunction.test.ts
+│   │   │   ├── esmTransformer.test.ts
+│   │   │   ├── fsModule.test.ts
+│   │   │   ├── moduleCode.test.ts
+│   │   │   ├── moduleResolver.test.ts
+│   │   │   ├── nodeRuntimeProvider.test.ts
+│   │   │   ├── nodeRuntime.test.ts
+│   │   │   ├── pathModule.test.ts
+│   │   │   ├── runtimeWorkerPool.test.ts
+│   │   │   ├── runtimeWorker.test.ts
+│   │   │   ├── transpileCache.test.ts
+│   │   │   ├── urlModule.test.ts
+│   │   │   ├── workerPool.test.ts
+│   │   │   └── workerStdin.test.ts
+│   │   └── storage
+│   │       └── recentFileHistoryAdapter.test.ts
+│   ├── _helpers
+│   │   ├── localNpmPackage.ts
+│   │   ├── memoryFs.ts
+│   │   ├── nodeRuntime.ts
+│   │   ├── npmRuntime.ts
+│   │   ├── opfs.ts
+│   │   ├── testFsFiles.ts
+│   │   ├── testFs.ts
+│   │   ├── testModuleResolver.ts
+│   │   └── testProject.ts
+│   ├── hooks
+│   │   └── state
+│   │       └── useGitFilesystemRefresh.test.ts
+│   ├── polyfills.test.ts
+│   ├── README.md
 │   ├── setup.ts
+│   ├── stores
+│   │   └── tabState
+│   │       ├── contentSync.test.ts
+│   │       ├── fileLoading.test.ts
+│   │       ├── openTab.test.ts
+│   │       └── sessionActions.test.ts
 │   └── tsconfig.json
 ├── tree-built-out.sh
 ├── tree.sh
 ├── tree.txt
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 ├── types
 │   └── esbuild-cdn.d.ts
 ├── vite.config.ts
 └── vitest.config.ts
 
-169 directories, 671 files
+194 directories, 795 files
 
 =================================
 
 src/*.ts, *.tsx の統計:
-合計行数: 74216
-合計文字数: 2347975
-合計ファイルサイズ(bytes): 2477696
+合計行数: 69469
+合計文字数: 2240957
+合計ファイルサイズ(bytes): 2320677
 
-開発時のdev container全体のサイズ(bytes): 918M	.
-==========
-ビルト済みファイルの行数: 0
-合計文字数: 0
-合計ファイルサイズ(bytes): 0
+開発時のdev container全体のサイズ(bytes): 1.2G	.
