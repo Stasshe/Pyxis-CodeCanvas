@@ -24,9 +24,11 @@ describe('filesystem memory mount', () => {
     expect(await core.stat('/tmp/data')).toMatchObject({
       path: '/tmp/data',
       type: 'file',
+      mode: 0o100644,
       size: 3,
     });
     expect(Object.keys(await core.stat('/tmp/data')).sort()).toEqual([
+      'mode',
       'mtime',
       'path',
       'size',

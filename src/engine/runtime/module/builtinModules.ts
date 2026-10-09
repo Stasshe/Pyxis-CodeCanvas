@@ -35,6 +35,7 @@ export const NODE_BUILTIN_MODULES = [
   'util',
   'util/types',
   'v8',
+  'worker_threads',
   'zlib',
 ];
 
@@ -69,7 +70,6 @@ const UNSUPPORTED_BUILTIN_MODULES = [
   'trace_events',
   'vm',
   'wasi',
-  'worker_threads',
 ];
 
 const PREFIX_ONLY_BUILTIN_MODULES = ['node:sea', 'node:sqlite', 'node:test', 'node:test/reporters'];

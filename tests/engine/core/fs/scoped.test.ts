@@ -13,7 +13,9 @@ describe('scoped filesystem clients', () => {
       .mockImplementation((path, ownerId) => core.readFile(path, ownerId));
     const writeFile = vi
       .spyOn(client, 'writeFile')
-      .mockImplementation((path, data, ownerId) => core.writeFile(path, data, true, ownerId));
+      .mockImplementation((path, data, options, ownerId) =>
+        core.writeFile(path, data, options, true, ownerId)
+      );
     vi.spyOn(client, 'closeFifos').mockImplementation(ownerId => core.closeFifos(ownerId));
     vi.spyOn(client, 'stat').mockImplementation(path => core.stat(path));
     await client.mkfifo('/tmp/pipe');
@@ -31,6 +33,7 @@ describe('scoped filesystem clients', () => {
     expect(writeFile).toHaveBeenCalledWith(
       '/tmp/pipe',
       new Uint8Array([0, 255, 12]),
+      undefined,
       'writer',
       expect.any(AbortSignal)
     );
@@ -60,8 +63,8 @@ describe('scoped filesystem clients', () => {
     const core = new FsCore();
     const client = new FsClient();
     vi.spyOn(client, 'mkfifo').mockImplementation(path => core.mkfifo(path));
-    vi.spyOn(client, 'writeFile').mockImplementation((path, data, ownerId) =>
-      core.writeFile(path, data, true, ownerId)
+    vi.spyOn(client, 'writeFile').mockImplementation((path, data, options, ownerId) =>
+      core.writeFile(path, data, options, true, ownerId)
     );
     vi.spyOn(client, 'closeFifos').mockImplementation(ownerId => core.closeFifos(ownerId));
     await client.mkfifo('/tmp/pipe');

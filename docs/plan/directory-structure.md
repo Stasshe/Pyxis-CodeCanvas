@@ -156,3 +156,34 @@ ts-pruneは、extensionsの `activate` / `deactivate` と `_shared` 型、`src/t
 - 移動は全セッション停止中に1セッションでまとめて行う。並行作業中のrenameは他セッションの差分を壊す。
 - 順序: ①`tabs/builtins` UI分離（依存の向きを先に決める）→②`components/` の機能単位化→③engine内の命名整理→④tests配置をsrcに合わせる。①②は依存グラフが変わるので、移動後に逆流0件をrgで確認する。
 - `components/` 機能単位化は、各panelの登録元（LeftSidebarのpanel一覧、拡張のsidebar API）と同時に変える。
+
+## 決定（Stasshe、2026-10-09）
+
+src/全体を層ごとの責務で再配置する。目的: `components/` 内の `.ts` ロジック（54件）とengine→UIの逆依存をなくし、置き場から責務が分かる構造にする。
+
+```
+src/
+├── main.tsx / App.tsx / polyfills.ts / env.ts
+├── components/          # .tsxのUIだけ。機能単位
+│   ├── layout/          # MenuBar, sidebar枠, AppInitializer, Confirmation, DnD
+│   ├── pane/  tabs/  editor/  preview/(Markdown・Web)
+│   ├── explorer/  search/  git/  run/  extensions/  settings/
+│   ├── terminal/  operation-window/  ai/
+├── hooks/               # use*.ts。機能単位
+├── stores/  context/  types/  constants/  styles/
+├── lib/                 # 外部library組込み: monaco/ xterm/ mermaid/
+└── engine/              # React非依存
+    ├── core/            # fs/ workspace/ metadata/(←storage) settings/ i18n/ migration/
+    ├── system/          # Pyxis内のLinux相当実行環境
+    │   ├── shell/  commands/{unix,git,npm,vim}/  terminal/
+    │   ├── runtime/{core,module,nodejs,bridge,fs(←storage),transpiler(+WorkerPool)}/
+    │   ├── git/         # 実処理（Git panelとgit commandが共用）
+    │   └── npm/         # install・lockfile・cache
+    └── ide/             # IDE機能: ai/(+commitMessage) search/ markdown/ tabs/(registry・型) extensions/ github/(←user) importExport/(←in-ex)
+```
+
+- 依存方向: `ide` → `system` → `core` の一方向。`engine` から `components`・`hooks` へのimportは0件。`engine`→`stores` は今回は残す
+- `engine/tabs/builtins` のUI部分は `components/tabs/` へ
+- tests/ は src/ と同じ構造に揃える
+- docs（arch・domain）のpath記述を新構造へ更新
+- 実施: 全codexセッションを区切りで停止→専任1セッションで一括移動→逆依存0件をrgで確認→全体format・lint・tsc・test・build→再開

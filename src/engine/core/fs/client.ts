@@ -11,6 +11,7 @@ import type {
   FsChangeEvent,
   FsFifoApi,
   FsWriteApi,
+  FsWriteOptions,
   MkdirOptions,
   PipePaths,
   RenameOptions,
@@ -92,12 +93,13 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
   async writeFile(
     path: string,
     data: string | Uint8Array,
+    options?: FsWriteOptions,
     ownerId?: string,
     signal?: AbortSignal
   ): Promise<void> {
     const api = await this.api();
     if (signal?.aborted) throw new FSError('EINTR', path);
-    await api.writeFile(path, data, undefined, ownerId);
+    await api.writeFile(path, data, undefined, ownerId, options?.mode);
   }
   async mkfifo(path: string): Promise<void> {
     await (await this.api()).mkfifo(path);
@@ -137,9 +139,10 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
     data: Uint8Array,
     position: number | null,
     create = false,
-    exclusive = false
+    exclusive = false,
+    mode?: number
   ): Promise<number> {
-    return (await this.api()).writeRange(path, data, position, create, exclusive);
+    return (await this.api()).writeRange(path, data, position, create, exclusive, undefined, mode);
   }
   async readdir(path: string): Promise<ProjectFile[]> {
     return (await this.api()).readdir(path);
@@ -161,6 +164,9 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
   }
   async mkdir(path: string, options?: MkdirOptions): Promise<void> {
     await (await this.api()).mkdir(path, options);
+  }
+  async chmod(path: string, mode: number): Promise<void> {
+    await (await this.api()).chmod(path, mode);
   }
   async rm(path: string, options?: RmOptions): Promise<void> {
     await (await this.api()).rm(path, options);

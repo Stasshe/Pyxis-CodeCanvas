@@ -97,7 +97,7 @@ sequenceDiagram
 
 - fast-forwardと衝突なしmergeはcheckout完了後にbranch refを更新する。ref保存失敗時は元commitへworktree／indexを戻し、既存untracked fileを保持する。復元も失敗した場合は両方の原因を通知する。
 - merge commit作成後にstate cleanupが失敗した場合、作成済みSHAを含むerrorを返す。再試行はHEADの第2親と残存`MERGE_HEAD`を照合してcleanupを再試行し、cleanなら同じcommitを返す。新たな変更がある場合はmerge stateを消して通常のsingle-parent commitへ進み、merge commitを重複させない。
-- checkout自体の途中書込失敗は未回復。HEAD／indexが旧commitのままでもworktreeに一部target bytes・target-only untracked fileが残り得る。元commitのforce checkoutでも戻らない経路を確認した。上記ref保存失敗後の復元と区別し、tree／index／新設entryの整合した復元はTODOに残す。
+- checkout自体の途中書込失敗では、HEAD／indexが旧commitのままでもworktreeに一部target bytes・target-only untracked fileが残り得る。元commitのforce checkoutでも戻らない経路を確認した。Stassheの判断により、この部分失敗後の不整合は許容し、復元処理は行わない。checkout完了後のref保存失敗とは別の経路。
 
 ## GitHub連携
 

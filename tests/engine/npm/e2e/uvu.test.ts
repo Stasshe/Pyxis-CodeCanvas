@@ -47,7 +47,7 @@ async function runUvuSuite(
   expectedExitCode: number
 ): Promise<SuiteResult> {
   const capture = collectOutput();
-  fixture.close();
+  await fixture.close();
   const runtimeFixture = await createNpmRuntimeFixture(repo, rootPath, capture.debugConsole);
   try {
     const scriptPath = `${rootPath}/uvu-suite.cjs`;
@@ -74,7 +74,7 @@ async function runUvuSuite(
       exitCode: runtimeFixture.runtime.getExitCode(),
     };
   } finally {
-    runtimeFixture.close();
+    await runtimeFixture.close();
   }
 }
 
@@ -94,8 +94,8 @@ describe('uvu npm runtime integration', () => {
     fixture = await createNpmRuntimeFixture(repo, rootPath);
   });
 
-  afterEach(() => {
-    fixture.close();
+  afterEach(async () => {
+    await fixture.close();
     // Runtime globals share the host, so clear uvu's test-owned controls.
     Reflect.deleteProperty(globalThis, 'UVU_QUEUE');
   });
@@ -118,7 +118,7 @@ describe('uvu npm runtime integration', () => {
     expect(await repo.readlink(shimPath)).toMatch(/^\.\.\/uvu\//);
 
     const capture = collectOutput();
-    fixture.close();
+    await fixture.close();
     fixture = await createNpmRuntimeFixture(repo, rootPath, capture.debugConsole);
 
     await fixture.runtime.execute(shimPath, ['--version']);

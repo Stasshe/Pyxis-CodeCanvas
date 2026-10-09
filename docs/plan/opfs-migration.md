@@ -79,7 +79,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 | `pyxis-fs`(lightning-fs) | 削除 |
 | `PyxisAuth`、translations / keybindings / user_preferences / extensions | 変更なし |
 
-`ProjectFile`はpath・種別・size・mtimeを持つだけの純粋なFS entryにする。`id` / `projectId` / `parentPath`は廃止。
+`ProjectFile`はpath・種別・type bitsを含むmode・size・mtimeを持つFS entryにする。OPFSに属性を持たせず、permission bitsはcanonical absolute pathをkeyにIDBへ保存する（`/tmp`はmemory）。`id` / `projectId` / `parentPath`は廃止。
 
 ## Git
 

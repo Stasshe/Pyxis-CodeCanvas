@@ -10,6 +10,7 @@
 | `readText` | UTF-8 decodeして返す唯一のtext読取 |
 | `writeFile` | 文字列（UTF-8 encode）かbytes。parentがなければ`ENOENT` |
 | `readdir` / `walk` / `stat` / `lstat` | metadataだけを返す。`walk`は子孫を再帰列挙し、symlinkはentryとして返すが辿らない |
+| `chmod` | symlinkを追い、permission bitsを更新する。通常pathの属性はIDBに永続化し、`/tmp`はmemoryに置く |
 | `mkdir` | `recursive`対応。既存folderは`recursive`時だけ成功 |
 | `rm` | `recursive` / `force`。`/`と`/tmp`は`EBUSY` |
 | `rename` | 既定はdestinationを置換する。`overwrite: false`は排他mutation中にdestinationを確認し、存在すれば`EEXIST`。persistent fileはOPFS native moveで移動・置換し、move非対応環境では`ENOTSUP`。directoryと`/tmp`内fileはcopy後にsourceを削除する。directory copy中の失敗ではdestinationの作成分を除去するが、copy完了後のsource削除失敗ではdestinationを保持し、source削除が部分的でもデータを残す。自分の子孫への移動は`EINVAL` |
@@ -26,9 +27,13 @@
 | `ensureDemoWorkspace()` | `~/demo`がなければ生成済み`initial_files/`を書き込む。既存なら何もしない。fileなら失敗 |
 | `search(root, request)` | 内容検索。後述 |
 
-FS APIは絶対pathだけを受け付ける（`normalizePath`は相対pathとNUL文字を`EINVAL`で拒否）。`ProjectFile.mount`はroot mountのbackingを示す任意metadataで、`/tmp`は`memory`、`/dev`は`devices`。通常のfile/folder entryはmount metadataを持たない。OPFSの`DOMException`はNode風のcodeへ変換する: `NotFoundError`→`ENOENT`、`TypeMismatchError`→`ENOTDIR`/`EISDIR`、`InvalidModificationError`→`ENOTEMPTY`、`QuotaExceededError`→`ENOSPC`、`NotAllowedError`→`EACCES`、その他→`EIO`。`FSError`は`code`と`path`に加え、native messageとrollback failure causeをUI/logで追える形で保持し、Comlink境界でも同じ内容を伝える。
+FS APIは絶対pathだけを受け付ける（`normalizePath`は相対pathとNUL文字を`EINVAL`で拒否）。`ProjectFile.mode`はtype bitsを含む`stat`形式のmodeを持つ。OPFSには任意属性を保存できないため、通常pathのpermission bitsは絶対canonical pathをkeyにIndexedDBへ保存し、`/tmp`はmemory metadataへ保持する。mode未指定時のdefault permissionはfile/FIFO `0644`、directory `0755`、symlink `0777`、character device `0666`。Node runtimeの作成modeには固定virtual umask `022`を適用し、`process.umask()`は未対応。FS Coreへ渡されたmodeはそのまま保存する。既存fileのoverwrite/truncateはmodeを保ち、renameはsubtree metadataを移し、deleteは実際に削除されたpathの属性を除去する。symlinkへの`chmod`はtargetを更新し、属性commit後にchange eventを発行する。OPFSとIndexedDB間のcommitはatomicではなく、失敗は呼出元へ返す。`access`は要求したR/W/Xごとに対応するowner/group/other bitのいずれかがあれば通す。uid/gidやACLの照合、file操作全体のpermission enforcementは提供しない。
+
+`ProjectFile.mount`はroot mountのbackingを示す任意metadataで、`/tmp`は`memory`、`/dev`は`devices`。通常のfile/folder entryはmount metadataを持たない。OPFSの`DOMException`はNode風のcodeへ変換する: `NotFoundError`→`ENOENT`、`TypeMismatchError`→`ENOTDIR`/`EISDIR`、`InvalidModificationError`→`ENOTEMPTY`、`QuotaExceededError`→`ENOSPC`、`NotAllowedError`→`EACCES`、その他→`EIO`。`FSError`は`code`と`path`に加え、native messageとrollback failure causeをUI/logで追える形で保持し、Comlink境界でも同じ内容を伝える。
 
 UIがfileを開く時は`readFileContent`がbytesと既知のbinary拡張子からtext/binaryを分類する。text拡張子でもbytes検査を省略しない。
+
+Stassheの決定により、renameなど複数entryの変更が途中で失敗した場合の不整合は許容する。既存の失敗通知・限定的な回復処理は維持し、操作前の全状態を復元する処理は追加しない。
 
 ## FsCoreの内部
 
@@ -52,6 +57,7 @@ graph TD
 - **Access queue**: 同じpathへのfile操作をpath単位で直列化する。persistent readは`SyncAccessHandle`を1操作の中で開閉し、writeは`FileSystemWritableFileStream`へstageする。
 - **Namespace lease**: 通常のpath操作は共有lease、directory create/remove/renameと初期化は排他leaseを使う。構造変更中にpath解決が古いdirectory handleを使わないため。
 - **Root pin / transaction queue**: Git・npmはcanonical root pathごとに順序付ける。root pinは処理中のworkspace root rename/removeを待たせる。これにより長いGit/npm処理中も無関係なfile accessは進められる。
+- **Permission DB接続**: metadata DBのopen失敗は呼出し元へ返し、再試行を可能にする。blocked通知後に遅れて成功した接続は閉じ、再試行で取得した接続へ差し替えない。versionchangeでも所有接続を閉じてcacheを解除する。
 - **Persistent write**: `FileSystemWritableFileStream`へ変更をstageし、`close()`でcommitする。失敗時はabortし、既存payloadを保持する。
 - **/tmp**: `Map<path, {metadata, data}>`で持つ。OPFSには書かない。`readdir('/')`はOPFS上の`tmp`とsymlink/FIFO領域を隠し、memoryの`/tmp`とvirtual `/dev`を足して返す。
 - **Devices / descriptors**: `/dev/null`はgeneric FS read/write/stat pathから扱うcharacter deviceで、EOF read・discard write・size 0を持つ。`/dev/fd`は現在open中のFIFO endpointだけを列挙し、numeric descriptorは3から割り当てる。`createPipe`はFIFO名を作らずread/write endpointを事前openし、両側の`/dev/fd/N` pathを返す。descriptor pathを開くと同じinodeを参照し、元descriptorをcloseしても他のopen aliasは存続する。`/dev`、`/dev/fd`の構造変更とdevice/descriptor pathの削除・renameは拒否する。

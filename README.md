@@ -142,7 +142,7 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
 </div>
 
 Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。sloppy scriptのglobal代入と裸の識別子参照をNodeと同じにするため、program globalはWorkerの実際のglobal objectへ置きます。runtime所有の一時descriptorは実行終了時に復元します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。FS Workerは直近の成功path lookupのdirectory handle chainを保持して共通ancestorを再利用しますが、file handleやfile内容はcacheしません。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。`require.resolve(..., { paths })`でpackageの検索rootを指定できます。Nodeの`path`はPOSIXを既定にし、`path.win32`と`path/win32`でWindows pathも扱えます。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。symlinkはFS WorkerがOPFS上のreserved recordで表し、module cacheとNode metadataはrealpathを基準にします。npmの`.bin`はsymlinkとして作られ、Terminalと`npx`から解決できます。Terminalでは`node -e` / `node --eval`でCommonJS inline scriptを実行できます。`node:constants`はfsと共有する定数を公開し、`node:zlib`はgzip/deflate系の同期・callback APIとstream変換を提供します。`node:string_decoder`にはNode-maintained実装を使い、`node:querystring`はNode互換のparse/stringifyを提供し、`node:diagnostics_channel`は汎用channelと同期・Promise・callback tracing、`node:stream/promises`は`finished`と`pipeline`、`node:stream/web`はnative WHATWG streamとtext/compression APIを提供します。`stream.Readable.fromWeb()` / `toWeb()`はNodeとWHATWGのReadable streamを相互変換します。`process.arch`は`os.arch()`と同じ値を返します。詳細は[Node.js Runtime](docs/domain/node-runtime.md)を参照してください。
-`assert`はcallableで`assert/strict`も使えます。`util`はNode由来の`inspect`・`format`・`formatWithOptions`、`isDeepStrictEqual`、`promisify.custom`に対応します。runtimeの`process.env`は実行元shellの環境を引き継ぎ、`process.chdir()`は仮想filesystem内で動きます。`crypto`はhash・HMAC・PBKDF2・random bytes/integers、IV付きcipher、sign/verify、ECDH/DH、公開鍵/秘密鍵encrypt/decrypt、`scrypt`/`scryptSync`を提供します。key generationは未対応です。legacy `url` moduleは`fileURLToPath`と`pathToFileURL`を提供します。
+`fs.chmod()`はmode metadataを更新し、`stat()`と`access()`へ反映します。`util.styleText()`はterminal color設定に沿ってANSI styleを生成します。`assert`はcallableで`assert/strict`も使えます。`util`はNode由来の`inspect`・`format`・`formatWithOptions`、`isDeepStrictEqual`、`promisify.custom`に対応します。runtimeの`process.env`は実行元shellの環境を引き継ぎ、`process.chdir()`は仮想filesystem内で動きます。`crypto`はhash・HMAC・PBKDF2・random bytes/integers、IV付きcipher、sign/verify、ECDH/DH、公開鍵/秘密鍵encrypt/decrypt、`scrypt`/`scryptSync`を提供します。key generationは未対応です。legacy `url` moduleは`fileURLToPath`と`pathToFileURL`を提供します。
 Express 5.2.1とKoa 2.16.4のroute/responseはin-memory HTTP request/responseで確認済みです。Axiosのfetch adapterも動作します。`http.createServer`、socket、AxiosのNode TLS adapterは提供しません。
 仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npmはinstall中に依存metadataを共有し、npm registryのabbreviated packumentを`~/.npm/registry`へ保存します。HTTP freshnessに従い、期限切れmetadataはETagで再検証します。tarball archiveはURLのSHA-256で識別し、registryまたはlockfileにintegrity値があれば展開前に検証します。tarball cacheは展開成功後に`~/.npm`へ保存します。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
@@ -359,7 +359,11 @@ OPFSを唯一のファイル保存先とし、IndexedDBにはフォルダー一�
 
 fileを開く途中でworkspaceを切り替えた場合、古い読込結果は新しいタブsessionへ反映しません。
 
+Explorerの「Open」と「Open in CodeMirror」は、開いているfileでも未保存内容を保持してeditorを切り替えます。
+
 folderの削除・移動が途中で失敗した場合も、実際に消えた項目と残ったコピーを一覧へ反映します。復元するsymlink／FIFO recordは物理parentが残るものに限ります。詳細は[filesystem](docs/domain/filesystem.md)を参照してください。
+
+Git checkoutやfolder移動などが途中で失敗した場合、操作前の完全な状態へ戻す保証はありません。途中までの変更による不整合を許容し、完全復元処理は追加しない方針です。
 
 Explorerの展開状態はfolderごとに復元します。ZIP exportはFIFO／deviceやそれらへのlinkをpath付きerrorで拒否し、読込待ちや一部entryの欠落を防ぎます。WebPreviewはHTMLの実要素・属性を解析し、script内の文字列と`data-*`を保ったままlocal assetsを埋め込みます。Git mergeのref保存失敗は元worktreeへ復元し、merge commit後のcleanup失敗は作成済みSHAを通知して再試行の重複commitを防ぎます。
 

@@ -22,7 +22,7 @@ interface FixturePackage {
   bytes: Uint8Array<ArrayBuffer>;
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -318,7 +318,7 @@ describe('npm package-lock installation', () => {
       expect(cowsayWidth!.path).not.toBe(yargsWidth!.path);
       expect(await repo.readlink(`${rootPath}/node_modules/.bin/cowsay`)).toBe('../cowsay/cli.js');
     } finally {
-      fixture.close();
+      await fixture.close();
     }
   }, 120_000);
 });

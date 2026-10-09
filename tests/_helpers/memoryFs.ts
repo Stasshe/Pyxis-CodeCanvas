@@ -1,19 +1,27 @@
 import { Buffer } from 'buffer';
 import { type Loader, transformSync } from 'esbuild';
+import { defaultMode, withPermissionBits } from '@/engine/core/fs/permissions';
 import type { FifoMode, FifoOpenOptions } from '@/engine/core/fs/types';
 import { getParentPath, normalizePath, resolvePath } from '@/engine/core/pathUtils';
 import type { RuntimeFilesystem } from '@/engine/runtime/bridge/endpoint';
-import type { FsRequest, FsStat, RpcValue, RuntimeRequest } from '@/engine/runtime/bridge/protocol';
+import type {
+  FsBenchmark,
+  FsRequest,
+  FsStat,
+  RpcValue,
+  RuntimeRequest,
+} from '@/engine/runtime/bridge/protocol';
 import {
   extractCjsDependencies,
   finalizeRuntimeCode,
   runtimeDefines,
 } from '@/engine/runtime/transpiler/esmTransformer';
+import type { ProjectFile } from '@/types';
 
 type Entry =
-  | { type: 'file'; data: Uint8Array }
-  | { type: 'directory' }
-  | { type: 'symlink'; target: string };
+  | { type: 'file'; data: Uint8Array; mode: number }
+  | { type: 'directory'; mode: number }
+  | { type: 'symlink'; target: string; mode: number };
 
 const DEV_DIRECTORY = '/dev';
 const NULL_DEVICE = `${DEV_DIRECTORY}/null`;
@@ -37,7 +45,9 @@ function base(path: string): string {
 }
 
 export class MemoryFs implements RuntimeFilesystem {
-  private readonly entries = new Map<string, Entry>([['/', { type: 'directory' }]]);
+  private readonly entries = new Map<string, Entry>([
+    ['/', { type: 'directory', mode: defaultMode('folder') }],
+  ]);
 
   hasDirectory(path: string): boolean {
     if (path === DEV_DIRECTORY) return true;
@@ -83,8 +93,14 @@ export class MemoryFs implements RuntimeFilesystem {
     return entry.data.slice();
   }
 
-  async writeFile(path: string, data: Uint8Array): Promise<void> {
-    this.writeFileSync(path, data);
+  async writeFile(
+    path: string,
+    data: Uint8Array,
+    _benchmark?: FsBenchmark,
+    _ownerId?: string,
+    mode?: number
+  ): Promise<void> {
+    this.writeFileSync(path, data, mode);
   }
 
   async writeRange(
@@ -92,9 +108,11 @@ export class MemoryFs implements RuntimeFilesystem {
     data: Uint8Array,
     position: number | null,
     create = false,
-    exclusive = false
+    exclusive = false,
+    _benchmark?: FsBenchmark,
+    mode?: number
   ): Promise<number> {
-    return this.writeRangeSync(path, data, position, create, exclusive);
+    return this.writeRangeSync(path, data, position, create, exclusive, mode);
   }
 
   async readdir(path: string): Promise<string[]> {
@@ -122,8 +140,10 @@ export class MemoryFs implements RuntimeFilesystem {
   }
 
   private statSync(path: string): FsStat {
-    if (path === NULL_DEVICE) return { type: 'characterDevice', size: 0, mtime: 1 };
-    if (path === DEV_DIRECTORY) return { type: 'directory', size: 0, mtime: 1 };
+    if (path === NULL_DEVICE)
+      return { type: 'characterDevice', size: 0, mtime: 1, mode: defaultMode('characterDevice') };
+    if (path === DEV_DIRECTORY)
+      return { type: 'directory', size: 0, mtime: 1, mode: defaultMode('folder') };
     const resolved = this.realpathSync(path);
     const entry = this.entries.get(resolved);
     if (!entry) throw missing(path);
@@ -131,11 +151,16 @@ export class MemoryFs implements RuntimeFilesystem {
       type: entry.type,
       size: this.lstatSync(resolved).size,
       mtime: 1,
+      mode: entry.mode,
     };
   }
 
-  async mkdir(path: string, options: { recursive: boolean }): Promise<void> {
-    this.mkdirSync(path, options.recursive);
+  async mkdir(path: string, options: { recursive: boolean; mode?: number }): Promise<void> {
+    this.mkdirSync(path, options.recursive, options.mode);
+  }
+
+  async chmod(path: string, mode: number): Promise<void> {
+    this.chmodSync(path, mode);
   }
 
   async rm(path: string, options: { recursive: boolean; force: boolean }): Promise<void> {
@@ -151,7 +176,7 @@ export class MemoryFs implements RuntimeFilesystem {
     if (!this.hasDirectory(parent(path))) throw missing(parent(path));
     if (this.entries.has(path))
       throw Object.assign(new Error(`EEXIST: ${path}`), { code: 'EEXIST' });
-    this.entries.set(path, { type: 'symlink', target });
+    this.entries.set(path, { type: 'symlink', target, mode: defaultMode('symlink') });
   }
 
   private resolve(path: string, followFinal = true): string {
@@ -199,14 +224,19 @@ export class MemoryFs implements RuntimeFilesystem {
   }
 
   private lstatSync(path: string): FsStat {
-    if (path === NULL_DEVICE) return { type: 'characterDevice', size: 0, mtime: 1 };
-    if (path === DEV_DIRECTORY) return { type: 'directory', size: 0, mtime: 1 };
+    if (path === NULL_DEVICE)
+      return { type: 'characterDevice', size: 0, mtime: 1, mode: defaultMode('characterDevice') };
+    if (path === DEV_DIRECTORY)
+      return { type: 'directory', size: 0, mtime: 1, mode: defaultMode('folder') };
     const entry = this.entries.get(this.resolve(path, false));
     if (!entry) throw missing(path);
     let size = 0;
     if (entry.type === 'file') size = entry.data.byteLength;
     else if (entry.type === 'symlink') size = new TextEncoder().encode(entry.target).length;
-    return { type: entry.type, size, mtime: 1 };
+    let type: FsStat['type'] = 'file';
+    if (entry.type === 'directory') type = 'directory';
+    else if (entry.type === 'symlink') type = 'symlink';
+    return { type, size, mtime: 1, mode: entry.mode };
   }
 
   private readlinkSync(path: string): string {
@@ -217,7 +247,7 @@ export class MemoryFs implements RuntimeFilesystem {
     return entry.target;
   }
 
-  mkdirSync(input: string, recursive: boolean): void {
+  mkdirSync(input: string, recursive: boolean, mode?: number): void {
     const path = this.resolve(input.replace(/\/+$/, '') || '/', false);
     if (this.entries.has(path)) {
       if (recursive && this.hasDirectory(this.realpathSync(path))) return;
@@ -225,7 +255,24 @@ export class MemoryFs implements RuntimeFilesystem {
     }
     if (recursive && !this.hasDirectory(parent(path))) this.mkdirSync(parent(path), true);
     if (!this.hasDirectory(parent(path))) throw missing(parent(path));
-    this.entries.set(path, { type: 'directory' });
+    this.entries.set(path, { type: 'directory', mode: this.fileMode('folder', mode) });
+  }
+
+  private chmodSync(input: string, mode: number): void {
+    const path = this.realpathSync(input);
+    const entry = this.entries.get(path);
+    if (!entry) throw missing(input);
+    entry.mode = withPermissionBits(this.projectType(entry.type), mode);
+  }
+
+  private fileMode(type: ProjectFile['type'], mode?: number): number {
+    if (mode === undefined) return defaultMode(type);
+    return withPermissionBits(type, mode);
+  }
+
+  private projectType(type: Entry['type']): ProjectFile['type'] {
+    if (type === 'directory') return 'folder';
+    return type;
   }
 
   rmSync(input: string, recursive: boolean, force: boolean): void {
@@ -292,7 +339,7 @@ export class MemoryFs implements RuntimeFilesystem {
       case 'readFile':
         return Buffer.from(this.readFileSync(fsRequest.path)).toString('base64');
       case 'writeFile':
-        this.writeFileSync(fsRequest.path, Buffer.from(fsRequest.data, 'base64'));
+        this.writeFileSync(fsRequest.path, Buffer.from(fsRequest.data, 'base64'), fsRequest.mode);
         return null;
       case 'writeRange':
         return this.writeRangeSync(
@@ -300,7 +347,8 @@ export class MemoryFs implements RuntimeFilesystem {
           Buffer.from(fsRequest.data, 'base64'),
           fsRequest.position,
           fsRequest.create,
-          fsRequest.exclusive
+          fsRequest.exclusive,
+          fsRequest.mode
         );
       case 'readdir':
         return this.readdirSync(fsRequest.path);
@@ -316,7 +364,10 @@ export class MemoryFs implements RuntimeFilesystem {
         this.symlinkSync(fsRequest.target, fsRequest.path);
         return null;
       case 'mkdir':
-        this.mkdirSync(fsRequest.path, fsRequest.recursive);
+        this.mkdirSync(fsRequest.path, fsRequest.recursive, fsRequest.mode);
+        return null;
+      case 'chmod':
+        this.chmodSync(fsRequest.path, fsRequest.mode);
         return null;
       case 'rm':
         this.rmSync(fsRequest.path, fsRequest.recursive, fsRequest.force);
@@ -336,11 +387,18 @@ export class MemoryFs implements RuntimeFilesystem {
     return entry.data.slice();
   }
 
-  private writeFileSync(input: string, data: Uint8Array): void {
+  private writeFileSync(input: string, data: Uint8Array, mode?: number): void {
     if (input === NULL_DEVICE) return;
     const path = this.resolve(input);
     if (!this.hasDirectory(parent(path))) throw missing(parent(path));
-    this.entries.set(path, { type: 'file', data: data.slice() });
+    const existing = this.entries.get(path);
+    let fileMode = mode;
+    if (existing?.type === 'file') fileMode = existing.mode;
+    this.entries.set(path, {
+      type: 'file',
+      data: data.slice(),
+      mode: this.fileMode('file', fileMode),
+    });
   }
 
   private writeRangeSync(
@@ -348,7 +406,8 @@ export class MemoryFs implements RuntimeFilesystem {
     data: Uint8Array,
     position: number | null,
     create: boolean,
-    exclusive: boolean
+    exclusive: boolean,
+    mode?: number
   ): number {
     if (position !== null && (!Number.isSafeInteger(position) || position < 0)) {
       throw Object.assign(new Error(`EINVAL: ${path}`), { code: 'EINVAL' });
@@ -365,7 +424,7 @@ export class MemoryFs implements RuntimeFilesystem {
     }
     if (!current) {
       if (!create) throw missing(path);
-      this.writeFileSync(path, new Uint8Array());
+      this.writeFileSync(path, new Uint8Array(), mode);
       current = this.entries.get(target);
     }
     if (!current || current.type !== 'file') throw missing(path);

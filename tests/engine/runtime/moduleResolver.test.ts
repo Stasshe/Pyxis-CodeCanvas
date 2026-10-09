@@ -7,8 +7,8 @@ import { createNodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 describe('ModuleResolver', () => {
   const fixtures: Awaited<ReturnType<typeof createNodeRuntimeFixture>>[] = [];
 
-  afterEach(() => {
-    for (const fixture of fixtures.splice(0)) fixture.close();
+  afterEach(async () => {
+    for (const fixture of fixtures.splice(0)) await fixture.close();
   });
 
   it('recognizes official built-ins independently of runtime support', () => {
@@ -31,7 +31,7 @@ describe('ModuleResolver', () => {
     return { fixture, resolver, rootPath };
   }
 
-  it('resolves unsupported built-ins without searching installed packages', async () => {
+  it('resolves built-ins without searching same-named installed packages', async () => {
     const { fixture, resolver, rootPath } = await createResolver();
     await fixture.writeFile(
       `${rootPath}/node_modules/worker_threads/index.js`,

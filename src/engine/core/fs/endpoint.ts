@@ -41,8 +41,13 @@ const api = {
   readFile: (path: string, benchmark?: FsBenchmark, ownerId?: string) =>
     run(() => core.readFile(path, ownerId), benchmark),
   readText: (path: string, ownerId?: string) => run(() => core.readText(path, ownerId)),
-  writeFile: (path: string, data: string | Uint8Array, benchmark?: FsBenchmark, ownerId?: string) =>
-    run(() => core.writeFile(path, data, true, ownerId), benchmark),
+  writeFile: (
+    path: string,
+    data: string | Uint8Array,
+    benchmark?: FsBenchmark,
+    ownerId?: string,
+    mode?: number
+  ) => run(() => core.writeFile(path, data, { mode }, true, ownerId), benchmark),
   mkfifo: (path: string) => run(() => core.mkfifo(path)),
   createPipe: (readOwnerId: string, writeOwnerId: string) =>
     run(() => core.createPipe(readOwnerId, writeOwnerId)),
@@ -66,8 +71,9 @@ const api = {
     position: number | null,
     create = false,
     exclusive = false,
-    benchmark?: FsBenchmark
-  ) => run(() => core.writeRange(path, data, position, create, exclusive), benchmark),
+    benchmark?: FsBenchmark,
+    mode?: number
+  ) => run(() => core.writeRange(path, data, position, create, exclusive, mode), benchmark),
   readdir: (path: string, benchmark?: FsBenchmark) => run(() => core.readdir(path), benchmark),
   stat: (path: string, benchmark?: FsBenchmark) => run(() => core.stat(path), benchmark),
   lstat: (path: string, benchmark?: FsBenchmark) => run(() => core.lstat(path), benchmark),
@@ -77,6 +83,8 @@ const api = {
     run(() => core.symlink(target, path), benchmark),
   mkdir: (path: string, options?: MkdirOptions, benchmark?: FsBenchmark) =>
     run(() => core.mkdir(path, options), benchmark),
+  chmod: (path: string, mode: number, benchmark?: FsBenchmark) =>
+    run(() => core.chmod(path, mode), benchmark),
   rm: (path: string, options?: RmOptions, benchmark?: FsBenchmark) =>
     run(() => core.rm(path, options), benchmark),
   rename: (oldPath: string, newPath: string, benchmark?: FsBenchmark, options?: RenameOptions) =>
@@ -102,6 +110,7 @@ const api = {
         closeFifo: api.closeFifo,
         writeRange: api.writeRange,
         mkdir: api.mkdir,
+        chmod: api.chmod,
         rm: api.rm,
         rename: api.rename,
         realpath: api.realpath,
@@ -114,7 +123,7 @@ const api = {
           else if (entry.type === 'symlink') type = 'symlink';
           else if (entry.type === 'fifo') type = 'fifo';
           else if (entry.type === 'characterDevice') type = 'characterDevice';
-          return { type, size: entry.size, mtime: entry.mtime };
+          return { type, size: entry.size, mtime: entry.mtime, mode: entry.mode };
         },
         async readdir(path, benchmark) {
           return (await api.readdir(path, benchmark)).map(entry =>
@@ -127,7 +136,7 @@ const api = {
           if (entry.type === 'folder') type = 'directory';
           else if (entry.type === 'fifo') type = 'fifo';
           else if (entry.type === 'characterDevice') type = 'characterDevice';
-          return { type, size: entry.size, mtime: entry.mtime };
+          return { type, size: entry.size, mtime: entry.mtime, mode: entry.mode };
         },
       },
       request => transpileManager.transpile(request)

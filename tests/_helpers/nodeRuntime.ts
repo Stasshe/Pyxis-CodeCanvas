@@ -1,3 +1,4 @@
+import { nextTick } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { build } from 'esbuild';
@@ -113,7 +114,7 @@ export interface NodeRuntimeFixture {
   filesystem: RuntimeFsMount;
   fs: MemoryFs;
   stdin: WorkerStdin;
-  close(): void;
+  close(): Promise<void>;
   writeFile(path: string, content: string | Uint8Array): Promise<void>;
 }
 
@@ -162,10 +163,7 @@ export async function createNodeRuntimeFixture(
     processStdin: stdin,
     ...outputStreams,
     debugConsole,
-    onExit: code => {
-      runtime.dispose();
-      onExit?.(code);
-    },
+    onExit,
   });
   return {
     runtime,
@@ -174,7 +172,10 @@ export async function createNodeRuntimeFixture(
     filesystem,
     fs,
     stdin,
-    close() {
+    async close() {
+      // Vitest restores guest process.nextTick on a native tick after each RPC.
+      // Drain those restorations before exposing the host process again.
+      await new Promise<void>(resolve => nextTick(resolve));
       runtime.dispose();
       bridge.close();
       channel.port1.close();

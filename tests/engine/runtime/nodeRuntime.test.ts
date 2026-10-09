@@ -21,8 +21,8 @@ describe('NodeRuntime execution', () => {
     });
   });
 
-  afterEach(() => {
-    fixture.close();
+  afterEach(async () => {
+    await fixture.close();
     expect(globalThis.setTimeout).toBe(hostTimeout);
   });
 
@@ -571,6 +571,51 @@ describe('NodeRuntime execution', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('coerces dynamic import URL and object specifiers like Node', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/coerced-import.mjs`,
+      'export const value = "coerced import loaded";'
+    );
+    const url = `file://${fixture.rootPath}/coerced-import.mjs`;
+    await run(
+      'coerced-import-entry.mjs',
+      [
+        `const url = new URL(${JSON.stringify(url)});`,
+        'const text = { toString() { return url.href; } };',
+        'const results = await Promise.all([import(url), import(text)]);',
+        'console.log(results.map(result => result.value).join(" "));',
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('coerced import loaded coerced import loaded');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects Symbol dynamic import specifiers during native string coercion', async () => {
+    await run(
+      'symbol-import-entry.mjs',
+      [
+        'let pending;',
+        'try { pending = import(Symbol("module")); console.log("returned promise"); }',
+        'catch (error) { console.log("threw synchronously"); }',
+        'try { await pending; } catch (error) { console.log(error.name); }',
+        'const bad = { [Symbol.toPrimitive]() { throw new Error("coercion failed"); } };',
+        'let rejected;',
+        'try { rejected = import(bad); console.log("coercion returned promise"); }',
+        'catch (error) { console.log("coercion threw synchronously"); }',
+        'try { await rejected; } catch (error) { console.log(error.message); }',
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('returned promise');
+    expect(output.join('\n')).toContain('coercion returned promise');
+    expect(output.join('\n')).not.toContain('threw synchronously');
+    expect(output.join('\n')).not.toContain('coercion threw synchronously');
+    expect(output.join('\n')).toContain('TypeError');
+    expect(output.join('\n')).toContain('coercion failed');
+    expect(errors).toHaveLength(0);
+  });
+
   it('loads empty required modules without treating code as missing', async () => {
     await fixture.writeFile(`${fixture.rootPath}/empty.js`, '');
     await run('empty-entry.js', 'console.log(Object.keys(require("./empty")).length);');
@@ -732,7 +777,7 @@ describe('NodeRuntime execution', () => {
     const exitReported = new Promise<number>(resolve => {
       reportExit = resolve;
     });
-    fixture.close();
+    await fixture.close();
     fixture = await createNodeRuntimeFixture(
       '/tmp/runtime-interrupt-tests',
       {

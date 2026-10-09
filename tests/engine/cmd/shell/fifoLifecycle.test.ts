@@ -184,6 +184,7 @@ describe('shell FIFO lifecycle', () => {
       await close(endpointId);
       throw new Error('FIFO cleanup failed');
     });
+    outputHandler = new ShellOutputHandler(core, async () => '/tmp');
     const completion = runPipeline([producer(pipe.writePath)], {
       createProcess,
       startProcess: process => process.exit(0),

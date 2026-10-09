@@ -16,8 +16,8 @@ describe('stream builtin', () => {
     });
   });
 
-  afterEach(() => {
-    fixture.close();
+  afterEach(async () => {
+    await fixture.close();
   });
 
   it('exports a callable Stream constructor and attached stream classes', async () => {

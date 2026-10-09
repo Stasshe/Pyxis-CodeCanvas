@@ -1,11 +1,13 @@
 import { Readable, Writable } from 'node:stream';
 import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
+import { creationMode } from './fsPermissions';
 
 export interface FsStreamOptions {
   encoding?: BufferEncoding;
   end?: number;
   flags?: string;
   highWaterMark?: number;
+  mode?: number | string;
   start?: number;
 }
 
@@ -44,6 +46,7 @@ function validateWriteOptions(options: FsStreamOptions): void {
   if (options.start !== undefined && (!Number.isInteger(options.start) || options.start < 0)) {
     throw new RangeError('The start option must be a non-negative integer.');
   }
+  if (options.mode !== undefined) creationMode(options.mode);
 }
 
 export function createReadStream(
@@ -159,6 +162,7 @@ export function createWriteStream(
   let closed = false;
   let fifoReleased = false;
   const flags = options.flags ?? 'w';
+  const mode = options.mode === undefined ? undefined : creationMode(options.mode);
   let offset = options.start ?? 0;
   const append = flags === 'a' || flags === 'ax';
 
@@ -183,11 +187,11 @@ export function createWriteStream(
           if (flags === 'r+') mode = 'readwrite';
           await filesystem.openFifo(path, mode, endpointId);
         } else if (flags === 'w') {
-          await filesystem.setFile(path, new Uint8Array());
+          await filesystem.setFile(path, new Uint8Array(), mode);
         } else if (flags === 'wx' || flags === 'ax') {
-          await filesystem.writeRange(path, new Uint8Array(), 0, true, true);
+          await filesystem.writeRange(path, new Uint8Array(), 0, true, true, mode);
         } else if (append && !stat) {
-          await filesystem.writeRange(path, new Uint8Array(), null, true);
+          await filesystem.writeRange(path, new Uint8Array(), null, true, false, mode);
         }
       })(),
       tracker

@@ -2,6 +2,7 @@ import type { ProjectFile } from '@/types';
 import { FSError } from './errors';
 import type { FifoEndpoint, FileReference } from './fifo';
 import { mountRoot } from './layout';
+import { defaultMode } from './permissions';
 import type { WriteRange } from './write';
 
 const DEVICE_PATH = '/dev';
@@ -44,8 +45,15 @@ export class FifoDescriptors {
   stat(path: string): ProjectFile | undefined {
     if (path === DEVICE_PATH || path === DESCRIPTOR_PATH) return this.folder(path);
     const reference = this.lookup(path);
-    if (reference?.kind === 'null') return { path, type: 'characterDevice', size: 0, mtime: 0 };
-    if (reference) return { path, type: 'fifo', size: 0, mtime: 0 };
+    if (reference?.kind === 'null')
+      return {
+        path,
+        type: 'characterDevice',
+        mode: defaultMode('characterDevice'),
+        size: 0,
+        mtime: 0,
+      };
+    if (reference) return { path, type: 'fifo', mode: defaultMode('fifo'), size: 0, mtime: 0 };
   }
 
   async *physicalNames(
@@ -70,7 +78,7 @@ export class FifoDescriptors {
       const entries: ProjectFile[] = [];
       for (const [alias, endpoint] of this.endpoints) {
         if (endpoint.opened && !endpoint.closed && endpoint.inode) {
-          entries.push({ path: alias, type: 'fifo', size: 0, mtime: 0 });
+          entries.push({ path: alias, type: 'fifo', mode: defaultMode('fifo'), size: 0, mtime: 0 });
         }
       }
       return entries.sort((a, b) => a.path.localeCompare(b.path));
@@ -83,6 +91,7 @@ export class FifoDescriptors {
       children.push(this.folder(DESCRIPTOR_PATH), {
         path: NULL_PATH,
         type: 'characterDevice',
+        mode: defaultMode('characterDevice'),
         size: 0,
         mtime: 0,
       });
@@ -117,6 +126,6 @@ export class FifoDescriptors {
 
   private folder(path: string): ProjectFile {
     if (path === DEVICE_PATH) return mountRoot(path, 'devices');
-    return { path, type: 'folder', size: 0, mtime: 0 };
+    return { path, type: 'folder', mode: defaultMode('folder'), size: 0, mtime: 0 };
   }
 }

@@ -490,12 +490,12 @@ describe('OPFS access handle lifecycle', () => {
       {
         type: 'create',
         path: '/file',
-        file: { path: '/file', type: 'file', size: 5, mtime: 1234 },
+        file: { path: '/file', type: 'file', mode: 0o100644, size: 5, mtime: 1234 },
       },
       {
         type: 'update',
         path: '/file',
-        file: { path: '/file', type: 'file', size: 1, mtime: 5678 },
+        file: { path: '/file', type: 'file', mode: 0o100644, size: 1, mtime: 5678 },
       },
     ]);
     expect(await core.readText('/file')).toBe('x');

@@ -180,6 +180,7 @@ export class NodeRuntime {
       bridge: this.bridge,
       terminalColumns: this.terminalColumns,
       terminalRows: this.terminalRows,
+      stdoutIsTTY: this.stdoutIsTTY,
     });
     this.builtInResolver = new RuntimeBuiltinResolver({
       modules: this.builtInModules,
@@ -233,7 +234,8 @@ export class NodeRuntime {
       if (source === undefined) filePath = await this.moduleLoader.realpath(filePath);
 
       // Install shared globals before entry and dependency evaluation.
-      const importModule = (specifier: string) => this.moduleLoader.asyncLoad(specifier, filePath);
+      const importModule = (specifier: string | URL) =>
+        this.moduleLoader.asyncLoad(specifier, filePath);
       this.createGlobals(
         invocationPath,
         argv,

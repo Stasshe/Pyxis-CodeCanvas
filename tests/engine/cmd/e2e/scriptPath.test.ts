@@ -134,7 +134,7 @@ function createTestRuntimeProvider(repo: FsCore): RuntimeProvider {
       } finally {
         options.processStdin?.removeListener('data', forwardInput);
         options.processStdin?.removeListener('end', endInput);
-        fixture.close();
+        await fixture.close();
       }
     },
   };

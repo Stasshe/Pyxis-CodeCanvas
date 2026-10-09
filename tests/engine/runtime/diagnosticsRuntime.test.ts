@@ -4,8 +4,8 @@ import { createNodeRuntimeFixture, type NodeRuntimeFixture } from '../../_helper
 describe('NodeRuntime diagnostics_channel builtin', () => {
   let fixture: NodeRuntimeFixture;
 
-  afterEach(() => {
-    fixture?.close();
+  afterEach(async () => {
+    await fixture?.close();
   });
 
   it('resolves both builtin names to the runtime-local diagnostics module', async () => {

@@ -6,6 +6,7 @@
 
 - Terminalは1つ。shell、TerminalUI、Unix/Git/npmコマンドはworkspace rootごとのsingleton。stdin adapterはProcessごとに所有し、foregroundのTTY Processだけが排他的なTerminal入力leaseを得る。
 - xtermはscrollback 5000、Fit・WebLinks addon。mouse wheel scrollはxtermに任せ、ClientTerminalの独自handlerはtouch gestureだけを扱う。表示領域の変化で`fit`し、行数・列数をNode runtimeの`process.stdout`へ反映する。
+- Touch scrollは10pxを超えた移動から開始し、以後の連続移動を20pxごとに行単位へ変換する。gesture中の端数を符号付きで保持し、開始時に状態をresetする。
 - theme変更ではxterm optionsだけを更新し、Terminal sessionとscrollbackを作り直さない。
 - 初期promptはFS、command registry、shellの準備後に表示する。準備に失敗した場合はTerminalとloggerへerrorを出し、inputをlockedのままにする。準備前に仮promptは表示しない。
 - prompt: `<cwdの絶対path> (<cwdを含む最寄りrepositoryのbranch>) $ `。ancestorにGit repositoryがなければbranch表示を省き、色はbranch名から決まる。
@@ -79,7 +80,7 @@ flowchart TD
 - prompt表示前の`ensureNewline`は出力をflushし、xtermの現在cursorが行途中なら改行を足す。したがって直前のcommandがpartial lineを残してもPyxisは次行にpromptを出す。bashは同じ状況でprompt前の改行を保証しない。
 - `flush`は空書込みのcallbackを待つ。promptは`flush`→`ensureNewline`→promptの`writeRaw`→`flush`の順に出す。
 - 入力行の再描画は、xterm buffer上のprompt anchorを使うline rendererが直列化する。resize時は現在の入力状態から再描画する。
-- prompt anchorがvisible viewportより上に外れた場合、scrollback trimでmarkerが破棄されていなくても、残っている出力を消さず、その末尾にpromptと入力行を再配置する。cursor行に出力が残っている場合はpromptの前に改行する。
+- prompt anchorがlive screenの先頭行（`baseY`）より上に外れた場合、scrollback trimでmarkerが破棄されていなくても、残っている出力を消さず、その末尾にpromptと入力行を再配置する。cursor行に出力が残っている場合はpromptの前に改行する。
 - 高速な連続入力では描画中の要求を待ち行列へ積み上げず、最新の入力状態にまとめて描画する。xterm write callbackを待ちながら順序を保つ。
 - xtermへfocusがある間は端末がキー入力を受け取り、global app shortcutは割り込まない。
 

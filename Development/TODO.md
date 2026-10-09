@@ -189,7 +189,7 @@ tmp/の扱い
 - [x] Runtime5: `fs.exists` callbackは存在しないpathに`false`を返す。以前は`stat`の戻り値を無視して常に`true`を返していた。
 - [x] Runtime5: `npm install alias@npm:target@range`はscoped targetを含めtargetを解決し、manifestに`npm:<resolved-target>@^<resolved-version>`、resolver requestに正確な解決versionを渡す。dependency graph側のalias配置にCLI操作を接続した。
 - [x] Runtime/SW/npm review disposition: 実装反映 H1–H5・H8–H9・H13–H14・M1–M6・M9・M12・M14–M15・L1–L2。H7はstdin/stdout/stderrをstream化しreadable inputとwrite callbackを接続。H8は複数install、unknown option拒否、uninstall複数target、live output、`--`以降のmain args、pre/main/post lifecycle、`start`/`test` shortcutと`server.js` fallbackを実装。H10は同期status、live output、abort、exec/execFileのmaxBufferを修正。M8はunzip wrapper自動判定とinflate data errorのError code/errnoを実装。H12はnextTick FIFOとMessageChannel immediateへ変更。
-- [ ] Review boundaries: H5のkey generationは未提供。legacy `createCipher`/`createDecipher`はupstreamのstubが`createCredentials`を要求し、password由来の方式でもあるため公開しない。H6のchmod/utimes/watch・FileHandle/opendir/cp・fd inode identityは未対応。file modeは永続metadataに保存せず、`stat` / `access`は固定modeを返す。正しいchmodにはOPFS file metadataの永続化とrename/delete/accessへの伝播が要る。H10のspawn failureとshell exit 127の区別、H12のhost Promiseより先行するNode nextTick優先度、M7のhttp Agentは未対応。H7のTTY resize eventも未実装。M10のpid/memoryUsage/kill/umask/binding/release/titleは未対応。L1のprototype instrumentationは開発benchmark時だけ有効で、production buildには含まれない。
+- [ ] Review boundaries: H5のkey generationは未提供。legacy `createCipher`/`createDecipher`はupstreamのstubが`createCredentials`を要求し、password由来の方式でもあるため公開しない。H6の`utimes` / `watch`・FileHandle/`cp`・fd inode identityは未対応（`opendir`はRuntime 12で追加）。mode metadataと`chmod` / `fchmod`はRuntime 12で追加した。`fchmod`はdescriptorに記録したpathへ作用し、rename/unlink後のinode identityは保持しない。mode bitは`stat`と`access`へ反映するが、permission enforcementやACLは提供しない。H10のspawn failureとshell exit 127の区別、H12のhost Promiseより先行するNode nextTick優先度、M7のhttp Agentは未対応。H7のTTY resize eventも未実装。M10のpid/memoryUsage/kill/`process.umask()`/binding/release/titleは未対応（Node作成modeの固定maskは`022`）。L1のprototype instrumentationは開発benchmark時だけ有効で、production buildには含まれない。
 - [x] Review decisions: H11はWorker global/prototype変更の次回runへの残存を許容し、旧runtimeの型付きbridge rejectionのみ無視。M10は`process.platform`/`os.platform()`=`browser`を維持し`chdir`・`emitWarning`を実装。M13のPyxis `@/` resolver alias、L3の`.node` resolve後の明示的load errorは公開済み挙動として維持。M11はpath/posix・util/types・readline/promisesを追加し、既知の未対応builtinを`ERR_UNKNOWN_BUILTIN_MODULE`で拒否。
 - [x] Function境界: module origin基準で`Function`内の`import()`を解決するためper-module Function shimを維持する。このためglobal `Function`のidentityやmutationが全dependency moduleへ伝播するとは限らない。
 - [ ] `util.isDeepStrictEqual`はassert port由来の差が残る。Node v24.18.0 oracleでは別々のPromiseはfalse、異なるError `cause`もfalse、Invalid Date同士はtrue。既存比較器の小さな一般修正で済むか確認する。
@@ -235,7 +235,7 @@ tmp/の扱い
 - [x] 外部`cat`/`find`/`tree`修正後の最終static checks: Biome source format 495 files pass、`tsc --noEmit` pass、`pnpm run lint` 495 filesで外部`unixOperations/stat.ts`のimport order error 1件。runtime/npm Biome source+tests scopeは134 files、0 errors・既存info 6件。`git diff --check` pass。以前のformat/type errorは修正前snapshot。
 - [x] 最終production build pass: 30 extensions、23 nonbundled TypeScript transpiles、5,013 Vite modules、Runtime WorkerとService Worker bundle、2.02 s。
 - [x] AST/ESM判定修正後、ESLint 10.12.0の元の`npm run lint`をbrowserで再実行。CommonJS/ESM誤判定を通過した後、`eslint/lib/eslint/eslint.js`の未対応`node:worker_threads`でexit 2。stackは`runtime8-package-repro-results.json`に保存。
-- [ ] 確認済みの未対応APIは`tls`、`worker_threads`、`vm`、`async_hooks` / AsyncLocalStorage。
+- [ ] 確認済みの未対応APIは`tls`、guest `worker_threads.Worker`生成、`vm`、`async_hooks` / AsyncLocalStorage。`worker_threads` main-thread metadataはRuntime 12で追加。
 - [x] 自分のbrowser runtime6-checkを終了。既存の5173を変更していない。
 
 ## Runtime 9 Node module compatibility
@@ -254,7 +254,7 @@ tmp/の扱い
 - [x] node-fetch 3.3.2を既存cohortへ追加（6 packages、1.2秒、lockfile 3.3.2 / manifest `^3.3.2`、既存依存維持）。実HTTP GET `127.0.0.1:5173`でdefault fetch、Headers/Request/Response、status/header/JSONを確認しexit 0。compiled Worker証跡: `runtime9-package-repro-results.json`の`runtime9NodeFetch`。
 - [x] Axios 1.20.0を既存cohortへ追加（26 packages、既存依存維持）。実ESM entryは`index.js`→`lib/axios.js`→`lib/adapters/http.js`から`https-proxy-agent`をeager loadし、`tls`未対応でGET前にexit 1。Node 24 native CJS require / ESM importではGET 200・2,739 bytes・AxiosHeadersを確認。証跡: `runtime9-package-repro-results.json`の`runtime9Axios` / `runtime9AxiosSource`、native oracle `runtime9-axios-native-oracle/`（scratchpad内）。
 - [x] Compiled Runtime Worker smoke: 通常module/package確認7/7に加え、`runtimeWorker-mITxmtWO.js`でexception/rejection handler内の`process.exit(7)`とexit listener markers、後続nextTick停止、実Errorのfatal exit 1、Worker再利用を確認。get-stream fluent buffer awaitとWinston JSONもexit 0。dev page/provider/OPFSでWorker URLだけproduction assetへ差し替えた検証で、production UI全体の確認ではない。証跡: `runtime9-package-repro-results.json`の`runtime9ProductionExitBoundary`。browser終了済み。
-- [x] Pino 10.4の残るblockerは未対応`worker_threads`。
+- [x] Pino 10.4の残るblockerは未対応のguest `worker_threads.Worker`生成。
 - [x] Latest static/build checks: `tsc --noEmit` pass、Biome format/check 502 files pass、`git diff --check` pass。Production build pass: 30 extensions、23 nonbundled TypeScript transpiles、Vite 1.98 s (`runtimeWorker-CYuFC-pl`)。
 - [x] guest exception/rejection listener内の`process.exit`を通常の終了signalとして扱い、終了statusへ反映する。実際のErrorは引き続きfatal。Worker boundary focused tests 23/23 pass、buildは`runtimeWorker-mITxmtWO.js`でpass（2.01秒）。compiled Workerでもexit code/markers、fatal Error、Worker再利用を確認。
 - [x] Latest Runtime 9 full Vitest (`runtime9-web-final-tests.json`): 223 files / 1,911 testsすべてpass。runtime/npmは59 files / 593 testsすべてpass。以前のsnapshotにあった担当外POSIX alpha glob 2件のfailureは他担当の修正後に解消。
@@ -306,7 +306,19 @@ tmp/の扱い
 - [x] Runtime 10で判明したexeca blocker `events.setMaxListeners` / `getMaxListeners`をRuntime 11で実装（focused events tests 8/8）。`addAbortListener`はRuntime 11の再試行で見つけて実装（focused events tests 13/13）。
 - [x] execa 10.1.0の別root cause: `StringDecoder.write(Uint8Array)`を文字列化する際のbyte corruptionと、stdinの`PassThrough`がread/write両側の完了を待たせた。decoder facadeでbyte viewを維持し、child stdinをWritable-onlyにしてbackpressure付きbyte / EOF transportをWorkerからShellExecutorへ接続。spawn eventはlistener登録後へ遅延。
 - [x] execa 10.1.0をsource / compiled Runtime Workerで確認。`execaSync` / async success/failure、exit status 0/9/7、日本語UTF-8 stdin往復を検証した。
-- [ ] fs-extra 11.4.1は`ensureDir`・`outputJson` / `readJson`・`pathExists`・`move` / 移動後read・`remove`がpass。`copy`は未対応`fs.chmod`で停止。mode metadataとchmod familyの一般契約を決めてから再確認する。
+
+### Runtime 12
+
+- [x] modeをfull `stat` modeとしてFS metadataへ追加。通常pathはabsolute canonical pathをkeyにIndexedDB、`/tmp`はmemoryへ保存する。`chmod`はsymlink targetを更新してmetadata commit後にeventを出し、overwrite/truncate、rename、deleteへmodeを伝播する。OPFS/IDB間のatomic commitはない。
+- [x] Runtime `chmod` callback・Promise・Sync、`fchmod` callback・Sync、octal string、create modeとdefault umask `022`、`stat` / `access`反映を追加。`fchmod`は現在のdescriptor pathに結び付き、rename/unlink後のinode identityは扱わない。
+- [x] chmod/metadata focused scope: 155 tests pass、TypeScriptとBiome pass。`worker_threads`はNode main-thread metadataと`SHARE_ENV`を公開し、guest `Worker`生成は`ERR_FEATURE_UNAVAILABLE`（focused 28/28、TypeScript・Biome・diff check pass）。
+- [x] `fs.opendir` callback・Promise・Sync APIとsnapshot-based `Dir`を追加。focused fsModule tests 23/23、TypeScriptとBiome pass。`bufferSize`は受け付けるが効果なし。
+- [x] 実browserのRuntimeで`chmod` / numeric-fd `fchmod`のmode値を確認し、page reload後も`0460`とfile contentが維持されることを確認。fs-extraのcopy 12/12 assertionsも成功し、recursive directory、mode、symlink/dereference、overwrite、syncを含む。
+- [x] ESLint 10.12.0 normal CLIをTerminalで実行。bad fileは3 rule diagnosticsでexit 1、fixed fileはdiagnosticsなしでexit 0、`npm run lint`もexit 0。`worker_threads` main metadata、dynamic import URL conversion、`util.styleText`がCLI実行に必要だった。`styleText({ stream })`はruntime Node stream identityと`isTTY`を使う。`--concurrency`はguest Worker生成に依存し未対応。
+- [x] compiled Runtime Workerでmode/chmod/fchmodとfs-extra copyの15 assertions pass。same-origin document/providerにcompiled Workerを接続した検証で、production UI全体ではない。
+- [x] Final static/build checks: TypeScript pass、Biome 517 files pass、`git diff --check` pass。Buildは30 extensions / 23 TypeScript transforms、Vite 2.00秒、asset `runtimeWorker-cFqut5US.js`。
+- [x] Source freeze後の最終full Vitest `runtime12-final-recheck-tests.json`: 238 files / 2,066 tests、全pass。途中snapshotの1 failureはstyleText sourceが実行中に変更され、旧compiled bodyとの不一致だった。failed snapshotはhistoryとして残す。
+- [x] Compiled Worker Terminal ESLint proof: `runtimeWorker-cFqut5US.js`のfetched JS bytesとrewrite arrayを検証。8/8 assertions、bad file 3 rules / exit 1、fixed `npx eslint` / `npm run lint` / Node script writeはexit 0（`runtime12-eslint-terminal-results.json`）。確認はsame-origin dev document/provider + compiled Workerで、production UI全体ではない。
 
 ### Runtime 11
 
@@ -328,10 +340,10 @@ tmp/の扱い
 
 - [ ] Private repositoryの認証付きclone/fetch用transportを用意する。公開CORS proxyは匿名アクセス専用で、認証要求は拒否する。
 - [ ] 壊れたsymlink recordはFS初期化時に安全に失敗するが、recordの修復・回復UIがない。fail-safe動作を保った回復方法を決める。
-- [ ] directoryと`/tmp`境界をまたぐrenameのcopy/delete経路には完全atomic性がない。ブラウザAPIで保証できる契約を決める。persistent regular fileはnative moveへ変更済み。UI6でsource部分削除後のsidecar／通知整合性を修正し、保持したdestinationと残ったsourceを実状態へ一致させた。
+- [x] Stassheの決定: directoryと`/tmp`境界をまたぐrenameのcopy/delete途中失敗による不整合は許容し、完全復元は作らない。persistent regular fileはnative moveへ変更済み。UI6のsidecar／通知整合性処理は維持する。
 - [x] readdir/rmのsymlink探索は線形のまま測定。先行Chrome1,000 links／20 directoriesのreaddir19.6 msに加え、UI6最終実装で3,000 links／30 directoriesを全件照合。列挙合計104.2 ms（1 folder 1.8〜19.5 ms）、再帰削除473.7 ms、fixture不在を確認。並行Vitest中の単回参考値で、一般性能保証や比較benchmarkではない。この規模ではindexを追加しない。大規模workloadで必要になれば再計測する。
 - [ ] WebPreviewはunsandboxed same-origin iframeへHTMLを書き込む。意図するsecurity boundaryを決める。
-- [ ] Git checkout途中のwrite失敗後、source tree／index／target-only file／既存untrackedの整合した復元を行う。UI7のprobeでHEAD／indexが旧commitのまま、worktreeにtarget bytesと新設untrackedが残ることを確認。旧commitのforce checkoutでも戻らない。checkout完了後のref保存失敗はUI7で復元済みだが、この経路と区別する（scratchpad/ui7-core-residuals.md）。
+- [x] Stassheの決定: 途中で失敗した操作の不整合は許容（完全な復元処理は作らない）。Git checkout途中のwrite失敗後、source tree／index／target-only file／既存untrackedの整合した復元は行わない。UI7のprobeでHEAD／indexが旧commitのまま、worktreeにtarget bytesと新設untrackedが残ることを確認。旧commitのforce checkoutでも戻らない。checkout完了後のref保存失敗はUI7で復元済みだが、この経路と区別する（scratchpad/ui7-core-residuals.md）。
 
 ## 最終レビュー検証（2026-10-09）
 
@@ -451,7 +463,16 @@ tmp/の扱い
 - [x] Production browser: Vim `lll jjx`保存後readback `abcd`／`x`／`wxy`、implicit stdin `grep -l`のfilename出力、`tail -v` stdin header、`wc -cm`の`1 2`を確認。`node --eval`から`child_process.spawn('cat')`へ`stdin 日本語`を渡し、EOF後のJSON stdoutとstatus 0を確認。page errorなし、fixture不在、専用browser／dev server停止。
 - [x] 最終static: `tsc --incremental false` exit 0、Biome src/tests＋new tests 759 files exit 0（既存warnings 2・infos 6）、`git diff --check` exit 0。production build exit 0（30 extensions、23 TS checks、Vite 1.95秒、`index-x63qAMBy`）。
 - [x] Rootfresh fixed-input whole-suite run 5（10:05:52開始、145.75秒）は234 files / 2,031 tests全pass。live/copy全input SHA一致、実行後も不変。
-- [ ] 同じfixed inputのFull6 seed 1009 shuffleを再実行中。全input SHAは一致し、現在のVitestはroot PID 1384624のみ。前回競合で中断した`shell7-full-6-interrupted.log`とpartial final logはpass扱いしない。結果は未確定。
+- [x] 同じfixed inputのFull6 seed 1009 shuffleは途中停止し、pass扱いしない。onExit中の同期disposeとVitest側のnative `nextTick`復元遅延が競合してguest schedulerがhost `process.nextTick`へ残留し、ESM 22 tests後にWorker RPCが停止した。
+- [x] Test helperはonExitで報告だけを行い、async closeがnative tickを待ってからdisposeする形へ修正。呼出し元をawaitし、決定的regressionを追加。対象4 files / 81 testsはshuffle seed 1009で全pass。
+- [x] 固定inputのFull7 normal（10:22:52開始、60.50秒）は233 files / 2,034 testsで、173 files / 1,379 tests pass、60 files / 645 tests fail、10 skipped。641件で`indexedDB is not defined`となり、新permission storeに共通test setupが追従していないことを確認。既存`fake-indexeddb/auto`をsetupへ追加して未定義エラーはfocusedで解消したが、古い`writeFile`引数順と`core.mode`期待値の追従が残るため、Full7はpass扱いしない。
+- [x] 固定inputのFull8 normal（10:29:04開始、188.15秒）は236 files / 2,053 testsで、234 files / 2,049 tests pass、2 files / 4 tests fail。runtimeBytesの独自main-thread fake workerでguest globalが並行共有され、後続3 casesがhook timeout。別の1 timeoutはPyxis resetの`vi.useFakeTimers`がfake-indexeddbの`setImmediate` taskを止めたもの。以後、worker_threadsで隔離したfixtureとhost-global invariant、reload用`setTimeout`/`clearTimeout`だけをfake timer対象とする修正をfocusedで検証。
+- [x] Full9 normalは新しいisolated fixtureの明示typedcheckで現行`RuntimeFilesystem`の`mode`／`writeRange`／`chmod`不足が見つかったため中断。partial logは`shell7-full-9-interrupted.log`。native adapter 3 filesの明示TypeScript checkはdiagnostics 0、focused 4 tests pass。Pyxisのnarrow fake-timer focused checkもpass。
+- [x] 固定840入力のFull10 normal（10:38:03開始、148.34秒）は238 files / 2,060 tests全pass。Full10/11で使用した固定snapshot 840 filesは開始・終了時hashが全て一致。
+- [x] 同じ固定840入力のFull11 shuffle（seed 1009、10:41:54開始、147.17秒）は238 files / 2,060 tests全pass。
+- [x] これらの全体結果は同一hashの固定snapshotに対するもの。後続のLIVE treeは他sessionの変更で11 files（moduleLoader、builtInModule、fsModule、fsPermissions、utilModule、nodeRuntime、tabState/actions、permissions.test、fsModule.test、nodeRuntime.test、openTab.test）が異なり、この後続LIVE全体のpassを示すものではない。停止指示に従い追加の再検証はしない。
+- [x] Stassheの構造変更前停止指示に従い、新規監査は開始しない。root作成の引き継ぎ資料は`handoff-pre-restructure-codex4claude-shell.md`（scratchpad）。
+- [x] Touch scrollのproduction buildはexit 0（Vite 2.01秒、`index-C7tgikEt`）。agent-browserでTerminalの既存xterm DOM touch handler経由にTouchEventを注入し、`seq 1 100`後の連続move 100→120→140→160で`viewportY`が93→92→91→90、次gestureの逆向き1px刻みを60pxまで続けて93へ戻ることを確認（初期`baseY`/`viewportY`=93）。page errorなし。trusted physical deviceでの検証ではない。専用browser／preview停止、生成dist削除済み。
 
 ## UI6追加監査・統合検証（2026-10-09）
 
@@ -463,3 +484,16 @@ tmp/の扱い
 - [x] agent-browserの最終bundleでExplorer→WebPreview、実Terminalの参照CSS保存で色変更、無関係file作成でDOM維持を確認。window error／unhandledrejection0、390×600で横overflowなし。3,000 symlinkの実FS測定と削除後不在確認は上記残課題欄へ記録。
 - [x] README／filesystem／markdown-preview／STORAGE_INTENT／directory-structure／review-ledgerを更新。fixture、自分のbrowser／5176／ui6-dev tmux、固定bundle／専用profileを削除。5173と他sessionを維持。host Git書込み・実GitHub pushなし。
 - [x] 全体Vitest初回は09:44:35開始、ESM evaluation22 tests完了後にrunner／forkがIPC接続を保持したまま待機。8分超で自身のrunnerへSIGINT、exit130。原因未確定で成功snapshotとは扱わない。専用tmuxでの再実行は09:53:27開始・148.17秒、231 files／2,014 tests、227 files／2,008 pass・4 files／6 fail・pending0（ui6-final-tests-retry.json）。失敗は外部runtime11作業中のchild stdin 3件とstring_decoder 3件で、該当source/testsも並行更新中だった。ui6-runtime-validation-handoff.mdへ記録。自分のtmux終了済み。
+
+## UI7追加監査・統合検証（2026-10-09）
+
+- [x] fast-forward／衝突なしmergeでcheckout完了後のref保存が失敗した場合、元commitのworktree／indexへ復元。既存untracked保持と復元失敗の両causeを回帰検証。checkout自体の部分失敗は別経路として上記TODOへ記録。
+- [x] merge commit後のcleanup失敗は作成済みSHAを通知。再試行でHEAD第2親と残存MERGE_HEADを照合し、cleanなら既存commit、新stage内容があればsingle-parent子commitへ進む。重複merge commitと追加編集の取りこぼしを回帰検証。
+- [x] Git handlerのmessageからliteral quoteを削除する処理を除去。commitは`-m <message>`一組、mergeはbranch前後の`--no-ff`／`-m`を解析。未知option／余分な引数を拒否。Git focused3 files45 tests成功。shell parserは変更なし。
+- [x] ExplorerのFileTreeをroot keyで再mount。固定productionでAの保存済み折り畳み`[]`からBへ切替後、Bの`[B/src]`とnested表示を確認。旧root stateの新root保存を防いだ。一行keyの実装鏡testは削除し、実UI状態で検証。
+- [x] HTML asset変換をHTML5 parserへ変更。実要素／属性だけを扱い、doctype／head／body／コメント／script・style文字列／data属性を保持。unquoted attrsとmodule script属性も検証。ZIPは`.git`除外後に全entryを検証し、FIFO／deviceとそれへのlinkをpath付きerrorで拒否。HTML／ZIP focused2 files10 tests成功。
+- [x] AI chat/review persistence、extension lifecycle/install復旧、i18n遅延／cache失敗を再監査。追加の再現可能な不具合はなし。focused7 files47 tests成功、対象Biome15 files成功。
+- [x] 最終全体Vitest `ui7-final-tests.json`: 233 files／2,030 tests全pass・pending0（10:10:10開始、140.95秒）。UI6のruntime6 failuresもこのsnapshotでは成功。開始前に他sessionの再実行を見落とした自身のpartial runは約7秒で中断し、成功結果に含めない。
+- [x] TypeScript exit0、全体Biome759 files check／format exit0（既存warnings2／infos6）、最終担当14 filesのBiomeとdiff check成功。最終build30 extensions／23 TS checks、Vite2.34秒、index-CTnzjVqK.js。
+- [x] agent-browser: folder切替、Quick Open、実キー編集・Ctrl+S後のTerminal bytes readback、Markdown二pane、guest Git commit／merge messageのliteral quoteとGit panel履歴、Binary Editor disable／enable、AI Ask／Edit draft保持を確認。HTML iframeのdoctype／data-src／script文字列／module実行を確認し、FIFO folder Downloadはpath付きalert。window error／unhandledrejection0。desktop1280／mobile390×600を目視、横overflowなし。
+- [x] README／Git／filesystem／markdown-preview／editor domain／STORAGE_INTENTを更新。fixture2roots、MRU／session／recent／展開keys／fixture chat・AIReview全項目の不在を確認。自分のui7 browser／5177／ui7-web・ui7-checks tmux終了、固定bundle／profile削除。Stassheの5173と他sessionを維持。host Git書込み・実GitHub push・tree.txt操作なし。

@@ -19,12 +19,13 @@ interface RenameContext {
   lstat(path: string): Promise<ProjectFile>;
   stat(path: string): Promise<ProjectFile>;
   exists(path: string): Promise<boolean>;
-  remove(path: string, options?: RmOptions): Promise<void>;
+  remove(path: string, options?: RmOptions, preservePermissions?: boolean): Promise<void>;
   mkdir(path: string, options?: MkdirOptions): Promise<void>;
   symlink(target: string, path: string): Promise<void>;
   readlink(path: string): Promise<string>;
   readFile(path: string): Promise<Uint8Array>;
-  writeFile(path: string, content: string | Uint8Array): Promise<void>;
+  writeFile(path: string, content: string | Uint8Array, options?: { mode?: number }): Promise<void>;
+  movePermissions(source: string, destination: string, entries: ProjectFile[]): Promise<void>;
   readdir(path: string): Promise<ProjectFile[]>;
   walk(path: string): Promise<ProjectFile[]>;
   directory(path: string): Promise<FileSystemDirectoryHandle>;
@@ -149,14 +150,15 @@ export async function renamePath(
       );
     } else if (source.type === 'file') {
       const data = await fs.readFile(oldPath);
-      await fs.writeFile(path, data);
+      await fs.writeFile(path, data, { mode: source.mode });
       if (!fs.isMemory(oldPath) && fs.isMemory(path)) {
         try {
-          await fs.remove(oldPath, { recursive: true });
+          await fs.remove(oldPath, { recursive: true }, true);
           removedSourceEntry = true;
         } catch (removeError) {
           try {
-            if (!(await fs.exists(oldPath))) await fs.writeFile(oldPath, data);
+            if (!(await fs.exists(oldPath)))
+              await fs.writeFile(oldPath, data, { mode: source.mode });
           } catch (restoreError) {
             preserveDestination = true;
             throw new AggregateError([removeError, restoreError], `Failed to restore ${oldPath}`);
@@ -165,15 +167,15 @@ export async function renamePath(
         }
       }
     } else {
-      await fs.mkdir(path, { recursive: true });
+      await fs.mkdir(path, { recursive: true, mode: source.mode });
       sourceDirectoryEntries = await fs.walk(oldPath);
       for (const entry of sourceDirectoryEntries) {
         const target = `${path}${entry.path.slice(oldPath.length)}`;
-        if (entry.type === 'folder') await fs.mkdir(target, { recursive: true });
+        if (entry.type === 'folder') await fs.mkdir(target, { recursive: true, mode: entry.mode });
         else if (entry.type === 'symlink') await fs.symlink(await fs.readlink(entry.path), target);
         else if (entry.type === 'fifo')
           await fs.fifos.create(target, fs.fifos.entries.get(entry.path));
-        else await fs.writeFile(target, await fs.readFile(entry.path));
+        else await fs.writeFile(target, await fs.readFile(entry.path), { mode: entry.mode });
       }
       directoryCopyComplete = true;
     }
@@ -181,7 +183,7 @@ export async function renamePath(
       !removedSourceEntry &&
       (source.type !== 'file' || fs.isMemory(oldPath) || fs.isMemory(path))
     ) {
-      await fs.remove(oldPath, { recursive: true });
+      await fs.remove(oldPath, { recursive: true }, true);
     }
   } catch (error) {
     const rollbackErrors: Error[] = [];
@@ -233,7 +235,30 @@ export async function renamePath(
     }
     throw error;
   }
+  const permissionEntries = [source, ...(sourceDirectoryEntries ?? [])];
+  if (fs.isMemory(path)) applyMemoryModes(oldPath, path, permissionEntries, fs.memory);
+  try {
+    await fs.movePermissions(oldPath, path, permissionEntries);
+  } catch (error) {
+    await emitCurrentPath(fs, oldPath, true, 'update', sourceDirectoryEntries);
+    await emitCurrentPath(fs, path, destinationExists, 'create');
+    throw error;
+  }
   fs.emit({ type: 'rename', oldPath, path, file: await fs.lstat(path) });
+}
+
+function applyMemoryModes(
+  source: string,
+  destination: string,
+  entries: ProjectFile[],
+  memory: Map<string, MemoryEntry>
+): void {
+  for (const entry of entries) {
+    if (entry.type !== 'file' && entry.type !== 'folder') continue;
+    const destinationPath = `${destination}${entry.path.slice(source.length)}`;
+    const target = memory.get(destinationPath);
+    if (target) target.metadata.mode = entry.mode;
+  }
 }
 
 async function emitCurrentPath(

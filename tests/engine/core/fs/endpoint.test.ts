@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import 'fake-indexeddb/auto';
 import { WorkerNpmCommands } from '@/engine/cmd/global/npmOperations/worker';
 import type { FsWorkerApi } from '@/engine/core/fs/endpoint';
 import { directoryTree } from '../../../_helpers/opfs';

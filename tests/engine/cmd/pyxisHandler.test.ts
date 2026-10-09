@@ -85,7 +85,7 @@ describe('Pyxis filesystem commands', () => {
       indexedDB: { databases: async () => [] },
       location: { reload: vi.fn() },
     });
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const output: string[] = [];
 
     await handlePyxisCommand(

@@ -31,7 +31,7 @@ describe('handleNPXCommand', () => {
     runtimeRegistry.registerRuntime(createTestRuntimeProvider(repo));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     runtimeRegistry.clear();
     projectState.currentRootPath = null;
     vi.restoreAllMocks();
@@ -181,7 +181,7 @@ function createTestRuntimeProvider(repo: FsCore): RuntimeProvider {
         await fixture.runtime.waitForEventLoop();
         return { exitCode: fixture.runtime.getExitCode() };
       } finally {
-        fixture.close();
+        await fixture.close();
       }
     },
   };

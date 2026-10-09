@@ -51,6 +51,91 @@ describe('tabActions.openTab', () => {
     expect(getTabContent(tab.id)).toBe('console.log("ready")');
   });
 
+  it('applies explicit editor choices to reused tabs and ignores default preferences', async () => {
+    const path = `${rootPath}/editor-mode.js`;
+    await getTestFs().writeFile(path, 'saved content');
+    await tabActions.openTab(
+      { path, name: 'editor-mode.js' },
+      { kind: 'editor', editorMode: 'monaco' }
+    );
+
+    const firstTab = tabState.panes[0].tabs[0];
+    if (firstTab.kind !== 'editor') throw new Error('expected an editor tab');
+    const unsavedContent = 'unsaved content';
+    firstTab.isDirty = true;
+    setTabContent(firstTab.id, unsavedContent, true);
+
+    await tabActions.openTab(
+      { path, name: 'editor-mode.js' },
+      { kind: 'editor', editorMode: 'codemirror' }
+    );
+
+    const codeMirrorTab = tabState.panes[0].tabs[0];
+    expect(codeMirrorTab.id).toBe(firstTab.id);
+    expect(codeMirrorTab.kind).toBe('editor');
+    if (codeMirrorTab.kind !== 'editor') throw new Error('expected an editor tab');
+    expect(codeMirrorTab.isCodeMirror).toBe(true);
+    expect(getTabContent(firstTab.id)).toBe(unsavedContent);
+    expect(isTabDirty(firstTab.id)).toBe(true);
+
+    await tabActions.openTab(
+      { path, name: 'editor-mode.js', isCodeMirror: false },
+      { kind: 'editor' }
+    );
+    const preferenceReopenedTab = tabState.panes[0].tabs[0];
+    expect(preferenceReopenedTab.id).toBe(firstTab.id);
+    expect(preferenceReopenedTab.kind === 'editor' && preferenceReopenedTab.isCodeMirror).toBe(
+      true
+    );
+    expect(getTabContent(firstTab.id)).toBe(unsavedContent);
+
+    await tabActions.openTab(
+      { path, name: 'editor-mode.js' },
+      { kind: 'editor', editorMode: 'monaco' }
+    );
+    const monacoTab = tabState.panes[0].tabs[0];
+    expect(monacoTab.id).toBe(firstTab.id);
+    expect(monacoTab.kind === 'editor' && monacoTab.isCodeMirror).toBe(false);
+    expect(getTabContent(firstTab.id)).toBe(unsavedContent);
+    expect(isTabDirty(firstTab.id)).toBe(true);
+
+    await tabActions.openTab(
+      { path, name: 'editor-mode.js', isCodeMirror: true },
+      { kind: 'editor' }
+    );
+    const defaultPreferenceTab = tabState.panes[0].tabs[0];
+    expect(defaultPreferenceTab.id).toBe(firstTab.id);
+    expect(defaultPreferenceTab.kind === 'editor' && defaultPreferenceTab.isCodeMirror).toBe(false);
+  });
+
+  it('applies an explicit editor choice when reusing a tab from another pane', async () => {
+    const path = `${rootPath}/other-pane.js`;
+    await getTestFs().writeFile(path, 'saved content');
+    await tabActions.openTab(
+      { path, name: 'other-pane.js' },
+      { kind: 'editor', editorMode: 'monaco' }
+    );
+    const originalTab = tabState.panes[0].tabs[0];
+    if (originalTab.kind !== 'editor') throw new Error('expected an editor tab');
+    originalTab.isDirty = true;
+    setTabContent(originalTab.id, 'unsaved content', true);
+
+    tabActions.splitPane('pane', 'vertical');
+    tabActions.setActivePane('pane-2');
+    tabState.globalActiveTab = null;
+
+    await tabActions.openTab(
+      { path, name: 'other-pane.js' },
+      { kind: 'editor', editorMode: 'codemirror', searchAllPanesForReuse: true }
+    );
+
+    const reusedTab = tabState.panes[0].children?.[0].tabs[0];
+    expect(reusedTab?.id).toBe(originalTab.id);
+    expect(reusedTab?.kind === 'editor' && reusedTab.isCodeMirror).toBe(true);
+    expect(getTabContent(originalTab.id)).toBe('unsaved content');
+    expect(isTabDirty(originalTab.id)).toBe(true);
+  });
+
   it('preserves explicitly supplied empty content without reading the filesystem', async () => {
     const readText = vi.spyOn(fsClient, 'readText');
 

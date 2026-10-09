@@ -7,6 +7,7 @@ export interface FsStat {
   type: 'file' | 'directory' | 'symlink' | 'fifo' | 'characterDevice';
   size: number;
   mtime: number;
+  mode: number;
 }
 
 export interface FsBenchmark {
@@ -21,7 +22,7 @@ export type FsRequest = { benchmark?: boolean } & (
       path: string;
     }
   | { kind: 'fs'; op: 'symlink'; target: string; path: string }
-  | { kind: 'fs'; op: 'writeFile'; path: string; data: string }
+  | { kind: 'fs'; op: 'writeFile'; path: string; data: string; mode?: number }
   | {
       kind: 'fs';
       op: 'writeRange';
@@ -30,6 +31,7 @@ export type FsRequest = { benchmark?: boolean } & (
       position: number | null;
       create: boolean;
       exclusive: boolean;
+      mode?: number;
     }
   | {
       kind: 'fs';
@@ -42,7 +44,8 @@ export type FsRequest = { benchmark?: boolean } & (
   | { kind: 'fs'; op: 'fifoRead'; endpointId: string; maxBytes: number }
   | { kind: 'fs'; op: 'fifoWrite'; endpointId: string; data: string }
   | { kind: 'fs'; op: 'fifoClose'; endpointId: string }
-  | { kind: 'fs'; op: 'mkdir'; path: string; recursive: boolean }
+  | { kind: 'fs'; op: 'mkdir'; path: string; recursive: boolean; mode?: number }
+  | { kind: 'fs'; op: 'chmod'; path: string; mode: number }
   | { kind: 'fs'; op: 'rm'; path: string; recursive: boolean; force: boolean }
   | { kind: 'fs'; op: 'rename'; path: string; newPath: string }
 );

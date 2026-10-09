@@ -123,7 +123,7 @@ describe('runtime benchmark lifecycle', () => {
     } finally {
       session.dispose();
       fixture.runtime.dispose();
-      fixture.close();
+      await fixture.close();
     }
   });
 });

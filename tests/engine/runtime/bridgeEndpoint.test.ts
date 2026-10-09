@@ -53,12 +53,13 @@ describe('runtime bridge endpoint', () => {
       writeFile: async () => {},
       writeRange: async (_path, data, position) => (position ?? 0) + data.byteLength,
       readdir: async () => [],
-      stat: async () => ({ type: 'file', size: 0, mtime: 1 }),
-      lstat: async () => ({ type: 'file', size: 0, mtime: 1 }),
+      stat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
+      lstat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
       readlink: async () => 'target',
       realpath: async path => path,
       symlink: async () => {},
       mkdir: async () => {},
+      chmod: async () => {},
       rm: async () => {},
       rename: async () => {},
     };
@@ -97,12 +98,13 @@ describe('runtime bridge endpoint', () => {
       writeFile: async () => {},
       writeRange: async (_path, data, position) => (position ?? 0) + data.byteLength,
       readdir: async () => [],
-      stat: async () => ({ type: 'file', size: 0, mtime: 1 }),
-      lstat: async () => ({ type: 'file', size: 0, mtime: 1 }),
+      stat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
+      lstat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
       readlink: async () => 'target',
       realpath: async path => path,
       symlink: async () => {},
       mkdir: async () => {},
+      chmod: async () => {},
       rm: async () => {},
       rename: async () => {},
     };
@@ -122,6 +124,87 @@ describe('runtime bridge endpoint', () => {
     });
   });
 
+  it('forwards creation modes and chmod errors to the filesystem', async () => {
+    const writeFile = vi.fn(async () => {});
+    const writeRange = vi.fn(async () => 1);
+    const mkdir = vi.fn(async () => {});
+    const chmod = vi.fn(async () => {
+      throw Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+    });
+    const fs: RuntimeFilesystem = {
+      ...fifoMethods(),
+      readFile: async () => new Uint8Array(),
+      writeFile,
+      writeRange,
+      readdir: async () => [],
+      stat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
+      lstat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
+      readlink: async () => 'target',
+      realpath: async path => path,
+      symlink: async () => {},
+      mkdir,
+      chmod,
+      rm: async () => {},
+      rename: async () => {},
+    };
+    const channel = new MessageChannel();
+    channels.push(channel);
+    attachRuntimePort(channel.port1, fs, async () => null);
+
+    await response(channel.port2, {
+      id: 'mode-write',
+      runtimeId: 'runtime-1',
+      request: { kind: 'fs', op: 'writeFile', path: '/workspace/file', data: 'QQ==', mode: 0o600 },
+    });
+    await response(channel.port2, {
+      id: 'mode-range',
+      runtimeId: 'runtime-1',
+      request: {
+        kind: 'fs',
+        op: 'writeRange',
+        path: '/workspace/file',
+        data: 'QQ==',
+        position: 0,
+        create: true,
+        exclusive: false,
+        mode: 0o640,
+      },
+    });
+    await response(channel.port2, {
+      id: 'mode-mkdir',
+      runtimeId: 'runtime-1',
+      request: { kind: 'fs', op: 'mkdir', path: '/workspace/dir', recursive: false, mode: 0o750 },
+    });
+    const result = await response(channel.port2, {
+      id: 'chmod-denied',
+      runtimeId: 'runtime-1',
+      request: { kind: 'fs', op: 'chmod', path: '/workspace/file', mode: 0o640 },
+    });
+
+    expect(writeFile).toHaveBeenCalledWith(
+      '/workspace/file',
+      expect.any(Uint8Array),
+      undefined,
+      'runtime-1',
+      0o600
+    );
+    expect(writeRange).toHaveBeenCalledWith(
+      '/workspace/file',
+      expect.any(Uint8Array),
+      0,
+      true,
+      false,
+      undefined,
+      0o640
+    );
+    expect(mkdir).toHaveBeenCalledWith(
+      '/workspace/dir',
+      { recursive: false, mode: 0o750 },
+      undefined
+    );
+    expect(result.result).toEqual({ ok: false, error: 'Permission denied', code: 'EACCES' });
+  });
+
   it('propagates opt-in queue and service diagnostics without changing values or errors', async () => {
     const fs: RuntimeFilesystem = {
       ...fifoMethods(),
@@ -136,12 +219,13 @@ describe('runtime bridge endpoint', () => {
       writeFile: async () => {},
       writeRange: async (_path, data, position) => (position ?? 0) + data.byteLength,
       readdir: async () => [],
-      stat: async () => ({ type: 'file', size: 0, mtime: 1 }),
-      lstat: async () => ({ type: 'file', size: 0, mtime: 1 }),
+      stat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
+      lstat: async () => ({ type: 'file', size: 0, mtime: 1, mode: 0o100644 }),
       readlink: async () => 'target',
       realpath: async path => path,
       symlink: async () => {},
       mkdir: async () => {},
+      chmod: async () => {},
       rm: async () => {},
       rename: async () => {},
     };

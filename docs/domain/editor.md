@@ -75,7 +75,7 @@ flowchart TD
 
 - binary判定: file-typeがMIMEを検出、既知のbinary拡張子、NULを含む、UTF-8として不正、のいずれか。SVGはtextとして開く。
 - file読込は開始時のrootとsession世代に結び付ける。読込中にworkspaceが切り替われば、旧fileのタブ追加・既存タブの内容更新・active切替を行わない。同じrootへ戻った場合も世代で区別する。
-- editorはMonacoが既定。localStorage `pyxis-defaultEditor`が`codemirror`ならCodeMirrorで開く（Explorerの右クリック「Open」は常にMonaco）。行・列jumpはMonacoだけ。
+- editorはMonacoが既定。localStorage `pyxis-defaultEditor`が`codemirror`ならCodeMirrorで開く。Explorerの右クリック「Open」はMonaco、「Open in CodeMirror」はCodeMirrorを明示する。開いているfileでは同じタブのeditorだけを切り替え、未保存内容を保持する。通常の再openは既存editorの選択を変えない。行・列jumpはMonacoだけ。
 - 個別タブを閉じる時はfileに未保存編集があれば確認し、確認後は編集を破棄する。タブ固有draftはclose前に保存する。全タブを閉じる・ペイン削除・workspace切替はタブ固有draftとdirty fileを先に保存し、失敗したら操作を中止する。file削除は未保存編集・draftのあるタブを残す。
 
 ## 保存

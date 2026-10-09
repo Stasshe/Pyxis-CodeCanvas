@@ -60,7 +60,7 @@ export function executeModule(
     loaders.requireSync(moduleName, filePath, 'import');
 
   const asyncLoadFn = loaders.asyncLoad.bind(loaders);
-  const runtimeFunction = createRuntimeFunction(specifier =>
+  const runtimeFunction = createRuntimeFunction((specifier: string | URL) =>
     loaders.asyncLoad(specifier, filePath)
   );
   let bodyFunction = 'function';

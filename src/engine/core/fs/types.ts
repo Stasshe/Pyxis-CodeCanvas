@@ -9,6 +9,11 @@ export interface FsChangeEvent {
 
 export interface MkdirOptions {
   recursive?: boolean;
+  mode?: number;
+}
+
+export interface FsWriteOptions {
+  mode?: number;
 }
 
 export interface RmOptions {
@@ -22,7 +27,8 @@ export interface FsWriteApi {
     data: Uint8Array,
     position: number | null,
     create?: boolean,
-    exclusive?: boolean
+    exclusive?: boolean,
+    mode?: number
   ): Promise<number>;
 }
 
@@ -86,10 +92,11 @@ export function getFifoApi(fs: FsApi): (FsApi & FsFifoApi) | null {
 export interface FsApi {
   readFile(path: string): Promise<Uint8Array>;
   readText(path: string): Promise<string>;
-  writeFile(path: string, data: string | Uint8Array): Promise<void>;
+  writeFile(path: string, data: string | Uint8Array, options?: FsWriteOptions): Promise<void>;
   readdir(path: string): Promise<ProjectFile[]>;
   stat(path: string): Promise<ProjectFile>;
   lstat(path: string): Promise<ProjectFile>;
+  chmod(path: string, mode: number): Promise<void>;
   realpath(path: string): Promise<string>;
   readlink(path: string): Promise<string>;
   symlink(target: string, path: string): Promise<void>;

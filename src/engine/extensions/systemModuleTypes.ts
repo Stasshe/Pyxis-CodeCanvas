@@ -33,6 +33,7 @@ export type FsClientApi = Pick<
   | 'readdir'
   | 'stat'
   | 'lstat'
+  | 'chmod'
   | 'realpath'
   | 'readlink'
   | 'symlink'

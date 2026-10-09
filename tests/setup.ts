@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { vi } from 'vitest';
 import { scopedFs } from '@/engine/core/fs/scoped';
 import { getTestFs } from './_helpers/testFs';
@@ -8,18 +9,25 @@ function createTestFsClient() {
       getTestFs().readFile(path, ownerId),
     readText: (path: string, ownerId?: string, _signal?: AbortSignal) =>
       getTestFs().readText(path, ownerId),
-    writeFile: (path: string, data: string | Uint8Array, ownerId?: string, _signal?: AbortSignal) =>
-      getTestFs().writeFile(path, data, true, ownerId),
+    writeFile: (
+      path: string,
+      data: string | Uint8Array,
+      options?: { mode?: number },
+      ownerId?: string,
+      _signal?: AbortSignal
+    ) => getTestFs().writeFile(path, data, options, true, ownerId),
     writeRange: (
       path: string,
       data: Uint8Array,
       position: number | null,
       create = false,
-      exclusive = false
-    ) => getTestFs().writeRange(path, data, position, create, exclusive),
+      exclusive = false,
+      mode?: number
+    ) => getTestFs().writeRange(path, data, position, create, exclusive, mode),
     readdir: (path: string) => getTestFs().readdir(path),
     stat: (path: string) => getTestFs().stat(path),
     lstat: (path: string) => getTestFs().lstat(path),
+    chmod: (path: string, mode: number) => getTestFs().chmod(path, mode),
     realpath: (path: string) => getTestFs().realpath(path),
     readlink: (path: string) => getTestFs().readlink(path),
     symlink: (target: string, path: string) => getTestFs().symlink(target, path),

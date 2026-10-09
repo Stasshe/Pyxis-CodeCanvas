@@ -1,3 +1,4 @@
+import hostProcess, { nextTick } from 'node:process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createNodeRuntimeFixture, type NodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
@@ -14,6 +15,24 @@ describe('Runtime browser globals', () => {
       clear: () => {},
     });
   }
+
+  it('drains deferred guest nextTick restoration before returning to the host process', async () => {
+    const originalNextTick = hostProcess.nextTick;
+    await createFixture([]);
+    const path = `${fixture.rootPath}/entry.js`;
+    await fixture.writeFile(path, 'module.exports = 1;');
+    await fixture.runtime.execute(path);
+    const guestNextTick = globalThis.process.nextTick;
+
+    // Vitest's RPC timer guard restores this captured guest value on a native tick.
+    nextTick(() => {
+      globalThis.process.nextTick = guestNextTick;
+    });
+    await fixture.close();
+
+    expect(globalThis.process).toBe(hostProcess);
+    expect(hostProcess.nextTick).toBe(originalNextTick);
+  });
 
   it('preserves the host navigator in entries and dependencies without modifying its descriptor', async () => {
     const output: string[] = [];
@@ -188,7 +207,7 @@ describe('Runtime browser globals', () => {
     );
     await fixture.runtime.execute(`${fixture.rootPath}/first.mjs`);
     await fixture.runtime.waitForEventLoop();
-    fixture.close();
+    await fixture.close();
 
     expect(names.map(name => Object.getOwnPropertyDescriptor(globalThis, name))).toEqual(originals);
     expect(output).toEqual([
@@ -207,7 +226,7 @@ describe('Runtime browser globals', () => {
     );
     await fixture.runtime.execute(`${fixture.rootPath}/second.js`);
     await fixture.runtime.waitForEventLoop();
-    fixture.close();
+    await fixture.close();
 
     expect(output).toContain('first execution true');
     expect(names.map(name => Object.getOwnPropertyDescriptor(globalThis, name))).toEqual(originals);

@@ -21,6 +21,7 @@
 - **path解釈とshell展開は別責務**。path utilityはPOSIX字句処理を担い、`~`・glob・quote・変数展開を行わない。shell parserは構文だけを解析し、shell実行層が各commandの実行直前に一度だけwordを展開してFS APIへ渡す。展開結果を構文として再解析せず、同じ行の先行assignmentや終了statusを後続commandの展開へ反映する。FS traversalはsymlinkを解決するまでraw componentを保ち、`link/..`はtarget traversal後に評価する。これによりNodeの`fs`とterminalのpath意味論を揃える
 - **端末上の編集位置・文字境界・表示幅を分離する**。文字列offsetはUTF-16、編集単位はgrapheme、画面位置はterminal cellであり、これらを同じ座標として扱わない。表示幅はxtermのactive Unicode providerと共有し、別の幅定義によるcursor・viewport・実描画のずれを防ぐ
 - **fileの識別子 = 絶対path**。OPFSのentryには任意の属性を付けられない。idを別に管理すると二重管理が再発する
+- **permission metadataはpayloadから分け、canonical absolute pathで永続化する**。OPFSに任意属性はない一方、`stat`・`access`・rename後もmodeを同じentryへ結び付ける必要がある。通常pathのmodeはIDBを正本にし、`/tmp`だけはmemoryに置く
 - **symlinkはFS Worker管理の仮想entryとして表す**。Nodeのfs・module・npmが同じlink semanticsを共有するため、OPFSにないsymlinkをreserved root `.pyxis-fs-links`のpath-keyed recordとして永続化する。recordを正本にし、file payloadはraw bytesのまま保つ。Workerのmetadata Mapはlookup用indexに限り、`/tmp`のlink recordは揮発領域に置く
 - **FIFO名はfilesystem namespaceに属し、stream dataは実行時だけ存在する**。通常pathのnamed FIFOはFS Workerのrecordで永続化し、`/tmp`のname・全FIFO bytes・open endpointは揮発させる。process間streamをpersistent file payloadと混ぜず、bounded memory queueとendpoint lifecycleをFS Workerで一元管理する
 - **mountのbackingはroot metadataで表す**。`ProjectFile.mount`で`memory`と`devices`を区別し、system resetがmemory mountを空にしてdevice mountを保つ。resetをpathごとの例外規則にせず、FSが返すmount metadataを基準にする
@@ -38,6 +39,9 @@
 - **workspace treeはfilesystem metadataのprojectionとして保つ**。Explorerの`FileItem`はpath・name・type・childrenだけを持ち、既存fileの内容更新は構造を変えない。既知のcreate/delete/rename metadataでtreeを更新し、未知subtreeだけを局所walkする。大きなworkspaceの各変更後にroot全体を再走査せず、全entryをtreeに反映する
 - **失敗したnamespace変更も実状態を通知する**。OPFSのrecursive removeは部分削除後にrejectし得る。要求の失敗だけを知らせると、Explorerは消えたfileを残し、移動先に保ったコピーを隠す。対象subtreeのmetadata差で実際の削除を通知し、存在するentryを反映する。virtual symlink／FIFO recordは物理parentが残る場合だけ復元するため、消えたfolder配下に孤立recordを作らない
 - **Gitの保存完了と後処理失敗を区別する**。merge commitはbranch refを進めた後にmerge metadataを消すため、cleanup失敗を単なるcommit失敗と扱うと再試行で履歴が重複する。HEADに保存済みのmerge parentを照合してcleanupを再試行し、後からstageされた変更は通常の子commitとして保存する。checkout完了後のref保存失敗は旧commitへ復元し、checkout自体の部分失敗とは別に扱う
+- **途中失敗した複数entry操作の完全復元は保証しない**。checkoutのwrite失敗やrenameの部分失敗では、既存の回復処理が扱わない不整合を許容する。Stassheが完全復元を要件外と決定したため、全操作前状態の保存・復元を追加しない。単一file保存のbytes保護と失敗通知は維持する
+- **HTMLのasset変換はHTML文法上の要素・属性を対象にする**。Stassheのscriptやコメントにも`src=`と同じ文字列が現れる。HTML5 parserをMarkdownと共有し、code文字列とresource属性を区別して変換することで、file payloadから作るpreview／exportに同じ解釈を適用する
+- **ZIPには有限のfile payloadを保存する**。FIFO／deviceはprocessとの通信entryで、file readが終了しない場合がある。archive全entryを先に検証してpath付きerrorを返し、保存の無期限待機と、気付かないentry欠落を防ぐ
 - **seed内容は`~/demo`に一度だけ置き、新workspaceは空にする**。新しいworkspaceごとにtemplateを複製すると、生成物が各workspaceの永続内容に混ざる。`~/demo`が無い場合だけ起動時に用意し、既にあるfolderの内容を保つ。seedは旧データ移行後、recent folders読込前に行い、移行済みデータとworkspace選択の順序を保つ
 - **file検索・folder browsing・recent folder選択は1つのcompact OperationWindowの独立modeにする**。Quick Openはfile検索、Open Folderはpath navigationと明示的な確定、Open RecentはMRU選択に専念させ、browse結果とrecent folderを混ぜない。同じsurfaceを共有しつつ、各操作の対象と選択動作を保つ
 - **旧データの移行は時限処理**。ユーザーデータはbrowser内にしかなく、失うと復元できない。移行codeは1か所にまとめ、2027-04を目安に削除する

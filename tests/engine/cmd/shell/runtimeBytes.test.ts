@@ -3,18 +3,13 @@ import { UnixCommands } from '@/engine/cmd/global/unix';
 import { ShellExecutor } from '@/engine/cmd/shell/executor';
 import { fsClient } from '@/engine/core/fs';
 import { FsCore } from '@/engine/core/fs/core';
-import { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import { attachRuntimePort, type RuntimeFilesystem } from '@/engine/runtime/bridge/endpoint';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { NodeRuntimeProvider } from '@/engine/runtime/nodejs/NodeRuntimeProvider';
-import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
-import { nativeQueueMicrotask } from '@/engine/runtime/nodejs/runtimeGlobals';
 import { disposeRuntimeWorkerPool } from '@/engine/runtime/nodejs/runtimeWorkerPool';
-import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
-import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
-import { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
 import { NativeTranspiler } from '../../../_helpers/nodeRuntime';
 import { directoryTree } from '../../../_helpers/opfs';
+import { prepareRuntimeWorker, RuntimeWorker } from '../../../_helpers/runtimeWorker';
 
 vi.mock('@/engine/core/fs', async importOriginal => {
   const original = await importOriginal<typeof import('@/engine/core/fs')>();
@@ -32,96 +27,9 @@ vi.mock('@/engine/runtime/bridge/main', () => ({
   registerRuntimeHost: vi.fn(() => () => {}),
 }));
 
-/** Exercise the real runtime and message payloads without a browser worker. */
-class RuntimeWorker {
-  onmessage: ((event: MessageEvent<WorkerMessage>) => void) | null = null;
-  onerror: ((event: ErrorEvent) => void) | null = null;
-  onmessageerror: ((event: MessageEvent) => void) | null = null;
-  private readonly listeners = new Map<string, Set<EventListener>>();
-  private runtime: NodeRuntime | undefined;
-  private stdin: WorkerStdin | undefined;
-  private bridge: RuntimeBridge | undefined;
-  private terminated = false;
-
-  constructor() {
-    nativeQueueMicrotask(() => this.emit({ type: 'ready' }));
-  }
-
-  addEventListener(type: string, listener: EventListener): void {
-    let listeners = this.listeners.get(type);
-    if (!listeners) {
-      listeners = new Set();
-      this.listeners.set(type, listeners);
-    }
-    listeners.add(listener);
-  }
-
-  removeEventListener(type: string, listener: EventListener): void {
-    this.listeners.get(type)?.delete(listener);
-  }
-
-  postMessage(message: MainMessage): void {
-    if (message.type === 'start') void this.start(message);
-    if (message.type === 'stdin') this.stdin?.submit(structuredClone(message.data));
-    if (message.type === 'stdin-end') this.stdin?.eof();
-  }
-
-  terminate(): void {
-    this.terminated = true;
-    this.cleanup();
-  }
-
-  private emit(message: WorkerMessage): void {
-    if (!this.terminated) {
-      const event = new MessageEvent<WorkerMessage>('message', {
-        data: structuredClone(message),
-      });
-      this.onmessage?.(event);
-      for (const listener of this.listeners.get('message') ?? []) listener(event);
-    }
-  }
-
-  private async start(message: Extract<MainMessage, { type: 'start' }>): Promise<void> {
-    try {
-      const bridge = new RuntimeBridge(message.scope, message.fsPort, message.runtimeId, () => {
-        throw new Error('Unexpected runtime cancellation.');
-      });
-      this.bridge = bridge;
-      const stdin = new WorkerStdin(
-        promise => this.runtime?.trackIO(promise),
-        () => this.emit({ type: 'stdin-request' }),
-        () => this.emit({ type: 'stdin-pause' })
-      );
-      this.stdin = stdin;
-      const runtime = new NodeRuntime({
-        ...message.options,
-        filesystem: new RuntimeFsMount(bridge),
-        bridge,
-        processStdin: stdin,
-        onStdout: text => this.emit({ type: 'output', entries: [{ channel: 'stdout', text }] }),
-        onStderr: text => this.emit({ type: 'output', entries: [{ channel: 'stderr', text }] }),
-        runShell: async () => ({ stdout: '', stderr: '', code: 0 }),
-      });
-      this.runtime = runtime;
-      await runtime.execute(message.options.filePath, message.options.argv);
-      await runtime.waitForEventLoop();
-      this.emit({ type: 'complete', result: { exitCode: runtime.getExitCode() } });
-    } catch (error) {
-      this.emit({ type: 'complete', result: { exitCode: 1, stderr: String(error) } });
-    } finally {
-      this.cleanup();
-    }
-  }
-
-  private cleanup(): void {
-    this.runtime?.dispose();
-    this.stdin?.dispose();
-    this.bridge?.close();
-    this.bridge = undefined;
-    this.runtime = undefined;
-    this.stdin = undefined;
-  }
-}
+const hostProcess = globalThis.process;
+const hostNextTick = hostProcess.nextTick;
+const hostTimeout = globalThis.setTimeout;
 
 describe('Runtime byte transport through shell pipelines', () => {
   const root = '/tmp/byte-pipeline';
@@ -131,6 +39,7 @@ describe('Runtime byte transport through shell pipelines', () => {
   const channels: MessageChannel[] = [];
 
   beforeEach(async () => {
+    await prepareRuntimeWorker();
     transpiler = await NativeTranspiler.create();
     await transpiler.transform({ kind: 'transpile', code: '', filePath: '/fixture.mjs' });
     core = new FsCore();
@@ -145,14 +54,15 @@ describe('Runtime byte transport through shell pipelines', () => {
     runtimeRegistry.registerRuntime(new NodeRuntimeProvider());
     const filesystem: RuntimeFilesystem = {
       readFile: (path, _benchmark, ownerId) => core.readFile(path, ownerId),
-      writeFile: (path, data, _benchmark, ownerId) => core.writeFile(path, data, true, ownerId),
-      mkfifo: path => core.mkfifo(path),
+      writeFile: (path, data, _benchmark, ownerId, mode) =>
+        core.writeFile(path, data, { mode }, true, ownerId),
+      writeRange: (path, data, position, create, exclusive, _benchmark, mode) =>
+        core.writeRange(path, data, position, create, exclusive, mode),
       openFifo: (path, mode, endpointId, ownerId, options) =>
         core.openFifo(path, mode, endpointId, ownerId, options),
       readFifo: (endpointId, maxBytes) => core.readFifo(endpointId, maxBytes),
       writeFifo: (endpointId, bytes) => core.writeFifo(endpointId, bytes),
       closeFifo: endpointId => core.closeFifo(endpointId),
-      closeFifos: ownerId => core.closeFifos(ownerId),
       readdir: async path =>
         (await core.readdir(path)).map(entry => entry.path.split('/').pop() ?? ''),
       stat: async path => {
@@ -160,19 +70,20 @@ describe('Runtime byte transport through shell pipelines', () => {
         let type: 'file' | 'directory' | 'symlink' = 'file';
         if (entry.type === 'folder') type = 'directory';
         if (entry.type === 'symlink') type = 'symlink';
-        return { type, size: entry.size, mtime: entry.mtime };
+        return { type, size: entry.size, mtime: entry.mtime, mode: entry.mode };
       },
       lstat: async path => {
         const entry = await core.lstat(path);
         let type: 'file' | 'directory' | 'symlink' = 'file';
         if (entry.type === 'folder') type = 'directory';
         if (entry.type === 'symlink') type = 'symlink';
-        return { type, size: entry.size, mtime: entry.mtime };
+        return { type, size: entry.size, mtime: entry.mtime, mode: entry.mode };
       },
       readlink: path => core.readlink(path),
       realpath: path => core.realpath(path),
       symlink: (target, path) => core.symlink(target, path),
       mkdir: (path, options) => core.mkdir(path, options),
+      chmod: (path, mode) => core.chmod(path, mode),
       rm: (path, options) => core.rm(path, options),
       rename: (path, newPath) => core.rename(path, newPath),
     };
@@ -185,7 +96,9 @@ describe('Runtime byte transport through shell pipelines', () => {
     shell = new ShellExecutor({ rootPath: root, fsClient: core, unix: new UnixCommands(root) });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await disposeRuntimeWorkerPool();
+    await RuntimeWorker.closeAll();
     for (const channel of channels.splice(0)) {
       channel.port1.close();
       channel.port2.close();
@@ -194,7 +107,9 @@ describe('Runtime byte transport through shell pipelines', () => {
     transpiler.close();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    return disposeRuntimeWorkerPool();
+    expect(globalThis.process).toBe(hostProcess);
+    expect(hostProcess.nextTick).toBe(hostNextTick);
+    expect(globalThis.setTimeout).toBe(hostTimeout);
   });
 
   it('preserves binary bytes through provider messages, stdin, redirects, and append', async () => {

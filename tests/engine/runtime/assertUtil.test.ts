@@ -2,6 +2,7 @@ import * as nativeUtil from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { isBuiltInModule } from '@/engine/runtime/module/builtinModules';
 import { createAssertModule } from '@/engine/runtime/nodejs/modules/assertModule';
+import { createRuntimeStreamModule } from '@/engine/runtime/nodejs/modules/readableWebAdapters';
 import { createUtilModule } from '@/engine/runtime/nodejs/modules/utilModule';
 
 describe('Node assert and util modules', () => {
@@ -141,6 +142,100 @@ describe('Node assert and util modules', () => {
     ).toThrowError(expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' }));
     expect(() => Reflect.apply(util.stripVTControlCharacters, undefined, [null])).toThrowError(
       expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+    );
+  });
+
+  it('styles text with Node ANSI formats and color policy', () => {
+    const util = createUtilModule({ stdoutIsTTY: true });
+    const formats = ['red', 'bold'];
+    expect(util.styleText(formats, 'error', { validateStream: false })).toBe(
+      nativeUtil.styleText(formats, 'error', { validateStream: false })
+    );
+    const nestedText = 'error\u001b[22mbold\u001b[39mplain';
+    expect(util.styleText(formats, nestedText, { validateStream: false })).toBe(
+      nativeUtil.styleText(formats, nestedText, { validateStream: false })
+    );
+    const colorReset = 'error\u001b[39mplain';
+    expect(util.styleText('red', colorReset, { validateStream: false })).toBe(
+      nativeUtil.styleText('red', colorReset, { validateStream: false })
+    );
+    expect(util.styleText('#abc', 'color', { validateStream: false })).toBe(
+      nativeUtil.styleText('#abc', 'color', { validateStream: false })
+    );
+    expect(util.styleText('none', 'plain', { validateStream: false })).toBe('plain');
+
+    const noColor = createUtilModule({
+      stdoutIsTTY: true,
+      getEnv: () => ({ NO_COLOR: '1' }),
+    });
+    expect(noColor.styleText('red', 'plain')).toBe('plain');
+    expect(noColor.styleText('red', 'colored', { validateStream: false })).toBe(
+      '\u001b[31mcolored\u001b[39m'
+    );
+
+    const forcedColor = createUtilModule({
+      stdoutIsTTY: false,
+      getEnv: () => ({ NO_COLOR: '1', FORCE_COLOR: '3' }),
+    });
+    expect(forcedColor.styleText('red', 'forced')).toBe('\u001b[31mforced\u001b[39m');
+
+    const forceColorCases: Array<[string, boolean]> = [
+      ['', true],
+      ['true', true],
+      ['1', true],
+      ['2', true],
+      ['3', true],
+      ['0', false],
+      ['false', false],
+      ['garbage', false],
+      ['-1', false],
+      ['4', false],
+    ];
+    for (const [value, enabled] of forceColorCases) {
+      const runtimeUtil = createUtilModule({
+        stdoutIsTTY: false,
+        getEnv: () => ({ FORCE_COLOR: value }),
+      });
+      let expected = 'text';
+      if (enabled) expected = '\u001b[31mtext\u001b[39m';
+      expect(runtimeUtil.styleText('red', 'text')).toBe(expected);
+    }
+  });
+
+  it('validates styleText arguments with Node error codes', () => {
+    const util = createUtilModule();
+    expect(() => util.styleText('unknown', 'text')).toThrowError(
+      expect.objectContaining({ code: 'ERR_INVALID_ARG_VALUE' })
+    );
+    expect(() =>
+      Reflect.apply(util.styleText, undefined, ['red', 'text', { validateStream: 1 }])
+    ).toThrowError(expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' }));
+    expect(() => Reflect.apply(util.styleText, undefined, ['red', null])).toThrowError(
+      expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+    );
+  });
+
+  it('uses Node stream identity for styleText validation and color selection', () => {
+    const stream = createRuntimeStreamModule();
+    const output = Object.assign(
+      new stream.Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      }),
+      { isTTY: true }
+    );
+    const util = createUtilModule({
+      stdoutIsTTY: false,
+      isStream: value => value instanceof stream.Stream,
+    });
+    expect(util.styleText('red', 'stream', { stream: output })).toBe('\u001b[31mstream\u001b[39m');
+    expect(() =>
+      Reflect.apply(util.styleText, undefined, ['red', 'stream', { stream: { isTTY: true } }])
+    ).toThrowError(expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' }));
+    const unvalidated = { stream: { isTTY: true }, validateStream: false };
+    expect(Reflect.apply(util.styleText, undefined, ['red', 'stream', unvalidated])).toBe(
+      Reflect.apply(nativeUtil.styleText, undefined, ['red', 'stream', unvalidated])
     );
   });
 

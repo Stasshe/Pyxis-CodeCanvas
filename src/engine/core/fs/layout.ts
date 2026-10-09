@@ -1,5 +1,6 @@
 import type { ProjectFile } from '@/types';
 import { HOME_DIR } from '../pathUtils';
+import { defaultMode } from './permissions';
 
 export const RUNTIME_CACHE_PATH = `${HOME_DIR}/.cache/pyxis`;
 export const NPM_CACHE_PATH = `${HOME_DIR}/.npm`;
@@ -10,5 +11,5 @@ export function mountRoot(
   mount: NonNullable<ProjectFile['mount']>,
   mtime = 0
 ): ProjectFile {
-  return { path, type: 'folder', size: 0, mtime, mount };
+  return { path, type: 'folder', mode: defaultMode('folder'), size: 0, mtime, mount };
 }

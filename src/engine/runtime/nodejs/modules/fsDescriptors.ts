@@ -264,7 +264,9 @@ export class RuntimeFsDescriptors {
     private readonly writeStderr: (data: Uint8Array) => void
   ) {}
 
-  openSync(path: string, flags: string | number): number {
+  openSync(path: string, flags: string | number, mode?: number): number {
+    let creationMode: number | undefined;
+    if (mode !== undefined) creationMode = mode & 0o7777 & ~0o022;
     const decoded = decodeFlags(flags, path);
     const entry = this.filesystem.lstatSync(path);
     if (entry && decoded.exclusive && decoded.create) throw fileError('EEXIST', 'open', path);
@@ -273,10 +275,10 @@ export class RuntimeFsDescriptors {
     let stat = this.filesystem.statSync(target);
     if (decoded.create && decoded.exclusive) {
       if (stat) throw fileError('EEXIST', 'open', path);
-      this.filesystem.writeRangeSync(target, new Uint8Array(), 0, true, true);
+      this.filesystem.writeRangeSync(target, new Uint8Array(), 0, true, true, creationMode);
       stat = this.filesystem.statSync(target);
     } else if (!stat && decoded.create) {
-      this.filesystem.writeRangeSync(target, new Uint8Array(), 0, true);
+      this.filesystem.writeRangeSync(target, new Uint8Array(), 0, true, false, creationMode);
       stat = this.filesystem.statSync(target);
     }
     if (!stat) throw fileError('ENOENT', 'open', path);
@@ -399,6 +401,18 @@ export class RuntimeFsDescriptors {
     const file = this.file(descriptor, 'fstat');
     if (file.fifoStat) return file.fifoStat;
     return this.filesystem.statSync(file.path);
+  }
+
+  chmodSync(descriptor: number, mode: number): void {
+    const file = this.file(descriptor, 'fchmod');
+    this.filesystem.chmodSync(file.path, mode);
+    if (file.fifoStat) file.fifoStat.mode = (file.fifoStat.mode & ~0o7777) | (mode & 0o7777);
+  }
+
+  async chmod(descriptor: number, mode: number): Promise<void> {
+    const file = this.file(descriptor, 'fchmod');
+    await this.filesystem.chmod(file.path, mode);
+    if (file.fifoStat) file.fifoStat.mode = (file.fifoStat.mode & ~0o7777) | (mode & 0o7777);
   }
 
   private writeBuffer(

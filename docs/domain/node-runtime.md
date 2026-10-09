@@ -13,22 +13,23 @@ Terminalは`node <file.js>`に加え、`node -e <script>`と`node --eval <script
 | cwd | `options.cwd`、なければworkspace root。`process.chdir()`はvirtual filesystem内で解決し、realpathへ移動 |
 | stdout/stderr | 実行元のfd routeから各streamの`isTTY`を受け取る（未指定時false）。寸法はterminalから（既定80×24）、色深度24 |
 | stdin | `options.processStdin.isTTY`を引き継ぐ。省略時はfalse |
-| 不可 | socket、HTTP server、`worker_threads`、native addon、native実行fileを配るpackage、実OS process |
+| 不可 | socket、HTTP server、guest `worker_threads.Worker`生成、native addon、native実行fileを配るpackage、実OS process |
 
 native実行file（TypeScript 7の`tsgo`、Biome CLIなど）を配るpackageは非対応とするのがStassheの決定。browserは実行fileを起動できず、packageごとにWASM版へ差し替える分岐も持たない。`.node` fileは`Native Node.js addons are not supported.`で失敗する。
 
 ### 組み込みmodule
 
-`node:`接頭辞の有無を問わない。未対応のNode builtinもbuiltinとして識別し、`ERR_UNKNOWN_BUILTIN_MODULE`で失敗する。未対応例は`worker_threads`、`cluster`、`dgram`、`dns`、`tls`、`http2`、`vm`、`async_hooks`。`async_hooks`は未対応で、AsyncLocalStorageも提供しない。
+`node:`接頭辞の有無を問わない。未対応のNode builtinもbuiltinとして識別し、`ERR_UNKNOWN_BUILTIN_MODULE`で失敗する。`worker_threads`はmain-thread metadataと`SHARE_ENV`を公開するが、guest `Worker`生成は`ERR_FEATURE_UNAVAILABLE`で失敗する。その他の未対応例は`cluster`、`dgram`、`dns`、`tls`、`http2`、`vm`、`async_hooks`。`async_hooks`は未対応で、AsyncLocalStorageも提供しない。
 
 | module | 実装・範囲 |
 |---|---|
 | `fs`、`fs/promises` | 自前。下記 |
+| `worker_threads` | `isMainThread`、`isInternalThread`、`threadId`、`threadName`、`parentPort`、`workerData`、`resourceLimits`と共有`SHARE_ENV`をmain-thread値で公開する。guest `Worker`生成は未対応 |
 | `path`、`path/posix`、`path/win32` | `path`はPOSIX実装、`path/win32`は`path-browserify-win32` 2.0.0。`path.posix === path`、`path.win32.win32 === path.win32`、`path.win32.posix === path.posix`を保つ。`resolve`はruntimeのcwd基準 |
 | `os` | stub。`platform()`=`browser`、`homedir()`=`/home/pyxis`、`tmpdir()`=`/tmp`、CPU 1つ、memory/uptime 0。`constants.signals`はLinux x64のsignal number map |
 | `events` | Browserify `events@3.3.0`のcallable facade。既存のEventEmitter own static descriptorを保持し、upstream constructorは変更しない。追加の`events.on(source, event, options)`はEventEmitter / EventTarget用async iteratorを返す。順序とerror identityを保ち、AbortSignalの`reason`は`AbortError`の`cause`へ渡し、`code`は`ABORT_ERR`。`close` event、`return`、`throw`でlistenerを解除し、high/lowWaterMarkでpause/resumeする。`setMaxListeners(n, ...targets)` / `getMaxListeners(target)`はEventEmitter互換targetとEventTargetの上限値を扱う。targets省略時は共有defaultを設定し、EventEmitterはBrowserifyのwarning動作を保つ。EventTargetは上限値の設定・取得のみで、listener APIやwarningは変更しない。AbortSignalの既定上限は0。`addAbortListener(signal, listener)`はnative signalへone-shot登録し、`Symbol.dispose`で解除できる。既にabortedならcallbackを引数なしでmicrotaskに積む。別listenerの`stopImmediatePropagation()`に対する保護とEventTarget warning diagnosticsは未対応 |
 | `diagnostics_channel` | runtimeごとのgeneric channel。string/symbol名の`channel`、購読・解除・publish・`hasSubscribers`と、sync / promise / callback tracingを提供する。`bindStore`は渡されたstoreの`run`へ委譲する。subscriber例外はruntimeのtracked nextTickへ送り、後続subscriberとpublishを続ける。終了statusはguest handlerと`process.exitCode`に従う（browser例ではhandlerありでexit 0、なしでexit 1）。Node coreの自動instrumentationはしない。 |
-| `buffer`、`string_decoder`、`util`、`util/types`、`assert`、`assert/strict` | npm実装。`string_decoder`はNode-maintained実装をpackage prototypeを継承するfacadeで公開し、borrowed method・subclass behaviorとTypedArray / DataView viewのoffset/lengthを保つ。`assert`はcallableでstrict entryを持つ。`util`はNode由来の`inspect`・`format`・`formatWithOptions`と`isDeepStrictEqual`、`stripVTControlCharacters`、Node custom symbolsを公開する。custom inspect hookはnested valueにも適用される |
+| `buffer`、`string_decoder`、`util`、`util/types`、`assert`、`assert/strict` | npm実装。`string_decoder`はNode-maintained実装をpackage prototypeを継承するfacadeで公開し、borrowed method・subclass behaviorとTypedArray / DataView viewのoffset/lengthを保つ。`assert`はcallableでstrict entryを持つ。`util`はNode由来の`inspect`・`format`・`formatWithOptions`と`isDeepStrictEqual`、`stripVTControlCharacters`、Node custom symbolsを公開する。`styleText`はANSI style名・配列・hex colorをformatし、`FORCE_COLOR` / `NO_COLOR`と`validateStream`を扱う。`options.stream`はNode stream identityを検証し、その`isTTY`でcolor選択する。custom inspect hookはnested valueにも適用される |
 | `stream` | `readable-stream` 4.8のunified core。`Readable`・`Writable`・`Duplex`・`Transform`・`PassThrough`、`stream/consumers`の`text`・`json`・`buffer`を公開 |
 | `stream/promises` | 同じunified coreの`finished`・`pipeline`をPromise APIで公開。AbortSignal、cleanup、async iterable、`end: false`に対応 |
 | `stream/web` | `node:stream/web` / `stream/web`でnative WHATWG `ReadableStream`・`WritableStream`・`TransformStream`、BYOB reader、text stream、compression streamを公開。module exportはruntimeごとに独立し、constructor identityはnative globalと共有する。圧縮形式はbrowser実装に依存し、非対応形式はnative constructorが拒否する。`stream.Readable.fromWeb()` / `stream.Readable.toWeb()`はNode ReadableとWHATWG Readableを相互変換する。Writable/Duplex変換と`stream/promises.finished()`によるWHATWG stream待機は未対応 |
@@ -61,14 +62,14 @@ native実行file（TypeScript 7の`tsgo`、Biome CLIなど）を配るpackageは
 | Rollup WASM 4.64.3 | direct APIのESM generate 39 bytes、`bundle.write`で`dist/rollup-api.js`へ出力、`npm run rollup-build`で`dist/rollup.js`を生成。両方にanswer 42を確認し、`npm run node`も42を出力（exit 0） |
 | Vite 8.3.4 | install成功。direct APIとbuildは未対応`node:worker_threads`で失敗（build exit 1） |
 | Vitest 5.0.3 | 修正後の元test scriptはexit 1。Startup Error stackは未対応`tls`を指し、runner summaryなし。test suiteの成功は未確認 |
-| ESLint 10.12.0 | install成功。universal `Linter.verify`で`no-undef`/`no-unused-vars`を検出し、`verifyAndFix`でsemicolonを修正（exit 0）。AST/ESM判定修正後、元のlint scriptを実行し、CommonJS/ESM誤判定を通過した後に未対応`node:worker_threads`でexit 2。 |
+| ESLint 10.12.0 | normal CLIをTerminalとcompiled Runtime Workerで確認。bad fileは3 rule diagnosticsでexit 1、fixed fileはdiagnosticsなしでexit 0、`npm run lint`とNode script writeもexit 0。compiled Worker証跡は8/8 assertions。`--concurrency`はguest Worker生成を必要とし未対応 |
 | Webpack 5.111.1、webpack-cli 7.2.3 | install成功。最小development compile callbackは未対応`vm`で失敗し、artifactを生成しない |
 | Pino 10.4 | `diagnostics_channel` APIを追加後、未対応`worker_threads`で失敗 |
 | Winston 3.19 | installed packageの通常JSON console logging（exit 0） |
 | get-stream 9.0.1 | Node entryが`events.on`を要求する。`(await getStreamAsBuffer(...)).toString('utf8')`の元のfluent awaitでexit 0 |
 | execa 10.1.0 | `execaSync`とasync `execa`の成功・失敗を検証（終了status 0 / 9 / 7）。`spawn.stdin`経由の日本語UTF-8入力からEOFまでを往復し、stdoutを確認 |
 | fast-glob 3.3.3 | 相対glob、recursive / dot / ignore、`onlyFiles`・`onlyDirectories`、symlink follow / no-followを確認 |
-| fs-extra 11.4.1 | `ensureDir`・`outputJson` / `readJson`・`pathExists`・`move` / 移動後read・`remove`を確認。`copy`は未対応`fs.chmod`で失敗し、package全体の成功ではない |
+| fs-extra 11.4.1 | Source Workerで12/12、compiled Runtime Workerで15/15 assertions pass。recursive directory copy、mode保持、symlink / dereference、overwrite / `errorOnExist`、missing source、sync copyを確認 |
 | node-fetch 3.3.2 | `fetch` / `Headers` / `Request` / `Response`を利用。実HTTP GET `127.0.0.1:5173`でstatus 200、HTML 2,739 chars、header/JSONを確認（exit 0）。 |
 | Axios 1.20.0 | install成功（26 packages、既存依存維持）。実packageのESM entryは`./index.js`からHTTP adapterをeager loadし、`https-proxy-agent`経由で未対応`tls`を要求するため、HTTP request前にexit 1。Node 24 native CJS require / ESM importのHTTP oracleは成功。 |
 | inquirer 14.2.3 | `async_hooks` unavailableで実行不可 |
@@ -79,11 +80,11 @@ native実行file（TypeScript 7の`tsgo`、Biome CLIなど）を配るpackageは
 
 callback・promise形式はMessagePortで、`*Sync`はService Worker経由の同期RPCでFS Workerへ届く。
 
-- 提供: string・Buffer・URL pathを受けるreadFile、writeFile、appendFile、readdir（`withFileTypes`）、stat・lstat（`bigint`、`throwIfNoEntry`）、access、exists、mkdir、unlink、rm、rename、readlink、realpath（`.native`含む）、symlink、`createReadStream`、`createWriteStream`、copyFile、rmdir、mkdtemp。それぞれ実装のあるcallback・promise・Sync形式を公開する。fd系はcallbackとSync形式のopen・read・write・close、および`fstatSync`を提供する。fd 0と`/dev/stdin`の同期読込はEOFまで読み、fd 1/2はstdout/stderrへ書く。
-- ない: `watch`、`cp`、`chmod`、`utimes`、`opendir`、`promises.open`とFileHandle。
+- 提供: string・Buffer・URL pathを受けるreadFile、writeFile、appendFile、readdir（`withFileTypes`）、opendir、stat・lstat（`bigint`、`throwIfNoEntry`）、access、exists、chmod、fchmod、mkdir、unlink、rm、rename、readlink、realpath（`.native`含む）、symlink、`createReadStream`、`createWriteStream`、copyFile、rmdir、mkdtemp。それぞれ実装のあるcallback・promise・Sync形式を公開する。`opendir`はcallback・promise・Syncに対応し、開いた時点のentry namesを読む。`bufferSize`は受け付けるがbuffering効果はない。`chmod`はcallback・promise・Sync、`fchmod`はcallback・Sync形式で、数値またはoctal stringのmodeを受ける。fd系はcallbackとSync形式のopen・read・write・close、および`fstatSync`を提供する。fd 0と`/dev/stdin`の同期読込はEOFまで読み、fd 1/2はstdout/stderrへ書く。
+- ない: `watch`、`cp`、`utimes`、`promises.open`とFileHandle。
 - `appendFile`はFS Coreのpath単位書込queue内でappend rangeを1操作として適用し、同一fileへの並行appendを直列化する。
 - descriptorとwrite streamの`wx`/`ax`、`copyFile`の`COPYFILE_EXCL`はpath queue内で既存pathを検査してから作成する。
-- statのmodeは0644・0755・0777の固定値、4つの時刻はすべてmtime。
+- modeはtype bits付きでstatへ渡る。modeは絶対path基準の永続metadata（`/tmp`はmemory）で、作成時の固定virtual umaskは`022`。`process.umask()`は未対応。`fchmod`はdescriptorに記録したpathへ作用し、rename/unlink後のinode identityは保持しない。4つの時刻はすべてmtime。
 - 内容はbytesのまま扱い、encoding指定時だけ文字列にする。
 - virtual `/dev/null`はreadでEOFを返し、writeを破棄する。FIFOはFS Workerのopen descriptor経由でNode fd/streamへ接続する。
 - `exists` callbackは対象がない場合に`false`を返す。

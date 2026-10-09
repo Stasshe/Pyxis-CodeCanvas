@@ -4,7 +4,7 @@ const NativeFunction = Function;
 
 /** Function-created code keeps global scope and closes only the module import callback. */
 export function createRuntimeFunction(
-  importModule: (specifier: string) => Promise<unknown>
+  importModule: (specifier: string | URL) => Promise<unknown>
 ): FunctionConstructor {
   const create = (argumentsList: string[], newTarget: Function = NativeFunction): Function => {
     const parameters = argumentsList.map(String);

@@ -7,7 +7,7 @@ export interface StatOptions {
 
 export type FsNumeric = number | bigint;
 
-export interface FsStats extends Omit<MountStat, 'size'> {
+export interface FsStats extends Omit<MountStat, 'size' | 'mode'> {
   size: FsNumeric;
   ctime: Date;
   birthtime: Date;
@@ -24,14 +24,6 @@ export interface FsStats extends Omit<MountStat, 'size'> {
   isCharacterDevice(): boolean;
   isFIFO(): boolean;
   isSocket(): boolean;
-}
-
-export function fileMode(type: MountStat['type']): number {
-  if (type === 'directory') return 0o40755;
-  if (type === 'symlink') return 0o120777;
-  if (type === 'fifo') return 0o10644;
-  if (type === 'characterDevice') return 0o20666;
-  return 0o100644;
 }
 
 function numeric(value: number, useBigInt: boolean): FsNumeric {
@@ -52,7 +44,7 @@ export function createFsStats(value: MountStat, useBigInt = false): FsStats {
     birthtimeMs: numeric(timestamp.getTime(), useBigInt),
     atimeMs: numeric(timestamp.getTime(), useBigInt),
     mtimeMs: numeric(timestamp.getTime(), useBigInt),
-    mode: numeric(fileMode(type), useBigInt),
+    mode: numeric(value.mode, useBigInt),
     isFile: () => type === 'file',
     isDirectory: () => type === 'directory',
     isSymbolicLink: () => type === 'symlink',

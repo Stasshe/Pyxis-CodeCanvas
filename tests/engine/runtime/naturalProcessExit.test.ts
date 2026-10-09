@@ -15,8 +15,8 @@ describe('NodeRuntime natural process exit', () => {
     });
   });
 
-  afterEach(() => {
-    fixture.close();
+  afterEach(async () => {
+    await fixture.close();
   });
 
   it('emits exit once after tracked I/O and blocks new timers in listeners', async () => {

@@ -110,7 +110,7 @@ export class TranspileManager {
       dependencies: result.dependencies,
     };
     await fs.mkdir(this.cacheDirectory, { recursive: true }, false);
-    await fs.writeFile(cachePath, JSON.stringify(entry), false);
+    await fs.writeFile(cachePath, JSON.stringify(entry), {}, false);
     return result;
   }
 

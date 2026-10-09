@@ -18,7 +18,8 @@ export interface RuntimeFilesystem
     path: string,
     data: Uint8Array,
     benchmark?: FsBenchmark,
-    ownerId?: string
+    ownerId?: string,
+    mode?: number
   ): Promise<void>;
   writeRange(
     path: string,
@@ -26,7 +27,8 @@ export interface RuntimeFilesystem
     position: number | null,
     create: boolean,
     exclusive: boolean,
-    benchmark?: FsBenchmark
+    benchmark?: FsBenchmark,
+    mode?: number
   ): Promise<number>;
   readdir(path: string, benchmark?: FsBenchmark): Promise<string[]>;
   stat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
@@ -34,7 +36,12 @@ export interface RuntimeFilesystem
   readlink(path: string, benchmark?: FsBenchmark): Promise<string>;
   realpath(path: string, benchmark?: FsBenchmark): Promise<string>;
   symlink(target: string, path: string, benchmark?: FsBenchmark): Promise<void>;
-  mkdir(path: string, options: { recursive: boolean }, benchmark?: FsBenchmark): Promise<void>;
+  mkdir(
+    path: string,
+    options: { recursive: boolean; mode?: number },
+    benchmark?: FsBenchmark
+  ): Promise<void>;
+  chmod(path: string, mode: number, benchmark?: FsBenchmark): Promise<void>;
   rm(
     path: string,
     options: { recursive: boolean; force: boolean },
@@ -66,7 +73,13 @@ async function executeFs(
       await fs.symlink(request.target, request.path, benchmark);
       break;
     case 'writeFile':
-      await fs.writeFile(request.path, Buffer.from(request.data, 'base64'), benchmark, runtimeId);
+      await fs.writeFile(
+        request.path,
+        Buffer.from(request.data, 'base64'),
+        benchmark,
+        runtimeId,
+        request.mode
+      );
       break;
     case 'writeRange':
       return fs.writeRange(
@@ -75,7 +88,8 @@ async function executeFs(
         request.position,
         request.create,
         request.exclusive,
-        benchmark
+        benchmark,
+        request.mode
       );
     case 'fifoOpen':
       await fs.openFifo(request.path, request.mode, request.endpointId, runtimeId, {
@@ -92,7 +106,10 @@ async function executeFs(
       await fs.closeFifo(request.endpointId);
       break;
     case 'mkdir':
-      await fs.mkdir(request.path, { recursive: request.recursive }, benchmark);
+      await fs.mkdir(request.path, { recursive: request.recursive, mode: request.mode }, benchmark);
+      break;
+    case 'chmod':
+      await fs.chmod(request.path, request.mode, benchmark);
       break;
     case 'rm':
       await fs.rm(request.path, { recursive: request.recursive, force: request.force }, benchmark);

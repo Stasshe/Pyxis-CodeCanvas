@@ -99,7 +99,7 @@ describe('filesystem FIFOs', () => {
     expect(entries).toContain(writePath);
 
     const reading = core.readFile(readPath, 'child-reader');
-    const writing = core.writeFile(writePath, payload, true, 'child-writer');
+    const writing = core.writeFile(writePath, payload, {}, true, 'child-writer');
     await writing;
     await core.closeFifos('pipe-writer');
     expect(await reading).toEqual(payload);
@@ -115,7 +115,7 @@ describe('filesystem FIFOs', () => {
     const forEpipe = await core.createPipe('closed-reader', 'live-writer');
     await core.closeFifos('closed-reader');
     await expect(
-      core.writeFile(forEpipe.writePath, new Uint8Array([1]), true, 'child-writer')
+      core.writeFile(forEpipe.writePath, new Uint8Array([1]), {}, true, 'child-writer')
     ).rejects.toMatchObject({ code: 'EPIPE' });
     await core.closeFifos('live-writer');
   });
@@ -126,7 +126,7 @@ describe('filesystem FIFOs', () => {
     await core.closeFifos('parent-reader');
     await expect(core.stat(readPath)).rejects.toMatchObject({ code: 'ENOENT' });
 
-    await core.writeFile(writePath, new Uint8Array([42]), true, 'child-writer');
+    await core.writeFile(writePath, new Uint8Array([42]), {}, true, 'child-writer');
     expect(await core.readFifo('duplicate-reader', 1)).toEqual(new Uint8Array([42]));
     await core.closeFifos('child-reader');
     await core.closeFifos('parent-writer');
@@ -269,7 +269,7 @@ describe('filesystem FIFOs', () => {
       payload[index] = (index * 37) % 256;
     }
     const reading = core.readFile('/tmp/pipe', 'reader-owner');
-    const writing = core.writeFile('/tmp/pipe', payload, true, 'writer-owner');
+    const writing = core.writeFile('/tmp/pipe', payload, {}, true, 'writer-owner');
 
     expect(await reading).toEqual(payload);
     await writing;
@@ -291,7 +291,7 @@ describe('filesystem FIFOs', () => {
 
   it('cancels a whole-file write waiting for a reader', async () => {
     await core.mkfifo('/tmp/pipe');
-    const writing = core.writeFile('/tmp/pipe', new Uint8Array([1]), true, 'writer-owner');
+    const writing = core.writeFile('/tmp/pipe', new Uint8Array([1]), {}, true, 'writer-owner');
     const interrupted = expect(writing).rejects.toMatchObject({ code: 'EINTR' });
 
     await core.mkdir('/tmp/other');

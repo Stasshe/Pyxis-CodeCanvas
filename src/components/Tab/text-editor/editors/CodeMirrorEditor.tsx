@@ -1,5 +1,5 @@
 import { oneDark } from '@codemirror/theme-one-dark';
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEffect, useRef } from 'react';
 
 import { getCMExtensions } from './codemirror-utils';
@@ -30,15 +30,15 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
     isActive = false,
   } = props;
 
-  // CodeMirrorインスタンスのref
-  const cmRef = useRef<any>(null);
+  // CodeMirror instance ref
+  const cmRef = useRef<ReactCodeMirrorRef | null>(null);
 
-  // contentの外部変更を強制反映
+  // Apply content changes made outside the editor.
   useEffect(() => {
     if (cmRef.current) {
       const view = cmRef.current.view;
       if (view && view.state.doc.toString() !== content) {
-        // カーソル位置を維持しつつ内容を更新
+        // Preserve the cursor while replacing the document.
         const transaction = view.state.update({
           changes: { from: 0, to: view.state.doc.length, insert: content },
         });
@@ -47,20 +47,18 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
     }
   }, [content]);
 
-  // タブがアクティブになった時にエディタにフォーカスを当てる
-  // タブが非アクティブになった時にフォーカスを外す
+  // Focus the editor when its tab becomes active and blur it when inactive.
   useEffect(() => {
     if (!cmRef.current?.view) return;
 
     if (isActive) {
-      // アクティブになったらフォーカスを当てる
+      // Focus after the tab switch has rendered.
       const timeoutId = setTimeout(() => {
         cmRef.current?.view?.focus();
       }, 50);
       return () => clearTimeout(timeoutId);
     }
-    // 非アクティブになったらフォーカスを外す
-    // CodeMirrorにはblurメソッドがないため、DOM要素からフォーカスを外す
+    // CodeMirror has no blur method, so blur its content element.
     cmRef.current.view.contentDOM?.blur();
   }, [isActive]);
 
@@ -89,7 +87,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
         extensions={getCMExtensions(fileName, tabSize, insertSpaces)}
         basicSetup={false}
         onChange={onChange}
-        onUpdate={(vu: any) => {
+        onUpdate={vu => {
           const sel = vu.state.selection.main;
           if (sel.empty) {
             onSelectionChange(null);
@@ -102,7 +100,7 @@ export default function CodeMirrorEditor(props: CodeMirrorEditorProps) {
           height: '100%',
           minHeight: '100%',
           width: '100%',
-          fontSize: typeof fontSize === 'number' ? `${fontSize}px` : fontSize,
+          fontSize,
           userSelect: 'text',
           WebkitUserSelect: 'text',
           msUserSelect: 'text',

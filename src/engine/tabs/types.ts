@@ -202,6 +202,7 @@ export interface OpenTabOptions {
   makeActive?: boolean; // デフォルトtrue
   jumpToLine?: number;
   jumpToColumn?: number;
+  editorMode?: 'monaco' | 'codemirror';
   // shouldReuseTabで全てのペインを検索するかどうか
   // ボトムパネルからの操作時にtrue（paneIndexが小さいペインを優先）
   searchAllPanesForReuse?: boolean;

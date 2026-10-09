@@ -73,7 +73,7 @@ async function runPrettier(
       exitCode: fixture.runtime.getExitCode(),
     };
   } finally {
-    fixture.close();
+    await fixture.close();
   }
 }
 
@@ -136,7 +136,7 @@ describe('Prettier npm runtime integration', () => {
       const result = await resolver.resolve('prettier', `${rootPath}/index.js`);
       expect(result?.path).toContain('/node_modules/prettier/');
     } finally {
-      fixture.close();
+      await fixture.close();
     }
   });
 

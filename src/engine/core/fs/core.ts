@@ -6,11 +6,32 @@ import type { OpfsMovableFile } from './fileMove';
 import { mountRoot, NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from './layout';
 import { LINK_STORAGE, Links } from './links';
 import { NamespaceLock } from './locks';
+import { entryExists as hasEntry, rawStat as readMetadata } from './metadata';
+import type { PermissionStore } from './permissions';
+import {
+  chmodPath,
+  createWithMode,
+  defaultMode,
+  emitRemovedPaths,
+  IndexedDbPermissionStore,
+  movePermissions,
+  permissionBits,
+  removePermissions,
+  removeTreePermissions,
+  setMemoryMode,
+  withPermissionBits,
+} from './permissions';
 import { RootPins } from './pins';
 import { renamePath } from './rename';
 import { removeDirectory, removeDirectorySidecars } from './sidecars';
-import type { FsChangeEvent, MkdirOptions, RenameOptions, RmOptions } from './types';
-import { rangeEnd, type WriteRange, writeStored } from './write';
+import type {
+  FsChangeEvent,
+  FsWriteOptions,
+  MkdirOptions,
+  RenameOptions,
+  RmOptions,
+} from './types';
+import { type WriteRange, writeMemory, writeWithMode } from './write';
 
 export { FSError } from './errors';
 export type { FsChangeEvent, MkdirOptions, RenameOptions, RmOptions } from './types';
@@ -45,6 +66,7 @@ export class FsCore {
   private readonly rootPins = new RootPins();
   private root: FileSystemDirectoryHandle | null = null;
   private readonly links = new Links();
+  private readonly permissions: PermissionStore;
   private readonly fifoEntries = new FifoEntries();
   private readonly fifos = new FifoService(
     this.namespace,
@@ -70,7 +92,8 @@ export class FsCore {
   private readonly accessQueues = new Map<string, Promise<void>>();
   private changeListener: ((event: FsChangeEvent) => void) | null = null;
 
-  constructor() {
+  constructor(permissions: PermissionStore = new IndexedDbPermissionStore()) {
+    this.permissions = permissions;
     this.memory.set(TMP_PATH, { metadata: mountRoot(TMP_PATH, 'memory', Date.now()) });
   }
 
@@ -81,7 +104,6 @@ export class FsCore {
   realpath(path: string): Promise<string> {
     return this.namespace.shared(() => this.realpathUnlocked(path));
   }
-
   readlink(path: string): Promise<string> {
     return this.namespace.shared(() => this.readlinkUnlocked(path));
   }
@@ -93,9 +115,22 @@ export class FsCore {
   stat(path: string): Promise<ProjectFile> {
     return this.namespace.shared(() => this.statUnlocked(path));
   }
-
   lstat(path: string): Promise<ProjectFile> {
     return this.namespace.shared(() => this.lstatUnlocked(path));
+  }
+
+  chmod(path: string, mode: number): Promise<void> {
+    return this.namespace.exclusive(() =>
+      chmodPath(this.permissions, path, mode, {
+        resolve: input => this.resolve(input),
+        stat: input => this.rawStat(input),
+        isMemory: input => this.isMemory(input),
+        assertMutable: input => this.fifos.descriptors.assertMutable(input),
+        setMemory: (input, type, permissions) =>
+          setMemoryMode(input, type, permissions, this.memory, this.fifoEntries.entries),
+        emit: event => this.emit(event),
+      })
+    );
   }
 
   exists(path: string): Promise<boolean> {
@@ -105,14 +140,20 @@ export class FsCore {
   readFile(path: string, ownerId = ''): Promise<Uint8Array> {
     return this.fifos.readFile(path, ownerId, () => this.readFileUnlocked(path));
   }
-
   async readText(path: string, ownerId = ''): Promise<string> {
     return new TextDecoder('utf-8').decode(await this.readFile(path, ownerId));
   }
 
-  writeFile(path: string, data: string | Uint8Array, emit = true, ownerId = ''): Promise<void> {
+  writeFile(
+    path: string,
+    data: string | Uint8Array,
+    options: FsWriteOptions = {},
+    emit = true,
+    ownerId = ''
+  ): Promise<void> {
+    if (options.mode !== undefined) permissionBits(options.mode);
     return this.fifos.writeFile(path, data, ownerId, () =>
-      this.writeFileUnlocked(path, data, emit)
+      this.writeFileUnlocked(path, data, options, emit)
     );
   }
 
@@ -122,9 +163,11 @@ export class FsCore {
     data: Uint8Array,
     position: number | null,
     create = false,
-    exclusive = false
+    exclusive = false,
+    mode?: number
   ): Promise<number> {
     return this.namespace.shared(async () => {
+      if (mode !== undefined) permissionBits(mode);
       if (
         !(data instanceof Uint8Array) ||
         typeof create !== 'boolean' ||
@@ -134,7 +177,7 @@ export class FsCore {
         throw new FSError('EINVAL', input);
       }
       if (exclusive && (await this.entryExists(input))) throw new FSError('EEXIST', input);
-      return this.writeUnlocked(input, data, true, { position, create, exclusive });
+      return this.writeUnlocked(input, data, true, { position, create, exclusive }, mode);
     });
   }
 
@@ -208,7 +251,7 @@ export class FsCore {
   }
 
   private folder(path: string): ProjectFile {
-    return { path, type: 'folder', size: 0, mtime: Date.now() };
+    return { path, type: 'folder', mode: defaultMode('folder'), size: 0, mtime: Date.now() };
   }
 
   private isMemory(path: string): boolean {
@@ -375,6 +418,7 @@ export class FsCore {
     }
     const parent = await this.statUnlocked(getParentPath(path));
     if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
+    if (!this.isMemory(path)) await this.permissions.remove([path]);
     try {
       await this.links.create(path, target);
     } catch (error) {
@@ -393,45 +437,24 @@ export class FsCore {
   }
 
   private async rawStat(path: string): Promise<ProjectFile> {
-    const descriptor = this.fifos.descriptors.stat(path) ?? this.fifoEntries.stat(path);
-    if (descriptor) return descriptor;
-    const link = this.links.entries.get(path);
-    if (link)
-      return {
-        path,
-        type: 'symlink',
-        size: new TextEncoder().encode(link.target).length,
-        mtime: link.mtime,
-      };
-    if (this.isMemory(path)) {
-      const entry = this.memory.get(path);
-      if (!entry) throw new FSError('ENOENT', path);
-      return { ...entry.metadata };
-    }
-    if (path === '/') return { path, type: 'folder', size: 0, mtime: 0 };
-    const parent = await this.directory(getParentPath(path));
-    try {
-      const handle = await parent.getFileHandle(basename(path));
-      const file = await handle.getFile();
-      return { path, type: 'file', size: file.size, mtime: file.lastModified };
-    } catch (error) {
-      if (error instanceof Error && error.name === 'TypeMismatchError') {
-        await parent.getDirectoryHandle(basename(path));
-        return { path, type: 'folder', size: 0, mtime: 0 };
-      }
-      if (error instanceof Error) throw translateFsError(error, path);
-      throw error;
-    }
+    return readMetadata(path, {
+      descriptors: this.fifos.descriptors,
+      fifoEntries: this.fifoEntries,
+      links: this.links,
+      memory: this.memory,
+      permissions: this.permissions,
+      isMemory: path => this.isMemory(path),
+      directory: path => this.directory(path),
+    });
   }
 
   private async entryExists(path: string, followFinal = false): Promise<boolean> {
-    try {
-      await this.rawStat(await this.resolve(path, followFinal));
-      return true;
-    } catch (error) {
-      if (error instanceof FSError && error.code === 'ENOENT') return false;
-      throw error;
-    }
+    return hasEntry(
+      path,
+      followFinal,
+      (input, follow) => this.resolve(input, follow),
+      input => this.rawStat(input)
+    );
   }
 
   private async readFileUnlocked(input: string): Promise<Uint8Array> {
@@ -458,19 +481,21 @@ export class FsCore {
   private async writeFileUnlocked(
     input: string,
     content: string | Uint8Array,
+    options: FsWriteOptions = {},
     emit = true
   ): Promise<void> {
     let data: Uint8Array;
     if (typeof content === 'string') data = new TextEncoder().encode(content);
     else data = content;
-    await this.writeUnlocked(input, data, emit);
+    await this.writeUnlocked(input, data, emit, undefined, options.mode);
   }
 
   private async writeUnlocked(
     input: string,
     data: Uint8Array,
     emit: boolean,
-    range?: WriteRange
+    range?: WriteRange,
+    requestedMode?: number
   ): Promise<number> {
     const path = await this.resolve(input);
     const deviceEnd = this.fifos.descriptors.writeNull(path, data, range);
@@ -479,38 +504,33 @@ export class FsCore {
     return this.queueAccess(path, async () => {
       if (!this.isMemory(path)) {
         const parent = await this.directory(getParentPath(path));
-        const result = await writeStored(parent, path, data, range, emit);
-        if (emit) this.emit(result.event);
+        const result = await writeWithMode(
+          parent,
+          path,
+          data,
+          range,
+          false,
+          this.permissions,
+          requestedMode
+        );
+        if (emit)
+          this.emit({
+            type: result.event.type,
+            path,
+            file: await this.rawStat(path),
+          });
         return result.end;
       }
-      const existing = this.memory.get(path);
-      if (range?.exclusive && existing) throw new FSError('EEXIST', path);
-      if (existing?.metadata.type === 'folder') throw new FSError('EISDIR', path);
-      if (range && !range.create && !existing) throw new FSError('ENOENT', path);
-      const parent = await this.statUnlocked(getParentPath(path));
-      if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
-      let end = data.byteLength;
-      let content = data.slice();
-      if (range) {
-        const previous = existing?.data ?? new Uint8Array();
-        end = rangeEnd(path, previous.byteLength, data, range);
-        let size = previous.byteLength;
-        if (data.byteLength > 0) size = Math.max(size, end);
-        content = new Uint8Array(size);
-        content.set(previous);
-        if (data.byteLength > 0) content.set(data, end - data.byteLength);
-      }
-      const metadata: ProjectFile = {
+      return writeMemory(
+        this.memory,
         path,
-        type: 'file',
-        size: content.byteLength,
-        mtime: Date.now(),
-      };
-      this.memory.set(path, { metadata, data: content });
-      let type: FsChangeEvent['type'] = 'create';
-      if (existing) type = 'update';
-      if (emit) this.emit({ type, path, file: { ...metadata } });
-      return end;
+        data,
+        range,
+        requestedMode,
+        input => this.statUnlocked(input),
+        event => this.emit(event),
+        emit
+      );
     });
   }
 
@@ -557,6 +577,7 @@ export class FsCore {
     if (await this.entryExists(path)) throw new FSError('EEXIST', path);
     const parent = await this.statUnlocked(getParentPath(path));
     if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
+    if (!this.isMemory(path)) await this.permissions.remove([path]);
     try {
       await this.fifoEntries.create(path);
     } catch (error) {
@@ -571,6 +592,7 @@ export class FsCore {
     options: MkdirOptions = {},
     emit = true
   ): Promise<void> {
+    if (options.mode !== undefined) permissionBits(options.mode);
     const finalPath = await this.resolve(input.replace(/\/+$/, '') || '/', false);
     if (this.links.entries.has(finalPath)) {
       if (options.recursive && (await this.statUnlocked(input)).type === 'folder') return;
@@ -589,11 +611,17 @@ export class FsCore {
     }
     const parent = await this.statUnlocked(parentPath);
     if (parent.type !== 'folder') throw new FSError('ENOTDIR', parentPath);
-    if (this.isMemory(path)) this.memory.set(path, { metadata: this.folder(path) });
-    else {
+    if (this.isMemory(path)) {
+      const metadata = this.folder(path);
+      if (options.mode !== undefined)
+        metadata.mode = withPermissionBits('folder', permissionBits(options.mode));
+      this.memory.set(path, { metadata });
+    } else {
       const directory = await this.directory(parentPath);
       try {
-        await directory.getDirectoryHandle(basename(path), { create: true });
+        await createWithMode(this.permissions, path, options.mode, async () => {
+          await directory.getDirectoryHandle(basename(path), { create: true });
+        });
       } catch (error) {
         if (error instanceof Error) throw translateFsError(error, path);
         throw error;
@@ -602,13 +630,19 @@ export class FsCore {
     if (emit) this.emit({ type: 'create', path, file: await this.statUnlocked(path) });
   }
 
-  private async rmUnlocked(input: string, options: RmOptions = {}, emit = true): Promise<void> {
+  private async rmUnlocked(
+    input: string,
+    options: RmOptions = {},
+    emit = true,
+    preservePermissions = false
+  ): Promise<void> {
     const path = await this.resolve(input, false, false);
     this.fifos.descriptors.assertMutable(path);
     if (path === '/' || path === TMP_PATH) {
       throw new FSError('EBUSY', path);
     }
     let metadata: ProjectFile;
+    let removalSnapshot: ProjectFile[] = [];
     try {
       metadata = await this.lstatUnlocked(path);
     } catch (error) {
@@ -621,7 +655,11 @@ export class FsCore {
     if (metadata.type === 'symlink' || metadata.type === 'fifo') {
       if (metadata.type === 'symlink') await this.links.remove(path);
       else await this.fifoEntries.remove(path);
-      if (emit) this.emit({ type: 'delete', path });
+      if (!this.isMemory(path))
+        await removePermissions(this.permissions, [path], () => {
+          if (emit) this.emit({ type: 'delete', path });
+        });
+      else if (emit) this.emit({ type: 'delete', path });
       return;
     }
     if (metadata.type === 'folder' && this.isMemory(path)) {
@@ -635,8 +673,7 @@ export class FsCore {
       }
     } else {
       const parent = await this.directory(getParentPath(path));
-      const removalSnapshot =
-        metadata.type === 'folder' && emit ? await this.walkUnlocked(path) : undefined;
+      removalSnapshot = metadata.type === 'folder' ? await this.walkUnlocked(path) : [];
       if (metadata.type === 'folder') this.invalidateDirectories();
       try {
         if (metadata.type === 'folder')
@@ -650,7 +687,7 @@ export class FsCore {
           );
         else await parent.removeEntry(basename(path), { recursive: options.recursive });
       } catch (error) {
-        if (removalSnapshot) {
+        if (metadata.type === 'folder') {
           this.invalidateDirectories();
           try {
             const current = await this.walkUnlocked(path);
@@ -660,14 +697,22 @@ export class FsCore {
                 .filter(entry => !currentPaths.has(entry.path))
                 .map(entry => entry.path)
             );
-            for (const entry of removalSnapshot) {
-              if (missing.has(entry.path) && !missing.has(getParentPath(entry.path))) {
-                this.emit({ type: 'delete', path: entry.path });
-              }
-            }
+            await removePermissions(
+              this.permissions,
+              [...missing].filter(entry => !this.isMemory(entry)),
+              () =>
+                emitRemovedPaths(removalSnapshot, missing, removedPath => {
+                  if (emit) this.emit({ type: 'delete', path: removedPath });
+                })
+            );
           } catch (reconcileError) {
             if (reconcileError instanceof FSError && reconcileError.code === 'ENOENT') {
-              this.emit({ type: 'delete', path });
+              await removeTreePermissions(
+                this.permissions,
+                path,
+                removalSnapshot,
+                removedPath => emit && this.emit({ type: 'delete', path: removedPath })
+              );
             } else {
               const failure =
                 error instanceof Error ? translateFsError(error, path) : new Error(String(error));
@@ -684,13 +729,18 @@ export class FsCore {
         if (metadata.type === 'folder') this.invalidateDirectories();
       }
     }
+    if (!preservePermissions && !this.isMemory(path)) {
+      const removedPaths = [path, ...removalSnapshot.map(entry => entry.path)];
+      await removePermissions(this.permissions, removedPaths, () => {
+        if (emit) this.emit({ type: 'delete', path });
+      });
+    } else if (emit) this.emit({ type: 'delete', path });
     if (metadata.type !== 'folder') {
       for (const linkPath of this.links.entries.keys()) {
         if (linkPath.startsWith(`${path}/`)) await this.links.remove(linkPath);
       }
       await this.fifoEntries.removeTree(path);
     }
-    if (emit) this.emit({ type: 'delete', path });
   }
 
   /** Returns descendants only; each item contains metadata, never file contents. */
@@ -719,12 +769,22 @@ export class FsCore {
         lstat: path => this.lstatUnlocked(path),
         stat: path => this.statUnlocked(path),
         exists: path => this.entryExists(path),
-        remove: (path, options) => this.rmUnlocked(path, options, false),
+        remove: (path, options, preserve) => this.rmUnlocked(path, options, false, preserve),
         mkdir: (path, options) => this.mkdirUnlocked(path, options, false),
         symlink: (target, path) => this.symlinkUnlocked(target, path, false),
         readlink: path => this.readlinkUnlocked(path),
         readFile: path => this.readFileUnlocked(path),
-        writeFile: (path, content) => this.writeFileUnlocked(path, content, false),
+        writeFile: (path, content, options) =>
+          this.writeFileUnlocked(path, content, options, false),
+        movePermissions: (source, destination, entries) =>
+          movePermissions(
+            this.permissions,
+            source,
+            destination,
+            entries,
+            this.isMemory(source),
+            this.isMemory(destination)
+          ),
         readdir: path => this.readdirUnlocked(path),
         walk: path => this.walkUnlocked(path),
         directory: path => this.directory(path),

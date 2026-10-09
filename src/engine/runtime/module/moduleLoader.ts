@@ -685,11 +685,12 @@ export class ModuleLoader {
     return this.importNamespace(cached.exports, cached);
   }
 
-  asyncLoad(moduleName: string, currentFilePath: string): Promise<unknown> {
-    return this.trackIO(this.loadImport(moduleName, currentFilePath));
+  asyncLoad(specifier: string | URL, currentFilePath: string): Promise<unknown> {
+    return this.trackIO(this.loadImport(specifier, currentFilePath));
   }
 
-  private async loadImport(moduleName: string, currentFilePath: string): Promise<unknown> {
+  private async loadImport(specifier: string | URL, currentFilePath: string): Promise<unknown> {
+    const moduleName = `${specifier}`;
     if (isBuiltInModule(moduleName)) {
       return this.builtinNamespace(moduleName, this.resolveBuiltin(moduleName));
     }

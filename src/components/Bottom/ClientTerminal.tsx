@@ -32,6 +32,7 @@ import { TerminalLineEditor } from './terminalLineEditor';
 import { showTerminalPrompt } from './terminalPrompt';
 import { clearTerminalScreen } from './terminalScreenControl';
 import { createShellOutputCallbacks, runTerminalShellCommand } from './terminalShellLifecycle';
+import { createTerminalTouchScrollHandler } from './terminalTouchScroll';
 import { TerminalTypeahead } from './terminalTypeahead';
 import { createTerminalScrollHandler } from './terminalViewport';
 
@@ -117,38 +118,19 @@ export function ClientTerminal({
       console.warn('[Terminal] failed to register TerminalUI with registry', e);
     }
 
-    let startY = 0;
-    let scrolling = false;
+    const touchScroll = createTerminalTouchScrollHandler(amount => term.scrollLines(amount));
 
     const handleTouchStart = (e: TouchEvent) => {
-      startY = e.touches[0].clientY;
-      scrolling = false;
+      touchScroll.start(e.touches[0].clientY);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!scrolling) {
-        const currentY = e.touches[0].clientY;
-        const deltaY = startY - currentY;
-
-        if (Math.abs(deltaY) > 10) {
-          scrolling = true;
-          const scrollAmount = Math.round(deltaY / 20);
-
-          term.scrollLines(scrollAmount);
-
-          startY = currentY;
-        }
-      }
-    };
-
-    const handleTouchEnd = () => {
-      scrolling = false;
+      touchScroll.move(e.touches[0].clientY);
     };
 
     if (terminalRef.current) {
       terminalRef.current.addEventListener('touchstart', handleTouchStart, { passive: true });
       terminalRef.current.addEventListener('touchmove', handleTouchMove, { passive: true });
-      terminalRef.current.addEventListener('touchend', handleTouchEnd, { passive: true });
     }
 
     const fitAndSync = () => {
@@ -702,7 +684,6 @@ export function ClientTerminal({
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);
-        terminalRef.current.removeEventListener('touchend', handleTouchEnd);
       }
       xtermRef.current = null;
       term.dispose();

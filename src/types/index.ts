@@ -55,6 +55,7 @@ export interface Project {
 export interface ProjectFile {
   path: string;
   type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
+  mode: number;
   size: number;
   mtime: number;
   mount?: 'memory' | 'devices';

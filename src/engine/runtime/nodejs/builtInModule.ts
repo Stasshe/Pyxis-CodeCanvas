@@ -31,6 +31,7 @@ import { createUrlModule } from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 import { createV8Module } from './modules/v8Module';
 import { createWebStreamsModule } from './modules/webStreamsModule';
+import { createWorkerThreadsModule } from './modules/workerThreadsModule';
 import { createZlibModule } from './modules/zlibModule';
 
 export interface BuiltInModulesOptions {
@@ -48,12 +49,14 @@ export interface BuiltInModulesOptions {
   writeStderr: (data: string | Uint8Array) => void;
   terminalColumns?: number;
   terminalRows?: number;
+  stdoutIsTTY?: boolean;
 }
 
 export interface BuiltInModules {
   url: ReturnType<typeof createUrlModule>;
   stream: typeof stream;
   webStreams: ReturnType<typeof createWebStreamsModule>;
+  worker_threads: ReturnType<typeof createWorkerThreadsModule>;
   fs: ReturnType<typeof createFSModule>;
   path: ReturnType<typeof createPathModule>;
   os: ReturnType<typeof createOSModule>;
@@ -95,7 +98,9 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     writeStderr,
     terminalColumns,
     terminalRows,
+    stdoutIsTTY,
   } = options;
+  const runtimeStream = createRuntimeStreamModule();
 
   return {
     fs: createFSModule({
@@ -108,7 +113,11 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     }),
     path: createPathModule(getCwd ?? (() => rootPath)),
     os: createOSModule(HOME_DIR),
-    util: createUtilModule(),
+    util: createUtilModule({
+      getEnv,
+      isStream: value => value instanceof runtimeStream.Stream,
+      stdoutIsTTY,
+    }),
     http: createHTTPModule(getTrackIO),
     https: createHTTPSModule(getTrackIO),
     events: createEventsModule(),
@@ -124,8 +133,9 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     module: createModuleModule(requireFactory),
     net: netModule,
     url: createUrlModule(getCwd ?? (() => rootPath)),
-    stream: createRuntimeStreamModule(),
+    stream: runtimeStream,
     webStreams: createWebStreamsModule(),
+    worker_threads: createWorkerThreadsModule(),
     v8: createV8Module(),
     crypto: createCryptoModule(getTrackIO),
     diagnostics_channel: createDiagnosticsChannelModule(scheduleNextTick),

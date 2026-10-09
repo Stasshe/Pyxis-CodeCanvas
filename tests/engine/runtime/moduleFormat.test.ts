@@ -19,8 +19,8 @@ describe('NodeRuntime module formats', () => {
     });
   });
 
-  afterEach(() => {
-    fixture.close();
+  afterEach(async () => {
+    await fixture.close();
     expect(globalThis.setTimeout).toBe(hostTimeout);
   });
 
@@ -60,7 +60,7 @@ describe('NodeRuntime module formats', () => {
     );
     await run('module.mjs', 'export const value = 1; console.log(value);');
     expect(fixture.runtime.getExitCode()).toBe(0);
-    fixture.close();
+    await fixture.close();
     fixture = await createNodeRuntimeFixture(
       fixture.rootPath,
       undefined,

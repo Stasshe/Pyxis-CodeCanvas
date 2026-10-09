@@ -220,11 +220,11 @@ export default function FileTreeContextMenu({
     if (!item) return;
 
     if (key === 'open') {
-      await openTab(item, { kind: 'editor' });
+      await openTab(item, { kind: 'editor', editorMode: 'monaco' });
     } else if (key === 'openPreview') {
       await openTab(item, { kind: 'preview' });
     } else if (key === 'openCodeMirror') {
-      await openTab({ ...item, isCodeMirror: true }, { kind: 'editor' });
+      await openTab(item, { kind: 'editor', editorMode: 'codemirror' });
     } else if (key === 'download') {
       if (item.type === 'file') await exportSingleFile(item.path);
       if (item.type === 'folder') await exportFolderZip(item.path);

@@ -1,7 +1,7 @@
 import { promisify } from 'node:util';
 import { Buffer } from 'buffer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFSModule } from '@/engine/runtime/nodejs/modules/fsModule';
+import { createFSModule, type FsDirent } from '@/engine/runtime/nodejs/modules/fsModule';
 import { createNodeRuntimeFixture, type NodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
 describe('fsModule', () => {
@@ -187,12 +187,164 @@ describe('fsModule', () => {
 
     expect(typeof promiseStat.size).toBe('bigint');
     expect(typeof promiseStat.mode).toBe('bigint');
+    expect(promiseStat.mode).toBe(BigInt(fs.statSync(path)?.mode ?? 0));
     expect(typeof promiseStat.mtimeMs).toBe('bigint');
     expect(promiseStat.mtime).toBeInstanceOf(Date);
     expect(promiseStat.isFile()).toBe(true);
     expect(callbackStat.size).toBe(4n);
     expect(typeof syncStat?.size).toBe('bigint');
     expect(typeof promiseLstat.size).toBe('bigint');
+  });
+
+  it('changes file permissions through chmod APIs and follows symbolic links', async () => {
+    const path = `${root}/permissions.txt`;
+    const link = `${root}/permissions-link`;
+    await fs.promises.writeFile(path, 'permissions');
+    await fs.promises.symlink('permissions.txt', link);
+
+    expect(() => fs.accessSync(path, fs.constants.X_OK)).toThrow(
+      expect.objectContaining({ code: 'EACCES', errno: -13, syscall: 'access', path })
+    );
+    fs.chmodSync(path, 0o100755);
+    expect(fs.statSync(path)?.mode).toBe(0o100755);
+    fs.accessSync(path, fs.constants.X_OK);
+
+    await fs.promises.chmod(link, '0640');
+    expect(fs.statSync(path)?.mode).toBe(0o100640);
+    expect(fs.lstatSync(link)?.mode).toBe(0o120777);
+    await expect(fs.promises.chmod(path, -1)).rejects.toMatchObject({
+      code: 'ERR_OUT_OF_RANGE',
+    });
+    expect(() => Reflect.apply(fs.chmod, fs, [path, null, () => {}])).toThrow(
+      expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+    );
+    expect(() => Reflect.apply(fs.chmod, fs, [path, 0o600])).toThrow(
+      expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+    );
+  });
+
+  it('supports descriptor chmod, callback errors, and creation modes', async () => {
+    const path = `${root}/descriptor-permissions.txt`;
+    fs.writeFileSync(path, 'permissions', { mode: 0o777 });
+    expect(fs.statSync(path)?.mode).toBe(0o100755);
+    const descriptor = fs.openSync(path, 'r');
+    fs.fchmodSync(descriptor, 0o640);
+    expect(fs.fstatSync(descriptor).mode).toBe(0o100640);
+    await promisify(fs.fchmod)(descriptor, 0o600);
+    expect(fs.fstatSync(descriptor).mode).toBe(0o100600);
+    fs.closeSync(descriptor);
+    expect(() => fs.fchmodSync(descriptor, 0o644)).toThrow(
+      expect.objectContaining({ code: 'EBADF', syscall: 'fchmod' })
+    );
+    await expect(promisify(fs.fchmod)(descriptor, 0o644)).rejects.toMatchObject({
+      code: 'EBADF',
+      errno: -9,
+      syscall: 'fchmod',
+    });
+
+    const directory = `${root}/mode-directory`;
+    await fs.promises.mkdir(directory, { mode: '0777' });
+    expect(fs.statSync(directory)?.mode).toBe(0o40755);
+
+    const callbackError = await new Promise<Error | null>(resolve => {
+      fs.chmod(`${root}/missing-permissions.txt`, 0o600, error => resolve(error));
+    });
+    expect(callbackError).toMatchObject({
+      code: 'ENOENT',
+      syscall: 'chmod',
+      path: `${root}/missing-permissions.txt`,
+    });
+
+    const openedPath = `${root}/mode-open.txt`;
+    const openedDescriptor = fs.openSync(openedPath, 'wx', 0o777);
+    expect(fs.fstatSync(openedDescriptor).mode).toBe(0o100755);
+    fs.closeSync(openedDescriptor);
+
+    const appendedPath = `${root}/mode-append.txt`;
+    await fs.promises.appendFile(appendedPath, 'created', { mode: 0o777 });
+    expect(fs.statSync(appendedPath)?.mode).toBe(0o100755);
+    await fs.promises.chmod(appendedPath, 0o600);
+    await fs.promises.appendFile(appendedPath, 'updated', { mode: 0o777 });
+    expect(fs.statSync(appendedPath)?.mode).toBe(0o100600);
+
+    const streamPath = `${root}/mode-stream.txt`;
+    const stream = fs.createWriteStream(streamPath, { mode: '0750' });
+    await new Promise<void>((resolve, reject) => {
+      stream.once('error', reject);
+      stream.end(resolve);
+    });
+    expect(fs.statSync(streamPath)?.mode).toBe(0o100750);
+  });
+
+  it('supports directory handles, Dirent reads, and iterator closure', async () => {
+    const directory = `${root}/directory-handle`;
+    await fs.promises.mkdir(directory);
+    await fs.promises.writeFile(`${directory}/first`, 'first');
+    await fs.promises.mkdir(`${directory}/nested`);
+
+    const syncDirectory = fs.opendirSync(directory);
+    const firstEntry = syncDirectory.readSync();
+    expect(firstEntry?.parentPath).toBe(directory);
+    expect(firstEntry?.isFile()).toBe(true);
+    expect(syncDirectory.readSync()?.isDirectory()).toBe(true);
+    expect(syncDirectory.readSync()).toBeNull();
+    syncDirectory.closeSync();
+    expect(() => syncDirectory.readSync()).toThrow(
+      expect.objectContaining({ code: 'ERR_DIR_CLOSED' })
+    );
+    expect(() => syncDirectory.closeSync()).toThrow(
+      expect.objectContaining({ code: 'ERR_DIR_CLOSED' })
+    );
+
+    const bufferDirectory = fs.opendirSync(directory, { encoding: 'buffer' });
+    expect(Buffer.isBuffer(bufferDirectory.readSync()?.name)).toBe(true);
+    bufferDirectory.closeSync();
+
+    const pendingDirectory = await fs.promises.opendir(directory);
+    const pendingRead = pendingDirectory.read();
+    const nextPendingRead = pendingDirectory.read();
+    expect(() => pendingDirectory.readSync()).toThrow(
+      expect.objectContaining({ code: 'ERR_DIR_CONCURRENT_OPERATION' })
+    );
+    await pendingDirectory.close();
+    const pendingEntries = await Promise.all([pendingRead, nextPendingRead]);
+    expect(pendingEntries.every(entry => entry !== null)).toBe(true);
+    expect(new Set(pendingEntries.map(entry => String(entry?.name))).size).toBe(2);
+    await expect(pendingDirectory.read()).rejects.toMatchObject({ code: 'ERR_DIR_CLOSED' });
+
+    const callbackDirectory = await new Promise<Awaited<ReturnType<typeof fs.promises.opendir>>>(
+      (resolve, reject) => {
+        fs.opendir(directory, (error, value) => {
+          if (error) reject(error);
+          else if (value) resolve(value);
+          else reject(new Error('opendir callback returned no directory'));
+        });
+      }
+    );
+    const callbackEntry = await new Promise<FsDirent | null>(resolve => {
+      callbackDirectory.read((error, value) => resolve(error ? null : (value ?? null)));
+    });
+    expect(callbackEntry?.isFile()).toBe(true);
+    await new Promise<void>((resolve, reject) => {
+      callbackDirectory.close(error => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+
+    const iteratorDirectory = await fs.promises.opendir(directory);
+    const names: string[] = [];
+    for await (const entry of iteratorDirectory) {
+      names.push(String(entry.name));
+      break;
+    }
+    expect(names).toContain('first');
+    expect(names).toHaveLength(1);
+    await expect(iteratorDirectory.read()).rejects.toMatchObject({ code: 'ERR_DIR_CLOSED' });
+
+    expect(() => Reflect.apply(fs.opendir, fs, [directory])).toThrow(
+      expect.objectContaining({ code: 'ERR_INVALID_ARG_TYPE' })
+    );
   });
 
   it('treats /dev/null as a character device for file and descriptor operations', async () => {

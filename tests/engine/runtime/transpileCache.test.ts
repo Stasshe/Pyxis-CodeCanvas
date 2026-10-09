@@ -26,12 +26,19 @@ function createStorage() {
     mkdir: vi.fn(async (path: string, options: { recursive?: boolean } = {}) => {
       await memory.mkdir(path, { recursive: options.recursive ?? false });
     }),
-    writeFile: vi.fn(async (path: string, data: string | Uint8Array, _emit = true) => {
-      let bytes: Uint8Array;
-      if (typeof data === 'string') bytes = new TextEncoder().encode(data);
-      else bytes = data;
-      await memory.writeFile(path, bytes);
-    }),
+    writeFile: vi.fn(
+      async (
+        path: string,
+        data: string | Uint8Array,
+        _options: { mode?: number } = {},
+        _emit = true
+      ) => {
+        let bytes: Uint8Array;
+        if (typeof data === 'string') bytes = new TextEncoder().encode(data);
+        else bytes = data;
+        await memory.writeFile(path, bytes);
+      }
+    ),
   };
   const manager = new TranspileManager(fs);
   return { manager, memory, fs };
@@ -51,7 +58,7 @@ describe('filesystem-owned transpile cache', () => {
     expect(cached.dependencies).toEqual([{ specifier: 'package', kind: 'import' }]);
     expect(transform).toHaveBeenCalledTimes(1);
     expect(fs.writeFile).toHaveBeenCalledTimes(1);
-    expect(fs.writeFile.mock.calls[0][2]).toBe(false);
+    expect(fs.writeFile.mock.calls[0][3]).toBe(false);
     expect(await memory.readdir(`${RUNTIME_CACHE_PATH}/modules`)).toHaveLength(1);
   });
 

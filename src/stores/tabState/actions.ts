@@ -84,6 +84,11 @@ function getPane(paneId: string): EditorPane | null {
   return findPaneRecursive(tabState.panes, paneId);
 }
 
+function applyEditorMode(paneId: string, tab: Tab, mode: OpenTabOptions['editorMode']): void {
+  if (tab.kind !== 'editor' || !mode) return;
+  tabActions.updateTab(paneId, tab.id, { isCodeMirror: mode === 'codemirror' });
+}
+
 export const tabActions = {
   invalidateSavesForDeletedPath(deletedPath: string) {
     const deletedRoot = normalizePath(deletedPath);
@@ -690,6 +695,7 @@ export const tabActions = {
               } else {
                 await loadAndUpdateTabContent(t.id, kind, file.path, rootPath, sessionGeneration);
                 if (!isCurrentSession()) return;
+                applyEditorMode(sp.id, t, options.editorMode);
               }
               if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
                 tabActions.updateTab(sp.id, t.id, {
@@ -717,6 +723,7 @@ export const tabActions = {
             } else {
               await loadAndUpdateTabContent(t.id, kind, file.path, rootPath, sessionGeneration);
               if (!isCurrentSession()) return;
+              applyEditorMode(targetPaneId, t, options.editorMode);
             }
             if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
               tabActions.updateTab(targetPaneId, t.id, {
@@ -755,6 +762,9 @@ export const tabActions = {
       }
     }
 
+    if (kind === 'editor' && options.editorMode) {
+      fileToCreate = { ...fileToCreate, isCodeMirror: options.editorMode === 'codemirror' };
+    }
     const createdTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
     const newTab = { ...createdTab, paneId: targetPaneId };
     if (newTab.kind === 'binary' && newTab.bufferContent) {

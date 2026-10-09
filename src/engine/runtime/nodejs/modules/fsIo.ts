@@ -66,9 +66,11 @@ export function createDescriptorCallbacks(
     callback?: Callback<number>
   ): Promise<number> | void {
     let done = callback;
+    let mode: number | undefined;
     if (typeof modeOrCallback === 'function') done = modeOrCallback;
+    else mode = modeOrCallback;
     return complete(
-      Promise.resolve().then(() => descriptors.openSync(normalize(path), flags)),
+      Promise.resolve().then(() => descriptors.openSync(normalize(path), flags, mode)),
       done
     );
   }

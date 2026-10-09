@@ -51,6 +51,7 @@ export class RuntimeBuiltinResolver {
         stream: modules.stream,
         'stream/promises': modules.stream.promises,
         'stream/web': modules.webStreams,
+        worker_threads: modules.worker_threads,
         tty: modules.tty,
         v8: modules.v8,
         crypto: modules.crypto,

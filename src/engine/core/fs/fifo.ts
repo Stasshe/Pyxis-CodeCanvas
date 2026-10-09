@@ -2,6 +2,7 @@ import type { ProjectFile } from '@/types';
 import { FifoDescriptors } from './descriptors';
 import { FSError } from './errors';
 import type { NamespaceLock } from './locks';
+import { defaultMode } from './permissions';
 import type { FifoMode, FifoOpenOptions, PipePaths } from './types';
 
 const CAPACITY = 65536;
@@ -12,6 +13,7 @@ export const FIFO_STORAGE = '.pyxis-fs-fifos';
 export interface FifoEntry {
   path: string;
   mtime: number;
+  mode?: number;
   inode: Fifo;
 }
 
@@ -22,7 +24,14 @@ export class FifoEntries {
 
   stat(path: string): ProjectFile | undefined {
     const entry = this.entries.get(path);
-    if (entry) return { path, type: 'fifo', size: 0, mtime: entry.mtime };
+    if (entry)
+      return {
+        path,
+        type: 'fifo',
+        mode: entry.mode ?? defaultMode('fifo'),
+        size: 0,
+        mtime: entry.mtime,
+      };
   }
 
   async init(root: FileSystemDirectoryHandle): Promise<void> {

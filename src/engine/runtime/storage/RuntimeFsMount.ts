@@ -22,7 +22,7 @@ function isNotFound(error: unknown): boolean {
 }
 
 function mountStat(value: FsStat): MountStat {
-  return { type: value.type, size: value.size, mtime: new Date(value.mtime) };
+  return { type: value.type, size: value.size, mtime: new Date(value.mtime), mode: value.mode };
 }
 
 function stringValue(value: RpcValue, operation: string): string {
@@ -45,8 +45,8 @@ export class RuntimeFsMount {
     }
   }
 
-  setFileSync(path: string, content: string | Uint8Array): void {
-    this.bridge.sync({ kind: 'fs', op: 'writeFile', path, data: encodedBytes(content) });
+  setFileSync(path: string, content: string | Uint8Array, mode?: number): void {
+    this.bridge.sync({ kind: 'fs', op: 'writeFile', path, data: encodedBytes(content), mode });
   }
 
   writeRangeSync(
@@ -54,7 +54,8 @@ export class RuntimeFsMount {
     data: Uint8Array,
     position: number | null,
     create: boolean,
-    exclusive = false
+    exclusive = false,
+    mode?: number
   ): number {
     const value = this.bridge.sync({
       kind: 'fs',
@@ -64,6 +65,7 @@ export class RuntimeFsMount {
       position,
       create,
       exclusive,
+      mode,
     });
     if (typeof value !== 'number')
       throw new Error('Runtime filesystem returned an invalid write range value.');
@@ -74,8 +76,12 @@ export class RuntimeFsMount {
     this.bridge.sync({ kind: 'fs', op: 'rm', path, recursive: false, force: false });
   }
 
-  mkdirSync(path: string, recursive = false): void {
-    this.bridge.sync({ kind: 'fs', op: 'mkdir', path, recursive });
+  mkdirSync(path: string, recursive = false, mode?: number): void {
+    this.bridge.sync({ kind: 'fs', op: 'mkdir', path, recursive, mode });
+  }
+
+  chmodSync(path: string, mode: number): void {
+    this.bridge.sync({ kind: 'fs', op: 'chmod', path, mode });
   }
 
   rmdirSync(path: string, recursive = false): void {
@@ -198,8 +204,14 @@ export class RuntimeFsMount {
     }
   }
 
-  async setFile(path: string, content: string | Uint8Array): Promise<void> {
-    await this.bridge.async({ kind: 'fs', op: 'writeFile', path, data: encodedBytes(content) });
+  async setFile(path: string, content: string | Uint8Array, mode?: number): Promise<void> {
+    await this.bridge.async({
+      kind: 'fs',
+      op: 'writeFile',
+      path,
+      data: encodedBytes(content),
+      mode,
+    });
   }
 
   async writeRange(
@@ -207,7 +219,8 @@ export class RuntimeFsMount {
     data: Uint8Array,
     position: number | null,
     create: boolean,
-    exclusive = false
+    exclusive = false,
+    mode?: number
   ): Promise<number> {
     const value = await this.bridge.async({
       kind: 'fs',
@@ -217,6 +230,7 @@ export class RuntimeFsMount {
       position,
       create,
       exclusive,
+      mode,
     });
     if (typeof value !== 'number')
       throw new Error('Runtime filesystem returned an invalid write range value.');
@@ -227,8 +241,12 @@ export class RuntimeFsMount {
     await this.bridge.async({ kind: 'fs', op: 'rm', path, recursive: false, force: false });
   }
 
-  async mkdir(path: string, recursive = false): Promise<void> {
-    await this.bridge.async({ kind: 'fs', op: 'mkdir', path, recursive });
+  async mkdir(path: string, recursive = false, mode?: number): Promise<void> {
+    await this.bridge.async({ kind: 'fs', op: 'mkdir', path, recursive, mode });
+  }
+
+  async chmod(path: string, mode: number): Promise<void> {
+    await this.bridge.async({ kind: 'fs', op: 'chmod', path, mode });
   }
 
   async rmdir(path: string, recursive = false): Promise<void> {

@@ -5,6 +5,7 @@ import type {
   FsApi,
   FsFifoApi,
   FsWriteApi,
+  FsWriteOptions,
   RenameOptions,
 } from './types';
 
@@ -14,6 +15,7 @@ export interface OwnerAwareFsApi extends FsApi, FsFifoApi, FsWriteApi {
   writeFile(
     path: string,
     data: string | Uint8Array,
+    options?: FsWriteOptions,
     ownerId?: string,
     signal?: AbortSignal
   ): Promise<void>;
@@ -47,15 +49,16 @@ export function scopedFs(source: OwnerAwareFsApi, ownerId: string): ScopedFsApi 
       assertOpen(path);
       return source.readText(path, ownerId, controller.signal);
     },
-    writeFile: async (path, data) => {
+    writeFile: async (path, data, options) => {
       assertOpen(path);
-      return source.writeFile(path, data, ownerId, controller.signal);
+      return source.writeFile(path, data, options, ownerId, controller.signal);
     },
-    writeRange: (path, data, position, create, exclusive) =>
-      source.writeRange(path, data, position, create, exclusive),
+    writeRange: (path, data, position, create, exclusive, mode) =>
+      source.writeRange(path, data, position, create, exclusive, mode),
     readdir: path => source.readdir(path),
     stat: path => source.stat(path),
     lstat: path => source.lstat(path),
+    chmod: (path, mode) => source.chmod(path, mode),
     realpath: path => source.realpath(path),
     readlink: path => source.readlink(path),
     symlink: (target, path) => source.symlink(target, path),

@@ -67,16 +67,11 @@ export function createGitFs(core: FsApi): GitFs {
   };
   let provider: GitCredentialProvider = async () => null;
   function metadata(entry: ProjectFile): GitStat {
-    let mode = 0o100644;
-    if (entry.type === 'folder') mode = 0o40755;
-    else if (entry.type === 'symlink') mode = 0o120777;
-    else if (entry.type === 'fifo') mode = 0o10644;
-    else if (entry.type === 'characterDevice') mode = 0o20666;
     return {
       size: entry.size,
       mtimeMs: entry.mtime,
       ctimeMs: entry.mtime,
-      mode,
+      mode: entry.mode,
       uid: 0,
       gid: 0,
       ino: 0,
