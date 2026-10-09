@@ -1,6 +1,6 @@
 # 拡張機能システム
 
-拡張機能はmain threadで動くES moduleで、ホストが`activate(context)`にAPIを渡す。配布元は同一originの`public/extensions/`、install後はIndexedDBに保存したcodeから読み込む。実装は`src/engine/extensions/`、作者向けの型は`extensions/_shared/`。作り方は [extension-authoring](extension-authoring.md)。
+拡張機能はmain threadで動くES moduleで、ホストが`activate(context)`にAPIを渡す。配布元は同一originの`public/extensions/`、install後はIndexedDBに保存したcodeから読み込む。IDE側の拡張機能管理とAPIは`src/engine/ide/extensions/`、作者向けの型は`extensions/_shared/`。作り方は [extension-authoring](extension-authoring.md)。
 
 ## 同梱拡張
 

@@ -1,6 +1,6 @@
 # AI機能
 
-browserからGoogle Gemini APIへ直接要求する。Ask（質問）とEdit（file編集提案）の2 mode。実装は`src/engine/ai/`、`src/hooks/ai/`、`src/components/AI/`。
+browserからGoogle Gemini APIへ直接要求する。Ask（質問）とEdit（file編集提案）の2 mode。実装は`src/engine/ide/ai/`、React hookは`src/hooks/ai/`、UIは`src/components/ai/`。
 
 ## 通信
 

@@ -23,7 +23,7 @@
 | Terminal | [shell](domain/shell.md)、[terminal](domain/terminal.md)、[vim](domain/vim.md) |
 | 実行 | [node-runtime](domain/node-runtime.md)、[runtime-provider](domain/runtime-provider.md) |
 | package・VCS | [npm](domain/npm.md)、[git](domain/git.md) |
-| Editor | [editor](domain/editor.md)、[operation-window](domain/operation-window.md)、[markdown-preview](domain/markdown-preview.md) |
+| Editor | [editor](domain/editor.md)、[operation-window](domain/operation-window.md)、[markdown-preview](domain/markdown-preview.md)、[monaco-model-management](domain/monaco-model-management.md) |
 | 拡張・AI・i18n | [extensions](domain/extensions.md)、[extension-authoring](domain/extension-authoring.md)、[ai](domain/ai.md)、[i18n](domain/i18n.md) |
 
 ## knowledge/incidents

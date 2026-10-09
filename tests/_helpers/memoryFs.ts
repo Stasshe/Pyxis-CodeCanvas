@@ -2,21 +2,21 @@ import { Buffer } from 'buffer';
 import { type Loader, transformSync } from 'esbuild';
 import { defaultMode, withPermissionBits } from '@/engine/core/fs/permissions';
 import type { FifoMode, FifoOpenOptions } from '@/engine/core/fs/types';
-import { getParentPath, normalizePath, resolvePath } from '@/engine/core/pathUtils';
-import type { RuntimeFilesystem } from '@/engine/runtime/bridge/endpoint';
+import { getParentPath, normalizePath, resolvePath } from '@/engine/core/paths';
+import type { RuntimeFilesystem } from '@/engine/system/runtime/bridge/endpoint';
 import type {
   FsBenchmark,
   FsRequest,
   FsStat,
   RpcValue,
   RuntimeRequest,
-} from '@/engine/runtime/bridge/protocol';
+} from '@/engine/system/runtime/bridge/protocol';
 import {
   extractCjsDependencies,
   finalizeRuntimeCode,
   runtimeDefines,
-} from '@/engine/runtime/transpiler/esmTransformer';
-import type { ProjectFile } from '@/types';
+} from '@/engine/system/runtime/transpiler/esmTransformer';
+import type { ProjectFile } from '@/types/index';
 
 type Entry =
   | { type: 'file'; data: Uint8Array; mode: number }

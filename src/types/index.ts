@@ -13,25 +13,26 @@ export interface FileItem {
   [key: string]: unknown;
 }
 
-// Re-export new tab system types
+export type { MergeConflictFileEntry } from '@/engine/core/fs/git';
+export type {
+  OpenTabOptions,
+  TabComponentProps,
+  TabFileInfo,
+  TabTypeDefinition,
+} from '@/engine/ide/tabs/types';
 export type {
   AIReviewTab,
   DiffTab,
   EditorPane,
   EditorTab,
-  MergeConflictFileEntry,
   MergeConflictTab,
-  OpenTabOptions,
   PaneLayoutType,
   PreviewTab,
   SettingsTab,
   Tab,
-  TabComponentProps,
-  TabFileInfo,
   TabKind,
-  TabTypeDefinition,
   WebPreviewTab,
-} from '@/engine/tabs/types';
+} from './tabs';
 
 // Legacy: SingleFileDiff (still used in some places)
 export interface SingleFileDiff {

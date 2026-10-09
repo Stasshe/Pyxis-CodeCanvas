@@ -6,10 +6,10 @@ import type {
   LegacyFileReference,
   LegacyMapping,
 } from '@/engine/core/migration/types';
-import { STORES } from '@/engine/storage';
-import type { EditorPane, EditorTab } from '@/engine/tabs/types';
+import { STORES } from '@/engine/core/metadata';
+import type { EditorPane, EditorTab } from '@/engine/ide/tabs/types';
 import type { PyxisSession } from '@/stores/sessionStore';
-import type { AIReviewEntry, ChatSpace, ChatSpaceMessage, Project } from '@/types';
+import type { AIReviewEntry, ChatSpace, ChatSpaceMessage, Project } from '@/types/index';
 
 interface LegacyReviewRecord extends Omit<AIReviewEntry, 'rootPath'> {
   projectId: string;
@@ -79,7 +79,7 @@ vi.mock('@/engine/core/migration/idb', () => ({
   }),
 }));
 
-vi.mock('@/engine/storage', () => ({
+vi.mock('@/engine/core/metadata', () => ({
   STORES: {
     CHAT_SPACES: 'chat_spaces',
     TAB_STATE: 'tab_state',
@@ -90,7 +90,7 @@ vi.mock('@/engine/storage', () => ({
   },
 }));
 
-vi.mock('@/engine/storage/recentFolderStorageAdapter', () => ({
+vi.mock('@/engine/core/metadata/recentFolderStorageAdapter', () => ({
   saveRecentFolder: vi.fn(async (project: Project) => {
     fixtures.recentRoots.add(project.rootPath);
   }),

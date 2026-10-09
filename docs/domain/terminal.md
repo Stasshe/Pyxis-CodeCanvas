@@ -1,6 +1,6 @@
 # Terminal
 
-下部panelのxterm.js画面。入力行の編集、prompt、履歴、実行中processへのstdin、出力の直列化を担う。コマンドの実行は [shell](shell.md)。実装は`src/components/Bottom/`と`src/engine/cmd/terminal*.ts`。
+下部panelのxterm.js画面。入力行の編集、prompt、履歴、実行中processへのstdin、出力の直列化を担う。コマンドの実行は [shell](shell.md)。UIは`src/components/terminal/`、terminalの状態と動作は`src/engine/system/terminal/`、xterm連携は`src/lib/xterm/`。
 
 ## 仕様
 

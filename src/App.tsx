@@ -2,39 +2,38 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DndProvider } from 'react-dnd';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { useSnapshot } from 'valtio';
-
-import BottomPanel from '@/components/Bottom/BottomPanel';
-import BottomStatusBar from '@/components/Bottom/BottomStatusBar';
-import CustomDragLayer from '@/components/DnD/CustomDragLayer';
-import LeftSidebar from '@/components/Left/LeftSidebar';
-import MenuBar from '@/components/MenuBar';
-import PaneNavigator from '@/components/Pane/PaneNavigator';
-import RootPaneArea from '@/components/Pane/RootPaneArea';
-import RightSidebar from '@/components/Right/RightSidebar';
-import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
-import { useFolderOperationView } from '@/components/Top/OperationWindow/useFolderOperationView';
-import TopBar from '@/components/Top/TopBar';
+import CustomDragLayer from '@/components/layout/CustomDragLayer';
+import LeftSidebar from '@/components/layout/LeftSidebar';
+import MenuBar from '@/components/layout/MenuBar';
+import RightSidebar from '@/components/layout/RightSidebar';
+import TopBar from '@/components/layout/TopBar';
+import OperationWindow from '@/components/operation-window/OperationWindow';
+import { useFolderOperationView } from '@/components/operation-window/useFolderOperationView';
+import PaneNavigator from '@/components/pane/PaneNavigator';
+import RootPaneArea from '@/components/pane/RootPaneArea';
+import BottomPanel from '@/components/terminal/BottomPanel';
+import BottomStatusBar from '@/components/terminal/BottomStatusBar';
 import { type OperationViewId, useFileSelector } from '@/context/FileSelectorContext';
-import { useProject } from '@/engine/core/project';
+import { saveRecentFolder } from '@/engine/core/metadata/recentFolderStorageAdapter';
+import type { EditorPane } from '@/engine/ide/tabs/types';
+import { useGitFilesystemRefresh } from '@/hooks/git/useGitFilesystemRefresh';
+import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
+import useGlobalScrollLock from '@/hooks/layout/useGlobalScrollLock';
 import {
   useBottomPanelResize,
   useLeftSidebarResize,
   useRightSidebarResize,
-} from '@/engine/helper/resize';
-import { saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
-import type { EditorPane } from '@/engine/tabs/types';
-import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
-import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
-import { useGitFilesystemRefresh } from '@/hooks/state/useGitFilesystemRefresh';
-import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
-import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
-import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
-import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
+} from '@/hooks/layout/usePanelResize';
+import { useOptimizedUIStateSave } from '@/hooks/session/useOptimizedUIStateSave';
+import { useFileDeleteTabSync } from '@/hooks/tabs/useFileDeleteTabSync';
+import { useTabContentRestore } from '@/hooks/tabs/useTabContentRestore';
+import { useProject } from '@/hooks/workspace/useProject';
+import { useProjectWelcome } from '@/hooks/workspace/useProjectWelcome';
 import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { getCurrentRootPath, setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
 import { flushDirtyTabFiles, tabActions, tabState } from '@/stores/tabState';
-import type { MenuTab, Project } from '@/types';
+import type { MenuTab, Project } from '@/types/index';
 import { useTheme } from './context/ThemeContext';
 
 /**

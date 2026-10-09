@@ -3,13 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { build } from 'esbuild';
 import { vi } from 'vitest';
-import { RuntimeBridge } from '@/engine/runtime/bridge/client';
-import { attachRuntimePort } from '@/engine/runtime/bridge/endpoint';
-import type { RpcValue, TranspileRequest } from '@/engine/runtime/bridge/protocol';
-import { setRuntimeLogSink } from '@/engine/runtime/core/runtimeLogger';
-import { type ExecutionOptions, NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
-import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
-import { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
+import { RuntimeBridge } from '@/engine/system/runtime/bridge/client';
+import { attachRuntimePort } from '@/engine/system/runtime/bridge/endpoint';
+import type { RpcValue, TranspileRequest } from '@/engine/system/runtime/bridge/protocol';
+import { setRuntimeLogSink } from '@/engine/system/runtime/core/runtimeLogger';
+import { type ExecutionOptions, NodeRuntime } from '@/engine/system/runtime/nodejs/nodeRuntime';
+import { WorkerStdin } from '@/engine/system/runtime/nodejs/workerStdin';
+import { RuntimeFsMount } from '@/engine/system/runtime/fs/RuntimeFsMount';
 import { MemoryFs } from './memoryFs';
 
 interface TranspileWorkerResponse {

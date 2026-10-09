@@ -1,4 +1,4 @@
-import type { AIReviewHistoryEntry, AIReviewStatus, ChatSpace } from '@/types';
+import type { AIReviewHistoryEntry, AIReviewStatus, ChatSpace } from '@/types/index';
 
 export interface LegacyProject {
   id: string;

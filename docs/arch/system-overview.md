@@ -74,11 +74,14 @@ Runtime WorkerとFS Workerを分ける理由: 同期XHRで止まったWorkerは�
 
 | 層 | 場所 | 責務 |
 |---|---|---|
-| UI | `src/components/` | 画面、エディター、ターミナル表示、パネル |
-| Application | `src/stores/`、`src/hooks/`、`src/context/` | valtio store（workspace root、タブ、ログ）、画面とengineの調停 |
-| Engine | `src/engine/` | FS、shellとコマンド、runtime、拡張機能、タブ種別、AI、i18n、IndexedDB adapter |
+| UI | `src/components/` | layout、pane、editor、tabs、preview、各機能の画面 |
+| Application | `src/stores/`、`src/hooks/`、`src/context/` | valtio store（workspace root、タブ、ログ）、React hook、画面とengineの調停 |
+| Engine core | `src/engine/core/` | OPFS filesystem primitives、workspace projection、IndexedDB metadata、settings、i18n、legacy migration |
+| Engine system | `src/engine/system/` | shell、commands、terminal、Git、npm、browser runtimeとFS Worker endpoint |
+| Engine IDE | `src/engine/ide/` | AI、search、markdown、tab registry/types、extensions、GitHub、import/export |
+| Library integration | `src/lib/` | Monaco、xterm、Mermaidなど外部library adapters |
 
-UIはOPFSもIndexedDBも直接開かず、FS ClientとEngineのstorage adapterを通す。現在のworkspace rootは`projectStore`だけが持つ。
+Engine依存は`ide` → `system` → `core`の一方向とする。Engineからcomponents・hooksへの依存はなく、storesへの依存は残る。IDE固有commandの初期化は`ide/commands/initialize.ts`が担い、handlerをsystem dispatcherへ注入する。UIはOPFSもIndexedDBも直接開かず、FS ClientとEngineのmetadata adapterを通す。OPFS操作とworkspace処理は`core/fs/`・`core/workspace/`、IndexedDB metadataは`core/metadata/`が担う。React用workspace hookは`hooks/workspace/useProject.ts`にある。FS Worker entryとRPC endpointは`system/runtime/fs/`にあり、transport contractは`core/fs/protocol.ts`、workerは`core/fs/`のFS Coreを使う。現在のworkspace rootは`projectStore`だけが持つ。
 
 ## 起動順序
 

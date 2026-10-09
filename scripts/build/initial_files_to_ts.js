@@ -5,7 +5,7 @@ const path = require('path');
 // Resolve the repository root from scripts/build/.
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const inputDir = path.join(ROOT_DIR, 'initial_files');
-const outputFile = path.join(ROOT_DIR, 'src', 'engine', 'initialFileContents.ts');
+const outputFile = path.join(ROOT_DIR, 'src', 'engine', 'core', 'workspace', 'initialFileContents.ts');
 
 function walk(dir) {
   const result = {};

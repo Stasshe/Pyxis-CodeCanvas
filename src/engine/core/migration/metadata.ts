@@ -1,10 +1,10 @@
 import { IDB } from '@/constants/idb';
-import { isPathWithin, normalizePath } from '@/engine/core/pathUtils';
-import { STORES, storageService } from '@/engine/storage';
-import { saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { STORES, storageService } from '@/engine/core/metadata/index';
+import { saveRecentFolder } from '@/engine/core/metadata/recentFolderStorageAdapter';
+import { isPathWithin, normalizePath } from '@/engine/core/paths';
 import type { PyxisSession } from '@/stores/sessionStore';
-import type { AIEditResponse, AIReviewEntry, AIReviewHistoryEntry, ChatSpace } from '@/types';
+import type { AIEditResponse, AIReviewEntry, AIReviewHistoryEntry, ChatSpace } from '@/types/index';
+import type { EditorPane, Tab } from '@/types/tabs';
 import { iterateAllKeyed, openExisting, readValue, writeValue } from './idb';
 import type { LegacyChatSpace, LegacyFile, LegacyFileReference, LegacyMapping } from './types';
 

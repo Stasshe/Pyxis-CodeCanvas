@@ -14,7 +14,7 @@ function parseMetrics(output) {
 }
 
 async function configureTranspilers(fsClient) {
-  const { runtimeRegistry } = await import('/src/engine/runtime/core/RuntimeRegistry.ts');
+  const { runtimeRegistry } = await import('/src/engine/system/runtime/core/RuntimeRegistry.ts');
   if (runtimeRegistry.getAllTranspilers().length === 0) {
     const extensionUrl = new URL('/extensions/typescript-runtime/index.js', location.origin).href;
     const { activate } = await import(extensionUrl);
@@ -52,7 +52,7 @@ async function measureProvider(provider, rootPath, filePath, benchmark) {
 }
 
 async function measureNpmRun(providerType, rootPath, benchmark) {
-  const { terminalCommandRegistry } = await import('/src/engine/cmd/terminalRegistry.ts');
+  const { terminalCommandRegistry } = await import('/src/engine/system/terminal/terminalRegistry.ts');
   const npm = await terminalCommandRegistry.getNpmCommands(rootPath);
   const originalExecute = providerType.prototype.execute;
   const startedAt = performance.now();
@@ -84,7 +84,7 @@ export async function measureRuntimeBenchmarks({ benchmark = true } = {}) {
   const { fsClient } = await import('/src/engine/core/fs/client.ts');
   await seedRuntimeBenchmarks();
   await configureTranspilers(fsClient);
-  const { NodeRuntimeProvider } = await import('/src/engine/runtime/nodejs/NodeRuntimeProvider.ts');
+  const { NodeRuntimeProvider } = await import('/src/engine/system/runtime/nodejs/NodeRuntimeProvider.ts');
   const provider = new NodeRuntimeProvider();
   const rootPath = runtimeFixtures.rootPath;
   const setupMs = performance.now() - setupStartedAt;

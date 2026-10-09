@@ -8,9 +8,9 @@
  * - メタデータ（バージョン、最終保存時刻）
  */
 
-import { STORES, storageService } from '@/engine/storage';
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { STORES, storageService } from '@/engine/core/metadata';
+import { tabRegistry } from '@/engine/ide/tabs/TabRegistry';
+import type { EditorPane, Tab } from '@/engine/ide/tabs/types';
 
 type SessionTab = Tab & {
   bufferContent?: ArrayBuffer;

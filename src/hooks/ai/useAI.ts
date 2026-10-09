@@ -3,24 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
-import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
-import { generateChatResponse, generateCodeEdit } from '@/engine/ai/fetchAI';
-import { ASK_PROMPT_TEMPLATE, EDIT_PROMPT_TEMPLATE } from '@/engine/ai/prompts';
+import { fsClient } from '@/engine/core/fs/index';
+import { saveAIReviewEntry } from '@/engine/core/metadata/aiStorageAdapter';
+import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ide/ai/contextBuilder';
+import { generateChatResponse, generateCodeEdit } from '@/engine/ide/ai/fetchAI';
+import { ASK_PROMPT_TEMPLATE, EDIT_PROMPT_TEMPLATE } from '@/engine/ide/ai/prompts';
 import {
   extractFilePathsFromResponse,
   parseEditResponse,
   validateResponse,
-} from '@/engine/ai/responseParser';
-import { readAIText } from '@/engine/ai/textEdits';
-import { fsClient } from '@/engine/core/fs';
-import { saveAIReviewEntry } from '@/engine/storage/aiStorageAdapter';
+} from '@/engine/ide/ai/responseParser';
+import { readAIText } from '@/engine/ide/ai/textEdits';
 import { pushLogMessage } from '@/stores/loggerStore';
-import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
+import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types/index';
 import {
   type AIRequestIdentity,
   isAIRequestIdentityCurrent,
   updateAIRequestIdentity,
-} from './requestIdentity';
+} from '../../engine/ide/ai/requestIdentity';
 
 interface UseAIProps {
   onAddMessage?: (

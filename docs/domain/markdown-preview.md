@@ -1,6 +1,6 @@
 # Markdown previewとWeb preview
 
-実装は`src/components/Tab/MarkdownPreviewTab.tsx`、`src/components/Tab/MarkdownPreview/`、`src/components/Tab/WebPreviewTab.tsx`。
+Markdown preview UIは`src/components/preview/`、Markdownの解析・link処理は`src/engine/ide/markdown/`、Mermaid integrationは`src/lib/mermaid/`。組み込みtab typeは`src/components/tabs/builtins/`、Web preview UIは`src/components/preview/WebPreviewTab.tsx`。
 
 ## Markdown preview
 

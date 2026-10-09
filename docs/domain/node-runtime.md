@@ -1,6 +1,6 @@
 # Node.js Runtime
 
-Node.js互換codeをRuntime Workerで実行する。WASMのNode本体ではなく、moduleローダーと組み込みmoduleを自前実装している。実装は`src/engine/runtime/`。runtime選択と実行契約は [runtime-provider](runtime-provider.md)、Workerと同期RPCの全体像は [arch/data-flow](../arch/data-flow.md#node実行)。
+Node.js互換codeをRuntime Workerで実行する。WASMのNode本体ではなく、moduleローダーと組み込みmoduleを自前実装している。実装は`src/engine/system/runtime/`。Runtime WorkerとFS Workerの同期RPC bridgeは`src/engine/system/runtime/bridge/`、FS Worker endpointは`src/engine/system/runtime/fs/`にある。runtime選択と実行契約は [runtime-provider](runtime-provider.md)、Workerと同期RPCの全体像は [arch/data-flow](../arch/data-flow.md#node実行)。
 
 ## 対応範囲
 

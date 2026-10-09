@@ -1,11 +1,11 @@
 import { snapshot } from 'valtio';
 
-import type { EditorPane } from '@/engine/tabs/types';
+import type { EditorPane } from '@/engine/ide/tabs/types';
 import { pushLogMessage } from '@/stores/loggerStore';
 import { getCurrentRootPath } from '@/stores/projectStore';
 import { clearTabContent } from '@/stores/tabContentStore';
 import { flushDirtyTabFiles } from './contentSync';
-import { collectAllTabs } from './paneUtils';
+import { collectAllTabs } from './paneTree';
 import { tabState } from './state';
 
 function hasTabs(panes: readonly EditorPane[]): boolean {

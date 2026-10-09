@@ -1,8 +1,8 @@
-import { FNM_PATHNAME, fnmatch } from '@/engine/cmd/lib/fnmatch';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
-import type { ProjectFile } from '@/types';
-import { basename, normalizePath, resolvePath } from '../pathUtils';
+import { FNM_PATHNAME, fnmatch } from '@/engine/core/fs/fnmatch';
+import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/fs/gitignore';
+import { isLikelyTextFile } from '@/engine/core/fs/isLikelyTextFile';
+import type { ProjectFile } from '@/types/index';
+import { basename, normalizePath, resolvePath } from '../paths';
 import { FSError } from './errors';
 import type { FsApi } from './types';
 

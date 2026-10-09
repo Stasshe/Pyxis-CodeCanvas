@@ -1,7 +1,7 @@
 import { coreError } from '@/engine/core/coreLogger';
-import type { FsApi } from '@/engine/core/fs';
+import type { FsApi } from '@/engine/core/fs/index';
 import { RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
-import { getParentPath, HOME_DIR, isPathWithin, normalizePath } from '@/engine/core/pathUtils';
+import { getParentPath, HOME_DIR, isPathWithin, normalizePath } from '@/engine/core/paths';
 import {
   deleteDatabase,
   iterateAll,

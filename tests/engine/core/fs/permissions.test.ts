@@ -3,7 +3,7 @@ import { FsCore } from '@/engine/core/fs/core';
 import { createGitFs } from '@/engine/core/fs/git';
 import type { PermissionStore } from '@/engine/core/fs/permissions';
 import { defaultMode, IndexedDbPermissionStore } from '@/engine/core/fs/permissions';
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types/index';
 import { directoryTree } from '../../../_helpers/opfs';
 
 class MemoryPermissions implements PermissionStore {
