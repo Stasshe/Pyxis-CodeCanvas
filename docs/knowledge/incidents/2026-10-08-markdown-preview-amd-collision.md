@@ -20,7 +20,12 @@ Eruda と filesystem/storage は原因ではない。
 
 [Vite設定](../../../vite.config.ts)で自由変数 `define` を `undefined` に置き換える。これは production build の `define` と dev dependency optimizer の `optimizeDeps.rolldownOptions.transform.define` の両方に設定する。Monaco が使う `window.define` は維持し、Vite が bundle する UMD dependency の AMD 分岐だけを無効化する。
 
-別件として、math delimiter 前処理が tilde fence と長い backtick fence 内の `\(...\)` / `\[...\]` をドル数式へ変換していた。inline code と正しい fence 長を保護する前処理に置き換え、6件の回帰テストを追加した。関連実装: [markdownMath.ts](../../../src/components/Tab/markdownMath.ts)、[テスト](../../../tests/components/markdownMath.test.ts)。設計境界は[データフロー](../../DATA-FLOW.md)を参照。
+別件として、math delimiter 前処理が tilde fence と長い backtick fence 内の `\(...\)` / `\[...\]` をドル数式へ変換していた。inline code と正しい fence 長を保護する前処理に置き換え、6件の回帰テストを追加した。関連実装: [markdownMath.ts](../../../src/components/Tab/markdownMath.ts)、[テスト](../../../tests/components/markdownMath.test.ts)。
+
+## 再発防止
+
+- Monacoがpage globalにAMD loader（`window.define.amd`）を置く。UMD形式の依存を新たにbundleしても、Viteの置換で匿名`define`登録は無効化される。この置換をdevとproductionの片方だけから外さない。
+- React tree全体が落ちた時は、最初の例外（ここではloaderの例外）を探す。後続のReact error表示や同時刻のlogは結果に過ぎない。
 
 ## 検証
 

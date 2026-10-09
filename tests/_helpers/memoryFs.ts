@@ -1,4 +1,6 @@
+import { Buffer } from 'buffer';
 import { type Loader, transformSync } from 'esbuild';
+import type { FifoMode, FifoOpenOptions } from '@/engine/core/fs/types';
 import { getParentPath, normalizePath, resolvePath } from '@/engine/core/pathUtils';
 import type { RuntimeFilesystem } from '@/engine/runtime/bridge/endpoint';
 import type { FsRequest, FsStat, RpcValue, RuntimeRequest } from '@/engine/runtime/bridge/protocol';
@@ -13,8 +15,15 @@ type Entry =
   | { type: 'directory' }
   | { type: 'symlink'; target: string };
 
+const DEV_DIRECTORY = '/dev';
+const NULL_DEVICE = `${DEV_DIRECTORY}/null`;
+
 function missing(path: string): Error & { code: string } {
   return Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
+}
+
+function unsupportedFifo(): Error & { code: string } {
+  return Object.assign(new Error('MemoryFs does not support FIFOs.'), { code: 'ENOTSUP' });
 }
 
 function parent(path: string): string {
@@ -31,10 +40,42 @@ export class MemoryFs implements RuntimeFilesystem {
   private readonly entries = new Map<string, Entry>([['/', { type: 'directory' }]]);
 
   hasDirectory(path: string): boolean {
+    if (path === DEV_DIRECTORY) return true;
     return this.entries.get(path)?.type === 'directory';
   }
 
+  async mkfifo(_path: string): Promise<void> {
+    throw unsupportedFifo();
+  }
+
+  async openFifo(
+    _path: string,
+    _mode: FifoMode,
+    _endpointId: string,
+    _ownerId: string,
+    _options?: FifoOpenOptions
+  ): Promise<void> {
+    throw unsupportedFifo();
+  }
+
+  async readFifo(_endpointId: string, _maxBytes: number): Promise<Uint8Array> {
+    throw unsupportedFifo();
+  }
+
+  async writeFifo(_endpointId: string, _bytes: Uint8Array): Promise<number> {
+    throw unsupportedFifo();
+  }
+
+  async closeFifo(_endpointId: string): Promise<void> {
+    throw unsupportedFifo();
+  }
+
+  async closeFifos(_ownerId: string): Promise<void> {
+    throw unsupportedFifo();
+  }
+
   async readFile(path: string): Promise<Uint8Array> {
+    if (path === NULL_DEVICE) return new Uint8Array();
     const entry = this.entries.get(this.realpathSync(path));
     if (!entry) throw missing(path);
     if (entry.type !== 'file')
@@ -44,6 +85,16 @@ export class MemoryFs implements RuntimeFilesystem {
 
   async writeFile(path: string, data: Uint8Array): Promise<void> {
     this.writeFileSync(path, data);
+  }
+
+  async writeRange(
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create = false,
+    exclusive = false
+  ): Promise<number> {
+    return this.writeRangeSync(path, data, position, create, exclusive);
   }
 
   async readdir(path: string): Promise<string[]> {
@@ -71,6 +122,8 @@ export class MemoryFs implements RuntimeFilesystem {
   }
 
   private statSync(path: string): FsStat {
+    if (path === NULL_DEVICE) return { type: 'characterDevice', size: 0, mtime: 1 };
+    if (path === DEV_DIRECTORY) return { type: 'directory', size: 0, mtime: 1 };
     const resolved = this.realpathSync(path);
     const entry = this.entries.get(resolved);
     if (!entry) throw missing(path);
@@ -139,12 +192,15 @@ export class MemoryFs implements RuntimeFilesystem {
   }
 
   private realpathSync(path: string): string {
+    if (path === NULL_DEVICE) return NULL_DEVICE;
     const resolved = this.resolve(path);
     if (!this.entries.has(resolved)) throw missing(path);
     return resolved;
   }
 
   private lstatSync(path: string): FsStat {
+    if (path === NULL_DEVICE) return { type: 'characterDevice', size: 0, mtime: 1 };
+    if (path === DEV_DIRECTORY) return { type: 'directory', size: 0, mtime: 1 };
     const entry = this.entries.get(this.resolve(path, false));
     if (!entry) throw missing(path);
     let size = 0;
@@ -234,10 +290,18 @@ export class MemoryFs implements RuntimeFilesystem {
     const fsRequest: FsRequest = request;
     switch (fsRequest.op) {
       case 'readFile':
-        return [...this.readFileSync(fsRequest.path)];
+        return Buffer.from(this.readFileSync(fsRequest.path)).toString('base64');
       case 'writeFile':
-        this.writeFileSync(fsRequest.path, new Uint8Array(fsRequest.data));
+        this.writeFileSync(fsRequest.path, Buffer.from(fsRequest.data, 'base64'));
         return null;
+      case 'writeRange':
+        return this.writeRangeSync(
+          fsRequest.path,
+          Buffer.from(fsRequest.data, 'base64'),
+          fsRequest.position,
+          fsRequest.create,
+          fsRequest.exclusive
+        );
       case 'readdir':
         return this.readdirSync(fsRequest.path);
       case 'stat':
@@ -264,6 +328,7 @@ export class MemoryFs implements RuntimeFilesystem {
   }
 
   private readFileSync(path: string): Uint8Array {
+    if (path === NULL_DEVICE) return new Uint8Array();
     const entry = this.entries.get(this.realpathSync(path));
     if (!entry) throw missing(path);
     if (entry.type !== 'file')
@@ -272,12 +337,54 @@ export class MemoryFs implements RuntimeFilesystem {
   }
 
   private writeFileSync(input: string, data: Uint8Array): void {
+    if (input === NULL_DEVICE) return;
     const path = this.resolve(input);
     if (!this.hasDirectory(parent(path))) throw missing(parent(path));
     this.entries.set(path, { type: 'file', data: data.slice() });
   }
 
+  private writeRangeSync(
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create: boolean,
+    exclusive: boolean
+  ): number {
+    if (position !== null && (!Number.isSafeInteger(position) || position < 0)) {
+      throw Object.assign(new Error(`EINVAL: ${path}`), { code: 'EINVAL' });
+    }
+    if (path === NULL_DEVICE) return data.byteLength;
+    const originalPath = this.resolve(path, false);
+    if (exclusive && create && this.entries.has(originalPath)) {
+      throw Object.assign(new Error(`EEXIST: ${path}`), { code: 'EEXIST' });
+    }
+    const target = this.resolve(path);
+    let current = this.entries.get(target);
+    if (current && exclusive && create) {
+      throw Object.assign(new Error(`EEXIST: ${path}`), { code: 'EEXIST' });
+    }
+    if (!current) {
+      if (!create) throw missing(path);
+      this.writeFileSync(path, new Uint8Array());
+      current = this.entries.get(target);
+    }
+    if (!current || current.type !== 'file') throw missing(path);
+    const start = position ?? current.data.byteLength;
+    const end = start + data.byteLength;
+    if (!Number.isSafeInteger(end)) {
+      throw Object.assign(new Error(`EINVAL: ${path}`), { code: 'EINVAL' });
+    }
+    if (data.byteLength > 0) {
+      const next = new Uint8Array(Math.max(current.data.byteLength, end));
+      next.set(current.data);
+      next.set(data, start);
+      this.writeFileSync(path, next);
+    }
+    return end;
+  }
+
   private readdirSync(input: string): string[] {
+    if (input === DEV_DIRECTORY) return ['null'];
     const path = this.realpathSync(input);
     if (!this.hasDirectory(path)) throw missing(path);
     return [...this.entries.keys()]

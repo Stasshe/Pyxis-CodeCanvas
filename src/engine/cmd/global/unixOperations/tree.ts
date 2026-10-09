@@ -26,7 +26,7 @@ export class TreeCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     // オプションパース
     const optstring = 'adfL:I:P:';
-    const longopts = ['noreport'];
+    const longopts = ['noreport', 'help'];
     const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
@@ -40,7 +40,16 @@ export class TreeCommand extends UnixCommandBase {
     const fullPath = flags.has('-f');
     const noReport = flags.has('--noreport');
 
-    const maxDepth = values.has('-L') ? Number.parseInt(values.get('-L')!, 10) || 999 : 999;
+    let maxDepth = Number.MAX_SAFE_INTEGER;
+    if (values.has('-L')) {
+      const parsedDepth = Number(values.get('-L'));
+      if (!Number.isInteger(parsedDepth) || parsedDepth < 0) {
+        throw new Error(
+          `tree: invalid level, must be a non-negative integer: '${values.get('-L')}'`
+        );
+      }
+      maxDepth = parsedDepth;
+    }
 
     // -I: 除外パターン（パイプ区切り対応）
     const ignorePatterns: string[] = [];
@@ -72,7 +81,7 @@ export class TreeCommand extends UnixCommandBase {
     let fileCount = 0;
 
     const buildTree = async (dirPath: string, prefix = '', depth = 0): Promise<string> => {
-      if (depth > maxDepth) return '';
+      if (depth >= maxDepth) return '';
 
       const files: ProjectFile[] = await this.getDescendants(dirPath);
 

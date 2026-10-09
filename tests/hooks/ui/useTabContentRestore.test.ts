@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   readFileContent: vi.fn(),
   setPanes: vi.fn(),
   setIsContentRestored: vi.fn(),
+  setTabContent: vi.fn(),
+  pushLogMessage: vi.fn(),
   initTabSaveSync: vi.fn(),
   dirtyTabIds: new Set<string>(),
 }));
@@ -68,7 +70,11 @@ vi.mock('@/stores/projectStore', () => ({
 vi.mock('@/stores/tabContentStore', () => ({
   isTabDirty: (id: string) => mocks.dirtyTabIds.has(id),
   setBufferContent: vi.fn(),
-  setTabContent: vi.fn(),
+  setTabContent: mocks.setTabContent,
+}));
+
+vi.mock('@/stores/loggerStore', () => ({
+  pushLogMessage: mocks.pushLogMessage,
 }));
 
 vi.mock('@/stores/tabState', () => ({
@@ -189,6 +195,41 @@ describe('useTabContentRestore', () => {
     expect(mocks.setIsContentRestored).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    '/workspace/foo:bar/main.ts',
+    '/workspace/README-preview',
+    '/workspace/merge-diff',
+    '/workspace/review-ai',
+  ])('reads the canonical tab path without stripping parts: %s', async path => {
+    setSession('/workspace', 1, editorTab('path-case', path));
+
+    renderRestore();
+    await restoreNextFrame();
+
+    expect(mocks.readFileContent).toHaveBeenCalledWith(path);
+    expect((mocks.tabState as RestoreState).panes[0].tabs[0].content).toBe(`content:${path}`);
+  });
+
+  it('keeps a failed file restore pending and does not seed an empty buffer', async () => {
+    const tab = editorTab('unreadable', '/workspace/unreadable.ts');
+    mocks.readFileContent.mockRejectedValueOnce(new Error('read failed'));
+    setSession('/workspace', 1, tab);
+
+    renderRestore();
+    await restoreNextFrame();
+
+    const restored = (mocks.tabState as RestoreState).panes[0].tabs[0];
+    expect(restored.needsContentRestore).toBe(true);
+    expect(restored.content).toBe('');
+    expect(mocks.setTabContent).not.toHaveBeenCalled();
+    expect(mocks.pushLogMessage).toHaveBeenCalledWith(
+      'Failed to restore /workspace/unreadable.ts: read failed',
+      'error',
+      'Tab Session'
+    );
+    expect((mocks.tabState as RestoreState).isContentRestored).toBe(true);
+  });
+
   it('does not let an old restore commit after a newer session starts', async () => {
     const firstRead = deferred<boolean>();
     const secondRead = deferred<boolean>();
@@ -236,7 +277,9 @@ describe('useTabContentRestore', () => {
     renderRestore();
     expect(mocks.frames).toHaveLength(0);
 
-    state.panes = [{ id: 'pane', tabs: [editorTab('new', '/workspace/b/main.ts')], activeTabId: 'new' }];
+    state.panes = [
+      { id: 'pane', tabs: [editorTab('new', '/workspace/b/main.ts')], activeTabId: 'new' },
+    ];
     state.isLoading = false;
     state.isRestored = true;
     renderRestore();

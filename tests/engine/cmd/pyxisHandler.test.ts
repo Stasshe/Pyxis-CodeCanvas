@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handlePyxisCommand } from '@/engine/cmd/handlers/pyxisHandler';
 import { NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from '@/engine/core/fs/layout';
 import { HOME_DIR } from '@/engine/core/pathUtils';
+import { storageService } from '@/engine/storage';
 import { directoryTree } from '../../_helpers/opfs';
 import { resetTestFs } from '../../_helpers/testFs';
 
@@ -14,6 +15,32 @@ describe('Pyxis filesystem commands', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('rejects unsupported locales without deleting a translation cache', async () => {
+    const storageAdapter = await import('@/engine/i18n/storage-adapter');
+    const removeCache = vi.spyOn(storageAdapter, 'deleteTranslationCache');
+    const output: string[] = [];
+
+    await handlePyxisCommand('i18n-clear', ['xx', 'common'], '/tmp/workspace', async line => {
+      output.push(line);
+    });
+
+    expect(output).toEqual(['i18n clear: サポートされていない言語です: xx']);
+    expect(removeCache).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown storage names without clearing a store', async () => {
+    const clearStore = vi.spyOn(storageService, 'clear');
+    const output: string[] = [];
+
+    await handlePyxisCommand('storage-clear', ['unknown'], '/tmp/workspace', async line => {
+      output.push(line);
+    });
+
+    expect(output.join('\n')).toContain('無効なストア名です');
+    expect(clearStore).not.toHaveBeenCalled();
   });
 
   it('clears runtime modules and metadata in the HOME cache only', async () => {
@@ -73,6 +100,7 @@ describe('Pyxis filesystem commands', () => {
     expect(await fs.exists(`${HOME_DIR}/project`)).toBe(false);
     expect(await fs.exists('/cache')).toBe(false);
     expect(await fs.readdir(TMP_PATH)).toEqual([]);
+    expect(await fs.stat('/dev/null')).toMatchObject({ type: 'characterDevice' });
     for (const path of [HOME_DIR, RUNTIME_CACHE_PATH, NPM_CACHE_PATH]) {
       expect((await fs.stat(path)).type).toBe('folder');
     }

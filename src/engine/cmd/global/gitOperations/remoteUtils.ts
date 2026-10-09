@@ -89,26 +89,14 @@ export function toFullRemoteRef(ref: string): string {
   return ref;
 }
 
-export function toShortRemoteRef(ref: string): string {
-  if (ref.startsWith('refs/remotes/')) {
-    return ref.slice('refs/remotes/'.length);
-  }
-
-  const parsed = parseRemoteRef(ref);
-  if (parsed) {
-    return parsed.shortRef;
-  }
-
-  return ref;
-}
-
 export async function resolveRemoteRef(fs: FS, dir: string, ref: string): Promise<string | null> {
   try {
     const fullRef = toFullRemoteRef(ref);
     const oid = await git.resolveRef({ fs, dir, ref: fullRef });
     return oid;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof git.Errors.NotFoundError) return null;
+    throw error;
   }
 }
 
@@ -117,77 +105,17 @@ export async function listRemoteBranches(
   dir: string,
   remote = 'origin'
 ): Promise<string[]> {
-  try {
-    const remotesDir = `${dir}/.git/refs/remotes/${remote}`;
-    const entries = await fs.promises.readdir(remotesDir);
-
-    const branches: string[] = [];
-    for (const entry of entries) {
-      if (!entry.startsWith('.') && entry !== 'HEAD') {
-        branches.push(entry);
-      }
-    }
-
-    return branches;
-  } catch {
-    return [];
-  }
+  const branches = await git.listBranches({ fs, dir, remote });
+  return branches.filter(branch => branch !== 'HEAD');
 }
 
 export async function listAllRemoteRefs(fs: FS, dir: string): Promise<string[]> {
-  const allRefs: string[] = [];
-
-  for (const remote of COMMON_REMOTES) {
-    try {
+  const remotes = await git.listRemotes({ fs, dir });
+  const refs = await Promise.all(
+    remotes.map(async ({ remote }) => {
       const branches = await listRemoteBranches(fs, dir, remote);
-      for (const branch of branches) {
-        allRefs.push(`${remote}/${branch}`);
-      }
-    } catch {}
-  }
-
-  try {
-    const remotesDir = `${dir}/.git/refs/remotes`;
-    const remotes = await fs.promises.readdir(remotesDir);
-
-    for (const remote of remotes) {
-      if (COMMON_REMOTES.includes(remote as (typeof COMMON_REMOTES)[number])) continue;
-      if (remote.startsWith('.')) continue;
-
-      try {
-        const branches = await listRemoteBranches(fs, dir, remote);
-        for (const branch of branches) {
-          allRefs.push(`${remote}/${branch}`);
-        }
-      } catch {}
-    }
-  } catch {}
-
-  return allRefs;
-}
-
-export async function remoteExists(fs: FS, dir: string, remote: string): Promise<boolean> {
-  try {
-    const remotes = await git.listRemotes({ fs, dir });
-    return remotes.some(r => r.remote === remote);
-  } catch {
-    return false;
-  }
-}
-
-export async function getDefaultRemote(fs: FS, dir: string, _branch?: string): Promise<string> {
-  try {
-    const remotes = await git.listRemotes({ fs, dir });
-    if (remotes.length === 0) {
-      return 'origin';
-    }
-
-    if (remotes.some(r => r.remote === 'origin')) {
-      return 'origin';
-    }
-
-    return remotes[0].remote;
-  } catch {
-    return 'origin';
-  }
+      return branches.map(branch => `${remote}/${branch}`);
+    })
+  );
+  return refs.flat().sort();
 }

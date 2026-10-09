@@ -104,12 +104,14 @@ export default function BottomPanel({
       <div
         className="flex flex-col bottom-panel-container"
         data-panel="bottom"
-        style={{
-          height,
-          background: colors.cardBg,
-          borderTop: `1px solid ${colors.border}`,
-          position: 'relative',
-        }}
+        style={
+          {
+            background: colors.cardBg,
+            borderTop: `1px solid ${colors.border}`,
+            position: 'relative',
+            '--bottom-panel-height': `${height}px`,
+          } as React.CSSProperties
+        }
       >
         {/* タブバー */}
         <div

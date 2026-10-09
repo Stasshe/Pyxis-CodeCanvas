@@ -63,6 +63,12 @@ export function useGitPanel({
   filterRef.current = { branchFilterMode, selectedBranches };
   const loadMoreSequence = useRef(0);
 
+  const reportOperationError = useCallback((operation: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[useGitPanel] ${operation} failed:`, error);
+    if (mountedRef.current) setError(`${operation}: ${message}`);
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -194,6 +200,7 @@ export function useGitPanel({
             ) {
               continue;
             }
+            console.error('[useGitPanel] Failed to fetch git status:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch git status');
             setGitRepo(null);
             request.onStatusChange?.(0);
@@ -258,12 +265,20 @@ export function useGitPanel({
       setGitRepo(prev => (prev ? { ...prev, commits } : null));
     } catch (err) {
       if (contextGeneration === contextRef.current.generation && mountedRef.current) {
-        console.error('Failed to load more commits:', err);
+        reportOperationError('Load more commits', err);
       }
     } finally {
       if (sequence === loadMoreSequence.current && mountedRef.current) setIsLoadingMore(false);
     }
-  }, [gitCommands, currentProject, isLoadingMore, commitDepth, branchFilterMode, selectedBranches]);
+  }, [
+    gitCommands,
+    currentProject,
+    isLoadingMore,
+    commitDepth,
+    branchFilterMode,
+    selectedBranches,
+    reportOperationError,
+  ]);
 
   // staging operations
   const stageFile = useCallback(
@@ -272,10 +287,10 @@ export function useGitPanel({
       try {
         await gitCommands.add(file);
       } catch (err) {
-        console.error(err);
+        reportOperationError(`Stage ${file}`, err);
       }
     },
-    [gitCommands]
+    [gitCommands, reportOperationError]
   );
 
   const unstageFile = useCallback(
@@ -284,10 +299,10 @@ export function useGitPanel({
       try {
         await gitCommands.reset({ filepath: file });
       } catch (err) {
-        console.error(err);
+        reportOperationError(`Unstage ${file}`, err);
       }
     },
-    [gitCommands]
+    [gitCommands, reportOperationError]
   );
 
   const stageAll = useCallback(async () => {
@@ -295,9 +310,9 @@ export function useGitPanel({
     try {
       await gitCommands.add('.');
     } catch (err) {
-      console.error(err);
+      reportOperationError('Stage all changes', err);
     }
-  }, [gitCommands]);
+  }, [gitCommands, reportOperationError]);
 
   const unstageAll = useCallback(async () => {
     if (!gitCommands) return;
@@ -305,9 +320,9 @@ export function useGitPanel({
     try {
       await Promise.all(staged.map(f => gitCommands.reset({ filepath: f })));
     } catch (err) {
-      console.error(err);
+      reportOperationError('Unstage all changes', err);
     }
-  }, [gitCommands, gitRepo?.status.staged]);
+  }, [gitCommands, gitRepo?.status.staged, reportOperationError]);
 
   const discardChanges = useCallback(
     async (file: string) => {
@@ -315,10 +330,10 @@ export function useGitPanel({
       try {
         await gitCommands.discardChanges(file);
       } catch (err) {
-        console.error(err);
+        reportOperationError(`Discard ${file}`, err);
       }
     },
-    [gitCommands]
+    [gitCommands, reportOperationError]
   );
 
   // discard all unstaged (includes unstaged, deleted and untracked)
@@ -333,9 +348,9 @@ export function useGitPanel({
     try {
       await Promise.all(unstaged.map(f => gitCommands.discardChanges(f)));
     } catch (err) {
-      console.error(err);
+      reportOperationError('Discard all unstaged changes', err);
     }
-  }, [gitCommands, gitRepo?.status]);
+  }, [gitCommands, gitRepo?.status, reportOperationError]);
 
   // discard all staged: first unstage, then try to discard changes
   const discardAllStaged = useCallback(async () => {
@@ -343,30 +358,27 @@ export function useGitPanel({
     const staged = gitRepo?.status?.staged || [];
     if (staged.length === 0) return;
     try {
-      await Promise.all(
+      const results = await Promise.allSettled(
         staged.map(async f => {
           await gitCommands.reset({ filepath: f });
-          try {
-            await gitCommands.discardChanges(f);
-          } catch (e) {
-            console.warn('[useGitPanel.ts] caught non-fatal error', e);
-            // ignore individual discard errors
-          }
+          await gitCommands.discardChanges(f);
         })
       );
+      const failures = results.flatMap((result, index) =>
+        result.status === 'rejected' ? [`${staged[index]}: ${String(result.reason)}`] : []
+      );
+      if (failures.length > 0) {
+        reportOperationError('Discard all staged changes', new Error(failures.join('; ')));
+      }
     } catch (err) {
-      console.error(err);
+      reportOperationError('Discard all staged changes', err);
     }
-  }, [gitCommands, gitRepo?.status]);
+  }, [gitCommands, gitRepo?.status, reportOperationError]);
 
   const commit = useCallback(
     async (message: string) => {
       if (!gitCommands || !message.trim()) return;
-      const commitPromise = gitCommands.commit(message.trim());
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Commit timeout after 30 seconds')), 30000)
-      );
-      await Promise.race([commitPromise, timeoutPromise]);
+      await gitCommands.commit(message.trim());
     },
     [gitCommands]
   );
@@ -374,14 +386,24 @@ export function useGitPanel({
   const getDiff = useCallback(
     async ({ staged = false } = {}) => {
       if (!gitCommands) return '';
+      const requestGeneration = contextRef.current.generation;
       try {
-        return await gitCommands.diff({ staged });
+        const diff = await gitCommands.diff({ staged });
+        if (
+          !mountedRef.current ||
+          requestGeneration !== contextRef.current.generation ||
+          currentProject !== contextRef.current.currentProject ||
+          rootPath !== contextRef.current.rootPath
+        ) {
+          return '';
+        }
+        return diff;
       } catch (err) {
-        console.error('Failed to get diff:', err);
+        reportOperationError('Load diff', err);
         return '';
       }
     },
-    [gitCommands]
+    [gitCommands, currentProject, rootPath, reportOperationError]
   );
 
   return {

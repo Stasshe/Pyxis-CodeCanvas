@@ -84,13 +84,6 @@ export function validActiveTabId(tabs: readonly Tab[], activeTabId: string): str
   return tabs[0]?.id ?? '';
 }
 
-export function normalizeTabPath(p?: string): string {
-  if (!p) return '';
-  const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-  const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-}
-
 export function findPaneRecursive(panes: readonly EditorPane[], paneId: string): EditorPane | null {
   for (const pane of panes) {
     if (pane.id === paneId) return pane;

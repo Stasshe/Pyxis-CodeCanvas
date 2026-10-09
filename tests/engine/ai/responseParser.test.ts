@@ -39,4 +39,29 @@ describe('AI response file path matching', () => {
     expect(result.changedFiles[0].isNewFile).toBeUndefined();
     expect(result.changedFiles[0].suggestedContent).toBe('updated content');
   });
+
+  it('applies SEARCH/REPLACE blocks to the current file content', () => {
+    const response = [
+      '### File: src/a.ts',
+      '**Reason**: Update the value',
+      '<<<<<<< SEARCH',
+      'const value = 1;',
+      '=======',
+      'const value = 2;',
+      '>>>>>>> REPLACE',
+    ].join('\n');
+
+    const result = parseEditResponse(
+      response,
+      [{ path: '/workspace/src/a.ts', content: 'const value = 1;' }],
+      '/workspace'
+    );
+
+    expect(result.usedPatchFormat).toBe(true);
+    expect(result.changedFiles).toHaveLength(1);
+    expect(result.changedFiles[0].suggestedContent).toBe('const value = 2;');
+    expect(result.changedFiles[0].patchBlocks).toEqual([
+      { search: 'const value = 1;', replace: 'const value = 2;' },
+    ]);
+  });
 });

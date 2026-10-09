@@ -43,6 +43,20 @@ describe('fsModule', () => {
     expect(result.error).toMatchObject({ code: 'ENOENT', syscall: 'open' });
   });
 
+  it('reports missing paths as false through the callback exists API', async () => {
+    await fs.promises.writeFile(`${root}/present.txt`, 'present');
+
+    const present = await new Promise<boolean>(resolve =>
+      fs.exists(`${root}/present.txt`, resolve)
+    );
+    const missing = await new Promise<boolean>(resolve =>
+      fs.exists(`${root}/missing.txt`, resolve)
+    );
+
+    expect(present).toBe(true);
+    expect(missing).toBe(false);
+  });
+
   it('returns buffers unless a read encoding is requested', async () => {
     await fs.promises.writeFile(`${root}/buffer.txt`, 'héllo');
 
@@ -56,6 +70,49 @@ describe('fsModule', () => {
     expect(values[0].toString()).toBe('héllo');
     expect(values[1].toString()).toBe('héllo');
     expect(values[2]).toBe('héllo');
+  });
+
+  it('normalizes Buffer and file URL paths and exposes common filesystem operations', async () => {
+    const source = `${root}/source.txt`;
+    const copied = `${root}/copied.txt`;
+    const directory = `${root}/empty-directory`;
+    await fs.promises.writeFile(source, 'copied');
+    await fs.promises.copyFile(Buffer.from(source), new URL(`file://${copied}`));
+    expect(fs.readFileSync(copied, 'utf8')).toBe('copied');
+    fs.writeFileSync(`${root}/exclusive.txt`, 'keep');
+    expect(() =>
+      fs.copyFileSync(source, `${root}/exclusive.txt`, fs.constants.COPYFILE_EXCL)
+    ).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+    expect(fs.readFileSync(`${root}/exclusive.txt`, 'utf8')).toBe('keep');
+
+    const raceDestination = `${root}/exclusive-race.txt`;
+    const raceResults = await Promise.allSettled([
+      fs.promises.copyFile(source, raceDestination, fs.constants.COPYFILE_EXCL),
+      fs.promises.copyFile(source, raceDestination, fs.constants.COPYFILE_EXCL),
+    ]);
+    expect(raceResults.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(raceResults.filter(result => result.status === 'rejected')).toHaveLength(1);
+    expect(fs.readFileSync(raceDestination, 'utf8')).toBe('copied');
+
+    await fs.promises.mkdir(directory);
+    await fs.promises.rmdir(directory);
+    const temporary = fs.mkdtempSync(`${root}/tmp-`);
+    expect(fs.statSync(temporary)?.isDirectory()).toBe(true);
+    fs.rmdirSync(temporary);
+  });
+
+  it('supports callback descriptor operations', async () => {
+    const path = `${root}/callback-descriptor.txt`;
+    const descriptor = await promisify(fs.open)(path, 'w+');
+    const data = Buffer.from('callback');
+    await new Promise<void>((resolve, reject) => {
+      fs.write(descriptor, data, 0, data.length, 0, error => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+    await promisify(fs.close)(descriptor);
+    expect(fs.readFileSync(path, 'utf8')).toBe('callback');
   });
 
   it('performs synchronous filesystem mutations through the sync bridge', async () => {
@@ -138,6 +195,42 @@ describe('fsModule', () => {
     expect(typeof promiseLstat.size).toBe('bigint');
   });
 
+  it('treats /dev/null as a character device for file and descriptor operations', async () => {
+    const path = '/dev/null';
+    const stat = fs.statSync(path);
+
+    expect(stat?.isCharacterDevice()).toBe(true);
+    expect(stat?.isFile()).toBe(false);
+    expect(stat?.mode).toBe(0o20666);
+    const nullEntry = fs
+      .readdirSync('/dev', { withFileTypes: true })
+      .find(entry => typeof entry !== 'string' && !Buffer.isBuffer(entry) && entry.name === 'null');
+    expect(nullEntry?.isCharacterDevice()).toBe(true);
+    expect(nullEntry?.isFile()).toBe(false);
+    expect(fs.readFileSync(path)).toEqual(Buffer.alloc(0));
+    await fs.promises.writeFile(path, 'discarded');
+    fs.writeFileSync(path, 'also discarded');
+    expect(fs.readFileSync(path)).toEqual(Buffer.alloc(0));
+
+    const setFile = vi.spyOn(fixture.filesystem, 'setFileSync');
+    const writeRange = vi.spyOn(fixture.filesystem, 'writeRangeSync');
+    const writeOnly = fs.openSync(path, 'w');
+    expect(setFile).not.toHaveBeenCalled();
+    expect(fs.fstatSync(writeOnly).isCharacterDevice()).toBe(true);
+    expect(fs.writeSync(writeOnly, 'discarded')).toBe('discarded'.length);
+    expect(writeRange).toHaveBeenLastCalledWith(path, expect.any(Uint8Array), null, false);
+    const buffer = Buffer.alloc(8);
+    expect(() => fs.readSync(writeOnly, buffer)).toThrow(
+      expect.objectContaining({ code: 'EBADF' })
+    );
+    fs.closeSync(writeOnly);
+
+    const descriptor = fs.openSync(path, 'r+');
+    expect(fs.fstatSync(descriptor).isCharacterDevice()).toBe(true);
+    expect(fs.readSync(descriptor, buffer)).toBe(0);
+    fs.closeSync(descriptor);
+  });
+
   it('tracks open descriptors, positions, truncation, append, and close', async () => {
     const path = `${root}/descriptor.txt`;
     await fs.promises.writeFile(path, 'abcdef');
@@ -171,6 +264,16 @@ describe('fsModule', () => {
     expect(() => fs.openSync(`${root}/created.txt`, 'wx')).toThrow(
       expect.objectContaining({ code: 'EEXIST' })
     );
+  });
+
+  it('keeps exclusive create when the file appears between lstat and stat', async () => {
+    const path = `${root}/exclusive-race.txt`;
+    await fs.promises.writeFile(path, 'created concurrently');
+    vi.spyOn(fixture.filesystem, 'lstatSync').mockReturnValue(null);
+    const writeRange = vi.spyOn(fixture.filesystem, 'writeRangeSync');
+
+    expect(() => fs.openSync(path, 'wx')).toThrow(expect.objectContaining({ code: 'EEXIST' }));
+    expect(writeRange).not.toHaveBeenCalled();
   });
 
   it('opens symlinks against their canonical target and writes stdout bytes', async () => {
@@ -288,14 +391,33 @@ describe('fsModule', () => {
     expect(result).toBe(failure);
   });
 
-  it('reads and preserves partial synchronous stdin data', () => {
+  it('reads stdin through EOF and continues reading descriptors at their current position', async () => {
+    await fs.promises.writeFile('descriptor-input.txt', 'abcdef');
+    const descriptor = fs.openSync('descriptor-input.txt', 'r');
+    const prefix = Buffer.alloc(2);
+    expect(fs.readSync(descriptor, prefix)).toBe(2);
+    expect(prefix.toString()).toBe('ab');
+    expect(fs.readFileSync(descriptor, 'utf8')).toBe('cdef');
+    fs.closeSync(descriptor);
+
     const sync = vi
       .spyOn(fixture.bridge, 'sync')
-      .mockReturnValueOnce([...Buffer.from('input line\n')]);
+      .mockReturnValueOnce([...Buffer.from('input line\n')])
+      .mockReturnValueOnce([...Buffer.from('tail')])
+      .mockReturnValueOnce([]);
+    sync.mockClear();
     const target = Buffer.alloc(5);
     expect(fs.readSync(0, target)).toBe(5);
     expect(target.toString()).toBe('input');
-    expect(fs.readFileSync(0, 'utf8')).toBe(' line\n');
-    expect(sync).toHaveBeenCalledTimes(1);
+    expect(fs.readFileSync(0, 'utf8')).toBe(' line\ntail');
+    expect(sync).toHaveBeenCalledTimes(3);
+
+    sync
+      .mockReset()
+      .mockReturnValueOnce([...Buffer.from('device-')])
+      .mockReturnValueOnce([...Buffer.from('stdin')])
+      .mockReturnValueOnce([]);
+    expect(fs.readFileSync('/dev/stdin', 'utf8')).toBe('device-stdin');
+    expect(sync).toHaveBeenCalledTimes(3);
   });
 });

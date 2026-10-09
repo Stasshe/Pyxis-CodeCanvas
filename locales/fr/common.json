@@ -135,9 +135,61 @@
     "loadingFile": "Restauration du contenu du fichier...",
     "selectFile": "Veuillez sélectionner un fichier"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Vous disposez de toutes les extensions disponibles",
+    "allInstalled": "Toutes les extensions installées",
+    "available": "Disponible ({count})",
+    "browseAvailable": "Parcourez les extensions disponibles pour commencer",
+    "confirmUninstall": "Êtes-vous sûr de vouloir désinstaller « {name} » ?",
+    "disable": "Désactiver",
+    "disableUnavailable": "Impossible de désactiver l'extension.",
+    "enable": "Activer",
+    "enableUnavailable": "Impossible d'activer l'extension.",
+    "importFailed": "Échec de l'importation du code ZIP : {error}",
+    "importZip": "Importer une extension (.zip)",
+    "install": "Installer",
+    "installed": "Installé ({count})",
+    "installFailed": "Échec de l'installation de {name} : {error}",
+    "installUnavailable": "L'extension n'a pas pu être installée ou activée.",
+    "loadFailed": "Échec du chargement des extensions : {error}",
+    "loading": "Chargement des extensions...",
+    "manifestUrlMissing": "URL du manifeste introuvable dans le registre",
+    "noMatches": "Aucune extension correspondante trouvée",
+    "noneInstalled": "Aucune extension installée",
+    "packCount": "Extensions : {count}",
+    "reload": "Recharger les extensions",
+    "search": "Rechercher des extensions...",
+    "title": "Extensions",
+    "toggleFailed": "Échec de la modification de l'état de l'extension : {error}",
+    "tryDifferentSearch": "Essayez un autre terme de recherche",
+    "types": {
+      "builtinModule": "Module intégré",
+      "languageRuntime": "Durée d'exécution du langage",
+      "service": "Service",
+      "tool": "Outil",
+      "transpiler": "Transpileur",
+      "ui": "Interface utilisateur"
+    },
+    "uninstall": "Désinstaller",
+    "uninstallFailed": "Échec de la désinstallation de l'extension : {error}",
+    "uninstallTitle": "Désinstaller l'extension",
+    "uninstallUnavailable": "L'extension n'a pas pu être désinstallée.",
+    "update": "Mise à jour",
+    "updateFailed": "Échec de la mise à jour de {name} : {error}",
+    "updateUnavailable": "Le nouveau package d'extension n'a pas pu être activé.",
+    "viewDetails": "Cliquez pour afficher les détails de l'extension"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Créer un fichier",
+      "createFolder": "Créer un dossier",
+      "import": "Importer",
+      "move": "Déplacer"
+    },
     "alert": {
-      "renameFailed": "Échec du renommage : {error}"
+      "destinationExists": "La destination existe déjà : {path}",
+      "operationFailed": "Échec de {action} : {error}",
+      "workspaceChanged": "L’espace de travail a changé ; les fichiers restants ont été ignorés."
     },
     "menu": {
       "createFile": "Créer un fichier",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Créer un nouveau fichier",
-    "createFolder": "Créer un nouveau dossier"
+    "createFolder": "Créer un nouveau dossier",
+    "newFilePrompt": "Saisissez le nom du fichier :",
+    "newFolderPrompt": "Saisissez le nom du dossier :"
   },
   "markdownPreview": {
     "downloadSvg": "Télécharger le SVG",

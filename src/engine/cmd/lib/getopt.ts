@@ -204,8 +204,7 @@ export class GetOpt {
     }
 
     if (argReq === 'required' && optArg === null) {
-      // 次の引数をチェック
-      if (this.index + 1 < this.args.length && !this.args[this.index + 1].startsWith('-')) {
+      if (this.index + 1 < this.args.length) {
         this.index++;
         optArg = this.args[this.index];
       } else {
@@ -242,14 +241,17 @@ export function parseWithGetOpt(
 ): {
   flags: Set<string>;
   values: Map<string, string>;
+  orderedOptions: ParsedOption[];
   positional: string[];
   errors: string[];
 } {
   const flags = new Set<string>();
   const values = new Map<string, string>();
+  const orderedOptions: ParsedOption[] = [];
 
   const parser = new GetOpt(optstring, longopts);
   for (const opt of parser.parse(args)) {
+    orderedOptions.push(opt);
     if (opt.option.length === 1) {
       const key = `-${opt.option}`;
       if (opt.argument !== null) values.set(key, opt.argument);
@@ -263,5 +265,5 @@ export function parseWithGetOpt(
 
   const positional = parser.remaining();
   const errors = parser.errors();
-  return { flags, values, positional, errors };
+  return { flags, values, orderedOptions, positional, errors };
 }

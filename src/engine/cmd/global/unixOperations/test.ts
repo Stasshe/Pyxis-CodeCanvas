@@ -1,5 +1,5 @@
 import { type EvalContext, ExprBuilder, type Expression, ExprParser, evaluate } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 /**
  * test - 条件式を評価 (POSIX準拠)
@@ -58,8 +58,12 @@ interface TestContext extends EvalContext {
  * test用の式パーサー
  */
 class TestExprParser extends ExprParser<TestContext> {
-  constructor(tokens: string[], _checkFile: TestContext['checkFile']) {
+  constructor(tokens: string[]) {
     super(tokens);
+  }
+
+  hasRemaining(): boolean {
+    return this.stream.hasMore();
   }
 
   protected isOrOperator(tok: string | null): boolean {
@@ -74,15 +78,63 @@ class TestExprParser extends ExprParser<TestContext> {
     return tok === '!';
   }
 
+  protected parseOrExpr(): Expression | null {
+    let left = this.parseAndExpr();
+    if (!left) return null;
+
+    while (this.isOrOperator(this.stream.peek())) {
+      this.stream.consume();
+      const right = this.parseAndExpr();
+      if (!right) throw new UnixCommandFailure("test: argument expected after '-o'", 2);
+      left = ExprBuilder.or(left, right);
+    }
+    return left;
+  }
+
+  protected parseAndExpr(): Expression | null {
+    let left = this.parseUnaryExpr();
+    if (!left) return null;
+
+    while (
+      this.stream.hasMore() &&
+      !this.isOrOperator(this.stream.peek()) &&
+      !this.isCloseGroup(this.stream.peek())
+    ) {
+      if (!this.isAndOperator(this.stream.peek())) {
+        const token = this.stream.peek();
+        throw new UnixCommandFailure(`test: syntax error near '${token}'`, 2);
+      }
+      this.stream.consume();
+      const right = this.parseUnaryExpr();
+      if (!right) throw new UnixCommandFailure("test: argument expected after '-a'", 2);
+      left = ExprBuilder.and(left, right);
+    }
+    return left;
+  }
+
+  protected parsePrimary(): Expression | null {
+    const token = this.stream.peek();
+    if (token === null) return null;
+
+    if (this.isOpenGroup(token)) {
+      this.stream.consume();
+      const expression = this.parseOrExpr();
+      if (this.isCloseGroup(this.stream.peek())) this.stream.consume();
+      return expression;
+    }
+
+    return this.parsePredicate();
+  }
+
   protected parsePredicate(): Expression | null {
     const tok = this.stream.peek();
-    if (!tok) return null;
+    if (tok === null) return null;
 
     // 単項ファイルテスト
     if (['-e', '-f', '-d', '-r', '-w', '-x', '-s', '-L', '-h'].includes(tok)) {
       this.stream.consume();
       const path = this.stream.consume();
-      if (!path) return ExprBuilder.false();
+      if (path === null) throw new UnixCommandFailure(`test: missing argument after '${tok}'`, 2);
 
       return ExprBuilder.predicate(tok, [path], (ctx: EvalContext) => {
         // 非同期なので、事前にチェック結果をコンテキストに入れておく必要あり
@@ -117,13 +169,15 @@ class TestExprParser extends ExprParser<TestContext> {
     // 単項文字列テスト
     if (tok === '-n') {
       this.stream.consume();
-      const str = this.stream.consume() || '';
+      const str = this.stream.consume();
+      if (str === null) throw new UnixCommandFailure("test: missing argument after '-n'", 2);
       return ExprBuilder.predicate('-n', [str], () => str.length > 0);
     }
 
     if (tok === '-z') {
       this.stream.consume();
-      const str = this.stream.consume() || '';
+      const str = this.stream.consume();
+      if (str === null) throw new UnixCommandFailure("test: missing argument after '-z'", 2);
       return ExprBuilder.predicate('-z', [str], () => str.length === 0);
     }
 
@@ -159,6 +213,12 @@ class TestExprParser extends ExprParser<TestContext> {
         this.stream.consume();
         this.stream.consume();
         this.stream.consume();
+        if (!/^[+-]?\d+$/.test(left) || !/^[+-]?\d+$/.test(right)) {
+          throw new UnixCommandFailure(
+            `test: integer expression expected: ${left} ${op} ${right}`,
+            2
+          );
+        }
         const nl = Number(left);
         const nr = Number(right);
         return ExprBuilder.predicate(op, [left, right], () => {
@@ -186,6 +246,9 @@ class TestExprParser extends ExprParser<TestContext> {
     // 単一の引数 = 非空文字列チェック
     if (!tok.startsWith('-') && tok !== '(' && tok !== ')') {
       this.stream.consume();
+      if (['-e', '-f', '-d', '-r', '-w', '-x', '-s', '-L', '-h', '-n', '-z'].includes(tok)) {
+        throw new UnixCommandFailure(`test: unary operator expected: ${tok}`, 2);
+      }
       return ExprBuilder.predicate('STRING', [tok], () => tok.length > 0);
     }
 
@@ -232,15 +295,13 @@ export class TestCommand extends UnixCommandBase {
     }
 
     // パーサーで式を構築
-    const parser = new TestExprParser(tokens, checkFile);
+    const parser = new TestExprParser(tokens);
     const expr = parser.parse();
 
-    if (!expr) {
-      // パースできない場合、単一引数は非空チェック
-      if (tokens.length === 1) {
-        return tokens[0].length > 0;
-      }
-      return false;
+    if (!expr || parser.hasRemaining()) {
+      let nearToken = tokens[0];
+      if (parser.hasRemaining()) nearToken = tokens[tokens.length - 1];
+      throw new UnixCommandFailure(`test: syntax error near '${nearToken}'`, 2);
     }
 
     // 評価
@@ -267,16 +328,5 @@ export class TestCommand extends UnixCommandBase {
     }
 
     return paths;
-  }
-
-  /**
-   * executeは直接使用せず、evaluateを使用
-   */
-  async execute(args: string[]): Promise<string> {
-    const result = await this.evaluate(args);
-    if (!result) {
-      throw { __silent: true, code: 1 };
-    }
-    return '';
   }
 }

@@ -18,6 +18,12 @@ interface OutputCapture {
   errors: string[];
 }
 
+interface SuiteResult {
+  output: string[];
+  errors: string[];
+  exitCode: number;
+}
+
 function collectOutput(): OutputCapture {
   const output: string[] = [];
   const errors: string[] = [];
@@ -31,6 +37,45 @@ function collectOutput(): OutputCapture {
     output,
     errors,
   };
+}
+
+async function runUvuSuite(
+  fixture: NodeRuntimeFixture,
+  repo: FsCore,
+  rootPath: string,
+  source: string,
+  expectedExitCode: number
+): Promise<SuiteResult> {
+  const capture = collectOutput();
+  fixture.close();
+  const runtimeFixture = await createNpmRuntimeFixture(repo, rootPath, capture.debugConsole);
+  try {
+    const scriptPath = `${rootPath}/uvu-suite.cjs`;
+    await runtimeFixture.writeFile(
+      scriptPath,
+      [
+        "const { suite, exec } = require('uvu');",
+        "const assert = require('assert');",
+        "const test = suite('installed uvu suite');",
+        source,
+        'test.run();',
+        `module.exports.__promise = exec().then(() => {`,
+        `  assert.strictEqual(process.exitCode || 0, ${expectedExitCode});`,
+        '  process.exit(process.exitCode || 0);',
+        '});',
+      ].join('\n')
+    );
+    await runtimeFixture.runtime.execute(scriptPath);
+    await runtimeFixture.runtime.waitForEventLoop();
+
+    return {
+      output: capture.output,
+      errors: capture.errors,
+      exitCode: runtimeFixture.runtime.getExitCode(),
+    };
+  } finally {
+    runtimeFixture.close();
+  }
 }
 
 describe('uvu npm runtime integration', () => {
@@ -49,7 +94,11 @@ describe('uvu npm runtime integration', () => {
     fixture = await createNpmRuntimeFixture(repo, rootPath);
   });
 
-  afterEach(() => fixture.close());
+  afterEach(() => {
+    fixture.close();
+    // Runtime globals share the host, so clear uvu's test-owned controls.
+    Reflect.deleteProperty(globalThis, 'UVU_QUEUE');
+  });
 
   it('resolves uvu package.json from its installed bin entry', async () => {
     const pkg = JSON.parse(await repo.readText(`${rootPath}/node_modules/uvu/package.json`)) as {
@@ -107,4 +156,43 @@ describe('uvu npm runtime integration', () => {
 
     expect(result?.path).toBe(`${rootPath}/node_modules/test-pkg/package.json`);
   }, 60_000);
+
+  it('runs an installed uvu suite and awaits its exported exec promise', async () => {
+    const result = await runUvuSuite(
+      fixture,
+      repo,
+      rootPath,
+      [
+        "test('first assertion', () => assert.strictEqual(2 + 2, 4));",
+        "test('async assertion', async () => assert.strictEqual(await Promise.resolve('ready'), 'ready'));",
+      ].join('\n'),
+      0
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output.join('\n')).toContain('(2 / 2)');
+    expect(result.output.join('\n')).toContain('Total:     2');
+    expect(result.output.join('\n')).toContain('Passed:    2');
+    expect(result.errors).toHaveLength(0);
+  }, 120_000);
+
+  it('reports failed installed uvu assertions and preserves the failure exit code', async () => {
+    const result = await runUvuSuite(
+      fixture,
+      repo,
+      rootPath,
+      [
+        "test('passing assertion', () => assert.strictEqual('uvu', 'uvu'));",
+        "test('failing assertion', () => assert.strictEqual('actual', 'expected'));",
+      ].join('\n'),
+      1
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output.join('\n')).toContain('(1 / 2)');
+    expect(result.output.join('\n')).toContain('Total:     2');
+    expect(result.output.join('\n')).toContain('Passed:    1');
+    expect(result.output.join('\n')).toContain('failing assertion');
+    expect(result.errors).toHaveLength(0);
+  }, 120_000);
 });

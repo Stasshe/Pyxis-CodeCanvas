@@ -49,7 +49,7 @@ const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
         // Create merge commit
         console.log('[MergeConflictTabType] Creating merge commit...');
-        const commitMessage = `Merge branch '${mergeTab.theirsBranch}' into ${mergeTab.oursBranch}`;
+        const commitMessage = await fsClient.readText(`${mergeTab.rootPath}/.git/MERGE_MSG`);
         await git.commit(commitMessage);
         console.log('[MergeConflictTabType] Merge commit created successfully');
 

@@ -89,6 +89,27 @@ describe('dependency graph discovery', () => {
     expect(requested.filter(name => name === 'shared')).toHaveLength(1);
   });
 
+  it('adds a required peer to the resolved graph and leaves an absent optional peer out', async () => {
+    const plugin = packageInfo('plugin');
+    plugin.peerDependencies = { host: '^1.0.0', telemetry: '^2.0.0' };
+    plugin.peerDependenciesMeta = { telemetry: { optional: true } };
+    const requested: string[] = [];
+    const plan = await resolveDependencyPlan(
+      [{ name: 'plugin', version: '1.0.0', isDirect: true }],
+      async name => {
+        requested.push(name);
+        if (name === 'plugin') return plugin;
+        if (name === 'host') return packageInfo('host');
+        throw new Error(`Unexpected peer request ${name}`);
+      }
+    );
+
+    expect(requested.sort()).toEqual(['host', 'plugin']);
+    expect(plan.find(item => item.packageInfo.name === 'plugin')?.peerDependencyKeys).toEqual({
+      host: 'host@host@1.0.0',
+    });
+  });
+
   it('skips failed optional dependencies while reporting the failure', async () => {
     const root = packageInfo('root');
     root.optionalDependencies = { unavailable: '^1.0.0' };
@@ -153,15 +174,16 @@ describe('dependency graph discovery', () => {
       async () => resolvedPackage
     );
 
-    expect(plan).toEqual([
-      {
-        packageInfo: resolvedPackage,
-        installName: 'shared-name',
-        dependencyKeys: {},
-        isDirect: true,
-        isOptional: false,
-      },
-    ]);
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      packageInfo: resolvedPackage,
+      installName: 'shared-name',
+      dependencyKeys: {},
+      peerDependencyKeys: {},
+      requestKeys: ['latest', '^1.0.0'],
+      isDirect: true,
+      isOptional: false,
+    });
   });
 
   it('settles started metadata requests before reporting a required failure', async () => {

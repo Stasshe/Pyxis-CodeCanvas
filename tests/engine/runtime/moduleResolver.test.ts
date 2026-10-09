@@ -11,9 +11,16 @@ describe('ModuleResolver', () => {
     for (const fixture of fixtures.splice(0)) fixture.close();
   });
 
-  it('recognizes only implemented Node built-ins', () => {
+  it('recognizes official built-ins independently of runtime support', () => {
     expect(isBuiltInModule('node:assert')).toBe(true);
-    expect(isBuiltInModule('node:worker_threads')).toBe(false);
+    expect(isBuiltInModule('node:worker_threads')).toBe(true);
+    expect(isBuiltInModule('worker_threads')).toBe(true);
+    expect(isBuiltInModule('node:path/posix')).toBe(true);
+    expect(isBuiltInModule('node:path/win32')).toBe(true);
+    expect(isBuiltInModule('util/types')).toBe(true);
+    expect(isBuiltInModule('node:test')).toBe(true);
+    expect(isBuiltInModule('test')).toBe(false);
+    expect(isBuiltInModule('node:missing')).toBe(false);
   });
 
   async function createResolver() {
@@ -23,6 +30,39 @@ describe('ModuleResolver', () => {
     const resolver = new ModuleResolver(rootPath, new ModuleFileSystem(fixture.bridge));
     return { fixture, resolver, rootPath };
   }
+
+  it('resolves unsupported built-ins without searching installed packages', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/worker_threads/index.js`,
+      'module.exports = 1'
+    );
+    const parent = `${rootPath}/main.js`;
+    expect(resolver.resolveSync('worker_threads', parent)).toMatchObject({ isBuiltIn: true });
+    await expect(resolver.resolve('node:worker_threads', parent, 'import')).resolves.toMatchObject({
+      isBuiltIn: true,
+    });
+  });
+
+  it('uses registered extension order for require files and directory entries', async () => {
+    const { fixture, rootPath } = await createResolver();
+    const extensions = ['.js', '.json', '.node'];
+    const resolver = new ModuleResolver(
+      rootPath,
+      new ModuleFileSystem(fixture.bridge),
+      () => extensions
+    );
+    const parent = `${rootPath}/main.js`;
+    await fixture.writeFile(`${rootPath}/custom.txt`, 'custom');
+    await fixture.writeFile(`${rootPath}/directory/index.txt`, 'custom');
+    expect(resolver.resolveSync('./custom', parent)).toBeNull();
+    extensions.push('.txt');
+    expect(resolver.resolveSync('./custom', parent)?.path).toBe(`${rootPath}/custom.txt`);
+    expect(resolver.resolveSync('./directory', parent)?.path).toBe(
+      `${rootPath}/directory/index.txt`
+    );
+    expect(resolver.resolveSync('./custom', parent, 'import')).toBeNull();
+  });
 
   it('resolves a package entry from its main field', async () => {
     const { fixture, resolver, rootPath } = await createResolver();

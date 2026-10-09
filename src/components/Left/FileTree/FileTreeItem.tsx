@@ -262,7 +262,9 @@ function FileTreeItem({
   );
 }
 
-function arePropsEqual(prev: any, next: any) {
+type Props = FileTreeItemProps & { isTouchDevice?: boolean };
+
+function arePropsEqual(prev: Props, next: Props): boolean {
   return (
     prev.item?.id === next.item?.id &&
     prev.level === next.level &&

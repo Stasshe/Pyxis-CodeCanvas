@@ -33,4 +33,22 @@ describe('file byte classification', () => {
   it.each(['avif', 'woff2', 'docx', 'sqlite'])('keeps known %s formats binary', extension => {
     expect(classifyFileContent(`file.${extension}`, new Uint8Array()).kind).toBe('binary');
   });
+
+  it.each([
+    ['document.xml', '<?xml version="1.0"?><root/>'],
+    ['image.svg', '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>'],
+    ['document.rtf', '{\\rtf1\\ansi Hello}'],
+    ['document.ps', '%!PS-Adobe-3.0\nshowpage'],
+  ])('keeps detected textual %s formats editable', async (path, content) => {
+    expect(await detectFileContent(path, new TextEncoder().encode(content))).toEqual({
+      kind: 'text',
+      content,
+    });
+  });
+
+  it('still rejects invalid UTF-8 and NUL in textual MIME formats', () => {
+    for (const bytes of [new Uint8Array([0xff]), new Uint8Array([65, 0])]) {
+      expect(classifyFileContent('document.xml', bytes, 'application/xml').kind).toBe('binary');
+    }
+  });
 });

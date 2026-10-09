@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer';
+import type { FsFifoApi } from '@/engine/core/fs/types';
 import type {
   FsBenchmark,
   FsRequest,
@@ -9,9 +11,23 @@ import type {
   TranspileRequest,
 } from './protocol';
 
-export interface RuntimeFilesystem {
-  readFile(path: string, benchmark?: FsBenchmark): Promise<Uint8Array>;
-  writeFile(path: string, data: Uint8Array, benchmark?: FsBenchmark): Promise<void>;
+export interface RuntimeFilesystem
+  extends Pick<FsFifoApi, 'openFifo' | 'readFifo' | 'writeFifo' | 'closeFifo'> {
+  readFile(path: string, benchmark?: FsBenchmark, ownerId?: string): Promise<Uint8Array>;
+  writeFile(
+    path: string,
+    data: Uint8Array,
+    benchmark?: FsBenchmark,
+    ownerId?: string
+  ): Promise<void>;
+  writeRange(
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create: boolean,
+    exclusive: boolean,
+    benchmark?: FsBenchmark
+  ): Promise<number>;
   readdir(path: string, benchmark?: FsBenchmark): Promise<string[]>;
   stat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
   lstat(path: string, benchmark?: FsBenchmark): Promise<FsStat>;
@@ -30,11 +46,12 @@ export interface RuntimeFilesystem {
 async function executeFs(
   fs: RuntimeFilesystem,
   request: FsRequest,
+  runtimeId: string,
   benchmark?: FsBenchmark
 ): Promise<RpcValue> {
   switch (request.op) {
     case 'readFile':
-      return Array.from(await fs.readFile(request.path, benchmark));
+      return Buffer.from(await fs.readFile(request.path, benchmark, runtimeId)).toString('base64');
     case 'readdir':
       return fs.readdir(request.path, benchmark);
     case 'stat':
@@ -49,7 +66,30 @@ async function executeFs(
       await fs.symlink(request.target, request.path, benchmark);
       break;
     case 'writeFile':
-      await fs.writeFile(request.path, new Uint8Array(request.data), benchmark);
+      await fs.writeFile(request.path, Buffer.from(request.data, 'base64'), benchmark, runtimeId);
+      break;
+    case 'writeRange':
+      return fs.writeRange(
+        request.path,
+        Buffer.from(request.data, 'base64'),
+        request.position,
+        request.create,
+        request.exclusive,
+        benchmark
+      );
+    case 'fifoOpen':
+      await fs.openFifo(request.path, request.mode, request.endpointId, runtimeId, {
+        nonblocking: request.nonblocking,
+      });
+      break;
+    case 'fifoRead':
+      return Buffer.from(await fs.readFifo(request.endpointId, request.maxBytes)).toString(
+        'base64'
+      );
+    case 'fifoWrite':
+      return fs.writeFifo(request.endpointId, Buffer.from(request.data, 'base64'));
+    case 'fifoClose':
+      await fs.closeFifo(request.endpointId);
       break;
     case 'mkdir':
       await fs.mkdir(request.path, { recursive: request.recursive }, benchmark);
@@ -70,13 +110,13 @@ export function attachRuntimePort(
   transpile: (request: TranspileRequest) => Promise<RpcValue>
 ): void {
   port.onmessage = async (event: MessageEvent<RpcCall>) => {
-    const { id, request } = event.data;
+    const { id, request, runtimeId } = event.data;
     let result: RpcResult;
     let fsBenchmark: FsBenchmark | undefined;
     if (request.kind === 'fs' && request.benchmark) fsBenchmark = { queueMs: 0, coreMs: 0 };
     try {
       let value: RpcValue;
-      if (request.kind === 'fs') value = await executeFs(fs, request, fsBenchmark);
+      if (request.kind === 'fs') value = await executeFs(fs, request, runtimeId, fsBenchmark);
       else if (request.kind === 'transpile') value = await transpile(request);
       else throw new Error('Shell and stdin requests must be handled by main.');
       result = { ok: true, value };

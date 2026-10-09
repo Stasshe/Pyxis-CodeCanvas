@@ -1,10 +1,12 @@
 export type RuntimeLogLevel = 'info' | 'warn' | 'error';
 export type RuntimeLogSink = (message: string, level: RuntimeLogLevel) => void;
 
+const hostConsole = console;
+
 let sink: RuntimeLogSink = (message, level) => {
-  if (level === 'info') console.info(message);
-  if (level === 'warn') console.warn(message);
-  if (level === 'error') console.error(message);
+  if (level === 'info') hostConsole.info(message);
+  if (level === 'warn') hostConsole.warn(message);
+  if (level === 'error') hostConsole.error(message);
 };
 
 export function setRuntimeLogSink(next: RuntimeLogSink): void {

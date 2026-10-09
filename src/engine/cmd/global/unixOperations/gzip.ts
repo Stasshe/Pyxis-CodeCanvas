@@ -1,7 +1,7 @@
 import pako from 'pako';
-import { fsClient, resolvePath } from '@/engine/core/fs';
+import { resolvePath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 export class GzipCommand extends UnixCommandBase {
   async execute(args: string[] = []): Promise<string> {
@@ -22,14 +22,18 @@ export class GzipCommand extends UnixCommandBase {
     const force = flags.has('-f') || flags.has('--force');
     const verbose = flags.has('-v') || flags.has('--verbose');
     const results: string[] = [];
+    const errorsForFiles: string[] = [];
     for (const name of positional) {
       try {
         const result = await this.processFile(name, decompress, keep, force, verbose);
         if (result) results.push(result);
       } catch (error) {
-        results.push(`gzip: ${name}: ${error instanceof Error ? error.message : String(error)}`);
+        const message = error instanceof Error ? error.message : String(error);
+        errorsForFiles.push(`gzip: ${name}: ${message}`);
       }
     }
+    if (errorsForFiles.length > 0)
+      throw new UnixCommandFailure(errorsForFiles.join('\n'), 1, results.join('\n'));
     return results.join('\n');
   }
 
@@ -41,7 +45,7 @@ export class GzipCommand extends UnixCommandBase {
     verbose: boolean
   ): Promise<string> {
     const inputPath = resolvePath(this.currentDir, name);
-    const input = await fsClient.readFile(inputPath);
+    const input = await this.fs.readFile(inputPath);
     const outputName = decompress
       ? name.endsWith('.gz')
         ? name.slice(0, -3)
@@ -53,16 +57,26 @@ export class GzipCommand extends UnixCommandBase {
     if (!decompress && name.endsWith('.gz') && !force)
       throw new Error('already has .gz suffix -- unchanged');
     const outputPath = resolvePath(this.currentDir, outputName);
-    if (!force && (await fsClient.exists(outputPath)))
+    if (!force && (await this.fs.exists(outputPath)))
       throw new Error(`${outputName} already exists; not overwritten`);
 
     const output = decompress ? pako.ungzip(input) : pako.gzip(input);
-    await fsClient.writeFile(outputPath, output);
-    if (!keep) await fsClient.rm(inputPath);
+    await this.fs.writeFile(outputPath, output);
+    if (!keep) await this.fs.rm(inputPath);
     if (!verbose) return '';
-    const ratio = decompress
-      ? ((1 - input.length / output.length) * 100).toFixed(1)
-      : ((1 - output.length / input.length) * 100).toFixed(1);
+    let denominator = input.length;
+    let numerator = output.length;
+    if (decompress) {
+      denominator = output.length;
+      numerator = input.length;
+    }
+    let ratio = '0.0';
+    if (denominator === 0 && numerator > 0) {
+      ratio = '-Inf';
+    } else if (denominator > 0) {
+      const percent = (1 - numerator / denominator) * 100;
+      ratio = percent.toFixed(1);
+    }
     return `${name}:\t ${ratio}% -- ${keep ? 'kept' : 'replaced with'} ${outputName}`;
   }
 

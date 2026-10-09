@@ -1,7 +1,8 @@
 import git from 'isomorphic-git';
 import type { GitFs as FS } from '@/engine/core/fs/git';
 import { GitFileSystemHelper } from './fileSystemHelper';
-import { isRemoteRef, resolveRemoteRef, toFullRemoteRef } from './remoteUtils';
+import { assertNoMergeInProgress } from './mergeState';
+import { isRemoteRef, resolveRemoteRef } from './remoteUtils';
 
 export class GitCheckoutOperations {
   private fs: FS;
@@ -17,29 +18,27 @@ export class GitCheckoutOperations {
   }
 
   private async getCurrentBranch(): Promise<string> {
-    try {
-      return (await git.currentBranch({ fs: this.fs, dir: this.dir, fullname: false })) || 'HEAD';
-    } catch {
-      return 'HEAD';
-    }
+    return (await git.currentBranch({ fs: this.fs, dir: this.dir, fullname: false })) || 'HEAD';
   }
 
-  async checkout(branchName: string, createNew = false): Promise<string> {
+  async checkout(branchName: string, createNew = false, detach = false): Promise<string> {
     try {
       await this.ensureProjectDirectory();
 
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
       const currentBranch = await this.getCurrentBranch();
 
-      if (currentBranch === branchName && !createNew) {
+      if (currentBranch === branchName && !createNew && !detach) {
         return `Already on '${branchName}'`;
       }
 
+      await assertNoMergeInProgress(this.fs, this.dir);
       let targetCommitHash: string | undefined;
       let resolvedFromRemote = false;
       let resolvedFromLocal = false;
@@ -50,9 +49,18 @@ export class GitCheckoutOperations {
         } catch {
           throw new Error('Cannot create new branch - no commits found in current branch');
         }
-        await git.branch({ fs: this.fs, dir: this.dir, ref: branchName });
+        const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+        if (branches.includes(branchName)) throw new Error(`Branch '${branchName}' already exists`);
       } else {
-        if (isRemoteRef(branchName)) {
+        const localBranches = await git.listBranches({ fs: this.fs, dir: this.dir });
+        if (localBranches.includes(branchName)) {
+          targetCommitHash = await git.resolveRef({
+            fs: this.fs,
+            dir: this.dir,
+            ref: `refs/heads/${branchName}`,
+          });
+          resolvedFromLocal = true;
+        } else if (isRemoteRef(branchName)) {
           const remoteOid = await resolveRemoteRef(this.fs, this.dir, branchName);
           if (remoteOid) {
             targetCommitHash = remoteOid;
@@ -86,43 +94,45 @@ export class GitCheckoutOperations {
                 });
                 targetCommitHash = expandedOid;
               } catch {
-                try {
-                  const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
-                  throw new Error(
-                    `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
-                  );
-                } catch {
-                  throw new Error(
-                    `pathspec '${branchName}' did not match any file(s) known to git`
-                  );
-                }
+                const branches = await git.listBranches({ fs: this.fs, dir: this.dir });
+                throw new Error(
+                  `pathspec '${branchName}' did not match any file(s) known to git\nAvailable branches: ${branches.join(', ')}`
+                );
               }
             }
           }
         }
       }
 
-      let checkoutRef = targetCommitHash || branchName;
-      if (createNew || resolvedFromLocal) checkoutRef = branchName;
-
-      console.log('Executing git checkout (ref):', checkoutRef);
-      await git.checkout({ fs: this.fs, dir: this.dir, ref: checkoutRef });
-      console.log('Checkout completed');
-
-      if (!targetCommitHash) {
-        throw new Error(`Failed to resolve ref: ${branchName}`);
-      }
-
+      if (!targetCommitHash) throw new Error(`Failed to resolve ref: ${branchName}`);
       const targetCommit = await git.readCommit({
         fs: this.fs,
         dir: this.dir,
         oid: targetCommitHash,
       });
+      let checkoutRef = targetCommitHash;
+      if (resolvedFromLocal && !detach) checkoutRef = branchName;
+      await git.checkout({
+        fs: this.fs,
+        dir: this.dir,
+        ref: checkoutRef,
+        noUpdateHead: createNew,
+      });
+      if (createNew) {
+        await git.branch({
+          fs: this.fs,
+          dir: this.dir,
+          ref: branchName,
+          object: targetCommitHash,
+          checkout: true,
+        });
+      }
 
       let result = '';
       if (createNew) {
         result = `Switched to a new branch '${branchName}'`;
       } else if (
+        detach ||
         resolvedFromRemote ||
         (branchName.length >= 7 && branchName === targetCommitHash.slice(0, branchName.length))
       ) {

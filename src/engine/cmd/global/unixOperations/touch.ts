@@ -1,4 +1,3 @@
-import { fsClient } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -62,8 +61,8 @@ export class TouchCommand extends UnixCommandBase {
 
     if (existingFile) {
       // ファイルが存在する場合はタイムスタンプを更新
-      const content = await fsClient.readFile(normalizedPath);
-      await fsClient.writeFile(normalizedPath, content);
+      const content = await this.fs.readFile(normalizedPath);
+      await this.fs.writeFile(normalizedPath, content);
     } else {
       // ファイルが存在しない場合
       if (noCreate) {
@@ -82,7 +81,7 @@ export class TouchCommand extends UnixCommandBase {
       }
 
       // 空ファイルを作成
-      await fsClient.writeFile(normalizedPath, '');
+      await this.fs.writeFile(normalizedPath, '');
     }
   }
 }

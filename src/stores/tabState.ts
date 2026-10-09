@@ -2,6 +2,7 @@ export { tabActions } from './tabState/actions';
 export {
   addChangeListener,
   addSaveListener,
+  flushDirtyTabFiles,
   getContent,
   initTabSaveSync,
   isDirty,

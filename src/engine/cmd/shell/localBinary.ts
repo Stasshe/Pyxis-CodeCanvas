@@ -1,7 +1,6 @@
 import type { FsApi } from '@/engine/core/fs';
 import { getParentPath, resolvePath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
-import { ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
 import type { Process } from './process';
 
 export interface LocalBinaryOptions {
@@ -9,6 +8,7 @@ export interface LocalBinaryOptions {
   args: string[];
   rootPath: string;
   cwd: string;
+  env?: Record<string, string>;
   terminalColumns: number;
   terminalRows: number;
   fsClient: FsApi;
@@ -46,38 +46,33 @@ export async function runLocalBinary(options: LocalBinaryOptions): Promise<numbe
     process.writeStdout(`${values.map(value => String(value)).join(' ')}\n`);
   const writeConsoleError = (...values: unknown[]) =>
     process.writeStderr(`${values.map(value => String(value)).join(' ')}\n`);
-  terminalProcessBridge.activate();
-  try {
-    let processStdin = terminalProcessBridge.stdin;
-    if (process.stdinRedirected) processStdin = new ProcessStdin(process.stdinStream);
-    const result = await runtime.execute({
-      rootPath,
-      filePath,
-      cwd,
-      argv: args,
-      signal: options.signal,
-      subscribeInterrupt: handler => {
-        const listener = (signal: string) => {
-          if (signal === 'SIGINT') handler();
-        };
-        process.on('signal', listener);
-        return () => process.off('signal', listener);
-      },
-      debugConsole: {
-        log: writeConsole,
-        error: writeConsoleError,
-        warn: writeConsole,
-        clear: () => {},
-      },
-      processStdin,
-      terminalColumns,
-      terminalRows,
-      onStdout: data => process.writeStdout(data),
-      onStderr: data => process.writeStderr(data),
-    });
-    if (result.stderr) process.writeStderr(result.stderr);
-    return result.exitCode ?? 0;
-  } finally {
-    terminalProcessBridge.deactivate();
-  }
+  const result = await runtime.execute({
+    rootPath,
+    filePath,
+    cwd,
+    env: options.env,
+    argv: args,
+    signal: process.executionSignal(options.signal),
+    subscribeInterrupt: handler => {
+      const listener = (signal: string) => {
+        if (signal === 'SIGINT') handler();
+      };
+      return process.handleSignal(listener, ['SIGINT']);
+    },
+    debugConsole: {
+      log: writeConsole,
+      error: writeConsoleError,
+      warn: writeConsole,
+      clear: () => {},
+    },
+    processStdin: process.processStdin,
+    stdoutIsTTY: process.stdoutIsTTY,
+    stderrIsTTY: process.stderrIsTTY,
+    terminalColumns,
+    terminalRows,
+    onStdout: data => process.writeStdout(data),
+    onStderr: data => process.writeStderr(data),
+  });
+  if (result.stderr) process.writeStderr(result.stderr);
+  return result.exitCode ?? 0;
 }

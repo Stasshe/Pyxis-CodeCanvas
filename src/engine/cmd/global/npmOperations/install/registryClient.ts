@@ -11,6 +11,8 @@ const REGISTRY_ACCEPT = 'application/vnd.npm.install-v1+json';
 export interface RegistryVersion {
   dependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   dist?: { tarball?: string; integrity?: string };
   bin?: string | Record<string, string>;
   os?: string[];
@@ -190,6 +192,9 @@ function compactPackument(packument: RegistryPackument): RegistryPackument {
     if (metadata.dependencies) compactMetadata.dependencies = metadata.dependencies;
     if (metadata.optionalDependencies)
       compactMetadata.optionalDependencies = metadata.optionalDependencies;
+    if (metadata.peerDependencies) compactMetadata.peerDependencies = metadata.peerDependencies;
+    if (metadata.peerDependenciesMeta)
+      compactMetadata.peerDependenciesMeta = metadata.peerDependenciesMeta;
     if (metadata.bin) compactMetadata.bin = metadata.bin;
     if (metadata.os) compactMetadata.os = metadata.os;
     if (metadata.cpu) compactMetadata.cpu = metadata.cpu;

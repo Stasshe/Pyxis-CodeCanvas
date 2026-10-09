@@ -1,6 +1,7 @@
 import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { basename, fsClient, resolvePath } from '@/engine/core/fs';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
@@ -10,6 +11,7 @@ import type { FileItem } from '@/types';
 
 import FileTreeContextMenu from './FileTreeContextMenu';
 import FileTreeItem from './FileTreeItem';
+import { fileTreeErrorMessage, reportFileTreeError } from './fileTreeErrors';
 import type { ContextMenuState, FileTreeProps, FlattenedTreeItem } from './types';
 
 const ITEM_HEIGHT = 24;
@@ -73,14 +75,24 @@ export default function VirtualizedFileTree({
   onInternalFileDrop,
 }: FileTreeProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { openTab } = tabActions;
   const parentRef = useRef<HTMLDivElement>(null);
+  const rootPathRef = useRef(rootPath);
+  rootPathRef.current = rootPath;
 
   // State
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
+  const contextMenuRootPath = useRef(rootPath);
+
+  useEffect(() => {
+    if (contextMenuRootPath.current === rootPath) return;
+    contextMenuRootPath.current = rootPath;
+    setContextMenu(null);
+  }, [rootPath]);
 
   // Touch long-press handling
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -242,15 +254,43 @@ export default function VirtualizedFileTree({
       const files = e.dataTransfer.files;
       if (!files || files.length === 0) return;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const absolutePath = resolvePath(targetPath ?? rootPath, file.name);
-        await importSingleFile(file, absolutePath);
+      const dropRootPath = rootPath;
+      try {
+        const destinationDirectory = targetPath ?? dropRootPath;
+        if (!isPathWithinRoot(destinationDirectory, dropRootPath)) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        for (const file of Array.from(files)) {
+          if (rootPathRef.current !== dropRootPath) {
+            throw new Error(t('fileTree.alert.workspaceChanged'));
+          }
+          const absolutePath = resolvePath(destinationDirectory, file.name);
+          if (rootPathRef.current !== dropRootPath) {
+            throw new Error(t('fileTree.alert.workspaceChanged'));
+          }
+          await importSingleFile(
+            file,
+            absolutePath,
+            t('fileTree.alert.destinationExists', { params: { path: absolutePath } }),
+            () => rootPathRef.current === dropRootPath,
+            t('fileTree.alert.workspaceChanged')
+          );
+        }
+        if (onRefresh) setTimeout(onRefresh, 100);
+      } catch (error) {
+        reportFileTreeError(
+          t('fileTree.alert.operationFailed', {
+            params: {
+              action: t('fileTree.action.import'),
+              error: fileTreeErrorMessage(error, path =>
+                t('fileTree.alert.destinationExists', { params: { path } })
+              ),
+            },
+          })
+        );
       }
-
-      if (onRefresh) setTimeout(onRefresh, 100);
     },
-    [rootPath, onRefresh]
+    [rootPath, onRefresh, t]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -264,18 +304,45 @@ export default function VirtualizedFileTree({
   // Internal file drop handler (drag-and-drop between items)
   const internalDropHandler = useCallback(
     async (draggedItem: FileItem, targetFolderPath: string) => {
+      const operationRootPath = rootPath;
       if (draggedItem.path === targetFolderPath) return;
       if (targetFolderPath.startsWith(`${draggedItem.path}/`)) return;
 
       try {
+        if (
+          rootPathRef.current !== operationRootPath ||
+          !isPathWithinRoot(draggedItem.path, operationRootPath) ||
+          !isPathWithinRoot(targetFolderPath, operationRootPath)
+        ) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
         const newPath = resolvePath(targetFolderPath, basename(draggedItem.path));
-        await fsClient.rename(draggedItem.path, newPath);
+        if (await fsClient.exists(newPath)) {
+          throw new Error(t('fileTree.alert.destinationExists', { params: { path: newPath } }));
+        }
+        if (
+          rootPathRef.current !== operationRootPath ||
+          !isPathWithinRoot(draggedItem.path, operationRootPath) ||
+          !isPathWithinRoot(targetFolderPath, operationRootPath)
+        ) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        await fsClient.rename(draggedItem.path, newPath, { overwrite: false });
         if (onRefresh) setTimeout(onRefresh, 100);
       } catch (error) {
-        console.error('[FileTree] Failed to move file:', error);
+        reportFileTreeError(
+          t('fileTree.alert.operationFailed', {
+            params: {
+              action: t('fileTree.action.move'),
+              error: fileTreeErrorMessage(error, path =>
+                t('fileTree.alert.destinationExists', { params: { path } })
+              ),
+            },
+          })
+        );
       }
     },
-    [onRefresh]
+    [onRefresh, rootPath, t]
   );
 
   const virtualItems = virtualizer.getVirtualItems();
@@ -391,4 +458,8 @@ export default function VirtualizedFileTree({
       )}
     </div>
   );
+}
+
+function isPathWithinRoot(path: string, rootPath: string): boolean {
+  return path === rootPath || path.startsWith(`${rootPath.replace(/\/$/, '')}/`);
 }

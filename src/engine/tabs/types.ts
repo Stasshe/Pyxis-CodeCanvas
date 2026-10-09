@@ -280,6 +280,11 @@ export interface TabTypeDefinition {
   canPreview: boolean;
   component: React.ComponentType<TabComponentProps>;
   createTab: (file: TabFileInfo, options?: OpenTabOptions) => Tab;
+  onClose?: (tab: Tab) => void | Promise<void>;
+  /** Whether this tab has metadata or draft changes that must be persisted before closing. */
+  hasPendingChanges?: (tab: Tab) => boolean;
+  /** Persist pending metadata or draft changes before a destructive workspace operation. */
+  flushPendingChanges?: (tab: Tab) => Promise<void>;
   shouldReuseTab?: (existingTab: Tab, newFile: TabFileInfo, options?: OpenTabOptions) => boolean;
   /**
    * コンテンツ更新メソッド - タブのコンテンツを更新して新しいタブオブジェクトを返す
@@ -347,21 +352,4 @@ export interface EditorPane {
  */
 export function hasContent(tab: Tab): tab is EditorTab | PreviewTab {
   return tab.kind === 'editor' || tab.kind === 'preview';
-}
-
-/**
- * 型ガード: bufferContentプロパティを持つタブ
- */
-export function hasBufferContent(tab: Tab): tab is EditorTab | BinaryTab {
-  return (
-    (tab.kind === 'editor' && 'bufferContent' in tab) ||
-    (tab.kind === 'binary' && 'bufferContent' in tab)
-  );
-}
-
-/**
- * 型ガード: jumpToLineプロパティを持つタブ
- */
-export function hasJumpToLine(tab: Tab): tab is EditorTab {
-  return tab.kind === 'editor';
 }

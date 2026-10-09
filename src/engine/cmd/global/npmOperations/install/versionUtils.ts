@@ -1,9 +1,18 @@
-import { maxSatisfying, satisfies } from 'semver';
+import { maxSatisfying, satisfies, validRange } from 'semver';
 
 export function satisfiesVersionSpec(version: string, spec: string): boolean {
   const range = spec.trim();
   if (!range || range === 'latest') return true;
   return satisfies(version, range);
+}
+
+export function matchesLockedVersion(version: string, spec: string): boolean {
+  if (validRange(spec.trim())) return satisfiesVersionSpec(version, spec);
+  return /^[A-Za-z][A-Za-z0-9._-]*$/.test(spec);
+}
+
+export function isVersionRange(spec: string): boolean {
+  return Boolean(validRange(spec.trim()));
 }
 
 export function resolveVersionSpec(

@@ -25,6 +25,14 @@ interface Props {
   onClose: (tabId: string) => void;
 }
 
+interface TabDragItem {
+  type: typeof DND_TAB;
+  tabId: string;
+  fromPaneId: string;
+  index: number;
+  tabName: string;
+}
+
 function DraggableTabInner({
   tab,
   tabIndex,
@@ -74,7 +82,7 @@ function DraggableTabInner({
     dragOverSideRef.current = dragOverSide;
   }, [dragOverSide]);
 
-  const [{ isDragging }, dragRef] = useDrag(
+  const [{ isDragging }, dragRef] = useDrag<TabDragItem, void, { isDragging: boolean }>(
     () => ({
       type: DND_TAB,
       item: {
@@ -84,17 +92,16 @@ function DraggableTabInner({
         index: tabIndex,
         tabName: tab.name,
       },
-      collect: (monitor: any) => ({ isDragging: monitor.isDragging() }),
+      collect: monitor => ({ isDragging: monitor.isDragging() }),
     }),
     [tab.id, paneId, tabIndex, tab.name]
   );
 
-  const [{ isOver }, tabDrop] = useDrop(
+  const [{ isOver }, tabDrop] = useDrop<TabDragItem, void, { isOver: boolean }>(
     () => ({
       accept: DND_TAB,
-      drop: (item: any, monitor: any) => {
-        if (!item?.tabId) return;
-        if (monitor && !monitor.isOver({ shallow: true })) return;
+      drop: (item, monitor) => {
+        if (!monitor.isOver({ shallow: true })) return;
         if (item.tabId === tab.id) return;
 
         const fromPane = item.fromPaneId;
@@ -119,7 +126,9 @@ function DraggableTabInner({
         }
 
         const rect = ref.current.getBoundingClientRect();
-        const clientX = (monitor.getClientOffset() as any).x;
+        const clientOffset = monitor.getClientOffset();
+        if (!clientOffset) return;
+        const clientX = clientOffset.x;
         const middleX = (rect.right - rect.left) / 2;
         const relativeX = clientX - rect.left;
 

@@ -32,6 +32,7 @@ class GitHubUserManager {
   private static instance: GitHubUserManager;
   private user: GitHubUser | null = null;
   private fetchPromise: Promise<GitHubUser | null> | null = null;
+  private requestGeneration = 0;
   private lastFetchTime = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5分間キャッシュ
 
@@ -63,23 +64,28 @@ class GitHubUserManager {
     }
 
     // 新規取得
-    this.fetchPromise = this.fetchUserInfo();
-    const user = await this.fetchPromise;
-    this.fetchPromise = null;
-
-    return user;
+    const generation = this.requestGeneration;
+    const request = this.fetchUserInfo(generation);
+    this.fetchPromise = request;
+    try {
+      return await request;
+    } finally {
+      if (this.fetchPromise === request) this.fetchPromise = null;
+    }
   }
 
   /**
    * GitHub APIからユーザー情報を取得
    */
-  private async fetchUserInfo(): Promise<GitHubUser | null> {
+  private async fetchUserInfo(generation: number): Promise<GitHubUser | null> {
     try {
       const token = await authRepository.getAccessToken();
       if (!token) {
         console.log('[GitHubUserManager] No token, clearing user');
-        this.user = null;
-        this.lastFetchTime = 0;
+        if (generation === this.requestGeneration) {
+          this.user = null;
+          this.lastFetchTime = 0;
+        }
         return null;
       }
 
@@ -99,14 +105,18 @@ class GitHubUserManager {
       const userData: GitHubUser = await response.json();
       console.log('[GitHubUserManager] User info fetched:', userData.login);
 
-      this.user = userData;
-      this.lastFetchTime = Date.now();
-
-      return userData;
+      if (generation === this.requestGeneration) {
+        this.user = userData;
+        this.lastFetchTime = Date.now();
+        return userData;
+      }
+      return null;
     } catch (error) {
       console.error('[GitHubUserManager] Failed to fetch user:', error);
-      this.user = null;
-      this.lastFetchTime = 0;
+      if (generation === this.requestGeneration) {
+        this.user = null;
+        this.lastFetchTime = 0;
+      }
       return null;
     }
   }
@@ -136,6 +146,7 @@ class GitHubUserManager {
    */
   clearCache(): void {
     console.log('[GitHubUserManager] Clearing cache');
+    this.requestGeneration += 1;
     this.user = null;
     this.lastFetchTime = 0;
     this.fetchPromise = null;

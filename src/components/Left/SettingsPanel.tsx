@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, Keyboard } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
@@ -31,6 +31,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
   // テキストエリア用のローカル状態 (改行入力を妨げないため)
   const [searchExcludeText, setSearchExcludeText] = useState('');
   const [filesExcludeText, setFilesExcludeText] = useState('');
+  const configuredTheme = useRef<string | null>(null);
 
   // テーマカラー個別設定 折りたたみ
   const [showColorSettings, setShowColorSettings] = useState(false);
@@ -43,6 +44,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
       try {
         const loadedSettings = await settingsManager.loadSettings(currentProject.rootPath);
         setSettings(loadedSettings);
+        configuredTheme.current = loadedSettings.theme.colorTheme;
 
         // textarea 用の初期値をセット
         setSearchExcludeText((loadedSettings.search?.exclude || []).join('\n'));
@@ -83,9 +85,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ currentProject }) => {
     const unsubscribe = settingsManager.addListener(currentProject.rootPath, newSettings => {
       setSettings(newSettings);
 
-      // テーマをまず更新（基礎テーマに戻す）
-      setTheme(newSettings.theme.colorTheme);
-      // highlightTheme removed: no-op
+      if (
+        configuredTheme.current !== null &&
+        configuredTheme.current !== newSettings.theme.colorTheme
+      ) {
+        setTheme(newSettings.theme.colorTheme);
+      }
+      configuredTheme.current = newSettings.theme.colorTheme;
 
       // settings に保存された customColors があれば、基礎テーマ適用後に上書きして再適用する
       // これにより、保存→通知で基礎テーマに戻される際のフリッカーを防ぐ

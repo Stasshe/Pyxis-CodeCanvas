@@ -7,37 +7,30 @@ import type { TranspilerDescriptor } from '@/engine/runtime/core/RuntimeProvider
 import { TranspileManager } from '@/engine/runtime/transpiler/transpileManager';
 import { FsCore } from './core';
 import { registerFsErrors } from './errors';
+import { queueRootOperation } from './locks';
 import { type SearchRequest, searchFiles } from './search';
-import type { FsChangeEvent, MkdirOptions, RmOptions } from './types';
+import type {
+  FifoMode,
+  FifoOpenOptions,
+  FsChangeEvent,
+  MkdirOptions,
+  RenameOptions,
+  RmOptions,
+} from './types';
 import { createWorkspace, ensureDemoWorkspace } from './workspace';
 
 registerFsErrors();
 
 const core = new FsCore();
 const transpileManager = new TranspileManager(core);
-let queue: Promise<void> = Promise.resolve();
-
-/** Client endpoints share a queue; direct services use Core access-handle locks. */
-function run<T>(operation: () => Promise<T>, benchmark?: FsBenchmark): Promise<T> {
-  let queuedOperation = operation;
-  if (benchmark) {
-    const enteredAt = performance.now();
-    queuedOperation = async () => {
-      const startedAt = performance.now();
-      benchmark.queueMs += startedAt - enteredAt;
-      try {
-        return await operation();
-      } finally {
-        benchmark.coreMs += performance.now() - startedAt;
-      }
-    };
+/** Core leases protect each filesystem operation; network waits never block editor I/O. */
+async function run<T>(operation: () => Promise<T>, benchmark?: FsBenchmark): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    if (benchmark) benchmark.coreMs += performance.now() - startedAt;
   }
-  const result = queue.then(queuedOperation);
-  queue = result.then(
-    () => {},
-    () => {}
-  );
-  return result;
 }
 
 const api = {
@@ -45,10 +38,36 @@ const api = {
     core.setChangeListener(onChange);
     await run(() => core.init());
   },
-  readFile: (path: string, benchmark?: FsBenchmark) => run(() => core.readFile(path), benchmark),
-  readText: (path: string) => run(() => core.readText(path)),
-  writeFile: (path: string, data: string | Uint8Array, benchmark?: FsBenchmark) =>
-    run(() => core.writeFile(path, data), benchmark),
+  readFile: (path: string, benchmark?: FsBenchmark, ownerId?: string) =>
+    run(() => core.readFile(path, ownerId), benchmark),
+  readText: (path: string, ownerId?: string) => run(() => core.readText(path, ownerId)),
+  writeFile: (path: string, data: string | Uint8Array, benchmark?: FsBenchmark, ownerId?: string) =>
+    run(() => core.writeFile(path, data, true, ownerId), benchmark),
+  mkfifo: (path: string) => run(() => core.mkfifo(path)),
+  createPipe: (readOwnerId: string, writeOwnerId: string) =>
+    run(() => core.createPipe(readOwnerId, writeOwnerId)),
+  getDescriptorPath: (endpointId: string) => run(() => core.getDescriptorPath(endpointId)),
+  openFifo: (
+    path: string,
+    mode: FifoMode,
+    endpointId: string,
+    ownerId: string,
+    options?: FifoOpenOptions
+  ) => run(() => core.openFifo(path, mode, endpointId, ownerId, options)),
+  readFifo: (endpointId: string, maxBytes: number) =>
+    run(() => core.readFifo(endpointId, maxBytes)),
+  writeFifo: (endpointId: string, bytes: Uint8Array) =>
+    run(() => core.writeFifo(endpointId, bytes)),
+  closeFifo: (endpointId: string) => run(() => core.closeFifo(endpointId)),
+  closeFifos: (ownerId: string) => run(() => core.closeFifos(ownerId)),
+  writeRange: (
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create = false,
+    exclusive = false,
+    benchmark?: FsBenchmark
+  ) => run(() => core.writeRange(path, data, position, create, exclusive), benchmark),
   readdir: (path: string, benchmark?: FsBenchmark) => run(() => core.readdir(path), benchmark),
   stat: (path: string, benchmark?: FsBenchmark) => run(() => core.stat(path), benchmark),
   lstat: (path: string, benchmark?: FsBenchmark) => run(() => core.lstat(path), benchmark),
@@ -60,8 +79,8 @@ const api = {
     run(() => core.mkdir(path, options), benchmark),
   rm: (path: string, options?: RmOptions, benchmark?: FsBenchmark) =>
     run(() => core.rm(path, options), benchmark),
-  rename: (oldPath: string, newPath: string, benchmark?: FsBenchmark) =>
-    run(() => core.rename(oldPath, newPath), benchmark),
+  rename: (oldPath: string, newPath: string, benchmark?: FsBenchmark, options?: RenameOptions) =>
+    run(() => core.rename(oldPath, newPath, options), benchmark),
   walk: (root: string) => run(() => core.walk(root)),
   exists: (path: string) => run(() => core.exists(path)),
   createWorkspace: (name: string) => run(() => createWorkspace(core, name)),
@@ -70,11 +89,6 @@ const api = {
     transpileManager.configureTranspilers(descriptors);
   },
   search: (root: string, request: SearchRequest) => run(() => searchFiles(core, root, request)),
-  createPort(): MessagePort {
-    const channel = new MessageChannel();
-    Comlink.expose(api, channel.port1);
-    return Comlink.transfer(channel.port2, [channel.port2]);
-  },
   createRuntimePort(): MessagePort {
     const channel = new MessageChannel();
     attachRuntimePort(
@@ -82,6 +96,11 @@ const api = {
       {
         readFile: api.readFile,
         writeFile: api.writeFile,
+        openFifo: api.openFifo,
+        readFifo: api.readFifo,
+        writeFifo: api.writeFifo,
+        closeFifo: api.closeFifo,
+        writeRange: api.writeRange,
         mkdir: api.mkdir,
         rm: api.rm,
         rename: api.rename,
@@ -93,6 +112,8 @@ const api = {
           let type: FsStat['type'] = 'file';
           if (entry.type === 'folder') type = 'directory';
           else if (entry.type === 'symlink') type = 'symlink';
+          else if (entry.type === 'fifo') type = 'fifo';
+          else if (entry.type === 'characterDevice') type = 'characterDevice';
           return { type, size: entry.size, mtime: entry.mtime };
         },
         async readdir(path, benchmark) {
@@ -104,6 +125,8 @@ const api = {
           const entry = await api.stat(path, benchmark);
           let type: FsStat['type'] = 'file';
           if (entry.type === 'folder') type = 'directory';
+          else if (entry.type === 'fifo') type = 'fifo';
+          else if (entry.type === 'characterDevice') type = 'characterDevice';
           return { type, size: entry.size, mtime: entry.mtime };
         },
       },
@@ -112,17 +135,21 @@ const api = {
     return Comlink.transfer(channel.port2, [channel.port2]);
   },
   getGit(root: string) {
-    return Comlink.proxy(new QueuedGitCommands(core, root, run));
+    return Comlink.proxy(new QueuedGitCommands(core, root));
   },
   getNpm(rootPath: string) {
     const npm = new WorkerNpmCommands(core, rootPath);
+    const schedule = <T>(operation: () => Promise<T>) =>
+      core.withPinnedRoot(rootPath, root => queueRootOperation(core, `npm:${root}`, operation));
     return Comlink.proxy({
       install: (...args: Parameters<WorkerNpmCommands['install']>) =>
-        run(() => npm.install(...args)),
+        schedule(() => npm.install(...args)),
+      installPackages: (...args: Parameters<WorkerNpmCommands['installPackages']>) =>
+        schedule(() => npm.installPackages(...args)),
       uninstall: (...args: Parameters<WorkerNpmCommands['uninstall']>) =>
-        run(() => npm.uninstall(...args)),
-      list: (...args: Parameters<WorkerNpmCommands['list']>) => run(() => npm.list(...args)),
-      init: (...args: Parameters<WorkerNpmCommands['init']>) => run(() => npm.init(...args)),
+        schedule(() => npm.uninstall(...args)),
+      list: (...args: Parameters<WorkerNpmCommands['list']>) => schedule(() => npm.list(...args)),
+      init: (...args: Parameters<WorkerNpmCommands['init']>) => schedule(() => npm.init(...args)),
     });
   },
 };

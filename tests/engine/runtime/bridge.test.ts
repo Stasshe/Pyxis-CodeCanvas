@@ -87,12 +87,16 @@ async function loadServiceWorker(): Promise<void> {
   await import('@/engine/runtime/bridge/serviceWorker.js');
 }
 
-function dispatchMessage(data: WorkerEvent['data'], ports: FakePort[] = []): void {
+function dispatchMessage(
+  data: WorkerEvent['data'],
+  ports: FakePort[] = [],
+  sourceId = 'owner'
+): void {
   const listener = listeners.get('message');
   if (!listener) throw new Error('Service worker message listener is missing.');
   listener({
     data,
-    source: { id: 'owner' },
+    source: { id: sourceId },
     ports,
     request: new Request('https://pyxis.test/'),
     respondWith() {},
@@ -174,7 +178,7 @@ describe('runtime service worker bridge', () => {
     const port = new FakePort();
     port.onPostMessage = message => {
       if (!('request' in message)) return;
-      port.emit({ id: message.id, result: { ok: true, value: [65] } });
+      port.emit({ id: message.id, result: { ok: true, value: 'QQ==' } });
     };
     let requestedPort = false;
     windowClients = [
@@ -193,8 +197,8 @@ describe('runtime service worker bridge', () => {
     const results = await Promise.all([firstPoll, secondPoll]);
 
     expect(port.messages.filter(message => 'request' in message)).toHaveLength(1);
-    await expect(responseResult(results[0])).resolves.toEqual({ ok: true, value: [65] });
-    await expect(responseResult(results[1])).resolves.toEqual({ ok: true, value: [65] });
+    await expect(responseResult(results[0])).resolves.toEqual({ ok: true, value: 'QQ==' });
+    await expect(responseResult(results[1])).resolves.toEqual({ ok: true, value: 'QQ==' });
   });
 
   it('cancels a pending sync request when its runtime closes', async () => {
@@ -307,6 +311,35 @@ describe('runtime service worker bridge', () => {
     });
   });
 
+  it('forwards a per-call cancellation to the host window', async () => {
+    const ownerMessages: string[] = [];
+    let hostCall: RpcCall | undefined;
+    windowClients = [
+      {
+        id: 'owner',
+        postMessage(message) {
+          ownerMessages.push(message.type);
+          if (message.type === 'runtime-host-call') hostCall = message.call;
+        },
+      },
+    ];
+    connectPort(new FakePort());
+
+    const pendingRead = read({
+      id: 'cancel-shell',
+      runtimeId: 'runtime-1',
+      request: { kind: 'shell', command: 'npm install', cwd: '/workspace' },
+    });
+    await vi.waitFor(() => expect(hostCall?.id).toBe('cancel-shell'));
+    dispatchMessage({ type: 'runtime-cancel', runtimeId: 'runtime-1', callId: 'cancel-shell' });
+
+    await expect(responseResult(await pendingRead)).resolves.toEqual({
+      ok: false,
+      error: 'Runtime closed.',
+    });
+    await vi.waitFor(() => expect(ownerMessages).toContain('runtime-host-cancel'));
+  });
+
   it('keeps an in-flight filesystem reply across port replacement and isolates a retired port error', async () => {
     const oldPort = new FakePort();
     connectPort(oldPort);
@@ -336,26 +369,36 @@ describe('runtime service worker bridge', () => {
     expect(newResult).toEqual({ ok: true, value: [78] });
   });
 
-  it('fails a reconnect request when the owning window reports that it cannot provide a port', async () => {
-    const clientMessages: string[] = [];
+  it('ignores non-owner port errors while waiting for the filesystem owner', async () => {
+    const ownerMessages: string[] = [];
+    const blockedMessages: string[] = [];
+    const port = new FakePort();
+    port.onPostMessage = message => {
+      if (!('request' in message)) return;
+      port.emit({ id: message.id, result: { ok: true, value: 'QQ==' } });
+    };
     windowClients = [
+      {
+        id: 'blocked',
+        postMessage(message) {
+          blockedMessages.push(message.type);
+          if (message.type === 'runtime-request-fs-port') {
+            dispatchMessage({ type: 'runtime-fs-port-error' }, [], 'blocked');
+          }
+        },
+      },
       {
         id: 'owner',
         postMessage(message) {
-          clientMessages.push(message.type);
+          ownerMessages.push(message.type);
+          if (message.type === 'runtime-request-fs-port') connectPort(port);
         },
       },
     ];
-    vi.useFakeTimers();
     const pendingRead = read(fsCall('handoff-failed'));
-    await vi.waitFor(() => expect(clientMessages).toEqual(['runtime-request-fs-port']));
-
-    dispatchMessage({ type: 'runtime-fs-port-error' });
-
-    await expect(responseResult(await pendingRead)).resolves.toEqual({
-      ok: false,
-      error: 'Error: Runtime filesystem port is unavailable.',
-    });
+    await expect(responseResult(await pendingRead)).resolves.toEqual({ ok: true, value: 'QQ==' });
+    expect(blockedMessages).toEqual(['runtime-request-fs-port']);
+    expect(ownerMessages).toEqual(['runtime-request-fs-port']);
   });
 
   it('bounds waiting for a filesystem port when the owner never responds', async () => {

@@ -1,14 +1,26 @@
 import * as Comlink from 'comlink';
 import type { TranspilerDescriptor } from '@/engine/runtime/core/RuntimeProvider';
 import type { ProjectFile } from '@/types';
-import { registerFsErrors } from './errors';
+import { FSError, registerFsErrors } from './errors';
+import { type ScopedFsApi, scopedFs } from './scoped';
 import type { SearchRequest, SearchResult } from './search';
-import type { FsApi, FsChangeEvent, MkdirOptions, RmOptions } from './types';
+import type {
+  FifoMode,
+  FifoOpenOptions,
+  FsApi,
+  FsChangeEvent,
+  FsFifoApi,
+  FsWriteApi,
+  MkdirOptions,
+  PipePaths,
+  RenameOptions,
+  RmOptions,
+} from './types';
 import type { FsWorkerApi } from './worker';
 
 registerFsErrors();
 
-export class FsClient implements FsApi {
+export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
   private worker: Worker | null = null;
   private remote: Comlink.Remote<FsWorkerApi> | null = null;
   private initialization: Promise<void> | null = null;
@@ -63,14 +75,71 @@ export class FsClient implements FsApi {
     return this.remote;
   }
 
-  async readFile(path: string): Promise<Uint8Array> {
-    return (await this.api()).readFile(path);
+  scoped(ownerId: string): ScopedFsApi {
+    return scopedFs(this, ownerId);
   }
-  async readText(path: string): Promise<string> {
-    return (await this.api()).readText(path);
+
+  async readFile(path: string, ownerId?: string, signal?: AbortSignal): Promise<Uint8Array> {
+    const api = await this.api();
+    if (signal?.aborted) throw new FSError('EINTR', path);
+    return api.readFile(path, undefined, ownerId);
   }
-  async writeFile(path: string, data: string | Uint8Array): Promise<void> {
-    await (await this.api()).writeFile(path, data);
+  async readText(path: string, ownerId?: string, signal?: AbortSignal): Promise<string> {
+    const api = await this.api();
+    if (signal?.aborted) throw new FSError('EINTR', path);
+    return api.readText(path, ownerId);
+  }
+  async writeFile(
+    path: string,
+    data: string | Uint8Array,
+    ownerId?: string,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const api = await this.api();
+    if (signal?.aborted) throw new FSError('EINTR', path);
+    await api.writeFile(path, data, undefined, ownerId);
+  }
+  async mkfifo(path: string): Promise<void> {
+    await (await this.api()).mkfifo(path);
+  }
+  async createPipe(readOwnerId: string, writeOwnerId: string): Promise<PipePaths> {
+    return (await this.api()).createPipe(readOwnerId, writeOwnerId);
+  }
+  async getDescriptorPath(endpointId: string): Promise<string> {
+    return (await this.api()).getDescriptorPath(endpointId);
+  }
+  async openFifo(
+    path: string,
+    mode: FifoMode,
+    endpointId: string,
+    ownerId: string,
+    options?: FifoOpenOptions,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const api = await this.api();
+    if (signal?.aborted) throw new FSError('EINTR', path);
+    await api.openFifo(path, mode, endpointId, ownerId, options);
+  }
+  async readFifo(endpointId: string, maxBytes: number): Promise<Uint8Array> {
+    return (await this.api()).readFifo(endpointId, maxBytes);
+  }
+  async writeFifo(endpointId: string, bytes: Uint8Array): Promise<number> {
+    return (await this.api()).writeFifo(endpointId, bytes);
+  }
+  async closeFifo(endpointId: string): Promise<void> {
+    await (await this.api()).closeFifo(endpointId);
+  }
+  async closeFifos(ownerId: string): Promise<void> {
+    await (await this.api()).closeFifos(ownerId);
+  }
+  async writeRange(
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create = false,
+    exclusive = false
+  ): Promise<number> {
+    return (await this.api()).writeRange(path, data, position, create, exclusive);
   }
   async readdir(path: string): Promise<ProjectFile[]> {
     return (await this.api()).readdir(path);
@@ -96,8 +165,8 @@ export class FsClient implements FsApi {
   async rm(path: string, options?: RmOptions): Promise<void> {
     await (await this.api()).rm(path, options);
   }
-  async rename(oldPath: string, newPath: string): Promise<void> {
-    await (await this.api()).rename(oldPath, newPath);
+  async rename(oldPath: string, newPath: string, options?: RenameOptions): Promise<void> {
+    await (await this.api()).rename(oldPath, newPath, undefined, options);
   }
   async walk(root: string): Promise<ProjectFile[]> {
     return (await this.api()).walk(root);
@@ -125,20 +194,11 @@ export class FsClient implements FsApi {
     return (await this.api()).createRuntimePort();
   }
 
-  async createPort(): Promise<MessagePort> {
-    return (await this.api()).createPort();
-  }
-
   async getNpm(rootPath: string) {
     return (await this.api()).getNpm(rootPath);
   }
   async getGit(root: string) {
     return (await this.api()).getGit(root);
-  }
-
-  getWorker(): Worker {
-    if (!this.worker) throw new Error('Initialize the filesystem before accessing its worker.');
-    return this.worker;
   }
 
   addChangeListener(listener: (event: FsChangeEvent) => void): () => void {

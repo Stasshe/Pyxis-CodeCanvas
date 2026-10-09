@@ -1,7 +1,7 @@
 import { posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import { fnmatch, parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 /**
  * ls - ディレクトリの内容を表示 (POSIX/GNU準拠)
@@ -27,7 +27,7 @@ import { UnixCommandBase } from './base';
  *   -s, --size          ブロックサイズを表示
  */
 export class LsCommand extends UnixCommandBase {
-  async execute(args: string[]): Promise<string> {
+  async execute(args: string[], outputTTY = false): Promise<string> {
     const optstring = 'aAlhRtSr1dFpi s';
     const longopts = [
       'all',
@@ -40,6 +40,7 @@ export class LsCommand extends UnixCommandBase {
       'color',
       'inode',
       'size',
+      'help',
     ];
     const { flags, positional, errors } = parseWithGetOpt(
       args,
@@ -61,15 +62,17 @@ export class LsCommand extends UnixCommandBase {
     const sortByTime = flags.has('-t');
     const sortBySize = flags.has('-S');
     const reverseSort = flags.has('-r') || flags.has('--reverse');
-    const onePerLine = flags.has('-1');
+    const onePerLine = flags.has('-1') || !outputTTY;
     const dirOnly = flags.has('-d') || flags.has('--directory');
     const classify = flags.has('-F') || flags.has('--classify');
     const slashDir = flags.has('-p');
     const showInode = flags.has('-i') || flags.has('--inode');
     const showBlocks = flags.has('-s') || flags.has('--size');
+    if (showInode) throw new Error('ls: inode numbers are not available');
 
     const targets = positional.length > 0 ? positional : ['.'];
     const results: string[] = [];
+    const failures: string[] = [];
 
     for (const target of targets) {
       const path = this.resolvePath(target);
@@ -86,17 +89,20 @@ export class LsCommand extends UnixCommandBase {
           dirOnly,
           classify,
           slashDir,
-          showInode,
           showBlocks,
           showHeader: targets.length > 1 || recursive,
         });
         results.push(result);
       } catch (error) {
-        throw new Error(`ls: cannot access '${path}': ${(error as Error).message}`);
+        let reason = String(error);
+        if (error instanceof Error) reason = error.message;
+        failures.push(`ls: cannot access '${target}': ${reason}`);
       }
     }
 
-    return results.join('\n\n');
+    const output = results.filter(result => result !== '').join('\n\n');
+    if (failures.length > 0) throw new UnixCommandFailure(failures.join('\n'), 2, output);
+    return output;
   }
 
   /**
@@ -116,13 +122,14 @@ export class LsCommand extends UnixCommandBase {
       dirOnly: boolean;
       classify: boolean;
       slashDir: boolean;
-      showInode: boolean;
       showBlocks: boolean;
       showHeader: boolean;
     }
   ): Promise<string> {
     const normalizedPath = path;
-    const isDir = await this.isDirectory(normalizedPath);
+    const entry = await this.getFile(normalizedPath);
+    if (!entry) throw new Error('No such file or directory');
+    const isDir = entry.type === 'folder';
 
     // -d: ディレクトリ自体を表示
     if (opts.dirOnly || !isDir) {
@@ -130,7 +137,8 @@ export class LsCommand extends UnixCommandBase {
         return await this.formatLongEntry(normalizedPath, opts);
       }
       const name = posixPath.basename(normalizedPath) || normalizedPath;
-      return this.formatName(name, isDir, opts);
+      const metadata = await this.fs.lstat(normalizedPath);
+      return this.formatName(name, metadata.type, opts);
     }
 
     // ディレクトリの場合
@@ -172,7 +180,7 @@ export class LsCommand extends UnixCommandBase {
     } else {
       const names = entries.map(e => {
         const name = posixPath.basename(e.path);
-        return this.formatName(name, e.type === 'folder', opts);
+        return this.formatName(name, e.type, opts);
       });
 
       if (opts.onePerLine || names.some(n => n.length > 20)) {
@@ -245,16 +253,18 @@ export class LsCommand extends UnixCommandBase {
    */
   private formatName(
     name: string,
-    isDir: boolean,
+    type: ProjectFile['type'],
     opts: {
       classify: boolean;
       slashDir: boolean;
     }
   ): string {
     let result = name;
-    if (isDir && (opts.classify || opts.slashDir)) {
+    if (type === 'symlink' && opts.classify) {
+      result += '@';
+    } else if (type === 'folder' && (opts.classify || opts.slashDir)) {
       result += '/';
-    } else if (opts.classify) {
+    } else if (type !== 'folder' && type !== 'symlink' && opts.classify) {
       // 実行可能ファイルには * を付ける（ここではスキップ）
     }
     return result;
@@ -285,34 +295,39 @@ export class LsCommand extends UnixCommandBase {
    */
   private async formatLongEntry(
     path: string,
-    opts: { humanReadable: boolean; showInode: boolean; showBlocks: boolean }
+    opts: { humanReadable: boolean; showBlocks: boolean }
   ): Promise<string> {
-    const file = await this.getFile(path);
+    const file = await this.fs.lstat(path);
 
-    if (!file) {
-      // ファイルがDBにない場合（存在確認済みの場合はディレクトリとして扱う）
-      const name = posixPath.basename(path);
-      return `drwxr-xr-x 1 user user        0 ${this.formatDate(new Date())} ${name}/`;
+    let type = '-';
+    let perms = 'rw-r--r--';
+    if (file.type === 'folder') {
+      type = 'd';
+      perms = 'rwxr-xr-x';
+    } else if (file.type === 'symlink') {
+      type = 'l';
+      perms = 'rwxrwxrwx';
+    } else if (file.type === 'fifo') {
+      type = 'p';
+    } else if (file.type === 'characterDevice') {
+      type = 'c';
     }
-
-    const type = file.type === 'folder' ? 'd' : '-';
-    const perms = file.type === 'folder' ? 'rwxr-xr-x' : 'rw-r--r--';
     const size = file.size;
     const sizeStr = opts.humanReadable ? this.formatSize(size) : size.toString().padStart(8);
     const date = new Date(file.mtime);
     const name = posixPath.basename(file.path);
 
     let prefix = '';
-    if (opts.showInode) {
-      prefix += `${(Math.random() * 1000000).toFixed(0).padStart(8)} `;
-    }
     if (opts.showBlocks) {
       prefix += `${Math.ceil(size / 512)
         .toString()
         .padStart(4)} `;
     }
 
-    return `${prefix}${type}${perms} 1 user user ${sizeStr} ${this.formatDate(date)} ${name}${file.type === 'folder' ? '/' : ''}`;
+    let suffix = '';
+    if (file.type === 'folder') suffix = '/';
+    if (file.type === 'symlink') suffix = ` -> ${await this.fs.readlink(path)}`;
+    return `${prefix}${type}${perms} 1 user user ${sizeStr} ${this.formatDate(date)} ${name}${suffix}`;
   }
 
   /**

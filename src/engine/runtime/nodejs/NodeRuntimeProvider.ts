@@ -1,3 +1,4 @@
+import { PassThrough, type Readable } from 'node:stream';
 import { Buffer } from 'buffer';
 import { fsClient } from '@/engine/core/fs';
 import { pushLogMessage } from '@/stores/loggerStore';
@@ -107,47 +108,80 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       let interruptTimer: ReturnType<typeof setTimeout> | undefined;
       let unsubscribeInterrupt: (() => void) | undefined;
       const shells = new Set<AbortController>();
+      const shellRequests = new Map<number, AbortController>();
+      const shellInputs = new Map<number, PassThrough>();
       const stdinQueue: Uint8Array[] = [];
       let stdinRequested = false;
       let stdinEnded = !options.processStdin?._active;
-      const stdinReaders: Array<(data: number[]) => void> = [];
+      const stdinReaders: Array<{
+        resolve: (data: number[]) => void;
+        signal: AbortSignal;
+        onAbort: () => void;
+      }> = [];
       const post = (message: MainMessage) => worker.postMessage(message);
       const runShell = async (
         command: string,
-        shellOptions: { cwd?: string; env?: Record<string, string> }
+        shellOptions: { cwd?: string; env?: Record<string, string> },
+        signal?: AbortSignal,
+        output?: {
+          stdout(data: string): void;
+          stderr(data: string): void;
+        },
+        stdin?: Readable
       ) => {
         const controller = new AbortController();
+        const abort = () => controller.abort(signal?.reason);
+        signal?.addEventListener('abort', abort, { once: true });
+        if (signal?.aborted) controller.abort(signal.reason);
         shells.add(controller);
         try {
           return await executeRuntimeShell(options.rootPath, command, {
             ...shellOptions,
             signal: controller.signal,
+            stdin,
+            onStdout: output?.stdout,
+            onStderr: output?.stderr,
           });
         } finally {
+          signal?.removeEventListener('abort', abort);
           shells.delete(controller);
         }
       };
       const cleanup = registerRuntimeHost(
         runtimeId,
-        async (request: HostRequest): Promise<RpcValue> => {
+        async (request: HostRequest, signal: AbortSignal): Promise<RpcValue> => {
           if (request.kind === 'stdin') {
-            return new Promise<number[]>(read => {
-              if (!options.processStdin) {
-                read([]);
+            return new Promise<number[]>(resolve => {
+              if (!options.processStdin || signal.aborted) {
+                resolve([]);
                 return;
               }
-              stdinReaders.push(read);
+              const reader = {
+                resolve,
+                signal,
+                onAbort: () => {
+                  const index = stdinReaders.indexOf(reader);
+                  if (index >= 0) stdinReaders.splice(index, 1);
+                  resolveStdin(reader, []);
+                },
+              };
+              stdinReaders.push(reader);
+              signal.addEventListener('abort', reader.onAbort, { once: true });
               drainStdin();
             });
           }
-          const result = await runShell(request.command, request);
+          const result = await runShell(request.command, request, signal);
           return { stdout: result.stdout, stderr: result.stderr, exitCode: result.code ?? 0 };
         }
       );
+      const resolveStdin = (reader: (typeof stdinReaders)[number], data: number[]) => {
+        reader.signal.removeEventListener('abort', reader.onAbort);
+        reader.resolve(data);
+      };
       const drainStdin = () => {
         while (stdinReaders.length > 0 && (stdinQueue.length > 0 || stdinEnded)) {
-          const read = stdinReaders.shift()!;
-          read([...(stdinQueue.shift() ?? new Uint8Array())]);
+          const reader = stdinReaders.shift()!;
+          resolveStdin(reader, [...(stdinQueue.shift() ?? new Uint8Array())]);
         }
         if (stdinReaders.length > 0) return;
         if (stdinRequested && stdinQueue.length > 0) {
@@ -169,22 +203,40 @@ export class NodeRuntimeProvider implements RuntimeProvider {
       const finish = (result: RuntimeExecutionResult, reusable = false) => {
         if (completed) return;
         completed = true;
+        if (!reusable) discardRuntimeWorker(worker);
         for (const controller of shells) controller.abort();
         shells.clear();
+        shellRequests.clear();
+        for (const input of shellInputs.values()) input.destroy();
+        shellInputs.clear();
         clearTimeout(interruptTimer);
         options.signal?.removeEventListener('abort', terminate);
         unsubscribeInterrupt?.();
         options.processStdin?.removeListener('data', onData);
         options.processStdin?.removeListener('end', onEnd);
-        for (const read of stdinReaders.splice(0)) read([]);
+        if (options.processStdin?.isTTY) options.processStdin.setRawMode(false);
+        for (const reader of stdinReaders.splice(0)) resolveStdin(reader, []);
         stdinQueue.length = 0;
         stdinRequested = false;
         cleanup();
-        fsPort.close();
-        this.executions.delete(terminate);
-        if (reusable) releaseRuntimeWorker(worker);
-        else discardRuntimeWorker(worker);
-        resolve(result);
+        const release = (cleanupError?: string) => {
+          fsPort.close();
+          this.executions.delete(terminate);
+          if (reusable) releaseRuntimeWorker(worker);
+          if (cleanupError) {
+            const message = `Failed to close runtime FIFO endpoints: ${cleanupError}`;
+            pushLogMessage(message, 'error', 'Runtime');
+            if (result.exitCode !== 130) {
+              resolve({ exitCode: 1, stderr: message });
+              return;
+            }
+          }
+          resolve(result);
+        };
+        void fsClient.closeFifos(runtimeId).then(
+          () => release(),
+          error => release(String(error))
+        );
       };
       const terminate = () => finish({ exitCode: 130 });
       const interrupt = () => {
@@ -210,6 +262,12 @@ export class NodeRuntimeProvider implements RuntimeProvider {
           drainStdin();
         } else if (message.type === 'stdin-pause') {
           stdinRequested = false;
+        } else if (message.type === 'stdin-raw-mode') {
+          try {
+            options.processStdin?.setRawMode(message.enabled);
+          } catch (error) {
+            finish({ exitCode: 1, stderr: String(error) });
+          }
         } else if (message.type === 'output') {
           try {
             for (const entry of message.entries) this.dispatchOutput(entry, options);
@@ -229,14 +287,60 @@ export class NodeRuntimeProvider implements RuntimeProvider {
             interruptTimer = undefined;
           }
         } else if (message.type === 'shell') {
-          void runShell(message.command, message).then(
-            result => {
-              if (!completed) post({ type: 'shell-result', id: message.id, result });
+          const controller = new AbortController();
+          let input: PassThrough | undefined;
+          if (message.hasStdin) {
+            input = new PassThrough();
+            shellInputs.set(message.id, input);
+          }
+          shellRequests.set(message.id, controller);
+          void runShell(
+            message.command,
+            message,
+            controller.signal,
+            {
+              stdout: data =>
+                post({ type: 'shell-output', id: message.id, channel: 'stdout', data }),
+              stderr: data =>
+                post({ type: 'shell-output', id: message.id, channel: 'stderr', data }),
             },
-            error => {
-              if (!completed) post({ type: 'shell-error', id: message.id, error: String(error) });
-            }
-          );
+            input
+          )
+            .then(
+              result => {
+                if (!completed && !controller.signal.aborted)
+                  post({ type: 'shell-result', id: message.id, result });
+              },
+              error => {
+                if (!completed && !controller.signal.aborted)
+                  post({ type: 'shell-error', id: message.id, error: String(error) });
+              }
+            )
+            .finally(() => {
+              shellRequests.delete(message.id);
+              shellInputs.delete(message.id);
+              input?.end();
+            });
+        } else if (message.type === 'shell-input') {
+          const input = shellInputs.get(message.id);
+          if (input && !input.destroyed && !input.writableEnded) {
+            input.write(Buffer.from(message.data), () =>
+              post({ type: 'shell-input-ack', id: message.id })
+            );
+          } else {
+            post({ type: 'shell-input-ack', id: message.id });
+          }
+        } else if (message.type === 'shell-input-end') {
+          shellInputs.get(message.id)?.end();
+        } else if (message.type === 'shell-cancel') {
+          shellRequests.get(message.id)?.abort(message.signal);
+          shellInputs.get(message.id)?.end();
+        } else if (message.type === 'cancel-runtime-call') {
+          navigator.serviceWorker.controller?.postMessage({
+            type: 'runtime-cancel',
+            runtimeId: message.runtimeId,
+            callId: message.callId,
+          });
         }
       };
       worker.onerror = event => {
@@ -254,8 +358,14 @@ export class NodeRuntimeProvider implements RuntimeProvider {
         options: {
           rootPath: options.rootPath,
           filePath: options.filePath,
+          source: options.source,
           cwd: options.cwd,
+          env: options.env,
+          stdinIsTTY: options.processStdin?.isTTY === true,
+          stdoutIsTTY: options.stdoutIsTTY === true,
+          stderrIsTTY: options.stderrIsTTY === true,
           argv: options.argv ?? [],
+          execArgv: options.execArgv ?? [],
           terminalColumns: options.terminalColumns,
           terminalRows: options.terminalRows,
         },

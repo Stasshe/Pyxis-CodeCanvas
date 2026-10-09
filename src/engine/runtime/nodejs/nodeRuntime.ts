@@ -1,9 +1,10 @@
 /** Node.js runtime execution and process lifecycle. */
 
-import { getParentPath, HOME_DIR } from '@/engine/core/pathUtils';
+import type { Readable } from 'node:stream';
+import { getParentPath, HOME_DIR, resolvePath } from '@/engine/core/pathUtils';
 import type { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
-import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import { runtimeError, runtimeInfo } from '../core/runtimeLogger';
 import { createRuntimeFunction } from '../module/dynamicFunction';
 import { ModuleLoader } from '../module/moduleLoader';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
@@ -12,20 +13,32 @@ import {
   createProcessExitSignal,
   isProcessExitSignal,
   normalizeProcessExitCode,
+  validateProcessExitCode,
 } from './processExit';
+import { RuntimeBuiltinResolver } from './runtimeBuiltinResolver';
+import { createRuntimeConsole } from './runtimeConsole';
 import {
-  type ConsumerStream,
-  collectStream,
-  type ProcessListener,
-  type ProcessObject,
-  type RuntimeConsole,
-  type RuntimeGlobal,
-  type RuntimeTimer,
-  type RuntimeTimerModule,
+  nativeClearInterval,
+  nativeClearTimeout,
+  nativeQueueMicrotask,
+  nativeSetInterval,
+  nativeSetTimeout,
+  RuntimeGlobals,
+} from './runtimeGlobals';
+import { RuntimeTaskScheduler } from './runtimeTaskScheduler';
+import type {
+  ProcessListener,
+  ProcessObject,
+  RuntimeConsole,
+  RuntimeTimer,
+  RuntimeTimerModule,
 } from './runtimeTypes';
+import { wrapRuntimeCode } from './runtimeWrapper';
+import { createRuntimeWritable } from './runtimeWritable';
 import type { RuntimeStdin } from './workerStdin';
 
 const retiredPromises = new WeakSet<Promise<unknown>>();
+const NativeFunction = Function;
 
 export function isRetiredRuntimePromise(promise: Promise<unknown>): boolean {
   return retiredPromises.has(promise);
@@ -38,11 +51,19 @@ export interface ExecutionOptions {
   rootPath: string;
   filePath: string;
   cwd?: string;
+  env?: Record<string, string>;
   bridge: RuntimeBridge;
   filesystem: RuntimeFsMount;
   runShell: (
     command: string,
-    options?: { cwd?: string; env?: Record<string, string> }
+    options?: {
+      cwd?: string;
+      env?: Record<string, string>;
+      signal?: AbortSignal;
+      stdin?: Readable;
+      onStdout?: (data: string) => void;
+      onStderr?: (data: string) => void;
+    }
   ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
   onExit?: (code: number) => void;
   onStdout?: (data: string | Uint8Array) => void;
@@ -55,6 +76,8 @@ export interface ExecutionOptions {
   };
   /** Stdin stream for interactive input */
   processStdin: RuntimeStdin;
+  stdoutIsTTY?: boolean;
+  stderrIsTTY?: boolean;
   /** Terminal columns (width). If not provided, defaults to 80. */
   terminalColumns?: number;
   /** Terminal rows (height). If not provided, defaults to 24. */
@@ -68,8 +91,12 @@ export class NodeRuntime {
   private rootPath: string;
   private debugConsole: ExecutionOptions['debugConsole'];
   private processStdin: RuntimeStdin;
+  private stdoutIsTTY: boolean;
+  private stderrIsTTY: boolean;
   private builtInModules: BuiltInModules;
+  private builtInResolver: RuntimeBuiltinResolver;
   private moduleLoader: ModuleLoader;
+  private taskScheduler: RuntimeTaskScheduler;
   private bridge: RuntimeBridge;
   private filesystem: RuntimeFsMount;
   private runShell: ExecutionOptions['runShell'];
@@ -77,12 +104,16 @@ export class NodeRuntime {
   private onStdout: (data: string | Uint8Array) => void;
   private onStderr: (data: string | Uint8Array) => void;
   private cwd: string;
+  private env: Record<string, string>;
   private terminalColumns: number;
   private terminalRows: number;
   private currentProcess: ProcessObject | null = null;
+  private currentConsole: RuntimeConsole | null = null;
+  private readonly globals = new RuntimeGlobals();
   private exitCode = 0;
   private didExit = false;
   private emittingExitListeners = false;
+  private exitEventEmitted = false;
   private exitNotified = false;
   private disposed = false;
   private resolveProcessExit!: (code: number) => void;
@@ -94,6 +125,7 @@ export class NodeRuntime {
   private activeTimers: Set<object> = new Set();
   private timerCancels = new Map<object, () => void>();
   private pendingIO: Set<Promise<unknown>> = new Set();
+  private pendingMicrotasks = 0;
   private eventLoopResolve: (() => void) | null = null;
   private processListeners: Record<string, ProcessListener[]> = {};
 
@@ -119,6 +151,8 @@ export class NodeRuntime {
     this.rootPath = options.rootPath;
     this.debugConsole = options.debugConsole;
     this.processStdin = options.processStdin;
+    this.stdoutIsTTY = options.stdoutIsTTY === true;
+    this.stderrIsTTY = options.stderrIsTTY === true;
     this.filesystem = options.filesystem;
     this.bridge = options.bridge;
     this.runShell = options.runShell;
@@ -126,14 +160,17 @@ export class NodeRuntime {
     this.onStdout = options.onStdout ?? (data => this.debugConsole?.log(this.formatOutput(data)));
     this.onStderr = options.onStderr ?? (data => this.debugConsole?.error(this.formatOutput(data)));
     this.cwd = options.cwd ?? this.rootPath;
+    this.env = options.env ?? {};
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
+    this.currentConsole = this.createRuntimeConsole();
 
     this.builtInModules = createBuiltInModules({
       rootPath: this.rootPath,
       processStdin: this.processStdin,
       getTrackIO: () => this.trackIO.bind(this),
       requireFactory: (filename: string) => this.createRequire(filename),
+      scheduleNextTick: callback => this.taskScheduler.scheduleNextTick(callback),
       getCwd: () => this.cwd,
       getEnv: () => ({ ...(this.currentProcess?.env ?? {}) }),
       writeStdout: this.onStdout,
@@ -144,6 +181,22 @@ export class NodeRuntime {
       terminalColumns: this.terminalColumns,
       terminalRows: this.terminalRows,
     });
+    this.builtInResolver = new RuntimeBuiltinResolver({
+      modules: this.builtInModules,
+      getProcess: () => this.currentProcess ?? this.createProcessObject(),
+      createConsole: () => this.currentConsole ?? this.createRuntimeConsole(),
+      createTimerModule: () => this.createTimerModule(),
+    });
+    this.taskScheduler = new RuntimeTaskScheduler({
+      activeTasks: this.activeTimers,
+      cancelTasks: this.timerCancels,
+      canRun: () => !this.disposed && (!this.didExit || this.emittingExitListeners),
+      onMicrotaskChange: change => {
+        this.pendingMicrotasks += change;
+      },
+      checkEventLoop: () => this.checkEventLoop(),
+      finalizeProcessExit: code => this.finalizeProcessExit(code),
+    });
 
     // Initialize the module loader.
     this.moduleLoader = new ModuleLoader({
@@ -151,7 +204,7 @@ export class NodeRuntime {
       bridge: this.bridge,
       debugConsole: this.debugConsole,
       trackIO: promise => this.trackIO(promise),
-      builtinResolver: this.resolveBuiltInModule.bind(this),
+      builtinResolver: this.builtInResolver.resolve.bind(this.builtInResolver),
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
@@ -162,52 +215,72 @@ export class NodeRuntime {
   /**
    * Execute a file.
    */
-  async execute(filePath: string, argv: string[] = []): Promise<void> {
+  async execute(
+    filePath: string,
+    argv: string[] = [],
+    source?: string,
+    execArgv: string[] = []
+  ): Promise<void> {
     this.exitCode = 0;
     this.didExit = false;
     this.exitNotified = false;
+    this.exitEventEmitted = false;
     this.processListeners = {};
 
     try {
       runtimeInfo('▶️ Executing file:', filePath);
       const invocationPath = filePath;
-      filePath = await this.moduleLoader.realpath(filePath);
+      if (source === undefined) filePath = await this.moduleLoader.realpath(filePath);
 
-      // Prepare globals and inject them into the module loader for dependencies.
-      const globals = this.createGlobals(invocationPath, argv);
-      this.moduleLoader.setGlobals(globals);
+      // Install shared globals before entry and dependency evaluation.
+      const importModule = (specifier: string) => this.moduleLoader.asyncLoad(specifier, filePath);
+      this.createGlobals(
+        invocationPath,
+        argv,
+        createRuntimeFunction(importModule),
+        source !== undefined,
+        execArgv
+      );
 
       // Pre-load dependencies ONLY (do not execute the entry file yet)
       runtimeInfo('📦 Pre-loading dependencies...');
-      const code = await this.moduleLoader.preloadDependencies(filePath, filePath);
+      const code = await this.moduleLoader.preloadDependencies(filePath, filePath, source);
       runtimeInfo('✅ All dependencies pre-loaded');
 
-      // Build the execution sandbox with the shared globals.
-      const requireFn = this.createRequire(filePath);
-      const importModule = (specifier: string) => this.moduleLoader.asyncLoad(specifier, filePath);
-      const mainModule = this.moduleLoader.createMainModule(filePath);
-      const sandbox = {
-        ...globals,
-        require: requireFn,
-        __pyxisImport: importModule,
-        __pyxisRequireCommonJs: requireFn,
-        __pyxisRequireImport: (specifier: string) =>
-          this.moduleLoader.requireSync(specifier, filePath, 'import'),
-        Function: createRuntimeFunction(importModule),
-        module: mainModule,
-        exports: mainModule.exports,
-        __filename: filePath,
-        __dirname: getParentPath(filePath),
-      };
+      let executionPromise = this.getExecutionPromise(undefined);
+      if (this.moduleLoader.isEsmEntry(filePath)) {
+        executionPromise = this.moduleLoader.executeEsmEntry(filePath);
+      } else {
+        // Build the execution sandbox with the shared globals.
+        const requireFn = this.createRequire(filePath);
+        const mainModule = this.moduleLoader.createMainModule(filePath);
+        let filename = filePath;
+        let dirname = getParentPath(filePath);
+        if (source !== undefined) {
+          filename = '[eval]';
+          dirname = '.';
+        }
+        const sandbox = {
+          require: requireFn,
+          __pyxisImport: importModule,
+          __pyxisRequireCommonJs: requireFn,
+          __pyxisRequireImport: (specifier: string) =>
+            this.moduleLoader.requireSync(specifier, filePath, 'import'),
+          module: mainModule,
+          exports: mainModule.exports,
+          __filename: filename,
+          __dirname: dirname,
+        };
 
-      // Wrap and execute the code synchronously.
-      const wrappedCode = this.wrapCode(code);
-      const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
+        // Wrap and execute the code synchronously.
+        const wrappedCode = wrapRuntimeCode(code, source === undefined);
+        const executeFunc = new NativeFunction(...Object.keys(sandbox), wrappedCode);
 
-      runtimeInfo('✅ Code compiled successfully');
-      const executionResult = executeFunc(...Object.values(sandbox));
-      this.moduleLoader.completeMainModule(filePath);
-      const executionPromise = this.getExecutionPromise(executionResult);
+        runtimeInfo('✅ Code compiled successfully');
+        executeFunc(...Object.values(sandbox));
+        this.moduleLoader.completeMainModule(filePath);
+        executionPromise = this.getExecutionPromise(mainModule.exports);
+      }
       if (executionPromise) {
         await Promise.race([
           this.trackIO(executionPromise).then(() => undefined),
@@ -222,6 +295,7 @@ export class NodeRuntime {
         runtimeInfo('✅ Process exited via process.exit()', { code: error.code });
         return;
       }
+      if (this.handleUncaughtException(error)) return;
 
       // Format error in Node.js style
       const formattedError = formatNodeError(error, { filePath });
@@ -256,7 +330,7 @@ export class NodeRuntime {
    */
   async waitForEventLoop(): Promise<void> {
     while (!this.didExit) {
-      if (this.activeTimers.size > 0 || this.pendingIO.size > 0) {
+      if (this.hasActiveWork()) {
         runtimeInfo('⏳ Waiting for event loop to complete...', {
           activeTimers: this.activeTimers.size,
           pendingIO: this.pendingIO.size,
@@ -267,8 +341,21 @@ export class NodeRuntime {
         continue;
       }
 
-      await new Promise<void>(resolve => globalThis.setTimeout(resolve, 0));
-      if (this.activeTimers.size === 0 && this.pendingIO.size === 0) return;
+      // Let the current task's microtask checkpoint queue rejection notifications before checking exit.
+      await new Promise<void>(resolve => nativeSetTimeout(resolve, 0));
+      await new Promise<void>((resolve, reject) => {
+        nativeSetTimeout(() => {
+          try {
+            if (!this.didExit && !this.hasActiveWork()) {
+              this.completeNaturalProcessExit();
+            }
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        }, 0);
+      });
+      if (this.didExit) return;
     }
 
     runtimeInfo('✅ Event loop wait skipped after process exit');
@@ -276,11 +363,15 @@ export class NodeRuntime {
 
   private checkEventLoop() {
     if (this.disposed) return;
-    if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
+    if (!this.hasActiveWork() && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
       this.eventLoopResolve();
       this.eventLoopResolve = null;
     }
+  }
+
+  private hasActiveWork(): boolean {
+    return this.activeTimers.size > 0 || this.pendingIO.size > 0 || this.pendingMicrotasks > 0;
   }
 
   private createTrackedTimer(
@@ -325,7 +416,7 @@ export class NodeRuntime {
       } catch (error) {
         if (isProcessExitSignal(error)) {
           this.finalizeProcessExit(error.code);
-          if (kind === 'interval') clearInterval(nativeId);
+          if (kind === 'interval') nativeClearInterval(nativeId);
           return;
         }
         throw error;
@@ -335,11 +426,11 @@ export class NodeRuntime {
     };
 
     if (kind === 'timeout') {
-      nativeId = setTimeout(invoke, timeout);
-      this.timerCancels.set(timerRef, () => clearTimeout(nativeId));
+      nativeId = nativeSetTimeout(invoke, timeout);
+      this.timerCancels.set(timerRef, () => nativeClearTimeout(nativeId));
     } else {
-      nativeId = setInterval(invoke, timeout);
-      this.timerCancels.set(timerRef, () => clearInterval(nativeId));
+      nativeId = nativeSetInterval(invoke, timeout);
+      this.timerCancels.set(timerRef, () => nativeClearInterval(nativeId));
     }
     this.activeTimers.add(timerRef);
     return timerRef;
@@ -356,33 +447,11 @@ export class NodeRuntime {
   }
 
   private createRuntimeConsole(): RuntimeConsole {
-    return {
-      log: (...args: unknown[]) => {
-        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
-        if (this.debugConsole?.log) this.debugConsole.log(...args);
-        else runtimeInfo(...args);
-      },
-      error: (...args: unknown[]) => {
-        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
-        if (this.debugConsole?.error) this.debugConsole.error(...args);
-        else runtimeError(...args);
-      },
-      warn: (...args: unknown[]) => {
-        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
-        if (this.debugConsole?.warn) this.debugConsole.warn(...args);
-        else runtimeWarn(...args);
-      },
-      clear: () => {
-        if (!this.disposed && (!this.didExit || this.emittingExitListeners))
-          this.debugConsole?.clear();
-      },
-    };
-  }
-
-  private outputBytes(data: string | Uint8Array, encoding?: BufferEncoding): Uint8Array {
-    const buffer = this.builtInModules.buffer.Buffer;
-    if (typeof data === 'string') return buffer.from(data, encoding);
-    return buffer.from(data);
+    return createRuntimeConsole(
+      this.debugConsole,
+      () => !this.disposed && (!this.didExit || this.emittingExitListeners),
+      () => this.debugConsole?.clear()
+    );
   }
 
   private formatOutput(data: string | Uint8Array): string {
@@ -399,7 +468,7 @@ export class NodeRuntime {
         this.createTrackedTimer('interval', handler, delay, args),
       clearInterval: (timer?: unknown) => this.clearTrackedTimer(timer),
       setImmediate: (handler: ProcessListener, ...args: unknown[]) =>
-        this.createTrackedTimer('timeout', handler, 0, args),
+        this.taskScheduler.createImmediate(handler, args),
       clearImmediate: (timer?: unknown) => this.clearTrackedTimer(timer),
     };
   }
@@ -421,7 +490,27 @@ export class NodeRuntime {
     }
     if (!this.exitNotified && this.onExit) {
       this.exitNotified = true;
-      queueMicrotask(() => this.onExit?.(this.exitCode));
+      nativeQueueMicrotask(() => this.onExit?.(this.exitCode));
+    }
+  }
+
+  private completeNaturalProcessExit(): void {
+    const process = this.currentProcess;
+    if (!process || this.didExit || this.hasActiveWork()) return;
+    process.emit('beforeExit', process.exitCode ?? 0);
+    if (this.didExit || this.hasActiveWork()) return;
+    this.finalizeProcessExit(this.exitCode);
+    this.emitExitEvent(process);
+  }
+
+  private emitExitEvent(process: ProcessObject): void {
+    if (this.exitEventEmitted) return;
+    this.exitEventEmitted = true;
+    this.emittingExitListeners = true;
+    try {
+      process.emit('exit', process.exitCode ?? 0);
+    } finally {
+      this.emittingExitListeners = false;
     }
   }
 
@@ -436,24 +525,12 @@ export class NodeRuntime {
     }
   }
 
-  /**
-   * Wrap code for synchronous execution.
-   */
-  private wrapCode(code: string): string {
-    // Comment out a shebang because eval and Function do not support it.
-    if (code.startsWith('#!')) {
-      code = `//${code}`; // Preserve line numbers.
-    }
+  handleUncaughtException(error: unknown): boolean {
+    return this.currentProcess?.emit('uncaughtException', error) ?? false;
+  }
 
-    return `
-      return (function() {
-        'use strict';
-        
-        ${code}
-        
-        return module.exports;
-      }).call(module.exports);
-    `;
+  handleUnhandledRejection(reason: unknown, promise: Promise<unknown>): boolean {
+    return this.currentProcess?.emit('unhandledRejection', reason, promise) ?? false;
   }
 
   /**
@@ -461,11 +538,17 @@ export class NodeRuntime {
    * @param currentFilePath Entry path used in argv.
    * @param argv Command-line arguments.
    */
-  private createProcessObject(currentFilePath?: string, argv: string[] = []): ProcessObject {
+  private createProcessObject(
+    currentFilePath?: string,
+    argv: string[] = [],
+    evalMode = false,
+    execArgv: string[] = []
+  ): ProcessObject {
     // EventEmitter-like listener store for process events (exit, uncaughtException, etc.)
     const listeners = this.processListeners;
     const startedAt = performance.now();
     const runtime = this;
+    let guestExitCode: number | undefined;
     const hrtime = Object.assign(
       (time?: [number, number]): [number, number] => {
         const elapsedNs = BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
@@ -478,6 +561,25 @@ export class NodeRuntime {
       },
       { bigint: () => BigInt(Math.floor((performance.now() - startedAt) * 1_000_000)) }
     );
+    const createOutputStream = (fd: number, write: (data: Uint8Array) => void, isTTY: boolean) =>
+      Object.assign(
+        createRuntimeWritable(data => {
+          if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
+          write(data);
+        }),
+        {
+          fd,
+          isTTY,
+          columns: this.terminalColumns,
+          rows: this.terminalRows,
+          getColorDepth: () => 24,
+          hasColors: (count?: number) => count === undefined || count <= 16777216,
+        }
+      );
+
+    let processArgv = ['node', currentFilePath || '/'];
+    if (evalMode) processArgv = ['node'];
+    processArgv = processArgv.concat(argv);
 
     const processObj: ProcessObject = {
       env: {
@@ -487,9 +589,39 @@ export class NodeRuntime {
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
         FORCE_COLOR: '3', // Force color level 3 (truecolor)
+        ...this.env,
       },
-      argv: ['node', currentFilePath || '/'].concat(argv),
+      argv: processArgv,
+      execArgv,
+      execPath: 'node',
       cwd: () => this.cwd,
+      chdir: (directory: string) => {
+        const nextCwd = resolvePath(this.cwd, directory);
+        const stat = this.filesystem.statSync(nextCwd);
+        if (stat === null) {
+          const error = new Error(`ENOENT: no such file or directory, chdir '${nextCwd}'`);
+          Object.assign(error, { code: 'ENOENT' });
+          throw error;
+        }
+        if (stat.type !== 'directory') {
+          const error = new Error(`ENOTDIR: not a directory, chdir '${nextCwd}'`);
+          Object.assign(error, { code: 'ENOTDIR' });
+          throw error;
+        }
+        this.cwd = this.filesystem.realpathSync(nextCwd);
+      },
+      emitWarning: (
+        warning: string | Error,
+        warningOptions?: { type?: string; code?: string; detail?: string }
+      ) => {
+        const error = typeof warning === 'string' ? new Error(warning) : warning;
+        if (warningOptions?.type) error.name = warningOptions.type;
+        if (warningOptions?.code) Object.assign(error, { code: warningOptions.code });
+        processObj.emit('warning', error);
+        let output = error.stack ?? `${error.name}: ${error.message}`;
+        if (warningOptions?.detail) output = `${output}\n${warningOptions.detail}`;
+        this.onStderr(`${output}\n`);
+      },
       platform: 'browser',
       arch: this.builtInModules.os.arch(),
       version: 'v18.0.0',
@@ -499,41 +631,32 @@ export class NodeRuntime {
       },
       hrtime,
       get exitCode() {
-        return runtime.exitCode;
+        return guestExitCode;
       },
-      set exitCode(value: number) {
-        runtime.exitCode = normalizeProcessExitCode(value);
+      set exitCode(value: number | string | undefined) {
+        guestExitCode = validateProcessExitCode(value);
+        runtime.exitCode = normalizeProcessExitCode(guestExitCode);
       },
       uptime: () => (performance.now() - startedAt) / 1000,
-      exit: (code?: number) => {
-        let resolvedCode = code;
-        if (resolvedCode === undefined)
-          resolvedCode = normalizeProcessExitCode(processObj.exitCode);
-        this.finalizeProcessExit(normalizeProcessExitCode(resolvedCode));
-        this.emittingExitListeners = true;
-        try {
-          processObj.emit('exit', this.exitCode);
-        } finally {
-          this.emittingExitListeners = false;
-        }
+      exit: (code?: number | string) => {
+        if (code !== undefined) processObj.exitCode = code;
+        this.finalizeProcessExit(this.exitCode);
+        this.emitExitEvent(processObj);
         throw createProcessExitSignal(this.exitCode);
       },
-      nextTick: (fn: (...args: unknown[]) => void, ...args: unknown[]) =>
-        this.createTrackedTimer(
-          'timeout',
-          () => {
-            try {
-              fn(...args);
-            } catch (error) {
-              if (isProcessExitSignal(error)) {
-                this.finalizeProcessExit(error.code);
-                return;
-              }
-              throw error;
+      nextTick: (fn: (...args: unknown[]) => void, ...args: unknown[]) => {
+        this.taskScheduler.scheduleNextTick(() => {
+          try {
+            fn(...args);
+          } catch (error) {
+            if (isProcessExitSignal(error)) {
+              this.finalizeProcessExit(error.code);
+              return;
             }
-          },
-          0
-        ),
+            throw error;
+          }
+        });
+      },
       // EventEmitter methods — many npm packages call process.on('exit', ...)
       on: (event: string, cb: ProcessListener) => {
         if (this.disposed || this.didExit) return processObj;
@@ -584,30 +707,8 @@ export class NodeRuntime {
         return processObj;
       },
       stdin: this.processStdin,
-      stdout: {
-        write: (data: string | Uint8Array, encoding?: BufferEncoding) => {
-          if (this.disposed || (this.didExit && !this.emittingExitListeners)) return false;
-          this.onStdout(this.outputBytes(data, encoding));
-          return true;
-        },
-        isTTY: true,
-        columns: this.terminalColumns,
-        rows: this.terminalRows,
-        getColorDepth: () => 24,
-        hasColors: (count?: number) => count === undefined || count <= 16777216,
-      },
-      stderr: {
-        write: (data: string | Uint8Array, encoding?: BufferEncoding) => {
-          if (this.disposed || (this.didExit && !this.emittingExitListeners)) return false;
-          this.onStderr(this.outputBytes(data, encoding));
-          return true;
-        },
-        isTTY: true,
-        columns: this.terminalColumns,
-        rows: this.terminalRows,
-        getColorDepth: () => 24,
-        hasColors: (count?: number) => count === undefined || count <= 16777216,
-      },
+      stdout: createOutputStream(1, data => this.onStdout(data), this.stdoutIsTTY),
+      stderr: createOutputStream(2, data => this.onStderr(data), this.stderrIsTTY),
     };
 
     return processObj;
@@ -616,128 +717,38 @@ export class NodeRuntime {
   /**
    * Create the runtime globals.
    */
-  private createGlobals(currentFilePath: string, argv: string[] = []) {
-    const process = this.createProcessObject(currentFilePath, argv);
+  private createGlobals(
+    currentFilePath: string,
+    argv: string[],
+    runtimeFunction: FunctionConstructor,
+    evalMode = false,
+    execArgv: string[] = []
+  ) {
+    const process = this.createProcessObject(currentFilePath, argv, evalMode, execArgv);
     this.currentProcess = process;
     const Buffer = this.builtInModules.buffer.Buffer;
-    const runtimeConsole = this.createRuntimeConsole();
+    const runtimeConsole = this.currentConsole ?? this.createRuntimeConsole();
+    this.currentConsole = runtimeConsole;
     const timers = this.createTimerModule();
-    const runtimeGlobal: RuntimeGlobal = {
-      ...globalThis,
-      ...timers,
-      navigator: {
-        ...(globalThis.navigator || {}),
-        userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
-        userAgentData: {
-          brands: [{ brand: 'Chromium', version: '120' }],
-        },
-      },
-      process,
-      Buffer,
-      console: runtimeConsole,
-      global: undefined,
-      globalThis: undefined,
-    };
-    runtimeGlobal.global = runtimeGlobal;
-    runtimeGlobal.globalThis = runtimeGlobal;
-
-    return {
-      // JavaScript globals.
+    const runtimeGlobal = this.globals.global;
+    const globals = {
       console: runtimeConsole,
       globalThis: runtimeGlobal,
       ...timers,
-      Promise,
-      Array,
-      Object,
-      String,
-      Number,
-      Boolean,
-      Date,
-      Math,
-      JSON,
-      Error,
-      RegExp,
-      Map,
-      Set,
-      WeakMap,
-      WeakSet,
-
-      // Node.js globals.
-      // Create a custom global with spoofed navigator for color support detection
-      // supports-color browser.js checks navigator.userAgent for Chromium
-      // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
+      queueMicrotask: (callback: VoidFunction) => this.taskScheduler.scheduleMicrotask(callback),
+      Function: runtimeFunction,
       global: runtimeGlobal,
       process,
       Buffer,
     };
+    this.globals.install(globals);
   }
 
   /**
    * Create the require function.
    */
   private createRequire(currentFilePath: string) {
-    return (moduleName: string): unknown => {
-      const builtInModule = this.resolveBuiltInModule(moduleName);
-      if (builtInModule !== null) return builtInModule;
-      return this.moduleLoader.requireSync(moduleName, currentFilePath);
-    };
-  }
-
-  /**
-   * Resolve a built-in module, with or without the `node:` prefix.
-   */
-  private resolveBuiltInModule(moduleName: string): unknown | null {
-    // Normalize the optional `node:` prefix.
-    let normalizedName = moduleName;
-    if (normalizedName.startsWith('node:')) normalizedName = normalizedName.slice(5);
-
-    const builtIns: Record<string, unknown> = {
-      fs: this.builtInModules.fs,
-      'fs/promises': this.builtInModules.fs.promises,
-      path: this.builtInModules.path,
-      os: this.builtInModules.os,
-      util: this.builtInModules.util,
-      http: this.builtInModules.http,
-      https: this.builtInModules.https,
-      buffer: this.builtInModules.buffer,
-      readline: this.builtInModules.readline,
-      assert: this.builtInModules.assert,
-      events: this.builtInModules.events,
-      module: this.builtInModules.module,
-      net: this.builtInModules.net,
-      url: this.builtInModules.url,
-      stream: this.builtInModules.stream,
-      tty: this.builtInModules.tty,
-      v8: this.builtInModules.v8,
-      crypto: this.builtInModules.crypto,
-      child_process: this.builtInModules.child_process,
-      constants: this.builtInModules.constants,
-      zlib: this.builtInModules.zlib,
-      querystring: this.builtInModules.querystring,
-      'stream/consumers': {
-        text: async (stream: ConsumerStream) =>
-          new TextDecoder().decode(await collectStream(stream)),
-        json: async (stream: ConsumerStream): Promise<unknown> =>
-          JSON.parse(new TextDecoder().decode(await collectStream(stream))),
-        buffer: collectStream,
-      },
-      string_decoder: this.builtInModules.string_decoder,
-      'timers/promises': {
-        setTimeout: (delay?: number) =>
-          new Promise<void>(resolve => this.createTrackedTimer('timeout', () => resolve(), delay)),
-        setImmediate: () =>
-          new Promise<void>(resolve => this.createTrackedTimer('timeout', () => resolve(), 0)),
-      },
-      perf_hooks: {
-        performance: globalThis.performance,
-      },
-      // Share argv, cwd, and env with the running process.
-      process: this.currentProcess ?? this.createProcessObject(),
-      timers: this.createTimerModule(),
-      console: this.createRuntimeConsole(),
-    };
-
-    return builtIns[normalizedName] ?? null;
+    return this.moduleLoader.createRequire(currentFilePath);
   }
 
   /**
@@ -762,7 +773,11 @@ export class NodeRuntime {
     this.eventLoopResolve?.();
     this.eventLoopResolve = null;
     this.moduleLoader.clearCache();
+    this.currentProcess?.stdout.destroy();
+    this.currentProcess?.stderr.destroy();
+    this.globals.restore();
     this.currentProcess = null;
+    this.currentConsole = null;
     this.onExit = undefined;
     this.onStdout = () => {};
     this.onStderr = () => {};

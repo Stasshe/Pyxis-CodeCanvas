@@ -3,6 +3,8 @@ export interface PackageInfo {
   version: string;
   dependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   os?: string[];
   cpu?: string[];
   tarball: string;

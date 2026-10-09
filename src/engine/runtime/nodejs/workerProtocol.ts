@@ -4,8 +4,14 @@ import type { RuntimeLogLevel } from '../core/runtimeLogger';
 export interface WorkerExecutionOptions {
   rootPath: string;
   filePath: string;
+  source?: string;
   cwd?: string;
+  env?: Record<string, string>;
+  stdinIsTTY?: boolean;
+  stdoutIsTTY?: boolean;
+  stderrIsTTY?: boolean;
   argv: string[];
+  execArgv: string[];
   terminalColumns?: number;
   terminalRows?: number;
 }
@@ -38,14 +44,28 @@ export type MainMessage =
   | { type: 'stdin-end' }
   | { type: 'interrupt' }
   | { type: 'shell-result'; id: number; result: ShellResult }
-  | { type: 'shell-error'; id: number; error: string };
+  | { type: 'shell-error'; id: number; error: string }
+  | { type: 'shell-output'; id: number; channel: 'stdout' | 'stderr'; data: string }
+  | { type: 'shell-input-ack'; id: number };
 
 export type WorkerMessage =
   | { type: 'ready' }
   | { type: 'fatal'; error: string }
   | { type: 'stdin-request' }
   | { type: 'stdin-pause' }
+  | { type: 'stdin-raw-mode'; enabled: boolean }
   | { type: 'output'; entries: OutputEntry[] }
   | { type: 'complete'; result: RuntimeExecutionResult }
   | { type: 'interrupt-result'; handled: boolean }
-  | { type: 'shell'; id: number; command: string; cwd?: string; env?: Record<string, string> };
+  | {
+      type: 'shell';
+      id: number;
+      command: string;
+      cwd?: string;
+      env?: Record<string, string>;
+      hasStdin?: boolean;
+    }
+  | { type: 'shell-cancel'; id: number; signal?: string }
+  | { type: 'shell-input'; id: number; data: Uint8Array }
+  | { type: 'shell-input-end'; id: number }
+  | { type: 'cancel-runtime-call'; runtimeId: string; callId: string };

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { parseGitignore, isPathIgnored, ensureGitignoreContains } from '@/engine/core/gitignore';
+import { describe, expect, it } from 'vitest';
+import { ensureGitignoreContains, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 
 /**
  * gitignore パーサーのテスト
@@ -37,6 +37,13 @@ describe('gitignore', () => {
   // ==================== isPathIgnored ====================
 
   describe('isPathIgnored', () => {
+    it('does not apply directory-only rules to a file with the same name', () => {
+      const rules = parseGitignore('build/\n');
+      expect(isPathIgnored(rules, 'build')).toBe(false);
+      expect(isPathIgnored(rules, 'src/build')).toBe(false);
+      expect(isPathIgnored(rules, 'src/build', true)).toBe(true);
+      expect(isPathIgnored(rules, 'src/build/file.ts')).toBe(true);
+    });
     it('ワイルドカードパターンにマッチする', () => {
       const rules = parseGitignore('*.log\n');
       expect(isPathIgnored(rules, 'debug.log')).toBe(true);
@@ -52,6 +59,27 @@ describe('gitignore', () => {
       const rules = parseGitignore('**/dist\n');
       expect(isPathIgnored(rules, 'dist')).toBe(true);
       expect(isPathIgnored(rules, 'packages/app/dist')).toBe(true);
+    });
+
+    it('middle **/ matches zero or more directory levels', () => {
+      const rules = parseGitignore('a/**/b\n');
+      expect(isPathIgnored(rules, 'a/b')).toBe(true);
+      expect(isPathIgnored(rules, 'a/x/b')).toBe(true);
+      expect(isPathIgnored(rules, 'a/x/y/b')).toBe(true);
+      expect(isPathIgnored(rules, 'xa/b')).toBe(false);
+    });
+
+    it('ignores malformed character classes without throwing or matching', () => {
+      for (const pattern of ['[', '[z-a]']) {
+        const rules = parseGitignore(pattern);
+        expect(isPathIgnored(rules, pattern)).toBe(false);
+        expect(isPathIgnored(rules, 'z')).toBe(false);
+      }
+
+      const validClass = parseGitignore('[ab]');
+      expect(isPathIgnored(validClass, 'a')).toBe(true);
+      expect(isPathIgnored(validClass, 'b')).toBe(true);
+      expect(isPathIgnored(validClass, 'c')).toBe(false);
     });
 
     it('否定パターンで除外を解除する', () => {
@@ -70,14 +98,9 @@ describe('gitignore', () => {
     });
 
     it('複合ルールで正しく判定する', () => {
-      const rules = parseGitignore([
-        'node_modules',
-        '*.log',
-        '!error.log',
-        'dist/',
-        '.env',
-        '.env.local',
-      ].join('\n'));
+      const rules = parseGitignore(
+        ['node_modules', '*.log', '!error.log', 'dist/', '.env', '.env.local'].join('\n')
+      );
 
       expect(isPathIgnored(rules, 'node_modules/express/index.js')).toBe(true);
       expect(isPathIgnored(rules, 'app.log')).toBe(true);

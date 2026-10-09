@@ -1,19 +1,31 @@
 import type { Readable, Writable } from 'node:stream';
 
 import { UNIX_COMMANDS, type UnixCommands } from '@/engine/cmd/global/unix';
+import { UnixCommandFailure } from '@/engine/cmd/global/unixOperations/base';
 import { resolvePath } from '@/engine/core/pathUtils';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import handleUnixCommand from '../handlers/unixHandler';
-import { ProcessStdin, terminalProcessBridge } from '../terminalProcessBridge';
+import type { ProcessStdin } from '../terminalProcessBridge';
+import { SilentCommandError } from './errors';
+import type { StreamBuiltin } from './types';
 
 export type StreamCtx = {
+  readonly hasExited: boolean;
   stdin: Readable;
   stdinRedirected?: boolean;
+  processStdin: ProcessStdin;
+  stdinIsTTY: boolean;
+  stdoutIsTTY: boolean;
+  stderrIsTTY: boolean;
+  executeArgv: (
+    argv: readonly string[]
+  ) => Promise<{ stdout: string; stderr: string; code: number }>;
   stdout: Writable;
   stderr: Writable;
-  onSignal: (fn: (sig: string) => void) => () => void;
+  onSignal: (fn: (sig: string) => void, signals?: readonly string[]) => () => void;
   signal?: AbortSignal;
   rootPath: string;
+  env?: Record<string, string>;
   unix: UnixCommands;
   /** Terminal columns (width) */
   terminalColumns?: number;
@@ -21,69 +33,52 @@ export type StreamCtx = {
   terminalRows?: number;
 };
 
-// トークンを正規化（オブジェクト→文字列変換のみ、オプション展開は削除）
-const normalizeArgs = (args?: Array<string | { text?: string }>): string[] => {
-  if (!args || args.length === 0) return [];
-  return args.map(a => {
-    if (typeof a === 'string') return a;
-    if (a && typeof a === 'object' && 'text' in a && typeof (a as any).text === 'string')
-      return (a as any).text;
-    return String(a);
-  });
-};
-
 /**
  * unixHandlerへの統一ブリッジ関数
  * ストリーム対応しながらunixHandlerの完全なロジックを活用
  */
 const makeUnixBridge = (name: string) => {
-  return async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
-    const nArgs = normalizeArgs(args || []);
+  return async (ctx: StreamCtx, args: string[] = []) => {
     let exitCode = 0;
 
-    const writeOutput = async (s: string | Uint8Array) => {
-      if (s === undefined || s === null) return;
-      try {
-        ctx.stdout.write(s);
-      } catch (_e) {
-        // ignore
-      }
+    const writeOutput = async (output: string | Uint8Array) => {
+      if (ctx.hasExited) return;
+      ctx.stdout.write(output);
     };
 
     try {
-      // stdin内容を事前に読み取り（grep等で必要）
-      // Pass the stdin stream directly to the handler so commands like grep
-      // can read from stdin interactively (block until data) if needed.
-      const stdinStream = ctx.stdin;
-
       const writeError = async (s: string) => {
-        try {
-          if (s === undefined || s === null) return;
-          ctx.stderr.write(String(s));
-        } catch (_e) {}
+        if (ctx.hasExited) return;
+        ctx.stderr.write(s);
       };
 
       const result = await handleUnixCommand(
         name,
-        nArgs,
+        args,
         writeOutput,
         writeError,
         ctx.unix,
-        stdinStream
+        ctx.stdin,
+        fn => ctx.onSignal(fn, ['SIGINT']),
+        ctx.signal,
+        ctx.stdoutIsTTY,
+        ctx.executeArgv
       );
 
       exitCode = result.code ?? 0;
+      if (ctx.hasExited) return;
 
       // 未ストリーム出力があれば書き込み
       if (result.output && result.output.length > 0) {
         const stream = exitCode !== 0 ? ctx.stderr : ctx.stdout;
         stream.write(String(result.output));
       }
-    } catch (e: any) {
-      if (e?.__silent) {
-        exitCode = typeof e.code === 'number' ? e.code : 1;
+    } catch (error: unknown) {
+      if (ctx.hasExited) return;
+      if (error instanceof SilentCommandError) {
+        exitCode = error.code;
       } else {
-        const msg = e?.message ? String(e.message) : String(e);
+        const msg = error instanceof Error ? error.message : String(error);
         ctx.stderr.write(`${msg}\n`);
         exitCode = 1;
       }
@@ -94,7 +89,7 @@ const makeUnixBridge = (name: string) => {
 
     // 非ゼロ終了時は例外を投げてシェルに伝播
     if (exitCode !== 0) {
-      throw { __silent: true, code: exitCode };
+      throw new SilentCommandError(exitCode);
     }
   };
 };
@@ -102,8 +97,8 @@ const makeUnixBridge = (name: string) => {
 /**
  * unixからビルトインコマンドを生成
  */
-export default function adaptUnixToStream(unix: any) {
-  const obj: Record<string, any> = {};
+export default function adaptUnixToStream(unix: UnixCommands): Record<string, StreamBuiltin> {
+  const obj: Record<string, StreamBuiltin> = {};
 
   for (const cmd of UNIX_COMMANDS) {
     obj[cmd] = makeUnixBridge(cmd);
@@ -114,13 +109,16 @@ export default function adaptUnixToStream(unix: any) {
     try {
       const ok = await unix.test(args);
       if (!ok) {
-        throw { __silent: true, code: 1 };
+        throw new SilentCommandError(1);
       }
       ctx.stdout.end();
-    } catch (e: any) {
+    } catch (error: unknown) {
       ctx.stdout.end();
-      if (e?.__silent) throw e;
-      throw e;
+      if (error instanceof UnixCommandFailure) {
+        ctx.stderr.write(`${error.message}\n`);
+        throw new SilentCommandError(error.code);
+      }
+      throw error;
     }
   };
 
@@ -131,41 +129,7 @@ export default function adaptUnixToStream(unix: any) {
   };
   obj.false = async (ctx: StreamCtx) => {
     ctx.stdout.end();
-    throw { __silent: true, code: 1 };
-  };
-
-  // exit: POSIX builtin
-  obj.exit = async (ctx: StreamCtx, args: Array<string | { text?: string }> = []) => {
-    const nArgs = normalizeArgs(args || []);
-
-    // Too many args -> print error and return failure (do not exit the calling shell)
-    if (nArgs.length > 1) {
-      try {
-        ctx.stderr.write('exit: too many arguments\n');
-      } catch {}
-      ctx.stdout.end();
-      ctx.stderr.end();
-      throw { __silent: true, code: 1 };
-    }
-
-    let code = 0;
-    if (nArgs.length === 1) {
-      const a = nArgs[0];
-      if (!/^-?\d+$/.test(a)) {
-        try {
-          ctx.stderr.write(`exit: ${a}: numeric argument required\n`);
-        } catch {}
-        ctx.stdout.end();
-        ctx.stderr.end();
-        throw { __silent: true, code: 2 };
-      }
-      code = Number(a) & 0xff;
-    }
-
-    ctx.stdout.end();
-    ctx.stderr.end();
-    // signal the calling executor to exit with the status code
-    throw { __silent: true, code };
+    throw new SilentCommandError(1);
   };
 
   // type コマンド（シェル内部）
@@ -192,7 +156,7 @@ export default function adaptUnixToStream(unix: any) {
 
     for (const name of names) {
       const isBuiltin = !!obj[name];
-      const isUnixFn = !!(unix && typeof unix[name] === 'function');
+      const isUnixFn = UNIX_COMMANDS.some(command => command === name);
 
       if (opts.t) {
         if (isBuiltin) {
@@ -206,10 +170,10 @@ export default function adaptUnixToStream(unix: any) {
       }
 
       if (opts.a) {
-        let any = false;
+        let found = false;
         if (isBuiltin) {
           ctx.stdout.write(`${name} is a shell builtin\n`);
-          any = true;
+          found = true;
         }
         if (isUnixFn) {
           if (opts.p) {
@@ -217,9 +181,9 @@ export default function adaptUnixToStream(unix: any) {
           } else {
             ctx.stdout.write(`${name} is a shell command\n`);
           }
-          any = true;
+          found = true;
         }
-        if (!any) throw new Error(`type: not found: ${name}`);
+        if (!found) throw new Error(`type: not found: ${name}`);
         continue;
       }
 
@@ -242,20 +206,24 @@ export default function adaptUnixToStream(unix: any) {
   obj.node = async (ctx: StreamCtx, args: string[] = []) => {
     // Support version flags: `node -v` or `node --version`
     if (args.length >= 1 && (args[0] === '-v' || args[0] === '--version')) {
-      try {
-        const ver = 'v18.0.0 (custom build)'; // バージョン番号を適宜設定
-        ctx.stdout.write(`${String(ver)}\n`);
-      } catch (_e) {}
+      ctx.stdout.write('v18.0.0 (custom build)\n');
       ctx.stdout.end();
       ctx.stderr.end();
       return;
     }
 
-    if (args.length === 0) {
-      ctx.stderr.write('Usage: node <file.js>\n');
+    const evalMode = args[0] === '-e' || args[0] === '--eval';
+    if (args[0]?.startsWith('-') && !evalMode) {
+      ctx.stderr.write(`node: bad option: ${args[0]}\n`);
       ctx.stdout.end();
       ctx.stderr.end();
-      throw { __silent: true, code: 2 };
+      throw new SilentCommandError(9);
+    }
+    if (args.length === 0 || (evalMode && args.length < 2)) {
+      ctx.stderr.write('Usage: node <file.js> | node -e <script>\n');
+      ctx.stdout.end();
+      ctx.stderr.end();
+      throw new SilentCommandError(2);
     }
 
     try {
@@ -264,31 +232,25 @@ export default function adaptUnixToStream(unix: any) {
       // デバッグコンソールを設定（即座に出力、バッファリングなし）
       const debugConsole = {
         log: (...args: unknown[]) => {
+          if (ctx.hasExited) return;
           const output = `${args
             .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ')}\n`;
-          // 即座にストリームに書き込む（バッファリングなし）
-          try {
-            ctx.stdout.write(output);
-          } catch (_e) {
-            // ストリームが閉じていても無視（イベントループ完了後の出力）
-          }
+          ctx.stdout.write(output);
         },
         error: (...args: unknown[]) => {
+          if (ctx.hasExited) return;
           const output = args
             .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ');
-          try {
-            ctx.stderr.write(`${output}\n`);
-          } catch (_e) {}
+          ctx.stderr.write(`${output}\n`);
         },
         warn: (...args: unknown[]) => {
+          if (ctx.hasExited) return;
           const output = args
             .map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
             .join(' ');
-          try {
-            ctx.stdout.write(`${output}\n`);
-          } catch (_e) {}
+          ctx.stdout.write(`${output}\n`);
         },
         clear: () => {
           // Terminal clearは別途処理
@@ -296,57 +258,76 @@ export default function adaptUnixToStream(unix: any) {
       };
 
       // パスを解決（相対パス対応）
-      let entryPath = args[0];
       let cwd = rootPath;
       if (unix) {
         cwd = await unix.pwd();
       }
-      entryPath = resolvePath(cwd, entryPath);
+      let entryName = args[0];
+      if (evalMode) entryName = '[eval]';
+      const entryPath = resolvePath(cwd, entryName);
+      let argv = args.slice(1);
+      let execArgv: string[] = [];
+      let source: string | undefined;
+      if (evalMode) {
+        source = args[1];
+        execArgv = [args[0], source];
+        argv = args.slice(2);
+        if (argv[0] === '--') argv = argv.slice(1);
+      }
 
-      terminalProcessBridge.activate();
       const runtime = runtimeRegistry.getRuntime('nodejs');
       if (!runtime) throw new Error('Node.js runtime provider is unavailable.');
-      let processStdin = terminalProcessBridge.stdin;
-      if (ctx.stdinRedirected) processStdin = new ProcessStdin(ctx.stdin);
       const result = await runtime.execute({
         rootPath,
         cwd,
         filePath: entryPath,
-        argv: args.slice(1),
+        source,
+        execArgv,
+        env: ctx.env,
+        argv,
         subscribeInterrupt: handler =>
-          ctx.onSignal(signal => {
-            if (signal === 'SIGINT') handler();
-          }),
+          ctx.onSignal(
+            signal => {
+              if (signal === 'SIGINT') handler();
+            },
+            ['SIGINT']
+          ),
         signal: ctx.signal,
         debugConsole,
-        processStdin,
+        processStdin: ctx.processStdin,
+        stdoutIsTTY: ctx.stdoutIsTTY,
+        stderrIsTTY: ctx.stderrIsTTY,
         terminalColumns: ctx.terminalColumns,
         terminalRows: ctx.terminalRows,
-        onStdout: output => ctx.stdout.write(output),
-        onStderr: output => ctx.stderr.write(output),
+        onStdout: output => {
+          if (!ctx.hasExited) ctx.stdout.write(output);
+        },
+        onStderr: output => {
+          if (!ctx.hasExited) ctx.stderr.write(output);
+        },
       });
+      if (ctx.hasExited) return;
       if (result.stderr) ctx.stderr.write(result.stderr);
       const exitCode = result.exitCode ?? 0;
 
-      terminalProcessBridge.deactivate();
       ctx.stdout.end();
       ctx.stderr.end();
 
       if (exitCode !== 0) {
-        throw { __silent: true, code: exitCode };
+        throw new SilentCommandError(exitCode);
       }
-    } catch (e: any) {
-      terminalProcessBridge.deactivate();
-      if (e?.__silent) {
+    } catch (error: unknown) {
+      if (ctx.hasExited) return;
+      if (error instanceof SilentCommandError) {
         ctx.stdout.end();
         ctx.stderr.end();
-        throw e;
+        throw error;
       }
-      const msg = e?.message ? String(e.message) : String(e);
+      const msg = error instanceof Error ? error.message : String(error);
       ctx.stderr.write(`node: error: ${msg}\n`);
       ctx.stdout.end();
       ctx.stderr.end();
-      throw { __silent: true, code: 1 };
+      throw new SilentCommandError(1);
     }
   };
 

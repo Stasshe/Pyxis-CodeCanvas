@@ -50,19 +50,19 @@ export async function gitProjectNames(db: IDBDatabase | null): Promise<string[]>
   return names;
 }
 
-export async function readGitEntries(
+export async function* readGitEntries(
   db: IDBDatabase | null,
   name: string
-): Promise<LegacyGitEntry[]> {
-  if (!db) return [];
-  const projects = await projectTree(db);
-  if (!projects) return [];
+): AsyncGenerator<LegacyGitEntry> {
+  if (!db) return;
+  const database = db;
+  const projects = await projectTree(database);
+  if (!projects) return;
   const project = child(projects, name);
-  if (!project) return [];
+  if (!project) return;
   const git = child(project, '.git');
-  if (!git) return [];
-  const entries: LegacyGitEntry[] = [];
-  const visit = async (node: LightningNode, path: string): Promise<void> => {
+  if (!git) return;
+  async function* visit(node: LightningNode, path: string): AsyncGenerator<LegacyGitEntry> {
     const stat = node.get(0);
     if (!stat || stat instanceof Map) throw new Error(`Invalid legacy Git stat: ${path}`);
     if (stat.type === 'symlink') throw new Error(`Cannot migrate legacy Git symlink: ${path}`);
@@ -70,26 +70,25 @@ export async function readGitEntries(
       if (!Number.isSafeInteger(stat.ino) || stat.ino < 0) {
         throw new Error(`Invalid legacy Git inode: ${path}`);
       }
-      const data = await readValue<Uint8Array | ArrayBuffer>(db, 'pyxis-fs_files', stat.ino);
+      const data = await readValue<Uint8Array | ArrayBuffer>(database, 'pyxis-fs_files', stat.ino);
       if (!data) throw new Error(`Missing legacy Git bytes: ${path}`);
       if (!(data instanceof Uint8Array) && !(data instanceof ArrayBuffer)) {
         throw new Error(`Invalid legacy Git bytes: ${path}`);
       }
       const bytes = new Uint8Array(data);
-      entries.push({ path, directory: false, bytes });
+      yield { path, directory: false, bytes };
       return;
     }
     if (stat.type !== 'dir') throw new Error(`Invalid legacy Git type: ${path}`);
-    entries.push({ path, directory: true });
+    yield { path, directory: true };
     for (const [key, value] of node) {
       if (typeof key !== 'string') continue;
       if (!key || key === '.' || key === '..' || key.includes('/') || key.includes('\\')) {
         throw new Error(`Invalid legacy Git filename: ${path}/${key}`);
       }
       if (!(value instanceof Map)) throw new Error(`Invalid legacy Git entry: ${path}/${key}`);
-      await visit(value, `${path}/${key}`);
+      yield* visit(value, `${path}/${key}`);
     }
-  };
-  await visit(git, '/.git');
-  return entries;
+  }
+  yield* visit(git, '/.git');
 }

@@ -10,6 +10,8 @@ import { useSettings } from '@/hooks/state/useSettings';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
 import SearchResults from './SearchPanel/SearchResults';
+import { isCurrentWorkspacePath } from './SearchPanel/searchPanelUtils';
+import { SearchRequestState } from './SearchPanel/searchRequestState';
 import type { SearchFlatItem, SearchResult } from './SearchPanel/types';
 
 interface SearchPanelProps {
@@ -54,6 +56,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [filesystemChangeVersion, setFilesystemChangeVersion] = useState(0);
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
@@ -72,10 +75,9 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
 
   const searchTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const searchIdRef = useRef(0);
-  const lastSearchOptionsRef = useRef<string>('');
-  const lastSearchQueryRef = useRef<string>('');
-  const lastSearchResultsRef = useRef<SearchResult[]>([]);
+  const rootPathRef = useRef(rootPath);
+  rootPathRef.current = rootPath;
+  const searchRequestStateRef = useRef(new SearchRequestState<SearchResult>());
 
   // per-file collapsed state
   const [collapsedFiles, setCollapsedFiles] = useState<Record<string, boolean>>({});
@@ -109,16 +111,6 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
     return `${allFiles.length}:${allFiles.map(f => f.path).join(',')}`;
   }, [allFiles]);
 
-  // Root and query changes invalidate both cached and in-flight results immediately.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: these values are change triggers
-  useEffect(() => {
-    searchIdRef.current += 1;
-    lastSearchQueryRef.current = '';
-    lastSearchResultsRef.current = [];
-    setSearchResults([]);
-    setIsSearching(false);
-  }, [rootPath, searchQuery]);
-
   useEffect(() => {
     const removeListener = fsClient.addChangeListener(event => {
       const eventPathInRoot = isPathWithin(event.path, rootPath);
@@ -126,30 +118,15 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       if (event.oldPath) oldPathInRoot = isPathWithin(event.oldPath, rootPath);
       if (!eventPathInRoot && !oldPathInRoot) return;
 
-      searchIdRef.current += 1;
-      lastSearchQueryRef.current = '';
-      lastSearchResultsRef.current = [];
-      setSearchResults([]);
-      setIsSearching(false);
-
-      if (searchTimer.current) {
-        window.clearTimeout(searchTimer.current);
-        searchTimer.current = null;
-      }
-
-      if (searchQuery && isRealtimeSearch) {
-        searchTimer.current = window.setTimeout(() => {
-          performSearchRef.current(searchQuery);
-        }, debounceDelay);
-      }
+      setFilesystemChangeVersion(version => version + 1);
     });
 
     return removeListener;
-  }, [rootPath, searchQuery, isRealtimeSearch]);
+  }, [rootPath]);
 
   // 検索オプションキー
   const searchOptionsKey = useMemo(() => {
-    return `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}:${settings?.search?.exclude.join(',') ?? ''}`;
+    return `${caseSensitive}:${wholeWord}:${useRegex}:${searchInFilenames}:${settings?.search?.exclude.join(',') ?? ''}:${settings?.files?.exclude.join(',') ?? ''}:${settings?.search?.useIgnoreFiles ?? false}`;
   }, [caseSensitive, wholeWord, useRegex, searchInFilenames, settings]);
 
   // 検索実行関数をrefで保持（useEffectの依存関係からステートを分離するため）
@@ -164,22 +141,19 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
     }
 
     // 同じクエリ・オプションの場合はキャッシュを返す
-    if (
-      query === lastSearchQueryRef.current &&
-      searchOptionsKey === lastSearchOptionsRef.current &&
-      lastSearchResultsRef.current.length > 0
-    ) {
-      setSearchResults(lastSearchResultsRef.current);
+    const cachedResults = searchRequestStateRef.current.getCached(
+      rootPath,
+      query,
+      searchOptionsKey
+    );
+    if (cachedResults) {
+      setSearchResults(cachedResults);
       setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
-    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
-
-    // キャッシュを更新
-    lastSearchQueryRef.current = query;
-    lastSearchOptionsRef.current = searchOptionsKey;
+    const request = searchRequestStateRef.current.start(rootPath, query, searchOptionsKey);
 
     void (async () => {
       try {
@@ -190,11 +164,15 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
             wholeWord,
             useRegex,
             searchInFilenames,
-            excludeGlobs: settings?.search?.exclude ?? [],
+            excludeGlobs: [
+              ...(settings?.search?.exclude ?? []),
+              ...(settings?.files?.exclude ?? []),
+            ],
+            useIgnoreFiles: settings?.search?.useIgnoreFiles ?? false,
           },
         });
 
-        if (sid !== searchIdRef.current) return;
+        if (rootPathRef.current !== rootPath) return;
         const fileResults: SearchResult[] = results.map(result => ({
           ...result,
           file: {
@@ -205,75 +183,49 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
             content: '',
           },
         }));
+        if (!searchRequestStateRef.current.complete(request, rootPathRef.current, fileResults))
+          return;
         setSearchResults(fileResults);
         setIsSearching(false);
-        lastSearchResultsRef.current = fileResults;
       } catch (err) {
-        if (sid !== searchIdRef.current) return;
+        if (!searchRequestStateRef.current.isCurrent(request, rootPathRef.current)) return;
         console.error('Search worker failed', err);
         setIsSearching(false);
       }
     })();
   };
 
-  // 検索クエリ変更時の処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rootPath changes must rerun this search
+  // biome-ignore lint/correctness/useExhaustiveDependencies: search inputs invalidate and restart pending work
   useEffect(() => {
-    // タイマーをクリア
-    if (searchTimer.current) {
-      window.clearTimeout(searchTimer.current);
-      searchTimer.current = null;
-    }
+    searchRequestStateRef.current.invalidate();
+    setSearchResults([]);
+    setIsSearching(false);
 
-    // クエリが空または短すぎる場合
-    if (!searchQuery || searchQuery.length < minQueryLength) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = null;
 
-    // リアルタイム検索モードの場合のみ自動検索
-    if (isRealtimeSearch) {
+    let timer: number | undefined;
+    if (searchQuery && searchQuery.length >= minQueryLength && isRealtimeSearch) {
       setIsSearching(true);
-      searchTimer.current = window.setTimeout(() => {
+      timer = window.setTimeout(() => {
         performSearchRef.current(searchQuery);
       }, debounceDelay);
+      searchTimer.current = timer;
     }
 
     return () => {
-      if (searchTimer.current) {
-        window.clearTimeout(searchTimer.current);
-        searchTimer.current = null;
-      }
+      searchRequestStateRef.current.invalidate();
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (searchTimer.current === timer) searchTimer.current = null;
     };
-  }, [rootPath, searchQuery, isRealtimeSearch]);
-
-  // 検索オプション変更時にリアルタイム検索を再実行
-  // biome-ignore lint/correctness/useExhaustiveDependencies: caseSensitive/wholeWord/useRegex/searchInFilenames/minQueryLength are trigger deps used via performSearchRef
-  useEffect(() => {
-    if (isRealtimeSearch && searchQuery && searchQuery.length >= minQueryLength) {
-      // キャッシュをクリアして検索
-      lastSearchResultsRef.current = [];
-      performSearchRef.current(searchQuery);
-    }
   }, [
-    caseSensitive,
-    wholeWord,
-    useRegex,
-    searchInFilenames,
-    settings,
-    isRealtimeSearch,
+    rootPath,
     searchQuery,
-    minQueryLength,
+    searchOptionsKey,
+    isRealtimeSearch,
+    filesVersion,
+    filesystemChangeVersion,
   ]);
-
-  // ファイルが変更された場合、キャッシュをクリア
-  // biome-ignore lint/correctness/useExhaustiveDependencies: filesVersion is a trigger dep — clear cache when file tree changes
-  useEffect(() => {
-    // ファイルが変更されたのでキャッシュをクリア
-    lastSearchResultsRef.current = [];
-    lastSearchQueryRef.current = '';
-  }, [filesVersion]);
 
   // flattened results for keyboard navigation
   const flatResults = searchResults;
@@ -306,6 +258,8 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
   }, [flatResults.length]);
 
   const handleResultClick = useCallback(async (result: SearchResult) => {
+    const requestedRoot = rootPathRef.current;
+    if (!isCurrentWorkspacePath(result.file.path, requestedRoot, rootPathRef.current)) return;
     try {
       let isCodeMirror = false;
       if (typeof window !== 'undefined') {
@@ -319,6 +273,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       };
 
       const loaded = await readFileContent(fileWithJump.path);
+      if (!isCurrentWorkspacePath(result.file.path, requestedRoot, rootPathRef.current)) return;
       setFileActionError(null);
       let kind: 'binary' | 'editor' = 'editor';
       let fileToOpen = fileWithJump;
@@ -338,6 +293,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
         jumpToColumn: result.column,
       });
     } catch (err) {
+      if (!isCurrentWorkspacePath(result.file.path, requestedRoot, rootPathRef.current)) return;
       console.error('Failed to open file from search result', err);
       setFileActionError(`Failed to open ${result.file.path}: ${errorMessage(err)}`);
     }
@@ -345,6 +301,8 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
 
   const handleReplaceResult = useCallback(
     async (result: SearchResult, replacement: string) => {
+      const requestedRoot = rootPathRef.current;
+      if (!isCurrentWorkspacePath(result.file.path, requestedRoot, rootPathRef.current)) return;
       try {
         setReplaceError(null);
         const filePath = result.file.path;
@@ -354,6 +312,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
           return;
         }
         const lines = (await readTextForReplace(filePath)).split('\n');
+        if (!isCurrentWorkspacePath(filePath, requestedRoot, rootPathRef.current)) return;
         const lineIdx = result.line - 1;
         const line = lines[lineIdx] || '';
         const before = line.substring(0, result.matchStart);
@@ -363,9 +322,11 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
         await fsClient.writeFile(filePath, updatedContent);
 
         // キャッシュをクリアして再検索
-        lastSearchResultsRef.current = [];
+        if (!isCurrentWorkspacePath(filePath, requestedRoot, rootPathRef.current)) return;
+        searchRequestStateRef.current.invalidate();
         performSearchRef.current(searchQuery);
       } catch (e) {
+        if (!isCurrentWorkspacePath(result.file.path, requestedRoot, rootPathRef.current)) return;
         console.error('Replace error', e);
         setReplaceError(errorMessage(e));
       }
@@ -374,9 +335,12 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
   );
 
   const handleReplaceAllInFile = async (file: FileItem, replacement: string) => {
+    const requestedRoot = rootPathRef.current;
+    if (!isCurrentWorkspacePath(file.path, requestedRoot, rootPathRef.current)) return;
     try {
       setReplaceError(null);
       const content = await readTextForReplace(file.path);
+      if (!isCurrentWorkspacePath(file.path, requestedRoot, rootPathRef.current)) return;
       const flags = caseSensitive ? 'g' : 'gi';
       const pattern = useRegex ? searchQuery : searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(wholeWord && !useRegex ? `\\b${pattern}\\b` : pattern, flags);
@@ -384,15 +348,24 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       await fsClient.writeFile(file.path, updatedContent);
 
       // キャッシュをクリアして再検索
-      lastSearchResultsRef.current = [];
+      if (!isCurrentWorkspacePath(file.path, requestedRoot, rootPathRef.current)) return;
+      searchRequestStateRef.current.invalidate();
       performSearchRef.current(searchQuery);
     } catch (e) {
+      if (!isCurrentWorkspacePath(file.path, requestedRoot, rootPathRef.current)) return;
       console.error('Replace all error', e);
       setReplaceError(errorMessage(e));
     }
   };
 
   const handleReplaceAllResults = async (replacement: string) => {
+    const requestedRoot = rootPathRef.current;
+    if (
+      searchResults.some(
+        result => !isCurrentWorkspacePath(result.file.path, requestedRoot, rootPathRef.current)
+      )
+    )
+      return;
     try {
       setReplaceError(null);
       const flags = caseSensitive ? 'g' : 'gi';
@@ -404,17 +377,22 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       for (const r of searchResults) {
         const filePath = r.file.path;
         if (filesUpdated.has(filePath)) continue;
-        contents.set(filePath, await readTextForReplace(filePath));
+        const content = await readTextForReplace(filePath);
+        if (!isCurrentWorkspacePath(filePath, requestedRoot, rootPathRef.current)) return;
+        contents.set(filePath, content);
         filesUpdated.add(filePath);
       }
       for (const [filePath, content] of contents) {
+        if (!isCurrentWorkspacePath(filePath, requestedRoot, rootPathRef.current)) return;
         await fsClient.writeFile(filePath, content.replace(regex, replacement));
       }
 
       // キャッシュをクリアして再検索
-      lastSearchResultsRef.current = [];
+      if (requestedRoot !== rootPathRef.current) return;
+      searchRequestStateRef.current.invalidate();
       performSearchRef.current(searchQuery);
     } catch (e) {
+      if (requestedRoot !== rootPathRef.current) return;
       console.error('Replace all results error', e);
       setReplaceError(errorMessage(e));
     }
@@ -437,7 +415,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
       }
       if (searchQuery && searchQuery.length >= minQueryLength) {
         // キャッシュをクリアして強制検索
-        lastSearchResultsRef.current = [];
+        searchRequestStateRef.current.invalidate();
         setIsSearching(true);
         performSearchRef.current(searchQuery);
       }
@@ -466,8 +444,7 @@ export default function SearchPanel({ files, rootPath }: SearchPanelProps) {
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
-    lastSearchResultsRef.current = [];
-    lastSearchQueryRef.current = '';
+    searchRequestStateRef.current.invalidate();
   };
 
   const toggleFileCollapse = (key: string) => {

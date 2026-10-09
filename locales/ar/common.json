@@ -135,9 +135,61 @@
     "loadingFile": "جارٍ استعادة محتوى الملف...",
     "selectFile": "يرجى اختيار ملف"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "لديك كافة الملحقات المتاحة",
+    "allInstalled": "تم تثبيت جميع الإضافات",
+    "available": "متاح ({count})",
+    "browseAvailable": "تصفح الإضافات المتاحة للبدء",
+    "confirmUninstall": "هل أنت متأكد أنك تريد إلغاء تثبيت \"{name}\"؟",
+    "disable": "تعطيل",
+    "disableUnavailable": "تعذر تعطيل الامتداد.",
+    "enable": "تمكين",
+    "enableUnavailable": "تعذر تمكين الامتداد.",
+    "importFailed": "فشل استيراد ملف ZIP: {error}",
+    "importZip": "ملحق الاستيراد (.zip)",
+    "install": "تثبيت",
+    "installed": "تم التثبيت ({count})",
+    "installFailed": "فشل تثبيت {name}: {error}",
+    "installUnavailable": "لا يمكن تثبيت الامتداد أو تمكينه.",
+    "loadFailed": "فشل تحميل الامتدادات: {error}",
+    "loading": "جارٍ تحميل الإضافات...",
+    "manifestUrlMissing": "لم يتم العثور على عنوان URL الظاهر في التسجيل",
+    "noMatches": "لم يتم العثور على ملحقات مطابقة",
+    "noneInstalled": "لم يتم تثبيت أي ملحقات",
+    "packCount": "الإضافات: {count}",
+    "reload": "إعادة تحميل الإضافات",
+    "search": "ملحقات البحث...",
+    "title": "الإضافات",
+    "toggleFailed": "فشل في تغيير حالة الامتداد: {error}",
+    "tryDifferentSearch": "حاول استخدام مصطلح بحث مختلف",
+    "types": {
+      "builtinModule": "وحدة مدمجة",
+      "languageRuntime": "وقت تشغيل اللغة",
+      "service": "خدمة",
+      "tool": "أداة",
+      "transpiler": "Transpiler",
+      "ui": "واجهة المستخدم"
+    },
+    "uninstall": "إلغاء التثبيت",
+    "uninstallFailed": "فشل إلغاء تثبيت الامتداد: {error}",
+    "uninstallTitle": "إلغاء تثبيت الامتداد",
+    "uninstallUnavailable": "تعذر إلغاء تثبيت الامتداد.",
+    "update": "تحديث",
+    "updateFailed": "فشل تحديث {name}: {error}",
+    "updateUnavailable": "تعذر تفعيل حزمة الامتداد الجديدة.",
+    "viewDetails": "انقر لعرض تفاصيل الامتداد"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "إنشاء ملف",
+      "createFolder": "إنشاء مجلد",
+      "import": "استيراد",
+      "move": "نقل"
+    },
     "alert": {
-      "renameFailed": "فشل إعادة التسمية: {error}"
+      "destinationExists": "المسار موجود بالفعل: {path}",
+      "operationFailed": "تعذر {action}: {error}",
+      "workspaceChanged": "تم تغيير مساحة العمل؛ تم تخطي بقية الملفات."
     },
     "menu": {
       "createFile": "إنشاء ملف",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "إنشاء ملف جديد",
-    "createFolder": "إنشاء مجلد جديد"
+    "createFolder": "إنشاء مجلد جديد",
+    "newFilePrompt": "أدخل اسم ملف جديد:",
+    "newFolderPrompt": "أدخل اسم مجلد جديد:"
   },
   "markdownPreview": {
     "downloadSvg": "تنزيل SVG",

@@ -33,7 +33,7 @@ import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { getCurrentRootPath, setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
-import { tabActions, tabState } from '@/stores/tabState';
+import { flushDirtyTabFiles, tabActions, tabState } from '@/stores/tabState';
 import type { MenuTab, Project } from '@/types';
 import { useTheme } from './context/ThemeContext';
 
@@ -55,13 +55,20 @@ export default function Home() {
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
   const [isPaneNavigatorOpen, setIsPaneNavigatorOpen] = useState(false);
+  const [paneMutationError, setPaneMutationError] = useState<string | null>(null);
   const [gitChangesCount, setGitChangesCount] = useState(0);
-  const [nodeRuntimeOperationInProgress] = useState(false);
   const requestedInitialFolderPalette = useRef(false);
 
   const { colors } = useTheme();
   const snap = useSnapshot(tabState);
-  const { panes, isLoading: isTabsLoading, isRestored, isContentRestored, activePane } = snap;
+  const {
+    panes,
+    isLoading: isTabsLoading,
+    isRestored,
+    isContentRestored,
+    activePane,
+    sessionError,
+  } = snap;
   const { openTab, setPanes, setActivePane, splitPane, removePane, moveTab, activateTab } =
     tabActions;
   const {
@@ -248,8 +255,10 @@ export default function Home() {
         closeFileSelector();
         return;
       }
-      await tabActions.saveSession(oldRootPath);
-      await loadProject(project);
+      await loadProject(project, async () => {
+        await tabActions.saveSession(oldRootPath);
+        await flushDirtyTabFiles();
+      });
       await tabActions.loadSession(project.rootPath);
       setIsLeftSidebarVisible(true);
       closeFileSelector();
@@ -260,8 +269,11 @@ export default function Home() {
   // プロジェクト作成
   const handleProjectCreate = useCallback(
     async (name: string) => {
-      await tabActions.saveSession(getCurrentRootPath());
-      const project = await createProject(name);
+      const oldRootPath = getCurrentRootPath();
+      const project = await createProject(name, async () => {
+        await tabActions.saveSession(oldRootPath);
+        await flushDirtyTabFiles();
+      });
       await tabActions.loadSession(project.rootPath);
       setIsLeftSidebarVisible(true);
       closeFileSelector();
@@ -336,19 +348,28 @@ export default function Home() {
     }
   }, [panes, activePane, flattenPanes, splitPane]);
 
-  useKeyBinding('closePane', () => {
+  useKeyBinding('closePane', async () => {
     const flatPanes = flattenPanes(panes);
     if (flatPanes.length <= 1) return; // Don't close the last pane
     const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
     if (currentPane) {
-      removePane(currentPane.id);
-      // Focus the first remaining pane
-      const remaining = flatPanes.filter(p => p.id !== currentPane.id);
-      if (remaining.length > 0) {
-        setActivePane(remaining[0].id);
-        if (remaining[0].activeTabId) {
-          activateTab(remaining[0].id, remaining[0].activeTabId);
+      setPaneMutationError(null);
+      try {
+        await flushDirtyTabFiles();
+        if (!removePane(currentPane.id)) {
+          throw new Error('Could not close the pane while changes remain unsaved.');
         }
+        // Focus the first remaining pane
+        const remaining = flatPanes.filter(p => p.id !== currentPane.id);
+        if (remaining.length > 0) {
+          setActivePane(remaining[0].id);
+          if (remaining[0].activeTabId) {
+            activateTab(remaining[0].id, remaining[0].activeTabId);
+          }
+        }
+      } catch (error) {
+        console.error('[App] Failed to save before closing pane:', error);
+        setPaneMutationError(error instanceof Error ? error.message : String(error));
       }
     }
   }, [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]);
@@ -423,6 +444,14 @@ export default function Home() {
             </div>
           </div>
         )}
+        {(paneMutationError || sessionError) && (
+          <div
+            role="alert"
+            className="absolute right-3 top-3 z-[110] max-w-[min(80vw,36rem)] truncate rounded border bg-card px-3 py-2 text-xs text-red-500 shadow"
+          >
+            {paneMutationError || sessionError}
+          </div>
+        )}
         <TopBar
           isOperationWindowVisible={isOperationWindowVisible}
           toggleOperationWindow={toggleOperationWindow}
@@ -462,48 +491,54 @@ export default function Home() {
             gitChangesCount={gitChangesCount}
           />
 
-          {isLeftSidebarVisible && currentProject && (
-            <LeftSidebar
-              activeMenuTab={activeMenuTab}
-              leftSidebarWidth={leftSidebarWidth}
-              files={projectFiles}
-              currentProject={currentProject}
-              onResize={handleLeftResize}
-              onGitStatusChange={setGitChangesCount}
-              onRefresh={handleFilesRefresh}
-            />
-          )}
+          <div data-workspace-panels className="flex min-w-0 min-h-0 flex-1 overflow-hidden">
+            {isLeftSidebarVisible && currentProject && (
+              <LeftSidebar
+                activeMenuTab={activeMenuTab}
+                leftSidebarWidth={leftSidebarWidth}
+                files={projectFiles}
+                currentProject={currentProject}
+                onResize={handleLeftResize}
+                onGitStatusChange={setGitChangesCount}
+                onRefresh={handleFilesRefresh}
+              />
+            )}
 
-          <div
-            className="flex-1 flex flex-row overflow-hidden min-h-0"
-            style={{ position: 'relative' }}
-          >
-            {/* メインエディタエリア */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-              <RootPaneArea panes={panes} colors={colors} setPanes={setPanes} />
+            <div
+              data-work-area
+              className="flex min-w-0 min-h-0 flex-1 flex-row overflow-hidden"
+              style={{ position: 'relative' }}
+            >
+              {/* メインエディタエリア */}
+              <div
+                data-editor-column
+                className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <RootPaneArea panes={panes} colors={colors} setPanes={setPanes} />
 
-              {isBottomPanelVisible && (
-                <BottomPanel
-                  height={bottomPanelHeight}
-                  currentProject={currentProject?.name}
-                  currentRootPath={currentProject?.rootPath || ''}
-                  onResize={handleBottomResize}
-                  activeTab={bottomPanelActiveTab}
-                  onActiveTabChange={setBottomPanelActiveTab}
+                {isBottomPanelVisible && (
+                  <BottomPanel
+                    height={bottomPanelHeight}
+                    currentProject={currentProject?.name}
+                    currentRootPath={currentProject?.rootPath || ''}
+                    onResize={handleBottomResize}
+                    activeTab={bottomPanelActiveTab}
+                    onActiveTabChange={setBottomPanelActiveTab}
+                  />
+                )}
+              </div>
+
+              {/* 右サイドバー */}
+              {isRightSidebarVisible && (
+                <RightSidebar
+                  rightSidebarWidth={rightSidebarWidth}
+                  onResize={handleRightResize}
+                  projectFiles={projectFiles}
+                  currentProject={currentProject}
+                  currentRootPath={currentProject?.rootPath ?? null}
                 />
               )}
             </div>
-
-            {/* 右サイドバー */}
-            {isRightSidebarVisible && (
-              <RightSidebar
-                rightSidebarWidth={rightSidebarWidth}
-                onResize={handleRightResize}
-                projectFiles={projectFiles}
-                currentProject={currentProject}
-                currentRootPath={currentProject?.rootPath ?? null}
-              />
-            )}
           </div>
 
           {isOperationWindowVisible && (
@@ -527,7 +562,6 @@ export default function Home() {
           height={22}
           currentProjectName={currentProject?.name}
           gitChangesCount={gitChangesCount}
-          nodeRuntimeBusy={nodeRuntimeOperationInProgress}
           colors={colors}
         />
       </div>

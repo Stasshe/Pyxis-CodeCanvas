@@ -29,7 +29,7 @@ export function formatKeyEvent(e: KeyboardEvent): string {
   // If IME is composing or the key is an ambiguous/processing value,
   // treat it as no-recognized-key so callers can handle IME safely.
   // `isComposing` is true when IME composition is active (Japanese input, etc.).
-  if ((e as any).isComposing || key === 'Process' || key === 'Unidentified') return '';
+  if (e.isComposing || e.keyCode === 229 || key === 'Process' || key === 'Unidentified') return '';
 
   if (key === 'Control' || key === 'Meta' || key === 'Alt' || key === 'Shift') return '';
 
@@ -43,7 +43,15 @@ export function normalizeKeyCombo(combo: string): string {
   const isMac =
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
   if (isMac) {
-    return combo.replace(/^Ctrl\+/, 'Cmd+').replace(/\+Ctrl\+/, '+Cmd+');
+    return combo
+      .split(/\s+/)
+      .map(chord =>
+        chord
+          .split('+')
+          .map(part => (part === 'Ctrl' ? 'Cmd' : part))
+          .join('+')
+      )
+      .join(' ');
   }
   return combo;
 }

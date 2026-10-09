@@ -10,6 +10,7 @@ interface DescriptorFlags {
   truncate: boolean;
   append: boolean;
   noFollow: boolean;
+  nonblocking?: boolean;
   directory?: boolean;
 }
 
@@ -17,6 +18,9 @@ interface OpenFile {
   path: string;
   offset: number;
   flags: DescriptorFlags;
+  fifoEndpointId?: string;
+  fifoStat?: ReturnType<RuntimeFsMount['statSync']>;
+  characterDevice?: boolean;
 }
 
 const stringFlags: Record<string, DescriptorFlags> = {
@@ -204,7 +208,8 @@ function numericFlags(flags: number, path: string): DescriptorFlags {
     constants.O_APPEND |
     constants.O_SYNC |
     constants.O_DIRECTORY |
-    constants.O_NOFOLLOW;
+    constants.O_NOFOLLOW |
+    constants.O_NONBLOCK;
   if ((flags & ~known) !== 0) invalidFlags(path);
   return {
     readable: access !== constants.O_WRONLY,
@@ -214,6 +219,7 @@ function numericFlags(flags: number, path: string): DescriptorFlags {
     truncate: (flags & constants.O_TRUNC) !== 0,
     append: (flags & constants.O_APPEND) !== 0,
     noFollow: (flags & constants.O_NOFOLLOW) !== 0,
+    nonblocking: (flags & constants.O_NONBLOCK) !== 0,
     directory: (flags & constants.O_DIRECTORY) !== 0,
   };
 }
@@ -265,8 +271,12 @@ export class RuntimeFsDescriptors {
     if (entry?.type === 'symlink' && decoded.noFollow) throw fileError('ELOOP', 'open', path);
     const target = this.resolveTarget(path, decoded.create);
     let stat = this.filesystem.statSync(target);
-    if (!stat && decoded.create) {
-      this.filesystem.setFileSync(target, new Uint8Array());
+    if (decoded.create && decoded.exclusive) {
+      if (stat) throw fileError('EEXIST', 'open', path);
+      this.filesystem.writeRangeSync(target, new Uint8Array(), 0, true, true);
+      stat = this.filesystem.statSync(target);
+    } else if (!stat && decoded.create) {
+      this.filesystem.writeRangeSync(target, new Uint8Array(), 0, true);
       stat = this.filesystem.statSync(target);
     }
     if (!stat) throw fileError('ENOENT', 'open', path);
@@ -276,13 +286,35 @@ export class RuntimeFsDescriptors {
     if (stat.type !== 'directory' && decoded.directory === true) {
       throw fileError('ENOTDIR', 'open', path);
     }
-    if (entry && decoded.truncate && decoded.writable) {
+    if (stat.type === 'fifo') {
+      let mode: 'read' | 'write' | 'readwrite' = 'read';
+      if (decoded.readable && decoded.writable) mode = 'readwrite';
+      else if (decoded.writable) mode = 'write';
+      const endpointId = crypto.randomUUID();
+      this.filesystem.openFifoSync(target, mode, endpointId, decoded.nonblocking === true);
+      const descriptor = this.nextDescriptor;
+      this.nextDescriptor += 1;
+      this.files.set(descriptor, {
+        path: target,
+        offset: 0,
+        flags: decoded,
+        fifoEndpointId: endpointId,
+        fifoStat: stat,
+      });
+      return descriptor;
+    }
+    if (entry && decoded.truncate && decoded.writable && stat.type !== 'characterDevice') {
       this.filesystem.setFileSync(target, new Uint8Array());
     }
 
     const descriptor = this.nextDescriptor;
     this.nextDescriptor += 1;
-    this.files.set(descriptor, { path: target, offset: 0, flags: decoded });
+    this.files.set(descriptor, {
+      path: target,
+      offset: 0,
+      flags: decoded,
+      characterDevice: stat.type === 'characterDevice',
+    });
     return descriptor;
   }
 
@@ -297,6 +329,13 @@ export class RuntimeFsDescriptors {
     if (file.flags.directory === true) throw fileError('EISDIR', 'read', file.path);
     if (!file.flags.readable) throw fileError('EBADF', 'read', descriptor);
     checkRange(buffer.byteLength, offset, length);
+    if (file.fifoEndpointId) {
+      if (position !== null) throw fileError('ESPIPE', 'read', file.path);
+      if (length === 0) return 0;
+      const chunk = this.filesystem.readFifoSync(file.fifoEndpointId, length);
+      buffer.set(chunk.subarray(0, length), offset);
+      return Math.min(chunk.byteLength, length);
+    }
     const start = position ?? file.offset;
     if (!Number.isInteger(start) || start < 0) throw new RangeError('Invalid file position.');
     const content = this.filesystem.getFileSync(file.path);
@@ -348,12 +387,17 @@ export class RuntimeFsDescriptors {
   }
 
   closeSync(descriptor: number): void {
-    this.file(descriptor, 'close');
-    this.files.delete(descriptor);
+    const file = this.file(descriptor, 'close');
+    try {
+      if (file.fifoEndpointId) this.filesystem.closeFifoSync(file.fifoEndpointId);
+    } finally {
+      this.files.delete(descriptor);
+    }
   }
 
   statSync(descriptor: number): ReturnType<RuntimeFsMount['statSync']> {
     const file = this.file(descriptor, 'fstat');
+    if (file.fifoStat) return file.fifoStat;
     return this.filesystem.statSync(file.path);
   }
 
@@ -368,16 +412,30 @@ export class RuntimeFsDescriptors {
     if (file.flags.directory === true) throw fileError('EISDIR', 'write', file.path);
     if (!file.flags.writable) throw fileError('EBADF', 'write', descriptor);
     checkRange(buffer.byteLength, offset, length);
-    const content = this.filesystem.getFileSync(file.path);
-    if (!content) throw fileError('ENOENT', 'write', file.path);
-    let start = requestedPosition ?? file.offset;
-    if (file.flags.append) start = content.byteLength;
+    if (file.fifoEndpointId) {
+      if (requestedPosition !== null) throw fileError('ESPIPE', 'write', file.path);
+      if (length === 0) return 0;
+      return this.filesystem.writeFifoSync(
+        file.fifoEndpointId,
+        buffer.subarray(offset, offset + length)
+      );
+    }
+    let start = requestedPosition;
+    if (start !== null && (!Number.isInteger(start) || start < 0)) {
+      throw new RangeError('Invalid file position.');
+    }
+    if (file.flags.append) start = null;
+    if (start === null) start = file.offset;
     if (!Number.isInteger(start) || start < 0) throw new RangeError('Invalid file position.');
-    const next = new Uint8Array(Math.max(content.byteLength, start + length));
-    next.set(content);
-    next.set(buffer.subarray(offset, offset + length), start);
-    this.filesystem.setFileSync(file.path, next);
-    if (requestedPosition === null) file.offset = start + length;
+    let rangePosition: number | null = file.characterDevice ? null : start;
+    if (file.flags.append) rangePosition = null;
+    const endingOffset = this.filesystem.writeRangeSync(
+      file.path,
+      buffer.subarray(offset, offset + length),
+      rangePosition,
+      false
+    );
+    if (requestedPosition === null && !file.characterDevice) file.offset = endingOffset;
     return length;
   }
 

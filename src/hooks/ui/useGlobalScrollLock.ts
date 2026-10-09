@@ -41,13 +41,28 @@ export function useGlobalScrollLock() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Helper to safely get className as string (handles SVG elements where className is SVGAnimatedString)
-    const getClassName = (el: Element): string => {
-      if (typeof el.className === 'string') {
-        return el.className;
+    const getClassName = (el: Element): string => el.getAttribute('class') ?? '';
+
+    const isFromEditor = (el: Element | null): boolean => {
+      let current = el;
+      while (current && current !== document.documentElement) {
+        const className = getClassName(current);
+        const id = current.id;
+        const role = current.getAttribute('role');
+        if (
+          className.includes('monaco') ||
+          className.includes('minimap') ||
+          className.includes('editor') ||
+          id.includes('monaco') ||
+          id.includes('minimap') ||
+          role === 'editor' ||
+          role === 'presentation'
+        ) {
+          return true;
+        }
+        current = current.parentElement;
       }
-      // For SVG elements, className is SVGAnimatedString with baseVal property
-      return (el.className as unknown as { baseVal?: string })?.baseVal || '';
+      return false;
     };
 
     const isScrollable = (el: Element | null) => {
@@ -82,7 +97,7 @@ export function useGlobalScrollLock() {
           if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
           if (asEl.isContentEditable) return true;
           const style = window.getComputedStyle(asEl);
-          const userSelect = style.userSelect || (style as any).webkitUserSelect;
+          const userSelect = style.userSelect || style.getPropertyValue('-webkit-user-select');
           if (userSelect && userSelect !== 'none') return true;
         } catch (e) {
           console.warn('[useGlobalScrollLock.ts] caught non-fatal error', e);
@@ -98,59 +113,11 @@ export function useGlobalScrollLock() {
       if (e.defaultPrevented) return;
       const target = e.target as Element | null;
 
-      // Allow scrolling when event originates from Monaco/editor internals
-      // or from known minimap/scrollable editor containers. This is a best-effort
-      // approach: look for classnames/attributes used by Monaco and similar editors.
-      const isFromEditor = (el: Element | null) => {
-        let cur = el;
-        while (cur && cur !== document.documentElement) {
-          const cls = getClassName(cur);
-          const id = (cur.id || '') as string;
-          const role = cur.getAttribute?.('role');
-          if (
-            cls.includes('monaco') ||
-            cls.includes('minimap') ||
-            cls.includes('editor') ||
-            id.includes('monaco') ||
-            id.includes('minimap') ||
-            role === 'editor' ||
-            role === 'presentation'
-          ) {
-            return true;
-          }
-          cur = cur.parentElement;
-        }
-        return false;
-      };
-
       if (isFromEditor(target)) return; // allow editor to handle its own scrolls
 
       if (!isScrollable(target) && !isSelectable(target)) {
         e.preventDefault();
       }
-    };
-
-    // Best-effort detection for editor-originated keyboard events
-    const isFromEditor = (el: Element | null) => {
-      let cur = el;
-      while (cur && cur !== document.documentElement) {
-        const cls = getClassName(cur);
-        const id = (cur.id || '') as string;
-        const role = cur.getAttribute?.('role');
-        if (
-          cls.includes('monaco') ||
-          cls.includes('minimap') ||
-          cls.includes('editor') ||
-          id.includes('monaco') ||
-          id.includes('minimap') ||
-          role === 'editor' ||
-          role === 'presentation'
-        ) {
-          return true;
-        }
-        cur = cur.parentElement;
-      }
-      return false;
     };
 
     const touchMove = (e: TouchEvent) => {
@@ -161,7 +128,7 @@ export function useGlobalScrollLock() {
       let cur = target;
       while (cur && cur !== document.documentElement) {
         const cls = getClassName(cur);
-        const id = (cur.id || '') as string;
+        const id = cur.id;
         if (cls.includes('monaco') || cls.includes('minimap') || id.includes('monaco')) {
           return;
         }
@@ -200,9 +167,9 @@ export function useGlobalScrollLock() {
     window.addEventListener('keydown', keyHandler, { passive: false, capture: false });
 
     return () => {
-      window.removeEventListener('wheel', wheelHandler as any);
-      window.removeEventListener('touchmove', touchMove as any);
-      window.removeEventListener('keydown', keyHandler as any);
+      window.removeEventListener('wheel', wheelHandler);
+      window.removeEventListener('touchmove', touchMove);
+      window.removeEventListener('keydown', keyHandler);
     };
   }, []);
 }

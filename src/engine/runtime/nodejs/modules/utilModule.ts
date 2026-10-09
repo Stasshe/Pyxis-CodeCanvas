@@ -1,98 +1,63 @@
-/**
- * util モジュールのエミュレーション
- */
+import assertPort from 'assert/';
+import {
+  format,
+  formatWithOptions,
+  inspect,
+  stripVTControlCharacters,
+} from 'node-inspect-extracted';
+import utilPort from 'util/';
+
+const promisifyCustomSymbol = Symbol.for('nodejs.util.promisify.custom');
+
+function isDeepStrictEqual(actual: unknown, expected: unknown): boolean {
+  try {
+    assertPort.deepStrictEqual(actual, expected);
+    return true;
+  } catch (error) {
+    if (error instanceof assertPort.AssertionError) return false;
+    throw error;
+  }
+}
+
+const promisify = Object.assign(
+  (original: Parameters<typeof utilPort.promisify>[0]): ReturnType<typeof utilPort.promisify> => {
+    if (typeof original !== 'function') {
+      throw new TypeError('The "original" argument must be of type function.');
+    }
+    const customValue: unknown = Reflect.get(original, promisifyCustomSymbol);
+    if (customValue) {
+      if (typeof customValue !== 'function') {
+        throw new TypeError(
+          `The "util.promisify.custom" property must be of type function. Received type ${typeof customValue}.`
+        );
+      }
+      Object.defineProperty(customValue, promisifyCustomSymbol, {
+        value: customValue,
+        enumerable: false,
+        writable: false,
+        configurable: true,
+      });
+      return customValue;
+    }
+    const promisified = utilPort.promisify(original);
+    Object.defineProperty(promisified, promisifyCustomSymbol, {
+      value: promisified,
+      enumerable: false,
+      writable: false,
+      configurable: true,
+    });
+    return promisified;
+  },
+  { custom: promisifyCustomSymbol }
+);
 
 export function createUtilModule() {
-  return {
-    inspect: (obj: any, options?: any): string => {
-      try {
-        return JSON.stringify(obj, null, 2);
-      } catch {
-        return String(obj);
-      }
-    },
-    format: (f: string, ...args: unknown[]): string => {
-      let i = 0;
-      return f.replace(/%[sdj%]/g, x => {
-        if (x === '%%') return '%';
-        if (i >= (args as unknown[]).length) return x;
-        switch (x) {
-          case '%s':
-            return String((args as unknown[])[i++]);
-          case '%d':
-            return String(Number((args as unknown[])[i++]));
-          case '%j':
-            try {
-              return JSON.stringify((args as unknown[])[i++]);
-            } catch {
-              return '[Circular]';
-            }
-          default:
-            return x;
-        }
-      });
-    },
-    promisify: (fn: Function): Function => {
-      return (...args: unknown[]) => {
-        return new Promise((resolve, reject) => {
-          fn(...(args as unknown[]), (err: Error | null, result: unknown) => {
-            if (err) reject(err);
-            else resolve(result as unknown);
-          });
-        });
-      };
-    },
-    callbackify: (fn: Function): Function => {
-      return (...args: unknown[]) => {
-        const callback = args[args.length - 1] as Function;
-        (fn as any)(...args.slice(0, -1))
-          .then((result: unknown) => callback(null, result))
-          .catch(callback);
-      };
-    },
-    inherits: (ctor: Function, superCtor: Function) => {
-      ctor.prototype = Object.create(superCtor.prototype);
-      ctor.prototype.constructor = ctor;
-    },
-    isDeepStrictEqual: (a: any, b: any): boolean => {
-      return JSON.stringify(a) === JSON.stringify(b);
-    },
-    types: {
-      isArray: Array.isArray,
-      isObject: (obj: any) => obj !== null && typeof obj === 'object',
-      isPromise: (obj: any) => !!obj && typeof obj.then === 'function',
-      isRegExp: (obj: any) => Object.prototype.toString.call(obj) === '[object RegExp]',
-      isDate: (obj: any) => Object.prototype.toString.call(obj) === '[object Date]',
-      isError: (obj: any) => obj instanceof Error,
-      isFunction: (obj: any) => typeof obj === 'function',
-      isString: (obj: any) => typeof obj === 'string',
-      isNumber: (obj: any) => typeof obj === 'number',
-      isBoolean: (obj: any) => typeof obj === 'boolean',
-      isNull: (obj: any) => obj === null,
-      isUndefined: (obj: any) => obj === undefined,
-      isSymbol: (obj: any) => typeof obj === 'symbol',
-      isBuffer: (obj: any) =>
-        obj?.constructor &&
-        typeof obj.constructor.isBuffer === 'function' &&
-        obj.constructor.isBuffer(obj),
-    },
-    toPromise: (fn: Function, ...args: unknown[]): Promise<unknown> => {
-      return new Promise((resolve, reject) => {
-        (fn as any)(...(args as unknown[]), (err: Error | null, result: unknown) => {
-          if (err) reject(err);
-          else resolve(result as unknown);
-        });
-      });
-    },
-    deprecate: (fn: Function, msg: string): Function => {
-      let warned = false;
-      return function (this: any, ...args: unknown[]) {
-        if (!warned) {
-          console.warn(`DeprecationWarning: ${msg}`);
-          warned = true;
-        }
-        return fn.apply(this, args as any);
-      };
-    },
-  };
+  return Object.assign({}, utilPort, {
+    inspect,
+    format,
+    formatWithOptions,
+    isDeepStrictEqual,
+    promisify,
+    stripVTControlCharacters,
+  });
 }

@@ -2,7 +2,7 @@
 import { Calendar, CheckCircle2, Package, Tag, User, XCircle } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
@@ -45,6 +45,33 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   };
 
   const typeColor = getExtensionTypeBadgeColor(manifest.type);
+
+  const readmeComponents: Components = {
+    img: ({ node: _node, src, alt, ...props }) => (
+      <LocalImage src={typeof src === 'string' ? src : ''} alt={alt || ''} {...props} />
+    ),
+    pre: ({ node: _node, ...props }) => (
+      <pre
+        {...props}
+        style={{
+          overflowX: 'auto',
+          padding: '0.75rem',
+          background: colors.mutedBg,
+        }}
+      />
+    ),
+    code: ({ node: _node, className, children, ...props }) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const language = match?.[1];
+      const code = String(children).replace(/\n$/, '');
+      if (language) return <InlineHighlightedCode language={language} value={code} />;
+      return (
+        <code {...props} className={className}>
+          {children}
+        </code>
+      );
+    },
+  };
 
   const [isWide, setIsWide] = useState<boolean>(
     typeof window !== 'undefined' ? window.innerWidth >= 720 : false
@@ -143,46 +170,7 @@ const ExtensionInfoTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                      components={{
-                        img: ({ node, src, alt, ...props }: any) => (
-                          <LocalImage
-                            src={typeof src === 'string' ? src : ''}
-                            alt={alt || ''}
-                            // Manifest readmes have no workspace base path.
-                            {...props}
-                          />
-                        ),
-                        pre: (props: any) => (
-                          <pre
-                            {...props}
-                            style={{
-                              overflowX: 'auto',
-                              padding: '0.75rem',
-                              background: colors.mutedBg,
-                            }}
-                          />
-                        ),
-                        code: ({ node, inline, className, children, ...props }: any) => {
-                          const match = /language-(\w+)/.exec(className || '');
-                          const lang = match ? match[1] : '';
-                          const codeString = String(children).replace(/\n$/, '');
-                          if (!inline && lang) {
-                            return <InlineHighlightedCode language={lang} value={codeString} />;
-                          }
-                          return (
-                            <code
-                              {...props}
-                              className={className}
-                              style={{
-                                whiteSpace: inline ? 'normal' : 'pre',
-                                display: inline ? 'inline' : 'block',
-                              }}
-                            >
-                              {codeString}
-                            </code>
-                          );
-                        },
-                      }}
+                      components={readmeComponents}
                     >
                       {manifest.readme}
                     </ReactMarkdown>

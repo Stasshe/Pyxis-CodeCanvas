@@ -1,9 +1,12 @@
 import * as Comlink from 'comlink';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { UnixCommands } from '@/engine/cmd/global/unix';
+import { ShellExecutor } from '@/engine/cmd/shell/executor';
+import type { ShellExecutionOptions } from '@/engine/cmd/shell/types';
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
 import { resolvePath } from '@/engine/core/fs';
 import { fsClient } from '@/engine/core/fs/client';
-import type { WorkerNpmCommands } from './npmOperations/worker';
+import type { OutputCallbacks } from '../shell/types';
+import type { InstallPackageRequest, WorkerNpmCommands } from './npmOperations/worker';
 
 export class NpmCommands {
   private terminalUI?: TerminalUI;
@@ -39,10 +42,18 @@ export class NpmCommands {
   }
 
   async install(packageName?: string, flags: string[] = []): Promise<string> {
+    const version = flags.find(flag => flag.startsWith('--version='))?.slice('--version='.length);
+    const packages: InstallPackageRequest[] = [];
+    if (packageName) packages.push({ name: packageName, version });
+    return this.installPackages(packages, flags);
+  }
+
+  async installPackages(packages: InstallPackageRequest[], flags: string[] = []): Promise<string> {
     return this.withLoading(async () => {
       const ui = this.terminalUI;
       let target = 'dependencies';
-      if (packageName) target = packageName;
+      if (packages.length === 1) target = packages[0].name;
+      if (packages.length > 1) target = packages.map(request => request.name).join(', ');
       if (ui) await ui.spinner.start(`Installing ${target}...`);
       try {
         const service = await this.servicePromise;
@@ -50,7 +61,7 @@ export class NpmCommands {
           if (!ui) return;
           await ui.spinner.update(`Installing ${name}@${version}`);
         };
-        const output = await service.install(packageName, flags, Comlink.proxy(progress));
+        const output = await service.installPackages(packages, flags, Comlink.proxy(progress));
         if (ui) await ui.spinner.stop();
         return output;
       } catch (error) {
@@ -88,11 +99,31 @@ export class NpmCommands {
   }
 
   async run(scriptName: string): Promise<string> {
+    const result = await this.runWithStatus(scriptName);
+    return [result.stdout, result.stderr].filter(Boolean).join('\n');
+  }
+
+  async runWithStatus(
+    scriptName: string,
+    scriptArgs: string[] = [],
+    callbacks?: OutputCallbacks,
+    context?: NpmRunContext
+  ): Promise<NpmRunResult> {
     try {
       const packagePath = resolvePath(this.rootPath, 'package.json');
-      if (!(await fsClient.exists(packagePath))) return 'npm ERR! Cannot find package.json';
+      if (!(await fsClient.exists(packagePath))) {
+        const error = 'npm ERR! Cannot find package.json\n';
+        callbacks?.stderr?.(error);
+        return { stdout: '', stderr: error, code: 1 };
+      }
       const packageJson = JSON.parse(await fsClient.readText(packagePath)) as PackageJson;
-      const command = packageJson.scripts?.[scriptName];
+      let command = packageJson.scripts?.[scriptName];
+      if (
+        !command &&
+        scriptName === 'start' &&
+        (await fsClient.exists(resolvePath(this.rootPath, 'server.js')))
+      )
+        command = 'node server.js';
       if (!command) {
         const scripts = packageJson.scripts ?? {};
         let output = `npm ERR! script '${scriptName}' not found\n`;
@@ -101,21 +132,67 @@ export class NpmCommands {
           output += '\nAvailable scripts:\n';
           for (const name of names) output += `  ${name}: ${scripts[name]}\n`;
         }
-        return output;
+        callbacks?.stderr?.(output);
+        return { stdout: '', stderr: output, code: 1 };
       }
-      const shell = await terminalCommandRegistry.getShell(this.rootPath, { fsClient });
-      const result = await shell.run(command);
-      const output = [`> ${this.projectName}@${packageJson.version} ${scriptName}`, `> ${command}`];
-      if (result.stdout) output.push(result.stdout);
-      if (result.stderr) output.push(result.stderr);
-      if (result.code === 0 || result.code === null)
-        output.push(`Script '${scriptName}' completed successfully.`);
-      else output.push(`Script '${scriptName}' exited with code ${result.code}.`);
-      return output.join('\n');
+      let stdout = '';
+      let stderr = '';
+      const runScript = async (name: string, script: string, args: string[] = []) => {
+        const header = [
+          `> ${this.projectName}@${packageJson.version ?? '0.0.0'} ${name}`,
+          `> ${script}`,
+          '',
+          '',
+        ].join('\n');
+        stdout += header;
+        callbacks?.stdout?.(header);
+        let commandLine = script;
+        if (args.length > 0) commandLine += ` ${args.map(quoteShellArgument).join(' ')}`;
+        const cwd = context?.cwd ?? this.rootPath;
+        const unix = new UnixCommands(this.rootPath, fsClient);
+        unix.setCurrentDir(cwd);
+        const shell = new ShellExecutor({
+          rootPath: this.rootPath,
+          cwd,
+          env: context?.env,
+          signal: context?.signal,
+          terminalColumns: context?.terminalColumns,
+          terminalRows: context?.terminalRows,
+          fsClient,
+          unix,
+          isInteractive: false,
+        });
+        const unsubscribe = context?.onSignal(signal => shell.killForeground(signal));
+        try {
+          const result = await shell.run(commandLine, callbacks, context);
+          stdout += result.stdout;
+          stderr += result.stderr;
+          return result.code ?? 1;
+        } finally {
+          unsubscribe?.();
+          shell.dispose();
+        }
+      };
+
+      const preScript = packageJson.scripts?.[`pre${scriptName}`];
+      if (preScript) {
+        const code = await runScript(`pre${scriptName}`, preScript);
+        if (code !== 0) return { stdout, stderr, code };
+      }
+      const code = await runScript(scriptName, command, scriptArgs);
+      if (code !== 0) return { stdout, stderr, code };
+      const postScript = packageJson.scripts?.[`post${scriptName}`];
+      if (postScript) {
+        const postCode = await runScript(`post${scriptName}`, postScript);
+        if (postCode !== 0) return { stdout, stderr, code: postCode };
+      }
+      return { stdout, stderr, code: 0 };
     } catch (error) {
       let message = String(error);
       if (error instanceof Error) message = error.message;
-      throw new Error(`npm run failed: ${message}`);
+      const stderr = `npm run failed: ${message}\n`;
+      callbacks?.stderr?.(stderr);
+      return { stdout: '', stderr, code: 1 };
     }
   }
 
@@ -132,4 +209,23 @@ export class NpmCommands {
 interface PackageJson {
   version?: string;
   scripts?: Record<string, string>;
+}
+
+export interface NpmRunResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+}
+
+export interface NpmRunContext extends ShellExecutionOptions {
+  cwd: string;
+  env?: Record<string, string>;
+  signal?: AbortSignal;
+  onSignal: (fn: (signal: string) => void) => () => void;
+  terminalColumns: number;
+  terminalRows: number;
+}
+
+function quoteShellArgument(argument: string): string {
+  return `'${argument.replaceAll("'", "'\\''")}'`;
 }

@@ -16,7 +16,7 @@ let databasePromise: Promise<IDBDatabase> | null = null;
 function openDatabase(): Promise<IDBDatabase> {
   if (databasePromise) return databasePromise;
 
-  databasePromise = new Promise((resolve, reject) => {
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = () => {
@@ -25,14 +25,24 @@ function openDatabase(): Promise<IDBDatabase> {
         database.createObjectStore(STORE_NAME, { keyPath: 'rootPath' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onversionchange = () => {
+        database.close();
+        if (databasePromise === opening) databasePromise = null;
+      };
+      resolve(database);
+    };
     request.onerror = () => {
-      databasePromise = null;
       reject(request.error);
     };
   });
 
-  return databasePromise;
+  databasePromise = opening;
+  void opening.catch(() => {
+    if (databasePromise === opening) databasePromise = null;
+  });
+  return opening;
 }
 
 export async function closeRecentFolders(): Promise<void> {
@@ -46,11 +56,13 @@ export async function closeRecentFolders(): Promise<void> {
 export async function listRecentFolders(): Promise<Project[]> {
   const database = await openDatabase();
   const transaction = database.transaction(STORE_NAME, 'readonly');
+  const committed = transactionCompletion(transaction);
   const request = transaction.objectStore(STORE_NAME).getAll();
-  const records = await new Promise<RecentFolderRecord[]>((resolve, reject) => {
+  const requestResult = new Promise<RecentFolderRecord[]>((resolve, reject) => {
     request.onsuccess = () => resolve(request.result as RecentFolderRecord[]);
     request.onerror = () => reject(request.error);
   });
+  const [records] = await Promise.all([requestResult, committed]);
 
   return records
     .map(record => ({ ...record, updatedAt: new Date(record.updatedAt) }))
@@ -83,5 +95,13 @@ export async function removeRecentFolder(rootPath: string): Promise<void> {
     transaction.onabort = () => reject(transaction.error);
     transaction.onerror = () => reject(transaction.error);
     request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionCompletion(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error);
   });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ParseError, parseCommandLine } from '@/engine/cmd/shell/parser';
+import { parseCommandLine } from '@/engine/cmd/shell/parser';
 
 /**
  * Shell パーサーのテスト
@@ -104,55 +104,38 @@ describe('parseCommandLine', () => {
     it('stdout リダイレクト (>)', () => {
       const segs = parseCommandLine('echo hello > output.txt');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stdoutFile).toBe('output.txt');
+      expect(segs[0].redirections).toEqual([
+        { kind: 'output', fd: 1, path: 'output.txt', raw: 'output.txt', append: false },
+      ]);
     });
 
     it('stdout 追記 (>>)', () => {
       const segs = parseCommandLine('echo hello >> output.txt');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stdoutFile).toBe('output.txt');
-      expect(segs[0].append).toBe(true);
+      expect(segs[0].redirections).toEqual([
+        { kind: 'output', fd: 1, path: 'output.txt', raw: 'output.txt', append: true },
+      ]);
     });
 
     it('stdin リダイレクト (<)', () => {
       const segs = parseCommandLine('sort < input.txt');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stdinFile).toBe('input.txt');
+      expect(segs[0].redirections).toEqual([
+        { kind: 'input', fd: 0, path: 'input.txt', raw: 'input.txt' },
+      ]);
     });
 
     it('stderr を stdout に結合 (2>&1)', () => {
       const segs = parseCommandLine('command 2>&1');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stderrToStdout).toBe(true);
+      expect(segs[0].redirections).toEqual([{ kind: 'duplicate', fd: 2, target: 1 }]);
     });
 
     it('/dev/null へのリダイレクト', () => {
       const segs = parseCommandLine('command > /dev/null');
-      expect(segs[0].stdoutFile).toBe('/dev/null');
-    });
-  });
-
-  // ==================== 変数展開 ====================
-
-  describe('変数展開', () => {
-    it('$HOME を展開する', () => {
-      const segs = parseCommandLine('echo $HOME', { HOME: '/home/user' });
-      expect(segs[0].tokens[1].text).toBe('/home/user');
-    });
-
-    it('${VAR} 形式を展開する', () => {
-      const segs = parseCommandLine('echo ${USER}', { USER: 'alice' });
-      expect(segs[0].tokens[1].text).toBe('alice');
-    });
-
-    it('未定義変数は空文字になる', () => {
-      const segs = parseCommandLine('echo $UNDEFINED', {});
-      // Either removed or empty token
-      const text = segs[0].tokens
-        .slice(1)
-        .map(t => t.text)
-        .join('');
-      expect(text).toBe('');
+      expect(segs[0].redirections).toEqual([
+        { kind: 'output', fd: 1, path: '/dev/null', raw: '/dev/null', append: false },
+      ]);
     });
   });
 
@@ -160,7 +143,7 @@ describe('parseCommandLine', () => {
 
   describe('コマンド置換', () => {
     it('$(cmd) を認識する', () => {
-      const segs = parseCommandLine('echo $(whoami)', {});
+      const segs = parseCommandLine('echo $(whoami)');
       expect(segs[0].tokens.length).toBeGreaterThanOrEqual(1);
       const subToken = segs[0].tokens.find(t => t.cmdSubs?.length);
       expect(subToken).toBeDefined();
@@ -168,74 +151,19 @@ describe('parseCommandLine', () => {
     });
 
     it('バッククォートを認識する', () => {
-      const segs = parseCommandLine('echo `date`', {});
+      const segs = parseCommandLine('echo `date`');
       const subToken = segs[0].tokens.find(t => t.cmdSubs?.length);
       expect(subToken).toBeDefined();
       expect(subToken?.cmdSubs).toEqual([{ placeholder: '__CMD_SUB_0__', command: 'date' }]);
     });
 
     it('埋め込み置換と同じ文字列の通常wordを区別する', () => {
-      const segments = parseCommandLine('echo __CMD_SUB_0__ prefix$(date)suffix', {});
+      const segments = parseCommandLine('echo __CMD_SUB_0__ prefix$(date)suffix');
 
       expect(segments[0].tokens[1].cmdSubs).toBeUndefined();
       expect(segments[0].tokens[2].cmdSubs).toEqual([
         { placeholder: '__CMD_SUB_1__', command: 'date' },
       ]);
-    });
-  });
-
-  describe('parameter expansion', () => {
-    it('supports default and alternate values for unset and empty variables', () => {
-      const segments = parseCommandLine(
-        'echo ${MISSING:-fallback} ${EMPTY-default} ${SET:+present} ${EMPTY+present}',
-        { EMPTY: '', SET: 'value' }
-      );
-
-      expect(segments[0].tokens.map(token => token.text)).toEqual([
-        'echo',
-        'fallback',
-        'present',
-        'present',
-      ]);
-    });
-
-    it('expands script source index from the environment', () => {
-      const segments = parseCommandLine('echo "${BASH_SOURCE[0]}"', {
-        'BASH_SOURCE[0]': 'src/run-test.sh',
-      });
-
-      expect(segments[0].tokens[1].text).toBe('src/run-test.sh');
-    });
-
-    it('expands indirect and prefix variable references', () => {
-      const segments = parseCommandLine('echo ${!NAME} ${!APP_@}', {
-        NAME: 'VALUE',
-        VALUE: 'ready',
-        APP_FIRST: 'a',
-        APP_SECOND: 'b',
-      });
-
-      expect(segments[0].tokens.map(token => token.text)).toEqual([
-        'echo',
-        'ready',
-        'APP_FIRST',
-        'APP_SECOND',
-      ]);
-    });
-
-    it('preserves printf escapes inside double quotes and suppresses escaped expansion', () => {
-      const segments = parseCommandLine('printf "line1\\n$VALUE \\$VALUE"', { VALUE: 'expanded' });
-
-      expect(segments[0].tokens[1].text).toBe('line1\\nexpanded $VALUE');
-    });
-
-    it('removes mixed quotes while preserving assignment word grouping', () => {
-      const segments = parseCommandLine("VALUE='value with spaces'", {});
-
-      expect(segments[0].tokens[0]).toMatchObject({
-        text: 'VALUE=value with spaces',
-        quote: 'single',
-      });
     });
   });
 
@@ -245,7 +173,7 @@ describe('parseCommandLine', () => {
     it('& でバックグラウンドフラグが立つ', () => {
       const segs = parseCommandLine('sleep 10 &');
       expect(segs).toHaveLength(1);
-      expect(segs[0].background).toBe(true);
+      expect(segs[0].separator).toBe('&');
     });
   });
 

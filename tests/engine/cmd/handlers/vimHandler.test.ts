@@ -1,18 +1,18 @@
-import { Terminal } from '@xterm/xterm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
 import { handleVimCommand } from '@/engine/cmd/handlers/vimHandler';
 import { fsClient } from '@/engine/core/fs';
 import { setupTestProject } from '../../../_helpers/testProject';
+import { createUnicodeTerminal } from '../../../_helpers/unicodeTerminal';
 
 describe('Vim file loading', () => {
-  let terminal: Terminal;
+  let terminal: Awaited<ReturnType<typeof createUnicodeTerminal>>;
   let project: Awaited<ReturnType<typeof setupTestProject>>;
   let output: string[];
 
   beforeEach(async () => {
     project = await setupTestProject('VimFileLoading');
-    terminal = new Terminal();
+    terminal = await createUnicodeTerminal();
     vi.spyOn(terminal, 'clear').mockImplementation(() => {});
     vi.spyOn(terminal, 'write').mockImplementation(() => {});
     vi.spyOn(VimEditor.prototype, 'start').mockImplementation(() => {});
@@ -60,5 +60,19 @@ describe('Vim file loading', () => {
     expect(await open('new.txt')).toBeInstanceOf(VimEditor);
     expect(VimEditor.prototype.start).toHaveBeenCalledOnce();
     expect(await project.repo.exists(`${project.rootPath}/new.txt`)).toBe(false);
+  });
+
+  it('rejects multiple file arguments instead of silently ignoring later paths', async () => {
+    const result = await handleVimCommand(
+      ['first.txt', 'second.txt'],
+      null,
+      text => output.push(text),
+      project.rootPath,
+      terminal
+    );
+
+    expect(result).toBeNull();
+    expect(output.join('')).toContain('Multiple files are not supported');
+    expect(VimEditor.prototype.start).not.toHaveBeenCalled();
   });
 });

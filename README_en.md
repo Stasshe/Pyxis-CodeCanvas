@@ -8,7 +8,7 @@
   [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
-  [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
+  [![Languages](https://img.shields.io/badge/languages-20-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
   [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite)](https://vite.dev/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
@@ -27,7 +27,7 @@
 - **Pyxis is a high-mobility browser IDE designed for iPad that launches in just 1 second.**
 - **Since Pyxis is a static site, there is no need to start a server, and as a result, no charges are incurred.**
 
-### 🌍 **18 Languages Worldwide - Global Coding Experience**
+### 🌍 **20 Languages Worldwide - Global Coding Experience**
 
 **Pyxis speaks your language.**
 
@@ -106,7 +106,7 @@ Instant preview as you type! Perfect for long-form writing.
 - 💾 **Export with .git** - Download entire repository including .git folder
 - 🛡️ **Safe learning** - Break anything without consequences! Perfect for Git beginners
 
-> **GitHub Integration**: Remote repository connection is on hold pending GitHub application approval. Local Git is fully functional.
+> **GitHub Integration**: GitHub push uses PAT authentication through the REST API. Clone, fetch, and pull support public repositories; authenticated clone and fetch are unsupported because credentials are rejected on the public CORS proxy. See [Git and GitHub](docs/domain/git.md) (Japanese).
 
 ---
 
@@ -123,7 +123,8 @@ Pyxis features an AI assistant that helps you review and adopt code diffs. This 
   <img src="readme-assets/IMG_1469.png" alt="Node.js Execution" width="80%" />
 </div>
 
-Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when available. Normal completion clears execution state and returns the Worker to the idle pool; termination or an unexpected failure discards it. The Runtime Worker accesses files through the FS Worker. The FS Worker retains the directory-handle chain for its most recent successful path lookup and reuses shared ancestors; it does not cache file handles or contents. It owns the persistent transformed-module cache, while CommonJS modules load once per execution. JavaScript and TypeScript resolution follows package type, `exports` / `imports` conditions, and file extensions. Symlinks use reserved FS Worker records on OPFS, and module cache identity follows realpaths. npm `.bin` entries are symlinks resolved by Terminal and `npx`. The runtime also exposes `node:constants`, `node:zlib`, Node-maintained `node:string_decoder`, and Node-compatible `node:querystring`; `process.arch` matches `os.arch()`. See the [Node.js Runtime documentation](docs/en/NODE-RUNTIME.md) for details.
+Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when available. Program globals live on the Worker’s actual global object so sloppy assignments and bare identifier lookup match Node; runtime-owned temporary descriptors are restored after each run. Normal completion clears execution state and returns the Worker to the idle pool; termination or an unexpected failure discards it. The Runtime Worker accesses files through the FS Worker. The FS Worker retains the directory-handle chain for its most recent successful path lookup and reuses shared ancestors; it does not cache file handles or contents. It owns the persistent transformed-module cache, while CommonJS modules load once per execution. `require.resolve(..., { paths })` accepts explicit package lookup roots. `path` defaults to POSIX behavior; `path.win32` and `path/win32` provide Windows-style paths. JavaScript and TypeScript resolution follows package type, `exports` / `imports` conditions, and file extensions. Symlinks use reserved FS Worker records on OPFS, and module cache identity follows realpaths. npm `.bin` entries are symlinks resolved by Terminal and `npx`. Terminal supports CommonJS inline scripts with `node -e` and `node --eval`. The runtime also exposes `node:constants`, `node:zlib`, Node-maintained `node:string_decoder`, Node-compatible `node:querystring`, `node:diagnostics_channel` with generic channels and sync, Promise, and callback tracing, `node:events.on` for EventEmitter/EventTarget async iteration, `node:stream/promises` with `finished` and `pipeline`, and `node:stream/web` with native WHATWG streams plus text and compression APIs; `stream.Readable.fromWeb()` and `toWeb()` convert between Node and WHATWG readable streams; `process.arch` matches `os.arch()`. See the [Node.js Runtime documentation](docs/domain/node-runtime.md) (Japanese) for details.
+The runtime's `assert` export is callable and includes `assert/strict`; `util` uses Node-derived `inspect`, `format`, and `formatWithOptions`, and supports `isDeepStrictEqual` and `promisify.custom`. `process.env` inherits the launching shell environment, and `process.chdir()` operates within the virtual filesystem. `crypto` provides hashes, HMAC, PBKDF2, random bytes and integers, IV-based ciphers, signing and verification, ECDH/DH, public/private key encryption and decryption, `scrypt`, and `scryptSync`. Key generation is unavailable.
 The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. OperationWindow offers separate Quick Open, Open Folder, and Open Recent modes. npm stores compact abbreviated registry metadata under `~/.npm/registry` according to HTTP freshness and revalidates expired entries with ETag. Tarballs are keyed by the SHA-256 of the exact resolved URL, checked against available registry or lockfile integrity before extraction, and cached after successful extraction. npm v3 `package-lock.json` records registry package placements and supports nested dependency versions. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
 - **Stop controls** - RunPanel Stop ends the run; Terminal Ctrl+C invokes the program's SIGINT handler
 - ⚡ **Isolated execution** - Per-run module caches and timers are reset; normally completed Workers are reused
@@ -148,11 +149,11 @@ Emulates file operations and interactive user input/output that are impossible i
 #### 🚀 Key Features
 - **Pipeline Processing** - `cmd1 | cmd2 | cmd3` for stream connections
 - **Redirections** - `cmd > file`, `cmd >> file`, `cmd < file`, `cmd 2>&1`, and related operators
-- **Control Structures** - `if/then/else`, `for/while` loops, `break/continue`
-- **Variable Expansion** - `$VAR`, `$(command)` command substitution, `((arithmetic))` arithmetic expansion
+- **Control Structures** - `if/then/else`, `for/while` loops, functions, `ERR`/`EXIT` traps, and `set -e/-u/-o pipefail`
+- **Variable Expansion** - `$VAR`, parameter expansion, `$(command)` command substitution, and `$((arithmetic))` arithmetic expansion
 - **Logical Operators** - `&&`, `||` for conditional execution
 - **Background Execution** - `cmd &` for asynchronous processing
-- **File Operations** - `ls`, `cat`, `grep`, `head`, `tail`, and other Unix commands
+- **File Operations** - `ls`, `cat`, `grep`, `head`, `tail`, `tr`, `awk`, and other Unix commands
 - **Script Execution** - Resolve `.sh` files from the current working directory and return their exit status
 
 #### ⚡ Technical Features
@@ -160,7 +161,6 @@ Emulates file operations and interactive user input/output that are impossible i
 - **Backpressure Support** - Memory-efficient data flow control
 - **Process Abstraction** - Virtual process management in browser environment
 - **fd Management** - File descriptor mapping and duplication
-- **Timeout Protection** - Automatic timeout to prevent infinite loops
 
 **Shell Script Examples:**
 ```bash
@@ -184,11 +184,11 @@ COUNT=$((COUNT + 1))
 echo "Current count: $COUNT"
 ```
 
-Command substitution does not change the parent Terminal's working directory. To use an assignment value, enter the assignment and its use as separate Terminal commands; same-line expansion happens before the assignment takes effect. Some syntax and commands remain unsupported; see [SHELL-SYSTEM.md](/docs/SHELL-SYSTEM.md).
+Command substitution does not change the parent Terminal's working directory. Some shell syntax and commands remain unsupported; see the [Shell documentation](docs/domain/shell.md) (Japanese).
 
 > Note: Some system commands, bugs, and features are not yet fully supported. Further enhancements are planned for future updates. Please submit requests via issues.
 
-[See Shell System Documentation](/docs/SHELL-SYSTEM.md) for details.
+[See the Shell documentation](docs/domain/shell.md) (Japanese) for details.
 
 ---
 
@@ -204,15 +204,15 @@ One of Pyxis's biggest features is its "Extension System." You can add VSCode-li
 
 #### Highlights
 - **CLI Template Generation**: Instantly scaffold new extensions with `pnpm run create-extension`. Even beginners can start developing extensions right away.
-- **npm Registry Package Support**: Registry tarball installs use npm v3 lockfiles and support nested dependency versions. Compatible lock entries take priority; new ranges prefer `latest` when it satisfies the range.
+- **npm Registry Package Support**: Registry tarball installs use npm v3 lockfiles, nested dependency versions, and required peer dependencies. The CLI accepts multiple packages and npm aliases in `alias@npm:target@range` form, including scoped targets. Compatible lock entries take priority; new ranges prefer `latest` when it satisfies the range.
 - **Terminal Command Extensions**: Add custom commands via API and run them from Pyxis's terminal UI.
 - **VSCode-like UI Extensions**: Add custom tabs and sidebar panels via API. Build intuitive UIs with React/TSX.
 - **Language Packs & Service Extensions**: Add language packs or custom services as extensions.
-- **Safe Sandbox Architecture**: Extensions run independently, and extension data persists in browser storage.
+- **Extension Persistence**: Extension registrations and fetched code are stored in the browser; enabled extensions are restored on the next startup.
 
 Pyxis extensions offer flexibility and power unmatched by any other browser IDE: VSCode-level UI extensions on Web/iPad, extensible terminal commands, and instant development with official templates.
 
-See `/extensions/README.md` and `/Development/EXTENSION-TAB-SIDEBAR-API.md` for details.
+See `/extensions/README.md` and [the extension system documentation](docs/domain/extensions.md) (Japanese) for details.
 
 ---
 
@@ -257,7 +257,7 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 - **Works everywhere** - Web, iPad, mobile, any modern browser
 - **Multi-pane support** for complex projects
 - **Binary file support** - Preserve file bytes across OPFS, Git, runtime, uploads/downloads, and ZIP extraction; decode only for text reads, explicit Node encodings, `.mjs` transpilation, or terminal display
-- **🌍 18 Languages Support** - Available in Japanese, English, Chinese, Traditional Chinese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, Swedish, and Polish
+- **🌍 20 Languages Support** - Available in Japanese, English, Chinese, Traditional Chinese, Korean, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Turkish, Arabic, Hindi, Thai, Vietnamese, Indonesian, Swedish, and Polish
 - **Extension System** - Dynamically add language packs, transpilers, and custom features
 
 ### 🖥️ **Tauri Desktop Support**
@@ -307,7 +307,9 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 
 ### **File System Design**
 
-OPFS is the only store for file contents. IndexedDB stores metadata such as recent folders, tabs, chats, and AI reviews. See [Two-Layer Architecture](docs/TWO-LAYER-ARCHITECTURE.md) and [Data Flow](docs/DATA-FLOW.md) for details.
+OPFS is the only store for file contents. IndexedDB stores metadata such as recent folders, tabs, chats, and AI reviews. See the [storage architecture](docs/arch/storage.md) and [data flow](docs/arch/data-flow.md) documents (Japanese), indexed in [docs/README.md](docs/README.md).
+
+Editor save and restore failures appear in the editor and Output. Failed saves retain unsaved edits. Failed restores block editing; close and reopen the tab to retry.
 
 ### 🎨 **What You Can Build**
 
@@ -404,11 +406,13 @@ $$E = mc^2$$
 
 | Browser | Support | Notes |
 |---------|---------|-------|
-| 🟢 **Chrome/Edge** | Perfect | Recommended for best experience |
-| 🟢 **Safari (iPad)** | Excellent | Optimized specifically for iPad |
-| 🟡 **Firefox** | Good | All features work |
+| 🟢 **Chrome/Edge** | Chrome verified | Edge not measured |
+| 🟢 **Safari (iPad)** | Safari 26+ | Not verified on device |
+| 🟡 **Firefox** | Not measured | Support is unverified |
 | 🟡 **Mobile** | Good | Touch-optimized interface |
 | 🟢 **Tauri (Desktop)** | Perfect | Works on Windows/Mac/Linux |
+
+Persistent file renames require OPFS `FileSystemFileHandle.move()`. This was verified in Chrome. Safari 26+ is the target, but Safari and Firefox integration have not been measured.
 
 **System Requirements:** Just a modern browser and 2GB+ RAM for smooth experience.
 
@@ -441,7 +445,6 @@ npm run preview
 ```
 
 or, if you use tauri, use "tauri" branch.
-* check this guide! [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
 ```
 npm i

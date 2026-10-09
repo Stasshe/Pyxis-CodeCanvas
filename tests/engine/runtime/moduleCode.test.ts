@@ -24,6 +24,29 @@ describe('ModuleCode', () => {
     ]);
   });
 
+  it('reads re-export specifiers without treating a default export value as a dependency', () => {
+    expect(
+      ModuleCode.analyze("export default 'value'; export { default as value } from 'module';")
+    ).toMatchObject({
+      dependencies: [{ specifier: 'module', kind: 'import' }],
+      staticImports: ['module'],
+    });
+  });
+
+  it('extracts specifiers from namespace re-exports with reserved export names', () => {
+    expect(
+      ModuleCode.analyze(
+        "export * as default /* reserved alias */ from './default.js'; export * as class from './class.js';"
+      )
+    ).toMatchObject({
+      dependencies: [
+        { specifier: './default.js', kind: 'import' },
+        { specifier: './class.js', kind: 'import' },
+      ],
+      staticImports: ['./default.js', './class.js'],
+    });
+  });
+
   it('detects imports and calls inside template expressions', () => {
     expect(ModuleCode.analyze('const text = `${require("real")}`; import("other");')).toMatchObject(
       {
@@ -50,6 +73,53 @@ describe('ModuleCode', () => {
   it('distinguishes top-level await from await within a function', () => {
     expect(ModuleCode.analyze('await load();').hasEsmSyntax).toBe(true);
     expect(ModuleCode.analyze('async function load() { await run(); }').hasEsmSyntax).toBe(false);
+    expect(
+      ModuleCode.analyze('const cli = { async execute() { await run(); } };').hasEsmSyntax
+    ).toBe(false);
+    expect(
+      ModuleCode.analyze('const cli = { async execute() { for await (const item of source) {} } };')
+        .hasTopLevelAwait
+    ).toBe(false);
+    expect(
+      ModuleCode.analyze('class Cli { async execute() { await run(); } }').hasTopLevelAwait
+    ).toBe(false);
+  });
+
+  it('keeps computed method keys and property values in the outer await scope', () => {
+    expect(
+      ModuleCode.analyze('const cli = { async [await key()]() { await run(); } };')
+    ).toMatchObject({
+      hasEsmSyntax: true,
+      hasTopLevelAwait: true,
+    });
+    expect(ModuleCode.analyze('const cli = { value: await load() };').hasTopLevelAwait).toBe(true);
+    expect(
+      ModuleCode.analyze('class Cli { async [await key()]() { await run(); } }')
+    ).toMatchObject({
+      hasEsmSyntax: true,
+      hasTopLevelAwait: true,
+    });
+  });
+
+  it('does not treat generated imports in method parameters as static dependencies', () => {
+    expect(
+      ModuleCode.analyze('const cli = { execute(value = __pyxisRequireImport("dependency")) {} };')
+    ).toMatchObject({
+      dependencies: [{ specifier: 'dependency', kind: 'import' }],
+      staticImports: [],
+    });
+  });
+
+  it('distinguishes static graph edges from dynamic imports', () => {
+    expect(ModuleCode.analyze('import "./static.mjs"; import("./dynamic.mjs");')).toMatchObject({
+      staticImports: ['./static.mjs'],
+      hasTopLevelAwait: false,
+    });
+    expect(ModuleCode.analyze('for await (const value of source) {}').hasTopLevelAwait).toBe(true);
+    expect(
+      ModuleCode.analyze('async function run() { for await (const value of source) {} }')
+        .hasTopLevelAwait
+    ).toBe(false);
   });
 
   it('recognizes lexical redeclarations of CommonJS wrapper names', () => {

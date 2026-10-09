@@ -3,8 +3,11 @@ export interface RuntimeExecutionOptions {
   /** Absolute workspace folder and working directory. */
   rootPath: string;
   cwd?: string;
+  env?: Record<string, string>;
   filePath: string;
+  source?: string;
   argv?: string[];
+  execArgv?: string[];
   /** Emit runtime stage metrics for an explicitly measured execution. */
   benchmark?: boolean;
   /** Abort forcibly cancels this execution. Terminal interrupts use subscribeInterrupt. */
@@ -12,6 +15,8 @@ export interface RuntimeExecutionOptions {
   subscribeInterrupt?: (handler: () => void) => () => void;
   onStdout?: (data: string | Uint8Array) => void;
   onStderr?: (data: string | Uint8Array) => void;
+  stdoutIsTTY?: boolean;
+  stderrIsTTY?: boolean;
   debugConsole?: {
     log: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;

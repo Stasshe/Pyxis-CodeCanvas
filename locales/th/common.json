@@ -135,9 +135,61 @@
     "loadingFile": "กำลังคืนค่าเนื้อหาไฟล์...",
     "selectFile": "กรุณาเลือกไฟล์"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "คุณมีส่วนขยายที่ใช้ได้ทั้งหมด",
+    "allInstalled": "ติดตั้งส่วนขยายทั้งหมดแล้ว",
+    "available": "มีจำหน่าย ({count})",
+    "browseAvailable": "เรียกดูส่วนขยายที่มีอยู่เพื่อเริ่มต้น",
+    "confirmUninstall": "คุณแน่ใจหรือไม่ว่าต้องการถอนการติดตั้ง \"{name}\"?",
+    "disable": "ปิดการใช้งาน",
+    "disableUnavailable": "ไม่สามารถปิดใช้งานส่วนขยายได้",
+    "enable": "เปิดใช้งาน",
+    "enableUnavailable": "ไม่สามารถเปิดใช้งานส่วนขยายได้",
+    "importFailed": "ไม่สามารถนำเข้า ZIP: {error}",
+    "importZip": "นำเข้าส่วนขยาย (.zip)",
+    "install": "ติดตั้ง",
+    "installed": "ติดตั้งแล้ว ({count})",
+    "installFailed": "ไม่สามารถติดตั้ง {name}: {error}",
+    "installUnavailable": "ไม่สามารถติดตั้งหรือเปิดใช้งานส่วนขยายได้",
+    "loadFailed": "ไม่สามารถโหลดส่วนขยาย: {error}",
+    "loading": "กำลังโหลดส่วนขยาย...",
+    "manifestUrlMissing": "ไม่พบ URL รายการในรีจิสทรี",
+    "noMatches": "ไม่พบส่วนขยายที่ตรงกัน",
+    "noneInstalled": "ไม่มีการติดตั้งส่วนขยาย",
+    "packCount": "ส่วนขยาย: {count}",
+    "reload": "โหลดส่วนขยายซ้ำ",
+    "search": "ส่วนขยายการค้นหา...",
+    "title": "ส่วนขยาย",
+    "toggleFailed": "ไม่สามารถเปลี่ยนสถานะส่วนขยาย: {error}",
+    "tryDifferentSearch": "ลองใช้คำค้นหาอื่น",
+    "types": {
+      "builtinModule": "โมดูลในตัว",
+      "languageRuntime": "รันไทม์ภาษา",
+      "service": "บริการ",
+      "tool": "เครื่องมือ",
+      "transpiler": "ทรานสปิเลอร์",
+      "ui": "UI"
+    },
+    "uninstall": "ถอนการติดตั้ง",
+    "uninstallFailed": "ไม่สามารถถอนการติดตั้งส่วนขยาย: {error}",
+    "uninstallTitle": "ถอนการติดตั้งส่วนขยาย",
+    "uninstallUnavailable": "ไม่สามารถถอนการติดตั้งส่วนขยายได้",
+    "update": "อัปเดต",
+    "updateFailed": "ไม่สามารถอัปเดต {name}: {error}",
+    "updateUnavailable": "ไม่สามารถเปิดใช้งานแพ็คเกจส่วนขยายใหม่ได้",
+    "viewDetails": "คลิกเพื่อดูรายละเอียดส่วนขยาย"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "สร้างไฟล์",
+      "createFolder": "สร้างโฟลเดอร์",
+      "import": "นำเข้า",
+      "move": "ย้าย"
+    },
     "alert": {
-      "renameFailed": "การเปลี่ยนชื่อล้มเหลว: {error}"
+      "destinationExists": "มีปลายทางนี้อยู่แล้ว: {path}",
+      "operationFailed": "{action}ไม่สำเร็จ: {error}",
+      "workspaceChanged": "พื้นที่ทำงานเปลี่ยนแล้ว จึงข้ามไฟล์ที่เหลือ"
     },
     "menu": {
       "createFile": "สร้างไฟล์",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "สร้างไฟล์ใหม่",
-    "createFolder": "สร้างโฟลเดอร์ใหม่"
+    "createFolder": "สร้างโฟลเดอร์ใหม่",
+    "newFilePrompt": "ป้อนชื่อไฟล์ใหม่:",
+    "newFolderPrompt": "ป้อนชื่อโฟลเดอร์ใหม่:"
   },
   "markdownPreview": {
     "downloadSvg": "ดาวน์โหลด SVG",

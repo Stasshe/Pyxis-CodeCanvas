@@ -255,7 +255,7 @@ Pyxis Commands:
   pyxis debug-db                 - IndexedDB・OPFSの情報を出力
   pyxis git tree [--all]         - Gitワークスペースのツリーを表示（--allは/全体）
   pyxis npm-size <package>       - パッケージサイズを計算
-  pyxis i18n-clear [locale ns]   - 翻訳キャッシュを削除
+  pyxis i18n clear [locale namespace] - 翻訳キャッシュを削除
   pyxis storage-tree             - Pyxis Storageの内容を表示
   pyxis storage-clear [store]    - ストアを削除
   pyxis storage-get <store> <id> - エントリを取得

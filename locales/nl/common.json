@@ -135,9 +135,61 @@
     "loadingFile": "Bestandsinhoud herstellen...",
     "selectFile": "Selecteer een bestand"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "U beschikt over alle beschikbare extensies",
+    "allInstalled": "Alle extensies geïnstalleerd",
+    "available": "Beschikbaar ({count})",
+    "browseAvailable": "Blader door de beschikbare extensies om aan de slag te gaan",
+    "confirmUninstall": "Weet u zeker dat u \"{name}\" wilt verwijderen?",
+    "disable": "Uitzetten",
+    "disableUnavailable": "Kan de extensie niet uitschakelen.",
+    "enable": "Inschakelen",
+    "enableUnavailable": "Kan extensie niet inschakelen.",
+    "importFailed": "Kan ZIP niet importeren: {error}",
+    "importZip": "Importextensie (.zip)",
+    "install": "Installeren",
+    "installed": "Geïnstalleerd ({count})",
+    "installFailed": "Kan {name} niet installeren: {error}",
+    "installUnavailable": "De extensie kan niet worden geïnstalleerd of ingeschakeld.",
+    "loadFailed": "Kan extensies niet laden: {error}",
+    "loading": "Extensies laden...",
+    "manifestUrlMissing": "Manifest-URL niet gevonden in register",
+    "noMatches": "Geen overeenkomende extensies gevonden",
+    "noneInstalled": "Geen extensies geïnstalleerd",
+    "packCount": "Extensies: {count}",
+    "reload": "Extensies opnieuw laden",
+    "search": "Zoekextensies...",
+    "title": "Extensies",
+    "toggleFailed": "Kan de extensiestatus niet wijzigen: {error}",
+    "tryDifferentSearch": "Probeer een andere zoekterm",
+    "types": {
+      "builtinModule": "Ingebouwde module",
+      "languageRuntime": "Taalruntime",
+      "service": "Dienst",
+      "tool": "Hulpmiddel",
+      "transpiler": "Transpiler",
+      "ui": "gebruikersinterface"
+    },
+    "uninstall": "Verwijderen",
+    "uninstallFailed": "Kan extensie niet verwijderen: {error}",
+    "uninstallTitle": "Extensie verwijderen",
+    "uninstallUnavailable": "De extensie kan niet worden verwijderd.",
+    "update": "Update",
+    "updateFailed": "Updaten van {name}: {error} is mislukt",
+    "updateUnavailable": "Het nieuwe uitbreidingspakket kon niet worden geactiveerd.",
+    "viewDetails": "Klik om extensiedetails te bekijken"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Bestand maken",
+      "createFolder": "Map maken",
+      "import": "Importeren",
+      "move": "Verplaatsen"
+    },
     "alert": {
-      "renameFailed": "Hernoemen mislukt: {error}"
+      "destinationExists": "Doel bestaat al: {path}",
+      "operationFailed": "{action} mislukt: {error}",
+      "workspaceChanged": "De werkruimte is gewijzigd; resterende bestanden zijn overgeslagen."
     },
     "menu": {
       "createFile": "Bestand maken",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Nieuw bestand maken",
-    "createFolder": "Nieuwe map maken"
+    "createFolder": "Nieuwe map maken",
+    "newFilePrompt": "Voer een nieuwe bestandsnaam in:",
+    "newFolderPrompt": "Voer een nieuwe mapnaam in:"
   },
   "markdownPreview": {
     "downloadSvg": "SVG downloaden",

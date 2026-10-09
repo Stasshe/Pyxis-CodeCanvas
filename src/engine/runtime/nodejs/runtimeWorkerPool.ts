@@ -18,6 +18,15 @@ export interface RuntimeWorkerLike {
   removeEventListener(type: 'messageerror', listener: () => void): void;
 }
 
+function describeWorkerError(event: ErrorEvent): string {
+  if (event.error instanceof Error) {
+    return event.error.stack ?? `${event.error.name}: ${event.error.message}`;
+  }
+  if (event.message) return event.message;
+  if (event.filename) return `${event.filename}:${event.lineno}:${event.colno}`;
+  return 'Runtime worker failed before it became ready.';
+}
+
 function waitUntilReady(worker: RuntimeWorkerLike): Promise<RuntimeWorkerLike> {
   return new Promise((resolve, reject) => {
     const onMessage = (event: MessageEvent<WorkerMessage>) => {
@@ -30,7 +39,7 @@ function waitUntilReady(worker: RuntimeWorkerLike): Promise<RuntimeWorkerLike> {
       event.preventDefault();
       cleanup();
       worker.terminate();
-      reject(new Error(event.message));
+      reject(new Error(describeWorkerError(event)));
     };
     const onMessageError = () => {
       cleanup();

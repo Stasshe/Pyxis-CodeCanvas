@@ -39,6 +39,20 @@ export interface ExtensionTabData {
   [key: string]: unknown;
 }
 
+export interface ExtensionTab<TData = ExtensionTabData> {
+  id: string;
+  data?: TData;
+}
+
+export interface ExtensionTabComponentProps<
+  Tab extends { id: string; data?: unknown } = ExtensionTab,
+> {
+  tab: Tab;
+  isActive: boolean;
+  onClose?: () => void;
+  onMakeActive?: () => void;
+}
+
 /**
  * タブ作成オプション
  * Resource-local tab creation options used by extensions.
@@ -88,14 +102,16 @@ export type TabCloseCallback = (tabId: string) => void | Promise<void>;
  * Minimal Tabs API exposed to extensions.
  */
 export interface ExtensionTabsAPI {
-  registerTabType: (component: any) => void;
+  registerTabType: <Tab extends { id: string; data?: unknown } = ExtensionTab>(
+    component: React.ComponentType<ExtensionTabComponentProps<Tab>>
+  ) => void;
   createTab: (options: CreateTabOptions) => string;
   updateTab: (tabId: string, options: UpdateTabOptions) => boolean;
   closeTab: (tabId: string) => boolean;
   onTabClose: (tabId: string, callback: TabCloseCallback) => void;
   getTabData: <T = ExtensionTabData>(tabId: string) => T | null;
   openSystemTab: (
-    file: any,
+    file: FileItemForExtension,
     options?: {
       kind?: string;
       jumpToLine?: number;
@@ -116,9 +132,16 @@ export interface SidebarPanelDefinition {
   /** パネルアイコン (Lucide React icon name) */
   icon: string;
   /** パネルコンポーネント */
-  component: React.ComponentType<any>;
-  /** 初期状態 (オプション) */
-  initialState?: any;
+  component: React.ComponentType<ExtensionSidebarPanelProps>;
+  /** パネルの順序（オプション） */
+  order?: number;
+}
+
+export interface ExtensionSidebarPanelProps {
+  extensionId: string;
+  panelId: string;
+  isActive: boolean;
+  state?: unknown;
 }
 
 /**
@@ -126,7 +149,7 @@ export interface SidebarPanelDefinition {
  */
 export interface ExtensionSidebarAPI {
   createPanel: (definition: SidebarPanelDefinition) => void;
-  updatePanel: (panelId: string, state: any) => void;
+  updatePanel: (panelId: string, state: unknown) => void;
   removePanel: (panelId: string) => void;
   onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
 }
@@ -176,13 +199,18 @@ export interface FileItemForExtension {
   /** ファイルパス */
   path: string;
   /** ファイルタイプ */
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'symlink' | 'fifo';
+  /** Child entries for folders. */
+  children?: FileItemForExtension[];
   /** ファイル内容（テキストファイルの場合） */
   content?: string;
   /** バイナリファイルかどうか */
   isBufferArray?: boolean;
   /** バイナリ内容（バイナリファイルの場合） */
   bufferContent?: ArrayBuffer;
+  isCodeMirror?: boolean;
+  mimeType?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -265,6 +293,7 @@ export interface ExtensionContext {
     supportedExtensions: string[];
     canExecute: (filePath: string) => boolean;
     initialize?: (rootPath: string) => Promise<void>;
+    // TODO: Define stable extension-facing runtime options/results before replacing this legacy contract.
     execute: (options: any) => Promise<any>;
     clearCache?: () => void;
     dispose?: () => Promise<void>;

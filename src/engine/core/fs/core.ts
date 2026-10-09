@@ -1,23 +1,27 @@
 import type { ProjectFile } from '@/types';
 import { basename, getParentPath, HOME_DIR, normalizePath, resolvePath } from '../pathUtils';
-import { FSError } from './errors';
-import { NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from './layout';
+import { FSError, translateFsError } from './errors';
+import { FIFO_STORAGE, FifoEntries, FifoService } from './fifo';
+import type { OpfsMovableFile } from './fileMove';
+import { mountRoot, NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from './layout';
 import { LINK_STORAGE, Links } from './links';
-import type { FsChangeEvent, MkdirOptions, RmOptions } from './types';
+import { NamespaceLock } from './locks';
+import { RootPins } from './pins';
+import { renamePath } from './rename';
+import { removeDirectory, removeDirectorySidecars } from './sidecars';
+import type { FsChangeEvent, MkdirOptions, RenameOptions, RmOptions } from './types';
+import { rangeEnd, type WriteRange, writeStored } from './write';
 
 export { FSError } from './errors';
-export type { FsChangeEvent, MkdirOptions, RmOptions } from './types';
+export type { FsChangeEvent, MkdirOptions, RenameOptions, RmOptions } from './types';
 
 interface SyncAccessHandle {
   getSize(): number;
   read(buffer: Uint8Array, options: { at: number }): number;
-  write(buffer: Uint8Array, options: { at: number }): number;
-  truncate(size: number): void;
-  flush(): void;
   close(): void;
 }
 
-interface OpfsFileHandle extends FileSystemFileHandle {
+interface OpfsFileHandle extends OpfsMovableFile {
   createSyncAccessHandle(): Promise<SyncAccessHandle>;
 }
 
@@ -31,10 +35,35 @@ interface DirectoryEntry {
   handle: FileSystemDirectoryHandle;
 }
 
+type MutationAttempt<T> =
+  | { blocked: true; waiting: Promise<void[]> }
+  | { blocked: false; value: T };
+
 /** The worker owns persistent handles; /tmp is an ephemeral mount. */
 export class FsCore {
+  private readonly namespace = new NamespaceLock();
+  private readonly rootPins = new RootPins();
   private root: FileSystemDirectoryHandle | null = null;
   private readonly links = new Links();
+  private readonly fifoEntries = new FifoEntries();
+  private readonly fifos = new FifoService(
+    this.namespace,
+    this.fifoEntries,
+    async (input, required) => {
+      const path = await this.resolve(input);
+      if (required) await this.rawStat(path);
+      return path;
+    },
+    input => this.mkfifoUnlocked(input)
+  );
+  readonly mkfifo = this.fifos.mkfifo.bind(this.fifos);
+  readonly openFifo = this.fifos.openFifo.bind(this.fifos);
+  readonly readFifo = this.fifos.readFifo.bind(this.fifos);
+  readonly writeFifo = this.fifos.writeFifo.bind(this.fifos);
+  readonly closeFifo = this.fifos.closeFifo.bind(this.fifos);
+  readonly closeFifos = this.fifos.closeFifos.bind(this.fifos);
+  readonly createPipe = this.fifos.createPipe.bind(this.fifos);
+  readonly getDescriptorPath = this.fifos.getDescriptorPath.bind(this.fifos);
   private directoryChain: DirectoryEntry[] = [];
   private directoryEpoch = 0;
   private readonly memory = new Map<string, MemoryEntry>();
@@ -42,15 +71,130 @@ export class FsCore {
   private changeListener: ((event: FsChangeEvent) => void) | null = null;
 
   constructor() {
-    this.memory.set(TMP_PATH, { metadata: this.folder(TMP_PATH) });
+    this.memory.set(TMP_PATH, { metadata: mountRoot(TMP_PATH, 'memory', Date.now()) });
   }
 
-  async init(root?: FileSystemDirectoryHandle): Promise<void> {
+  init(root?: FileSystemDirectoryHandle): Promise<void> {
+    return this.mutate(['/'], () => this.initUnlocked(root));
+  }
+
+  realpath(path: string): Promise<string> {
+    return this.namespace.shared(() => this.realpathUnlocked(path));
+  }
+
+  readlink(path: string): Promise<string> {
+    return this.namespace.shared(() => this.readlinkUnlocked(path));
+  }
+
+  symlink(target: string, path: string, emit = true): Promise<void> {
+    return this.namespace.exclusive(() => this.symlinkUnlocked(target, path, emit));
+  }
+
+  stat(path: string): Promise<ProjectFile> {
+    return this.namespace.shared(() => this.statUnlocked(path));
+  }
+
+  lstat(path: string): Promise<ProjectFile> {
+    return this.namespace.shared(() => this.lstatUnlocked(path));
+  }
+
+  exists(path: string): Promise<boolean> {
+    return this.namespace.shared(() => this.entryExists(path, true));
+  }
+
+  readFile(path: string, ownerId = ''): Promise<Uint8Array> {
+    return this.fifos.readFile(path, ownerId, () => this.readFileUnlocked(path));
+  }
+
+  async readText(path: string, ownerId = ''): Promise<string> {
+    return new TextDecoder('utf-8').decode(await this.readFile(path, ownerId));
+  }
+
+  writeFile(path: string, data: string | Uint8Array, emit = true, ownerId = ''): Promise<void> {
+    return this.fifos.writeFile(path, data, ownerId, () =>
+      this.writeFileUnlocked(path, data, emit)
+    );
+  }
+
+  /** Range updates share the same resolved-path queue as whole-file writes. */
+  writeRange(
+    input: string,
+    data: Uint8Array,
+    position: number | null,
+    create = false,
+    exclusive = false
+  ): Promise<number> {
+    return this.namespace.shared(async () => {
+      if (
+        !(data instanceof Uint8Array) ||
+        typeof create !== 'boolean' ||
+        typeof exclusive !== 'boolean' ||
+        (position !== null && (!Number.isSafeInteger(position) || position < 0))
+      ) {
+        throw new FSError('EINVAL', input);
+      }
+      if (exclusive && (await this.entryExists(input))) throw new FSError('EEXIST', input);
+      return this.writeUnlocked(input, data, true, { position, create, exclusive });
+    });
+  }
+
+  readdir(path: string): Promise<ProjectFile[]> {
+    return this.namespace.shared(() => this.readdirUnlocked(path));
+  }
+
+  mkdir(path: string, options: MkdirOptions = {}, emit = true): Promise<void> {
+    return this.namespace.exclusive(() => this.mkdirUnlocked(path, options, emit));
+  }
+
+  rm(path: string, options: RmOptions = {}, emit = true): Promise<void> {
+    return this.mutate([path], () => this.rmUnlocked(path, options, emit));
+  }
+
+  walk(path: string): Promise<ProjectFile[]> {
+    return this.namespace.shared(() => this.walkUnlocked(path));
+  }
+
+  rename(oldPath: string, path: string, options?: RenameOptions): Promise<void> {
+    return this.mutate([oldPath, path], () => this.renameUnlocked(oldPath, path, options));
+  }
+
+  /** Pin root identity across a service transaction without holding the namespace lease. */
+  async withPinnedRoot<T>(input: string, operation: (root: string) => Promise<T>): Promise<T> {
+    const lease = await this.namespace.shared(async () => {
+      const paths = new Set<string>();
+      const root = await this.resolve(input, true, true, paths);
+      if ((await this.rawStat(root)).type !== 'folder') throw new FSError('ENOTDIR', input);
+      paths.add(root);
+      return { root, release: this.rootPins.acquire(paths) };
+    });
+    try {
+      return await operation(lease.root);
+    } finally {
+      lease.release();
+    }
+  }
+
+  private async mutate<T>(inputs: string[], operation: () => Promise<T>): Promise<T> {
+    while (true) {
+      const attempt = await this.namespace.exclusive(async (): Promise<MutationAttempt<T>> => {
+        const paths: string[] = [];
+        for (const input of inputs) paths.push(await this.resolve(input, false, false));
+        const waiting = this.rootPins.blockers(paths);
+        if (waiting.length > 0) return { blocked: true, waiting: Promise.all(waiting) };
+        return { blocked: false, value: await operation() };
+      });
+      if (!attempt.blocked) return attempt.value;
+      await attempt.waiting;
+    }
+  }
+
+  private async initUnlocked(root?: FileSystemDirectoryHandle): Promise<void> {
     this.invalidateDirectories();
     if (root) this.root = root;
     else this.root = await navigator.storage.getDirectory();
     this.invalidateDirectories();
     await this.links.init(this.root);
+    await this.fifoEntries.init(this.root);
     for (const path of [HOME_DIR, RUNTIME_CACHE_PATH, NPM_CACHE_PATH]) {
       let directory = this.root;
       for (const segment of path.split('/').filter(Boolean)) {
@@ -97,7 +241,7 @@ export class FsCore {
       try {
         return await operation();
       } catch (error) {
-        if (error instanceof DOMException) throw this.translate(error, path);
+        if (error instanceof DOMException) throw translateFsError(error, path);
         throw error;
       }
     });
@@ -111,16 +255,6 @@ export class FsCore {
     } finally {
       if (this.accessQueues.get(path) === completion) this.accessQueues.delete(path);
     }
-  }
-
-  private translate(error: Error | DOMException, path: string): FSError {
-    if (error instanceof FSError) return error;
-    if (error.name === 'NotFoundError') return new FSError('ENOENT', path);
-    if (error.name === 'TypeMismatchError') return new FSError('ENOTDIR', path);
-    if (error.name === 'InvalidModificationError') return new FSError('ENOTEMPTY', path);
-    if (error.name === 'QuotaExceededError') return new FSError('ENOSPC', path);
-    if (error.name === 'NotAllowedError') return new FSError('EACCES', path);
-    return new FSError('EIO', path);
   }
 
   private async directory(path: string): Promise<FileSystemDirectoryHandle> {
@@ -143,7 +277,7 @@ export class FsCore {
       if (epoch === this.directoryEpoch) this.directoryChain = chain;
       return directory;
     } catch (error) {
-      if (error instanceof Error) throw this.translate(error, path);
+      if (error instanceof Error) throw translateFsError(error, path);
       throw error;
     }
   }
@@ -161,12 +295,17 @@ export class FsCore {
       if (error instanceof Error && error.name === 'TypeMismatchError') {
         throw new FSError('EISDIR', path);
       }
-      if (error instanceof Error) throw this.translate(error, path);
+      if (error instanceof Error) throw translateFsError(error, path);
       throw error;
     }
   }
 
-  private async resolve(input: string, followFinal = true, followTrailing = true): Promise<string> {
+  private async resolve(
+    input: string,
+    followFinal = true,
+    followTrailing = true,
+    traversedLinks?: Set<string>
+  ): Promise<string> {
     normalizePath(input);
     const pending = input.split('/').filter(Boolean);
     let path = '/';
@@ -186,13 +325,15 @@ export class FsCore {
         continue;
       }
       path = resolvePath(path, segment);
-      if (path === `/${LINK_STORAGE}`) throw new FSError('EACCES', input);
+      if (path === `/${LINK_STORAGE}` || path === `/${FIFO_STORAGE}`)
+        throw new FSError('EACCES', input);
       const link = this.links.entries.get(path);
       if (
         !link ||
         (!followFinal && pending.length === 0 && (!followTrailing || !input.endsWith('/')))
       )
         continue;
+      traversedLinks?.add(path);
       followed += 1;
       if (followed > 40) throw new FSError('ELOOP', input);
       if (!pending.length && link.target.endsWith('/')) directoryRequired = true;
@@ -208,13 +349,13 @@ export class FsCore {
     return path;
   }
 
-  async realpath(input: string): Promise<string> {
+  private async realpathUnlocked(input: string): Promise<string> {
     const path = await this.resolve(input);
     await this.rawStat(path);
     return path;
   }
 
-  async readlink(input: string): Promise<string> {
+  private async readlinkUnlocked(input: string): Promise<string> {
     const path = await this.resolve(input, false);
     const link = this.links.entries.get(path);
     if (link) return link.target;
@@ -222,35 +363,38 @@ export class FsCore {
     throw new FSError('EINVAL', input);
   }
 
-  async symlink(target: string, input: string, emit = true): Promise<void> {
+  private async symlinkUnlocked(target: string, input: string, emit = true): Promise<void> {
     if (!target || target.includes('\0')) throw new FSError('EINVAL', input);
     const path = await this.resolve(input, false, false);
+    this.fifos.descriptors.assertMutable(path);
     try {
       await this.rawStat(path);
       throw new FSError('EEXIST', path);
     } catch (error) {
       if (!(error instanceof FSError) || error.code !== 'ENOENT') throw error;
     }
-    const parent = await this.stat(getParentPath(path));
+    const parent = await this.statUnlocked(getParentPath(path));
     if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
     try {
       await this.links.create(path, target);
     } catch (error) {
-      if (error instanceof DOMException) throw this.translate(error, path);
+      if (error instanceof DOMException) throw translateFsError(error, path);
       throw error;
     }
-    if (emit) this.emit({ type: 'create', path, file: await this.lstat(path) });
+    if (emit) this.emit({ type: 'create', path, file: await this.lstatUnlocked(path) });
   }
 
-  async stat(input: string): Promise<ProjectFile> {
+  private async statUnlocked(input: string): Promise<ProjectFile> {
     return this.rawStat(await this.resolve(input));
   }
 
-  async lstat(input: string): Promise<ProjectFile> {
+  private async lstatUnlocked(input: string): Promise<ProjectFile> {
     return this.rawStat(await this.resolve(input, false));
   }
 
   private async rawStat(path: string): Promise<ProjectFile> {
+    const descriptor = this.fifos.descriptors.stat(path) ?? this.fifoEntries.stat(path);
+    if (descriptor) return descriptor;
     const link = this.links.entries.get(path);
     if (link)
       return {
@@ -275,14 +419,14 @@ export class FsCore {
         await parent.getDirectoryHandle(basename(path));
         return { path, type: 'folder', size: 0, mtime: 0 };
       }
-      if (error instanceof Error) throw this.translate(error, path);
+      if (error instanceof Error) throw translateFsError(error, path);
       throw error;
     }
   }
 
-  private async entryExists(path: string): Promise<boolean> {
+  private async entryExists(path: string, followFinal = false): Promise<boolean> {
     try {
-      await this.lstat(path);
+      await this.rawStat(await this.resolve(path, followFinal));
       return true;
     } catch (error) {
       if (error instanceof FSError && error.code === 'ENOENT') return false;
@@ -290,18 +434,9 @@ export class FsCore {
     }
   }
 
-  async exists(path: string): Promise<boolean> {
-    try {
-      await this.stat(path);
-      return true;
-    } catch (error) {
-      if (error instanceof FSError && error.code === 'ENOENT') return false;
-      throw error;
-    }
-  }
-
-  async readFile(input: string): Promise<Uint8Array> {
+  private async readFileUnlocked(input: string): Promise<Uint8Array> {
     const path = await this.resolve(input);
+    this.fifos.descriptors.assertStored(path, this.fifoEntries.entries.has(path));
     if (this.isMemory(path)) {
       const entry = this.memory.get(path);
       if (!entry) throw new FSError('ENOENT', path);
@@ -320,71 +455,72 @@ export class FsCore {
     });
   }
 
-  async readText(path: string): Promise<string> {
-    return new TextDecoder('utf-8').decode(await this.readFile(path));
-  }
-
-  async writeFile(input: string, content: string | Uint8Array, emit = true): Promise<void> {
-    const path = await this.resolve(input);
+  private async writeFileUnlocked(
+    input: string,
+    content: string | Uint8Array,
+    emit = true
+  ): Promise<void> {
     let data: Uint8Array;
     if (typeof content === 'string') data = new TextEncoder().encode(content);
     else data = content;
-    if (this.isMemory(path)) {
-      const existed = await this.exists(path);
-      const parent = await this.stat(getParentPath(path));
-      if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
-      const existing = this.memory.get(path);
-      if (existing?.metadata.type === 'folder') throw new FSError('EISDIR', path);
-      this.memory.set(path, {
-        metadata: { path, type: 'file', size: data.byteLength, mtime: Date.now() },
-        data: data.slice(),
-      });
-      let type: FsChangeEvent['type'] = 'create';
-      if (existed) type = 'update';
-      if (emit) this.emit({ type, path, file: await this.stat(path) });
-    } else {
-      await this.queueAccess(path, async () => {
-        const parent = await this.directory(getParentPath(path));
-        let handle: OpfsFileHandle;
-        let type: FsChangeEvent['type'] = 'update';
-        try {
-          handle = (await parent.getFileHandle(basename(path))) as OpfsFileHandle;
-        } catch (error) {
-          if (error instanceof Error && error.name === 'TypeMismatchError') {
-            throw new FSError('EISDIR', path);
-          }
-          if (!(error instanceof Error) || error.name !== 'NotFoundError') throw error;
-          handle = (await parent.getFileHandle(basename(path), { create: true })) as OpfsFileHandle;
-          type = 'create';
-        }
-        const access = await handle.createSyncAccessHandle();
-        try {
-          let offset = 0;
-          while (offset < data.byteLength) {
-            const count = access.write(data.subarray(offset), { at: offset });
-            if (count === 0) throw new FSError('EIO', path);
-            offset += count;
-          }
-          access.truncate(data.byteLength);
-          access.flush();
-        } finally {
-          access.close();
-        }
-        if (emit) {
-          const file = await handle.getFile();
-          this.emit({
-            type,
-            path,
-            file: { path, type: 'file', size: file.size, mtime: file.lastModified },
-          });
-        }
-      });
-    }
+    await this.writeUnlocked(input, data, emit);
   }
 
-  async readdir(input: string): Promise<ProjectFile[]> {
+  private async writeUnlocked(
+    input: string,
+    data: Uint8Array,
+    emit: boolean,
+    range?: WriteRange
+  ): Promise<number> {
     const path = await this.resolve(input);
-    const metadata = await this.lstat(path);
+    const deviceEnd = this.fifos.descriptors.writeNull(path, data, range);
+    if (deviceEnd !== undefined) return deviceEnd;
+    this.fifos.descriptors.assertStored(path, this.fifoEntries.entries.has(path));
+    return this.queueAccess(path, async () => {
+      if (!this.isMemory(path)) {
+        const parent = await this.directory(getParentPath(path));
+        const result = await writeStored(parent, path, data, range, emit);
+        if (emit) this.emit(result.event);
+        return result.end;
+      }
+      const existing = this.memory.get(path);
+      if (range?.exclusive && existing) throw new FSError('EEXIST', path);
+      if (existing?.metadata.type === 'folder') throw new FSError('EISDIR', path);
+      if (range && !range.create && !existing) throw new FSError('ENOENT', path);
+      const parent = await this.statUnlocked(getParentPath(path));
+      if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
+      let end = data.byteLength;
+      let content = data.slice();
+      if (range) {
+        const previous = existing?.data ?? new Uint8Array();
+        end = rangeEnd(path, previous.byteLength, data, range);
+        let size = previous.byteLength;
+        if (data.byteLength > 0) size = Math.max(size, end);
+        content = new Uint8Array(size);
+        content.set(previous);
+        if (data.byteLength > 0) content.set(data, end - data.byteLength);
+      }
+      const metadata: ProjectFile = {
+        path,
+        type: 'file',
+        size: content.byteLength,
+        mtime: Date.now(),
+      };
+      this.memory.set(path, { metadata, data: content });
+      let type: FsChangeEvent['type'] = 'create';
+      if (existing) type = 'update';
+      if (emit) this.emit({ type, path, file: { ...metadata } });
+      return end;
+    });
+  }
+
+  private async readdirUnlocked(input: string): Promise<ProjectFile[]> {
+    const path = await this.resolve(input);
+    return this.fifos.descriptors.readdir(path, () => this.readDirectoryUnlocked(path));
+  }
+
+  private async readDirectoryUnlocked(path: string): Promise<ProjectFile[]> {
+    const metadata = await this.lstatUnlocked(path);
     if (metadata.type !== 'folder') throw new FSError('ENOTDIR', path);
     const result: ProjectFile[] = [];
     if (this.isMemory(path)) {
@@ -394,38 +530,64 @@ export class FsCore {
         }
       }
     } else {
-      const directory = await this.directory(path);
-      for await (const [name] of directory.entries()) {
-        if (path === '/' && (name === 'tmp' || name === LINK_STORAGE)) continue;
+      for await (const name of this.fifos.descriptors.physicalNames(
+        path,
+        () => this.directory(path),
+        this.root !== null
+      )) {
+        if (path === '/' && ['tmp', LINK_STORAGE, FIFO_STORAGE].includes(name)) continue;
         let childPath = `${path}/${name}`;
         if (path === '/') childPath = `/${name}`;
-        result.push(await this.lstat(childPath));
+        result.push(await this.lstatUnlocked(childPath));
       }
-      if (path === '/') result.push(await this.stat(TMP_PATH));
+      if (path === '/') result.push(await this.statUnlocked(TMP_PATH));
     }
     for (const link of this.links.entries.values()) {
-      if (getParentPath(link.path) === path) result.push(await this.lstat(link.path));
+      if (getParentPath(link.path) === path) result.push(await this.lstatUnlocked(link.path));
+    }
+    for (const fifo of this.fifoEntries.entries.values()) {
+      if (getParentPath(fifo.path) === path) result.push(await this.rawStat(fifo.path));
     }
     return result.sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  async mkdir(input: string, options: MkdirOptions = {}, emit = true): Promise<void> {
+  private async mkfifoUnlocked(input: string): Promise<void> {
+    const path = await this.resolve(input, false, false);
+    this.fifos.descriptors.assertMutable(path);
+    if (await this.entryExists(path)) throw new FSError('EEXIST', path);
+    const parent = await this.statUnlocked(getParentPath(path));
+    if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
+    try {
+      await this.fifoEntries.create(path);
+    } catch (error) {
+      if (error instanceof DOMException) throw translateFsError(error, path);
+      throw error;
+    }
+    this.emit({ type: 'create', path, file: await this.rawStat(path) });
+  }
+
+  private async mkdirUnlocked(
+    input: string,
+    options: MkdirOptions = {},
+    emit = true
+  ): Promise<void> {
     const finalPath = await this.resolve(input.replace(/\/+$/, '') || '/', false);
     if (this.links.entries.has(finalPath)) {
-      if (options.recursive && (await this.stat(input)).type === 'folder') return;
+      if (options.recursive && (await this.statUnlocked(input)).type === 'folder') return;
       throw new FSError('EEXIST', input);
     }
     const path = finalPath;
-    if (await this.exists(path)) {
-      const entry = await this.stat(path);
+    if (await this.entryExists(path, true)) {
+      const entry = await this.statUnlocked(path);
       if (options.recursive && entry.type === 'folder') return;
       throw new FSError('EEXIST', path);
     }
+    this.fifos.descriptors.assertMutable(path);
     const parentPath = getParentPath(path);
-    if (options.recursive && !(await this.exists(parentPath))) {
-      await this.mkdir(parentPath, options, emit);
+    if (options.recursive && !(await this.entryExists(parentPath, true))) {
+      await this.mkdirUnlocked(parentPath, options, emit);
     }
-    const parent = await this.stat(parentPath);
+    const parent = await this.statUnlocked(parentPath);
     if (parent.type !== 'folder') throw new FSError('ENOTDIR', parentPath);
     if (this.isMemory(path)) this.memory.set(path, { metadata: this.folder(path) });
     else {
@@ -433,21 +595,22 @@ export class FsCore {
       try {
         await directory.getDirectoryHandle(basename(path), { create: true });
       } catch (error) {
-        if (error instanceof Error) throw this.translate(error, path);
+        if (error instanceof Error) throw translateFsError(error, path);
         throw error;
       }
     }
-    if (emit) this.emit({ type: 'create', path, file: await this.stat(path) });
+    if (emit) this.emit({ type: 'create', path, file: await this.statUnlocked(path) });
   }
 
-  async rm(input: string, options: RmOptions = {}, emit = true): Promise<void> {
+  private async rmUnlocked(input: string, options: RmOptions = {}, emit = true): Promise<void> {
     const path = await this.resolve(input, false, false);
+    this.fifos.descriptors.assertMutable(path);
     if (path === '/' || path === TMP_PATH) {
       throw new FSError('EBUSY', path);
     }
     let metadata: ProjectFile;
     try {
-      metadata = await this.lstat(path);
+      metadata = await this.lstatUnlocked(path);
     } catch (error) {
       if (options.force && error instanceof FSError && error.code === 'ENOENT') return;
       throw error;
@@ -455,13 +618,14 @@ export class FsCore {
     if (metadata.type === 'folder' && !options.recursive) {
       throw new FSError('EISDIR', path);
     }
-    if (metadata.type === 'symlink') {
-      await this.links.remove(path);
+    if (metadata.type === 'symlink' || metadata.type === 'fifo') {
+      if (metadata.type === 'symlink') await this.links.remove(path);
+      else await this.fifoEntries.remove(path);
       if (emit) this.emit({ type: 'delete', path });
       return;
     }
-    for (const linkPath of this.links.entries.keys()) {
-      if (linkPath.startsWith(`${path}/`)) await this.links.remove(linkPath);
+    if (metadata.type === 'folder' && this.isMemory(path)) {
+      await removeDirectorySidecars(path, this.links, this.fifoEntries);
     }
     if (this.isMemory(path)) {
       for (const entryPath of this.memory.keys()) {
@@ -471,74 +635,106 @@ export class FsCore {
       }
     } else {
       const parent = await this.directory(getParentPath(path));
+      const removalSnapshot =
+        metadata.type === 'folder' && emit ? await this.walkUnlocked(path) : undefined;
       if (metadata.type === 'folder') this.invalidateDirectories();
       try {
-        await parent.removeEntry(basename(path), { recursive: options.recursive });
+        if (metadata.type === 'folder')
+          await removeDirectory(
+            path,
+            parent,
+            basename(path),
+            this.links,
+            this.fifoEntries,
+            translateFsError
+          );
+        else await parent.removeEntry(basename(path), { recursive: options.recursive });
       } catch (error) {
-        if (error instanceof Error) throw this.translate(error, path);
+        if (removalSnapshot) {
+          this.invalidateDirectories();
+          try {
+            const current = await this.walkUnlocked(path);
+            const currentPaths = new Set(current.map(entry => entry.path));
+            const missing = new Set(
+              removalSnapshot
+                .filter(entry => !currentPaths.has(entry.path))
+                .map(entry => entry.path)
+            );
+            for (const entry of removalSnapshot) {
+              if (missing.has(entry.path) && !missing.has(getParentPath(entry.path))) {
+                this.emit({ type: 'delete', path: entry.path });
+              }
+            }
+          } catch (reconcileError) {
+            if (reconcileError instanceof FSError && reconcileError.code === 'ENOENT') {
+              this.emit({ type: 'delete', path });
+            } else {
+              const failure =
+                error instanceof Error ? translateFsError(error, path) : new Error(String(error));
+              throw new AggregateError(
+                [failure, reconcileError],
+                `Failed to reconcile removal of ${path}`
+              );
+            }
+          }
+        }
+        if (error instanceof Error) throw translateFsError(error, path);
         throw error;
       } finally {
         if (metadata.type === 'folder') this.invalidateDirectories();
       }
     }
+    if (metadata.type !== 'folder') {
+      for (const linkPath of this.links.entries.keys()) {
+        if (linkPath.startsWith(`${path}/`)) await this.links.remove(linkPath);
+      }
+      await this.fifoEntries.removeTree(path);
+    }
     if (emit) this.emit({ type: 'delete', path });
   }
 
   /** Returns descendants only; each item contains metadata, never file contents. */
-  async walk(path: string): Promise<ProjectFile[]> {
-    const entries = await this.readdir(path);
+  private async walkUnlocked(path: string): Promise<ProjectFile[]> {
+    const entries = await this.readdirUnlocked(path);
     const result: ProjectFile[] = [];
     for (const entry of entries) {
       result.push(entry);
-      if (entry.type === 'folder') result.push(...(await this.walk(entry.path)));
+      if (entry.type === 'folder') result.push(...(await this.walkUnlocked(entry.path)));
     }
     return result;
   }
 
-  async rename(oldInput: string, newInput: string): Promise<void> {
-    const oldPath = await this.resolve(oldInput, false, false);
-    const path = await this.resolve(newInput, false, false);
-    if (oldPath === path) {
-      await this.lstat(oldPath);
-      return;
-    }
-    if (['/', TMP_PATH].includes(oldPath) || ['/', TMP_PATH].includes(path)) {
-      throw new FSError('EBUSY', oldPath);
-    }
-    if (path.startsWith(`${oldPath}/`)) throw new FSError('EINVAL', path);
-    const source = await this.lstat(oldPath);
-    const parent = await this.stat(getParentPath(path));
-    if (parent.type !== 'folder') throw new FSError('ENOTDIR', parent.path);
-    if (await this.entryExists(path)) {
-      const destination = await this.lstat(path);
-      if (source.type !== 'folder' && destination.type === 'folder') {
-        throw new FSError('EISDIR', path);
-      }
-      if (source.type === 'folder' && destination.type !== 'folder') {
-        throw new FSError('ENOTDIR', path);
-      }
-      if (destination.type === 'folder' && (await this.readdir(path)).length > 0) {
-        throw new FSError('ENOTEMPTY', path);
-      }
-      if (destination.type === 'symlink' || source.type === 'symlink') {
-        await this.rm(path, { recursive: true }, false);
-      }
-    }
-    if (source.type === 'symlink') await this.symlink(await this.readlink(oldPath), path, false);
-    else if (source.type === 'file')
-      await this.writeFile(path, await this.readFile(oldPath), false);
-    else {
-      await this.mkdir(path, { recursive: true }, false);
-      for (const entry of await this.walk(oldPath)) {
-        const target = `${path}${entry.path.slice(oldPath.length)}`;
-        if (entry.type === 'folder') await this.mkdir(target, { recursive: true }, false);
-        else if (entry.type === 'symlink')
-          await this.symlink(await this.readlink(entry.path), target, false);
-        else await this.writeFile(target, await this.readFile(entry.path), false);
-      }
-    }
-    // Only remove the source after every destination write succeeds.
-    await this.rm(oldPath, { recursive: true }, false);
-    this.emit({ type: 'rename', oldPath, path, file: await this.lstat(path) });
+  private renameUnlocked(
+    oldInput: string,
+    newInput: string,
+    options?: RenameOptions
+  ): Promise<void> {
+    return renamePath(
+      oldInput,
+      newInput,
+      {
+        resolve: path => this.resolve(path, false, false),
+        assertMutable: path => this.fifos.descriptors.assertMutable(path),
+        isMemory: path => this.isMemory(path),
+        lstat: path => this.lstatUnlocked(path),
+        stat: path => this.statUnlocked(path),
+        exists: path => this.entryExists(path),
+        remove: (path, options) => this.rmUnlocked(path, options, false),
+        mkdir: (path, options) => this.mkdirUnlocked(path, options, false),
+        symlink: (target, path) => this.symlinkUnlocked(target, path, false),
+        readlink: path => this.readlinkUnlocked(path),
+        readFile: path => this.readFileUnlocked(path),
+        writeFile: (path, content) => this.writeFileUnlocked(path, content, false),
+        readdir: path => this.readdirUnlocked(path),
+        walk: path => this.walkUnlocked(path),
+        directory: path => this.directory(path),
+        file: path => this.fileHandle(path),
+        links: this.links,
+        fifos: this.fifoEntries,
+        memory: this.memory,
+        emit: event => this.emit(event),
+      },
+      options
+    );
   }
 }

@@ -14,6 +14,8 @@ function metadata(latest: string, headers: HeadersInit = {}): Response {
       versions: {
         [latest]: {
           dependencies: { dep: '^1.0.0' },
+          peerDependencies: { host: '^1.0.0' },
+          peerDependenciesMeta: { host: { optional: true } },
           dist: { tarball: `https://example.test/${latest}.tgz`, integrity: 'ignored' },
           readme: 'ignored',
         },
@@ -50,6 +52,8 @@ describe('npm registry metadata cache', () => {
 
     expect(first['dist-tags']?.latest).toBe('1.2.3');
     expect(second.versions['1.2.3'].dist?.tarball).toBe('https://example.test/1.2.3.tgz');
+    expect(second.versions['1.2.3'].peerDependencies).toEqual({ host: '^1.0.0' });
+    expect(second.versions['1.2.3'].peerDependenciesMeta).toEqual({ host: { optional: true } });
     expect('readme' in second.versions['1.2.3']).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(exists).not.toHaveBeenCalled();

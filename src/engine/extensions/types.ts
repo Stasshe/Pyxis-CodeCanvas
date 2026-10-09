@@ -15,8 +15,15 @@
  * `extensions/_shared/types.ts` (the extension-facing, stable surface).
  */
 
+import type { ComponentType } from 'react';
+import type { TabComponentProps } from '@/engine/tabs/types';
+import type { FileItem } from '@/types';
 import type { CommandHandler } from './commandRegistry';
 import type { ExplorerMenuItemDefinition } from './system-api/ExplorerMenuAPI';
+import type { SidebarPanelDefinition } from './system-api/SidebarAPI';
+
+export type { SidebarPanelDefinition } from './system-api/SidebarAPI';
+
 import type {
   CreateTabOptions,
   ExtensionTabData,
@@ -77,6 +84,8 @@ export interface ExtensionManifest {
   description: string;
   /** 作者 */
   author: string;
+  /** 初回起動時に自動インストールするか */
+  defaultEnabled?: boolean;
   /** アイコンURL (オプション) */
   icon?: string;
   /** ホームページURL (オプション) */
@@ -99,11 +108,11 @@ export interface ExtensionManifest {
     name: string;
   };
   /** メタデータ */
-  metadata: {
+  metadata?: {
     /** 公開日 */
     publishedAt: string;
     /** 更新日 */
-    updatedAt: string;
+    updatedAt?: string;
     /** ダウンロード数 (オプション) */
     downloads?: number;
     /** タグ */
@@ -197,6 +206,7 @@ export interface ExtensionContext {
     supportedExtensions: string[];
     canExecute: (filePath: string) => boolean;
     initialize?: (rootPath: string) => Promise<void>;
+    // TODO: Define stable extension-facing runtime options/results before replacing this legacy contract.
     execute: (options: any) => Promise<any>;
     clearCache?: () => void;
     dispose?: () => Promise<void>;
@@ -211,14 +221,14 @@ export interface ExtensionContext {
 
   /** Tab API - 拡張機能が自分のタブを作成・管理 */
   tabs: {
-    registerTabType: (component: any) => void;
+    registerTabType: (component: ComponentType<TabComponentProps>) => void;
     createTab: (options: CreateTabOptions) => string;
     updateTab: (tabId: string, options: UpdateTabOptions) => boolean;
     closeTab: (tabId: string) => boolean;
     onTabClose: (tabId: string, callback: TabCloseCallback) => void;
     getTabData: <T = ExtensionTabData>(tabId: string) => T | null;
     openSystemTab: (
-      file: any,
+      file: FileItem,
       options?: {
         kind?: string;
         jumpToLine?: number;
@@ -231,6 +241,7 @@ export interface ExtensionContext {
   /** Sidebar API - 拡張機能がサイドバーパネルを追加 */
   sidebar: {
     createPanel: (definition: SidebarPanelDefinition) => void;
+    // TODO: Define the public panel state shape before narrowing this extension-facing contract.
     updatePanel: (panelId: string, state: any) => void;
     removePanel: (panelId: string) => void;
     onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
@@ -246,22 +257,6 @@ export interface ExtensionContext {
     addMenuItem: (definition: ExplorerMenuItemDefinition) => void;
     removeMenuItem: (itemId: string) => void;
   };
-}
-
-/**
- * サイドバーパネル定義
- */
-export interface SidebarPanelDefinition {
-  /** パネルID (拡張機能内で一意) */
-  id: string;
-  /** パネルタイトル */
-  title: string;
-  /** パネルアイコン (Lucide React icon name) */
-  icon: string;
-  /** パネルコンポーネント */
-  component: React.ComponentType<any>;
-  /** 初期状態 (オプション) */
-  initialState?: any;
 }
 
 /**

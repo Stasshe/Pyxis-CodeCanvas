@@ -1,0 +1,8 @@
+{
+  "name": "todo-panel",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "lucide-react": "^1.32.0"
+  }
+}

@@ -61,13 +61,6 @@ export function isTabDirty(tabId: string): boolean {
 }
 
 /**
- * ダーティフラグをクリア（保存完了時）
- */
-export function clearDirtyFlag(tabId: string): void {
-  tabContentStore.dirtyFlags[tabId] = false;
-}
-
-/**
  * バイナリコンテンツを取得
  */
 export function getBufferContent(tabId: string): ArrayBuffer | undefined {
@@ -85,7 +78,6 @@ export function setBufferContent(tabId: string, buffer: ArrayBuffer): void {
 // Hooks for React components
 // ---------------------------------------------------------------------------
 
-import { useMemo } from 'react';
 import { useSnapshot } from 'valtio';
 
 /**
@@ -95,20 +87,4 @@ import { useSnapshot } from 'valtio';
 export function useTabContent(tabId: string): string | undefined {
   const snap = useSnapshot(tabContentStore);
   return snap.contents[tabId];
-}
-
-/**
- * 特定タブのダーティ状態を購読するhook
- */
-export function useTabDirtyState(tabId: string): boolean {
-  const snap = useSnapshot(tabContentStore);
-  return snap.dirtyFlags[tabId] ?? false;
-}
-
-/**
- * 特定タブのバッファコンテンツを購読するhook
- */
-export function useBufferContent(tabId: string): ArrayBuffer | undefined {
-  const snap = useSnapshot(tabContentStore);
-  return snap.bufferContents[tabId];
 }

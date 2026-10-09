@@ -1,7 +1,7 @@
 import { resolvePath } from '@/engine/core/fs';
 import type { FsApi } from '@/engine/core/fs/types';
 import { rootDependencyRequests } from './install/lockfile';
-import type { InstallProgressCallback, InstallResult } from './install/types';
+import type { InstallProgressCallback, InstallResult, PackageInfo } from './install/types';
 import { NpmInstall } from './npmInstall';
 
 interface PackageJson {
@@ -16,6 +16,11 @@ interface PackageJson {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
+}
+
+export interface InstallPackageRequest {
+  name: string;
+  version?: string;
 }
 
 export class WorkerNpmCommands {
@@ -43,39 +48,60 @@ export class WorkerNpmCommands {
     flags: string[] = [],
     onProgress?: InstallProgressCallback
   ): Promise<string> {
+    const version = flags.find(flag => flag.startsWith('--version='))?.slice('--version='.length);
+    const packages: InstallPackageRequest[] = [];
+    if (packageName) packages.push({ name: packageName, version });
+    return this.installPackages(packages, flags, onProgress);
+  }
+
+  async installPackages(
+    packages: InstallPackageRequest[],
+    flags: string[] = [],
+    onProgress?: InstallProgressCallback
+  ): Promise<string> {
     const started = Date.now();
     const packageJson = (await this.readPackage()) ?? this.defaultPackageJson(this.projectName());
     if (!(await this.fs.exists(this.path('package.json')))) await this.writePackage(packageJson);
     const installer = new NpmInstall(this.rootPath, this.fs);
     if (onProgress) installer.setInstallProgressCallback(onProgress);
     try {
-      if (!packageName) {
+      if (packages.length === 0) {
         const requests = rootDependencyRequests(packageJson);
         const result = await installer.installDependencies(requests, 'node_modules', packageJson);
         return installSummary(result, started);
       }
       const isDev = flags.includes('--save-dev') || flags.includes('-D');
-      let requestedVersion = 'latest';
-      for (const flag of flags) {
-        if (flag.startsWith('--version=')) requestedVersion = flag.slice('--version='.length);
-      }
-      const packageInfo = await installer.resolvePackageInfo(packageName, requestedVersion);
       const dependencies = packageJson.dependencies ?? {};
       const devDependencies = packageJson.devDependencies ?? {};
-      if (isDev) {
-        delete dependencies[packageName];
-        devDependencies[packageName] = `^${packageInfo.version}`;
-      } else {
-        delete devDependencies[packageName];
-        dependencies[packageName] = `^${packageInfo.version}`;
+      const resolvedPackages: Array<{ request: InstallPackageRequest; packageInfo: PackageInfo }> =
+        [];
+      for (const request of packages) {
+        const requestedVersion = request.version ?? 'latest';
+        const packageInfo = await installer.resolvePackageInfo(request.name, requestedVersion);
+        resolvedPackages.push({ request, packageInfo });
+        let savedVersion = `^${packageInfo.version}`;
+        if (requestedVersion.startsWith('npm:'))
+          savedVersion = `npm:${packageInfo.name}@^${packageInfo.version}`;
+        if (isDev) {
+          delete dependencies[request.name];
+          devDependencies[request.name] = savedVersion;
+        } else {
+          delete devDependencies[request.name];
+          dependencies[request.name] = savedVersion;
+        }
+        if (packageJson.optionalDependencies) delete packageJson.optionalDependencies[request.name];
       }
       packageJson.dependencies = dependencies;
       packageJson.devDependencies = devDependencies;
-      if (packageJson.optionalDependencies) delete packageJson.optionalDependencies[packageName];
       await this.writePackage(packageJson);
       const requests = rootDependencyRequests(packageJson);
-      const requested = requests.find(request => request.name === packageName);
-      if (requested) requested.version = packageInfo.version;
+      for (const { request, packageInfo } of resolvedPackages) {
+        const dependencyRequest = requests.find(item => item.name === request.name);
+        if (!dependencyRequest) continue;
+        dependencyRequest.version = packageInfo.version;
+        if (request.version?.startsWith('npm:'))
+          dependencyRequest.version = `npm:${packageInfo.name}@${packageInfo.version}`;
+      }
       const result = await installer.installDependencies(requests, 'node_modules', packageJson);
       return installSummary(result, started);
     } catch (error) {
@@ -104,10 +130,7 @@ export class WorkerNpmCommands {
     await this.writePackage(packageJson);
     const installer = new NpmInstall(this.rootPath, this.fs);
     const removed = await installer.uninstallWithDependencies(packageName);
-    let removedCount = removed.length;
-    if (removedCount === 0) removedCount = 1;
-    else removedCount += 1;
-    return `removed ${removedCount} packages in ${secondsSince(started)}s`;
+    return `removed ${removed.length} packages in ${secondsSince(started)}s`;
   }
 
   async list(projectName: string): Promise<string> {

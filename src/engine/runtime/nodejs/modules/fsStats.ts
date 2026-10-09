@@ -29,6 +29,8 @@ export interface FsStats extends Omit<MountStat, 'size'> {
 export function fileMode(type: MountStat['type']): number {
   if (type === 'directory') return 0o40755;
   if (type === 'symlink') return 0o120777;
+  if (type === 'fifo') return 0o10644;
+  if (type === 'characterDevice') return 0o20666;
   return 0o100644;
 }
 
@@ -55,8 +57,8 @@ export function createFsStats(value: MountStat, useBigInt = false): FsStats {
     isDirectory: () => type === 'directory',
     isSymbolicLink: () => type === 'symlink',
     isBlockDevice: () => false,
-    isCharacterDevice: () => false,
-    isFIFO: () => false,
+    isCharacterDevice: () => type === 'characterDevice',
+    isFIFO: () => type === 'fifo',
     isSocket: () => false,
   };
 }

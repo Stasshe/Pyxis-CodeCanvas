@@ -1,15 +1,22 @@
 import { assetPath } from '@/env';
 import type { HostRequest, RpcCall, RpcReply, RpcValue } from './protocol';
 
-type HostHandler = (request: HostRequest) => Promise<RpcValue>;
+type HostHandler = (request: HostRequest, signal: AbortSignal) => Promise<RpcValue>;
 const hosts = new Map<string, HostHandler>();
+const hostCalls = new Map<string, { runtimeId: string; controller: AbortController }>();
 let createPort: (() => Promise<MessagePort>) | null = null;
 let initialization: Promise<string> | null = null;
+let listenersRegistered = false;
 
 export function registerRuntimeHost(id: string, handler: HostHandler): () => void {
   hosts.set(id, handler);
   return () => {
     hosts.delete(id);
+    for (const [callId, call] of hostCalls) {
+      if (call.runtimeId !== id) continue;
+      call.controller.abort();
+      hostCalls.delete(callId);
+    }
     navigator.serviceWorker.controller?.postMessage({ type: 'runtime-cancel', runtimeId: id });
   };
 }
@@ -39,7 +46,15 @@ async function sendFsPort(): Promise<void> {
 
 export function ensureRuntimeBridge(factory: () => Promise<MessagePort>): Promise<string> {
   createPort = factory;
-  if (!initialization) initialization = initialize();
+  if (!initialization) {
+    const pending = initialize();
+    let attempt: Promise<string>;
+    attempt = pending.catch(error => {
+      if (initialization === attempt) initialization = null;
+      throw error;
+    });
+    initialization = attempt;
+  }
   return initialization;
 }
 
@@ -106,39 +121,62 @@ async function initialize(): Promise<string> {
   if (!registration.active) throw new Error('Runtime service worker is not active.');
   await waitForController(registration.active);
   sessionStorage.setItem(reloadKey, 'true');
-  navigator.serviceWorker.addEventListener(
-    'message',
-    async (event: MessageEvent<{ type: string; call: RpcCall }>) => {
-      if (event.data.type === 'runtime-request-fs-port') {
-        try {
-          await sendFsPort();
-        } catch (error) {
-          console.error(error);
-          navigator.serviceWorker.controller?.postMessage({ type: 'runtime-fs-port-error' });
+  if (!listenersRegistered) {
+    navigator.serviceWorker.addEventListener(
+      'message',
+      async (
+        event: MessageEvent<{
+          type: string;
+          call?: RpcCall;
+          runtimeId?: string;
+          callId?: string;
+        }>
+      ) => {
+        if (event.data.type === 'runtime-host-cancel') {
+          const call = event.data.callId ? hostCalls.get(event.data.callId) : undefined;
+          if (call && call.runtimeId === event.data.runtimeId) call.controller.abort();
+          return;
         }
-        return;
+        if (event.data.type === 'runtime-request-fs-port') {
+          try {
+            await sendFsPort();
+          } catch (error) {
+            console.error(error);
+            navigator.serviceWorker.controller?.postMessage({ type: 'runtime-fs-port-error' });
+          }
+          return;
+        }
+        if (event.data.type !== 'runtime-host-call') return;
+        const call = event.data.call;
+        if (!call) return;
+        const responsePort = event.ports[0];
+        if (!responsePort) return;
+        const controller = new AbortController();
+        hostCalls.set(call.id, { runtimeId: call.runtimeId, controller });
+        let reply: RpcReply;
+        try {
+          const handler = hosts.get(call.runtimeId);
+          if (!handler) throw new Error('Runtime host is no longer available.');
+          if (call.request.kind !== 'shell' && call.request.kind !== 'stdin')
+            throw new Error('Main only handles shell and stdin.');
+          reply = {
+            id: call.id,
+            result: { ok: true, value: await handler(call.request, controller.signal) },
+          };
+        } catch (error) {
+          reply = { id: call.id, result: { ok: false, error: String(error) } };
+        } finally {
+          hostCalls.delete(call.id);
+        }
+        responsePort.postMessage(reply);
+        responsePort.close();
       }
-      if (event.data.type !== 'runtime-host-call') return;
-      const { call } = event.data;
-      const responsePort = event.ports[0];
-      if (!responsePort) return;
-      let reply: RpcReply;
-      try {
-        const handler = hosts.get(call.runtimeId);
-        if (!handler) throw new Error('Runtime host is no longer available.');
-        if (call.request.kind !== 'shell' && call.request.kind !== 'stdin')
-          throw new Error('Main only handles shell and stdin.');
-        reply = { id: call.id, result: { ok: true, value: await handler(call.request) } };
-      } catch (error) {
-        reply = { id: call.id, result: { ok: false, error: String(error) } };
-      }
-      responsePort.postMessage(reply);
-      responsePort.close();
-    }
-  );
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    void sendFsPort().catch(console.error);
-  });
+    );
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      void sendFsPort().catch(console.error);
+    });
+    listenersRegistered = true;
+  }
   await sendFsPort();
   return registration.scope;
 }

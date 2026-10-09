@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { migrateMetadata } from '@/engine/core/migration/metadata';
-import type { LegacyChatSpace, LegacyFile, LegacyMapping } from '@/engine/core/migration/types';
+import type {
+  LegacyChatSpace,
+  LegacyFile,
+  LegacyFileReference,
+  LegacyMapping,
+} from '@/engine/core/migration/types';
 import { STORES } from '@/engine/storage';
 import type { EditorPane, EditorTab } from '@/engine/tabs/types';
 import type { PyxisSession } from '@/stores/sessionStore';
@@ -20,6 +25,8 @@ interface TestEntry {
 
 const fixtures = vi.hoisted(() => ({
   stores: new Map<string, Map<string, TestEntry>>(),
+  legacyFiles: new Map<string, LegacyFile>(),
+  legacyChats: new Map<string, LegacyChatSpace>(),
   recentRoots: new Set<string>(),
   closedDatabases: 0,
 }));
@@ -32,17 +39,36 @@ vi.mock('@/engine/core/migration/idb', () => ({
       },
     })
   ),
-  readAll: vi.fn(async <T extends object>(_database: IDBDatabase, storeName: string) => {
-    const values = fixtures.stores.get(storeName);
-    if (!values) return [];
-    return [...values.values()] as T[];
-  }),
   readValue: vi.fn(
     async <T extends object>(_database: IDBDatabase, storeName: string, key: string) => {
+      if (_database === legacyDb && storeName === 'files') {
+        return fixtures.legacyFiles.get(key) as T | undefined;
+      }
+      if (_database === legacyDb && storeName === 'chatSpaces') {
+        return fixtures.legacyChats.get(key) as T | undefined;
+      }
       const value = fixtures.stores.get(storeName)?.get(key);
       return value as T | undefined;
     }
   ),
+  iterateAll: vi.fn(async function* <T extends object>(_database: IDBDatabase, storeName: string) {
+    const values = fixtures.stores.get(storeName);
+    if (!values) return;
+    for (const entry of values.values()) yield entry as T;
+  }),
+  iterateAllKeyed: vi.fn(async function* <T extends object>(
+    _database: IDBDatabase,
+    storeName: string
+  ) {
+    let values: Iterable<[string, object]> | undefined;
+    if (_database === legacyDb && storeName === 'files') values = fixtures.legacyFiles;
+    else if (_database === legacyDb && storeName === 'chatSpaces') values = fixtures.legacyChats;
+    else values = fixtures.stores.get(storeName);
+    if (!values) return;
+    for (const [key, value] of values) {
+      yield { key, value: value as T };
+    }
+  }),
   writeValue: vi.fn(async (_database: IDBDatabase, storeName: string, entry: TestEntry) => {
     let values = fixtures.stores.get(storeName);
     if (!values) {
@@ -60,7 +86,7 @@ vi.mock('@/engine/storage', () => ({
     AI_REVIEWS: 'ai_reviews',
   },
   storageService: {
-    getAll: vi.fn(async () => []),
+    initialize: vi.fn(async () => {}),
   },
 }));
 
@@ -143,9 +169,27 @@ const project: LegacyMapping = {
 
 beforeEach(() => {
   fixtures.stores.clear();
+  fixtures.legacyFiles.clear();
+  fixtures.legacyChats.clear();
   fixtures.recentRoots.clear();
   fixtures.closedDatabases = 0;
 });
+
+const legacyDb = Object.assign(new EventTarget(), { close: () => {} }) as IDBDatabase;
+
+function fileReferences(files: LegacyFile[]): LegacyFileReference[] {
+  for (const file of files) fixtures.legacyFiles.set(file.id, file);
+  return files.map(file => ({
+    key: file.id,
+    id: file.id,
+    projectId: file.projectId,
+    path: file.path,
+    type: file.type,
+    hasReview:
+      file.aiAgentSuggestedContent !== undefined ||
+      (file.isAiAgentReview === true && file.aiAgentCode !== undefined),
+  }));
+}
 
 describe('migrateMetadata', () => {
   it('moves global chat, file reviews, and nested tab paths to the workspace root', async () => {
@@ -220,7 +264,7 @@ describe('migrateMetadata', () => {
       },
     ];
 
-    await migrateMetadata([project], files, []);
+    await migrateMetadata([project], fileReferences(files), legacyDb);
 
     expect(getData(STORES.CHAT_SPACES, 'chatSpace:/home/pyxis/demo:chat-1')).toMatchObject({
       rootPath: '/home/pyxis/demo',
@@ -279,15 +323,29 @@ describe('migrateMetadata', () => {
     const emptySession = makeSession([{ id: 'pane-root', tabs: [], activeTabId: '' }]);
     setEntry('user_preferences', 'current-session', emptySession);
 
-    await migrateMetadata([project, secondProject], [], []);
-    await migrateMetadata([project, secondProject], [], []);
+    await migrateMetadata([project, secondProject], [], legacyDb);
+    await migrateMetadata([project, secondProject], [], legacyDb);
 
     expect(fixtures.stores.get(STORES.TAB_STATE)?.size ?? 0).toBe(0);
     expect([...fixtures.recentRoots].sort()).toEqual(['/home/pyxis/demo', '/home/pyxis/other']);
   });
 
+  it('uses the current session when several legacy records map to one project', async () => {
+    const oldSession = makeSession([{ id: 'pane-root', tabs: [], activeTabId: '' }]);
+    oldSession.lastSaved = 10;
+    const currentSession = makeSession([{ id: 'pane-root', tabs: [], activeTabId: '' }]);
+    currentSession.lastSaved = 20;
+    setEntry(STORES.TAB_STATE, project.id, oldSession);
+    setEntry('user_preferences', 'current-session', currentSession);
+
+    await migrateMetadata([project], [], legacyDb);
+
+    const saved = getData(STORES.TAB_STATE, 'tabState:/home/pyxis/demo') as PyxisSession;
+    expect(saved.lastSaved).toBe(20);
+  });
+
   it('creates recent-folder metadata when the legacy database has no records', async () => {
-    await migrateMetadata([project], [], []);
+    await migrateMetadata([project], [], legacyDb);
 
     expect([...fixtures.recentRoots]).toEqual(['/home/pyxis/demo']);
   });
@@ -310,7 +368,7 @@ describe('migrateMetadata', () => {
       aiAgentOriginalSnapshot: 'original',
     };
 
-    await migrateMetadata([nestedProject], [file], []);
+    await migrateMetadata([nestedProject], fileReferences([file]), legacyDb);
 
     expect(
       getData(STORES.AI_REVIEWS, 'aiReview:/home/pyxis/src:/home/pyxis/src/src/index.ts')
@@ -319,6 +377,37 @@ describe('migrateMetadata', () => {
       filePath: '/home/pyxis/src/src/index.ts',
       suggestedContent: '',
       originalSnapshot: 'original',
+    });
+  });
+
+  it('lets the legacy global review override a file-derived review for the same path', async () => {
+    const file: LegacyFile = {
+      id: 'file-review',
+      projectId: project.id,
+      path: 'src/main.ts',
+      type: 'file',
+      content: 'original',
+      aiAgentSuggestedContent: 'file suggestion',
+    };
+    const globalReview: LegacyReviewRecord = {
+      projectId: project.id,
+      filePath: 'src/main.ts',
+      suggestedContent: 'global suggestion',
+      originalSnapshot: 'global snapshot',
+      status: 'pending',
+      history: [],
+      updatedAt: 123,
+    };
+    setEntry(STORES.AI_REVIEWS, 'old-review', globalReview);
+
+    await migrateMetadata([project], fileReferences([file]), legacyDb);
+
+    expect(
+      getData(STORES.AI_REVIEWS, 'aiReview:/home/pyxis/demo:/home/pyxis/demo/src/main.ts')
+    ).toMatchObject({
+      suggestedContent: 'global suggestion',
+      originalSnapshot: 'global snapshot',
+      updatedAt: 123,
     });
   });
 
@@ -347,7 +436,7 @@ describe('migrateMetadata', () => {
     ];
     setEntry('user_preferences', 'current-session', session);
 
-    await migrateMetadata([project, secondProject], files, []);
+    await migrateMetadata([project, secondProject], fileReferences(files), legacyDb);
 
     expect(fixtures.stores.get(STORES.TAB_STATE)?.size ?? 0).toBe(0);
   });

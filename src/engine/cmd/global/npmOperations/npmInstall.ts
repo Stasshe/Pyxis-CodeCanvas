@@ -30,7 +30,7 @@ import {
   pruneFailedOptionalPackages,
 } from './install/tree';
 import type { InstallProgressCallback, InstallResult, PackageInfo } from './install/types';
-import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
+import { resolveVersionSpec } from './install/versionUtils';
 
 const PACKAGE_INSTALL_CONCURRENCY = 6;
 
@@ -42,6 +42,14 @@ interface InstalledPackage {
   dependencies?: Record<string, string>;
   bin?: string | Record<string, string>;
 }
+
+interface InstallMarker {
+  name: string;
+  version: string;
+  integrity?: string;
+}
+
+const INSTALL_MARKER = '.pyxis-install-complete.json';
 
 export class NpmInstall {
   private rootPath: string;
@@ -104,7 +112,14 @@ export class NpmInstall {
       if (!name || name === '.' || name === '..' || /[/\\]/.test(name))
         throw new Error(`Invalid bin name '${name}'`);
       const target = resolvePath(packageDirectory, relPath);
-      const realTarget = await this.fs.realpath(target);
+      const realTarget = await this.fs.realpath(target).then(
+        path => path,
+        error => {
+          if (error instanceof FSError && error.code === 'ENOENT') return undefined;
+          throw error;
+        }
+      );
+      if (!realTarget) continue;
       if (!isPathWithin(realTarget, packageRoot))
         throw new Error(`Bin '${name}' escapes package directory`);
       const binPath = resolvePath(binDirectory, name);
@@ -157,7 +172,7 @@ export class NpmInstall {
     version = spec.version;
     const data = await this.registry.getPackument(packageName);
     const latest = data['dist-tags']?.latest;
-    if (!data.name || !latest) throw new Error(`Invalid package data for '${packageName}'`);
+    if (!data.name) throw new Error(`Invalid package data for '${packageName}'`);
 
     let resolvedVersion = version;
     if (data['dist-tags']?.[version]) resolvedVersion = data['dist-tags'][version];
@@ -177,6 +192,8 @@ export class NpmInstall {
       version: resolvedVersion,
       dependencies: versionData.dependencies,
       optionalDependencies: versionData.optionalDependencies,
+      peerDependencies: versionData.peerDependencies,
+      peerDependenciesMeta: versionData.peerDependenciesMeta,
       os: versionData.os,
       cpu: versionData.cpu,
       tarball: versionData.dist.tarball,
@@ -198,19 +215,16 @@ export class NpmInstall {
     }
     let plan: PlacedDependency[] | undefined;
     if (manifest && lock) plan = replayLockedTree(lock, manifest);
-    if (
-      plan &&
-      requests.some(request => {
-        const placed = plan?.find(dependency => dependency.path === `node_modules/${request.name}`);
-        if (!placed) return !request.isOptional;
-        const spec = parseDependencySpec(request.name, request.version);
-        return (
-          placed.packageInfo.name !== spec.name ||
-          !satisfiesVersionSpec(placed.packageInfo.version, spec.version)
-        );
-      })
-    )
-      plan = undefined;
+    if (plan && manifest) {
+      const manifestRequests = rootDependencyRequests(manifest);
+      const sameRequests =
+        requests.length === manifestRequests.length &&
+        requests.every((request, index) => {
+          const candidate = manifestRequests[index];
+          return candidate?.name === request.name && candidate.version === request.version;
+        });
+      if (!sameRequests) plan = undefined;
+    }
     const replayedLock = Boolean(plan);
     if (!plan) {
       const resolved = await resolveDependencyPlan(
@@ -329,10 +343,23 @@ export class NpmInstall {
   }
 
   private async isPackageInstalled(dependency: PlacedDependency): Promise<boolean> {
-    const manifest = await this.getManifest(this.path(`${dependency.path}/package.json`));
+    const packageDirectory = this.path(dependency.path);
+    const manifest = await this.getManifest(`${packageDirectory}/package.json`);
+    const markerFile = await this.files.getFile(`${packageDirectory}/${INSTALL_MARKER}`);
+    let marker: InstallMarker | undefined;
+    if (markerFile) {
+      try {
+        marker = JSON.parse(markerFile.content) as InstallMarker;
+      } catch {
+        marker = undefined;
+      }
+    }
     return (
       manifest?.name === dependency.packageInfo.name &&
-      manifest?.version === dependency.packageInfo.version
+      manifest?.version === dependency.packageInfo.version &&
+      marker?.name === dependency.packageInfo.name &&
+      marker.version === dependency.packageInfo.version &&
+      marker.integrity === dependency.packageInfo.integrity
     );
   }
 
@@ -429,6 +456,8 @@ export class NpmInstall {
       try {
         await this.extractor.extractFromStream(packageDir, decompressedStream, async entry => {
           try {
+            if (entry.path === `${packageDir}/${INSTALL_MARKER}`)
+              throw new Error('Package archive contains a reserved install marker');
             if (!touchedPackage) {
               await this.fs.rm(packageDir, { recursive: true, force: true });
               touchedPackage = true;
@@ -450,6 +479,10 @@ export class NpmInstall {
         if (!(await this.files.getFile(packageJsonPath))) {
           throw new Error(`Package archive has no package.json: ${packageName}@${version}`);
         }
+        await this.fs.writeFile(
+          `${packageDir}/${INSTALL_MARKER}`,
+          `${JSON.stringify({ name: packageName, version, integrity } satisfies InstallMarker)}\n`
+        );
       } catch (error) {
         if (touchedPackage) await this.fs.rm(packageDir, { recursive: true, force: true });
         if (cached && !filesystemFailure) await this.fs.rm(cachePath, { force: true });
@@ -546,21 +579,25 @@ export class NpmInstall {
     packageName: string,
     version: string
   ): Promise<Uint8Array<ArrayBuffer>> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       return await npmNetwork.run(async () => {
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: { Accept: 'application/octet-stream' },
-        });
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error(`Package '${packageName}@${version}' not found`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: 'application/octet-stream' },
+          });
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error(`Package '${packageName}@${version}' not found`);
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return new Uint8Array(await response.arrayBuffer());
+        } finally {
+          clearTimeout(timeoutId);
         }
-        return new Uint8Array(await response.arrayBuffer());
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -569,8 +606,6 @@ export class NpmInstall {
       let message = String(error);
       if (error instanceof Error) message = error.message;
       throw new Error(`Failed to download: ${message}`);
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 

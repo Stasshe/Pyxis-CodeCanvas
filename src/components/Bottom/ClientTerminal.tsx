@@ -6,35 +6,43 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { VimEditor } from '@/engine/cmd/app/vim/VimEditor';
-import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { handleVimCommand } from '@/engine/cmd/handlers/vimHandler';
+import { parseCommandLine } from '@/engine/cmd/shell';
 import type StreamShell from '@/engine/cmd/shell/streamShell';
+import type { Redirection } from '@/engine/cmd/shell/types';
 import { TerminalOutputManager } from '@/engine/cmd/terminalOutputManager';
 import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import TerminalUI from '@/engine/cmd/terminalUI';
 import { fsClient } from '@/engine/core/fs';
+import type { CommandRegistry } from '@/engine/extensions/commandRegistry';
 import { pyxisEnv } from '@/env';
 import { pushLogMessage } from '@/stores/loggerStore';
-import {
-  clearTerminalHistory,
-  getTerminalHistory,
-  saveTerminalHistory,
-} from '@/stores/terminalHistoryStorage';
-import { createTerminalInstance } from './createTerminalInstance';
-import { setupTerminalInput, type TerminalInputState } from './terminalInput';
+import { clearCanonicalCommandState, resolveCanonicalCommand } from './canonicalCommandState';
+import { createTerminalInstance, createTerminalTheme } from './createTerminalInstance';
+import { editLine, insertLineText, isPrintableLineInput, lineAction } from './lineEditor';
+import { createTerminalCompletionSource } from './terminalCompletionSource';
+import { navigateTerminalHistory, TerminalHistory } from './terminalHistory';
+import { createTerminalInputState } from './terminalInput';
+import { cookedControlDAction, createTerminalInputController } from './terminalInputController';
+import { finishTerminalInterrupt } from './terminalInterrupt';
+import { TerminalLineEditor } from './terminalLineEditor';
+import { showTerminalPrompt } from './terminalPrompt';
+import { clearTerminalScreen } from './terminalScreenControl';
+import { createShellOutputCallbacks, runTerminalShellCommand } from './terminalShellLifecycle';
+import { TerminalTypeahead } from './terminalTypeahead';
+import { createTerminalScrollHandler } from './terminalViewport';
 
 export interface TerminalProps {
   height: number;
   currentProject?: string;
   currentRootPath?: string;
   isActive?: boolean;
-  onVimModeChange?: (vimEditor: VimEditor | null) => void; // Callback for Vim mode changes
+  onVimModeChange?: (vimEditor: VimEditor | null) => void;
 }
 
-// クライアントサイド専用のターミナルコンポーネント
 export function ClientTerminal({
   height,
   currentProject = 'default',
@@ -48,98 +56,67 @@ export function ClientTerminal({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const outputManagerRef = useRef<TerminalOutputManager | null>(null);
   const unixCommandsRef = useRef<UnixCommands | null>(null);
-  const gitCommandsRef = useRef<GitCommands | null>(null);
   const npmCommandsRef = useRef<NpmCommands | null>(null);
   const shellRef = useRef<StreamShell | null>(null);
-  const vimEditorRef = useRef<VimEditor | null>(null); // Track active Vim editor instance
+  const commandRegistryRef = useRef<
+    Pick<CommandRegistry, 'hasCommand' | 'executeCommand' | 'getRegisteredCommands'> | undefined
+  >(undefined);
+  const vimEditorRef = useRef<VimEditor | null>(null);
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
+  const onVimModeChangeRef = useRef(onVimModeChange);
+  onVimModeChangeRef.current = onVimModeChange;
 
-  // xterm/fitAddonをrefで保持
   useEffect(() => {
     if (!terminalRef.current) return;
-    if (!currentProject || !currentRootPath) return;
+    if (!currentRootPath) return;
     pushLogMessage('Terminal initializing', 'info', 'Terminal');
 
-    const initializeTerminal = async () => {
-      try {
-        await fsClient.init();
-      } catch (error) {
-        console.error('[Terminal] Initialization error:', error);
-      }
-    };
-
-    initializeTerminal();
-
-    // Use shared registry to ensure singleton instances per project.
-    // Use a named async function + mounted flag for readability and to avoid updating refs after unmount.
     let mounted = true;
     const loadRegistry = async () => {
       try {
+        await fsClient.init();
         const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
         if (!mounted) return;
         unixCommandsRef.current = terminalCommandRegistry.getUnixCommands(currentRootPath);
-        gitCommandsRef.current = terminalCommandRegistry.getGitCommands(currentRootPath);
         npmCommandsRef.current = await terminalCommandRegistry.getNpmCommands(currentRootPath);
-        // create or obtain a StreamShell instance from the shared registry so it's a per-project singleton
-        try {
-          let extRegistry:
-            | typeof import('@/engine/extensions/commandRegistry').commandRegistry
-            | undefined;
-          try {
-            const mod = await import('@/engine/extensions/commandRegistry');
-            extRegistry = mod.commandRegistry;
-          } catch (error) {
-            console.error('[Terminal] Failed to load extension command registry.', error);
-          }
-          const shellInst = await terminalCommandRegistry.getShell(currentRootPath, {
-            unix: unixCommandsRef.current,
-            commandRegistry: extRegistry,
-            fsClient,
-          });
-          if (shellInst) shellRef.current = shellInst;
-        } catch (e) {
-          // non-fatal — Terminal will fallback to existing handlers
-          console.error('[Terminal] failed to initialize StreamShell via registry', e);
-        }
-      } catch (e) {
-        // Do NOT fallback to direct construction here — enforce single responsibility:
-        // Terminal must rely on the terminalCommandRegistry to provide instances.
         if (!mounted) return;
-        console.error(
-          '[Terminal] terminal registry load failed — builtin commands not initialized',
-          e
-        );
-        pushLogMessage(
-          'Terminal: failed to load terminalCommandRegistry — builtin commands unavailable',
-          'error',
-          'Terminal'
-        );
-        // Leave refs null so callers can handle the absence explicitly.
+        const { commandRegistry } = await import('@/engine/extensions/commandRegistry');
+        commandRegistryRef.current = commandRegistry;
+        const shell = await terminalCommandRegistry.getShell(currentRootPath, {
+          unix: unixCommandsRef.current,
+          commandRegistry,
+          fsClient,
+        });
+        if (!shell) throw new Error('StreamShell could not be initialized.');
+        if (!mounted) return;
+        shellRef.current = shell;
+      } catch (e) {
+        if (!mounted) return;
+        const message = `Terminal registry initialization failed: ${String(e)}`;
+        console.error(`[Terminal] ${message}`);
+        pushLogMessage(message, 'error', 'Terminal');
+        throw e;
       }
     };
 
-    loadRegistry();
+    const registryReadyPromise = loadRegistry().catch(error => error);
 
-    // ターミナルの初期化
-    const { terminal: term, fitAddon } = createTerminalInstance(colors);
+    const { terminal: term, fitAddon } = createTerminalInstance(colorsRef.current);
 
-    // DOMに接続
     term.open(terminalRef.current);
 
-    // Initialize output manager for centralized output handling
     const outputManager = new TerminalOutputManager(term);
     outputManagerRef.current = outputManager;
 
-    // Initialize TerminalUI
     const terminalUI = new TerminalUI(outputManager);
 
-    // Register UI with the shared terminal registry so command classes can access it
     try {
       terminalCommandRegistry.setTerminalUI(currentRootPath, terminalUI);
     } catch (e) {
       console.warn('[Terminal] failed to register TerminalUI with registry', e);
     }
 
-    // タッチスクロール機能を追加
     let startY = 0;
     let scrolling = false;
 
@@ -157,11 +134,7 @@ export function ClientTerminal({
           scrolling = true;
           const scrollAmount = Math.round(deltaY / 20);
 
-          if (scrollAmount > 0) {
-            term.scrollLines(scrollAmount);
-          } else {
-            term.scrollLines(scrollAmount);
-          }
+          term.scrollLines(scrollAmount);
 
           startY = currentY;
         }
@@ -172,22 +145,12 @@ export function ClientTerminal({
       scrolling = false;
     };
 
-    // ホイールスクロール機能
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const scrollAmount = Math.round(e.deltaY / 100);
-      term.scrollLines(scrollAmount);
-    };
-
-    // タッチイベントリスナーを追加
     if (terminalRef.current) {
       terminalRef.current.addEventListener('touchstart', handleTouchStart, { passive: true });
       terminalRef.current.addEventListener('touchmove', handleTouchMove, { passive: true });
       terminalRef.current.addEventListener('touchend', handleTouchEnd, { passive: true });
-      terminalRef.current.addEventListener('wheel', handleWheel, { passive: false });
     }
 
-    // サイズ調整 — open後の次フレームでfit+scroll（useEffect実行時点でDOMコミット済み）
     const fitAndSync = () => {
       fitAddon.fit();
       terminalCommandRegistry.updateShellSize(currentRootPath, term.cols, term.rows);
@@ -198,144 +161,101 @@ export function ClientTerminal({
       term.scrollToBottom();
     });
 
-    // 初期化処理を非同期で実行
     const initializeMessages = async () => {
-      // 初期メッセージ via TerminalUI
       const pyxisVersion = pyxisEnv.version || '(dev)';
       await terminalUI.info(`Pyxis Terminal v${pyxisVersion}`);
       await terminalUI.println('Type "help" for available commands.');
-      // 初期プロンプト表示
-      await showPrompt();
-    };
-
-    // 確実な自動スクロール関数
-    const scrollToBottom = () => {
+      const registryError = await registryReadyPromise;
+      if (registryError !== undefined) {
+        if (mounted) {
+          await outputManager.writeError(
+            `Terminal initialization failed: ${String(registryError)}\r\n`
+          );
+        }
+        return;
+      }
       if (!mounted) return;
-      term.scrollToBottom();
-      // rAFで次フレームに補正スクロール（カーソル位置確定後）
-      requestAnimationFrame(() => {
-        if (!mounted) return;
-        const buffer = term.buffer.active;
-        const viewportHeight = term.rows;
-        const absoluteCursorLine = buffer.baseY + buffer.cursorY;
-        const scrollDelta = absoluteCursorLine - buffer.viewportY - viewportHeight + 1;
-        if (scrollDelta > 0) {
-          term.scrollLines(scrollDelta);
-        }
-        term.scrollToBottom();
-      });
+      await showPrompt();
+      isProcessingCommand = false;
     };
 
-    // プロンプトを表示する関数
+    const scrollToBottom = createTerminalScrollHandler(term, () => mounted);
+
     const showPrompt = async () => {
-      // CRITICAL: Wait for all pending output to complete before checking cursor position
-      // This ensures cursor position is accurate
-      await outputManager.flush();
-
-      // Ensure we're on a new line - this is the key to preventing prompt overlap
-      // Linux/Windows terminals always ensure prompts start on a new line
-      await outputManager.ensureNewline();
-
-      if (unixCommandsRef.current && gitCommandsRef.current) {
-        const currentDirectory = await unixCommandsRef.current.pwd();
-        const branch = await gitCommandsRef.current.getCurrentBranch();
-        let branchDisplay = '';
-        if (branch !== '(no git)') {
-          const branchColors = colors.gitBranchColors || [];
-          const colorHex =
-            branchColors.length > 0
-              ? branchColors[
-                  Math.abs(
-                    branch.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0)
-                  ) % branchColors.length
-                ]
-              : colors.primary;
-          const rgb = colorHex
-            .replace('#', '')
-            .match(/.{2}/g)
-            ?.map(x => Number.parseInt(x, 16)) || [0, 0, 0];
-          branchDisplay = ` (\x1b[38;2;${rgb[0]};${rgb[1]};${rgb[2]}m${branch}\x1b[0m)`;
-        }
-        await outputManager.writeRaw(`${currentDirectory}${branchDisplay} $ `);
-      } else {
-        await outputManager.writeRaw('$ ');
-      }
-
-      // CRITICAL: Wait for prompt to be written before scrolling
-      await outputManager.flush();
-
-      // Scroll to bottom after all output and prompt are complete
-      scrollToBottom();
-      // Additional scrolls with delay to ensure proper positioning
-      setTimeout(() => scrollToBottom(), 50);
-      setTimeout(() => scrollToBottom(), 150);
+      const unix = unixCommandsRef.current;
+      if (!unix) throw new Error('Terminal commands are not initialized.');
+      await showTerminalPrompt(outputManager, unix, fsClient, colorsRef.current, scrollToBottom);
     };
 
-    // 履歴の初期化・復元（storageServiceへ）
-    let commandHistory: string[] = [];
-    let historyIndex = -1;
-    const inputState: TerminalInputState = {
-      currentLine: '',
-      cursorPos: 0,
-      interactiveLine: '',
-      interactivePos: 0,
-      isSelecting: false,
-      isComposing: false,
-      ignoreNextOnData: false,
-    };
+    const commandHistory = new TerminalHistory(currentRootPath);
+    let isProcessingCommand = true;
+    let isShellCommandRunning = false;
+    const canonicalCommandState = { queued: false, cancelled: false };
+    const inputState = createTerminalInputState();
 
-    // 履歴をロードする（非同期）
-    const loadHistory = async () => {
-      try {
-        const saved = await getTerminalHistory(currentProject);
-        if (Array.isArray(saved)) {
-          commandHistory = saved;
-          historyIndex = commandHistory.length;
-        }
-      } catch (e) {
-        console.warn('[Terminal] Failed to load terminal history:', e);
-      }
-    };
-    // 起動時にロード（非同期で問題なし）
-    loadHistory();
+    const historyReady = commandHistory.load();
 
-    // 履歴保存関数（storageServiceへ）
-    const saveHistory = async () => {
-      await saveTerminalHistory(currentProject, commandHistory);
-    };
-
-    // 統一された出力関数 - すべての出力はこれを通る
     const writeOutput = async (output: string) => {
       await outputManagerRef.current?.write(output);
     };
 
-    const processCommand = async (command: string) => {
-      // リダイレクト演算子のパース
-      let redirect = null;
-      let fileName = null;
-      let append = false;
-      let baseCommand = command;
-      const redirectMatch = command.match(/(.+?)\s*(>>|>)\s*([^>\s]+)\s*$/);
-      if (redirectMatch) {
-        baseCommand = redirectMatch[1].trim();
-        redirect = redirectMatch[2];
-        fileName = redirectMatch[3];
-        append = redirect === '>>';
+    const processCommand = async (command: string): Promise<boolean> => {
+      let parsed: ReturnType<typeof parseCommandLine>;
+      try {
+        parsed = parseCommandLine(command);
+      } catch (error) {
+        await writeOutput(`Syntax error: ${(error as Error).message}\n`);
+        return true;
       }
-      const parts = baseCommand.trim().split(/\s+/);
-      const cmd = parts[0].toLowerCase();
+      const candidate = parsed.length === 1 ? parsed[0] : undefined;
+      const isSimpleCommand =
+        candidate !== undefined &&
+        candidate.compound === undefined &&
+        candidate.functionDefinition === undefined &&
+        candidate.separator === undefined;
+      const segment = isSimpleCommand ? candidate : undefined;
+      const literalCommand = segment?.tokens[0]?.text ?? '';
+      const isTerminalCommand =
+        literalCommand === 'clear' || literalCommand === 'history' || literalCommand === 'vim';
+      let parts = segment?.tokens.map(token => token.text) ?? [];
+      if (isTerminalCommand && segment && shellRef.current) {
+        try {
+          parts = await shellRef.current.expandWords(segment.raw);
+        } catch (error) {
+          await outputManager.writeError(`${(error as Error).message}\n`);
+          return true;
+        }
+      }
+      const cmd = isTerminalCommand ? (parts[0] ?? literalCommand) : '';
       const args = parts.slice(1);
+      const outputRedirect = segment?.redirections?.find(
+        (redirection): redirection is Extract<Redirection, { kind: 'output' }> =>
+          redirection.kind === 'output' && redirection.fd === 1
+      );
+      let redirect: string | null = null;
+      if (isTerminalCommand && outputRedirect) {
+        if (outputRedirect.raw !== undefined && shellRef.current) {
+          try {
+            const paths = await shellRef.current.expandWords(outputRedirect.raw);
+            if (paths.length !== 1) throw new Error('Ambiguous redirect');
+            redirect = paths[0];
+          } catch (error) {
+            await outputManager.writeError(`${(error as Error).message}\n`);
+            return true;
+          }
+        } else {
+          redirect = outputRedirect.path;
+        }
+      }
+      const fileName = redirect;
+      const append = outputRedirect?.append ?? false;
 
-      // リダイレクト時にコマンド出力をキャプチャ
       let capturedOutput = '';
-      const captureWriteOutput = async (output: string) => {
-        // Don't add newlines to in-place updates (starts with \r for carriage return)
-        // or cursor control sequences (starts with \x1b[)
+      const captureWriteOutput = async (output: string, preserve = false) => {
         const isInPlaceUpdate = output.startsWith('\r') || output.startsWith('\x1b[?');
 
-        // 末尾に改行がない場合は追加（すべてのコマンド出力を統一的に処理）
-        // But skip for in-place updates which need to stay on the same line
-        const normalizedOutput = isInPlaceUpdate || output.endsWith('\n') ? output : `${output}\n`;
+        let normalizedOutput = output;
+        if (!preserve && !isInPlaceUpdate && !output.endsWith('\n')) normalizedOutput += '\n';
         capturedOutput += normalizedOutput;
 
         if (!redirect) {
@@ -347,30 +267,24 @@ export function ClientTerminal({
       try {
         switch (cmd) {
           case 'clear':
-            term.clear();
-            term.write('\x1b[H\x1b[2J\x1b[3J');
+            await captureWriteOutput('\x1b[H\x1b[2J', true);
             break;
 
-          // 履歴表示・削除コマンド
           case 'history': {
-            // args: ['clear'] -> clear history
             const sub = args[0];
             if (sub === 'clear' || sub === 'reset' || sub === '--clear') {
               try {
-                commandHistory = [];
-                await saveHistory();
-                // storageServiceから明示的に削除
-                await clearTerminalHistory(currentProject);
+                await commandHistory.clear();
                 await captureWriteOutput('ターミナル履歴を削除しました');
               } catch (e) {
                 await captureWriteOutput(`履歴削除エラー: ${(e as Error).message}`);
               }
             } else {
-              if (commandHistory.length === 0) {
+              if (commandHistory.entries.length === 0) {
                 await captureWriteOutput('履歴はありません');
               } else {
-                for (let i = 0; i < commandHistory.length; i++) {
-                  await captureWriteOutput(`${i + 1}: ${commandHistory[i]}`);
+                for (let i = 0; i < commandHistory.entries.length; i++) {
+                  await captureWriteOutput(`${i + 1}: ${commandHistory.entries[i]}`);
                 }
               }
             }
@@ -378,7 +292,6 @@ export function ClientTerminal({
           }
 
           case 'vim': {
-            // Disable normal terminal input during vim mode
             vimModeActive = true;
 
             const vimEditor =
@@ -387,68 +300,50 @@ export function ClientTerminal({
                 unixCommandsRef,
                 captureWriteOutput,
                 currentRootPath,
-                term, // Pass xterm instance
+                term,
                 () => {
-                  // On vim exit callback
-                  vimModeActive = false; // Re-enable normal terminal input
+                  vimModeActive = false;
                   vimEditorRef.current = null;
-                  if (onVimModeChange) onVimModeChange(null);
-                  term.clear();
-                  showPrompt();
+                  onVimModeChangeRef.current?.(null);
+                  void showPrompt().finally(() => {
+                    isProcessingCommand = false;
+                    typeahead.drain(handleTerminalData);
+                  });
                 }
               )) ?? null;
 
-            // Store Vim editor instance for ESC button
             if (!vimEditor) vimModeActive = false;
             vimEditorRef.current = vimEditor;
-            if (onVimModeChange) onVimModeChange(vimEditor);
+            onVimModeChangeRef.current?.(vimEditor);
 
             break;
           }
 
           default: {
-            // All commands (including git, npm, pyxis) are delegated to StreamShell
-            // This enables POSIX-compliant pipelines like: git status && ls
             if (shellRef.current) {
-              // Track all async writeOutput promises to ensure they complete before showing prompt
-              const outputPromises: Promise<void>[] = [];
+              const { callbacks, pendingWrites } = createShellOutputCallbacks(
+                Boolean(redirect),
+                writeOutput,
+                data => outputManagerRef.current?.write(data)
+              );
 
-              // delegate entire command to StreamShell which handles pipes/redirection/subst
-              // リアルタイム出力コールバックを渡す
-              await shellRef.current.run(command, {
-                stdout: (data: string) => {
-                  // 即座にTerminalに表示（リアルタイム出力）
-                  if (!redirect) {
-                    const promise = writeOutput(data).catch(() => {});
-                    outputPromises.push(promise);
-                  }
-                },
-                stderr: (data: string) => {
-                  if (!redirect) {
-                    // Warning detection (case-insensitive)
-                    const trimmed = data.trim();
-                    let promise: Promise<void>;
-                    if (/^warning:/i.test(trimmed)) {
-                      promise =
-                        outputManagerRef.current?.writeWarning(`${trimmed}\n`)?.catch(() => {}) ??
-                        Promise.resolve();
-                    } else {
-                      promise =
-                        outputManagerRef.current?.writeError(`${trimmed}\n`)?.catch(() => {}) ??
-                        Promise.resolve();
-                    }
-                    outputPromises.push(promise as Promise<void>);
-                  }
-                },
-              });
+              isShellCommandRunning = true;
+              try {
+                const shell = shellRef.current;
+                shellRef.current = await runTerminalShellCommand(
+                  currentRootPath,
+                  shell,
+                  command,
+                  callbacks,
+                  unixCommandsRef.current,
+                  commandRegistryRef.current
+                );
+              } finally {
+                isShellCommandRunning = false;
+              }
 
-              // CRITICAL: Wait for all output to complete before returning
-              // This ensures cursor position is correct before showPrompt() is called
-              await Promise.all(outputPromises);
+              await Promise.all(pendingWrites);
 
-              // 完了後は何もしない（既にコールバックで出力済み）
-              // StreamShell (shellRef) はリダイレクトを内部で処理しているため
-              // Terminal側でのファイル書き込みは行わないようにする。
               if (redirect && fileName && unixCommandsRef.current) {
                 skipTerminalRedirect = true;
               }
@@ -459,12 +354,9 @@ export function ClientTerminal({
           }
         }
 
-        // リダイレクト処理
         if (!skipTerminalRedirect && redirect && fileName && unixCommandsRef.current) {
-          // コマンド出力がない場合は空文字列として扱う
           const outputContent = capturedOutput || '';
 
-          // ファイルパスを解決
           const fullPath = fileName.startsWith('/')
             ? fileName
             : `${await unixCommandsRef.current.pwd()}/${fileName}`;
@@ -475,245 +367,352 @@ export function ClientTerminal({
               content = Buffer.concat([await fsClient.readFile(normalizedPath), content]);
             }
 
-            // ファイルを保存または更新
             await fsClient.writeFile(normalizedPath, content);
           } catch (e) {
             await writeOutput(`ファイル書き込みエラー: ${(e as Error).message}`);
           }
-          return;
+          return true;
         }
       } catch (error) {
-        if (!redirect) {
-          await writeOutput(`エラー: ${(error as Error).message}`);
-        }
+        await outputManager.writeError(`${(error as Error).message}\n`);
       }
 
       scrollToBottom();
       setTimeout(() => scrollToBottom(), 50);
       setTimeout(() => scrollToBottom(), 150);
+      return !vimModeActive;
     };
 
-    // 選択範囲管理
-    // フラグ: onKey で処理した直後に onData の二重処理を抑止する
+    let vimModeActive = false;
+    let interactiveSubmitting = false;
+    let canonicalSubmitting = false;
+    let interruptPending = false;
+    let completionListing = false;
+    let inputOutputPending = false;
+    const typeahead = new TerminalTypeahead(
+      () =>
+        interruptPending ||
+        inputOutputPending ||
+        vimModeActive ||
+        completionListing ||
+        interactiveSubmitting ||
+        canonicalSubmitting,
+      () => terminalProcessBridge.isActive(),
+      () => isProcessingCommand
+    );
+    const lineEditor = new TerminalLineEditor(
+      term,
+      outputManager,
+      inputState,
+      interactive => {
+        if (vimModeActive) return false;
+        if (interactive) {
+          return terminalProcessBridge.isActive() && !terminalProcessBridge.stdin.isRaw;
+        }
+        return !terminalProcessBridge.isActive() && (!isProcessingCommand || canonicalSubmitting);
+      },
+      () => terminalProcessBridge.sessionVersion
+    );
+    const canReportInputError = () =>
+      !interruptPending &&
+      !interactiveSubmitting &&
+      !completionListing &&
+      !(isProcessingCommand && !terminalProcessBridge.isActive());
+    let drainTypeahead = () => {};
+    const setInputOutputPending = (pending: boolean) => {
+      inputOutputPending = pending;
+      if (!pending) drainTypeahead();
+    };
 
-    // IME入力対応
-    setupTerminalInput(term, inputState, () => vimModeActive);
-
-    // 通常のキー入力
-    let vimModeActive = false; // Flag to disable normal input during vim mode
-
-    // インタラクティブ入力モード（readline等で使用）
-    // interactiveModeはterminalProcessBridge.isActive()で判定
-
-    // When process exits, reset interactive line state
-    terminalProcessBridge.setDeactivateCallback(() => {
-      inputState.interactiveLine = '';
-      inputState.interactivePos = 0;
+    const inputController = createTerminalInputController({
+      term,
+      inputState,
+      outputManager,
+      renderQueue: lineEditor.renderQueue,
+      getAnchor: interactive => lineEditor.getAnchor(interactive),
+      setAnchor: (interactive, anchor) => lineEditor.setAnchor(interactive, anchor),
+      getLineState: interactive => lineEditor.getState(interactive),
+      setLineState: (interactive, state) => lineEditor.setState(interactive, state),
+      renderEditedLine: lineEditor.render.bind(lineEditor),
+      getGeneration: () => lineEditor.currentGeneration,
+      advanceGeneration: () => lineEditor.bumpGeneration(),
+      getSessionKey: () => terminalProcessBridge.sessionVersion,
+      isSessionActive: () => terminalProcessBridge.isActive(),
+      isRaw: () => terminalProcessBridge.stdin.isRaw,
+      isVimModeActive: () => vimModeActive,
+      isInputLocked: () => inputOutputPending || !canReportInputError(),
+      canReportInputError,
+      setInputOutputPending,
+      setCompletionListing: listing => {
+        completionListing = listing;
+        if (!listing) drainTypeahead();
+      },
+      getCompletionSource: () =>
+        createTerminalCompletionSource(unixCommandsRef.current, shellRef.current),
+      writeOutput,
+      showPrompt,
+      onError: message => pushLogMessage(message, 'error', 'Terminal'),
     });
+    const { completeLine, reportInputError } = inputController;
 
-    term.onData((data: string) => {
-      if (inputState.ignoreNextOnData) {
-        // clear and ignore a single following onData payload
-        inputState.ignoreNextOnData = false;
+    const inputResizeSubscription = lineEditor.registerLifecycle(term);
+
+    const handleTerminalData = (data: string) => {
+      if (inputState.isComposing || vimModeActive) return;
+      if (interruptPending) return;
+      if (inputOutputPending) return;
+      if (completionListing && data !== '\x03') return;
+
+      if (terminalProcessBridge.isActive()) {
+        if (terminalProcessBridge.stdin.isRaw) {
+          lineEditor.bumpGeneration();
+          terminalProcessBridge.submitData(data);
+          return;
+        }
+      }
+
+      if (data === '\x03') {
+        lineEditor.bumpGeneration();
+        const shellWasRunning = isShellCommandRunning;
+        const commandWasProcessing = isProcessingCommand;
+        const activeShell = shellRef.current;
+        const activeStdin = terminalProcessBridge.isActive() ? terminalProcessBridge.stdin : null;
+        const activeSession = terminalProcessBridge.sessionVersion;
+        typeahead.begin();
+        interruptPending = true;
+        void finishTerminalInterrupt(lineEditor, outputManager, inputState, {
+          shellWasRunning,
+          isShellCommandRunning: () => isShellCommandRunning,
+          shell: activeShell,
+          stdin: activeStdin,
+          sessionKey: activeSession,
+          getSessionKey: () => terminalProcessBridge.sessionVersion,
+          commandWasProcessing,
+          isCommandQueued: () => canonicalCommandState.queued,
+          cancelQueuedCommand: () => {
+            canonicalCommandState.cancelled = true;
+          },
+          isProcessingCommand: () => isProcessingCommand,
+          showPrompt,
+        }).finally(() => {
+          interruptPending = false;
+          typeahead.drain(handleTerminalData);
+        });
         return;
       }
-      if (inputState.isComposing || vimModeActive) return; // Skip if vim is active
 
-      // インタラクティブ入力モード（Node.jsプロセスがstdinを読んでいる場合）
       if (terminalProcessBridge.isActive()) {
-        switch (data) {
-          case '\r': {
-            term.write('\r\n');
-            const line = inputState.interactiveLine;
-            inputState.interactiveLine = '';
-            inputState.interactivePos = 0;
-            terminalProcessBridge.submitLine(line);
-            break;
+        if (interactiveSubmitting) return;
+        const line = inputState.interactiveLine;
+        const cursor = inputState.interactivePos;
+        if (data === '\r') {
+          const submitGeneration = lineEditor.bumpGeneration();
+          interactiveSubmitting = true;
+          lineEditor.render(true);
+          void lineEditor.renderQueue
+            .flush()
+            .then(
+              () =>
+                new Promise<void>(resolve => {
+                  term.write('\r\n', resolve);
+                })
+            )
+            .then(() => {
+              if (
+                submitGeneration !== lineEditor.currentGeneration ||
+                !terminalProcessBridge.isActive() ||
+                terminalProcessBridge.stdin.isRaw
+              ) {
+                return;
+              }
+              lineEditor.clearAnchor(true);
+              inputState.interactiveLine = '';
+              inputState.interactivePos = 0;
+              terminalProcessBridge.submitLine(line);
+            })
+            .finally(() => {
+              interactiveSubmitting = false;
+              typeahead.drain(handleTerminalData);
+            });
+          return;
+        }
+        if (data === '\x04') {
+          const controlDAction = cookedControlDAction(line, cursor);
+          if (controlDAction === 'eof') {
+            lineEditor.bumpGeneration();
+            terminalProcessBridge.stdin.eof();
+            return;
           }
-          case '\x7F': {
-            if (inputState.interactivePos > 0) {
-              inputState.interactiveLine =
-                inputState.interactiveLine.slice(0, inputState.interactivePos - 1) +
-                inputState.interactiveLine.slice(inputState.interactivePos);
-              inputState.interactivePos--;
-              term.write('\b');
-              term.write(`${inputState.interactiveLine.slice(inputState.interactivePos)} `);
-              for (
-                let i = 0;
-                i < inputState.interactiveLine.length - inputState.interactivePos + 1;
-                i++
-              )
-                term.write('\b');
-            }
-            break;
+          if (controlDAction === 'flush') {
+            const submitGeneration = lineEditor.bumpGeneration();
+            interactiveSubmitting = true;
+            lineEditor.render(true);
+            void lineEditor.renderQueue
+              .flush()
+              .then(() => {
+                if (
+                  submitGeneration !== lineEditor.currentGeneration ||
+                  !terminalProcessBridge.isActive() ||
+                  terminalProcessBridge.stdin.isRaw
+                ) {
+                  return;
+                }
+                lineEditor.clearAnchor(true);
+                inputState.interactiveLine = '';
+                inputState.interactivePos = 0;
+                terminalProcessBridge.submitData(line);
+              })
+              .finally(() => {
+                interactiveSubmitting = false;
+                typeahead.drain(handleTerminalData);
+              });
+            return;
           }
-          case '\x1b[D': {
-            if (inputState.interactivePos > 0) {
-              term.write('\b');
-              inputState.interactivePos--;
-            }
-            break;
-          }
-          case '\x1b[C': {
-            if (inputState.interactivePos < inputState.interactiveLine.length) {
-              term.write(inputState.interactiveLine[inputState.interactivePos]);
-              inputState.interactivePos++;
-            }
-            break;
-          }
-          default: {
-            if (data >= ' ' || data === '\t') {
-              inputState.interactiveLine =
-                inputState.interactiveLine.slice(0, inputState.interactivePos) +
-                data +
-                inputState.interactiveLine.slice(inputState.interactivePos);
-              term.write(inputState.interactiveLine.slice(inputState.interactivePos));
-              inputState.interactivePos++;
-              for (
-                let i = 0;
-                i < inputState.interactiveLine.length - inputState.interactivePos;
-                i++
-              )
-                term.write('\b');
-            }
-            break;
-          }
+          const next = editLine({ text: line, cursor }, 'delete');
+          lineEditor.setState(true, next);
+          return;
+        }
+        if (data === '\x09') {
+          void completeLine(true).catch(error => reportInputError(String(error)));
+          return;
+        }
+        const action = lineAction(data);
+        if (action) {
+          const next = editLine({ text: line, cursor }, action);
+          lineEditor.setState(true, next);
+          return;
+        }
+        if (isPrintableLineInput(data)) {
+          const next = insertLineText({ text: line, cursor }, data);
+          lineEditor.setState(true, next);
         }
         return;
       }
 
-      switch (data) {
-        case '\r':
-          scrollToBottom();
-          if (inputState.currentLine.trim()) {
-            // Command entered - add newline and execute
-            outputManagerRef.current?.writeln('');
-            const command = inputState.currentLine.trim();
-            const existingIndex = commandHistory.indexOf(command);
-            if (existingIndex !== -1) {
-              commandHistory.splice(existingIndex, 1);
-            }
-            commandHistory.push(command);
-            if (commandHistory.length > 100) {
-              commandHistory.shift();
-            }
-            saveHistory();
-            historyIndex = -1;
-            processCommand(inputState.currentLine).then(() => {
-              showPrompt();
-            });
-          } else {
-            // Empty command - just show prompt
-            // ensureNewline() in showPrompt() will handle the newline if needed
-            showPrompt();
-          }
-          inputState.currentLine = '';
-          inputState.cursorPos = 0;
-          inputState.isSelecting = false;
-          break;
-        case '\u007F':
-          if (inputState.cursorPos > 0) {
-            inputState.currentLine =
-              inputState.currentLine.slice(0, inputState.cursorPos - 1) +
-              inputState.currentLine.slice(inputState.cursorPos);
-            inputState.cursorPos--;
-            term.write('\b');
-            term.write(`${inputState.currentLine.slice(inputState.cursorPos)} `);
-            for (let i = 0; i < inputState.currentLine.length - inputState.cursorPos + 1; i++)
-              term.write('\b');
-          }
-          break;
-        case '\u001b[A':
-          if (commandHistory.length > 0) {
-            if (historyIndex === -1) {
-              historyIndex = commandHistory.length - 1;
-            } else if (historyIndex > 0) {
-              historyIndex--;
-            }
-            for (let i = 0; i < inputState.cursorPos; i++) term.write('\b');
-            for (let i = 0; i < inputState.currentLine.length; i++) term.write(' ');
-            for (let i = 0; i < inputState.currentLine.length; i++) term.write('\b');
-            inputState.currentLine = commandHistory[historyIndex];
-            inputState.cursorPos = inputState.currentLine.length;
-            term.write(inputState.currentLine);
-            inputState.isSelecting = false;
-          }
-          break;
-        case '\u001b[B':
-          if (commandHistory.length > 0 && historyIndex !== -1) {
-            if (historyIndex < commandHistory.length - 1) {
-              historyIndex++;
-              for (let i = 0; i < inputState.cursorPos; i++) term.write('\b');
-              for (let i = 0; i < inputState.currentLine.length; i++) term.write(' ');
-              for (let i = 0; i < inputState.currentLine.length; i++) term.write('\b');
-              inputState.currentLine = commandHistory[historyIndex];
-              inputState.cursorPos = inputState.currentLine.length;
-              term.write(inputState.currentLine);
-              inputState.isSelecting = false;
-            } else {
-              historyIndex = -1;
-              for (let i = 0; i < inputState.cursorPos; i++) term.write('\b');
-              for (let i = 0; i < inputState.currentLine.length; i++) term.write(' ');
-              for (let i = 0; i < inputState.currentLine.length; i++) term.write('\b');
+      if (isProcessingCommand) return;
+
+      if (data === '\r') {
+        lineEditor.bumpGeneration();
+        canonicalSubmitting = true;
+        canonicalCommandState.queued = Boolean(inputState.currentLine.trim());
+        lineEditor.render(false);
+        scrollToBottom();
+        isProcessingCommand = true;
+        void lineEditor.renderQueue
+          .flush()
+          .then(async () => {
+            canonicalSubmitting = false;
+            lineEditor.clearAnchor(false);
+            if (inputState.currentLine.trim()) {
+              const command = inputState.currentLine;
+              isProcessingCommand = true;
               inputState.currentLine = '';
               inputState.cursorPos = 0;
-              inputState.isSelecting = false;
+              await outputManager.writeln('');
+              await historyReady;
+              await commandHistory.add(command);
+              const commandAction = resolveCanonicalCommand(canonicalCommandState, command);
+              if (commandAction === 'cancel') {
+                await showPrompt();
+              } else {
+                const shouldShowPrompt = await processCommand(command);
+                if (shouldShowPrompt) await showPrompt();
+              }
+            } else {
+              resolveCanonicalCommand(canonicalCommandState, inputState.currentLine);
+              inputState.currentLine = '';
+              inputState.cursorPos = 0;
+              isProcessingCommand = true;
+              await showPrompt();
             }
-          }
-          break;
-        case '\u001b[D':
-          if (inputState.cursorPos > 0) {
-            term.write('\b');
-            inputState.cursorPos--;
-          }
-          break;
-        case '\u001b[C':
-          if (inputState.cursorPos < inputState.currentLine.length) {
-            term.write(inputState.currentLine[inputState.cursorPos]);
-            inputState.cursorPos++;
-          }
-          break;
-        default:
-          if (data >= ' ' || data === '\t') {
-            inputState.currentLine =
-              inputState.currentLine.slice(0, inputState.cursorPos) +
-              data +
-              inputState.currentLine.slice(inputState.cursorPos);
-            term.write(inputState.currentLine.slice(inputState.cursorPos));
-            inputState.cursorPos++;
-            for (let i = 0; i < inputState.currentLine.length - inputState.cursorPos; i++)
-              term.write('\b');
-            inputState.isSelecting = false;
-          }
-          break;
+            isShellCommandRunning = false;
+            if (!vimModeActive) isProcessingCommand = false;
+            typeahead.drain(handleTerminalData);
+          })
+          .catch(error => {
+            canonicalSubmitting = false;
+            clearCanonicalCommandState(canonicalCommandState);
+            void outputManager.writeError(`${(error as Error).message}\r\n`);
+            isShellCommandRunning = false;
+            isProcessingCommand = false;
+            typeahead.drain(handleTerminalData);
+          });
+        return;
       }
-    });
+      if (data === '\x09') {
+        void completeLine(false).catch(error => reportInputError(String(error)));
+        return;
+      }
+      if (data === '\x0c') {
+        const sessionKey = terminalProcessBridge.sessionVersion;
+        lineEditor.bumpGeneration();
+        inputOutputPending = true;
+        void clearTerminalScreen(
+          outputManager,
+          lineEditor,
+          showPrompt,
+          () => terminalProcessBridge.sessionVersion,
+          sessionKey
+        )
+          .catch(error => pushLogMessage(String(error), 'error', 'Terminal'))
+          .finally(() => {
+            setInputOutputPending(false);
+          });
+        return;
+      }
+      if (navigateTerminalHistory(data, commandHistory, inputState, lineEditor)) return;
+      const action = lineAction(data);
+      if (action) {
+        const next = editLine(
+          { text: inputState.currentLine, cursor: inputState.cursorPos },
+          action
+        );
+        lineEditor.setState(false, next);
+        return;
+      }
+      if (isPrintableLineInput(data)) {
+        const next = insertLineText(
+          { text: inputState.currentLine, cursor: inputState.cursorPos },
+          data
+        );
+        lineEditor.setState(false, next);
+      }
+    };
+    drainTypeahead = () => typeahead.drain(handleTerminalData);
+    term.onData((data: string) => typeahead.route(data, handleTerminalData));
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Initialize terminal messages and prompt asynchronously
-    initializeMessages().catch(err => {
-      console.error('[Terminal] Failed to initialize messages:', err);
+    void initializeMessages().catch(async error => {
+      console.error('[Terminal] Failed to initialize messages:', error);
+      if (mounted) {
+        await outputManager.writeError(`Terminal initialization failed: ${String(error)}\r\n`);
+      }
     });
 
-    // クリーンアップ
     return () => {
-      // prevent updates from async tasks after unmount
       mounted = false;
+      typeahead.dispose();
+      clearCanonicalCommandState(canonicalCommandState);
+      inputResizeSubscription.dispose();
+      vimEditorRef.current?.dispose();
+      vimEditorRef.current = null;
+      onVimModeChangeRef.current?.(null);
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('touchstart', handleTouchStart);
         terminalRef.current.removeEventListener('touchmove', handleTouchMove);
         terminalRef.current.removeEventListener('touchend', handleTouchEnd);
-        terminalRef.current.removeEventListener('wheel', handleWheel);
       }
       xtermRef.current = null;
       term.dispose();
     };
-  }, [currentProject, currentRootPath, colors, onVimModeChange]);
+  }, [currentRootPath]);
 
-  // Resize handling: run a fit on height/rootPath changes and observe DOM resizes
-  // This consolidates previous separate effects into a single, debounced handler.
+  useEffect(() => {
+    if (xtermRef.current) xtermRef.current.options.theme = createTerminalTheme(colors);
+  }, [colors]);
+
   useEffect(() => {
     if (!isActive || !terminalRef.current || !fitAddonRef.current) return;
 
@@ -733,7 +732,6 @@ export function ClientTerminal({
       }
     };
 
-    // 初回 fit は次フレームで実行（レイアウト確定後）
     const rafId = requestAnimationFrame(runFit);
 
     const resizeObserver = new ResizeObserver(() => {
@@ -748,10 +746,8 @@ export function ClientTerminal({
     };
   }, [currentRootPath, isActive]);
 
-  // ターミナルがアクティブになった時にフォーカスを当てる
   useEffect(() => {
     if (isActive && xtermRef.current) {
-      // 少し遅延を入れてフォーカスを当てる（DOMの更新を待つ）
       const timeoutId = setTimeout(() => {
         if (xtermRef.current) {
           try {
@@ -772,11 +768,6 @@ export function ClientTerminal({
       className="w-full h-full overflow-hidden relative terminal-container"
       style={{
         background: colors.editorBg,
-        // height is handled by parent container now due to flex/absolute positioning in BottomPanel
-        // but we keep minHeight. Explicit height style might fight with direct DOM manipulation
-        // if we are not careful, but BottomPanel actually sets height on the container, not here.
-        // The container in BottomPanel has the fixed height.
-        // This inner div takes full width/height of that container.
         height: '100%',
         minHeight: '100px',
         touchAction: 'none',

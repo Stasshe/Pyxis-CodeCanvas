@@ -35,15 +35,13 @@ export class MergeConflictDetector {
 
   async detectConflicts(
     oursBranch: string,
-    theirsBranch: string
+    theirsBranch: string,
+    conflictPaths?: ReadonlySet<string>
   ): Promise<MergeConflictFileEntry[]> {
     try {
       const conflicts: MergeConflictFileEntry[] = [];
 
-      const baseOid = await this.findMergeBase(
-        `refs/heads/${oursBranch}`,
-        `refs/heads/${theirsBranch}`
-      );
+      const baseOid = await this.findMergeBase(oursBranch, theirsBranch);
 
       if (!baseOid) {
         console.warn('[MergeConflictDetector] No merge base found');
@@ -55,17 +53,17 @@ export class MergeConflictDetector {
       const oursOid = await git.resolveRef({
         fs: this.fs,
         dir: this.dir,
-        ref: `refs/heads/${oursBranch}`,
+        ref: oursBranch,
       });
       const theirsOid = await git.resolveRef({
         fs: this.fs,
         dir: this.dir,
-        ref: `refs/heads/${theirsBranch}`,
+        ref: theirsBranch,
       });
 
       const changedFiles = new Map<
         string,
-        { baseOid?: string; oursOid?: string; theirsOid?: string }
+        { baseOid?: string; oursOid?: string; theirsOid?: string; symlink: boolean }
       >();
 
       await git.walk({
@@ -78,6 +76,7 @@ export class MergeConflictDetector {
         ],
         map: async (filepath, [baseEntry, oursEntry, theirsEntry]) => {
           if (filepath === '.') return;
+          if (conflictPaths && !conflictPaths.has(filepath)) return;
 
           let baseType: string | null = null;
           if (baseEntry) baseType = await baseEntry.type();
@@ -95,11 +94,24 @@ export class MergeConflictDetector {
           let theirsOidVal: string | null = null;
           if (theirsEntry) theirsOidVal = await theirsEntry.oid();
 
-          const modifiedInOurs = baseOidVal !== oursOidVal;
-          const modifiedInTheirs = baseOidVal !== theirsOidVal;
+          const [baseMode, oursMode, theirsMode] = await Promise.all([
+            baseEntry?.mode(),
+            oursEntry?.mode(),
+            theirsEntry?.mode(),
+          ]);
+          const modifiedInOurs = baseOidVal !== oursOidVal || baseMode !== oursMode;
+          const modifiedInTheirs = baseOidVal !== theirsOidVal || baseMode !== theirsMode;
 
-          if (modifiedInOurs && modifiedInTheirs && oursOidVal !== theirsOidVal) {
+          if (
+            modifiedInOurs &&
+            modifiedInTheirs &&
+            (oursOidVal !== theirsOidVal || oursMode !== theirsMode)
+          ) {
             changedFiles.set(filepath, {
+              symlink:
+                (await baseEntry?.mode()) === 0o120000 ||
+                (await oursEntry?.mode()) === 0o120000 ||
+                (await theirsEntry?.mode()) === 0o120000,
               baseOid: baseOidVal || undefined,
               oursOid: oursOidVal || undefined,
               theirsOid: theirsOidVal || undefined,
@@ -111,6 +123,8 @@ export class MergeConflictDetector {
       console.log('[MergeConflictDetector] Detected conflicts:', changedFiles.size);
 
       for (const [filepath, oids] of Array.from(changedFiles.entries())) {
+        if (oids.symlink)
+          throw new Error(`Cannot automatically resolve a symbolic link conflict: ${filepath}`);
         const versions = await Promise.all([
           this.readBlob(filepath, oids.baseOid),
           this.readBlob(filepath, oids.oursOid),
@@ -137,6 +151,16 @@ export class MergeConflictDetector {
           if (ours?.content.kind === 'text') conflict.oursContent = ours.content.content;
           if (theirs?.content.kind === 'text') conflict.theirsContent = theirs.content.content;
           conflict.resolvedContent = conflict.oursContent;
+          if (conflictPaths) {
+            try {
+              conflict.resolvedContent = selectOurs(
+                await this.fs.promises.readFile(conflict.filePath, 'utf8')
+              );
+            } catch (error) {
+              if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT')
+                throw error;
+            }
+          }
         }
         conflicts.push(conflict);
       }
@@ -153,6 +177,28 @@ export class MergeConflictDetector {
     const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid });
     return { bytes: Uint8Array.from(blob), content: await detectFileContent(path, blob) };
   }
+}
+
+function selectOurs(content: string): string {
+  let section: 'common' | 'ours' | 'theirs' = 'common';
+  return content
+    .split(/(?<=\n)/)
+    .filter(line => {
+      if (section === 'common' && line.startsWith('<<<<<<< ')) {
+        section = 'ours';
+        return false;
+      }
+      if (section === 'ours' && line.trimEnd() === '=======') {
+        section = 'theirs';
+        return false;
+      }
+      if (section === 'theirs' && line.startsWith('>>>>>>> ')) {
+        section = 'common';
+        return false;
+      }
+      return section !== 'theirs';
+    })
+    .join('');
 }
 
 export async function saveResolvedConflict(

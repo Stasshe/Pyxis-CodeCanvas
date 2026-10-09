@@ -103,7 +103,13 @@ export function classifyFileContent(
   bytes: Uint8Array,
   detectedMimeType?: string
 ): FileContent {
-  let isBinary = Boolean(detectedMimeType) || hasBinaryExtension(path);
+  const textMime =
+    detectedMimeType?.startsWith('text/') ||
+    detectedMimeType?.endsWith('+xml') ||
+    detectedMimeType === 'application/xml' ||
+    detectedMimeType === 'application/rtf' ||
+    detectedMimeType === 'application/postscript';
+  let isBinary = Boolean(detectedMimeType && !textMime) || hasBinaryExtension(path);
   let content = '';
   if (!isBinary) {
     if (bytes.includes(0)) {

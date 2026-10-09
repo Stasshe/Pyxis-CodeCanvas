@@ -135,9 +135,61 @@
     "loadingFile": "Đang khôi phục nội dung tệp...",
     "selectFile": "Vui lòng chọn một tệp"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Bạn có tất cả các tiện ích mở rộng có sẵn",
+    "allInstalled": "Tất cả các tiện ích mở rộng đã được cài đặt",
+    "available": "Có sẵn ({count})",
+    "browseAvailable": "Duyệt qua các tiện ích mở rộng có sẵn để bắt đầu",
+    "confirmUninstall": "Bạn có chắc chắn muốn gỡ cài đặt \"{name}\" không?",
+    "disable": "Vô hiệu hóa",
+    "disableUnavailable": "Không thể tắt tiện ích mở rộng.",
+    "enable": "Cho phép",
+    "enableUnavailable": "Không thể bật tiện ích mở rộng.",
+    "importFailed": "Không thể nhập ZIP: {error}",
+    "importZip": "Nhập phần mở rộng (.zip)",
+    "install": "Cài đặt",
+    "installed": "Đã cài đặt ({count})",
+    "installFailed": "Không cài đặt được {name}: {error}",
+    "installUnavailable": "Không thể cài đặt hoặc kích hoạt tiện ích mở rộng.",
+    "loadFailed": "Không thể tải tiện ích mở rộng: {error}",
+    "loading": "Đang tải tiện ích mở rộng...",
+    "manifestUrlMissing": "Không tìm thấy URL kê khai trong sổ đăng ký",
+    "noMatches": "Không tìm thấy tiện ích mở rộng phù hợp",
+    "noneInstalled": "Không có tiện ích mở rộng nào được cài đặt",
+    "packCount": "Tiện ích mở rộng: {count}",
+    "reload": "Tải lại tiện ích mở rộng",
+    "search": "Tiện ích mở rộng tìm kiếm...",
+    "title": "Tiện ích mở rộng",
+    "toggleFailed": "Không thể thay đổi trạng thái tiện ích mở rộng: {error}",
+    "tryDifferentSearch": "Hãy thử một cụm từ tìm kiếm khác",
+    "types": {
+      "builtinModule": "Mô-đun tích hợp",
+      "languageRuntime": "Thời gian chạy ngôn ngữ",
+      "service": "Dịch vụ",
+      "tool": "Dụng cụ",
+      "transpiler": "Bộ chuyển mã",
+      "ui": "giao diện người dùng"
+    },
+    "uninstall": "Gỡ cài đặt",
+    "uninstallFailed": "Không thể gỡ cài đặt tiện ích mở rộng: {error}",
+    "uninstallTitle": "Gỡ cài đặt tiện ích mở rộng",
+    "uninstallUnavailable": "Không thể gỡ cài đặt tiện ích mở rộng.",
+    "update": "Cập nhật",
+    "updateFailed": "Không thể cập nhật {name}: {error}",
+    "updateUnavailable": "Không thể kích hoạt gói tiện ích mở rộng mới.",
+    "viewDetails": "Nhấp để xem chi tiết tiện ích mở rộng"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Tạo tệp",
+      "createFolder": "Tạo thư mục",
+      "import": "Nhập",
+      "move": "Di chuyển"
+    },
     "alert": {
-      "renameFailed": "Đổi tên thất bại: {error}"
+      "destinationExists": "Đích đã tồn tại: {path}",
+      "operationFailed": "Không thể {action}: {error}",
+      "workspaceChanged": "Không gian làm việc đã thay đổi; các tệp còn lại đã bị bỏ qua."
     },
     "menu": {
       "createFile": "Tạo tệp",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Tạo tệp mới",
-    "createFolder": "Tạo thư mục mới"
+    "createFolder": "Tạo thư mục mới",
+    "newFilePrompt": "Nhập tên tệp mới:",
+    "newFolderPrompt": "Nhập tên thư mục mới:"
   },
   "markdownPreview": {
     "downloadSvg": "Tải SVG",

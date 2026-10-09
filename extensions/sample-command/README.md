@@ -90,7 +90,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   - `projectName: string` - 表示用のワークスペース名
   - `rootPath: string` - ワークスペースの絶対パス
   - `currentDirectory: string` - 現在の絶対パス
-  - `fsClient: FsClient` - 共有ファイルシステムAPI
+  - `fsClient: FsApi` - core共有ファイルシステムAPI
 
 ハンドラーは `Promise<string>` を返し、その文字列がターミナルに出力されます。
 

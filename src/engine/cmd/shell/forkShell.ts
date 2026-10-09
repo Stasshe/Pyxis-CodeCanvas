@@ -2,14 +2,12 @@ import { UnixCommands } from '../global/unix';
 import type { ShellExecutorOptions, ShellRunResult } from './executor';
 
 interface ForkShellOptions extends ShellExecutorOptions {
-  aliases: Record<string, string>;
   pipefail: boolean;
   nounset: boolean;
 }
 
 interface ForkShell {
   run(line: string): Promise<ShellRunResult>;
-  setAlias(name: string, value: string): void;
   setPipefail(enabled: boolean): void;
   setNounset(enabled: boolean): void;
 }
@@ -30,9 +28,6 @@ export async function createForkedShell<T extends ForkShell>(
     unix,
     env: { ...options.env, PWD: cwd },
   });
-  for (const [name, value] of Object.entries(options.aliases)) {
-    child.setAlias(name, value);
-  }
   child.setPipefail(options.pipefail);
   child.setNounset(options.nounset);
   return child;

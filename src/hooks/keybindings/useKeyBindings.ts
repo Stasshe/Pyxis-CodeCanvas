@@ -354,6 +354,10 @@ if (typeof window !== 'undefined') {
 
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+    if (target.closest('.xterm')) {
+      keyBindingsManager.clearActiveChord();
+      return;
+    }
     const isTextInput =
       target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
     const quickInput = getQuickInputScope(target);

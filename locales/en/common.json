@@ -135,9 +135,61 @@
     "loadingFile": "Restoring file contents...",
     "selectFile": "Please select a file"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "You have all available extensions",
+    "allInstalled": "All extensions installed",
+    "available": "Available ({count})",
+    "browseAvailable": "Browse available extensions to get started",
+    "confirmUninstall": "Are you sure you want to uninstall \"{name}\"?",
+    "disable": "Disable",
+    "disableUnavailable": "Could not disable extension.",
+    "enable": "Enable",
+    "enableUnavailable": "Could not enable extension.",
+    "importFailed": "Failed to import ZIP: {error}",
+    "importZip": "Import extension (.zip)",
+    "install": "Install",
+    "installed": "Installed ({count})",
+    "installFailed": "Failed to install {name}: {error}",
+    "installUnavailable": "The extension could not be installed or enabled.",
+    "loadFailed": "Failed to load extensions: {error}",
+    "loading": "Loading extensions...",
+    "manifestUrlMissing": "Manifest URL not found in registry",
+    "noMatches": "No matching extensions found",
+    "noneInstalled": "No extensions installed",
+    "packCount": "Extensions: {count}",
+    "reload": "Reload extensions",
+    "search": "Search extensions...",
+    "title": "Extensions",
+    "toggleFailed": "Failed to change extension state: {error}",
+    "tryDifferentSearch": "Try a different search term",
+    "types": {
+      "builtinModule": "Built-in Module",
+      "languageRuntime": "Language Runtime",
+      "service": "Service",
+      "tool": "Tool",
+      "transpiler": "Transpiler",
+      "ui": "UI"
+    },
+    "uninstall": "Uninstall",
+    "uninstallFailed": "Failed to uninstall extension: {error}",
+    "uninstallTitle": "Uninstall Extension",
+    "uninstallUnavailable": "The extension could not be uninstalled.",
+    "update": "Update",
+    "updateFailed": "Failed to update {name}: {error}",
+    "updateUnavailable": "The new extension package could not be activated.",
+    "viewDetails": "Click to view extension details"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Create file",
+      "createFolder": "Create folder",
+      "import": "Import",
+      "move": "Move"
+    },
     "alert": {
-      "renameFailed": "Rename failed: {error}"
+      "destinationExists": "Destination already exists: {path}",
+      "operationFailed": "{action} failed: {error}",
+      "workspaceChanged": "Workspace changed while importing files. Remaining files were skipped."
     },
     "menu": {
       "createFile": "Create file",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Create new file",
-    "createFolder": "Create new folder"
+    "createFolder": "Create new folder",
+    "newFilePrompt": "Enter a new file name:",
+    "newFolderPrompt": "Enter a new folder name:"
   },
   "markdownPreview": {
     "downloadSvg": "Download SVG",

@@ -1,5 +1,0 @@
-pushMsgOutPanel
-
-import { pushMsgOutPanel } from '@/components/Bottom/BottomPanel';
-
-pushMsgOutPanel('Terminal initialing','info','Terminal');

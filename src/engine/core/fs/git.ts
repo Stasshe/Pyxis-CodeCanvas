@@ -24,6 +24,8 @@ export interface GitStat {
   isFile(): boolean;
   isDirectory(): boolean;
   isSymbolicLink(): boolean;
+  isFIFO(): boolean;
+  isCharacterDevice(): boolean;
 }
 
 export interface GitPromises {
@@ -68,6 +70,8 @@ export function createGitFs(core: FsApi): GitFs {
     let mode = 0o100644;
     if (entry.type === 'folder') mode = 0o40755;
     else if (entry.type === 'symlink') mode = 0o120777;
+    else if (entry.type === 'fifo') mode = 0o10644;
+    else if (entry.type === 'characterDevice') mode = 0o20666;
     return {
       size: entry.size,
       mtimeMs: entry.mtime,
@@ -80,6 +84,8 @@ export function createGitFs(core: FsApi): GitFs {
       isFile: () => entry.type === 'file',
       isDirectory: () => entry.type === 'folder',
       isSymbolicLink: () => entry.type === 'symlink',
+      isFIFO: () => entry.type === 'fifo',
+      isCharacterDevice: () => entry.type === 'characterDevice',
     };
   }
   async function readFile(path: string): Promise<Uint8Array>;

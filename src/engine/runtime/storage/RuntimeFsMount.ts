@@ -1,9 +1,16 @@
+import { Buffer } from 'buffer';
 import type { RuntimeBridge } from '../bridge/client';
 import type { FsStat, RpcValue } from '../bridge/protocol';
 import type { MountStat } from './types';
 
-function bytes(value: string | Uint8Array): number[] {
-  return [...(typeof value === 'string' ? new TextEncoder().encode(value) : value)];
+function encodedBytes(value: string | Uint8Array): string {
+  return Buffer.from(value).toString('base64');
+}
+
+function decodedBytes(value: RpcValue, operation: string): Uint8Array {
+  if (typeof value !== 'string')
+    throw new Error(`Runtime filesystem returned an invalid ${operation} value.`);
+  return Buffer.from(value, 'base64');
 }
 
 function isFsStat(value: object): value is FsStat {
@@ -31,10 +38,7 @@ export class RuntimeFsMount {
   getFileSync(path: string): Uint8Array | undefined {
     try {
       const value = this.bridge.sync({ kind: 'fs', op: 'readFile', path });
-      if (!Array.isArray(value) || !value.every(item => typeof item === 'number')) {
-        throw new Error('Runtime filesystem returned an invalid file value.');
-      }
-      return new Uint8Array(value);
+      return decodedBytes(value, 'file');
     } catch (error) {
       if (isNotFound(error)) return undefined;
       throw error;
@@ -42,7 +46,28 @@ export class RuntimeFsMount {
   }
 
   setFileSync(path: string, content: string | Uint8Array): void {
-    this.bridge.sync({ kind: 'fs', op: 'writeFile', path, data: bytes(content) });
+    this.bridge.sync({ kind: 'fs', op: 'writeFile', path, data: encodedBytes(content) });
+  }
+
+  writeRangeSync(
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create: boolean,
+    exclusive = false
+  ): number {
+    const value = this.bridge.sync({
+      kind: 'fs',
+      op: 'writeRange',
+      path,
+      data: encodedBytes(data),
+      position,
+      create,
+      exclusive,
+    });
+    if (typeof value !== 'number')
+      throw new Error('Runtime filesystem returned an invalid write range value.');
+    return value;
   }
 
   deleteFileSync(path: string): void {
@@ -103,13 +128,70 @@ export class RuntimeFsMount {
     this.bridge.sync({ kind: 'fs', op: 'rename', path: oldPath, newPath });
   }
 
+  openFifoSync(
+    path: string,
+    mode: 'read' | 'write' | 'readwrite',
+    endpointId: string,
+    nonblocking: boolean
+  ): void {
+    this.bridge.sync({ kind: 'fs', op: 'fifoOpen', path, mode, endpointId, nonblocking });
+  }
+
+  readFifoSync(endpointId: string, maxBytes: number): Uint8Array {
+    const value = this.bridge.sync({ kind: 'fs', op: 'fifoRead', endpointId, maxBytes });
+    return decodedBytes(value, 'FIFO read');
+  }
+
+  writeFifoSync(endpointId: string, data: Uint8Array): number {
+    const value = this.bridge.sync({
+      kind: 'fs',
+      op: 'fifoWrite',
+      endpointId,
+      data: encodedBytes(data),
+    });
+    if (typeof value !== 'number')
+      throw new Error('Runtime filesystem returned an invalid FIFO write value.');
+    return value;
+  }
+
+  closeFifoSync(endpointId: string): void {
+    this.bridge.sync({ kind: 'fs', op: 'fifoClose', endpointId });
+  }
+
+  async openFifo(
+    path: string,
+    mode: 'read' | 'write' | 'readwrite',
+    endpointId: string,
+    nonblocking = false
+  ): Promise<void> {
+    await this.bridge.async({ kind: 'fs', op: 'fifoOpen', path, mode, endpointId, nonblocking });
+  }
+
+  async readFifo(endpointId: string, maxBytes: number): Promise<Uint8Array> {
+    const value = await this.bridge.async({ kind: 'fs', op: 'fifoRead', endpointId, maxBytes });
+    return decodedBytes(value, 'FIFO read');
+  }
+
+  async writeFifo(endpointId: string, data: Uint8Array): Promise<number> {
+    const value = await this.bridge.async({
+      kind: 'fs',
+      op: 'fifoWrite',
+      endpointId,
+      data: encodedBytes(data),
+    });
+    if (typeof value !== 'number')
+      throw new Error('Runtime filesystem returned an invalid FIFO write value.');
+    return value;
+  }
+
+  async closeFifo(endpointId: string): Promise<void> {
+    await this.bridge.async({ kind: 'fs', op: 'fifoClose', endpointId });
+  }
+
   async getFile(path: string): Promise<Uint8Array | undefined> {
     try {
       const value = await this.bridge.async({ kind: 'fs', op: 'readFile', path });
-      if (!Array.isArray(value) || !value.every(item => typeof item === 'number')) {
-        throw new Error('Runtime filesystem returned an invalid file value.');
-      }
-      return new Uint8Array(value);
+      return decodedBytes(value, 'file');
     } catch (error) {
       if (isNotFound(error)) return undefined;
       throw error;
@@ -117,7 +199,28 @@ export class RuntimeFsMount {
   }
 
   async setFile(path: string, content: string | Uint8Array): Promise<void> {
-    await this.bridge.async({ kind: 'fs', op: 'writeFile', path, data: bytes(content) });
+    await this.bridge.async({ kind: 'fs', op: 'writeFile', path, data: encodedBytes(content) });
+  }
+
+  async writeRange(
+    path: string,
+    data: Uint8Array,
+    position: number | null,
+    create: boolean,
+    exclusive = false
+  ): Promise<number> {
+    const value = await this.bridge.async({
+      kind: 'fs',
+      op: 'writeRange',
+      path,
+      data: encodedBytes(data),
+      position,
+      create,
+      exclusive,
+    });
+    if (typeof value !== 'number')
+      throw new Error('Runtime filesystem returned an invalid write range value.');
+    return value;
   }
 
   async deleteFile(path: string): Promise<void> {

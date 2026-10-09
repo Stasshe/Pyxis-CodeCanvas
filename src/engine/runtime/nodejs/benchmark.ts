@@ -11,6 +11,12 @@ interface Span {
   end: number;
 }
 
+function readFileByteLength(value: RpcValue): number {
+  if (typeof value !== 'string') return 0;
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  return Math.floor((value.length * 3) / 4) - padding;
+}
+
 function coveredMs(spans: Span[], bounds: Span): number {
   const clipped = spans
     .map(span => ({
@@ -79,6 +85,7 @@ export function startBenchmark(
   const analyzeSpans: Span[] = [];
   const preloadSpans: Span[] = [];
   function fsOperation(request: FsRequest) {
+    if (request.kind !== 'fs' || !('path' in request)) return undefined;
     const key = `${request.op} ${request.path}`;
     let operation = benchmark.fsOperations[key];
     if (!operation) {
@@ -89,7 +96,9 @@ export function startBenchmark(
   }
   const originalBenchmarkReply = RuntimeBridge.prototype.benchmarkReply;
   RuntimeBridge.prototype.benchmarkReply = (request, metrics) => {
+    if (request.kind !== 'fs' || !('path' in request)) return;
     const operation = fsOperation(request);
+    if (!operation) return;
     operation.queueMs += metrics.queueMs;
     operation.coreMs += metrics.coreMs;
   };
@@ -97,8 +106,9 @@ export function startBenchmark(
     const end = performance.now();
     rpcSpans.push({ start, end });
     const elapsed = end - start;
-    if (request.kind === 'fs') {
+    if (request.kind === 'fs' && 'path' in request) {
       const operation = fsOperation(request);
+      if (!operation) return elapsed;
       operation.calls++;
       operation.wallMs += elapsed;
     }
@@ -127,7 +137,7 @@ export function startBenchmark(
       recordReply(value);
       if (request.kind === 'fs' && request.op === 'readFile') {
         benchmark.readFileCalls++;
-        if (Array.isArray(value)) benchmark.readFileBytes += value.length;
+        benchmark.readFileBytes += readFileByteLength(value);
       }
       return value;
     } finally {
@@ -154,7 +164,7 @@ export function startBenchmark(
       recordReply(value);
       if (request.kind === 'fs' && request.op === 'readFile') {
         benchmark.readFileCalls++;
-        if (Array.isArray(value)) benchmark.readFileBytes += value.length;
+        benchmark.readFileBytes += readFileByteLength(value);
       }
       return value;
     } finally {

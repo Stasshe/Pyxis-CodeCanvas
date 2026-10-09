@@ -6,8 +6,10 @@ import { explorerMenuRegistry } from '@/engine/extensions/system-api/ExplorerMen
 import { exportFolderZip } from '@/engine/in-ex/exportFolderZip';
 import { exportSingleFile } from '@/engine/in-ex/exportSingleFile';
 import { importSingleFile } from '@/engine/in-ex/importSingleFile';
+import { getCurrentRootPath } from '@/stores/projectStore';
 import { tabActions } from '@/stores/tabState';
 import type { FileItem } from '@/types';
+import { fileTreeErrorMessage, reportFileTreeError } from './fileTreeErrors';
 import type { ContextMenuState } from './types';
 
 interface FileTreeContextMenuProps {
@@ -111,7 +113,7 @@ export default function FileTreeContextMenu({
     if (onRefresh) window.setTimeout(onRefresh, 100);
   };
 
-  const importFiles = (directory: string, folder: boolean) => {
+  const importFiles = (directory: string, folder: boolean, operationRootPath: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
@@ -119,39 +121,75 @@ export default function FileTreeContextMenu({
       input.setAttribute('webkitdirectory', '');
       input.setAttribute('directory', '');
     }
-    input.onchange = async () => {
-      const files = input.files;
-      if (!files) return;
-      for (const file of Array.from(files)) {
-        let relativePath = file.name;
-        if (folder) relativePath = file.webkitRelativePath;
-        await importSingleFile(file, resolvePath(directory, relativePath));
-      }
-      refresh();
+    input.onchange = () => {
+      void (async () => {
+        const files = input.files;
+        if (!files) return;
+        try {
+          for (const file of Array.from(files)) {
+            if (getCurrentRootPath() !== operationRootPath) {
+              throw new Error(t('fileTree.alert.workspaceChanged'));
+            }
+            let relativePath = file.name;
+            if (folder) relativePath = file.webkitRelativePath;
+            const destination = resolvePath(directory, relativePath);
+            if (getCurrentRootPath() !== operationRootPath) {
+              throw new Error(t('fileTree.alert.workspaceChanged'));
+            }
+            await importSingleFile(
+              file,
+              destination,
+              t('fileTree.alert.destinationExists', { params: { path: destination } }),
+              () => getCurrentRootPath() === operationRootPath,
+              t('fileTree.alert.workspaceChanged')
+            );
+          }
+          refresh();
+        } catch (error) {
+          reportFileTreeError(
+            t('fileTree.alert.operationFailed', {
+              params: {
+                action: t('fileTree.action.import'),
+                error: fileTreeErrorMessage(error, path =>
+                  t('fileTree.alert.destinationExists', { params: { path } })
+                ),
+              },
+            })
+          );
+        }
+      })();
     };
     input.click();
   };
 
   const handleMenuAction = async (key: string, item: FileItem | null) => {
     setContextMenu(null);
+    const operationRootPath = rootPath;
+    if (getCurrentRootPath() !== operationRootPath) {
+      throw new Error(t('fileTree.alert.workspaceChanged'));
+    }
+    if (item && !isPathWithinRoot(item.path, operationRootPath)) {
+      throw new Error(t('fileTree.alert.workspaceChanged'));
+    }
     const extensionItem = extensionMenuItems.find(
       entry => `ext:${entry.extensionId}:${entry.definition.id}` === key
     );
     if (extensionItem && item) {
-      try {
-        await extensionItem.definition.handler(item, {
-          rootPath,
-        });
-      } catch (error) {
-        console.error('[FileTreeContextMenu] Extension menu action failed:', error);
-      }
+      await extensionItem.definition.handler(item, { rootPath });
       return;
     }
 
     if (key === 'createFile') {
       const name = prompt(t('fileTree.prompt.newFileName'));
       if (name) {
-        await fsClient.writeFile(resolvePath(targetDirectory(item, rootPath), name), '');
+        const path = resolvePath(targetDirectory(item, rootPath), name);
+        if (await fsClient.exists(path)) {
+          throw new Error(t('fileTree.alert.destinationExists', { params: { path } }));
+        }
+        if (getCurrentRootPath() !== operationRootPath) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        await fsClient.writeRange(path, new Uint8Array(), null, true, true);
         refresh();
       }
       return;
@@ -159,13 +197,24 @@ export default function FileTreeContextMenu({
     if (key === 'createFolder') {
       const name = prompt(t('fileTree.prompt.newFolderName'));
       if (name) {
-        await fsClient.mkdir(resolvePath(targetDirectory(item, rootPath), name));
+        const path = resolvePath(targetDirectory(item, rootPath), name);
+        if (await fsClient.exists(path)) {
+          throw new Error(t('fileTree.alert.destinationExists', { params: { path } }));
+        }
+        if (getCurrentRootPath() !== operationRootPath) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        await fsClient.mkdir(path);
         refresh();
       }
       return;
     }
     if (key === 'importFiles' || key === 'importFolder') {
-      importFiles(targetDirectory(item, rootPath), key === 'importFolder');
+      importFiles(
+        targetDirectory(item, operationRootPath),
+        key === 'importFolder',
+        operationRootPath
+      );
       return;
     }
     if (!item) return;
@@ -182,14 +231,18 @@ export default function FileTreeContextMenu({
     } else if (key === 'rename') {
       const newName = prompt(t('fileTree.prompt.rename'), item.name);
       if (newName && newName !== item.name) {
-        try {
-          await fsClient.rename(item.path, resolvePath(getParentPath(item.path), newName));
-          refresh();
-        } catch (error) {
-          let message = String(error);
-          if (error instanceof Error) message = error.message;
-          alert(t('fileTree.alert.renameFailed', { params: { error: message } }));
+        const destination = resolvePath(getParentPath(item.path), newName);
+        if (await fsClient.exists(destination)) {
+          throw new Error(t('fileTree.alert.destinationExists', { params: { path: destination } }));
         }
+        if (
+          getCurrentRootPath() !== operationRootPath ||
+          !isPathWithinRoot(item.path, operationRootPath)
+        ) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        await fsClient.rename(item.path, destination, { overwrite: false });
+        refresh();
       }
     } else if (key === 'delete') {
       await fsClient.rm(item.path, { recursive: item.type === 'folder' });
@@ -234,7 +287,20 @@ export default function FileTreeContextMenu({
               touchAction: 'manipulation',
             }}
             className="hover:bg-accent"
-            onClick={() => void handleMenuAction(menuItem.key, contextMenu.item)}
+            onClick={() =>
+              void handleMenuAction(menuItem.key, contextMenu.item).catch(error => {
+                reportFileTreeError(
+                  t('fileTree.alert.operationFailed', {
+                    params: {
+                      action: menuItem.label,
+                      error: fileTreeErrorMessage(error, path =>
+                        t('fileTree.alert.destinationExists', { params: { path } })
+                      ),
+                    },
+                  })
+                );
+              })
+            }
           >
             {menuItem.label}
           </li>
@@ -242,4 +308,8 @@ export default function FileTreeContextMenu({
       </ul>
     </div>
   );
+}
+
+function isPathWithinRoot(path: string, rootPath: string): boolean {
+  return path === rootPath || path.startsWith(`${rootPath.replace(/\/$/, '')}/`);
 }

@@ -11,6 +11,14 @@ export type GitIgnoreRule = {
 // Escape regex special chars
 const escapeRegex = (s: string) => s.replace(/[-/\\^$+?.()|[\]{}]/g, '\\$&');
 
+function compileRegex(source: string): RegExp {
+  try {
+    return new RegExp(source);
+  } catch {
+    return /(?!)/;
+  }
+}
+
 function patternToRegex(pattern: string, anchored: boolean, hasSlash: boolean): RegExp {
   // Convert gitignore-style pattern to regex
   let i = 0;
@@ -19,8 +27,8 @@ function patternToRegex(pattern: string, anchored: boolean, hasSlash: boolean): 
     const ch = pattern[i];
     if (ch === '*') {
       if (pattern[i + 1] === '*') {
-        // Leading '**/' should be optional so '**/dist' matches 'dist' and 'a/dist'
-        if (i === 0 && pattern[i + 2] === '/') {
+        // A whole-component '**/' can match zero or more directories.
+        if ((i === 0 || pattern[i - 1] === '/') && pattern[i + 2] === '/') {
           res += '(?:.*/)?';
           i += 3; // consume '**/'
           continue;
@@ -58,11 +66,11 @@ function patternToRegex(pattern: string, anchored: boolean, hasSlash: boolean): 
   if (!anchored && !hasSlash) {
     // Match the pattern as a path segment anywhere in the path, and also match its contents if it's a directory
     // e.g. pattern 'node_modules' should match 'node_modules' and 'node_modules/...'
-    return new RegExp(`(^|.*/)?${res}(?:$|/.*)`);
+    return compileRegex(`(^|.*/)?${res}(?:$|/.*)`);
   }
 
   // anchored patterns match from start
-  return new RegExp(`^${res}$`);
+  return compileRegex(`^${res}$`);
 }
 
 export function parseGitignore(content: string): GitIgnoreRule[] {
@@ -108,8 +116,10 @@ export function isPathIgnored(rules: GitIgnoreRule[], path: string, isDir = fals
       // For directory-only rules we need to check whether any directory prefix matches the rule.
       // e.g. for 'packages/foo/dist/index.js', check 'packages', 'packages/foo', 'packages/foo/dist'
       const parts = normalized.split('/');
+      let directoryCount = parts.length - 1;
+      if (isDir) directoryCount = parts.length;
       let prefix = '';
-      for (let i = 0; i < parts.length - 0; i++) {
+      for (let i = 0; i < directoryCount; i++) {
         prefix = parts.slice(0, i + 1).join('/');
         if (r.regex.test(prefix)) {
           ignored = !r.negation;

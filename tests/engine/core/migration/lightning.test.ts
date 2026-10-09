@@ -13,7 +13,11 @@ vi.mock('@/engine/core/migration/idb', () => ({
     fixture.values.get(key),
 }));
 
-import { gitProjectNames, readGitEntries } from '@/engine/core/migration/lightning';
+import {
+  gitProjectNames,
+  type LegacyGitEntry,
+  readGitEntries,
+} from '@/engine/core/migration/lightning';
 
 const db = {
   objectStoreNames: { contains: (name: string) => name === 'pyxis-fs_files' },
@@ -34,6 +38,12 @@ function tree(git: Node): Node {
   ]);
 }
 
+async function collectEntries(name: string): Promise<LegacyGitEntry[]> {
+  const entries: LegacyGitEntry[] = [];
+  for await (const entry of readGitEntries(db, name)) entries.push(entry);
+  return entries;
+}
+
 describe('legacy lightning filesystem reader', () => {
   beforeEach(() => {
     fixture.values.clear();
@@ -49,7 +59,8 @@ describe('legacy lightning filesystem reader', () => {
     const packed = new Uint8Array([99, 0, 255, 128, 7, 88]);
     fixture.values.set(6, packed.subarray(1, 5));
     expect(await gitProjectNames(db)).toEqual(['demo']);
-    expect(await readGitEntries(db, 'demo')).toEqual([
+    const entries = await collectEntries('demo');
+    expect(entries).toEqual([
       { path: '/.git', directory: true },
       { path: '/.git/HEAD', directory: false, bytes: new Uint8Array([]) },
       { path: '/.git/objects', directory: true },
@@ -59,13 +70,13 @@ describe('legacy lightning filesystem reader', () => {
 
   it('rejects missing inode data rather than importing an empty file', async () => {
     fixture.values.set('!root', tree(node('dir', 3, [['HEAD', node('file', 4)]])));
-    await expect(readGitEntries(db, 'demo')).rejects.toThrow('Missing legacy Git bytes');
+    await expect(collectEntries('demo')).rejects.toThrow('Missing legacy Git bytes');
   });
 
   it('rejects unsupported symlinks and directory traversal names', async () => {
     fixture.values.set('!root', tree(node('dir', 3, [['HEAD', node('symlink', 4)]])));
-    await expect(readGitEntries(db, 'demo')).rejects.toThrow('symlink');
+    await expect(collectEntries('demo')).rejects.toThrow('symlink');
     fixture.values.set('!root', tree(node('dir', 3, [['..', node('file', 4)]])));
-    await expect(readGitEntries(db, 'demo')).rejects.toThrow('filename');
+    await expect(collectEntries('demo')).rejects.toThrow('filename');
   });
 });

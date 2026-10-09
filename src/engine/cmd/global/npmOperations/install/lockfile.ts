@@ -9,7 +9,7 @@ import {
   pruneFailedOptionalPackages,
 } from './tree';
 import type { PackageInfo } from './types';
-import { satisfiesVersionSpec } from './versionUtils';
+import { isVersionRange, matchesLockedVersion, satisfiesVersionSpec } from './versionUtils';
 
 export interface RootManifest {
   name?: string;
@@ -17,6 +17,8 @@ export interface RootManifest {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 }
 
 interface LockedPackage extends RootManifest {
@@ -83,6 +85,8 @@ function infoFromEntry(path: string, entry: LockedPackage): PackageInfo {
     integrity: entry.integrity,
     dependencies: entry.dependencies,
     optionalDependencies: entry.optionalDependencies,
+    peerDependencies: entry.peerDependencies,
+    peerDependenciesMeta: entry.peerDependenciesMeta,
     bin: entry.bin,
     os: entry.os,
     cpu: entry.cpu,
@@ -139,12 +143,29 @@ export function replayLockedTree(
       if (
         !child ||
         child.packageInfo.name !== spec.name ||
-        !satisfiesVersionSpec(child.packageInfo.version, spec.version)
+        !matchesLockedVersion(child.packageInfo.version, spec.version)
       ) {
         if (placed.packageInfo.optionalDependencies?.[name]) continue;
         return undefined;
       }
       placed.children[name] = child.path;
+    }
+    for (const [name, spec] of Object.entries(placed.packageInfo.peerDependencies ?? {})) {
+      const optional = placed.packageInfo.peerDependenciesMeta?.[name]?.optional === true;
+      const locations = moduleLocations(placed.path, name).slice(1);
+      const path = locations.find(candidate => placements.has(candidate));
+      const peer = placements.get(path ?? '');
+      if (!peer) {
+        if (optional) continue;
+        return undefined;
+      }
+      const expected = parseDependencySpec(name, spec);
+      if (
+        peer.packageInfo.name !== expected.name ||
+        !satisfiesVersionSpec(peer.packageInfo.version, spec)
+      )
+        return undefined;
+      placed.children[name] = peer.path;
     }
   }
   const roots = rootDependencyRequests(manifest).map(request => ({
@@ -157,7 +178,7 @@ export function replayLockedTree(
     if (
       !placed ||
       placed.packageInfo.name !== spec.name ||
-      !satisfiesVersionSpec(placed.packageInfo.version, spec.version)
+      !matchesLockedVersion(placed.packageInfo.version, spec.version)
     ) {
       if (request.isOptional) continue;
       return undefined;
@@ -183,6 +204,7 @@ export function findLockedPackage(
 ): PackageInfo | undefined {
   if (!lock) return undefined;
   const spec = parseDependencySpec(name, version);
+  if (!isVersionRange(spec.version)) return undefined;
   for (const [path, entry] of Object.entries(lock.packages)) {
     if (!path || packageNameFromPath(path) !== name) continue;
     const info = infoFromEntry(path, entry);
@@ -206,6 +228,8 @@ export function createLockfile(manifest: RootManifest, plan: PlacedDependency[])
     if (info.integrity) entry.integrity = info.integrity;
     if (info.dependencies) entry.dependencies = info.dependencies;
     if (info.optionalDependencies) entry.optionalDependencies = info.optionalDependencies;
+    if (info.peerDependencies) entry.peerDependencies = info.peerDependencies;
+    if (info.peerDependenciesMeta) entry.peerDependenciesMeta = info.peerDependenciesMeta;
     if (info.bin) entry.bin = info.bin;
     if (info.os) entry.os = info.os;
     if (info.cpu) entry.cpu = info.cpu;

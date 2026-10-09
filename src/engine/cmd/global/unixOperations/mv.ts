@@ -1,6 +1,7 @@
-import { fsClient, isPathWithin, posixPath } from '@/engine/core/fs';
+import { FSError, isPathWithin, posixPath } from '@/engine/core/fs';
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 /**
  * mv - ファイル/ディレクトリを移動またはリネーム
@@ -30,7 +31,11 @@ export class MvCommand extends UnixCommandBase {
     if (errors.length) throw new Error(errors.join('; '));
 
     if (options.has('--help') || options.has('-h')) {
-      return 'Usage: mv [OPTION]... SOURCE DEST\n   or: mv [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tprompt before overwrite\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done';
+      return 'Usage: mv [OPTION]... SOURCE DEST\n   or: mv [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tunsupported; fails before moving\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done';
+    }
+
+    if (options.has('-i') || options.has('--interactive')) {
+      throw new UnixCommandFailure('mv: interactive confirmation is not supported', 1);
     }
 
     if (positional.length < 2) {
@@ -39,7 +44,6 @@ export class MvCommand extends UnixCommandBase {
       );
     }
 
-    const interactive = options.has('-i') || options.has('--interactive');
     const noClobber = options.has('-n') || options.has('--no-clobber');
     const verbose = options.has('-v') || options.has('--verbose');
 
@@ -62,15 +66,20 @@ export class MvCommand extends UnixCommandBase {
       throw new Error(`mv: target '${destArg}' is not a directory`);
     }
 
-    for (const source of sources) {
+    const failures: string[] = [];
+
+    for (let sourceIndex = 0; sourceIndex < sources.length; sourceIndex += 1) {
+      const source = sources[sourceIndex];
+      const sourceArg = sourceArgs[sourceIndex];
       const normalizedSource = source;
 
-      const sourceExists = await this.exists(normalizedSource);
-      if (!sourceExists) {
-        throw new Error(`mv: cannot stat '${source}': No such file or directory`);
+      const sourceFile = await this.getLinkAwareFile(normalizedSource);
+      if (!sourceFile) {
+        failures.push(`mv: cannot stat '${sourceArg}': No such file or directory`);
+        continue;
       }
 
-      const sourceIsDir = await this.isDirectory(normalizedSource);
+      const sourceIsDir = sourceFile.type === 'folder';
       const sourceName = posixPath.basename(normalizedSource);
 
       // 最終的な移動先パス
@@ -87,17 +96,26 @@ export class MvCommand extends UnixCommandBase {
         continue;
       }
       if (sourceIsDir && isPathWithin(finalDest, normalizedSource)) {
-        throw new Error(`mv: cannot move a directory '${source}' into itself '${finalDest}'`);
+        failures.push(`mv: cannot move a directory '${sourceArg}' into itself '${destArg}'`);
+        continue;
       }
 
       // 上書きチェック
-      const finalDestExists = await this.exists(finalDest);
+      const finalDestFile = await this.getLinkAwareFile(finalDest);
+      const finalDestExists = finalDestFile !== undefined;
       if (finalDestExists) {
+        if (sourceIsDir !== (finalDestFile.type === 'folder')) {
+          if (sourceIsDir) {
+            failures.push(
+              `mv: cannot overwrite non-directory '${destArg}' with directory '${sourceArg}'`
+            );
+          } else {
+            failures.push(`mv: cannot overwrite directory '${destArg}' with non-directory`);
+          }
+          continue;
+        }
         if (noClobber) {
           continue; // スキップ
-        }
-        if (interactive) {
-          // インタラクティブモードは未実装（常に上書き）
         }
       }
 
@@ -109,8 +127,13 @@ export class MvCommand extends UnixCommandBase {
           results.push(`'${normalizedSource}' -> '${finalDest}'`);
         }
       } catch (error) {
-        throw new Error(`mv: cannot move '${source}' to '${destArg}': ${(error as Error).message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`mv: cannot move '${sourceArg}' to '${destArg}': ${message}`);
       }
+    }
+
+    if (failures.length > 0) {
+      throw new UnixCommandFailure(failures.join('\n'), 1, verbose ? results.join('\n') : '');
     }
 
     if (verbose) {
@@ -124,13 +147,22 @@ export class MvCommand extends UnixCommandBase {
    * ファイルまたはディレクトリを移動
    */
   private async moveFileOrDir(source: string, dest: string, isDir: boolean): Promise<void> {
-    const sourceFile = await this.getFile(source);
+    const sourceFile = await this.getLinkAwareFile(source);
 
     if (!sourceFile) {
       throw new Error('Source file not found in database');
     }
 
     if (isDir !== (sourceFile.type === 'folder')) throw new Error('Source type changed');
-    await fsClient.rename(source, dest);
+    await this.fs.rename(source, dest);
+  }
+
+  private async getLinkAwareFile(path: string): Promise<ProjectFile | undefined> {
+    try {
+      return await this.fs.lstat(path);
+    } catch (error) {
+      if (error instanceof FSError && error.code === 'ENOENT') return undefined;
+      throw error;
+    }
   }
 }

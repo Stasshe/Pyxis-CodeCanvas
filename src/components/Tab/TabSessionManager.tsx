@@ -26,7 +26,9 @@ export const TabSessionManager: React.FC<Props> = ({ children }) => {
   const initialRootPath = useRef(currentRootPath);
   // IndexedDBからセッションを復元
   useEffect(() => {
-    loadSession(initialRootPath.current);
+    loadSession(initialRootPath.current).catch(error => {
+      console.error('[TabSessionManager] Failed to restore tab session:', error);
+    });
   }, []);
 
   // Track a structural key derived from panes without re-rendering on frequent content updates

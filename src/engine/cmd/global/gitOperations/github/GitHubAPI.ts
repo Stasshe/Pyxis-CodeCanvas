@@ -65,6 +65,16 @@ export interface CompareResult {
   commits: CommitInfo[];
 }
 
+export class GitHubAPIError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string
+  ) {
+    super(`GitHub API error (${status}): ${message}`);
+    this.name = 'GitHubAPIError';
+  }
+}
+
 export class GitHubAPI {
   private baseUrl: string;
   private token: string;
@@ -91,19 +101,22 @@ export class GitHubAPI {
       const error: { message: string } = await response
         .json()
         .catch(() => ({ message: response.statusText }));
-      throw new Error(`GitHub API error (${response.status}): ${error.message}`);
+      throw new GitHubAPIError(response.status, error.message);
     }
 
     return response.json();
+  }
+
+  async getDefaultBranch(): Promise<string> {
+    const repository = await this.request<{ default_branch: string }>('');
+    return repository.default_branch;
   }
 
   async getRef(branch: string): Promise<GitRef | null> {
     try {
       return await this.request<GitRef>(`/git/refs/heads/${branch}`);
     } catch (error) {
-      let message = String(error);
-      if (error instanceof Error) message = error.message;
-      if (message.includes('404') || message.includes('409')) {
+      if (error instanceof GitHubAPIError && (error.status === 404 || error.status === 409)) {
         return null;
       }
       throw error;
@@ -130,9 +143,7 @@ export class GitHubAPI {
         }),
       });
     } catch (error) {
-      let message = String(error);
-      if (error instanceof Error) message = error.message;
-      if (message.includes('404')) {
+      if (error instanceof GitHubAPIError && error.status === 404) {
         return this.createRef(branch, sha);
       }
       throw error;
@@ -145,6 +156,7 @@ export class GitHubAPI {
     parents: string[];
     author: GitUser;
     committer: GitUser;
+    signature?: string;
   }): Promise<GitCommit> {
     return this.request<GitCommit>('/git/commits', {
       method: 'POST',
@@ -188,19 +200,11 @@ export class GitHubAPI {
 
   async treeExists(sha: string): Promise<boolean> {
     try {
-      const url = `${this.baseUrl}/git/trees/${sha}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
-      });
-
-      return response.ok;
+      await this.getTree(sha);
+      return true;
     } catch (error) {
-      console.warn('[GitHubAPI] treeExists network error:', error);
-      return false;
+      if (error instanceof GitHubAPIError && error.status === 404) return false;
+      throw error;
     }
   }
 
@@ -219,9 +223,7 @@ export class GitHubAPI {
         `/commits?sha=${sha}&per_page=${perPage}&page=${page}`
       );
     } catch (error) {
-      let message = String(error);
-      if (error instanceof Error) message = error.message;
-      if (message.includes('409')) {
+      if (error instanceof GitHubAPIError && error.status === 409) {
         return [];
       }
       throw error;
@@ -232,9 +234,7 @@ export class GitHubAPI {
     try {
       return await this.request<CompareResult>(`/compare/${base}...${head}`);
     } catch (error) {
-      let message = String(error);
-      if (error instanceof Error) message = error.message;
-      if (message.includes('404')) {
+      if (error instanceof GitHubAPIError && error.status === 404) {
         return null;
       }
       throw error;

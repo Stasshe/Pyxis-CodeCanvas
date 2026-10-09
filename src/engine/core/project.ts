@@ -104,13 +104,27 @@ export function useProject() {
   }, [tree]);
 
   const loadProject = useCallback(
-    async (project: Project) => {
+    async (project: Project, beforeCommit?: () => Promise<void>) => {
       const rootPath = normalizePath(project.rootPath);
       const rootEntry = await fsClient.stat(rootPath);
       if (rootEntry.type !== 'folder') throw new Error(`${rootPath} is not a folder.`);
       const openedProject = projectFromPath(rootPath);
       if (!(await tree.load(rootPath))) return;
-      await saveRecentFolder(openedProject);
+      try {
+        await saveRecentFolder(openedProject);
+        if (tree.rootPath !== rootPath) return;
+        if (beforeCommit) await beforeCommit();
+      } catch (error) {
+        const currentRootPath = getCurrentProject()?.rootPath;
+        if (currentRootPath && currentRootPath !== rootPath) {
+          try {
+            await tree.load(currentRootPath);
+          } catch (restoreError) {
+            console.error('[Project] Failed to restore the current workspace tree:', restoreError);
+          }
+        }
+        throw error;
+      }
       if (tree.rootPath !== rootPath) return;
       setCurrentProject(openedProject);
       setCurrentProjectState(openedProject);
@@ -122,10 +136,10 @@ export function useProject() {
   );
 
   const createProject = useCallback(
-    async (name: string) => {
+    async (name: string, beforeCommit?: () => Promise<void>) => {
       const rootPath = await fsClient.createWorkspace(name);
       const project = projectFromPath(rootPath);
-      await loadProject(project);
+      await loadProject(project, beforeCommit);
       return project;
     },
     [loadProject]

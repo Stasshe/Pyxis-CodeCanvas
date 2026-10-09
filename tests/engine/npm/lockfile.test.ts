@@ -238,6 +238,29 @@ describe('npm package-lock installation', () => {
     expect(noop).toMatch(/^up to date, checked 4 packages in/);
   });
 
+  it('preserves npm alias names and targets in the manifest and lockfile', async () => {
+    const { repo, rootPath, fixtures } = await setup();
+    const scopedPackage = await fixturePackage('@scope/fixture-shared', '2.0.0');
+    fixtures.push(scopedPackage);
+
+    await new WorkerNpmCommands(repo, rootPath).install('fixture-alias', [
+      '--version=npm:@scope/fixture-shared@2.0.0',
+    ]);
+
+    const manifest = JSON.parse(await repo.readText(`${rootPath}/package.json`)) as {
+      dependencies: Record<string, string>;
+    };
+    const lock = await lockfile(repo, rootPath);
+    expect(manifest.dependencies['fixture-alias']).toBe('npm:@scope/fixture-shared@^2.0.0');
+    expect(lock.packages['node_modules/fixture-alias']).toMatchObject({
+      name: '@scope/fixture-shared',
+      version: '2.0.0',
+    });
+    expect(await repo.readText(`${rootPath}/node_modules/fixture-alias/index.js`)).toContain(
+      "'2.0.0'"
+    );
+  });
+
   it('excludes a failed optional branch and its unreachable children from the checked count', async () => {
     const { repo, rootPath, fixtures, requests, manifest } = await setup();
     fixtures.push(

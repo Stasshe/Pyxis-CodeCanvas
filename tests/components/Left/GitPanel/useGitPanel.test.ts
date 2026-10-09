@@ -10,6 +10,7 @@ interface GitCommands {
     depth: number,
     filter: { mode: 'auto' } | { mode: 'all'; branches?: string[] }
   ) => Promise<string>;
+  diff: (options: { staged: boolean }) => Promise<string>;
 }
 
 type RefValue = object | boolean | number | null;
@@ -68,6 +69,7 @@ function createCommands(branchName: string) {
     listRemotes: vi.fn(async () => ''),
     getAvailableBranches: vi.fn(async () => ({ local: [branchName], remote: [] })),
     getFormattedLog: vi.fn(async () => ''),
+    diff: vi.fn(async () => 'diff'),
   };
 }
 
@@ -151,6 +153,22 @@ describe('useGitPanel refresh queue', () => {
     await refresh;
 
     expect(onStatusChange).not.toHaveBeenCalled();
+  });
+
+  it('does not return a diff response after switching workspaces', async () => {
+    const oldDiff = deferred<string>();
+    const oldCommands = createCommands('old');
+    const newCommands = createCommands('new');
+    oldCommands.diff.mockReturnValueOnce(oldDiff.promise);
+    mocks.commandsByRoot.set('/workspace/old', oldCommands);
+    mocks.commandsByRoot.set('/workspace/new', newCommands);
+
+    const oldPanel = renderPanel('old', '/workspace/old');
+    const pendingDiff = oldPanel.getDiff();
+    renderPanel('new', '/workspace/new');
+    oldDiff.resolve('old workspace diff');
+
+    await expect(pendingDiff).resolves.toBe('');
   });
 
   it('waits for the filesystem refresh after staging', async () => {

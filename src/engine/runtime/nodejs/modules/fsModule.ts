@@ -4,7 +4,18 @@ import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
 import type { MountStat } from '@/engine/runtime/storage/types';
 import { constants } from './constantsModule';
 import { RuntimeFsDescriptors } from './fsDescriptors';
+import { createDescriptorCallbacks, createDescriptorWriteSync } from './fsIo';
+import {
+  copyFile,
+  copyFileSync,
+  makeTempDirectory,
+  makeTempDirectorySync,
+  removeDirectory,
+  removeDirectorySync,
+} from './fsOperations';
+import { type FsPath, normalizeFsPath } from './fsPaths';
 import { createFsStats, type FsStats, fileMode, type StatOptions } from './fsStats';
+import { createReadStream, createWriteStream, type FsStreamOptions } from './fsStreams';
 
 export type FsEncoding = BufferEncoding | 'buffer' | null;
 export interface ReadOptions {
@@ -91,8 +102,8 @@ function dirent(name: string | Buffer, type: MountStat['type']): FsDirent {
     isDirectory: () => type === 'directory',
     isSymbolicLink: () => type === 'symlink',
     isBlockDevice: () => false,
-    isCharacterDevice: () => false,
-    isFIFO: () => false,
+    isCharacterDevice: () => type === 'characterDevice',
+    isFIFO: () => type === 'fifo',
     isSocket: () => false,
   };
 }
@@ -100,7 +111,7 @@ function dirent(name: string | Buffer, type: MountStat['type']): FsDirent {
 function fsError(
   code: string,
   syscall: string,
-  path: string | number
+  path: FsPath | number
 ): Error & { code: string; errno: number; syscall: string; path: string } {
   const normalizedPath = String(path);
   const error = new Error(`${code}: ${syscall} '${normalizedPath}'`) as Error & {
@@ -117,7 +128,7 @@ function fsError(
   return error;
 }
 
-function rethrowAsFsError(error: unknown, code: string, syscall: string, path: string): never {
+function rethrowAsFsError(error: unknown, code: string, syscall: string, path: FsPath): never {
   if (error instanceof Error && 'code' in error && typeof error.code === 'string') throw error;
   throw fsError(code, syscall, path);
 }
@@ -129,6 +140,12 @@ function linkResult(value: string, encoding?: FsEncoding): string | Buffer {
 
 function linkEncoding(options?: ReadOptions | FsEncoding): FsEncoding | undefined {
   return optionEncoding(options);
+}
+
+function tempDirectoryResult(path: string, options?: ReadOptions | FsEncoding): string | Buffer {
+  const encoding = optionEncoding(options);
+  if (encoding === 'buffer') return Buffer.from(path);
+  return Buffer.from(path).toString(encoding ?? 'utf8');
 }
 
 export function createFSModule(options: FSModuleOptions) {
@@ -144,12 +161,7 @@ export function createFSModule(options: FSModuleOptions) {
     if (tracker) return tracker(task);
     return task;
   };
-  const normalize = (path: string): string => {
-    if (path.startsWith('/')) return path;
-    const cwd = options.getCwd();
-    if (cwd === '/') return `/${path}`;
-    return `${cwd}/${path}`;
-  };
+  const normalize = (path: FsPath): string => normalizeFsPath(path, options.getCwd);
 
   function childPath(path: string, name: string): string {
     if (path === '/') return `/${name}`;
@@ -165,17 +177,8 @@ export function createFSModule(options: FSModuleOptions) {
     return Buffer.from(value);
   }
 
-  function readStdinLine(): Buffer {
-    if (stdinRemainder.length > 0) {
-      const buffered = stdinRemainder;
-      stdinRemainder = Buffer.alloc(0);
-      return buffered;
-    }
-    return requestStdin();
-  }
-
   async function readFile(
-    path: string,
+    path: FsPath,
     encoding?: ReadOptions | FsEncoding
   ): Promise<string | Buffer> {
     const normalized = normalize(path);
@@ -185,7 +188,7 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   async function writeFile(
-    path: string,
+    path: FsPath,
     data: string | Uint8Array,
     writeOptions?: ReadOptions | FsEncoding
   ): Promise<void> {
@@ -199,22 +202,17 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   async function appendFile(
-    path: string,
+    path: FsPath,
     data: string | Uint8Array,
     writeOptions?: ReadOptions | FsEncoding
   ): Promise<void> {
     const normalized = normalize(path);
-    const current = await filesystem.getFile(normalized);
-    const oldBytes = current ?? new Uint8Array();
     const newBytes = encode(data, writeOptions);
-    const combined = new Uint8Array(oldBytes.length + newBytes.length);
-    combined.set(oldBytes);
-    combined.set(newBytes, oldBytes.length);
-    await filesystem.setFile(normalized, combined);
+    await filesystem.writeRange(normalized, newBytes, null, true);
   }
 
   async function readlink(
-    path: string,
+    path: FsPath,
     options?: ReadOptions | FsEncoding
   ): Promise<string | Buffer> {
     const target = await filesystem.readlink(normalize(path));
@@ -222,19 +220,19 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   async function resolveRealpath(
-    path: string,
+    path: FsPath,
     options?: ReadOptions | FsEncoding
   ): Promise<string | Buffer> {
     const resolved = await filesystem.realpath(normalize(path));
     return linkResult(resolved, linkEncoding(options));
   }
 
-  function readlinkSync(path: string, options?: ReadOptions | FsEncoding): string | Buffer {
+  function readlinkSync(path: FsPath, options?: ReadOptions | FsEncoding): string | Buffer {
     const target = filesystem.readlinkSync(normalize(path));
     return linkResult(target, linkEncoding(options));
   }
 
-  function realpathSyncImpl(path: string, options?: ReadOptions | FsEncoding): string | Buffer {
+  function realpathSyncImpl(path: FsPath, options?: ReadOptions | FsEncoding): string | Buffer {
     const resolved = filesystem.realpathSync(normalize(path));
     return linkResult(resolved, linkEncoding(options));
   }
@@ -242,7 +240,7 @@ export function createFSModule(options: FSModuleOptions) {
   const realpathSync = Object.assign(realpathSyncImpl, { native: realpathSyncImpl });
 
   function realpathOperation(
-    path: string,
+    path: FsPath,
     optionsOrCallback?: ReadOptions | FsEncoding | FsCallback<string | Buffer>,
     callback?: FsCallback<string | Buffer>
   ): Promise<string | Buffer> | void {
@@ -262,12 +260,12 @@ export function createFSModule(options: FSModuleOptions) {
 
   const realpath = Object.assign(realpathOperation, { native: realpathOperation });
 
-  function createSymlink(target: string, path: string): Promise<void> {
-    return filesystem.symlink(target, normalize(path));
+  function createSymlink(target: string | Buffer, path: FsPath): Promise<void> {
+    return filesystem.symlink(target.toString(), normalize(path));
   }
 
-  function createSymlinkSync(target: string, path: string): void {
-    filesystem.symlinkSync(target, normalize(path));
+  function createSymlinkSync(target: string | Buffer, path: FsPath): void {
+    filesystem.symlinkSync(target.toString(), normalize(path));
   }
 
   function completeWrite(task: Promise<void>, callback?: FsCallback<void>): Promise<void> | void {
@@ -281,7 +279,7 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   async function getStats(
-    path: string,
+    path: FsPath,
     syscall: 'stat' | 'lstat',
     statOptions?: StatOptions
   ): Promise<FsStats> {
@@ -301,7 +299,7 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   function getStatsSync(
-    path: string,
+    path: FsPath,
     syscall: 'stat' | 'lstat',
     statOptions?: StatOptions
   ): FsStats | undefined {
@@ -315,7 +313,7 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   async function readDirectory(
-    path: string,
+    path: FsPath,
     directoryOptions?: ReaddirOptions
   ): Promise<DirectoryEntry[]> {
     const normalized = normalize(path);
@@ -336,7 +334,7 @@ export function createFSModule(options: FSModuleOptions) {
   }
 
   function readFileCallback(
-    path: string,
+    path: FsPath,
     encoding?: ReadOptions | FsEncoding,
     callback?: FsCallback<string | Buffer>
   ): Promise<string | Buffer> | void {
@@ -353,6 +351,46 @@ export function createFSModule(options: FSModuleOptions) {
     return track(result);
   }
 
+  function readDescriptor(descriptor: number): Buffer {
+    const chunks: Buffer[] = [];
+    const chunk = Buffer.alloc(64 * 1024);
+    let count = descriptors.readSync(descriptor, chunk, 0, chunk.byteLength);
+    while (count > 0) {
+      chunks.push(Buffer.from(chunk.subarray(0, count)));
+      count = descriptors.readSync(descriptor, chunk, 0, chunk.byteLength);
+    }
+    return Buffer.concat(chunks);
+  }
+
+  function readStdin(): Buffer {
+    const chunks: Buffer[] = [];
+    if (stdinRemainder.length > 0) chunks.push(stdinRemainder);
+    stdinRemainder = Buffer.alloc(0);
+    let input = requestStdin();
+    while (input.length > 0) {
+      chunks.push(input);
+      input = requestStdin();
+    }
+    return Buffer.concat(chunks);
+  }
+
+  function readDescriptorSync(
+    descriptor: number,
+    target: Uint8Array,
+    offset: number,
+    length: number,
+    position: number | null
+  ): number {
+    if (descriptor !== 0) return descriptors.readSync(descriptor, target, offset, length, position);
+    if (length === 0) return 0;
+    let input = stdinRemainder;
+    if (input.length === 0) input = requestStdin();
+    const count = Math.min(length, input.byteLength);
+    target.set(input.subarray(0, count), offset);
+    stdinRemainder = input.subarray(count);
+    return count;
+  }
+
   function completeCall<T>(task: Promise<T>, callback?: FsCallback<T>): Promise<T> | void {
     if (!callback) return track(task);
     track(
@@ -363,15 +401,15 @@ export function createFSModule(options: FSModuleOptions) {
     );
   }
 
-  function makeDirectory(path: string, options: MkdirOptions = {}): Promise<void> {
+  function makeDirectory(path: FsPath, options: MkdirOptions = {}): Promise<void> {
     return filesystem.mkdir(normalize(path), options.recursive === true);
   }
 
-  function renamePath(oldPath: string, newPath: string): Promise<void> {
+  function renamePath(oldPath: FsPath, newPath: FsPath): Promise<void> {
     return filesystem.rename(normalize(oldPath), normalize(newPath));
   }
 
-  async function unlinkPath(path: string): Promise<void> {
+  async function unlinkPath(path: FsPath): Promise<void> {
     const normalized = normalize(path);
     const value = await filesystem.lstat(normalized);
     if (!value) throw fsError('ENOENT', 'unlink', path);
@@ -379,7 +417,7 @@ export function createFSModule(options: FSModuleOptions) {
     await filesystem.deleteFile(normalized);
   }
 
-  async function removePath(path: string, options: RmOptions = {}): Promise<void> {
+  async function removePath(path: FsPath, options: RmOptions = {}): Promise<void> {
     const normalized = normalize(path);
     const value = await filesystem.lstat(normalized);
     if (!value && options.force) return;
@@ -400,20 +438,20 @@ export function createFSModule(options: FSModuleOptions) {
     }
   }
 
-  async function accessPath(path: string, mode: number = constants.F_OK): Promise<void> {
+  async function accessPath(path: FsPath, mode: number = constants.F_OK): Promise<void> {
     const value = await filesystem.stat(normalize(path));
     if (!value) throw fsError('ENOENT', 'access', path);
-    checkPermissions(path, mode, fileMode(value.type));
+    checkPermissions(String(path), mode, fileMode(value.type));
   }
 
-  function checkAccess(path: string, mode: number = constants.F_OK): void {
+  function checkAccess(path: FsPath, mode: number = constants.F_OK): void {
     const value = filesystem.statSync(normalize(path));
     if (!value) throw fsError('ENOENT', 'access', path);
-    checkPermissions(path, mode, fileMode(value.type));
+    checkPermissions(String(path), mode, fileMode(value.type));
   }
 
   function statOperation(
-    path: string,
+    path: FsPath,
     syscall: 'stat' | 'lstat',
     optionsOrCallback?: StatOptions | FsCallback<FsStats>,
     callback?: FsCallback<FsStats>
@@ -425,41 +463,68 @@ export function createFSModule(options: FSModuleOptions) {
     return completeCall(getStats(path, syscall, statOptions), done);
   }
 
-  function writeSync(
-    descriptor: number,
-    data: Uint8Array,
-    offset?: number,
-    length?: number,
-    position?: number | null
-  ): number;
-  function writeSync(
-    descriptor: number,
-    data: string,
-    position?: number | null,
-    encoding?: BufferEncoding
-  ): number;
-  function writeSync(
-    descriptor: number,
-    data: string | Uint8Array,
-    offsetOrPosition?: number | null,
-    lengthOrEncoding?: number | BufferEncoding,
-    position?: number | null
-  ): number {
-    return descriptors.writeSync(descriptor, data, offsetOrPosition, lengthOrEncoding, position);
-  }
+  const writeSync = createDescriptorWriteSync(descriptors);
+
+  const descriptorCallbacks = createDescriptorCallbacks(
+    descriptors,
+    normalize,
+    readDescriptorSync,
+    track
+  );
 
   const operations = {
-    openSync: (path: string, flags: string | number, _mode?: number): number =>
+    createReadStream: (path: FsPath, streamOptions?: FsStreamOptions) =>
+      createReadStream(filesystem, normalize(path), streamOptions, options.getTrackIO?.()),
+    createWriteStream: (path: FsPath, streamOptions?: FsStreamOptions) =>
+      createWriteStream(filesystem, normalize(path), streamOptions, options.getTrackIO?.()),
+    openSync: (path: FsPath, flags: string | number, _mode?: number): number =>
       descriptors.openSync(normalize(path), flags),
     closeSync: (descriptor: number): void => descriptors.closeSync(descriptor),
+    ...descriptorCallbacks,
     fstatSync: (descriptor: number, statOptions?: StatOptions): FsStats => {
       const value = descriptors.statSync(descriptor);
       if (!value) throw fsError('ENOENT', 'fstat', descriptor);
       return createFsStats(value, statOptions?.bigint === true);
     },
     writeSync,
+    copyFile: (
+      source: FsPath,
+      destination: FsPath,
+      flagsOrCallback?: number | FsCallback<void>,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      let flags = 0;
+      let done = callback;
+      if (isCallback<void>(flagsOrCallback)) done = flagsOrCallback;
+      else if (flagsOrCallback !== undefined) flags = flagsOrCallback;
+      return completeCall(
+        copyFile(filesystem, normalize(source), normalize(destination), flags),
+        done
+      );
+    },
+    copyFileSync: (source: FsPath, destination: FsPath, flags = 0): void =>
+      copyFileSync(filesystem, normalize(source), normalize(destination), flags),
+    rmdir: (path: FsPath, callback?: FsCallback<void>): Promise<void> | void =>
+      completeCall(removeDirectory(filesystem, normalize(path)), callback),
+    rmdirSync: (path: FsPath): void => removeDirectorySync(filesystem, normalize(path)),
+    mkdtemp: (
+      prefix: FsPath,
+      optionsOrCallback?: ReadOptions | FsCallback<string | Buffer>,
+      callback?: FsCallback<string | Buffer>
+    ): Promise<string | Buffer> | void => {
+      let readOptions: ReadOptions | undefined;
+      let done = callback;
+      if (isCallback<string | Buffer>(optionsOrCallback)) done = optionsOrCallback;
+      else readOptions = optionsOrCallback;
+      const task = makeTempDirectory(filesystem, normalize(prefix)).then(path =>
+        tempDirectoryResult(path, readOptions)
+      );
+      return completeCall(task, done);
+    },
+    mkdtempSync: (prefix: FsPath, readOptions?: ReadOptions | FsEncoding): string | Buffer =>
+      tempDirectoryResult(makeTempDirectorySync(filesystem, normalize(prefix)), readOptions),
     readFile: (
-      path: string,
+      path: FsPath,
       encodingOrCallback?: ReadOptionsArg,
       callback?: FsCallback<string | Buffer>
     ): Promise<string | Buffer> | void => {
@@ -468,7 +533,7 @@ export function createFSModule(options: FSModuleOptions) {
       return readFileCallback(path, encodingOrCallback, callback);
     },
     writeFile: (
-      path: string,
+      path: FsPath,
       data: string | Uint8Array,
       optionsOrCallback?: WriteOptionsArg,
       callback?: FsCallback<void>
@@ -478,18 +543,19 @@ export function createFSModule(options: FSModuleOptions) {
       }
       return completeWrite(writeFile(path, data, optionsOrCallback), callback);
     },
-    readFileSync: (path: string | number, encoding?: ReadOptions | FsEncoding): string | Buffer => {
-      if (typeof path === 'number' && path === 0) {
-        return readResult(readStdinLine(), encoding);
+    readFileSync: (path: FsPath | number, encoding?: ReadOptions | FsEncoding): string | Buffer => {
+      if (typeof path === 'number') {
+        if (path === 0) return readResult(readStdin(), encoding);
+        return readResult(readDescriptor(path), encoding);
       }
-      if (typeof path !== 'string') throw fsError('EBADF', 'open', path);
       const normalized = normalize(path);
+      if (normalized === '/dev/stdin') return readResult(readStdin(), encoding);
       const content = filesystem.getFileSync(normalized);
       if (content === undefined) throw fsError('ENOENT', 'open', path);
       return readResult(content, encoding);
     },
     writeFileSync: (
-      path: string,
+      path: FsPath,
       data: string | Uint8Array,
       writeOptions?: ReadOptions | FsEncoding
     ): void => {
@@ -502,18 +568,9 @@ export function createFSModule(options: FSModuleOptions) {
       offset = 0,
       length = target.byteLength - offset,
       position: number | null = null
-    ): number => {
-      if (fd !== 0) return descriptors.readSync(fd, target, offset, length, position);
-      if (length === 0) return 0;
-      let input = stdinRemainder;
-      if (input.length === 0) input = requestStdin();
-      const count = Math.min(length, input.byteLength);
-      target.set(input.subarray(0, count), offset);
-      stdinRemainder = input.subarray(count);
-      return count;
-    },
+    ): number => readDescriptorSync(fd, target, offset, length, position),
     access: (
-      path: string,
+      path: FsPath,
       modeOrCallback?: number | FsCallback<void>,
       callback?: FsCallback<void>
     ): Promise<void> | void => {
@@ -523,19 +580,19 @@ export function createFSModule(options: FSModuleOptions) {
       else if (modeOrCallback !== undefined) mode = modeOrCallback;
       return completeCall(accessPath(path, mode), done);
     },
-    accessSync: (path: string, mode: number = constants.F_OK): void => {
+    accessSync: (path: FsPath, mode: number = constants.F_OK): void => {
       checkAccess(path, mode);
     },
-    exists: (path: string, callback: (exists: boolean) => void): void => {
+    exists: (path: FsPath, callback: (exists: boolean) => void): void => {
       const task = filesystem.stat(normalize(path)).then(
-        () => true,
+        value => value !== null,
         () => false
       );
       track(task.then(callback));
     },
-    existsSync: (path: string): boolean => filesystem.statSync(normalize(path)) !== null,
+    existsSync: (path: FsPath): boolean => filesystem.statSync(normalize(path)) !== null,
     mkdir: (
-      path: string,
+      path: FsPath,
       optionsOrCallback?: MkdirOptions | FsCallback<void>,
       callback?: FsCallback<void>
     ): Promise<void> | void => {
@@ -545,11 +602,11 @@ export function createFSModule(options: FSModuleOptions) {
       else mkdirOptions = optionsOrCallback;
       return completeCall(makeDirectory(path, mkdirOptions), done);
     },
-    mkdirSync: (path: string, mkdirOptions: MkdirOptions = {}): void => {
+    mkdirSync: (path: FsPath, mkdirOptions: MkdirOptions = {}): void => {
       filesystem.mkdirSync(normalize(path), mkdirOptions.recursive === true);
     },
     readdir: (
-      path: string,
+      path: FsPath,
       optionsOrCallback?: ReaddirOptions | FsCallback<DirectoryEntry[]>,
       callback?: FsCallback<DirectoryEntry[]>
     ): Promise<DirectoryEntry[]> | void => {
@@ -567,7 +624,7 @@ export function createFSModule(options: FSModuleOptions) {
         )
       );
     },
-    readdirSync: (path: string, readdirOptions?: ReaddirOptions): DirectoryEntry[] => {
+    readdirSync: (path: FsPath, readdirOptions?: ReaddirOptions): DirectoryEntry[] => {
       const normalized = normalize(path);
       const mount = filesystem;
       const names = mount.listDirSync(normalized);
@@ -580,9 +637,9 @@ export function createFSModule(options: FSModuleOptions) {
         return dirent(directoryName(name, readdirOptions.encoding), value.type);
       });
     },
-    unlink: (path: string, callback?: FsCallback<void>): Promise<void> | void =>
+    unlink: (path: FsPath, callback?: FsCallback<void>): Promise<void> | void =>
       completeCall(unlinkPath(path), callback),
-    unlinkSync: (path: string): void => {
+    unlinkSync: (path: FsPath): void => {
       const normalized = normalize(path);
       const value = filesystem.lstatSync(normalized);
       if (!value) throw fsError('ENOENT', 'unlink', path);
@@ -590,7 +647,7 @@ export function createFSModule(options: FSModuleOptions) {
       filesystem.deleteFileSync(normalized);
     },
     appendFile: (
-      path: string,
+      path: FsPath,
       data: string | Uint8Array,
       optionsOrCallback?: WriteOptionsArg,
       callback?: FsCallback<void>
@@ -601,44 +658,37 @@ export function createFSModule(options: FSModuleOptions) {
       return completeWrite(appendFile(path, data, optionsOrCallback), callback);
     },
     appendFileSync: (
-      path: string,
+      path: FsPath,
       data: string | Uint8Array,
       writeOptions?: ReadOptions | FsEncoding
     ): void => {
       const normalized = normalize(path);
-      const mount = filesystem;
-      const current = mount.getFileSync(normalized);
-      let oldBytes: Uint8Array = new Uint8Array();
-      if (current !== undefined) oldBytes = encode(current);
       const newBytes = encode(data, writeOptions);
-      const combined = new Uint8Array(oldBytes.length + newBytes.length);
-      combined.set(oldBytes);
-      combined.set(newBytes, oldBytes.length);
-      mount.setFileSync(normalized, combined);
+      filesystem.writeRangeSync(normalized, newBytes, null, true);
     },
-    rename: (oldPath: string, newPath: string, callback?: FsCallback<void>): Promise<void> | void =>
+    rename: (oldPath: FsPath, newPath: FsPath, callback?: FsCallback<void>): Promise<void> | void =>
       completeCall(renamePath(oldPath, newPath), callback),
-    renameSync: (oldPath: string, newPath: string): void => {
+    renameSync: (oldPath: FsPath, newPath: FsPath): void => {
       const oldNormalized = normalize(oldPath);
       const newNormalized = normalize(newPath);
       filesystem.renameSync(oldNormalized, newNormalized);
     },
     stat: (
-      path: string,
+      path: FsPath,
       optionsOrCallback?: StatOptions | FsCallback<FsStats>,
       callback?: FsCallback<FsStats>
     ): Promise<FsStats> | void => statOperation(path, 'stat', optionsOrCallback, callback),
     lstat: (
-      path: string,
+      path: FsPath,
       optionsOrCallback?: StatOptions | FsCallback<FsStats>,
       callback?: FsCallback<FsStats>
     ): Promise<FsStats> | void => statOperation(path, 'lstat', optionsOrCallback, callback),
-    statSync: (path: string, statOptions?: StatOptions): FsStats | undefined =>
+    statSync: (path: FsPath, statOptions?: StatOptions): FsStats | undefined =>
       getStatsSync(path, 'stat', statOptions),
-    lstatSync: (path: string, statOptions?: StatOptions): FsStats | undefined =>
+    lstatSync: (path: FsPath, statOptions?: StatOptions): FsStats | undefined =>
       getStatsSync(path, 'lstat', statOptions),
     readlink: (
-      path: string,
+      path: FsPath,
       optionsOrCallback?: ReadOptions | FsEncoding | FsCallback<string | Buffer>,
       callback?: FsCallback<string | Buffer>
     ): Promise<string | Buffer> | void => {
@@ -660,7 +710,7 @@ export function createFSModule(options: FSModuleOptions) {
     realpathSync,
     symlink: (
       target: string,
-      path: string,
+      path: FsPath,
       typeOrCallback?: string | FsCallback<void>,
       callback?: FsCallback<void>
     ): Promise<void> | void => {
@@ -671,7 +721,7 @@ export function createFSModule(options: FSModuleOptions) {
     },
     symlinkSync: createSymlinkSync,
     rm: (
-      path: string,
+      path: FsPath,
       optionsOrCallback?: RmOptions | FsCallback<void>,
       callback?: FsCallback<void>
     ): Promise<void> | void => {
@@ -681,7 +731,7 @@ export function createFSModule(options: FSModuleOptions) {
       else rmOptions = optionsOrCallback;
       return completeCall(removePath(path, rmOptions), done);
     },
-    rmSync: (path: string, rmOptions: RmOptions = {}): void => {
+    rmSync: (path: FsPath, rmOptions: RmOptions = {}): void => {
       const normalized = normalize(path);
       const mount = filesystem;
       const value = mount.lstatSync(normalized);
@@ -694,29 +744,38 @@ export function createFSModule(options: FSModuleOptions) {
   };
 
   const promises = {
-    readFile: (path: string, encoding?: ReadOptions | FsEncoding) =>
+    readFile: (path: FsPath, encoding?: ReadOptions | FsEncoding) =>
       track(readFile(path, encoding)),
-    writeFile: (path: string, data: string | Uint8Array, writeOptions?: ReadOptions | FsEncoding) =>
+    writeFile: (path: FsPath, data: string | Uint8Array, writeOptions?: ReadOptions | FsEncoding) =>
       track(writeFile(path, data, writeOptions)),
-    readdir: (path: string, readdirOptions?: ReaddirOptions) =>
+    readdir: (path: FsPath, readdirOptions?: ReaddirOptions) =>
       track(readDirectory(path, readdirOptions)),
-    stat: (path: string, statOptions?: StatOptions) => track(getStats(path, 'stat', statOptions)),
-    lstat: (path: string, statOptions?: StatOptions) => track(getStats(path, 'lstat', statOptions)),
-    access: (path: string, mode?: number) => track(accessPath(path, mode)),
-    readlink: (path: string, encoding?: ReadOptions | FsEncoding) =>
+    stat: (path: FsPath, statOptions?: StatOptions) => track(getStats(path, 'stat', statOptions)),
+    lstat: (path: FsPath, statOptions?: StatOptions) => track(getStats(path, 'lstat', statOptions)),
+    access: (path: FsPath, mode?: number) => track(accessPath(path, mode)),
+    readlink: (path: FsPath, encoding?: ReadOptions | FsEncoding) =>
       track(readlink(path, encoding)),
-    realpath: (path: string, encoding?: ReadOptions | FsEncoding) =>
+    realpath: (path: FsPath, encoding?: ReadOptions | FsEncoding) =>
       track(resolveRealpath(path, encoding)),
-    symlink: (target: string, path: string) => track(createSymlink(target, path)),
-    mkdir: (path: string, options?: MkdirOptions) => track(makeDirectory(path, options)),
-    unlink: (path: string) => track(unlinkPath(path)),
+    symlink: (target: string | Buffer, path: FsPath) => track(createSymlink(target, path)),
+    mkdir: (path: FsPath, options?: MkdirOptions) => track(makeDirectory(path, options)),
+    unlink: (path: FsPath) => track(unlinkPath(path)),
     appendFile: (
-      path: string,
+      path: FsPath,
       data: string | Uint8Array,
       writeOptions?: ReadOptions | FsEncoding
     ) => track(appendFile(path, data, writeOptions)),
-    rename: (oldPath: string, newPath: string) => track(renamePath(oldPath, newPath)),
-    rm: (path: string, options?: RmOptions) => track(removePath(path, options)),
+    rename: (oldPath: FsPath, newPath: FsPath) => track(renamePath(oldPath, newPath)),
+    rm: (path: FsPath, options?: RmOptions) => track(removePath(path, options)),
+    copyFile: (source: FsPath, destination: FsPath, flags = 0) =>
+      track(copyFile(filesystem, normalize(source), normalize(destination), flags)),
+    rmdir: (path: FsPath) => track(removeDirectory(filesystem, normalize(path))),
+    mkdtemp: (prefix: FsPath, readOptions?: ReadOptions | FsEncoding) =>
+      track(
+        makeTempDirectory(filesystem, normalize(prefix)).then(path =>
+          tempDirectoryResult(path, readOptions)
+        )
+      ),
   };
   return { ...operations, promises };
 }

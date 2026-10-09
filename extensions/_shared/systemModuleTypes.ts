@@ -2,7 +2,7 @@
 
 export interface ProjectFile {
   path: string;
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
   size: number;
   mtime: number;
 }
@@ -110,11 +110,7 @@ export interface GitCommandsPublic {
   getCurrentBranch(): Promise<string>;
   status(): Promise<string>;
   init(): Promise<string>;
-  clone(
-    url: string,
-    targetDir?: string,
-    options?: { skipDotGit?: boolean; maxGitObjects?: number }
-  ): Promise<string>;
+  clone(url: string, targetDir?: string, options?: { maxGitObjects?: number }): Promise<string>;
   add(filepath: string): Promise<string>;
   commit(message: string, author?: { name: string; email: string }): Promise<string>;
   push(options?: { remote?: string; branch?: string; force?: boolean }): Promise<string>;

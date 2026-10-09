@@ -26,7 +26,12 @@ import { tabActions } from '@/stores/tabState';
 const DEBOUNCE_MS = 100;
 
 export function useFileDeleteTabSync() {
-  const { handleFileDeleted, handleFilesDeleted, handleFilesRenamed } = tabActions;
+  const {
+    handleFileDeleted,
+    handleFilesDeleted,
+    handleFilesRenamed,
+    invalidateSavesForDeletedPath,
+  } = tabActions;
   const pendingDeletesRef = useRef<Set<string>>(new Set());
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -55,6 +60,7 @@ export function useFileDeleteTabSync() {
         return;
       }
       if (event.type === 'delete') {
+        invalidateSavesForDeletedPath(event.path);
         // 削除パスを収集
         pendingDeletesRef.current.add(event.path);
 

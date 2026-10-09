@@ -1,10 +1,11 @@
 import { ModuleCode } from './moduleCode';
 
+const NativeFunction = Function;
+
 /** Function-created code keeps global scope and closes only the module import callback. */
 export function createRuntimeFunction(
   importModule: (specifier: string) => Promise<unknown>
 ): FunctionConstructor {
-  const NativeFunction = Function;
   const create = (argumentsList: string[], newTarget: Function = NativeFunction): Function => {
     const parameters = argumentsList.map(String);
     const body = parameters.pop() || '';

@@ -1,44 +1,35 @@
-import type { Terminal } from '@xterm/xterm';
 import { readFileContent } from '@/engine/core/fileContent';
 import { normalizePath, resolvePath } from '@/engine/core/fs';
-import { VimEditor } from '../app/vim/VimEditor';
+import { VimEditor, type VimTerminal } from '../app/vim/VimEditor';
 
 interface UnixCommands {
   pwd(): Promise<string>;
 }
 
-// Vim command handler that integrates VimEditor with the terminal
-// src/engine/cmd/handlers/vimHandler.ts
 export async function handleVimCommand(
   args: string[],
   unixCommandsRef: { current: UnixCommands | null } | null,
   captureWriteOutput: (output: string) => Promise<void> | void,
   rootPath: string,
-  xtermInstance?: Terminal,
+  xtermInstance?: VimTerminal,
   onVimExit?: () => void
 ) {
-  const write = async (s: string) => {
-    try {
-      await captureWriteOutput(s);
-    } catch {
-      // ignore
-    }
-  };
+  const write = captureWriteOutput;
 
   if (!args || args.length === 0) {
     await write('Usage: vim <file>\n');
-    return;
+    return null;
+  }
+  if (args.length > 1) {
+    await write('vim: Multiple files are not supported; use vim <file>\n');
+    return null;
   }
 
   // Check if xterm instance is available
   if (!xtermInstance) {
     await write('vim: Terminal instance not available\n');
-    return;
+    return null;
   }
-
-  // **【重要】vim起動前にターミナルを完全にクリア**
-  xtermInstance.clear();
-  xtermInstance.write('\x1b[2J\x1b[3J\x1b[H');
 
   try {
     const cwd = unixCommandsRef?.current ? await unixCommandsRef.current.pwd() : rootPath;
@@ -71,7 +62,7 @@ export async function handleVimCommand(
     // Return VimEditor instance for external control (e.g., ESC button)
     return vimEditor;
   } catch (e) {
-    await write(`vim: Error: ${(e as Error).message}\n`);
+    await write(`vim: Error: ${e instanceof Error ? e.message : String(e)}\n`);
   }
 
   return null;

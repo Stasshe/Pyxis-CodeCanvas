@@ -28,6 +28,7 @@ export class SettingsManager {
   private static instance: SettingsManager | null = null;
   private listeners = new Map<string, Set<(settings: PyxisSettings) => void>>();
   private updating = new Set<string>();
+  private pendingUpdates = new Map<string, Promise<void>>();
 
   private constructor() {
     fsClient.addChangeListener(event => {
@@ -94,9 +95,28 @@ export class SettingsManager {
     rootPath: string,
     updates: Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>)
   ): Promise<void> {
-    const current = await this.loadSettings(rootPath);
-    const changes = typeof updates === 'function' ? updates(current) : updates;
-    await this.saveSettings(rootPath, mergeSettings(current, changes));
+    const previousUpdate = this.pendingUpdates.get(rootPath) ?? Promise.resolve();
+    const update = previousUpdate
+      .catch(() => undefined)
+      .then(async () => {
+        const current = await this.loadSettings(rootPath);
+        let changes: Partial<PyxisSettings>;
+        if (typeof updates === 'function') {
+          changes = updates(current);
+        } else {
+          changes = updates;
+        }
+        await this.saveSettings(rootPath, mergeSettings(current, changes));
+      });
+    this.pendingUpdates.set(rootPath, update);
+
+    try {
+      await update;
+    } finally {
+      if (this.pendingUpdates.get(rootPath) === update) {
+        this.pendingUpdates.delete(rootPath);
+      }
+    }
   }
 }
 

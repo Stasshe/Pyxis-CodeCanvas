@@ -1,119 +1,138 @@
+import { PassThrough } from 'node:stream';
 import { Buffer } from 'buffer';
-import { isProcessExitSignal } from './processExit';
 
 type DataListener = (data: Buffer) => void;
 type EndListener = () => void;
 
 export interface RuntimeStdin {
   readonly isTTY: boolean;
+  setRawMode(enabled: boolean): RuntimeStdin;
   on(event: 'data', listener: DataListener): RuntimeStdin;
   on(event: 'end' | 'close', listener: EndListener): RuntimeStdin;
   once(event: 'data', listener: DataListener): RuntimeStdin;
   once(event: 'end' | 'close', listener: EndListener): RuntimeStdin;
   removeListener(event: 'data', listener: DataListener): RuntimeStdin;
   removeListener(event: 'end' | 'close', listener: EndListener): RuntimeStdin;
-  pause(): void;
-  resume(): void;
+  pause(): RuntimeStdin;
+  resume(): RuntimeStdin;
 }
 
-export class WorkerStdin implements RuntimeStdin {
-  readonly isTTY = true;
-  private readonly data = new Set<DataListener>();
-  private readonly end = new Set<EndListener>();
+export class WorkerStdin extends PassThrough implements RuntimeStdin {
+  readonly isTTY: boolean;
   private release: (() => void) | undefined;
+  private requested = false;
   private ended = false;
   private sourceEnded = false;
-  private paused = false;
   private disposed = false;
-  private readonly queued: Buffer[] = [];
+  private inputPaused = false;
+  private hostPaused = false;
+  private hadDataConsumer = false;
 
   constructor(
     private readonly track: (promise: Promise<void>) => void,
     private readonly request: () => void,
-    private readonly pauseInput: () => void
-  ) {}
+    private readonly pauseInput: () => void,
+    private readonly changeRawMode: (enabled: boolean) => void = () => {},
+    isTTY = true
+  ) {
+    super();
+    this.isTTY = isTTY;
+    this.on('newListener', event => {
+      if (event === 'data' || event === 'readable') queueMicrotask(() => this.updateInput());
+    });
+    this.on('removeListener', event => {
+      if (event === 'data' || event === 'readable') this.updateInput();
+    });
+    this.on('end', () => {
+      this.ended = true;
+      this.unref();
+    });
+  }
 
-  on(event: 'data', listener: DataListener): this;
-  on(event: 'end' | 'close', listener: EndListener): this;
-  on(event: string, listener: DataListener | EndListener): this {
-    if (this.disposed) return this;
-    if (event === 'data') {
-      this.data.add(listener as DataListener);
-      this.ref();
-      queueMicrotask(() => {
-        try {
-          if (this.disposed) return;
-          this.drain();
-        } catch (error) {
-          if (!isProcessExitSignal(error)) throw error;
-        }
-      });
-    } else if (event === 'end' || event === 'close') {
-      this.end.add(listener as EndListener);
-    }
+  setRawMode(enabled: boolean): this {
+    if (!this.isTTY) throw new Error('Cannot set raw mode on a non-TTY input stream.');
+    this.changeRawMode(enabled);
     return this;
   }
 
-  once(event: 'data', listener: DataListener): this;
-  once(event: 'end' | 'close', listener: EndListener): this;
-  once(event: string, listener: DataListener | EndListener): this {
-    if (event === 'data') {
-      const wrapped: DataListener = chunk => {
-        this.removeListener('data', wrapped);
-        (listener as DataListener)(chunk);
-      };
-      return this.on('data', wrapped);
-    }
-    const wrapped = () => {
-      this.end.delete(wrapped);
-      (listener as EndListener)();
-    };
-    return this.on('end', wrapped);
+  override pause(): this {
+    this.inputPaused = true;
+    super.pause();
+    this.pauseHost();
+    this.unref();
+    return this;
   }
 
-  removeListener(event: 'data', listener: DataListener): this;
-  removeListener(event: 'end' | 'close', listener: EndListener): this;
-  removeListener(event: string, listener: DataListener | EndListener): this {
-    if (this.disposed) return this;
-    if (event === 'data') {
-      this.data.delete(listener as DataListener);
-      if (this.data.size === 0) {
-        this.pauseInput();
-        this.unref();
-      }
-    } else this.end.delete(listener as EndListener);
+  override resume(): this {
+    if (this.disposed || this.ended) return this;
+    this.inputPaused = false;
+    super.resume();
+    this.updateInput();
     return this;
   }
 
   submit(data: string | Uint8Array): void {
     if (this.disposed || this.sourceEnded) return;
-    this.queued.push(Buffer.from(data));
-    this.drain();
-  }
-
-  private drain(): void {
-    if (this.disposed || this.ended || this.paused) return;
-    while (this.data.size > 0 && this.queued.length > 0 && !this.paused) {
-      const listener = [...this.data].at(-1)!;
-      listener(this.queued.shift()!);
-    }
-    if (this.sourceEnded && this.queued.length === 0 && !this.paused) {
-      this.ended = true;
-      for (const listener of [...this.end]) listener();
-      this.data.clear();
-      this.end.clear();
-      this.unref();
-    } else if (this.data.size > 0 && !this.paused) this.request();
+    this.requested = false;
+    this.write(Buffer.from(data));
+    this.updateInput();
   }
 
   eof(): void {
-    if (this.disposed) return;
+    if (this.disposed || this.sourceEnded) return;
     this.sourceEnded = true;
-    this.drain();
+    this.requested = false;
+    this.end();
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.pauseInput();
+    this.unref();
+    this.destroy();
+  }
+
+  override _read(size: number): void {
+    super._read(size);
+    this.updateInput();
+  }
+
+  private updateInput(): void {
+    if (this.disposed || this.ended) return;
+    const dataListeners = this.listenerCount('data');
+    const hasConsumer = dataListeners > 0 || this.listenerCount('readable') > 0;
+    if (!hasConsumer || this.inputPaused) {
+      if (!hasConsumer && this.hadDataConsumer && !this.inputPaused) super.pause();
+      this.requested = false;
+      this.pauseHost();
+      this.unref();
+      return;
+    }
+    if (dataListeners > 0) {
+      this.hadDataConsumer = true;
+      if (this.listenerCount('readable') === 0 && this.isPaused()) super.resume();
+    }
+    this.hostPaused = false;
+    this.ref();
+    if (this.sourceEnded) {
+      return;
+    }
+    if (this.readableLength >= this.readableHighWaterMark) return;
+    if (!this.requested) {
+      this.requested = true;
+      this.request();
+    }
+  }
+
+  private pauseHost(): void {
+    if (this.hostPaused) return;
+    this.hostPaused = true;
+    this.pauseInput();
   }
 
   private ref(): void {
-    if (this.disposed || this.release || this.ended || this.paused || this.data.size === 0) return;
+    if (this.release || this.ended || this.disposed) return;
     this.track(
       new Promise<void>(resolve => {
         this.release = resolve;
@@ -124,28 +143,5 @@ export class WorkerStdin implements RuntimeStdin {
   private unref(): void {
     this.release?.();
     this.release = undefined;
-  }
-
-  pause(): void {
-    if (this.disposed) return;
-    this.paused = true;
-    this.pauseInput();
-    this.unref();
-  }
-
-  resume(): void {
-    if (this.disposed) return;
-    this.paused = false;
-    this.ref();
-    this.drain();
-  }
-
-  dispose(): void {
-    if (this.disposed) return;
-    this.disposed = true;
-    this.data.clear();
-    this.end.clear();
-    this.queued.length = 0;
-    this.unref();
   }
 }

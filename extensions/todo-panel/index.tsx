@@ -3,18 +3,11 @@
  * Pyxis内のファイルから TODO: コメントを検索して一覧表示
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { CircleCheck, ListTodo, RefreshCw, Search } from 'lucide-react';
 
 import type { ExtensionActivation, ExtensionContext } from '../_shared/types';
-
-interface TodoItem {
-  id: string;
-  text: string;
-  filePath: string;
-  line: number;
-  projectName: string;
-  file: { id: string; name: string; path: string; type: 'file' };
-}
+import { scanTodos as scanTodoFiles, type TodoItem } from './todoScanner';
 
 // サイドバーパネルコンポーネント
 function createTodoSidebarPanel(context: ExtensionContext) {
@@ -23,6 +16,7 @@ function createTodoSidebarPanel(context: ExtensionContext) {
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState('');
     const [rootPath, setRootPath] = useState<string | null>(null);
+    const scanGeneration = useRef(0);
 
     useEffect(() => {
       let unsubscribe: (() => void) | undefined;
@@ -40,50 +34,27 @@ function createTodoSidebarPanel(context: ExtensionContext) {
 
     // TODO検索関数
     const scanTodos = useCallback(async () => {
+      const generation = scanGeneration.current + 1;
+      scanGeneration.current = generation;
       if (!rootPath) {
         setTodos([]);
+        setLoading(false);
         return;
       }
 
       setLoading(true);
       try {
         const fsClient = await context.getSystemModule('fsClient');
-        const files = await fsClient.walk(rootPath);
-        const allTodos: TodoItem[] = [];
-
-        for (const file of files) {
-          if (file.type !== 'file') continue;
-          let content: string;
-          try {
-            content = await fsClient.readText(file.path);
-          } catch {
-            continue;
-          }
-          content.split('\n').forEach((line, index) => {
-            const todoMatch = line.match(/(?:TODO|FIXME)\s*[:：]\s*(.+)/i);
-            if (todoMatch) {
-              allTodos.push({
-                id: `${file.path}-${index}`,
-                text: todoMatch[1].trim(),
-                filePath: file.path,
-                line: index + 1,
-                projectName: rootPath.split('/').pop() ?? rootPath,
-                file: {
-                  id: file.path,
-                  name: file.path.split('/').pop() ?? file.path,
-                  path: file.path,
-                  type: 'file',
-                },
-              });
-            }
-          });
-        }
-
-        setTodos(allTodos);
+        const allTodos = await scanTodoFiles(
+          fsClient,
+          rootPath,
+          () => generation === scanGeneration.current
+        );
+        if (allTodos !== null && generation === scanGeneration.current) setTodos(allTodos);
       } catch (error) {
         console.error('Failed to scan TODOs:', error);
       } finally {
-        setLoading(false);
+        if (generation === scanGeneration.current) setLoading(false);
       }
     }, [rootPath]);
 
@@ -92,6 +63,9 @@ function createTodoSidebarPanel(context: ExtensionContext) {
       if (isActive) {
         scanTodos();
       }
+      return () => {
+        scanGeneration.current += 1;
+      };
     }, [isActive, scanTodos]);
 
     // TODOをクリックしたときにファイルを開く
@@ -146,9 +120,9 @@ function createTodoSidebarPanel(context: ExtensionContext) {
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>📋 TODO</h3>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><ListTodo size={14} /> TODO</h3>
             <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#888' }}>
-              {loading ? '🔍 Scanning...' : `${todos.length} found • ${filteredTodos.length} shown`}
+              {loading ? <><Search size={12} /> Scanning...</> : `${todos.length} found • ${filteredTodos.length} shown`}
             </p>
           </div>
           <button
@@ -165,7 +139,7 @@ function createTodoSidebarPanel(context: ExtensionContext) {
               fontWeight: 'bold',
             }}
           >
-            {loading ? '...' : '🔄'}
+            {loading ? '...' : <RefreshCw size={13} />}
           </button>
         </div>
 
@@ -204,12 +178,12 @@ function createTodoSidebarPanel(context: ExtensionContext) {
         >
           {loading ? (
             <p style={{ color: '#888', textAlign: 'center', marginTop: '32px', fontSize: '12px' }}>
-              🔍 Scanning...
+              <><Search size={12} /> Scanning...</>
             </p>
           ) : filteredTodos.length === 0 ? (
             <div style={{ textAlign: 'center', marginTop: '32px' }}>
               <p style={{ color: '#888', fontSize: '12px' }}>
-                {filter ? '🔍 No matches' : '✅ No TODOs found'}
+                {filter ? <><Search size={12} /> No matches</> : <><CircleCheck size={12} /> No TODOs found</>}
               </p>
               {!filter && todos.length === 0 && (
                 <p style={{ color: '#666', fontSize: '11px', marginTop: '8px', padding: '0 12px' }}>

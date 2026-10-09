@@ -1,15 +1,19 @@
 /** Creates the built-in modules exposed to one Node runtime worker. */
 
-import * as stream from 'node:stream';
+import stream from 'node:stream';
 import * as buffer from 'buffer';
 import { HOME_DIR } from '@/engine/core/pathUtils';
 import type { RuntimeBridge } from '@/engine/runtime/bridge/client';
 import type { RuntimeStdin } from '@/engine/runtime/nodejs/workerStdin';
 import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
 import { createAssertModule } from './modules/assertModule';
-import { createChildProcessModule } from './modules/childProcessModule';
+import {
+  type ChildProcessModuleOptions,
+  createChildProcessModule,
+} from './modules/childProcessModule';
 import { createConstantsModule } from './modules/constantsModule';
 import { createCryptoModule } from './modules/cryptoModule';
+import { createDiagnosticsChannelModule } from './modules/diagnosticsChannel';
 import { createEventsModule } from './modules/eventsModule';
 import { createFSModule, type FSModuleOptions } from './modules/fsModule';
 import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
@@ -18,12 +22,15 @@ import * as netModule from './modules/netModule';
 import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
 import * as querystringModule from './modules/querystringModule';
-import { createReadlineModule } from './modules/readlineModule';
+import { createRuntimeStreamModule } from './modules/readableWebAdapters';
+import { createReadlineModule, createReadlinePromisesModule } from './modules/readlineModule';
 import * as stringDecoderModule from './modules/stringDecoderModule';
 import { createTTYModule } from './modules/ttyModule';
 import * as urlModule from './modules/urlModule';
+import { createUrlModule } from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 import { createV8Module } from './modules/v8Module';
+import { createWebStreamsModule } from './modules/webStreamsModule';
 import { createZlibModule } from './modules/zlibModule';
 
 export interface BuiltInModulesOptions {
@@ -31,13 +38,11 @@ export interface BuiltInModulesOptions {
   bridge: RuntimeBridge;
   processStdin?: RuntimeStdin;
   getTrackIO?: () => (<T>(p: Promise<T>) => Promise<T>) | undefined;
-  requireFactory?: (filename: string) => (id: string) => unknown;
+  requireFactory: (filename: string) => (id: string) => unknown;
+  scheduleNextTick: (callback: () => void) => void;
   getCwd?: () => string;
   getEnv?: () => Record<string, string>;
-  runShell?: (
-    command: string,
-    options?: { cwd?: string; env?: Record<string, string> }
-  ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
+  runShell?: ChildProcessModuleOptions['runShell'];
   filesystem: RuntimeFsMount;
   writeStdout: (data: string | Uint8Array) => void;
   writeStderr: (data: string | Uint8Array) => void;
@@ -46,8 +51,9 @@ export interface BuiltInModulesOptions {
 }
 
 export interface BuiltInModules {
-  url: typeof urlModule;
+  url: ReturnType<typeof createUrlModule>;
   stream: typeof stream;
+  webStreams: ReturnType<typeof createWebStreamsModule>;
   fs: ReturnType<typeof createFSModule>;
   path: ReturnType<typeof createPathModule>;
   os: ReturnType<typeof createOSModule>;
@@ -57,6 +63,7 @@ export interface BuiltInModules {
   events: ReturnType<typeof createEventsModule>;
   buffer: typeof buffer;
   readline: ReturnType<typeof createReadlineModule>;
+  readlinePromises: ReturnType<typeof createReadlinePromisesModule>;
   string_decoder: typeof stringDecoderModule;
   querystring: typeof querystringModule;
   tty: ReturnType<typeof createTTYModule>;
@@ -65,6 +72,7 @@ export interface BuiltInModules {
   net: typeof netModule;
   v8: ReturnType<typeof createV8Module>;
   crypto: ReturnType<typeof createCryptoModule>;
+  diagnostics_channel: ReturnType<typeof createDiagnosticsChannelModule>;
   child_process: ReturnType<typeof createChildProcessModule>;
   constants: ReturnType<typeof createConstantsModule>;
   zlib: ReturnType<typeof createZlibModule>;
@@ -78,6 +86,7 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     processStdin,
     getTrackIO,
     requireFactory,
+    scheduleNextTick,
     getCwd,
     getEnv,
     runShell,
@@ -100,23 +109,30 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
     path: createPathModule(getCwd ?? (() => rootPath)),
     os: createOSModule(HOME_DIR),
     util: createUtilModule(),
-    http: createHTTPModule(),
-    https: createHTTPSModule(),
+    http: createHTTPModule(getTrackIO),
+    https: createHTTPSModule(getTrackIO),
     events: createEventsModule(),
     buffer,
     readline: createReadlineModule(processStdin, getTrackIO),
+    readlinePromises: createReadlinePromisesModule(processStdin, getTrackIO),
     querystring: querystringModule,
     string_decoder: stringDecoderModule,
-    tty: createTTYModule(terminalColumns, terminalRows),
+    tty: createTTYModule(terminalColumns, terminalRows, enabled =>
+      processStdin?.setRawMode(enabled)
+    ),
     assert: createAssertModule(),
     module: createModuleModule(requireFactory),
     net: netModule,
-    url: urlModule,
-    stream: stream,
+    url: createUrlModule(getCwd ?? (() => rootPath)),
+    stream: createRuntimeStreamModule(),
+    webStreams: createWebStreamsModule(),
     v8: createV8Module(),
-    crypto: createCryptoModule(),
+    crypto: createCryptoModule(getTrackIO),
+    diagnostics_channel: createDiagnosticsChannelModule(scheduleNextTick),
     child_process: createChildProcessModule({
       runShell,
+      writeStdout,
+      writeStderr,
       runShellSync: (command, shellOptions) => {
         const value = bridge.sync({
           kind: 'shell',
@@ -130,9 +146,13 @@ export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInMod
         if (!('stdout' in value) || !('stderr' in value) || !('exitCode' in value)) {
           throw new Error('Synchronous shell bridge returned invalid data.');
         }
+        const isOutput = (output: unknown): output is string | Uint8Array | number[] =>
+          typeof output === 'string' ||
+          output instanceof Uint8Array ||
+          (Array.isArray(output) && output.every(byte => typeof byte === 'number'));
         if (
-          typeof value.stdout !== 'string' ||
-          typeof value.stderr !== 'string' ||
+          !isOutput(value.stdout) ||
+          !isOutput(value.stderr) ||
           typeof value.exitCode !== 'number'
         ) {
           throw new Error('Synchronous shell bridge returned invalid data.');

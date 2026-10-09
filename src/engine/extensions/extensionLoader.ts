@@ -3,6 +3,8 @@
  * 拡張機能のコードをfetchしてロード・実行する
  */
 
+import { parser } from '@lezer/javascript';
+
 import { detectFileContent } from '@/engine/core/fileBytes';
 import { assetPath } from '@/env';
 import { dataUrlToBlob, toDataUrlFromUint8 } from './binaryUtils';
@@ -13,6 +15,7 @@ import type {
   ExtensionExports,
   ExtensionManifest,
 } from './types';
+import { ExtensionType } from './types';
 
 /**
  * 拡張機能のベースURL（public/extensions/）
@@ -37,13 +40,70 @@ export async function fetchExtensionManifest(
       return null;
     }
 
-    const manifest = await response.json();
+    const manifest: unknown = await response.json();
+    if (!isExtensionManifest(manifest)) {
+      extensionError(`Invalid extension manifest: ${url}`);
+      return null;
+    }
     extensionInfo(`Manifest loaded: ${manifest.id}`);
-    return manifest as ExtensionManifest;
+    return manifest;
   } catch (error) {
     extensionError('Error fetching manifest:', error);
     return null;
   }
+}
+
+export function isExtensionManifest(value: unknown): value is ExtensionManifest {
+  if (value === null || typeof value !== 'object') return false;
+  const manifest = value as Record<string, unknown>;
+  return (
+    typeof manifest.id === 'string' &&
+    manifest.id.trim().length > 0 &&
+    typeof manifest.name === 'string' &&
+    manifest.name.trim().length > 0 &&
+    typeof manifest.version === 'string' &&
+    manifest.version.trim().length > 0 &&
+    Object.values(ExtensionType).includes(manifest.type as ExtensionType) &&
+    typeof manifest.description === 'string' &&
+    typeof manifest.author === 'string' &&
+    typeof manifest.entry === 'string' &&
+    manifest.entry.trim().length > 0 &&
+    (manifest.defaultEnabled === undefined || typeof manifest.defaultEnabled === 'boolean') &&
+    isOptionalString(manifest.icon) &&
+    isOptionalString(manifest.homepage) &&
+    isOptionalString(manifest.onlyOne) &&
+    isOptionalString(manifest.readme) &&
+    (manifest.dependencies === undefined ||
+      (Array.isArray(manifest.dependencies) &&
+        manifest.dependencies.every(dependency => typeof dependency === 'string'))) &&
+    (manifest.files === undefined ||
+      (Array.isArray(manifest.files) &&
+        manifest.files.every(file => typeof file === 'string' && file.trim().length > 0))) &&
+    (manifest.packGroup === undefined ||
+      (manifest.packGroup !== null &&
+        typeof manifest.packGroup === 'object' &&
+        !Array.isArray(manifest.packGroup) &&
+        typeof (manifest.packGroup as Record<string, unknown>).id === 'string' &&
+        typeof (manifest.packGroup as Record<string, unknown>).name === 'string')) &&
+    isValidMetadata(manifest.metadata)
+  );
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string';
+}
+
+function isValidMetadata(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const metadata = value as Record<string, unknown>;
+  return (
+    typeof metadata.publishedAt === 'string' &&
+    (metadata.updatedAt === undefined || typeof metadata.updatedAt === 'string') &&
+    (metadata.downloads === undefined || typeof metadata.downloads === 'number') &&
+    (metadata.tags === undefined ||
+      (Array.isArray(metadata.tags) && metadata.tags.every(tag => typeof tag === 'string')))
+  );
 }
 
 /**
@@ -99,9 +159,13 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
   files: Record<string, string>;
 } | null> {
   try {
+    if (!isExtensionManifest(manifest)) {
+      extensionError('Invalid extension manifest');
+      return null;
+    }
     extensionInfo(`Fetching extension code for: ${manifest.id}`);
     // エントリーポイントを取得
-    const entryCode = await fetchExtensionFile(manifest, manifest.entry || 'index.js', true);
+    const entryCode = await fetchExtensionFile(manifest, manifest.entry, true);
     if (entryCode === null) {
       extensionError('Failed to load entry point');
       return null;
@@ -113,10 +177,11 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
       await Promise.all(
         manifest.files.map(async filePath => {
           const code = await fetchExtensionFile(manifest, filePath);
-          if (code !== null) {
-            files[filePath] = code;
-            extensionInfo(`Loaded additional file: ${filePath}`);
+          if (code === null) {
+            throw new Error(`Failed to load declared extension file: ${filePath}`);
           }
+          files[filePath] = code;
+          extensionInfo(`Loaded additional file: ${filePath}`);
         })
       );
     }
@@ -138,120 +203,29 @@ export async function fetchExtensionCode(manifest: ExtensionManifest): Promise<{
 export async function loadExtensionModule(
   entryCode: string,
   additionalFiles: Record<string, string | Blob>,
-  context: ExtensionContext
+  context: ExtensionContext,
+  entryPath = 'index.js'
 ): Promise<ExtensionExports | null> {
   try {
     extensionInfo('Loading extension module');
 
     // Reactが利用可能か確認
-    if (typeof window !== 'undefined' && !(window as any).__PYXIS_REACT__) {
+    if (typeof window !== 'undefined' && !window.__PYXIS_REACT__) {
       extensionError(
         'React is not available in global scope. Ensure ExtensionManager.initialize() has been called before loading extensions.'
       );
       return null;
     }
 
-    // Blob URLのマップを作成（クリーンアップのため）
+    // Blob URLs stay alive while the extension is active because dynamic imports
+    // may be evaluated after the entry module has loaded.
     const blobUrls: string[] = [];
+    let loaded = false;
 
     try {
-      // Import Mapを作成
-      const importMap: Record<string, string> = {};
-
-      // 追加ファイルをBlobURLとして登録
-      // Note: transformImportsはビルド時に適用済みなので、ここでは適用しない
-      for (const [filePath, code] of Object.entries(additionalFiles)) {
-        let url: string;
-        try {
-          // If the file is a data URL (binary stored as data:<mime>;base64,...) create a blob from it
-          const isBlobLike =
-            code && typeof code === 'object' && 'size' in (code as any) && 'type' in (code as any);
-          if (isBlobLike) {
-            url = URL.createObjectURL(code as Blob);
-          } else if (typeof code === 'string' && code.startsWith('data:')) {
-            try {
-              const blob = dataUrlToBlob(code);
-              url = URL.createObjectURL(blob);
-            } catch (e) {
-              // fallback to treating as text module (already transformed at build time)
-              const blob = new Blob([code as string], { type: 'application/javascript' });
-              url = URL.createObjectURL(blob);
-              console.error('[ExtensionLoader] Failed to convert dataUrl to Blob for', filePath, e);
-            }
-          } else {
-            // コードは既にビルド時にtransformImportsが適用済み
-            const blob = new Blob([code as string], { type: 'application/javascript' });
-            url = URL.createObjectURL(blob);
-          }
-        } catch (err) {
-          console.error('[ExtensionLoader] Error creating Blob for', filePath, err);
-          throw err;
-        }
-        blobUrls.push(url);
-
-        // 相対パスをimport mapに登録
-        const normalizedPath = filePath.startsWith('./') ? filePath : `./${filePath}`;
-        const pathWithoutExt = normalizedPath.replace(/\.(js|ts|tsx)$/, '');
-        importMap[normalizedPath] = url;
-        importMap[pathWithoutExt] = url;
-        extensionInfo(`Mapped module: ${normalizedPath} -> ${url.slice(0, 50)}...`);
-      }
-
-      // ランタイム保険: `react/jsx-runtime` と `react/jsx-dev-runtime` の shim を作成して
-      // import map に登録しておく。ビルド時に漏れていた場合でもここで解決できる。
-      try {
-        const jsxShimCode =
-          'export const jsx = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const jsxs = (...args) => window.__PYXIS_REACT__.createElement(...args);\nexport const Fragment = window.__PYXIS_REACT__.Fragment;\n';
-        const jsxBlob = new Blob([jsxShimCode], { type: 'application/javascript' });
-        const jsxUrl = URL.createObjectURL(jsxBlob);
-        blobUrls.push(jsxUrl);
-        importMap['react/jsx-runtime'] = jsxUrl;
-        importMap['react/jsx-dev-runtime'] = jsxUrl;
-        extensionInfo(`Runtime shim registered: react/jsx-runtime -> ${jsxUrl.slice(0, 50)}...`);
-      } catch (e) {
-        console.error('[ExtensionLoader] Failed to create runtime jsx shim', e);
-      }
-
-      // エントリーコードは既にビルド時にtransformImportsが適用済み
-      // 相対importをBlobURLに書き換え
-      const processedEntryCode = entryCode.replace(
-        /from\s+['"](\.[^'"]+)['"]/g,
-        (match, importPath) => {
-          let normalizedImportPath = importPath;
-          if (!importPath.match(/\.(js|ts|tsx)$/)) {
-            const withJs = `${importPath}.js`;
-            if (importMap[withJs]) {
-              normalizedImportPath = withJs;
-            }
-          }
-          const resolvedUrl = importMap[normalizedImportPath];
-          if (resolvedUrl) {
-            extensionInfo(`Resolved import: ${importPath} -> ${resolvedUrl.slice(0, 50)}...`);
-            return `from '${resolvedUrl}'`;
-          }
-          extensionError(`Failed to resolve import: ${importPath}`);
-          // 詳細なimportMapの内容を出力
-          console.error('[ExtensionLoader] importMap:', importMap);
-          return match;
-        }
-      );
-
-      // デバッグ: 変換後のコードの最初の部分をログ出力
-      console.log('[ExtensionLoader] Processed code preview:', processedEntryCode.slice(0, 500));
-      // 変換前のentryCodeも出力
-      console.log('[ExtensionLoader] Raw entryCode preview:', entryCode.slice(0, 500));
-
-      // エントリーポイントをBlobURLとして作成
-      let entryBlob: Blob;
-      let entryUrl: string;
-      try {
-        entryBlob = new Blob([processedEntryCode], { type: 'application/javascript' });
-        entryUrl = URL.createObjectURL(entryBlob);
-        blobUrls.push(entryUrl);
-      } catch (err) {
-        console.error('[ExtensionLoader] Failed to create Blob for entry code', err);
-        throw err;
-      }
+      const graph = buildExtensionModuleGraph(entryCode, additionalFiles, entryPath);
+      blobUrls.push(...graph.blobUrls);
+      const { entryUrl } = graph;
 
       // Dynamic importでモジュールをロード
       let module: ExtensionExports;
@@ -259,77 +233,6 @@ export async function loadExtensionModule(
         module = await import(/* @vite-ignore */ entryUrl);
       } catch (err) {
         console.error('[ExtensionLoader] Failed to import entryUrl', entryUrl, err);
-        // 変換後コードの先頭1000文字も出力
-        console.error(
-          '[ExtensionLoader] Processed entryCode (first 10000 chars):',
-          processedEntryCode.slice(0, 10000)
-        );
-        console.error(
-          '[ExtensionLoader] Raw entryCode (first 10000 chars):',
-          entryCode.slice(0, 10000)
-        );
-
-        // フォールバック診断: <script type="module"> を挿入して window.onerror で詳細を取得する
-        try {
-          if (typeof document !== 'undefined' && typeof window !== 'undefined') {
-            console.info(
-              '[ExtensionLoader] Attempting fallback diagnostics by injecting module script'
-            );
-
-            const script = document.createElement('script');
-            script.type = 'module';
-            // Append sourceURL to help devtools map errors to blob URL
-            const codeWithSource = `${processedEntryCode}\n//# sourceURL=${entryUrl}`;
-            script.textContent = codeWithSource;
-
-            const errorInfo: {
-              caught: boolean;
-              message?: string;
-              filename?: string;
-              lineno?: number;
-              colno?: number;
-              error?: { message?: string; stack?: string };
-            } = { caught: false };
-
-            const onError = (event: ErrorEvent) => {
-              try {
-                errorInfo.caught = true;
-                errorInfo.message = event.message;
-                errorInfo.filename = event.filename;
-                errorInfo.lineno = event.lineno;
-                errorInfo.colno = event.colno;
-                errorInfo.error = event.error
-                  ? { message: event.error.message, stack: event.error.stack }
-                  : undefined;
-                console.error(
-                  '[ExtensionLoader][Fallback] module execution error event:',
-                  errorInfo
-                );
-              } finally {
-                window.removeEventListener('error', onError as any);
-                // remove script after error captured
-                try {
-                  script.remove();
-                } catch {}
-              }
-            };
-
-            window.addEventListener('error', onError as any);
-            // Append to DOM to execute
-            document.head.appendChild(script);
-
-            // Wait briefly to allow synchronous errors to fire (module top-level errors are usually sync)
-            await new Promise(res => setTimeout(res, 200));
-
-            if (!errorInfo.caught) {
-              console.warn(
-                '[ExtensionLoader][Fallback] No window.error captured by fallback (error may be async or swallowed).'
-              );
-            }
-          }
-        } catch (diagErr) {
-          console.error('[ExtensionLoader] Fallback diagnostics failed:', diagErr);
-        }
         throw err;
       }
 
@@ -341,22 +244,144 @@ export async function loadExtensionModule(
       }
 
       extensionInfo('Extension module loaded successfully');
-      return module as ExtensionExports;
+      loaded = true;
+      let disposed = false;
+      const revokeModuleUrls = () => {
+        if (disposed) return;
+        disposed = true;
+        blobUrls.forEach(url => {
+          URL.revokeObjectURL(url);
+        });
+      };
+      return {
+        ...module,
+        deactivate: async () => {
+          try {
+            await module.deactivate?.();
+          } finally {
+            revokeModuleUrls();
+          }
+        },
+      } as ExtensionExports;
     } finally {
-      // 全てのBlobURLをクリーンアップ
-      blobUrls.forEach(url => {
-        URL.revokeObjectURL(url);
-      });
+      if (!loaded) {
+        blobUrls.forEach(url => {
+          URL.revokeObjectURL(url);
+        });
+      }
     }
   } catch (error) {
     extensionError('Error loading extension module:', error);
-    // 追加: entryCodeやadditionalFilesの情報も出力
-    try {
-      console.error('[ExtensionLoader] entryCode (first 1000 chars):', entryCode.slice(0, 1000));
-      console.error('[ExtensionLoader] additionalFiles keys:', Object.keys(additionalFiles));
-    } catch {}
     return null;
   }
+}
+
+function normalizeModulePath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.replaceAll('\\', '/').split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') parts.pop();
+    else parts.push(part);
+  }
+  return parts.join('/');
+}
+
+export function buildExtensionModuleGraph(
+  entryCode: string,
+  additionalFiles: Record<string, string | Blob>,
+  entryPath: string,
+  createUrl: (blob: Blob) => string = blob => URL.createObjectURL(blob),
+  revokeUrl: (url: string) => void = url => URL.revokeObjectURL(url)
+): { entryUrl: string; blobUrls: string[] } {
+  const sourceFiles = new Map<string, string>();
+  for (const [path, source] of Object.entries(additionalFiles)) {
+    if (typeof source === 'string' && !source.startsWith('data:')) {
+      sourceFiles.set(normalizeModulePath(path), source);
+    }
+  }
+  const entryModulePath = normalizeModulePath(entryPath);
+  sourceFiles.set(entryModulePath, entryCode);
+  const moduleUrls = new Map<string, string>();
+  const blobUrls: string[] = [];
+  const building = new Set<string>();
+  const resolveModule = (from: string, specifier: string): string => {
+    const base = normalizeModulePath(`${from.slice(0, from.lastIndexOf('/') + 1)}${specifier}`);
+    const candidates = [
+      base,
+      ...['.js', '.mjs', '.ts', '.tsx'].map(ext => `${base}${ext}`),
+      ...['index.js', 'index.mjs', 'index.ts', 'index.tsx'].map(name => `${base}/${name}`),
+    ];
+    const resolved = candidates.find(candidate => sourceFiles.has(candidate));
+    if (!resolved) throw new Error(`Extension import is missing from manifest.files: ${specifier}`);
+    return resolved;
+  };
+  const buildModule = (path: string): string => {
+    const cachedUrl = moduleUrls.get(path);
+    if (cachedUrl) return cachedUrl;
+    if (building.has(path)) throw new Error(`Circular extension module dependency: ${path}`);
+    building.add(path);
+    const source = sourceFiles.get(path);
+    if (source === undefined) throw new Error(`Extension module not found: ${path}`);
+    const processed = rewriteExtensionModuleImports(source, specifier => {
+      if (!specifier.startsWith('.')) return specifier;
+      return buildModule(resolveModule(path, specifier));
+    });
+    const url = createUrl(new Blob([processed], { type: 'application/javascript' }));
+    blobUrls.push(url);
+    moduleUrls.set(path, url);
+    building.delete(path);
+    return url;
+  };
+  try {
+    return { entryUrl: buildModule(entryModulePath), blobUrls };
+  } catch (error) {
+    blobUrls.forEach(revokeUrl);
+    throw error;
+  }
+}
+
+export function rewriteExtensionModuleImports(
+  source: string,
+  resolve: (specifier: string) => string
+): string {
+  const replacements: Array<{ from: number; to: number; text: string }> = [];
+  parser
+    .parse(source)
+    .topNode.cursor()
+    .iterate(node => {
+      if (
+        node.name !== 'ImportDeclaration' &&
+        node.name !== 'ExportDeclaration' &&
+        node.name !== 'DynamicImport'
+      )
+        return;
+      const literal = node.node.getChild('String') ?? node.node.getChild('TemplateString');
+      if (!literal || (literal.name === 'TemplateString' && literal.getChild('Interpolation')))
+        return;
+      const raw = source.slice(literal.from, literal.to);
+      const specifier = decodeModuleSpecifier(raw);
+      if (!specifier.startsWith('.')) return;
+      const quote = raw[0] === '`' ? '"' : raw[0];
+      replacements.push({
+        from: literal.from,
+        to: literal.to,
+        text: `${quote}${resolve(specifier)}${quote}`,
+      });
+    });
+  replacements.sort((left, right) => right.from - left.from);
+  let rewritten = source;
+  for (const replacement of replacements) {
+    rewritten =
+      rewritten.slice(0, replacement.from) + replacement.text + rewritten.slice(replacement.to);
+  }
+  return rewritten;
+}
+
+function decodeModuleSpecifier(literal: string): string {
+  if (literal.includes('\\')) {
+    throw new Error(`Escaped extension import specifiers are unsupported: ${literal}`);
+  }
+  return literal.slice(1, -1);
 }
 
 /**
@@ -395,14 +420,16 @@ export async function activateExtension(
 /**
  * 拡張機能をデアクティベート
  */
-export async function deactivateExtension(exports: ExtensionExports): Promise<void> {
+export async function deactivateExtension(exports: ExtensionExports): Promise<boolean> {
   try {
     if (exports.deactivate) {
       extensionInfo('Deactivating extension');
       await exports.deactivate();
       extensionInfo('Extension deactivated successfully');
     }
+    return true;
   } catch (error) {
     extensionError('Error deactivating extension:', error);
+    return false;
   }
 }

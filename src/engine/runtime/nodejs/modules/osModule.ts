@@ -1,5 +1,8 @@
+import { signalConstants } from '../signalConstants';
+
 export function createOSModule(homePath: string) {
   return {
+    constants: { signals: signalConstants },
     platform: () => 'browser',
     type: () => 'Browser',
     arch: () => 'x64',

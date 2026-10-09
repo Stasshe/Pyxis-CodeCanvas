@@ -6,7 +6,7 @@ import { RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
 import { resolvePath } from '@/engine/core/pathUtils';
 import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
 import type { TranspilerDescriptor } from '../core/RuntimeProvider';
-import { runtimeInfo } from '../core/runtimeLogger';
+import { runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
 import type { ModuleDependency } from '../module/moduleCode';
 import type { TranspileRequest, TranspileResult, TranspileWorkerApi } from './transpileWorker';
 
@@ -94,7 +94,7 @@ export class TranspileManager {
         options: request.options,
         descriptor,
         compiler: esbuildVersion,
-        transformVersion: 1,
+        transformVersion: 5,
       })
     );
     const cachePath = `${this.cacheDirectory}/${name}.json`;
@@ -122,21 +122,18 @@ export class TranspileManager {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
       throw error;
     }
-    const entry = JSON.parse(content) as CachedTransform;
-    if (
-      !entry ||
-      typeof entry.inputHash !== 'string' ||
-      typeof entry.code !== 'string' ||
-      !Array.isArray(entry.dependencies) ||
-      entry.dependencies.some(
-        dependency =>
-          !dependency ||
-          typeof dependency.specifier !== 'string' ||
-          (dependency.kind !== 'require' && dependency.kind !== 'import')
-      )
-    ) {
-      throw new Error(`Invalid transpile cache entry: ${path}`);
+    let value: unknown;
+    try {
+      value = JSON.parse(content);
+    } catch (error) {
+      runtimeWarn('Discarding corrupt transpile cache:', path, error);
+      return null;
     }
+    if (!isCachedTransform(value)) {
+      runtimeWarn('Discarding invalid transpile cache entry:', path);
+      return null;
+    }
+    const entry = value;
     return entry;
   }
 
@@ -148,4 +145,20 @@ export class TranspileManager {
     }
     return undefined;
   }
+}
+
+function isCachedTransform(value: unknown): value is CachedTransform {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('inputHash' in value) || typeof value.inputHash !== 'string') return false;
+  if (!('code' in value) || typeof value.code !== 'string') return false;
+  if (!('dependencies' in value) || !Array.isArray(value.dependencies)) return false;
+  return value.dependencies.every(
+    (dependency: unknown) =>
+      typeof dependency === 'object' &&
+      dependency !== null &&
+      'specifier' in dependency &&
+      typeof dependency.specifier === 'string' &&
+      'kind' in dependency &&
+      (dependency.kind === 'require' || dependency.kind === 'import')
+  );
 }

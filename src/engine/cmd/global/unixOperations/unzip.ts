@@ -1,19 +1,23 @@
 import JSZip from 'jszip';
-import { fsClient, isPathWithin, normalizePath, resolvePath } from '@/engine/core/fs';
+import { isPathWithin, normalizePath, resolvePath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
 export class UnzipCommand extends UnixCommandBase {
-  async execute(args: string[]): Promise<string> {
-    const { flags, positional, errors } = parseWithGetOpt(args, '', ['help']);
+  async execute(args: string[], bufferContent?: ArrayBuffer): Promise<string> {
+    const { flags, values, positional, errors } = parseWithGetOpt(args, 'd:', ['destdir=', 'help']);
     if (errors.length) throw new Error(errors.join('; '));
     if (flags.has('-h') || flags.has('--help')) {
-      return 'Usage: unzip ARCHIVE.zip [DEST_DIR]\nExtract files from a ZIP archive.';
+      return 'Usage: unzip [-d DEST_DIR] ARCHIVE.zip\nExtract files from a ZIP archive.';
     }
     const archive = positional[0];
     if (!archive) throw new Error('unzip: missing archive operand');
-    const destination = resolvePath(this.currentDir, positional[1] || '.');
-    return this.extract(archive, destination);
+    if (positional.length > 2) {
+      throw new Error('unzip: member selection is not supported');
+    }
+    const destinationArg = values.get('-d') || values.get('--destdir') || positional[1] || '.';
+    const destination = resolvePath(this.currentDir, destinationArg);
+    return this.extract(archive, destination, bufferContent);
   }
 
   async extract(
@@ -26,7 +30,7 @@ export class UnzipCommand extends UnixCommandBase {
     try {
       const bytes = bufferContent
         ? new Uint8Array(bufferContent)
-        : await fsClient.readFile(archivePath);
+        : await this.fs.readFile(archivePath);
       const zip = await JSZip.loadAsync(bytes);
       const entries = Object.values(zip.files);
       const targets = entries.map(file => {
@@ -42,11 +46,11 @@ export class UnzipCommand extends UnixCommandBase {
       let count = 0;
       for (const { file, target } of targets) {
         if (file.dir) {
-          await fsClient.mkdir(target, { recursive: true });
+          await this.fs.mkdir(target, { recursive: true });
         } else {
           const parent = target.slice(0, target.lastIndexOf('/')) || '/';
-          await fsClient.mkdir(parent, { recursive: true });
-          await fsClient.writeFile(target, await file.async('uint8array'));
+          await this.fs.mkdir(parent, { recursive: true });
+          await this.fs.writeFile(target, await file.async('uint8array'));
         }
         count++;
       }

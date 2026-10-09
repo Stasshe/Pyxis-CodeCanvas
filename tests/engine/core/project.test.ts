@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FsChangeEvent } from '@/engine/core/fs';
+import { saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
 import type { Project, ProjectFile } from '@/types';
 
 const mocks = vi.hoisted(() => ({
@@ -130,5 +131,55 @@ describe('useProject filesystem tree publication', () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(mocks.setProjectFiles).not.toHaveBeenCalled();
     expect(mocks.unsubscribe).toHaveBeenCalled();
+  });
+
+  it('runs workspace switching work after preparation but before committing the new root', async () => {
+    const { project } = await useMountedProject();
+    const previousProject = mocks.root;
+    const nextProject = {
+      rootPath: '/other',
+      name: 'other',
+      updatedAt: new Date(),
+    };
+    const beforeCommit = vi.fn(async () => {
+      expect(mocks.root).toBe(previousProject);
+    });
+
+    await project.loadProject(nextProject, beforeCommit);
+
+    expect(mocks.walk.mock.calls).toEqual([['/repo'], ['/other']]);
+    expect(beforeCommit).toHaveBeenCalledOnce();
+    expect(mocks.root).toEqual(nextProject);
+  });
+
+  it('keeps the current root and restores its tree when switching work fails', async () => {
+    const { project } = await useMountedProject();
+    const previousProject = mocks.root;
+    const switchError = new Error('dirty file could not be saved');
+
+    await expect(
+      project.loadProject(
+        { rootPath: '/other', name: 'other', updatedAt: new Date() },
+        async () => {
+          throw switchError;
+        }
+      )
+    ).rejects.toBe(switchError);
+
+    expect(mocks.root).toBe(previousProject);
+    expect(mocks.walk.mock.calls).toEqual([['/repo'], ['/other'], ['/repo']]);
+  });
+
+  it('restores the current tree when recent-folder persistence fails', async () => {
+    const { project } = await useMountedProject();
+    const previousProject = mocks.root;
+    vi.mocked(saveRecentFolder).mockRejectedValueOnce(new Error('storage unavailable'));
+
+    await expect(
+      project.loadProject({ rootPath: '/other', name: 'other', updatedAt: new Date() })
+    ).rejects.toThrow('storage unavailable');
+
+    expect(mocks.root).toBe(previousProject);
+    expect(mocks.walk.mock.calls).toEqual([['/repo'], ['/other'], ['/repo']]);
   });
 });

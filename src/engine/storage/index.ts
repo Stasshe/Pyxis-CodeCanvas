@@ -22,6 +22,31 @@ import { IDB } from '@/constants/idb';
 const DB_NAME = IDB.GLOBAL.NAME;
 const DB_VERSION = IDB.GLOBAL.VERSION;
 
+function transactionCompletion(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () =>
+      reject(transaction.error ?? new DOMException('IndexedDB transaction aborted', 'AbortError'));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new DOMException('IndexedDB transaction failed', 'UnknownError'));
+  });
+}
+
+function containsBinary(value: unknown, seen = new WeakSet<object>()): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  if (typeof Blob !== 'undefined' && value instanceof Blob) return true;
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return true;
+  if (seen.has(value)) return false;
+  seen.add(value);
+
+  try {
+    return Object.values(value).some(child => containsBinary(child, seen));
+  } catch (error) {
+    console.warn('[PyxisStorage] Failed to inspect cached data:', error);
+    return false;
+  }
+}
+
 /**
  * ストアの定義
  * 新しいストアを追加する場合は、ここに追加してください
@@ -74,7 +99,7 @@ class MemoryCache {
       return null;
     }
 
-    return entry.data as T;
+    return structuredClone(entry.data) as T;
   }
 
   set<T>(key: string, data: T, expiresAt?: number): void {
@@ -87,6 +112,13 @@ class MemoryCache {
 
   clear(): void {
     this.cache.clear();
+  }
+
+  clearStore(storeName: StoreName): void {
+    const prefix = `${storeName}:`;
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) this.cache.delete(key);
+    }
   }
 
   has(key: string): boolean {
@@ -117,7 +149,7 @@ class PyxisStorage {
     if (this.db) return this.db;
     if (this.initPromise) return this.initPromise;
 
-    this.initPromise = new Promise((resolve, reject) => {
+    const initialization = new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
@@ -127,6 +159,15 @@ class PyxisStorage {
 
       request.onsuccess = () => {
         this.db = request.result;
+        const database = this.db;
+        database.onversionchange = () => {
+          database.close();
+          if (this.db === database) {
+            this.db = null;
+            this.initPromise = null;
+            this.cache.clear();
+          }
+        };
         resolve(this.db);
       };
 
@@ -148,7 +189,15 @@ class PyxisStorage {
       };
     });
 
-    return this.initPromise;
+    this.initPromise = initialization;
+    void initialization.catch(() => {
+      if (this.initPromise === initialization) this.initPromise = null;
+    });
+    return initialization;
+  }
+
+  async initialize(): Promise<void> {
+    await this.init();
   }
 
   /**
@@ -167,54 +216,35 @@ class PyxisStorage {
    */
   async set<T>(storeName: StoreName, id: string, data: T, options?: StorageOptions): Promise<void> {
     try {
+      const persistedData = structuredClone(data);
       const db = await this.init();
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
+      const committed = transactionCompletion(tx);
 
       const timestamp = Date.now();
       const expiresAt = options?.ttl ? timestamp + options.ttl : undefined;
 
       const entry: StorageEntry<T> = {
         id,
-        data,
+        data: persistedData,
         timestamp,
         expiresAt,
       };
 
-      await new Promise<void>((resolve, reject) => {
+      const requestComplete = new Promise<void>((resolve, reject) => {
         const request = store.put(entry);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
+      await Promise.all([requestComplete, committed]);
 
       // メモリキャッシュにも保存（デフォルト true）。
       // 大きなバイナリはキャッシュを避けるため、options.cache = false を使える。
       const shouldCache = options?.cache !== undefined ? options.cache : true;
-      const containsBinary = (obj: unknown): boolean => {
-        if (!obj) return false;
-        // Blob
-        if (typeof Blob !== 'undefined' && obj instanceof Blob) return true;
-        // ArrayBuffer
-        if (obj instanceof ArrayBuffer) return true;
-        // TypedArray
-        if (ArrayBuffer.isView(obj)) return true;
-        // plain object/array traversal
-        if (typeof obj === 'object') {
-          try {
-            for (const key of Object.keys(obj as any)) {
-              if (containsBinary((obj as any)[key])) return true;
-            }
-          } catch (e) {
-            console.warn('[index.ts] caught non-fatal error', e);
-            // ignore non-iterable objects
-          }
-        }
-        return false;
-      };
-
       const cacheKey = this.getCacheKey(storeName, id);
-      if (shouldCache && !containsBinary(data)) {
-        this.cache.set(cacheKey, data, expiresAt);
+      if (shouldCache && !containsBinary(persistedData)) {
+        this.cache.set(cacheKey, persistedData, expiresAt);
       } else {
         // remove any existing in-memory cache for this key to avoid stale large entries
         this.cache.delete(cacheKey);
@@ -246,12 +276,14 @@ class PyxisStorage {
       const db = await this.init();
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
+      const committed = transactionCompletion(tx);
 
-      const entry = await new Promise<StorageEntry<T> | undefined>((resolve, reject) => {
+      const requestResult = new Promise<StorageEntry<T> | undefined>((resolve, reject) => {
         const request = store.get(id);
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
+      const [entry] = await Promise.all([requestResult, committed]);
 
       if (!entry) {
         console.log(`[PyxisStorage] Not found: ${storeName}/${id}`);
@@ -261,29 +293,12 @@ class PyxisStorage {
       // 有効期限チェック
       if (entry.expiresAt && Date.now() > entry.expiresAt) {
         console.log(`[PyxisStorage] Expired: ${storeName}/${id}`);
-        await this.delete(storeName, id);
+        const noLongerAvailable = await this.deleteIfExpired(storeName, id);
+        if (!noLongerAvailable) return this.get<T>(storeName, id);
         return null;
       }
 
       // メモリキャッシュに保存（ただしデータにバイナリが含まれる場合はキャッシュしない）
-      const containsBinary = (obj: unknown): boolean => {
-        if (!obj) return false;
-        if (typeof Blob !== 'undefined' && obj instanceof Blob) return true;
-        if (obj instanceof ArrayBuffer) return true;
-        if (ArrayBuffer.isView(obj)) return true;
-        if (typeof obj === 'object') {
-          try {
-            for (const key of Object.keys(obj as any)) {
-              if (containsBinary((obj as any)[key])) return true;
-            }
-          } catch (e) {
-            console.warn('[index.ts] caught non-fatal error', e);
-            // ignore
-          }
-        }
-        return false;
-      };
-
       if (!containsBinary(entry.data)) {
         this.cache.set(cacheKey, entry.data, entry.expiresAt);
       } else {
@@ -291,10 +306,10 @@ class PyxisStorage {
       }
 
       console.log(`[PyxisStorage] Loaded: ${storeName}/${id}`);
-      return entry.data;
+      return structuredClone(entry.data);
     } catch (error) {
       console.error(`[PyxisStorage] Failed to load ${storeName}/${id}:`, error);
-      return null;
+      throw error;
     }
   }
 
@@ -308,12 +323,14 @@ class PyxisStorage {
       const db = await this.init();
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
+      const committed = transactionCompletion(tx);
 
-      await new Promise<void>((resolve, reject) => {
+      const requestComplete = new Promise<void>((resolve, reject) => {
         const request = store.delete(id);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
+      await Promise.all([requestComplete, committed]);
 
       // メモリキャッシュからも削除
       const cacheKey = this.getCacheKey(storeName, id);
@@ -326,6 +343,39 @@ class PyxisStorage {
     }
   }
 
+  private async deleteIfExpired(storeName: StoreName, id: string): Promise<boolean> {
+    const db = await this.init();
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const committed = transactionCompletion(transaction);
+    let currentEntryIsFresh = false;
+
+    const requestComplete = new Promise<void>((resolve, reject) => {
+      const request = store.get(id);
+      request.onsuccess = () => {
+        const entry = request.result as StorageEntry | undefined;
+        if (entry && (!entry.expiresAt || Date.now() <= entry.expiresAt)) {
+          currentEntryIsFresh = true;
+          resolve();
+          return;
+        }
+        if (!entry) {
+          resolve();
+          return;
+        }
+
+        const deletion = store.delete(id);
+        deletion.onsuccess = () => resolve();
+        deletion.onerror = () => reject(deletion.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    await Promise.all([requestComplete, committed]);
+    if (!currentEntryIsFresh) this.cache.delete(this.getCacheKey(storeName, id));
+    return !currentEntryIsFresh;
+  }
+
   /**
    * ストア内の全データを取得
    * @param storeName ストア名
@@ -336,26 +386,23 @@ class PyxisStorage {
       const db = await this.init();
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
+      const committed = transactionCompletion(tx);
 
-      const entries = await new Promise<Array<StorageEntry<T>>>((resolve, reject) => {
+      const requestResult = new Promise<Array<StorageEntry<T>>>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
+      const [entries] = await Promise.all([requestResult, committed]);
 
       // 有効期限チェック
       const now = Date.now();
-      return entries.filter(entry => {
-        if (entry.expiresAt && now > entry.expiresAt) {
-          // 期限切れのエントリは削除（非同期で実行）
-          this.delete(storeName, entry.id).catch(console.error);
-          return false;
-        }
-        return true;
-      });
+      const expiredEntries = entries.filter(entry => entry.expiresAt && now > entry.expiresAt);
+      await Promise.all(expiredEntries.map(entry => this.deleteIfExpired(storeName, entry.id)));
+      return entries.filter(entry => !expiredEntries.includes(entry));
     } catch (error) {
       console.error(`[PyxisStorage] Failed to get all from ${storeName}:`, error);
-      return [];
+      throw error;
     }
   }
 
@@ -368,16 +415,16 @@ class PyxisStorage {
       const db = await this.init();
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
+      const committed = transactionCompletion(tx);
 
-      await new Promise<void>((resolve, reject) => {
+      const requestComplete = new Promise<void>((resolve, reject) => {
         const request = store.clear();
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
+      await Promise.all([requestComplete, committed]);
 
-      // メモリキャッシュもクリア（該当ストアのみ）
-      const _prefix = `${storeName}:`;
-      this.cache.clear(); // 簡易的に全体をクリア
+      this.cache.clearStore(storeName);
 
       console.log(`[PyxisStorage] Cleared store: ${storeName}`);
     } catch (error) {
@@ -415,6 +462,8 @@ class PyxisStorage {
         const tx = db.transaction(storeName, 'readwrite');
         const store = tx.objectStore(storeName);
         const index = store.index('expiresAt');
+        const committed = transactionCompletion(tx);
+        void committed.catch(() => undefined);
 
         const expiredIds: string[] = [];
 
@@ -444,7 +493,10 @@ class PyxisStorage {
             deleteRequest.onsuccess = () => resolve();
             deleteRequest.onerror = () => reject(deleteRequest.error);
           });
+          this.cache.delete(this.getCacheKey(storeName, id));
         }
+
+        await committed;
 
         totalCleaned += expiredIds.length;
       }
@@ -467,6 +519,7 @@ class PyxisStorage {
       this.initPromise = null;
       console.log('[PyxisStorage] Database closed');
     }
+    this.cache.clear();
   }
 }
 

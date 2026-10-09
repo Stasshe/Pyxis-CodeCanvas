@@ -135,9 +135,61 @@
     "loadingFile": "Restaurando contenido del archivo...",
     "selectFile": "Por favor seleccione un archivo"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Tienes todas las extensiones disponibles",
+    "allInstalled": "Todas las extensiones instaladas",
+    "available": "Disponible ({count})",
+    "browseAvailable": "Explore las extensiones disponibles para comenzar",
+    "confirmUninstall": "¿Está seguro de que desea desinstalar \"{name}\"?",
+    "disable": "Desactivar",
+    "disableUnavailable": "No se pudo deshabilitar la extensión.",
+    "enable": "Permitir",
+    "enableUnavailable": "No se pudo habilitar la extensión.",
+    "importFailed": "No se pudo importar ZIP: {error}",
+    "importZip": "Importar extensión (.zip)",
+    "install": "Instalar",
+    "installed": "Instalado ({count})",
+    "installFailed": "No se pudo instalar {name}: {error}",
+    "installUnavailable": "La extensión no se pudo instalar ni habilitar.",
+    "loadFailed": "No se pudieron cargar las extensiones: {error}",
+    "loading": "Cargando extensiones...",
+    "manifestUrlMissing": "URL del manifiesto no encontrada en el registro",
+    "noMatches": "No se encontraron extensiones coincidentes",
+    "noneInstalled": "No hay extensiones instaladas",
+    "packCount": "Extensiones: {count}",
+    "reload": "Recargar extensiones",
+    "search": "Buscar extensiones...",
+    "title": "Extensiones",
+    "toggleFailed": "No se pudo cambiar el estado de la extensión: {error}",
+    "tryDifferentSearch": "Pruebe con un término de búsqueda diferente",
+    "types": {
+      "builtinModule": "Módulo incorporado",
+      "languageRuntime": "Tiempo de ejecución del idioma",
+      "service": "Servicio",
+      "tool": "Herramienta",
+      "transpiler": "Transpilador",
+      "ui": "interfaz de usuario"
+    },
+    "uninstall": "Desinstalar",
+    "uninstallFailed": "No se pudo desinstalar la extensión: {error}",
+    "uninstallTitle": "Desinstalar extensión",
+    "uninstallUnavailable": "La extensión no se pudo desinstalar.",
+    "update": "Actualizar",
+    "updateFailed": "No se pudo actualizar {name}: {error}",
+    "updateUnavailable": "No se pudo activar el nuevo paquete de extensión.",
+    "viewDetails": "Haga clic para ver los detalles de la extensión"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Crear archivo",
+      "createFolder": "Crear carpeta",
+      "import": "Importar",
+      "move": "Mover"
+    },
     "alert": {
-      "renameFailed": "Error al renombrar: {error}"
+      "destinationExists": "El destino ya existe: {path}",
+      "operationFailed": "Error al {action}: {error}",
+      "workspaceChanged": "El espacio de trabajo cambió; se omitieron los archivos restantes."
     },
     "menu": {
       "createFile": "Crear archivo",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Crear nuevo archivo",
-    "createFolder": "Crear nueva carpeta"
+    "createFolder": "Crear nueva carpeta",
+    "newFilePrompt": "Introduce el nombre del archivo:",
+    "newFolderPrompt": "Introduce el nombre de la carpeta:"
   },
   "markdownPreview": {
     "downloadSvg": "Descargar SVG",

@@ -4,8 +4,11 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { fsClient, resolvePath } from '@/engine/core/fs';
 import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
+import { pushLogMessage } from '@/stores/loggerStore';
+import { getCurrentRootPath } from '@/stores/projectStore';
 import type { FileItem, MenuTab, Project } from '@/types';
 import FileTree from './FileTree';
+import { fileTreeErrorMessage } from './FileTree/fileTreeErrors';
 
 const ExtensionPanelRenderer = lazy(() => import('./ExtensionPanelRenderer'));
 const ExtensionsPanel = lazy(() => import('./ExtensionsPanel'));
@@ -46,14 +49,14 @@ export default function LeftSidebar({
     <>
       <div
         data-sidebar="left"
-        className="flex flex-col flex-shrink-0"
-        style={{
-          background: colors.cardBg,
-          borderRight: `1px solid ${colors.border}`,
-          width: `${leftSidebarWidth}px`,
-          minWidth: `${leftSidebarWidth}px`,
-          maxWidth: `${leftSidebarWidth}px`,
-        }}
+        className="app-sidebar app-sidebar-left flex flex-col flex-shrink-0"
+        style={
+          {
+            background: colors.cardBg,
+            '--sidebar-width': `${leftSidebarWidth}px`,
+            '--sidebar-border-color': colors.border,
+          } as React.CSSProperties
+        }
       >
         <div
           className="h-8 flex items-center px-3"
@@ -67,7 +70,7 @@ export default function LeftSidebar({
             {activeMenuTab === 'search' && 'Search'}
             {activeMenuTab === 'git' && 'Git'}
             {activeMenuTab === 'run' && 'Run'}
-            {activeMenuTab === 'extensions' && 'Extensions'}
+            {activeMenuTab === 'extensions' && t('menu.extensions')}
             {activeMenuTab === 'settings' && 'Settings'}
             {activeExtensionPanel?.title}
           </span>
@@ -99,11 +102,32 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    const fileName = prompt('新しいファイル名を入力してください:');
+                    const fileName = prompt(t('leftSidebar.newFilePrompt'));
                     if (fileName) {
-                      const newFilePath = resolvePath(currentProject.rootPath, fileName);
-                      await fsClient.writeFile(newFilePath, '');
-                      if (onRefresh) setTimeout(onRefresh, 100);
+                      try {
+                        const newFilePath = resolvePath(currentProject.rootPath, fileName);
+                        if (await fsClient.exists(newFilePath)) {
+                          throw new Error(
+                            t('fileTree.alert.destinationExists', { params: { path: newFilePath } })
+                          );
+                        }
+                        if (getCurrentRootPath() !== currentProject.rootPath) {
+                          throw new Error(t('fileTree.alert.workspaceChanged'));
+                        }
+                        await fsClient.writeRange(newFilePath, new Uint8Array(), null, true, true);
+                        if (onRefresh) setTimeout(onRefresh, 100);
+                      } catch (error) {
+                        reportCreationError(
+                          t('fileTree.alert.operationFailed', {
+                            params: {
+                              action: t('fileTree.action.createFile'),
+                              error: fileTreeErrorMessage(error, path =>
+                                t('fileTree.alert.destinationExists', { params: { path } })
+                              ),
+                            },
+                          })
+                        );
+                      }
                     }
                   }}
                 >
@@ -121,11 +145,34 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    const folderName = prompt('新しいフォルダ名を入力してください:');
+                    const folderName = prompt(t('leftSidebar.newFolderPrompt'));
                     if (folderName) {
-                      const newFolderPath = resolvePath(currentProject.rootPath, folderName);
-                      await fsClient.mkdir(newFolderPath);
-                      if (onRefresh) setTimeout(onRefresh, 100);
+                      try {
+                        const newFolderPath = resolvePath(currentProject.rootPath, folderName);
+                        if (await fsClient.exists(newFolderPath)) {
+                          throw new Error(
+                            t('fileTree.alert.destinationExists', {
+                              params: { path: newFolderPath },
+                            })
+                          );
+                        }
+                        if (getCurrentRootPath() !== currentProject.rootPath) {
+                          throw new Error(t('fileTree.alert.workspaceChanged'));
+                        }
+                        await fsClient.mkdir(newFolderPath);
+                        if (onRefresh) setTimeout(onRefresh, 100);
+                      } catch (error) {
+                        reportCreationError(
+                          t('fileTree.alert.operationFailed', {
+                            params: {
+                              action: t('fileTree.action.createFolder'),
+                              error: fileTreeErrorMessage(error, path =>
+                                t('fileTree.alert.destinationExists', { params: { path } })
+                              ),
+                            },
+                          })
+                        );
+                      }
                     }
                   }}
                 >
@@ -134,7 +181,12 @@ export default function LeftSidebar({
               </div>
               {/* Virtualized file tree - scrolls independently */}
               <div className="flex-1 overflow-hidden">
-                <FileTree items={files} rootPath={currentProject.rootPath} onRefresh={onRefresh} />
+                <FileTree
+                  key={currentProject.rootPath}
+                  items={files}
+                  rootPath={currentProject.rootPath}
+                  onRefresh={onRefresh}
+                />
               </div>
             </div>
           )}
@@ -196,6 +248,7 @@ export default function LeftSidebar({
       </div>
       {/* Resizer */}
       <div
+        data-sidebar-resizer="left"
         className="resizer resizer-vertical flex-shrink-0"
         style={{
           background: colors.sidebarResizerBg,
@@ -206,4 +259,9 @@ export default function LeftSidebar({
       />
     </>
   );
+}
+
+function reportCreationError(message: string): void {
+  pushLogMessage(message, 'error', 'FileTree');
+  alert(message);
 }

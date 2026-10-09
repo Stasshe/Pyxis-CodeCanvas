@@ -1,10 +1,12 @@
 import JSZip from 'jszip';
 
 import { basename, fsClient, normalizePath } from '@/engine/core/fs';
+import { assertArchiveEntriesReadable } from './archiveEntries';
 
 export async function exportFolderZip(folderPath: string): Promise<void> {
   const rootPath = normalizePath(folderPath);
   const entries = await fsClient.walk(rootPath);
+  await assertArchiveEntriesReadable(entries);
   const zip = new JSZip();
   let folderName = basename(rootPath);
   if (!folderName) folderName = 'workspace';

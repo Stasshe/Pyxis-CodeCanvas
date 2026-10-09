@@ -76,7 +76,12 @@ export class TreeBuilder {
       const remoteEntry = remoteEntries.get(localEntry.path);
 
       if (localEntry.type === 'blob') {
-        if (!remoteEntry || remoteEntry.sha !== localEntry.oid) {
+        if (
+          !remoteEntry ||
+          remoteEntry.type !== localEntry.type ||
+          remoteEntry.mode !== localEntry.mode ||
+          remoteEntry.sha !== localEntry.oid
+        ) {
           hasChanges = true;
           const sha = await this.uploadBlob(localEntry.oid, fullPath);
           changedEntries.push({ path: localEntry.path, mode: localEntry.mode, type: 'blob', sha });
@@ -92,7 +97,13 @@ export class TreeBuilder {
         let remoteSubtreeSha: string | null | undefined;
         if (remoteEntry?.type === 'tree') remoteSubtreeSha = remoteEntry.sha;
 
-        if (!remoteSubtreeSha || !remoteEntry || remoteEntry.sha !== localEntry.oid) {
+        if (
+          !remoteSubtreeSha ||
+          !remoteEntry ||
+          remoteEntry.type !== localEntry.type ||
+          remoteEntry.mode !== localEntry.mode ||
+          remoteEntry.sha !== localEntry.oid
+        ) {
           hasChanges = true;
           let sha: string;
           if (remoteSubtreeSha) {

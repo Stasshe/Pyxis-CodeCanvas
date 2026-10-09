@@ -1,5 +1,6 @@
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import React, { useState, useEffect, useRef } from 'react';
+import { BarChart3 } from 'lucide-react';
 
 import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
 
@@ -81,7 +82,7 @@ function ChartSidebarPanel() {
       flexDirection: 'column',
     }}>
       <div style={{ marginBottom: '16px' }}>
-        <h2 style={{ margin: '0 0 8px 0' }}>📊 Chart Visualization</h2>
+        <h2 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={20} /> Chart Visualization</h2>
         <p style={{ margin: '0 0 16px 0', color: '#888' }}>
           Chart.jsライブラリを使用したチャート表示例
         </p>

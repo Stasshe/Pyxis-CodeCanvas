@@ -1,5 +1,6 @@
 import { NPM_NETWORK_CONCURRENCY } from './npmNetwork';
 import type { PackageInfo } from './types';
+import { satisfiesVersionSpec } from './versionUtils';
 
 export interface DependencyRequest {
   name: string;
@@ -14,6 +15,7 @@ interface DependencyState extends DependencyRequest {
   status: 'queued' | 'running' | 'resolved' | 'failed';
   children: Set<string>;
   requiredChildren: Set<string>;
+  peerChildren: Set<string>;
   packageInfo?: PackageInfo;
   errorMessage?: string;
 }
@@ -24,6 +26,8 @@ export interface ResolvedDependency {
   isOptional: boolean;
   installName?: string;
   dependencyKeys?: Record<string, string>;
+  peerDependencyKeys?: Record<string, string>;
+  requestKeys?: string[];
 }
 
 export type PackageInfoResolver = (name: string, version: string) => Promise<PackageInfo>;
@@ -79,6 +83,7 @@ export async function resolveDependencyPlan(
       status: 'queued',
       children: new Set(),
       requiredChildren: new Set(),
+      peerChildren: new Set(),
     };
     states.set(key, state);
     orderedStates.push(state);
@@ -154,6 +159,34 @@ export async function resolveDependencyPlan(
         const child = enqueue({ name, version, isDirect: false, isOptional: true });
         state.children.add(child.key);
       }
+      for (const [name, version] of Object.entries(packageInfo.peerDependencies ?? {})) {
+        const optional = packageInfo.peerDependenciesMeta?.[name]?.optional === true;
+        const compatible = Array.from(states.values()).find(candidate => {
+          const info = candidate.packageInfo;
+          return (
+            candidate.name === name &&
+            info !== undefined &&
+            satisfiesVersionSpec(info.version, version)
+          );
+        });
+        if (compatible) {
+          if (!optional) {
+            state.peerChildren.add(compatible.key);
+            state.requiredChildren.add(compatible.key);
+            if (!state.isOptional) promoteRequired(compatible);
+          }
+          continue;
+        }
+        if (optional) continue;
+        const child = enqueue({
+          name,
+          version,
+          isDirect: false,
+          isOptional: state.isOptional === true,
+        });
+        state.peerChildren.add(child.key);
+        state.requiredChildren.add(child.key);
+      }
       activeJobs -= 1;
       if (queue.length === 0 && activeJobs === 0) completed = true;
       wakeWorkers();
@@ -198,6 +231,7 @@ export async function resolveDependencyPlan(
     if (!state || state.status !== 'resolved' || blocked.has(key) || reachable.has(key)) continue;
     reachable.add(key);
     for (const childKey of state.children) reachQueue.push(childKey);
+    for (const childKey of state.peerChildren) reachQueue.push(childKey);
   }
 
   const packagesByVersion = new Map<string, ResolvedDependency>();
@@ -208,9 +242,13 @@ export async function resolveDependencyPlan(
     if (resolved) {
       resolved.isDirect ||= state.isDirect;
       resolved.isOptional &&= state.isOptional === true;
+      const requestKeys = resolved.requestKeys ?? [];
+      if (!requestKeys.includes(state.version)) requestKeys.push(state.version);
+      resolved.requestKeys = requestKeys;
       continue;
     }
     const dependencyKeys: Record<string, string> = {};
+    const peerDependencyKeys: Record<string, string> = {};
     for (const childKey of state.children) {
       const child = states.get(childKey);
       if (child?.packageInfo && reachable.has(childKey)) {
@@ -218,10 +256,19 @@ export async function resolveDependencyPlan(
           `${child.name}@${child.packageInfo.name}@${child.packageInfo.version}`;
       }
     }
+    for (const childKey of state.peerChildren) {
+      const child = states.get(childKey);
+      if (child?.packageInfo && reachable.has(childKey)) {
+        peerDependencyKeys[child.name] =
+          `${child.name}@${child.packageInfo.name}@${child.packageInfo.version}`;
+      }
+    }
     packagesByVersion.set(key, {
       packageInfo: state.packageInfo,
       installName: state.name,
       dependencyKeys,
+      peerDependencyKeys,
+      requestKeys: [state.version],
       isDirect: state.isDirect,
       isOptional: state.isOptional === true,
     });

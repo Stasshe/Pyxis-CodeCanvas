@@ -1,4 +1,3 @@
-import { fsClient } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -27,6 +26,10 @@ export class MkdirCommand extends UnixCommandBase {
 
     if (options.has('--help') || options.has('-h')) {
       return 'Usage: mkdir [OPTION]... DIRECTORY...\n\nOptions:\n  -p, --parents\tcreate parent directories as needed\n  -m, --mode\tset file mode (not fully supported)';
+    }
+
+    if (options.has('-m') || options.has('--mode')) {
+      throw new Error('mkdir: setting directory modes is not supported');
     }
 
     if (positional.length === 0) {
@@ -86,7 +89,7 @@ export class MkdirCommand extends UnixCommandBase {
       const parentPath = normalizedPath.slice(0, normalizedPath.lastIndexOf('/')) || '/';
       if (!(await this.exists(parentPath))) throw new Error('No such file or directory');
     }
-    await fsClient.mkdir(normalizedPath, { recursive: parents });
+    await this.fs.mkdir(normalizedPath, { recursive: parents });
 
     if (verbose) {
       return `mkdir: created directory '${normalizedPath}'`;

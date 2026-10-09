@@ -49,7 +49,8 @@ export class WorkerGitCommands {
     await this.ensureProjectDirectory();
     try {
       await this.fs.promises.stat(`${this.dir}/.git`);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
       throw new Error('not a git repository (or any of the parent directories): .git');
     }
   }
@@ -59,36 +60,24 @@ export class WorkerGitCommands {
     errorPrefix: string
   ): Promise<T> {
     try {
-      return await this.executeGitMutation(operation);
+      return await operation();
     } catch (error) {
       throw new Error(`${errorPrefix}: ${(error as Error).message}`);
     }
   }
 
-  private async executeGitMutation<T>(operation: () => Promise<T>): Promise<T> {
-    const result = await operation();
-    return result;
-  }
-
   async getCurrentBranch(): Promise<string> {
+    await this.ensureProjectDirectory();
     try {
-      await this.ensureGitRepository();
-      const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-
-      if (!branch) {
-        try {
-          const commits = await git.log({ fs: this.fs, dir: this.dir, depth: 1 });
-          if (commits.length > 0) {
-            return `(HEAD detached at ${commits[0].oid.slice(0, 7)})`;
-          }
-        } catch {}
-        return 'main';
-      }
-
-      return branch;
-    } catch {
-      return '(no git)';
+      await this.fs.promises.stat(`${this.dir}/.git`);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return '(no git)';
+      throw error;
     }
+    const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
+    if (branch) return branch;
+    const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
+    return `(HEAD detached at ${oid.slice(0, 7)})`;
   }
 
   async init(): Promise<string> {
@@ -102,7 +91,7 @@ export class WorkerGitCommands {
   async clone(
     url: string,
     targetDir?: string,
-    options: { skipDotGit?: boolean; maxGitObjects?: number } = {}
+    options: { maxGitObjects?: number } = {}
   ): Promise<string> {
     return this.executeGitOperation(async () => {
       const cloneOps = new GitCloneOperations({
@@ -124,23 +113,20 @@ export class WorkerGitCommands {
   async add(filepath: string): Promise<string> {
     await this.ensureProjectDirectory();
     const { add } = await import('./add');
-    return this.executeGitMutation(() => add(this.fs, this.dir, filepath));
+    return add(this.fs, this.dir, filepath);
   }
 
-  async commit(
-    message: string,
-    author = { name: 'User', email: 'user@pyxis.dev' }
-  ): Promise<string> {
+  async commit(message: string, author?: { name: string; email: string }): Promise<string> {
     await this.ensureGitRepository();
     const { commit } = await import('./commit');
-    return this.executeGitMutation(() => commit(this.fs, this.dir, message, author));
+    return commit(this.fs, this.dir, message, author);
   }
 
   async reset(
     options: { filepath?: string; hard?: boolean; commit?: string } = {}
   ): Promise<string> {
     const resetOperations = new GitResetOperations(this.fs, this.dir);
-    return this.executeGitMutation(() => resetOperations.reset(options));
+    return resetOperations.reset(options);
   }
 
   async log(depth = 10): Promise<string> {
@@ -163,7 +149,7 @@ export class WorkerGitCommands {
 
   async checkout(branchName: string, createNew = false): Promise<string> {
     const checkoutOperations = new GitCheckoutOperations(this.fs, this.dir);
-    return this.executeGitMutation(() => checkoutOperations.checkout(branchName, createNew));
+    return checkoutOperations.checkout(branchName, createNew);
   }
 
   async checkoutRemote(remoteBranch: string): Promise<string> {
@@ -181,7 +167,7 @@ export class WorkerGitCommands {
 
       const checkoutOperations = new GitCheckoutOperations(this.fs, this.dir);
 
-      return await this.executeGitMutation(() => checkoutOperations.checkout(commitOid, false));
+      return await checkoutOperations.checkout(commitOid, false);
     } catch (error) {
       throw new Error(`Failed to checkout remote branch: ${(error as Error).message}`);
     }
@@ -189,7 +175,7 @@ export class WorkerGitCommands {
 
   async revert(commitHash: string): Promise<string> {
     const revertOperations = new GitRevertOperations(this.fs, this.dir);
-    return this.executeGitMutation(() => revertOperations.revert(commitHash));
+    return revertOperations.revert(commitHash);
   }
 
   async switch(
@@ -201,7 +187,7 @@ export class WorkerGitCommands {
   ): Promise<string> {
     const { GitSwitchOperations } = await import('./switch');
     const switchOps = new GitSwitchOperations(this.fs, this.dir);
-    return this.executeGitMutation(() => switchOps.switch(targetRef, options));
+    return switchOps.switch(targetRef, options);
   }
 
   async branch(
@@ -213,7 +199,7 @@ export class WorkerGitCommands {
     if (!branchName) {
       return await branch(this.fs, this.dir, branchName, options);
     }
-    return this.executeGitMutation(() => branch(this.fs, this.dir, branchName, options));
+    return branch(this.fs, this.dir, branchName, options);
   }
 
   async diff(
@@ -240,19 +226,17 @@ export class WorkerGitCommands {
   ): Promise<string> {
     const mergeOperations = new GitMergeOperations(this.fs, this.dir);
 
-    return this.executeGitMutation(() =>
-      mergeOperations.merge(branchName, {
-        noFf: options.noFf,
-        message: options.message,
-        abort: options.abort,
-      })
-    );
+    return mergeOperations.merge(branchName, {
+      noFf: options.noFf,
+      message: options.message,
+      abort: options.abort,
+    });
   }
 
   async discardChanges(filepath: string): Promise<string> {
     await this.ensureGitRepository();
     const { discardChanges } = await import('./discardChanges');
-    return this.executeGitMutation(() => discardChanges(this.fs, this.dir, filepath));
+    return discardChanges(this.fs, this.dir, filepath);
   }
 
   async getFileContentAtCommit(commitId: string, filePath: string): Promise<Uint8Array> {
@@ -272,14 +256,9 @@ export class WorkerGitCommands {
 
   async getParentCommitIds(commitId: string): Promise<string[]> {
     await this.ensureGitRepository();
-    try {
-      const fullOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commitId });
-      const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullOid });
-      return commit.commit.parent || [];
-    } catch (e) {
-      console.warn(`Failed to get parent commits for ${commitId}:`, e);
-      return [];
-    }
+    const fullOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commitId });
+    const commit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: fullOid });
+    return commit.commit.parent;
   }
 
   async getStagedFileContent(filePath: string): Promise<Uint8Array | null> {
@@ -343,14 +322,14 @@ export class WorkerGitCommands {
     await this.ensureGitRepository();
 
     const { push } = await import('./push');
-    return this.executeGitMutation(() => push(this.fs, this.dir, options, progress));
+    return push(this.fs, this.dir, options, progress);
   }
 
   async addRemote(remote: string, url: string): Promise<string> {
     await this.ensureGitRepository();
 
     const { addRemote } = await import('./push');
-    return this.executeGitMutation(() => addRemote(this.fs, this.dir, remote, url));
+    return addRemote(this.fs, this.dir, remote, url);
   }
 
   async listRemotes(): Promise<string> {
@@ -364,7 +343,7 @@ export class WorkerGitCommands {
     await this.ensureGitRepository();
 
     const { deleteRemote } = await import('./push');
-    return this.executeGitMutation(() => deleteRemote(this.fs, this.dir, remote));
+    return deleteRemote(this.fs, this.dir, remote);
   }
 
   async fetch(options: FetchOptions | string[] = {}): Promise<string> {
@@ -372,11 +351,11 @@ export class WorkerGitCommands {
 
     if (Array.isArray(options)) {
       const { fetchFromArgs } = await import('./fetch');
-      return this.executeGitMutation(() => fetchFromArgs(this.fs, this.dir, options));
+      return fetchFromArgs(this.fs, this.dir, options);
     }
 
     const { fetch } = await import('./fetch');
-    return this.executeGitMutation(() => fetch(this.fs, this.dir, options));
+    return fetch(this.fs, this.dir, options);
   }
 
   async fetchAll(
@@ -385,7 +364,7 @@ export class WorkerGitCommands {
     await this.ensureGitRepository();
 
     const { fetchAll } = await import('./fetch');
-    return this.executeGitMutation(() => fetchAll(this.fs, this.dir, options));
+    return fetchAll(this.fs, this.dir, options);
   }
 
   async listRemoteBranches(remote = 'origin'): Promise<string[]> {
@@ -407,7 +386,7 @@ export class WorkerGitCommands {
   ): Promise<string> {
     await this.ensureGitRepository();
     const { pull } = await import('./pull');
-    return this.executeGitMutation(() => pull(this.fs, this.dir, options));
+    return pull(this.fs, this.dir, options);
   }
 
   async show(args: string[]): Promise<string | Uint8Array> {

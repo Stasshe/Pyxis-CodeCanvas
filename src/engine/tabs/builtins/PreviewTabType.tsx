@@ -50,8 +50,7 @@ export const PreviewTabType: TabTypeDefinition = {
   createTab: (data: unknown, options?: OpenTabOptions) => {
     const fileItem = data as FileItem;
     const tabId = fileItem.path ? `preview:${fileItem.path}` : `preview:${fileItem.name}`;
-    // Support both `targetPaneId` (preferred) and `paneId` for backward compatibility
-    const paneId = options?.targetPaneId || (options as any)?.paneId || '';
+    const paneId = options?.paneId || '';
     const content = fileItem.content || '';
     setTabContent(tabId, content, false);
     return {

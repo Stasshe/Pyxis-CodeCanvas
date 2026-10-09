@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../../_helpers/testProject';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { setupTestProject } from '../../../_helpers/testProject';
 
 /**
  * 環境変数とパラメータ展開のe2eテスト
@@ -26,7 +26,10 @@ describe('e2e — 環境変数とパラメータ展開実行テスト', () => {
     shell = await terminalCommandRegistry.getShell(rootPath);
   });
 
-  async function executeScript(scriptContent: string, scriptName = 'test-script.sh'): Promise<{
+  async function executeScript(
+    scriptContent: string,
+    scriptName = 'test-script.sh'
+  ): Promise<{
     output: string[];
     errors: string[];
     executionError: Error | null;
@@ -36,7 +39,10 @@ describe('e2e — 環境変数とパラメータ展開実行テスト', () => {
     return {
       output: result.stdout.split('\n').filter(Boolean),
       errors: result.stderr.split('\n').filter(Boolean),
-      executionError: result.code !== 0 ? new Error(`Script exited with code ${result.code}\n${result.stderr}`) : null,
+      executionError:
+        result.code !== 0
+          ? new Error(`Script exited with code ${result.code}\n${result.stderr}`)
+          : null,
     };
   }
 

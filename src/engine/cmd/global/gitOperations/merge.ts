@@ -1,7 +1,9 @@
 import git from 'isomorphic-git';
 import type { GitFs as FS } from '@/engine/core/fs/git';
+import { resolveCommitAuthor } from './commit';
 import { GitFileSystemHelper } from './fileSystemHelper';
 import { MergeConflictDetector } from './mergeConflictDetector';
+import { assertNoMergeInProgress, clearMergeState, readMergeHead } from './mergeState';
 
 export class GitMergeOperations {
   private fs: FS;
@@ -26,18 +28,13 @@ export class GitMergeOperations {
   }
 
   private async getCurrentBranch(): Promise<string | null> {
-    try {
-      await this.ensureGitRepository();
-      const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-      return branch || null;
-    } catch {
-      return null;
-    }
+    const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
+    return branch || null;
   }
 
   private async branchExists(branchName: string): Promise<boolean> {
     try {
-      await git.resolveRef({ fs: this.fs, dir: this.dir, ref: `refs/heads/${branchName}` });
+      await git.resolveRef({ fs: this.fs, dir: this.dir, ref: branchName });
       return true;
     } catch {
       return false;
@@ -45,23 +42,11 @@ export class GitMergeOperations {
   }
 
   private async isWorkingDirectoryClean(): Promise<boolean> {
-    try {
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-
-      for (const [_filepath, HEAD, workdir, stage] of status) {
-        if (HEAD !== workdir || stage !== HEAD) {
-          return false;
-        }
-      }
-
-      return true;
-    } catch {
-      return true;
-    }
-  }
-
-  private async getAllFiles(dirPath: string): Promise<string[]> {
-    return await GitFileSystemHelper.getAllFiles(this.fs, dirPath);
+    const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+    return status.every(
+      ([, head, workdir, stage]) =>
+        (head === 0 && stage === 0) || (head === workdir && stage === head)
+    );
   }
 
   private async resolveBranchCommit(branchName: string): Promise<string> {
@@ -118,12 +103,15 @@ export class GitMergeOperations {
       await this.ensureGitRepository();
 
       if (options.abort) {
-        return 'Merge aborted (not fully implemented yet)';
+        return await this.mergeAbort();
       }
+      await assertNoMergeInProgress(this.fs, this.dir);
 
       const isClean = await this.isWorkingDirectoryClean();
       if (!isClean) {
-        return 'error: Your local changes to the following files would be overwritten by merge:\nPlease commit your changes or stash them before you merge.';
+        throw new Error(
+          'error: Your local changes to the following files would be overwritten by merge:\nPlease commit your changes or stash them before you merge.'
+        );
       }
 
       const currentBranch = await this.getCurrentBranch();
@@ -146,82 +134,123 @@ export class GitMergeOperations {
         branchName
       );
 
+      await this.assertNoUntrackedCollisions(targetCommit);
+
       if (canFF && !options.noFf) {
-        console.log('Performing fast-forward merge');
-
-        await git.writeRef({
-          fs: this.fs,
-          dir: this.dir,
-          ref: `refs/heads/${currentBranch}`,
-          value: targetCommit,
-        });
-
-        await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch });
+        await this.checkoutAndUpdateBranch(currentBranch, targetCommit, sourceCommit);
 
         const shortTarget = targetCommit.slice(0, 7);
         return `Updating ${sourceCommit.slice(0, 7)}..${shortTarget}\nFast-forward`;
       }
 
-      console.log('Performing 3-way merge');
-
       const commitMessage = options.message || `Merge branch '${branchName}' into ${currentBranch}`;
-
+      const author = await resolveCommitAuthor(this.fs);
+      const detector = new MergeConflictDetector(this.fs, this.dir);
+      const candidates = await detector.detectConflicts(currentBranch, branchName);
+      const binaryConflicts = candidates.filter(conflict => conflict.binary);
+      const binaryPaths = new Set(
+        binaryConflicts.map(conflict => conflict.filePath.slice(this.dir.length + 1))
+      );
+      const symlinkPaths = new Set<string>();
+      const binaryOurs = new Map<string, { oid: string; mode: number }>();
+      const [baseCommit] = await git.findMergeBase({
+        fs: this.fs,
+        dir: this.dir,
+        oids: [sourceCommit, targetCommit],
+      });
+      await git.walk({
+        fs: this.fs,
+        dir: this.dir,
+        trees: [
+          git.TREE({ ref: baseCommit }),
+          git.TREE({ ref: sourceCommit }),
+          git.TREE({ ref: targetCommit }),
+        ],
+        map: async (filepath, entries) => {
+          const ours = entries[1];
+          if (ours && binaryPaths.has(filepath)) {
+            binaryOurs.set(filepath, { oid: await ours.oid(), mode: await ours.mode() });
+          }
+          for (const entry of entries) {
+            if ((await entry?.mode()) === 0o120000) symlinkPaths.add(filepath);
+          }
+        },
+      });
+      const mergeFs: FS = {
+        ...this.fs,
+        promises: {
+          ...this.fs.promises,
+          writeFile: async (path, content) => {
+            const filepath = path.slice(this.dir.length + 1);
+            if (binaryPaths.has(filepath) || symlinkPaths.has(filepath)) return;
+            await this.fs.promises.writeFile(path, content);
+          },
+        },
+      };
+      let conflictPaths = new Set(binaryPaths);
+      let mergedOid: string | undefined;
       try {
         const result = await git.merge({
-          fs: this.fs,
+          fs: mergeFs,
           dir: this.dir,
           ours: currentBranch,
           theirs: branchName,
-          author: {
-            name: 'User',
-            email: 'user@pyxis.dev',
-          },
-          committer: {
-            name: 'User',
-            email: 'user@pyxis.dev',
-          },
+          author,
+          committer: author,
           message: commitMessage,
+          fastForward: !options.noFf,
+          noUpdateBranch: true,
+          abortOnConflict: false,
         });
-
-        console.log('Merge result:', result);
-
-        if (result && !result.alreadyMerged) {
-          if (result.oid) {
-            await git.checkout({ fs: this.fs, dir: this.dir, ref: result.oid });
-          }
-
-          let mergeCommit = 'unresolved';
-          if (result.oid) mergeCommit = result.oid.slice(0, 7);
-          return `Merge made by the 'ort' strategy.\nMerge commit: ${mergeCommit}`;
-        }
-        if (result?.alreadyMerged) {
-          return 'Already up to date.';
-        }
-
-        return 'Merge completed successfully.';
+        if (result.alreadyMerged) return 'Already up to date.';
+        mergedOid = result.oid;
       } catch (mergeError) {
-        const error = mergeError as Error & { code?: string };
-        if (error.code === 'MergeNotSupportedError' || error.message?.includes('conflict')) {
-          console.log('Merge conflict detected, opening resolution tab');
-
-          const detector = new MergeConflictDetector(this.fs, this.dir);
-          const conflicts = await detector.detectConflicts(currentBranch, branchName);
-
-          if (conflicts.length > 0) {
-            await this.fs.reportMergeConflict({
-              conflicts,
-              oursBranch: currentBranch,
-              theirsBranch: branchName,
-              root: this.dir,
-            });
-
-            return `CONFLICT: Automatic merge failed.\n${conflicts.length} conflicting file(s) detected.\nMerge conflict resolution tab has been opened.`;
-          }
-
-          return 'CONFLICT: Automatic merge failed. Please resolve conflicts manually.\nMerge conflicts detected but could not extract conflict details.';
-        }
-        throw new Error(`Merge failed: ${error.message}`);
+        const error = mergeError as Error & { code?: string; data?: { filepaths?: string[] } };
+        if (error.code !== 'MergeConflictError') throw error;
+        conflictPaths = new Set([...conflictPaths, ...(error.data?.filepaths || [])]);
       }
+
+      if (conflictPaths.size === 0) {
+        if (!mergedOid) throw new Error('Merge did not produce a commit.');
+        await this.checkoutAndUpdateBranch(currentBranch, mergedOid, sourceCommit);
+        return `Merge made by the 'ort' strategy.\nMerge commit: ${mergedOid.slice(0, 7)}`;
+      }
+
+      // A successful text merge can still contain a binary conflict. Materialize
+      // its automatic tree without writing the decoded binary result.
+      if (mergedOid) {
+        await this.materializeAutomaticTree(sourceCommit, mergedOid, binaryPaths);
+      } else {
+        await this.stageAutomaticChanges(sourceCommit, targetCommit, conflictPaths);
+      }
+      for (const conflict of binaryConflicts) {
+        const filepath = conflict.filePath.slice(this.dir.length + 1);
+        if (conflict.binary?.ours === null) {
+          await this.removeWorktreeFile(filepath);
+          await git.remove({ fs: this.fs, dir: this.dir, filepath });
+        } else {
+          const ours = binaryOurs.get(filepath);
+          if (!ours) throw new Error(`Cannot read our binary tree entry: ${filepath}`);
+          await git.updateIndex({
+            fs: this.fs,
+            dir: this.dir,
+            filepath,
+            oid: ours.oid,
+            mode: ours.mode,
+            add: true,
+          });
+        }
+      }
+      const conflicts = await detector.detectConflicts(currentBranch, branchName, conflictPaths);
+      await this.fs.promises.writeFile(`${this.dir}/.git/MERGE_HEAD`, `${targetCommit}\n`);
+      await this.fs.promises.writeFile(`${this.dir}/.git/MERGE_MSG`, commitMessage);
+      await this.fs.reportMergeConflict({
+        conflicts,
+        oursBranch: currentBranch,
+        theirsBranch: branchName,
+        root: this.dir,
+      });
+      return `CONFLICT: Automatic merge failed.\n${conflicts.length} conflicting file(s) detected.\nMerge conflict resolution tab has been opened.`;
     } catch (error) {
       const errorMessage = (error as Error).message;
 
@@ -233,27 +262,182 @@ export class GitMergeOperations {
     }
   }
 
+  private async checkoutAndUpdateBranch(
+    branchName: string,
+    targetCommit: string,
+    rollbackCommit: string
+  ): Promise<void> {
+    await git.checkout({ fs: this.fs, dir: this.dir, ref: targetCommit, noUpdateHead: true });
+    try {
+      await git.writeRef({
+        fs: this.fs,
+        dir: this.dir,
+        ref: `refs/heads/${branchName}`,
+        value: targetCommit,
+        force: true,
+      });
+    } catch (error) {
+      try {
+        await git.checkout({
+          fs: this.fs,
+          dir: this.dir,
+          ref: rollbackCommit,
+          noUpdateHead: true,
+          force: true,
+        });
+      } catch (rollbackError) {
+        throw new Error(
+          `Branch ref update failed: ${(error as Error).message}; worktree rollback failed: ${(rollbackError as Error).message}`
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async assertNoUntrackedCollisions(theirs: string): Promise<void> {
+    const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+    const untracked = status
+      .filter(([, head, , stage]) => head === 0 && stage === 0)
+      .map(([path]) => path);
+    if (!untracked.length) return;
+    await git.walk({
+      fs: this.fs,
+      dir: this.dir,
+      trees: [git.TREE({ ref: theirs })],
+      map: async (filepath, [entry]) => {
+        if (!entry || (await entry.type()) === 'tree') return;
+        const collision = untracked.find(
+          path =>
+            path === filepath || path.startsWith(`${filepath}/`) || filepath.startsWith(`${path}/`)
+        );
+        if (collision)
+          throw new Error(`Untracked file would be overwritten by merge: ${collision}`);
+      },
+    });
+  }
+
+  private async removeWorktreeFile(filepath: string): Promise<void> {
+    try {
+      await this.fs.promises.unlink(`${this.dir}/${filepath}`);
+    } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
+    }
+  }
+
+  private async materializeAutomaticTree(
+    ours: string,
+    merged: string,
+    conflicts: ReadonlySet<string>
+  ): Promise<void> {
+    await git.walk({
+      fs: this.fs,
+      dir: this.dir,
+      trees: [git.TREE({ ref: ours }), git.TREE({ ref: merged })],
+      map: async (filepath, [before, after]) => {
+        if (filepath === '.' || conflicts.has(filepath)) return;
+        if ((await before?.type()) === 'tree' || (await after?.type()) === 'tree') return;
+        if (!after) {
+          await this.removeWorktreeFile(filepath);
+          await git.remove({ fs: this.fs, dir: this.dir, filepath });
+          return;
+        }
+        const content = await after.content();
+        if (!content) throw new Error(`Cannot read blob: ${filepath}`);
+        const mode = await after.mode();
+        const parent = `${this.dir}/${filepath}`.slice(
+          0,
+          `${this.dir}/${filepath}`.lastIndexOf('/')
+        );
+        await GitFileSystemHelper.ensureDirectory(this.fs, parent);
+        if (mode === 0o120000) {
+          await this.removeWorktreeFile(filepath);
+          await this.fs.promises.symlink(
+            new TextDecoder().decode(content),
+            `${this.dir}/${filepath}`
+          );
+        } else {
+          if ((await before?.mode()) === 0o120000) await this.removeWorktreeFile(filepath);
+          await this.fs.promises.writeFile(`${this.dir}/${filepath}`, content);
+        }
+        await git.updateIndex({
+          fs: this.fs,
+          dir: this.dir,
+          filepath,
+          oid: await after.oid(),
+          mode,
+          add: true,
+        });
+      },
+    });
+  }
+
+  private async stageAutomaticChanges(
+    ours: string,
+    theirs: string,
+    conflicts: ReadonlySet<string>
+  ): Promise<void> {
+    const [base] = await git.findMergeBase({ fs: this.fs, dir: this.dir, oids: [ours, theirs] });
+    await git.walk({
+      fs: this.fs,
+      dir: this.dir,
+      trees: [git.TREE({ ref: base }), git.TREE({ ref: ours }), git.TREE({ ref: theirs })],
+      map: async (filepath, [before, current, incoming]) => {
+        if (filepath === '.' || conflicts.has(filepath)) return;
+        if (
+          (await before?.type()) === 'tree' ||
+          (await current?.type()) === 'tree' ||
+          (await incoming?.type()) === 'tree'
+        )
+          return;
+        const oursChanged =
+          (await before?.oid()) !== (await current?.oid()) ||
+          (await before?.mode()) !== (await current?.mode());
+        const theirsChanged =
+          (await before?.oid()) !== (await incoming?.oid()) ||
+          (await before?.mode()) !== (await incoming?.mode());
+        if (oursChanged || !theirsChanged) return;
+        if (!incoming) {
+          await this.removeWorktreeFile(filepath);
+          await git.remove({ fs: this.fs, dir: this.dir, filepath });
+        } else {
+          const mode = await incoming.mode();
+          const content = await incoming.content();
+          if (!content) throw new Error(`Cannot read blob: ${filepath}`);
+          const path = `${this.dir}/${filepath}`;
+          await GitFileSystemHelper.ensureDirectory(this.fs, path.slice(0, path.lastIndexOf('/')));
+          if (mode === 0o120000 || (await current?.mode()) === 0o120000)
+            await this.removeWorktreeFile(filepath);
+          if (mode === 0o120000) {
+            await this.fs.promises.symlink(new TextDecoder().decode(content), path);
+          } else {
+            await this.fs.promises.writeFile(path, content);
+          }
+          await git.updateIndex({
+            fs: this.fs,
+            dir: this.dir,
+            filepath,
+            oid: await incoming.oid(),
+            mode,
+            add: true,
+          });
+        }
+      },
+    });
+  }
+
   async mergeAbort(): Promise<string> {
     try {
       await this.ensureGitRepository();
 
-      try {
-        await this.fs.promises.stat(`${this.dir}/.git/MERGE_HEAD`);
-      } catch {
+      if (!(await readMergeHead(this.fs, this.dir))) {
         return 'fatal: There is no merge to abort (MERGE_HEAD missing).';
       }
 
       try {
-        await this.fs.promises.unlink(`${this.dir}/.git/MERGE_HEAD`);
-
-        try {
-          await this.fs.promises.unlink(`${this.dir}/.git/MERGE_MSG`);
-        } catch {}
-
         const currentBranch = await this.getCurrentBranch();
-        if (currentBranch) {
-          await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
-        }
+        if (!currentBranch) throw new Error('Cannot abort merge without a current branch.');
+        await git.checkout({ fs: this.fs, dir: this.dir, ref: currentBranch, force: true });
+        await clearMergeState(this.fs, this.dir);
 
         return 'Merge aborted. Working tree has been reset.';
       } catch (error) {

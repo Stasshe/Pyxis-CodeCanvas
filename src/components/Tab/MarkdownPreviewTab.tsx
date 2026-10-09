@@ -3,6 +3,7 @@ import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from
 import ReactMarkdown, { type Components, type Options } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import { basename, fsClient, getParentPath, resolvePath } from '@/engine/core/fs';
@@ -19,8 +20,9 @@ import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
+import LocalImage from './LocalImage';
 import CodeBlock from './MarkdownPreview/CodeBlock';
-import LocalImage from './MarkdownPreview/LocalImage';
+import { resolveMarkdownLink } from './MarkdownPreview/markdownLink';
 import { preprocessMarkdownMath } from './markdownMath';
 
 interface MarkdownPreviewTabProps {
@@ -144,43 +146,29 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
           try {
             if (!hrefString) return;
 
-            // Hash-only links - scroll within current preview
-            if (hrefString.startsWith('#')) {
+            const target = resolveMarkdownLink(hrefString, activeTab.path);
+            if (target.kind === 'anchor') {
               e.preventDefault();
-              const anchor = decodeURIComponent(hrefString.substring(1));
-              const el = markdownContainerRef.current?.querySelector(`#${CSS.escape(anchor)}`);
+              const el = markdownContainerRef.current?.querySelector(`#${CSS.escape(target.id)}`);
               if (el && el instanceof HTMLElement) el.scrollIntoView({ behavior: 'smooth' });
               return;
             }
-
-            if (
-              hrefString.startsWith('https://') ||
-              hrefString.startsWith('mailto:') ||
-              hrefString.startsWith('tel:') ||
-              hrefString.startsWith('data:')
-            ) {
+            if (target.kind === 'external') {
               e.preventDefault();
               window.open(hrefString, '_blank', 'noopener');
               return;
             }
-
-            // At this point, treat as a project-local link. Resolve relative to activeTab.path
             e.preventDefault();
-            // Remove any search/query/hash from href for file lookup
-            const hrefNoHash = hrefString.split('#')[0].split('?')[0];
-
-            // Build candidate paths: relative to current file and root-relative
-            const candidates: string[] = [];
-            if (hrefNoHash.startsWith('/')) {
-              candidates.push(resolvePath('/', hrefNoHash));
-            } else {
-              candidates.push(resolvePath(getParentPath(activeTab.path), hrefNoHash));
-              candidates.push(resolvePath('/', hrefNoHash));
+            if (target.kind !== 'local') {
+              if (target.kind === 'invalid') {
+                console.warn('[MarkdownPreviewTab] invalid local link', hrefString);
+              }
+              return;
             }
 
             // Try candidates and also try adding .md if missing
             const tryCandidates: string[] = [];
-            for (const c of candidates) {
+            for (const c of target.paths) {
               tryCandidates.push(c);
               if (!c.toLowerCase().endsWith('.md')) tryCandidates.push(`${c}.md`);
             }
@@ -231,12 +219,10 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
               }
             }
 
-            // Fallback: open in new tab
-            window.open(hrefString, '_blank', 'noopener');
+            console.warn('[MarkdownPreviewTab] local link not found', hrefString);
           } catch (err) {
             console.warn('[MarkdownPreviewTab] link handler failed:', err);
-            // Last resort: follow the link
-            window.open(hrefString, '_blank', 'noopener');
+            e.preventDefault();
           }
         };
 
@@ -263,7 +249,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
     () => (
       <ReactMarkdown
         remarkPlugins={[remarkGfm, ...extraRemarkPlugins, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeKatex]}
         components={markdownComponents}
       >
         {processedContent}
@@ -397,14 +383,13 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   return (
     <div className="p-4 overflow-auto h-full w-full" ref={markdownContainerRef}>
-      <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2" style={{ color: colors.foreground }}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="min-w-0 break-words font-bold text-lg" style={{ color: colors.foreground }}>
           {activeTab.name} {t('markdownPreview.preview')}
         </div>
         <button
           type="button"
-          className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"
-          style={{ marginLeft: 4 }}
+          className="shrink-0 whitespace-nowrap rounded bg-green-500 px-2 py-1 text-xs text-white transition hover:bg-green-600"
           onClick={handleExportPdf}
           title={t('markdownPreview.exportPdf')}
         >
@@ -412,7 +397,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         </button>
         <button
           type="button"
-          className="px-2 py-1 rounded bg-blue-500 text-white text-xs hover:bg-blue-600 transition ml-2"
+          className="shrink-0 whitespace-nowrap rounded bg-blue-500 px-2 py-1 text-xs text-white transition hover:bg-blue-600"
           onClick={handleExportPng}
           title={t('markdownPreview.exportPng')}
         >

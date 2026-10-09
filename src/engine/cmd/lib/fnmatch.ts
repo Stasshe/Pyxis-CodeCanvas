@@ -44,19 +44,28 @@ export function fnmatch(pattern: string, string: string, flags = 0): number {
   const noescape = (flags & FNM_NOESCAPE) !== 0;
 
   // 大文字小文字を無視する場合は両方を小文字に
-  const p = caseFold ? pattern.toLowerCase() : pattern;
-  const s = caseFold ? string.toLowerCase() : string;
+  let normalizedPattern = pattern;
+  let normalizedString = string;
+  if (caseFold) {
+    normalizedPattern = pattern.toLowerCase();
+    normalizedString = string.toLowerCase();
+  }
+  const p = Array.from(normalizedPattern);
+  const s = Array.from(normalizedString);
 
-  return fnmatchInternal(p, 0, s, 0, pathname, period, noescape) ? 0 : FNM_NOMATCH;
+  if (fnmatchInternal(p, 0, s, 0, pathname, period, noescape)) {
+    return 0;
+  }
+  return FNM_NOMATCH;
 }
 
 /**
  * 内部マッチング関数（再帰）
  */
 function fnmatchInternal(
-  pattern: string,
+  pattern: string[],
   pi: number,
-  string: string,
+  string: string[],
   si: number,
   pathname: boolean,
   period: boolean,
@@ -82,7 +91,8 @@ function fnmatchInternal(
 
     // 先頭ドットの特別扱い
     if (period && sc === '.' && (si === 0 || (pathname && string[si - 1] === '/'))) {
-      if (pc !== '.') return false;
+      const escapedDot = !noescape && pc === '\\' && pattern[pi + 1] === '.';
+      if (pc !== '.' && !escapedDot) return false;
     }
 
     switch (pc) {
@@ -120,7 +130,14 @@ function fnmatchInternal(
 
       case '[': {
         // 文字クラス
+        if (pathname && sc === '/') return false;
         const result = matchBracket(pattern, pi, sc, noescape);
+        if (!result.valid) {
+          if (pc !== sc) return false;
+          pi++;
+          si++;
+          break;
+        }
         if (!result.matched) return false;
         pi = result.newPi;
         si++;
@@ -156,11 +173,20 @@ function fnmatchInternal(
  * 文字クラス [...] のマッチング
  */
 function matchBracket(
-  pattern: string,
+  pattern: string[],
   pi: number,
   char: string,
   noescape: boolean
-): { matched: boolean; newPi: number } {
+): { matched: boolean; newPi: number; valid: boolean } {
+  const alphaClass = pattern.slice(pi, pi + 11).join('') === '[[:alpha:]]';
+  if (alphaClass) {
+    return {
+      matched: /^\p{Alphabetic}$/u.test(char),
+      newPi: pi + 11,
+      valid: true,
+    };
+  }
+
   pi++; // '[' をスキップ
 
   let negate = false;
@@ -171,6 +197,7 @@ function matchBracket(
 
   let matched = false;
   let first = true;
+  let closed = false;
 
   while (pi < pattern.length) {
     const c = pattern[pi];
@@ -178,6 +205,7 @@ function matchBracket(
     // 最初の文字でなければ']'で終了
     if (c === ']' && !first) {
       pi++;
+      closed = true;
       break;
     }
     first = false;
@@ -206,7 +234,11 @@ function matchBracket(
     pi++;
   }
 
-  return { matched: negate ? !matched : matched, newPi: pi };
+  let finalMatch = matched;
+  if (negate) {
+    finalMatch = !matched;
+  }
+  return { matched: finalMatch, newPi: pi, valid: closed };
 }
 
 /**
@@ -232,24 +264,54 @@ export function fnmatchToRegExp(pattern: string, flags = 0): RegExp {
       case '*':
         // 連続する*を1つにまとめる
         while (i + 1 < pattern.length && pattern[i + 1] === '*') i++;
-        regex += pathname ? '[^/]*' : '.*';
+        if (pathname) {
+          regex += '[^/]*';
+        } else {
+          regex += '.*';
+        }
         break;
 
       case '?':
-        regex += pathname ? '[^/]' : '.';
+        if (pathname) {
+          regex += '[^/]';
+        } else {
+          regex += '.';
+        }
         break;
 
       case '[': {
+        const alphaClass = pattern.slice(i, i + 11) === '[[:alpha:]]';
+        if (alphaClass) {
+          regex += '\\p{Alphabetic}';
+          i += 10;
+          break;
+        }
+
         let j = i + 1;
         let bracket = '[';
+        let first = true;
+        let closed = false;
 
         if (j < pattern.length && (pattern[j] === '!' || pattern[j] === '^')) {
           bracket += '^';
           j++;
         }
 
-        while (j < pattern.length && pattern[j] !== ']') {
+        while (j < pattern.length) {
+          if (pattern[j] === ']' && !first) {
+            j++;
+            closed = true;
+            break;
+          }
+
           const bc = pattern[j];
+          first = false;
+          if (bc === ']') {
+            bracket += '\\]';
+            j++;
+            continue;
+          }
+
           if (!noescape && bc === '\\' && j + 1 < pattern.length) {
             bracket += `\\${pattern[j + 1]}`;
             j += 2;
@@ -262,9 +324,15 @@ export function fnmatchToRegExp(pattern: string, flags = 0): RegExp {
             j++;
           }
         }
+
+        if (!closed) {
+          regex += escapeRegex(c);
+          break;
+        }
+
         bracket += ']';
         regex += bracket;
-        i = j;
+        i = j - 1;
         break;
       }
 
@@ -284,7 +352,11 @@ export function fnmatchToRegExp(pattern: string, flags = 0): RegExp {
     i++;
   }
 
-  return new RegExp(`^${regex}$`, caseFold ? 'i' : '');
+  let regexpFlags = 'u';
+  if (caseFold) {
+    regexpFlags = 'iu';
+  }
+  return new RegExp(`^${regex}$`, regexpFlags);
 }
 
 /**

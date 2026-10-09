@@ -106,26 +106,18 @@ class SessionStoreManager {
    * セッションを読み込み
    */
   async load(rootPath: string): Promise<PyxisSession> {
-    try {
-      const session = await storageService.get<PyxisSession>(
-        STORES.TAB_STATE,
-        sessionKey(rootPath)
-      );
+    const session = await storageService.get<PyxisSession>(STORES.TAB_STATE, sessionKey(rootPath));
 
-      if (!session) {
-        console.log('[SessionStore] No saved session found, using default');
-        return DEFAULT_SESSION;
-      }
-
-      // 復元後にneedsContentRestoreフラグを設定
-      const restoredSession = this.prepareSessionForRestore(session);
-
-      console.log('[SessionStore] Session loaded successfully');
-      return restoredSession;
-    } catch (error) {
-      console.error('[SessionStore] Failed to load session:', error);
-      return DEFAULT_SESSION;
+    if (!session) {
+      console.log('[SessionStore] No saved session found, using default');
+      return structuredClone(DEFAULT_SESSION);
     }
+
+    // 復元後にneedsContentRestoreフラグを設定
+    const restoredSession = this.prepareSessionForRestore(session);
+
+    console.log('[SessionStore] Session loaded successfully');
+    return restoredSession;
   }
 
   /**

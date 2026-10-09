@@ -1,4 +1,4 @@
-files=$(find out/ -type f)
+files=$(find dist/ -type f)
 
 total_lines=0
 total_chars=0

@@ -62,6 +62,18 @@ describe('useGitFilesystemRefresh', () => {
     expect(mocks.triggerGitRefresh).toHaveBeenCalledTimes(1);
   });
 
+  it('coalesces repeated writes to one file into a single Git refresh', () => {
+    useGitFilesystemRefresh('/repo');
+    const listener = mocks.listener;
+    expect(listener).not.toBeNull();
+
+    listener?.({ type: 'update', path: '/repo/src/shared.ts' });
+    listener?.({ type: 'update', path: '/repo/src/shared.ts' });
+
+    vi.advanceTimersByTime(100);
+    expect(mocks.triggerGitRefresh).toHaveBeenCalledTimes(1);
+  });
+
   it('unsubscribes and cancels pending refreshes on cleanup', () => {
     useGitFilesystemRefresh('/repo');
     mocks.listener?.({ type: 'create', path: '/repo/file.txt' });

@@ -4,7 +4,7 @@ export interface TranspileBenchmark {
 }
 
 export interface FsStat {
-  type: 'file' | 'directory' | 'symlink';
+  type: 'file' | 'directory' | 'symlink' | 'fifo' | 'characterDevice';
   size: number;
   mtime: number;
 }
@@ -21,7 +21,27 @@ export type FsRequest = { benchmark?: boolean } & (
       path: string;
     }
   | { kind: 'fs'; op: 'symlink'; target: string; path: string }
-  | { kind: 'fs'; op: 'writeFile'; path: string; data: number[] }
+  | { kind: 'fs'; op: 'writeFile'; path: string; data: string }
+  | {
+      kind: 'fs';
+      op: 'writeRange';
+      path: string;
+      data: string;
+      position: number | null;
+      create: boolean;
+      exclusive: boolean;
+    }
+  | {
+      kind: 'fs';
+      op: 'fifoOpen';
+      path: string;
+      endpointId: string;
+      mode: 'read' | 'write' | 'readwrite';
+      nonblocking: boolean;
+    }
+  | { kind: 'fs'; op: 'fifoRead'; endpointId: string; maxBytes: number }
+  | { kind: 'fs'; op: 'fifoWrite'; endpointId: string; data: string }
+  | { kind: 'fs'; op: 'fifoClose'; endpointId: string }
   | { kind: 'fs'; op: 'mkdir'; path: string; recursive: boolean }
   | { kind: 'fs'; op: 'rm'; path: string; recursive: boolean; force: boolean }
   | { kind: 'fs'; op: 'rename'; path: string; newPath: string }
@@ -47,10 +67,15 @@ export type RpcValue =
   | number
   | string
   | number[]
+  | Uint8Array
   | string[]
   | FsStat
   | { code: string; dependencies: ModuleDependency[]; benchmark?: TranspileBenchmark }
-  | { stdout: string; stderr: string; exitCode: number };
+  | {
+      stdout: string | Uint8Array | number[];
+      stderr: string | Uint8Array | number[];
+      exitCode: number;
+    };
 
 export type RpcResult = (
   | { ok: true; value: RpcValue }

@@ -1,8 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { parseGitStatus } from '@/components/Left/GitPanel/gitUtils';
-import { categorizeStatusFiles, formatStatusResult } from '@/engine/cmd/global/gitOperations/status';
+import { parseGitLog, parseGitStatus } from '@/components/Left/GitPanel/gitUtils';
+import {
+  categorizeStatusFiles,
+  formatStatusResult,
+} from '@/engine/cmd/global/gitOperations/status';
 
 describe('Git status formatting', () => {
+  it('preserves colons in changed filenames and accepts an empty log', () => {
+    const status = parseGitStatus(
+      [
+        'On branch main',
+        'Changes to be committed:',
+        '  modified:   src/file:with:colons.ts',
+        '',
+        'Changes not staged for commit:',
+        '  deleted:    src/removed:old.ts',
+      ].join('\n')
+    );
+
+    expect(status.staged).toEqual(['src/file:with:colons.ts']);
+    expect(status.deleted).toEqual(['src/removed:old.ts']);
+    expect(parseGitLog('\n  \n')).toEqual([]);
+  });
+
   it('reports staged additions, edits, deletions, and remaining worktree edits accurately', async () => {
     const status = [
       ['added.ts', 0, 2, 2],
@@ -58,6 +78,30 @@ describe('Git status formatting', () => {
       untracked: ['staged-delete-recreated.ts', 'untracked.ts'],
       branch: 'main',
     });
+  });
+
+  it('keeps untracked names that resemble status guidance', async () => {
+    const files = [
+      '(notes).txt',
+      'git add later.txt',
+      'to include.txt',
+      'On branch fake',
+      'Changes to be committed:',
+      'modified: filename',
+      'nothing added to commit but untracked files present (use "git add" to track)',
+    ];
+    const status = files.map(file => [file, 0, 2, 0] as [string, number, number, number]);
+    const output = await formatStatusResult(status, 'main');
+
+    expect(parseGitStatus(output).untracked).toEqual(files);
+  });
+
+  it('preserves commits with empty messages', () => {
+    const hash = 'a'.repeat(40);
+    const date = '2026-10-09T00:00:00.000Z';
+    const [commit] = parseGitLog(`${hash}||Stasshe|${date}|||tree`);
+
+    expect(commit).toMatchObject({ hash, message: '', author: 'Stasshe' });
   });
 
   it('categorizes staged and unstaged changes independently', () => {

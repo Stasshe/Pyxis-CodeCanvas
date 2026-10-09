@@ -12,6 +12,10 @@ function normalizeBase(value: string | undefined): string {
 
 const basePath = process.env.VITE_BASE_PATH;
 const ignoredBuildLogCodes = new Set(['INEFFECTIVE_DYNAMIC_IMPORT']);
+const browserNodeInjection: Record<string, string | [string, string]> = {
+  process: 'process/browser',
+  Buffer: ['buffer', 'Buffer'],
+};
 
 function serveBuiltExtensions(): Plugin {
   const extensionsDir = path.resolve(__dirname, 'public/extensions');
@@ -77,23 +81,39 @@ export default defineConfig({
         define: {
           define: 'undefined',
         },
+        inject: browserNodeInjection,
+      },
+    },
+  },
+  worker: {
+    rolldownOptions: {
+      transform: {
+        inject: browserNodeInjection,
       },
     },
   },
   assetsInclude: ['**/*.wasm'],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-      events: 'events',
-      'node:events': 'events',
-      'node:stream': 'stream-browserify',
-      stream: 'stream-browserify',
-      path: 'path-browserify',
-      crypto: 'crypto-browserify',
-      vm: 'vm-browserify',
-      os: 'os-browserify/browser',
-      process: 'process/browser',
-    },
+    alias: [
+      { find: /^util$/, replacement: 'util/' },
+      { find: /^node:util$/, replacement: 'util/' },
+      { find: /^assert$/, replacement: 'assert/' },
+      { find: /^node:assert$/, replacement: 'assert/' },
+      { find: /^url$/, replacement: 'url/' },
+      { find: /^node:url$/, replacement: 'url/' },
+      { find: /^node:string_decoder$/, replacement: 'string_decoder' },
+      { find: /^node:buffer$/, replacement: 'buffer' },
+      { find: '@', replacement: path.resolve(__dirname, 'src') },
+      { find: 'events', replacement: 'events' },
+      { find: 'node:events', replacement: 'events' },
+      { find: /^node:stream$/, replacement: 'readable-stream/lib/stream.js' },
+      { find: /^stream$/, replacement: 'readable-stream/lib/stream.js' },
+      { find: 'path', replacement: 'path-browserify' },
+      { find: 'crypto', replacement: 'crypto-browserify' },
+      { find: 'vm', replacement: 'vm-browserify' },
+      { find: 'os', replacement: 'os-browserify/browser' },
+      { find: /^process$/, replacement: 'process/browser' },
+    ],
   },
   define: {
     __PYXIS_VERSION__: JSON.stringify(packageJson.version),
@@ -107,6 +127,9 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         codeSplitting: true,
+      },
+      transform: {
+        inject: browserNodeInjection,
       },
       onLog(level, log, defaultHandler) {
         if (log.code && ignoredBuildLogCodes.has(log.code)) return;

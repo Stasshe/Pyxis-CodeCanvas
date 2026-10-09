@@ -1,7 +1,7 @@
 export interface FileItem {
   id: string;
   name: string;
-  type: 'file' | 'folder' | 'symlink';
+  type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
   content?: string;
   children?: FileItem[];
   path: string;
@@ -54,9 +54,10 @@ export interface Project {
 
 export interface ProjectFile {
   path: string;
-  type: 'file' | 'folder' | 'symlink';
+  type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
   size: number;
   mtime: number;
+  mount?: 'memory' | 'devices';
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'run' | 'extensions' | 'settings';
@@ -109,6 +110,7 @@ export interface AIEditResponse {
     suggestedContent: string;
     explanation: string;
     applied?: boolean; // Track if this change has been applied to file
+    appliedContent?: string; // Exact bytes written, including user-edited review content and BOM
     isNewFile?: boolean; // Track if this is a new file created by AI (for revert: delete instead of restore empty)
   }>;
   message: string;

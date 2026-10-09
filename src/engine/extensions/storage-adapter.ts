@@ -7,6 +7,25 @@ import { STORES, storageService } from '@/engine/storage';
 import { dataUrlToBlob } from './binaryUtils';
 import type { InstalledExtension } from './types';
 
+const AUTO_INSTALL_PROGRESS_ID = 'extension-auto-install-progress';
+
+export interface AutoInstallProgress {
+  started: boolean;
+  completed: boolean;
+  completedExtensionIds: string[];
+}
+
+export async function loadAutoInstallProgress(): Promise<AutoInstallProgress | null> {
+  return await storageService.get<AutoInstallProgress>(
+    STORES.USER_PREFERENCES,
+    AUTO_INSTALL_PROGRESS_ID
+  );
+}
+
+export async function saveAutoInstallProgress(progress: AutoInstallProgress): Promise<void> {
+  await storageService.set(STORES.USER_PREFERENCES, AUTO_INSTALL_PROGRESS_ID, progress);
+}
+
 /**
  * インストール済み拡張機能をIndexedDBに保存
  */

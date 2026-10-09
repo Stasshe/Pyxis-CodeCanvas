@@ -81,16 +81,35 @@ describe('filesystem-owned transpile cache', () => {
     expect(transform).toHaveBeenCalledTimes(1);
   });
 
-  it('reports corrupt persisted entries without transforming over them', async () => {
-    const { manager, memory } = createStorage();
+  it('regenerates corrupt persisted entries', async () => {
+    const { manager, memory, fs } = createStorage();
     const options = { filePath: '/workspace/entry.mjs', code: 'export const value = 1;' };
     await manager.transpile(options);
     const directory = `${RUNTIME_CACHE_PATH}/modules`;
     const [filename] = await memory.readdir(directory);
     await memory.writeFile(`${directory}/${filename}`, new TextEncoder().encode('{}'));
 
-    await expect(manager.transpile(options)).rejects.toThrow('Invalid transpile cache entry:');
-    expect(transform).toHaveBeenCalledTimes(1);
+    const regenerated = await manager.transpile(options);
+
+    expect(regenerated.code).toBe('transformed:export const value = 1;');
+    expect(transform).toHaveBeenCalledTimes(2);
+    const restarted = new TranspileManager(fs);
+    await restarted.transpile(options);
+    expect(transform).toHaveBeenCalledTimes(2);
+  });
+
+  it('regenerates cache files containing invalid JSON', async () => {
+    const { manager, memory } = createStorage();
+    const options = { filePath: '/workspace/entry.mjs', code: 'export const value = 1;' };
+    await manager.transpile(options);
+    const directory = `${RUNTIME_CACHE_PATH}/modules`;
+    const [filename] = await memory.readdir(directory);
+    await memory.writeFile(`${directory}/${filename}`, new TextEncoder().encode('{'));
+
+    const regenerated = await manager.transpile(options);
+
+    expect(regenerated.code).toBe('transformed:export const value = 1;');
+    expect(transform).toHaveBeenCalledTimes(2);
   });
 
   it('requires a registered TypeScript transpiler before consulting persistent cache', async () => {

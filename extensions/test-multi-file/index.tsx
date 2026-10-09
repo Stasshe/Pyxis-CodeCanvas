@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { CircleCheck } from 'lucide-react';
 
 import { helperFunction, HelperClass, helperConstant } from './helper';
 import utils from './utils';
@@ -100,13 +101,13 @@ function TestMultiFilePanel() {
           }}
         >
           <h3 style={{ marginTop: 0 }}>テスト結果:</h3>
-          <div>✅ Helper関数: {testResults.helperResult}</div>
-          <div>✅ Helperクラス: {testResults.helperMessage}</div>
-          <div>✅ Helper定数: {testResults.helperConstant}</div>
-          <div>✅ Utilsバージョン: {testResults.utilsVersion}</div>
-          <div>✅ 足し算 (5+3): {testResults.mathResults.sum}</div>
-          <div>✅ 掛け算 (5*3): {testResults.mathResults.product}</div>
-          <div>✅ Utilsから足し算 (10+20): {testResults.mathResults.sum2}</div>
+          <div><CircleCheck size={12} /> Helper関数: {testResults.helperResult}</div>
+          <div><CircleCheck size={12} /> Helperクラス: {testResults.helperMessage}</div>
+          <div><CircleCheck size={12} /> Helper定数: {testResults.helperConstant}</div>
+          <div><CircleCheck size={12} /> Utilsバージョン: {testResults.utilsVersion}</div>
+          <div><CircleCheck size={12} /> 足し算 (5+3): {testResults.mathResults.sum}</div>
+          <div><CircleCheck size={12} /> 掛け算 (5*3): {testResults.mathResults.product}</div>
+          <div><CircleCheck size={12} /> Utilsから足し算 (10+20): {testResults.mathResults.sum2}</div>
           <div style={{ marginTop: '8px', opacity: 0.7 }}>
             実行時刻: {testResults.timestamp}
           </div>

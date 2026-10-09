@@ -14,7 +14,9 @@ import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
 
 export function createTestModuleResolver(repo: FsCore, rootPath: string) {
   const channel = new MessageChannel();
-  const bridge = new RuntimeBridge('/', channel.port2, crypto.randomUUID());
+  const bridge = new RuntimeBridge('/', channel.port2, crypto.randomUUID(), () => {
+    throw new Error('Unexpected runtime cancellation.');
+  });
   attachRuntimePort(
     channel.port1,
     {

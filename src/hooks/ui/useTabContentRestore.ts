@@ -13,6 +13,7 @@ import { readFileContent } from '@/engine/core/fileContent';
 import { fsClient } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
+import { pushLogMessage } from '@/stores/loggerStore';
 import { getCurrentRootPath, projectState } from '@/stores/projectStore';
 import { isTabDirty, setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
@@ -34,12 +35,15 @@ function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   return result;
 }
 
-// Extract and normalize a file path from a tab path.
+// File-backed tabs store their canonical filesystem path directly.
 function extractFilePathFromTab(p?: string): string {
   if (!p) return '';
-  const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-  const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+  return p.startsWith('/') ? p : `/${p}`;
+}
+
+function reportRestoreFailure(path: string, error: unknown): void {
+  const reason = error instanceof Error ? error.message : String(error);
+  pushLogMessage(`Failed to restore ${path}: ${reason}`, 'error', 'Tab Session');
 }
 
 /**
@@ -54,15 +58,15 @@ async function defaultFileRestore(
   }
   const filePath = extractFilePathFromTab(tab.path);
   if (!filePath) {
-    console.warn('[useTabContentRestore] No path for tab:', tab.name);
-    return { ...tab, needsContentRestore: false };
+    reportRestoreFailure(tab.name, new Error('Tab has no file path'));
+    return { ...tab, needsContentRestore: true };
   }
 
   const file = await context.getFileByPath(filePath);
 
   if (!file) {
-    console.warn('[useTabContentRestore] File not found for tab:', filePath);
-    return { ...tab, needsContentRestore: false };
+    reportRestoreFailure(filePath, new Error('File does not exist'));
+    return { ...tab, needsContentRestore: true };
   }
 
   if (file.bufferContent !== undefined) {
@@ -217,7 +221,8 @@ export function useTabContentRestore(isRestored: boolean) {
               tab.path,
               error
             );
-            return { ...tab, needsContentRestore: false };
+            reportRestoreFailure(tab.path || tab.name, error);
+            return { ...tab, needsContentRestore: true };
           }
         };
 
@@ -273,7 +278,7 @@ export function useTabContentRestore(isRestored: boolean) {
         // don't need tab.content as a fallback
         for (const pane of flattenPanes(restoredPanes)) {
           for (const tab of pane.tabs) {
-            if (isTabDirty(tab.id)) continue;
+            if (tab.needsContentRestore || isTabDirty(tab.id)) continue;
             if ('content' in tab && typeof tab.content === 'string') {
               setTabContent(tab.id, tab.content, tab.isDirty ?? false);
             }
@@ -301,6 +306,7 @@ export function useTabContentRestore(isRestored: boolean) {
       } catch (error) {
         if (!isCurrentRestore()) return;
         console.error('[useTabContentRestore] Restoration failed:', error);
+        reportRestoreFailure(rootPath, error);
         activeRestoreSession.inProgress = false;
         // Mark failed restoration complete to avoid retrying indefinitely.
         activeRestoreSession.completed = true;

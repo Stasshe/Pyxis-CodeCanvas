@@ -1,7 +1,14 @@
-import git from 'isomorphic-git';
+import git, { type Walker, type WalkerEntry } from 'isomorphic-git';
+import { classifyFileContent } from '@/engine/core/fileBytes';
 import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
+
+interface DiffEntry {
+  bytes: Uint8Array;
+  mode: string;
+  oid: string;
+}
 
 export class GitDiffOperations {
   private fs: FS;
@@ -30,7 +37,8 @@ export class GitDiffOperations {
 
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
@@ -42,16 +50,10 @@ export class GitDiffOperations {
         return await this.diffCommits(commit1, commit2, filepath);
       }
       if (branchName) {
-        let currentBranch = '';
-        try {
-          const branch = await git.currentBranch({ fs: this.fs, dir: this.dir });
-          if (typeof branch === 'string') currentBranch = branch;
-        } catch {}
-        if (!currentBranch) currentBranch = 'main';
         const head1 = await git.resolveRef({
           fs: this.fs,
           dir: this.dir,
-          ref: `refs/heads/${currentBranch}`,
+          ref: 'HEAD',
         });
         const head2 = await git.resolveRef({
           fs: this.fs,
@@ -70,311 +72,160 @@ export class GitDiffOperations {
   }
 
   private async diffWorkingDirectory(filepath?: string): Promise<string> {
-    try {
-      let headCommitHash: string | null = null;
-      try {
-        headCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
-      } catch {
-        headCommitHash = null;
-      }
-
-      if (!headCommitHash) {
-        console.log(
-          '[GitDiffOperations] No HEAD commit found; showing working directory changes (treating missing HEAD as empty)'
-        );
-      }
-
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      const diffs: string[] = [];
-
-      for (const [file, HEAD, workdir, _stage] of status) {
-        if (filepath && file !== filepath) continue;
-
-        if (HEAD === 1 && workdir === 2) {
-          try {
-            let headContent = '';
-            let workContent = '';
-
-            try {
-              if (headCommitHash) {
-                const { blob } = await git.readBlob({
-                  fs: this.fs,
-                  dir: this.dir,
-                  oid: headCommitHash,
-                  filepath: file,
-                });
-                headContent = new TextDecoder().decode(blob);
-              } else {
-                headContent = '';
-              }
-            } catch {
-              headContent = '';
-            }
-
-            try {
-              workContent = await this.fs.promises.readFile(`${this.dir}/${file}`, 'utf8');
-            } catch {
-              workContent = '';
-            }
-
-            const diff = this.formatDiff(file, headContent, workContent);
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate diff for ${file}:`, error);
-          }
-        } else if (HEAD === 0 && (workdir === 1 || workdir === 2)) {
-          try {
-            let workContent = '';
-            try {
-              workContent = await this.fs.promises.readFile(`${this.dir}/${file}`, 'utf8');
-            } catch {
-              workContent = '';
-            }
-
-            const diff = this.formatDiff(file, '', workContent);
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate diff for new file ${file}:`, error);
-          }
-        } else if (HEAD === 1 && workdir === 0) {
-          try {
-            let headContent = '';
-            try {
-              if (headCommitHash) {
-                const { blob } = await git.readBlob({
-                  fs: this.fs,
-                  dir: this.dir,
-                  oid: headCommitHash,
-                  filepath: file,
-                });
-                headContent = new TextDecoder().decode(blob);
-              } else {
-                headContent = '';
-              }
-            } catch {
-              headContent = '';
-            }
-
-            const diff = this.formatDiff(file, headContent, '');
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate diff for deleted file ${file}:`, error);
-          }
-        }
-      }
-
-      if (diffs.length > 0) return diffs.join('\n\n');
-      return 'No changes';
-    } catch (error) {
-      throw new Error(`Failed to get working directory diff: ${(error as Error).message}`);
-    }
+    const output = await this.compareTrees([git.STAGE(), git.WORKDIR()], filepath, true);
+    return output || 'No changes';
   }
 
   private async diffStaged(filepath?: string): Promise<string> {
+    let head: string | undefined;
     try {
-      let headCommitHash: string | null = null;
-      try {
-        headCommitHash = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
-      } catch {
-        headCommitHash = null;
-      }
-
-      if (!headCommitHash) {
-        return 'No commits yet - cannot show staged diff';
-      }
-
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      const diffs: string[] = [];
-
-      for (const [file, _HEAD, _workdir, stage] of status) {
-        if (filepath && file !== filepath) continue;
-
-        if (stage === 2 || stage === 3) {
-          try {
-            const diff = await this.generateStagedDiff(file, headCommitHash);
-            if (diff) diffs.push(diff);
-          } catch (error) {
-            console.warn(`Failed to generate staged diff for ${file}:`, error);
-          }
-        }
-      }
-
-      if (diffs.length > 0) return diffs.join('\n\n');
-      return 'No staged changes';
+      head = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
     } catch (error) {
-      throw new Error(`Failed to get staged diff: ${(error as Error).message}`);
+      if (
+        !(error instanceof git.Errors.NotFoundError) ||
+        (error.data.what !== 'HEAD' && !error.data.what.startsWith('refs/heads/'))
+      )
+        throw error;
     }
+    let trees = [git.STAGE()];
+    if (head) trees = [git.TREE({ ref: head }), git.STAGE()];
+    const output = await this.compareTrees(trees, filepath);
+    return output || 'No staged changes';
   }
 
   async diffCommits(commit1: string, commit2: string, filepath?: string): Promise<string> {
-    try {
-      if (filepath) filepath = repositoryPath(this.dir, filepath);
-      let fullCommit1: string;
-      let fullCommit2: string;
+    if (filepath) filepath = repositoryPath(this.dir, filepath);
+    const output = await this.compareTrees(
+      [git.TREE({ ref: commit1 }), git.TREE({ ref: commit2 })],
+      filepath
+    );
+    return output || 'No differences between commits';
+  }
 
-      try {
-        fullCommit1 = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commit1 });
-      } catch (error) {
-        throw new Error(`Invalid commit1 '${commit1}': ${(error as Error).message}`);
-      }
-
-      try {
-        fullCommit2 = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commit2 });
-      } catch (error) {
-        throw new Error(`Invalid commit2 '${commit2}': ${(error as Error).message}`);
-      }
-
-      const changedFiles: Array<{
-        path: string;
-        type: 'added' | 'deleted' | 'modified';
-        oid1?: string;
-        oid2?: string;
-      }> = [];
-
-      await git.walk({
-        fs: this.fs,
-        dir: this.dir,
-        trees: [git.TREE({ ref: fullCommit1 }), git.TREE({ ref: fullCommit2 })],
-        map: async (filepath_walk, [entry1, entry2]) => {
-          if (filepath_walk === '.') return;
-
-          if (filepath && filepath_walk !== filepath) return;
-
-          let type1: string | null = null;
-          if (entry1) type1 = await entry1.type();
-          let type2: string | null = null;
-          if (entry2) type2 = await entry2.type();
-
-          if (type1 === 'tree' && type2 === 'tree') return;
-          if (type1 === 'tree' || type2 === 'tree') return;
-
-          let oid1: string | null = null;
-          if (entry1) oid1 = await entry1.oid();
-          let oid2: string | null = null;
-          if (entry2) oid2 = await entry2.oid();
-
-          if (oid1 === oid2) return;
-
-          if (!oid1 && oid2) {
-            changedFiles.push({ path: filepath_walk, type: 'added', oid2 });
-          } else if (oid1 && !oid2) {
-            changedFiles.push({ path: filepath_walk, type: 'deleted', oid1 });
-          } else if (oid1 && oid2) {
-            changedFiles.push({ path: filepath_walk, type: 'modified', oid1, oid2 });
-          }
-        },
-      });
-
-      if (changedFiles.length === 0) {
-        return 'No differences between commits';
-      }
-
-      const diffs: string[] = [];
-
-      for (const file of changedFiles) {
-        try {
-          let content1 = '';
-          let content2 = '';
-
-          if (file.oid1) {
-            const { blob } = await git.readBlob({
-              fs: this.fs,
-              dir: this.dir,
-              oid: file.oid1,
-            });
-            content1 = new TextDecoder().decode(blob);
-          }
-
-          if (file.oid2) {
-            const { blob } = await git.readBlob({
-              fs: this.fs,
-              dir: this.dir,
-              oid: file.oid2,
-            });
-            content2 = new TextDecoder().decode(blob);
-          }
-
-          const diff = this.formatDiff(file.path, content1, content2);
-          if (diff) diffs.push(diff);
-        } catch (error) {
-          console.warn(`Failed to generate diff for ${file.path}:`, error);
+  private async compareTrees(
+    trees: Walker[],
+    filepath?: string,
+    worktree = false
+  ): Promise<string> {
+    const diffs: Array<{ path: string; output: string }> = [];
+    await git.walk({
+      fs: this.fs,
+      dir: this.dir,
+      trees,
+      map: async (file, entries) => {
+        if (file === '.') return;
+        if (worktree && !entries[0]) return null;
+        if (filepath && filepath !== '.' && file !== filepath && !file.startsWith(`${filepath}/`))
+          return;
+        let before = entries[0];
+        let after = entries[1];
+        if (trees.length === 1) {
+          before = null;
+          after = entries[0];
         }
-      }
-
-      if (diffs.length > 0) return diffs.join('\n\n');
-      return 'No differences between commits';
-    } catch (error) {
-      console.error('diffCommits error:', error);
-      throw new Error(`Failed to diff commits: ${(error as Error).message}`);
-    }
+        const previous = await this.readEntry(before);
+        const next = await this.readEntry(after, worktree);
+        if (!previous && !next) return;
+        const output = this.formatEntryDiff(file, previous, next);
+        if (output) diffs.push({ path: file, output });
+      },
+    });
+    return diffs
+      .sort((left, right) => left.path.localeCompare(right.path))
+      .map(diff => diff.output)
+      .join('\n\n');
   }
 
-  private async generateStagedDiff(filepath: string, headCommitHash: string): Promise<string> {
-    try {
-      let headContent = '';
-      try {
-        const { blob } = await git.readBlob({
-          fs: this.fs,
-          dir: this.dir,
-          oid: headCommitHash,
-          filepath,
-        });
-        headContent = new TextDecoder().decode(blob);
-      } catch {
-        headContent = '';
-      }
-
-      let workContent = '';
-      try {
-        workContent = await this.fs.promises.readFile(`${this.dir}/${filepath}`, 'utf8');
-      } catch {
-        workContent = '';
-      }
-
-      const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
-      const fileStatus = status.find(([file]) => file === filepath);
-
-      if (!fileStatus) {
-        return '';
-      }
-
-      const [, _HEAD, _workdir, stage] = fileStatus;
-
-      if (stage === 3) {
-        return this.formatDiff(filepath, '', workContent);
-      }
-      if (stage === 2) {
-        return this.formatDiff(filepath, headContent, workContent);
-      }
-
-      return '';
-    } catch (error) {
-      throw new Error(`Failed to generate staged diff: ${(error as Error).message}`);
+  private async readEntry(entry: WalkerEntry | null, worktree = false): Promise<DiffEntry | null> {
+    if (!entry) return null;
+    const type = await entry.type();
+    if (type === 'tree') return null;
+    if (type !== 'blob') throw new Error(`Unsupported Git diff entry type: ${type}`);
+    let bytes: Uint8Array;
+    if (worktree) {
+      const content = await entry.content();
+      if (!content) throw new Error('Git worktree entry content is unavailable');
+      bytes = content;
+    } else {
+      const object = await git.readBlob({ fs: this.fs, dir: this.dir, oid: await entry.oid() });
+      bytes = object.blob;
     }
+    const { oid } = await git.hashBlob({ object: bytes });
+    return { bytes, mode: (await entry.mode()).toString(8), oid };
   }
 
-  private formatDiff(filepath: string, oldContent: string, newContent: string): string {
+  private formatEntryDiff(
+    filepath: string,
+    previous: DiffEntry | null,
+    next: DiffEntry | null
+  ): string {
+    const oldBytes = previous?.bytes ?? new Uint8Array();
+    const newBytes = next?.bytes ?? new Uint8Array();
+    const equalBytes =
+      oldBytes.length === newBytes.length &&
+      oldBytes.every((byte, index) => byte === newBytes[index]);
+    if (previous && next && previous.mode === next.mode && equalBytes) return '';
+    const header = `diff --git a/${filepath} b/${filepath}\n`;
+    let modeChange = '';
+    if (!previous && next) modeChange = `new file mode ${next.mode}\n`;
+    else if (previous && !next) modeChange = `deleted file mode ${previous.mode}\n`;
+    else if (previous && next && previous.mode !== next.mode)
+      modeChange = `old mode ${previous.mode}\nnew mode ${next.mode}\n`;
+    if (equalBytes) return header + modeChange;
+    const oldContent = classifyFileContent('', oldBytes);
+    const newContent = classifyFileContent('', newBytes);
+    if (oldContent.kind === 'binary' || newContent.kind === 'binary') {
+      let oldName = '/dev/null';
+      let newName = '/dev/null';
+      if (previous) oldName = `a/${filepath}`;
+      if (next) newName = `b/${filepath}`;
+      return `${header}${modeChange}Binary files ${oldName} and ${newName} differ`;
+    }
+    const output = this.formatDiff(
+      filepath,
+      oldContent.content,
+      newContent.content,
+      previous,
+      next
+    );
+    if (previous && next && previous.mode !== next.mode)
+      return header + modeChange + output.slice(header.length);
+    return output;
+  }
+
+  private formatDiff(
+    filepath: string,
+    oldContent: string,
+    newContent: string,
+    previous: DiffEntry | null,
+    next: DiffEntry | null
+  ): string {
     if (oldContent === newContent) {
       return '';
     }
 
-    const oldLines = oldContent.split('\n');
-    const newLines = newContent.split('\n');
+    let oldLines: string[] = [];
+    let newLines: string[] = [];
+    if (oldContent) oldLines = oldContent.split('\n');
+    if (newContent) newLines = newContent.split('\n');
+    const mode = next?.mode ?? previous?.mode ?? '100644';
+    const oldOid = previous?.oid.slice(0, 7) ?? '0000000';
+    const newOid = next?.oid.slice(0, 7) ?? '0000000';
 
     let result = `diff --git a/${filepath} b/${filepath}\n`;
 
-    if (oldContent === '') {
-      result += 'new file mode 100644\n';
-      result += `index 0000000..${this.generateShortHash(newContent)}\n`;
+    if (!previous) {
+      result += `new file mode ${mode}\n`;
+      result += `index 0000000..${newOid}\n`;
       result += '--- /dev/null\n';
       result += `+++ b/${filepath}\n`;
       result += `@@ -0,0 +1,${newLines.length} @@\n`;
       newLines.forEach(line => {
         result += `+${line}\n`;
       });
-    } else if (newContent === '') {
-      result += 'deleted file mode 100644\n';
-      result += `index ${this.generateShortHash(oldContent)}..0000000\n`;
+    } else if (!next) {
+      result += `deleted file mode ${mode}\n`;
+      result += `index ${oldOid}..0000000\n`;
       result += `--- a/${filepath}\n`;
       result += '+++ /dev/null\n';
       result += `@@ -1,${oldLines.length} +0,0 @@\n`;
@@ -382,7 +233,7 @@ export class GitDiffOperations {
         result += `-${line}\n`;
       });
     } else {
-      result += `index ${this.generateShortHash(oldContent)}..${this.generateShortHash(newContent)} 100644\n`;
+      result += `index ${oldOid}..${newOid} ${mode}\n`;
       result += `--- a/${filepath}\n`;
       result += `+++ b/${filepath}\n`;
 
@@ -475,15 +326,5 @@ export class GitDiffOperations {
     }
 
     return result;
-  }
-
-  private generateShortHash(content: string): string {
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).substring(0, 7);
   }
 }

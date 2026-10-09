@@ -1,15 +1,30 @@
 import type TerminalUI from '@/engine/cmd/terminalUI';
-import { FSError, fsClient, normalizePath, resolvePath } from '@/engine/core/fs';
+import type { FsApi } from '@/engine/core/fs';
+import { fsClient as defaultFsClient, FSError, normalizePath, resolvePath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
+
+export class UnixCommandFailure extends Error {
+  readonly stdout: string | Uint8Array;
+  readonly code: number;
+
+  constructor(message: string, code: number, stdout: string | Uint8Array = '') {
+    super(message);
+    this.name = 'UnixCommandFailure';
+    this.stdout = stdout;
+    this.code = code;
+  }
+}
 
 export abstract class UnixCommandBase {
   protected _currentDir: string;
   protected rootPath: string;
   protected terminalUI?: TerminalUI;
+  protected fs: FsApi;
 
-  constructor(rootPath: string, currentDir: string) {
+  constructor(rootPath: string, currentDir: string, fs: FsApi = defaultFsClient) {
     this.rootPath = normalizePath(rootPath);
     this._currentDir = normalizePath(currentDir);
+    this.fs = fs;
   }
 
   setTerminalUI(ui: TerminalUI): void {
@@ -26,7 +41,7 @@ export abstract class UnixCommandBase {
 
   protected async getFile(path: string): Promise<ProjectFile | undefined> {
     try {
-      return await fsClient.stat(normalizePath(path));
+      return await this.fs.stat(normalizePath(path));
     } catch (error) {
       if (error instanceof FSError && error.code === 'ENOENT') return undefined;
       throw error;
@@ -34,7 +49,7 @@ export abstract class UnixCommandBase {
   }
 
   protected getDescendants(path: string): Promise<ProjectFile[]> {
-    return fsClient.walk(normalizePath(path));
+    return this.fs.walk(normalizePath(path));
   }
 
   protected resolvePath(path: string): string {
@@ -42,19 +57,19 @@ export abstract class UnixCommandBase {
   }
 
   protected exists(path: string): Promise<boolean> {
-    return fsClient.exists(normalizePath(path));
+    return this.fs.exists(normalizePath(path));
   }
 
   protected readText(path: string): Promise<string> {
-    return fsClient.readText(normalizePath(path));
+    return this.fs.readText(normalizePath(path));
   }
 
   protected readBytes(path: string): Promise<Uint8Array> {
-    return fsClient.readFile(normalizePath(path));
+    return this.fs.readFile(normalizePath(path));
   }
 
   protected writeFile(path: string, data: string | Uint8Array): Promise<void> {
-    return fsClient.writeFile(normalizePath(path), data);
+    return this.fs.writeFile(normalizePath(path), data);
   }
 
   protected async isDirectory(path: string): Promise<boolean> {

@@ -8,14 +8,14 @@ Workspace files use absolute POSIX paths. `getSystemModule('fsClient')` provides
 
 Quick guidance for extension authors:
 
-- Use `extensions/_shared/types.ts` (or import `ExtensionTabsAPI` / `ExtensionCreateTabOptions`) when writing code inside the `extensions/` folder. These types are intentionally minimal and stable.
+- Use `extensions/_shared/types.ts` (or import `ExtensionTabsAPI` / `CreateTabOptions`) when writing code inside the `extensions/` folder. These types are intentionally minimal and stable.
 
 - Do NOT import types from `src/engine/...` in your extension code. The `src/engine` types are runtime/internal types used by the engine implementation and may change without notice.
 
 Notes about tabs and IDs
 
 - Resource id vs tab id:
-  - When creating a tab from an extension, treat `id` in `ExtensionCreateTabOptions` as the resource id (eg. note id).
+  - When creating a tab from an extension, treat `id` in `CreateTabOptions` as the resource id (eg. note id).
   - The system composes the final internal tab id as `extension:<extensionId>:<resourceId>`.
   - Use stable, unique resource ids (UUID recommended) for notes so the same note always maps to the same tab.
 

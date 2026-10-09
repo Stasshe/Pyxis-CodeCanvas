@@ -8,14 +8,12 @@ import { attachRuntimePort, type RuntimeFilesystem } from '@/engine/runtime/brid
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { NodeRuntimeProvider } from '@/engine/runtime/nodejs/NodeRuntimeProvider';
 import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
+import { nativeQueueMicrotask } from '@/engine/runtime/nodejs/runtimeGlobals';
 import { disposeRuntimeWorkerPool } from '@/engine/runtime/nodejs/runtimeWorkerPool';
 import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
 import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
 import { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
-import {
-  extractCjsDependencies,
-  transformEsmToCjs,
-} from '@/engine/runtime/transpiler/esmTransformer';
+import { NativeTranspiler } from '../../../_helpers/nodeRuntime';
 import { directoryTree } from '../../../_helpers/opfs';
 
 vi.mock('@/engine/core/fs', async importOriginal => {
@@ -46,7 +44,7 @@ class RuntimeWorker {
   private terminated = false;
 
   constructor() {
-    queueMicrotask(() => this.emit({ type: 'ready' }));
+    nativeQueueMicrotask(() => this.emit({ type: 'ready' }));
   }
 
   addEventListener(type: string, listener: EventListener): void {
@@ -70,7 +68,7 @@ class RuntimeWorker {
 
   terminate(): void {
     this.terminated = true;
-    this.bridge?.close();
+    this.cleanup();
   }
 
   private emit(message: WorkerMessage): void {
@@ -85,7 +83,9 @@ class RuntimeWorker {
 
   private async start(message: Extract<MainMessage, { type: 'start' }>): Promise<void> {
     try {
-      const bridge = new RuntimeBridge(message.scope, message.fsPort, message.runtimeId);
+      const bridge = new RuntimeBridge(message.scope, message.fsPort, message.runtimeId, () => {
+        throw new Error('Unexpected runtime cancellation.');
+      });
       this.bridge = bridge;
       const stdin = new WorkerStdin(
         promise => this.runtime?.trackIO(promise),
@@ -109,11 +109,17 @@ class RuntimeWorker {
     } catch (error) {
       this.emit({ type: 'complete', result: { exitCode: 1, stderr: String(error) } });
     } finally {
-      this.bridge?.close();
-      this.bridge = undefined;
-      this.runtime = undefined;
-      this.stdin = undefined;
+      this.cleanup();
     }
+  }
+
+  private cleanup(): void {
+    this.runtime?.dispose();
+    this.stdin?.dispose();
+    this.bridge?.close();
+    this.bridge = undefined;
+    this.runtime = undefined;
+    this.stdin = undefined;
   }
 }
 
@@ -121,21 +127,32 @@ describe('Runtime byte transport through shell pipelines', () => {
   const root = '/tmp/byte-pipeline';
   let core: FsCore;
   let shell: ShellExecutor;
+  let transpiler: NativeTranspiler;
   const channels: MessageChannel[] = [];
 
   beforeEach(async () => {
+    transpiler = await NativeTranspiler.create();
+    await transpiler.transform({ kind: 'transpile', code: '', filePath: '/fixture.mjs' });
     core = new FsCore();
     await core.init(directoryTree());
     vi.spyOn(fsClient, 'readFile').mockImplementation(path => core.readFile(path));
     vi.spyOn(fsClient, 'stat').mockImplementation(path => core.stat(path));
     vi.spyOn(fsClient, 'exists').mockImplementation(path => core.exists(path));
+    vi.spyOn(fsClient, 'closeFifos').mockImplementation(ownerId => core.closeFifos(ownerId));
     await core.mkdir(root, { recursive: true });
     vi.stubGlobal('Worker', RuntimeWorker);
     runtimeRegistry.clear();
     runtimeRegistry.registerRuntime(new NodeRuntimeProvider());
     const filesystem: RuntimeFilesystem = {
-      readFile: path => core.readFile(path),
-      writeFile: (path, data) => core.writeFile(path, data),
+      readFile: (path, _benchmark, ownerId) => core.readFile(path, ownerId),
+      writeFile: (path, data, _benchmark, ownerId) => core.writeFile(path, data, true, ownerId),
+      mkfifo: path => core.mkfifo(path),
+      openFifo: (path, mode, endpointId, ownerId, options) =>
+        core.openFifo(path, mode, endpointId, ownerId, options),
+      readFifo: (endpointId, maxBytes) => core.readFifo(endpointId, maxBytes),
+      writeFifo: (endpointId, bytes) => core.writeFifo(endpointId, bytes),
+      closeFifo: endpointId => core.closeFifo(endpointId),
+      closeFifos: ownerId => core.closeFifos(ownerId),
       readdir: async path =>
         (await core.readdir(path)).map(entry => entry.path.split('/').pop() ?? ''),
       stat: async path => {
@@ -162,10 +179,7 @@ describe('Runtime byte transport through shell pipelines', () => {
     vi.spyOn(fsClient, 'createRuntimePort').mockImplementation(async () => {
       const channel = new MessageChannel();
       channels.push(channel);
-      attachRuntimePort(channel.port1, filesystem, async request => {
-        const code = await transformEsmToCjs(request.code, request.filePath);
-        return { code, dependencies: extractCjsDependencies(code) };
-      });
+      attachRuntimePort(channel.port1, filesystem, request => transpiler.transform(request));
       return channel.port2;
     });
     shell = new ShellExecutor({ rootPath: root, fsClient: core, unix: new UnixCommands(root) });
@@ -177,6 +191,7 @@ describe('Runtime byte transport through shell pipelines', () => {
       channel.port2.close();
     }
     runtimeRegistry.clear();
+    transpiler.close();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     return disposeRuntimeWorkerPool();
@@ -212,5 +227,26 @@ describe('Runtime byte transport through shell pipelines', () => {
     expect(result.code, result.stderr).toBe(0);
     expect(result.stdout).toBe('日本語');
     expect(displayed.join('')).toBe('日本語');
+  });
+
+  it.each([
+    { name: 'last pipeline command status', prefix: '', code: 0 },
+    { name: 'pipefail status', prefix: 'set -o pipefail; ', code: 1 },
+  ])('routes a closed descriptor diagnostic through a FIFO stderr redirect ($name)', async test => {
+    const fifoPath = `${root}/diagnostics-${test.code}.fifo`;
+    const outputPath = `${root}/diagnostics-${test.code}.txt`;
+    await core.mkfifo(fifoPath);
+    const fifoName = fifoPath.slice(fifoPath.lastIndexOf('/') + 1);
+    const outputName = outputPath.slice(outputPath.lastIndexOf('/') + 1);
+
+    const result = await shell.run(
+      `${test.prefix}printf 'closed' >&- 2> ${fifoName} | cat < ${fifoName} > ${outputName}`
+    );
+
+    expect(result.code).toBe(test.code);
+    expect(result.stderr).toBe('');
+    expect(new TextDecoder().decode(await core.readFile(outputPath))).toContain(
+      'Redirection failed: Bad file descriptor'
+    );
   });
 });

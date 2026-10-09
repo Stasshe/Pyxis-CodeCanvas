@@ -11,6 +11,7 @@ export const constants = Object.freeze({
   O_EXCL: 128,
   O_TRUNC: 512,
   O_APPEND: 1024,
+  O_NONBLOCK: 2048,
   O_DIRECTORY: 65536,
   O_NOFOLLOW: 131072,
   O_SYNC: 1052672,

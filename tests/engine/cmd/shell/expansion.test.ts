@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasGlob, splitOnIFS } from '@/engine/cmd/shell/expansion';
+import { hasGlob } from '@/engine/cmd/shell/expansion';
 
 /**
  * シェル展開ユーティリティのテスト (pure functions)
@@ -33,87 +33,131 @@ describe('expansion', () => {
       expect(hasGlob('src/**/*.ts')).toBe(true);
     });
   });
-
-  // ==================== splitOnIFS ====================
-
-  describe('splitOnIFS', () => {
-    it('デフォルト IFS (空白) で分割', () => {
-      expect(splitOnIFS('hello world')).toEqual(['hello', 'world']);
-    });
-
-    it('タブで分割', () => {
-      expect(splitOnIFS('a\tb\tc')).toEqual(['a', 'b', 'c']);
-    });
-
-    it('改行で分割', () => {
-      expect(splitOnIFS('line1\nline2\nline3')).toEqual(['line1', 'line2', 'line3']);
-    });
-
-    it('連続する空白を1つの区切りとして扱う', () => {
-      expect(splitOnIFS('a    b')).toEqual(['a', 'b']);
-    });
-
-    it('先頭・末尾の空白をトリム', () => {
-      expect(splitOnIFS('  hello  ')).toEqual(['hello']);
-    });
-
-    it('空文字列は [""] を返す', () => {
-      expect(splitOnIFS('')).toEqual(['']);
-    });
-
-    it('カスタム IFS (カンマ)', () => {
-      expect(splitOnIFS('a,b,c', ',')).toEqual(['a', 'b', 'c']);
-    });
-
-    it('カスタム IFS (コロン)', () => {
-      expect(splitOnIFS('/usr/bin:/usr/local/bin:/home/bin', ':')).toEqual([
-        '/usr/bin',
-        '/usr/local/bin',
-        '/home/bin',
-      ]);
-    });
-
-    it('混在 IFS の空白と区切り文字を両方扱う', () => {
-      expect(splitOnIFS('alpha : beta::gamma: ', ' :')).toEqual(['alpha', 'beta', '', 'gamma']);
-    });
-
-    it('空の IFS は分割しない', () => {
-      expect(splitOnIFS('alpha beta', '')).toEqual(['alpha beta']);
-    });
-
-    it('非空白区切り文字の先頭空フィールドを保つ', () => {
-      expect(splitOnIFS(':alpha', ':')).toEqual(['', 'alpha']);
-    });
-
-    it('末尾の非空白区切り文字では空フィールドを追加しない', () => {
-      expect(splitOnIFS('alpha:', ':')).toEqual(['alpha']);
-    });
-
-    it('IFS のバックスラッシュ表記をエスケープしない', () => {
-      expect(splitOnIFS('alpha\\tbeta', '\\t')).toEqual(['alpha', '', 'be', 'a']);
-    });
-  });
 });
 
-import { expandTokens } from '@/engine/cmd/shell/expansion';
+import { expandShellWords } from '@/engine/cmd/shell/wordExpansion';
 import { setupTestProject } from '../../../_helpers/testProject';
 
 describe('path expansion', () => {
+  const shell = {
+    async runInSubshell() {
+      return { stdout: '', stderr: '', code: 0 };
+    },
+  };
   it('expands wildcard components across a path and respects dotfiles', async () => {
     const { repo, rootPath } = await setupTestProject('ShellGlobTest');
     await repo.mkdir(`${rootPath}/src/nested`, { recursive: true });
     await repo.writeFile(`${rootPath}/src/nested/a1.ts`, 'one');
     await repo.writeFile(`${rootPath}/src/nested/a2.ts`, 'two');
     await repo.writeFile(`${rootPath}/src/nested/.hidden.ts`, 'hidden');
-    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {} };
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
 
-    await expect(expandTokens([{ text: 'src/*/a?.ts', quote: null }], options)).resolves.toEqual([
+    await expect(expandShellWords('src/*/a?.ts', options, shell)).resolves.toEqual([
       'src/nested/a1.ts',
       'src/nested/a2.ts',
     ]);
+    await expect(expandShellWords('src/*/.hidden.ts', options, shell)).resolves.toEqual([
+      'src/nested/.hidden.ts',
+    ]);
+  });
+
+  it('preserves repeated separators in glob results', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobRepeatedSeparators');
+    await repo.mkdir(`${rootPath}/glob-separator-fixture`, { recursive: true });
+    await repo.writeFile(`${rootPath}/glob-separator-fixture/file.ts`, 'file');
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
+    await expect(expandShellWords('glob-separator-fixture//f*', options, shell)).resolves.toEqual([
+      'glob-separator-fixture//file.ts',
+    ]);
+  });
+
+  it('preserves leading slash runs in absolute glob results', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobAbsolutePath');
+    await repo.writeFile(`${rootPath}/glob-absolute-file`, 'file');
+    const options = { rootPath, cwd: '/', fsClient: repo, env: {}, nounset: false };
+
+    const pathWithoutLeadingSlash = rootPath.slice(1);
+    for (const leadingSlashes of ['/', '//', '///']) {
+      const pattern = `${leadingSlashes}${pathWithoutLeadingSlash}/glob-absolute-*`;
+      const expected = `${leadingSlashes}${pathWithoutLeadingSlash}/glob-absolute-file`;
+      await expect(expandShellWords(pattern, options, shell)).resolves.toEqual([expected]);
+    }
+  });
+
+  it('sorts glob results by UTF-8 byte order', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobUtf8Order');
+    await repo.writeFile(`${rootPath}/glob-order-😀`, 'emoji');
+    await repo.writeFile(`${rootPath}/glob-order-Ａ`, 'fullwidth');
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
+    await expect(expandShellWords('glob-order-*', options, shell)).resolves.toEqual([
+      'glob-order-Ａ',
+      'glob-order-😀',
+    ]);
+  });
+
+  it('does not expand a quoted POSIX class inside a mixed quoted glob', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobQuotedClass');
+    await repo.writeFile(`${rootPath}/[[:alpha:]]-file`, 'literal');
+    await repo.writeFile(`${rootPath}/a-file`, 'other');
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
+    await expect(expandShellWords('"[[:alpha:]]"*', options, shell)).resolves.toEqual([
+      '[[:alpha:]]-file',
+    ]);
+  });
+
+  it('keeps trailing slashes and matches directories only', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobDirectories');
+    await repo.mkdir(`${rootPath}/glob-directory-fixture/nested`, { recursive: true });
+    await repo.writeFile(`${rootPath}/glob-directory-fixture/file.ts`, 'file');
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
+    await expect(expandShellWords('glob-directory-fixture/*/', options, shell)).resolves.toEqual([
+      'glob-directory-fixture/nested/',
+    ]);
+  });
+
+  it('skips dangling symlinks and keeps symlinks to directories for trailing slashes', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobSymlinks');
+    const fixturePath = `${rootPath}/glob-symlink-fixture`;
+    await repo.mkdir(`${fixturePath}/nested`, { recursive: true });
+    await repo.symlink('missing', `${fixturePath}/dangling`);
+    await repo.symlink('nested', `${fixturePath}/directory-link`);
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
+    await expect(expandShellWords('glob-symlink-fixture/*/', options, shell)).resolves.toEqual([
+      'glob-symlink-fixture/directory-link/',
+      'glob-symlink-fixture/nested/',
+    ]);
+  });
+
+  it('expands the POSIX alpha character class', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobAlpha');
+    await repo.writeFile(`${rootPath}/src/a.ts`, 'lowercase');
+    await repo.writeFile(`${rootPath}/src/Z.ts`, 'uppercase');
+    await repo.writeFile(`${rootPath}/src/1.ts`, 'number');
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
+    await expect(expandShellWords('src/[[:alpha:]].ts', options, shell)).resolves.toEqual([
+      'src/Z.ts',
+      'src/a.ts',
+    ]);
+  });
+
+  it('matches Unicode letters but not digits in the POSIX alpha class', async () => {
+    const { repo, rootPath } = await setupTestProject('ShellGlobUnicodeAlpha');
+    const fixturePath = `${rootPath}/glob-alpha-fixture`;
+    await repo.mkdir(fixturePath, { recursive: true });
+    await repo.writeFile(`${fixturePath}/é-file`, 'accented');
+    await repo.writeFile(`${fixturePath}/Ａ-file`, 'fullwidth');
+    await repo.writeFile(`${fixturePath}/1-file`, 'digit');
+    const options = { rootPath, cwd: rootPath, fsClient: repo, env: {}, nounset: false };
+
     await expect(
-      expandTokens([{ text: 'src/*/.hidden.ts', quote: null }], options)
-    ).resolves.toEqual(['src/nested/.hidden.ts']);
+      expandShellWords('glob-alpha-fixture/[[:alpha:]]*-file', options, shell)
+    ).resolves.toEqual(['glob-alpha-fixture/é-file', 'glob-alpha-fixture/Ａ-file']);
   });
 
   it('expands tilde from shell HOME without splitting its path', async () => {
@@ -121,20 +165,30 @@ describe('path expansion', () => {
     await repo.writeFile(`${rootPath}/entry.ts`, 'entry');
 
     await expect(
-      expandTokens([{ text: '~/entry.ts', quote: null }], {
-        rootPath,
-        cwd: '/',
-        fsClient: repo,
-        env: { HOME: rootPath },
-      })
+      expandShellWords(
+        '~/entry.ts',
+        {
+          rootPath,
+          cwd: '/',
+          fsClient: repo,
+          env: { HOME: rootPath },
+          nounset: false,
+        },
+        shell
+      )
     ).resolves.toEqual([`${rootPath}/entry.ts`]);
     await expect(
-      expandTokens([{ text: '~/entry.ts', quote: 'single' }], {
-        rootPath,
-        cwd: '/',
-        fsClient: repo,
-        env: { HOME: rootPath },
-      })
+      expandShellWords(
+        "'~/entry.ts'",
+        {
+          rootPath,
+          cwd: '/',
+          fsClient: repo,
+          env: { HOME: rootPath },
+          nounset: false,
+        },
+        shell
+      )
     ).resolves.toEqual(['~/entry.ts']);
   });
 });

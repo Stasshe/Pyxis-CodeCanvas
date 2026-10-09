@@ -1,18 +1,22 @@
 import type { FsCore } from '@/engine/core/fs/core';
+import { queueRootOperation } from '@/engine/core/fs/locks';
 import { WorkerGitCommands } from './worker';
 
-type Scheduler = <T>(operation: () => Promise<T>) => Promise<T>;
-
-/** Serialize whole Git operations with all filesystem worker clients. */
+/** Git instances share transaction ordering for each canonical repository root. */
 export class QueuedGitCommands {
   private readonly commands: WorkerGitCommands;
 
   constructor(
-    core: FsCore,
-    root: string,
-    private schedule: Scheduler
+    private readonly core: FsCore,
+    private readonly root: string
   ) {
     this.commands = new WorkerGitCommands(core, root);
+  }
+
+  private schedule<T>(operation: () => Promise<T>): Promise<T> {
+    return this.core.withPinnedRoot(this.root, root =>
+      queueRootOperation(this.core, `git:${root}`, operation)
+    );
   }
 
   configureCredentials(

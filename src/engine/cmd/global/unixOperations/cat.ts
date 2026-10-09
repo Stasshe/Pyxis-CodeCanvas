@@ -1,6 +1,8 @@
 import { Buffer } from 'buffer';
 import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
+
+const encoder = new TextEncoder();
 
 /**
  * cat - ファイルの内容を表示 (POSIX/GNU準拠)
@@ -25,7 +27,10 @@ import { UnixCommandBase } from './base';
  *   - パスはシェルで展開された後に解決
  */
 export class CatCommand extends UnixCommandBase {
-  async execute(args: string[]): Promise<string | Uint8Array> {
+  async execute(
+    args: string[],
+    stdin: NodeJS.ReadableStream | string | Uint8Array | null = null
+  ): Promise<string | Uint8Array> {
     const optstring = 'nbsETvAet';
     const longopts = [
       'number',
@@ -44,23 +49,62 @@ export class CatCommand extends UnixCommandBase {
       return 'Usage: cat [options] [file...]\n\nConcatenate FILE(s) to standard output. Common options: -n, -b, -s, -E, -T';
     }
 
-    if (positional.length === 0) {
-      // stdinがない場合は空を返す
-      return '';
+    if (positional.length === 0 || positional.includes('-')) {
+      if (positional.length > 0) return this.executeFiles(positional, flags, stdin);
+      const input = await readInput(stdin);
+      if (flags.size === 0) return input;
+      const showAll = flags.has('-A') || flags.has('--show-all');
+      return this.processContent(input, {
+        numberAll: flags.has('-n') || flags.has('--number'),
+        numberNonblank: flags.has('-b') || flags.has('--number-nonblank'),
+        squeezeBlank: flags.has('-s') || flags.has('--squeeze-blank'),
+        showEnds: flags.has('-E') || flags.has('--show-ends') || showAll || flags.has('-e'),
+        showTabs: flags.has('-T') || flags.has('--show-tabs') || showAll || flags.has('-t'),
+        showNonprinting:
+          flags.has('-v') ||
+          flags.has('--show-nonprinting') ||
+          showAll ||
+          flags.has('-e') ||
+          flags.has('-t'),
+      });
     }
+
+    return this.executeFiles(positional, flags, stdin);
+  }
+
+  private async executeFiles(
+    positional: string[],
+    flags: Set<string>,
+    stdin: NodeJS.ReadableStream | string | Uint8Array | null
+  ): Promise<string | Uint8Array> {
+    let stdinRead = false;
+    const readStdinOnce = async (): Promise<Uint8Array> => {
+      if (stdinRead) return new Uint8Array();
+      stdinRead = true;
+      return readInput(stdin);
+    };
 
     if (flags.size === 0) {
       const chunks: Uint8Array[] = [];
+      const errors: string[] = [];
       for (const arg of positional) {
+        if (arg === '-') {
+          chunks.push(await readStdinOnce());
+          continue;
+        }
         const path = this.resolvePath(arg);
         try {
           if (await this.isDirectory(path)) throw new Error('Is a directory');
           chunks.push(await this.readBytes(path));
         } catch (error) {
-          throw new Error(`cat: ${path}: ${String(error)}`);
+          let message = String(error);
+          if (error instanceof Error) message = error.message;
+          errors.push(`cat: ${arg}: ${message}`);
         }
       }
-      return Buffer.concat(chunks);
+      const output = Buffer.concat(chunks);
+      if (errors.length > 0) throw new UnixCommandFailure(errors.join('\n'), 1, output);
+      return output;
     }
 
     // オプション解析
@@ -77,35 +121,44 @@ export class CatCommand extends UnixCommandBase {
       flags.has('-e') ||
       flags.has('-t');
 
-    const results: string[] = [];
+    const contents: Uint8Array[] = [];
+    const errors: string[] = [];
 
     for (const arg of positional) {
+      if (arg === '-') {
+        const content = await readStdinOnce();
+        contents.push(content);
+        continue;
+      }
       const path = this.resolvePath(arg);
       try {
         if (await this.isDirectory(path)) throw new Error('Is a directory');
-        const content = await this.readText(path);
-        const processed = this.processContent(content, {
-          numberAll,
-          numberNonblank,
-          squeezeBlank,
-          showEnds,
-          showTabs,
-          showNonprinting,
-        });
-        results.push(processed);
+        const content = await this.readBytes(path);
+        contents.push(content);
       } catch (error) {
-        throw new Error(`cat: ${path}: ${(error as Error).message}`);
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        errors.push(`cat: ${arg}: ${message}`);
       }
     }
 
-    return results.join('');
+    const output = this.processContent(Buffer.concat(contents), {
+      numberAll,
+      numberNonblank,
+      squeezeBlank,
+      showEnds,
+      showTabs,
+      showNonprinting,
+    });
+    if (errors.length > 0) throw new UnixCommandFailure(errors.join('\n'), 1, output);
+    return output;
   }
 
   /**
    * コンテンツを処理
    */
   private processContent(
-    content: string,
+    input: Uint8Array,
     opts: {
       numberAll: boolean;
       numberNonblank: boolean;
@@ -114,16 +167,16 @@ export class CatCommand extends UnixCommandBase {
       showTabs: boolean;
       showNonprinting: boolean;
     }
-  ): string {
-    let lines = content.split('\n');
+  ): Uint8Array {
+    let lines = splitRecords(input);
     let lineNumber = 1;
 
     // 連続空行を圧縮
     if (opts.squeezeBlank) {
-      const squeezed: string[] = [];
+      const squeezed: CatRecord[] = [];
       let prevBlank = false;
       for (const line of lines) {
-        const isBlank = line.trim() === '';
+        const isBlank = line.bytes.length === 0;
         if (isBlank && prevBlank) continue;
         squeezed.push(line);
         prevBlank = isBlank;
@@ -131,63 +184,103 @@ export class CatCommand extends UnixCommandBase {
       lines = squeezed;
     }
 
-    const processed = lines.map((line, idx) => {
-      let result = line;
-
-      // 非表示文字を表示
-      if (opts.showNonprinting) {
-        result = this.showNonprinting(result);
-      }
-
-      // TABを表示
-      if (opts.showTabs) {
-        result = result.replace(/\t/g, '^I');
-      }
-
-      // 行末に$を表示
-      if (opts.showEnds) {
-        result += '$';
-      }
-
-      // 行番号
+    const processed = lines.map(record => {
+      const isBlank = record.bytes.length === 0;
+      const parts: Uint8Array[] = [];
       if (opts.numberNonblank) {
-        if (line.trim() !== '') {
-          result = `${lineNumber.toString().padStart(6)}  ${result}`;
+        if (!isBlank) {
+          parts.push(encode(`${lineNumber.toString().padStart(6)}\t`));
           lineNumber++;
         }
       } else if (opts.numberAll) {
-        result = `${(idx + 1).toString().padStart(6)}  ${result}`;
+        parts.push(encode(`${lineNumber.toString().padStart(6)}\t`));
+        lineNumber++;
       }
-
-      return result;
+      parts.push(this.transformLine(record.bytes, opts.showNonprinting, opts.showTabs));
+      if (opts.showEnds && record.hasNewline) parts.push(encode('$'));
+      if (record.hasNewline) parts.push(new Uint8Array([10]));
+      return Buffer.concat(parts);
     });
 
-    return processed.join('\n');
+    return Buffer.concat(processed);
   }
 
-  /**
-   * 非表示文字を表示形式に変換
-   */
-  private showNonprinting(str: string): string {
-    let result = '';
-    for (const char of str) {
-      const code = char.charCodeAt(0);
-      if (code === 9) {
-        // TAB は別途処理
-        result += char;
-      } else if (code < 32) {
-        // 制御文字
-        result += `^${String.fromCharCode(code + 64)}`;
-      } else if (code === 127) {
-        result += '^?';
-      } else if (code > 127 && code < 160) {
-        result += `M-^${String.fromCharCode(code - 128 + 64)}`;
-      } else if (code >= 160 && code < 255) {
-        result += `M-${String.fromCharCode(code - 128)}`;
+  private transformLine(line: Uint8Array, showNonprinting: boolean, showTabs: boolean): Uint8Array {
+    const parts: Uint8Array[] = [];
+    for (const byte of line) {
+      if (showTabs && byte === 9) {
+        parts.push(encode('^I'));
+      } else if (showNonprinting) {
+        parts.push(renderNonprintingByte(byte));
       } else {
-        result += char;
+        parts.push(new Uint8Array([byte]));
       }
     }
-    return result;
+    return Buffer.concat(parts);
   }
+}
+
+interface CatRecord {
+  bytes: Uint8Array;
+  hasNewline: boolean;
+}
+
+function splitRecords(input: Uint8Array): CatRecord[] {
+  const records: CatRecord[] = [];
+  let start = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    if (input[index] !== 10) continue;
+    records.push({ bytes: input.slice(start, index), hasNewline: true });
+    start = index + 1;
+  }
+  if (start < input.length) records.push({ bytes: input.slice(start), hasNewline: false });
+  return records;
+}
+
+function renderNonprintingByte(byte: number): Uint8Array {
+  if (byte === 9) return new Uint8Array([byte]);
+  if (byte < 32) return encode(`^${String.fromCharCode(byte + 64)}`);
+  if (byte === 127) return encode('^?');
+  if (byte < 127) return new Uint8Array([byte]);
+  if (byte < 160) return encode(`M-^${String.fromCharCode(byte - 64)}`);
+  if (byte === 255) return encode('M-^?');
+  if (byte < 256) return encode(`M-${String.fromCharCode(byte - 128)}`);
+  return new Uint8Array([byte]);
+}
+
+function encode(value: string): Uint8Array {
+  return encoder.encode(value);
+}
+
+async function readInput(
+  stdin: NodeJS.ReadableStream | string | Uint8Array | null
+): Promise<Uint8Array> {
+  if (typeof stdin === 'string') return new TextEncoder().encode(stdin);
+  if (stdin instanceof Uint8Array) return stdin;
+  if (!stdin) return new Uint8Array();
+  return new Promise(resolve => {
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      const input = new Uint8Array(length);
+      let offset = 0;
+      for (const chunk of chunks) {
+        input.set(chunk, offset);
+        offset += chunk.length;
+      }
+      resolve(input);
+    };
+    stdin.on('data', chunk => {
+      let bytes: Uint8Array;
+      if (typeof chunk === 'string') bytes = new TextEncoder().encode(chunk);
+      else bytes = new Uint8Array(chunk);
+      chunks.push(bytes);
+      length += bytes.length;
+    });
+    stdin.on('end', finish);
+    stdin.on('close', finish);
+  });
 }

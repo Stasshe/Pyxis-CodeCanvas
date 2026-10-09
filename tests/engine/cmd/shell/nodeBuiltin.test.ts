@@ -1,4 +1,6 @@
+import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fsClient } from '@/engine/core/fs';
 import type { FsCore } from '@/engine/core/fs/core';
@@ -8,7 +10,10 @@ import type {
 } from '@/engine/runtime/core/RuntimeProvider';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import { projectState } from '@/stores/projectStore';
-import { createNodeRuntimeFixture } from '../../../_helpers/nodeRuntime';
+import {
+  executeIsolatedNodeRuntime,
+  type RuntimeFile,
+} from '../../../_helpers/isolatedNodeRuntime';
 import { setupTestProject } from '../../../_helpers/testProject';
 
 describe('StreamShell node builtin', () => {
@@ -62,6 +67,39 @@ describe('StreamShell node builtin', () => {
     expect(result.stdout).toContain('relative entry ok');
   });
 
+  it('executes inline JavaScript with node -e', async () => {
+    const shell = await terminalCommandRegistry.getShell(rootPath);
+    const result = await shell!.run('node -e "console.log(6 * 7)"');
+
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.stdout).toContain('42');
+    const evalResult = await shell!.run('node --eval "console.log(42)"');
+    expect(evalResult.code, evalResult.stderr).toBe(0);
+    expect(evalResult.stdout).toContain('42');
+  });
+
+  it('exposes inline evaluation arguments without leaking them into file executions', async () => {
+    const shell = await terminalCommandRegistry.getShell(rootPath);
+    if (!shell) throw new Error('Shell unavailable');
+    const evalSource = 'console.log(JSON.stringify(process.execArgv))';
+
+    const shortFlag = await shell.run(`node -e "${evalSource}"`);
+    expect(shortFlag.code, shortFlag.stderr).toBe(0);
+    expect(shortFlag.stdout.trim()).toBe(JSON.stringify(['-e', evalSource]));
+
+    const longFlag = await shell.run(`node --eval "${evalSource}"`);
+    expect(longFlag.code, longFlag.stderr).toBe(0);
+    expect(longFlag.stdout.trim()).toBe(JSON.stringify(['--eval', evalSource]));
+
+    await repo.writeFile(
+      `${rootPath}/exec-argv.js`,
+      'console.log(JSON.stringify(process.execArgv));'
+    );
+    const fileExecution = await shell.run('node exec-argv.js');
+    expect(fileExecution.code, fileExecution.stderr).toBe(0);
+    expect(fileExecution.stdout.trim()).toBe('[]');
+  });
+
   it('preserves binary bytes through node pipes, redirects, and append', async () => {
     const bytes = new Uint8Array([0, 255, 128]);
     await repo.writeFile(
@@ -88,6 +126,63 @@ describe('StreamShell node builtin', () => {
     const fromFile = await shell.run('node copy.js < copy.bin > from-file.bin');
     expect(fromFile.code, fromFile.stderr).toBe(0);
     expect(await readBytes(`${rootPath}/from-file.bin`)).toEqual(Array.from(bytes));
+  });
+
+  it('isolates globals when a producer runs after its consumer is ready', async () => {
+    const hostProcess = process;
+    const hostQueueMicrotask = queueMicrotask;
+    const pipe = new PassThrough();
+    const output: number[] = [];
+    let ready: () => void = () => {};
+    const consumerReady = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const consumer = executeIsolatedNodeRuntime(
+      {
+        rootPath,
+        filePath: `${rootPath}/copy.js`,
+        processStdin: new ProcessStdin(pipe, false),
+        onStdout: data => {
+          if (typeof data === 'string') throw new Error('Expected binary output.');
+          output.push(...data);
+          ready();
+        },
+      },
+      [
+        {
+          path: `${rootPath}/copy.js`,
+          data: new TextEncoder().encode(
+            'process.stdin.on("data", chunk => process.stdout.write(chunk)); process.stdout.write(Buffer.from([9]));'
+          ),
+        },
+      ]
+    );
+    await consumerReady;
+    try {
+      expect(process).toBe(hostProcess);
+      expect(queueMicrotask).toBe(hostQueueMicrotask);
+      const producer = await executeIsolatedNodeRuntime(
+        {
+          rootPath,
+          filePath: `${rootPath}/produce.js`,
+          onStdout: data => pipe.write(data),
+        },
+        [
+          {
+            path: `${rootPath}/produce.js`,
+            data: new TextEncoder().encode('process.stdout.write(Buffer.from([0, 255, 128]));'),
+          },
+        ]
+      );
+      expect(producer.exitCode, producer.stderr).toBe(0);
+    } finally {
+      pipe.end();
+    }
+    const result = await consumer;
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(output).toEqual([9, 0, 255, 128]);
+    expect(process).toBe(hostProcess);
+    expect(queueMicrotask).toBe(hostQueueMicrotask);
   });
 
   it('copies cat bytes without decoding or adding a newline', async () => {
@@ -220,32 +315,13 @@ function createTestRuntimeProvider(repo: FsCore): RuntimeProvider {
     supportedExtensions: ['.js', '.mjs', '.cjs'],
     canExecute: path => /\.(js|mjs|cjs)$/.test(path),
     async execute(options: RuntimeExecutionOptions) {
-      const fixture = await createNodeRuntimeFixture(
-        options.rootPath,
-        options.debugConsole,
-        options.cwd,
-        undefined,
-        undefined,
-        { onStdout: options.onStdout, onStderr: options.onStderr }
-      );
-      const forwardInput = (bytes: Uint8Array) => fixture.stdin.submit(bytes);
-      const endInput = () => fixture.stdin.eof();
-      options.processStdin?.on('data', forwardInput);
-      options.processStdin?.on('end', endInput);
-      try {
-        for (const entry of await repo.walk(options.rootPath)) {
-          if (entry.type === 'file') {
-            await fixture.writeFile(entry.path, await repo.readFile(entry.path));
-          }
+      const files: RuntimeFile[] = [];
+      for (const entry of await repo.walk(options.rootPath)) {
+        if (entry.type === 'file') {
+          files.push({ path: entry.path, data: await repo.readFile(entry.path) });
         }
-        await fixture.runtime.execute(options.filePath, options.argv);
-        await fixture.runtime.waitForEventLoop();
-        return { exitCode: fixture.runtime.getExitCode() };
-      } finally {
-        options.processStdin?.removeListener('data', forwardInput);
-        options.processStdin?.removeListener('end', endInput);
-        fixture.close();
       }
+      return executeIsolatedNodeRuntime(options, files);
     },
   };
 }

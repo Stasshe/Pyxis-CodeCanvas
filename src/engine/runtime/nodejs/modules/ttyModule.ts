@@ -4,14 +4,19 @@
  * CLI packages usually use this for color and terminal capability detection.
  */
 
-export function createTTYModule(columns = 80, rows = 24) {
+export function createTTYModule(
+  columns = 80,
+  rows = 24,
+  setInputRawMode: (enabled: boolean) => void = () => {}
+) {
   const ttyColumns = columns;
   const ttyRows = rows;
 
   class ReadStream {
     isTTY = true;
 
-    setRawMode() {
+    setRawMode(enabled: boolean) {
+      setInputRawMode(enabled);
       return this;
     }
   }

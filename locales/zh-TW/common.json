@@ -135,9 +135,61 @@
     "loadingFile": "還原檔案內容...",
     "selectFile": "請選擇檔案"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "您擁有所有可用的擴展",
+    "allInstalled": "已安裝所有擴充功能",
+    "available": "可用（{count}）",
+    "browseAvailable": "瀏覽可用的擴充功能",
+    "confirmUninstall": "您確定要卸載“{name}”嗎？",
+    "disable": "停用",
+    "disableUnavailable": "無法禁用擴充。",
+    "enable": "啟用",
+    "enableUnavailable": "無法啟用擴充。",
+    "importFailed": "導入 ZIP 失敗：{error}",
+    "importZip": "匯入擴充功能 (.zip)",
+    "install": "安裝",
+    "installed": "已安裝（{count}）",
+    "installFailed": "安裝{name}失敗：{error}",
+    "installUnavailable": "無法安裝或啟用擴充功能。",
+    "loadFailed": "無法載入擴充：{error}",
+    "loading": "正在加載擴充功能...",
+    "manifestUrlMissing": "在註冊表中找不到清單 URL",
+    "noMatches": "找不到符合條件的擴充功能",
+    "noneInstalled": "沒有安裝擴充",
+    "packCount": "擴充功能：{count}",
+    "reload": "重新加載擴充功能",
+    "search": "搜尋擴充...",
+    "title": "擴充功能",
+    "toggleFailed": "更改分機狀態失敗：{error}",
+    "tryDifferentSearch": "請嘗試其他搜尋字詞",
+    "types": {
+      "builtinModule": "內建模組",
+      "languageRuntime": "語言運行時",
+      "service": "服務",
+      "tool": "工具",
+      "transpiler": "轉譯器",
+      "ui": "使用者介面"
+    },
+    "uninstall": "解除安裝",
+    "uninstallFailed": "卸載擴充失敗：{error}",
+    "uninstallTitle": "解除安裝擴充",
+    "uninstallUnavailable": "無法卸載該擴充功能。",
+    "update": "更新",
+    "updateFailed": "更新{name}失敗：{error}",
+    "updateUnavailable": "無法啟動新的擴充包。",
+    "viewDetails": "點擊查看擴展詳細信息"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "建立檔案",
+      "createFolder": "建立資料夾",
+      "import": "匯入",
+      "move": "移動"
+    },
     "alert": {
-      "renameFailed": "重新命名失敗：{error}"
+      "destinationExists": "目的地已存在：{path}",
+      "operationFailed": "{action}失敗：{error}",
+      "workspaceChanged": "工作區已切換，剩餘檔案已略過。"
     },
     "menu": {
       "createFile": "建立檔案",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "建立新檔案",
-    "createFolder": "建立新資料夾"
+    "createFolder": "建立新資料夾",
+    "newFilePrompt": "輸入新檔案名稱：",
+    "newFolderPrompt": "輸入新資料夾名稱："
   },
   "markdownPreview": {
     "downloadSvg": "下載 SVG",

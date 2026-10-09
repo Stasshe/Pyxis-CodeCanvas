@@ -1,7 +1,7 @@
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 import type { GitFs as FS } from '@/engine/core/fs/git';
-import { parseGitHubUrl } from './github/utils';
+import { rejectGitAuthentication, validateRemoteUrl } from './transport';
 
 export interface FetchOptions {
   remote?: string;
@@ -15,8 +15,6 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
   const { remote = 'origin', branch, depth, prune = false, tags = false } = options;
 
   try {
-    const token = (await fs.credentials())?.password;
-
     const remotes = await git.listRemotes({ fs, dir });
     const remoteInfo = remotes.find(r => r.remote === remote);
 
@@ -24,31 +22,13 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
       throw new Error(`Remote '${remote}' not found.`);
     }
 
-    const repoInfo = parseGitHubUrl(remoteInfo.url);
-    if (!repoInfo) {
-      throw new Error('Only GitHub repositories are supported');
-    }
-
-    console.log('[git fetch] Repository:', `${repoInfo.owner}/${repoInfo.repo}`);
+    validateRemoteUrl(remoteInfo.url);
     console.log('[git fetch] Remote:', remote);
-
-    if (!token) {
-      throw new Error('GitHub authentication required for fetch');
-    }
-
-    const { GitHubAPI } = await import('./github/GitHubAPI');
-    const githubAPI = new GitHubAPI(token, repoInfo.owner, repoInfo.repo);
 
     let targetBranch = branch;
     if (!targetBranch) {
       const currentBranch = await git.currentBranch({ fs, dir });
-      targetBranch = currentBranch || 'main';
-    }
-
-    const remoteRef = await githubAPI.getRef(targetBranch);
-    if (!remoteRef) {
-      console.log('[git fetch] Remote branch does not exist:', targetBranch);
-      return `From ${remoteInfo.url}\nRemote branch '${targetBranch}' does not exist yet.\nUse 'git push' to create it.`;
+      if (currentBranch) targetBranch = currentBranch;
     }
 
     let fetchResult: Awaited<ReturnType<typeof git.fetch>>;
@@ -65,10 +45,7 @@ export async function fetch(fs: FS, dir: string, options: FetchOptions = {}): Pr
         tags: tags,
         prune: prune,
         corsProxy: 'https://cors.isomorphic-git.org',
-        onAuth: () => ({
-          username: token,
-          password: 'x-oauth-basic',
-        }),
+        onAuth: rejectGitAuthentication,
         onProgress: progress => {
           if (progress.phase === 'Receiving objects') {
             const percent = Math.round((progress.loaded / progress.total) * 100);
@@ -130,16 +107,18 @@ export async function fetchAll(
   }
 
   const results: string[] = [];
+  const errors: string[] = [];
 
   for (const remote of remotes) {
     try {
       const result = await fetch(fs, dir, { ...options, remote: remote.remote });
       results.push(result);
     } catch (error) {
-      results.push(`Failed to fetch ${remote.remote}: ${(error as Error).message}`);
+      errors.push(`Failed to fetch ${remote.remote}: ${(error as Error).message}`);
     }
   }
 
+  if (errors.length > 0) throw new Error(errors.join('\n'));
   return results.join('\n\n');
 }
 
@@ -176,21 +155,9 @@ export async function listRemoteBranches(
   dir: string,
   remote = 'origin'
 ): Promise<string[]> {
-  try {
-    const branches = await git.listBranches({ fs, dir, remote });
-    return branches;
-  } catch (error) {
-    console.error('[git fetch] Failed to list remote branches:', error);
-    return [];
-  }
+  return git.listBranches({ fs, dir, remote });
 }
 
 export async function listRemoteTags(fs: FS, dir: string): Promise<string[]> {
-  try {
-    const tags = await git.listTags({ fs, dir });
-    return tags;
-  } catch (error) {
-    console.error('[git fetch] Failed to list remote tags:', error);
-    return [];
-  }
+  return git.listTags({ fs, dir });
 }

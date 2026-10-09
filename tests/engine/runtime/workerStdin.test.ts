@@ -1,8 +1,106 @@
+import { PassThrough } from 'node:stream';
 import type { Buffer } from 'buffer';
 import { describe, expect, it, vi } from 'vitest';
 import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
 
 describe('WorkerStdin', () => {
+  it('is a byte-preserving stream-browserify PassThrough with encoded reads', async () => {
+    const stdin = new WorkerStdin(
+      () => {},
+      () => {},
+      () => {}
+    );
+    expect(stdin).toBeInstanceOf(PassThrough);
+    stdin.setEncoding('utf8');
+    let received = '';
+    const ended = new Promise<void>(resolve => stdin.once('end', resolve));
+    stdin.on('data', chunk => {
+      received += chunk;
+    });
+    await vi.waitFor(() => expect(stdin.listenerCount('data')).toBe(1));
+
+    stdin.submit(Uint8Array.of(0xe2, 0x82));
+    stdin.submit(Uint8Array.of(0xac));
+    stdin.eof();
+    await ended;
+
+    expect(received).toBe('€');
+  });
+
+  it('supports readable-mode consumers and requests input only while observed', async () => {
+    const requestInput = vi.fn();
+    const stdin = new WorkerStdin(
+      () => {},
+      requestInput,
+      () => {}
+    );
+    const received = new Promise<Buffer>(resolve => {
+      stdin.on('readable', () => {
+        const chunk = stdin.read();
+        if (chunk) resolve(chunk);
+      });
+    });
+    await vi.waitFor(() => expect(requestInput).toHaveBeenCalledOnce());
+
+    stdin.submit(Uint8Array.of(0, 255, 128));
+    expect([...(await received)]).toEqual([0, 255, 128]);
+    const ended = new Promise<void>(resolve => stdin.once('end', resolve));
+    stdin.eof();
+    await ended;
+  });
+
+  it('resumes buffered delivery when a data consumer attaches after one was removed', async () => {
+    const requestInput = vi.fn();
+    const stdin = new WorkerStdin(
+      () => {},
+      requestInput,
+      () => {}
+    );
+    const firstListener = vi.fn();
+    stdin.on('data', firstListener);
+    await vi.waitFor(() => expect(requestInput).toHaveBeenCalledOnce());
+    stdin.removeListener('data', firstListener);
+    stdin.submit('buffered');
+
+    const received = new Promise<Buffer>(resolve => stdin.on('data', resolve));
+    await expect(received).resolves.toEqual(Buffer.from('buffered'));
+  });
+
+  it('keeps an explicit pause until resume even when a data listener attaches later', async () => {
+    const stdin = new WorkerStdin(
+      () => {},
+      () => {},
+      () => {}
+    );
+    stdin.pause();
+    stdin.submit('buffered');
+    let received = false;
+    const chunk = new Promise<Buffer>(resolve => {
+      stdin.on('data', value => {
+        received = true;
+        resolve(value);
+      });
+    });
+    await Promise.resolve();
+    expect(received).toBe(false);
+
+    stdin.resume();
+    await expect(chunk).resolves.toEqual(Buffer.from('buffered'));
+  });
+
+  it('forwards raw-mode changes to the terminal host', () => {
+    const changeRawMode = vi.fn();
+    const stdin = new WorkerStdin(
+      () => {},
+      () => {},
+      () => {},
+      changeRawMode
+    );
+
+    expect(stdin.setRawMode(true)).toBe(stdin);
+    expect(changeRawMode).toHaveBeenCalledWith(true);
+  });
+
   it('buffers queued lines while paused and delivers them in order after resume', async () => {
     const requestInput = vi.fn();
     const pauseInput = vi.fn();
@@ -21,7 +119,7 @@ describe('WorkerStdin', () => {
     stdin.resume();
     await Promise.resolve();
 
-    expect(received).toEqual(['first\n', 'second\n']);
+    await vi.waitFor(() => expect(received).toEqual(['first\n', 'second\n']));
   });
 
   it('delivers queued data before EOF when the source ends while paused', async () => {
@@ -58,8 +156,8 @@ describe('WorkerStdin', () => {
 
     stdin.resume();
 
-    expect(received).toEqual(['first\n', 'second\n']);
-    expect(order).toEqual(['data', 'data', 'end']);
+    await vi.waitFor(() => expect(received).toEqual(['first\n', 'second\n']));
+    await vi.waitFor(() => expect(order).toEqual(['data', 'data', 'end']));
     expect(tracked).toHaveLength(2);
     await tracked[1];
   });

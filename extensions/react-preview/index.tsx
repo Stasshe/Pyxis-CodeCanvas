@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { CircleX } from 'lucide-react';
 import type { FsClient, PathUtils } from '../_shared/systemModuleTypes';
 import type { CommandContext, ExtensionActivation, ExtensionContext } from '../_shared/types';
 
@@ -575,7 +576,7 @@ ${routeMap}
             whiteSpace: 'pre-wrap',
           }}
         >
-          ❌ Error: {error}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CircleX size={14} /> Error: {error}</div>
         </div>
       )}
 

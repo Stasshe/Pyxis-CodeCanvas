@@ -4,6 +4,7 @@ import { readFileContent } from '@/engine/core/fileContent';
 import { FSError, fsClient, normalizePath } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { pushLogMessage } from '@/stores/loggerStore';
 import { getCurrentRootPath } from '@/stores/projectStore';
 import {
   getTabContent,
@@ -16,6 +17,9 @@ import { tabState } from './state';
 
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const savingPaths = new Set<string>();
+const saveGenerations = new Map<string, number>();
+const activeSaveCounts = new Map<string, number>();
+const saveErrors = new Map<string, Error>();
 const saveListeners = new Set<(path: string, success: boolean, error?: Error) => void>();
 const changeListeners = new Set<
   (path: string, content: string, source: 'editor' | 'external') => void
@@ -81,28 +85,33 @@ function clearSaveTimer(path: string): void {
   }
 }
 
-function scheduleSave(path: string, getPanes: () => EditorPane[]): void {
+function getSaveGeneration(path: string): number {
+  return saveGenerations.get(path) ?? 0;
+}
+
+function invalidateSave(path: string): void {
+  if (!activeSaveCounts.has(path)) return;
+  saveGenerations.set(path, getSaveGeneration(path) + 1);
+}
+
+function scheduleSave(path: string, contentSnapshot: string, getPanes: () => EditorPane[]): void {
   clearSaveTimer(path);
   const id = setTimeout(async () => {
     saveTimers.delete(path);
-    const content = getContentFromPanes(getPanes(), path);
-    if (content !== undefined) {
-      try {
-        await executeSave(path, content);
-      } catch (e) {
-        console.error('[tabState] Scheduled save failed:', e);
-      }
+    const content = getContentFromPanes(getPanes(), path) ?? contentSnapshot;
+    try {
+      await executeSave(path, content);
+    } catch (e) {
+      console.error('[tabState] Scheduled save failed:', e);
     }
   }, DEBOUNCE_MS);
   saveTimers.set(path, id);
 }
 
 async function executeSave(path: string, content: string): Promise<boolean> {
-  if (!getCurrentRootPath()) {
-    console.error('[tabState] No workspace root for save');
-    for (const l of saveListeners) l(path, false, new Error('No workspace root'));
-    return false;
-  }
+  const generation = getSaveGeneration(path);
+  saveErrors.delete(path);
+  activeSaveCounts.set(path, (activeSaveCounts.get(path) ?? 0) + 1);
   try {
     if (await fsClient.exists(path)) {
       const currentFile = await readFileContent(path);
@@ -110,11 +119,14 @@ async function executeSave(path: string, content: string): Promise<boolean> {
         throw new Error(`Cannot save text over binary file: ${path}`);
       }
     }
+    if (generation !== getSaveGeneration(path)) return false;
     const currentContentBeforeSave = getContentFromPanes(tabState.panes, path);
-    if (currentContentBeforeSave !== content) return false;
+    if (currentContentBeforeSave !== undefined && currentContentBeforeSave !== content)
+      return false;
     savingPaths.add(path);
     await fsClient.writeFile(path, content);
     savingPaths.delete(path);
+    saveErrors.delete(path);
 
     // Check if the user typed new content during the async save.
     // If so: do NOT overwrite the store/model (would revert edits) and do NOT
@@ -129,13 +141,38 @@ async function executeSave(path: string, content: string): Promise<boolean> {
     return true;
   } catch (error) {
     savingPaths.delete(path);
-    console.error('[tabState] Save failed:', { path, error });
-    for (const l of saveListeners) l(path, false, error as Error);
+    reportSaveFailure(path, error);
     return false;
+  } finally {
+    const activeCount = activeSaveCounts.get(path) ?? 0;
+    if (activeCount <= 1) {
+      activeSaveCounts.delete(path);
+      saveGenerations.delete(path);
+    } else {
+      activeSaveCounts.set(path, activeCount - 1);
+    }
   }
 }
 
-export function updateAllTabsByPath(path: string, content: string, isDirty: boolean): void {
+export function reportSaveFailure(path: string, error: unknown, message?: string): void {
+  const normalizedPath = normalizePath(path);
+  const saveError = error instanceof Error ? error : new Error(String(error));
+  saveErrors.set(normalizedPath, saveError);
+  console.error('[tabState] Save failed:', { path: normalizedPath, error: saveError });
+  pushLogMessage(
+    message ?? `Failed to save ${normalizedPath}: ${saveError.message}`,
+    'error',
+    'Editor'
+  );
+  for (const listener of saveListeners) listener(normalizedPath, false, saveError);
+}
+
+export function updateAllTabsByPath(
+  path: string,
+  content: string,
+  isDirty: boolean,
+  updateModel = true
+): void {
   const targetPath = normalizePath(path);
   const allTabs = collectAllTabs(tabState.panes);
 
@@ -144,23 +181,24 @@ export function updateAllTabsByPath(path: string, content: string, isDirty: bool
     const tPath = normalizePath(tDef?.getContentPath?.(t) ?? t.path ?? '/');
     if (tPath === targetPath && t.kind !== 'binary') {
       const prev = getTabContent(t.id);
-      const currentDirty = t.isDirty ?? false;
+      const currentDirty = (t.isDirty ?? false) || isTabDirty(t.id);
       const shouldUpdate = prev !== content || currentDirty !== isDirty;
 
       if (shouldUpdate) {
         setTabContent(t.id, content, isDirty);
 
-        if (prev !== content) {
+        if (prev !== content && updateModel) {
           // Use filePath as model key — same file in multiple tabs shares one Monaco model
-          if (!pendingModelUpdates.has(targetPath)) {
-            pendingModelUpdates.set(targetPath, content);
-            scheduleModelUpdateFlush();
-          }
+          pendingModelUpdates.set(targetPath, content);
+          scheduleModelUpdateFlush();
         }
 
         if (currentDirty !== isDirty) {
           t.isDirty = isDirty;
         }
+        const updatedTab = tDef?.updateContent?.(t, content, isDirty);
+        if (updatedTab && updatedTab !== t) Object.assign(t, updatedTab);
+        t.isDirty = isDirty;
       }
     }
   }
@@ -253,7 +291,7 @@ export function setContent(path: string, content: string): void {
   );
   if (tab) {
     updateTabContent(tab.id, content, true);
-    scheduleSave(p, () => tabState.panes);
+    scheduleSave(p, content, () => tabState.panes);
   }
   for (const l of changeListeners) l(p, content, 'editor');
 }
@@ -273,19 +311,84 @@ export async function saveImmediately(path: string): Promise<boolean> {
   return executeSave(p, content);
 }
 
+export async function flushDirtyTabFiles(): Promise<void> {
+  while (true) {
+    const pendingTabs = collectAllTabs(tabState.panes).filter(tab =>
+      tabRegistry.get(tab.kind)?.hasPendingChanges?.(tab)
+    );
+    for (const tab of pendingTabs) {
+      const definition = tabRegistry.get(tab.kind);
+      if (!definition?.flushPendingChanges) {
+        throw new Error(`Cannot save pending changes for tab: ${tab.name}`);
+      }
+      await definition.flushPendingChanges(tab);
+      if (definition.hasPendingChanges?.(tab)) {
+        throw new Error(`Pending changes remain after saving tab: ${tab.name}`);
+      }
+    }
+
+    const dirtyPaths = new Set<string>();
+    for (const tab of collectAllTabs(tabState.panes)) {
+      if (tab.needsContentRestore || (!tab.isDirty && !isTabDirty(tab.id))) continue;
+      if (tab.kind !== 'editor' && tab.kind !== 'diff' && tab.kind !== 'ai') continue;
+      const path = tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path;
+      if (!path) throw new Error(`Cannot save dirty tab without a file path: ${tab.id}`);
+      dirtyPaths.add(normalizePath(path));
+    }
+    if (dirtyPaths.size === 0) {
+      if (
+        collectAllTabs(tabState.panes).some(tab =>
+          tabRegistry.get(tab.kind)?.hasPendingChanges?.(tab)
+        )
+      )
+        continue;
+      return;
+    }
+
+    for (const path of dirtyPaths) {
+      while (hasDirtyTab(tabsForPath(path))) {
+        if (!(await saveImmediately(path))) {
+          const saveError = saveErrors.get(path);
+          const reason = saveError ? `: ${saveError.message}` : '';
+          throw new Error(`Failed to save dirty file before closing: ${path}${reason}`);
+        }
+      }
+    }
+  }
+}
+
 export function removeSaveTimerForPath(path: string): void {
-  clearSaveTimer(normalizePath(path));
+  const normalizedPath = normalizePath(path);
+  clearSaveTimer(normalizedPath);
+  invalidateSave(normalizedPath);
+  saveErrors.delete(normalizedPath);
 }
 
 export function renameContentPaths(oldPath: string, newPath: string): void {
   const oldRoot = normalizePath(oldPath);
   const newRoot = normalizePath(newPath);
+  const invalidatedPaths = new Set<string>();
   for (const [path, timer] of saveTimers) {
     if (path !== oldRoot && !path.startsWith(`${oldRoot}/`)) continue;
+    invalidateSave(path);
+    invalidatedPaths.add(path);
+    saveErrors.delete(path);
+    const content = getContentFromPanes(tabState.panes, path);
     clearTimeout(timer);
     saveTimers.delete(path);
     const nextPath = normalizePath(`${newRoot}${path.slice(oldRoot.length)}`);
-    scheduleSave(nextPath, () => tabState.panes);
+    if (content !== undefined) scheduleSave(nextPath, content, () => tabState.panes);
+  }
+  for (const tab of collectAllTabs(tabState.panes)) {
+    if (!tab.isDirty && !isTabDirty(tab.id)) continue;
+    const path = normalizePath(tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path ?? '/');
+    if (path !== oldRoot && !path.startsWith(`${oldRoot}/`)) continue;
+    if (!invalidatedPaths.has(path)) invalidateSave(path);
+    saveErrors.delete(path);
+    const content = getTabContent(tab.id);
+    if (content === undefined) continue;
+    const nextPath = normalizePath(`${newRoot}${path.slice(oldRoot.length)}`);
+    scheduleSave(nextPath, content, () => tabState.panes);
   }
   for (const [path, content] of pendingModelUpdates) {
     if (path !== oldRoot && !path.startsWith(`${oldRoot}/`)) continue;
@@ -322,7 +425,9 @@ export function addChangeListener(
 export async function loadAndUpdateTabContent(
   tabId: string,
   kind: string,
-  filePath: string | undefined
+  filePath: string | undefined,
+  rootPath: string | null,
+  sessionGeneration: number
 ): Promise<void> {
   if ((kind !== 'editor' && kind !== 'binary' && kind !== 'preview') || !filePath) return;
   const openedTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
@@ -331,6 +436,9 @@ export async function loadAndUpdateTabContent(
     await fsClient.init();
     if (!(await fsClient.exists(filePath))) return;
     const content = await readFileContent(filePath);
+    if (getCurrentRootPath() !== rootPath || tabState.sessionGeneration !== sessionGeneration) {
+      return;
+    }
     const currentTab = collectAllTabs(tabState.panes).find(tab => tab.id === tabId);
     if (!currentTab || currentTab.isDirty || isTabDirty(tabId)) return;
     applyFileContent(filePath, content);
@@ -343,16 +451,20 @@ export function updateTabContent(tabId: string, content: string, isDirty = false
   const allTabs = collectAllTabs(tabState.panes);
   const tab = allTabs.find(t => t.id === tabId);
   if (!tab || tab.kind === 'binary') return;
+  if (isDirty && getTabContent(tabId) === content) return;
 
   const tabDef = tabRegistry.get(tab.kind);
   const targetPath = normalizePath(tabDef?.getContentPath?.(tab) ?? tab.path ?? '/');
 
   if (targetPath) {
-    updateAllTabsByPath(targetPath, content, isDirty);
+    if (tab.kind === 'editor' && !tab.isCodeMirror) {
+      pendingModelUpdates.delete(targetPath);
+    }
+    updateAllTabsByPath(targetPath, content, isDirty, tab.kind !== 'editor' || tab.isCodeMirror);
 
     if (isDirty) {
       try {
-        scheduleSave(targetPath, () => tabState.panes);
+        scheduleSave(targetPath, content, () => tabState.panes);
       } catch (e) {
         console.warn('[tabState] scheduleSave failed:', e);
       }

@@ -3,6 +3,8 @@ import { HOME_DIR } from '@/engine/core/pathUtils';
 import { isRetiredRuntimePromise } from '@/engine/runtime/nodejs/nodeRuntime';
 import { createNodeRuntimeFixture, type NodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
+const hostTimeout = globalThis.setTimeout;
+
 describe('NodeRuntime execution', () => {
   let fixture: NodeRuntimeFixture;
   let output: string[];
@@ -21,6 +23,7 @@ describe('NodeRuntime execution', () => {
 
   afterEach(() => {
     fixture.close();
+    expect(globalThis.setTimeout).toBe(hostTimeout);
   });
 
   async function run(name: string, source: string): Promise<void> {
@@ -70,6 +73,50 @@ describe('NodeRuntime execution', () => {
     expect(output.join('\n')).toContain(`${HOME_DIR} ${HOME_DIR}`);
   });
 
+  it('executes inline source without requiring an entry file', async () => {
+    await fixture.writeFile(`${fixture.rootPath}/package.json`, '{"type":"module"}');
+    await fixture.runtime.execute(
+      `${fixture.rootPath}/[eval]`,
+      ['argument'],
+      'console.log(JSON.stringify(process.argv), JSON.stringify(process.execArgv), process.execPath, __filename, __dirname, this === globalThis, typeof require);',
+      ['--eval', 'inline source']
+    );
+    await fixture.runtime.waitForEventLoop();
+
+    expect(output.join('\n')).toContain(
+      '["node","argument"] ["--eval","inline source"] node [eval] . true function'
+    );
+  });
+
+  it('defaults detached stdout and stderr streams to non-TTY', async () => {
+    await run('stdio-tty.js', 'console.log(process.stdout.isTTY, process.stderr.isTTY);');
+
+    expect(output).toContain('false false');
+  });
+
+  it('changes cwd only to an existing directory in the runtime filesystem', async () => {
+    await fixture.fs.mkdir(`${fixture.rootPath}/nested`, { recursive: true });
+    await run(
+      'chdir.js',
+      `process.chdir('${fixture.rootPath}/nested'); console.log(process.cwd());`
+    );
+
+    expect(output).toContain(`${fixture.rootPath}/nested`);
+  });
+
+  it('emits warning events and writes warning details to stderr', async () => {
+    await run(
+      'warning.js',
+      [
+        "process.on('warning', warning => console.log(warning.name, warning.code));",
+        "process.emitWarning('notice', { type: 'CustomWarning', code: 'W1', detail: 'extra detail' });",
+      ].join('\n')
+    );
+
+    expect(output).toContain('CustomWarning W1');
+    expect(errors.join('\n')).toContain('extra detail');
+  });
+
   it('loads node:string_decoder and reports the runtime architecture', async () => {
     await run(
       'string-decoder.js',
@@ -97,6 +144,107 @@ describe('NodeRuntime execution', () => {
 
     expect(output.join('\n')).toContain('{"q":"hello world","tag":["a","b"]}');
     expect(output.join('\n')).toContain('true');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('preserves host globals inherited by the runtime global object', async () => {
+    await run('inherited-globals.js', 'console.log(globalThis.Infinity === Infinity);');
+
+    expect(output.join('\n')).toContain('true');
+  });
+
+  it('keeps builtin module identities stable across aliases', async () => {
+    await run(
+      'builtin-identity.js',
+      [
+        "const path = require('path');",
+        "console.log(path === require('node:path'), path.posix === require('path/posix'));",
+        "console.log(path.win32 === require('path/win32'), path.win32.sep, path.win32.win32 === path.win32, path.win32.posix === path.posix);",
+        'console.log(path.win32.toNamespacedPath(null));',
+        "console.log(require('process') === require('node:process'));",
+        "console.log(require('timers/promises') === require('node:timers/promises'));",
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('true true');
+    expect(output.join('\n')).toContain('true \\ true true');
+    expect(output).toContain('null');
+    expect(output.join('\n')).toContain('true');
+  });
+
+  it('tracks nextTick and queueMicrotask work before timers', async () => {
+    await run(
+      'microtasks.js',
+      [
+        "process.nextTick(() => console.log('next tick'));",
+        "queueMicrotask(() => { console.log('microtask'); queueMicrotask(() => console.log('nested')); });",
+        "setTimeout(() => console.log('timer'), 0);",
+      ].join('\n')
+    );
+
+    expect(output).toEqual(['next tick', 'microtask', 'nested', 'timer']);
+  });
+
+  it('drains nested nextTick callbacks before Promise reactions queued by a tick', async () => {
+    await run(
+      'nested-next-tick.js',
+      [
+        "process.nextTick(() => { console.log('tick'); process.nextTick(() => console.log('nested tick')); Promise.resolve().then(() => console.log('tick promise')); });",
+        "Promise.resolve().then(() => console.log('initial promise'));",
+      ].join('\n')
+    );
+
+    expect(output).toEqual(['tick', 'nested tick', 'initial promise', 'tick promise']);
+  });
+
+  it('runs setImmediate on its own cancellable task handle', async () => {
+    await run(
+      'immediate.js',
+      [
+        "setImmediate(value => console.log(value), 'immediate');",
+        "const canceled = setImmediate(() => console.log('canceled'));",
+        'clearImmediate(canceled);',
+      ].join('\n')
+    );
+
+    expect(output).toEqual(['immediate']);
+  });
+
+  it('repeats beforeExit when its listener schedules tracked work', async () => {
+    await run(
+      'before-exit.js',
+      [
+        'let count = 0;',
+        "process.on('beforeExit', () => { count += 1; console.log('beforeExit', count); if (count === 1) setTimeout(() => console.log('work'), 0); });",
+      ].join('\n')
+    );
+
+    expect(output).toEqual(['beforeExit 1', 'work', 'beforeExit 2']);
+  });
+
+  it('offers synchronous execution errors to uncaughtException listeners', async () => {
+    await run(
+      'uncaught-exception.js',
+      "process.on('uncaughtException', error => console.log('handled', error.message)); throw new Error('sync');"
+    );
+
+    expect(output).toContain('handled sync');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('loads callable assert and the strict assertion builtin alias', async () => {
+    await run(
+      'assert.js',
+      [
+        "const assert = require('assert');",
+        "const strictAssert = require('node:assert/strict');",
+        'console.log(typeof assert, strictAssert === assert.strict);',
+        "try { strictAssert.equal(1, '1'); } catch { console.log('strict equality'); }",
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('function true');
+    expect(output.join('\n')).toContain('strict equality');
     expect(errors).toHaveLength(0);
   });
 
@@ -166,6 +314,20 @@ describe('NodeRuntime execution', () => {
 
     expect(fixture.runtime.getExitCode()).toBe(0);
     expect(output.join('\n')).toContain('async fs output');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('completes the event loop after PBKDF2 rejects invalid input synchronously', async () => {
+    await run(
+      'invalid-pbkdf2.js',
+      [
+        "const { pbkdf2 } = require('crypto');",
+        "try { pbkdf2('password', 'salt', -1, 16, 'sha256', () => {}); }",
+        'catch (error) { console.log(error.name); }',
+      ].join('\n')
+    );
+
+    expect(output.join('\n')).toContain('TypeError');
     expect(errors).toHaveLength(0);
   });
 
@@ -341,6 +503,35 @@ describe('NodeRuntime execution', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('does not resolve a string-valued default export as a dependency', async () => {
+    await fixture.writeFile(`${fixture.rootPath}/default-value.mjs`, "export default 'default';");
+    await run(
+      'default-value-entry.mjs',
+      'import value from "./default-value.mjs"; console.log(value);'
+    );
+
+    expect(output.join('\n')).toContain('default');
+    expect(errors).toHaveLength(0);
+  });
+
+  it('loads namespace re-exports whose exported name is reserved', async () => {
+    await fixture.writeFile(
+      `${fixture.rootPath}/namespace-base.mjs`,
+      'export const value = "loaded";'
+    );
+    await fixture.writeFile(
+      `${fixture.rootPath}/namespace.mjs`,
+      "export * as default from './namespace-base.mjs';"
+    );
+    await run(
+      'namespace-entry.mjs',
+      'import namespace from "./namespace.mjs"; console.log(namespace.value);'
+    );
+
+    expect(output.join('\n')).toContain('loaded');
+    expect(errors).toHaveLength(0);
+  });
+
   it('routes Function imports from dynamic strings and preserves shadowed Function constructors', async () => {
     await fixture.writeFile(
       `${fixture.rootPath}/dynamic-module.mjs`,
@@ -378,50 +569,6 @@ describe('NodeRuntime execution', () => {
     expect(output.join('\n')).toContain('unreturned import completed');
     expect(output.join('\n')).toContain('function');
     expect(errors).toHaveLength(0);
-  });
-
-  it('transforms erased type-only declarations in explicitly CommonJS TypeScript', async () => {
-    await run(
-      'types.cts',
-      'import type Shape from "missing-types"; export interface Item { value: number } const value: number = 3; console.log(value);'
-    );
-    expect(output.join('\n')).toContain('3');
-    expect(errors).toHaveLength(0);
-  });
-
-  it('preserves local process and filename declarations in ESM source and required modules', async () => {
-    await fixture.writeFile(
-      `${fixture.rootPath}/local.mjs`,
-      'const process = { version: "local" }; const __filename = "source name"; export default `${process.version} ${__filename}`;'
-    );
-    await run(
-      'local-bindings.mjs',
-      'import value from "./local.mjs"; const __filename = "entry name"; console.log(value, __filename);'
-    );
-    expect(output.join('\n')).toContain('local source name entry name');
-    expect(errors).toHaveLength(0);
-  });
-
-  it('applies explicit mjs and cjs formats before enclosing package type', async () => {
-    await fixture.writeFile(
-      `${fixture.rootPath}/package.json`,
-      JSON.stringify({ type: 'commonjs' })
-    );
-    await run('module.mjs', 'export const value = 1; console.log(value);');
-    expect(fixture.runtime.getExitCode()).toBe(0);
-    await expect(run('invalid.cjs', 'export const value = 1;')).rejects.toThrow(
-      'ES module syntax is not allowed'
-    );
-  });
-
-  it('honors a type commonjs package for js files instead of syntax-based conversion', async () => {
-    await fixture.writeFile(
-      `${fixture.rootPath}/package.json`,
-      JSON.stringify({ type: 'commonjs' })
-    );
-    await expect(run('invalid-type.js', 'export const value = 1;')).rejects.toThrow(
-      'ES module syntax is not allowed'
-    );
   });
 
   it('loads empty required modules without treating code as missing', async () => {

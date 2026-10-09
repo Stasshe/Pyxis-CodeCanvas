@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../../_helpers/testProject';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { setupTestProject } from '../../../_helpers/testProject';
 
 /**
  * サブシェルとコマンド置換のe2eテスト
@@ -26,7 +26,10 @@ describe('e2e — サブシェルとコマンド置換実行テスト', () => {
     shell = await terminalCommandRegistry.getShell(rootPath);
   });
 
-  async function executeScript(scriptContent: string, scriptName = 'test-script.sh'): Promise<{
+  async function executeScript(
+    scriptContent: string,
+    scriptName = 'test-script.sh'
+  ): Promise<{
     output: string[];
     errors: string[];
     executionError: Error | null;
@@ -36,7 +39,10 @@ describe('e2e — サブシェルとコマンド置換実行テスト', () => {
     return {
       output: result.stdout.split('\n').filter(Boolean),
       errors: result.stderr.split('\n').filter(Boolean),
-      executionError: result.code !== 0 ? new Error(`Script exited with code ${result.code}\n${result.stderr}`) : null,
+      executionError:
+        result.code !== 0
+          ? new Error(`Script exited with code ${result.code}\n${result.stderr}`)
+          : null,
     };
   }
 
@@ -421,7 +427,7 @@ echo "subshell exit code: $?"
       expect(result).toContain('subshell exit code: 42');
     }, 30000);
 
-    it('サブシェル内で set -e が動作する', async () => {
+    it('OR-list disables errexit throughout its subshell condition', async () => {
       const script = `#!/bin/bash
 (set -e; false; echo "not reached") || echo "subshell aborted"
 echo "main continues"
@@ -431,8 +437,8 @@ echo "main continues"
       assertNoErrors(output, errors, executionError);
 
       const result = output.join('\n');
-      expect(result).not.toContain('not reached');
-      expect(result).toContain('subshell aborted');
+      expect(result).toContain('not reached');
+      expect(result).not.toContain('subshell aborted');
       expect(result).toContain('main continues');
     }, 30000);
   });
@@ -471,19 +477,21 @@ echo "$LINES"
   });
 
   describe('プロセス置換', () => {
-    it('<() でプロセス置換を使用できる', async () => {
+    it('複数の <() を cat で読み取れる', async () => {
       const script = `#!/bin/bash
-diff <(echo "content1") <(echo "content2") || echo "files differ"
+cat <(seq 1 2) <(seq 3 4)
 `;
       const { output, errors, executionError } = await executeScript(script);
 
-      const result = output.join('\n');
-      expect(result).toContain('files differ');
+      assertNoErrors(output, errors, executionError);
+      expect(output).toEqual(['1', '2', '3', '4']);
     }, 30000);
 
-    it('>() でプロセス置換の出力先を指定できる', async () => {
+    it('>() の出力を wait 後に正確に読み取れる', async () => {
       const script = `#!/bin/bash
-echo "test data" | tee >(tr 'a-z' 'A-Z' > /tmp/upper.txt) > /tmp/lower.txt
+printf 'test data\n' > /tmp/input.txt
+tee >(tr 'a-z' 'A-Z' > /tmp/upper.txt) < /tmp/input.txt > /tmp/lower.txt
+wait "$!"
 cat /tmp/upper.txt
 cat /tmp/lower.txt
 `;
@@ -491,23 +499,18 @@ cat /tmp/lower.txt
 
       assertNoErrors(output, errors, executionError);
 
-      const result = output.join('\n');
-      expect(result).toContain('TEST DATA');
-      expect(result).toContain('test data');
+      expect(output).toEqual(['TEST DATA', 'test data']);
     }, 30000);
 
-    it('複数のプロセス置換を同時に使用できる', async () => {
+    it('複数の入力プロセス置換の全データを読み取れる', async () => {
       const script = `#!/bin/bash
-paste <(seq 1 3) <(seq 4 6) <(seq 7 9)
+cat <(seq 1 3) <(seq 4 6) <(seq 7 9)
 `;
       const { output, errors, executionError } = await executeScript(script);
 
       assertNoErrors(output, errors, executionError);
 
-      const result = output.join('\n');
-      expect(result).toContain('1');
-      expect(result).toContain('4');
-      expect(result).toContain('7');
+      expect(output).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
     }, 30000);
   });
 

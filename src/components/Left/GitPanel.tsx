@@ -331,16 +331,6 @@ export default function GitPanel({
     [colors.red]
   );
 
-  // hasChanges のメモ化
-  const hasChanges = useMemo(() => {
-    return (
-      (gitRepo?.status?.staged?.length || 0) > 0 ||
-      (gitRepo?.status?.unstaged?.length || 0) > 0 ||
-      (gitRepo?.status?.untracked?.length || 0) > 0 ||
-      (gitRepo?.status?.deleted?.length || 0) > 0
-    );
-  }, [gitRepo]);
-
   // hasMore のメモ化
   const hasMore = useMemo(() => {
     return hasRemote && (gitRepo?.commits?.length || 0) >= commitDepth;
@@ -485,7 +475,6 @@ export default function GitPanel({
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <ChangesList
           gitRepo={gitRepo}
-          hasChanges={hasChanges}
           iconColors={iconColors}
           plusIcon={plusIcon}
           minusIcon={minusIcon}

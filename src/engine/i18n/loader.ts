@@ -27,10 +27,14 @@ export async function loadTranslations(
   }
 
   // 2. IndexedDBキャッシュをチェック
-  const cachedData = await loadTranslationCache(locale, namespace);
-  if (cachedData) {
-    memoryCache.set(cacheKey, cachedData);
-    return cachedData;
+  try {
+    const cachedData = await loadTranslationCache(locale, namespace);
+    if (cachedData) {
+      memoryCache.set(cacheKey, cachedData);
+      return cachedData;
+    }
+  } catch (error) {
+    console.warn(`[i18n-loader] Failed to read cache for ${locale}/${namespace}:`, error);
   }
 
   // 3. HTTPで取得
@@ -41,11 +45,18 @@ export async function loadTranslations(
       throw new Error(`Failed to load translations: ${response.status} ${response.statusText}`);
     }
 
-    const data = (await response.json()) as Record<string, unknown>;
+    const data: unknown = await response.json();
+    if (!isTranslationDictionary(data)) {
+      throw new Error(`Invalid translation resource: ${locale}/${namespace}`);
+    }
 
-    // メモリとIndexedDBにキャッシュ
+    // A cache write failure must not hide a successful resource fetch.
     memoryCache.set(cacheKey, data);
-    await saveTranslationCache(locale, namespace, data);
+    try {
+      await saveTranslationCache(locale, namespace, data);
+    } catch (error) {
+      console.warn(`[i18n-loader] Failed to write cache for ${locale}/${namespace}:`, error);
+    }
 
     return data;
   } catch (error) {
@@ -60,6 +71,10 @@ export async function loadTranslations(
     // 最終フォールバック: 空オブジェクト
     return {};
   }
+}
+
+function isTranslationDictionary(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**

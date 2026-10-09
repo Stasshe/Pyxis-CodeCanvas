@@ -1,6 +1,8 @@
 import { posixPath } from '@/engine/core/fs';
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
+import { displayPathForOperand } from './displayPath';
 
 /**
  * du - ディスク使用量を表示（簡易）
@@ -28,23 +30,26 @@ export class DuCommand extends UnixCommandBase {
 
     for (const t of targets) {
       const normalized = this.resolvePath(t);
+      const displayPath = displayPathForOperand(t, normalized, normalized);
+      const metadata = await this.fs.lstat(normalized);
       const size = await this.sizeOfPath(normalized);
       if (summary) {
-        lines.push(`${this.formatSize(size, human)}\t${normalized}`);
+        lines.push(`${this.formatSize(size, human)}\t${displayPath}`);
       } else {
-        const isDir = await this.isDirectory(normalized);
+        const isDir = metadata.type === 'folder';
         if (!isDir) {
-          lines.push(`${this.formatSize(size, human)}\t${normalized}`);
+          lines.push(`${this.formatSize(size, human)}\t${displayPath}`);
         } else {
           const files = await this.getDescendants(normalized);
           const children = files.filter(f => posixPath.dirname(f.path) === normalized);
 
           for (const child of children) {
             const childPath = posixPath.join(normalized, posixPath.basename(child.path));
+            const childDisplayPath = displayPathForOperand(t, normalized, childPath);
             const childSize = await this.sizeOfPath(childPath);
-            lines.push(`${this.formatSize(childSize, human)}\t${childPath}`);
+            lines.push(`${this.formatSize(childSize, human)}\t${childDisplayPath}`);
           }
-          lines.push(`${this.formatSize(size, human)}\t${normalized}`);
+          lines.push(`${this.formatSize(size, human)}\t${displayPath}`);
         }
       }
     }
@@ -55,17 +60,20 @@ export class DuCommand extends UnixCommandBase {
   private async sizeOfPath(path: string): Promise<number> {
     if (path === '/') {
       const all = await this.getDescendants('/');
-      return all.reduce((s, f) => s + (f.type === 'file' ? f.size : 0), 0);
+      return all.reduce((sum, file) => sum + this.entrySize(file), 0);
     }
 
-    const file = await this.getFile(path);
-    if (file && file.type === 'file') {
-      return file.size;
-    }
+    const file = await this.fs.lstat(path);
+    if (file.type !== 'folder') return this.entrySize(file);
 
     // directory: sum of files under this prefix
     const files = await this.getDescendants(path);
-    return files.reduce((s, f) => s + (f.type === 'file' ? f.size : 0), 0);
+    return files.reduce((sum, entry) => sum + this.entrySize(entry), 0);
+  }
+
+  private entrySize(file: ProjectFile): number {
+    if (file.type === 'file') return file.size;
+    return 0;
   }
 
   private formatSize(bytes: number, human: boolean): string {

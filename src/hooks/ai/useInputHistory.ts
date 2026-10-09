@@ -12,6 +12,10 @@ interface UseInputHistoryOptions {
   storageKey?: string;
 }
 
+export function getInputHistoryStorageKey(rootPath: string, mode: 'ask' | 'edit'): string {
+  return `ai-chat-history:${rootPath}:${mode}`;
+}
+
 export function useInputHistory(options: UseInputHistoryOptions = {}) {
   const { maxHistorySize = 50, storageKey = 'ai-input-history' } = options;
 

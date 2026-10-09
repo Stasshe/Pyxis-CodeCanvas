@@ -3,71 +3,64 @@ import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
 import { GitFileSystemHelper } from './fileSystemHelper';
 
 export async function discardChanges(fs: FS, dir: string, filepath: string): Promise<string> {
-  try {
-    const normalizedPath = repositoryPath(dir, filepath);
+  const normalizedPath = repositoryPath(dir, filepath);
+  const fullPath = `${dir}/${normalizedPath}`;
+  let staged: { oid: string; mode: number } | undefined;
+  await git.walk({
+    fs,
+    dir,
+    trees: [git.STAGE()],
+    map: async (path, [entry]) => {
+      if (path === normalizedPath && entry) {
+        const oid = await entry.oid();
+        const mode = await entry.mode();
+        if (oid && mode) staged = { oid, mode };
+      }
+    },
+  });
 
-    const commits = await git.log({ fs, dir, depth: 1 });
-    if (commits.length === 0) {
-      throw new Error('No commits found. Cannot discard changes.');
-    }
-
-    const headCommit = commits[0];
-
-    let fileExists = false;
+  // Never traverse a worktree link while restoring another tracked path.
+  let parentPath = dir;
+  for (const part of normalizedPath.split('/').slice(0, -1)) {
+    parentPath += `/${part}`;
     try {
-      await fs.promises.stat(`${dir}/${normalizedPath}`);
-      fileExists = true;
-    } catch {
-      fileExists = false;
+      const stat = await fs.promises.lstat(parentPath);
+      if (stat.isSymbolicLink())
+        throw new Error(`Cannot discard through symlink directory: ${parentPath}`);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') break;
+      throw error;
     }
-
-    try {
-      const { blob } = await git.readBlob({
-        fs,
-        dir,
-        oid: headCommit.oid,
-        filepath: normalizedPath,
-      });
-
-      const parentDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
-      if (parentDir) {
-        const fullParentPath = `${dir}/${parentDir}`;
-        await GitFileSystemHelper.ensureDirectory(fs, fullParentPath);
-      }
-
-      await fs.promises.writeFile(`${dir}/${normalizedPath}`, blob);
-
-      if (!fileExists) {
-        return `Restored deleted file ${filepath}`;
-      }
-      return `Discarded changes in ${filepath}`;
-    } catch (readError) {
-      const err = readError as Error;
-
-      const notFoundInHead =
-        err.message.includes('not found') ||
-        err.message.includes('Could not find file') ||
-        (headCommit &&
-          err.message.includes(headCommit.oid) &&
-          err.message.includes(`:${normalizedPath}`));
-
-      if (notFoundInHead) {
-        if (fileExists) {
-          try {
-            await fs.promises.unlink(`${dir}/${normalizedPath}`);
-
-            return `Removed untracked file ${filepath}`;
-          } catch (unlinkError) {
-            throw new Error(`Failed to remove file: ${(unlinkError as Error).message}`);
-          }
-        } else {
-          return `File ${filepath} is already removed`;
-        }
-      }
-
-      throw readError;
-    }
-  } catch (error) {
-    throw new Error(`Failed to discard changes: ${(error as Error).message}`);
   }
+
+  let exists = false;
+  let isLink = false;
+  try {
+    const stat = await fs.promises.lstat(fullPath);
+    exists = true;
+    isLink = stat.isSymbolicLink();
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
+  }
+
+  if (!staged) {
+    if (!exists) return `File ${filepath} is already removed`;
+    await fs.promises.unlink(fullPath);
+    return `Removed untracked file ${filepath}`;
+  }
+
+  // Resolve the indexed object before altering the worktree. Missing objects must preserve files.
+  const { blob } = await git.readBlob({ fs, dir, oid: staged.oid });
+  let target: string | undefined;
+  if (staged.mode === 0o120000) target = new TextDecoder('utf-8', { fatal: true }).decode(blob);
+  const parent = fullPath.slice(0, fullPath.lastIndexOf('/'));
+  await GitFileSystemHelper.ensureDirectory(fs, parent);
+  if (exists && (isLink || target !== undefined)) await fs.promises.unlink(fullPath);
+  if (target !== undefined) {
+    await fs.promises.symlink(target, fullPath);
+  } else {
+    await fs.promises.writeFile(fullPath, blob);
+  }
+  if (!exists) return `Restored deleted file ${filepath}`;
+  return `Discarded changes in ${filepath}`;
 }

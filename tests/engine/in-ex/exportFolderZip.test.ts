@@ -12,6 +12,7 @@ vi.mock('@/engine/core/fs', async importOriginal => {
     fsClient: {
       walk: vi.fn(),
       readFile: vi.fn(),
+      stat: vi.fn(),
     },
   };
 });
@@ -62,6 +63,18 @@ describe('exportFolderZip', () => {
     expect(anchor.click).toHaveBeenCalledOnce();
   });
 
+  it('rejects a FIFO before reading it into a folder archive', async () => {
+    vi.mocked(fsClient.walk).mockResolvedValue([
+      { path: '/workspace/pipe', type: 'fifo', size: 0, mtime: 0 },
+    ]);
+    vi.mocked(fsClient.readFile).mockClear();
+
+    await expect(exportFolderZip('/workspace')).rejects.toThrow(
+      'Cannot export fifo entry: /workspace/pipe'
+    );
+    expect(fsClient.readFile).not.toHaveBeenCalled();
+  });
+
   it('keeps binary files and applies the workspace .git exclusion', async () => {
     const payload = Uint8Array.from({ length: 256 }, (_, index) => index);
     const visibleFile = {
@@ -72,8 +85,8 @@ describe('exportFolderZip', () => {
     };
     const gitFile = {
       path: '/workspace/.git/config',
-      type: 'file' as const,
-      size: 3,
+      type: 'fifo' as const,
+      size: 0,
       mtime: 1,
     };
     vi.mocked(fsClient.walk).mockResolvedValue([visibleFile, gitFile]);
@@ -109,5 +122,27 @@ describe('exportFolderZip', () => {
     expect(archive.file('workspace/.git/config')).toBeNull();
     expect(anchor.download).toBe('workspace_export.zip');
     expect(anchor.click).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a symlink to a character device before reading it into a workspace archive', async () => {
+    const link = {
+      path: '/workspace/device-link',
+      type: 'symlink' as const,
+      size: 8,
+      mtime: 1,
+    };
+    vi.mocked(fsClient.walk).mockResolvedValue([link]);
+    vi.mocked(fsClient.stat).mockResolvedValue({
+      ...link,
+      type: 'characterDevice',
+    });
+    vi.mocked(fsClient.readFile).mockClear();
+
+    await expect(
+      downloadWorkspaceZip({
+        currentProject: { rootPath: '/workspace', name: 'workspace', updatedAt: new Date(0) },
+      })
+    ).rejects.toThrow('Cannot export symlink to characterDevice entry: /workspace/device-link');
+    expect(fsClient.readFile).not.toHaveBeenCalled();
   });
 });

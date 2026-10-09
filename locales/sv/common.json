@@ -135,9 +135,61 @@
     "loadingFile": "Återställer filinnehåll...",
     "selectFile": "Vänligen välj en fil"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Du har alla tillgängliga tillägg",
+    "allInstalled": "Alla tillägg installerade",
+    "available": "Tillgänglig ({count})",
+    "browseAvailable": "Bläddra bland tillgängliga tillägg för att komma igång",
+    "confirmUninstall": "Är du säker på att du vill avinstallera \"{name}\"?",
+    "disable": "Inaktivera",
+    "disableUnavailable": "Det gick inte att inaktivera tillägget.",
+    "enable": "Aktivera",
+    "enableUnavailable": "Det gick inte att aktivera tillägget.",
+    "importFailed": "Det gick inte att importera ZIP: {error}",
+    "importZip": "Importera tillägg (.zip)",
+    "install": "Installera",
+    "installed": "Installerad ({count})",
+    "installFailed": "Det gick inte att installera {name}: {error}",
+    "installUnavailable": "Tillägget kunde inte installeras eller aktiveras.",
+    "loadFailed": "Det gick inte att läsa in tillägg: {error}",
+    "loading": "Laddar tillägg...",
+    "manifestUrlMissing": "Manifest URL hittades inte i registret",
+    "noMatches": "Inga matchande tillägg hittades",
+    "noneInstalled": "Inga tillägg installerade",
+    "packCount": "Tillägg: {count}",
+    "reload": "Ladda om tillägg",
+    "search": "Sök tillägg...",
+    "title": "Tillägg",
+    "toggleFailed": "Det gick inte att ändra tilläggsstatus: {error}",
+    "tryDifferentSearch": "Prova en annan sökterm",
+    "types": {
+      "builtinModule": "Inbyggd modul",
+      "languageRuntime": "Språkkörtid",
+      "service": "Service",
+      "tool": "Verktyg",
+      "transpiler": "Transpiler",
+      "ui": "UI"
+    },
+    "uninstall": "Avinstallera",
+    "uninstallFailed": "Det gick inte att avinstallera tillägget: {error}",
+    "uninstallTitle": "Avinstallera tillägg",
+    "uninstallUnavailable": "Tillägget kunde inte avinstalleras.",
+    "update": "Uppdatera",
+    "updateFailed": "Det gick inte att uppdatera {name}: {error}",
+    "updateUnavailable": "Det nya tilläggspaketet kunde inte aktiveras.",
+    "viewDetails": "Klicka för att se tilläggsinformation"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Skapa fil",
+      "createFolder": "Skapa mapp",
+      "import": "Importera",
+      "move": "Flytta"
+    },
     "alert": {
-      "renameFailed": "Byt namn misslyckades: {error}"
+      "destinationExists": "Målet finns redan: {path}",
+      "operationFailed": "Det gick inte att {action}: {error}",
+      "workspaceChanged": "Arbetsytan ändrades; återstående filer hoppades över."
     },
     "menu": {
       "createFile": "Skapa fil",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Skapa ny fil",
-    "createFolder": "Skapa ny mapp"
+    "createFolder": "Skapa ny mapp",
+    "newFilePrompt": "Ange ett nytt filnamn:",
+    "newFolderPrompt": "Ange ett nytt mappnamn:"
   },
   "markdownPreview": {
     "downloadSvg": "Ladda ner SVG",

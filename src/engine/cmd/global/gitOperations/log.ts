@@ -2,7 +2,7 @@ import git from 'isomorphic-git';
 import type { GitFs as FS } from '@/engine/core/fs/git';
 
 import { GitFileSystemHelper } from './fileSystemHelper';
-import { listAllRemoteRefs, toFullRemoteRef } from './remoteUtils';
+import { listAllRemoteRefs } from './remoteUtils';
 
 export type BranchFilterMode = 'auto' | 'all';
 
@@ -61,7 +61,8 @@ export class GitLogOperations {
 
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
@@ -70,29 +71,27 @@ export class GitLogOperations {
         listAllRemoteRefs(this.fs, this.dir),
       ]);
 
-      const allBranches = [...localBranches, ...remoteBranches].filter(
-        branch => !branch.endsWith('/HEAD')
-      );
+      const qualifiedRef = (branch: string): string => {
+        if (branch.startsWith('refs/')) return branch;
+        if (localBranches.includes(branch)) return `refs/heads/${branch}`;
+        return `refs/remotes/${branch}`;
+      };
 
       const refsByCommit = new Map<string, string[]>();
-      const branchOids = new Map<string, string>();
 
-      const resolvePromises = allBranches.map(async branch => {
-        try {
-          let refName = branch;
-          if (branch.includes('/')) refName = toFullRemoteRef(branch);
-          const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: refName });
-          return { branch, oid };
-        } catch {
-          return null;
-        }
+      const references = [
+        ...localBranches.map(branch => ({ branch, ref: `refs/heads/${branch}` })),
+        ...remoteBranches.map(branch => ({ branch, ref: `refs/remotes/${branch}` })),
+      ];
+      const resolvePromises = references.map(async ({ branch, ref }) => {
+        const oid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref });
+        return { branch, oid };
       });
 
       const resolvedRefs = await Promise.all(resolvePromises);
 
       for (const result of resolvedRefs) {
         if (result) {
-          branchOids.set(result.branch, result.oid);
           const existing = refsByCommit.get(result.oid) || [];
           if (!existing.includes(result.branch)) {
             existing.push(result.branch);
@@ -110,28 +109,21 @@ export class GitLogOperations {
           depth: depth,
         });
       } else if (branchFilter.mode === 'all') {
-        const targetBranches =
-          branchFilter.branches && branchFilter.branches.length > 0
-            ? branchFilter.branches
-            : allBranches;
+        let targetReferences = references.map(({ ref }) => ref);
+        if (branchFilter.branches && branchFilter.branches.length > 0) {
+          targetReferences = branchFilter.branches.map(qualifiedRef);
+        }
 
         const commitMap = new Map<string, Awaited<ReturnType<typeof git.log>>[number]>();
 
-        const logPromises = targetBranches.map(async branch => {
-          try {
-            let refName = branch;
-            if (branch.includes('/')) refName = toFullRemoteRef(branch);
-            const commits = await git.log({
-              fs: this.fs,
-              dir: this.dir,
-              ref: refName,
-              depth: depth,
-            });
-            return commits;
-          } catch {
-            return [];
-          }
-        });
+        const logPromises = targetReferences.map(ref =>
+          git.log({
+            fs: this.fs,
+            dir: this.dir,
+            ref,
+            depth,
+          })
+        );
 
         const branchCommits = await Promise.all(logPromises);
 
@@ -182,20 +174,11 @@ export class GitLogOperations {
   }
 
   async getAvailableBranches(): Promise<{ local: string[]; remote: string[] }> {
-    try {
-      await this.ensureProjectDirectory();
-
-      const [localBranches, remoteBranches] = await Promise.all([
-        git.listBranches({ fs: this.fs, dir: this.dir }),
-        listAllRemoteRefs(this.fs, this.dir),
-      ]);
-
-      return {
-        local: localBranches,
-        remote: remoteBranches.filter(branch => !branch.endsWith('/HEAD')),
-      };
-    } catch {
-      return { local: [], remote: [] };
-    }
+    await this.ensureProjectDirectory();
+    const [local, remote] = await Promise.all([
+      git.listBranches({ fs: this.fs, dir: this.dir }),
+      listAllRemoteRefs(this.fs, this.dir),
+    ]);
+    return { local, remote };
   }
 }

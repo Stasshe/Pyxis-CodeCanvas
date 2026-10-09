@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { isDevNull, isSpecialFile, SPECIAL_FILES } from '@/engine/cmd/shell/types';
 
 /**
@@ -11,7 +11,6 @@ describe('shell types', () => {
   describe('SPECIAL_FILES', () => {
     it('定数が正しく定義されている', () => {
       expect(SPECIAL_FILES.DEV_NULL).toBe('/dev/null');
-      expect(SPECIAL_FILES.DEV_ZERO).toBe('/dev/zero');
       expect(SPECIAL_FILES.DEV_STDIN).toBe('/dev/stdin');
       expect(SPECIAL_FILES.DEV_STDOUT).toBe('/dev/stdout');
       expect(SPECIAL_FILES.DEV_STDERR).toBe('/dev/stderr');
@@ -23,10 +22,6 @@ describe('shell types', () => {
   describe('isSpecialFile', () => {
     it('/dev/null は特殊ファイル', () => {
       expect(isSpecialFile('/dev/null')).toBe(true);
-    });
-
-    it('/dev/zero は特殊ファイル', () => {
-      expect(isSpecialFile('/dev/zero')).toBe(true);
     });
 
     it('/dev/stdin は特殊ファイル', () => {
@@ -53,8 +48,8 @@ describe('shell types', () => {
       expect(isSpecialFile(undefined)).toBe(false);
     });
 
-    it('先頭スラッシュなしでも正規化される', () => {
-      expect(isSpecialFile('dev/null')).toBe(true);
+    it('相対パスは特殊ファイルとして扱わない', () => {
+      expect(isSpecialFile('dev/null')).toBe(false);
     });
   });
 
@@ -65,10 +60,6 @@ describe('shell types', () => {
       expect(isDevNull('/dev/null')).toBe(true);
     });
 
-    it('/dev/zero は false', () => {
-      expect(isDevNull('/dev/zero')).toBe(false);
-    });
-
     it('null は false', () => {
       expect(isDevNull(null)).toBe(false);
     });
@@ -77,8 +68,8 @@ describe('shell types', () => {
       expect(isDevNull(undefined)).toBe(false);
     });
 
-    it('先頭スラッシュなしでも正規化される', () => {
-      expect(isDevNull('dev/null')).toBe(true);
+    it('相対パスは /dev/null として扱わない', () => {
+      expect(isDevNull('dev/null')).toBe(false);
     });
   });
 });

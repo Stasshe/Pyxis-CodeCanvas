@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { fsClient } from '@/engine/core/fs';
 import { normalizePath } from '@/engine/core/pathUtils';
 import type { Project } from '@/types';
+import { assertArchiveEntriesReadable } from './archiveEntries';
 
 export async function downloadWorkspaceZip({
   currentProject,
@@ -12,14 +13,18 @@ export async function downloadWorkspaceZip({
   includeGit?: boolean;
 }): Promise<void> {
   const rootPath = normalizePath(currentProject.rootPath);
-  const entries = await fsClient.walk(rootPath);
+  const walkedEntries = await fsClient.walk(rootPath);
+  const entries = walkedEntries.filter(entry => {
+    const relativePath = normalizePath(entry.path).slice(rootPath.length).replace(/^\//, '');
+    return includeGit || !relativePath.split('/').includes('.git');
+  });
+  await assertArchiveEntriesReadable(entries);
   const zip = new JSZip();
   let rootName = currentProject.name;
   if (!rootName) rootName = 'workspace';
 
   for (const entry of entries) {
     const relativePath = normalizePath(entry.path).slice(rootPath.length).replace(/^\//, '');
-    if (!includeGit && relativePath.split('/').includes('.git')) continue;
     if (entry.type === 'folder') {
       if (relativePath) zip.folder(`${rootName}/${relativePath}`);
       continue;

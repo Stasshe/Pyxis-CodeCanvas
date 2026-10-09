@@ -5,6 +5,18 @@ import type { RpcCall, RpcReply } from '@/engine/runtime/bridge/protocol';
 
 vi.mock('sync-message', () => ({ makeServiceWorkerChannel: vi.fn(), readMessage: vi.fn() }));
 
+function fifoMethods(): Pick<
+  RuntimeFilesystem,
+  'openFifo' | 'readFifo' | 'writeFifo' | 'closeFifo'
+> {
+  return {
+    openFifo: async () => {},
+    readFifo: async () => new Uint8Array(),
+    writeFifo: async (_endpointId, data) => data.byteLength,
+    closeFifo: async () => {},
+  };
+}
+
 function response(port: MessagePort, call: RpcCall): Promise<RpcReply> {
   return new Promise(resolve => {
     port.onmessage = (event: MessageEvent<RpcReply>) => resolve(event.data);
@@ -26,16 +38,20 @@ describe('runtime bridge endpoint', () => {
   it('waits for asynchronous filesystem work and serializes bytes', async () => {
     let completeRead: ((value: Uint8Array) => void) | undefined;
     let markReadStarted: (() => void) | undefined;
+    let readOwner = '';
     const readStarted = new Promise<void>(resolve => {
       markReadStarted = resolve;
     });
     const fs: RuntimeFilesystem = {
-      readFile: () =>
+      ...fifoMethods(),
+      readFile: (_path, _benchmark, ownerId) =>
         new Promise(resolve => {
+          readOwner = ownerId ?? '';
           completeRead = resolve;
           markReadStarted?.();
         }),
       writeFile: async () => {},
+      writeRange: async (_path, data, position) => (position ?? 0) + data.byteLength,
       readdir: async () => [],
       stat: async () => ({ type: 'file', size: 0, mtime: 1 }),
       lstat: async () => ({ type: 'file', size: 0, mtime: 1 }),
@@ -61,22 +77,25 @@ describe('runtime bridge endpoint', () => {
     });
     await readStarted;
     expect(replied).toBe(false);
+    expect(readOwner).toBe('runtime-1');
 
     completeRead?.(new Uint8Array([0, 255]));
 
     await expect(result).resolves.toEqual({
       id: 'read-1',
-      result: { ok: true, value: [0, 255] },
+      result: { ok: true, value: 'AP8=' },
     });
   });
 
   it('returns filesystem errors with their Node error code', async () => {
     const missing = Object.assign(new Error('Missing file'), { code: 'ENOENT' });
     const fs: RuntimeFilesystem = {
+      ...fifoMethods(),
       readFile: async () => {
         throw missing;
       },
       writeFile: async () => {},
+      writeRange: async (_path, data, position) => (position ?? 0) + data.byteLength,
       readdir: async () => [],
       stat: async () => ({ type: 'file', size: 0, mtime: 1 }),
       lstat: async () => ({ type: 'file', size: 0, mtime: 1 }),
@@ -105,6 +124,7 @@ describe('runtime bridge endpoint', () => {
 
   it('propagates opt-in queue and service diagnostics without changing values or errors', async () => {
     const fs: RuntimeFilesystem = {
+      ...fifoMethods(),
       async readFile(path, benchmark) {
         if (benchmark) {
           benchmark.queueMs = 2;
@@ -114,6 +134,7 @@ describe('runtime bridge endpoint', () => {
         return new Uint8Array([65]);
       },
       writeFile: async () => {},
+      writeRange: async (_path, data, position) => (position ?? 0) + data.byteLength,
       readdir: async () => [],
       stat: async () => ({ type: 'file', size: 0, mtime: 1 }),
       lstat: async () => ({ type: 'file', size: 0, mtime: 1 }),
@@ -127,16 +148,18 @@ describe('runtime bridge endpoint', () => {
     const channel = new MessageChannel();
     channels.push(channel);
     attachRuntimePort(channel.port1, fs, async () => null);
-    const bridge = new RuntimeBridge('/', channel.port2, 'diagnostics');
+    const bridge = new RuntimeBridge('/', channel.port2, 'diagnostics', () => {
+      throw new Error('Unexpected runtime cancellation.');
+    });
     const observe = vi.spyOn(bridge, 'benchmarkReply');
     try {
-      await expect(bridge.async({ kind: 'fs', op: 'readFile', path: '/normal' })).resolves.toEqual([
-        65,
-      ]);
+      await expect(bridge.async({ kind: 'fs', op: 'readFile', path: '/normal' })).resolves.toEqual(
+        'QQ=='
+      );
       expect(observe).not.toHaveBeenCalled();
       await expect(
         bridge.async({ kind: 'fs', op: 'readFile', path: '/measured', benchmark: true })
-      ).resolves.toEqual([65]);
+      ).resolves.toEqual('QQ==');
       expect(observe).toHaveBeenLastCalledWith(
         { kind: 'fs', op: 'readFile', path: '/measured', benchmark: true },
         { queueMs: 2, coreMs: 3 }

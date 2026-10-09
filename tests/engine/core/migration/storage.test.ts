@@ -15,6 +15,8 @@ const fixture = vi.hoisted(() => ({
   state: undefined as MigrationState | undefined,
   deleted: [] as string[],
   failDelete: '',
+  events: [] as string[],
+  corruptPath: '',
   close: vi.fn(),
 }));
 
@@ -31,6 +33,33 @@ vi.mock('@/engine/core/migration/idb', () => ({
     if (store === 'runtimeCache') return fixture.caches;
     return [];
   },
+  iterateAll: async function* (_db: IDBDatabase, store: string) {
+    let records: Array<LegacyFile | LegacyCache> = [];
+    if (store === 'files') records = fixture.files;
+    if (store === 'runtimeCache') records = fixture.caches;
+    for (const record of records) {
+      let path: string;
+      if ('path' in record) path = record.path;
+      else path = record.key;
+      fixture.events.push(`read:${path}`);
+      yield record;
+    }
+  },
+  iterateAllKeyed: async function* (_db: IDBDatabase, store: string) {
+    let records: Array<LegacyFile | LegacyCache> = [];
+    if (store === 'files') records = fixture.files;
+    if (store === 'runtimeCache') records = fixture.caches;
+    for (const record of records) {
+      let path: string;
+      if ('path' in record) path = record.path;
+      else path = record.key;
+      fixture.events.push(`read:${path}`);
+      let key: string;
+      if ('id' in record) key = record.id;
+      else key = record.key;
+      yield { key, value: record };
+    }
+  },
   deleteDatabase: async (name: string) => {
     if (fixture.failDelete === name) throw new Error('blocked');
     fixture.deleted.push(name);
@@ -41,21 +70,26 @@ vi.mock('@/engine/core/migration/metadata', () => ({ migrateMetadata: vi.fn(asyn
 vi.mock('@/engine/core/coreLogger', () => ({ coreError: vi.fn() }));
 vi.mock('@/engine/core/migration/lightning', () => ({
   gitProjectNames: vi.fn(async () => ['tmp']),
-  readGitEntries: vi.fn(async () => [
-    { path: '/.git', directory: true },
-    { path: '/.git/objects', directory: true },
-    { path: '/.git/objects/history', directory: false, bytes: new Uint8Array([0, 255, 3]) },
-  ]),
+  readGitEntries: vi.fn(async function* () {
+    yield { path: '/.git', directory: true };
+    yield { path: '/.git/objects', directory: true };
+    yield { path: '/.git/objects/history', directory: false, bytes: new Uint8Array([0, 255, 3]) };
+  }),
 }));
 
 import { migrateLegacyStorage } from '@/engine/core/migration';
 import { migrateMetadata } from '@/engine/core/migration/metadata';
 
-function memoryFs(): FsApi & { entries: Map<string, Uint8Array | null>; corrupt: boolean } {
+function memoryFs(): FsApi & {
+  entries: Map<string, Uint8Array | null>;
+  corrupt: boolean;
+  corruptPath: string;
+} {
   const entries = new Map<string, Uint8Array | null>([['/', null]]);
   const fs = {
     entries,
     corrupt: false,
+    corruptPath: '',
     async exists(path: string) {
       return entries.has(path);
     },
@@ -76,6 +110,8 @@ function memoryFs(): FsApi & { entries: Map<string, Uint8Array | null>; corrupt:
     async readFile(path: string) {
       const bytes = entries.get(path);
       if (!bytes) throw new Error(`Missing file: ${path}`);
+      fixture.events.push(`verify:${path}`);
+      if (path === fs.corruptPath) return new Uint8Array([123]);
       if (fs.corrupt) return new Uint8Array([123]);
       return bytes.slice();
     },
@@ -120,6 +156,8 @@ describe('legacy storage import', () => {
     fixture.caches = [];
     fixture.deleted = [];
     fixture.failDelete = '';
+    fixture.events = [];
+    fixture.corruptPath = '';
     vi.clearAllMocks();
   });
 
@@ -133,7 +171,9 @@ describe('legacy storage import', () => {
     );
     expect(fixture.state?.phase).toBe('complete');
     expect(fixture.deleted).toEqual(['PyxisProjects', 'pyxis-fs', 'pyxis-fs_lock']);
-    expect(migrateMetadata).toHaveBeenCalledWith(fixture.state?.mappings, fixture.files, []);
+    const metadataFiles = vi.mocked(migrateMetadata).mock.calls[0][1];
+    expect(metadataFiles[0]).toMatchObject({ id: 'f1', path: '/src/index.ts' });
+    expect(metadataFiles[0]).not.toHaveProperty('content');
   });
 
   it('preserves legacy binary project and cache bytes exactly', async () => {
@@ -159,9 +199,9 @@ describe('legacy storage import', () => {
     await migrateLegacyStorage(fs);
 
     expect(await fs.readFile('/home/pyxis/tmp/assets/image.bin')).toEqual(projectBytes);
-    expect(
-      await fs.readFile('/home/pyxis/.cache/pyxis/legacy/global/assets/image.bin')
-    ).toEqual(cacheBytes);
+    expect(await fs.readFile('/home/pyxis/.cache/pyxis/legacy/global/assets/image.bin')).toEqual(
+      cacheBytes
+    );
   });
 
   it('rejects an existing home destination before writes without renaming it', async () => {
@@ -211,6 +251,47 @@ describe('legacy storage import', () => {
     await migrateLegacyStorage(fs);
     expect(fixture.state?.mappings[0].rootPath).toBe('/home/pyxis/tmp');
     expect(await fs.exists('/home/pyxis/tmp-migrated-2')).toBe(false);
+  });
+
+  it('reads each later source record after verifying the previous copy', async () => {
+    const fs = memoryFs();
+    fixture.files.push({
+      id: 'f2',
+      projectId: 'p1',
+      path: '/src/second.ts',
+      type: 'file',
+      content: 'second',
+    });
+    fs.corruptPath = '/home/pyxis/tmp/src/second.ts';
+    await expect(migrateLegacyStorage(fs)).rejects.toThrow('byte verification failed');
+    expect(fixture.events.indexOf('verify:/home/pyxis/tmp/src/index.ts')).toBeLessThan(
+      fixture.events.indexOf('read:/src/second.ts')
+    );
+    expect(fixture.deleted).toEqual([]);
+    expect(migrateMetadata).not.toHaveBeenCalled();
+    expect(fixture.state?.mappings[0].rootPath).toBe('/home/pyxis/tmp');
+
+    fs.corruptPath = '';
+    fixture.events = [];
+    await migrateLegacyStorage(fs);
+    expect(fixture.state?.mappings[0].rootPath).toBe('/home/pyxis/tmp');
+    expect(await fs.readText('/home/pyxis/tmp/src/second.ts')).toBe('second');
+  });
+
+  it('retains only a source reference for file reviews', async () => {
+    const fs = memoryFs();
+    fixture.files[0] = {
+      ...fixture.files[0],
+      content: 'original source',
+      isAiAgentReview: true,
+      aiAgentCode: 'suggested source',
+    };
+    await migrateLegacyStorage(fs);
+    const migrated = vi.mocked(migrateMetadata).mock.calls[0][1][0];
+    expect(migrated).toMatchObject({ id: 'f1', hasReview: true });
+    expect(migrated).not.toHaveProperty('aiAgentOriginalSnapshot');
+    expect(migrated).not.toHaveProperty('content');
+    expect(migrated).not.toHaveProperty('bufferContent');
   });
 
   it('resumes cleanup after a deletion failure without reimporting already verified data', async () => {

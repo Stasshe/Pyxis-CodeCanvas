@@ -15,6 +15,26 @@ type FlushCallback = (error?: Error | null) => void;
 type FlushRequest = { kind: number; callback?: FlushCallback };
 type IoTracker = <T>(promise: Promise<T>) => Promise<T>;
 
+class ZlibError extends Error {
+  readonly code: string;
+  readonly errno: number;
+
+  constructor(message: string, status = pako.constants.Z_DATA_ERROR) {
+    super(message);
+    this.name = 'Error';
+    this.errno = status;
+    this.code = statusCode(status);
+  }
+}
+
+function statusCode(status: number): string {
+  if (status === pako.constants.Z_NEED_DICT) return 'Z_NEED_DICT';
+  if (status === pako.constants.Z_ERRNO) return 'Z_ERRNO';
+  if (status === pako.constants.Z_STREAM_ERROR) return 'Z_STREAM_ERROR';
+  if (status === pako.constants.Z_BUF_ERROR) return 'Z_BUF_ERROR';
+  return 'Z_DATA_ERROR';
+}
+
 class ZlibTransformStream extends Transform {
   private readonly flushRequests = new WeakMap<Buffer, FlushRequest>();
 
@@ -32,7 +52,7 @@ class ZlibTransformStream extends Transform {
     };
     codec.onEnd = status => {
       if (status !== pako.constants.Z_OK && status !== pako.constants.Z_STREAM_END) {
-        this.destroy(new Error(codec.msg || `Compression failed with status ${status}.`));
+        this.destroy(toError(codec.msg || `Compression failed with status ${status}.`, status));
       }
     };
   }
@@ -61,7 +81,10 @@ class ZlibTransformStream extends Transform {
       this.flushRequests.delete(chunk);
       const accepted = this.codec.push(new Uint8Array(), flush.kind);
       if (!accepted && this.codec.err !== pako.constants.Z_OK) {
-        const error = new Error(this.codec.msg || 'Compression stream could not flush.');
+        const error = toError(
+          this.codec.msg || 'Compression stream could not flush.',
+          this.codec.err
+        );
         flush.callback?.(error);
         callback(error);
         return;
@@ -72,7 +95,7 @@ class ZlibTransformStream extends Transform {
     }
     const accepted = this.codec.push(chunk, pako.constants.Z_NO_FLUSH);
     if (!accepted && this.codec.err !== pako.constants.Z_OK) {
-      callback(new Error(this.codec.msg || 'Compression stream rejected input.'));
+      callback(toError(this.codec.msg || 'Compression stream rejected input.', this.codec.err));
       return;
     }
     callback();
@@ -81,11 +104,11 @@ class ZlibTransformStream extends Transform {
   private finish(callback: FlushCallback): void {
     const accepted = this.codec.push(new Uint8Array(), pako.constants.Z_FINISH);
     if (!accepted && this.codec.err !== pako.constants.Z_OK) {
-      callback(new Error(this.codec.msg || 'Compression stream could not finish.'));
+      callback(toError(this.codec.msg || 'Compression stream could not finish.', this.codec.err));
       return;
     }
     if (this.codec instanceof pako.Inflate && !this.codec.ended) {
-      callback(new Error(this.codec.msg || 'Compressed stream ended before its trailer.'));
+      callback(toError(this.codec.msg || 'Compressed stream ended before its trailer.'));
       return;
     }
     callback();
@@ -104,9 +127,10 @@ function inflater(options: CodecOptions): PakoStream {
   return new pako.Inflate(binaryInflateOptions(options as DecompressionOptions)) as PakoStream;
 }
 
-function toError(error: unknown): Error {
+function toError(error: unknown, status?: number): Error {
   if (error instanceof Error) return error;
-  return new Error(String(error));
+  if (status === undefined) return new Error(String(error));
+  return new ZlibError(String(error), status);
 }
 
 function isCallback(value: unknown): value is Callback {
@@ -122,7 +146,12 @@ function binaryInflateOptions(options: DecompressionOptions): pako.InflateOption
 }
 
 function inflateBytes(data: pako.Data, options?: DecompressionFunctionOptions): Uint8Array {
-  return pako.inflate(data, binaryInflateOptions(options ?? {}));
+  const codec = new pako.Inflate(binaryInflateOptions({ windowBits: 47, ...options }));
+  codec.push(data, true);
+  if (codec.err !== pako.constants.Z_OK) {
+    throw new ZlibError(codec.msg || 'Compressed data is invalid.', codec.err);
+  }
+  return codec.result as Uint8Array;
 }
 
 function inflateRawBytes(data: pako.Data, options?: DecompressionFunctionOptions): Uint8Array {
@@ -134,7 +163,11 @@ function runSync<Options>(
   data: Input,
   options?: Options
 ): Buffer {
-  return Buffer.from(operation(toPakoData(data), options));
+  try {
+    return Buffer.from(operation(toPakoData(data), options));
+  } catch (error) {
+    throw toError(error);
+  }
 }
 
 function runAsync<Options>(
@@ -219,7 +252,8 @@ export function createZlibModule(getTrackIO?: () => IoTracker | undefined) {
       createTransform(inflater, { ...options, raw: true }),
     createGunzip: (options: DecompressionOptions = {}) =>
       createTransform(inflater, { windowBits: 31, ...options }),
-    createUnzip: (options: DecompressionOptions = {}) => createTransform(inflater, options),
+    createUnzip: (options: DecompressionOptions = {}) =>
+      createTransform(inflater, { windowBits: 47, ...options }),
     gzip: (
       data: Input,
       optionsOrCallback: pako.DeflateFunctionOptions | Callback,
@@ -274,6 +308,6 @@ export function createZlibModule(getTrackIO?: () => IoTracker | undefined) {
       callback?: Callback
     ) => run(inflateBytes, data, optionsOrCallback, callback),
     unzipSync: (data: Input, options?: DecompressionFunctionOptions) =>
-      runSync(inflateBytes, data, options),
+      runSync(inflateBytes, data, { windowBits: 47, ...options }),
   };
 }

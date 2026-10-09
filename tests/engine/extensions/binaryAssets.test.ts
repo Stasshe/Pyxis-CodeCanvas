@@ -1,15 +1,38 @@
 import JSZip from 'jszip';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchExtensionCode } from '@/engine/extensions/extensionLoader';
+import * as extensionLoader from '@/engine/extensions/extensionLoader';
 import { extensionManager } from '@/engine/extensions/extensionManager';
-import { type ExtensionManifest, ExtensionStatus, ExtensionType } from '@/engine/extensions/types';
+import {
+  loadInstalledExtension,
+  saveInstalledExtension,
+} from '@/engine/extensions/storage-adapter';
+import {
+  type ExtensionExports,
+  type ExtensionManifest,
+  ExtensionStatus,
+  ExtensionType,
+  type InstalledExtension,
+} from '@/engine/extensions/types';
+
+const mocks = vi.hoisted(() => ({
+  installed: new Map<string, InstalledExtension>(),
+}));
 
 vi.mock('@/engine/extensions/storage-adapter', () => ({
-  deleteInstalledExtension: vi.fn(),
-  loadAllInstalledExtensions: vi.fn(),
-  loadInstalledExtension: vi.fn(),
-  saveInstalledExtension: vi.fn(),
+  deleteInstalledExtension: vi.fn(async (id: string) => {
+    mocks.installed.delete(id);
+  }),
+  loadAllInstalledExtensions: vi.fn(async () =>
+    Array.from(mocks.installed.values(), installed => structuredClone(installed))
+  ),
+  loadInstalledExtension: vi.fn(async (id: string) => {
+    const installed = mocks.installed.get(id);
+    return installed ? structuredClone(installed) : null;
+  }),
+  saveInstalledExtension: vi.fn(async (installed: InstalledExtension) => {
+    mocks.installed.set(installed.manifest.id, structuredClone(installed));
+  }),
 }));
 
 const pngBytes = Uint8Array.from(
@@ -21,7 +44,15 @@ const pngBytes = Uint8Array.from(
 const arbitraryBytes = Uint8Array.from({ length: 256 }, (_, index) => index);
 
 describe('extension binary assets', () => {
-  afterEach(() => {
+  afterEach(async () => {
+    if (
+      extensionManager
+        .getActiveExtensions()
+        .some(active => active.manifest.id === 'pyxis.binary-fixture')
+    ) {
+      await extensionManager.disableExtension('pyxis.binary-fixture');
+    }
+    mocks.installed.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -46,18 +77,15 @@ describe('extension binary assets', () => {
       description: '',
       author: '',
       entry: 'index.js',
-      status: ExtensionStatus.AVAILABLE,
-      installedAt: 0,
-      updatedAt: 0,
-      enabled: false,
+      metadata: { publishedAt: '', updatedAt: '' },
     };
 
-    const png = await fetchExtensionCode({ ...manifest, files: ['image.dat'] });
-    const misleading = await fetchExtensionCode({
+    const png = await extensionLoader.fetchExtensionCode({ ...manifest, files: ['image.dat'] });
+    const misleading = await extensionLoader.fetchExtensionCode({
       ...manifest,
       files: ['samebinarybytesmisleading.txt'],
     });
-    const invalidEntry = await fetchExtensionCode(manifest);
+    const invalidEntry = await extensionLoader.fetchExtensionCode(manifest);
 
     expect(png?.files['image.dat']).toMatch(/^data:image\/png;base64,/);
     expect(decodeDataUrl(png?.files['image.dat'])).toEqual(pngBytes);
@@ -67,7 +95,33 @@ describe('extension binary assets', () => {
     expect(invalidEntry).toBeNull();
   });
 
+  it('rejects remote extensions when a declared file is missing', async () => {
+    const responses = [new Response('export {};'), new Response(null, { status: 404 })];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => responses.shift() ?? new Response(null))
+    );
+
+    const result = await extensionLoader.fetchExtensionCode({
+      id: 'pyxis.binary-fixture',
+      name: 'Binary fixture',
+      version: '1.0.0',
+      type: ExtensionType.UI,
+      description: '',
+      author: '',
+      entry: 'index.js',
+      files: ['missing.js'],
+      metadata: { publishedAt: '', updatedAt: '' },
+    });
+
+    expect(result).toBeNull();
+  });
+
   it('stores ZIP binary assets as exact MIME typed Blobs', async () => {
+    vi.mocked(saveInstalledExtension).mockClear();
+    const loadModule = vi.spyOn(extensionLoader, 'loadExtensionModule').mockResolvedValue({
+      activate: async () => ({}),
+    } satisfies ExtensionExports);
     const zip = new JSZip();
     zip.file(
       'manifest.json',
@@ -75,21 +129,29 @@ describe('extension binary assets', () => {
         id: 'pyxis.binary-fixture',
         name: 'Binary fixture',
         version: '1.0.0',
+        type: 'ui',
+        description: '',
+        author: 'Pyxis',
         entry: 'index.js',
         files: ['image.dat', 'samebinarybytesmisleading.txt'],
+        metadata: { publishedAt: '', updatedAt: '' },
       })
     );
     zip.file('index.js', 'export {};');
     zip.file('image.dat', pngBytes);
     zip.file('samebinarybytesmisleading.txt', arbitraryBytes);
     const archive = await zip.generateAsync({ type: 'blob' });
-    const enable = vi.spyOn(extensionManager, 'enableExtension').mockResolvedValue(true);
 
     const installed = await extensionManager.installExtensionFromZip(archive);
+    const persisted = await loadInstalledExtension('pyxis.binary-fixture');
 
-    expect(installed?.status).toBe(ExtensionStatus.INSTALLED);
-    expect(enable).toHaveBeenCalledWith('pyxis.binary-fixture');
-    const files = installed?.cache.files;
+    expect(installed?.status).toBe(ExtensionStatus.ENABLED);
+    expect(installed?.enabled).toBe(true);
+    expect(persisted?.status).toBe(ExtensionStatus.ENABLED);
+    expect(persisted?.enabled).toBe(true);
+    expect(loadModule).toHaveBeenCalledOnce();
+    expect(vi.mocked(loadInstalledExtension)).toHaveBeenCalledWith('pyxis.binary-fixture');
+    const files = persisted?.cache.files;
     const png = files?.['image.dat'];
     const misleading = files?.['samebinarybytesmisleading.txt'];
     expect(png).toBeInstanceOf(Blob);
@@ -100,6 +162,59 @@ describe('extension binary assets', () => {
     expect(png.type).toBe('image/png');
     expect(new Uint8Array(await png.arrayBuffer())).toEqual(pngBytes);
     expect(new Uint8Array(await misleading.arrayBuffer())).toEqual(arbitraryBytes);
+  });
+
+  it('rejects invalid ZIP metadata before saving', async () => {
+    vi.mocked(saveInstalledExtension).mockClear();
+    const zip = new JSZip();
+    zip.file(
+      'manifest.json',
+      JSON.stringify({
+        id: 'pyxis.binary-fixture',
+        name: 'Binary fixture',
+        version: '',
+        type: 'ui',
+        description: '',
+        author: 'Pyxis',
+        entry: 'index.js',
+        files: 'asset.js',
+        metadata: { publishedAt: '', updatedAt: '' },
+      })
+    );
+    zip.file('index.js', 'export {};');
+
+    const installed = await extensionManager.installExtensionFromZip(
+      await zip.generateAsync({ type: 'blob' })
+    );
+    expect(installed).toBeNull();
+    expect(saveInstalledExtension).not.toHaveBeenCalled();
+  });
+
+  it('rejects ZIPs with any missing declared asset before saving', async () => {
+    vi.mocked(saveInstalledExtension).mockClear();
+    const zip = new JSZip();
+    zip.file(
+      'manifest.json',
+      JSON.stringify({
+        id: 'pyxis.binary-fixture',
+        name: 'Binary fixture',
+        version: '1.0.0',
+        type: 'ui',
+        description: '',
+        author: 'Pyxis',
+        entry: 'index.js',
+        files: ['present.js', 'missing.js'],
+        metadata: { publishedAt: '', updatedAt: '' },
+      })
+    );
+    zip.file('index.js', 'export {};');
+    zip.file('present.js', 'export {};');
+
+    const installed = await extensionManager.installExtensionFromZip(
+      await zip.generateAsync({ type: 'blob' })
+    );
+    expect(installed).toBeNull();
+    expect(saveInstalledExtension).not.toHaveBeenCalled();
   });
 });
 

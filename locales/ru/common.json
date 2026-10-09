@@ -135,9 +135,61 @@
     "loadingFile": "Восстановление содержимого файла...",
     "selectFile": "Пожалуйста, выберите файл"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "У вас есть все доступные расширения",
+    "allInstalled": "Все расширения установлены",
+    "available": "Доступен ({count})",
+    "browseAvailable": "Просмотрите доступные расширения, чтобы начать",
+    "confirmUninstall": "Вы уверены, что хотите удалить «{name}»?",
+    "disable": "Отключить",
+    "disableUnavailable": "Не удалось отключить расширение.",
+    "enable": "Включить",
+    "enableUnavailable": "Не удалось включить расширение.",
+    "importFailed": "Не удалось импортировать ZIP-файл: {error}.",
+    "importZip": "Расширение импорта (.zip)",
+    "install": "Установить",
+    "installed": "Установлено ({count})",
+    "installFailed": "Не удалось установить {name}: {error}.",
+    "installUnavailable": "Расширение не удалось установить или включить.",
+    "loadFailed": "Не удалось загрузить расширения: {error}.",
+    "loading": "Загрузка расширений...",
+    "manifestUrlMissing": "URL-адрес манифеста не найден в реестре",
+    "noMatches": "Подходящие расширения не найдены",
+    "noneInstalled": "Расширения не установлены",
+    "packCount": "Расширения: {count}",
+    "reload": "Перезагрузить расширения",
+    "search": "Поиск расширений...",
+    "title": "Расширения",
+    "toggleFailed": "Не удалось изменить состояние расширения: {error}.",
+    "tryDifferentSearch": "Попробуйте другой поисковый запрос",
+    "types": {
+      "builtinModule": "Встроенный модуль",
+      "languageRuntime": "Язык выполнения",
+      "service": "Услуга",
+      "tool": "Инструмент",
+      "transpiler": "Транспилер",
+      "ui": "пользовательский интерфейс"
+    },
+    "uninstall": "Удалить",
+    "uninstallFailed": "Не удалось удалить расширение: {error}.",
+    "uninstallTitle": "Удалить расширение",
+    "uninstallUnavailable": "Расширение не удалось удалить.",
+    "update": "Обновить",
+    "updateFailed": "Не удалось обновить {name}: {error}.",
+    "updateUnavailable": "Новый пакет расширений не удалось активировать.",
+    "viewDetails": "Нажмите, чтобы просмотреть подробную информацию о расширении"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Создать файл",
+      "createFolder": "Создать папку",
+      "import": "Импортировать",
+      "move": "Переместить"
+    },
     "alert": {
-      "renameFailed": "Ошибка переименования: {error}"
+      "destinationExists": "Целевой путь уже существует: {path}",
+      "operationFailed": "Не удалось выполнить действие «{action}»: {error}",
+      "workspaceChanged": "Рабочая область изменилась; остальные файлы пропущены."
     },
     "menu": {
       "createFile": "Создать файл",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Создать новый файл",
-    "createFolder": "Создать новую папку"
+    "createFolder": "Создать новую папку",
+    "newFilePrompt": "Введите имя нового файла:",
+    "newFolderPrompt": "Введите имя новой папки:"
   },
   "markdownPreview": {
     "downloadSvg": "Скачать SVG",

@@ -44,19 +44,3 @@ export async function clearTerminalHistory(projectName: string): Promise<void> {
     console.warn('[terminalHistoryStorage] Failed to clear terminal history:', error);
   }
 }
-
-/**
- * 全てのターミナルコマンド履歴を削除
- */
-export async function clearAllTerminalHistory(): Promise<void> {
-  try {
-    const all = await storageService.getAll(STORES.USER_PREFERENCES);
-    const keysToDelete = all
-      .map(e => e.id)
-      .filter(id => id.startsWith(TERMINAL_HISTORY_KEY_PREFIX));
-
-    await Promise.all(keysToDelete.map(k => storageService.delete(STORES.USER_PREFERENCES, k)));
-  } catch (error) {
-    console.warn('[terminalHistoryStorage] Failed to clear all terminal history:', error);
-  }
-}

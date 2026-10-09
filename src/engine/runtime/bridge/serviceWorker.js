@@ -35,6 +35,16 @@ self.addEventListener('message', event => {
   if (event.data.type === 'runtime-cancel') {
     for (const [id, call] of calls) {
       if (call.runtimeId !== event.data.runtimeId) continue;
+      if (event.data.callId && event.data.callId !== id) continue;
+      if (ownerClientId) {
+        self.clients.get(ownerClientId).then(owner => {
+          owner?.postMessage({
+            type: 'runtime-host-cancel',
+            runtimeId: call.runtimeId,
+            callId: id,
+          });
+        });
+      }
       call.cancel({ ok: false, error: 'Runtime closed.' });
       call.cleanup?.();
       calls.delete(id);
@@ -45,10 +55,8 @@ self.addEventListener('message', event => {
     return;
   }
   if (event.data.type === 'runtime-fs-port-error') {
-    resolvePort?.(null);
-    clearTimeout(portTimeout);
-    resolvePort = null;
-    waitingForPort = null;
+    // Every window client receives the request; a tab without the filesystem
+    // lock cannot provide a port. Let the owner respond or the request timeout.
     return;
   }
   if (event.data.type !== 'runtime-fs-port') return;

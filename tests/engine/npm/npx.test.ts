@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import { handleNPXCommand } from '@/engine/cmd/handlers/npmHandler';
 import { resolveLocalBinary } from '@/engine/cmd/shell/localBinary';
+import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
 import { fsClient } from '@/engine/core/fs';
 import type { FsCore } from '@/engine/core/fs/core';
 import type {
@@ -91,9 +92,13 @@ describe('handleNPXCommand', () => {
     await installFakePrettier();
 
     const output: string[] = [];
-    const code = await handleNPXCommand(['prettier', '--version'], async text => {
-      output.push(text);
-    });
+    const code = await handleNPXCommand(
+      ['prettier', '--version'],
+      async text => {
+        output.push(text);
+      },
+      new ProcessStdin()
+    );
 
     const combined = output.join('');
     expect(code).toBe(0);
@@ -108,9 +113,13 @@ describe('handleNPXCommand', () => {
     await installFakePrettier();
 
     const output: string[] = [];
-    const code = await handleNPXCommand(['prettier'], async text => {
-      output.push(text);
-    });
+    const code = await handleNPXCommand(
+      ['prettier'],
+      async text => {
+        output.push(text);
+      },
+      new ProcessStdin()
+    );
 
     const combined = output.join('');
     expect(code).toBe(1);
@@ -128,9 +137,13 @@ describe('handleNPXCommand', () => {
     await testFsFiles.createFile(rootPath, '/node_modules/package-only/bin.js', 'void 0;', 'file');
 
     const output: string[] = [];
-    const code = await handleNPXCommand(['package-only'], async text => {
-      output.push(text);
-    });
+    const code = await handleNPXCommand(
+      ['package-only'],
+      async text => {
+        output.push(text);
+      },
+      new ProcessStdin()
+    );
 
     const combined = output.join('');
     expect(code).toBe(127);

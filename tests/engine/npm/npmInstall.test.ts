@@ -4,6 +4,10 @@ import tarStream from 'tar-stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NpmFiles } from '@/engine/cmd/global/npmOperations/install/fsFiles';
+import {
+  NPM_NETWORK_CONCURRENCY,
+  npmNetwork,
+} from '@/engine/cmd/global/npmOperations/install/npmNetwork';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import type { FsCore } from '@/engine/core/fs/core';
 import { FSError } from '@/engine/core/fs/errors';
@@ -94,6 +98,83 @@ describe('NpmInstall', () => {
     expect(await repository.readFile(`${directory}/index.mjs`)).toEqual(sourceBytes);
     expect((await repository.stat(`${directory}/empty/nested`)).type).toBe('folder');
     expect(await repository.readlink(`${directory}/bin/index.mjs`)).toBe('../index.mjs');
+    expect(await repository.readText(`${directory}/.pyxis-install-complete.json`)).toBe(
+      '{"name":"source-fixture","version":"1.0.0"}\n'
+    );
+    await repository.rm(`${directory}/.pyxis-install-complete.json`);
+    const manifest = { dependencies: { 'source-fixture': '1.0.0' } };
+    await repository.writeFile(`${rootPath}/package.json`, JSON.stringify(manifest));
+    await repository.writeFile(
+      `${rootPath}/package-lock.json`,
+      JSON.stringify({
+        lockfileVersion: 3,
+        requires: true,
+        packages: {
+          '': { dependencies: manifest.dependencies },
+          'node_modules/source-fixture': { version: '1.0.0', resolved: url },
+        },
+      })
+    );
+    const requests = [{ name: 'source-fixture', version: '1.0.0', isDirect: true }];
+    expect(
+      (await installer.installDependencies(requests, 'node_modules', manifest)).installed
+    ).toBe(1);
+    expect(
+      (await installer.installDependencies(requests, 'node_modules', manifest)).installed
+    ).toBe(0);
+  });
+
+  it('starts the tarball timeout after network admission', async () => {
+    const releases: Array<() => void> = [];
+    const occupiedRequests = Array.from({ length: NPM_NETWORK_CONCURRENCY }, () => {
+      let release!: () => void;
+      const pending = new Promise<void>(resolve => {
+        release = resolve;
+      });
+      releases.push(release);
+      return npmNetwork.run(() => pending);
+    });
+    const originalRun = npmNetwork.run.bind(npmNetwork);
+    let signalWaiting!: () => void;
+    const waitingForAdmission = new Promise<void>(resolve => {
+      signalWaiting = resolve;
+    });
+    let observedTarballRequest = false;
+    vi.spyOn(npmNetwork, 'run').mockImplementation(operation => {
+      if (!observedTarballRequest) {
+        observedTarballRequest = true;
+        signalWaiting();
+      }
+      return originalRun(operation);
+    });
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+      return new Response(new Uint8Array());
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const download = createInstaller().downloadAndInstallPackage(
+        'queued-fixture',
+        '1.0.0',
+        'https://example.test/queued-fixture.tgz'
+      );
+      await waitingForAdmission;
+      await vi.advanceTimersByTimeAsync(31000);
+      releases[0]();
+      const error = await download.catch((reason: unknown) => reason);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(Error);
+      expect(String(error)).not.toContain('Download timeout');
+    } finally {
+      for (const release of releases) release();
+      await Promise.all(occupiedRequests);
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
   });
 
   it('rejects archive writes through symlinks that resolve outside the package', async () => {
@@ -136,6 +217,50 @@ describe('NpmInstall', () => {
       createInstaller().downloadAndInstallPackage('escape-fixture', '1.0.0', url)
     ).rejects.toThrow('Archive path escapes package');
     expect(await repository.exists(`${rootPath}/outside/escape.js`)).toBe(false);
+  });
+
+  it('rejects an archive supplied completion marker', async () => {
+    const archive = tarStream.pack();
+    const chunks: Uint8Array[] = [];
+    const packed = new Promise<Uint8Array[]>((resolve, reject) => {
+      archive.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+      archive.on('end', () => resolve(chunks));
+      archive.on('error', reject);
+    });
+    archive.entry(
+      { name: 'package/package.json', type: 'file' },
+      Buffer.from(JSON.stringify({ name: 'spoof-fixture', version: '1.0.0' }))
+    );
+    archive.entry(
+      { name: 'package/.pyxis-install-complete.json', type: 'file' },
+      Buffer.from(JSON.stringify({ name: 'spoof-fixture', version: '1.0.0' }))
+    );
+    archive.finalize();
+    const archiveChunks = await packed;
+    const tar = new Uint8Array(archiveChunks.reduce((size, chunk) => size + chunk.byteLength, 0));
+    let offset = 0;
+    for (const chunk of archiveChunks) {
+      tar.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const compressed = pako.gzip(tar).slice();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(compressed))
+    );
+
+    try {
+      await expect(
+        createInstaller().downloadAndInstallPackage(
+          'spoof-fixture',
+          '1.0.0',
+          'https://example.test/spoof-fixture.tgz'
+        )
+      ).rejects.toThrow('reserved install marker');
+      expect(await repository.exists(`${rootPath}/node_modules/spoof-fixture`)).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   // ==================== .bin シム生成 ====================
@@ -199,6 +324,32 @@ describe('NpmInstall', () => {
 
       const shim = await testFiles.getFileByPath(rootPath, '/node_modules/.bin/lodash');
       expect(shim).toBeNull();
+    });
+
+    it('skips missing bin targets', async () => {
+      await testFiles.createFile(
+        rootPath,
+        '/node_modules/missing-bin/package.json',
+        JSON.stringify({ name: 'missing-bin', bin: './missing.js' }),
+        'file'
+      );
+
+      await createInstaller().ensureBinsForPackage('missing-bin');
+
+      expect(await repository.exists(`${rootPath}/node_modules/.bin/missing-bin`)).toBe(false);
+    });
+
+    it('preserves non-ENOENT failures while resolving bin targets', async () => {
+      await testFiles.createFile(
+        rootPath,
+        '/node_modules/broken-bin/package.json',
+        JSON.stringify({ name: 'broken-bin', bin: './cli.js' }),
+        'file'
+      );
+      const failure = new FSError('EIO', `${rootPath}/node_modules/broken-bin/cli.js`);
+      vi.spyOn(repository, 'realpath').mockRejectedValueOnce(failure);
+
+      await expect(createInstaller().ensureBinsForPackage('broken-bin')).rejects.toBe(failure);
     });
 
     it('package.json が存在しない場合は何もしない', async () => {

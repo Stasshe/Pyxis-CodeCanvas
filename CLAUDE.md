@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Dev server (turbopack)
+# Dev server (Vite)
 pnpm run dev
 # Lint (biome)
 pnpm run lint
@@ -57,7 +57,7 @@ Global state uses **valtio** stores in `src/stores/`:
 - `runtime/` — Custom browser-based Node.js runtime (no WASM)
 - `cmd/` — Terminal command implementations (git, unix, npm)
 - `ai/` — AI integration (Gemini)
-- `i18n/` — Internationalization (18+ languages, locale files in `locales/`)
+- `i18n/` — Internationalization (20 languages, locale files in `locales/`)
 - `storage/` — Storage adapters
 
 ### Extension System
@@ -83,7 +83,7 @@ Extensions live in `extensions/<name>/` with `manifest.json` + `index.tsx`.
 - **Linter**: Design first. Override biome rules with justification when they degrade intent.
 - **After large edits (5+ lines)**: re-read the file to verify correctness before finishing.
 - **Backward compatibility**: not required — break freely.
-- **docs/**: Never create new doc files without explicit instruction.
+- **docs/**: Never create new doc files without explicit instruction. Layout: `docs/arch/` whole-system architecture only, `docs/domain/` per-feature spec and implementation, `docs/knowledge/incidents/` past bugs with root cause and prevention, `docs/plan/` plans and `*_INTENT.md`. Docs are Japanese; only `README_en.md` is English. Index: `docs/README.md`.
 - **Existing files**: Check before creating. Never create a file that already exists.
 
 ### Docs Writing Rules (when instructed to write docs)

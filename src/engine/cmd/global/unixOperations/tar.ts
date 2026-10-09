@@ -1,4 +1,4 @@
-import { fsClient, isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
+import { isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -59,16 +59,16 @@ export class TarCommand extends UnixCommandBase {
     const added = new Set<string>();
     for (const input of inputs) {
       const path = resolvePath(this.currentDir, input);
-      const stat = await fsClient.stat(path);
+      const stat = await this.fs.stat(path);
       const entryName = posixPath.relative(this.currentDir, path);
       if (stat.type === 'folder') {
-        const descendants = [stat, ...(await fsClient.walk(path))];
+        const descendants = [stat, ...(await this.fs.walk(path))];
         for (const entry of descendants) {
           const relative = posixPath.relative(this.currentDir, entry.path);
           if (added.has(relative)) continue;
           const directory = entry.type === 'folder';
           const entryPath = directory && !relative.endsWith('/') ? `${relative}/` : relative;
-          const content = directory ? new Uint8Array() : await fsClient.readFile(entry.path);
+          const content = directory ? new Uint8Array() : await this.fs.readFile(entry.path);
           chunks.push(this.header(entryPath, content.length, directory));
           if (content.length) {
             chunks.push(content);
@@ -77,7 +77,7 @@ export class TarCommand extends UnixCommandBase {
           added.add(relative);
         }
       } else if (!added.has(entryName)) {
-        const content = await fsClient.readFile(path);
+        const content = await this.fs.readFile(path);
         chunks.push(this.header(entryName, content.length, false), content);
         chunks.push(new Uint8Array((512 - (content.length % 512)) % 512));
         added.add(entryName);
@@ -90,14 +90,14 @@ export class TarCommand extends UnixCommandBase {
       output.set(chunk, offset);
       offset += chunk.length;
     }
-    await fsClient.writeFile(archivePath, output);
+    await this.fs.writeFile(archivePath, output);
     return `Created ${name} (${added.size} files)`;
   }
 
   private async readEntries(
     name: string
   ): Promise<Array<{ name: string; directory: boolean; content: Uint8Array }>> {
-    const data = await fsClient.readFile(resolvePath(this.currentDir, name));
+    const data = await this.fs.readFile(resolvePath(this.currentDir, name));
     const entries: Array<{ name: string; directory: boolean; content: Uint8Array }> = [];
     let offset = 0;
     while (offset + 512 <= data.length) {
@@ -131,11 +131,11 @@ export class TarCommand extends UnixCommandBase {
       return { entry, target };
     });
     for (const { entry, target } of targets) {
-      if (entry.directory) await fsClient.mkdir(target, { recursive: true });
+      if (entry.directory) await this.fs.mkdir(target, { recursive: true });
       else {
         const parent = target.slice(0, target.lastIndexOf('/')) || '/';
-        await fsClient.mkdir(parent, { recursive: true });
-        await fsClient.writeFile(target, entry.content);
+        await this.fs.mkdir(parent, { recursive: true });
+        await this.fs.writeFile(target, entry.content);
       }
     }
     return `Extracted ${targets.length} file(s)`;

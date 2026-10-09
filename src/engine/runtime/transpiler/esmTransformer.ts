@@ -1,7 +1,9 @@
 /** Transforms ESM to CJS in the browser, with native esbuild used in Node tests. */
 
+import { posixPath } from '@/engine/core/pathUtils';
 import { assetPath } from '@/env';
 import type { TranspileBenchmark } from '../bridge/protocol';
+import { protectTopLevelAwait, restoreTopLevelAwait } from '../module/awaitSyntax';
 import { ModuleCode, type ModuleDependency } from '../module/moduleCode';
 
 type EsbuildApi = {
@@ -78,7 +80,7 @@ export async function transformEsmToCjs(
 
   let startedAt = 0;
   if (options.benchmark) startedAt = performance.now();
-  const result = await esbuild.transform(code, {
+  const result = await esbuild.transform(protectTopLevelAwait(code, filePath), {
     // Import callbacks return normalized namespaces, so esbuild's raw Node require interop is disabled.
     format: 'cjs',
     target: 'es2020',
@@ -87,7 +89,7 @@ export async function transformEsmToCjs(
     define: runtimeDefines(filePath),
   });
   if (options.benchmark) options.benchmark.transformMs += performance.now() - startedAt;
-  return finalizeRuntimeCode(result.code);
+  return finalizeRuntimeCode(restoreTopLevelAwait(result.code));
 }
 
 export function finalizeRuntimeCode(code: string): string {
@@ -95,11 +97,13 @@ export function finalizeRuntimeCode(code: string): string {
 }
 
 export function runtimeDefines(filePath: string): Record<string, string> {
-  const url = new URL('file:///');
-  url.pathname = filePath;
+  const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
   return {
     require: '__pyxisRequireCommonJs',
-    'import.meta.url': JSON.stringify(url.href),
+    'import.meta.url': JSON.stringify(`file://${encodedPath}`),
+    'import.meta.filename': JSON.stringify(filePath),
+    'import.meta.dirname': JSON.stringify(posixPath.dirname(filePath)),
+    'import.meta.resolve': '__pyxisImportMetaResolve',
   };
 }
 

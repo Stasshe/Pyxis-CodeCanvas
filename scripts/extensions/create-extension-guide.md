@@ -223,6 +223,5 @@ rm -rf extensions/hello-world
 
 ## 参考リンク
 
-- [拡張機能開発ガイド](/docs/HOW-TO-CREATE-EXTENSION.md)
-- [拡張機能システム](/docs/EXTENSION-SYSTEM.md)
-- [Tab/Sidebar API](/docs/EXTENSION-TAB-SIDEBAR-API.md)
+- [拡張機能の作り方](/docs/domain/extension-authoring.md)
+- [拡張機能システム](/docs/domain/extensions.md)

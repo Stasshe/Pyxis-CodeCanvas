@@ -4,9 +4,14 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
 import { fsClient, HOME_DIR, NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from '@/engine/core/fs';
 import { normalizePath, resolvePath } from '@/engine/core/pathUtils';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
+import { isSupportedLocale } from '@/engine/i18n/types';
 import { exportPage } from '@/engine/in-ex/exportPage';
-import { STORES, storageService } from '@/engine/storage';
+import { STORES, type StoreName, storageService } from '@/engine/storage';
 import { closeRecentFolders } from '@/engine/storage/recentFolderStorageAdapter';
+
+function isStoreName(value: string): value is StoreName {
+  return Object.values(STORES).some(storeName => storeName === value);
+}
 
 async function clearDirectoryContents(directory: string): Promise<void> {
   const mount = normalizePath(directory);
@@ -17,9 +22,9 @@ async function clearDirectoryContents(directory: string): Promise<void> {
 
 async function clearFilesystem(): Promise<void> {
   for (const entry of await fsClient.readdir('/')) {
-    if (entry.path === TMP_PATH) {
+    if (entry.mount === 'memory') {
       await clearDirectoryContents(entry.path);
-    } else {
+    } else if (entry.mount !== 'devices') {
       await fsClient.rm(entry.path, { recursive: true, force: true });
     }
   }
@@ -243,17 +248,23 @@ export async function handlePyxisCommand(
         try {
           if (args.length === 0) {
             await clearAllTranslationCache();
-            await writeOutput('i18n-clear: 全ての翻訳キャッシュを削除しました');
+            await writeOutput('i18n clear: 全ての翻訳キャッシュを削除しました');
           } else if (args.length >= 2) {
             const locale = args[0];
             const namespace = args[1];
-            await deleteTranslationCache(locale as any, namespace);
-            await writeOutput(`i18n-clear: ${locale}-${namespace} の翻訳キャッシュを削除しました`);
+            if (isSupportedLocale(locale)) {
+              await deleteTranslationCache(locale, namespace);
+              await writeOutput(
+                `i18n clear: ${locale}-${namespace} の翻訳キャッシュを削除しました`
+              );
+            } else {
+              await writeOutput(`i18n clear: サポートされていない言語です: ${locale}`);
+            }
           } else {
-            await writeOutput('i18n-clear: 引数不正。使い方: i18n-clear [<locale> <namespace>]');
+            await writeOutput('i18n clear: 引数不正。使い方: pyxis i18n clear [locale namespace]');
           }
         } catch (e) {
-          await writeOutput(`i18n-clear: エラー: ${(e as Error).message}`);
+          await writeOutput(`i18n clear: エラー: ${(e as Error).message}`);
         }
         break;
 
@@ -318,8 +329,8 @@ export async function handlePyxisCommand(
             const storeName = args[0];
             const validStores = Object.values(STORES);
 
-            if (validStores.includes(storeName as any)) {
-              await storageService.clear(storeName as any);
+            if (isStoreName(storeName)) {
+              await storageService.clear(storeName);
               await writeOutput(`storage-clear: ${storeName} を削除しました`);
             } else {
               await writeOutput(

@@ -1,31 +1,77 @@
 // ファイルコンテキスト構築ユーティリティ
 
 import { readFileContent } from '@/engine/core/fileContent';
+import type { FsChangeEvent } from '@/engine/core/fs';
+import { isPathWithin } from '@/engine/core/fs';
 import type { AIFileContext, FileItem } from '@/types';
 
-// ファイル内容の行数制限（400行）
-const MAX_LINES_PER_FILE = 400;
+export function resolveAIFileSelection(
+  persistedPaths: string[],
+  pendingPaths: string[] | null
+): string[] {
+  if (!pendingPaths) return persistedPaths;
+  if (
+    pendingPaths.length === persistedPaths.length &&
+    pendingPaths.every((path, index) => path === persistedPaths[index])
+  ) {
+    return persistedPaths;
+  }
+  return pendingPaths;
+}
+
+export function updateSelectedFilePaths(
+  selectedPaths: string[],
+  event: FsChangeEvent,
+  rootPath: string
+): string[] {
+  if (event.type === 'delete') {
+    if (!isPathWithin(event.path, rootPath)) return selectedPaths;
+    return selectedPaths.filter(path => !isPathWithin(path, event.path));
+  }
+  const oldPath = event.oldPath;
+  if (event.type !== 'rename' || !oldPath) return selectedPaths;
+
+  return selectedPaths.flatMap(path => {
+    if (!isPathWithin(path, oldPath)) return [path];
+    if (!isPathWithin(event.path, rootPath)) return [];
+    return [event.path + path.slice(oldPath.length)];
+  });
+}
+
+export function reconcileAIFileContextsForPathChange(
+  contexts: AIFileContext[],
+  selectedPaths: string[],
+  event: FsChangeEvent,
+  rootPath: string
+): { contexts: AIFileContext[]; selectedPaths: string[] } {
+  const nextSelectedPaths = updateSelectedFilePaths(selectedPaths, event, rootPath);
+  const selected = new Set(nextSelectedPaths);
+  const nextContexts = contexts
+    .flatMap(context => {
+      if (event.type === 'delete') {
+        return isPathWithin(context.path, event.path) ? [] : [context];
+      }
+      if (event.type !== 'rename' || !event.oldPath) return [context];
+      if (!isPathWithin(context.path, event.oldPath)) {
+        if (isPathWithin(context.path, event.path)) return [];
+        return [context];
+      }
+      if (!isPathWithin(event.path, rootPath)) return [];
+      const path = event.path + context.path.slice(event.oldPath.length);
+      return [{ ...context, path, name: path.split('/').pop() || path }];
+    })
+    .map(context => ({ ...context, selected: selected.has(context.path) }));
+
+  return { contexts: nextContexts, selectedPaths: nextSelectedPaths };
+}
 
 // バイナリファイルかどうかをチェック
 function isBinaryFile(file: FileItem): boolean {
   return file.isBufferArray === true;
 }
 
-// ファイル内容を400行に制限する
-function truncateFileContent(content: string): string {
-  const lines = content.split('\n');
-  if (lines.length <= MAX_LINES_PER_FILE) {
-    return content;
-  }
-
-  const truncatedLines = lines.slice(0, MAX_LINES_PER_FILE);
-  return `${truncatedLines.join('\n')}\n\n// ... ファイルが長すぎるため切り詰められました`;
-}
-
 // FileItemをAIFileContextに変換
 function fileItemToAIContext(file: FileItem, selected = false): AIFileContext | null {
-  //console.log('[fileItemToAIContext] Processing file:', file.path, 'type:', file.type, 'hasContent:', !!file.content, 'isBinary:', isBinaryFile(file));
-
   if (isBinaryFile(file) || file.type === 'folder') {
     return null;
   }
@@ -33,7 +79,7 @@ function fileItemToAIContext(file: FileItem, selected = false): AIFileContext | 
   return {
     path: file.path,
     name: file.name,
-    content: truncateFileContent(file.content ?? ''),
+    content: file.content ?? '',
     selected,
   };
 }
@@ -79,7 +125,27 @@ export async function loadAIFileContexts(
   }));
 }
 
-export async function loadAIFileContext(path: string, content: string): Promise<AIFileContext> {
+export async function loadAIFileContextSnapshot(
+  files: FileItem[],
+  getRevision: (path: string) => number
+): Promise<AIFileContext[]> {
+  const revisions = new Map(files.map(file => [file.path, getRevision(file.path)]));
+  const results = await Promise.all(
+    files.map(async file => {
+      try {
+        return await loadAIFileContexts([file], new Map());
+      } catch (error) {
+        if (getRevision(file.path) !== revisions.get(file.path)) return [];
+        throw error;
+      }
+    })
+  );
+  return results
+    .flat()
+    .filter(context => getRevision(context.path) === revisions.get(context.path));
+}
+
+export async function loadAIFileContext(path: string): Promise<AIFileContext> {
   const loaded = await readFileContent(path);
   if (loaded.kind === 'binary') {
     throw new Error(`Cannot add binary file to AI context: ${path}`);
@@ -88,7 +154,7 @@ export async function loadAIFileContext(path: string, content: string): Promise<
   return {
     path,
     name: path.split('/').pop() || path,
-    content,
+    content: loaded.content,
     selected: true,
   };
 }
@@ -117,26 +183,6 @@ export function getCustomInstructions(contexts: AIFileContext[]): string | undef
       ctx.path === CUSTOM_INSTRUCTIONS_PATH ||
       ctx.path.endsWith('/.pyxis/pyxis-instructions.md') ||
       ctx.path === 'pyxis-instructions.md'
-  );
-
-  if (instructionsFile?.content) {
-    return instructionsFile.content;
-  }
-
-  return undefined;
-}
-
-/**
- * Find custom instructions from a flat file list
- */
-export function findCustomInstructionsFromFiles(
-  files: Array<{ path: string; content?: string }>
-): string | undefined {
-  const instructionsFile = files.find(
-    f =>
-      f.path === CUSTOM_INSTRUCTIONS_PATH ||
-      f.path.endsWith('/.pyxis/pyxis-instructions.md') ||
-      f.path.endsWith('/pyxis-instructions.md')
   );
 
   if (instructionsFile?.content) {

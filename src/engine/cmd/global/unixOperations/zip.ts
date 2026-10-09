@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { fsClient, posixPath, resolvePath } from '@/engine/core/fs';
+import { posixPath, resolvePath } from '@/engine/core/fs';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -29,11 +29,11 @@ export class ZipCommand extends UnixCommandBase {
     const archivePath = resolvePath(this.currentDir, archive);
     let zip = new JSZip();
     if (options.update || options.freshen || options.remove) {
-      if (!(await fsClient.exists(archivePath))) {
+      if (!(await this.fs.exists(archivePath))) {
         if (options.freshen || options.remove)
           throw new Error(`${archive}: No such file or directory`);
       } else {
-        zip = await JSZip.loadAsync(await fsClient.readFile(archivePath));
+        zip = await JSZip.loadAsync(await this.fs.readFile(archivePath));
       }
     }
     const names: string[] = [];
@@ -46,8 +46,8 @@ export class ZipCommand extends UnixCommandBase {
         names.push(entry);
         continue;
       }
-      if (!(await fsClient.exists(path))) throw new Error(`${input}: No such file or directory`);
-      const stat = await fsClient.stat(path);
+      if (!(await this.fs.exists(path))) throw new Error(`${input}: No such file or directory`);
+      const stat = await this.fs.stat(path);
       if (options.freshen && !zip.file(entry)) continue;
       if (stat.type === 'folder') {
         if (options.recursive) await this.addDirectory(zip, path, entry, names);
@@ -56,7 +56,7 @@ export class ZipCommand extends UnixCommandBase {
           names.push(`${entry}/`);
         }
       } else {
-        zip.file(entry, await fsClient.readFile(path));
+        zip.file(entry, await this.fs.readFile(path));
         names.push(entry);
       }
     }
@@ -66,7 +66,7 @@ export class ZipCommand extends UnixCommandBase {
       compression: 'DEFLATE',
       compressionOptions: { level: 6 },
     });
-    await fsClient.writeFile(archivePath, archiveBytes);
+    await this.fs.writeFile(archivePath, archiveBytes);
     if (options.verbose) return names.map(name => `  adding: ${name}`).join('\n');
     if (options.quiet) return '';
     return `${options.remove ? 'deleted' : 'created'} ${archive}`;
@@ -80,7 +80,7 @@ export class ZipCommand extends UnixCommandBase {
   ): Promise<void> {
     zip.folder(entry);
     names.push(`${entry}/`);
-    const entries = await fsClient.walk(path);
+    const entries = await this.fs.walk(path);
     for (const child of entries) {
       const relative = child.path.slice(path.length).replace(/^\/+/, '');
       if (!relative) continue;
@@ -89,7 +89,7 @@ export class ZipCommand extends UnixCommandBase {
         zip.folder(childName);
         names.push(`${childName}/`);
       } else {
-        zip.file(childName, await fsClient.readFile(child.path));
+        zip.file(childName, await this.fs.readFile(child.path));
         names.push(childName);
       }
     }

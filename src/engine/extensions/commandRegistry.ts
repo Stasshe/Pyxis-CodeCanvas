@@ -9,7 +9,8 @@
  * Terminal側から渡される基本情報のみを含む
  * 実際にはExtensionManagerでExtensionContext全体とマージされる
  */
-import type { FsClientApi, GetSystemModule } from './systemModuleTypes';
+import type { FsApi } from '@/engine/core/fs';
+import type { GetSystemModule } from './systemModuleTypes';
 
 export interface CommandContext {
   /** プロジェクト名 */
@@ -19,7 +20,7 @@ export interface CommandContext {
   rootPath: string;
 
   /** Filesystem API for the shared filesystem. */
-  fsClient: FsClientApi;
+  fsClient: FsApi;
 
   /** 現在のディレクトリ (絶対パス) */
   currentDirectory: string;
@@ -37,13 +38,14 @@ export type CommandExecutionContext = CommandContext & { getSystemModule: GetSys
  * コマンドハンドラー
  */
 export type CommandHandler = (args: string[], context: CommandExecutionContext) => Promise<string>;
+type RegisteredCommandHandler = (args: string[], context: CommandContext) => Promise<string>;
 
 /**
  * 登録されたコマンド情報
  */
 interface RegisteredCommand {
   extensionId: string;
-  handler: CommandHandler;
+  handler: RegisteredCommandHandler;
 }
 
 /**
@@ -58,11 +60,15 @@ export class CommandRegistry {
    * コマンドを登録
    * @returns アンサブスクライブ関数
    */
-  registerCommand(extensionId: string, commandName: string, handler: CommandHandler): () => void {
-    if (this.commands.has(commandName)) {
-      const existing = this.commands.get(commandName);
-      console.warn(
-        `[CommandRegistry] Command "${commandName}" already registered by extension "${existing?.extensionId}". Overwriting...`
+  registerCommand(
+    extensionId: string,
+    commandName: string,
+    handler: RegisteredCommandHandler
+  ): () => void {
+    const existing = this.commands.get(commandName);
+    if (existing) {
+      throw new Error(
+        `Command "${commandName}" is already registered by extension "${existing.extensionId}".`
       );
     }
 
@@ -114,7 +120,7 @@ export class CommandRegistry {
   async executeCommand(
     commandName: string,
     args: string[],
-    context: CommandExecutionContext
+    context: CommandContext
   ): Promise<string> {
     const registered = this.commands.get(commandName);
 

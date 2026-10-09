@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FSError, FsCore } from '@/engine/core/fs/core';
 import type { FsChangeEvent } from '@/engine/core/fs/types';
+import { directoryTree } from '../../../_helpers/opfs';
 
 // /tmp exercises the same path API without requiring browser-only OPFS handles.
 describe('filesystem memory mount', () => {
@@ -33,6 +34,32 @@ describe('filesystem memory mount', () => {
     ]);
   });
 
+  it('allows only one concurrent no-overwrite rename to claim a destination', async () => {
+    await core.init(directoryTree());
+    await core.mkdir('/case');
+    await core.writeFile('/case/first', 'first');
+    await core.writeFile('/case/second', 'second');
+
+    const results = await Promise.allSettled([
+      core.rename('/case/first', '/case/destination', { overwrite: false }),
+      core.rename('/case/second', '/case/destination', { overwrite: false }),
+    ]);
+
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+    const winner = await core.readText('/case/destination');
+    expect(['first', 'second']).toContain(winner);
+    expect(await core.exists(`/case/${winner === 'first' ? 'first' : 'second'}`)).toBe(false);
+    expect(await core.readText(`/case/${winner === 'first' ? 'second' : 'first'}`)).toBe(
+      winner === 'first' ? 'second' : 'first'
+    );
+    const rejected = results.find(result => result.status === 'rejected');
+    expect(rejected).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'EEXIST', path: '/case/destination' },
+    });
+  });
+
   it('decodes text as UTF-8 with the standard replacement and BOM behavior', async () => {
     await core.writeFile('/tmp/bom.txt', new Uint8Array([0xef, 0xbb, 0xbf, 0x68, 0x69]));
     await core.writeFile('/tmp/invalid.txt', new Uint8Array([0xc3, 0x28]));
@@ -54,6 +81,20 @@ describe('filesystem memory mount', () => {
       '/tmp/app/src',
       '/tmp/app/src/main.ts',
     ]);
+  });
+
+  it('reports mount sources only on mount roots', async () => {
+    await core.init(directoryTree());
+    await core.writeFile('/tmp/ordinary-file', 'value');
+
+    const rootEntries = await core.readdir('/');
+    expect(rootEntries.find(entry => entry.path === '/tmp')).toMatchObject({ mount: 'memory' });
+    expect(rootEntries.find(entry => entry.path === '/dev')).toMatchObject({ mount: 'devices' });
+    expect(await core.stat('/tmp')).toMatchObject({ mount: 'memory' });
+    expect(await core.lstat('/tmp')).toMatchObject({ mount: 'memory' });
+    expect(await core.stat('/dev')).toMatchObject({ mount: 'devices' });
+    expect(await core.lstat('/dev')).toMatchObject({ mount: 'devices' });
+    expect(await core.stat('/tmp/ordinary-file')).not.toHaveProperty('mount');
   });
 
   it('requires directories and respects recursive removal', async () => {

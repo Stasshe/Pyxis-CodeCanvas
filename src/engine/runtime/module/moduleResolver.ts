@@ -38,7 +38,8 @@ export class ModuleResolver {
 
   constructor(
     rootPath: string,
-    private readonly fileSystem: ModuleFileSystem
+    private readonly fileSystem: ModuleFileSystem,
+    private readonly getExtensions: () => string[] = () => ['.js', '.json', '.node']
   ) {
     this.rootPath = normalizePath(rootPath);
   }
@@ -62,12 +63,13 @@ export class ModuleResolver {
   resolveSync(
     specifier: string,
     currentFilePath: string,
-    kind: ModuleKind = 'require'
+    kind: ModuleKind = 'require',
+    paths?: string[]
   ): ResolveResult | null {
-    const key = this.resolutionKey(specifier, currentFilePath, kind);
+    const key = this.resolutionKey(specifier, currentFilePath, kind, paths);
     const cached = this.resolutions.get(key);
     if (cached) return cached;
-    const resolved = this.runSync(this.resolveModule(specifier, currentFilePath, kind));
+    const resolved = this.runSync(this.resolveModule(specifier, currentFilePath, kind, paths));
     if (resolved) {
       if (!resolved.isBuiltIn) resolved.path = this.fileSystem.realpathSync(resolved.path);
       this.resolutions.set(key, resolved);
@@ -83,14 +85,20 @@ export class ModuleResolver {
     return this.runSync(this.packageScope(filePath))?.packageJson.type;
   }
 
-  private resolutionKey(specifier: string, path: string, kind: ModuleKind): string {
-    return JSON.stringify([kind, posixPath.dirname(path), specifier]);
+  private resolutionKey(
+    specifier: string,
+    path: string,
+    kind: ModuleKind,
+    paths?: string[]
+  ): string {
+    return JSON.stringify([kind, posixPath.dirname(path), specifier, paths]);
   }
 
   private *resolveModule(
     specifier: string,
     currentFilePath: string,
-    kind: ModuleKind
+    kind: ModuleKind,
+    paths?: string[]
   ): Resolution<ResolveResult | null> {
     if (isBuiltInModule(specifier))
       return { path: specifier, isBuiltIn: true, isNodeModule: false };
@@ -113,12 +121,18 @@ export class ModuleResolver {
     if (specifier.startsWith('@/'))
       specifier = posixPath.resolve(this.rootPath, 'src', specifier.slice(2));
     if (specifier.startsWith('/') || specifier.startsWith('./') || specifier.startsWith('../')) {
-      const path = posixPath.resolve(posixPath.dirname(currentFilePath), specifier);
-      let resolved: string | null;
-      if (kind === 'import') resolved = yield* this.exactFile(path);
-      else resolved = yield* this.fileOrDirectory(path);
-      if (!resolved) return null;
-      return { path: resolved, isBuiltIn: false, isNodeModule: false };
+      let bases: string[];
+      if (specifier.startsWith('/')) bases = ['/'];
+      else if (paths) bases = paths;
+      else bases = [posixPath.dirname(currentFilePath)];
+      for (const base of bases) {
+        const path = posixPath.resolve(base, specifier);
+        let resolved: string | null;
+        if (kind === 'import') resolved = yield* this.exactFile(path);
+        else resolved = yield* this.fileOrDirectory(path);
+        if (resolved) return { path: resolved, isBuiltIn: false, isNodeModule: false };
+      }
+      return null;
     }
 
     const parts = specifier.split('/');
@@ -135,29 +149,36 @@ export class ModuleResolver {
     if (scope?.packageJson.name === packageName && scope.packageJson.exports !== undefined) {
       return yield* this.packageEntry(scope.directory, scope.packageJson, subpath, kind);
     }
-    let directory = posixPath.dirname(currentFilePath);
-    while (true) {
-      if (posixPath.basename(directory) !== 'node_modules') {
-        const packageDirectory = posixPath.join(directory, 'node_modules', packageName);
-        const packageJson = yield* this.readPackage(
-          posixPath.join(packageDirectory, 'package.json')
-        );
-        if (packageJson)
-          return yield* this.packageEntry(packageDirectory, packageJson, subpath, kind);
-        const stat = yield* this.stat(packageDirectory);
-        if (stat?.type === 'directory') {
-          const target = posixPath.join(packageDirectory, subpath);
-          let path: string | null;
-          if (subpath && kind === 'import') path = yield* this.exactFile(target);
-          else if (subpath) path = yield* this.fileOrDirectory(target);
-          else path = yield* this.directoryEntry(packageDirectory, null);
-          if (!path) return null;
-          return { path, isBuiltIn: false, isNodeModule: true };
+    const starts = paths ?? [posixPath.dirname(currentFilePath)];
+    const searched = new Set<string>();
+    for (const start of starts) {
+      let directory = posixPath.resolve(start);
+      while (true) {
+        if (searched.has(directory)) break;
+        searched.add(directory);
+        if (posixPath.basename(directory) !== 'node_modules') {
+          const packageDirectory = posixPath.join(directory, 'node_modules', packageName);
+          const packageJson = yield* this.readPackage(
+            posixPath.join(packageDirectory, 'package.json')
+          );
+          if (packageJson)
+            return yield* this.packageEntry(packageDirectory, packageJson, subpath, kind);
+          const stat = yield* this.stat(packageDirectory);
+          if (stat?.type === 'directory') {
+            const target = posixPath.join(packageDirectory, subpath);
+            let path: string | null;
+            if (subpath && kind === 'import') path = yield* this.exactFile(target);
+            else if (subpath) path = yield* this.fileOrDirectory(target);
+            else path = yield* this.directoryEntry(packageDirectory, null);
+            if (!path) return null;
+            return { path, isBuiltIn: false, isNodeModule: true };
+          }
         }
+        if (directory === '/') break;
+        directory = posixPath.dirname(directory);
       }
-      if (directory === '/') return null;
-      directory = posixPath.dirname(directory);
     }
+    return null;
   }
 
   private *packageEntry(
@@ -219,7 +240,7 @@ export class ModuleResolver {
   private *fileOrDirectory(path: string): Resolution<string | null> {
     const stat = yield* this.stat(path);
     if (stat?.type === 'file') return path;
-    for (const extension of ['.js', '.json', '.node']) {
+    for (const extension of this.getExtensions()) {
       const found = yield* this.exactFile(`${path}${extension}`);
       if (found) return found;
     }
@@ -229,7 +250,7 @@ export class ModuleResolver {
   }
 
   private *file(path: string): Resolution<string | null> {
-    for (const extension of ['', '.js', '.json', '.node']) {
+    for (const extension of ['', ...this.getExtensions()]) {
       const found = yield* this.exactFile(`${path}${extension}`);
       if (found) return found;
     }
@@ -251,7 +272,7 @@ export class ModuleResolver {
   }
 
   private *index(directory: string): Resolution<string | null> {
-    for (const extension of ['.js', '.json', '.node']) {
+    for (const extension of this.getExtensions()) {
       const file = yield* this.exactFile(posixPath.join(directory, `index${extension}`));
       if (file) return file;
     }

@@ -1,5 +1,5 @@
 export interface MountStat {
-  type: 'file' | 'directory' | 'symlink';
+  type: 'file' | 'directory' | 'symlink' | 'fifo' | 'characterDevice';
   size: number;
   mtime: Date;
 }

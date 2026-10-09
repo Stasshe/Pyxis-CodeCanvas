@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NpmCommands } from '@/engine/cmd/global/npm';
+import { ShellExecutor } from '@/engine/cmd/shell/executor';
+import type { OutputCallbacks, ShellRunResult } from '@/engine/cmd/shell/types';
 import { getTestFs } from '../../_helpers/testFs';
 import { testFsFiles } from '../../_helpers/testFsFiles';
 import { createTestModuleResolver } from '../../_helpers/testModuleResolver';
@@ -30,6 +32,8 @@ describe('NpmCommands 統合テスト', () => {
     rootPath = ctx.rootPath;
     projectName = ctx.projectName;
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   // ==================== npm init ====================
 
@@ -210,6 +214,189 @@ describe('NpmCommands 統合テスト', () => {
       expect(result).toContain(`> ${projectName}@1.0.0 test`);
       expect(result).toContain('echo "hello"');
     });
+
+    it('returns the script exit code and separates stdout from stderr', async () => {
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          scripts: { build: 'exit 7' },
+        }),
+        'file'
+      );
+      const run = vi.fn(async (_line: string, callbacks?: OutputCallbacks) => {
+        callbacks?.stdout?.('out');
+        callbacks?.stderr?.('err');
+        return { stdout: 'out', stderr: 'err', code: 7 };
+      });
+      vi.spyOn(ShellExecutor.prototype, 'run').mockImplementation(run);
+
+      const result = await createNpm().runWithStatus('build', [], { stdout: () => {} });
+
+      expect(result).toEqual({
+        stdout: `> ${projectName}@1.0.0 build\n> exit 7\n\nout`,
+        stderr: 'err',
+        code: 7,
+      });
+    });
+
+    it('uses the supplied working directory, environment, and stream context', async () => {
+      await testFsFiles.createFile(rootPath, '/nested', '', 'folder');
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          scripts: { build: 'pwd; printf "$NPM_CONTEXT_VALUE"' },
+        }),
+        'file'
+      );
+      const run = vi.spyOn(ShellExecutor.prototype, 'run');
+      const context = {
+        cwd: `${rootPath}/nested`,
+        env: { NPM_CONTEXT_VALUE: 'context value' },
+        onSignal: () => () => {},
+        terminalColumns: 100,
+        terminalRows: 40,
+        stdinIsTTY: false,
+        stdoutIsTTY: false,
+        stderrIsTTY: false,
+      };
+
+      const result = await createNpm().runWithStatus('build', [], undefined, context);
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain(`${rootPath}/nested`);
+      expect(result.stdout).toContain('context value');
+      expect(run).toHaveBeenCalledWith('pwd; printf "$NPM_CONTEXT_VALUE"', undefined, context);
+    });
+
+    it('runs lifecycle scripts in order and forwards quoted arguments only to the main script', async () => {
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          scripts: {
+            prebuild: 'echo before',
+            build: 'echo build',
+            postbuild: 'echo after',
+          },
+        }),
+        'file'
+      );
+      const commands: string[] = [];
+      const run = vi.fn(async (line: string, callbacks?: OutputCallbacks) => {
+        commands.push(line);
+        callbacks?.stdout?.(`${line}\n`);
+        return { stdout: `${line}\n`, stderr: '', code: 0 };
+      });
+      vi.spyOn(ShellExecutor.prototype, 'run').mockImplementation(run);
+      const streamed: string[] = [];
+
+      const result = await createNpm().runWithStatus('build', ['two words', "it's"], {
+        stdout: output => streamed.push(output),
+      });
+
+      expect(commands).toEqual(['echo before', `echo build 'two words' 'it'\\''s'`, 'echo after']);
+      expect(result.code).toBe(0);
+      expect(streamed.join('')).toContain('echo after\n');
+    });
+
+    it('stops before the main and post scripts when a pre-script fails', async () => {
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          scripts: { prebuild: 'exit 5', build: 'echo build', postbuild: 'echo after' },
+        }),
+        'file'
+      );
+      const run = vi.fn(async () => ({ stdout: '', stderr: '', code: 5 }));
+      vi.spyOn(ShellExecutor.prototype, 'run').mockImplementation(run);
+
+      const result = await createNpm().runWithStatus('build', [], { stdout: () => {} });
+
+      expect(result.code).toBe(5);
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(run).toHaveBeenCalledWith('exit 5', expect.any(Object), undefined);
+    });
+
+    it('does not run post scripts when the main script fails', async () => {
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({
+          name: 'app',
+          version: '1.0.0',
+          scripts: { build: 'exit 6', postbuild: 'echo after' },
+        }),
+        'file'
+      );
+      const run = vi.fn(async () => ({ stdout: '', stderr: '', code: 6 }));
+      vi.spyOn(ShellExecutor.prototype, 'run').mockImplementation(run);
+
+      const result = await createNpm().runWithStatus('build');
+
+      expect(result.code).toBe(6);
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(run).toHaveBeenCalledWith('exit 6', undefined, undefined);
+    });
+
+    it('streams script output before the shell promise settles', async () => {
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({ name: 'app', version: '1.0.0', scripts: { build: 'build-command' } }),
+        'file'
+      );
+      let signalStarted = () => {};
+      const started = new Promise<void>(resolve => {
+        signalStarted = resolve;
+      });
+      let finish: (result: ShellRunResult) => void = () => {};
+      const run = vi.fn((_line: string, callbacks?: OutputCallbacks) => {
+        return new Promise<ShellRunResult>(resolve => {
+          finish = resolve;
+          callbacks?.stdout?.('early chunk');
+          signalStarted();
+        });
+      });
+      vi.spyOn(ShellExecutor.prototype, 'run').mockImplementation(run);
+      const streamed: string[] = [];
+
+      const execution = createNpm().runWithStatus('build', [], {
+        stdout: output => streamed.push(output),
+      });
+      await started;
+
+      expect(streamed.join('')).toContain('early chunk');
+      finish({ stdout: 'early chunk', stderr: '', code: 0 });
+      expect((await execution).code).toBe(0);
+    });
+
+    it('uses node server.js when npm start has no start script', async () => {
+      await testFsFiles.createFile(
+        rootPath,
+        '/package.json',
+        JSON.stringify({ name: 'app', version: '1.0.0', scripts: {} }),
+        'file'
+      );
+      await testFsFiles.createFile(rootPath, '/server.js', 'void 0;', 'file');
+      const run = vi.fn(async () => ({ stdout: '', stderr: '', code: 0 }));
+      vi.spyOn(ShellExecutor.prototype, 'run').mockImplementation(run);
+
+      const result = await createNpm().runWithStatus('start', [], { stdout: () => {} });
+
+      expect(result.code).toBe(0);
+      expect(run).toHaveBeenCalledWith('node server.js', expect.any(Object), undefined);
+    });
   });
 
   // ==================== npm uninstall ====================
@@ -269,6 +456,7 @@ describe('NpmCommands 統合テスト', () => {
       const npm = createNpm();
       const result = await npm.uninstall('lodash');
       expect(result).toContain('removed');
+      expect(result).toMatch(/^removed 1 packages/);
 
       const file = await testFsFiles.getFileByPath(rootPath, '/package.json');
       const pkg = JSON.parse(file!.content);

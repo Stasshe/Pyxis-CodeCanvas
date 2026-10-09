@@ -135,9 +135,61 @@
     "loadingFile": "Ripristino contenuto file...",
     "selectFile": "Seleziona un file per favore"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Hai tutte le estensioni disponibili",
+    "allInstalled": "Tutte le estensioni installate",
+    "available": "Disponibile ({count})",
+    "browseAvailable": "Sfoglia le estensioni disponibili per iniziare",
+    "confirmUninstall": "Sei sicuro di voler disinstallare \"{name}\"?",
+    "disable": "Disabilita",
+    "disableUnavailable": "Impossibile disattivare l'estensione.",
+    "enable": "Abilita",
+    "enableUnavailable": "Impossibile abilitare l'estensione.",
+    "importFailed": "Impossibile importare il CAP: {error}",
+    "importZip": "Importa estensione (.zip)",
+    "install": "Installare",
+    "installed": "Installato ({count})",
+    "installFailed": "Impossibile installare {name}: {error}",
+    "installUnavailable": "Impossibile installare o abilitare l'estensione.",
+    "loadFailed": "Impossibile caricare le estensioni: {error}",
+    "loading": "Caricamento estensioni...",
+    "manifestUrlMissing": "URL manifest non trovato nel registro",
+    "noMatches": "Nessuna estensione corrispondente trovata",
+    "noneInstalled": "Nessuna estensione installata",
+    "packCount": "Estensioni: {count}",
+    "reload": "Ricarica le estensioni",
+    "search": "Cerca estensioni...",
+    "title": "Estensioni",
+    "toggleFailed": "Impossibile modificare lo stato dell'estensione: {error}",
+    "tryDifferentSearch": "Prova un termine di ricerca diverso",
+    "types": {
+      "builtinModule": "Modulo integrato",
+      "languageRuntime": "Runtime della lingua",
+      "service": "Servizio",
+      "tool": "Attrezzo",
+      "transpiler": "Trasportatore",
+      "ui": "interfaccia utente"
+    },
+    "uninstall": "Disinstallare",
+    "uninstallFailed": "Impossibile disinstallare l'estensione: {error}",
+    "uninstallTitle": "Disinstallare l'estensione",
+    "uninstallUnavailable": "Impossibile disinstallare l'estensione.",
+    "update": "Aggiorna",
+    "updateFailed": "Impossibile aggiornare {name}: {error}",
+    "updateUnavailable": "Impossibile attivare il nuovo pacchetto di estensioni.",
+    "viewDetails": "Fare clic per visualizzare i dettagli dell'estensione"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Crea file",
+      "createFolder": "Crea cartella",
+      "import": "Importa",
+      "move": "Sposta"
+    },
     "alert": {
-      "renameFailed": "Rinominare fallito: {error}"
+      "destinationExists": "La destinazione esiste già: {path}",
+      "operationFailed": "{action} non riuscito: {error}",
+      "workspaceChanged": "L’area di lavoro è cambiata; i file rimanenti sono stati ignorati."
     },
     "menu": {
       "createFile": "Crea file",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Crea nuovo file",
-    "createFolder": "Crea nuova cartella"
+    "createFolder": "Crea nuova cartella",
+    "newFilePrompt": "Inserisci il nome del nuovo file:",
+    "newFolderPrompt": "Inserisci il nome della nuova cartella:"
   },
   "markdownPreview": {
     "downloadSvg": "Scarica SVG",

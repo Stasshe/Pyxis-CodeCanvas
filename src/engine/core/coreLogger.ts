@@ -16,22 +16,6 @@ function formatArgs(args: unknown[]): string {
   return args.map(a => safeStringify(a)).join(' ');
 }
 
-export function coreInfo(...args: unknown[]): void {
-  try {
-    pushLogMessage(formatArgs(args), 'info', 'core');
-  } catch {
-    // ignore
-  }
-}
-
-export function coreWarn(...args: unknown[]): void {
-  try {
-    pushLogMessage(formatArgs(args), 'warn', 'core');
-  } catch {
-    // ignore
-  }
-}
-
 export function coreError(...args: unknown[]): void {
   try {
     pushLogMessage(formatArgs(args), 'error', 'core');

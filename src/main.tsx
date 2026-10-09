@@ -1,6 +1,7 @@
 import './polyfills';
 import './styles/globals.css';
 import './lib/ReactScan';
+import './engine/tabs/monacoLoader';
 
 import { createRoot } from 'react-dom/client';
 

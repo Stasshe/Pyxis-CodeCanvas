@@ -20,6 +20,7 @@ export const useRightSidebarResize = (
     maxSize: typeof window !== 'undefined' ? window.innerWidth * 0.7 : 1000,
     onResize: setRightSidebarWidth,
     targetSelector: '[data-sidebar="right"]',
+    targetSizeVariable: '--sidebar-width',
     shouldUpdateStateDuringResize: false,
   });
 
@@ -38,6 +39,7 @@ export const useLeftSidebarResize = (
     maxSize: typeof window !== 'undefined' ? window.innerWidth * 0.7 : 1000,
     onResize: setLeftSidebarWidth,
     targetSelector: '[data-sidebar="left"]',
+    targetSizeVariable: '--sidebar-width',
     shouldUpdateStateDuringResize: false,
   });
 
@@ -56,6 +58,7 @@ export const useBottomPanelResize = (
     maxSize: typeof window !== 'undefined' ? window.innerHeight : 1000,
     onResize: setBottomPanelHeight,
     targetSelector: '[data-panel="bottom"]',
+    targetSizeVariable: '--bottom-panel-height',
     shouldUpdateStateDuringResize: false,
   });
 

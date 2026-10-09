@@ -1,186 +1,98 @@
 import git from 'isomorphic-git';
 import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
+import { clearMergeState } from './mergeState';
 
 export class GitResetOperations {
-  private fs: FS;
-  private dir: string;
-
-  constructor(fs: FS, dir: string) {
-    this.fs = fs;
-    this.dir = dir;
-  }
+  constructor(
+    private fs: FS,
+    private dir: string
+  ) {}
 
   async reset(
     options: { filepath?: string; hard?: boolean; commit?: string } = {}
   ): Promise<string> {
     try {
-      try {
-        await this.fs.promises.stat(`${this.dir}/.git`);
-      } catch {
-        throw new Error('not a git repository (or any of the parent directories): .git');
-      }
-
+      await this.fs.promises.stat(`${this.dir}/.git`);
       const { filepath, hard, commit } = options;
-
       if (filepath) {
-        console.log('Reset: Unstaging file:', filepath);
         await git.resetIndex({
           fs: this.fs,
           dir: this.dir,
           filepath: repositoryPath(this.dir, filepath),
         });
-        return `Unstaged changes after reset:\nM\t${filepath}`;
-      }
-
-      if (hard) {
-        const targetRef = commit || 'HEAD';
-
-        console.log('Reset: Hard reset to', targetRef);
-
-        let targetOid: string;
-        try {
-          try {
-            targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
-          } catch {
-            targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
-          }
-        } catch {
-          throw new Error(
-            `fatal: ambiguous argument '${targetRef}': unknown revision or path not in the working tree.`
-          );
-        }
-
-        let currentBranch: string;
-        try {
-          currentBranch =
-            (await git.currentBranch({
-              fs: this.fs,
-              dir: this.dir,
-              fullname: true,
-            })) || 'HEAD';
-        } catch {
-          currentBranch = 'HEAD';
-        }
-
-        await git.writeRef({
-          fs: this.fs,
-          dir: this.dir,
-          ref: currentBranch,
-          value: targetOid,
-          force: true,
-        });
-
-        const targetCommit = await git.readCommit({
-          fs: this.fs,
-          dir: this.dir,
-          oid: targetOid,
-        });
-
-        console.log('Reset: Checking out target commit');
-
-        let checkoutRef = targetOid;
-        if (currentBranch !== 'HEAD') checkoutRef = currentBranch;
-        await git.checkout({
-          fs: this.fs,
-          dir: this.dir,
-          ref: checkoutRef,
-          force: true,
-        });
-
-        const countFiles = async (dirPath: string): Promise<number> => {
-          let count = 0;
-          try {
-            const entries = await this.fs.promises.readdir(dirPath);
-            for (const entry of entries) {
-              if (entry === '.git') continue;
-              const fullPath = `${dirPath}/${entry}`;
-              try {
-                const stats = await this.fs.promises.stat(fullPath);
-                if (stats.isDirectory()) {
-                  count += await countFiles(fullPath);
-                } else {
-                  count++;
-                }
-              } catch (error) {
-                console.warn('[reset.ts] caught non-fatal error', error);
-              }
-            }
-          } catch (error) {
-            console.warn('[reset.ts] caught non-fatal error', error);
-          }
-          return count;
-        };
-
-        const restoredCount = await countFiles(this.dir);
-        console.log('Reset: Restored files count:', restoredCount);
-
-        const shortHash = targetOid.slice(0, 7);
-        const commitMessage = targetCommit.commit.message.split('\n')[0];
-        return `HEAD is now at ${shortHash} ${commitMessage}\n\n${restoredCount} files restored`;
+        const path = repositoryPath(this.dir, filepath);
+        const status = await git.statusMatrix({ fs: this.fs, dir: this.dir, filepaths: [path] });
+        const entry = status.find(([file]) => file === path);
+        if (!entry || entry[1] === entry[2] || entry[1] === 0) return '';
+        let change = 'M';
+        if (entry[2] === 0) change = 'D';
+        return `Unstaged changes after reset:\n${change}\t${filepath}`;
       }
 
       const targetRef = commit || 'HEAD';
-      console.log('Reset: Soft reset to', targetRef);
-
       let targetOid: string;
       try {
+        targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
+      } catch {
+        targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
+      }
+      // Validate the target before changing the branch or working tree.
+      const targetCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: targetOid });
+      const currentBranch = await git.currentBranch({ fs: this.fs, dir: this.dir, fullname: true });
+      const currentRef = currentBranch || 'HEAD';
+
+      if (hard) {
+        await git.checkout({
+          fs: this.fs,
+          dir: this.dir,
+          ref: targetOid,
+          force: true,
+          noUpdateHead: true,
+        });
+      }
+      if (!hard) {
+        const indexPath = `${this.dir}/.git/index`;
+        let originalIndex: Uint8Array | undefined;
         try {
-          targetOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: targetRef });
-        } catch {
-          targetOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: targetRef });
+          originalIndex = await this.fs.promises.readFile(indexPath);
+        } catch (error) {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT')
+            throw error;
         }
-      } catch {
-        throw new Error(
-          `fatal: ambiguous argument '${targetRef}': unknown revision or path not in the working tree.`
-        );
+        try {
+          const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+          for (const [file] of status) {
+            await git.resetIndex({ fs: this.fs, dir: this.dir, filepath: file, ref: targetOid });
+          }
+        } catch (error) {
+          if (originalIndex) await this.fs.promises.writeFile(indexPath, originalIndex);
+          else {
+            try {
+              await this.fs.promises.unlink(indexPath);
+            } catch (cleanupError) {
+              if (
+                !(cleanupError instanceof Error) ||
+                !('code' in cleanupError) ||
+                cleanupError.code !== 'ENOENT'
+              )
+                throw cleanupError;
+            }
+          }
+          throw error;
+        }
       }
-
-      let currentBranch: string;
-      try {
-        currentBranch =
-          (await git.currentBranch({
-            fs: this.fs,
-            dir: this.dir,
-            fullname: true,
-          })) || 'HEAD';
-      } catch {
-        currentBranch = 'HEAD';
-      }
-
       await git.writeRef({
         fs: this.fs,
         dir: this.dir,
-        ref: currentBranch,
+        ref: currentRef,
         value: targetOid,
         force: true,
       });
 
-      const targetCommit = await git.readCommit({
-        fs: this.fs,
-        dir: this.dir,
-        oid: targetOid,
-      });
-
-      const shortHash = targetOid.slice(0, 7);
-      const commitMessage = targetCommit.commit.message.split('\n')[0];
-      return `HEAD is now at ${shortHash} ${commitMessage}`;
+      await clearMergeState(this.fs, this.dir);
+      return `HEAD is now at ${targetOid.slice(0, 7)} ${targetCommit.commit.message.split('\n')[0]}`;
     } catch (error) {
-      const errorMessage = (error as Error).message;
-
-      if (errorMessage.includes('not a git repository')) {
-        throw new Error('fatal: not a git repository (or any of the parent directories): .git');
-      }
-      if (
-        errorMessage.includes('unknown revision') ||
-        errorMessage.includes('ambiguous argument')
-      ) {
-        throw new Error(errorMessage);
-      }
-      if (errorMessage.includes('bad revision')) {
-        throw new Error('fatal: bad revision - commit not found');
-      }
-
-      throw new Error(`git reset failed: ${errorMessage}`);
+      throw new Error(`git reset failed: ${(error as Error).message}`);
     }
   }
 }

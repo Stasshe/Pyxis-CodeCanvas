@@ -1,5 +1,5 @@
 import type { DependencyRequest, ResolvedDependency } from './dependencyResolver';
-import { satisfiesVersionSpec } from './versionUtils';
+import { isVersionRange, satisfiesVersionSpec } from './versionUtils';
 
 export interface PlacedDependency extends ResolvedDependency {
   path: string;
@@ -73,14 +73,18 @@ export function buildDependencyTree(
   for (const request of requests) {
     assertPackageName(request.name);
     const spec = parseDependencySpec(request.name, request.version);
-    const dependency = dependencies.find(item => {
+    const candidates = dependencies.filter(item => {
       const name = item.installName ?? item.packageInfo.name;
       return (
         name === request.name &&
         item.packageInfo.name === spec.name &&
-        satisfiesVersionSpec(item.packageInfo.version, spec.version)
+        (item.requestKeys?.includes(request.version) ||
+          (isVersionRange(spec.version) &&
+            satisfiesVersionSpec(item.packageInfo.version, spec.version)))
       );
     });
+    const dependency =
+      candidates.find(item => item.requestKeys?.includes(request.version)) ?? candidates[0];
     if (!dependency) {
       if (request.isOptional) continue;
       throw new Error(`Missing resolved dependency '${request.name}@${request.version}'`);
@@ -140,6 +144,80 @@ export function buildDependencyTree(
       }
       parent.children[name] = destination;
     }
+    for (const [name, spec] of Object.entries(parent.packageInfo.peerDependencies ?? {})) {
+      const key = parent.peerDependencyKeys?.[name];
+      let dependency: ResolvedDependency | undefined;
+      if (key) dependency = graph.get(key);
+      const locations = moduleLocations(parent.path, name).slice(1);
+      let destination = '';
+      let firstVacant = '';
+      let visible: PlacedDependency | undefined;
+      for (let locationIndex = 0; locationIndex < locations.length; locationIndex += 1) {
+        const location = locations[locationIndex];
+        const candidate = placements.get(location);
+        if (!candidate) {
+          if (!firstVacant) firstVacant = location;
+          continue;
+        }
+        visible = candidate;
+        destination = location;
+        break;
+      }
+      if (visible) {
+        const expectedName = parseDependencySpec(name, spec).name;
+        const incompatible =
+          visible.packageInfo.name !== expectedName ||
+          !satisfiesVersionSpec(visible.packageInfo.version, spec);
+        if (incompatible) {
+          if (!firstVacant || !dependency)
+            throw new Error(`ERESOLVE unable to resolve peer '${name}@${spec}'`);
+          destination = firstVacant;
+          visible = undefined;
+        }
+      } else {
+        destination = firstVacant;
+      }
+      if (!visible) {
+        if (!dependency && parent.packageInfo.peerDependenciesMeta?.[name]?.optional) continue;
+        if (!destination) {
+          if (parent.packageInfo.peerDependenciesMeta?.[name]?.optional) continue;
+          throw new Error(`Missing peer dependency edge '${name}@${spec}'`);
+        }
+        if (!dependency) throw new Error(`Missing peer dependency edge '${name}@${spec}'`);
+        let shadowsDependency = false;
+        for (const placed of placements.values()) {
+          const linked = placed.children[name];
+          if (!linked) continue;
+          const search = moduleLocations(placed.path, name);
+          const candidateIndex = search.indexOf(destination);
+          if (candidateIndex >= 0 && candidateIndex < search.indexOf(linked)) {
+            shadowsDependency = true;
+            break;
+          }
+        }
+        if (shadowsDependency) throw new Error(`ERESOLVE unable to place peer '${name}@${spec}'`);
+        const placedPeer = create(dependency, destination);
+        queue.push(placedPeer);
+      }
+      parent.children[name] = destination;
+    }
+  }
+  for (const placed of placements.values()) {
+    for (const [name, spec] of Object.entries(placed.packageInfo.peerDependencies ?? {})) {
+      const locations = moduleLocations(placed.path, name).slice(1);
+      const visible = locations.map(location => placements.get(location)).find(Boolean);
+      if (!visible) {
+        if (placed.packageInfo.peerDependenciesMeta?.[name]?.optional) continue;
+        throw new Error(`ERESOLVE unable to resolve peer '${name}@${spec}'`);
+      }
+      const expectedName = parseDependencySpec(name, spec).name;
+      if (
+        visible.packageInfo.name !== expectedName ||
+        !satisfiesVersionSpec(visible.packageInfo.version, spec)
+      )
+        throw new Error(`ERESOLVE unable to resolve peer '${name}@${spec}'`);
+      placed.children[name] = visible.path;
+    }
   }
   markDependencyFlags(placements, roots);
   return Array.from(placements.values());
@@ -170,7 +248,7 @@ export function markDependencyFlags(
     for (const [name, path] of Object.entries(placed.children)) {
       queue.push({
         path,
-        optional: state.optional || Boolean(placed.packageInfo.optionalDependencies?.[name]),
+        optional: state.optional || isOptionalDependencyEdge(placed, name),
         dev: state.dev,
       });
     }
@@ -188,7 +266,7 @@ export function pruneFailedOptionalPackages(
     for (const placed of plan) {
       if (!placed.isOptional || blocked.has(placed.path)) continue;
       for (const [name, path] of Object.entries(placed.children)) {
-        if (!placed.packageInfo.optionalDependencies?.[name] && blocked.has(path)) {
+        if (!isOptionalDependencyEdge(placed, name) && blocked.has(path)) {
           blocked.add(placed.path);
           changed = true;
           break;
@@ -210,4 +288,14 @@ export function pruneFailedOptionalPackages(
     if (!reachable.has(placed.path)) blocked.add(placed.path);
   }
   return blocked;
+}
+
+function isOptionalDependencyEdge(placed: PlacedDependency, name: string): boolean {
+  if (placed.packageInfo.optionalDependencies?.[name]) return true;
+  const isRequiredDependency = Boolean(
+    placed.packageInfo.dependencies?.[name] && !placed.packageInfo.optionalDependencies?.[name]
+  );
+  return (
+    !isRequiredDependency && placed.packageInfo.peerDependenciesMeta?.[name]?.optional === true
+  );
 }

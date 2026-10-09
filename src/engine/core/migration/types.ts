@@ -28,6 +28,15 @@ export interface LegacyFile {
   aiReviewHistory?: readonly AIReviewHistoryEntry[];
 }
 
+export interface LegacyFileReference {
+  key: IDBValidKey;
+  id: string;
+  projectId: string;
+  path: string;
+  type: 'file' | 'folder';
+  hasReview: boolean;
+}
+
 export type LegacyChatSpace = Omit<ChatSpace, 'rootPath'> & { projectId: string };
 
 export interface LegacyCache {

@@ -10,7 +10,10 @@ import { executeRuntimeShell } from '@/engine/runtime/nodejs/shellHost';
 import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
 
 vi.mock('@/engine/core/fs', () => ({
-  fsClient: { createRuntimePort: vi.fn(async () => new MessageChannel().port1) },
+  fsClient: {
+    closeFifos: vi.fn(async () => {}),
+    createRuntimePort: vi.fn(async () => new MessageChannel().port1),
+  },
 }));
 vi.mock('@/engine/runtime/bridge/main', () => ({
   ensureRuntimeBridge: vi.fn(async () => '/'),
@@ -119,6 +122,53 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     expect(secondWorker.terminated).toBe(false);
   });
 
+  it('passes inline source to the runtime worker', async () => {
+    const provider = new NodeRuntimeProvider();
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      cwd: '/workspace/app',
+      filePath: '/workspace/app/[eval]',
+      source: 'console.log(42);',
+      argv: ['argument'],
+      execArgv: ['--eval', 'console.log(42);'],
+    });
+    const worker = await waitForWorker(1);
+    const start = worker.posted.find(message => message.type === 'start');
+
+    expect(start?.type).toBe('start');
+    if (start?.type !== 'start') throw new Error('Runtime start message was not sent.');
+    expect(start.options).toMatchObject({
+      source: 'console.log(42);',
+      argv: ['argument'],
+      execArgv: ['--eval', 'console.log(42);'],
+    });
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
+  it('passes stdio TTY metadata and treats missing stdin as non-TTY', async () => {
+    const provider = new NodeRuntimeProvider();
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+      stdoutIsTTY: true,
+      stderrIsTTY: false,
+    });
+    const worker = await waitForWorker(1);
+    const start = worker.posted.find(message => message.type === 'start');
+
+    expect(start?.type).toBe('start');
+    if (start?.type !== 'start') throw new Error('Runtime start message was not sent.');
+    expect(start.options).toMatchObject({
+      stdinIsTTY: false,
+      stdoutIsTTY: true,
+      stderrIsTTY: false,
+    });
+
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
   it('keeps terminal input queued until a synchronous stdin read requests it', async () => {
     const provider = new NodeRuntimeProvider();
     const stdin = new ProcessStdin();
@@ -133,12 +183,43 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
 
     const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
     expect(hostHandler).toBeDefined();
-    await expect(hostHandler?.({ kind: 'stdin' })).resolves.toEqual([
+    await expect(hostHandler?.({ kind: 'stdin' }, new AbortController().signal)).resolves.toEqual([
       ...new TextEncoder().encode('entered early\n'),
     ]);
 
     worker.emit({ type: 'complete', result: { exitCode: 0 } });
     await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
+  it('completes executions with piped stdin without resetting TTY raw mode', async () => {
+    const provider = new NodeRuntimeProvider();
+    const stdin = new ProcessStdin(new PassThrough());
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+      processStdin: stdin,
+    });
+    const worker = await waitForWorker(1);
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
+
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
+  it('reports raw mode requests for piped stdin instead of leaving the worker pending', async () => {
+    const provider = new NodeRuntimeProvider();
+    const stdin = new ProcessStdin(new PassThrough());
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+      processStdin: stdin,
+    });
+    const worker = await waitForWorker(1);
+    worker.emit({ type: 'stdin-raw-mode', enabled: true });
+
+    await expect(run).resolves.toEqual({
+      exitCode: 1,
+      stderr: 'Error: Cannot set raw mode on a non-TTY input stream.',
+    });
   });
 
   it('preserves binary subviews across worker input, synchronous input, and worker output', async () => {
@@ -163,7 +244,9 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     });
     source.write(bytes);
     const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
-    await expect(hostHandler?.({ kind: 'stdin' })).resolves.toEqual([...bytes]);
+    await expect(hostHandler?.({ kind: 'stdin' }, new AbortController().signal)).resolves.toEqual([
+      ...bytes,
+    ]);
     worker.emit({ type: 'output', entries: [{ channel: 'stdout', text: bytes }] });
     expect(Buffer.concat(output)).toEqual(bytes);
     source.end();
@@ -184,8 +267,8 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
     expect(hostHandler).toBeDefined();
 
-    const firstRead = hostHandler?.({ kind: 'stdin' });
-    const secondRead = hostHandler?.({ kind: 'stdin' });
+    const firstRead = hostHandler?.({ kind: 'stdin' }, new AbortController().signal);
+    const secondRead = hostHandler?.({ kind: 'stdin' }, new AbortController().signal);
     stdin.submitLine('first');
     stdin.submitLine('second');
 
@@ -207,11 +290,35 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     const worker = await waitForWorker(1);
     const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
     expect(hostHandler).toBeDefined();
-    const read = hostHandler?.({ kind: 'stdin' });
+    const read = hostHandler?.({ kind: 'stdin' }, new AbortController().signal);
 
     worker.emit({ type: 'complete', result: { exitCode: 0 } });
 
     await expect(read).resolves.toEqual([]);
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
+  it('removes a canceled synchronous stdin reader without consuming later input', async () => {
+    const provider = new NodeRuntimeProvider();
+    const stdin = new ProcessStdin();
+    stdin._active = true;
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+      processStdin: stdin,
+    });
+    const worker = await waitForWorker(1);
+    const hostHandler = vi.mocked(registerRuntimeHost).mock.calls[0]?.[1];
+    expect(hostHandler).toBeDefined();
+    const controller = new AbortController();
+    const canceledRead = hostHandler?.({ kind: 'stdin' }, controller.signal);
+    controller.abort();
+    await expect(canceledRead).resolves.toEqual([]);
+
+    stdin.submitLine('after cancellation');
+    const nextRead = hostHandler?.({ kind: 'stdin' }, new AbortController().signal);
+    await expect(nextRead).resolves.toEqual([...new TextEncoder().encode('after cancellation\n')]);
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
     await expect(run).resolves.toEqual({ exitCode: 0 });
   });
 
@@ -286,6 +393,29 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
 
     await expect(run).resolves.toEqual({ exitCode: 130 });
     expect(worker.terminated).toBe(true);
+  });
+
+  it('closes runtime FIFO endpoints before completing a terminated run', async () => {
+    const cleanup = deferred<void>();
+    vi.mocked(fsClient.closeFifos).mockReturnValueOnce(cleanup.promise);
+    const provider = new NodeRuntimeProvider();
+    const run = provider.execute({ rootPath: '/workspace/app', filePath: '/workspace/app/a.js' });
+    const worker = await waitForWorker(1);
+    const start = worker.posted.find(message => message.type === 'start');
+    if (!start || start.type !== 'start') throw new Error('Runtime start message was not sent.');
+
+    await provider.dispose();
+
+    expect(worker.terminated).toBe(true);
+    expect(fsClient.closeFifos).toHaveBeenCalledWith(start.runtimeId);
+    let completed = false;
+    void run.then(() => {
+      completed = true;
+    });
+    await Promise.resolve();
+    expect(completed).toBe(false);
+    cleanup.resolve();
+    await expect(run).resolves.toEqual({ exitCode: 130 });
   });
 
   it('waits for a handled SIGINT until the worker completes', async () => {
@@ -430,6 +560,86 @@ describe('NodeRuntimeProvider worker lifecycle', () => {
     shellResult.resolve({ stdout: 'late', stderr: '', code: 0 });
     await Promise.resolve();
     expect(worker.posted.some(message => message.type === 'shell-result')).toBe(false);
+  });
+
+  it('streams shell output and forwards child kill signals to the host shell', async () => {
+    const shellResult = deferred<{ stdout: string; stderr: string; code: number | null }>();
+    let shellOptions: Parameters<typeof executeRuntimeShell>[2] | undefined;
+    vi.mocked(executeRuntimeShell).mockImplementationOnce((_rootPath, _command, options) => {
+      shellOptions = options;
+      return shellResult.promise;
+    });
+    const provider = new NodeRuntimeProvider();
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+    });
+    const worker = await waitForWorker(1);
+    worker.emit({ type: 'shell', id: 4, command: 'long-running-command' });
+    await vi.waitFor(() => expect(shellOptions).toBeDefined());
+
+    shellOptions?.onStdout?.('first chunk');
+    shellOptions?.onStderr?.('second chunk');
+    expect(worker.posted).toContainEqual({
+      type: 'shell-output',
+      id: 4,
+      channel: 'stdout',
+      data: 'first chunk',
+    });
+    expect(worker.posted).toContainEqual({
+      type: 'shell-output',
+      id: 4,
+      channel: 'stderr',
+      data: 'second chunk',
+    });
+
+    worker.emit({ type: 'shell-cancel', id: 4, signal: 'SIGTERM' });
+    expect(shellOptions?.signal?.aborted).toBe(true);
+    expect(shellOptions?.signal?.reason).toBe('SIGTERM');
+    shellResult.resolve({ stdout: 'late', stderr: '', code: 0 });
+    await Promise.resolve();
+    expect(worker.posted.some(message => message.type === 'shell-result')).toBe(false);
+
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+  });
+
+  it('forwards child stdin bytes to the shell and acknowledges bounded chunks', async () => {
+    const received: Buffer[] = [];
+    const shellResult = deferred<{ stdout: string; stderr: string; code: number | null }>();
+    vi.mocked(executeRuntimeShell).mockImplementationOnce((_rootPath, _command, options) => {
+      const stdin = options.stdin;
+      if (!stdin) throw new Error('Shell stdin was not connected.');
+      stdin.on('data', chunk => received.push(Buffer.from(chunk)));
+      stdin.once('end', () => shellResult.resolve({ stdout: '', stderr: '', code: 0 }));
+      return shellResult.promise;
+    });
+    const provider = new NodeRuntimeProvider();
+    const run = provider.execute({
+      rootPath: '/workspace/app',
+      filePath: '/workspace/app/a.js',
+    });
+    const worker = await waitForWorker(1);
+    worker.emit({ type: 'shell', id: 5, command: 'input-command', hasStdin: true });
+    await vi.waitFor(() => expect(executeRuntimeShell).toHaveBeenCalled());
+
+    const bytes = Buffer.from('runtime input 日本語');
+    worker.emit({ type: 'shell-input', id: 5, data: bytes });
+    await vi.waitFor(() => {
+      expect(worker.posted).toContainEqual({ type: 'shell-input-ack', id: 5 });
+    });
+    worker.emit({ type: 'shell-input-end', id: 5 });
+
+    await vi.waitFor(() =>
+      expect(worker.posted).toContainEqual({
+        type: 'shell-result',
+        id: 5,
+        result: { stdout: '', stderr: '', code: 0 },
+      })
+    );
+    worker.emit({ type: 'complete', result: { exitCode: 0 } });
+    await expect(run).resolves.toEqual({ exitCode: 0 });
+    expect(Buffer.concat(received)).toEqual(bytes);
   });
 
   it('sends SIGINT and terminates with 130 when the worker does not handle it', async () => {

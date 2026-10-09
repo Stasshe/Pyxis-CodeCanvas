@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import type { RuntimeBridge } from '../bridge/client';
 import type { FsStat, RpcValue, RuntimeRequest } from '../bridge/protocol';
 import { ModuleCode, type ModuleDependency } from './moduleCode';
@@ -94,10 +95,10 @@ export class ModuleFileSystem {
   }
 
   private decodeText(value: RpcValue, path: string): string {
-    if (!Array.isArray(value) || !value.every((byte): byte is number => typeof byte === 'number')) {
+    if (typeof value !== 'string') {
       throw new Error(`Filesystem returned invalid file data for ${path}.`);
     }
-    return new TextDecoder().decode(new Uint8Array(value));
+    return Buffer.from(value, 'base64').toString('utf8');
   }
 
   private decodeStat(value: RpcValue): FsStat {

@@ -7,6 +7,7 @@ const defaults: SearchOptions = {
   wholeWord: false,
   useRegex: false,
   searchInFilenames: false,
+  useIgnoreFiles: false,
 };
 
 describe('worker filesystem search', () => {
@@ -48,6 +49,89 @@ describe('worker filesystem search', () => {
     await core.writeFile('/tmp/app/src/b.txt', 'needle');
     const matches = await search('needle', { excludeGlobs: ['**/node_modules/**', '**/[a].txt'] });
     expect(matches.map(match => match.file.path)).toEqual(['/tmp/app/src/b.txt']);
+  });
+
+  it('treats an excluded directory pattern as excluding its descendants', async () => {
+    await core.mkdir('/tmp/app/node_modules/pkg', { recursive: true });
+    await core.writeFile('/tmp/app/node_modules/pkg/index.js', 'needle');
+    await core.writeFile('/tmp/app/src/keep.js', 'needle');
+
+    const matches = await search('needle', { excludeGlobs: ['**/node_modules'] });
+
+    expect(matches.map(match => match.file.path)).toEqual(['/tmp/app/src/keep.js']);
+  });
+
+  it('honors the configured .gitignore toggle', async () => {
+    await core.writeFile('/tmp/app/.gitignore', 'ignored.txt\nignored-dir/');
+    await core.mkdir('/tmp/app/ignored-dir', { recursive: true });
+    await core.writeFile('/tmp/app/ignored.txt', 'needle');
+    await core.writeFile('/tmp/app/ignored-dir/nested.txt', 'needle');
+    await core.writeFile('/tmp/app/kept.txt', 'needle');
+
+    const ignored = await search('needle', { useIgnoreFiles: true });
+    const included = await search('needle');
+
+    expect(ignored.map(match => match.file.path)).toEqual(['/tmp/app/kept.txt']);
+    expect(included).toHaveLength(3);
+  });
+
+  it('skips a FIFO .gitignore without waiting for a writer', async () => {
+    await core.mkfifo('/tmp/app/.gitignore');
+    await core.writeFile('/tmp/app/src/text.txt', 'needle');
+
+    const matches = await search('needle', { useIgnoreFiles: true });
+
+    expect(matches.map(match => match.file.path)).toEqual(['/tmp/app/src/text.txt']);
+    expect(await core.stat('/tmp/app/.gitignore')).toMatchObject({ type: 'fifo', size: 0 });
+  });
+
+  it('skips FIFO entries when searching contents and filenames', async () => {
+    await core.mkfifo('/tmp/app/src/needle-pipe');
+    await core.openFifo('/tmp/app/src/needle-pipe', 'readwrite', 'pipe', 'search-owner');
+    await core.writeFifo('pipe', new Uint8Array([7]));
+    await core.writeFile('/tmp/app/src/text.txt', 'needle');
+    try {
+      const matches = await search('needle', { searchInFilenames: true });
+
+      expect(matches.map(match => match.file.path)).toEqual(['/tmp/app/src/text.txt']);
+      expect(await core.readFifo('pipe', 1)).toEqual(new Uint8Array([7]));
+    } finally {
+      await core.closeFifo('pipe');
+    }
+  });
+
+  it('scopes nested ignores and preserves unrestricted searches', async () => {
+    await core.writeFile('/tmp/app/.gitignore', '*.txt\n');
+    await core.writeFile('/tmp/app/src/.gitignore', '!keep.txt\nignored/\n');
+    await core.writeFile('/tmp/app/src/keep.txt', 'needle');
+    await core.writeFile('/tmp/app/src/drop.txt', 'needle');
+    await core.writeFile('/tmp/app/src/ignored', 'needle');
+    await core.mkdir('/tmp/app/.git');
+    await core.writeFile('/tmp/app/.git/config', 'needle');
+    await core.mkdir('/tmp/app/node_modules');
+    await core.writeFile('/tmp/app/node_modules/package.js', 'needle');
+    expect(
+      (await search('needle', { useIgnoreFiles: true })).map(match => match.file.path)
+    ).toEqual([
+      '/tmp/app/.git/config',
+      '/tmp/app/node_modules/package.js',
+      '/tmp/app/src/ignored',
+      '/tmp/app/src/keep.txt',
+    ]);
+    expect(await search('needle')).toHaveLength(5);
+  });
+
+  it('scopes nested globstar ignores to their .gitignore directory', async () => {
+    await core.mkdir('/tmp/app/src/deep', { recursive: true });
+    await core.mkdir('/tmp/app/other', { recursive: true });
+    await core.writeFile('/tmp/app/src/.gitignore', '**/generated.txt\n');
+    await core.writeFile('/tmp/app/src/generated.txt', 'needle');
+    await core.writeFile('/tmp/app/src/deep/generated.txt', 'needle');
+    await core.writeFile('/tmp/app/other/generated.txt', 'needle');
+
+    const matches = await search('needle', { useIgnoreFiles: true });
+
+    expect(matches.map(match => match.file.path)).toEqual(['/tmp/app/other/generated.txt']);
   });
 
   it('returns filename matches as line zero and ignores binary contents', async () => {

@@ -22,6 +22,29 @@ describe('Node zlib builtin', () => {
     expect(() => zlib.gunzipSync(zlib.deflateSync(source))).toThrow();
   });
 
+  it('auto-detects gzip and deflate formats in unzip APIs', async () => {
+    const zlib = createZlibModule();
+    const source = Buffer.from('auto-detected payload');
+    const gzip = zlib.gzipSync(source);
+    const deflate = zlib.deflateSync(source);
+    expect(zlib.unzipSync(gzip)).toEqual(source);
+    expect(zlib.unzipSync(deflate)).toEqual(source);
+    const stream = zlib.createUnzip();
+    expect(await collect(Readable.from([gzip]).pipe(stream))).toEqual(source);
+  });
+
+  it('exposes malformed compressed input as a coded Error', () => {
+    const zlib = createZlibModule();
+    try {
+      zlib.unzipSync(Buffer.from('invalid compressed data'));
+      throw new Error('Expected unzipSync to fail.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toMatchObject({ code: 'Z_DATA_ERROR', errno: -3 });
+      expect((error as Error).message).toBeTruthy();
+    }
+  });
+
   it('encodes string input as UTF-8 before compression', () => {
     const zlib = createZlibModule();
     const source = '猫 payload';

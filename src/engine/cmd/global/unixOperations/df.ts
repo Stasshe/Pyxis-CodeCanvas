@@ -1,7 +1,8 @@
 import { UnixCommandBase } from './base';
 
 export class DfCommand extends UnixCommandBase {
-  async execute(_: string[] = []): Promise<string> {
+  async execute(args: string[] = []): Promise<string> {
+    if (args.length > 0) throw new Error('df: options and operands are not supported');
     const totalBytes = 1024 * 1024 * 1024;
     const files = await this.getDescendants('/');
     const used = files.reduce((sum, file) => sum + (file.type === 'file' ? file.size : 0), 0);

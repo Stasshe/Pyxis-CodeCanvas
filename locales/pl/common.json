@@ -135,9 +135,61 @@
     "loadingFile": "Przywracanie zawartości pliku...",
     "selectFile": "Proszę wybrać plik"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Masz wszystkie dostępne rozszerzenia",
+    "allInstalled": "Wszystkie rozszerzenia zainstalowane",
+    "available": "Dostępne ({count})",
+    "browseAvailable": "Aby rozpocząć, przejrzyj dostępne rozszerzenia",
+    "confirmUninstall": "Czy na pewno chcesz odinstalować „{name}”?",
+    "disable": "Wyłączyć",
+    "disableUnavailable": "Nie można wyłączyć rozszerzenia.",
+    "enable": "Włączać",
+    "enableUnavailable": "Nie można włączyć rozszerzenia.",
+    "importFailed": "Nie udało się zaimportować ZIP: {error}",
+    "importZip": "Rozszerzenie importu (.zip)",
+    "install": "Zainstalować",
+    "installed": "Zainstalowano ({count})",
+    "installFailed": "Nie udało się zainstalować {name}: {error}",
+    "installUnavailable": "Nie można zainstalować lub włączyć rozszerzenia.",
+    "loadFailed": "Nie udało się załadować rozszerzeń: {error}",
+    "loading": "Ładowanie rozszerzeń...",
+    "manifestUrlMissing": "W rejestrze nie znaleziono adresu URL manifestu",
+    "noMatches": "Nie znaleziono pasujących rozszerzeń",
+    "noneInstalled": "Nie zainstalowano żadnych rozszerzeń",
+    "packCount": "Rozszerzenia: {count}",
+    "reload": "Załaduj ponownie rozszerzenia",
+    "search": "Rozszerzenia wyszukiwania...",
+    "title": "Rozszerzenia",
+    "toggleFailed": "Nie udało się zmienić stanu rozszerzenia: {error}",
+    "tryDifferentSearch": "Wypróbuj inne wyszukiwane hasło",
+    "types": {
+      "builtinModule": "Wbudowany moduł",
+      "languageRuntime": "Środowisko wykonawcze języka",
+      "service": "Praca",
+      "tool": "Narzędzie",
+      "transpiler": "Transpilator",
+      "ui": "Interfejs użytkownika"
+    },
+    "uninstall": "Odinstaluj",
+    "uninstallFailed": "Nie udało się odinstalować rozszerzenia: {error}",
+    "uninstallTitle": "Odinstaluj rozszerzenie",
+    "uninstallUnavailable": "Nie można odinstalować rozszerzenia.",
+    "update": "Aktualizacja",
+    "updateFailed": "Nie udało się zaktualizować {name}: {error}",
+    "updateUnavailable": "Nie można aktywować nowego pakietu rozszerzeń.",
+    "viewDetails": "Kliknij, aby wyświetlić szczegóły rozszerzenia"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Utwórz plik",
+      "createFolder": "Utwórz folder",
+      "import": "Importuj",
+      "move": "Przenieś"
+    },
     "alert": {
-      "renameFailed": "Zmiana nazwy nie powiodła się: {error}"
+      "destinationExists": "Miejsce docelowe już istnieje: {path}",
+      "operationFailed": "Nie udało się: {action}: {error}",
+      "workspaceChanged": "Obszar roboczy został zmieniony; pozostałe pliki pominięto."
     },
     "menu": {
       "createFile": "Utwórz plik",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Utwórz nowy plik",
-    "createFolder": "Utwórz nowy folder"
+    "createFolder": "Utwórz nowy folder",
+    "newFilePrompt": "Podaj nazwę nowego pliku:",
+    "newFolderPrompt": "Podaj nazwę nowego folderu:"
   },
   "markdownPreview": {
     "downloadSvg": "Pobierz SVG",
