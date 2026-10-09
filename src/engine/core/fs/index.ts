@@ -6,7 +6,7 @@ export {
   normalizePath,
   posixPath,
   resolvePath,
-} from '../pathUtils';
+} from '../paths';
 export { FsClient, fsClient } from './client';
 export { FSError, registerFsErrors } from './errors';
 export { NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from './layout';

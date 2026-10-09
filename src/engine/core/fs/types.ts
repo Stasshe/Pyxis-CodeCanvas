@@ -1,4 +1,4 @@
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types/index';
 
 export interface FsChangeEvent {
   type: 'create' | 'update' | 'delete' | 'rename';
@@ -109,4 +109,10 @@ export interface FsApi {
 
 export interface RenameOptions {
   overwrite?: boolean;
+}
+
+export interface TranspilerDescriptor {
+  readonly id: string;
+  readonly supportedExtensions: string[];
+  readonly workerTransform: 'typescript';
 }

@@ -1,10 +1,10 @@
-import { normalizePath } from '@/engine/core/fs';
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { normalizePath } from '@/engine/core/fs/index';
+import { tabRegistry } from '@/engine/ide/tabs/TabRegistry';
+import type { EditorPane, Tab } from '@/engine/ide/tabs/types';
 import { clearTabContent, isTabDirty } from '@/stores/tabContentStore';
 import { notifyTabClosed } from './closeCallbacks';
 import { removeSaveTimerForPath } from './contentSync';
-import { collectAllTabs, findFirstLeafPane } from './paneUtils';
+import { collectAllTabs, findFirstLeafPane } from './paneTree';
 import { tabState } from './state';
 
 export function removePane(paneId: string): boolean {

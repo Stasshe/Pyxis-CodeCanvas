@@ -1,6 +1,6 @@
 # OperationWindow
 
-画面上部に開く小さな選択window。Quick Open（file検索）、Open Folder（folder閲覧と確定）、Open Recent（最近のfolder）の3つの独立したviewと、他機能が渡す任意の項目listを同じsurfaceで扱う。command paletteはない。実装は`src/components/Top/OperationWindow/`と`src/context/FileSelectorContext.tsx`。
+画面上部に開く小さな選択window。Quick Open（file検索）、Open Folder（folder閲覧と確定）、Open Recent（最近のfolder）の3つの独立したviewと、他機能が渡す任意の項目listを同じsurfaceで扱う。command paletteはない。UIは`src/components/operation-window/`、検索workerとpath処理は`src/engine/ide/search/`、folder選択contextは`src/context/FileSelectorContext.tsx`。
 
 3つのviewを分けるのは、file検索・path移動・MRU選択はそれぞれ対象と確定動作が違い、結果を混ぜると何が選ばれるか曖昧になるため（[STORAGE_INTENT](../plan/STORAGE_INTENT.md)）。
 

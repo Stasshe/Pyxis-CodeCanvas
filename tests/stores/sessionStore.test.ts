@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { STORES, storageService } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/core/metadata';
 import { sessionStore } from '@/stores/sessionStore';
 
 describe('sessionStore.load', () => {

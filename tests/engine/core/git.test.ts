@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MergeConflictDetector,
   saveResolvedConflict,
-} from '@/engine/cmd/global/gitOperations/mergeConflictDetector';
-import { WorkerGitCommands } from '@/engine/cmd/global/gitOperations/worker';
+} from '@/engine/system/git/mergeConflictDetector';
+import { WorkerGitCommands } from '@/engine/system/git/worker';
 import { FsCore } from '@/engine/core/fs/core';
 import { createGitFs, repositoryPath } from '@/engine/core/fs/git';
 

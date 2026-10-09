@@ -10,10 +10,10 @@ import {
   truncateMessagesFromMessage,
   updateChatSpaceMessage,
   updateChatSpaceSelectedFiles,
-} from '@/engine/storage/chatStorageAdapter';
+} from '@/engine/core/metadata/chatStorageAdapter';
 import { pushLogMessage } from '@/stores/loggerStore';
-import type { AIEditResponse, ChatSpace, ChatSpaceMessage } from '@/types';
-import { applyChatSpaceChange } from './chatSpaceChanges';
+import type { AIEditResponse, ChatSpace, ChatSpaceMessage } from '@/types/index';
+import { applyChatSpaceChange } from '../../engine/ide/ai/chatSpaceChanges';
 
 export const useChatSpace = (rootPath: string | null) => {
   const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);

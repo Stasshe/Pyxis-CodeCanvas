@@ -38,13 +38,13 @@ export async function initTerminalProfileHooks() {
     { GitCommands },
     { terminalCommandRegistry },
   ] = await Promise.all([
-    import('/src/engine/cmd/shell/streamShell.ts'),
-    import('/src/engine/cmd/global/npm.ts'),
-    import('/src/engine/cmd/terminalOutputManager.ts'),
-    import('/src/engine/cmd/terminalUI.ts'),
+    import('/src/engine/system/shell/streamShell.ts'),
+    import('/src/engine/system/commands/npm/index.ts'),
+    import('/src/engine/system/terminal/terminalOutputManager.ts'),
+    import('/src/engine/system/terminal/terminalUI.ts'),
     import('/src/engine/core/fs/client.ts'),
-    import('/src/engine/cmd/global/git.ts'),
-    import('/src/engine/cmd/terminalRegistry.ts'),
+    import('/src/engine/system/commands/git/index.ts'),
+    import('/src/engine/system/terminal/terminalRegistry.ts'),
   ]);
   wrap(StreamShell.prototype, 'run', 'main.shell');
   wrap(NpmCommands.prototype, 'install', 'main.npm');

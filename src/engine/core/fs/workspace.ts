@@ -1,6 +1,6 @@
-import type { InitialFileTree } from '@/engine/initialFileContents';
-import { initialFileContents } from '@/engine/initialFileContents';
-import { HOME_DIR, resolvePath } from '../pathUtils';
+import type { InitialFileTree } from '@/engine/core/workspace/initialFileContents';
+import { initialFileContents } from '@/engine/core/workspace/initialFileContents';
+import { HOME_DIR, resolvePath } from '../paths';
 import type { FsApi } from './types';
 
 type WorkspaceFs = Pick<FsApi, 'mkdir' | 'writeFile' | 'exists' | 'stat'>;

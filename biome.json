@@ -101,7 +101,7 @@
       "!**/*.md",
       "!**/public/extensions/*",
       "!**/eslint.config.js",
-      "!src/engine/initialFileContents.ts"
+      "!src/engine/core/workspace/initialFileContents.ts"
     ]
   }
 }

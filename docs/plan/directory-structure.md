@@ -186,4 +186,5 @@ src/
 - `engine/tabs/builtins` のUI部分は `components/tabs/` へ
 - tests/ は src/ と同じ構造に揃える
 - docs（arch・domain）のpath記述を新構造へ更新
+- 命名は機能・責務を基準にする。UIを拡張子や実装library別の下位folderに分けず、同一feature内に置く。`utils`・`helpers`・`ui`などの汎用名は避け、同じ責務のfolderを重複させない
 - 実施: 全codexセッションを区切りで停止→専任1セッションで一括移動→逆依存0件をrgで確認→全体format・lint・tsc・test・build→再開

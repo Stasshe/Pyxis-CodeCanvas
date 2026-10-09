@@ -19,7 +19,7 @@ pnpm run test:watch
 pnpm run create-extension
 ```
 
-Single test file: `pnpm exec vitest run tests/engine/some.test.ts`
+Single test file: `pnpm exec vitest run tests/engine/core/fileBytes.test.ts`
 
 `setup-build` runs automatically before dev/build: copies locales, generates initial file TS, builds extensions.
 
@@ -35,7 +35,7 @@ Pyxis is a fully client-side browser IDE. No server-side persistence. All data l
 | **IndexedDB** | Recent folders, chats, tabs, AI reviews, settings, translations, extension data, path-keyed filesystem permission bits | Searchable application metadata |
 | **Memory** | `/tmp` | Ephemeral files |
 
-The FS Worker in `src/engine/core/fs/` is the only OPFS owner. Main-thread code uses its FS Client. Git and npm installation run in the FS Worker against the same filesystem. `ProjectFile` contains absolute path, entry type, full `stat` mode, size, and mtime. File identity is its normalized absolute path. OPFS stores payloads; permission bits are keyed by canonical absolute path in IndexedDB, while `/tmp` modes stay in memory. Virtual symlinks use authoritative per-link records under the reserved OPFS root `.pyxis-fs-links`; `/tmp` links are memory-backed. A workspace root controls the file tree and default working directory; it does not create a separate path namespace. The Web Lock allows one active tab to own the filesystem.
+The FS Worker implementation and endpoint live in `src/engine/system/runtime/fs/`; OPFS filesystem primitives live in `src/engine/core/fs/`. Main-thread code uses the FS Client. Git and npm installation run in the FS Worker against the same filesystem. `ProjectFile` contains absolute path, entry type, full `stat` mode, size, and mtime. File identity is its normalized absolute path. OPFS stores payloads; permission bits are keyed by canonical absolute path in IndexedDB, while `/tmp` modes stay in memory. Virtual symlinks use authoritative per-link records under the reserved OPFS root `.pyxis-fs-links`; `/tmp` links are memory-backed. A workspace root controls the file tree and default working directory; it does not create a separate path namespace. The Web Lock allows one active tab to own the filesystem.
 
 Temporary legacy migration lives in `src/engine/core/migration/`; keep its invocation centralized. Remove it after the migration window ending around April 2027. Virtual `HOME` is `/home/pyxis`; new workspaces at `~/<name>` start empty. Startup seeds the generated `initial_files/` content into `~/demo` only when that directory is absent; existing folders, including an existing `~/demo`, are left intact. Runtime cache is `~/.cache/pyxis`, npm cache is `~/.npm`, and `/tmp` is memory-backed. Legacy projects target `/home/pyxis/<name>` without a reserved suffix. A destination collision stops migration before project writes and preserves legacy data; persisted project-to-root mappings let retries reuse their assigned destination. Filesystem-worker seeding runs after legacy migration and before recent folders are read.
 
@@ -50,15 +50,11 @@ Global state uses **valtio** stores in `src/stores/`:
 
 ### Engine Subsystems (`src/engine/`)
 
-- `core/fs/` — OPFS core, FS Worker, FS Client, path API, and Git adapter
-- `core/migration/` — temporary import from legacy storage
-- `extensions/` — Extension Manager, Loader, Registry, Command Registry (dynamic Blob URL loading)
-- `tabs/` — TabRegistry, builtin tab types
-- `runtime/` — Custom browser-based Node.js runtime (no WASM)
-- `cmd/` — Terminal command implementations (git, unix, npm)
-- `ai/` — AI integration (Gemini)
-- `i18n/` — Internationalization (20 languages, locale files in `locales/`)
-- `storage/` — Storage adapters
+- `core/` — OPFS filesystem primitives (`fs/`), workspace projection (`workspace/`), IndexedDB metadata (`metadata/`), settings, i18n, and temporary legacy migration
+- `system/` — Pyxis's Linux-like execution environment: `shell/`, `commands/` (unix, git, npm, vim), `terminal/`, `git/`, `npm/`, and browser runtime (`runtime/`)
+- `ide/` — IDE features: AI, search, markdown, tabs registry/types, extensions, GitHub integration, and import/export
+
+The dependency direction is `ide` → `system` → `core`. Engine code does not import components or hooks; engine-to-store imports remain for now. Runtime FS communication is defined by `system/runtime/fs/`, while filesystem ownership and primitives stay in `core/fs/`.
 
 ### Extension System
 
@@ -68,14 +64,7 @@ Extensions live in `extensions/<name>/` with `manifest.json` + `index.tsx`.
 
 ### Component Structure (`src/components/`)
 
-- `Pane/` — Multi-pane split editor (vertical/horizontal, drag-drop)
-- `Tab/` — Tab bar and tab content per type
-- `Left/` — File tree sidebar
-- `Right/` — Git, search, AI panels
-- `Bottom/` — Terminal (xterm.js)
-- `Top/` — Menu bar
-- `MenuBar.tsx` — Top application menu
-- `AI/` — AI assistant UI
+Components contain UI grouped by feature: `layout/`, `pane/`, `tabs/`, `editor/`, `preview/`, `explorer/`, `search/`, `git/`, `run/`, `extensions/`, `settings/`, `terminal/`, `operation-window/`, and `ai/`. Shared React hooks live in `src/hooks/`; external library adapters live in `src/lib/` (Monaco, CodeMirror, xterm, and Mermaid).
 
 ### Key Conventions
 

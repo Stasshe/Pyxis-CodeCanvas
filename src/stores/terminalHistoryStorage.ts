@@ -1,4 +1,4 @@
-import { STORES, storageService } from '@/engine/storage';
+import { STORES, storageService } from '@/engine/core/metadata';
 
 /**
  * Terminal History Storage (migrated)

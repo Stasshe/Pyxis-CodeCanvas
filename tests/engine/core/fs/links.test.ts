@@ -4,7 +4,7 @@ import { FIFO_STORAGE } from '@/engine/core/fs/fifo';
 import { createGitFs } from '@/engine/core/fs/git';
 import { LINK_STORAGE, Links } from '@/engine/core/fs/links';
 import type { FsChangeEvent } from '@/engine/core/fs/types';
-import { ProjectTree } from '@/engine/core/projectTree';
+import { ProjectTree } from '@/engine/core/workspace/projectTree';
 import { directoryTree } from '../../../_helpers/opfs';
 
 describe('filesystem symbolic links', () => {

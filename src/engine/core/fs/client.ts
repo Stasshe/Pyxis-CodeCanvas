@@ -1,7 +1,8 @@
 import * as Comlink from 'comlink';
-import type { TranspilerDescriptor } from '@/engine/runtime/core/RuntimeProvider';
-import type { ProjectFile } from '@/types';
+import type { TranspilerDescriptor } from '@/engine/core/fs/types';
+import type { ProjectFile } from '@/types/index';
 import { FSError, registerFsErrors } from './errors';
+import type { FsWorkerApi } from './protocol';
 import { type ScopedFsApi, scopedFs } from './scoped';
 import type { SearchRequest, SearchResult } from './search';
 import type {
@@ -17,7 +18,6 @@ import type {
   RenameOptions,
   RmOptions,
 } from './types';
-import type { FsWorkerApi } from './worker';
 
 registerFsErrors();
 
@@ -51,7 +51,9 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
         .catch(reject);
     });
     try {
-      this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
+      this.worker = new Worker(new URL('../../system/runtime/fs/worker.ts', import.meta.url), {
+        type: 'module',
+      });
       this.remote = Comlink.wrap<FsWorkerApi>(this.worker);
       await this.remote.init(
         Comlink.proxy((event: FsChangeEvent) => {

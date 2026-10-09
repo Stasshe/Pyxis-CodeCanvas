@@ -1,11 +1,11 @@
 import { parentPort } from 'node:worker_threads';
-import { RuntimeBridge } from '@/engine/runtime/bridge/client';
-import { attachRuntimePort } from '@/engine/runtime/bridge/endpoint';
-import type { RpcValue, TranspileRequest } from '@/engine/runtime/bridge/protocol';
-import { formatRuntimeArgs, setRuntimeLogSink } from '@/engine/runtime/core/runtimeLogger';
-import { NodeRuntime } from '@/engine/runtime/nodejs/nodeRuntime';
-import { WorkerStdin } from '@/engine/runtime/nodejs/workerStdin';
-import { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
+import { RuntimeBridge } from '@/engine/system/runtime/bridge/client';
+import { attachRuntimePort } from '@/engine/system/runtime/bridge/endpoint';
+import type { RpcValue, TranspileRequest } from '@/engine/system/runtime/bridge/protocol';
+import { formatRuntimeArgs, setRuntimeLogSink } from '@/engine/system/runtime/core/runtimeLogger';
+import { NodeRuntime } from '@/engine/system/runtime/nodejs/nodeRuntime';
+import { WorkerStdin } from '@/engine/system/runtime/nodejs/workerStdin';
+import { RuntimeFsMount } from '@/engine/system/runtime/fs/RuntimeFsMount';
 import type { IsolatedRuntimeMessage, IsolatedRuntimeRequest } from './isolatedNodeRuntime';
 import { MemoryFs } from './memoryFs';
 

@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
+import { fsClient, isPathWithin } from '@/engine/core/fs/index';
 import {
   loadAIFileContextSnapshot,
   loadAIFileContexts,
   reconcileAIFileContextsForPathChange,
   resolveAIFileSelection,
-} from '@/engine/ai/contextBuilder';
-import { fsClient, isPathWithin } from '@/engine/core/fs';
+} from '@/engine/ide/ai/contextBuilder';
 import { pushLogMessage } from '@/stores/loggerStore';
-import type { AIFileContext, ChatSpace, FileItem } from '@/types';
+import type { AIFileContext, ChatSpace, FileItem } from '@/types/index';
 
 interface UseAIFileContextsProps {
   rootPath: string | null;

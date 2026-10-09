@@ -1,5 +1,5 @@
-import type { ProjectFile } from '@/types';
-import { basename, getParentPath } from '../pathUtils';
+import type { ProjectFile } from '@/types/index';
+import { basename, getParentPath } from '../paths';
 import type { FifoDescriptors } from './descriptors';
 import { FSError, translateFsError } from './errors';
 import type { FifoEntries } from './fifo';

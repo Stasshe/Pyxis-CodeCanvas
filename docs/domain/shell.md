@@ -1,6 +1,6 @@
 # Shell
 
-OS processではなく、`ShellExecutor`・`Process`（Node streamのstdin/stdout/stderrとfd表）・JavaScriptで書いたコマンドで構成したPOSIX shellの部分集合。実装は`src/engine/cmd/shell/`、Unixコマンドは`src/engine/cmd/global/unixOperations/`。
+OS processではなく、`ShellExecutor`・`Process`（Node streamのstdin/stdout/stderrとfd表）・JavaScriptで書いたコマンドで構成したPOSIX shellの部分集合。実装は`src/engine/system/shell/`、Unixコマンドは`src/engine/system/commands/unix/`。
 
 ## 構成
 

@@ -7,13 +7,13 @@ import type {
   LegacyMapping,
 } from '@/engine/core/migration/types';
 import type { PyxisSession } from '@/stores/sessionStore';
-import type { AIReviewEntry, ChatSpace } from '@/types';
+import type { AIReviewEntry, ChatSpace } from '@/types/index';
 
-vi.mock('@/engine/storage', () => ({
+vi.mock('@/engine/core/metadata', () => ({
   STORES: { TAB_STATE: 'tab_state', CHAT_SPACES: 'chat_spaces' },
   storageService: { initialize: vi.fn(async () => {}) },
 }));
-vi.mock('@/engine/storage/recentFolderStorageAdapter', () => ({
+vi.mock('@/engine/core/metadata/recentFolderStorageAdapter', () => ({
   saveRecentFolder: vi.fn(async () => {}),
 }));
 
@@ -176,7 +176,7 @@ describe('metadata source streaming', () => {
       readEvents.push(`${this.name}:${String(key)}`);
       return originalGet.call(this, key);
     });
-    const saveRecentFolder = await import('@/engine/storage/recentFolderStorageAdapter');
+    const saveRecentFolder = await import('@/engine/core/metadata/recentFolderStorageAdapter');
     vi.mocked(saveRecentFolder.saveRecentFolder).mockRejectedValueOnce(new Error('retry point'));
 
     await expect(migrateMetadata([mapping], files, sourceDb)).rejects.toThrow('retry point');

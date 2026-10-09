@@ -1,6 +1,6 @@
 # ファイルシステム
 
-`src/engine/core/fs/` がOPFS上の永続領域、`/tmp`の揮発領域、symlink、workspace作成、内容検索を担う。OPFSを触るのはFS Workerの`FsCore`だけで、main threadは`FsClient`、Runtime Workerはruntime用port経由で操作する。保存境界とpathモデルの全体像は [arch/storage](../arch/storage.md)。
+`src/engine/core/fs/` がOPFS上の永続領域、`/tmp`の揮発領域、symlink、内容検索を担い、workspace起動・tree projectionは`src/engine/core/workspace/`、React用workspace hookは`src/hooks/workspace/useProject.ts`にある。OPFSを触るのはFS Workerの`FsCore`だけで、worker entryとRPC endpointは`src/engine/system/runtime/fs/`にある。Worker transport contractは`src/engine/core/fs/protocol.ts`に置き、main threadは`FsClient`、Runtime Workerはruntime用port経由で操作する。保存境界とpathモデルの全体像は [arch/storage](../arch/storage.md)。
 
 ## API
 
@@ -138,11 +138,17 @@ stateDiagram-v2
 | `src/engine/core/fs/fifo.ts` | FIFO metadata record、bounded byte queue、open endpoint lifecycle |
 | `src/engine/core/fs/descriptors.ts` | virtual `/dev/null`、`/dev/fd`、FIFO descriptor alias |
 | `src/engine/core/fs/layout.ts` | root mount metadataとcache paths |
-| `src/engine/core/fs/endpoint.ts` | Worker API、Git/npm/runtime port、transpile |
+| `src/engine/system/runtime/fs/endpoint.ts` | FS Worker API、Git/npm/runtime port、transpile |
+| `src/engine/system/runtime/fs/worker.ts` | FS Worker entry point |
 | `src/engine/core/fs/client.ts` | Web Lock、Comlink client、変更event配信 |
+| `src/engine/core/fs/protocol.ts` | Worker transportの共有型 |
 | `src/engine/core/fs/fileMove.ts` | OPFS persistent fileのnative move |
-| `src/engine/core/fs/git.ts` | isomorphic-git adapter |
+| `src/engine/core/fs/git.ts` | Git filesystem contract and repository path helpers |
+| `src/engine/core/fs/gitignore.ts` | `.gitignore` parser and path matching used by filesystem search |
 | `src/engine/core/fs/search.ts` | 内容検索 |
-| `src/engine/core/project.ts`・`projectTree.ts` | workspace選択とtree projection |
-| `src/engine/core/pathUtils.ts` | POSIX字句処理、`HOME_DIR` |
+| `src/engine/core/workspace/project.ts`・`projectTree.ts` | workspace選択とtree projection |
+| `src/hooks/workspace/useProject.ts` | React用workspace hook |
+| `src/engine/core/paths.ts` | POSIX字句処理、`HOME_DIR` |
+| `src/engine/system/git/` | isomorphic-git operations and Git worker |
+| `src/engine/core/metadata/` | IndexedDB metadata adapters |
 | `src/engine/core/migration/` | 旧storage移行 |

@@ -1,5 +1,5 @@
 import type { FsCore } from '@/engine/core/fs/core';
-import type { RuntimeExecutionOptions } from '@/engine/runtime/core/RuntimeProvider';
+import type { RuntimeExecutionOptions } from '@/engine/system/runtime/core/RuntimeProvider';
 import { MemoryFs } from './memoryFs';
 import { createNodeRuntimeFixture, type NodeRuntimeFixture } from './nodeRuntime';
 

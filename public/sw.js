@@ -205,7 +205,7 @@
     }
   });
 
-  // src/engine/runtime/bridge/serviceWorker.js
+  // src/engine/system/runtime/bridge/serviceWorker.js
   var import_sync_message = __toESM(require_dist());
   var syncFetch = (0, import_sync_message.serviceWorkerFetchListener)();
   var ICON_CACHE = "pyxis-icons-v1";
