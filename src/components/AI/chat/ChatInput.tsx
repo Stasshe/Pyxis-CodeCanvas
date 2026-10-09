@@ -8,10 +8,14 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { assetPath } from '@/env';
 import { useInputHistory } from '@/hooks/ai/useInputHistory';
+import { pushLogMessage } from '@/stores/loggerStore';
+import { clearChatInputDraft, openChatInputDraft, updateChatInputDraft } from './chatInputDrafts';
 
 interface ChatInputProps {
   mode: 'ask' | 'edit';
-  onSubmit: (content: string) => void;
+  rootPath: string;
+  historyStorageKey: string;
+  onSubmit: (content: string) => Promise<boolean>;
   isProcessing: boolean;
   selectedFiles?: string[];
   onOpenFileSelector?: () => void;
@@ -27,6 +31,8 @@ interface ChatInputProps {
 
 export default function ChatInput({
   mode,
+  rootPath,
+  historyStorageKey,
   onSubmit,
   isProcessing,
   selectedFiles = [],
@@ -38,12 +44,19 @@ export default function ChatInput({
   isActiveTabSelected = false,
 }: ChatInputProps) {
   const { colors } = useTheme();
-  const [input, setInput] = useState('');
+  const draftSessionRef = useRef<ReturnType<typeof openChatInputDraft> | null>(null);
+  if (!draftSessionRef.current) draftSessionRef.current = openChatInputDraft(rootPath);
+  const draftSession = draftSessionRef.current;
+  const [input, setInput] = useState(draftSession.content);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const submitInFlightRef = useRef(false);
+  const inputRevisionRef = useRef(draftSession.revision);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { addToHistory, goToPrevious, goToNext, hasHistory } = useInputHistory({
     maxHistorySize: 100,
-    storageKey: `ai-chat-history-${mode}`,
+    storageKey: historyStorageKey,
   });
 
   useEffect(() => {
@@ -53,15 +66,48 @@ export default function ChatInput({
     }
   });
 
-  const handleSubmit = () => {
-    if (input.trim() && !isProcessing && !disabled) {
-      addToHistory(input.trim(), selectedFiles, mode);
-      onSubmit(input.trim());
-      setInput('');
+  const handleSubmit = async () => {
+    const content = input.trim();
+    if (!content || isProcessing || disabled || submitInFlightRef.current) return;
+
+    submitInFlightRef.current = true;
+    setIsSubmitting(true);
+    setSubmissionError(null);
+    const inputRevision = inputRevisionRef.current;
+
+    try {
+      const accepted = await onSubmit(content);
+      if (!accepted) return;
+
+      addToHistory(content, selectedFiles, mode);
+      if (inputRevisionRef.current === inputRevision) {
+        const revision = clearChatInputDraft(rootPath, draftSession.sessionId, inputRevision);
+        if (revision !== null) {
+          inputRevisionRef.current = revision;
+          setInput('');
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[ChatInput] Message submission failed:', error);
+      pushLogMessage(`Message submission failed: ${message}`, 'error', 'AI');
+      setSubmissionError(`Message could not be sent: ${message}`);
+    } finally {
+      submitInFlightRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
+  const updateInput = (value: string) => {
+    const revision = updateChatInputDraft(rootPath, draftSession.sessionId, value);
+    if (revision < 0) return;
+    inputRevisionRef.current = revision;
+    setInput(value);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
+
     // Ctrl/Cmd + Enter で送信
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -75,15 +121,15 @@ export default function ChatInput({
         e.preventDefault();
         const entry = goToPrevious(input);
         if (entry) {
-          setInput(entry.content);
+          updateInput(entry.content);
         }
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         const result = goToNext(input);
         if (typeof result === 'string') {
-          setInput(result);
+          updateInput(result);
         } else if (result) {
-          setInput(result.content);
+          updateInput(result.content);
         }
       }
     }
@@ -231,10 +277,12 @@ export default function ChatInput({
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => {
+              updateInput(e.target.value);
+            }}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            disabled={isProcessing || disabled}
+            disabled={isProcessing || disabled || isSubmitting}
             className="w-full px-2.5 py-1.5 pr-16 rounded-md border resize-none focus:outline-none focus:ring-1 transition-all text-xs"
             style={{
               background: colors.editorBg,
@@ -252,7 +300,7 @@ export default function ChatInput({
               <button
                 type="button"
                 onClick={onOpenFileSelector}
-                disabled={isProcessing || disabled}
+                disabled={isProcessing || disabled || isSubmitting}
                 className="p-1 rounded hover:bg-opacity-80 transition-all"
                 style={{
                   background: colors.mutedBg,
@@ -267,9 +315,9 @@ export default function ChatInput({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!input.trim() || isProcessing || disabled}
+              disabled={!input.trim() || isProcessing || disabled || isSubmitting}
               className={`p-1 rounded transition-all ${
-                !input.trim() || isProcessing || disabled
+                !input.trim() || isProcessing || disabled || isSubmitting
                   ? 'opacity-50 cursor-not-allowed'
                   : 'hover:opacity-90 shadow-sm'
               }`}
@@ -279,10 +327,20 @@ export default function ChatInput({
               }}
               title={t('ai.sendTitle')}
             >
-              {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              {isProcessing || isSubmitting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} />
+              )}
             </button>
           </div>
         </div>
+
+        {submissionError && (
+          <div role="alert" className="px-2 text-xs text-red-500">
+            {submissionError}
+          </div>
+        )}
 
         {/* ヘルプテキスト */}
         <div

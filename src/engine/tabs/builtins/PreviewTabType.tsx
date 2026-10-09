@@ -8,6 +8,7 @@ import type {
   OpenTabOptions,
   PreviewTab,
   SessionRestoreContext,
+  Tab,
   TabComponentProps,
   TabTypeDefinition,
 } from '../types';
@@ -49,8 +50,7 @@ export const PreviewTabType: TabTypeDefinition = {
   createTab: (data: unknown, options?: OpenTabOptions) => {
     const fileItem = data as FileItem;
     const tabId = fileItem.path ? `preview:${fileItem.path}` : `preview:${fileItem.name}`;
-    // Support both `targetPaneId` (preferred) and `paneId` for backward compatibility
-    const paneId = options?.targetPaneId || (options as any)?.paneId || '';
+    const paneId = options?.paneId || '';
     const content = fileItem.content || '';
     setTabContent(tabId, content, false);
     return {
@@ -77,7 +77,7 @@ export const PreviewTabType: TabTypeDefinition = {
   /**
    * セッション復元時: content をファイルから復元
    */
-  restoreContent: async (tab, context: SessionRestoreContext): Promise<PreviewTab> => {
+  restoreContent: async (tab, context: SessionRestoreContext): Promise<Tab> => {
     const previewTab = tab as PreviewTab;
     const filePath = previewTab.path;
 
@@ -87,7 +87,17 @@ export const PreviewTabType: TabTypeDefinition = {
 
     const file = await context.getFileByPath(filePath);
 
-    if (file?.content) {
+    if (file?.bufferContent !== undefined) {
+      return {
+        ...previewTab,
+        kind: 'binary',
+        content: '',
+        bufferContent: file.bufferContent,
+        mimeType: file.mimeType,
+      };
+    }
+
+    if (file?.content !== undefined) {
       console.log('[PreviewTabType] ✓ Restored content for:', filePath);
       return {
         ...previewTab,

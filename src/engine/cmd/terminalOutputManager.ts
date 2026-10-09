@@ -1,28 +1,8 @@
-/**
- * TerminalOutputManager - Centralized terminal output management
- *
- * This module provides a unified, systematic approach to terminal output
- * management, inspired by Linux/Windows terminal behavior. It tracks cursor
- * position and ensures proper newline handling across all output scenarios.
- *
- * Design Principles:
- * 1. Single responsibility: All terminal writes go through this manager
- * 2. Automatic cursor tracking: No manual state management needed
- * 3. Consistent newline behavior: Follows POSIX terminal conventions
- * 4. Buffer management: Prevents race conditions in async output
- *
- * Usage:
- *   const manager = new TerminalOutputManager(term);
- *   await manager.write('Hello');
- *   await manager.writeln('World');
- *   await manager.ensureNewline(); // Before showing prompt
- */
-
 import { ANSI } from './terminalUI';
 
 export interface IXTermInstance {
+  cols: number;
   write(data: string, callback?: () => void): void;
-  writeln(data: string): void;
   buffer: {
     active: {
       cursorX: number;
@@ -31,237 +11,79 @@ export interface IXTermInstance {
   };
 }
 
-/**
- * Centralized terminal output manager with cursor position tracking
- */
 export class TerminalOutputManager {
-  private term: IXTermInstance;
-  private writeQueue: Array<{
-    data: string;
-    callback?: () => void;
-    updateState?: () => void;
-  }> = [];
-  private isWriting = false;
-  private lastWriteEndedWithNewline = true;
+  private lastCharacterWasCarriageReturn = false;
 
-  constructor(term: IXTermInstance) {
-    this.term = term;
+  constructor(private readonly term: IXTermInstance) {}
+
+  get columns(): number {
+    return this.term.cols;
   }
 
-  /**
-   * Check if cursor is at the start of a line (column 0)
-   * This is the Linux/Windows terminal standard way
-   */
-  private isAtLineStart(): boolean {
-    try {
-      return this.term.buffer.active.cursorX === 0;
-    } catch {
-      // Fallback: use tracked state if buffer access fails
-      return this.lastWriteEndedWithNewline;
-    }
-  }
-
-  /**
-   * Normalize line endings: convert \n to \r\n for xterm.js
-   * This follows terminal emulator conventions
-   */
   private normalizeLineEndings(text: string): string {
-    return text.replace(/\r?\n/g, '\r\n');
-  }
+    let normalized = '';
+    let previousWasCarriageReturn = this.lastCharacterWasCarriageReturn;
 
-  /**
-   * Track if text ends with newline
-   */
-  private updateNewlineState(text: string): void {
-    // Check original text (before normalization) for \n
-    this.lastWriteEndedWithNewline = text.endsWith('\n');
-  }
-
-  /**
-   * Process write queue sequentially to prevent race conditions
-   */
-  private flushQueue(): void {
-    if (this.isWriting || this.writeQueue.length === 0) {
-      return;
+    for (const character of text) {
+      if (character === '\n' && !previousWasCarriageReturn) normalized += '\r\n';
+      else normalized += character;
+      previousWasCarriageReturn = character === '\r';
     }
 
-    this.isWriting = true;
-    const { data, callback, updateState } = this.writeQueue.shift()!;
-
-    this.term.write(data, () => {
-      // Update newline state AFTER write completes
-      if (updateState) {
-        updateState();
-      }
-      this.isWriting = false;
-      if (callback) callback();
-      this.flushQueue(); // Process next item
-    });
+    if (text) this.lastCharacterWasCarriageReturn = text.endsWith('\r');
+    return normalized;
   }
 
-  /**
-   * Write text to terminal (asynchronous, queued)
-   * @param text Text to write (can contain \n)
-   * @returns Promise that resolves when write completes
-   */
+  private writeData(data: string): Promise<void> {
+    return new Promise(resolve => this.term.write(data, resolve));
+  }
+
   write(text: string): Promise<void> {
-    return new Promise(resolve => {
-      const normalized = this.normalizeLineEndings(text);
-
-      this.writeQueue.push({
-        data: normalized,
-        callback: resolve,
-        // Update state after write completes
-        updateState: () => this.updateNewlineState(text),
-      });
-
-      this.flushQueue();
-    });
+    return this.writeData(this.normalizeLineEndings(text));
   }
 
-  /**
-   * Write text followed by newline
-   * @param text Text to write
-   * @returns Promise that resolves when write completes
-   */
   writeln(text: string): Promise<void> {
     return this.write(`${text}\n`);
   }
 
-  /**
-   * Write raw data without normalization (for ANSI sequences, prompts, etc)
-   *
-   * Use cases:
-   * - ANSI escape sequences (cursor movement, colors)
-   * - Spinner animations (in-place updates)
-   * - Progress bars (in-place updates)
-   * - Shell prompts (no newline tracking needed)
-   *
-   * WARNING: This method does NOT track newline state.
-   * For normal text output, use write() or writeln().
-   *
-   * @param data Raw data to write (not normalized, no state tracking)
-   * @returns Promise that resolves when write completes
-   */
   writeRaw(data: string): Promise<void> {
-    return new Promise(resolve => {
-      // Don't normalize, don't track newline state for raw writes
-      // This is intentional for ANSI sequences, but be aware of the limitation
-      this.writeQueue.push({
-        data,
-        callback: resolve,
-      });
-
-      this.flushQueue();
-    });
+    if (data) this.lastCharacterWasCarriageReturn = data.endsWith('\r');
+    return this.writeData(data);
   }
 
-  /**
-   * Write error text with red coloring (for stderr semantics in terminal)
-   */
   async writeError(text: string): Promise<void> {
-    const colored = `${ANSI.FG.RED}${text}${ANSI.RESET}`;
-    return this.write(colored);
+    await this.write(`${ANSI.FG.RED}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Write warning text with yellow coloring
-   */
   async writeWarning(text: string): Promise<void> {
-    const colored = `${ANSI.FG.YELLOW}${text}${ANSI.RESET}`;
-    return this.write(colored);
+    await this.write(`${ANSI.FG.YELLOW}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Write success text with green coloring
-   */
   async writeSuccess(text: string): Promise<void> {
-    const colored = `${ANSI.FG.GREEN}${text}${ANSI.RESET}`;
-    return this.write(colored);
+    await this.write(`${ANSI.FG.GREEN}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Write info text with cyan coloring
-   */
   async writeInfo(text: string): Promise<void> {
-    const colored = `${ANSI.FG.CYAN}${text}${ANSI.RESET}`;
-    return this.write(colored);
+    await this.write(`${ANSI.FG.CYAN}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Write dimmed/secondary text
-   */
   async writeDim(text: string): Promise<void> {
-    const colored = `${ANSI.FG.GRAY}${text}${ANSI.RESET}`;
-    return this.write(colored);
+    await this.write(`${ANSI.FG.GRAY}${text}${ANSI.RESET}`);
   }
 
-  /**
-   * Ensure we're at the start of a new line
-   * This is critical before showing prompts to prevent overlap
-   * Follows Linux/Windows terminal conventions
-   *
-   * @returns Promise that resolves when operation completes
-   */
   async ensureNewline(): Promise<void> {
-    if (!this.isAtLineStart()) {
-      await this.write('\n');
-    }
+    await this.flush();
+    if (this.term.buffer.active.cursorX !== 0) await this.write('\n');
   }
 
-  /**
-   * Get current cursor position state
-   */
   getCursorState(): { atLineStart: boolean; x: number; y: number } {
-    try {
-      const cursor = this.term.buffer.active;
-      return {
-        atLineStart: cursor.cursorX === 0,
-        x: cursor.cursorX,
-        y: cursor.cursorY,
-      };
-    } catch {
-      return {
-        atLineStart: this.lastWriteEndedWithNewline,
-        x: 0,
-        y: 0,
-      };
-    }
+    const { cursorX, cursorY } = this.term.buffer.active;
+    return { atLineStart: cursorX === 0, x: cursorX, y: cursorY };
   }
 
-  /**
-   * Clear any pending writes (useful for cleanup)
-   */
-  clearQueue(): void {
-    this.writeQueue = [];
+  flush(): Promise<void> {
+    return this.writeData('');
   }
-
-  /**
-   * Wait for all pending writes to complete
-   */
-  async flush(): Promise<void> {
-    return new Promise(resolve => {
-      if (this.writeQueue.length === 0 && !this.isWriting) {
-        resolve();
-        return;
-      }
-
-      // Add a marker write to know when queue is done
-      this.writeQueue.push({
-        data: '',
-        callback: resolve,
-      });
-
-      this.flushQueue();
-    });
-  }
-}
-
-/**
- * Factory function to create a terminal output manager
- */
-export function createTerminalOutputManager(term: IXTermInstance): TerminalOutputManager {
-  return new TerminalOutputManager(term);
 }
 
 export default TerminalOutputManager;

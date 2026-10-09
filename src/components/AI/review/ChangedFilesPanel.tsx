@@ -2,6 +2,7 @@
 
 import { FileCode } from 'lucide-react';
 import React from 'react';
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { AIEditResponse } from '@/types';
 import FileChangeItem from './FileChangeItem';
@@ -20,6 +21,7 @@ export default function ChangedFilesPanel({
   onDiscardChanges,
 }: ChangedFilesPanelProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
 
   if (changedFiles.length === 0) {
     return null;
@@ -36,7 +38,7 @@ export default function ChangedFilesPanel({
       <div className="flex items-center gap-2 mb-1">
         <FileCode size={14} style={{ color: colors.accent }} />
         <span className="text-xs font-medium" style={{ color: colors.foreground }}>
-          変更提案 ({changedFiles.length})
+          {t('ai.changedFilesList.title')} ({changedFiles.length})
         </span>
       </div>
 

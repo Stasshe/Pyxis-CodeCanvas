@@ -3,9 +3,9 @@
  * プロジェクト状態のグローバルストア
  *
  * NOTE: useProject()フックは各コンポーネントで独立したステートを持つため、
- * currentProjectがnullになりファイルが保存されない問題があった（PR130で発見）。
+ * currentProjectがnullになりファイルが保存されない問題があった。
  *
- * このストアは現在のプロジェクトIDとプロジェクト情報をグローバルに管理し、
+ * このストアは現在のworkspace root pathとプロジェクト情報をグローバルに管理し、
  * 全てのコンポーネントが一貫したプロジェクト情報にアクセスできるようにする。
  *
  * page.tsxでuseProject()を使用してプロジェクトをロードした際に、
@@ -24,15 +24,19 @@ import type { Project } from '@/types';
  */
 export const projectState = proxy({
   currentProject: null as Project | null,
-  currentProjectId: null as string | null,
+  currentRootPath: null as string | null,
 });
 
 export const setCurrentProject = (project: Project | null) => {
   projectState.currentProject = project;
-  projectState.currentProjectId = project?.id ?? null;
+  if (project) {
+    projectState.currentRootPath = project.rootPath;
+    return;
+  }
+  projectState.currentRootPath = null;
 };
 
 export const useProjectSnapshot = () => useSnapshot(projectState);
 
-export const getCurrentProjectId = (): string | null => projectState.currentProjectId;
+export const getCurrentRootPath = (): string | null => projectState.currentRootPath;
 export const getCurrentProject = (): Project | null => projectState.currentProject;

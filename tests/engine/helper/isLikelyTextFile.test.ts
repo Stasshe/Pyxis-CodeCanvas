@@ -27,11 +27,12 @@ describe('isLikelyTextFile', () => {
     ).toBe(false);
   });
 
-  it('always treats SVG files as text', async () => {
-    const binaryLookingContent = new Uint8Array([0, 1, 2]);
+  it('classifies SVG files from their bytes', async () => {
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
 
-    expect(await isLikelyTextFile('image.svg', binaryLookingContent)).toBe(true);
-    expect(await isLikelyTextFile('IMAGE.SVG', new Uint8Array())).toBe(true);
+    expect(await isLikelyTextFile('image.svg', svg)).toBe(true);
+    expect(await isLikelyTextFile('nul.svg', new Uint8Array([0x3c, 0x00, 0x3e]))).toBe(false);
+    expect(await isLikelyTextFile('invalid.svg', new Uint8Array([0xff, 0xfe]))).toBe(false);
   });
 
   it('detects unknown binary and text files from their content', async () => {

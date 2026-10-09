@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import expandBraces from '@/engine/cmd/shell/braceExpand';
 
 /**
  * ブレース展開のテスト
- * POSIX 準拠のブレース展開を検証
+ * Bash brace expansion
  */
 
 describe('expandBraces', () => {
@@ -50,6 +50,13 @@ describe('expandBraces', () => {
       expect(expandBraces('{001..003}')).toEqual(['001', '002', '003']);
     });
 
+    it('matches Bash padding when negative endpoints have leading zeroes', () => {
+      expect(expandBraces('{-02..02}')).toEqual(['-02', '-01', '000', '001', '002']);
+      expect(expandBraces('{-2..02}')).toEqual(['-2', '-1', '00', '01', '02']);
+      expect(expandBraces('{-02..2}')).toEqual(['-02', '-01', '000', '001', '002']);
+      expect(expandBraces('{-002..002}')).toEqual(['-002', '-001', '0000', '0001', '0002']);
+    });
+
     it('負の範囲', () => {
       const result = expandBraces('{-2..2}');
       expect(result).toEqual(['-2', '-1', '0', '1', '2']);
@@ -85,8 +92,19 @@ describe('expandBraces', () => {
     });
 
     it('カンマなし (単一要素)', () => {
-      // {abc} はカンマがないが splitTopLevelCommas は [abc] を返す
-      expect(expandBraces('{abc}')).toEqual(['abc']);
+      expect(expandBraces('{abc}')).toEqual(['{abc}']);
+    });
+
+    it('preserves quoted, escaped and parameter braces', () => {
+      expect(expandBraces('"{a,b}"')).toEqual(['"{a,b}"']);
+      expect(expandBraces("'{a,b}'")).toEqual(["'{a,b}'"]);
+      expect(expandBraces('\\{a,b}')).toEqual(['\\{a,b}']);
+      expect(expandBraces('${VALUE:-{a,b}}')).toEqual(['${VALUE:-{a,b}}']);
+    });
+
+    it('continues after a literal pair and does not add implicit padding', () => {
+      expect(expandBraces('{literal}{a,b}')).toEqual(['{literal}a', '{literal}b']);
+      expect(expandBraces('{9..11}')).toEqual(['9', '10', '11']);
     });
   });
 });

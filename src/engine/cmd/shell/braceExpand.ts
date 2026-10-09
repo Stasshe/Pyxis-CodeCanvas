@@ -10,8 +10,27 @@ const splitTopLevelCommas = (s: string): string[] => {
   const out: string[] = [];
   let cur = '';
   let depth = 0;
+  let quote = '';
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
+    if (ch === '\\') {
+      cur += ch + (s[++i] ?? '');
+      continue;
+    }
+    if (ch === quote) {
+      quote = '';
+      cur += ch;
+      continue;
+    }
+    if (quote === '' && (ch === "'" || ch === '"')) {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (quote) {
+      cur += ch;
+      continue;
+    }
     if (ch === '{') {
       depth++;
       cur += ch;
@@ -38,12 +57,18 @@ const expandNumericRange = (s: string): string[] | null => {
   if (!m) return null;
   const a = Number.parseInt(m[1], 10);
   const b = Number.parseInt(m[2], 10);
-  const width = Math.max(m[1].replace('-', '').length, m[2].replace('-', '').length);
+  const width = Math.max(m[1].length, m[2].length);
+  const padded = /^-?0\d/.test(m[1]) || /^-?0\d/.test(m[2]);
+  const format = (value: number) => {
+    if (!padded) return String(value);
+    if (value < 0) return `-${String(-value).padStart(width - 1, '0')}`;
+    return String(value).padStart(width, '0');
+  };
   const out: string[] = [];
   if (a <= b) {
-    for (let v = a; v <= b; v++) out.push(String(v).padStart(width, '0'));
+    for (let v = a; v <= b; v++) out.push(format(v));
   } else {
-    for (let v = a; v >= b; v--) out.push(String(v).padStart(width, '0'));
+    for (let v = a; v >= b; v--) out.push(format(v));
   }
   return out;
 };
@@ -52,23 +77,62 @@ export default function expandBraces(input: string): string[] {
   // Fast path: no braces
   if (!input.includes('{')) return [input];
 
-  // Find first top-level '{' and its matching '}'
-  const firstOpen = input.indexOf('{');
-  if (firstOpen === -1) return [input];
-  let depth = 0;
+  let quote = '';
+  let firstOpen = -1;
   let matchClose = -1;
-  for (let i = firstOpen; i < input.length; i++) {
-    const ch = input[i];
-    if (ch === '{') depth++;
-    if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        matchClose = i;
-        break;
+  for (let index = 0; index < input.length; index++) {
+    const character = input[index];
+    if (character === '\\') {
+      index++;
+      continue;
+    }
+    if (character === quote) {
+      quote = '';
+      continue;
+    }
+    if (quote === '' && (character === "'" || character === '"')) {
+      quote = character;
+      continue;
+    }
+    if (quote || character !== '{') continue;
+    let depth = 1;
+    let end = index + 1;
+    let innerQuote = '';
+    while (end < input.length && depth > 0) {
+      const ch = input[end];
+      if (ch === '\\') {
+        end += 2;
+        continue;
       }
+      if (ch === innerQuote) {
+        innerQuote = '';
+        end++;
+        continue;
+      }
+      if (innerQuote === '' && (ch === "'" || ch === '"')) {
+        innerQuote = ch;
+        end++;
+        continue;
+      }
+      if (!innerQuote) {
+        if (ch === '{') depth++;
+        if (ch === '}') depth--;
+      }
+      end++;
+    }
+    if (depth > 0) continue;
+    if (input[index - 1] === '$') {
+      index = end - 1;
+      continue;
+    }
+    const inner = input.slice(index + 1, end - 1);
+    if (expandNumericRange(inner) !== null || splitTopLevelCommas(inner).length > 1) {
+      firstOpen = index;
+      matchClose = end - 1;
+      break;
     }
   }
-  if (matchClose === -1) return [input]; // unterminated brace
+  if (firstOpen === -1) return [input];
 
   const prefix = input.slice(0, firstOpen);
   const inner = input.slice(firstOpen + 1, matchClose);

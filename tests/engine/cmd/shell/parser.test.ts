@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { parseCommandLine, ParseError } from '@/engine/cmd/shell/parser';
+import { describe, expect, it } from 'vitest';
+import { parseCommandLine } from '@/engine/cmd/shell/parser';
 
 /**
  * Shell パーサーのテスト
@@ -104,52 +104,38 @@ describe('parseCommandLine', () => {
     it('stdout リダイレクト (>)', () => {
       const segs = parseCommandLine('echo hello > output.txt');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stdoutFile).toBe('output.txt');
+      expect(segs[0].redirections).toEqual([
+        { kind: 'output', fd: 1, path: 'output.txt', raw: 'output.txt', append: false },
+      ]);
     });
 
     it('stdout 追記 (>>)', () => {
       const segs = parseCommandLine('echo hello >> output.txt');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stdoutFile).toBe('output.txt');
-      expect(segs[0].append).toBe(true);
+      expect(segs[0].redirections).toEqual([
+        { kind: 'output', fd: 1, path: 'output.txt', raw: 'output.txt', append: true },
+      ]);
     });
 
     it('stdin リダイレクト (<)', () => {
       const segs = parseCommandLine('sort < input.txt');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stdinFile).toBe('input.txt');
+      expect(segs[0].redirections).toEqual([
+        { kind: 'input', fd: 0, path: 'input.txt', raw: 'input.txt' },
+      ]);
     });
 
     it('stderr を stdout に結合 (2>&1)', () => {
       const segs = parseCommandLine('command 2>&1');
       expect(segs).toHaveLength(1);
-      expect(segs[0].stderrToStdout).toBe(true);
+      expect(segs[0].redirections).toEqual([{ kind: 'duplicate', fd: 2, target: 1 }]);
     });
 
     it('/dev/null へのリダイレクト', () => {
       const segs = parseCommandLine('command > /dev/null');
-      expect(segs[0].stdoutFile).toBe('/dev/null');
-    });
-  });
-
-  // ==================== 変数展開 ====================
-
-  describe('変数展開', () => {
-    it('$HOME を展開する', () => {
-      const segs = parseCommandLine('echo $HOME', { HOME: '/home/user' });
-      expect(segs[0].tokens[1].text).toBe('/home/user');
-    });
-
-    it('${VAR} 形式を展開する', () => {
-      const segs = parseCommandLine('echo ${USER}', { USER: 'alice' });
-      expect(segs[0].tokens[1].text).toBe('alice');
-    });
-
-    it('未定義変数は空文字になる', () => {
-      const segs = parseCommandLine('echo $UNDEFINED', {});
-      // Either removed or empty token
-      const text = segs[0].tokens.slice(1).map(t => t.text).join('');
-      expect(text).toBe('');
+      expect(segs[0].redirections).toEqual([
+        { kind: 'output', fd: 1, path: '/dev/null', raw: '/dev/null', append: false },
+      ]);
     });
   });
 
@@ -157,19 +143,27 @@ describe('parseCommandLine', () => {
 
   describe('コマンド置換', () => {
     it('$(cmd) を認識する', () => {
-      const segs = parseCommandLine('echo $(whoami)', {});
+      const segs = parseCommandLine('echo $(whoami)');
       expect(segs[0].tokens.length).toBeGreaterThanOrEqual(1);
-      // cmdSub should be set for the substitution token
-      const subToken = segs[0].tokens.find(t => t.cmdSub);
+      const subToken = segs[0].tokens.find(t => t.cmdSubs?.length);
       expect(subToken).toBeDefined();
-      expect(subToken?.cmdSub).toBe('whoami');
+      expect(subToken?.cmdSubs).toEqual([{ placeholder: '__CMD_SUB_0__', command: 'whoami' }]);
     });
 
     it('バッククォートを認識する', () => {
-      const segs = parseCommandLine('echo `date`', {});
-      const subToken = segs[0].tokens.find(t => t.cmdSub);
+      const segs = parseCommandLine('echo `date`');
+      const subToken = segs[0].tokens.find(t => t.cmdSubs?.length);
       expect(subToken).toBeDefined();
-      expect(subToken?.cmdSub).toBe('date');
+      expect(subToken?.cmdSubs).toEqual([{ placeholder: '__CMD_SUB_0__', command: 'date' }]);
+    });
+
+    it('埋め込み置換と同じ文字列の通常wordを区別する', () => {
+      const segments = parseCommandLine('echo __CMD_SUB_0__ prefix$(date)suffix');
+
+      expect(segments[0].tokens[1].cmdSubs).toBeUndefined();
+      expect(segments[0].tokens[2].cmdSubs).toEqual([
+        { placeholder: '__CMD_SUB_1__', command: 'date' },
+      ]);
     });
   });
 
@@ -179,7 +173,7 @@ describe('parseCommandLine', () => {
     it('& でバックグラウンドフラグが立つ', () => {
       const segs = parseCommandLine('sleep 10 &');
       expect(segs).toHaveLength(1);
-      expect(segs[0].background).toBe(true);
+      expect(segs[0].separator).toBe('&');
     });
   });
 

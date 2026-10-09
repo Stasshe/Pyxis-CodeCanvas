@@ -1,10 +1,29 @@
-import React, { memo } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from '@/context/I18nContext';
+import type { ThemeColors } from '@/context/ThemeContext';
+import type { GitRepository } from '@/types/git';
 import FileItem from './FileItem';
+
+interface ChangesListProps {
+  gitRepo: GitRepository | null;
+  iconColors: Pick<ThemeColors, 'mutedBg' | 'primary' | 'red'>;
+  plusIcon: ReactNode;
+  minusIcon: ReactNode;
+  discardIcon: ReactNode;
+  handleStageAll: () => void;
+  handleUnstageAll: () => void;
+  handleStageFile: (file: string) => void;
+  handleUnstageFile: (file: string) => void;
+  handleDiscardChanges: (file: string) => void;
+  handleDiscardAllUnstaged: () => void;
+  handleDiscardAllStaged: () => void;
+  handleStagedFileClick: (file: string) => void;
+  handleUnstagedFileClick: (file: string) => void;
+  colors: ThemeColors;
+}
 
 export default function ChangesList({
   gitRepo,
-  hasChanges,
   iconColors,
   plusIcon,
   minusIcon,
@@ -19,7 +38,7 @@ export default function ChangesList({
   handleStagedFileClick,
   handleUnstagedFileClick,
   colors,
-}: any) {
+}: ChangesListProps) {
   const { t } = useTranslation();
 
   return (

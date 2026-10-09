@@ -1,19 +1,29 @@
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import type { FsApi } from '@/engine/core/fs';
+import { repositoryPath } from '@/engine/core/fs/git';
+import { normalizePath, resolvePath } from '@/engine/core/pathUtils';
+import { findGitRepositoryRoot } from '../global/gitOperations/repositoryRoot';
 
-export async function handleGitCommand(
+function repositoryPathFromCwd(gitRoot: string, cwd: string, path: string): string {
+  return repositoryPath(gitRoot, resolvePath(cwd, path));
+}
+
+async function runGitCommand(
   args: string[],
-  projectName: string,
-  projectId: string,
-  writeOutput: (output: string) => Promise<void>
+  cwd: string,
+  fsClient: FsApi,
+  writeOutput: (output: string | Uint8Array) => Promise<void>
 ) {
   if (!args[0]) {
-    await writeOutput('git: missing command');
-    return;
+    throw new Error('missing command');
   }
 
-  const git = terminalCommandRegistry.getGitCommands(projectName, projectId);
-
   const gitCmd = args[0];
+  let gitRoot = normalizePath(cwd);
+  if (gitCmd !== 'init' && gitCmd !== 'clone') {
+    gitRoot = (await findGitRepositoryRoot(cwd, fsClient)) ?? gitRoot;
+  }
+  const git = terminalCommandRegistry.getGitCommands(gitRoot);
 
   function getGitUsage(cmd?: string) {
     const general = `usage: git <command> [<args>]
@@ -93,36 +103,33 @@ Commands:
 
   switch (gitCmd) {
     case 'fetch': {
-      try {
-        // Forward remaining args (after 'fetch') to git.fetch and let fetch.ts parse them
-        const fetchResult = await git.fetch(args.slice(1));
-        await writeOutput(fetchResult);
-      } catch (error) {
-        await writeOutput(`git fetch: ${(error as Error).message}`);
-      }
+      const fetchResult = await git.fetch(args.slice(1));
+      await writeOutput(fetchResult);
       break;
     }
 
     case 'pull': {
-      const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
-      const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
-      try {
-        const pullResult = await git.pull({ remote, branch });
-        await writeOutput(pullResult);
-      } catch (error) {
-        await writeOutput(`git pull: ${(error as Error).message}`);
+      const pullArgs = args.slice(1);
+      const rebase = pullArgs.includes('--rebase');
+      const positional = pullArgs.filter(argument => {
+        if (!argument.startsWith('-')) return true;
+        if (argument === '--rebase') return false;
+        throw new Error(`unknown option '${argument}'`);
+      });
+      if (positional.length > 2) {
+        throw new Error('too many arguments. Usage: git pull [<remote>] [<branch>]');
       }
+      const [remote, branch] = positional;
+      const pullResult = await git.pull({ remote, branch, rebase });
+      await writeOutput(pullResult);
       break;
     }
 
-    case 'init':
-      try {
-        const initResult = await git.init();
-        await writeOutput(initResult);
-      } catch (error) {
-        await writeOutput(`git init: ${(error as Error).message}`);
-      }
+    case 'init': {
+      const initResult = await git.init();
+      await writeOutput(initResult);
       break;
+    }
 
     case 'clone':
       if (args[1]) {
@@ -133,66 +140,61 @@ Commands:
           !url.startsWith('https://') &&
           !url.startsWith('git://')
         ) {
-          await writeOutput(
-            'git clone: invalid repository URL (must start with http://, https://, or git://)'
-          );
-          break;
+          throw new Error('invalid repository URL (must start with http://, https://, or git://)');
         }
 
         try {
           await writeOutput(`Cloning repository ${url}...`);
-          const cloneResult = await git.clone(url, targetDir, { skipDotGit: true });
+          const cloneResult = await git.clone(url, targetDir);
           await writeOutput(cloneResult);
           if (!targetDir) {
             await writeOutput(
-              'Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.\nTo clone directly into a project root (like via Project manager), use the Project modal which clones into the project root.'
+              'Note: No target directory specified. Repository was cloned into a subdirectory named after the repository.'
             );
           }
         } catch (error) {
           const errorMessage = (error as Error).message || String(error);
           if (errorMessage.includes('CORS') || errorMessage.includes('fetch')) {
-            await writeOutput(`git clone: network/CORS error: ${errorMessage}`);
-          } else {
-            await writeOutput(`git clone: ${errorMessage}`);
+            throw new Error(`network/CORS error: ${errorMessage}`);
           }
+          throw error;
         }
       } else {
-        await writeOutput(
-          'git clone: missing repository URL\nUsage: git clone <repository-url> [directory]'
-        );
+        throw new Error('missing repository URL. Usage: git clone <repository-url> [directory]');
       }
       break;
 
-    case 'status':
-      try {
-        const statusResult = await git.status();
-        await writeOutput(statusResult);
-      } catch (e) {
-        await writeOutput(`git status: ${(e as Error).message}`);
-      }
+    case 'status': {
+      const statusResult = await git.status();
+      await writeOutput(statusResult);
       break;
+    }
 
     case 'add':
       if (args[1]) {
-        const addResult = await git.add(args[1]);
+        const pathspec = repositoryPathFromCwd(gitRoot, cwd, args[1]);
+        const addResult = await git.add(pathspec);
         await writeOutput(addResult);
       } else {
-        await writeOutput('git add: missing file argument');
+        throw new Error('missing file argument');
       }
       break;
 
     case 'commit': {
-      const messageIndex = args.indexOf('-m');
-      if (messageIndex !== -1 && args[messageIndex + 1]) {
-        const message = args
-          .slice(messageIndex + 1)
-          .join(' ')
-          .replace(/['"]/g, '');
-        const commitResult = await git.commit(message);
-        await writeOutput(commitResult);
-      } else {
-        await writeOutput('git commit: missing -m flag and message');
+      if (args[1] !== '-m') {
+        if (args[1]?.startsWith('-')) throw new Error(`unknown option '${args[1]}'`);
+        throw new Error('missing -m flag and message');
       }
+
+      if (args.length < 3) throw new Error('missing message after -m');
+      if (args.length > 3) {
+        const extraArgument = args[3];
+        if (extraArgument.startsWith('-')) throw new Error(`unknown option '${extraArgument}'`);
+        throw new Error(`unexpected argument '${extraArgument}'. Usage: git commit -m <message>`);
+      }
+
+      const commitResult = await git.commit(args[2]);
+      await writeOutput(commitResult);
       break;
     }
 
@@ -210,27 +212,28 @@ Commands:
           const bIndex = args.indexOf('-b');
           branchName = args[bIndex + 1];
           if (!branchName) {
-            await writeOutput('git checkout: missing branch name after -b');
-            break;
+            throw new Error('missing branch name after -b');
           }
         } else {
           branchName = args[1];
         }
 
-        if (/^[\\w-]+\//.test(branchName)) {
+        let remoteBranch = branchName.startsWith('refs/remotes/');
+        if (!createNew && !remoteBranch && branchName.includes('/')) {
+          const branches = await git.getAvailableBranches();
+          remoteBranch =
+            !branches.local.includes(branchName) && branches.remote.includes(branchName);
+        }
+        if (!createNew && remoteBranch) {
           // remote branch like origin/main -> use checkoutRemote helper which handles fetch/resolve
-          try {
-            const result = await git.checkoutRemote(branchName.replace(/^refs\/remotes\//, ''));
-            await writeOutput(result);
-          } catch (error) {
-            await writeOutput(`git checkout: ${(error as Error).message}`);
-          }
+          const result = await git.checkoutRemote(branchName.replace(/^refs\/remotes\//, ''));
+          await writeOutput(result);
         } else {
           const checkoutResult = await git.checkout(branchName, createNew);
           await writeOutput(checkoutResult);
         }
       } else {
-        await writeOutput('git checkout: missing branch name');
+        throw new Error('missing branch name');
       }
       break;
     }
@@ -245,24 +248,19 @@ Commands:
           const cIndex = args.indexOf('-c') !== -1 ? args.indexOf('-c') : args.indexOf('--create');
           targetRef = args[cIndex + 1];
           if (!targetRef) {
-            await writeOutput('git switch: missing branch name after -c/--create');
-            break;
+            throw new Error('missing branch name after -c/--create');
           }
         } else {
           targetRef = args[1];
         }
 
-        try {
-          const switchResult = await git.switch(targetRef, {
-            createNew,
-            detach,
-          });
-          await writeOutput(switchResult);
-        } catch (error) {
-          await writeOutput(`git switch: ${(error as Error).message}`);
-        }
+        const switchResult = await git.switch(targetRef, {
+          createNew,
+          detach,
+        });
+        await writeOutput(switchResult);
       } else {
-        await writeOutput('git switch: missing branch name or commit hash');
+        throw new Error('missing branch name or commit hash');
       }
       break;
     }
@@ -288,19 +286,15 @@ Commands:
         const revertResult = await git.revert(args[1]);
         await writeOutput(revertResult);
       } else {
-        await writeOutput('git revert: missing commit hash');
+        throw new Error('missing commit hash');
       }
       break;
 
     case 'reset': {
-      if (args.includes('--hard') && args[args.indexOf('--hard') + 1]) {
+      if (args.includes('--hard')) {
         const commitHash = args[args.indexOf('--hard') + 1];
-        try {
-          const resetResult = await git.reset({ hard: true, commit: commitHash });
-          await writeOutput(resetResult);
-        } catch (error) {
-          await writeOutput(`git reset: ${(error as Error).message}`);
-        }
+        const resetResult = await git.reset({ hard: true, commit: commitHash });
+        await writeOutput(resetResult);
       } else if (args[1]) {
         // Check if args[1] looks like a file path or a commit reference
         // Try to parse as commit first, fall back to filepath if it fails
@@ -318,12 +312,12 @@ Commands:
           } catch (commitError) {
             // If commit fails, try as filepath
             try {
-              const resetResult = await git.reset({ filepath: arg });
+              const filepath = repositoryPathFromCwd(gitRoot, cwd, arg);
+              const resetResult = await git.reset({ filepath });
               await writeOutput(resetResult);
             } catch (fileError) {
-              // Both attempts failed, report a helpful error message
-              await writeOutput(
-                `git reset: unable to resolve '${arg}' as either a commit reference or filepath\nCommit error: ${(commitError as Error).message}\nFile error: ${(fileError as Error).message}`
+              throw new Error(
+                `unable to resolve '${arg}' as either a commit reference or filepath\nCommit error: ${(commitError as Error).message}\nFile error: ${(fileError as Error).message}`
               );
             }
           }
@@ -338,104 +332,99 @@ Commands:
     case 'diff': {
       const diffArgs = args.filter(arg => arg !== 'diff');
       if (diffArgs.includes('--staged') || diffArgs.includes('--cached')) {
-        const filepath = diffArgs.find(arg => !arg.startsWith('--'));
+        const pathArg = diffArgs.find(arg => !arg.startsWith('--'));
+        const filepath = pathArg ? repositoryPathFromCwd(gitRoot, cwd, pathArg) : undefined;
         const diffResult = await git.diff({ staged: true, filepath });
         await writeOutput(diffResult);
       } else if (diffArgs.length === 1 && !diffArgs[0].startsWith('-')) {
-        // Treat single argument as branch name (e.g., git diff main)
-        const branchName = diffArgs[0];
-        const diffResult = await git.diff({ branchName });
+        const value = diffArgs[0];
+        const branches = await git.getAvailableBranches();
+        const diffResult = branches.local.includes(value)
+          ? await git.diff({ branchName: value })
+          : await git.diff({ filepath: repositoryPathFromCwd(gitRoot, cwd, value) });
         await writeOutput(diffResult);
       } else if (
         diffArgs.length >= 2 &&
         !diffArgs[0].startsWith('-') &&
         !diffArgs[1].startsWith('-')
       ) {
-        const filepath = diffArgs[2];
+        const pathArg = diffArgs[2];
+        const filepath = pathArg ? repositoryPathFromCwd(gitRoot, cwd, pathArg) : undefined;
         const diffResult = await git.diff({ commit1: diffArgs[0], commit2: diffArgs[1], filepath });
         await writeOutput(diffResult);
       } else {
-        const filepath = diffArgs.find(arg => !arg.startsWith('-'));
+        const pathArg = diffArgs.find(arg => !arg.startsWith('-'));
+        const filepath = pathArg ? repositoryPathFromCwd(gitRoot, cwd, pathArg) : undefined;
         const diffResult = await git.diff({ filepath });
         await writeOutput(diffResult);
       }
       break;
     }
 
-    case 'merge':
+    case 'merge': {
       if (args.includes('--abort')) {
         const mergeAbortResult = await git.merge('', { abort: true });
         await writeOutput(mergeAbortResult);
-      } else if (args[1]) {
-        const branchName = args[1];
-        const noFf = args.includes('--no-ff');
+      } else {
+        let branchName: string | undefined;
         let message: string | undefined;
-        const messageIndex = args.indexOf('-m');
-        if (messageIndex !== -1 && args[messageIndex + 1]) {
-          message = args
-            .slice(messageIndex + 1)
-            .join(' ')
-            .replace(/['"]/g, '');
+        let noFf = false;
+
+        for (let index = 1; index < args.length; index += 1) {
+          const argument = args[index];
+          if (argument === '--no-ff') {
+            noFf = true;
+          } else if (argument === '-m') {
+            const value = args[index + 1];
+            if (!value || value.startsWith('-')) {
+              throw new Error('missing message after -m');
+            }
+            if (message !== undefined) {
+              throw new Error('multiple -m messages are not supported');
+            }
+            message = value;
+            index += 1;
+          } else if (argument.startsWith('-')) {
+            throw new Error(`unknown option '${argument}'`);
+          } else if (branchName === undefined) {
+            branchName = argument;
+          } else {
+            throw new Error(
+              `unexpected argument '${argument}'. Usage: git merge [--no-ff] [-m <message>] <branch>`
+            );
+          }
         }
+
+        if (!branchName) throw new Error('missing branch name');
         const mergeResult = await git.merge(branchName, { noFf, message });
         await writeOutput(mergeResult);
-      } else {
-        await writeOutput('git merge: missing branch name');
       }
       break;
+    }
 
     case 'push': {
-      const remote = args[1] && !args[1].startsWith('-') ? args[1] : undefined;
-      const branch = args[2] && !args[2].startsWith('-') ? args[2] : undefined;
+      const positional = args.slice(1).filter(argument => !argument.startsWith('-'));
+      const [remote, branch] = positional;
       const force = args.includes('--force') || args.includes('-f');
 
-      try {
-        const pushResult = await git.push({ remote, branch, force });
-        await writeOutput(pushResult);
-
-        let usedBranch = branch;
-        if (!usedBranch && typeof pushResult === 'string') {
-          const match = pushResult.match(/\s([\w-]+) -> [\w-]+/);
-          if (match?.[1]) usedBranch = match[1];
-        }
-        if (usedBranch) {
-          const fetchResult = await git.fetch({ remote: 'origin', branch: usedBranch });
-          await writeOutput(`(auto) git fetch origin ${usedBranch}\n${fetchResult}`);
-          const resetResult = await git.reset({ hard: true, commit: `origin/${usedBranch}` });
-          await writeOutput(`(auto) git reset --hard origin/${usedBranch}\n${resetResult}`);
-        }
-      } catch (error) {
-        const msg = (error as Error).message || '';
-        await writeOutput(`git push: ${msg}`);
-      }
+      const pushResult = await git.push({ remote, branch, force });
+      await writeOutput(pushResult);
       break;
     }
 
     case 'remote': {
       if (args[1] === 'add' && args[2] && args[3]) {
-        try {
-          const addResult = await git.addRemote(args[2], args[3]);
-          await writeOutput(addResult);
-        } catch (error) {
-          await writeOutput(`git remote add: ${(error as Error).message}`);
-        }
+        const addResult = await git.addRemote(args[2], args[3]);
+        await writeOutput(addResult);
       } else if (args[1] === 'remove' && args[2]) {
-        try {
-          const removeResult = await git.deleteRemote(args[2]);
-          await writeOutput(removeResult);
-        } catch (error) {
-          await writeOutput(`git remote remove: ${(error as Error).message}`);
-        }
+        const removeResult = await git.deleteRemote(args[2]);
+        await writeOutput(removeResult);
       } else if (args[1] === '-v' || !args[1]) {
-        try {
-          const listResult = await git.listRemotes();
-          await writeOutput(listResult);
-        } catch (error) {
-          await writeOutput(`git remote: ${(error as Error).message}`);
-        }
+        const listResult = await git.listRemotes();
+        await writeOutput(listResult);
       } else {
-        await writeOutput(
-          'git remote: invalid command\nUsage: git remote [-v] | git remote add <name> <url> | git remote remove <name>'
+        throw new Error(
+          'invalid command. Usage: git remote [-v] | git remote add <name> <url> | git remote remove <name>'
         );
       }
       break;
@@ -444,21 +433,38 @@ Commands:
     case 'show': {
       const showArgs = args.slice(1);
       if (showArgs.length === 0) {
-        await writeOutput('git show: missing commit or file');
-      } else {
-        try {
-          const showResult = await git.show(showArgs);
-          await writeOutput(showResult);
-        } catch (error) {
-          await writeOutput(`git show: ${(error as Error).message}`);
-        }
+        throw new Error('missing commit or file');
       }
+      const colonIndex = showArgs[0].indexOf(':');
+      if (colonIndex !== -1) {
+        const commit = showArgs[0].slice(0, colonIndex);
+        const path = showArgs[0].slice(colonIndex + 1);
+        if (path) showArgs[0] = `${commit}:${repositoryPathFromCwd(gitRoot, cwd, path)}`;
+      }
+      const showResult = await git.show(showArgs);
+      await writeOutput(showResult);
       break;
     }
 
     default:
-      await writeOutput(`git: '${gitCmd}' is not a git command`);
-      break;
+      throw new Error(`'${gitCmd}' is not a git command`);
+  }
+}
+
+export async function handleGitCommand(
+  args: string[],
+  cwd: string,
+  fsClient: FsApi,
+  writeOutput: (output: string | Uint8Array) => Promise<void>
+): Promise<void> {
+  const command = args[0] || 'git';
+  try {
+    await runGitCommand(args, cwd, fsClient, writeOutput);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const context = command === 'git' ? 'git' : `git ${command}`;
+    const contextualMessage = message.startsWith(context) ? message : `${context}: ${message}`;
+    throw new Error(contextualMessage, { cause: error });
   }
 }
 

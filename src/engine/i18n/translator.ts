@@ -5,6 +5,30 @@
 
 import type { TranslateOptions, TranslationKey } from './types';
 
+/** Merge namespace dictionaries while preserving nested keys from earlier namespaces. */
+export function mergeTranslations(
+  ...resources: Record<string, unknown>[]
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+
+  for (const resource of resources) {
+    for (const [key, value] of Object.entries(resource)) {
+      const previous = merged[key];
+      if (isTranslationObject(previous) && isTranslationObject(value)) {
+        merged[key] = mergeTranslations(previous, value);
+      } else {
+        merged[key] = value;
+      }
+    }
+  }
+
+  return merged;
+}
+
+function isTranslationObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 /**
  * ネストされたオブジェクトから指定されたパスの値を取得
  */
@@ -13,7 +37,7 @@ function getNestedValue(obj: Record<string, unknown>, path: string): string | un
   let current: unknown = obj;
 
   for (const key of keys) {
-    if (current && typeof current === 'object' && key in current) {
+    if (current && typeof current === 'object' && Object.hasOwn(current, key)) {
       current = (current as Record<string, unknown>)[key];
     } else {
       return undefined;
@@ -44,9 +68,9 @@ export function createTranslator(translations: Record<string, unknown>) {
 
     // 翻訳が見つからない場合
     if (text === undefined) {
-      if (options?.fallback) {
+      if (options?.fallback !== undefined) {
         text = options.fallback;
-      } else if (options?.defaultValue) {
+      } else if (options?.defaultValue !== undefined) {
         text = options.defaultValue;
       } else {
         // デフォルト: キーをそのまま返す
@@ -58,17 +82,4 @@ export function createTranslator(translations: Record<string, unknown>) {
     // 変数を補間
     return interpolate(text, options?.params);
   };
-}
-
-/**
- * 複数形対応の翻訳（将来の拡張用）
- */
-export function translatePlural(
-  singular: string,
-  plural: string,
-  count: number,
-  params?: Record<string, string | number>
-): string {
-  const text = count === 1 ? singular : plural;
-  return interpolate(text, { ...params, count });
 }

@@ -1,30 +1,24 @@
-// src/engine/cmd/global/gitOperations/add.ts
 import git from 'isomorphic-git';
+import { type GitFs as FS, repositoryPath } from '@/engine/core/fs/git';
 import { GitFileSystemHelper } from './fileSystemHelper';
+import { preserveIndexedModes } from './indexModes';
 
-export async function add(fs: any, dir: string, filepath: string): Promise<string> {
+export async function add(fs: FS, dir: string, filepath: string): Promise<string> {
   try {
-    // Ensure project dir exists
-    // Note: caller should already ensure directory exists, but double-check .git presence not required for add
-
-    await fs.promises.flush();
-
     if (filepath === '.') {
-      // すべてのファイルを追加（削除されたファイルも含む）
       return await addAll(fs, dir);
     }
 
-    if (filepath === '*' || filepath.includes('*')) {
+    fs = await preserveIndexedModes(fs, dir);
+    if (filepath.includes('*') || filepath.includes('?')) {
       const matchingFiles = await GitFileSystemHelper.getMatchingFiles(fs, dir, filepath);
 
-      // 削除されたファイルも含めてステージング対象を取得
       const status = await git.statusMatrix({ fs, dir });
       const deletedFiles: string[] = [];
 
-      // 削除されたファイルを特定
       for (let i = 0; i < status.length; i++) {
-        const [file, head, workdir, stage] = status[i];
-        if (head === 1 && workdir === 0 && stage === 1) {
+        const [file, head, workdir] = status[i];
+        if (head === 1 && workdir === 0 && GitFileSystemHelper.matchesPattern(file, filepath)) {
           deletedFiles.push(file);
         }
       }
@@ -37,7 +31,6 @@ export async function add(fs: any, dir: string, filepath: string): Promise<strin
       let deletedCount = 0;
       const errors: string[] = [];
 
-      // 通常のファイルを追加
       for (let i = 0; i < matchingFiles.length; i++) {
         const file = matchingFiles[i];
         try {
@@ -48,7 +41,6 @@ export async function add(fs: any, dir: string, filepath: string): Promise<strin
         }
       }
 
-      // 削除されたファイルをステージング
       for (let i = 0; i < deletedFiles.length; i++) {
         const file = deletedFiles[i];
         try {
@@ -60,50 +52,49 @@ export async function add(fs: any, dir: string, filepath: string): Promise<strin
       }
 
       if (errors.length > 0) {
-        console.warn(`[git add ${filepath}] Some files failed to add:`, errors);
+        throw new Error(errors.join('; '));
       }
 
       const totalFiles = addedCount + deletedCount;
-      return `Added ${addedCount} file(s), staged ${deletedCount} deletion(s) (${totalFiles} total)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
+      let result = `Added ${addedCount} file(s), staged ${deletedCount} deletion(s) (${totalFiles} total)`;
+      if (errors.length > 0) result += ` (${errors.length} failed)`;
+      return result;
     }
 
-    // 単一ファイルまたはディレクトリ
-    const normalizedPath = filepath.startsWith('/') ? filepath.slice(1) : filepath;
+    const normalizedPath = repositoryPath(dir, filepath);
 
-    // まずステータスマトリックスから該当ファイルの状態を確認
     const status = await git.statusMatrix({ fs, dir });
     const fileStatus = status.find(([path]) => path === normalizedPath);
 
     if (fileStatus) {
       const [path, HEAD, workdir, stage] = fileStatus;
 
-      // 削除されたファイル (HEAD=1, workdir=0, stage=1) の場合
-      if (HEAD === 1 && workdir === 0 && stage === 1) {
+      if (HEAD === 1 && workdir === 0) {
         console.log(`[git.add] Staging deleted file: ${path}`);
         await git.remove({ fs, dir, filepath: normalizedPath });
         return `Staged deletion of ${filepath}`;
       }
-      // 新規・変更されたファイル (workdir=1 or workdir=2) の場合
       if (workdir === 1 || workdir === 2) {
         console.log(`[git.add] Processing new/modified file: ${path} (workdir=${workdir})`);
         await git.add({ fs, dir, filepath: normalizedPath });
         return `Added ${filepath} to staging area`;
       }
-      // 既にステージング済み
       if (stage === 2 || stage === 3) {
         return `'${filepath}' is already staged`;
       }
     }
 
-    // ステータスマトリックスにない場合は直接ファイルシステムで確認
+    if (!fileStatus && (await git.isIgnored({ fs, dir, filepath: normalizedPath }))) {
+      throw new Error(`The path '${filepath}' is ignored by a .gitignore file`);
+    }
+
     const fullPath = `${dir}/${normalizedPath}`;
 
     try {
-      const stat = await fs.promises.stat(fullPath);
+      const stat = await fs.promises.lstat(fullPath);
 
       if (stat.isDirectory()) {
-        // ディレクトリの場合、再帰的に追加
-        const filesInDir = await GitFileSystemHelper.getAllFiles(fs, fullPath);
+        const filesInDir = await GitFileSystemHelper.getAllFiles(fs, fullPath, dir, normalizedPath);
         let addedCount = 0;
         const errors: string[] = [];
 
@@ -119,25 +110,23 @@ export async function add(fs: any, dir: string, filepath: string): Promise<strin
         }
 
         if (errors.length > 0) {
-          console.warn(`[git add ${filepath}] Some files failed to add:`, errors);
+          throw new Error(errors.join('; '));
         }
 
-        return `Added ${addedCount} file(s) from directory${errors.length > 0 ? ` (${errors.length} failed)` : ''}`;
+        let result = `Added ${addedCount} file(s) from directory`;
+        if (errors.length > 0) result += ` (${errors.length} failed)`;
+        return result;
       }
-      // 通常のファイル追加
       console.log(`[git.add] Adding file directly: ${normalizedPath}`);
       await git.add({ fs, dir, filepath: normalizedPath });
       return `Added ${filepath} to staging area`;
     } catch (error) {
       const err = error as Error;
       if (err.message.includes('ENOENT')) {
-        // ファイルが存在しない場合は削除されたファイルの可能性があるので、
-        // ステータスを再確認
         const status = await git.statusMatrix({ fs, dir });
         const fileStatus = status.find(([path]) => path === normalizedPath);
 
         if (fileStatus && fileStatus[1] === 1 && fileStatus[2] === 0) {
-          // 削除されたファイル
           console.log(
             `[git.add] File not found but exists in git, staging deletion: ${normalizedPath}`
           );
@@ -154,46 +143,64 @@ export async function add(fs: any, dir: string, filepath: string): Promise<strin
   }
 }
 
-export async function addAll(fs: any, dir: string): Promise<string> {
+export async function addAll(fs: FS, dir: string): Promise<string> {
   try {
-    console.log('[git.add] Processing all files in current directory');
-
-    await fs.promises.flush();
-
+    fs = await preserveIndexedModes(fs, dir);
     const statusMatrix = await git.statusMatrix({ fs, dir });
-    console.log(`[git.add] Status matrix found ${statusMatrix.length} files`);
-    console.log(`[git.add] Project directory: ${dir}`);
-
-    for (let i = 0; i < statusMatrix.length; i++) {
-      const [file, head, workdir, stage] = statusMatrix[i];
-      console.log(`[git.add] File: ${file}, HEAD=${head}, workdir=${workdir}, stage=${stage}`);
-    }
-
+    const candidatePaths = new Set(statusMatrix.map(([path]) => path));
+    const changedPaths = new Set<string>();
+    await git.walk({
+      fs,
+      dir,
+      trees: [git.STAGE(), git.WORKDIR()],
+      map: async (path, [stage, worktree]) => {
+        if (!candidatePaths.has(path)) return;
+        if (worktree && (await worktree.type()) === 'tree') return;
+        if (!worktree) {
+          if (stage && (await stage.type()) !== 'tree') changedPaths.add(path);
+          return;
+        }
+        // OPFS can retain matching stat values for different bytes. Hash the content itself.
+        const content = await worktree.content();
+        if (content === undefined || content === null)
+          throw new Error(`Worktree content unavailable: ${path}`);
+        const { oid } = await git.hashBlob({ object: content });
+        if (
+          !stage ||
+          (await stage.oid()) !== oid ||
+          (await stage.mode()) !== (await worktree.mode())
+        ) {
+          changedPaths.add(path);
+        }
+      },
+    });
     let newCount = 0;
     let modifiedCount = 0;
     let deletedCount = 0;
+    const errors: string[] = [];
 
     for (let i = 0; i < statusMatrix.length; i++) {
-      const [file, head, workdir, stage] = statusMatrix[i];
+      const [file, head, workdir] = statusMatrix[i];
       try {
-        if (workdir === 0 && head === 1 && stage === 1) {
+        if (!changedPaths.has(file)) continue;
+        if (workdir === 0) {
           await git.remove({ fs, dir, filepath: file });
           deletedCount++;
-        } else if (head === 0 && workdir > 0 && stage === 0) {
+        } else {
           await git.add({ fs, dir, filepath: file });
-          newCount++;
-        } else if (head === 1 && workdir === 2 && stage === 1) {
-          await git.add({ fs, dir, filepath: file });
-          modifiedCount++;
+          if (head === 0) newCount++;
+          else modifiedCount++;
         }
       } catch (operationError) {
-        console.warn(`[git.add] Failed to process ${file}:`, operationError);
+        let message = String(operationError);
+        if (operationError instanceof Error) message = operationError.message;
+        errors.push(`${file}: ${message}`);
       }
     }
 
-    console.log(
-      `[git.add] Completed: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted`
-    );
+    if (errors.length > 0) {
+      throw new Error(`Failed to add files: ${errors.join('; ')}`);
+    }
     return `Added: ${newCount} new, ${modifiedCount} modified, ${deletedCount} deleted files to staging area`;
   } catch (error) {
     console.error('[git.add] Failed:', error);

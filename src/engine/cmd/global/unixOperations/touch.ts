@@ -1,4 +1,3 @@
-import { fileRepository } from '@/engine/core/fileRepository';
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
 
@@ -57,17 +56,13 @@ export class TouchCommand extends UnixCommandBase {
    * ファイルを作成または更新
    */
   private async touchFile(file: string, noCreate: boolean): Promise<void> {
-    const normalizedPath = this.normalizePath(this.resolvePath(file));
-    const relativePath = this.getRelativePathFromProject(normalizedPath);
-
-    const existingFile = await this.getFileFromDB(relativePath);
+    const normalizedPath = this.resolvePath(file);
+    const existingFile = await this.getFile(normalizedPath);
 
     if (existingFile) {
       // ファイルが存在する場合はタイムスタンプを更新
-      await fileRepository.saveFile({
-        ...existingFile,
-        updatedAt: new Date(),
-      });
+      const content = await this.fs.readFile(normalizedPath);
+      await this.fs.writeFile(normalizedPath, content);
     } else {
       // ファイルが存在しない場合
       if (noCreate) {
@@ -76,10 +71,9 @@ export class TouchCommand extends UnixCommandBase {
       }
 
       // 親ディレクトリの存在チェック
-      const parentPath = relativePath.substring(0, relativePath.lastIndexOf('/')) || '/';
+      const parentPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) || '/';
       if (parentPath !== '/') {
-        const parentFullPath = this.normalizePath(`${this.getProjectRoot()}${parentPath}`);
-        const parentExists = await this.exists(parentFullPath);
+        const parentExists = await this.exists(parentPath);
 
         if (!parentExists) {
           throw new Error('No such file or directory');
@@ -87,7 +81,7 @@ export class TouchCommand extends UnixCommandBase {
       }
 
       // 空ファイルを作成
-      await fileRepository.createFile(this.projectId, relativePath, '', 'file');
+      await this.fs.writeFile(normalizedPath, '');
     }
   }
 }

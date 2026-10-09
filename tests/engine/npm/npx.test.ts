@@ -1,22 +1,45 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NpmInstall } from '@/engine/cmd/global/npmOperations/npmInstall';
 import { handleNPXCommand } from '@/engine/cmd/handlers/npmHandler';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { resolveLocalBinary } from '@/engine/cmd/shell/localBinary';
+import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
+import { fsClient } from '@/engine/core/fs';
+import type { FsCore } from '@/engine/core/fs/core';
+import type {
+  RuntimeExecutionOptions,
+  RuntimeProvider,
+} from '@/engine/runtime/core/RuntimeProvider';
+import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
+import { projectState } from '@/stores/projectStore';
+import { createNpmRuntimeFixture } from '../../_helpers/npmRuntime';
+import { getTestFs } from '../../_helpers/testFs';
+import { testFsFiles } from '../../_helpers/testFsFiles';
 import { setupTestProject } from '../../_helpers/testProject';
 
 describe('handleNPXCommand', () => {
-  let projectId: string;
-  let projectName: string;
+  let rootPath: string;
+  let repo: FsCore;
 
   beforeEach(async () => {
     const ctx = await setupTestProject('NpxCommandTest');
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
+    rootPath = ctx.rootPath;
+    repo = ctx.repo;
+    projectState.currentRootPath = rootPath;
+    runtimeRegistry.clear();
+    vi.spyOn(fsClient, 'readText').mockImplementation(path => repo.readText(path));
+    vi.spyOn(fsClient, 'exists').mockImplementation(path => repo.exists(path));
+    runtimeRegistry.registerRuntime(createTestRuntimeProvider(repo));
+  });
+
+  afterEach(async () => {
+    runtimeRegistry.clear();
+    projectState.currentRootPath = null;
+    vi.restoreAllMocks();
   });
 
   async function installFakePrettier(): Promise<void> {
-    await fileRepository.createFile(
-      projectId,
+    await testFsFiles.createFile(
+      rootPath,
       '/node_modules/prettier/package.json',
       JSON.stringify({
         name: 'prettier',
@@ -28,27 +51,27 @@ describe('handleNPXCommand', () => {
       'file'
     );
 
-    await fileRepository.createFile(
-      projectId,
+    await testFsFiles.createFile(
+      rootPath,
       '/node_modules/prettier/bin/prettier.cjs',
       [
         'global.__entryStarted = true;',
-        "module.exports.__promise = Promise.resolve()",
+        'module.exports.__promise = Promise.resolve()',
         "  .then(() => require('../internal/legacy-cli.js'))",
         '  .then(cli => cli.run());',
       ].join('\n'),
       'file'
     );
 
-    await fileRepository.createFile(
-      projectId,
+    await testFsFiles.createFile(
+      rootPath,
       '/node_modules/prettier/internal/legacy-cli.js',
       [
         'module.exports.run = async function run() {',
         'if (!global.__entryStarted) {',
         "  throw new Error('legacy-cli executed during dependency preload');",
         '}',
-        "const args = process.argv.slice(2);",
+        'const args = process.argv.slice(2);',
         "if (args.includes('--version')) {",
         "  console.log('3.8.3');",
         '  return;',
@@ -61,24 +84,8 @@ describe('handleNPXCommand', () => {
       'file'
     );
 
-    const installer = new NpmInstall(projectName, projectId, true);
+    const installer = new NpmInstall(rootPath, getTestFs());
     await installer.ensureBinsForPackage('prettier');
-
-    // Simulate an old stale shim left behind from a previous build.
-    await fileRepository.createFile(
-      projectId,
-      '/node_modules/.bin/prettier',
-      [
-        '#!/usr/bin/env node',
-        'try {',
-        "  require('../prettier/bin/prettier.cjs');",
-        '} catch (e) {',
-        "  console.error('Failed to run prettier:', e && e.message ? e.message : e);",
-        '  process.exit(1);',
-        '}',
-      ].join('\n'),
-      'file'
-    );
   }
 
   it('does not execute CLI dependencies during preload for --version', async () => {
@@ -87,11 +94,10 @@ describe('handleNPXCommand', () => {
     const output: string[] = [];
     const code = await handleNPXCommand(
       ['prettier', '--version'],
-      projectName,
-      projectId,
       async text => {
         output.push(text);
-      }
+      },
+      new ProcessStdin()
     );
 
     const combined = output.join('');
@@ -107,9 +113,13 @@ describe('handleNPXCommand', () => {
     await installFakePrettier();
 
     const output: string[] = [];
-    const code = await handleNPXCommand(['prettier'], projectName, projectId, async text => {
-      output.push(text);
-    });
+    const code = await handleNPXCommand(
+      ['prettier'],
+      async text => {
+        output.push(text);
+      },
+      new ProcessStdin()
+    );
 
     const combined = output.join('');
     expect(code).toBe(1);
@@ -117,33 +127,62 @@ describe('handleNPXCommand', () => {
     expect(combined).not.toContain('legacy-cli executed during dependency preload');
   });
 
-  it('does not fall back to a stale .bin shim when package bin exists', async () => {
-    await installFakePrettier();
-
-    await fileRepository.createFile(
-      projectId,
-      '/node_modules/.bin/prettier',
-      [
-        '#!/usr/bin/env node',
-        "console.error('stale shim should not run');",
-        'process.exit(1);',
-      ].join('\n'),
+  it('does not resolve a package by its name when it has no matching bin link', async () => {
+    await testFsFiles.createFile(
+      rootPath,
+      '/node_modules/package-only/package.json',
+      JSON.stringify({ name: 'package-only', bin: { 'different-command': './bin.js' } }),
       'file'
     );
+    await testFsFiles.createFile(rootPath, '/node_modules/package-only/bin.js', 'void 0;', 'file');
 
     const output: string[] = [];
     const code = await handleNPXCommand(
-      ['prettier', '--version'],
-      projectName,
-      projectId,
+      ['package-only'],
       async text => {
         output.push(text);
-      }
+      },
+      new ProcessStdin()
     );
 
     const combined = output.join('');
-    expect(code).toBe(0);
-    expect(combined).toContain('3.8.3');
-    expect(combined).not.toContain('stale shim should not run');
+    expect(code).toBe(127);
+    expect(combined).toContain('package-only: command not found');
+  });
+
+  it('finds an ancestor .bin link from nested working directories', async () => {
+    await repo.mkdir(`${rootPath}/node_modules/.bin`, { recursive: true });
+    await testFsFiles.createFile(rootPath, '/node_modules/typescript/bin/tsc.js', '', 'file');
+    await repo.rm(`${rootPath}/node_modules/.bin/tsc`, { recursive: true, force: true });
+    await repo.symlink('../typescript/bin/tsc.js', `${rootPath}/node_modules/.bin/tsc`);
+    await repo.mkdir(`${rootPath}/packages/app/src`, { recursive: true });
+
+    const path = await resolveLocalBinary('tsc', `${rootPath}/packages/app/src`, repo);
+
+    expect(path).toBe(`${rootPath}/node_modules/.bin/tsc`);
   });
 });
+
+function createTestRuntimeProvider(repo: FsCore): RuntimeProvider {
+  return {
+    id: 'nodejs',
+    name: 'Node.js test runtime',
+    supportedExtensions: ['.js', '.mjs', '.cjs'],
+    canExecute: filePath => /\.(js|mjs|cjs)$/.test(filePath),
+    async execute(options: RuntimeExecutionOptions) {
+      const fixture = await createNpmRuntimeFixture(
+        repo,
+        options.rootPath,
+        options.debugConsole,
+        options.cwd
+      );
+      try {
+        await fixture.runtime.execute(options.filePath, options.argv);
+        await fixture.runtime.waitForEventLoop();
+        return { exitCode: fixture.runtime.getExitCode() };
+      } finally {
+        await fixture.close();
+      }
+    },
+  };
+}

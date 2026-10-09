@@ -28,7 +28,8 @@ export enum ExtensionType {
  * Re-export from systemModuleTypes for convenience
  */
 import type { GetSystemModule } from './systemModuleTypes';
-export type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
+
+export type { SystemModuleMap, SystemModuleName } from './systemModuleTypes';
 
 /**
  * 拡張機能用タブデータ
@@ -36,6 +37,20 @@ export type { SystemModuleName, SystemModuleMap } from './systemModuleTypes';
  */
 export interface ExtensionTabData {
   [key: string]: unknown;
+}
+
+export interface ExtensionTab<TData = ExtensionTabData> {
+  id: string;
+  data?: TData;
+}
+
+export interface ExtensionTabComponentProps<
+  Tab extends { id: string; data?: unknown } = ExtensionTab,
+> {
+  tab: Tab;
+  isActive: boolean;
+  onClose?: () => void;
+  onMakeActive?: () => void;
 }
 
 /**
@@ -71,6 +86,8 @@ export interface UpdateTabOptions {
   title?: string;
   /** 新しいアイコン */
   icon?: string;
+  /** Whether the tab has unsaved changes. */
+  isDirty?: boolean;
   /** 拡張機能固有のデータ（部分更新） */
   data?: Partial<ExtensionTabData>;
 }
@@ -85,14 +102,16 @@ export type TabCloseCallback = (tabId: string) => void | Promise<void>;
  * Minimal Tabs API exposed to extensions.
  */
 export interface ExtensionTabsAPI {
-  registerTabType: (component: any) => void;
+  registerTabType: <Tab extends { id: string; data?: unknown } = ExtensionTab>(
+    component: React.ComponentType<ExtensionTabComponentProps<Tab>>
+  ) => void;
   createTab: (options: CreateTabOptions) => string;
   updateTab: (tabId: string, options: UpdateTabOptions) => boolean;
   closeTab: (tabId: string) => boolean;
   onTabClose: (tabId: string, callback: TabCloseCallback) => void;
   getTabData: <T = ExtensionTabData>(tabId: string) => T | null;
   openSystemTab: (
-    file: any,
+    file: FileItemForExtension,
     options?: {
       kind?: string;
       jumpToLine?: number;
@@ -113,9 +132,16 @@ export interface SidebarPanelDefinition {
   /** パネルアイコン (Lucide React icon name) */
   icon: string;
   /** パネルコンポーネント */
-  component: React.ComponentType<any>;
-  /** 初期状態 (オプション) */
-  initialState?: any;
+  component: React.ComponentType<ExtensionSidebarPanelProps>;
+  /** パネルの順序（オプション） */
+  order?: number;
+}
+
+export interface ExtensionSidebarPanelProps {
+  extensionId: string;
+  panelId: string;
+  isActive: boolean;
+  state?: unknown;
 }
 
 /**
@@ -123,12 +149,9 @@ export interface SidebarPanelDefinition {
  */
 export interface ExtensionSidebarAPI {
   createPanel: (definition: SidebarPanelDefinition) => void;
-  updatePanel: (panelId: string, state: any) => void;
+  updatePanel: (panelId: string, state: unknown) => void;
   removePanel: (panelId: string) => void;
-  onPanelActivate: (
-    panelId: string,
-    callback: (panelId: string) => void | Promise<void>
-  ) => void;
+  onPanelActivate: (panelId: string, callback: (panelId: string) => void | Promise<void>) => void;
 }
 
 /**
@@ -137,12 +160,14 @@ export interface ExtensionSidebarAPI {
 export interface CommandContext {
   /** プロジェクト名 */
   projectName: string;
-  /** プロジェクトID */
-  projectId: string;
+  /** Absolute workspace root path. */
+  rootPath: string;
   /** 現在のディレクトリ */
   currentDirectory: string;
-  /** 拡張機能のコンテキスト全体（getSystemModule等も含む） */
-  [key: string]: any;
+  /** Filesystem API rooted in the shared OPFS filesystem. */
+  fsClient: import('./systemModuleTypes').FsClient;
+  getSystemModule: GetSystemModule;
+  tabs: ExtensionTabsAPI;
 }
 
 /**
@@ -153,10 +178,7 @@ export interface CommandContext {
  * 実行時には ExtensionManager により `getSystemModule` を含む形で拡張されるため
  * handler が受け取る context には getSystemModule が存在します。
  */
-export type CommandHandler = (
-  args: string[],
-  context: CommandContext & { getSystemModule: GetSystemModule }
-) => Promise<string>;
+export type CommandHandler = (args: string[], context: CommandContext) => Promise<string>;
 
 /**
  * Commands API - 拡張機能がターミナルコマンドを追加
@@ -177,13 +199,18 @@ export interface FileItemForExtension {
   /** ファイルパス */
   path: string;
   /** ファイルタイプ */
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'symlink' | 'fifo';
+  /** Child entries for folders. */
+  children?: FileItemForExtension[];
   /** ファイル内容（テキストファイルの場合） */
   content?: string;
   /** バイナリファイルかどうか */
   isBufferArray?: boolean;
   /** バイナリ内容（バイナリファイルの場合） */
   bufferContent?: ArrayBuffer;
+  isCodeMirror?: boolean;
+  mimeType?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -212,10 +239,8 @@ export interface ExplorerMenuItemDefinition {
  * メニュー項目のアクションコンテキスト
  */
 export interface MenuActionContext {
-  /** 現在のプロジェクト名 */
-  projectName: string;
-  /** 現在のプロジェクトID */
-  projectId: string;
+  /** Absolute workspace root path. */
+  rootPath: string;
 }
 
 /**
@@ -258,8 +283,7 @@ export interface ExtensionContext {
   registerTranspiler?: (config: {
     id: string;
     supportedExtensions: string[];
-    needsTranspile?: (filePath: string) => boolean;
-    transpile: (code: string, options: any) => Promise<{ code: string; map?: string; dependencies?: string[] }>;
+    workerTransform: 'typescript';
   }) => Promise<void>;
 
   /** ランタイムを登録（language-runtime拡張機能用） */
@@ -268,7 +292,8 @@ export interface ExtensionContext {
     name: string;
     supportedExtensions: string[];
     canExecute: (filePath: string) => boolean;
-    initialize?: (projectId: string, projectName: string) => Promise<void>;
+    initialize?: (rootPath: string) => Promise<void>;
+    // TODO: Define stable extension-facing runtime options/results before replacing this legacy contract.
     execute: (options: any) => Promise<any>;
     clearCache?: () => void;
     dispose?: () => Promise<void>;

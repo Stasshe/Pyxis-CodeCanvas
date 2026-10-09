@@ -2,8 +2,9 @@
 
 import { useCallback } from 'react';
 
+import { markAIReviewDraftDiscarded } from '@/engine/tabs/builtins/aiReviewDraftState';
 import { tabActions } from '@/stores/tabState';
-import type { AIReviewEntry, FileItem, Project } from '@/types';
+import type { AIReviewEntry, AIReviewTab, FileItem } from '@/types';
 
 export function useAIReview() {
   const { openTab, closeTab } = tabActions;
@@ -27,6 +28,7 @@ export function useAIReview() {
 
       await openTab(fileItem, {
         kind: 'ai',
+        searchAllPanesForReuse: true,
         aiReviewProps: {
           originalContent,
           suggestedContent,
@@ -39,86 +41,28 @@ export function useAIReview() {
     []
   );
 
-  // 変更を適用する
-  const applyChanges = useCallback(
-    async (
-      filePath: string,
-      newContent: string,
-      currentProject: Project | null,
-      saveFile: (projectId: string, filePath: string, content: string) => Promise<void>,
-      clearAIReview: (filePath: string) => Promise<void>
-    ) => {
-      if (!currentProject) {
-        throw new Error('プロジェクトが選択されていません');
-      }
-
-      try {
-        // ファイルを保存
-        await saveFile(currentProject.id, filePath, newContent);
-
-        // AIレビュー状態をクリア
-        await clearAIReview(filePath);
-
-        return true;
-      } catch (error) {
-        console.error('Failed to apply changes:', error);
-        throw error;
-      }
-    },
-    []
-  );
-
-  // 変更を破棄する
-  const discardChanges = useCallback(
-    async (filePath: string, clearAIReview: (filePath: string) => Promise<void>) => {
-      try {
-        // AIレビュー状態をクリア
-        await clearAIReview(filePath);
-        return true;
-      } catch (error) {
-        console.error('Failed to discard changes:', error);
-        throw error;
-      }
-    },
-    []
-  );
-
   // レビュータブを閉じる
-  const closeAIReviewTab = useCallback((filePath: string) => {
-    const allTabs = tabActions.getAllTabs();
-    const aiTab = allTabs.find(t => t.kind === 'ai' && t.id.includes(filePath));
-    if (aiTab) closeTab(aiTab.paneId, aiTab.id);
-  }, []);
-
-  // 部分的な変更を適用（行単位での適用/破棄）
-  const applyPartialChanges = useCallback(
-    (originalContent: string, suggestedContent: string, linesToApply: number[]): string => {
-      const originalLines = originalContent.split('\n');
-      const suggestedLines = suggestedContent.split('\n');
-
-      // 簡単な実装：指定行を置換
-      const resultLines = [...originalLines];
-
-      for (const lineNumber of linesToApply) {
-        if (lineNumber >= 0 && lineNumber < suggestedLines.length) {
-          if (lineNumber < resultLines.length) {
-            resultLines[lineNumber] = suggestedLines[lineNumber];
-          } else {
-            resultLines.push(suggestedLines[lineNumber]);
-          }
-        }
+  const closeAIReviewTab = useCallback(
+    (rootPath: string, filePath: string, parentMessageId: string) => {
+      const identity = { rootPath, filePath, parentMessageId };
+      const matchingTabs = tabActions
+        .getAllTabs()
+        .filter(
+          (tab): tab is AIReviewTab =>
+            tab.kind === 'ai' &&
+            tab.filePath === filePath &&
+            tab.aiEntry?.rootPath === rootPath &&
+            tab.aiEntry.parentMessageId === parentMessageId
+        );
+      for (const tab of matchingTabs) {
+        if (markAIReviewDraftDiscarded(tab, identity)) closeTab(tab.paneId, tab.id);
       }
-
-      return resultLines.join('\n');
     },
     []
   );
 
   return {
     openAIReviewTab,
-    applyChanges,
-    discardChanges,
-    applyPartialChanges,
     closeAIReviewTab,
   };
 }

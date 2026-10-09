@@ -1,17 +1,11 @@
 // src/engine/tabs/builtins/DiffTabType.tsx
 import type React from 'react';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useGitContext } from '@/components/Pane/PaneContainer';
+import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useProjectSnapshot } from '@/stores/projectStore';
 import { useTabContent } from '@/stores/tabContentStore';
-import {
-  addSaveListener,
-  initTabSaveSync,
-  saveImmediately,
-  setContent as setTabContent,
-} from '@/stores/tabState';
+import { initTabSaveSync, saveImmediately, setContent as setTabContent } from '@/stores/tabState';
 import type { DiffFileEntry, DiffTab, TabComponentProps, TabTypeDefinition } from '../types';
 
 const DiffTabComponent = lazy(() => import('@/components/Tab/DiffTab'));
@@ -24,12 +18,9 @@ const DiffTabComponent = lazy(() => import('@/components/Tab/DiffTab'));
  */
 const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
   const diffTab = tab as DiffTab;
-  const { setGitRefreshTrigger } = useGitContext();
-
   const { currentProject } = useProjectSnapshot();
-  const projectId = currentProject?.id;
 
-  const { settings } = useSettings(projectId);
+  const { settings } = useSettings(currentProject?.rootPath);
   const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
 
   // tabContentStoreから最新コンテンツを取得
@@ -45,23 +36,9 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
     return diffTab.diffs;
   }, [diffTab.diffs, storeContent, diffTab.editable]);
 
-  const latestContentRef = useRef<string>('');
-  const initialContent = diffTab.diffs.length === 1 ? diffTab.diffs[0]?.latterContent || '' : '';
-
   useEffect(() => {
     initTabSaveSync();
-    if (diffTab.editable && diffTab.path && diffTab.diffs.length === 1) {
-      latestContentRef.current = initialContent;
-    }
-  }, [diffTab.editable, diffTab.path, initialContent, diffTab.diffs.length]);
-
-  useEffect(() => {
-    if (!diffTab.editable || !diffTab.path) return;
-    const unsubscribe = addSaveListener((_path, success) => {
-      if (success) setGitRefreshTrigger(prev => prev + 1);
-    });
-    return unsubscribe;
-  }, [diffTab.editable, diffTab.path, setGitRefreshTrigger]);
+  }, []);
 
   const handleImmediateSave = useCallback(async () => {
     if (!diffTab.editable || !diffTab.path) return;
@@ -73,15 +50,6 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
 
   const handleImmediateContentChange = useCallback(
     (content: string) => {
-      if (!diffTab.editable || !diffTab.path) return;
-      latestContentRef.current = content;
-      setTabContent(diffTab.path, content);
-    },
-    [diffTab.editable, diffTab.path]
-  );
-
-  const handleContentChange = useCallback(
-    async (content: string) => {
       if (!diffTab.editable || !diffTab.path) return;
       setTabContent(diffTab.path, content);
     },
@@ -101,7 +69,6 @@ const DiffTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
         editable={diffTab.editable}
         wordWrapConfig={wordWrapConfig}
         onImmediateContentChange={handleImmediateContentChange}
-        onContentChange={handleContentChange}
       />
     </Suspense>
   );

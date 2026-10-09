@@ -4,9 +4,15 @@
  */
 
 import { STORES, storageService } from '@/engine/storage';
+import { pyxisEnv } from '@/env';
 import type { Locale } from './types';
 
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7日間
+
+interface CachedTranslations {
+  version: string;
+  data: Record<string, unknown>;
+}
 
 /**
  * 翻訳データをIndexedDBに保存
@@ -17,7 +23,8 @@ export async function saveTranslationCache(
   data: Record<string, unknown>
 ): Promise<void> {
   const id = `${locale}-${namespace}`;
-  await storageService.set(STORES.TRANSLATIONS, id, data, { ttl: CACHE_EXPIRY_MS });
+  const cache: CachedTranslations = { version: pyxisEnv.version, data };
+  await storageService.set(STORES.TRANSLATIONS, id, cache, { ttl: CACHE_EXPIRY_MS });
 }
 
 /**
@@ -28,7 +35,24 @@ export async function loadTranslationCache(
   namespace: string
 ): Promise<Record<string, unknown> | null> {
   const id = `${locale}-${namespace}`;
-  return await storageService.get<Record<string, unknown>>(STORES.TRANSLATIONS, id);
+  const cache = await storageService.get<unknown>(STORES.TRANSLATIONS, id);
+  if (cache === null || cache === undefined) return null;
+  if (!isCachedTranslations(cache) || cache.version !== pyxisEnv.version) {
+    await deleteTranslationCache(locale, namespace);
+    return null;
+  }
+  return cache.data;
+}
+
+function isCachedTranslations(value: unknown): value is CachedTranslations {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const cache = value as Partial<CachedTranslations>;
+  return (
+    typeof cache.version === 'string' &&
+    cache.data !== null &&
+    typeof cache.data === 'object' &&
+    !Array.isArray(cache.data)
+  );
 }
 
 /**

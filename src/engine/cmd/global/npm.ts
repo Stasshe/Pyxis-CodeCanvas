@@ -1,520 +1,231 @@
-/**
- * npm.ts - 新アーキテクチャ版NPMコマンド
- *
- * NEW ARCHITECTURE:
- * - IndexedDB (fileRepository) が単一の真実の情報源
- * - package.jsonなどの設定ファイルは IndexedDB に保存
- * - NpmInstallクラスが .gitignore を考慮して IndexedDB を更新
- * - fileRepository.createFile() を使用して自動的に管理
- * - TerminalUI API provides advanced terminal display features
- */
-
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import * as Comlink from 'comlink';
+import { UnixCommands } from '@/engine/cmd/global/unix';
+import { ShellExecutor } from '@/engine/cmd/shell/executor';
+import type { ShellExecutionOptions } from '@/engine/cmd/shell/types';
 import type { TerminalUI } from '@/engine/cmd/terminalUI';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { NpmInstall } from './npmOperations/npmInstall';
+import { resolvePath } from '@/engine/core/fs';
+import { fsClient } from '@/engine/core/fs/client';
+import type { OutputCallbacks } from '../shell/types';
+import type { InstallPackageRequest, WorkerNpmCommands } from './npmOperations/worker';
 
 export class NpmCommands {
-  private projectName: string;
-  private projectId: string;
-  private setLoading?: (isLoading: boolean) => void;
   private terminalUI?: TerminalUI;
+  private setLoading?: (isLoading: boolean) => void;
+  private servicePromise: Promise<Comlink.Remote<WorkerNpmCommands>>;
+  private projectName: string;
 
-  constructor(projectName: string, projectId: string, setLoading?: (isLoading: boolean) => void) {
-    this.projectName = projectName;
-    this.projectId = projectId;
+  constructor(
+    private readonly rootPath: string,
+    setLoading?: (isLoading: boolean) => void
+  ) {
     this.setLoading = setLoading;
+    const segments = rootPath.split('/').filter(Boolean);
+    this.projectName = segments.at(-1) || 'root';
+    this.servicePromise = fsClient.getNpm(rootPath);
   }
 
-  setLoadingHandler(callback: (isLoading: boolean) => void) {
+  setLoadingHandler(callback: (isLoading: boolean) => void): void {
     this.setLoading = callback;
   }
 
-  setTerminalUI(ui: TerminalUI) {
+  setTerminalUI(ui: TerminalUI): void {
     this.terminalUI = ui;
   }
 
-  private createInstaller(dedupe = false): NpmInstall {
-    return new NpmInstall(this.projectId, dedupe);
-  }
-
   async downloadAndInstallPackage(packageName: string, version = 'latest'): Promise<void> {
-    const npmInstall = this.createInstaller();
-    npmInstall.startBatchProcessing();
-    try {
-      await npmInstall.installWithDependencies(packageName, version);
-    } finally {
-      await npmInstall.finishBatchProcessing();
-    }
+    const service = await this.servicePromise;
+    await service.install(packageName, [`--version=${version}`]);
   }
 
-  async removeDirectory(dirPath: string): Promise<void> {
-    const npmInstall = this.createInstaller(true);
-    await npmInstall.removeDirectory(dirPath);
+  async removeDirectory(path: string): Promise<void> {
+    await fsClient.rm(path, { recursive: true, force: true });
   }
 
-  // npm install コマンドの実装
   async install(packageName?: string, flags: string[] = []): Promise<string> {
-    const startTime = Date.now();
-    const ui = this.terminalUI;
+    const version = flags.find(flag => flag.startsWith('--version='))?.slice('--version='.length);
+    const packages: InstallPackageRequest[] = [];
+    if (packageName) packages.push({ name: packageName, version });
+    return this.installPackages(packages, flags);
+  }
 
-    // Use TerminalUI spinner if available, otherwise fall back to setLoading
-    const useTerminalUI = !!ui;
-    if (!useTerminalUI) {
-      this.setLoading?.(true);
-    }
-
-    try {
-      // IndexedDBからpackage.jsonを単一取得（インデックス経由）
-      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-      let packageJson: any;
-      if (packageFile) {
-        packageJson = JSON.parse(packageFile.content);
-      } else {
-        // package.jsonが存在しない場合は作成
-        packageJson = this.defaultPackageJson();
-        await fileRepository.createFile(
-          this.projectId,
-          '/package.json',
-          JSON.stringify(packageJson, null, 2),
-          'file'
-        );
-      }
-
-      if (!packageName) {
-        // npm install（全依存関係のインストール）
-        const allDependencies = {
-          ...packageJson.dependencies,
-          ...packageJson.devDependencies,
+  async installPackages(packages: InstallPackageRequest[], flags: string[] = []): Promise<string> {
+    return this.withLoading(async () => {
+      const ui = this.terminalUI;
+      let target = 'dependencies';
+      if (packages.length === 1) target = packages[0].name;
+      if (packages.length > 1) target = packages.map(request => request.name).join(', ');
+      if (ui) await ui.spinner.start(`Installing ${target}...`);
+      try {
+        const service = await this.servicePromise;
+        const progress = async (name: string, version: string): Promise<void> => {
+          if (!ui) return;
+          await ui.spinner.update(`Installing ${name}@${version}`);
         };
-        const packageNames = Object.keys(allDependencies);
-
-        if (packageNames.length === 0) {
-          return 'up to date, audited 0 packages in 0.1s\n\nfound 0 vulnerabilities';
-        }
-
-        let installedCount = 0;
-        const failedPackages: string[] = [];
-
-        const npmInstall = this.createInstaller();
-
-        // Set up progress callback to log all packages (direct + transitive)
-        if (ui) {
-          npmInstall.setInstallProgressCallback(async (pkgName, pkgVersion, _isDirect) => {
-            await ui.spinner.update(
-              `reify:${pkgName}@${pkgVersion}: timing reifyNode:node_modules/${pkgName} (${pkgVersion})`
-            );
-          });
-        }
-
-        npmInstall.startBatchProcessing();
-
-        try {
-          // Start spinner with initial message
-          if (ui) {
-            await ui.spinner.start(`reify: resolving ${packageNames.length} packages...`);
-          }
-
-          for (let i = 0; i < packageNames.length; i++) {
-            const pkg = packageNames[i];
-            const versionSpec = allDependencies[pkg];
-
-            try {
-              await npmInstall.installWithDependencies(pkg, versionSpec, { isDirect: true });
-              installedCount++;
-            } catch (error) {
-              failedPackages.push(`${pkg}@${versionSpec}: ${(error as Error).message}`);
-            }
-          }
-        } finally {
-          await npmInstall.finishBatchProcessing();
-          // ensure .bin entries for all installed packages
-          for (const pkg of packageNames) {
-            await npmInstall
-              .ensureBinsForPackage(pkg)
-              .catch(err => console.warn(`[npm] ensureBins failed for ${pkg}:`, err));
-          }
-        }
-
-        // Stop spinner
-        if (ui) {
-          await ui.spinner.stop();
-        }
-
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        let output = '';
-
-        // Output warnings for failed packages
-        if (failedPackages.length > 0) {
-          for (const failed of failedPackages) {
-            output += `npm WARN ${failed}\n`;
-          }
-          output += '\n';
-        }
-
-        if (installedCount === 0) {
-          output += `up to date, audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        } else {
-          output += `added ${installedCount} packages, and audited ${packageNames.length} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        }
+        const output = await service.installPackages(packages, flags, Comlink.proxy(progress));
+        if (ui) await ui.spinner.stop();
         return output;
-      }
-      // 特定パッケージのインストール
-      const isDev = flags.includes('--save-dev') || flags.includes('-D');
-
-      // package.jsonに記載があるかチェック
-      let isInPackageJson = false;
-      if (packageJson.dependencies?.[packageName] || packageJson.devDependencies?.[packageName]) {
-        isInPackageJson = true;
-      }
-
-      try {
-        // Start spinner
-        if (ui) {
-          await ui.spinner.start(`http fetch GET https://registry.npmjs.org/${packageName}`);
-        }
-
-        const packageInfo = await this.fetchPackageInfo(packageName);
-        const version = packageInfo.version;
-
-        if (!packageJson.dependencies) packageJson.dependencies = {};
-        if (!packageJson.devDependencies) packageJson.devDependencies = {};
-
-        if (isDev) {
-          packageJson.devDependencies[packageName] = `^${version}`;
-        } else {
-          packageJson.dependencies[packageName] = `^${version}`;
-        }
-
-        await fileRepository.createFile(
-          this.projectId,
-          '/package.json',
-          JSON.stringify(packageJson, null, 2),
-          'file'
-        );
-
-        const nodeFile = await fileRepository.getFileByPath(
-          this.projectId,
-          `/node_modules/${packageName}/package.json`
-        );
-        const isActuallyInstalled = !!nodeFile;
-        const wasAlreadyInstalled = isInPackageJson && isActuallyInstalled;
-        const npmInstall = this.createInstaller();
-
-        // Set up progress callback to log all packages (direct + transitive)
-        if (ui) {
-          npmInstall.setInstallProgressCallback(async (pkgName, _pkgVersion, _isDirect) => {
-            await ui.spinner.update(`reify:${pkgName}: timing reifyNode:node_modules/${pkgName}`);
-          });
-        }
-
-        npmInstall.startBatchProcessing();
-        try {
-          await npmInstall.installWithDependencies(packageName, version, { isDirect: true });
-        } finally {
-          await npmInstall.finishBatchProcessing();
-          await npmInstall
-            .ensureBinsForPackage(packageName)
-            .catch(err => console.warn(`[npm] ensureBins failed for ${packageName}:`, err));
-        }
-
-        // Stop spinner
-        if (ui) {
-          await ui.spinner.stop();
-        }
-
-        const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        if (wasAlreadyInstalled) {
-          return `up to date, audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
-        }
-        return `added 1 package, and audited 1 package in ${finalElapsed}s\n\nfound 0 vulnerabilities`;
       } catch (error) {
-        if (ui) {
-          await ui.spinner.stop();
-        }
-        throw new Error(`Failed to install ${packageName}: ${(error as Error).message}`);
+        if (ui) await ui.spinner.stop();
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        throw new Error(message);
       }
-    } catch (error) {
-      throw new Error(`npm install failed: ${(error as Error).message}`);
-    } finally {
-      if (!useTerminalUI) {
-        this.setLoading?.(false);
-      }
-    }
+    });
   }
 
-  // npm uninstall コマンドの実装
   async uninstall(packageName: string): Promise<string> {
-    const startTime = Date.now();
-    const ui = this.terminalUI;
-    const useTerminalUI = !!ui;
-
-    if (!useTerminalUI) {
-      this.setLoading?.(true);
-    }
-
-    try {
-      // Start spinner
-      if (ui) {
-        await ui.spinner.start(`reify: removing ${packageName}...`);
-      }
-
-      // IndexedDBからpackage.jsonを単一取得（インデックス経由）
-      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-      if (!packageFile) {
-        if (ui) await ui.spinner.stop();
-        return 'npm ERR! Cannot find package.json';
-      }
-      const packageJson = JSON.parse(packageFile.content);
-
-      if (!packageJson.dependencies) packageJson.dependencies = {};
-      if (!packageJson.devDependencies) packageJson.devDependencies = {};
-
-      let wasInDependencies = false;
-      let wasInDevDependencies = false;
-      if (packageJson.dependencies[packageName]) {
-        wasInDependencies = true;
-        delete packageJson.dependencies[packageName];
-      }
-      if (packageJson.devDependencies[packageName]) {
-        wasInDevDependencies = true;
-        delete packageJson.devDependencies[packageName];
-      }
-
-      if (!wasInDependencies && !wasInDevDependencies) {
-        if (ui) await ui.spinner.stop();
-        return `npm WARN ${packageName} is not a dependency of ${this.projectName}`;
-      }
-
-      await fileRepository.createFile(
-        this.projectId,
-        '/package.json',
-        JSON.stringify(packageJson, null, 2),
-        'file'
-      );
-
-      // 依存関係を含めてパッケージを削除
-      const npmInstall = this.createInstaller(true);
+    return this.withLoading(async () => {
+      const ui = this.terminalUI;
+      if (ui) await ui.spinner.start(`reify: removing ${packageName}...`);
       try {
-        const removedPackages = await npmInstall.uninstallWithDependencies(packageName);
-        const totalRemoved = removedPackages.length;
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
+        const result = await (await this.servicePromise).uninstall(packageName);
         if (ui) await ui.spinner.stop();
-
-        if (totalRemoved === 0) {
-          return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
-        }
-        return `removed ${totalRemoved + 1} packages in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        return result;
       } catch (error) {
-        // 依存関係解決に失敗した場合は、単純にメインパッケージのみ削除
-        console.warn(
-          `[npm.uninstall] Dependency analysis failed, removing only main package: ${(error as Error).message}`
-        );
-        // node_modules配下のIndexedDBファイルも念のため削除（プレフィックス検索）
-        const packageFiles = await fileRepository.getFilesByPrefix(
-          this.projectId,
-          `/node_modules/${packageName}`
-        );
-        for (const file of packageFiles) {
-          await fileRepository.deleteFile(file.id);
-        }
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         if (ui) await ui.spinner.stop();
-        return `removed 1 package in ${elapsed}s\n\nfound 0 vulnerabilities`;
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        throw new Error(`npm uninstall failed: ${message}`);
       }
-    } catch (error) {
-      if (ui) await ui.spinner.stop();
-      throw new Error(`npm uninstall failed: ${(error as Error).message}`);
-    } finally {
-      if (!useTerminalUI) {
-        this.setLoading?.(false);
-      }
-    }
+    });
   }
 
-  // npm list コマンドの実装
   async list(): Promise<string> {
-    try {
-      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-      if (!packageFile) {
-        return 'npm ERR! Cannot find package.json';
-      }
-      const packageJson = JSON.parse(packageFile.content);
-      let output = `${this.projectName}@${packageJson.version}\n`;
-      const dependencies = packageJson.dependencies || {};
-      const devDependencies = packageJson.devDependencies || {};
-      const depKeys = Object.keys(dependencies);
-      const devDepKeys = Object.keys(devDependencies);
-      if (depKeys.length === 0 && devDepKeys.length === 0) {
-        output += '(empty)';
-        return output;
-      }
-      depKeys.forEach((pkg, index) => {
-        const isLast = index === depKeys.length - 1 && devDepKeys.length === 0;
-        const connector = isLast ? '└── ' : '├── ';
-        output += `${connector}${pkg}@${dependencies[pkg]}\n`;
-      });
-      devDepKeys.forEach((pkg, index) => {
-        const isLast = index === devDepKeys.length - 1;
-        const connector = isLast ? '└── ' : '├── ';
-        output += `${connector}${pkg}@${devDependencies[pkg]} (dev)\n`;
-      });
-      return output.trim();
-    } catch (error) {
-      throw new Error(`npm list failed: ${(error as Error).message}`);
-    }
+    return (await this.servicePromise).list(this.projectName);
   }
 
-  // npm init コマンドの実装
   async init(force = false): Promise<string> {
-    try {
-      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-      if (packageFile && !force) {
-        return `package.json already exists. Use 'npm init --force' to overwrite.`;
-      }
-      const packageJson = this.defaultPackageJson();
-      await fileRepository.createFile(
-        this.projectId,
-        '/package.json',
-        JSON.stringify(packageJson, null, 2),
-        'file'
-      );
-      return `Wrote to /package.json (IndexedDB):\n\n${JSON.stringify(packageJson, null, 2)}`;
-    } catch (error) {
-      throw new Error(`npm init failed: ${(error as Error).message}`);
-    }
+    return (await this.servicePromise).init(force, this.projectName);
   }
 
-  // npm run コマンドの実装
   async run(scriptName: string): Promise<string> {
+    const result = await this.runWithStatus(scriptName);
+    return [result.stdout, result.stderr].filter(Boolean).join('\n');
+  }
+
+  async runWithStatus(
+    scriptName: string,
+    scriptArgs: string[] = [],
+    callbacks?: OutputCallbacks,
+    context?: NpmRunContext
+  ): Promise<NpmRunResult> {
     try {
-      const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-      if (!packageFile) {
-        return 'npm ERR! Cannot find package.json';
+      const packagePath = resolvePath(this.rootPath, 'package.json');
+      if (!(await fsClient.exists(packagePath))) {
+        const error = 'npm ERR! Cannot find package.json\n';
+        callbacks?.stderr?.(error);
+        return { stdout: '', stderr: error, code: 1 };
       }
-      const packageJson = JSON.parse(packageFile.content);
-      const scripts = packageJson.scripts || {};
-      if (!scripts[scriptName]) {
-        const availableScripts = Object.keys(scripts);
+      const packageJson = JSON.parse(await fsClient.readText(packagePath)) as PackageJson;
+      let command = packageJson.scripts?.[scriptName];
+      if (
+        !command &&
+        scriptName === 'start' &&
+        (await fsClient.exists(resolvePath(this.rootPath, 'server.js')))
+      )
+        command = 'node server.js';
+      if (!command) {
+        const scripts = packageJson.scripts ?? {};
         let output = `npm ERR! script '${scriptName}' not found\n`;
-        if (availableScripts.length > 0) {
+        const names = Object.keys(scripts);
+        if (names.length > 0) {
           output += '\nAvailable scripts:\n';
-          availableScripts.forEach(script => {
-            output += `  ${script}: ${scripts[script]}\n`;
-          });
+          for (const name of names) output += `  ${name}: ${scripts[name]}\n`;
         }
-        return output;
+        callbacks?.stderr?.(output);
+        return { stdout: '', stderr: output, code: 1 };
       }
-      const command = scripts[scriptName];
-
-      // Obtain a StreamShell instance from the terminal registry so the
-      // script runs with the project's UnixCommands and fileRepository
-      const shell = await terminalCommandRegistry.getShell(this.projectName, this.projectId, {
-        fileRepository,
-      });
-
-      if (!shell) {
-        // Fallback to simulated output if shell could not be constructed
-        return `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n\n[Script execution simulated] ${command}\n\nScript '${scriptName}' completed (shell unavailable).`;
-      }
-
-      const header = `> ${this.projectName}@${packageJson.version} ${scriptName}\n> ${command}\n`;
-
-      // Run the script through the StreamShell. This allows resolution of
-      // commands provided by installed packages (node_modules/.bin) when
-      // UnixCommands implementation supports project-local resolution.
-      const res = await shell.run(command);
-
-      const outParts: string[] = [header];
-      if (res.stdout?.length) outParts.push(res.stdout);
-      if (res.stderr?.length) outParts.push(res.stderr);
-      if (res.code === 0 || res.code === null) {
-        outParts.push(`\nScript '${scriptName}' completed successfully.`);
-      } else {
-        outParts.push(`\nScript '${scriptName}' exited with code ${res.code}.`);
-      }
-
-      return outParts.join('\n');
-    } catch (error) {
-      throw new Error(`npm run failed: ${(error as Error).message}`);
-    }
-  }
-
-  private defaultPackageJson() {
-    return {
-      name: this.projectName,
-      version: '1.0.0',
-      description: '',
-      main: 'index.js',
-      scripts: {
-        test: 'echo "Error: no test specified" && exit 1',
-      },
-      keywords: [],
-      author: '',
-      license: 'ISC',
-      dependencies: {},
-      devDependencies: {},
-    };
-  }
-
-  // 実際のnpmレジストリからパッケージ情報を取得
-  private async fetchPackageInfo(packageName: string): Promise<any> {
-    try {
-      // タイムアウト付きでfetch
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
-
-      const response = await fetch(`https://registry.npmjs.org/${packageName}`, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(`Package '${packageName}' not found`);
+      let stdout = '';
+      let stderr = '';
+      const runScript = async (name: string, script: string, args: string[] = []) => {
+        const header = [
+          `> ${this.projectName}@${packageJson.version ?? '0.0.0'} ${name}`,
+          `> ${script}`,
+          '',
+          '',
+        ].join('\n');
+        stdout += header;
+        callbacks?.stdout?.(header);
+        let commandLine = script;
+        if (args.length > 0) commandLine += ` ${args.map(quoteShellArgument).join(' ')}`;
+        const cwd = context?.cwd ?? this.rootPath;
+        const unix = new UnixCommands(this.rootPath, fsClient);
+        unix.setCurrentDir(cwd);
+        const shell = new ShellExecutor({
+          rootPath: this.rootPath,
+          cwd,
+          env: context?.env,
+          signal: context?.signal,
+          terminalColumns: context?.terminalColumns,
+          terminalRows: context?.terminalRows,
+          fsClient,
+          unix,
+          isInteractive: false,
+        });
+        const unsubscribe = context?.onSignal(signal => shell.killForeground(signal));
+        try {
+          const result = await shell.run(commandLine, callbacks, context);
+          stdout += result.stdout;
+          stderr += result.stderr;
+          return result.code ?? 1;
+        } finally {
+          unsubscribe?.();
+          shell.dispose();
         }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // 必要なデータが存在するかチェック
-      if (!data.name || !data['dist-tags'] || !data['dist-tags'].latest) {
-        throw new Error(`Invalid package data for '${packageName}'`);
-      }
-
-      const latestVersion = data['dist-tags'].latest;
-      const versionData = data.versions[latestVersion];
-
-      if (!versionData || !versionData.dist || !versionData.dist.tarball) {
-        throw new Error(`No download URL found for '${packageName}@${latestVersion}'`);
-      }
-
-      // メインファイルパスを正規化
-      let mainFile = versionData.main || 'index.js';
-      mainFile = mainFile.replace(/^\.+\/+/g, '');
-      mainFile = mainFile.replace(/\/+/g, '/');
-      mainFile = mainFile.replace(/^\/+/, '');
-
-      return {
-        name: data.name,
-        version: latestVersion,
-        description: data.description || '',
-        main: mainFile,
-        license: data.license || versionData.license || 'Unknown',
-        tarball: versionData.dist.tarball,
-        dependencies: versionData.dependencies || {},
       };
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Request timeout for package '${packageName}'`);
+
+      const preScript = packageJson.scripts?.[`pre${scriptName}`];
+      if (preScript) {
+        const code = await runScript(`pre${scriptName}`, preScript);
+        if (code !== 0) return { stdout, stderr, code };
       }
-      throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
+      const code = await runScript(scriptName, command, scriptArgs);
+      if (code !== 0) return { stdout, stderr, code };
+      const postScript = packageJson.scripts?.[`post${scriptName}`];
+      if (postScript) {
+        const postCode = await runScript(`post${scriptName}`, postScript);
+        if (postCode !== 0) return { stdout, stderr, code: postCode };
+      }
+      return { stdout, stderr, code: 0 };
+    } catch (error) {
+      let message = String(error);
+      if (error instanceof Error) message = error.message;
+      const stderr = `npm run failed: ${message}\n`;
+      callbacks?.stderr?.(stderr);
+      return { stdout: '', stderr, code: 1 };
     }
   }
+
+  private async withLoading(operation: () => Promise<string>): Promise<string> {
+    if (!this.terminalUI) this.setLoading?.(true);
+    try {
+      return await operation();
+    } finally {
+      if (!this.terminalUI) this.setLoading?.(false);
+    }
+  }
+}
+
+interface PackageJson {
+  version?: string;
+  scripts?: Record<string, string>;
+}
+
+export interface NpmRunResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+}
+
+export interface NpmRunContext extends ShellExecutionOptions {
+  cwd: string;
+  env?: Record<string, string>;
+  signal?: AbortSignal;
+  onSignal: (fn: (signal: string) => void) => () => void;
+  terminalColumns: number;
+  terminalRows: number;
+}
+
+function quoteShellArgument(argument: string): string {
+  return `'${argument.replaceAll("'", "'\\''")}'`;
 }

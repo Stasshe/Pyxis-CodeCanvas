@@ -10,6 +10,8 @@ interface UseResizeOptions {
   onResize: (newSize: number) => void;
   /** Optional: selector to directly update DOM element during drag for better performance */
   targetSelector?: string;
+  /** Optional CSS variable to update instead of writing an inline width or height. */
+  targetSizeVariable?: `--${string}`;
   /** If false, onResize will only be called on drag end. defaults to true */
   shouldUpdateStateDuringResize?: boolean;
 }
@@ -43,6 +45,7 @@ export function useResize(options: UseResizeOptions) {
     maxSize = getDefaultMaxSize(direction),
     onResize,
     targetSelector,
+    targetSizeVariable,
     shouldUpdateStateDuringResize = true,
   } = options;
 
@@ -123,15 +126,16 @@ export function useResize(options: UseResizeOptions) {
         if (targetSelector) {
           const element = document.querySelector(targetSelector) as HTMLElement;
           if (element) {
-            if (direction === 'horizontal') {
-              const sizePx = `${state.currentSize}px`;
+            const sizePx = `${state.currentSize}px`;
+            if (targetSizeVariable) {
+              element.style.setProperty(targetSizeVariable, sizePx);
+            } else if (direction === 'horizontal') {
               element.style.height = sizePx;
               // React sets min/max height/width equal to size, so we must update them too
               // otherwise they will constrain the element to the old size
               if (element.style.minHeight) element.style.minHeight = sizePx;
               if (element.style.maxHeight) element.style.maxHeight = sizePx;
             } else {
-              const sizePx = `${state.currentSize}px`;
               element.style.width = sizePx;
               if (element.style.minWidth) element.style.minWidth = sizePx;
               if (element.style.maxWidth) element.style.maxWidth = sizePx;
@@ -140,7 +144,15 @@ export function useResize(options: UseResizeOptions) {
         }
       });
     },
-    [direction, minSize, maxSize, onResize, targetSelector, shouldUpdateStateDuringResize]
+    [
+      direction,
+      minSize,
+      maxSize,
+      onResize,
+      targetSelector,
+      targetSizeVariable,
+      shouldUpdateStateDuringResize,
+    ]
   );
 
   const handleEnd = useCallback(() => {

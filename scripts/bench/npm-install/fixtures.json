@@ -1,0 +1,36 @@
+{
+  "fixtures": [
+    {
+      "name": "small",
+      "dependencies": {
+        "is-odd": "3.0.1"
+      },
+      "devDependencies": {}
+    },
+    {
+      "name": "medium-express",
+      "dependencies": {
+        "express": "5.1.0"
+      },
+      "devDependencies": {}
+    },
+    {
+      "name": "medium-react",
+      "dependencies": {
+        "react": "19.2.0",
+        "react-dom": "19.2.0"
+      },
+      "devDependencies": {}
+    },
+    {
+      "name": "large-dev",
+      "dependencies": {},
+      "devDependencies": {
+        "vite": "8.2.1",
+        "typescript": "6.0.3",
+        "esbuild": "0.28.2",
+        "prettier": "3.9.9"
+      }
+    }
+  ]
+}

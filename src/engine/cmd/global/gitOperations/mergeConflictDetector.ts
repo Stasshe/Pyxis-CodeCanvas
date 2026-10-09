@@ -1,11 +1,10 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import { detectFileContent } from '@/engine/core/fileBytes';
+import type { GitFs as FS } from '@/engine/core/fs/git';
+import type { FsApi } from '@/engine/core/fs/types';
 
 import type { MergeConflictFileEntry } from '@/engine/tabs/types';
 
-/**
- * Detect and extract merge conflict information
- */
 export class MergeConflictDetector {
   private fs: FS;
   private dir: string;
@@ -15,44 +14,34 @@ export class MergeConflictDetector {
     this.dir = dir;
   }
 
-  /**
-   * Find the merge base (common ancestor) between two branches
-   */
   private async findMergeBase(ours: string, theirs: string): Promise<string | null> {
     try {
       const oursOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: ours });
       const theirsOid = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: theirs });
 
-      // Use isomorphic-git's findMergeBase
       const bases = await git.findMergeBase({
         fs: this.fs,
         dir: this.dir,
         oids: [oursOid, theirsOid],
       });
 
-      return bases.length > 0 ? bases[0] : null;
+      if (bases.length > 0) return bases[0];
+      return null;
     } catch (error) {
       console.error('[MergeConflictDetector] Failed to find merge base:', error);
-      return null;
+      throw error;
     }
   }
 
-  /**
-   * Detect conflicting files by comparing two branches
-   * Returns files that have different content in both branches compared to their common ancestor
-   */
   async detectConflicts(
     oursBranch: string,
-    theirsBranch: string
+    theirsBranch: string,
+    conflictPaths?: ReadonlySet<string>
   ): Promise<MergeConflictFileEntry[]> {
     try {
       const conflicts: MergeConflictFileEntry[] = [];
 
-      // Find merge base
-      const baseOid = await this.findMergeBase(
-        `refs/heads/${oursBranch}`,
-        `refs/heads/${theirsBranch}`
-      );
+      const baseOid = await this.findMergeBase(oursBranch, theirsBranch);
 
       if (!baseOid) {
         console.warn('[MergeConflictDetector] No merge base found');
@@ -64,18 +53,17 @@ export class MergeConflictDetector {
       const oursOid = await git.resolveRef({
         fs: this.fs,
         dir: this.dir,
-        ref: `refs/heads/${oursBranch}`,
+        ref: oursBranch,
       });
       const theirsOid = await git.resolveRef({
         fs: this.fs,
         dir: this.dir,
-        ref: `refs/heads/${theirsBranch}`,
+        ref: theirsBranch,
       });
 
-      // Use git.walk to compare trees
       const changedFiles = new Map<
         string,
-        { baseOid?: string; oursOid?: string; theirsOid?: string }
+        { baseOid?: string; oursOid?: string; theirsOid?: string; symlink: boolean }
       >();
 
       await git.walk({
@@ -88,25 +76,42 @@ export class MergeConflictDetector {
         ],
         map: async (filepath, [baseEntry, oursEntry, theirsEntry]) => {
           if (filepath === '.') return;
+          if (conflictPaths && !conflictPaths.has(filepath)) return;
 
-          const baseType = baseEntry ? await baseEntry.type() : null;
-          const oursType = oursEntry ? await oursEntry.type() : null;
-          const theirsType = theirsEntry ? await theirsEntry.type() : null;
+          let baseType: string | null = null;
+          if (baseEntry) baseType = await baseEntry.type();
+          let oursType: string | null = null;
+          if (oursEntry) oursType = await oursEntry.type();
+          let theirsType: string | null = null;
+          if (theirsEntry) theirsType = await theirsEntry.type();
 
-          // Skip directories
           if (baseType === 'tree' || oursType === 'tree' || theirsType === 'tree') return;
 
-          const baseOidVal = baseEntry ? await baseEntry.oid() : null;
-          const oursOidVal = oursEntry ? await oursEntry.oid() : null;
-          const theirsOidVal = theirsEntry ? await theirsEntry.oid() : null;
+          let baseOidVal: string | null = null;
+          if (baseEntry) baseOidVal = await baseEntry.oid();
+          let oursOidVal: string | null = null;
+          if (oursEntry) oursOidVal = await oursEntry.oid();
+          let theirsOidVal: string | null = null;
+          if (theirsEntry) theirsOidVal = await theirsEntry.oid();
 
-          // Check if file was modified in both branches
-          const modifiedInOurs = baseOidVal !== oursOidVal;
-          const modifiedInTheirs = baseOidVal !== theirsOidVal;
+          const [baseMode, oursMode, theirsMode] = await Promise.all([
+            baseEntry?.mode(),
+            oursEntry?.mode(),
+            theirsEntry?.mode(),
+          ]);
+          const modifiedInOurs = baseOidVal !== oursOidVal || baseMode !== oursMode;
+          const modifiedInTheirs = baseOidVal !== theirsOidVal || baseMode !== theirsMode;
 
-          if (modifiedInOurs && modifiedInTheirs && oursOidVal !== theirsOidVal) {
-            // This is a potential conflict
+          if (
+            modifiedInOurs &&
+            modifiedInTheirs &&
+            (oursOidVal !== theirsOidVal || oursMode !== theirsMode)
+          ) {
             changedFiles.set(filepath, {
+              symlink:
+                (await baseEntry?.mode()) === 0o120000 ||
+                (await oursEntry?.mode()) === 0o120000 ||
+                (await theirsEntry?.mode()) === 0o120000,
               baseOid: baseOidVal || undefined,
               oursOid: oursOidVal || undefined,
               theirsOid: theirsOidVal || undefined,
@@ -117,62 +122,96 @@ export class MergeConflictDetector {
 
       console.log('[MergeConflictDetector] Detected conflicts:', changedFiles.size);
 
-      // Read content for each conflicting file
       for (const [filepath, oids] of Array.from(changedFiles.entries())) {
-        const baseContent = oids.baseOid ? await this.readBlobContent(oids.baseOid) : '';
-        const oursContent = oids.oursOid ? await this.readBlobContent(oids.oursOid) : '';
-        const theirsContent = oids.theirsOid ? await this.readBlobContent(oids.theirsOid) : '';
-
-        // Normalize path - ensure it starts with '/' but avoid double slashes
-        const normalizedPath = filepath.startsWith('/') ? filepath : `/${filepath}`;
-
-        conflicts.push({
-          filePath: normalizedPath,
-          baseContent,
-          oursContent,
-          theirsContent,
-          resolvedContent: oursContent, // Default to ours
+        if (oids.symlink)
+          throw new Error(`Cannot automatically resolve a symbolic link conflict: ${filepath}`);
+        const versions = await Promise.all([
+          this.readBlob(filepath, oids.baseOid),
+          this.readBlob(filepath, oids.oursOid),
+          this.readBlob(filepath, oids.theirsOid),
+        ]);
+        const [base, ours, theirs] = versions;
+        const conflict: MergeConflictFileEntry = {
+          filePath: `${this.dir}/${filepath}`,
+          baseContent: '',
+          oursContent: '',
+          theirsContent: '',
+          resolvedContent: '',
           isResolved: false,
-        });
+        };
+        if (versions.some(version => version?.content.kind === 'binary')) {
+          conflict.binary = {
+            base: base?.bytes ?? null,
+            ours: ours?.bytes ?? null,
+            theirs: theirs?.bytes ?? null,
+            resolved: ours?.bytes ?? null,
+          };
+        } else {
+          if (base?.content.kind === 'text') conflict.baseContent = base.content.content;
+          if (ours?.content.kind === 'text') conflict.oursContent = ours.content.content;
+          if (theirs?.content.kind === 'text') conflict.theirsContent = theirs.content.content;
+          conflict.resolvedContent = conflict.oursContent;
+          if (conflictPaths) {
+            try {
+              conflict.resolvedContent = selectOurs(
+                await this.fs.promises.readFile(conflict.filePath, 'utf8')
+              );
+            } catch (error) {
+              if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT')
+                throw error;
+            }
+          }
+        }
+        conflicts.push(conflict);
       }
 
       return conflicts;
     } catch (error) {
       console.error('[MergeConflictDetector] Error detecting conflicts:', error);
-      return [];
+      throw error;
     }
   }
 
-  /**
-   * Read blob content by OID
-   */
-  private async readBlobContent(oid: string): Promise<string> {
-    try {
-      const { object, type } = await git.readObject({
-        fs: this.fs,
-        dir: this.dir,
-        oid,
-      });
-
-      // Ensure it's a blob type
-      if (type !== 'blob') {
-        console.warn(`[MergeConflictDetector] Object ${oid} is not a blob (type: ${type})`);
-        return '';
-      }
-
-      // Try to decode as text, handle binary files gracefully
-      try {
-        return new TextDecoder('utf-8', { fatal: true }).decode(object as Uint8Array);
-      } catch (decodeError) {
-        console.warn('[mergeConflictDetector.ts] caught non-fatal error', decodeError);
-        console.warn(
-          `[MergeConflictDetector] File ${oid} appears to be binary, cannot decode as text`
-        );
-        return '[Binary file - cannot display content]';
-      }
-    } catch (error) {
-      console.warn(`[MergeConflictDetector] Failed to read blob ${oid}:`, error);
-      return '';
-    }
+  private async readBlob(path: string, oid: string | undefined) {
+    if (!oid) return null;
+    const { blob } = await git.readBlob({ fs: this.fs, dir: this.dir, oid });
+    return { bytes: Uint8Array.from(blob), content: await detectFileContent(path, blob) };
   }
+}
+
+function selectOurs(content: string): string {
+  let section: 'common' | 'ours' | 'theirs' = 'common';
+  return content
+    .split(/(?<=\n)/)
+    .filter(line => {
+      if (section === 'common' && line.startsWith('<<<<<<< ')) {
+        section = 'ours';
+        return false;
+      }
+      if (section === 'ours' && line.trimEnd() === '=======') {
+        section = 'theirs';
+        return false;
+      }
+      if (section === 'theirs' && line.startsWith('>>>>>>> ')) {
+        section = 'common';
+        return false;
+      }
+      return section !== 'theirs';
+    })
+    .join('');
+}
+
+export async function saveResolvedConflict(
+  fs: Pick<FsApi, 'writeFile' | 'rm'>,
+  file: MergeConflictFileEntry
+): Promise<void> {
+  if (file.binary) {
+    if (file.binary.resolved === null) {
+      await fs.rm(file.filePath, { force: true });
+    } else {
+      await fs.writeFile(file.filePath, file.binary.resolved);
+    }
+    return;
+  }
+  await fs.writeFile(file.filePath, file.resolvedContent);
 }

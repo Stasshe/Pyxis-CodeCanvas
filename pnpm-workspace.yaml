@@ -11,3 +11,4 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - react-scan@0.5.7
+  - readable-stream@4.8.0

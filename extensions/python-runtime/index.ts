@@ -1,10 +1,10 @@
 /**
  * Pyxis Python Runtime Extension
- * 
+ *
  * Python runtime using Pyodide for browser-based Python execution
  */
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
+import type { CommandContext, ExtensionActivation, ExtensionContext } from '../_shared/types';
 
 // Pyodide interface types
 interface PyodideInterface {
@@ -25,7 +25,6 @@ interface PyodideInterface {
 
 // Global Pyodide instance
 let pyodideInstance: PyodideInterface | null = null;
-let currentProjectId: string | null = null;
 
 export async function activate(context: ExtensionContext): Promise<ExtensionActivation> {
   context.logger.info('Python Runtime Extension activating...');
@@ -36,7 +35,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
       return pyodideInstance;
     }
 
-    // @ts-ignore - loadPyodide is loaded from CDN
+    // @ts-expect-error - loadPyodide is loaded from CDN
     const pyodide = await window.loadPyodide({
       stdout: (msg: string) => context.logger.info(msg),
       stderr: (msg: string) => context.logger.error(msg),
@@ -66,7 +65,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   function isIgnored(filePath: string, patterns: string[]): boolean {
     // Remove leading slash for comparison
     const normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
-    
+
     for (const pattern of patterns) {
       // Handle directory patterns (ending with /)
       if (pattern.endsWith('/')) {
@@ -92,7 +91,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         return true;
       }
     }
-    
+
     return false;
   }
 
@@ -117,23 +116,23 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
     return p;
   }
 
-  async function syncFilesToPyodide(projectId: string): Promise<void> {
+  async function syncFilesToPyodide(rootPath: string): Promise<void> {
     if (!pyodideInstance) return;
 
-    const fileRepository = await context.getSystemModule('fileRepository');
-    await fileRepository.init();
-    
+    const fsClient = await context.getSystemModule('fsClient');
+    const pathUtils = await context.getSystemModule('pathUtils');
+
     try {
       // Get all files from the project
-      const files = await fileRepository.getProjectFiles(projectId);
-      
+      const files = await fsClient.walk(rootPath);
+
       // Parse .gitignore if it exists
       let gitignorePatterns: string[] = [];
-      const gitignoreFile = files.find(f => f.path === '/.gitignore' || f.path === '.gitignore');
-      if (gitignoreFile && gitignoreFile.content) {
-        gitignorePatterns = parseGitignore(gitignoreFile.content);
+      const gitignorePath = pathUtils.resolvePath(rootPath, '.gitignore');
+      if (await fsClient.exists(gitignorePath)) {
+        gitignorePatterns = parseGitignore(await fsClient.readText(gitignorePath));
       }
-      
+
       // Clear /home directory (but keep . and ..)
       try {
         const homeContents = pyodideInstance.FS.readdir('/home');
@@ -159,53 +158,55 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
           // Already exists, ignore
         }
       }
-      
+
       // Write each file to Pyodide filesystem under /home
       let syncedCount = 0;
       let ignoredCount = 0;
-      
+
       for (const file of files) {
-        if (file.type === 'file' && file.path && file.content) {
+        if (file.type === 'file' && file.path) {
+          const relativePath = pathUtils.posixPath.relative(rootPath, file.path);
+          const content = await fsClient.readText(file.path);
           // Skip files matching .gitignore patterns
-          if (isIgnored(file.path, gitignorePatterns)) {
+          if (isIgnored(relativePath, gitignorePatterns)) {
             ignoredCount++;
             continue;
           }
-          
+
           try {
             // Normalize path: strip /pyodide prefix if present
-            const normalizedProjectPath = normalizePathToPyodide(file.path);
+            const normalizedProjectPath = normalizePathToPyodide(relativePath);
             const pyodidePath = `/home${normalizedProjectPath}`;
-            
+
             // Create directory structure
             const dirPath = pyodidePath.substring(0, pyodidePath.lastIndexOf('/'));
             if (dirPath && dirPath !== '/home') {
               createDirectoryRecursive(pyodideInstance, dirPath);
             }
-            
+
             // Write the file
-            pyodideInstance.FS.writeFile(pyodidePath, file.content);
+            pyodideInstance.FS.writeFile(pyodidePath, content);
             syncedCount++;
           } catch (error) {
             context.logger.warn(`Failed to sync file ${file.path}:`, error);
           }
         }
       }
-      
+
       context.logger.info(
         `✅ Synced ${syncedCount} files to Pyodide` +
-        (ignoredCount > 0 ? ` (${ignoredCount} ignored by .gitignore)` : '')
+          (ignoredCount > 0 ? ` (${ignoredCount} ignored by .gitignore)` : '')
       );
     } catch (error) {
       context.logger.error('Failed to sync files to Pyodide:', error);
     }
   }
-  
+
   // Helper to create directories recursively
   function createDirectoryRecursive(pyodide: PyodideInterface, path: string): void {
     const parts = path.split('/').filter(p => p);
     let currentPath = '';
-    
+
     for (const part of parts) {
       currentPath += '/' + part;
       try {
@@ -218,28 +219,61 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
   // List of available Pyodide packages
   const pyodidePackages = [
-    'numpy', 'pandas', 'matplotlib', 'scipy', 'sklearn', 'sympy', 'networkx',
-    'seaborn', 'statsmodels', 'micropip', 'bs4', 'lxml', 'pyyaml', 'requests',
-    'pyodide', 'pyparsing', 'dateutil', 'jedi', 'pytz', 'sqlalchemy', 'pyarrow',
-    'bokeh', 'plotly', 'altair', 'openpyxl', 'xlrd', 'xlsxwriter', 'jsonschema',
-    'pillow', 'pygments', 'pytest', 'tqdm', 'scikit-image', 'scikit-learn',
-    'shapely', 'zipp',
+    'numpy',
+    'pandas',
+    'matplotlib',
+    'scipy',
+    'sklearn',
+    'sympy',
+    'networkx',
+    'seaborn',
+    'statsmodels',
+    'micropip',
+    'bs4',
+    'lxml',
+    'pyyaml',
+    'requests',
+    'pyodide',
+    'pyparsing',
+    'dateutil',
+    'jedi',
+    'pytz',
+    'sqlalchemy',
+    'pyarrow',
+    'bokeh',
+    'plotly',
+    'altair',
+    'openpyxl',
+    'xlrd',
+    'xlsxwriter',
+    'jsonschema',
+    'pillow',
+    'pygments',
+    'pytest',
+    'tqdm',
+    'scikit-image',
+    'scikit-learn',
+    'shapely',
+    'zipp',
   ];
 
   // Execute Python code with auto-loading and sync back
-  async function runPythonWithSync(code: string, projectId: string): Promise<any> {
+  async function runPythonWithSync(
+    code: string,
+    rootPath: string
+  ): Promise<{ result: string; stdout: string; stderr: string }> {
     const pyodide = await initPyodide();
-    await syncFilesToPyodide(projectId);
-    
+    await syncFilesToPyodide(rootPath);
+
     // Auto-load packages based on import statements
     const importRegex = /^\s*import\s+([\w_]+)|^\s*from\s+([\w_]+)\s+import/gm;
     const packages = new Set<string>();
-    let match;
+    let match: RegExpExecArray | null = null;
     while ((match = importRegex.exec(code)) !== null) {
       if (match[1]) packages.add(match[1]);
       if (match[2]) packages.add(match[2]);
     }
-    
+
     const toLoad = Array.from(packages).filter(pkg => pyodidePackages.includes(pkg));
     if (toLoad.length > 0) {
       try {
@@ -249,7 +283,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
         context.logger.warn(`⚠️ Failed to load some packages: ${toLoad.join(', ')}`, e);
       }
     }
-    
+
     // Capture stdout using StringIO
     let stdout = '';
     let stderr = '';
@@ -267,7 +301,7 @@ finally:
 del _pyxis_stringio
 del _pyxis_stdout
 `;
-    
+
     try {
       await pyodide.runPythonAsync(captureCode);
       stdout = (pyodide as any).globals.get('_pyxis_result') || '';
@@ -275,59 +309,58 @@ del _pyxis_stdout
     } catch (error: any) {
       stderr = error.message || String(error);
     }
-    
+
     // Sync files back to IndexedDB after execution
-    await syncFilesFromPyodide(projectId);
-    
+    await syncFilesFromPyodide(rootPath);
+
     return { result: stdout.trim(), stdout: stdout.trim(), stderr: stderr.trim() };
   }
-  
+
   // Sync files from Pyodide back to IndexedDB
-  async function syncFilesFromPyodide(projectId: string): Promise<void> {
+  async function syncFilesFromPyodide(rootPath: string): Promise<void> {
     if (!pyodideInstance) return;
-    
-    const fileRepository = await context.getSystemModule('fileRepository');
-    await fileRepository.init();
-    
+
+    const fsClient = await context.getSystemModule('fsClient');
     const pathUtils = await context.getSystemModule('pathUtils');
-    
+
     try {
       // Get existing files from IndexedDB
-      const existingFiles = await fileRepository.getProjectFiles(projectId);
+      const existingFiles = await fsClient.walk(rootPath);
       const existingPaths = new Map(existingFiles.map(f => [f.path, f]));
-      
+
       // Parse .gitignore if it exists
       let gitignorePatterns: string[] = [];
-      const gitignoreFile = existingFiles.find(f => f.path === '/.gitignore' || f.path === '.gitignore');
-      if (gitignoreFile && gitignoreFile.content) {
-        gitignorePatterns = parseGitignore(gitignoreFile.content);
+      const gitignorePath = pathUtils.resolvePath(rootPath, '.gitignore');
+      if (await fsClient.exists(gitignorePath)) {
+        gitignorePatterns = parseGitignore(await fsClient.readText(gitignorePath));
       }
-      
+
       // Scan /home directory for files
       const pyodideFiles = scanPyodideDirectory(pyodideInstance, '/home', '');
-      
+
       let syncedCount = 0;
       let newFilesCount = 0;
       let updatedFilesCount = 0;
       let ignoredCount = 0;
-      
+
       // Sync files from Pyodide to IndexedDB
       for (const file of pyodideFiles) {
         // Normalize the path: strip /pyodide prefix if present
-        const projectPath = normalizePathFromPyodide(file.path);
-        
+        const relativePath = normalizePathFromPyodide(file.path).replace(/^\/+/, '');
+        const projectPath = pathUtils.resolvePath(rootPath, relativePath);
+
         // Skip files matching .gitignore patterns
-        if (isIgnored(projectPath, gitignorePatterns)) {
+        if (isIgnored(relativePath, gitignorePatterns)) {
           ignoredCount++;
           continue;
         }
-        
+
         const existingFile = existingPaths.get(projectPath);
-        
+
         if (existingFile) {
           // Update existing file if content changed
-          if (existingFile.content !== file.content) {
-            await fileRepository.updateFileContent(existingFile.id, file.content);
+          if ((await fsClient.readText(existingFile.path)) !== file.content) {
+            await fsClient.writeFile(existingFile.path, file.content);
             updatedFilesCount++;
             syncedCount++;
           }
@@ -337,26 +370,27 @@ del _pyxis_stdout
           // This prevents creating duplicates of source files
           const isPythonSource = projectPath.endsWith('.py');
           const wasInOriginalProject = existingFiles.some(f => f.path === projectPath);
-          
+
           if (!isPythonSource || !wasInOriginalProject) {
-            await fileRepository.createFile(projectId, projectPath, file.content, 'file');
+            await fsClient.mkdir(pathUtils.getParentPath(projectPath), { recursive: true });
+            await fsClient.writeFile(projectPath, file.content);
             newFilesCount++;
             syncedCount++;
           }
         }
       }
-      
+
       if (syncedCount > 0 || ignoredCount > 0) {
         context.logger.info(
           `✅ Synced ${syncedCount} files from Pyodide (${newFilesCount} new, ${updatedFilesCount} updated)` +
-          (ignoredCount > 0 ? ` - ${ignoredCount} ignored by .gitignore` : '')
+            (ignoredCount > 0 ? ` - ${ignoredCount} ignored by .gitignore` : '')
         );
       }
     } catch (error) {
       context.logger.error('Failed to sync files from Pyodide:', error);
     }
   }
-  
+
   // Recursively scan Pyodide directory
   function scanPyodideDirectory(
     pyodide: PyodideInterface,
@@ -364,19 +398,19 @@ del _pyxis_stdout
     relativePath: string
   ): Array<{ path: string; content: string }> {
     const results: Array<{ path: string; content: string }> = [];
-    
+
     try {
       const contents = pyodide.FS.readdir(pyodidePath);
-      
+
       for (const item of contents) {
         if (item === '.' || item === '..') continue;
-        
+
         const fullPyodidePath = `${pyodidePath}/${item}`;
         const fullRelativePath = relativePath ? `${relativePath}/${item}` : `/${item}`;
-        
+
         try {
           const stat = pyodide.FS.stat(fullPyodidePath);
-          
+
           if (pyodide.FS.isDir(stat.mode)) {
             results.push(...scanPyodideDirectory(pyodide, fullPyodidePath, fullRelativePath));
           } else {
@@ -390,7 +424,7 @@ del _pyxis_stdout
     } catch (error) {
       context.logger.warn(`Failed to read directory: ${pyodidePath}`, error);
     }
-    
+
     return results;
   }
 
@@ -399,37 +433,32 @@ del _pyxis_stdout
     id: 'python',
     name: 'Python',
     supportedExtensions: ['.py'],
-    
+
     canExecute(filePath: string): boolean {
       return filePath.endsWith('.py');
     },
-    
-    async initialize(projectId: string, projectName: string): Promise<void> {
-      context.logger.info(`🐍 Initializing Python runtime for project: ${projectName}`);
-      currentProjectId = projectId;
+
+    async initialize(rootPath: string): Promise<void> {
+      context.logger.info(`🐍 Initializing Python runtime for workspace: ${rootPath}`);
       await initPyodide();
-      await syncFilesToPyodide(projectId);
+      await syncFilesToPyodide(rootPath);
     },
-    
+
     async execute(options: any): Promise<any> {
-      const { projectId, filePath } = options;
-      
+      const { rootPath, filePath } = options;
+
       try {
         context.logger.info(`🐍 Executing Python file: ${filePath}`);
-        
-        // Get the file repository to read the file
-        const fileRepository = await context.getSystemModule('fileRepository');
-        await fileRepository.init();
-        
-        // Read the Python file
-        const file = await fileRepository.getFileByPath(projectId, filePath);
-        if (!file || !file.content) {
+
+        const fsClient = await context.getSystemModule('fsClient');
+        if (!(await fsClient.exists(filePath))) {
           throw new Error(`File not found: ${filePath}`);
         }
-        
+        const content = await fsClient.readText(filePath);
+
         // Execute the Python code
-        const result = await runPythonWithSync(file.content, projectId);
-        
+        const result = await runPythonWithSync(content, rootPath);
+
         return {
           stdout: result.stdout,
           stderr: result.stderr,
@@ -453,46 +482,40 @@ del _pyxis_stdout
 
   // Register 'python' terminal command
   if (context.commands) {
-    context.commands.registerCommand('python', async (args: string[], cmdContext: any) => {
-      try {
-        if (args.length === 0) {
-          return 'Usage: python <file.py> or python -c "<code>"';
-        }
+    context.commands.registerCommand(
+      'python',
+      async (args: string[], cmdContext: CommandContext) => {
+        try {
+          if (args.length === 0) {
+            return 'Usage: python <file.py> or python -c "<code>"';
+          }
 
-        // Handle -c flag for inline code execution
-        if (args[0] === '-c') {
-          const code = args.slice(1).join(' ');
-          const result = await runPythonWithSync(code, cmdContext.projectId);
+          // Handle -c flag for inline code execution
+          if (args[0] === '-c') {
+            const code = args.slice(1).join(' ');
+            const result = await runPythonWithSync(code, cmdContext.rootPath);
+            return result.stdout || result.stderr || '';
+          }
+
+          // Execute Python file
+          const filePath = args[0];
+          const fsClient = await context.getSystemModule('fsClient');
+          const pathUtils = await context.getSystemModule('pathUtils');
+          const normalizedPath = pathUtils.resolvePath(cmdContext.currentDirectory, filePath);
+          if (!(await fsClient.exists(normalizedPath))) {
+            return `Error: File not found: ${normalizedPath}`;
+          }
+
+          const result = await runPythonWithSync(
+            await fsClient.readText(normalizedPath),
+            cmdContext.rootPath
+          );
           return result.stdout || result.stderr || '';
+        } catch (error) {
+          return `Error: ${error instanceof Error ? error.message : String(error)}`;
         }
-
-        // Execute Python file
-        const filePath = args[0];
-        const fileRepository = await context.getSystemModule('fileRepository');
-        await fileRepository.init();
-        
-        // Normalize path
-        let normalizedPath = filePath;
-        if (!filePath.startsWith('/')) {
-          const relativeCurrent = cmdContext.currentDirectory.replace(`/projects/${cmdContext.projectName}`, '');
-          normalizedPath = relativeCurrent === '' 
-            ? `/${filePath}` 
-            : `${relativeCurrent}/${filePath}`;
-        } else {
-          normalizedPath = filePath.replace(`/projects/${cmdContext.projectName}`, '');
-        }
-
-        const file = await fileRepository.getFileByPath(cmdContext.projectId, normalizedPath);
-        if (!file || !file.content) {
-          return `Error: File not found: ${normalizedPath}`;
-        }
-
-        const result = await runPythonWithSync(file.content, cmdContext.projectId);
-        return result.stdout || result.stderr || '';
-      } catch (error) {
-        return `Error: ${error instanceof Error ? error.message : String(error)}`;
       }
-    });
+    );
     context.logger.info('✅ Registered terminal command: python');
   }
 

@@ -1,29 +1,40 @@
-import { snapshot } from 'valtio';
-
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient, isPathWithin, normalizePath } from '@/engine/core/fs';
+import { recordRecentFilePath } from '@/engine/storage/recentFileHistoryAdapter';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { DiffTab, EditorPane, OpenTabOptions, Tab, TabFileInfo } from '@/engine/tabs/types';
-import { getCurrentProjectId } from '@/stores/projectStore';
-import { clearTabContent, getTabContent, setTabContent } from '@/stores/tabContentStore';
+import { getCurrentRootPath } from '@/stores/projectStore';
+import {
+  clearTabContent,
+  getBufferContent,
+  getTabContent,
+  isTabDirty,
+  setBufferContent,
+  setTabContent,
+} from '@/stores/tabContentStore';
+import { notifyTabClosed } from './closeCallbacks';
 import {
   getContentFromPanes,
   loadAndUpdateTabContent,
   removeSaveTimerForPath,
+  renameContentPaths,
+  reportSaveFailure,
   updateTabContent,
 } from './contentSync';
+import { refreshDiffTab } from './diff';
+import { prepareFileForTab } from './fileLoading';
+import { removePane } from './paneActions';
 import {
   collectAllTabs,
   createUniquePaneId as createUniquePaneIdForPanes,
-  findFirstLeafPane,
   findInPanes,
   findPaneRecursive,
   flattenLeafPanes,
-  normalizeTabPath,
   resolveOpenTargetPaneId as resolveOpenTargetPaneIdForPanes,
   toLeafPaneId as toLeafPaneIdForPanes,
   validActiveTabId,
   withTabsInPane,
 } from './paneUtils';
+import { loadTabSession, saveTabSession } from './sessionActions';
 import { tabState } from './state';
 
 function createUniquePaneId(reserved = new Set<string>()): string {
@@ -37,20 +48,64 @@ function toLeafPaneId(paneId: string | null | undefined): string | null {
 function resolveOpenTargetPaneId(preferredPaneId?: string | null): string | null {
   return resolveOpenTargetPaneIdForPanes(tabState.panes, tabState.activePane, preferredPaneId);
 }
+
+async function rememberOpenedFile(filePath: string | undefined, kind: string): Promise<void> {
+  const rootPath = getCurrentRootPath();
+  if (!rootPath || !filePath || (kind !== 'editor' && kind !== 'binary' && kind !== 'preview')) {
+    return;
+  }
+  try {
+    if (!isPathWithin(filePath, rootPath)) return;
+  } catch {
+    return;
+  }
+  try {
+    await recordRecentFilePath(rootPath, filePath);
+  } catch (error) {
+    console.warn('[tabState] Failed to save recent file history', error);
+  }
+}
+
+function reportDeletedDirtyPaths(paths: ReadonlySet<string>): void {
+  for (const path of paths) {
+    removeSaveTimerForPath(path);
+    reportSaveFailure(
+      path,
+      new Error('The file was deleted while this tab had unsaved changes.'),
+      `File deleted with unsaved changes; keeping tab open: ${path}`
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // tabActions（旧 useTabStore のアクション）
 // ---------------------------------------------------------------------------
-function focusFirstAvailableLeaf(): void {
-  const leaf = findFirstLeafPane(tabState.panes);
-  tabState.activePane = leaf?.id ?? null;
-  tabState.globalActiveTab = leaf?.activeTabId || null;
-}
-
 function getPane(paneId: string): EditorPane | null {
   return findPaneRecursive(tabState.panes, paneId);
 }
 
+function applyEditorMode(paneId: string, tab: Tab, mode: OpenTabOptions['editorMode']): void {
+  if (tab.kind !== 'editor' || !mode) return;
+  tabActions.updateTab(paneId, tab.id, { isCodeMirror: mode === 'codemirror' });
+}
+
 export const tabActions = {
+  invalidateSavesForDeletedPath(deletedPath: string) {
+    const deletedRoot = normalizePath(deletedPath);
+    const affectedPaths = new Set<string>();
+    for (const tab of collectAllTabs(tabState.panes)) {
+      const path = normalizePath(
+        tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path ?? '/'
+      );
+      if (
+        isPathWithin(path, deletedRoot) &&
+        (tab.isDirty || isTabDirty(tab.id) || tabRegistry.get(tab.kind)?.hasPendingChanges?.(tab))
+      ) {
+        affectedPaths.add(path);
+      }
+    }
+    for (const path of affectedPaths) removeSaveTimerForPath(path);
+  },
   setIsLoading(loading: boolean) {
     tabState.isLoading = loading;
     tabState.isRestored = !loading;
@@ -65,93 +120,7 @@ export const tabActions = {
     if (tabState.panes.some(p => p.id === pane.id)) return;
     tabState.panes = [...tabState.panes, pane];
   },
-  removePane(paneId: string) {
-    // Work with a filtered snapshot to avoid errors from falsy entries in the array
-    const currentPanes = tabState.panes.filter(Boolean) as EditorPane[];
-
-    // Collect tabs that will be removed so we can clean up timers and global state
-    const removedTabs: Array<{ paneId: string; tab: Tab }> = [];
-
-    const findAndCollect = (panes: readonly EditorPane[]): boolean => {
-      for (const p of panes) {
-        if (!p) continue;
-        if (p.id === paneId) {
-          // collect all tabs in this subtree
-          const collectTabs = (node: EditorPane) => {
-            for (const t of node.tabs ?? []) removedTabs.push({ paneId: node.id, tab: t });
-            if (node.children) for (const c of node.children) collectTabs(c);
-          };
-          collectTabs(p);
-          return true;
-        }
-        if (p.children && findAndCollect(p.children)) return true;
-      }
-      return false;
-    };
-
-    findAndCollect(currentPanes);
-
-    // If any removed tabs reference a path with pending save timers, clear them
-    for (const { tab } of removedTabs) {
-      const tDef = tabRegistry.get(tab.kind);
-      const path = tDef?.getContentPath?.(tab) ?? tab.path;
-      if (path && (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')) {
-        removeSaveTimerForPath(path);
-      }
-    }
-
-    if (tabState.globalActiveTab && removedTabs.some(r => r.tab.id === tabState.globalActiveTab)) {
-      tabState.globalActiveTab = null;
-    }
-
-    const rootFiltered = currentPanes.filter(p => p.id !== paneId);
-    if (rootFiltered.length !== currentPanes.length) {
-      if (rootFiltered.length > 0) {
-        const size = 100 / rootFiltered.length;
-        tabState.panes = rootFiltered.map(p => ({ ...p, size }));
-      } else {
-        tabState.panes = [];
-      }
-      if (tabState.activePane === paneId) {
-        focusFirstAvailableLeaf();
-      }
-      return;
-    }
-
-    const removeRecursive = (pane: EditorPane | null): EditorPane | null => {
-      if (!pane) return null;
-      if (!pane.children) return pane;
-
-      const ch = pane.children
-        .map(c => (c && c.id === paneId ? null : removeRecursive(c as EditorPane)))
-        .filter(Boolean) as EditorPane[];
-
-      if (ch.length === 1) return { ...ch[0], size: pane.size };
-      if (ch.length > 0) {
-        const s = 100 / ch.length;
-        return { ...pane, children: ch.map(c => ({ ...c, size: s })) };
-      }
-      return { ...pane, children: ch };
-    };
-
-    const newPanes = currentPanes.map(p => removeRecursive(p)).filter(Boolean) as EditorPane[];
-
-    // Final sanitize pass: remove falsy nodes and ensure parentId for children matches their parent
-    const sanitize = (panes: readonly EditorPane[]): EditorPane[] =>
-      panes.filter(Boolean).map(p => {
-        const children = p.children ? sanitize(p.children) : undefined;
-        return {
-          ...p,
-          children: children?.length ? children.map(c => ({ ...c, parentId: p.id })) : children,
-        } as EditorPane;
-      });
-
-    tabState.panes = sanitize(newPanes);
-
-    if (tabState.activePane === paneId) {
-      focusFirstAvailableLeaf();
-    }
-  },
+  removePane,
 
   updatePane(paneId: string, updates: Partial<EditorPane>) {
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
@@ -184,19 +153,31 @@ export const tabActions = {
     next[i] = { ...next[i], ...updates } as Tab;
     tabActions.updatePane(paneId, { tabs: next });
   },
-  closeTab(paneId: string, tabId: string) {
+  closeTab(paneId: string, tabId: string, options: { discard?: boolean } = {}): boolean {
     const pane = getPane(paneId);
-    if (!pane) return;
+    if (!pane) return false;
     const tab = pane.tabs.find(t => t.id === tabId);
-    if (tab) {
-      const tDef = tabRegistry.get(tab.kind);
-      const path = tDef?.getContentPath?.(tab) ?? tab.path;
-      if (path && (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')) {
-        removeSaveTimerForPath(path);
-      }
-      // tabContentStoreからコンテンツをクリーンアップ
-      clearTabContent(tabId);
+    if (!tab) return false;
+    const tDef = tabRegistry.get(tab.kind);
+    if (tDef?.hasPendingChanges?.(tab)) return false;
+    if (!options.discard && (tab.isDirty || isTabDirty(tabId))) return false;
+    const path = tDef?.getContentPath?.(tab) ?? tab.path;
+    const hasOtherContentTab =
+      path &&
+      collectAllTabs(tabState.panes).some(other => {
+        if (other.id === tabId) return false;
+        if (other.kind !== 'editor' && other.kind !== 'diff' && other.kind !== 'ai') return false;
+        const otherPath = tabRegistry.get(other.kind)?.getContentPath?.(other) ?? other.path;
+        return otherPath && normalizePath(otherPath) === normalizePath(path);
+      });
+    if (
+      path &&
+      !hasOtherContentTab &&
+      (tab.kind === 'editor' || tab.kind === 'diff' || tab.kind === 'ai')
+    ) {
+      removeSaveTimerForPath(path);
     }
+    clearTabContent(tabId);
     const newTabs = pane.tabs.filter(t => t.id !== tabId);
     let newActive = pane.activeTabId;
     if (pane.activeTabId === tabId) {
@@ -208,9 +189,20 @@ export const tabActions = {
       tabState.globalActiveTab = newActive || null;
       tabState.activePane = newActive ? paneId : null;
     }
+    notifyTabClosed(tab);
+    return true;
   },
   activateTab(paneId: string, tabId: string) {
     const pane = getPane(paneId);
+    const activatedTab = pane?.tabs.find(tab => tab.id === tabId);
+    if (
+      activatedTab?.path &&
+      (activatedTab.kind === 'editor' ||
+        activatedTab.kind === 'binary' ||
+        activatedTab.kind === 'preview')
+    ) {
+      void rememberOpenedFile(activatedTab.path, activatedTab.kind);
+    }
     if (
       pane?.activeTabId === tabId &&
       tabState.globalActiveTab === tabId &&
@@ -283,28 +275,33 @@ export const tabActions = {
     tabState.activePane = toPaneId;
   },
   handleFileDeleted(deletedPath: string) {
-    const np = normalizeTabPath(deletedPath);
+    const np = normalizePath(deletedPath);
     const toClose: Array<{ paneId: string; tabId: string }> = [];
+    const retainedDirtyPaths = new Set<string>();
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(pane => {
         if (pane.children?.length) return { ...pane, children: up(pane.children) };
         const newTabs = pane.tabs.map((tab: Tab) => {
-          const tp = normalizeTabPath(tab.path);
-          if ((tab.kind === 'editor' || tab.kind === 'preview') && tp === np) {
-            toClose.push({ paneId: pane.id, tabId: tab.id });
-            return tab;
-          }
-          if (tab.kind === 'diff' && tp === np) {
-            const dt = tab as DiffTab;
-            if (dt.editable)
-              return { ...dt, diffs: dt.diffs.map(d => ({ ...d, latterContent: '' })) };
+          const contentPath = tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path;
+          const tp = normalizePath(contentPath || '/');
+          if (isPathWithin(tp, np)) {
+            if (
+              tab.isDirty ||
+              isTabDirty(tab.id) ||
+              tabRegistry.get(tab.kind)?.hasPendingChanges?.(tab)
+            ) {
+              retainedDirtyPaths.add(tp);
+            } else {
+              toClose.push({ paneId: pane.id, tabId: tab.id });
+            }
           }
           return tab;
         });
         return { ...pane, tabs: newTabs };
       });
     tabState.panes = up(tabState.panes);
-    for (const { paneId, tabId } of toClose) tabActions.closeTab(paneId, tabId);
+    reportDeletedDirtyPaths(retainedDirtyPaths);
+    for (const { paneId, tabId } of toClose) tabActions.closeTab(paneId, tabId, { discard: true });
   },
   handleFilesDeleted(paths: string[]) {
     if (paths.length === 0) return;
@@ -312,29 +309,68 @@ export const tabActions = {
       tabActions.handleFileDeleted(paths[0]);
       return;
     }
-    const set = new Set(paths.map(normalizeTabPath));
+    const normalizedPaths = paths.map(normalizePath);
     const toClose: Array<{ paneId: string; tabId: string }> = [];
+    const retainedDirtyPaths = new Set<string>();
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(pane => {
         if (pane.children?.length) return { ...pane, children: up(pane.children) };
         const newTabs = pane.tabs.map((tab: Tab) => {
-          const tp = normalizeTabPath(tab.path);
-          if (!set.has(tp)) return tab;
-          if (tab.kind === 'editor' || tab.kind === 'preview') {
-            toClose.push({ paneId: pane.id, tabId: tab.id });
-            return tab;
-          }
-          if (tab.kind === 'diff') {
-            const dt = tab as DiffTab;
-            if (dt.editable)
-              return { ...dt, diffs: dt.diffs.map(d => ({ ...d, latterContent: '' })) };
+          const contentPath = tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path;
+          const tp = normalizePath(contentPath || '/');
+          if (normalizedPaths.some(path => isPathWithin(tp, path))) {
+            if (
+              tab.isDirty ||
+              isTabDirty(tab.id) ||
+              tabRegistry.get(tab.kind)?.hasPendingChanges?.(tab)
+            ) {
+              retainedDirtyPaths.add(tp);
+            } else {
+              toClose.push({ paneId: pane.id, tabId: tab.id });
+            }
           }
           return tab;
         });
         return { ...pane, tabs: newTabs };
       });
     tabState.panes = up(tabState.panes);
-    for (const { paneId, tabId } of toClose) tabActions.closeTab(paneId, tabId);
+    reportDeletedDirtyPaths(retainedDirtyPaths);
+    for (const { paneId, tabId } of toClose) tabActions.closeTab(paneId, tabId, { discard: true });
+  },
+  handleFilesRenamed(oldPath: string, newPath: string) {
+    const oldRoot = normalizePath(oldPath);
+    const newRoot = normalizePath(newPath);
+    renameContentPaths(oldRoot, newRoot);
+    const up = (panes: readonly EditorPane[]): EditorPane[] =>
+      panes.map(pane => {
+        if (pane.children?.length) return { ...pane, children: up(pane.children) };
+        return {
+          ...pane,
+          tabs: pane.tabs.map(tab => {
+            const contentPath = tabRegistry.get(tab.kind)?.getContentPath?.(tab) ?? tab.path;
+            const path = normalizePath(contentPath || '/');
+            if (!isPathWithin(path, oldRoot)) return tab;
+            const nextPath = `${newRoot}${path.slice(oldRoot.length)}`;
+            const updated = { ...tab, path: normalizePath(nextPath) };
+            const nextName = updated.path.split('/').pop();
+            if (
+              nextName &&
+              (updated.kind === 'editor' || updated.kind === 'preview' || updated.kind === 'binary')
+            ) {
+              updated.name = nextName;
+            }
+            if (updated.kind === 'ai') {
+              const filePath = normalizePath(updated.filePath || path);
+              if (isPathWithin(filePath, oldRoot)) {
+                updated.filePath = normalizePath(`${newRoot}${filePath.slice(oldRoot.length)}`);
+                updated.name = `AI Review: ${updated.filePath.split('/').pop() || 'unknown'}`;
+              }
+            }
+            return updated;
+          }),
+        };
+      });
+    tabState.panes = up(tabState.panes);
   },
   splitPane(paneId: string, direction: 'horizontal' | 'vertical') {
     const targetPaneId = toLeafPaneId(paneId);
@@ -482,41 +518,62 @@ export const tabActions = {
   ) {
     const targetPaneId = toLeafPaneId(paneId);
     if (!targetPaneId) return;
+    const rootPath = getCurrentRootPath();
+    const sessionGeneration = tabState.sessionGeneration;
+    const defEditor =
+      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
+    const filePath = file.path || '';
+    const name = file.name || filePath.split('/').pop() || 'untitled';
+    const existingTabForPath = collectAllTabs(tabState.panes).find(
+      t => t.path === filePath && (t.kind === 'editor' || t.kind === 'binary')
+    );
+    let kind: 'editor' | 'binary' = 'editor';
+    if (file.isBufferArray || file.bufferContent) kind = 'binary';
+    else if (existingTabForPath?.kind === 'binary') kind = 'binary';
+    let fileToOpen: TabFileInfo = file;
+    if (existingTabForPath) {
+      if (kind === 'binary') {
+        let bufferContent = getBufferContent(existingTabForPath.id);
+        if (bufferContent === undefined && 'bufferContent' in existingTabForPath) {
+          bufferContent = existingTabForPath.bufferContent;
+        }
+        if (bufferContent) fileToOpen = { ...file, isBufferArray: true, bufferContent };
+      } else {
+        let content = getTabContent(existingTabForPath.id);
+        if (
+          content === undefined &&
+          'content' in existingTabForPath &&
+          typeof existingTabForPath.content === 'string'
+        ) {
+          content = existingTabForPath.content;
+        }
+        fileToOpen = { ...file, content };
+      }
+    }
+    const prepared = await prepareFileForTab(fileToOpen, kind);
     const target = getPane(targetPaneId);
-    if (!target) return;
+    if (
+      rootPath !== getCurrentRootPath() ||
+      sessionGeneration !== tabState.sessionGeneration ||
+      !target ||
+      target.children?.length
+    ) {
+      return;
+    }
+
     const reserved = new Set([targetPaneId]);
     const newId = createUniquePaneId(reserved);
     reserved.add(newId);
     const existingId = createUniquePaneId(reserved);
-    const defEditor =
-      typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-    const kind = file.isBufferArray ? 'binary' : 'editor';
-    const filePath = file.path || '';
-    const name = file.name || filePath.split('/').pop() || 'untitled';
-
-    // Resolve content: prefer content from an already-open tab (preserves unsaved changes),
-    // otherwise load fresh from the file repository.
-    let content = (file.content as string) || '';
-    const existingTabForPath = collectAllTabs(tabState.panes).find(
-      t => t.path === filePath && t.kind === kind
-    );
-    if (existingTabForPath) {
-      content = getTabContent(existingTabForPath.id) ?? content;
-    } else if (filePath) {
-      try {
-        const projectId = getCurrentProjectId();
-        if (projectId) {
-          const fresh = await fileRepository.getFileByPath(projectId, filePath);
-          if (fresh?.content !== undefined) content = fresh.content as string;
-        }
-      } catch {
-        // keep existing content on error
-      }
-    }
+    kind = prepared.kind === 'binary' ? 'binary' : 'editor';
+    fileToOpen = prepared.file;
+    const content = fileToOpen.content ?? '';
+    const bufferContent = fileToOpen.bufferContent;
 
     // Use a unique tabId so each pane instance has its own entry in tabContentStore.
     const newTabId = `${filePath || name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setTabContent(newTabId, content, false);
+    if (bufferContent) setBufferContent(newTabId, bufferContent);
 
     const newTab: Tab = {
       id: newTabId,
@@ -527,6 +584,9 @@ export const tabActions = {
       content,
       isDirty: false,
       isCodeMirror: defEditor === 'codemirror',
+      ...(kind === 'binary'
+        ? { isBufferArray: true, bufferContent, mimeType: fileToOpen.mimeType }
+        : {}),
     };
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
@@ -580,15 +640,31 @@ export const tabActions = {
     tabState.panes = up(tabState.panes);
     tabState.activePane = newId;
     tabState.globalActiveTab = newTab.id;
+    await rememberOpenedFile(filePath, kind);
   },
   resizePane(paneId: string, newSize: number) {
     tabActions.updatePane(paneId, { size: newSize });
   },
   async openTab(file: TabFileInfo, options: OpenTabOptions = {}) {
-    const kind =
+    const rootPath = getCurrentRootPath();
+    const sessionGeneration = tabState.sessionGeneration;
+    const isCurrentSession = () =>
+      rootPath === getCurrentRootPath() && sessionGeneration === tabState.sessionGeneration;
+    const requestedKind =
       options.kind ??
       file.kind ??
       (file?.isBufferArray === true || file?.isBufferArray ? 'binary' : 'editor');
+    let kind = requestedKind;
+    let fileToCreate = file;
+    try {
+      const prepared = await prepareFileForTab(file, requestedKind);
+      kind = prepared.kind;
+      fileToCreate = prepared.file;
+    } catch (error) {
+      console.error('[tabState] Failed to load fresh content for new tab:', error);
+      throw error;
+    }
+    if (!isCurrentSession()) return;
     let targetPaneId = resolveOpenTargetPaneId(options.paneId);
 
     if (!targetPaneId) {
@@ -610,14 +686,27 @@ export const tabActions = {
         for (const sp of leaves) {
           for (const t of sp.tabs) {
             if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
-              await loadAndUpdateTabContent(t.id, kind, file.path);
+              if (t.kind === 'diff') {
+                const freshTab = tabDef.createTab(fileToCreate, { ...options, paneId: sp.id });
+                if (freshTab.kind === 'diff') {
+                  const updatedTab = refreshDiffTab(t, freshTab);
+                  if (updatedTab) tabActions.updateTab(sp.id, t.id, updatedTab);
+                }
+              } else {
+                await loadAndUpdateTabContent(t.id, kind, file.path, rootPath, sessionGeneration);
+                if (!isCurrentSession()) return;
+                applyEditorMode(sp.id, t, options.editorMode);
+              }
               if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
                 tabActions.updateTab(sp.id, t.id, {
                   jumpToLine: options.jumpToLine,
                   jumpToColumn: options.jumpToColumn,
                 } as Partial<Tab>);
               }
-              if (options.makeActive !== false) tabActions.activateTab(sp.id, t.id);
+              if (options.makeActive !== false) {
+                tabActions.activateTab(sp.id, t.id);
+                await rememberOpenedFile(file.path, kind);
+              }
               return;
             }
           }
@@ -625,14 +714,27 @@ export const tabActions = {
       } else {
         for (const t of pane.tabs) {
           if (t.kind === kind && tabDef.shouldReuseTab?.(t, file, options)) {
-            await loadAndUpdateTabContent(t.id, kind, file.path);
+            if (t.kind === 'diff') {
+              const freshTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
+              if (freshTab.kind === 'diff') {
+                const updatedTab = refreshDiffTab(t, freshTab);
+                if (updatedTab) tabActions.updateTab(targetPaneId, t.id, updatedTab);
+              }
+            } else {
+              await loadAndUpdateTabContent(t.id, kind, file.path, rootPath, sessionGeneration);
+              if (!isCurrentSession()) return;
+              applyEditorMode(targetPaneId, t, options.editorMode);
+            }
             if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
               tabActions.updateTab(targetPaneId, t.id, {
                 jumpToLine: options.jumpToLine,
                 jumpToColumn: options.jumpToColumn,
               } as Partial<Tab>);
             }
-            if (options.makeActive !== false) tabActions.activateTab(targetPaneId, t.id);
+            if (options.makeActive !== false) {
+              tabActions.activateTab(targetPaneId, t.id);
+              await rememberOpenedFile(file.path, kind);
+            }
             return;
           }
         }
@@ -644,8 +746,12 @@ export const tabActions = {
         t => t.kind === kind && (t.path === file.path || t.id === tabId)
       );
       if (existing) {
-        await loadAndUpdateTabContent(existing.id, kind, file.path);
-        if (options.makeActive !== false) tabActions.activateTab(targetPaneId, existing.id);
+        await loadAndUpdateTabContent(existing.id, kind, file.path, rootPath, sessionGeneration);
+        if (!isCurrentSession()) return;
+        if (options.makeActive !== false) {
+          tabActions.activateTab(targetPaneId, existing.id);
+          await rememberOpenedFile(file.path, kind);
+        }
         if (options.jumpToLine !== undefined || options.jumpToColumn !== undefined) {
           tabActions.updateTab(targetPaneId, existing.id, {
             jumpToLine: options.jumpToLine,
@@ -656,27 +762,14 @@ export const tabActions = {
       }
     }
 
-    let fileToCreate = file;
-    if (file.path && (kind === 'editor' || kind === 'binary' || kind === 'preview')) {
-      try {
-        const projectId = getCurrentProjectId();
-        if (projectId) {
-          const fresh = await fileRepository.getFileByPath(projectId, file.path);
-          if (fresh) {
-            fileToCreate = {
-              ...file,
-              content: fresh.content,
-              isBufferArray: fresh.isBufferArray ?? file.isBufferArray,
-              bufferContent: fresh.bufferContent ?? file.bufferContent,
-            };
-          }
-        }
-      } catch (e) {
-        console.warn('[tabState] Failed to load fresh content for new tab:', e);
-      }
+    if (kind === 'editor' && options.editorMode) {
+      fileToCreate = { ...fileToCreate, isCodeMirror: options.editorMode === 'codemirror' };
     }
-
-    const newTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
+    const createdTab = tabDef.createTab(fileToCreate, { ...options, paneId: targetPaneId });
+    const newTab = { ...createdTab, paneId: targetPaneId };
+    if (newTab.kind === 'binary' && newTab.bufferContent) {
+      setBufferContent(newTab.id, newTab.bufferContent);
+    }
     const up = (panes: readonly EditorPane[]): EditorPane[] =>
       panes.map(p => {
         if (p.id !== targetPaneId) {
@@ -693,42 +786,13 @@ export const tabActions = {
     if (options.makeActive !== false) {
       tabState.globalActiveTab = newTab.id;
       tabState.activePane = targetPaneId;
+      await rememberOpenedFile(file.path, kind);
     }
   },
-  async saveSession() {
-    const { sessionStore, DEFAULT_SESSION } = await import('@/stores/sessionStore');
-    // ValtioプロキシをプレーンオブジェクトにスナップショットしてからIndexedDBに保存
-    // これによりDataCloneErrorを防止
-    const panesSnapshot = snapshot(tabState.panes);
-    await sessionStore.save({
-      version: 1,
-      lastSaved: Date.now(),
-      tabs: {
-        panes: panesSnapshot as EditorPane[],
-        activePane: tabState.activePane,
-        globalActiveTab: tabState.globalActiveTab,
-      },
-      ui: DEFAULT_SESSION.ui,
-    });
+  async saveSession(rootPath?: string | null) {
+    await saveTabSession(rootPath);
   },
-  async loadSession() {
-    try {
-      const { sessionStore } = await import('@/stores/sessionStore');
-      const session = await sessionStore.load();
-      tabState.panes = session.tabs.panes;
-      tabState.activePane = session.tabs.activePane || null;
-      const hasAny = session.tabs.panes.some((p: EditorPane) => {
-        const check = (x: EditorPane) =>
-          (x.tabs?.length ?? 0) > 0 || (x.children?.some(check) ?? false);
-        return check(p);
-      });
-      if (!hasAny) tabState.isContentRestored = true;
-    } catch (e) {
-      console.error('[tabState] loadSession failed:', e);
-      tabState.isContentRestored = true;
-    } finally {
-      tabState.isLoading = false;
-      tabState.isRestored = true;
-    }
+  async loadSession(rootPath?: string | null) {
+    await loadTabSession(rootPath);
   },
 };

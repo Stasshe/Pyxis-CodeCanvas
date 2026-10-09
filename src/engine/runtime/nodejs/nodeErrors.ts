@@ -75,10 +75,23 @@ export function formatNodeError(
 /**
  * Create a Node.js-style MODULE_NOT_FOUND error
  */
-export function createModuleNotFoundError(moduleName: string, parent?: string): Error {
-  const error = new Error(`Cannot find module '${moduleName}'`);
-  error.name = 'Error [ERR_MODULE_NOT_FOUND]';
+export function createModuleNotFoundError(
+  moduleName: string,
+  parent?: string,
+  kind: 'require' | 'import' = 'require'
+): Error & { code: string; requireStack?: string[] } {
+  if (kind === 'import') {
+    let message = `Cannot find module '${moduleName}'`;
+    if (parent) message += ` imported from ${parent}`;
+    return Object.assign(new Error(message), { code: 'ERR_MODULE_NOT_FOUND' });
+  }
+
+  const error = Object.assign(new Error(`Cannot find module '${moduleName}'`), {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [] as string[],
+  });
   if (parent) {
+    error.requireStack.push(parent);
     error.message += `\nRequire stack:\n- ${parent}`;
   }
   return error;

@@ -1,0 +1,13 @@
+{
+  "name": "medium-express-no-lock",
+  "manifestText": "{\n  \"name\": \"pyxis-bench-medium-express\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {\n    \"express\": \"5.1.0\"\n  },\n  \"devDependencies\": {}\n}\n",
+  "lockfileText": null,
+  "expectedAddedPackages": 68,
+  "nativeExpectedAddedPackages": 68,
+  "pyxisExpectedCheckedPackages": 69,
+  "nativeExpectedAuditedPackages": 69,
+  "command": "npm install",
+  "expectedPyxisPlacedPackages": 68,
+  "expectedNativePlacedPackages": 68,
+  "expectedLockPackages": 0
+}

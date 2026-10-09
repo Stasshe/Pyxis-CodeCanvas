@@ -9,4 +9,7 @@ export const tabState = proxy({
   isLoading: true,
   isRestored: false,
   isContentRestored: false,
+  sessionError: null as string | null,
+  sessionGeneration: 0,
+  sessionRootPath: null as string | null,
 });

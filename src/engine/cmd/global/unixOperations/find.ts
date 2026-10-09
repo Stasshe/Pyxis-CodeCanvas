@@ -1,3 +1,4 @@
+import { FSError, posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import {
   type EvalContext,
@@ -6,11 +7,10 @@ import {
   ExprParser,
   evaluate,
   FNM_CASEFOLD,
-  FNM_PATHNAME,
   fnmatch,
-  fnmatchPath,
 } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
+import { displayPathForOperand } from './displayPath';
 
 /**
  * find - ファイルを検索 (POSIX/GNU準拠)
@@ -41,7 +41,10 @@ interface FindContext extends EvalContext {
   fullPath: string;
   baseName: string;
   depth: number;
-  fileType: 'file' | 'folder';
+  fileType: ProjectFile['type'];
+  empty: boolean;
+  prune: boolean;
+  print: boolean;
 }
 
 /**
@@ -56,7 +59,7 @@ class FindExprParser extends ExprParser<FindContext> {
       case '-name': {
         this.stream.consume();
         const pattern = this.stream.consume();
-        if (!pattern) return ExprBuilder.true();
+        if (!pattern) throw new UnixCommandFailure("find: missing argument to '-name'", 1);
         return ExprBuilder.predicate('-name', [pattern], (ctx: EvalContext) => {
           const fc = ctx as FindContext;
           return fnmatch(pattern, fc.baseName) === 0;
@@ -66,7 +69,7 @@ class FindExprParser extends ExprParser<FindContext> {
       case '-iname': {
         this.stream.consume();
         const pattern = this.stream.consume();
-        if (!pattern) return ExprBuilder.true();
+        if (!pattern) throw new UnixCommandFailure("find: missing argument to '-iname'", 1);
         return ExprBuilder.predicate('-iname', [pattern], (ctx: EvalContext) => {
           const fc = ctx as FindContext;
           return fnmatch(pattern, fc.baseName, FNM_CASEFOLD) === 0;
@@ -77,10 +80,10 @@ class FindExprParser extends ExprParser<FindContext> {
       case '-wholename': {
         this.stream.consume();
         const pattern = this.stream.consume();
-        if (!pattern) return ExprBuilder.true();
+        if (!pattern) throw new UnixCommandFailure(`find: missing argument to '${tok}'`, 1);
         return ExprBuilder.predicate('-path', [pattern], (ctx: EvalContext) => {
           const fc = ctx as FindContext;
-          return fnmatchPath(pattern, fc.fullPath, FNM_PATHNAME) === 0;
+          return fnmatch(pattern, fc.fullPath) === 0;
         });
       }
 
@@ -88,21 +91,27 @@ class FindExprParser extends ExprParser<FindContext> {
       case '-iwholename': {
         this.stream.consume();
         const pattern = this.stream.consume();
-        if (!pattern) return ExprBuilder.true();
+        if (!pattern) throw new UnixCommandFailure(`find: missing argument to '${tok}'`, 1);
         return ExprBuilder.predicate('-ipath', [pattern], (ctx: EvalContext) => {
           const fc = ctx as FindContext;
-          return fnmatchPath(pattern, fc.fullPath, FNM_PATHNAME | FNM_CASEFOLD) === 0;
+          return fnmatch(pattern, fc.fullPath, FNM_CASEFOLD) === 0;
         });
       }
 
       case '-type': {
         this.stream.consume();
         const typeChar = this.stream.consume();
-        if (!typeChar) return ExprBuilder.true();
+        if (!typeChar) throw new UnixCommandFailure("find: missing argument to '-type'", 1);
+        if (!['f', 'd', 'l', 'p', 'c', 'b', 's'].includes(typeChar)) {
+          throw new UnixCommandFailure(`find: invalid argument '${typeChar}' to '-type'`, 1);
+        }
         return ExprBuilder.predicate('-type', [typeChar], (ctx: EvalContext) => {
           const fc = ctx as FindContext;
           if (typeChar === 'f') return fc.fileType === 'file';
           if (typeChar === 'd') return fc.fileType === 'folder';
+          if (typeChar === 'l') return fc.fileType === 'symlink';
+          if (typeChar === 'p') return fc.fileType === 'fifo';
+          if (typeChar === 'c') return fc.fileType === 'characterDevice';
           return false;
         });
       }
@@ -113,23 +122,29 @@ class FindExprParser extends ExprParser<FindContext> {
           const fc = ctx as FindContext;
           // ファイルの場合はサイズ0、ディレクトリの場合は空
           if (fc.fileType === 'file') {
-            return (fc.file.content?.length || 0) === 0;
+            return fc.file.size === 0;
           }
-          return false; // ディレクトリの空判定は別途実装が必要
+          if (fc.fileType === 'symlink') return false;
+          return fc.empty;
         });
       }
 
       case '-prune': {
         this.stream.consume();
-        // pruneは特殊: 常にtrueを返すが、副作用としてディレクトリをスキップ
-        const pred = ExprBuilder.predicate('-prune', [], () => true);
-        (pred as any).isPrune = true;
-        return pred;
+        return ExprBuilder.predicate('-prune', [], (ctx: EvalContext) => {
+          const fc = ctx as FindContext;
+          if (fc.fileType === 'folder') fc.prune = true;
+          return true;
+        });
       }
 
       case '-print': {
         this.stream.consume();
-        return ExprBuilder.predicate('-print', [], () => true);
+        return ExprBuilder.predicate('-print', [], (ctx: EvalContext) => {
+          const fc = ctx as FindContext;
+          fc.print = true;
+          return true;
+        });
       }
 
       case '-true': {
@@ -143,57 +158,36 @@ class FindExprParser extends ExprParser<FindContext> {
       }
 
       default:
-        // 未知のオプションはスキップ
         if (tok.startsWith('-')) {
-          this.stream.consume();
-          const next = this.stream.peek();
-          if (
-            next &&
-            !next.startsWith('-') &&
-            !this.isOpenGroup(next) &&
-            !this.isCloseGroup(next)
-          ) {
-            this.stream.consume();
-          }
-          return null;
+          throw new UnixCommandFailure(`find: unknown predicate '${tok}'`, 1);
         }
         return null;
     }
   }
 }
 
-/**
- * pruneすべきかチェック
- */
-function shouldPrune(expr: Expression | null, ctx: FindContext): boolean {
+function usesEmptyPredicate(expr: Expression | null): boolean {
   if (!expr) return false;
-
-  switch (expr.kind) {
-    case 'predicate':
-      // -pruneを含み、その条件が真ならprune
-      if ((expr as any).isPrune) {
-        return true;
-      }
-      return false;
-
-    case 'and':
-      // 左辺が真で右辺がpruneならprune
-      if (evaluate(expr.left as Expression, ctx)) {
-        return shouldPrune(expr.right as Expression, ctx);
-      }
-      return false;
-
-    case 'or':
-      return (
-        shouldPrune(expr.left as Expression, ctx) || shouldPrune(expr.right as Expression, ctx)
-      );
-
-    case 'not':
-      return false;
-
-    default:
-      return false;
+  if (expr.kind === 'predicate') return expr.name === '-empty';
+  if (expr.kind === 'not') return usesEmptyPredicate(expr.operand as Expression);
+  if (expr.kind === 'and' || expr.kind === 'or') {
+    return (
+      usesEmptyPredicate(expr.left as Expression) || usesEmptyPredicate(expr.right as Expression)
+    );
   }
+  return false;
+}
+
+function usesPrintPredicate(expr: Expression | null): boolean {
+  if (!expr) return false;
+  if (expr.kind === 'predicate') return expr.name === '-print';
+  if (expr.kind === 'not') return usesPrintPredicate(expr.operand as Expression);
+  if (expr.kind === 'and' || expr.kind === 'or') {
+    return (
+      usesPrintPredicate(expr.left as Expression) || usesPrintPredicate(expr.right as Expression)
+    );
+  }
+  return false;
 }
 
 export class FindCommand extends UnixCommandBase {
@@ -203,12 +197,16 @@ export class FindCommand extends UnixCommandBase {
       return 'Usage: find [path...] [expression]\n\nSearch for files in a directory hierarchy. See man/find for supported expressions and predicates.';
     }
 
-    // パスと式を分離
+    // Separate starting paths from the expression.
     const paths: string[] = [];
     let exprStart = 0;
-
-    for (let i = 0; i < args.length; i++) {
+    let i = 0;
+    for (; i < args.length; i++) {
       const arg = args[i];
+      if (arg === '--') {
+        exprStart = i + 1;
+        continue;
+      }
       if (
         arg.startsWith('-') ||
         arg === '!' ||
@@ -224,6 +222,8 @@ export class FindCommand extends UnixCommandBase {
       exprStart = i + 1;
     }
 
+    if (i >= args.length) exprStart = args.length;
+
     if (paths.length === 0) {
       paths.push('.');
     }
@@ -236,11 +236,19 @@ export class FindCommand extends UnixCommandBase {
     for (let i = exprStart; i < args.length; i++) {
       const arg = args[i];
       if (arg === '-maxdepth' && i + 1 < args.length) {
-        const d = Number.parseInt(args[++i], 10);
-        if (!Number.isNaN(d) && d >= 0) maxDepth = d;
+        const value = args[++i];
+        const depth = Number(value);
+        if (!Number.isInteger(depth) || depth < 0) {
+          throw new UnixCommandFailure(`find: invalid argument '${value}' for '-maxdepth'`, 1);
+        }
+        maxDepth = depth;
       } else if (arg === '-mindepth' && i + 1 < args.length) {
-        const d = Number.parseInt(args[++i], 10);
-        if (!Number.isNaN(d) && d >= 0) minDepth = d;
+        const value = args[++i];
+        const depth = Number(value);
+        if (!Number.isInteger(depth) || depth < 0) {
+          throw new UnixCommandFailure(`find: invalid argument '${value}' for '-mindepth'`, 1);
+        }
+        minDepth = depth;
       } else {
         exprTokens.push(arg);
       }
@@ -251,10 +259,25 @@ export class FindCommand extends UnixCommandBase {
     const expr = parser.parse() as Expression | null;
 
     const results: string[] = [];
+    const checkEmpty = usesEmptyPredicate(expr);
+    const explicitPrint = usesPrintPredicate(expr);
 
     for (const p of paths) {
-      const normalizedPath = this.normalizePath(this.resolvePath(p));
-      const found = await this.findFiles(normalizedPath, expr, maxDepth, minDepth);
+      const normalizedPath = this.resolvePath(p);
+      const startFile = await this.getLinkAwareFile(normalizedPath);
+      if (!startFile) {
+        throw new UnixCommandFailure(`find: '${p}': No such file or directory`, 1);
+      }
+      const found = await this.findFiles(
+        p,
+        normalizedPath,
+        startFile,
+        expr,
+        maxDepth,
+        minDepth,
+        checkEmpty,
+        explicitPrint
+      );
       results.push(...found);
     }
 
@@ -272,49 +295,60 @@ export class FindCommand extends UnixCommandBase {
   }
 
   private async findFiles(
+    operand: string,
     startPath: string,
+    startFile: ProjectFile,
     expr: Expression | null,
     maxDepth: number,
-    minDepth: number
+    minDepth: number,
+    checkEmpty: boolean,
+    explicitPrint: boolean
   ): Promise<string[]> {
-    const relativePath = this.getRelativePathFromProject(startPath);
     const results: string[] = [];
-    const normalizedStart = startPath.endsWith('/') ? startPath.slice(0, -1) : startPath;
+    const displayStart = displayPathForOperand(operand, startPath, startPath);
     const pruned = new Set<string>();
+    const isEmpty = async (file: ProjectFile): Promise<boolean> => {
+      if (file.type === 'file') return file.size === 0;
+      if (file.type !== 'folder') return false;
+      if (!checkEmpty) return false;
+      return (await this.fs.readdir(file.path)).length === 0;
+    };
 
     // 開始パス自体をチェック
-    const startFile = await this.cachedGetFile(relativePath);
-    if (startFile && 0 >= minDepth && 0 <= maxDepth) {
+    if (0 >= minDepth && 0 <= maxDepth) {
       const ctx: FindContext = {
         file: startFile,
-        fullPath: normalizedStart,
-        baseName: startFile.name || '',
+        fullPath: displayStart,
+        baseName: posixPath.basename(startFile.path),
         depth: 0,
-        fileType: startFile.type as 'file' | 'folder',
+        fileType: startFile.type,
+        empty: await isEmpty(startFile),
+        prune: false,
+        print: false,
       };
-      if (evaluate(expr, ctx)) {
-        results.push(normalizedStart);
+      const matches = evaluate(expr, ctx);
+      let shouldPrint = matches;
+      if (explicitPrint) shouldPrint = ctx.print;
+      if (shouldPrint) {
+        results.push(displayStart);
       }
+      if (ctx.prune) return results;
     }
 
+    if (startFile.type !== 'folder') return results;
+
     // 子要素を取得
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+    const files: ProjectFile[] = await this.getDescendants(startPath);
 
     files.sort((a, b) => a.path.localeCompare(b.path));
 
     for (const file of files) {
-      let relativeToStart = file.path.startsWith(prefix)
-        ? file.path.substring(prefix.length)
-        : file.path;
-      relativeToStart = relativeToStart.replace(/^\/+/, '');
-
-      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').filter(p => p).length;
+      const relativeToStart = posixPath.relative(startPath, file.path);
+      const depth = relativeToStart === '' ? 0 : relativeToStart.split('/').length;
 
       if (depth < minDepth || depth > maxDepth) continue;
 
-      const fullPath =
-        relativeToStart === '' ? normalizedStart : `${normalizedStart}/${relativeToStart}`;
+      const fullPath = displayPathForOperand(operand, startPath, file.path);
 
       // pruneチェック
       let isPruned = false;
@@ -329,22 +363,35 @@ export class FindCommand extends UnixCommandBase {
       const ctx: FindContext = {
         file,
         fullPath,
-        baseName: file.name || '',
+        baseName: posixPath.basename(file.path),
         depth,
-        fileType: file.type as 'file' | 'folder',
+        fileType: file.type,
+        empty: await isEmpty(file),
+        prune: false,
+        print: false,
       };
 
-      // pruneチェック
-      if (file.type === 'folder' && shouldPrune(expr, ctx)) {
+      const matches = evaluate(expr, ctx);
+      if (file.type === 'folder' && ctx.prune) {
         pruned.add(fullPath);
-        continue;
       }
 
-      if (evaluate(expr, ctx)) {
+      let shouldPrint = matches;
+      if (explicitPrint) shouldPrint = ctx.print;
+      if (shouldPrint) {
         results.push(fullPath);
       }
     }
 
     return results;
+  }
+
+  private async getLinkAwareFile(path: string): Promise<ProjectFile | undefined> {
+    try {
+      return await this.fs.lstat(path);
+    } catch (error) {
+      if (error instanceof FSError && error.code === 'ENOENT') return undefined;
+      throw error;
+    }
   }
 }

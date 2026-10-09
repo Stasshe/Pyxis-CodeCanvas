@@ -12,7 +12,7 @@ interface RightSidebarProps {
   // AI Agent用のプロパティ
   projectFiles?: FileItem[];
   currentProject?: Project | null;
-  currentProjectId?: string;
+  currentRootPath?: string | null;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -21,13 +21,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   children,
   projectFiles = [],
   currentProject = null,
-  currentProjectId = '',
+  currentRootPath = null,
 }) => {
   const { colors } = useTheme();
 
   return (
     <>
       <div
+        data-sidebar-resizer="right"
         className="resizer resizer-vertical flex-shrink-0"
         onMouseDown={onResize}
         onTouchStart={onResize}
@@ -38,16 +39,15 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       />
       <aside
         data-sidebar="right"
-        className="flex flex-col flex-shrink-0"
-        style={{
-          background: colors.accentBg,
-          borderLeft: `1px solid ${colors.border}`,
-          width: `${rightSidebarWidth}px`,
-          minWidth: `${rightSidebarWidth}px`,
-          maxWidth: `${rightSidebarWidth}px`,
-          height: '100%',
-          zIndex: 20,
-        }}
+        className="app-sidebar app-sidebar-right flex flex-col flex-shrink-0"
+        style={
+          {
+            background: colors.accentBg,
+            zIndex: 20,
+            '--sidebar-width': `${rightSidebarWidth}px`,
+            '--sidebar-border-color': colors.border,
+          } as React.CSSProperties
+        }
       >
         <div style={{ flex: 1, overflow: 'auto' }}>
           {children || (
@@ -56,7 +56,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               <AIPanel
                 projectFiles={projectFiles}
                 currentProject={currentProject}
-                currentProjectId={currentProjectId}
+                rootPath={currentRootPath}
               />
             </Suspense>
           )}

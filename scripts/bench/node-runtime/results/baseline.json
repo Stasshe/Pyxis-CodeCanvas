@@ -1,0 +1,241 @@
+{
+  "baseline": {
+    "source": "git archive main",
+    "commit": "e0e30d0cca56f9d6e8a234f915f6043ea212ae00",
+    "origin": "http://127.0.0.1:5180",
+    "runtime": "main-thread NodeRuntime with legacy TypeScript extension activated from source; extension worker and esbuild.wasm prepared in isolated baseline snapshot",
+    "warmup": "Provider and npm commands invoked directly in browser and awaited; UI submit/terminal rendering excluded. Fixtures seeded before timers. Each warm sample is a subsequent invocation in same live page and persistent fixture project.",
+    "cases": {
+      "small": {
+        "command": "node bench-small.js",
+        "coldWallMs": 10.6,
+        "warmWallMs": [5.1, 3.0, 2.6],
+        "warmMedianMs": 3.0,
+        "coldCalls": {
+          "getProjectFiles": 1,
+          "getFileByPath": 0,
+          "idb.init": 0,
+          "resolver.resolve": 1,
+          "prepareModule": 0,
+          "transpile": 0
+        },
+        "preloadFileCount": 56
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "coldWallMs": 19.9,
+        "warmWallMs": [17.9, 22.9, 15.2],
+        "warmMedianMs": 17.9,
+        "coldCalls": {
+          "getProjectFiles": 1,
+          "getFileByPath": 75,
+          "idb.init": 75,
+          "resolver.resolve": 25,
+          "prepareModule": 24,
+          "transpile": 26
+        },
+        "preloadFileCount": 56
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "coldWallMs": 277.4,
+        "warmWallMs": [10.6, 3.9, 9.8],
+        "warmMedianMs": 9.8,
+        "notes": "Cold includes legacy extension startup and Babel/esbuild work. Separate esbuild init not isolated on this main baseline run.",
+        "preloadFileCount": 56
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "coldWallMs": 7.0,
+        "warmWallMs": [4.5, 5.5, 4.1],
+        "warmMedianMs": 4.5,
+        "preloadFileCount": 56
+      },
+      "npm": {
+        "command": "npm run bench",
+        "coldWallMs": 9.2,
+        "warmWallMs": [3.7, 12.3, 3.3],
+        "warmMedianMs": 3.7,
+        "preloadFileCount": 56
+      }
+    },
+    "diff9": {
+      "command": "node bench-diff.js",
+      "wallMs": 38.3,
+      "exitCode": 0,
+      "preloadedFiles": 80,
+      "calls": {
+        "fs.preload": 1,
+        "idb.getFileByPath": 42,
+        "idb.getProjectFiles": 1,
+        "idb.init": 42,
+        "module.init": 1,
+        "module.preloadDependencies": 1,
+        "module.prepareModule": 30,
+        "module.transpile": 21,
+        "resolver.resolve": 31,
+        "runtime.execute": 1
+      },
+      "phaseMs": {
+        "fs.preload": 3.7,
+        "module.init": 1.2,
+        "module.preloadDependencies": 14.2,
+        "module.prepareModule": 111.3,
+        "resolver.resolve": 38.1,
+        "runtime.execute": 37.7
+      }
+    }
+  },
+  "current": {
+    "origin": "http://localhost:5173",
+    "runtime": "per-run Runtime Worker; instrumentation temporary in runtimeWorker/RPC paths; worker start is runtime module start to ready, RPC and stage durations are accumulated and can exceed wall time due overlap",
+    "warmup": "Provider and npm commands invoked directly in browser and awaited; UI submit/terminal rendering excluded. Fixtures seeded before timers. Each warm sample is a subsequent invocation in same live page and persistent fixture project.",
+    "cases": {
+      "small": {
+        "command": "node bench-small.js",
+        "coldWallMs": 46.6,
+        "cold": {
+          "workerStartMs": 30.4,
+          "syncXhrCount": 0,
+          "syncXhrMs": 0,
+          "fsRpcCount": 7,
+          "readFileCalls": 2,
+          "readFileBytes": 56,
+          "readFileMs": 3.4,
+          "asyncRpcCount": 7,
+          "asyncRpcMs": 10.2,
+          "resolveCalls": 1,
+          "resolveMs": 1.2,
+          "transpileCalls": 0,
+          "transpileMs": 0,
+          "esbuildInitMs": 0,
+          "transformMs": 0
+        },
+        "warmWallMs": [39.0, 36.0, 35.0],
+        "warmMedianMs": 36.0
+      },
+      "requires24": {
+        "command": "node bench-requires.js",
+        "coldWallMs": 134.5,
+        "cold": {
+          "workerStartMs": 21.3,
+          "syncXhrCount": 48,
+          "syncXhrMs": 49.3,
+          "fsRpcCount": 151,
+          "readFileCalls": 26,
+          "readFileBytes": 1885,
+          "readFileMs": 213.5,
+          "asyncRpcCount": 103,
+          "asyncRpcMs": 357.7,
+          "resolveCalls": 49,
+          "resolveMs": 192.6,
+          "transpileCalls": 0,
+          "transpileMs": 0,
+          "esbuildInitMs": 0,
+          "transformMs": 0
+        },
+        "warmWallMs": [130.0, 141.3, 131.6],
+        "warmMedianMs": 131.6
+      },
+      "typescript": {
+        "command": "node bench-ts.ts",
+        "coldWallMs": 208.7,
+        "cold": {
+          "workerStartMs": 21.5,
+          "syncXhrCount": 0,
+          "syncXhrMs": 0,
+          "fsRpcCount": 8,
+          "readFileCalls": 2,
+          "readFileBytes": 216,
+          "readFileMs": 3.3,
+          "asyncRpcCount": 9,
+          "asyncRpcMs": 180.0,
+          "resolveCalls": 1,
+          "resolveMs": 1.5,
+          "transpileCalls": 1,
+          "transpileMs": 162.2,
+          "esbuildInitMs": 59.6,
+          "transformMs": 90.3
+        },
+        "warmWallMs": [33.8, 32.6, 34.4],
+        "warmMedianMs": 33.8
+      },
+      "nodeModules": {
+        "command": "node bench-node-modules.js",
+        "coldWallMs": 51.1,
+        "cold": {
+          "workerStartMs": 27.8,
+          "syncXhrCount": 1,
+          "syncXhrMs": 2.5,
+          "fsRpcCount": 12,
+          "readFileCalls": 4,
+          "readFileBytes": 173,
+          "readFileMs": 7.5,
+          "asyncRpcCount": 11,
+          "asyncRpcMs": 13.0,
+          "resolveCalls": 3,
+          "resolveMs": 7.2,
+          "transpileCalls": 0,
+          "transpileMs": 0,
+          "esbuildInitMs": 0,
+          "transformMs": 0
+        },
+        "warmWallMs": [42.1, 41.0, 40.5],
+        "warmMedianMs": 41.0
+      },
+      "npm": {
+        "command": "npm run bench",
+        "coldWallMs": 59.8,
+        "cold": {
+          "workerStartMs": 33.6,
+          "syncXhrCount": 0,
+          "syncXhrMs": 0,
+          "fsRpcCount": 7,
+          "readFileCalls": 2,
+          "readFileBytes": 56,
+          "readFileMs": 3.2,
+          "asyncRpcCount": 7,
+          "asyncRpcMs": 6.3,
+          "resolveCalls": 1,
+          "resolveMs": 1.4,
+          "transpileCalls": 0,
+          "transpileMs": 0,
+          "esbuildInitMs": 0,
+          "transformMs": 0
+        },
+        "warmWallMs": [39.5, 34.5, 37.6],
+        "warmMedianMs": 37.6
+      }
+    },
+    "diff9": {
+      "command": "node bench-diff.js",
+      "wallMs": 131.1,
+      "exitCode": 0,
+      "workerStartMs": 22.6,
+      "syncXhrCount": 30,
+      "syncXhrMs": 43.6,
+      "fsRpcCount": 95,
+      "readFileCalls": 22,
+      "readFileBytes": 116753,
+      "readFileMs": 220.5,
+      "asyncRpcCount": 65,
+      "asyncRpcMs": 294.3,
+      "resolveCalls": 61,
+      "resolveMs": 115.4,
+      "transpileCalls": 0,
+      "transpileMs": 0,
+      "esbuildInitMs": 0,
+      "transformMs": 0
+    }
+  },
+  "fixtures": {
+    "primaryManifest": "runtime-fixtures.json",
+    "realDependencyManifest": "runtime-diff-fixture.json",
+    "primaryFileCount": 31,
+    "diffFileCount": 24,
+    "filesWrittenBeforeTiming": true,
+    "seededInto": "current /home/pyxis/demo and isolated baseline Welcome-Project",
+    "currentPreMeasurementFileCount": 65,
+    "note": "Main cold TS activation is outside timed run, but first measured TS includes actual Babel/esbuild transform. Current per-run worker metric starts after Runtime Worker creation and ends at ready. RPC/read/resolution durations sum concurrent stage timings and therefore may exceed wall time."
+  }
+}

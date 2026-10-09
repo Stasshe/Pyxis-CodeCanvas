@@ -13,12 +13,19 @@ import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { calculateDiff } from '@/engine/ai/diffProcessor';
 import type { AIReviewTab as AIReviewTabType, Tab } from '@/types';
+import { canRollbackAIReview } from './aiReviewActions';
+import { detachAndDisposeDiffEditorModels } from './diffEditorCleanup';
 
 interface AIReviewTabProps {
   tab: Tab;
-  onApplyChanges: (filePath: string, content: string) => void;
-  onDiscardChanges: (filePath: string) => void;
-  onUpdateSuggestedContent?: (tabId: string, newContent: string) => void;
+  onApplyChanges: (
+    filePath: string,
+    content: string,
+    action?: 'apply' | 'rollback'
+  ) => Promise<boolean>;
+  onDiscardChanges: (filePath: string) => Promise<boolean> | boolean;
+  onSuggestedContentChange: (tabId: string, newContent: string) => void;
+  onUpdateSuggestedContent: (tabId: string, newContent: string) => Promise<void>;
   onCloseTab?: (filePath: string) => void;
 }
 
@@ -26,13 +33,12 @@ export default function AIReviewTab({
   tab,
   onApplyChanges,
   onDiscardChanges,
+  onSuggestedContentChange,
   onUpdateSuggestedContent,
   onCloseTab,
 }: AIReviewTabProps) {
   const { colors, themeName } = useTheme();
   const { t } = useTranslation();
-
-  console.log('[AIReviewTab] Rendering with tab:', tab);
 
   // AIReviewTab型にキャスト
   const aiTab = tab as AIReviewTabType;
@@ -50,52 +56,41 @@ export default function AIReviewTab({
 
   // 現在編集中のsuggestedContentを管理（本体には影響しない）
   const [currentSuggestedContent, setCurrentSuggestedContent] = useState(suggestedContent);
+  const currentSuggestedContentRef = useRef(suggestedContent);
+  const updateSuggestedContentRef = useRef(onUpdateSuggestedContent);
+  const saveRevisionRef = useRef(0);
+  updateSuggestedContentRef.current = onUpdateSuggestedContent;
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // DiffEditorとモデルの参照
   const diffEditorRef = useRef<monacoEditor.editor.IStandaloneDiffEditor | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const modelsRef = useRef<{
     original: monacoEditor.editor.ITextModel | null;
     modified: monacoEditor.editor.ITextModel | null;
   }>({ original: null, modified: null });
 
-  // デバウンス保存用のタイマー
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   // クリーンアップ
   useEffect(() => {
     return () => {
-      // デバウンスタイマーをクリア
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        void Promise.resolve(
+          updateSuggestedContentRef.current(tab.id, currentSuggestedContentRef.current)
+        ).catch(error => {
+          console.error('[AIReviewTab] Failed to flush suggested content on close:', error);
+        });
       }
 
-      // エディタをリセットしてからモデルを破棄
-      if (diffEditorRef.current) {
-        try {
-          diffEditorRef.current.setModel(null);
-        } catch (e) {
-          console.warn('[AIReviewTab] Failed to reset editor:', e);
-        }
-        try {
-          diffEditorRef.current.dispose();
-        } catch (e) {
-          console.warn('[AIReviewTab] Failed to dispose editor:', e);
-        }
-      }
-
-      // モデルを破棄
+      // Detach retained models before disposing them; DiffEditor owns the editor.
       try {
-        if (modelsRef.current.original && !modelsRef.current.original.isDisposed()) {
-          modelsRef.current.original.dispose();
-        }
-        if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
-          modelsRef.current.modified.dispose();
-        }
+        detachAndDisposeDiffEditorModels(diffEditorRef.current, modelsRef.current);
       } catch (e) {
-        console.warn('[AIReviewTab] Failed to dispose models:', e);
+        console.warn('[AIReviewTab] Failed to detach/dispose diff models:', e);
       }
     };
-  }, []);
+  }, [tab.id]);
 
   // originalContentの変更を監視してDiffEditorを更新
   // WDファイルが編集されたときにoriginalContentが更新され、DiffEditorの左側に反映する
@@ -113,6 +108,7 @@ export default function AIReviewTab({
   // 他のAIReviewTabからsuggestedContentが更新されたときに同期する
   useEffect(() => {
     setCurrentSuggestedContent(suggestedContent);
+    currentSuggestedContentRef.current = suggestedContent;
     // DiffEditorのmodifiedモデルも更新
     if (modelsRef.current.modified && !modelsRef.current.modified.isDisposed()) {
       const currentModifiedValue = modelsRef.current.modified.getValue();
@@ -123,18 +119,34 @@ export default function AIReviewTab({
     }
   }, [suggestedContent]);
 
-  // デバウンス付き保存関数
-  const debouncedSave = (content: string) => {
+  const persistImmediately = async (content: string): Promise<boolean> => {
+    currentSuggestedContentRef.current = content;
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
     }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      console.log('[AIReviewTab] Debounced save triggered');
-      if (onUpdateSuggestedContent) {
-        onUpdateSuggestedContent(tab.id, content);
+    const revision = ++saveRevisionRef.current;
+    try {
+      await updateSuggestedContentRef.current(tab.id, content);
+      if (revision === saveRevisionRef.current) setSaveError(null);
+      return true;
+    } catch (error) {
+      console.error('[AIReviewTab] Failed to save suggested content:', error);
+      if (revision === saveRevisionRef.current) {
+        setSaveError(error instanceof Error ? error.message : String(error));
       }
-    }, 2000); // 2秒のデバウンス
+      return false;
+    }
+  };
+
+  const scheduleDraftSave = (content: string): void => {
+    currentSuggestedContentRef.current = content;
+    setSaveError(null);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      void persistImmediately(content);
+    }, 2000);
   };
 
   // DiffEditorマウント時のハンドラ
@@ -167,9 +179,10 @@ export default function AIReviewTab({
 
           // 即座にステートを更新
           setCurrentSuggestedContent(newContent);
+          currentSuggestedContentRef.current = newContent;
+          onSuggestedContentChange(tab.id, newContent);
 
-          // デバウンス保存をトリガー
-          debouncedSave(newContent);
+          scheduleDraftSave(newContent);
         });
       }
     }
@@ -223,8 +236,10 @@ export default function AIReviewTab({
   };
 
   // 全体適用（suggestedContent -> 本体のcontentへコピー）
-  const handleApplyAll = () => {
-    onApplyChanges(filePath, currentSuggestedContent);
+  const handleApplyAll = async () => {
+    if (!(await persistImmediately(currentSuggestedContentRef.current))) return;
+    const applied = await onApplyChanges(filePath, currentSuggestedContentRef.current);
+    if (applied === false) return;
     // レビュータブを閉じる
     if (onCloseTab) {
       onCloseTab(filePath);
@@ -234,27 +249,10 @@ export default function AIReviewTab({
   // 適用済みを元に戻す（ストレージの originalSnapshot を使って上書き）
   const handleRevertApplied = async () => {
     try {
-      if (!aiEntry || !aiEntry.originalSnapshot) return;
+      if (!canRollbackAIReview(aiEntry)) return;
       // Apply original snapshot
-      await onApplyChanges(filePath, aiEntry.originalSnapshot);
-
-      // mark entry as reverted and push history
-      try {
-        const { updateAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
-        const hist = aiEntry.history || [];
-        const historyEntry = {
-          id: `revert-${Date.now()}`,
-          timestamp: new Date(),
-          content: aiEntry.originalSnapshot,
-          note: 'reverted',
-        };
-        await updateAIReviewEntry(aiEntry.projectId, filePath, {
-          status: 'reverted',
-          history: [historyEntry, ...hist],
-        });
-      } catch (e) {
-        console.warn('[AIReviewTab] Failed to mark AI review entry as reverted', e);
-      }
+      const applied = await onApplyChanges(filePath, aiEntry.originalSnapshot, 'rollback');
+      if (applied === false) return;
 
       if (onCloseTab) onCloseTab(filePath);
     } catch (e) {
@@ -264,25 +262,27 @@ export default function AIReviewTab({
 
   // 全体破棄（元の内容に戻す）
   const handleDiscardAll = () => {
-    onDiscardChanges(filePath);
-    // レビュータブを閉じる
-    if (onCloseTab) {
-      onCloseTab(filePath);
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
     }
+    void Promise.resolve(onDiscardChanges(filePath)).then(discarded => {
+      if (discarded && onCloseTab) onCloseTab(filePath);
+    });
   };
 
   // 元に戻す（suggestedContentをoriginalContentに戻す）
   const handleRevertToOriginal = () => {
     setCurrentSuggestedContent(originalContent);
+    currentSuggestedContentRef.current = originalContent;
+    onSuggestedContentChange(tab.id, originalContent);
     if (diffEditorRef.current) {
       const diffModel = diffEditorRef.current.getModel();
       if (diffModel?.modified) {
         diffModel.modified.setValue(originalContent);
       }
     }
-    if (onUpdateSuggestedContent) {
-      onUpdateSuggestedContent(tab.id, originalContent);
-    }
+    void persistImmediately(originalContent);
   };
 
   // use shared utility to detect language from filename
@@ -300,21 +300,21 @@ export default function AIReviewTab({
     <div className="flex flex-col h-full">
       {/* ヘッダー */}
       <div
-        className="flex items-center justify-between p-3 border-b"
+        className="flex flex-col gap-2 p-3 border-b"
         style={{ borderColor: colors.border, background: colors.cardBg }}
       >
-        <div>
-          <h3 className="font-semibold" style={{ color: colors.foreground }}>
+        <div className="min-w-0">
+          <h3 className="break-words font-semibold" style={{ color: colors.foreground }}>
             AI Review: {filePath.split('/').pop()}
           </h3>
-          <p className="text-xs mt-1" style={{ color: colors.mutedFg }}>
+          <p className="mt-1 text-xs" style={{ color: colors.mutedFg, overflowWrap: 'anywhere' }}>
             {filePath}
           </p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
           <button
             type="button"
-            className="px-3 py-1.5 text-xs rounded border hover:opacity-80 transition-opacity"
+            className="min-w-0 whitespace-normal rounded border px-3 py-1.5 text-xs hover:opacity-80 transition-opacity"
             style={{
               background: colors.mutedBg,
               color: colors.foreground,
@@ -327,7 +327,7 @@ export default function AIReviewTab({
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
+            className="inline-flex min-w-0 items-center gap-1.5 whitespace-normal rounded border px-3 py-1.5 text-sm hover:opacity-90 transition-all"
             style={{
               background: colors.green,
               color: '#ffffff',
@@ -340,10 +340,10 @@ export default function AIReviewTab({
             <Check size={16} />
             {t('aiReviewTab.applyAll')}
           </button>
-          {aiEntry?.originalSnapshot && (
+          {canRollbackAIReview(aiEntry) && (
             <button
               type="button"
-              className="px-3 py-1.5 text-sm rounded border hover:opacity-90 transition-all inline-flex items-center gap-1.5"
+              className="inline-flex min-w-0 items-center gap-1.5 whitespace-normal rounded border px-3 py-1.5 text-sm hover:opacity-90 transition-all"
               style={{
                 background: 'transparent',
                 color: colors.foreground,
@@ -357,7 +357,7 @@ export default function AIReviewTab({
           )}
           <button
             type="button"
-            className="px-3 py-1.5 text-sm rounded hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
+            className="inline-flex min-w-0 items-center gap-1.5 whitespace-normal rounded px-3 py-1.5 text-sm hover:opacity-80 transition-opacity"
             style={{ background: colors.red, color: '#ffffff' }}
             onClick={handleDiscardAll}
           >
@@ -441,6 +441,11 @@ export default function AIReviewTab({
       </div>
 
       {/* Monaco DiffEditor */}
+      {saveError && (
+        <div role="alert" className="px-3 py-2 text-sm" style={{ color: colors.red }}>
+          {saveError}
+        </div>
+      )}
       <div className="flex-1 min-h-0">
         <DiffEditor
           width="100%"
@@ -448,6 +453,8 @@ export default function AIReviewTab({
           language={language}
           original={originalContent}
           modified={currentSuggestedContent}
+          keepCurrentOriginalModel
+          keepCurrentModifiedModel
           theme="pyxis-custom"
           onMount={handleDiffEditorMount}
           options={{

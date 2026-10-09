@@ -6,8 +6,7 @@
  * Development command context
  */
 export interface DevCommandContext {
-  projectName: string;
-  projectId: string;
+  rootPath: string;
   writeOutput: (output: string) => Promise<void>;
 }
 

@@ -135,9 +135,61 @@
     "loadingFile": "ファイル内容を復元中...",
     "selectFile": "ファイルを選択してください"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "利用可能な拡張機能がすべてあります",
+    "allInstalled": "すべての拡張機能がインストールされている",
+    "available": "利用可能 ({count})",
+    "browseAvailable": "利用可能な拡張機能を確認してください",
+    "confirmUninstall": "「{name}」をアンインストールしてもよろしいですか?",
+    "disable": "無効にする",
+    "disableUnavailable": "拡張機能を無効にできませんでした。",
+    "enable": "有効にする",
+    "enableUnavailable": "拡張機能を有効にできませんでした。",
+    "importFailed": "ZIP のインポートに失敗しました: {error}",
+    "importZip": "拡張機能 (.zip) をインポート",
+    "install": "インストール",
+    "installed": "インストール済み ({count})",
+    "installFailed": "{name} のインストールに失敗しました: {error}",
+    "installUnavailable": "拡張機能をインストールまたは有効にできませんでした。",
+    "loadFailed": "拡張機能のロードに失敗しました: {error}",
+    "loading": "拡張機能を読み込んでいます...",
+    "manifestUrlMissing": "マニフェスト URL がレジストリに見つかりません",
+    "noMatches": "一致する拡張機能が見つかりません",
+    "noneInstalled": "拡張機能がインストールされていません",
+    "packCount": "拡張機能: {count}",
+    "reload": "拡張機能のリロード",
+    "search": "拡張機能を検索...",
+    "title": "拡張機能",
+    "toggleFailed": "拡張機能の状態を変更できませんでした: {error}",
+    "tryDifferentSearch": "別の検索語を入力してください",
+    "types": {
+      "builtinModule": "内蔵モジュール",
+      "languageRuntime": "言語ランタイム",
+      "service": "サービス",
+      "tool": "道具",
+      "transpiler": "トランスパイラー",
+      "ui": "UI"
+    },
+    "uninstall": "アンインストール",
+    "uninstallFailed": "拡張機能のアンインストールに失敗しました: {error}",
+    "uninstallTitle": "拡張機能のアンインストール",
+    "uninstallUnavailable": "拡張機能をアンインストールできませんでした。",
+    "update": "アップデート",
+    "updateFailed": "{name} の更新に失敗しました: {error}",
+    "updateUnavailable": "新しい拡張機能パッケージをアクティブ化できませんでした。",
+    "viewDetails": "クリックして拡張機能の詳細を表示します"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "ファイル作成",
+      "createFolder": "フォルダ作成",
+      "import": "インポート",
+      "move": "移動"
+    },
     "alert": {
-      "renameFailed": "名前変更に失敗しました: {error}"
+      "destinationExists": "同じパスにファイルまたはフォルダがあります: {path}",
+      "operationFailed": "{action}に失敗しました: {error}",
+      "workspaceChanged": "workspaceが切り替わったため、残りのファイルはインポートされませんでした。"
     },
     "menu": {
       "createFile": "ファイル作成",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "新規ファイル作成",
-    "createFolder": "新規フォルダ作成"
+    "createFolder": "新規フォルダ作成",
+    "newFilePrompt": "新しいファイル名を入力してください:",
+    "newFolderPrompt": "新しいフォルダ名を入力してください:"
   },
   "markdownPreview": {
     "downloadSvg": "SVGダウンロード",

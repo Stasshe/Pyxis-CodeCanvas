@@ -1,6 +1,7 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { FSError, isPathWithin, posixPath } from '@/engine/core/fs';
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 /**
  * cp - ファイル/ディレクトリをコピー
@@ -17,7 +18,7 @@ import { UnixCommandBase } from './base';
  *   -v, --verbose        詳細な情報を表示
  *
  * 動作:
- *   - ワイルドカード対応（*, ?）
+ *   - Paths are expanded by the shell before this command runs.
  *   - 再帰的コピー対応
  */
 export class CpCommand extends UnixCommandBase {
@@ -29,7 +30,11 @@ export class CpCommand extends UnixCommandBase {
     const options = flags;
 
     if (options.has('--help') || options.has('-h')) {
-      return 'Usage: cp [OPTION]... SOURCE DEST\n   or: cp [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -r, -R, --recursive\tcopy directories recursively\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tprompt before overwrite\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done';
+      return 'Usage: cp [OPTION]... SOURCE DEST\n   or: cp [OPTION]... SOURCE... DIRECTORY\n\nOptions:\n  -r, -R, --recursive\tcopy directories recursively\n  -f, --force\toverwrite existing files without prompting\n  -i, --interactive\tunsupported; fails before copying\n  -n, --no-clobber\tdo not overwrite an existing file\n  -v, --verbose\t\texplain what is being done';
+    }
+
+    if (options.has('-i') || options.has('--interactive')) {
+      throw new UnixCommandFailure('cp: interactive confirmation is not supported', 1);
     }
 
     if (positional.length < 2) {
@@ -39,44 +44,16 @@ export class CpCommand extends UnixCommandBase {
     }
 
     const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
-    const interactive = options.has('-i') || options.has('--interactive');
     const noClobber = options.has('-n') || options.has('--no-clobber');
     const verbose = options.has('-v') || options.has('--verbose');
 
     const destArg = positional[positional.length - 1];
     const sourceArgs = positional.slice(0, -1);
 
-    // ワイルドカード展開（ソースのみ）
-    // destは常にパス解決のみ（グロブ展開しない）
-    const sources: string[] = [];
-    for (const sourceArg of sourceArgs) {
-      // ソースにワイルドカードがある場合のみ展開
-      if (sourceArg.includes('*') || sourceArg.includes('?') || sourceArg.includes('[')) {
-        const expanded = await this.expandPathPattern(sourceArg);
-        if (expanded.length === 0) {
-          throw new Error(`cp: cannot stat '${sourceArg}': No such file or directory`);
-        }
-        sources.push(...expanded);
-      } else {
-        // ワイルドカードなし→パス解決のみ
-        // 末尾スラッシュを削除
-        let cleanArg = sourceArg;
-        if (cleanArg.endsWith('/') && cleanArg !== '/') {
-          cleanArg = cleanArg.slice(0, -1);
-        }
-        const resolved = this.normalizePath(this.resolvePath(cleanArg));
-        sources.push(resolved);
-      }
-    }
+    const sources = sourceArgs.map(source => this.resolvePath(source));
 
-    // destは**絶対にグロブ展開しない**（..や.を含むパスを正しく解決）
-    // 末尾スラッシュを削除
-    let cleanDestArg = destArg;
     const destArgHasTrailingSlash = destArg.endsWith('/') && destArg !== '/';
-    if (destArgHasTrailingSlash) {
-      cleanDestArg = cleanDestArg.slice(0, -1);
-    }
-    const dest = this.normalizePath(this.resolvePath(cleanDestArg));
+    const dest = this.resolvePath(destArg);
     const destExists = await this.exists(dest);
     const destIsDir = destExists && (await this.isDirectory(dest));
 
@@ -88,51 +65,95 @@ export class CpCommand extends UnixCommandBase {
       throw new Error(`cp: target '${destArg}' is not a directory`);
     }
 
-    for (const source of sources) {
-      const normalizedSource = this.normalizePath(source);
+    const failures: string[] = [];
 
-      const sourceExists = await this.exists(normalizedSource);
-      if (!sourceExists) {
-        throw new Error(`cp: cannot stat '${source}': No such file or directory`);
+    for (let sourceIndex = 0; sourceIndex < sources.length; sourceIndex += 1) {
+      const source = sources[sourceIndex];
+      const sourceArg = sourceArgs[sourceIndex];
+      const normalizedSource = source;
+
+      const sourceFile = await this.getLinkAwareFile(normalizedSource);
+      if (!sourceFile) {
+        failures.push(`cp: cannot stat '${sourceArg}': No such file or directory`);
+        continue;
       }
 
-      const sourceIsDir = await this.isDirectory(normalizedSource);
+      const isSymlink = sourceFile.type === 'symlink';
+      const preserveSymlink = isSymlink && recursive;
+      const sourceTargetExists = await this.exists(normalizedSource);
+      if (isSymlink && !recursive && !sourceTargetExists) {
+        failures.push(`cp: cannot stat '${sourceArg}': No such file or directory`);
+        continue;
+      }
+      let sourceIsDir = sourceFile.type === 'folder';
+      if (isSymlink && !recursive) {
+        sourceIsDir = await this.isDirectory(normalizedSource);
+      }
 
       // ディレクトリコピーには-rオプションが必要
       if (sourceIsDir && !recursive) {
-        throw new Error(`cp: -r not specified; omitting directory '${source}'`);
+        failures.push(`cp: -r not specified; omitting directory '${sourceArg}'`);
+        continue;
       }
 
-      const sourceName = normalizedSource.split('/').pop() || '';
+      const sourceName = posixPath.basename(normalizedSource);
 
       // 最終的なコピー先パス
       let finalDest = dest;
       if (destIsDir) {
-        finalDest = `${dest}/${sourceName}`;
-        finalDest = this.normalizePath(finalDest);
+        finalDest = posixPath.join(dest, sourceName);
+      }
+
+      if (normalizedSource === finalDest) {
+        failures.push(`cp: '${sourceArg}' and '${destArg}' are the same file`);
+        continue;
+      }
+      if (sourceIsDir && isPathWithin(finalDest, normalizedSource)) {
+        failures.push(`cp: cannot copy a directory '${sourceArg}' into itself '${destArg}'`);
+        continue;
       }
 
       // 上書きチェック
-      const finalDestExists = await this.exists(finalDest);
+      const finalDestFile = await this.getLinkAwareFile(finalDest);
+      const finalDestExists = finalDestFile !== undefined;
       if (finalDestExists) {
+        const sourceCopiesDirectory = sourceIsDir && !preserveSymlink;
+        if (sourceCopiesDirectory !== (finalDestFile.type === 'folder')) {
+          if (sourceIsDir) {
+            failures.push(
+              `cp: cannot overwrite non-directory '${destArg}' with directory '${sourceArg}'`
+            );
+          } else {
+            failures.push(`cp: cannot overwrite directory '${destArg}' with non-directory`);
+          }
+          continue;
+        }
         if (noClobber) {
           continue; // スキップ
-        }
-        if (interactive) {
-          // インタラクティブモードは未実装（常に上書き）
         }
       }
 
       // コピー実行
       try {
-        await this.copyFileOrDir(normalizedSource, finalDest, sourceIsDir, recursive);
+        await this.copyFileOrDir(
+          normalizedSource,
+          finalDest,
+          sourceIsDir,
+          recursive,
+          preserveSymlink
+        );
 
         if (verbose) {
           results.push(`'${normalizedSource}' -> '${finalDest}'`);
         }
       } catch (error) {
-        throw new Error(`cp: cannot copy '${source}' to '${destArg}': ${(error as Error).message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`cp: cannot copy '${sourceArg}' to '${destArg}': ${message}`);
       }
+    }
+
+    if (failures.length > 0) {
+      throw new UnixCommandFailure(failures.join('\n'), 1, verbose ? results.join('\n') : '');
     }
 
     if (verbose) {
@@ -149,11 +170,17 @@ export class CpCommand extends UnixCommandBase {
     source: string,
     dest: string,
     isDir: boolean,
-    recursive: boolean
+    recursive: boolean,
+    preserveSymlink: boolean
   ): Promise<void> {
-    const sourceRelative = this.getRelativePathFromProject(source);
-    const destRelative = this.getRelativePathFromProject(dest);
-    const sourceFile = await this.cachedGetFile(sourceRelative);
+    if (preserveSymlink) {
+      const target = await this.fs.readlink(source);
+      await this.fs.rm(dest, { recursive: true, force: true });
+      await this.fs.symlink(target, dest);
+      return;
+    }
+
+    const sourceFile = await this.getFile(source);
 
     if (!sourceFile) {
       throw new Error('Source file not found in database');
@@ -161,34 +188,40 @@ export class CpCommand extends UnixCommandBase {
 
     if (isDir && recursive) {
       // ディレクトリの場合、中身も再帰的にコピー
-      const prefix = sourceRelative === '/' ? '' : `${sourceRelative}/`;
-      const childFiles = await this.cachedGetFilesByPrefix(prefix);
+      const childFiles = await this.fs.walk(source);
 
       // 新しい場所にディレクトリを作成
-      await fileRepository.createFile(this.projectId, destRelative, '', 'folder');
+      await this.fs.mkdir(dest, { recursive: true });
 
       // 子ファイルをコピー
       for (const child of childFiles) {
-        const newChildPath = child.path.replace(sourceRelative, destRelative);
-        await fileRepository.createFile(
-          this.projectId,
-          newChildPath,
-          child.content || '',
-          child.type,
-          child.isBufferArray,
-          child.bufferContent
-        );
+        const relativePath = posixPath.relative(source, child.path);
+        const newChildPath = posixPath.join(dest, relativePath);
+        if (child.type === 'folder') await this.fs.mkdir(newChildPath, { recursive: true });
+        else if (child.type === 'symlink') {
+          const existing = await this.getLinkAwareFile(newChildPath);
+          if (existing?.type === 'folder') {
+            throw new Error(`cannot overwrite directory '${newChildPath}' with non-directory`);
+          }
+          if (existing) await this.fs.rm(newChildPath, { force: true });
+          await this.fs.symlink(await this.fs.readlink(child.path), newChildPath);
+        } else {
+          await this.fs.writeFile(newChildPath, await this.fs.readFile(child.path));
+        }
       }
     } else {
       // ファイルの場合
-      await fileRepository.createFile(
-        this.projectId,
-        destRelative,
-        sourceFile.content || '',
-        sourceFile.type,
-        sourceFile.isBufferArray,
-        sourceFile.bufferContent
-      );
+      if (sourceFile.type === 'folder') await this.fs.mkdir(dest, { recursive: true });
+      else await this.fs.writeFile(dest, await this.fs.readFile(source));
+    }
+  }
+
+  private async getLinkAwareFile(path: string): Promise<ProjectFile | undefined> {
+    try {
+      return await this.fs.lstat(path);
+    } catch (error) {
+      if (error instanceof FSError && error.code === 'ENOENT') return undefined;
+      throw error;
     }
   }
 }

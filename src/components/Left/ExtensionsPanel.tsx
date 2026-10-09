@@ -20,36 +20,28 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 import { Confirmation } from '@/components/Confirmation';
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
 import { extensionManager } from '@/engine/extensions/extensionManager';
 import { fetchAllManifests } from '@/engine/extensions/extensionRegistry';
 import type { ExtensionManifest, InstalledExtension } from '@/engine/extensions/types';
 import { tabActions } from '@/stores/tabState';
+import { processAvailableExtensions, processInstalledExtensions } from './extensionsPanelUtils';
 
-interface ExtensionPack {
-  id: string;
-  name: string;
-  description: string;
-  extensions: InstalledExtension[];
-  type: 'installed';
-}
-
-interface AvailablePack {
-  id: string;
-  name: string;
-  description: string;
-  extensions: ExtensionManifest[];
-  type: 'available';
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export default function ExtensionsPanel() {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const [installed, setInstalled] = useState<InstalledExtension[]>([]);
   const [available, setAvailable] = useState<ExtensionManifest[]>([]);
   const [availableWithRegistry, setAvailableWithRegistry] = useState<Map<string, string>>(
     new Map()
   );
   const [loading, setLoading] = useState(true);
+  const [operationError, setOperationError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'installed' | 'available'>('installed');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPacks, setExpandedPacks] = useState<Set<string>>(new Set());
@@ -66,16 +58,14 @@ export default function ExtensionsPanel() {
 
   const loadExtensions = async () => {
     setLoading(true);
+    setOperationError(null);
     try {
       const installedExts = await extensionManager.getInstalledExtensions();
-      console.log('[ExtensionsPanel] Installed:', installedExts.length);
       setInstalled(installedExts);
 
       const allManifests = await fetchAllManifests();
-      console.log('[ExtensionsPanel] All manifests from registry:', allManifests.length);
 
       const installedIds = new Set(installedExts.map(ext => ext.manifest.id));
-      console.log('[ExtensionsPanel] Installed IDs:', Array.from(installedIds));
 
       // レジストリからmanifestUrlのマッピングを作成
       const { fetchRegistry } = await import('@/engine/extensions/extensionRegistry');
@@ -90,67 +80,95 @@ export default function ExtensionsPanel() {
 
       const availableManifests = allManifests.filter(m => {
         const isInstalled = installedIds.has(m.id);
-        console.log(`[ExtensionsPanel] Manifest ${m.id}: installed=${isInstalled}`);
         return !isInstalled;
       });
 
-      console.log('[ExtensionsPanel] Available after filter:', availableManifests.length);
       setAvailable(availableManifests);
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to load extensions:', error);
+      setOperationError(
+        t('extensionsPanel.loadFailed', { params: { error: errorMessage(error) } })
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleInstall = async (manifest: ExtensionManifest) => {
+    setOperationError(null);
     const manifestUrl = availableWithRegistry.get(manifest.id);
 
     if (!manifestUrl) {
-      console.error('[ExtensionsPanel] No manifest URL found for:', manifest.id);
-      alert(`Failed to install ${manifest.name}: Manifest URL not found in registry`);
+      setOperationError(
+        t('extensionsPanel.installFailed', {
+          params: { name: manifest.name, error: t('extensionsPanel.manifestUrlMissing') },
+        })
+      );
       return;
     }
 
     try {
-      console.log('[ExtensionsPanel] Installing:', manifest.id, 'from', manifestUrl);
-      await extensionManager.installExtension(manifestUrl);
+      const installed = await extensionManager.installExtension(manifestUrl);
       await loadExtensions();
+      if (!installed) {
+        throw new Error(t('extensionsPanel.installUnavailable'));
+      }
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to install extension:', error);
-      alert(`Failed to install ${manifest.name}: ${(error as Error).message}`);
+      setOperationError(
+        t('extensionsPanel.installFailed', {
+          params: { name: manifest.name, error: errorMessage(error) },
+        })
+      );
     }
   };
 
   // 更新（キャッシュ削除して再インストール）
   const handleUpdate = async (extensionId: string, manifestUrl: string, extensionName: string) => {
+    setOperationError(null);
     if (!manifestUrl) {
-      alert(`Failed to update ${extensionName}: Manifest URL not found in registry`);
+      setOperationError(
+        t('extensionsPanel.updateFailed', {
+          params: { name: extensionName, error: t('extensionsPanel.manifestUrlMissing') },
+        })
+      );
       return;
     }
     try {
-      // アンインストール
-      await extensionManager.uninstallExtension(extensionId);
-      // 再インストール
-      await extensionManager.installExtension(manifestUrl);
+      // Replacement is manager-owned so it can validate the new package before touching the old one.
+      const updated = await extensionManager.updateExtension(extensionId, manifestUrl);
+      if (!updated) throw new Error(t('extensionsPanel.updateUnavailable'));
       await loadExtensions();
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to update extension:', error);
-      alert(`Failed to update ${extensionName}: ${(error as Error).message}`);
+      setOperationError(
+        t('extensionsPanel.updateFailed', {
+          params: { name: extensionName, error: errorMessage(error) },
+        })
+      );
     }
   };
 
   const handleToggle = async (extensionId: string, currentlyEnabled: boolean) => {
+    setOperationError(null);
     try {
-      if (currentlyEnabled) {
-        await extensionManager.disableExtension(extensionId);
-      } else {
-        await extensionManager.enableExtension(extensionId);
-      }
+      const changed = currentlyEnabled
+        ? await extensionManager.disableExtension(extensionId)
+        : await extensionManager.enableExtension(extensionId);
+      if (!changed)
+        throw new Error(
+          t(
+            currentlyEnabled
+              ? 'extensionsPanel.disableUnavailable'
+              : 'extensionsPanel.enableUnavailable'
+          )
+        );
       await loadExtensions();
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to toggle extension:', error);
-      alert(`Failed to toggle: ${(error as Error).message}`);
+      setOperationError(
+        t('extensionsPanel.toggleFailed', { params: { error: errorMessage(error) } })
+      );
     }
   };
 
@@ -161,12 +179,17 @@ export default function ExtensionsPanel() {
   const confirmUninstall = async () => {
     if (!uninstallConfirmation) return;
 
+    setOperationError(null);
     try {
-      await extensionManager.uninstallExtension(uninstallConfirmation.extensionId);
+      if (!(await extensionManager.uninstallExtension(uninstallConfirmation.extensionId))) {
+        throw new Error(t('extensionsPanel.uninstallUnavailable'));
+      }
       await loadExtensions();
     } catch (error) {
       console.error('[ExtensionsPanel] Failed to uninstall extension:', error);
-      alert(`Failed to uninstall: ${(error as Error).message}`);
+      setOperationError(
+        t('extensionsPanel.uninstallFailed', { params: { error: errorMessage(error) } })
+      );
     } finally {
       setUninstallConfirmation(null);
     }
@@ -195,12 +218,12 @@ export default function ExtensionsPanel() {
 
   const getExtensionTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      transpiler: 'Transpiler',
-      service: 'Service',
-      'builtin-module': 'Built-in Module',
-      'language-runtime': 'Language Runtime',
-      tool: 'Tool',
-      ui: 'UI',
+      transpiler: t('extensionsPanel.types.transpiler'),
+      service: t('extensionsPanel.types.service'),
+      'builtin-module': t('extensionsPanel.types.builtinModule'),
+      'language-runtime': t('extensionsPanel.types.languageRuntime'),
+      tool: t('extensionsPanel.types.tool'),
+      ui: t('extensionsPanel.types.ui'),
     };
     return labels[type] || type;
   };
@@ -227,194 +250,6 @@ export default function ExtensionsPanel() {
       }
       return next;
     });
-  };
-
-  // 拡張機能をpackGroupでグループ化 (Installed)
-  const groupInstalledExtensions = (extensions: InstalledExtension[]) => {
-    const packMap = new Map<string, { name: string; extensions: InstalledExtension[] }>();
-    const others: InstalledExtension[] = [];
-
-    extensions.forEach(ext => {
-      if (ext.manifest.packGroup) {
-        const existing = packMap.get(ext.manifest.packGroup.id);
-        if (existing) {
-          existing.extensions.push(ext);
-        } else {
-          packMap.set(ext.manifest.packGroup.id, {
-            name: ext.manifest.packGroup.name,
-            extensions: [ext],
-          });
-        }
-      } else {
-        others.push(ext);
-      }
-    });
-
-    const packs: ExtensionPack[] = Array.from(packMap.entries()).map(([groupId, group]) => ({
-      id: groupId,
-      name: group.name,
-      description: `${group.extensions.length} extension${group.extensions.length > 1 ? 's' : ''}`,
-      extensions: group.extensions,
-      type: 'installed',
-    }));
-
-    return { packs, others };
-  };
-
-  // 拡張機能をpackGroupでグループ化 (Available)
-  const groupAvailableExtensions = (extensions: ExtensionManifest[]) => {
-    const packMap = new Map<string, { name: string; extensions: ExtensionManifest[] }>();
-    const others: ExtensionManifest[] = [];
-
-    extensions.forEach(ext => {
-      if (ext.packGroup) {
-        const existing = packMap.get(ext.packGroup.id);
-        if (existing) {
-          existing.extensions.push(ext);
-        } else {
-          packMap.set(ext.packGroup.id, {
-            name: ext.packGroup.name,
-            extensions: [ext],
-          });
-        }
-      } else {
-        others.push(ext);
-      }
-    });
-
-    const packs: AvailablePack[] = Array.from(packMap.entries()).map(([groupId, group]) => ({
-      id: `${groupId}-available`,
-      name: group.name,
-      description: `${group.extensions.length} extension${group.extensions.length > 1 ? 's' : ''}`,
-      extensions: group.extensions,
-      type: 'available',
-    }));
-
-    return { packs, others };
-  };
-
-  // 検索フィルター (Installed)
-  const filterInstalledExtensions = (extensions: InstalledExtension[]) => {
-    if (!searchQuery.trim()) return extensions;
-
-    const query = searchQuery.toLowerCase();
-    return extensions.filter(
-      ext =>
-        ext.manifest.name.toLowerCase().includes(query) ||
-        ext.manifest.id.toLowerCase().includes(query) ||
-        ext.manifest.description.toLowerCase().includes(query)
-    );
-  };
-
-  // 検索フィルター (Available)
-  const filterAvailableExtensions = (extensions: ExtensionManifest[]) => {
-    if (!searchQuery.trim()) return extensions;
-
-    const query = searchQuery.toLowerCase();
-    return extensions.filter(
-      ext =>
-        ext.name.toLowerCase().includes(query) ||
-        ext.id.toLowerCase().includes(query) ||
-        ext.description.toLowerCase().includes(query)
-    );
-  };
-
-  // 検索された拡張機能がパックに属している場合の特殊処理 (Installed)
-  const processInstalledWithSearch = () => {
-    if (!searchQuery.trim()) {
-      return groupInstalledExtensions(installed);
-    }
-
-    const filtered = filterInstalledExtensions(installed);
-    const { packs } = groupInstalledExtensions(installed);
-
-    const filteredPacks: ExtensionPack[] = [];
-    const filteredOthers: InstalledExtension[] = [];
-    const packsToExpand: string[] = [];
-
-    filtered.forEach(ext => {
-      const pack = packs.find(p => p.extensions.some(e => e.manifest.id === ext.manifest.id));
-
-      if (pack) {
-        if (!filteredPacks.find(p => p.id === pack.id)) {
-          const packFiltered = pack.extensions.filter(e =>
-            filtered.some(f => f.manifest.id === e.manifest.id)
-          );
-          filteredPacks.push({
-            ...pack,
-            extensions: packFiltered,
-            description: `${packFiltered.length} extension${packFiltered.length > 1 ? 's' : ''}`,
-          });
-          // 検索時に展開するパックを記録（状態更新はしない）
-          packsToExpand.push(pack.id);
-        }
-      } else {
-        filteredOthers.push(ext);
-      }
-    });
-
-    // 検索時は自動展開（一度だけ実行）
-    if (packsToExpand.length > 0) {
-      setTimeout(() => {
-        setExpandedPacks(prev => {
-          const next = new Set(prev);
-          packsToExpand.forEach(id => {
-            next.add(id);
-          });
-          return next;
-        });
-      }, 0);
-    }
-
-    return { packs: filteredPacks, others: filteredOthers };
-  };
-
-  // 検索された拡張機能がパックに属している場合の特殊処理 (Available)
-  const processAvailableWithSearch = () => {
-    if (!searchQuery.trim()) {
-      return groupAvailableExtensions(available);
-    }
-
-    const filtered = filterAvailableExtensions(available);
-    const { packs } = groupAvailableExtensions(available);
-
-    const filteredPacks: AvailablePack[] = [];
-    const filteredOthers: ExtensionManifest[] = [];
-    const packsToExpand: string[] = [];
-
-    filtered.forEach(ext => {
-      const pack = packs.find(p => p.extensions.some(e => e.id === ext.id));
-
-      if (pack) {
-        if (!filteredPacks.find(p => p.id === pack.id)) {
-          const packFiltered = pack.extensions.filter(e => filtered.some(f => f.id === e.id));
-          filteredPacks.push({
-            ...pack,
-            extensions: packFiltered,
-            description: `${packFiltered.length} extension${packFiltered.length > 1 ? 's' : ''}`,
-          });
-          // 検索時に展開するパックを記録（状態更新はしない）
-          packsToExpand.push(pack.id);
-        }
-      } else {
-        filteredOthers.push(ext);
-      }
-    });
-
-    // 検索時は自動展開（一度だけ実行）
-    if (packsToExpand.length > 0) {
-      setTimeout(() => {
-        setExpandedPacks(prev => {
-          const next = new Set(prev);
-          packsToExpand.forEach(id => {
-            next.add(id);
-          });
-          return next;
-        });
-      }, 0);
-    }
-
-    return { packs: filteredPacks, others: filteredOthers };
   };
 
   // レンダリング用コンポーネント
@@ -449,7 +284,7 @@ export default function ExtensionsPanel() {
                 className="text-sm font-semibold truncate cursor-pointer hover:underline"
                 style={{ color: colors.foreground }}
                 onClick={() => openExtensionInfoTab(ext.manifest, ext.enabled)}
-                title="Click to view extension details"
+                title={t('extensionsPanel.viewDetails')}
               >
                 {ext.manifest.name}
               </h3>
@@ -494,12 +329,12 @@ export default function ExtensionsPanel() {
             {ext.enabled ? (
               <>
                 <PowerOff size={12} />
-                Disable
+                {t('extensionsPanel.disable')}
               </>
             ) : (
               <>
                 <Power size={12} />
-                Enable
+                {t('extensionsPanel.enable')}
               </>
             )}
           </button>
@@ -513,7 +348,7 @@ export default function ExtensionsPanel() {
             onClick={() => handleUninstall(ext.manifest?.id, ext.manifest?.name)}
           >
             <Trash2 size={12} />
-            Uninstall
+            {t('extensionsPanel.uninstall')}
           </button>
           <button
             className="min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded transition-all hover:opacity-80"
@@ -524,10 +359,12 @@ export default function ExtensionsPanel() {
             }}
             onClick={() => handleUpdate(ext.manifest.id, manifestUrl || '', ext.manifest.name)}
             disabled={!manifestUrl}
-            title={manifestUrl ? 'Update extension' : 'Manifest URL not found'}
+            title={
+              manifestUrl ? t('extensionsPanel.update') : t('extensionsPanel.manifestUrlMissing')
+            }
           >
             <Loader size={12} />
-            Update
+            {t('extensionsPanel.update')}
           </button>
         </div>
       </div>
@@ -562,7 +399,7 @@ export default function ExtensionsPanel() {
                 className="text-sm font-semibold truncate cursor-pointer hover:underline"
                 style={{ color: colors.foreground }}
                 onClick={() => openExtensionInfoTab(manifest, false)}
-                title="Click to view extension details"
+                title={t('extensionsPanel.viewDetails')}
               >
                 {manifest.name}
               </h3>
@@ -599,12 +436,26 @@ export default function ExtensionsPanel() {
             onClick={() => handleInstall(manifest)}
           >
             <Download size={12} />
-            Install
+            {t('extensionsPanel.install')}
           </button>
         </div>
       </div>
     );
   };
+
+  const installedResults = processInstalledExtensions(installed, searchQuery);
+  const availableResults = processAvailableExtensions(available, searchQuery);
+  const autoExpandedPackKey = [
+    ...installedResults.packsToExpand,
+    ...availableResults.packsToExpand,
+  ].join('|');
+  useEffect(() => {
+    const packIds = autoExpandedPackKey ? autoExpandedPackKey.split('|') : [];
+    if (packIds.length === 0) return;
+    setExpandedPacks(previous => new Set([...previous, ...packIds]));
+  }, [autoExpandedPackKey]);
+  const { packs: installedPacks, others: installedOthers } = installedResults;
+  const { packs: availablePacks, others: availableOthers } = availableResults;
 
   if (loading) {
     return (
@@ -613,13 +464,10 @@ export default function ExtensionsPanel() {
         style={{ color: colors.mutedFg }}
       >
         <Loader size={32} className="animate-spin mb-3" />
-        <span className="text-sm">Loading extensions...</span>
+        <span className="text-sm">{t('extensionsPanel.loading')}</span>
       </div>
     );
   }
-
-  const { packs: installedPacks, others: installedOthers } = processInstalledWithSearch();
-  const { packs: availablePacks, others: availableOthers } = processAvailableWithSearch();
 
   return (
     <div className="flex flex-col h-full" style={{ background: colors.sidebarBg }}>
@@ -631,7 +479,7 @@ export default function ExtensionsPanel() {
         <div className="flex items-center">
           <Package size={18} style={{ color: colors.primary }} />
           <h2 className="ml-2 text-sm font-semibold" style={{ color: colors.foreground }}>
-            Extensions
+            {t('extensionsPanel.title')}
           </h2>
         </div>
 
@@ -647,11 +495,15 @@ export default function ExtensionsPanel() {
               if (!f) return;
               setLoading(true);
               try {
-                await extensionManager.installExtensionFromZip(f);
+                if (!(await extensionManager.installExtensionFromZip(f))) {
+                  throw new Error(t('extensionsPanel.installUnavailable'));
+                }
                 await loadExtensions();
               } catch (err) {
                 console.error('[ExtensionsPanel] Failed to import ZIP:', err);
-                alert(`Failed to import ZIP: ${(err as Error).message || err}`);
+                setOperationError(
+                  t('extensionsPanel.importFailed', { params: { error: errorMessage(err) } })
+                );
               } finally {
                 setLoading(false);
                 // clear value so same file can be selected again
@@ -668,7 +520,8 @@ export default function ExtensionsPanel() {
               border: `1px solid ${colors.border}`,
             }}
             onClick={() => loadExtensions()}
-            title="Reload extensions"
+            aria-label={t('extensionsPanel.reload')}
+            title={t('extensionsPanel.reload')}
             disabled={loading}
           >
             <RotateCw
@@ -686,7 +539,8 @@ export default function ExtensionsPanel() {
               border: `1px solid ${colors.border}`,
             }}
             onClick={() => fileInputRef.current?.click()}
-            title="Import extension (.zip)"
+            aria-label={t('extensionsPanel.importZip')}
+            title={t('extensionsPanel.importZip')}
             disabled={loading}
           >
             <Upload size={16} style={{ color: colors.mutedFg }} />
@@ -695,6 +549,15 @@ export default function ExtensionsPanel() {
       </div>
 
       {/* タブ */}
+      {operationError && (
+        <div
+          role="alert"
+          className="border-b px-4 py-2 text-sm"
+          style={{ color: colors.red, borderColor: colors.border }}
+        >
+          {operationError}
+        </div>
+      )}
       <div className="flex border-b" style={{ borderColor: colors.border }}>
         <button
           className="flex-1 px-4 py-2.5 text-sm font-medium transition-all"
@@ -705,7 +568,7 @@ export default function ExtensionsPanel() {
           }}
           onClick={() => setActiveTab('installed')}
         >
-          Installed ({installed.length})
+          {t('extensionsPanel.installed', { params: { count: installed.length } })}
         </button>
         <button
           className="flex-1 px-4 py-2.5 text-sm font-medium transition-all"
@@ -716,7 +579,7 @@ export default function ExtensionsPanel() {
           }}
           onClick={() => setActiveTab('available')}
         >
-          Available ({available.length})
+          {t('extensionsPanel.available', { params: { count: available.length } })}
         </button>
       </div>
 
@@ -732,7 +595,8 @@ export default function ExtensionsPanel() {
           <Search size={14} style={{ color: colors.mutedFg }} />
           <input
             type="text"
-            placeholder="Search extensions..."
+            aria-label={t('extensionsPanel.search')}
+            placeholder={t('extensionsPanel.search')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="flex-1 text-sm bg-transparent outline-none"
@@ -752,12 +616,14 @@ export default function ExtensionsPanel() {
               >
                 <Package size={48} className="mb-3 opacity-30" />
                 <p className="text-sm">
-                  {searchQuery ? 'No matching extensions found' : 'No extensions installed'}
+                  {searchQuery
+                    ? t('extensionsPanel.noMatches')
+                    : t('extensionsPanel.noneInstalled')}
                 </p>
                 <p className="text-xs mt-1 opacity-70">
                   {searchQuery
-                    ? 'Try a different search term'
-                    : 'Browse available extensions to get started'}
+                    ? t('extensionsPanel.tryDifferentSearch')
+                    : t('extensionsPanel.browseAvailable')}
                 </p>
               </div>
             ) : (
@@ -785,7 +651,9 @@ export default function ExtensionsPanel() {
                           {pack.name}
                         </h3>
                         <p className="text-xs" style={{ color: colors.mutedFg }}>
-                          {pack.description}
+                          {t('extensionsPanel.packCount', {
+                            params: { count: pack.extensions.length },
+                          })}
                         </p>
                       </div>
                     </button>
@@ -815,12 +683,12 @@ export default function ExtensionsPanel() {
               >
                 <CheckCircle2 size={48} className="mb-3 opacity-30" />
                 <p className="text-sm">
-                  {searchQuery ? 'No matching extensions found' : 'All extensions installed'}
+                  {searchQuery ? t('extensionsPanel.noMatches') : t('extensionsPanel.allInstalled')}
                 </p>
                 <p className="text-xs mt-1 opacity-70">
                   {searchQuery
-                    ? 'Try a different search term'
-                    : 'You have all available extensions'}
+                    ? t('extensionsPanel.tryDifferentSearch')
+                    : t('extensionsPanel.allAvailableInstalled')}
                 </p>
               </div>
             ) : (
@@ -848,7 +716,9 @@ export default function ExtensionsPanel() {
                           {pack.name}
                         </h3>
                         <p className="text-xs" style={{ color: colors.mutedFg }}>
-                          {pack.description}
+                          {t('extensionsPanel.packCount', {
+                            params: { count: pack.extensions.length },
+                          })}
                         </p>
                       </div>
                     </button>
@@ -875,10 +745,12 @@ export default function ExtensionsPanel() {
       {/* Uninstall Confirmation Dialog */}
       <Confirmation
         open={uninstallConfirmation !== null}
-        title="Uninstall Extension"
-        message={`Are you sure you want to uninstall "${uninstallConfirmation?.extensionName}"?`}
-        confirmText="Uninstall"
-        cancelText="Cancel"
+        title={t('extensionsPanel.uninstallTitle')}
+        message={t('extensionsPanel.confirmUninstall', {
+          params: { name: uninstallConfirmation?.extensionName ?? '' },
+        })}
+        confirmText={t('extensionsPanel.uninstall')}
+        cancelText={t('common.cancel')}
         onConfirm={confirmUninstall}
         onCancel={() => setUninstallConfirmation(null)}
       />

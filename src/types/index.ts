@@ -1,13 +1,14 @@
 export interface FileItem {
   id: string;
   name: string;
-  type: 'file' | 'folder';
+  type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
   content?: string;
   children?: FileItem[];
   path: string;
   isCodeMirror?: boolean;
   isBufferArray?: boolean; // バイナリファイルの場合true
   bufferContent?: ArrayBuffer; // バイナリデータ本体
+  mimeType?: string;
   /** 拡張プロパティ許可（TabFileInfoとの互換性） */
   [key: string]: unknown;
 }
@@ -46,40 +47,18 @@ export interface SingleFileDiff {
 export type EditorLayoutType = 'vertical' | 'horizontal';
 
 export interface Project {
-  id: string;
+  rootPath: string;
   name: string;
-  createdAt: Date;
   updatedAt: Date;
-  description?: string;
 }
 
 export interface ProjectFile {
-  id: string;
-  projectId: string;
   path: string;
-  name: string;
-  content: string; // テキストファイル用
-  type: 'file' | 'folder';
-  parentPath?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  isBufferArray?: boolean; // バイナリファイルの場合true
-  bufferContent?: ArrayBuffer; // バイナリデータ本体
-  isAiAgentReview?: boolean; // AIエージェントによるレビュー中フラグ
-  aiAgentCode?: string; // AIが提案するコード
-  // AIレビュー用メタデータ
-  aiReviewStatus?: string; // eg. 'pending' | 'applied' | 'discarded'
-  aiReviewComments?: string; // 簡易コメント/説明
-  aiAgentSuggestedContent?: string; // AIが提案した内容（最新）
-  aiAgentOriginalSnapshot?: string; // AI提案時のオリジナルスナップショット
-  aiReviewHistory?: ReadonlyArray<{
-    id: string;
-    timestamp: Date;
-    content: string; // 保存されたスナップショット
-    note?: string;
-  }>;
-  /** 拡張プロパティ許可（FileItemとの互換性） */
-  [key: string]: unknown;
+  type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
+  mode: number;
+  size: number;
+  mtime: number;
+  mount?: 'memory' | 'devices';
 }
 
 export type MenuTab = 'files' | 'search' | 'git' | 'run' | 'extensions' | 'settings';
@@ -97,7 +76,7 @@ export interface AIReviewHistoryEntry {
 
 /** AI Review entry (stored in IndexedDB) */
 export interface AIReviewEntry {
-  projectId: string;
+  rootPath: string;
   filePath: string;
   suggestedContent: string;
   originalSnapshot: string;
@@ -132,6 +111,7 @@ export interface AIEditResponse {
     suggestedContent: string;
     explanation: string;
     applied?: boolean; // Track if this change has been applied to file
+    appliedContent?: string; // Exact bytes written, including user-edited review content and BOM
     isNewFile?: boolean; // Track if this is a new file created by AI (for revert: delete instead of restore empty)
   }>;
   message: string;
@@ -160,7 +140,7 @@ export interface ChatSpaceMessage {
 export interface ChatSpace {
   id: string;
   name: string;
-  projectId: string;
+  rootPath: string;
   messages: ChatSpaceMessage[];
   selectedFiles: string[]; // 選択されたファイルパスのリスト
   createdAt: Date;

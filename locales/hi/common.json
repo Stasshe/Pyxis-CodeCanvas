@@ -135,9 +135,61 @@
     "loadingFile": "फ़ाइल की सामग्री पुनर्स्थापित की जा रही है...",
     "selectFile": "कृपया एक फाइल चुनें"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "आपके पास सभी एक्सटेंशन उपलब्ध हैं",
+    "allInstalled": "सभी एक्सटेंशन इंस्टॉल हो गए",
+    "available": "उपलब्ध ({count})",
+    "browseAvailable": "आरंभ करने के लिए उपलब्ध एक्सटेंशन ब्राउज़ करें",
+    "confirmUninstall": "क्या आप वाकई \"{name}\" को अनइंस्टॉल करना चाहते हैं?",
+    "disable": "अक्षम करना",
+    "disableUnavailable": "एक्सटेंशन अक्षम नहीं किया जा सका.",
+    "enable": "सक्षम",
+    "enableUnavailable": "एक्सटेंशन सक्षम नहीं किया जा सका.",
+    "importFailed": "ज़िप आयात करने में विफल: {error}",
+    "importZip": "एक्सटेंशन आयात करें (.zip)",
+    "install": "स्थापित करना",
+    "installed": "स्थापित ({count})",
+    "installFailed": "{name} स्थापित करने में विफल: {error}",
+    "installUnavailable": "एक्सटेंशन स्थापित या सक्षम नहीं किया जा सका.",
+    "loadFailed": "एक्सटेंशन लोड करने में विफल: {error}",
+    "loading": "एक्सटेंशन लोड हो रहे हैं...",
+    "manifestUrlMissing": "रजिस्ट्री में मैनिफ़ेस्ट यूआरएल नहीं मिला",
+    "noMatches": "कोई मेल खाता एक्सटेंशन नहीं मिला",
+    "noneInstalled": "कोई एक्सटेंशन इंस्टॉल नहीं किया गया",
+    "packCount": "एक्सटेंशन: {count}",
+    "reload": "एक्सटेंशन पुनः लोड करें",
+    "search": "एक्सटेंशन खोजें...",
+    "title": "एक्सटेंशन",
+    "toggleFailed": "एक्सटेंशन स्थिति बदलने में विफल: {error}",
+    "tryDifferentSearch": "कोई भिन्न खोज शब्द आज़माएँ",
+    "types": {
+      "builtinModule": "अंतर्निर्मित मॉड्यूल",
+      "languageRuntime": "भाषा रनटाइम",
+      "service": "सेवा",
+      "tool": "औजार",
+      "transpiler": "ट्रांसपिलर",
+      "ui": "यूआई"
+    },
+    "uninstall": "अनइंस्टॉल करें",
+    "uninstallFailed": "एक्सटेंशन अनइंस्टॉल करने में विफल: {error}",
+    "uninstallTitle": "एक्सटेंशन अनइंस्टॉल करें",
+    "uninstallUnavailable": "एक्सटेंशन को अनइंस्टॉल नहीं किया जा सका.",
+    "update": "अद्यतन",
+    "updateFailed": "{name}: {error} को अद्यतन करने में विफल",
+    "updateUnavailable": "नया एक्सटेंशन पैकेज सक्रिय नहीं किया जा सका.",
+    "viewDetails": "एक्सटेंशन विवरण देखने के लिए क्लिक करें"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "फ़ाइल बनाएँ",
+      "createFolder": "फ़ोल्डर बनाएँ",
+      "import": "आयात करें",
+      "move": "स्थानांतरित करें"
+    },
     "alert": {
-      "renameFailed": "नाम बदलना विफल: {error}"
+      "destinationExists": "गंतव्य पहले से मौजूद है: {path}",
+      "operationFailed": "{action} विफल: {error}",
+      "workspaceChanged": "कार्यस्थल बदल गया; बाकी फ़ाइलें छोड़ दी गईं।"
     },
     "menu": {
       "createFile": "फाइल बनाएं",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "नई फाइल बनाएं",
-    "createFolder": "नया फ़ोल्डर बनाएं"
+    "createFolder": "नया फ़ोल्डर बनाएं",
+    "newFilePrompt": "नई फ़ाइल का नाम दर्ज करें:",
+    "newFolderPrompt": "नए फ़ोल्डर का नाम दर्ज करें:"
   },
   "markdownPreview": {
     "downloadSvg": "SVG डाउनलोड करें",

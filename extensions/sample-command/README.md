@@ -17,12 +17,12 @@
 $ hello
 Hello, World!
 Project: my-project
-Current Directory: /projects/my-project
+Current Directory: /work/my-project
 
 $ hello Pyxis
 Hello, Pyxis!
 Project: my-project
-Current Directory: /projects/my-project
+Current Directory: /work/my-project
 ```
 
 ### `fileinfo <filepath>`
@@ -33,7 +33,7 @@ Current Directory: /projects/my-project
 ```bash
 $ fileinfo index.js
 File Information:
-  Path: /projects/my-project/index.js
+  Path: /work/my-project/index.js
   Type: File
   Size: 1234 bytes
   Modified: 2025-11-04T12:00:00.000Z
@@ -87,10 +87,10 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 
 - `args: string[]` - コマンドライン引数
 - `context: CommandContext` - 実行コンテキスト
-  - `projectName: string` - プロジェクト名
-  - `projectId: string` - プロジェクトID
-  - `currentDirectory: string` - 現在のディレクトリ
-  - `fileSystem: any` - Pyxisのファイルシステムインスタンス
+  - `projectName: string` - 表示用のワークスペース名
+  - `rootPath: string` - ワークスペースの絶対パス
+  - `currentDirectory: string` - 現在の絶対パス
+  - `fsClient: FsApi` - core共有ファイルシステムAPI
 
 ハンドラーは `Promise<string>` を返し、その文字列がターミナルに出力されます。
 

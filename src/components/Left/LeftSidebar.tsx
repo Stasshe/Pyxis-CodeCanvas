@@ -2,10 +2,13 @@ import { FilePlus, FolderOpen, FolderPlus } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient, resolvePath } from '@/engine/core/fs';
 import { useExtensionPanels } from '@/hooks/ui/useExtensionPanels';
+import { pushLogMessage } from '@/stores/loggerStore';
+import { getCurrentRootPath } from '@/stores/projectStore';
 import type { FileItem, MenuTab, Project } from '@/types';
 import FileTree from './FileTree';
+import { fileTreeErrorMessage } from './FileTree/fileTreeErrors';
 
 const ExtensionPanelRenderer = lazy(() => import('./ExtensionPanelRenderer'));
 const ExtensionsPanel = lazy(() => import('./ExtensionsPanel'));
@@ -20,7 +23,6 @@ interface LeftSidebarProps {
   files: FileItem[];
   currentProject: Project;
   onResize: (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => void;
-  onGitRefresh?: () => void;
   onRefresh?: () => void; // ファイルツリー再読み込み用
   onGitStatusChange?: (changesCount: number) => void;
 }
@@ -31,7 +33,6 @@ export default function LeftSidebar({
   files,
   currentProject,
   onResize,
-  onGitRefresh,
   onRefresh,
   onGitStatusChange,
 }: LeftSidebarProps) {
@@ -48,14 +49,14 @@ export default function LeftSidebar({
     <>
       <div
         data-sidebar="left"
-        className="flex flex-col flex-shrink-0"
-        style={{
-          background: colors.cardBg,
-          borderRight: `1px solid ${colors.border}`,
-          width: `${leftSidebarWidth}px`,
-          minWidth: `${leftSidebarWidth}px`,
-          maxWidth: `${leftSidebarWidth}px`,
-        }}
+        className="app-sidebar app-sidebar-left flex flex-col flex-shrink-0"
+        style={
+          {
+            background: colors.cardBg,
+            '--sidebar-width': `${leftSidebarWidth}px`,
+            '--sidebar-border-color': colors.border,
+          } as React.CSSProperties
+        }
       >
         <div
           className="h-8 flex items-center px-3"
@@ -69,7 +70,7 @@ export default function LeftSidebar({
             {activeMenuTab === 'search' && 'Search'}
             {activeMenuTab === 'git' && 'Git'}
             {activeMenuTab === 'run' && 'Run'}
-            {activeMenuTab === 'extensions' && 'Extensions'}
+            {activeMenuTab === 'extensions' && t('menu.extensions')}
             {activeMenuTab === 'settings' && 'Settings'}
             {activeExtensionPanel?.title}
           </span>
@@ -89,7 +90,7 @@ export default function LeftSidebar({
                 <span className="text-xs font-medium" style={{ color: colors.sidebarTitleFg }}>
                   ./
                 </span>
-                {/* 新規ファイル作成 - fileRepository直接呼び出し */}
+                {/* Create a file at the workspace root. */}
                 <button
                   title={t('leftSidebar.createFile')}
                   style={{
@@ -101,17 +102,38 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    const fileName = prompt('新しいファイル名を入力してください:');
-                    if (fileName && currentProject?.id) {
-                      const newFilePath = fileName.startsWith('/') ? fileName : `/${fileName}`;
-                      await fileRepository.createFile(currentProject.id, newFilePath, '', 'file');
-                      if (onRefresh) setTimeout(onRefresh, 100);
+                    const fileName = prompt(t('leftSidebar.newFilePrompt'));
+                    if (fileName) {
+                      try {
+                        const newFilePath = resolvePath(currentProject.rootPath, fileName);
+                        if (await fsClient.exists(newFilePath)) {
+                          throw new Error(
+                            t('fileTree.alert.destinationExists', { params: { path: newFilePath } })
+                          );
+                        }
+                        if (getCurrentRootPath() !== currentProject.rootPath) {
+                          throw new Error(t('fileTree.alert.workspaceChanged'));
+                        }
+                        await fsClient.writeRange(newFilePath, new Uint8Array(), null, true, true);
+                        if (onRefresh) setTimeout(onRefresh, 100);
+                      } catch (error) {
+                        reportCreationError(
+                          t('fileTree.alert.operationFailed', {
+                            params: {
+                              action: t('fileTree.action.createFile'),
+                              error: fileTreeErrorMessage(error, path =>
+                                t('fileTree.alert.destinationExists', { params: { path } })
+                              ),
+                            },
+                          })
+                        );
+                      }
                     }
                   }}
                 >
                   <FilePlus size={16} color={colors.sidebarIconFg} />
                 </button>
-                {/* 新規フォルダ作成 - fileRepository直接呼び出し */}
+                {/* Create a folder at the workspace root. */}
                 <button
                   title={t('leftSidebar.createFolder')}
                   style={{
@@ -123,18 +145,34 @@ export default function LeftSidebar({
                     alignItems: 'center',
                   }}
                   onClick={async () => {
-                    const folderName = prompt('新しいフォルダ名を入力してください:');
-                    if (folderName && currentProject?.id) {
-                      const newFolderPath = folderName.startsWith('/')
-                        ? folderName
-                        : `/${folderName}`;
-                      await fileRepository.createFile(
-                        currentProject.id,
-                        newFolderPath,
-                        '',
-                        'folder'
-                      );
-                      if (onRefresh) setTimeout(onRefresh, 100);
+                    const folderName = prompt(t('leftSidebar.newFolderPrompt'));
+                    if (folderName) {
+                      try {
+                        const newFolderPath = resolvePath(currentProject.rootPath, folderName);
+                        if (await fsClient.exists(newFolderPath)) {
+                          throw new Error(
+                            t('fileTree.alert.destinationExists', {
+                              params: { path: newFolderPath },
+                            })
+                          );
+                        }
+                        if (getCurrentRootPath() !== currentProject.rootPath) {
+                          throw new Error(t('fileTree.alert.workspaceChanged'));
+                        }
+                        await fsClient.mkdir(newFolderPath);
+                        if (onRefresh) setTimeout(onRefresh, 100);
+                      } catch (error) {
+                        reportCreationError(
+                          t('fileTree.alert.operationFailed', {
+                            params: {
+                              action: t('fileTree.action.createFolder'),
+                              error: fileTreeErrorMessage(error, path =>
+                                t('fileTree.alert.destinationExists', { params: { path } })
+                              ),
+                            },
+                          })
+                        );
+                      }
                     }
                   }}
                 >
@@ -144,9 +182,9 @@ export default function LeftSidebar({
               {/* Virtualized file tree - scrolls independently */}
               <div className="flex-1 overflow-hidden">
                 <FileTree
+                  key={currentProject.rootPath}
                   items={files}
-                  currentProjectName={currentProject?.name ?? ''}
-                  currentProjectId={currentProject?.id ?? ''}
+                  rootPath={currentProject.rootPath}
                   onRefresh={onRefresh}
                 />
               </div>
@@ -155,7 +193,7 @@ export default function LeftSidebar({
           {activeMenuTab === 'search' && (
             <div className="h-full">
               <Suspense fallback={null}>
-                <SearchPanel files={files} projectId={currentProject.id} />
+                <SearchPanel files={files} rootPath={currentProject.rootPath} />
               </Suspense>
             </div>
           )}
@@ -164,8 +202,8 @@ export default function LeftSidebar({
               <Suspense fallback={null}>
                 <GitPanel
                   currentProject={currentProject.name}
-                  currentProjectId={currentProject.id}
-                  onRefresh={onGitRefresh}
+                  rootPath={currentProject.rootPath}
+                  project={currentProject}
                   onGitStatusChange={onGitStatusChange}
                 />
               </Suspense>
@@ -210,6 +248,7 @@ export default function LeftSidebar({
       </div>
       {/* Resizer */}
       <div
+        data-sidebar-resizer="left"
         className="resizer resizer-vertical flex-shrink-0"
         style={{
           background: colors.sidebarResizerBg,
@@ -220,4 +259,9 @@ export default function LeftSidebar({
       />
     </>
   );
+}
+
+function reportCreationError(message: string): void {
+  pushLogMessage(message, 'error', 'FileTree');
+  alert(message);
 }

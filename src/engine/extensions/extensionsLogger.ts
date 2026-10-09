@@ -24,14 +24,6 @@ export function extensionInfo(...args: unknown[]): void {
   }
 }
 
-export function extensionWarn(...args: unknown[]): void {
-  try {
-    pushLogMessage(formatArgs(args), 'warn', 'extensions');
-  } catch {
-    // ignore
-  }
-}
-
 export function extensionError(...args: unknown[]): void {
   try {
     pushLogMessage(formatArgs(args), 'error', 'extensions');

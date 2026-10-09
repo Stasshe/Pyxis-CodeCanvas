@@ -66,10 +66,3 @@ export function pushLogMessage(msg: string, type?: OutputType, context?: string)
 export function removeLogMessages(toRemove: OutputMessage[]): void {
   loggerStore.messages = loggerStore.messages.filter(m => !toRemove.includes(m));
 }
-
-/**
- * すべてのログメッセージをクリア
- */
-export function clearAllLogs(): void {
-  loggerStore.messages = [];
-}

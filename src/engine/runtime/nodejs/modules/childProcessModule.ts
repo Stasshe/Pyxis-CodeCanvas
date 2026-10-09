@@ -1,12 +1,17 @@
-import { PassThrough } from 'node:stream';
+import EventEmitter from 'node:events';
+import { PassThrough, type Readable, Writable } from 'node:stream';
 import { Buffer } from 'buffer';
-import { createEventsModule } from './eventsModule';
 
 type Encoding = BufferEncoding | 'buffer' | null;
 
 interface RunShellOptions {
   cwd?: string;
   env?: Record<string, string>;
+  signal?: AbortSignal;
+  killSignal?: string;
+  stdin?: Readable;
+  onStdout?: (data: string) => void;
+  onStderr?: (data: string) => void;
 }
 
 interface RunShellResult {
@@ -15,11 +20,25 @@ interface RunShellResult {
   code: number | null;
 }
 
+interface RunShellSyncOptions {
+  cwd?: string;
+  env?: Record<string, string>;
+}
+
+interface RunShellSyncResult {
+  stdout: string | Uint8Array | number[];
+  stderr: string | Uint8Array | number[];
+  exitCode: number;
+}
+
 export interface ChildProcessModuleOptions {
   runShell?: (command: string, options?: RunShellOptions) => Promise<RunShellResult>;
+  runShellSync?: (command: string, options?: RunShellSyncOptions) => RunShellSyncResult;
   getCwd?: () => string;
   getEnv?: () => Record<string, string>;
   getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
+  writeStdout?: (data: string | Uint8Array) => void;
+  writeStderr?: (data: string | Uint8Array) => void;
   maxParallel?: number;
 }
 
@@ -41,13 +60,6 @@ interface SpawnOptions extends ExecOptions {
 }
 
 type ExecCallback = (error: Error | null, stdout: unknown, stderr: unknown) => void;
-
-const { EventEmitter } = createEventsModule();
-const EventEmitterBase = EventEmitter as unknown as new () => {
-  emit(event: string | symbol, ...args: unknown[]): boolean;
-  on(event: string | symbol, listener: (...args: unknown[]) => void): unknown;
-  listenerCount(event: string | symbol): number;
-};
 
 const DEFAULT_MAX_BUFFER = 1024 * 1024;
 const DEFAULT_MAX_PARALLEL = 2;
@@ -87,27 +99,61 @@ function createError(
   return err;
 }
 
+function createAbortError(signal?: AbortSignal): Error {
+  const error = createError('The operation was aborted', 'ABORT_ERR');
+  error.name = 'AbortError';
+  if (signal) Object.assign(error, { cause: signal.reason });
+  return error;
+}
+
+async function runShellWithAbort(
+  runShell: (command: string, options?: RunShellOptions) => Promise<RunShellResult>,
+  command: string,
+  options: RunShellOptions
+): Promise<RunShellResult> {
+  const signal = options.signal;
+  if (!signal) return runShell(command, options);
+  if (signal.aborted) throw createAbortError(signal);
+
+  let rejectAbort = () => {};
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectAbort = () => reject(createAbortError(signal));
+  });
+  const onAbort = () => rejectAbort();
+  signal.addEventListener('abort', onAbort, { once: true });
+
+  try {
+    const execution = runShell(command, options);
+    if (signal.aborted) onAbort();
+    return await Promise.race([execution, aborted]);
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
+}
+
 function shQuote(value: string): string {
   if (value === '') return "''";
   if (/^[A-Za-z0-9_/:=.,@%+-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function toOutput(value: string, encoding: Encoding | undefined): unknown {
-  if (encoding === 'buffer' || encoding === null) {
-    return Buffer.from(value);
-  }
-  return value;
+function toOutput(value: string | Uint8Array | number[], encoding: Encoding | undefined): unknown {
+  if (typeof value === 'string' && encoding === undefined) return value;
+  const bytes = Buffer.from(value);
+  if (encoding === 'buffer' || encoding === null) return bytes;
+  return bytes.toString(encoding ?? 'utf8');
 }
 
-function commandLineForExecFile(
-  file: string,
-  args: readonly string[],
-  options: ExecOptions
-): string {
-  const command = [file, ...args].map(shQuote).join(' ');
-  if (options.shell) return command;
-  return command;
+function commandLineForExecFile(file: string, args: readonly string[]): string {
+  return [file, ...args].map(shQuote).join(' ');
+}
+
+function selectOptions<T>(
+  first: readonly unknown[] | T | undefined,
+  second: T | undefined
+): T | undefined {
+  if (Array.isArray(first)) return second;
+  return first as T | undefined;
 }
 
 class TaskQueue {
@@ -135,11 +181,12 @@ class TaskQueue {
   }
 }
 
-class BrowserChildProcess extends EventEmitterBase {
-  stdin = new PassThrough();
-  stdout = new PassThrough();
-  stderr = new PassThrough();
-  stdio = [this.stdin, this.stdout, this.stderr];
+class BrowserChildProcess extends EventEmitter {
+  stdin: Writable | null;
+  stdinSource: PassThrough | null;
+  stdout: PassThrough | null;
+  stderr: PassThrough | null;
+  stdio: Array<Writable | PassThrough | null>;
   pid = BrowserChildProcess.nextPid++;
   killed = false;
   exitCode: number | null = null;
@@ -147,20 +194,54 @@ class BrowserChildProcess extends EventEmitterBase {
   spawnfile: string;
   spawnargs: string[];
   connected = false;
+  private finished = false;
+  private abort?: (signal: string) => void;
 
   private static nextPid = 1000;
 
-  constructor(file: string, args: string[]) {
+  constructor(file: string, args: string[], stdio?: unknown) {
     super();
+    const stdinSource = new PassThrough();
+    this.stdinSource = stdinSource;
+    this.stdin = new Writable({
+      write(chunk, encoding, callback) {
+        stdinSource.write(chunk, encoding, callback);
+      },
+      final(callback) {
+        stdinSource.end(callback);
+      },
+      destroy(error, callback) {
+        if (!stdinSource.destroyed) stdinSource.end();
+        callback(error);
+      },
+    });
+    if (stdio === 'inherit' || this.isInherited(stdio, 0)) {
+      this.stdin = null;
+      this.stdinSource = null;
+      stdinSource.destroy();
+    }
+    this.stdout = new PassThrough();
+    if (stdio === 'inherit' || this.isInherited(stdio, 1)) this.stdout = null;
+    this.stderr = new PassThrough();
+    if (stdio === 'inherit' || this.isInherited(stdio, 2)) this.stderr = null;
+    this.stdio = [this.stdin, this.stdout, this.stderr];
     this.spawnfile = file;
     this.spawnargs = [file, ...args];
   }
 
+  setAbortHandler(abort: (signal: string) => void): void {
+    this.abort = abort;
+  }
+
+  private isInherited(stdio: unknown, index: number): boolean {
+    return Array.isArray(stdio) && stdio[index] === 'inherit';
+  }
+
   kill(signal = 'SIGTERM'): boolean {
-    if (this.exitCode !== null || this.killed) return false;
+    if (this.finished || this.killed) return false;
     this.killed = true;
     this.signalCode = signal;
-    this.finish(null, signal);
+    this.abort?.(signal);
     return true;
   }
 
@@ -183,78 +264,60 @@ class BrowserChildProcess extends EventEmitterBase {
   }
 
   finish(code: number | null, signal: string | null = null): void {
-    if (this.exitCode !== null || this.signalCode !== null) return;
+    if (this.finished) return;
+    this.finished = true;
     this.exitCode = code;
-    this.signalCode = signal;
-    this.stdout.end();
-    this.stderr.end();
-    this.stdin.end();
+    if (signal !== null) this.signalCode = signal;
+    this.stdout?.end();
+    this.stderr?.end();
+    this.stdin?.destroy();
     this.emit('exit', code, signal);
     this.emit('close', code, signal);
   }
 }
 
-function createNotSupportedResult(command: string, encoding: Encoding | undefined) {
-  const error = createError(
-    `spawnSync ${command} is not supported in the browser runtime`,
-    'ENOSYS',
-    { errno: -38, syscall: 'spawnSync', path: command }
-  );
+function createSyncResult(result: RunShellSyncResult, encoding: Encoding | undefined) {
+  const stdout = toOutput(result.stdout, encoding);
+  const stderr = toOutput(result.stderr, encoding);
   return {
     pid: 0,
-    output: [null, toOutput('', encoding), toOutput(String(error.message), encoding)],
-    stdout: toOutput('', encoding),
-    stderr: toOutput(String(error.message), encoding),
-    status: null,
+    output: [null, stdout, stderr],
+    stdout,
+    stderr,
+    status: result.exitCode,
     signal: null,
-    error,
+    error: undefined,
   };
 }
 
-function simulateSync(command: string, args: string[], options: ExecOptions) {
-  const encoding = options.encoding;
-  const joined = [command, ...args].join(' ');
-  let stdout = '';
-  const stderr = '';
-  let status = 0;
-  let error: Error | undefined;
+function commandLineForSync(file: string, args: readonly string[]): string {
+  return [file, ...args].map(shQuote).join(' ');
+}
 
-  if (command === 'node' || command.endsWith('/node')) {
-    if (args.includes('-v') || args.includes('--version')) stdout = 'v18.0.0\n';
-    else return createNotSupportedResult(command, encoding);
-  } else if (command === 'npm') {
-    if (args.includes('-v') || args.includes('--version')) stdout = '10.0.0\n';
-    else return createNotSupportedResult(command, encoding);
-  } else if (command === 'true') {
-    status = 0;
-  } else if (command === 'false') {
-    status = 1;
-  } else if (command === 'pwd') {
-    stdout = `${options.cwd || '/'}\n`;
-  } else if (command === 'echo') {
-    stdout = `${args.join(' ')}\n`;
-  } else if (command === 'uname') {
-    stdout = 'Browser\n';
-  } else if (command === 'which' || joined.startsWith('command -v ')) {
-    const target = command === 'which' ? args[0] : args[1];
-    if (target) stdout = `/usr/bin/${target}\n`;
-    else status = 1;
-  } else {
-    return createNotSupportedResult(command, encoding);
+function syncResult(
+  command: string,
+  options: ExecOptions,
+  runShellSync: ChildProcessModuleOptions['runShellSync']
+) {
+  if (!runShellSync) {
+    throw createError('Synchronous shell bridge is unavailable.', 'ENOSYS');
   }
+  const result = runShellSync(command, {
+    cwd: options.cwd,
+    env: options.env,
+  });
+  return createSyncResult(result, options.encoding);
+}
 
-  if (status !== 0) {
-    error = createError(`Command failed: ${joined}`, status, { status });
-  }
-
+function syncShellOptions(
+  options: ExecOptions,
+  cwd: () => string,
+  env: () => Record<string, string>
+): ExecOptions {
   return {
-    pid: 0,
-    output: [null, toOutput(stdout, encoding), toOutput(stderr, encoding)],
-    stdout: toOutput(stdout, encoding),
-    stderr: toOutput(stderr, encoding),
-    status,
-    signal: null,
-    error,
+    ...options,
+    cwd: options.cwd ?? cwd(),
+    env: { ...env(), ...(options.env ?? {}) },
   };
 }
 
@@ -266,43 +329,105 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
 
   const runShell =
     options.runShell ??
-    (async (command: string) => ({
-      stdout: '',
-      stderr: `child_process: no shell runner available for ${command}\n`,
-      code: 127,
-    }));
+    (async (command: string, shellOptions?: RunShellOptions) => {
+      const stderr = `child_process: no shell runner available for ${command}\n`;
+      shellOptions?.onStderr?.(stderr);
+      return { stdout: '', stderr, code: 127 };
+    });
+  const runShellSync = options.runShellSync;
 
   const start = (
     child: BrowserChildProcess,
     commandLine: string,
     execOptions: ExecOptions,
-    callback?: ExecCallback
+    callback?: ExecCallback,
+    enforceMaxBuffer = false
   ) => {
     let settled = false;
+    let externallyAborted = execOptions.signal?.aborted === true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const abortController = new AbortController();
+    child.setAbortHandler(signal => abortController.abort(signal));
+    let outputLength = 0;
+    let maxBufferExceeded = false;
+    const maxBuffer = execOptions.maxBuffer ?? DEFAULT_MAX_BUFFER;
+    const streamedStdout: string[] = [];
+    const streamedStderr: string[] = [];
+
+    const onOutput = (data: string, channel: 'stdout' | 'stderr') => {
+      outputLength += Buffer.byteLength(data);
+      if (enforceMaxBuffer && outputLength > maxBuffer && !maxBufferExceeded) {
+        maxBufferExceeded = true;
+        abortController.abort('SIGTERM');
+      }
+      if (channel === 'stdout') {
+        streamedStdout.push(data);
+        if (child.stdout) child.stdout.write(data);
+        else options.writeStdout?.(data);
+        return;
+      }
+      streamedStderr.push(data);
+      if (child.stderr) child.stderr.write(data);
+      else options.writeStderr?.(data);
+    };
+
+    const onAbort = () => {
+      externallyAborted = true;
+      child.kill(execOptions.killSignal ?? 'SIGTERM');
+      finishWithError(createAbortError(execOptions.signal));
+    };
+
+    const clearRunState = () => {
+      if (timer) clearTimeout(timer);
+      execOptions.signal?.removeEventListener('abort', onAbort);
+    };
 
     const finishWithError = (error: Error) => {
       if (settled) return;
       settled = true;
-      if (timer) clearTimeout(timer);
-      if (child.listenerCount('error') > 0) child.emit('error', error);
+      clearRunState();
+      let callbackError = error;
+      if (maxBufferExceeded) {
+        callbackError = createError(
+          'stdout maxBuffer length exceeded',
+          'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+        );
+      }
+      if (child.listenerCount('error') > 0) child.emit('error', callbackError);
+      callback?.(
+        callbackError,
+        toOutput(streamedStdout.join(''), execOptions.encoding),
+        toOutput(streamedStderr.join(''), execOptions.encoding)
+      );
+      let exitCode: number | null = 1;
+      if (!maxBufferExceeded && child.signalCode !== null) exitCode = null;
+      child.finish(exitCode, child.signalCode);
+    };
+
+    const finishAborted = () => {
+      if (settled) return;
+      settled = true;
+      clearRunState();
+      const error = createAbortError(execOptions.signal);
+      if (externallyAborted && child.listenerCount('error') > 0) child.emit('error', error);
       callback?.(
         error,
-        toOutput('', execOptions.encoding),
-        toOutput(String(error.message), execOptions.encoding)
+        toOutput(streamedStdout.join(''), execOptions.encoding),
+        toOutput(streamedStderr.join(''), execOptions.encoding)
       );
-      child.finish(1, null);
+      const signal = child.signalCode ?? String(abortController.signal.reason ?? 'SIGTERM');
+      child.finish(null, signal);
     };
 
     if (execOptions.signal?.aborted) {
-      finishWithError(createError('The operation was aborted', 'ABORT_ERR'));
+      abortController.abort(execOptions.killSignal ?? 'SIGTERM');
+      queueMicrotask(() => {
+        child.emit('spawn');
+        finishAborted();
+      });
       return child;
     }
 
-    const onAbort = () => {
-      child.kill(execOptions.killSignal ?? 'SIGTERM');
-      finishWithError(createError('The operation was aborted', 'ABORT_ERR'));
-    };
     execOptions.signal?.addEventListener('abort', onAbort, { once: true });
 
     if (execOptions.timeout && execOptions.timeout > 0) {
@@ -313,26 +438,33 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
     }
 
     const promise = queue.run(async () => {
+      await new Promise<void>(resolve => queueMicrotask(resolve));
       child.emit('spawn');
-      const result = await runShell(commandLine, {
+      if (abortController.signal.aborted) {
+        finishAborted();
+        return;
+      }
+      const result = await runShellWithAbort(runShell, commandLine, {
         cwd: execOptions.cwd ?? getCwd(),
         env: { ...getEnv(), ...(execOptions.env ?? {}) },
+        signal: abortController.signal,
+        killSignal: execOptions.killSignal ?? 'SIGTERM',
+        stdin: child.stdinSource ?? undefined,
+        onStdout: data => onOutput(data, 'stdout'),
+        onStderr: data => onOutput(data, 'stderr'),
       });
 
       if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      execOptions.signal?.removeEventListener('abort', onAbort);
+      clearRunState();
 
       const stdout = result.stdout ?? '';
       const stderr = result.stderr ?? '';
-      const maxBuffer = execOptions.maxBuffer ?? DEFAULT_MAX_BUFFER;
-      if (stdout.length + stderr.length > maxBuffer) {
+      if (maxBufferExceeded) {
+        settled = true;
         const error = createError(
           'stdout maxBuffer length exceeded',
           'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
         );
-        child.stderr.write(String(error.message));
         callback?.(
           error,
           toOutput(stdout, execOptions.encoding),
@@ -342,9 +474,12 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
         return;
       }
 
-      if (stdout) child.stdout.write(stdout);
-      if (stderr) child.stderr.write(stderr);
+      if (abortController.signal.aborted && !maxBufferExceeded) {
+        finishAborted();
+        return;
+      }
 
+      settled = true;
       const code = result.code ?? 0;
       const error =
         code === 0
@@ -362,10 +497,12 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
       child.finish(code, null);
     });
 
-    promise.catch(error => {
-      finishWithError(error instanceof Error ? error : createError(String(error)));
+    const handledTask = promise.catch(error => {
+      if (abortController.signal.aborted && !maxBufferExceeded) finishAborted();
+      else if (error instanceof Error) finishWithError(error);
+      else finishWithError(createError(String(error)));
     });
-    track?.(promise.then(() => {}));
+    track?.(handledTask);
     return child;
   };
 
@@ -376,11 +513,11 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
   ) => {
     const args = normalizeArgs(argsOrOptions);
     const spawnOptions = normalizeOptions<SpawnOptions>(
-      Array.isArray(argsOrOptions) ? maybeOptions : (argsOrOptions as SpawnOptions | undefined),
+      selectOptions(argsOrOptions, maybeOptions),
       { encoding: 'utf8' }
     );
-    const child = new BrowserChildProcess(command, args);
-    const commandLine = commandLineForExecFile(command, args, spawnOptions);
+    const child = new BrowserChildProcess(command, args, spawnOptions.stdio);
+    const commandLine = commandLineForExecFile(command, args);
     return start(child, commandLine, spawnOptions);
   };
 
@@ -392,7 +529,7 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
     const execOptions = normalizeOptions<ExecOptions>(optionsOrCallback, { encoding: 'utf8' });
     const callback = getCallback(optionsOrCallback, maybeCallback);
     const child = new BrowserChildProcess(command, []);
-    return start(child, command, execOptions, callback);
+    return start(child, command, execOptions, callback, true);
   };
 
   const execFile = (
@@ -403,14 +540,12 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
   ) => {
     const args = normalizeArgs(argsOrOptions);
     const execOptions = normalizeOptions<ExecOptions>(
-      Array.isArray(argsOrOptions)
-        ? optionsOrCallback
-        : (argsOrOptions as ExecOptions | Encoding | undefined),
+      selectOptions(argsOrOptions, optionsOrCallback),
       { encoding: 'utf8' }
     );
     const callback = getCallback(argsOrOptions, optionsOrCallback, maybeCallback);
     const child = new BrowserChildProcess(file, args);
-    return start(child, commandLineForExecFile(file, args, execOptions), execOptions, callback);
+    return start(child, commandLineForExecFile(file, args), execOptions, callback, true);
   };
 
   const spawnSync = (
@@ -419,11 +554,13 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
     maybeOptions?: ExecOptions
   ) => {
     const args = normalizeArgs(argsOrOptions);
-    const syncOptions = normalizeOptions<ExecOptions>(
-      Array.isArray(argsOrOptions) ? maybeOptions : (argsOrOptions as ExecOptions | undefined),
-      { encoding: 'buffer', cwd: getCwd(), env: getEnv() }
-    );
-    return simulateSync(command, args, syncOptions);
+    const syncOptions = normalizeOptions<ExecOptions>(selectOptions(argsOrOptions, maybeOptions), {
+      encoding: 'buffer',
+      cwd: getCwd(),
+      env: getEnv(),
+    });
+    const commandLine = commandLineForSync(command, args);
+    return syncResult(commandLine, syncShellOptions(syncOptions, getCwd, getEnv), runShellSync);
   };
 
   const execFileSync = (
@@ -445,8 +582,7 @@ export function createChildProcessModule(options: ChildProcessModuleOptions = {}
       cwd: getCwd(),
       env: getEnv(),
     });
-    const parts = command.trim().split(/\s+/);
-    const result = simulateSync(parts[0] || command, parts.slice(1), execOptions);
+    const result = syncResult(command, syncShellOptions(execOptions, getCwd, getEnv), runShellSync);
     if (result.error) throw result.error;
     if (result.status && result.status !== 0) {
       throw createError(`Command failed: ${command}`, result.status, result);

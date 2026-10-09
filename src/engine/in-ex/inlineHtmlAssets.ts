@@ -1,81 +1,171 @@
-// HTML/CSS/JSインライン化処理を切り出し
-// files: ディレクトリ内のファイル名配列
-// path: ディレクトリパス
-// fs: ファイルシステム
-// 戻り値: インライン化済みhtmlContent
-// fileReader: optional async function(fullPath: string) => string
+import { fromHtml } from 'hast-util-from-html';
+import { toHtml } from 'hast-util-to-html';
+import { detectFileContent } from '@/engine/core/fileBytes';
+import { getParentPath, resolvePath } from '@/engine/core/fs';
+
+const mimeTypes: Record<string, string> = {
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  css: 'text/css',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  js: 'text/javascript',
+  mp3: 'audio/mpeg',
+  mp4: 'video/mp4',
+  ogg: 'audio/ogg',
+  pdf: 'application/pdf',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  wav: 'audio/wav',
+  webm: 'video/webm',
+  webp: 'image/webp',
+};
+
+const toDataUrl = async (path: string, bytes: Uint8Array): Promise<string> => {
+  const content = await detectFileContent(path, bytes);
+  const extension = path.toLowerCase().split('.').pop() ?? '';
+  let mimeType = mimeTypes[extension] ?? 'application/octet-stream';
+  if (content.kind === 'binary' && content.mimeType) mimeType = content.mimeType;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+};
+
+const isLocal = (source: string): boolean =>
+  !source.startsWith('//') && !/^[a-z][a-z\d+\-.]*:/i.test(source);
+
+const resolveAssetPath = (source: string, directoryPath: string): string => {
+  const filePath = source.split(/[?#]/, 1)[0];
+  if (filePath.startsWith('/')) return resolvePath('/', filePath);
+  return resolvePath(directoryPath, filePath);
+};
+
+const escapeRawTextEndTag = (content: string, tagName: 'script' | 'style'): string =>
+  content.replace(new RegExp(`</${tagName}`, 'gi'), `<\\/${tagName}`);
+
+const inlineCssAssets = async (
+  css: string,
+  cssPath: string,
+  readBytes: (fullPath: string) => Promise<Uint8Array>,
+  onDependency?: (fullPath: string) => void
+): Promise<string> => {
+  const references = [...css.matchAll(/url\((['"]?)(.*?)\1\)/gi)];
+  for (const match of references) {
+    const source = match[2].trim();
+    if (!source || !isLocal(source)) continue;
+    try {
+      const assetPath = resolveAssetPath(source, getParentPath(cssPath));
+      onDependency?.(assetPath);
+      const dataUrl = await toDataUrl(assetPath, await readBytes(assetPath));
+      css = css.replace(match[0], `url("${dataUrl}")`);
+    } catch (error) {
+      console.warn(`[inlineHtmlAssets] Failed to load CSS asset ${source}.`, error);
+    }
+  }
+  return css;
+};
+
+type HtmlRoot = ReturnType<typeof fromHtml>;
+type HtmlElement = Extract<HtmlRoot['children'][number], { type: 'element' }>;
+type HtmlParent = HtmlRoot | HtmlElement;
+
+const inlineHtmlAssetsInTree = async (
+  parent: HtmlParent,
+  directoryPath: string,
+  readBytes: (fullPath: string) => Promise<Uint8Array>,
+  readText: (fullPath: string) => Promise<string>,
+  onDependency?: (fullPath: string) => void
+): Promise<void> => {
+  for (const child of parent.children) {
+    if (child.type !== 'element') continue;
+    const element = child;
+
+    if (element.tagName === 'link') {
+      const rel = element.properties.rel;
+      const isStylesheet =
+        Array.isArray(rel) && rel.some(value => value.toLowerCase() === 'stylesheet');
+      const source = element.properties.href;
+      if (isStylesheet && typeof source === 'string' && isLocal(source)) {
+        try {
+          const cssPath = resolveAssetPath(source, directoryPath);
+          onDependency?.(cssPath);
+          const css = await inlineCssAssets(
+            await readText(cssPath),
+            cssPath,
+            readBytes,
+            onDependency
+          );
+          element.tagName = 'style';
+          delete element.properties.rel;
+          delete element.properties.href;
+          element.children = [{ type: 'text', value: escapeRawTextEndTag(css, 'style') }];
+        } catch (error) {
+          console.warn(`[inlineHtmlAssets] Failed to load stylesheet ${source}.`, error);
+        }
+      }
+    } else if (element.tagName === 'script') {
+      const source = element.properties.src;
+      if (typeof source === 'string' && isLocal(source)) {
+        try {
+          const scriptPath = resolveAssetPath(source, directoryPath);
+          onDependency?.(scriptPath);
+          const script = await readText(scriptPath);
+          delete element.properties.src;
+          element.children = [{ type: 'text', value: escapeRawTextEndTag(script, 'script') }];
+        } catch (error) {
+          console.warn(`[inlineHtmlAssets] Failed to load script ${source}.`, error);
+        }
+      }
+    } else {
+      for (const attribute of ['src', 'poster'] as const) {
+        const source = element.properties[attribute];
+        if (typeof source !== 'string' || !source || !isLocal(source)) continue;
+        try {
+          const assetPath = resolveAssetPath(source, directoryPath);
+          onDependency?.(assetPath);
+          element.properties[attribute] = await toDataUrl(assetPath, await readBytes(assetPath));
+        } catch (error) {
+          console.warn(`[inlineHtmlAssets] Failed to load HTML asset ${source}.`, error);
+        }
+      }
+    }
+
+    await inlineHtmlAssetsInTree(element, directoryPath, readBytes, readText, onDependency);
+    if (element.content) {
+      await inlineHtmlAssetsInTree(
+        element.content,
+        directoryPath,
+        readBytes,
+        readText,
+        onDependency
+      );
+    }
+  }
+};
+
 export const inlineHtmlAssets = async (
   files: string[],
   path: string,
-  fileReader: (fullPath: string) => Promise<string>
+  fileReader: (fullPath: string) => Promise<Uint8Array>,
+  requestedHtmlFile?: string,
+  onDependency?: (fullPath: string) => void
 ): Promise<string> => {
-  // index.htmlまたは最初のhtmlファイルを探す
-  let htmlFile = files.find(f => f.toLowerCase() === 'index.html');
-  if (!htmlFile) {
-    htmlFile = files.find(f => f.endsWith('.html'));
-  }
-  if (!htmlFile) {
-    throw new Error('フォルダ内にHTMLファイルがありません。');
-  }
-  const htmlPath = `${path}/${htmlFile}`;
-  const read = fileReader;
+  const htmlFile =
+    requestedHtmlFile ??
+    files.find(file => file.toLowerCase() === 'index.html') ??
+    files.find(file => file.toLowerCase().endsWith('.html'));
+  if (!htmlFile) throw new Error('The directory does not contain an HTML file.');
 
-  let htmlContent = await read(htmlPath);
-
-  // ローカル判定関数
-  const isLocal = (src: string) => {
-    return !src.startsWith('//') && !/^[a-z][a-z\d+\-.]*:/i.test(src);
-  };
-
-  // CSS
-  const cssFiles = files.filter(f => f.endsWith('.css'));
-  let cssContent = '';
-  for (const css of cssFiles) {
-    try {
-      const cssPath = `${path}/${css}`;
-      cssContent += `${await read(cssPath)}\n`;
-    } catch (err) {
-      console.error(`CSSファイルの読み込みに失敗しました: ${css}`, err);
-    }
-  }
-  // ローカルCSSのみインライン化し、ローカルCSSの<link>タグは完全に削除
-  htmlContent = htmlContent.replace(
-    /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>\s*/gi,
-    (match: string, href: string) => {
-      if (isLocal(href)) {
-        return '';
-      }
-      return match;
-    }
-  );
-  if (cssContent) {
-    htmlContent = htmlContent.replace(/<head>/i, `<head>\n<style>\n${cssContent}\n</style>`);
-  }
-
-  // JS
-  const jsFiles = files.filter(f => f.endsWith('.js'));
-  let jsContent = '';
-  for (const js of jsFiles) {
-    try {
-      const jsPath = `${path}/${js}`;
-      jsContent += `${await read(jsPath)}\n`;
-    } catch (err) {
-      console.error(`JSファイルの読み込みに失敗しました: ${js}`, err);
-    }
-  }
-  // ローカルJSのみインライン化し、ローカルJSの<script>タグは完全に削除
-  htmlContent = htmlContent.replace(
-    /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>\s*/gi,
-    (match: string, src: string) => {
-      if (isLocal(src)) {
-        return '';
-      }
-      return match;
-    }
-  );
-  if (jsContent) {
-    htmlContent = htmlContent.replace(/<\/body>/i, `<script>\n${jsContent}\n<\/script></body>`);
-  }
-
-  return htmlContent;
+  const htmlPath = resolvePath(path, htmlFile);
+  const directoryPath = getParentPath(htmlPath);
+  onDependency?.(htmlPath);
+  const readText = async (fullPath: string): Promise<string> =>
+    new TextDecoder().decode(await fileReader(fullPath));
+  const tree = fromHtml(await readText(htmlPath));
+  await inlineHtmlAssetsInTree(tree, directoryPath, fileReader, readText, onDependency);
+  return toHtml(tree);
 };

@@ -5,13 +5,15 @@ import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { terminalProcessBridge } from '@/engine/cmd/terminalProcessBridge';
-import { isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
+import { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
+import { FSError, fsClient, resolvePath } from '@/engine/core/fs';
+import { type GitIgnoreRule, parseGitignore } from '@/engine/core/gitignore';
 import { runtimeRegistry } from '@/engine/runtime/core/RuntimeRegistry';
 import type { FileItem } from '@/types';
+import { buildExecutableProjectFiles } from './runPanelUtils';
 
 interface RunPanelProps {
-  currentProject: { id: string; name: string } | null;
+  currentProject: { name: string; rootPath: string } | null;
   files: FileItem[];
 }
 
@@ -20,72 +22,6 @@ interface OutputEntry {
   content: string;
   type: 'log' | 'error' | 'input';
   timestamp: Date;
-}
-
-function buildExecutableProjectFiles(files: FileItem[]): FileItem[] {
-  const supportedExtensions = new Set(['.js', '.ts', '.mjs', '.cjs']);
-  for (const runtime of runtimeRegistry.getAllRuntimes()) {
-    for (const ext of runtime.supportedExtensions) {
-      supportedExtensions.add(ext);
-    }
-  }
-  const supportedExtensionsList = Array.from(supportedExtensions);
-
-  const findGitignoreContent = (items: FileItem[]): string | null => {
-    for (const item of items) {
-      if (item.type === 'file' && item.name === '.gitignore') {
-        return item.content ?? null;
-      }
-      if (item.children) {
-        const found = findGitignoreContent(item.children);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-
-  const gitignoreContent = findGitignoreContent(files);
-  const gitignoreRules = gitignoreContent ? parseGitignore(gitignoreContent) : null;
-  const executableFiles: FileItem[] = [];
-
-  const walk = (items: FileItem[], parentPath = '') => {
-    for (const item of items) {
-      const fullPath = parentPath ? `${parentPath}/${item.name}` : item.name;
-
-      if (item.type === 'file') {
-        const isSupported = supportedExtensionsList.some(ext => item.name.endsWith(ext));
-        if (isSupported) {
-          try {
-            if (!gitignoreRules || !isPathIgnored(gitignoreRules, fullPath, false)) {
-              executableFiles.push({
-                id: item.id || fullPath,
-                name: item.name,
-                path: fullPath,
-                content: item.content,
-                type: 'file',
-              });
-            }
-          } catch (e) {
-            console.warn('[RunPanel.tsx] caught non-fatal error', e);
-            executableFiles.push({
-              id: item.id || fullPath,
-              name: item.name,
-              path: fullPath,
-              content: item.content,
-              type: 'file',
-            });
-          }
-        }
-      }
-
-      if (item.children) {
-        walk(item.children, fullPath);
-      }
-    }
-  };
-
-  walk(files);
-  return executableFiles;
 }
 
 export default function RunPanel({ currentProject, files }: RunPanelProps) {
@@ -97,8 +33,40 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const [interactiveInput, setInteractiveInput] = useState('');
   const [isOperationOpen, setIsOperationOpen] = useState(false);
   const [projectFilesForOperation, setProjectFilesForOperation] = useState<FileItem[]>([]);
+  const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[]>([]);
   const outputRef = useRef<HTMLDivElement>(null);
   const interactiveInputRef = useRef<HTMLInputElement>(null);
+  const executionAbort = useRef<AbortController | null>(null);
+  const processStdinRef = useRef<ProcessStdin | null>(null);
+  const rootPath = currentProject?.rootPath;
+  useEffect(() => {
+    let active = true;
+    setGitignoreRules([]);
+    if (!rootPath) return;
+
+    void fsClient
+      .readText(resolvePath(rootPath, '.gitignore'))
+      .then(content => {
+        if (active) setGitignoreRules(parseGitignore(content));
+      })
+      .catch(error => {
+        if (error instanceof FSError && error.code === 'ENOENT') return;
+        console.error('[RunPanel] Failed to read .gitignore:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [rootPath]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: abort the active run when the workspace changes
+  useEffect(() => {
+    return () => {
+      executionAbort.current?.abort();
+      const processStdin = processStdinRef.current;
+      processStdin?.eof();
+      if (processStdinRef.current === processStdin) processStdinRef.current = null;
+    };
+  }, [currentProject?.rootPath]);
   // 出力エリアの自動スクロール
   // biome-ignore lint/correctness/useExhaustiveDependencies: output.length is a trigger dep — scroll when new output arrives
   useEffect(() => {
@@ -112,13 +80,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   }, [output.length, isRunning]);
 
   // 初期化時にlocalStorageから復元
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id is a trigger dep — restore saved file when project changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.rootPath is a trigger dep — restore saved file when workspace changes
   useEffect(() => {
     const last = localStorage.getItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE);
     if (last) {
       setSelectedFile(last);
     }
-  }, [currentProject?.id]);
+  }, [currentProject?.rootPath]);
 
   // 出力を追加
   const addOutput = (content: string, type: 'log' | 'error' | 'input') => {
@@ -162,7 +130,7 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   const executeFile = async () => {
     if (!selectedFile || !currentProject) return;
     setIsRunning(true);
-    const filePath = `/${selectedFile}`;
+    const filePath = resolvePath(currentProject.rootPath, selectedFile);
 
     // RuntimeRegistryからランタイムを取得
     const runtime = runtimeRegistry.getRuntimeForFile(filePath);
@@ -176,14 +144,35 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     addOutput(`> ${runtime.name} ${selectedFile}`, 'input');
     localStorage.setItem(LOCALSTORAGE_KEY.LAST_EXECUTE_FILE, selectedFile);
 
-    terminalProcessBridge.activate();
+    const processStdin = new ProcessStdin();
+    processStdin.beginSession();
+    processStdinRef.current = processStdin;
+    const controller = new AbortController();
+    executionAbort.current = controller;
+    const stdoutDecoder = new TextDecoder();
+    const stderrDecoder = new TextDecoder();
+    const displayOutput = (data: string | Uint8Array, type: 'log' | 'error') => {
+      if (typeof data === 'string') {
+        addOutput(data, type);
+        return;
+      }
+      let decoder = stdoutDecoder;
+      if (type === 'error') decoder = stderrDecoder;
+      const content = decoder.decode(data, { stream: true });
+      if (content) addOutput(content, type);
+    };
     try {
       const result = await runtime.execute({
-        projectId: currentProject.id,
-        projectName: currentProject.name,
+        rootPath: currentProject.rootPath,
         filePath,
+        signal: controller.signal,
+        subscribeInterrupt: handler => processStdin.subscribeInterrupt(handler),
         debugConsole: createOutputConsole(),
-        processStdin: terminalProcessBridge.stdin,
+        processStdin,
+        stdoutIsTTY: false,
+        stderrIsTTY: false,
+        onStdout: data => displayOutput(data, 'log'),
+        onStderr: data => displayOutput(data, 'error'),
       });
 
       if (result.stderr) {
@@ -194,7 +183,13 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     } catch (error) {
       addOutput(`Error: ${(error as Error).message}`, 'error');
     } finally {
-      terminalProcessBridge.deactivate();
+      const stdoutTail = stdoutDecoder.decode();
+      const stderrTail = stderrDecoder.decode();
+      if (stdoutTail) addOutput(stdoutTail, 'log');
+      if (stderrTail) addOutput(stderrTail, 'error');
+      executionAbort.current = null;
+      processStdin.eof();
+      if (processStdinRef.current === processStdin) processStdinRef.current = null;
       setIsRunning(false);
     }
   };
@@ -204,13 +199,12 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
     const line = interactiveInput;
     setInteractiveInput('');
     addOutput(`> ${line}`, 'input');
-    terminalProcessBridge.submitLine(line);
+    processStdinRef.current?.submitLine(line);
   };
 
   // 実行を停止
   const stopExecution = () => {
-    terminalProcessBridge.deactivate();
-    setIsRunning(false);
+    executionAbort.current?.abort();
     addOutput(t('run.executionStopped'), 'log');
   };
 
@@ -220,7 +214,15 @@ export default function RunPanel({ currentProject, files }: RunPanelProps) {
   };
 
   const openFileSelector = () => {
-    setProjectFilesForOperation(buildExecutableProjectFiles(files));
+    const supportedExtensions = new Set(['.js', '.ts', '.mjs', '.cjs']);
+    for (const runtime of runtimeRegistry.getAllRuntimes()) {
+      for (const extension of runtime.supportedExtensions) {
+        supportedExtensions.add(extension);
+      }
+    }
+    setProjectFilesForOperation(
+      buildExecutableProjectFiles(files, supportedExtensions, gitignoreRules)
+    );
     setIsOperationOpen(true);
   };
 

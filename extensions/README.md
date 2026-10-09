@@ -155,10 +155,9 @@ function MyChartTab() {
 ---
 
 ## 参考ドキュメント
-- `/docs/EXTENSION-SYSTEM.md` - 拡張機能システム設計
-- `/docs/EXTENSION-TAB-SIDEBAR-API.md` - タブ/サイドバーAPI
-- `/docs/EXTENSION-NPM-LIBRARIES.md` - npmライブラリ利用ガイド
-- `/docs/SYSTEM-OVERVIEW.md` - システム全体概要
+- `/docs/domain/extensions.md` - 拡張機能システムの仕組みとContext API
+- `/docs/domain/extension-authoring.md` - 作り方、複数file、npmライブラリ
+- `/docs/arch/system-overview.md` - システム全体概要
 
 ---
 
@@ -223,7 +222,7 @@ React.createElement('div', null, 'Hello')
 
 **重要:** React/ReactDOMはバンドルされません。ランタイムで`window.__PYXIS_REACT__`と`window.__PYXIS_REACT_DOM__`から提供されます。
 
-**詳細:** `/docs/EXTENSION-NPM-LIBRARIES.md` を参照
+**詳細:** `/docs/domain/extension-authoring.md` を参照
 
 ## レジストリ
 
@@ -376,7 +375,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
 - **Q: npmライブラリは制限ある？**
   - A: 主要ライブラリは全て利用可能。React/ReactDOMはPyxis本体から提供
 - **Q: API仕様はどこで確認？**
-  - A: `/Development/EXTENSION-TAB-SIDEBAR-API.md`・`_shared/types.ts`・サンプル拡張機能を参照
+  - A: `/docs/domain/extensions.md`・`_shared/types.ts`・サンプル拡張機能を参照
 
 ---
 
@@ -405,9 +404,9 @@ API仕様は随時最新化されているため、公式ドキュメント・�
 ## 詳細ドキュメント
 
 詳細は以下を参照してください:
-- `/docs/EXTENSION-TAB-SIDEBAR-API.md` - **拡張機能開発ガイド** (必読)
-- `/docs/EXTENSION-SYSTEM.md` - 拡張機能システムの設計
-- `/docs/SYSTEM-OVERVIEW.md` - システム全体概要
+- `/docs/domain/extensions.md` - 拡張機能システムの仕組みとContext API
+- `/docs/domain/extension-authoring.md` - 作り方、複数file、npmライブラリ
+- `/docs/arch/system-overview.md` - システム全体概要
 
 ## よくある質問
 
@@ -421,7 +420,7 @@ API仕様は随時最新化されているため、公式ドキュメント・�
 
 ### Q: npm パッケージは使える？
 
-**A: はい！(v0.12.0以降)** 拡張機能ディレクトリに`package.json`を追加し、`pnpm install`すれば使用できます。esbuildで自動的にバンドルされます。詳細は `/docs/EXTENSION-NPM-LIBRARIES.md` を参照してください。
+**A: はい！(v0.12.0以降)** 拡張機能ディレクトリに`package.json`を追加し、`pnpm install`すれば使用できます。esbuildで自動的にバンドルされます。詳細は `/docs/domain/extension-authoring.md` を参照してください。
 
 **注意:** React/ReactDOMはPyxis本体のものを使用するため、依存関係に含めないでください。
 

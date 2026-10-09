@@ -33,10 +33,8 @@ export interface ExplorerMenuItemDefinition {
  * メニュー項目のアクションコンテキスト
  */
 export interface MenuActionContext {
-  /** 現在のプロジェクト名 */
-  projectName: string;
-  /** 現在のプロジェクトID */
-  projectId: string;
+  /** Absolute workspace root path. */
+  rootPath: string;
 }
 
 /**

@@ -1,3 +1,5 @@
+import type { ChatSpaceMessage } from '@/types';
+
 /**
  * AI Agent Prompt Templates
  *
@@ -92,7 +94,7 @@ function greet(name: string, greeting: string = "Hello") {
  * - Assistant messages (ask): answer content
  */
 function formatHistoryMessages(
-  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>
+  previousMessages?: Array<Pick<ChatSpaceMessage, 'type' | 'content' | 'mode' | 'editResponse'>>
 ): string {
   if (!previousMessages || previousMessages.length === 0) return '';
 
@@ -108,7 +110,7 @@ function formatHistoryMessages(
         const files = msg.editResponse.changedFiles || [];
         if (files.length > 0) {
           const summary = files
-            .map((f: any) => `- ${f.path}: ${f.explanation || 'modified'}`)
+            .map(file => `- ${file.path}: ${file.explanation || 'modified'}`)
             .join('\n');
           return `### ${role} ${modeLabel}\nChanged files:\n${summary}`;
         }
@@ -143,7 +145,7 @@ ${customInstructions}
 export const ASK_PROMPT_TEMPLATE = (
   files: Array<{ path: string; content: string }>,
   question: string,
-  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>,
+  previousMessages?: Array<Pick<ChatSpaceMessage, 'type' | 'content' | 'mode' | 'editResponse'>>,
   customInstructions?: string
 ) => {
   const history = formatHistoryMessages(previousMessages);
@@ -176,7 +178,7 @@ Provide a clear, helpful response. Use code blocks when showing code examples.`;
 export const EDIT_PROMPT_TEMPLATE = (
   files: Array<{ path: string; content: string }>,
   instruction: string,
-  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>,
+  previousMessages?: Array<Pick<ChatSpaceMessage, 'type' | 'content' | 'mode' | 'editResponse'>>,
   customInstructions?: string
 ) => {
   const history = formatHistoryMessages(previousMessages);
@@ -213,71 +215,4 @@ IMPORTANT REMINDERS:
 - Keep changes minimal and focused
 - Multiple SEARCH/REPLACE blocks can be used for multiple changes in the same file
 - Separate each file's changes with "### File: [filepath]"`;
-};
-
-/**
- * Legacy format support - for full file replacement when patch fails
- */
-export const EDIT_PROMPT_TEMPLATE_LEGACY = (
-  files: Array<{ path: string; content: string }>,
-  instruction: string,
-  previousMessages?: Array<{ type: string; content: string; mode?: string; editResponse?: any }>,
-  customInstructions?: string
-) => {
-  const history = formatHistoryMessages(previousMessages);
-  const customInstr = formatCustomInstructions(customInstructions);
-
-  const LEGACY_SYSTEM_PROMPT = `You are an expert code editing assistant. You receive code editing instructions and provide changes.
-
-IMPORTANT: Follow the exact response format below.
-
-Response Format:
-For each file that needs changes, use this format:
-
-## Changed File: [filepath]
-**Reason**: [explanation of the change]
-
-<AI_EDIT_CONTENT_START:[filepath]>
-[complete modified file content here]
-<AI_EDIT_CONTENT_END:[filepath]>
-
----
-
-Rules:
-- Keep changes minimal
-- Match existing code style
-- Provide brief explanations
-- Use the exact tags shown above`;
-
-  const fileContexts = files
-    .map(
-      file => `
-## File: ${file.path}
-<AI_EDIT_CONTENT_START:${file.path}>
-${file.content}
-<AI_EDIT_CONTENT_END:${file.path}>
-`
-    )
-    .join('\n');
-
-  return `${LEGACY_SYSTEM_PROMPT}
-
-${customInstr}${history ? `## Conversation History\n${history}\n` : ''}
-
-## Files to Edit (Current State)
-${fileContexts}
-
-## Edit Instructions
-${instruction}
-
----
-For new files, specify "New File" in the reason.
-
-New File Format:
-## Changed File: [new/filepath]
-**Reason**: New file creation
-<AI_EDIT_CONTENT_START:[new/filepath]>
-[new file content]
-<AI_EDIT_CONTENT_END:[new/filepath]>
----`;
 };

@@ -1,36 +1,28 @@
-import type FS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
+import { detectFileContent } from '@/engine/core/fileBytes';
+import type { GitFs as FS } from '@/engine/core/fs/git';
+import { resolveCommitAuthor } from './commit';
+import { assertNoMergeInProgress } from './mergeState';
 
-import { syncManager } from '@/engine/core/syncManager';
-
-/**
- * Git revert操作を管理するクラス
- * - revert後にsyncManager.syncFromFSToIndexedDB()で逆同期
- */
 export class GitRevertOperations {
   private fs: FS;
   private dir: string;
-  private projectId: string;
-  private projectName: string;
 
-  constructor(fs: FS, dir: string, projectId: string, projectName: string) {
+  constructor(fs: FS, dir: string) {
     this.fs = fs;
     this.dir = dir;
-    this.projectId = projectId;
-    this.projectName = projectName;
   }
 
-  // git revert - コミットを取り消し + 逆同期
   async revert(commitHash: string): Promise<string> {
     try {
-      // Gitリポジトリが初期化されているかチェック
       try {
         await this.fs.promises.stat(`${this.dir}/.git`);
       } catch {
         throw new Error('not a git repository (or any of the parent directories): .git');
       }
 
-      // コミットハッシュの正規化（短縮形も対応）
+      await assertNoMergeInProgress(this.fs, this.dir);
+
       let fullCommitHash: string;
       try {
         const expandedOid = await git.expandOid({ fs: this.fs, dir: this.dir, oid: commitHash });
@@ -39,31 +31,24 @@ export class GitRevertOperations {
         throw new Error(`bad revision '${commitHash}'`);
       }
 
-      // 対象コミットの情報を取得
       const commitToRevert = await git.readCommit({
         fs: this.fs,
         dir: this.dir,
         oid: fullCommitHash,
       });
 
-      // 親コミットが存在するかチェック
       if (commitToRevert.commit.parent.length === 0) {
         throw new Error(`cannot revert initial commit ${commitHash.slice(0, 7)}`);
       }
 
-      // マージコミットの場合はエラー
       if (commitToRevert.commit.parent.length > 1) {
         throw new Error(`commit ${commitHash.slice(0, 7)} is a merge commit`);
       }
 
       const parentHash = commitToRevert.commit.parent[0];
 
-      console.log('Reverting commit:', commitHash.slice(0, 7));
-
-      // 親コミットの状態を取得
       const parentCommit = await git.readCommit({ fs: this.fs, dir: this.dir, oid: parentHash });
 
-      // 現在のワーキングディレクトリの状態をチェック
       const status = await git.statusMatrix({ fs: this.fs, dir: this.dir });
       const hasChanges = status.some(row => {
         const [, headStatus, workdirStatus, stageStatus] = row;
@@ -76,114 +61,95 @@ export class GitRevertOperations {
         );
       }
 
-      // 親コミットのツリーを現在のワーキングディレクトリに適用
-      // isomorphic-gitにはrevertコマンドがないため、手動で実装
-
-      // 対象コミットで変更されたファイルを特定して、親コミットの状態に戻す
-      const currentTree = await git.readTree({
+      const head = await git.resolveRef({ fs: this.fs, dir: this.dir, ref: 'HEAD' });
+      const conflictingPaths: string[] = [];
+      await git.walk({
         fs: this.fs,
         dir: this.dir,
-        oid: commitToRevert.commit.tree,
-      });
-      const parentTree = await git.readTree({
-        fs: this.fs,
-        dir: this.dir,
-        oid: parentCommit.commit.tree,
-      });
-
-      // ファイルの差分を収集
-      const changedFiles = new Map<string, { parentOid?: string; currentOid?: string }>();
-
-      const collectTreeFiles = async (tree: any, basePath = ''): Promise<Map<string, string>> => {
-        const files = new Map<string, string>();
-        for (const entry of tree.tree) {
-          const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
-          if (entry.type === 'blob') {
-            files.set(fullPath, entry.oid);
-          } else if (entry.type === 'tree') {
-            try {
-              const subTree = await git.readTree({ fs: this.fs, dir: this.dir, oid: entry.oid });
-              const subFiles = await collectTreeFiles(subTree, fullPath);
-              for (const [path, oid] of subFiles) {
-                files.set(path, oid);
-              }
-            } catch (error) {
-              console.warn(`Failed to read subtree ${fullPath}:`, error);
-            }
+        trees: [
+          git.TREE({ ref: fullCommitHash }),
+          git.TREE({ ref: head }),
+          git.TREE({ ref: parentHash }),
+        ],
+        map: async (filepath, entries) => {
+          if (filepath === '.') return;
+          const [base, ours, theirs] = entries;
+          if (!base || !ours || !theirs) return;
+          const versions = [base, ours, theirs];
+          if (
+            (await base.type()) !== 'blob' ||
+            (await ours.type()) !== 'blob' ||
+            (await theirs.type()) !== 'blob'
+          )
+            return;
+          const [baseOid, oursOid, theirsOid] = await Promise.all(
+            versions.map(entry => entry.oid())
+          );
+          const [baseMode, oursMode, theirsMode] = await Promise.all(
+            versions.map(entry => entry.mode())
+          );
+          const oursChanged = baseOid !== oursOid || baseMode !== oursMode;
+          const theirsChanged = baseOid !== theirsOid || baseMode !== theirsMode;
+          if (!oursChanged || !theirsChanged || (oursOid === theirsOid && oursMode === theirsMode))
+            return;
+          const contents = await Promise.all(
+            versions.map(async entry => {
+              const bytes = await entry.content();
+              if (!bytes) throw new Error(`Cannot read blob: ${filepath}`);
+              return detectFileContent(filepath, bytes);
+            })
+          );
+          if (contents.some(content => content.kind === 'binary')) {
+            conflictingPaths.push(filepath);
+          } else if (
+            (await base.mode()) === 0o120000 ||
+            (await ours.mode()) === 0o120000 ||
+            (await theirs.mode()) === 0o120000
+          ) {
+            conflictingPaths.push(filepath);
           }
-        }
-        return files;
-      };
-
-      const parentFiles = await collectTreeFiles(parentTree);
-      const currentFiles = await collectTreeFiles(currentTree);
-
-      // 変更されたファイルを特定
-      for (const [path, oid] of currentFiles) {
-        const parentOid = parentFiles.get(path);
-        if (!parentOid || parentOid !== oid) {
-          changedFiles.set(path, { parentOid, currentOid: oid });
-        }
-      }
-
-      // 削除されたファイルを特定
-      for (const [path, oid] of parentFiles) {
-        if (!currentFiles.has(path)) {
-          changedFiles.set(path, { parentOid: oid, currentOid: undefined });
-        }
-      }
-
-      console.log('Revert: Files to change:', changedFiles.size);
-
-      // 変更を適用
-      for (const [filePath, { parentOid }] of changedFiles) {
-        const fullPath = `${this.dir}/${filePath}`;
-
-        if (parentOid) {
-          // ファイルを親コミットの状態に戻す
-          try {
-            const { blob } = await git.readBlob({
-              fs: this.fs,
-              dir: this.dir,
-              oid: parentOid,
-            });
-            await this.fs.promises.writeFile(fullPath, blob);
-            await git.add({ fs: this.fs, dir: this.dir, filepath: filePath });
-          } catch (error) {
-            console.error(`Failed to restore file ${filePath}:`, error);
-          }
-        } else {
-          // ファイルを削除
-          try {
-            await this.fs.promises.unlink(fullPath);
-            await git.remove({ fs: this.fs, dir: this.dir, filepath: filePath });
-          } catch (error) {
-            console.error(`Failed to remove file ${filePath}:`, error);
-          }
-        }
-      }
-
-      // リバートコミットを作成
-      const revertMessage = `Revert "${commitToRevert.commit.message.split('\n')[0]}"\n\nThis reverts commit ${fullCommitHash}.`;
-
-      const commitOid = await git.commit({
-        fs: this.fs,
-        dir: this.dir,
-        message: revertMessage,
-        author: {
-          name: 'Pyxis User',
-          email: 'user@pyxis.local',
         },
       });
+      if (conflictingPaths.length)
+        throw new Error(`Revert conflicts in: ${conflictingPaths.join(', ')}`);
 
-      console.log('Revert commit created:', commitOid.slice(0, 7));
+      const revertMessage = `Revert "${commitToRevert.commit.message.split('\n')[0]}"\n\nThis reverts commit ${fullCommitHash}.`;
+      const author = await resolveCommitAuthor(this.fs);
+      const signature = {
+        ...author,
+        timestamp: Math.floor(Date.now() / 1000),
+        timezoneOffset: new Date().getTimezoneOffset(),
+      };
+      const inverse = await git.writeCommit({
+        fs: this.fs,
+        dir: this.dir,
+        commit: {
+          tree: parentCommit.commit.tree,
+          parent: [fullCommitHash],
+          message: revertMessage,
+          author: signature,
+          committer: signature,
+        },
+      });
+      const commitOid = await git.cherryPick({
+        fs: this.fs,
+        dir: this.dir,
+        oid: inverse,
+        abortOnConflict: true,
+        noUpdateBranch: true,
+        committer: author,
+      });
+      await git.checkout({ fs: this.fs, dir: this.dir, ref: commitOid, noUpdateHead: true });
+      const branch = await git.currentBranch({ fs: this.fs, dir: this.dir, fullname: true });
+      await git.writeRef({
+        fs: this.fs,
+        dir: this.dir,
+        ref: branch || 'HEAD',
+        value: commitOid,
+        force: true,
+      });
 
-      // GitFileSystem → IndexedDBへ逆同期
-      console.log('Starting reverse sync: GitFileSystem → IndexedDB');
-      await syncManager.syncFromFSToIndexedDB(this.projectId, this.projectName);
-      console.log('Reverse sync completed');
-
-      return `[${commitOid.slice(0, 7)}] ${revertMessage.split('\n')[0]}\n${changedFiles.size} files changed\n\nChanges synced to IndexedDB`;
+      return `[${commitOid.slice(0, 7)}] ${revertMessage.split('\n')[0]}`;
     } catch (error) {
       const errorMessage = (error as Error).message;
 

@@ -78,7 +78,7 @@ export function updateCachedModelContent(modelKey: string, content: string): voi
   const model = sharedModelMap.get(modelKey);
   if (!model || model.isDisposed()) return;
   try {
-    if (model.getValue() !== content) model.setValue(content);
+    if (model.getValue(undefined, true) !== content) model.setValue(content);
   } catch (e) {
     console.warn('[useMonacoModels] updateCachedModelContent failed:', e);
   }
@@ -156,7 +156,7 @@ export function useMonacoModels() {
             }
           }
           // Sync content
-          if (model.getValue() !== content) model.setValue(content);
+          if (model.getValue(undefined, true) !== content) model.setValue(content);
           return model;
         }
 
@@ -200,7 +200,7 @@ export function useMonacoModels() {
               console.warn('[useMonacoModels] Failed to update existing model language:', e);
             }
           }
-          if (existingModel.getValue() !== content) existingModel.setValue(content);
+          if (existingModel.getValue(undefined, true) !== content) existingModel.setValue(content);
           sharedModelMap.set(modelKey, existingModel);
           updateModelAccessOrder(modelKey);
           return existingModel;
@@ -216,27 +216,6 @@ export function useMonacoModels() {
         }
         sharedModelMap.set(modelKey, newModel);
         updateModelAccessOrder(modelKey);
-
-        // New TS/JS model added → re-trigger diagnostics on existing TS/JS models.
-        // Monaco's DiagnosticsAdapter only re-evaluates a model when its version changes.
-        // Without this, existing open models (e.g. use-math.ts) won't clear
-        // "Cannot find module './math'" until page reload.
-        if (desiredLang === 'typescript' || desiredLang === 'javascript') {
-          window.setTimeout(() => {
-            for (const [key, m] of sharedModelMap) {
-              if (key === modelKey || m.isDisposed()) continue;
-              const lang = m.getLanguageId();
-              if (lang !== 'typescript' && lang !== 'javascript') continue;
-              try {
-                // setValue bumps the model version → DiagnosticsAdapter schedules re-evaluation
-                m.setValue(m.getValue());
-              } catch (e) {
-                console.warn('[useMonacoModels.ts] caught non-fatal error', e);
-                // ignore
-              }
-            }
-          }, 150);
-        }
 
         return newModel;
       } catch (e) {

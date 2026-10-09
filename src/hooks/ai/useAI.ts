@@ -1,6 +1,6 @@
 // 統合AIフック
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { getCustomInstructions, getSelectedFileContexts } from '@/engine/ai/contextBuilder';
@@ -11,9 +11,16 @@ import {
   parseEditResponse,
   validateResponse,
 } from '@/engine/ai/responseParser';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { readAIText } from '@/engine/ai/textEdits';
+import { fsClient } from '@/engine/core/fs';
+import { saveAIReviewEntry } from '@/engine/storage/aiStorageAdapter';
 import { pushLogMessage } from '@/stores/loggerStore';
 import type { AIEditResponse, AIFileContext, ChatSpaceMessage } from '@/types';
+import {
+  type AIRequestIdentity,
+  isAIRequestIdentityCurrent,
+  updateAIRequestIdentity,
+} from './requestIdentity';
 
 interface UseAIProps {
   onAddMessage?: (
@@ -21,38 +28,99 @@ interface UseAIProps {
     type: 'user' | 'assistant',
     mode: 'ask' | 'edit',
     fileContext?: string[],
-    editResponse?: AIEditResponse
+    editResponse?: AIEditResponse,
+    targetSpaceId?: string | null
   ) => Promise<ChatSpaceMessage | null>;
   selectedFiles?: string[];
-  onUpdateSelectedFiles?: (files: string[]) => void;
+  onUpdateSelectedFiles?: (files: string[]) => Promise<void>;
+  onSelectionError?: (message: string) => void;
   messages?: ChatSpaceMessage[];
-  projectId?: string;
-}
-
-async function loadAIStorage(): Promise<typeof import('@/engine/storage/aiStorageAdapter') | null> {
-  try {
-    return await import('@/engine/storage/aiStorageAdapter');
-  } catch (e) {
-    console.warn('[useAI.ts] caught non-fatal error', e);
-    return null;
-  }
+  rootPath?: string | null;
+  spaceId?: string | null;
 }
 
 export function useAI(props?: UseAIProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileContexts, setFileContexts] = useState<AIFileContext[]>([]);
-
-  // チャットスペースから選択ファイルが変更された時にファイルコンテキストに反映
-  useEffect(() => {
-    if (props?.selectedFiles && fileContexts.length > 0) {
-      setFileContexts(prev =>
-        prev.map(ctx => ({
-          ...ctx,
-          selected: props.selectedFiles?.includes(ctx.path) || false,
-        }))
-      );
+  const fileContextsRef = useRef(fileContexts);
+  const activeIdentityRef = useRef<AIRequestIdentity>({
+    rootPath: props?.rootPath ?? null,
+    spaceId: props?.spaceId ?? null,
+    generation: 0,
+  });
+  const processingRequestsRef = useRef(0);
+  const pendingTargetSpaceRef = useRef<{ rootPath: string; spaceId: string } | null>(null);
+  const fileContextsRootRef = useRef<string | null>(props?.rootPath ?? null);
+  const nextRootPath = props?.rootPath ?? null;
+  const nextSpaceId = props?.spaceId ?? null;
+  const pendingTarget = pendingTargetSpaceRef.current;
+  if (pendingTarget) {
+    if (
+      pendingTarget.rootPath !== nextRootPath ||
+      (nextSpaceId !== null && nextSpaceId !== pendingTarget.spaceId)
+    ) {
+      pendingTargetSpaceRef.current = null;
     }
-  }, [props?.selectedFiles, fileContexts.length]);
+  }
+  const effectiveSpaceId =
+    nextSpaceId === null && pendingTargetSpaceRef.current?.rootPath === nextRootPath
+      ? pendingTargetSpaceRef.current.spaceId
+      : nextSpaceId;
+  activeIdentityRef.current = updateAIRequestIdentity(
+    activeIdentityRef.current,
+    nextRootPath,
+    effectiveSpaceId
+  );
+  if (nextSpaceId === pendingTargetSpaceRef.current?.spaceId) {
+    pendingTargetSpaceRef.current = null;
+  }
+
+  const isCurrentRequest = useCallback(
+    (identity: typeof activeIdentityRef.current): boolean =>
+      isAIRequestIdentityCurrent(identity, activeIdentityRef.current),
+    []
+  );
+
+  const pendingSelectionRef = useRef<{
+    rootPath: string | null;
+    spaceId: string | null;
+    paths: string[];
+  } | null>(null);
+  const saveSelectedPaths = useCallback(
+    (paths: string[]) => {
+      const identity = { ...activeIdentityRef.current };
+      pendingSelectionRef.current = { ...identity, paths };
+      if (!props?.onUpdateSelectedFiles) return;
+      void props.onUpdateSelectedFiles(paths).catch(error => {
+        if (!isCurrentRequest(identity)) return;
+        const message = `Failed to update selected AI files: ${error instanceof Error ? error.message : String(error)}`;
+        console.error('[useAI] Failed to save selected files:', error);
+        pushLogMessage(message, 'error', 'AI');
+        props.onSelectionError?.(message);
+      });
+    },
+    [isCurrentRequest, props?.onUpdateSelectedFiles, props?.onSelectionError]
+  );
+
+  useEffect(() => {
+    if (fileContextsRootRef.current !== activeIdentityRef.current.rootPath || !props?.selectedFiles)
+      return;
+    const pending = pendingSelectionRef.current;
+    if (pending && pending.rootPath === nextRootPath && pending.spaceId === nextSpaceId) {
+      if (
+        pending.paths.length !== props.selectedFiles.length ||
+        pending.paths.some((path, index) => path !== props.selectedFiles?.[index])
+      )
+        return;
+    }
+    pendingSelectionRef.current = null;
+    const updated = fileContextsRef.current.map(context => ({
+      ...context,
+      selected: props.selectedFiles?.includes(context.path) || false,
+    }));
+    fileContextsRef.current = updated;
+    setFileContexts(updated);
+  }, [props?.selectedFiles, nextRootPath, nextSpaceId]);
 
   // メッセージを追加
   const addMessage = useCallback(
@@ -61,16 +129,20 @@ export function useAI(props?: UseAIProps) {
       type: 'user' | 'assistant',
       mode: 'ask' | 'edit' = 'ask',
       fileContext?: string[],
-      editResponse?: AIEditResponse
+      editResponse?: AIEditResponse,
+      targetSpaceId?: string | null
     ): Promise<ChatSpaceMessage | null> => {
       if (props?.onAddMessage) {
-        try {
-          const result = await props.onAddMessage(content, type, mode, fileContext, editResponse);
-          // allow parent to return the created/updated message
-          if (result && typeof result === 'object') return result as ChatSpaceMessage;
-        } catch (e) {
-          console.warn('[useAI] onAddMessage threw', e);
-        }
+        const result = await props.onAddMessage(
+          content,
+          type,
+          mode,
+          fileContext,
+          editResponse,
+          targetSpaceId
+        );
+        if (!result) throw new Error('Failed to save the AI message to chat history.');
+        return result;
       }
       // Always push assistant responses to the BottomPanel so user sees AI replies
       try {
@@ -89,36 +161,65 @@ export function useAI(props?: UseAIProps) {
 
   // メッセージを送信（Ask/Edit統合）
   const sendMessage = useCallback(
-    async (content: string, mode: 'ask' | 'edit'): Promise<AIEditResponse | null> => {
+    async (
+      content: string,
+      mode: 'ask' | 'edit',
+      targetSpaceId?: string
+    ): Promise<AIEditResponse | null> => {
       const apiKey = localStorage.getItem(LOCALSTORAGE_KEY.GEMINI_API_KEY);
       if (!apiKey) {
         throw new Error('Gemini APIキーが設定されていません。設定画面で設定してください。');
       }
 
-      const selectedFiles = getSelectedFileContexts(fileContexts);
-
-      // ユーザーメッセージを追加
-      await addMessage(
-        content,
-        'user',
-        mode,
-        selectedFiles.map(f => f.path)
-      );
-
-      // 過去メッセージから必要な情報のみ抽出（editResponseも含めてプロンプト最適化に使用）
-      const previousMessages = props?.messages
-        ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
-        ?.map(msg => ({
-          type: msg.type,
-          content: msg.content,
-          mode: msg.mode,
-          editResponse: msg.editResponse, // プロンプト最適化用
-        }));
-
+      const requestIdentity = targetSpaceId
+        ? updateAIRequestIdentity(activeIdentityRef.current, props?.rootPath ?? null, targetSpaceId)
+        : { ...activeIdentityRef.current };
+      const activeIdentity = activeIdentityRef.current;
+      if (
+        targetSpaceId &&
+        activeIdentity.rootPath === requestIdentity.rootPath &&
+        (activeIdentity.spaceId === null || activeIdentity.spaceId === targetSpaceId)
+      ) {
+        activeIdentityRef.current = requestIdentity;
+        if (activeIdentity.spaceId === null && requestIdentity.rootPath) {
+          pendingTargetSpaceRef.current = {
+            rootPath: requestIdentity.rootPath,
+            spaceId: targetSpaceId,
+          };
+        }
+      }
+      processingRequestsRef.current += 1;
       setIsProcessing(true);
+      let userMessageSaved = false;
+
       try {
+        const activeFileContexts =
+          fileContextsRootRef.current === requestIdentity.rootPath ? fileContextsRef.current : [];
+        const selectedFiles = getSelectedFileContexts(activeFileContexts);
+        // ユーザーメッセージを追加
+        await addMessage(
+          content,
+          'user',
+          mode,
+          selectedFiles.map(f => f.path),
+          undefined,
+          requestIdentity.spaceId
+        );
+        userMessageSaved = true;
+        if (!isCurrentRequest(requestIdentity)) return null;
+
+        // 過去メッセージから必要な情報のみ抽出（editResponseも含めてプロンプト最適化に使用）
+        const previousMessages = props?.messages
+          ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
+          ?.map(msg => ({
+            type: msg.type,
+            content: msg.content,
+            mode: msg.mode,
+            editResponse: msg.editResponse, // プロンプト最適化用
+          }));
+
         // Get custom instructions if available
-        const customInstructions = getCustomInstructions(fileContexts);
+        const customInstructions = getCustomInstructions(activeFileContexts);
 
         if (mode === 'ask') {
           // Ask モード
@@ -130,10 +231,22 @@ export function useAI(props?: UseAIProps) {
           );
           const response = await generateChatResponse(prompt, [], apiKey);
 
-          await addMessage(response, 'assistant', 'ask');
+          if (!isCurrentRequest(requestIdentity)) return null;
+          await addMessage(
+            response,
+            'assistant',
+            'ask',
+            undefined,
+            undefined,
+            requestIdentity.spaceId
+          );
           return null;
         }
         // Edit モード
+        if (!props?.rootPath) {
+          throw new Error('A workspace root path is required to edit files.');
+        }
+
         const prompt = EDIT_PROMPT_TEMPLATE(
           selectedFiles,
           content,
@@ -141,6 +254,7 @@ export function useAI(props?: UseAIProps) {
           customInstructions
         );
         const response = await generateCodeEdit(prompt, apiKey);
+        if (!isCurrentRequest(requestIdentity)) return null;
 
         // レスポンスのバリデーション
         const validation = validateResponse(response);
@@ -152,73 +266,51 @@ export function useAI(props?: UseAIProps) {
         }
 
         // レスポンスをパース
-        const responsePaths = extractFilePathsFromResponse(response);
-        console.log(
-          '[useAI] Selected files:',
-          selectedFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
-        );
-        console.log('[useAI] Response paths:', responsePaths);
-
+        const responsePaths = extractFilePathsFromResponse(response, props.rootPath);
         // 重複を避けるため、既に selectedFiles に含まれているパスを除外
         const selectedPathsSet = new Set(selectedFiles.map(f => f.path));
         const newPaths = responsePaths.filter((path: string) => !selectedPathsSet.has(path));
 
-        console.log('[useAI] New paths (not in selected):', newPaths);
-
-        // Fetch actual content for files not in selectedFiles from the repository
-        const newFilesWithContent = await Promise.all(
-          newPaths.map(async (path: string) => {
-            try {
-              if (props?.projectId) {
-                await fileRepository.init();
-                const file = await fileRepository.getFileByPath(props.projectId, path);
-                if (file?.content) {
-                  console.log('[useAI] Fetched existing file content for:', path);
-                  return { path, content: file.content, isNewFile: false };
-                }
-              }
-            } catch (e) {
-              console.warn('[useAI] Could not fetch file content for:', path, e);
+        for (const path of responsePaths) {
+          if (selectedPathsSet.has(path)) {
+            const exists = await fsClient.exists(path);
+            if (!isCurrentRequest(requestIdentity)) return null;
+            if (exists) {
+              await readAIText(path);
+              if (!isCurrentRequest(requestIdentity)) return null;
             }
-            // This is a new file that will be created
-            return { path, content: '', isNewFile: true };
-          })
-        );
+          }
+        }
 
-        // Define proper type for file objects with isNewFile
+        // Load existing file content for response paths outside the selected contexts.
         interface OriginalFileWithMeta {
           path: string;
           content: string;
           isNewFile: boolean;
         }
 
+        const newFilesWithContent = await Promise.all(
+          newPaths.map(async (path): Promise<OriginalFileWithMeta | null> => {
+            const exists = await fsClient.exists(path);
+            if (!isCurrentRequest(requestIdentity)) return null;
+            if (!exists) return { path, content: '', isNewFile: true };
+
+            const fileContent = await readAIText(path);
+            if (!isCurrentRequest(requestIdentity)) return null;
+            return { path, content: fileContent, isNewFile: false };
+          })
+        );
+        if (!isCurrentRequest(requestIdentity)) return null;
+
         const allOriginalFiles: OriginalFileWithMeta[] = [
           ...selectedFiles.map(f => ({ path: f.path, content: f.content, isNewFile: false })),
-          ...newFilesWithContent,
+          ...newFilesWithContent.filter((file): file is OriginalFileWithMeta => file !== null),
         ];
 
         // Create a map of paths to isNewFile status
         const newFileMap = new Map(allOriginalFiles.map(f => [f.path, f.isNewFile]));
 
-        console.log(
-          '[useAI] All original files for parsing:',
-          allOriginalFiles.map(f => ({
-            path: f.path,
-            contentLength: f.content.length,
-            isNewFile: f.isNewFile,
-          }))
-        );
-
-        const parseResult = parseEditResponse(response, allOriginalFiles);
-
-        console.log(
-          '[useAI] Parse result:',
-          parseResult.changedFiles.map(f => ({
-            path: f.path,
-            originalLength: f.originalContent.length,
-            suggestedLength: f.suggestedContent.length,
-          }))
-        );
+        const parseResult = parseEditResponse(response, allOriginalFiles, props.rootPath);
 
         // AIEditResponse形式に変換 (add isNewFile flag for each file)
         const editResponse: AIEditResponse = {
@@ -247,74 +339,101 @@ export function useAI(props?: UseAIProps) {
         }
 
         // Append assistant edit message and capture returned message (so we know its id)
+        if (!isCurrentRequest(requestIdentity)) return null;
         const assistantMsg = await addMessage(
           detailedMessage,
           'assistant',
           'edit',
           [],
-          editResponse
+          editResponse,
+          requestIdentity.spaceId
         );
+        if (!isCurrentRequest(requestIdentity)) return null;
 
-        // Persist AI review metadata / snapshots using storage adapter when projectId provided
-        try {
-          const aiStorage = await loadAIStorage();
-          if (props?.projectId && aiStorage && typeof aiStorage.saveAIReviewEntry === 'function') {
-            for (const f of editResponse.changedFiles) {
-              aiStorage
-                .saveAIReviewEntry(props.projectId, f.path, f.originalContent, f.suggestedContent, {
-                  message: parseResult.message,
-                  parentMessageId: assistantMsg?.id,
-                })
-                .catch(err => console.warn('[useAI] saveAIReviewEntry failed', err));
-            }
+        // Persist AI review metadata / snapshots using storage adapter when rootPath provided
+        if (requestIdentity.rootPath && isCurrentRequest(requestIdentity)) {
+          for (const f of editResponse.changedFiles) {
+            saveAIReviewEntry(
+              requestIdentity.rootPath,
+              f.path,
+              f.originalContent,
+              f.suggestedContent,
+              {
+                message: parseResult.message,
+                parentMessageId: assistantMsg?.id,
+              }
+            ).catch(err => console.warn('[useAI] saveAIReviewEntry failed', err));
           }
-        } catch (e) {
-          console.warn('[useAI] AI review storage skipped:', e);
         }
 
         return editResponse;
       } catch (error) {
+        if (!isCurrentRequest(requestIdentity)) return null;
         const errorMessage = `Error: ${(error as Error).message}`;
-        await addMessage(errorMessage, 'assistant', mode);
+        if (userMessageSaved) {
+          try {
+            await addMessage(
+              errorMessage,
+              'assistant',
+              mode,
+              undefined,
+              undefined,
+              requestIdentity.spaceId
+            );
+          } catch (messageError) {
+            console.warn('[useAI] Failed to save the error message:', messageError);
+          }
+        }
         throw error;
       } finally {
-        setIsProcessing(false);
+        processingRequestsRef.current -= 1;
+        setIsProcessing(processingRequestsRef.current > 0);
       }
     },
-    [fileContexts, addMessage, props?.messages, props?.projectId]
+    [addMessage, isCurrentRequest, props?.messages, props?.rootPath]
   );
 
   // ファイルコンテキストを更新
   const updateFileContexts = useCallback(
-    (contexts: AIFileContext[]) => {
+    (contexts: AIFileContext[], persistSelection = true) => {
+      fileContextsRootRef.current = activeIdentityRef.current.rootPath;
+      fileContextsRef.current = contexts;
       setFileContexts(contexts);
+      if (!persistSelection) {
+        pendingSelectionRef.current = {
+          rootPath: activeIdentityRef.current.rootPath,
+          spaceId: activeIdentityRef.current.spaceId,
+          paths: contexts.filter(context => context.selected).map(context => context.path),
+        };
+      }
 
-      if (props?.onUpdateSelectedFiles) {
-        const selectedPaths = contexts.filter(ctx => ctx.selected).map(ctx => ctx.path);
-        props.onUpdateSelectedFiles(selectedPaths);
+      if (persistSelection) {
+        saveSelectedPaths(contexts.filter(ctx => ctx.selected).map(ctx => ctx.path));
       }
     },
-    [props?.onUpdateSelectedFiles]
+    [saveSelectedPaths]
   );
 
   // ファイルの選択状態を切り替え
   const toggleFileSelection = useCallback(
     (path: string) => {
-      setFileContexts(prev => {
-        const updated = prev.map(ctx =>
-          ctx.path === path ? { ...ctx, selected: !ctx.selected } : ctx
-        );
+      if (fileContextsRootRef.current !== activeIdentityRef.current.rootPath) return;
+      const updated = fileContextsRef.current.map(ctx =>
+        ctx.path === path ? { ...ctx, selected: !ctx.selected } : ctx
+      );
+      fileContextsRef.current = updated;
+      setFileContexts(updated);
 
-        if (props?.onUpdateSelectedFiles) {
-          const selectedPaths = updated.filter(ctx => ctx.selected).map(ctx => ctx.path);
-          props.onUpdateSelectedFiles(selectedPaths);
-        }
-
-        return updated;
-      });
+      saveSelectedPaths(updated.filter(ctx => ctx.selected).map(ctx => ctx.path));
     },
-    [props?.onUpdateSelectedFiles]
+    [saveSelectedPaths]
   );
+
+  const clearFileContexts = useCallback(() => {
+    fileContextsRootRef.current = activeIdentityRef.current.rootPath;
+    fileContextsRef.current = [];
+    setFileContexts([]);
+  }, []);
 
   /**
    * Generate the AI prompt text for debugging purposes without actually sending to the API.
@@ -325,8 +444,12 @@ export function useAI(props?: UseAIProps) {
    */
   const generatePromptText = useCallback(
     (content: string, mode: 'ask' | 'edit'): string => {
-      const selectedFiles = getSelectedFileContexts(fileContexts);
-      const customInstructions = getCustomInstructions(fileContexts);
+      const activeFileContexts =
+        fileContextsRootRef.current === activeIdentityRef.current.rootPath
+          ? fileContextsRef.current
+          : [];
+      const selectedFiles = getSelectedFileContexts(activeFileContexts);
+      const customInstructions = getCustomInstructions(activeFileContexts);
 
       const previousMessages = props?.messages
         ?.filter(msg => typeof msg.content === 'string' && msg.content.trim().length > 0)
@@ -342,7 +465,7 @@ export function useAI(props?: UseAIProps) {
       }
       return EDIT_PROMPT_TEMPLATE(selectedFiles, content, previousMessages, customInstructions);
     },
-    [fileContexts, props?.messages]
+    [props?.messages]
   );
 
   return {
@@ -351,6 +474,7 @@ export function useAI(props?: UseAIProps) {
     fileContexts,
     sendMessage,
     updateFileContexts,
+    clearFileContexts,
     toggleFileSelection,
     generatePromptText,
   };

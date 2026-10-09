@@ -1,49 +1,61 @@
-/**
- * System Module Types for Extensions (Extension-Facing)
- *
- * 拡張機能が使用するシステムモジュールの詳細な型定義
- * この型定義は、src/engine/extensions/systemModuleTypes.ts の拡張機能向けミラーです
- * 拡張機能開発時に型補完を提供するために使用します
- *
- * NOTE: This file is intentionally separate from the engine implementation
- * to maintain a stable extension-facing API surface.
- */
+/** Stable APIs available to extensions through getSystemModule. */
 
-/**
- * FileRepository - ファイル操作API
- */
-export interface FileRepository {
-  // プロジェクト操作
-  init(): Promise<void>;
-  createProject(name: string, description?: string): Promise<any>;
-  getProject(projectId: string): Promise<any | null>;
-  getProjects(): Promise<any[]>;
-  updateProject(projectId: string, updates: Partial<any>): Promise<void>;
-  deleteProject(projectId: string): Promise<void>;
-
-  // ファイル操作
-  createFile(projectId: string, path: string, content: string, language?: string): Promise<any>;
-  getFile(fileId: string): Promise<any | null>;
-  getProjectFiles(projectId: string): Promise<any[]>;
-  // 新しいベストプラクティス API
-  getFileByPath(projectId: string, path: string): Promise<any | null>;
-  getFilesByPrefix(projectId: string, prefix: string): Promise<any[]>;
-  updateFileContent(fileId: string, content: string): Promise<void>;
-  deleteFile(fileId: string): Promise<void>;
-  // ファイル保存（バイナリ対応）
-  saveFile(file: any): Promise<void>;
-  saveFileByPath(projectId: string, path: string, content: string): Promise<void>;
-
-  // 変更リスナー
-  addChangeListener(listener: (event: any) => void): () => void;
+export interface ProjectFile {
+  path: string;
+  type: 'file' | 'folder' | 'symlink' | 'fifo' | 'characterDevice';
+  size: number;
+  mtime: number;
 }
 
-/**
- * transpiler - ESM→CJS変換ユーティリティ
- */
-export interface TranspilerModule {
-  transformEsmToCjs(code: string, filePath: string): Promise<string>;
-  extractCjsDependencies(code: string): string[];
+export interface FsChangeEvent {
+  type: 'create' | 'update' | 'delete' | 'rename';
+  path: string;
+  oldPath?: string;
+  file?: ProjectFile;
+}
+
+export interface FsClient {
+  readFile(path: string): Promise<Uint8Array>;
+  readText(path: string): Promise<string>;
+  writeFile(path: string, data: string | Uint8Array): Promise<void>;
+  readdir(path: string): Promise<ProjectFile[]>;
+  stat(path: string): Promise<ProjectFile>;
+  mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
+  rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
+  rename(oldPath: string, newPath: string): Promise<void>;
+  walk(root: string): Promise<ProjectFile[]>;
+  exists(path: string): Promise<boolean>;
+  addChangeListener(listener: (event: FsChangeEvent) => void): () => void;
+}
+
+export interface PosixPathApi {
+  normalize(path: string): string;
+  resolve(...paths: string[]): string;
+  join(...paths: string[]): string;
+  dirname(path: string): string;
+  basename(path: string, suffix?: string): string;
+  extname(path: string): string;
+  relative(from: string, to: string): string;
+  isAbsolute(path: string): boolean;
+  sep: '/';
+}
+
+export interface PathUtils {
+  posixPath: PosixPathApi;
+  normalizePath(path: string): string;
+  resolvePath(cwd: string, ...paths: string[]): string;
+  getParentPath(path: string): string;
+  basename(path: string): string;
+  isPathWithin(path: string, root: string): boolean;
+}
+
+export interface Workspace {
+  getRootPath(): string | null;
+  subscribe(listener: (rootPath: string | null) => void): () => void;
+}
+
+export interface Keybindings {
+  registerAction(actionId: string, callback: () => void): () => void;
 }
 
 export type WorkerPoolCall<T extends object> = <R>(fn: (api: T) => Promise<R>) => Promise<R>;
@@ -62,61 +74,14 @@ export interface WorkerRuntimeModule {
   }): WorkerPool<T>;
 }
 
-/**
- * pathUtils - パス操作ユーティリティ
- */
-export interface PathUtilsModule {
-  /** パスを正規化（toAppPathのエイリアス） */
-  normalizePath(path: string | null | undefined): string;
-  /** アプリ内部形式のパスに変換 */
-  toAppPath(path: string | null | undefined): string;
-  /** 親ディレクトリのパスを取得 */
-  getParentPath(path: string | null | undefined): string;
-  /** Git形式のパスに変換 */
-  toGitPath(path: string | null | undefined): string;
-  /** Git形式のパスから変換 */
-  fromGitPath(path: string | null | undefined): string;
-}
-
-/**
- * コマンド実行時のコンテキスト
- * (types.tsのCommandContextと重複を避けるため、ここでは最小限の定義)
- */
 export interface CommandContext {
   projectName: string;
-  projectId: string;
+  rootPath: string;
   currentDirectory: string;
-  [key: string]: any;
+  fsClient: FsClient;
+  getSystemModule: GetSystemModule;
 }
 
-/**
- * CommandRegistry - コマンド登録・実行API
- */
-export interface CommandRegistry {
-  // コマンド登録
-  registerCommand(
-    extensionId: string,
-    commandName: string,
-    handler: (args: string[], context: CommandContext) => Promise<string>
-  ): () => void;
-
-  // コマンド実行
-  executeCommand(commandName: string, args: string[], context: CommandContext): Promise<string>;
-
-  // コマンド一覧取得
-  getRegisteredCommands(): string[];
-
-  // コマンド登録確認
-  hasCommand(commandName: string): boolean;
-
-  // 拡張機能のコマンドを全て削除
-  unregisterExtensionCommands(extensionId: string): void;
-}
-
-/**
- * システムモジュールの型マップ
- */
-// Public (extension-facing) minimal shapes for terminal command classes.
 export interface UnixCommandsPublic {
   pwd(): Promise<string>;
   getRelativePath(): string;
@@ -145,11 +110,7 @@ export interface GitCommandsPublic {
   getCurrentBranch(): Promise<string>;
   status(): Promise<string>;
   init(): Promise<string>;
-  clone(
-    url: string,
-    targetDir?: string,
-    options?: { skipDotGit?: boolean; maxGitObjects?: number }
-  ): Promise<string>;
+  clone(url: string, targetDir?: string, options?: { maxGitObjects?: number }): Promise<string>;
   add(filepath: string): Promise<string>;
   commit(message: string, author?: { name: string; email: string }): Promise<string>;
   push(options?: { remote?: string; branch?: string; force?: boolean }): Promise<string>;
@@ -179,137 +140,46 @@ export interface NpmCommandsPublic {
   run(scriptName: string): Promise<string>;
 }
 
-/**
- * Process exit shape returned by various shell helpers.
- */
-export type ProcExit = {
-  code: number | null;
-  /** Signal name when process was killed, e.g. 'SIGINT' */
-  signal?: string | null;
-};
-
-export type BinaryChunk = Uint8Array;
-
-/**
- * Minimal readable stream-like interface used by builtins/handlers.
- * Designed to be compatible with Node.js streams but intentionally
- * small so the extension-facing API doesn't require Node types.
- */
-export interface ReadableLike {
-  on(event: 'data', cb: (chunk: BinaryChunk | string) => void): this;
-  on(event: 'end' | 'close', cb: () => void): this;
-  on(event: 'error', cb: (err: Error) => void): this;
-}
-
-/**
- * Minimal writable stream-like interface used by builtins/handlers.
- */
-export interface WritableLike {
-  write(chunk: BinaryChunk | string): boolean;
-  end(): void;
-  on(event: 'error', cb: (err: Error) => void): this;
-}
-
-/**
- * A handle representing a running subprocess inside the StreamShell.
- * This mirrors the engine-side Process class (stdin/stdout/stderr, pid,
- * wait(), kill()). It is exposed here so extensions that call lower-level
- * APIs (if available) can type-check against it.
- */
-export interface ShellProcessHandle {
-  pid: number;
-  stdin: WritableLike;
-  stdout: ReadableLike;
-  stderr: ReadableLike;
-  /**
-   * Wait for the process to exit and receive final exit info.
-   */
-  wait(): Promise<ProcExit>;
-  /** Kill the process with a signal (default: SIGINT)
-   * Note: implementations may queue a 'signal' event before actually
-   * resolving the wait() promise.
-   */
-  kill(signal?: string): void;
-}
-
-/**
- * Result returned by StreamShell.run(). Kept strict and explicit so
- * callers can rely on the exact fields produced by the engine.
- */
-export interface ShellRunResult {
-  stdout: string;
-  stderr: string;
-  /** Numeric exit code or null when process was terminated by signal */
-  code: number | null;
-}
-
-/**
- * StreamShell - extension-facing, strongly-typed description.
- * This mirrors the runtime behavior implemented in the engine but
- * remains self-contained (no imports from `src/`). Keep signatures
- * conservative (don't add required runtime-only features).
- */
 export interface StreamShell {
-  /**
-   * Execute a single command-line (can include pipelines, redirections,
-   * logical operators, and script invocations). Returns collected
-   * stdout/stderr and the exit code. The call resolves when the
-   * pipeline completes (or times out inside the engine).
-   */
-  run(line: string): Promise<ShellRunResult>;
-
-  /**
-   * Kill the current foreground process (if any) with an optional signal.
-   * This is a convenience that forwards to the shell's foreground process
-   * handler. It MUST be safe to call even if no foreground process exists.
-   */
+  run(line: string): Promise<{ stdout: string; stderr: string; code: number | null }>;
   killForeground?(signal?: string): void;
-
-  /**
-   * If the implementation exposes low-level process handles, this method
-   * will create one for the provided (already-parsed) command segment.
-   * This is optional and may be undefined on some runtimes. The engine's
-   * default StreamShell does not expose a public createProcess API, but
-   * the type is provided for completeness.
-   */
-  createProcessHandle?(cmdLine: string): Promise<ShellProcessHandle>;
-
-  /** Helpers to inspect the shell context (optional). */
-  getProjectId?(): string | undefined;
-  getProjectName?(): string | undefined;
 }
 
 export interface SystemModuleMap {
-  fileRepository: FileRepository;
-  transpiler: TranspilerModule;
+  fsClient: FsClient;
   workerRuntime: WorkerRuntimeModule;
-  pathUtils: PathUtilsModule;
+  pathUtils: PathUtils;
+  workspace: Workspace;
+  keybindings: Keybindings;
   commandRegistry: CommandRegistry;
-  /** Terminal/CLI commands provider exposed to extensions */
   systemBuiltinCommands: {
-    getUnixCommands: (projectName: string, projectId?: string) => UnixCommandsPublic;
-    getGitCommands: (projectName: string, projectId?: string) => GitCommandsPublic;
-    getNpmCommands: (
-      projectName: string,
-      projectId?: string,
-      projectPath?: string
-    ) => Promise<NpmCommandsPublic>;
-    getShell: (
-      projectName: string,
-      projectId?: string,
-      opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
-    ) => Promise<StreamShell | null>;
+    getUnixCommands(rootPath: string): UnixCommandsPublic;
+    getGitCommands(rootPath: string): GitCommandsPublic;
+    getNpmCommands(rootPath: string): Promise<NpmCommandsPublic>;
+    getShell(
+      rootPath: string,
+      opts?: {
+        unix?: UnixCommandsPublic;
+        commandRegistry?: CommandRegistry;
+        fsClient?: FsClient;
+      }
+    ): Promise<StreamShell>;
   };
 }
 
-/**
- * システムモジュール名
- */
 export type SystemModuleName = keyof SystemModuleMap;
-
-/**
- * 型安全なgetSystemModuleのヘルパー型
- */
 export type GetSystemModule = <T extends SystemModuleName>(
   moduleName: T
 ) => Promise<SystemModuleMap[T]>;
+
+export interface CommandRegistry {
+  registerCommand(
+    extensionId: string,
+    commandName: string,
+    handler: (args: string[], context: CommandContext) => Promise<string>
+  ): () => void;
+  executeCommand(commandName: string, args: string[], context: CommandContext): Promise<string>;
+  getRegisteredCommands(): string[];
+  hasCommand(commandName: string): boolean;
+  unregisterExtensionCommands(extensionId: string): void;
+}

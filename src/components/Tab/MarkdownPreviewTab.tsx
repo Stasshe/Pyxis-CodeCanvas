@@ -3,24 +3,27 @@ import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from
 import ReactMarkdown, { type Components, type Options } from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { basename, fsClient, getParentPath, resolvePath } from '@/engine/core/fs';
 import 'katex/dist/katex.min.css';
 import 'github-markdown-css/github-markdown.css';
 
 import { useSnapshot } from 'valtio';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { readFileContent } from '@/engine/core/fileContent';
 import { exportPdfFromHtml, exportPngFromElement } from '@/engine/in-ex/exportPdf';
 import type { EditorPane, PreviewTab, Tab } from '@/engine/tabs/types';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
 import { tabActions, tabState } from '@/stores/tabState';
-import type { Project, ProjectFile } from '@/types';
-
+import type { Project } from '@/types';
+import LocalImage from './LocalImage';
 import CodeBlock from './MarkdownPreview/CodeBlock';
-import LocalImage from './MarkdownPreview/LocalImage';
+import { resolveMarkdownLink } from './MarkdownPreview/markdownLink';
+import { preprocessMarkdownMath } from './markdownMath';
 
 interface MarkdownPreviewTabProps {
   activeTab: PreviewTab;
@@ -29,9 +32,15 @@ interface MarkdownPreviewTabProps {
 
 type RemarkPlugins = NonNullable<Options['remarkPlugins']>;
 
+const resolveImagePath = (source: string, markdownPath: string): string => {
+  if (/^(https?:|data:|\/\/)/i.test(source)) return source;
+  if (source.startsWith('/')) return resolvePath('/', source);
+  return resolvePath(getParentPath(markdownPath), source);
+};
+
 const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentProject }) => {
   const { colors, themeName } = useTheme();
-  const { settings } = useSettings(currentProject?.id);
+  const { settings } = useSettings(currentProject?.rootPath);
   const { t } = useTranslation();
   // ref to markdown container for scrolling
   const markdownContainerRef = useRef<HTMLDivElement | null>(null);
@@ -60,7 +69,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // Subscribe to the editor tab's content from tabContentStore for real-time updates
   const editorTabContent = useTabContent(editorTabId ?? '');
-  // Preview tab's own runtime content (populated from fileRepository when tab is opened)
+  // Preview tab's own runtime content is restored from its file.
   const previewTabContent = useTabContent(activeTab.id);
 
   // Priority: live editor > preview runtime store
@@ -121,22 +130,13 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   // ReactMarkdownのコンポーネントをメモ化
   // 通常表示用
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentProject?.id/name are sufficient; !currentProject ≡ !currentProject?.id
   const markdownComponents = useMemo<Partial<Components>>(
     () => ({
       ...codeComponent,
       img: ({ src, alt, ...props }) => {
-        const srcString = typeof src === 'string' ? src : '';
-        return (
-          <LocalImage
-            src={srcString}
-            alt={alt || ''}
-            projectName={currentProject?.name}
-            projectId={currentProject?.id}
-            activeTab={activeTab}
-            {...props}
-          />
-        );
+        const source = typeof src === 'string' ? src : '';
+        const srcString = resolveImagePath(source, activeTab.path);
+        return <LocalImage src={srcString} alt={alt || ''} {...props} />;
       },
       a: ({ href, children, ...props }) => {
         const hrefString = typeof href === 'string' ? href : '';
@@ -146,126 +146,83 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
           try {
             if (!hrefString) return;
 
-            // Hash-only links - scroll within current preview
-            if (hrefString.startsWith('#')) {
+            const target = resolveMarkdownLink(hrefString, activeTab.path);
+            if (target.kind === 'anchor') {
               e.preventDefault();
-              const anchor = decodeURIComponent(hrefString.substring(1));
-              const el = markdownContainerRef.current?.querySelector(`#${CSS.escape(anchor)}`);
+              const el = markdownContainerRef.current?.querySelector(`#${CSS.escape(target.id)}`);
               if (el && el instanceof HTMLElement) el.scrollIntoView({ behavior: 'smooth' });
               return;
             }
-
-            if (
-              hrefString.startsWith('https://') ||
-              hrefString.startsWith('mailto:') ||
-              hrefString.startsWith('tel:') ||
-              hrefString.startsWith('data:')
-            ) {
+            if (target.kind === 'external') {
               e.preventDefault();
               window.open(hrefString, '_blank', 'noopener');
               return;
             }
-
-            // At this point, treat as a project-local link. Resolve relative to activeTab.path
             e.preventDefault();
-            if (!currentProject || !currentProject.id) {
-              // fallback: open in new tab
-              window.open(hrefString, '_blank', 'noopener');
-              return;
-            }
-
-            // Helper to normalize path segments and remove ./ and ..
-            const normalizeSegments = (p: string) => {
-              const parts = p.split('/');
-              const stack: string[] = [];
-              for (const part of parts) {
-                if (!part || part === '.') continue;
-                if (part === '..') {
-                  if (stack.length) stack.pop();
-                } else {
-                  stack.push(part);
-                }
+            if (target.kind !== 'local') {
+              if (target.kind === 'invalid') {
+                console.warn('[MarkdownPreviewTab] invalid local link', hrefString);
               }
-              return `/${stack.join('/')}`;
-            };
-
-            // Remove any search/query/hash from href for file lookup
-            const hrefNoHash = hrefString.split('#')[0].split('?')[0];
-
-            // Build candidate paths: relative to current file and root-relative
-            const candidates: string[] = [];
-            if (hrefNoHash.startsWith('/')) {
-              candidates.push(normalizeSegments(hrefNoHash));
-            } else {
-              const base = activeTab.path || '/';
-              const dir = base.replace(/\/[^/]*$/, '').replace(/^\/?$/, '/');
-              candidates.push(normalizeSegments(`${dir}/${hrefNoHash}`));
-              candidates.push(normalizeSegments(`/${hrefNoHash}`));
+              return;
             }
 
             // Try candidates and also try adding .md if missing
             const tryCandidates: string[] = [];
-            for (const c of candidates) {
+            for (const c of target.paths) {
               tryCandidates.push(c);
               if (!c.toLowerCase().endsWith('.md')) tryCandidates.push(`${c}.md`);
             }
 
-            // Query fileRepository for existence
+            // Check candidates in the filesystem.
             for (const cand of Array.from(new Set(tryCandidates))) {
               try {
-                const f = await fileRepository.getFileByPath(currentProject.id, cand);
-                if (f && f.type === 'file') {
-                  const file = f as ProjectFile;
-
-                  // Determine if markdown
-                  const fileName = file.name || '';
-                  const isMarkdown =
-                    fileName.toLowerCase().endsWith('.md') || cand.toLowerCase().endsWith('.md');
-
-                  if (isMarkdown) {
-                    // Decode content if buffer
-                    let content = file.content || '';
-                    if (file.isBufferArray && file.bufferContent) {
-                      content = new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
-                    }
-
-                    await openTab(
-                      {
-                        name: fileName || cand.replace(/^\//, ''),
-                        path: cand,
-                        content,
-                        kind: 'preview',
-                      },
-                      { kind: 'preview', makeActive: true }
-                    );
-                    return;
-                  }
-
-                  // Non-markdown file - open with web preview
+                if (!(await fsClient.exists(cand))) continue;
+                const file = await fsClient.stat(cand);
+                if (file.type !== 'file') continue;
+                const fileName = basename(cand);
+                const isMarkdown = fileName.toLowerCase().endsWith('.md');
+                const fileContent = await readFileContent(cand);
+                if (fileContent.kind === 'binary') {
                   await openTab(
                     {
-                      name: fileName || cand.replace(/^\//, ''),
+                      name: fileName,
                       path: cand,
-                      content: file.content || '',
-                      kind: 'webPreview',
-                      webPreviewUrl: undefined,
+                      content: '',
+                      bufferContent: fileContent.bufferContent,
+                      mimeType: fileContent.mimeType,
+                      isBufferArray: true,
+                      kind: 'binary',
                     },
-                    { kind: 'webPreview', makeActive: true }
+                    { kind: 'binary', makeActive: true }
                   );
                   return;
                 }
+                if (isMarkdown) {
+                  await openTab(
+                    {
+                      name: fileName,
+                      path: cand,
+                      content: fileContent.content,
+                      kind: 'preview',
+                    },
+                    { kind: 'preview', makeActive: true }
+                  );
+                } else {
+                  await openTab(
+                    { name: fileName, path: cand, content: '', kind: 'webPreview' },
+                    { kind: 'webPreview', makeActive: true }
+                  );
+                }
+                return;
               } catch (err) {
-                console.warn('[MarkdownPreviewTab.tsx] caught non-fatal error', err);
-                // ignore and try next
+                console.warn('[MarkdownPreviewTab] failed to resolve local link', err);
               }
             }
 
-            // Fallback: open in new tab
-            window.open(hrefString, '_blank', 'noopener');
+            console.warn('[MarkdownPreviewTab] local link not found', hrefString);
           } catch (err) {
             console.warn('[MarkdownPreviewTab] link handler failed:', err);
-            // Last resort: follow the link
-            window.open(hrefString, '_blank', 'noopener');
+            e.preventDefault();
           }
         };
 
@@ -277,81 +234,22 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         );
       },
     }),
-    [codeComponent, currentProject?.id, currentProject?.name, activeTab]
+    [codeComponent, activeTab]
   );
 
   // Preprocess the raw markdown to convert bracket-style math delimiters
   // into dollar-style, while skipping code fences and inline code.
   // For 'bracket' mode: escape dollar signs so they don't get processed as math
   const processedContent = useMemo(() => {
-    // Use editor tab content for real-time updates, otherwise fall back to preview tab content
-    const src = contentSource;
     const delimiter = settings?.markdown?.math?.delimiter || 'dollar';
-    if (delimiter === 'dollar') return src;
-
-    // Helper: process text while preserving code blocks
-    const processNonCode = (text: string, processFn: (segment: string) => string): string => {
-      // Split by code fences and keep them intact
-      return text
-        .split(/(```[\s\S]*?```)/g)
-        .map(part => {
-          if (/^```/.test(part)) return part; // code fence, leave
-          // Within non-fence parts, also preserve inline code
-          return part
-            .split(/(`[^`]*`)/g)
-            .map(seg => {
-              if (/^`/.test(seg)) return seg; // inline code
-              return processFn(seg);
-            })
-            .join('');
-        })
-        .join('');
-    };
-
-    if (delimiter === 'bracket') {
-      // 'bracket' mode:
-      // 1. First, escape existing dollar signs to prevent remark-math from processing them
-      // 2. Then, convert bracket delimiters to dollar style
-      // Use unique placeholders that won't appear in normal markdown text
-      const DOUBLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_DOUBLE_DOLLAR__';
-      const SINGLE_DOLLAR_PLACEHOLDER = '__PYXIS_ESCAPED_SINGLE_DOLLAR__';
-
-      let result = processNonCode(src, seg => {
-        // Escape $$ first (display math), then $ (inline math)
-        return seg
-          .replace(/\$\$/g, DOUBLE_DOLLAR_PLACEHOLDER)
-          .replace(/\$/g, SINGLE_DOLLAR_PLACEHOLDER);
-      });
-      // Convert bracket delimiters to dollar style
-      result = processNonCode(result, seg => {
-        return seg
-          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => `$${g}$`)
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => `$$${g}$$`);
-      });
-      // Restore escaped dollar signs as literal text (not math)
-      result = result
-        .replace(new RegExp(DOUBLE_DOLLAR_PLACEHOLDER, 'g'), '\\$\\$')
-        .replace(new RegExp(SINGLE_DOLLAR_PLACEHOLDER, 'g'), '\\$');
-      return result;
-    }
-
-    if (delimiter === 'both') {
-      // 'both' mode: convert bracket delimiters to dollar style (dollars also work)
-      return processNonCode(src, seg => {
-        return seg
-          .replace(/\\\(([\s\S]+?)\\\)/g, (_m, g: string) => `$${g}$`)
-          .replace(/\\\[([\s\S]+?)\\\]/g, (_m, g: string) => `$$${g}$$`);
-      });
-    }
-
-    return src;
+    return preprocessMarkdownMath(contentSource, delimiter);
   }, [contentSource, settings?.markdown?.math?.delimiter]);
 
   const markdownContent = useMemo(
     () => (
       <ReactMarkdown
         remarkPlugins={[remarkGfm, ...extraRemarkPlugins, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeKatex]}
         components={markdownComponents}
       >
         {processedContent}
@@ -485,14 +383,13 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
 
   return (
     <div className="p-4 overflow-auto h-full w-full" ref={markdownContainerRef}>
-      <div className="flex items-center mb-2">
-        <div className="font-bold text-lg mr-2" style={{ color: colors.foreground }}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="min-w-0 break-words font-bold text-lg" style={{ color: colors.foreground }}>
           {activeTab.name} {t('markdownPreview.preview')}
         </div>
         <button
           type="button"
-          className="px-2 py-1 rounded bg-green-500 text-white text-xs hover:bg-green-600 transition"
-          style={{ marginLeft: 4 }}
+          className="shrink-0 whitespace-nowrap rounded bg-green-500 px-2 py-1 text-xs text-white transition hover:bg-green-600"
           onClick={handleExportPdf}
           title={t('markdownPreview.exportPdf')}
         >
@@ -500,7 +397,7 @@ const MarkdownPreviewTab: FC<MarkdownPreviewTabProps> = ({ activeTab, currentPro
         </button>
         <button
           type="button"
-          className="px-2 py-1 rounded bg-blue-500 text-white text-xs hover:bg-blue-600 transition ml-2"
+          className="shrink-0 whitespace-nowrap rounded bg-blue-500 px-2 py-1 text-xs text-white transition hover:bg-blue-600"
           onClick={handleExportPng}
           title={t('markdownPreview.exportPng')}
         >

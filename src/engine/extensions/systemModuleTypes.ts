@@ -1,23 +1,17 @@
-/**
- * System Module Type Definitions (Engine-Side)
- *
- * 拡張機能がアクセスできるシステムモジュールの型定義
- * getSystemModule の型推論を正確にするための型マップ
- *
- * NOTE: This file imports the actual implementation types to ensure
- * strict type safety within the engine code.
- */
-
 import type { GitCommands } from '@/engine/cmd/global/git';
 import type { NpmCommands } from '@/engine/cmd/global/npm';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import type { StreamShell } from '@/engine/cmd/shell/streamShell';
-import type { fileRepository } from '@/engine/core/fileRepository';
-import type { fromGitPath, getParentPath, toAppPath, toGitPath } from '@/engine/core/pathUtils';
+import type { FsClient } from '@/engine/core/fs/client';
+import type { FsChangeEvent } from '@/engine/core/fs/types';
 import type {
-  extractCjsDependencies,
-  transformEsmToCjs,
-} from '@/engine/runtime/transpiler/esmTransformer';
+  basename,
+  getParentPath,
+  isPathWithin,
+  normalizePath,
+  posixPath,
+  resolvePath,
+} from '@/engine/core/pathUtils';
 import type {
   createUrlWorkerPool,
   createWorkerPool,
@@ -25,85 +19,71 @@ import type {
 } from '@/engine/workers/WorkerPool';
 import type { CommandRegistry } from './commandRegistry';
 
-/**
- * transpilerモジュールの型定義
- */
-export interface TranspilerModule {
-  transformEsmToCjs: typeof transformEsmToCjs;
-  extractCjsDependencies: typeof extractCjsDependencies;
-}
-
-/**
- * ComlinkベースのWorker Poolユーティリティ
- */
 export interface WorkerRuntimeModule {
   WorkerPool: typeof WorkerPool;
   createWorkerPool: typeof createWorkerPool;
   createUrlWorkerPool: typeof createUrlWorkerPool;
 }
 
-/**
- * pathUtilsモジュールの型定義
- */
+export type FsClientApi = Pick<
+  FsClient,
+  | 'readFile'
+  | 'readText'
+  | 'writeFile'
+  | 'readdir'
+  | 'stat'
+  | 'lstat'
+  | 'chmod'
+  | 'realpath'
+  | 'readlink'
+  | 'symlink'
+  | 'mkdir'
+  | 'rm'
+  | 'rename'
+  | 'walk'
+  | 'exists'
+  | 'addChangeListener'
+>;
+
 export interface PathUtilsModule {
-  normalizePath: typeof toAppPath;
-  toAppPath: typeof toAppPath;
+  posixPath: typeof posixPath;
+  normalizePath: typeof normalizePath;
+  resolvePath: typeof resolvePath;
   getParentPath: typeof getParentPath;
-  toGitPath: typeof toGitPath;
-  fromGitPath: typeof fromGitPath;
+  basename: typeof basename;
+  isPathWithin: typeof isPathWithin;
 }
 
-/**
- * システムモジュールの型マップ
- * この型を使用して getSystemModule の戻り値型を推論する
- *
- * NOTE: すべての型はインスタンス型を指定する（クラスコンストラクタ型ではない）
- */
+export interface WorkspaceModule {
+  getRootPath(): string | null;
+  subscribe(listener: (rootPath: string | null) => void): () => void;
+}
+
+export interface KeybindingsModule {
+  registerAction(actionId: string, callback: () => void): () => void;
+}
+
 export interface SystemModuleMap {
-  // fileRepository is an instance (singleton) exported from the core fileRepository
-  // module. Use the instance type here so getSystemModule returns the runtime
-  // instance rather than the class/constructor.
-  fileRepository: typeof fileRepository;
-  transpiler: TranspilerModule;
+  fsClient: FsClientApi;
   workerRuntime: WorkerRuntimeModule;
   pathUtils: PathUtilsModule;
-  // commandRegistry is an instance exported from commandRegistry module.
-  // Use the class instance type (not constructor type).
+  workspace: WorkspaceModule;
+  keybindings: KeybindingsModule;
   commandRegistry: CommandRegistry;
-  /** Terminal/CLI command singletons provider */
   systemBuiltinCommands: {
-    getUnixCommands: (projectName: string, projectId?: string) => UnixCommands;
-    getGitCommands: (projectName: string, projectId?: string) => GitCommands;
-    getNpmCommands: (
-      projectName: string,
-      projectId?: string,
-      projectPath?: string
-    ) => Promise<NpmCommands>;
-    /**
-     * Construct or return a per-project StreamShell instance.
-     * Matches TerminalCommandRegistry.getShell which may return null on failure.
-     */
+    getUnixCommands: (rootPath: string) => UnixCommands;
+    getGitCommands: (rootPath: string) => GitCommands;
+    getNpmCommands: (rootPath: string) => Promise<NpmCommands>;
     getShell: (
-      projectName: string,
-      projectId?: string,
-      opts?: { unix?: any; commandRegistry?: any; fileRepository?: any }
-    ) => Promise<StreamShell | null>;
+      rootPath: string,
+      opts?: { unix?: UnixCommands; commandRegistry?: CommandRegistry; fsClient?: FsClientApi }
+    ) => Promise<StreamShell>;
   };
 }
 
-/**
- * システムモジュール名の型
- */
 export type SystemModuleName = keyof SystemModuleMap;
-
-/**
- * システムモジュールの型を取得
- */
 export type SystemModuleType<T extends SystemModuleName> = SystemModuleMap[T];
-
-/**
- * getSystemModule のヘルパー型
- */
 export type GetSystemModule = <T extends SystemModuleName>(
   moduleName: T
 ) => Promise<SystemModuleMap[T]>;
+export type FsChangeListener = (event: FsChangeEvent) => void;

@@ -12,11 +12,12 @@
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSnapshot } from 'valtio';
+import { normalizePath } from '@/engine/core/fs';
 import type { EditorTab } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useSettings } from '@/hooks/state/useSettings';
 import { useTabContent } from '@/stores/tabContentStore';
-import { saveImmediately, tabState } from '@/stores/tabState';
+import { addSaveListener, saveImmediately, tabState } from '@/stores/tabState';
 import type { Project } from '@/types';
 import { useCharCount } from './text-editor/hooks/useCharCount';
 import CharCountDisplay from './text-editor/ui/CharCountDisplay';
@@ -27,11 +28,7 @@ const MonacoEditor = lazy(() => import('./text-editor/editors/MonacoEditor'));
 
 interface CodeEditorProps {
   activeTab: EditorTab | undefined;
-  bottomPanelHeight: number;
-  isBottomPanelVisible: boolean;
-  onContentChange: (tabId: string, content: string) => void;
   wordWrapConfig: 'on' | 'off';
-  nodeRuntimeOperationInProgress?: boolean;
   currentProject?: Project;
   isCodeMirror?: boolean;
   // 即時ローカル編集反映ハンドラ: 全ペーンの同ファイルタブに対して isDirty を立てる
@@ -42,27 +39,20 @@ interface CodeEditorProps {
 
 export default function CodeEditor({
   activeTab,
-  onContentChange,
-  nodeRuntimeOperationInProgress = false,
   isCodeMirror = false,
   onImmediateContentChange,
   currentProject,
   wordWrapConfig,
   isActive = false,
 }: CodeEditorProps) {
-  // プロジェクトIDは優先的に props の currentProject?.id を使い、なければ activeTab の projectId を参照
-  const projectId =
-    currentProject?.id ||
-    (activeTab && 'projectId' in activeTab ? (activeTab as any).projectId : undefined);
-  const { settings, updateSettings } = useSettings(projectId);
+  const rootPath = currentProject?.rootPath;
+  const { settings, updateSettings } = useSettings(rootPath);
   const { isContentRestored } = useSnapshot(tabState);
-
-  // コンテンツ復元中かどうかを判定
-  const isRestoringContent =
-    activeTab &&
-    'needsContentRestore' in activeTab &&
-    (activeTab as any).needsContentRestore &&
-    !isContentRestored;
+  const needsContentRestore = (
+    activeTab as (EditorTab & { needsContentRestore?: boolean }) | undefined
+  )?.needsContentRestore;
+  const isRestoringContent = needsContentRestore && !isContentRestored;
+  const restoreFailed = needsContentRestore && isContentRestored;
 
   // tabContentStoreからコンテンツを取得（panesを更新せずに再レンダリング）
   const storeContent = useTabContent(activeTab?.id ?? '');
@@ -81,6 +71,21 @@ export default function CodeEditor({
 
   // Mobile / touch device 判定: ポインタが coarse、または画面幅が小さい、または navigator.maxTouchPoints をチェック
   const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveErrorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const filePath = activeTab?.path;
+    saveErrorRef.current = null;
+    setSaveError(null);
+    if (!filePath) return;
+    const normalizedPath = normalizePath(filePath);
+    return addSaveListener((savedPath, success, error) => {
+      if (normalizePath(savedPath) !== normalizedPath) return;
+      saveErrorRef.current = success ? null : error?.message || `Failed to save ${filePath}`;
+      setSaveError(saveErrorRef.current);
+    });
+  }, [activeTab?.path]);
   useEffect(() => {
     const updateIsMobile = () => {
       try {
@@ -130,11 +135,7 @@ export default function CodeEditor({
   const handleEditorChange = useCallback(
     (value: string) => {
       if (!activeTab) return;
-      try {
-        onImmediateContentChange?.(activeTab.id, value);
-      } catch (e) {
-        console.error('[CodeEditor] onImmediateContentChange handler failed', e);
-      }
+      onImmediateContentChange?.(activeTab.id, value);
     },
     [activeTab, onImmediateContentChange]
   );
@@ -142,24 +143,22 @@ export default function CodeEditor({
   // Ctrl+S で即時保存
   useKeyBinding('saveFile', async () => {
     if (!activeTab?.path) return;
-    // コンテンツ復元中やランタイム操作中は保存を無視
+    // コンテンツ復元中は保存を無視
     if (isRestoringContent) return;
-    if (nodeRuntimeOperationInProgress) {
-      console.log('[CodeEditor] Save skipped during NodeRuntime operation');
-      return;
-    }
 
     try {
       await saveImmediately(activeTab.path);
-      console.log('[CodeEditor] Immediate save completed');
     } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      saveErrorRef.current = message;
+      setSaveError(message);
       console.error('[CodeEditor] Immediate save failed:', e);
     }
-  }, [activeTab?.path, isRestoringContent, nodeRuntimeOperationInProgress]);
+  }, [activeTab?.path, isRestoringContent]);
 
   // 折り返しのトグルショートカット登録 (Alt+Z)
   useKeyBinding('toggleWordWrap', async () => {
-    if (!projectId || !updateSettings) return;
+    if (!rootPath || !updateSettings) return;
     const current = settings?.editor?.wordWrap ?? false;
     try {
       await updateSettings(prev => ({
@@ -171,7 +170,16 @@ export default function CodeEditor({
     } catch (e) {
       console.error('[CodeEditor] toggleWordWrap failed:', e);
     }
-  }, [projectId, settings?.editor?.wordWrap, updateSettings]);
+  }, [rootPath, settings?.editor?.wordWrap, updateSettings]);
+
+  const saveErrorNotice = saveError ? (
+    <div
+      role="alert"
+      className="absolute right-2 top-2 z-20 max-w-[80%] truncate rounded bg-red-950/90 px-2 py-1 text-xs text-red-100"
+    >
+      {saveError}
+    </div>
+  ) : null;
 
   // === タブなし ===
   if (!activeTab) {
@@ -190,10 +198,23 @@ export default function CodeEditor({
     );
   }
 
+  if (restoreFailed) {
+    return (
+      <div
+        role="alert"
+        className="flex-1 min-h-0 relative flex items-center justify-center text-sm text-red-500"
+        style={{ height: editorHeight }}
+      >
+        Failed to restore this file. Close and reopen the tab to try again.
+      </div>
+    );
+  }
+
   // === CodeMirrorエディター ===
   if (isCodeMirror) {
     return (
       <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
+        {saveErrorNotice}
         <Suspense fallback={<div className="h-full" />}>
           <CodeMirrorEditor
             tabId={activeTab.id}
@@ -223,6 +244,7 @@ export default function CodeEditor({
   // === Monaco Editorエディター（デフォルト）===
   return (
     <div className="flex-1 min-h-0 relative" style={{ height: editorHeight }}>
+      {saveErrorNotice}
       <Suspense fallback={<div className="h-full" />}>
         <MonacoEditor
           tabId={activeTab.id}

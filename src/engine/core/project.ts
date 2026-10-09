@@ -1,311 +1,203 @@
-/**
- * project.ts - 新アーキテクチャ対応のプロジェクト管理フック
- *
- * 設計原則:
- * 1. IndexedDBが唯一の真実の源（Single Source of Truth）
- * 2. 全てのファイル操作はfileRepositoryを経由する
- * 3. GitFileSystemへの同期は自動的にバックグラウンドで実行される
- * 4. イベントリスナーによってUIは自動更新される
- * 5. 手動の状態更新は不要（イベントシステムに任せる）
- */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { basename, fsClient, getParentPath, normalizePath } from '@/engine/core/fs';
+import { ProjectTree } from '@/engine/core/projectTree';
+import { listRecentFolders, saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
+import { getCurrentProject, setCurrentProject } from '@/stores/projectStore';
+import type { FileItem, Project, ProjectFile } from '@/types';
 
-import { useEffect, useMemo, useState } from 'react';
-import { LOCALSTORAGE_KEY } from '@/constants/config';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { createChatSpace } from '@/engine/storage/chatStorageAdapter';
-import type { FileItem } from '@/types';
-import type { Project, ProjectFile } from '@/types/';
-import { fileRepository } from './fileRepository';
+function toFileItems(files: ProjectFile[], rootPath: string | null): FileItem[] {
+  const items = new Map<string, FileItem>();
+  const roots: FileItem[] = [];
 
-/**
- * プロジェクト作成時のGit初期化とコミット
- */
-const initializeProjectGit = async (project: Project, files: ProjectFile[]) => {
-  try {
-    console.log('[Git] Initializing for project:', project.name);
-    // GitFileSystemやsyncManagerへの直接同期はfileRepository側に委譲
-    // ここではGitリポジトリの初期化と初回コミットのみ行う
-    const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
-    try {
-      await git.init();
-      console.log('[Git] Repository initialized');
-      await new Promise(resolve => setTimeout(resolve, 200));
-      await git.add('.');
-      console.log('[Git] Files staged');
-      await new Promise(resolve => setTimeout(resolve, 200));
-      await git.commit('Initial commit', {
-        name: 'Pyxis User',
-        email: 'user@pyxis.dev',
-      });
-      console.log('[Git] Initial commit completed');
-    } catch (gitError) {
-      console.warn('[Git] Initialization failed (non-critical):', gitError);
-    }
-  } catch (error) {
-    console.error('[Git] Failed to initialize:', error);
-  }
-};
-
-/**
- * ProjectFileをFileItem階層構造に変換
- */
-const convertToFileItems = (files: ProjectFile[]): FileItem[] => {
-  const uniqueFiles = files.reduce((acc, file) => {
-    const existing = acc.find(f => f.path === file.path);
-    if (!existing) {
-      acc.push(file);
-    } else if (file.updatedAt > existing.updatedAt) {
-      const index = acc.indexOf(existing);
-      acc[index] = file;
-    }
-    return acc;
-  }, [] as ProjectFile[]);
-
-  const fileMap = new Map<string, FileItem>();
-  const rootItems: FileItem[] = [];
-
-  uniqueFiles.forEach(file => {
-    const item: FileItem = {
-      id: file.id,
-      name: file.name,
+  for (const file of files) {
+    let children: FileItem['children'];
+    if (file.type === 'folder') children = [];
+    items.set(file.path, {
+      id: file.path,
+      name: basename(file.path),
       type: file.type,
       path: file.path,
-      content: file.content,
-      isBufferArray: file.isBufferArray,
-      bufferContent: file.bufferContent,
-      children: file.type === 'folder' ? [] : undefined,
-    };
-    fileMap.set(file.path, item);
-  });
-
-  const ensureParentFolder = (parentPath: string) => {
-    if (!parentPath || parentPath === '/') return;
-    if (!fileMap.has(parentPath)) {
-      const name = parentPath.split('/').filter(Boolean).pop() || parentPath;
-      const grandParent = parentPath.substring(0, parentPath.lastIndexOf('/')) || '/';
-      const folderItem: FileItem = {
-        id: `auto-folder-${parentPath}`,
-        name,
-        type: 'folder',
-        path: parentPath,
-        content: '',
-        isBufferArray: false,
-        bufferContent: undefined,
-        children: [],
-      };
-      fileMap.set(parentPath, folderItem);
-      ensureParentFolder(grandParent);
-    }
-  };
-
-  uniqueFiles.forEach(file => {
-    const item = fileMap.get(file.path);
-    if (!item) return;
-
-    if (file.parentPath === '/' || !file.parentPath || file.path === '/') {
-      rootItems.push(item);
-    } else {
-      if (!fileMap.has(file.parentPath)) {
-        ensureParentFolder(file.parentPath);
-      }
-      const parent = fileMap.get(file.parentPath);
-      if (parent?.children) {
-        parent.children.push(item);
-      }
-    }
-  });
-
-  fileMap.forEach((item, path) => {
-    if (item.type === 'folder' && item.path.lastIndexOf('/') <= 0 && !rootItems.includes(item)) {
-      rootItems.push(item);
-    }
-  });
-
-  const sortItems = (items: FileItem[]): FileItem[] => {
-    return items
-      .sort((a, b) => {
-        if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      })
-      .map(item => ({
-        ...item,
-        children: item.children ? sortItems(item.children) : undefined,
-      }));
-  };
-
-  return sortItems(rootItems);
-};
-
-/**
- * プロジェクト管理用カスタムフック
- */
-export const useProject = () => {
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
-  const fileItems = useMemo(() => convertToFileItems(projectFiles), [projectFiles]);
-
-  const loadProject = async (project: Project) => {
-    try {
-      await fileRepository.init();
-      const files = await fileRepository.getFilesByPrefix(project.id, '/');
-      setCurrentProject(project);
-      setProjectFiles(files);
-      try {
-        const git = terminalCommandRegistry.getGitCommands(project.name, project.id);
-        const currentBranch = await git.getCurrentBranch();
-        if (currentBranch === '(no git)') {
-          console.log('[Project] Git not initialized, initializing...');
-          await initializeProjectGit(project, files);
-        }
-      } catch (gitError) {
-        console.warn('[Project] Git check failed:', gitError);
-        try {
-          await initializeProjectGit(project, files);
-        } catch (initError) {
-          console.warn('[Project] Git initialization failed (non-critical):', initError);
-        }
-      }
-    } catch (error) {
-      console.error('[Project] Failed to load:', error);
-    }
-  };
-
-  const refreshProjectFiles = async () => {
-    if (!currentProject) return;
-
-    try {
-      const files = await fileRepository.getFilesByPrefix(currentProject.id, '/');
-      setProjectFiles(files);
-    } catch (error) {
-      console.error('[Project] Failed to refresh:', error);
-    }
-  };
-
-  const createProject = async (name: string, description?: string) => {
-    try {
-      await fileRepository.init();
-
-      console.log('[Project] Creating new project:', name);
-      const newProject = await fileRepository.createProject(name, description);
-
-      const files = await fileRepository.getFilesByPrefix(newProject.id, '/');
-
-      setCurrentProject(newProject);
-      setProjectFiles(files);
-
-      await initializeProjectGit(newProject, files);
-
-      try {
-        await createChatSpace(newProject.id, '新規チャット');
-      } catch (error) {
-        console.warn('[Project] Failed to create initial chat space (non-critical):', error);
-      }
-
-      return newProject;
-    } catch (error) {
-      console.error('[Project] Failed to create:', error);
-      throw error;
-    }
-  };
-
-  const saveRecentProject = (project: Project) => {
-    try {
-      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
-      let recentProjects: Project[] = recentProjectsStr ? JSON.parse(recentProjectsStr) : [];
-
-      recentProjects = recentProjects.filter(p => p.id !== project.id);
-      recentProjects.unshift(project);
-      recentProjects = recentProjects.slice(0, 10);
-
-      localStorage.setItem(LOCALSTORAGE_KEY.RECENT_PROJECTS, JSON.stringify(recentProjects));
-    } catch (error) {
-      console.error('[Project] Failed to save recent project:', error);
-    }
-  };
-
-  const getRecentProjects = (): Project[] => {
-    try {
-      const recentProjectsStr = localStorage.getItem(LOCALSTORAGE_KEY.RECENT_PROJECTS);
-      return recentProjectsStr ? JSON.parse(recentProjectsStr) : [];
-    } catch (error) {
-      console.error('[Project] Failed to get recent projects:', error);
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    if (!currentProject) return;
-
-    // console.log('[Project] Subscribing to file changes for:', currentProject.id);
-
-    const unsubscribe = fileRepository.addChangeListener(event => {
-      if (event.projectId !== currentProject.id) return;
-
-      // console.log('[Project] File change event:', event.type, event.file);
-
-      switch (event.type) {
-        case 'create':
-          if ('content' in event.file) {
-            setProjectFiles(prev => {
-              if (prev.find(f => f.id === event.file.id)) return prev;
-              return [...prev, event.file as ProjectFile];
-            });
-          }
-          break;
-
-        case 'update':
-          if ('content' in event.file) {
-            setProjectFiles(prev =>
-              prev.map(f => (f.id === event.file.id ? (event.file as ProjectFile) : f))
-            );
-          }
-          break;
-
-        case 'delete':
-          setProjectFiles(prev => prev.filter(f => f.id !== event.file.id));
-          break;
-      }
+      children,
     });
+  }
 
-    return () => {
-      console.log('[Project] Unsubscribing from file changes');
-      unsubscribe();
-    };
-  }, [currentProject]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: saveRecentProject is a plain function with no changing state captures
-  useEffect(() => {
-    if (currentProject) {
-      saveRecentProject(currentProject);
+  for (const file of files) {
+    const item = items.get(file.path);
+    if (!item) continue;
+    const parentPath = getParentPath(file.path);
+    if (parentPath === rootPath) {
+      roots.push(item);
+      continue;
     }
-  }, [currentProject]);
+    const parent = items.get(parentPath);
+    if (parent?.children) parent.children.push(item);
+  }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: createProject/getRecentProjects/loadProject are plain functions; intentional run-once initialization
-  useEffect(() => {
-    const initProject = async () => {
+  const sort = (entries: FileItem[]): FileItem[] => {
+    const sortedEntries = entries.sort((left, right) => {
+      if (left.type !== right.type) {
+        if (left.type === 'folder') return -1;
+        return 1;
+      }
+      return left.name.localeCompare(right.name);
+    });
+    const result: FileItem[] = [];
+    for (const entry of sortedEntries) {
+      let children: FileItem['children'];
+      if (entry.children) children = sort(entry.children);
+      result.push({ ...entry, children });
+    }
+    return result;
+  };
+
+  return sort(roots);
+}
+
+function projectFromPath(rootPath: string): Project {
+  const normalizedPath = normalizePath(rootPath);
+  let name = basename(normalizedPath);
+  if (!name) name = '/';
+  return { rootPath: normalizedPath, name, updatedAt: new Date() };
+}
+
+let projectStartupError: string | null = null;
+
+export async function prepareProjectStore(): Promise<void> {
+  try {
+    const recentFolders = await listRecentFolders();
+    if (recentFolders.length === 0) return;
+    const project = projectFromPath(recentFolders[0].rootPath);
+    const rootEntry = await fsClient.stat(project.rootPath);
+    if (rootEntry.type !== 'folder') throw new Error(`${project.rootPath} is not a folder.`);
+    setCurrentProject(project);
+    projectStartupError = null;
+  } catch (error) {
+    let message = String(error);
+    if (error instanceof Error) message = error.message;
+    console.error('[Project] Recent folder could not be opened:', error);
+    setCurrentProject(null);
+    projectStartupError = message;
+  }
+}
+
+export function getProjectStartupError(): string | null {
+  return projectStartupError;
+}
+
+export function useProject() {
+  const [currentProject, setCurrentProjectState] = useState<Project | null>(getCurrentProject);
+  const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+  const [startupError, setStartupError] = useState<string | null>(getProjectStartupError);
+  const [isReady, setIsReady] = useState(false);
+  const tree = useMemo(() => new ProjectTree(fsClient), []);
+  const fileItems = useMemo(
+    () => toFileItems(projectFiles, currentProject?.rootPath ?? null),
+    [currentProject, projectFiles]
+  );
+
+  const refreshProjectFiles = useCallback(async () => {
+    const rootPath = getCurrentProject()?.rootPath;
+    if (!rootPath) return;
+    if (!(await tree.load(rootPath))) return;
+    if (getCurrentProject()?.rootPath !== rootPath) return;
+    setProjectFiles(tree.snapshot());
+  }, [tree]);
+
+  const loadProject = useCallback(
+    async (project: Project, beforeCommit?: () => Promise<void>) => {
+      const rootPath = normalizePath(project.rootPath);
+      const rootEntry = await fsClient.stat(rootPath);
+      if (rootEntry.type !== 'folder') throw new Error(`${rootPath} is not a folder.`);
+      const openedProject = projectFromPath(rootPath);
+      if (!(await tree.load(rootPath))) return;
       try {
-        await fileRepository.init();
-        const projects = await fileRepository.getProjects();
-
-        const recentProjects = getRecentProjects();
-        const lastProject = recentProjects[0];
-
-        if (lastProject && projects.find(p => p.id === lastProject.id)) {
-          await loadProject(lastProject);
-        } else if (projects.length > 0) {
-          await loadProject(projects[0]);
-        } else {
-          setTimeout(() => {
-            createProject('Welcome-Project', 'Pyxis エディターへようこそ！');
-          }, 1000);
-        }
+        await saveRecentFolder(openedProject);
+        if (tree.rootPath !== rootPath) return;
+        if (beforeCommit) await beforeCommit();
       } catch (error) {
-        console.error('[Project] Failed to initialize:', error);
+        const currentRootPath = getCurrentProject()?.rootPath;
+        if (currentRootPath && currentRootPath !== rootPath) {
+          try {
+            await tree.load(currentRootPath);
+          } catch (restoreError) {
+            console.error('[Project] Failed to restore the current workspace tree:', restoreError);
+          }
+        }
+        throw error;
+      }
+      if (tree.rootPath !== rootPath) return;
+      setCurrentProject(openedProject);
+      setCurrentProjectState(openedProject);
+      setProjectFiles(tree.snapshot());
+      projectStartupError = null;
+      setStartupError(null);
+    },
+    [tree]
+  );
+
+  const createProject = useCallback(
+    async (name: string, beforeCommit?: () => Promise<void>) => {
+      const rootPath = await fsClient.createWorkspace(name);
+      const project = projectFromPath(rootPath);
+      await loadProject(project, beforeCommit);
+      return project;
+    },
+    [loadProject]
+  );
+
+  useEffect(() => {
+    let active = true;
+    const initialize = async () => {
+      try {
+        await fsClient.init();
+        const initialProject = getCurrentProject();
+        if (initialProject) await loadProject(initialProject);
+        if (active) setIsReady(true);
+      } catch (error) {
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        console.error('[Project] Startup failed:', error);
+        if (active) {
+          setStartupError(message);
+          setIsReady(true);
+        }
       }
     };
+    initialize();
+    return () => {
+      active = false;
+    };
+  }, [loadProject]);
 
-    initProject();
-  }, []);
+  useEffect(() => {
+    let active = true;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const schedulePublish = () => {
+      if (timeout !== null) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        timeout = null;
+        if (active && tree.rootPath === getCurrentProject()?.rootPath) {
+          setProjectFiles(tree.snapshot());
+        }
+      }, 100);
+    };
+    const unsubscribe = fsClient.addChangeListener(event => {
+      void tree
+        .change(event)
+        .then(changed => {
+          if (active && changed) schedulePublish();
+        })
+        .catch(error => {
+          console.error('[Project] Failed to apply filesystem change:', error);
+        });
+    });
+    return () => {
+      active = false;
+      if (timeout !== null) clearTimeout(timeout);
+      unsubscribe();
+      tree.close();
+    };
+  }, [tree]);
 
   return {
     currentProject,
@@ -313,5 +205,7 @@ export const useProject = () => {
     loadProject,
     createProject,
     refreshProjectFiles,
+    startupError,
+    isReady,
   };
-};
+}

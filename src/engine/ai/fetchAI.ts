@@ -25,8 +25,6 @@ export async function generateCodeEdit(prompt: string, apiKey: string): Promise<
     const data = await response.json();
     const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    console.log('[original response]', result);
-
     if (!result) {
       throw new Error('No response from Gemini API');
     }
@@ -71,8 +69,6 @@ export async function generateChatResponse(
     if (!result) {
       throw new Error('No response from Gemini API');
     }
-    console.log('[original response]', result);
-
     return result;
   } catch (error) {
     throw new Error(`Gemini API error: ${(error as Error).message}`);

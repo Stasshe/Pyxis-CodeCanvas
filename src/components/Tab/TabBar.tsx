@@ -10,19 +10,27 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { createPortal } from 'react-dom';
 import { snapshot, useSnapshot } from 'valtio';
-import { DND_TAB } from '@/constants/dndTypes';
+import { DND_TAB, type TabDragItem } from '@/constants/dndTypes';
 import { useFileSelector } from '@/context/FileSelectorContext';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
+import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import { type EditorPane, hasContent } from '@/engine/tabs/types';
 import { triggerAction, useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
-import { tabActions, tabState } from '@/stores/tabState';
+import { isTabDirty } from '@/stores/tabContentStore';
+import {
+  flushDirtyTabFiles,
+  isDirty as isPathDirty,
+  tabActions,
+  tabState,
+} from '@/stores/tabState';
 import DraggableTab from './DraggableTab';
 import { TabIcon } from './TabIcon';
+import { findTabElement } from './tabBarUtils';
 import { useTabCloseConfirmation } from './useTabCloseConfirmation';
 
 interface TabBarProps {
@@ -62,6 +70,7 @@ export default function TabBar({ paneId }: TabBarProps) {
 
   // ペインメニューの開閉状態
   const [paneMenuOpen, setPaneMenuOpen] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const paneMenuRef = useRef<HTMLDivElement>(null);
   const paneMenuButtonRef = useRef<HTMLButtonElement>(null);
   const [paneMenuPosition, setPaneMenuPosition] = useState({ left: 0, top: 0 });
@@ -73,6 +82,20 @@ export default function TabBar({ paneId }: TabBarProps) {
     tabRect: null,
   });
   const tabContextMenuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const menu = tabContextMenuRef.current;
+    const anchor = tabContextMenu.tabRect;
+    if (!menu || !anchor) return;
+    const placeMenu = () => {
+      const bounds = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(0, Math.min(anchor.left, window.innerWidth - bounds.width))}px`;
+      menu.style.top = `${Math.max(0, Math.min(anchor.bottom, window.innerHeight - bounds.height))}px`;
+    };
+    placeMenu();
+    window.addEventListener('resize', placeMenu);
+    return () => window.removeEventListener('resize', placeMenu);
+  }, [tabContextMenu]);
 
   // タッチ検出用
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -123,12 +146,41 @@ export default function TabBar({ paneId }: TabBarProps) {
   // タブを閉じる
   const handleTabClose = useCallback(
     (tabId: string) => {
-      const tab = tabs.find(t => t.id === tabId);
-      if (tab) {
-        requestClose(tabId, (tab as any).isDirty || false, () => closeTab(paneId, tabId));
-      }
+      const tab = tabs.find(candidate => candidate.id === tabId);
+      if (!tab) return;
+      setMutationError(null);
+      const path = tab.path;
+      const dirty = Boolean(tab.isDirty || isTabDirty(tabId) || (path && isPathDirty(path)));
+      requestClose(tabId, dirty, confirmedTabId => {
+        void (async () => {
+          const currentTab = tabActions.getTab(paneId, confirmedTabId);
+          if (!currentTab) return;
+          const currentDefinition = tabRegistry.get(currentTab.kind);
+          if (currentDefinition?.hasPendingChanges?.(currentTab)) {
+            if (!currentDefinition.flushPendingChanges) {
+              setMutationError('Could not save pending tab changes.');
+              return;
+            }
+            try {
+              await currentDefinition.flushPendingChanges(currentTab);
+            } catch (error) {
+              console.error('[TabBar] Failed to save pending tab changes:', error);
+              setMutationError(error instanceof Error ? error.message : String(error));
+              return;
+            }
+          }
+          const currentPath = currentTab.path;
+          const discardFileChanges = Boolean(
+            currentTab.isDirty ||
+              isTabDirty(confirmedTabId) ||
+              (currentPath && isPathDirty(currentPath))
+          );
+          const closed = closeTab(paneId, confirmedTabId, { discard: discardFileChanges });
+          if (!closed) setMutationError('Could not close the tab because it is still dirty.');
+        })();
+      });
     },
-    [tabs, requestClose, paneId]
+    [tabs, paneId, requestClose]
   );
 
   // 新しいタブを追加
@@ -136,31 +188,39 @@ export default function TabBar({ paneId }: TabBarProps) {
     openFileSelector(paneId);
   }, [openFileSelector, paneId]);
 
-  const handleRemovePane = useCallback(() => {
+  const handleRemovePane = useCallback(async () => {
     // Use a fresh snapshot at the moment of the click to avoid races with in-flight
     // updates to the shared pane tree. Close any open menus first so we don't try to
     // reference elements that may be unmounted during removal.
     const flatPanes = flattenPanes(snapshot(tabState).panes);
     if (flatPanes.length <= 1) return;
 
-    setPaneMenuOpen(false);
-    setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
-
-    // Defer the actual removal so we don't run a synchronous state mutation in the
-    // middle of click handling, which has caused crashes in some cases.
-    requestAnimationFrame(() => {
-      try {
-        removePane(paneId);
-      } catch (err) {
-        console.error('[TabBar] removePane failed', err);
-      }
-    });
+    setMutationError(null);
+    try {
+      await flushDirtyTabFiles();
+      setPaneMenuOpen(false);
+      setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
+      if (!removePane(paneId))
+        throw new Error('Could not remove the pane while changes remain unsaved.');
+    } catch (error) {
+      console.error('[TabBar] Failed to save before removing pane:', error);
+      setMutationError(error instanceof Error ? error.message : String(error));
+    }
   }, [paneId]);
   // 全タブを閉じる
-  const handleRemoveAllTabs = useCallback(() => {
-    tabs.forEach(tab => {
-      closeTab(paneId, tab.id);
-    });
+  const handleRemoveAllTabs = useCallback(async () => {
+    setMutationError(null);
+    try {
+      await flushDirtyTabFiles();
+      for (const tab of tabs) {
+        if (!closeTab(paneId, tab.id)) {
+          throw new Error(`Could not close ${tab.name} because it is still dirty.`);
+        }
+      }
+    } catch (error) {
+      console.error('[TabBar] Failed to save before removing tabs:', error);
+      setMutationError(error instanceof Error ? error.message : String(error));
+    }
   }, [tabs, paneId]);
 
   // タブをペインに移動
@@ -295,7 +355,7 @@ export default function TabBar({ paneId }: TabBarProps) {
             path: activeTab.path,
             content: hasContent(activeTab) ? activeTab.content : undefined,
           },
-          { kind: 'preview', paneId: newPane.id, targetPaneId: newPane.id }
+          { kind: 'preview', paneId: newPane.id }
         );
       }
       return;
@@ -311,7 +371,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         path: activeTab.path,
         content: hasContent(activeTab) ? activeTab.content : undefined,
       },
-      { kind: 'preview', paneId: randomPane.id, targetPaneId: randomPane.id }
+      { kind: 'preview', paneId: randomPane.id }
     );
   }, [paneId, activeTabId, tabs, panes]);
 
@@ -331,11 +391,10 @@ export default function TabBar({ paneId }: TabBarProps) {
   };
 
   // コンテナへのドロップ
-  const [, containerDrop] = useDrop(
+  const [, containerDrop] = useDrop<TabDragItem>(
     () => ({
       accept: DND_TAB,
-      drop: (item: any) => {
-        if (!item?.tabId) return;
+      drop: (item: TabDragItem) => {
         if (item.fromPaneId === paneId) return;
         moveTab(item.fromPaneId, paneId, item.tabId);
       },
@@ -352,9 +411,10 @@ export default function TabBar({ paneId }: TabBarProps) {
 
     // アクティブタブの要素を探す
     const container = tabListContainerRef.current;
-    const activeTabElement = container.querySelector(
-      `[data-tab-id="${activeTabId}"]`
-    ) as HTMLElement;
+    const activeTabElement = findTabElement(
+      container.querySelectorAll<HTMLElement>('[data-tab-id]'),
+      activeTabId
+    );
 
     if (activeTabElement) {
       // タブが見えているかどうかをチェック
@@ -380,6 +440,16 @@ export default function TabBar({ paneId }: TabBarProps) {
       className="h-10 border-b flex items-center relative bg-muted border-border"
       style={{ background: colors.mutedBg, borderColor: colors.border, zIndex: 1 }}
     >
+      {mutationError && (
+        <div
+          role="alert"
+          className="absolute top-full left-0 z-50 max-w-full truncate border border-border bg-card px-2 py-1 text-xs"
+          style={{ color: colors.red, background: colors.cardBg, borderColor: colors.border }}
+        >
+          {mutationError}
+        </div>
+      )}
+      {ConfirmationDialog}
       {/* ペインメニューボタン */}
       <div className="flex items-center h-full pl-2 pr-1 gap-1 relative">
         <button
@@ -486,7 +556,7 @@ export default function TabBar({ paneId }: TabBarProps) {
         className="flex items-center overflow-x-auto flex-1 select-none"
         ref={node => {
           tabListContainerRef.current = node;
-          if (node) containerDrop(node as any);
+          if (node) containerDrop(node);
         }}
         onWheel={handleWheel}
       >
@@ -515,69 +585,77 @@ export default function TabBar({ paneId }: TabBarProps) {
       </div>
 
       {/* タブコンテキストメニュー（タブの真下に固定） */}
-      {tabContextMenu.isOpen && tabContextMenu.tabRect && (
-        <div
-          ref={tabContextMenuRef}
-          className="fixed bg-card border border-border rounded shadow-lg z-50 min-w-[150px] p-2 select-none"
-          style={{
-            background: colors.cardBg,
-            borderColor: colors.border,
-            left: `${tabContextMenu.tabRect.left}px`,
-            top: `${tabContextMenu.tabRect.bottom}px`,
-          }}
-        >
-          {/* Markdownプレビュー */}
-          {tabs
-            .find(t => t.id === tabContextMenu.tabId)
-            ?.name.toLowerCase()
-            .endsWith('.md') && (
+      {tabContextMenu.isOpen &&
+        tabContextMenu.tabRect &&
+        createPortal(
+          <div
+            ref={tabContextMenuRef}
+            className="fixed bg-card border border-border rounded shadow-lg z-[100] min-w-[150px] p-2 select-none"
+            style={{
+              maxWidth: '100vw',
+              maxHeight: '100vh',
+              overflowY: 'auto',
+              background: colors.cardBg,
+              borderColor: colors.border,
+              left: `${tabContextMenu.tabRect.left}px`,
+              top: `${tabContextMenu.tabRect.bottom}px`,
+            }}
+          >
+            {/* Markdownプレビュー */}
+            {tabs
+              .find(t => t.id === tabContextMenu.tabId)
+              ?.name.toLowerCase()
+              .endsWith('.md') && (
+              <button
+                className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                onClick={() => {
+                  const tab = tabs.find(t => t.id === tabContextMenu.tabId);
+                  if (tab) {
+                    openTab(
+                      {
+                        name: tab.name,
+                        path: tab.path,
+                        content: hasContent(tab) ? tab.content : undefined,
+                      },
+                      { kind: 'preview', paneId }
+                    );
+                  }
+                  setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
+                }}
+              >
+                {t('tabBar.openPreview')}
+              </button>
+            )}
             <button
               className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
               onClick={() => {
-                const tab = tabs.find(t => t.id === tabContextMenu.tabId);
-                if (tab) {
-                  openTab(
-                    { name: tab.name, path: tab.path, content: (tab as any).content },
-                    { kind: 'preview', paneId, targetPaneId: paneId }
-                  );
-                }
+                handleTabClose(tabContextMenu.tabId);
                 setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
               }}
             >
-              {t('tabBar.openPreview')}
+              {t('tabBar.closeTab')}
             </button>
-          )}
-          <button
-            className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
-            onClick={() => {
-              handleTabClose(tabContextMenu.tabId);
-              setTabContextMenu({ isOpen: false, tabId: '', tabRect: null });
-            }}
-          >
-            {t('tabBar.closeTab')}
-          </button>
-          {availablePanes.length > 1 && (
-            <>
-              <div className="text-xs text-muted-foreground px-2 py-1 mt-2">
-                {t('tabBar.moveToPane')}
-              </div>
-              {availablePanes
-                .filter(p => p.id !== paneId)
-                .map(p => (
-                  <button
-                    key={p.id}
-                    className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
-                    onClick={() => handleMoveTabToPane(tabContextMenu.tabId, p.id)}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-            </>
-          )}
-        </div>
-      )}
-
-      {ConfirmationDialog}
+            {availablePanes.length > 1 && (
+              <>
+                <div className="text-xs text-muted-foreground px-2 py-1 mt-2">
+                  {t('tabBar.moveToPane')}
+                </div>
+                {availablePanes
+                  .filter(p => p.id !== paneId)
+                  .map(p => (
+                    <button
+                      key={p.id}
+                      className="w-full text-left px-2 py-1 text-sm hover:bg-accent rounded"
+                      onClick={() => handleMoveTabToPane(tabContextMenu.tabId, p.id)}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+              </>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

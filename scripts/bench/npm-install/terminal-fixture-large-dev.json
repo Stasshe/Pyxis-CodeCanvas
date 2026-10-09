@@ -1,0 +1,13 @@
+{
+  "name": "large-dev-no-lock",
+  "manifestText": "{\n  \"name\": \"pyxis-bench-large-dev\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {},\n  \"devDependencies\": {\n    \"vite\": \"8.2.1\",\n    \"typescript\": \"6.0.3\",\n    \"esbuild\": \"0.28.2\",\n    \"prettier\": \"3.9.9\"\n  }\n}\n",
+  "lockfileText": null,
+  "expectedAddedPackages": 16,
+  "nativeExpectedAddedPackages": 19,
+  "pyxisExpectedCheckedPackages": 17,
+  "nativeExpectedAuditedPackages": 20,
+  "command": "npm install",
+  "expectedPyxisPlacedPackages": 16,
+  "expectedNativePlacedPackages": 19,
+  "expectedLockPackages": 0
+}

@@ -8,14 +8,16 @@
  */
 
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from '@/constants/config';
 
 import { extensionManager } from '@/engine/extensions/extensionManager';
+import { commitLatestLoad } from '@/engine/i18n/commitLatestLoad';
+import { activateEnglishPackOrLoadTranslations } from '@/engine/i18n/englishPackFallback';
 import { clearAllCacheForLocale, loadTranslations } from '@/engine/i18n/loader';
 import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
-import { createTranslator } from '@/engine/i18n/translator';
+import { createTranslator, mergeTranslations } from '@/engine/i18n/translator';
 import type {
   I18nContextValue,
   Locale,
@@ -157,37 +159,63 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [translations, setTranslations] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const localeRequestId = useRef(0);
+  const requestedLocale = useRef(initialLocale);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') document.documentElement.lang = locale;
+  }, [locale]);
 
   /**
    * 翻訳リソースをロード
    */
   const loadLocale = useCallback(async (newLocale: Locale) => {
+    const requestId = ++localeRequestId.current;
+    requestedLocale.current = newLocale;
     setIsLoading(true);
     const namespaces = ['common', 'welcome', 'detail'];
     try {
-      const results = await Promise.all(namespaces.map(ns => loadTranslations(newLocale, ns)));
-      const merged = Object.assign({}, ...results);
-
-      setTranslations(merged);
-      setLocaleState(newLocale);
-      saveLocale(newLocale);
+      await commitLatestLoad(
+        requestId,
+        () => localeRequestId.current,
+        async () => {
+          const results = await Promise.all(namespaces.map(ns => loadTranslations(newLocale, ns)));
+          return mergeTranslations(...results);
+        },
+        merged => {
+          setTranslations(merged);
+          setLocaleState(newLocale);
+          saveLocale(newLocale);
+        }
+      );
     } catch (error) {
+      if (requestId !== localeRequestId.current) return;
       console.error(`[i18n] Failed to load locale '${newLocale}':`, error);
       // フォールバック: デフォルトロケールを試す
       if (newLocale !== DEFAULT_LOCALE) {
         try {
-          const results = await Promise.all(
-            namespaces.map(ns => loadTranslations(DEFAULT_LOCALE, ns))
+          await commitLatestLoad(
+            requestId,
+            () => localeRequestId.current,
+            async () => {
+              const results = await Promise.all(
+                namespaces.map(ns => loadTranslations(DEFAULT_LOCALE, ns))
+              );
+              return mergeTranslations(...results);
+            },
+            merged => {
+              setTranslations(merged);
+              setLocaleState(DEFAULT_LOCALE);
+            }
           );
-          const merged = Object.assign({}, ...results);
-          setTranslations(merged);
-          setLocaleState(DEFAULT_LOCALE);
         } catch (err) {
-          console.error('[i18n] Failed to load fallback locale translations:', err);
+          if (requestId === localeRequestId.current) {
+            console.error('[i18n] Failed to load fallback locale translations:', err);
+          }
         }
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === localeRequestId.current) setIsLoading(false);
     }
   }, []);
 
@@ -197,7 +225,7 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
    */
   const setLocale = useCallback(
     async (newLocale: Locale) => {
-      if (newLocale === locale) return;
+      if (newLocale === locale && newLocale === requestedLocale.current) return;
 
       // 有効化された言語パックの中にあるかチェック
       const enabledLocales = getEnabledLocales();
@@ -219,7 +247,9 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
   const t = useCallback(
     (key: string | TranslationKey, options?: TranslateOptions): string => {
       if (isLoading || Object.keys(translations).length === 0) {
-        return options?.fallback || options?.defaultValue || key;
+        if (options?.fallback !== undefined) return options.fallback;
+        if (options?.defaultValue !== undefined) return options.defaultValue;
+        return key;
       }
 
       const translator = createTranslator(translations);
@@ -244,11 +274,11 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
           }
         } else if (event.type === 'disabled') {
           // 無効化された場合、現在の言語がそれなら切り替え
-          if (eventLocale === locale) {
+          if (eventLocale === locale && !event.replacementExtensionId) {
             // インストール済みの言語パックの中から適当に選んで切り替え
             extensionManager
               .getInstalledExtensions()
-              .then(installed => {
+              .then(async installed => {
                 const installedLangPacks = installed.filter(
                   ext =>
                     ext.manifest &&
@@ -259,27 +289,23 @@ export function I18nProvider({ children, defaultLocale }: I18nProviderProps) {
                 if (installedLangPacks.length > 0) {
                   // 最初のインストール済み言語パックを有効化
                   const nextLangPack = installedLangPacks[0];
-                  extensionManager.enableExtension(nextLangPack.manifest.id);
+                  const enabled = await extensionManager.enableExtension(nextLangPack.manifest.id);
+                  if (!enabled) await loadLocale(DEFAULT_LOCALE);
                 } else {
                   // インストール済みの言語パックがない場合、英語パックをインストール・有効化
-                  extensionManager
-                    .installExtension('/extensions/lang-packs/en/manifest.json')
-                    .then(installed => {
-                      if (installed) {
-                        return extensionManager.enableExtension('pyxis.lang.en');
-                      }
-                    })
-                    .catch(err => {
-                      console.error('[i18n] Failed to install/enable English pack:', err);
-                      // 最終フォールバック: 直接ロード
-                      if (isSupportedLocale('en')) {
-                        loadLocale('en' as Locale);
-                      }
-                    });
+                  void activateEnglishPackOrLoadTranslations(
+                    () =>
+                      extensionManager
+                        .installExtension('/extensions/lang-packs/en/manifest.json')
+                        .then(installed => installed !== null),
+                    () => extensionManager.enableExtension('pyxis.lang.en'),
+                    () => loadLocale(DEFAULT_LOCALE)
+                  );
                 }
               })
               .catch(err => {
                 console.error('[i18n] Failed to switch language pack:', err);
+                void loadLocale(DEFAULT_LOCALE);
               });
           }
         } else if (event.type === 'uninstalled') {

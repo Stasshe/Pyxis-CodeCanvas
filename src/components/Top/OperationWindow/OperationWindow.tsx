@@ -1,631 +1,627 @@
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import MdPreviewDialog from '@/components/Top/MdPreviewDialog';
-import { flattenFileItems, scoreMatch } from '@/components/Top/OperationWindow/OperationUtils';
+import { parseFileSearchQuery } from '@/components/Top/OperationWindow/fileSearchUtils';
 import OperationVirtualList from '@/components/Top/OperationWindow/OperationVirtualList';
-
 import { useTranslation } from '@/context/I18nContext';
+import type { ThemeColors } from '@/context/ThemeContext';
 import { useTheme } from '@/context/ThemeContext';
-import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
-import { createWorkerPool, type WorkerPool } from '@/engine/workers/WorkerPool';
-import { formatKeyComboForDisplay } from '@/hooks/keybindings/useKeyBindings';
-import { useSettings } from '@/hooks/state/useSettings';
-import { tabActions } from '@/stores/tabState';
+import { registerQuickInputShortcut, triggerAction } from '@/hooks/keybindings/useKeyBindings';
+import { getCurrentRootPath } from '@/stores/projectStore';
+import { tabActions, tabState } from '@/stores/tabState';
 import type { FileItem } from '@/types';
-import type { OperationWorkerApi } from './operationWorker';
+import type { OperationHeaderAction, OperationListItem, OperationWindowView } from './types';
+import { useFileSearch } from './useFileSearch';
 
-export interface OperationListItem {
-  id: string;
-  label: string;
-  description?: string;
-  icon?: React.ReactNode | string; // URL string or Component
-  onClick?: () => void;
-  isActive?: boolean;
-  // Editing state
-  isEditing?: boolean;
-  editValue?: string;
-  onEditChange?: (value: string) => void;
-  onEditConfirm?: () => void;
-  onEditCancel?: () => void;
-  // Actions
-  actions?: {
-    id: string;
-    icon: React.ReactNode;
-    label: string;
-    onClick: (e: React.MouseEvent) => void;
-    danger?: boolean;
-  }[];
-}
+export type { OperationListItem, OperationWindowView } from './types';
 
 interface OperationWindowProps {
   onClose: () => void;
   projectFiles: FileItem[];
-  onFileSelect?: (file: FileItem, preview?: boolean) => void; // AI用モード用
-  aiMode?: boolean; // AI用モード（ファイルをタブで開かない）
-  targetPaneId?: string | null; // ファイルを開くペインのID
-
-  // Generic List Props
+  onFileSelect?: (file: FileItem, preview?: boolean) => void | Promise<void>;
+  targetPaneId?: string | null;
   items?: OperationListItem[];
-  listTitle?: string; // Title for the list view (e.g. "Chat Spaces")
-  onSearchList?: (query: string) => void; // Optional: handle search externally or let component filter by label
-  headerActions?: {
-    icon: React.ReactNode;
-    label: string;
-    onClick: () => void;
-  }[];
-
+  headerActions?: (Pick<OperationHeaderAction, 'icon' | 'label' | 'onClick'> & { id?: string })[];
+  listTitle?: string;
   initialView?: 'files' | 'list';
+  views?: OperationWindowView[];
+  initialViewId?: string;
+}
+
+function getInitialViewId(initialViewId?: string, initialView?: 'files' | 'list'): string {
+  if (initialViewId) return initialViewId;
+  if (initialView === 'list') return 'list';
+  return 'files';
+}
+
+function moveSelection(index: number, amount: number, length: number): number {
+  if (length === 0) return 0;
+  const nextIndex = index + amount;
+  if (nextIndex < 0) return length - 1;
+  if (nextIndex >= length) return 0;
+  return nextIndex;
+}
+
+function getFocusableElements(dialog: HTMLElement): HTMLElement[] {
+  return Array.from(
+    dialog.querySelectorAll<HTMLElement>(
+      'input:not(:disabled), button:not(:disabled), [tabindex="0"]'
+    )
+  ).filter(element => element.getClientRects().length > 0);
 }
 
 export default function OperationWindow({
   onClose,
   projectFiles,
   onFileSelect,
-  aiMode = false,
   targetPaneId,
   items,
-  listTitle,
-  onSearchList,
   headerActions,
+  listTitle,
   initialView,
+  views = [],
+  initialViewId,
 }: OperationWindowProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [mdPreviewPrompt, setMdPreviewPrompt] = useState<null | { file: FileItem }>(null);
-  const [mdDialogSelected, setMdDialogSelected] = useState<0 | 1>(0); // 0: プレビュー, 1: 通常エディタ
-  const [viewMode, _setViewMode] = useState<'files' | 'list'>(() => initialView || 'files');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isActioning, setIsActioning] = useState(false);
+  const [isEntering, setIsEntering] = useState(false);
+  const actionBusyRef = useRef(false);
+  const [activeViewId] = useState(() => getInitialViewId(initialViewId, initialView));
+  const activeView = views.find(view => view.id === activeViewId);
+  const isFilesView = activeViewId === 'files';
+  const isActionBusy = isActioning || activeView?.actionBusy === true;
+  const isBusy = isActionBusy || isEntering || activeView?.loading === true;
+  const inputValue = activeView?.input?.value ?? searchQuery;
+  const parsedQuery = useMemo(() => parseFileSearchQuery(inputValue), [inputValue]);
+  let queryTokens = parsedQuery.tokens;
+  if (activeView?.input) queryTokens = [];
+  const fileSearch = useFileSearch(projectFiles, queryTokens, isFilesView);
+  const filteredFiles = fileSearch.files;
+  const inputElementId = useId().replaceAll(':', '');
+  const listId = `${inputElementId}-listbox`;
+  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [portalEl] = useState(() =>
-    typeof document !== 'undefined' ? document.createElement('div') : null
-  );
-  const { isExcluded } = useSettings();
-  // 検索クエリをスペースで分割してトークンにする（スペースは区切り）
-  const queryTokens = useMemo(() => searchQuery.trim().split(/\s+/).filter(Boolean), [searchQuery]);
-  // 固定アイテム高さを定義（スクロール計算と見た目の基準にする）
-  const ITEM_HEIGHT = 20; // slightly more compact
+  const restoreFocusRef = useRef(true);
+  const [portalEl] = useState(() => {
+    if (typeof document === 'undefined') return null;
+    return document.createElement('div');
+  });
+  const sourceItems = activeView?.items ?? items ?? [];
+  const filteredItems = useMemo(() => {
+    if (isFilesView) return [];
+    if (activeView?.input) return sourceItems;
+    if (queryTokens.length === 0) return sourceItems;
+    const lowerTokens = queryTokens.map(token => token.toLocaleLowerCase());
+    return sourceItems.filter(item => {
+      const label = item.label.toLocaleLowerCase();
+      let description = '';
+      if (item.description) description = item.description.toLocaleLowerCase();
+      return lowerTokens.every(token => label.includes(token) || description.includes(token));
+    });
+  }, [activeView?.input, isFilesView, queryTokens, sourceItems]);
+  let currentListLength = filteredItems.length;
+  if (isFilesView) currentListLength = filteredFiles.length;
+  let selectedOptionId: string | undefined;
+  if (currentListLength > 0) selectedOptionId = `${listId}-option-${selectedIndex}`;
+  const rootPath = getCurrentRootPath();
+  const viewHeaderActions = activeView?.headerActions ?? headerActions ?? [];
+  let viewMode: 'files' | 'list' = 'list';
+  if (isFilesView) viewMode = 'files';
 
-  // Reset state on mount. Visibility is controlled by the parent mounting/unmounting this window.
-  useEffect(() => {
-    setSearchQuery('');
-    setSelectedIndex(0);
-    const timeoutId = window.setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const [portalMount, setPortalMount] = useState<HTMLElement | null>(null);
 
-  // Attach a top-level portal element to document.body so the overlay isn't clipped
   useEffect(() => {
     if (!portalEl) return;
     portalEl.className = 'pyxis-operation-window-portal';
-    // ensure portal container doesn't interfere with layout
-    portalEl.style.position = 'relative';
-    portalEl.style.zIndex = '99999';
     document.body.appendChild(portalEl);
+    setPortalMount(portalEl);
     return () => {
-      try {
-        document.body.removeChild(portalEl);
-      } catch (e) {
-        console.warn('[OperationWindow.tsx] caught non-fatal error', e);
-        // ignore
-      }
+      document.body.removeChild(portalEl);
     };
   }, [portalEl]);
 
-  // ファイル選択ハンドラ
-  // 実際にファイルを開く処理（mdプレビューかどうかを指定）
-  // NOTE: Tab system removed — delegate to `onFileSelect(file, preview)` if available.
-  const actuallyOpenFile = useCallback(
-    async (file: FileItem, preview: boolean) => {
-      if (onFileSelect) {
-        try {
-          onFileSelect(file, preview);
-        } catch (e) {
-          console.warn('[OperationWindow] onFileSelect threw:', e);
-        }
-        onClose();
-        return;
-      }
-
-      // Fallback: try to open via tab store if available (back-compat)
-      try {
-        const defaultEditor =
-          typeof window !== 'undefined' ? localStorage.getItem('pyxis-defaultEditor') : 'monaco';
-        const fileWithEditor = { ...file, isCodeMirror: defaultEditor === 'codemirror' };
-        const options = targetPaneId
-          ? { paneId: targetPaneId, kind: preview ? 'preview' : 'editor' }
-          : { kind: preview ? 'preview' : 'editor' };
-
-        await tabActions.openTab(fileWithEditor, options);
-        onClose();
-        return;
-      } catch (e) {
-        console.warn('[OperationWindow] tab fallback failed:', e);
-      }
-
-      // No handler available — simply close and warn.
-      console.warn('[OperationWindow] No file open handler available (tabs removed).');
-      onClose();
-    },
-    [onFileSelect, onClose, targetPaneId]
-  );
-
-  const handleFileSelectInOperation = useCallback(
-    (file: FileItem) => {
-      // AIモードの場合は.mdの確認ダイアログは不要なので直接処理する
-      if (aiMode) {
-        actuallyOpenFile(file, false);
-        return;
-      }
-
-      if (file.name.toLowerCase().endsWith('.md')) {
-        setMdPreviewPrompt({ file });
-        return;
-      }
-      actuallyOpenFile(file, false);
-    },
-    [actuallyOpenFile, aiMode]
-  );
-
-  // Create a single flattened list once and reuse it to avoid multiple traversals
-  const flattenedFiles = useMemo(
-    () => (viewMode === 'files' ? flattenFileItems(projectFiles) : []),
-    [projectFiles, viewMode]
-  );
-
-  // 設定から除外パターンを取得
-  const gitignoreRules = useMemo((): GitIgnoreRule[] => {
-    try {
-      const git = flattenedFiles.find(f => f.name === '.gitignore' || f.path === '.gitignore');
-      if (!git || !git.content) return [];
-      return parseGitignore(git.content);
-    } catch (err) {
-      console.warn('[OperationWindow.tsx] caught non-fatal error', err);
-      return [];
-    }
-  }, [flattenedFiles]);
-
-  // Memoize file list to avoid changing identity on every render (prevents effect loops)
-  const allFiles = useMemo(() => {
-    try {
-      return flattenedFiles.filter(file => {
-        if (file.type !== 'file') return false;
-        if (isExcluded(file.path)) return false;
-        if (gitignoreRules && gitignoreRules.length > 0) {
-          try {
-            if (isPathIgnored(gitignoreRules, file.path, false)) return false;
-          } catch (e) {
-            console.warn('[OperationWindow.tsx] caught non-fatal error', e);
-            // ignore errors
-          }
-        }
-        return true;
-      });
-    } catch (e) {
-      console.warn('[OperationWindow.tsx] caught non-fatal error', e);
-      return [] as FileItem[];
-    }
-  }, [flattenedFiles, isExcluded, gitignoreRules]);
-
-  // Keep a ref to the latest allFiles so async worker results map against current list
-  const allFilesRef = useRef<FileItem[]>([]);
   useEffect(() => {
-    allFilesRef.current = allFiles;
-  }, [allFiles]);
-
-  // Use a Web Worker for file scoring/filtering to avoid blocking the main thread.
-  const workerPoolRef = useRef<WorkerPool<OperationWorkerApi> | null>(null);
-  const searchIdRef = useRef<number>(0);
-  const latestSearchIdRef = useRef<number>(0);
-
-  // Helper: compare file arrays by id (shallow, order-sensitive)
-  function arraysEqualById(a: FileItem[] | null | undefined, b: FileItem[] | null | undefined) {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (a[i].id !== b[i].id) return false;
-    }
-    return true;
-  }
-
-  // local fallback implementation if worker is not available or fails
-  function localComputeFilteredFiles(tokens: string[], filesToScan: FileItem[]) {
-    if (!tokens || tokens.length === 0) return filesToScan;
-
-    const scored: Array<{ file: FileItem; score: number }> = [];
-
-    for (const file of filesToScan) {
-      let totalScore = 0;
-      let matchedAll = true;
-
-      for (const token of tokens) {
-        const fileName = file.name;
-        const fileNameNoExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-        const pathParts = file.path.split('/');
-
-        const nameScore = scoreMatch(fileName, token);
-        const nameNoExtScore = scoreMatch(fileNameNoExt, token);
-        const pathScore = scoreMatch(file.path, token);
-        const partScores = pathParts.map(part => scoreMatch(part, token));
-        const bestPartScore = Math.max(...partScores, 0);
-
-        const best = Math.max(nameScore, nameNoExtScore, pathScore, bestPartScore);
-
-        if (best <= 0) {
-          matchedAll = false;
-          break;
-        }
-
-        totalScore += best;
-      }
-
-      if (matchedAll) {
-        scored.push({ file, score: totalScore / tokens.length });
-      }
-    }
-
-    scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.file.name.localeCompare(b.file.name);
-    });
-
-    return scored.map(s => s.file);
-  }
-
-  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>(() =>
-    viewMode === 'files' ? allFiles : []
-  );
-
-  // init worker once
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      workerPoolRef.current = createWorkerPool<OperationWorkerApi>({
-        createWorker: () =>
-          new Worker(new URL('./operationWorker.ts', import.meta.url), {
-            type: 'module',
-          }),
-        maxWorkers: 1,
-        timeoutMs: 10000,
-      });
-    } catch (err) {
-      console.error('Failed to create operation worker pool', err);
-      workerPoolRef.current = null;
-    }
+    const previousFocus = document.activeElement;
+    const focusTimeout = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
 
     return () => {
-      workerPoolRef.current?.terminate();
-      workerPoolRef.current = null;
+      window.clearTimeout(focusTimeout);
+      if (!restoreFocusRef.current || !(previousFocus instanceof HTMLElement)) return;
+      window.setTimeout(() => {
+        const pickerStillOpen = document.querySelector('[data-keybinding-scope="quick-input"]');
+        if (!pickerStillOpen && previousFocus.isConnected) previousFocus.focus();
+      }, 0);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // send files to worker when file list changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: arraysEqualById/queryTokens are plain function and trigger dep respectively; no stale closure risk
   useEffect(() => {
-    if (viewMode !== 'files') return;
-
-    if (workerPoolRef.current) {
-      try {
-        const payload = allFiles.map(f => ({ id: f.id, name: f.name, path: f.path, type: f.type }));
-        const ver = Date.now();
-        void workerPoolRef.current
-          .call(worker => worker.updateFiles(payload, ver))
-          .catch(err => console.error('Failed to update operation worker files', err));
-      } catch (err) {
-        console.error('Failed to update operation worker files', err);
+    if (!portalMount) return;
+    const handleOutsideInteraction = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && dialogRef.current?.contains(target)) return;
+      if (actionBusyRef.current || activeView?.actionBusy) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
       }
-    }
+      restoreFocusRef.current = true;
+      onClose();
+    };
+    document.addEventListener('pointerdown', handleOutsideInteraction, true);
+    document.addEventListener('click', handleOutsideInteraction, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsideInteraction, true);
+      document.removeEventListener('click', handleOutsideInteraction, true);
+    };
+  }, [activeView?.actionBusy, onClose, portalMount]);
 
-    // if no query, keep list in sync (guard against unnecessary updates)
-    if (!queryTokens || queryTokens.length === 0) {
-      setFilteredFiles(prev => (arraysEqualById(prev, allFiles) ? prev : allFiles));
-    }
-  }, [allFiles, viewMode]);
+  const closePicker = useCallback(() => {
+    if (actionBusyRef.current || activeView?.actionBusy) return;
+    restoreFocusRef.current = true;
+    onClose();
+  }, [activeView?.actionBusy, onClose]);
 
-  // send search requests to worker when tokens change
-  // biome-ignore lint/correctness/useExhaustiveDependencies: arraysEqualById/localComputeFilteredFiles are plain functions with no state captures
-  useEffect(() => {
-    if (viewMode !== 'files') return;
+  const runAction = useCallback(
+    async (action: () => void | Promise<void>, closeAfterSuccess = false) => {
+      if (isBusy || actionBusyRef.current) return;
+      setActionError(null);
+      actionBusyRef.current = true;
+      setIsActioning(true);
+      try {
+        await action();
+        if (closeAfterSuccess) restoreFocusRef.current = false;
+      } catch (error) {
+        console.error('[OperationWindow] Action failed', error);
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        setActionError(message);
+        restoreFocusRef.current = true;
+      } finally {
+        actionBusyRef.current = false;
+        setIsActioning(false);
+      }
+    },
+    [isBusy]
+  );
 
-    if (!queryTokens || queryTokens.length === 0) {
-      setFilteredFiles(prev => (arraysEqualById(prev, allFiles) ? prev : allFiles));
-      return;
-    }
-
-    const sid = (searchIdRef.current = (searchIdRef.current || 0) + 1);
-    latestSearchIdRef.current = sid;
-
-    if (workerPoolRef.current) {
-      void workerPoolRef.current
-        .call(worker => worker.search(queryTokens))
-        .then(resultEntries => {
-          // only accept the latest search id
-          if (sid !== latestSearchIdRef.current) return;
-          const idMap = new Map((allFilesRef.current || []).map(f => [f.id, f]));
-          const mapped = resultEntries
-            .map(r => {
-              const file = idMap.get(r.id);
-              if (!file) return null;
-              // attach score (non-breaking, for potential UI use)
-              (file as any).__searchScore = r.score;
-              return file;
-            })
-            .filter(Boolean) as FileItem[];
-          setFilteredFiles(prev => (arraysEqualById(prev, mapped) ? prev : mapped));
-        })
-        .catch(err => {
-          console.error('operation worker search failed', err);
-          if (sid !== latestSearchIdRef.current) return;
-          const fallback = localComputeFilteredFiles(queryTokens, allFiles);
-          setFilteredFiles(fallback);
-        });
-      return;
-    }
-
-    // fallback to local compute if worker is not available
-    const fallback = localComputeFilteredFiles(queryTokens, allFiles);
-    setFilteredFiles(fallback);
-  }, [queryTokens, allFiles, viewMode]);
-
-  // Filtering for GENERIC ITEMS (support multi-token AND search)
-  const filteredItems: OperationListItem[] = useMemo(() => {
-    if (viewMode !== 'list' || !items) return [];
-    if (!queryTokens || queryTokens.length === 0) return items;
-
-    const lowerTokens = queryTokens.map(t => t.toLowerCase());
-
-    return items.filter(item => {
-      const label = item.label.toLowerCase();
-      const desc = item.description?.toLowerCase() ?? '';
-      // require every token to be found in either label or description
-      return lowerTokens.every(tok => label.includes(tok) || desc.includes(tok));
-    });
-  }, [items, queryTokens, viewMode]);
-
-  const currentListLength = viewMode === 'files' ? filteredFiles.length : filteredItems.length;
-
-  // ESCキーで閉じる、上下キーで選択、Enterで開く
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // mdプレビュー選択ダイアログが表示中
-      if (mdPreviewPrompt) {
-        if (e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-          e.preventDefault();
-          setMdDialogSelected(prev => (prev === 0 ? 1 : 0));
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          if (mdDialogSelected === 0) {
-            actuallyOpenFile(mdPreviewPrompt.file, true);
-          } else {
-            actuallyOpenFile(mdPreviewPrompt.file, false);
-          }
-          setMdPreviewPrompt(null);
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setMdPreviewPrompt(null);
-        }
+  const actuallyOpenFile = useCallback(
+    async (file: FileItem, openBeside: boolean) => {
+      if (onFileSelect) {
+        await onFileSelect(file, false);
+        restoreFocusRef.current = false;
+        onClose();
         return;
       }
 
-      // Editing mode in list item?
-      // If an item is being edited, we might want to let the input handle keys.
-      // But here we are handling global navigation.
-      // Ideally, the input in the list item should stop propagation of keys it handles.
-
-      switch (e.key) {
-        case 'Escape':
-          e.preventDefault();
-          onClose();
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setSelectedIndex(prev => (prev > 0 ? prev - 1 : currentListLength - 1));
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          setSelectedIndex(prev => (prev < currentListLength - 1 ? prev + 1 : 0));
-          break;
-        case 'Enter':
-          // If we are in the search input, or just navigating
-          // We need to trigger the action of the selected item
-          if (viewMode === 'files' && filteredFiles[selectedIndex]) {
-            e.preventDefault();
-            handleFileSelectInOperation(filteredFiles[selectedIndex]);
-          } else if (viewMode === 'list' && filteredItems[selectedIndex]) {
-            e.preventDefault();
-            filteredItems[selectedIndex].onClick?.();
-          }
-          break;
+      let fileToOpen = file;
+      const editorPreference = localStorage.getItem('pyxis-defaultEditor');
+      fileToOpen = { ...fileToOpen, isCodeMirror: editorPreference === 'codemirror' };
+      if (openBeside && targetPaneId) {
+        await tabActions.splitPaneAndOpenFile(targetPaneId, 'vertical', fileToOpen, 'after');
+        const tabId = tabState.globalActiveTab;
+        const paneId = tabState.activePane;
+        if (
+          tabId &&
+          paneId &&
+          (parsedQuery.line !== undefined || parsedQuery.column !== undefined)
+        ) {
+          const jump: { jumpToLine?: number; jumpToColumn?: number } = {};
+          if (parsedQuery.line !== undefined) jump.jumpToLine = parsedQuery.line;
+          if (parsedQuery.column !== undefined) jump.jumpToColumn = parsedQuery.column;
+          tabActions.updateTab(paneId, tabId, jump);
+        }
+        restoreFocusRef.current = false;
+        onClose();
+        return;
       }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [
-    filteredFiles,
-    filteredItems,
-    selectedIndex,
-    onClose,
-    handleFileSelectInOperation,
-    mdPreviewPrompt,
-    mdDialogSelected,
-    viewMode,
-    currentListLength,
-    actuallyOpenFile,
-  ]);
-
-  // 検索クエリが変更されたときに選択インデックスをリセット
-  useEffect(() => {
-    setSelectedIndex(0);
-    if (onSearchList && viewMode === 'list') {
-      onSearchList(searchQuery);
-    }
-  }, [searchQuery, viewMode, onSearchList]);
-
-  const jsx = (
-    <>
-      <MdPreviewDialog
-        prompt={mdPreviewPrompt}
-        mdDialogSelected={mdDialogSelected}
-        setMdDialogSelected={setMdDialogSelected}
-        actuallyOpenFile={actuallyOpenFile}
-        setMdPreviewPrompt={setMdPreviewPrompt}
-        colors={colors}
-      />
-
-      {/* Main Window Overlay */}
-      <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-          paddingTop: '100px',
-          zIndex: 2000,
-        }}
-        onClick={onClose}
-      >
-        <div
-          style={{
-            background: colors.cardBg,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            width: '600px',
-            maxHeight: '40vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div style={{ padding: '12px' }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '12px' }}
-            >
-              <div
-                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {viewMode === 'list' && headerActions && (
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {headerActions.map(action => (
-                      <button
-                        key={action.label}
-                        onClick={action.onClick}
-                        title={action.label}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: colors.foreground,
-                          cursor: 'pointer',
-                          padding: '4px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          borderRadius: '4px',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = colors.mutedBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        {action.icon}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div style={{ fontSize: '12px', color: colors.mutedFg }}>
-                  {viewMode === 'files'
-                    ? `${t('operationWindow.quickOpen') || 'Quick Open'} - ${formatKeyComboForDisplay('Ctrl+P')}`
-                    : listTitle || 'List'}
-                </div>
-              </div>
-            </div>
-
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder={t('operationWindow.searchPlaceholder')}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                background: colors.background,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '4px',
-                color: colors.foreground,
-                fontSize: '14px',
-                outline: 'none',
-              }}
-              onKeyDown={e => {
-                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                  e.preventDefault(); // Prevent cursor moving in input
-                }
-              }}
-            />
-          </div>
-
-          <OperationVirtualList
-            viewMode={viewMode}
-            filteredFiles={filteredFiles}
-            filteredItems={filteredItems}
-            selectedIndex={selectedIndex}
-            setSelectedIndex={setSelectedIndex}
-            handleFileSelectInOperation={handleFileSelectInOperation}
-            ITEM_HEIGHT={ITEM_HEIGHT}
-            colors={colors}
-            queryTokens={queryTokens}
-            t={t}
-            listRef={listRef}
-          />
-
-          {/* Footer */}
-          <div
-            style={{
-              padding: '8px 12px',
-              borderTop: `1px solid ${colors.border}`,
-              background: colors.mutedBg,
-              fontSize: '12px',
-              color: colors.mutedFg,
-              display: 'flex',
-              justifyContent: 'space-between',
-            }}
-          >
-            <span>{t('operationWindow.footerHelp')}</span>
-            <span
-              style={{
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-              onClick={onClose}
-              tabIndex={0}
-              role="button"
-            >
-              {t('operationWindow.closeByEsc')}
-            </span>
-          </div>
-        </div>
-      </div>
-    </>
+      let kind: 'editor' | 'binary' = 'editor';
+      if (file.isBufferArray || file.bufferContent) kind = 'binary';
+      const options: {
+        paneId?: string;
+        kind: 'editor' | 'binary';
+        jumpToLine?: number;
+        jumpToColumn?: number;
+      } = { kind };
+      if (targetPaneId) options.paneId = targetPaneId;
+      if (parsedQuery.line !== undefined) options.jumpToLine = parsedQuery.line;
+      if (parsedQuery.column !== undefined) options.jumpToColumn = parsedQuery.column;
+      await tabActions.openTab(fileToOpen, options);
+      restoreFocusRef.current = false;
+      onClose();
+    },
+    [onClose, onFileSelect, parsedQuery.column, parsedQuery.line, targetPaneId]
   );
 
-  // Render into portal element if available so the overlay will sit above main content
-  if (portalEl) {
-    return createPortal(jsx, portalEl);
-  }
+  const openFile = useCallback(
+    (file: FileItem, openBeside = false) =>
+      runAction(() => actuallyOpenFile(file, openBeside), true),
+    [actuallyOpenFile, runAction]
+  );
 
-  return jsx;
+  const activateItem = useCallback(
+    (item: OperationListItem) => {
+      restoreFocusRef.current = false;
+      void runAction(async () => {
+        if (activeView?.onActivate) {
+          await activeView.onActivate(item);
+          return;
+        }
+        await item.onClick?.();
+      }, true);
+    },
+    [activeView, runAction]
+  );
+
+  const confirmInput = useCallback(
+    (selectedItem?: OperationListItem) => {
+      const input = activeView?.input;
+      if (!input) return;
+      restoreFocusRef.current = false;
+      void runAction(() => input.onConfirm(selectedItem), true);
+    },
+    [activeView, runAction]
+  );
+
+  const handleFileSelect = useCallback(
+    (file: FileItem, openBeside = false) => {
+      void openFile(file, openBeside);
+    },
+    [openFile]
+  );
+
+  const activateSelected = useCallback(
+    (openBeside = false) => {
+      if (isFilesView) {
+        const file = filteredFiles[selectedIndex];
+        if (file) handleFileSelect(file, openBeside);
+        return;
+      }
+
+      const item = filteredItems[selectedIndex];
+      if (activeView?.input) {
+        confirmInput(item);
+        return;
+      }
+      if (item) activateItem(item);
+    },
+    [
+      activateItem,
+      activeView?.input,
+      confirmInput,
+      filteredFiles,
+      filteredItems,
+      handleFileSelect,
+      isFilesView,
+      selectedIndex,
+    ]
+  );
+
+  const queryChange = (value: string) => {
+    setSelectedIndex(0);
+    setActionError(null);
+    if (activeView?.input) {
+      activeView.input.onChange(value);
+      return;
+    }
+    setSearchQuery(value);
+  };
+
+  useEffect(() => {
+    if (!portalMount) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    return registerQuickInputShortcut(dialog, action => {
+      if (action === 'quickOpen' && isFilesView) {
+        setSelectedIndex(index => moveSelection(index, 1, currentListLength));
+        inputRef.current?.focus();
+        return;
+      }
+      restoreFocusRef.current = false;
+      onClose();
+      triggerAction(action);
+    });
+  }, [currentListLength, isFilesView, onClose, portalMount]);
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !dialogRef.current?.contains(target)) return;
+      const isQueryInput = target === inputRef.current;
+      const isRowEditor = target.matches('[data-operation-edit]');
+      if (isRowEditor) return;
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closePicker();
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const focusable = getFocusableElements(dialog);
+        if (focusable.length === 0) return;
+        const currentIndex = focusable.indexOf(target);
+        let nextIndex = currentIndex + 1;
+        if (event.shiftKey) nextIndex = currentIndex - 1;
+        if (nextIndex < 0) nextIndex = focusable.length - 1;
+        if (nextIndex >= focusable.length) nextIndex = 0;
+        event.preventDefault();
+        focusable[nextIndex].focus();
+        return;
+      }
+
+      if (isQueryInput && (event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        activateSelected(isFilesView);
+        return;
+      }
+
+      const hasNavigationModifier = event.ctrlKey || event.metaKey || event.altKey;
+      if (
+        isQueryInput &&
+        !hasNavigationModifier &&
+        (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+      ) {
+        event.preventDefault();
+        let direction = 1;
+        if (event.key === 'ArrowUp') direction = -1;
+        setSelectedIndex(index => moveSelection(index, direction, currentListLength));
+        return;
+      }
+
+      if (isQueryInput && !hasNavigationModifier && (event.key === 'Home' || event.key === 'End')) {
+        event.preventDefault();
+        if (event.key === 'Home') setSelectedIndex(0);
+        if (event.key === 'End') setSelectedIndex(Math.max(currentListLength - 1, 0));
+        return;
+      }
+
+      if (
+        isQueryInput &&
+        !hasNavigationModifier &&
+        (event.key === 'PageUp' || event.key === 'PageDown')
+      ) {
+        event.preventDefault();
+        let direction = 10;
+        if (event.key === 'PageUp') direction = -10;
+        setSelectedIndex(index => {
+          if (currentListLength === 0) return 0;
+          return Math.min(Math.max(index + direction, 0), currentListLength - 1);
+        });
+        return;
+      }
+
+      if (isQueryInput && event.key === 'Enter') {
+        event.preventDefault();
+        activateSelected();
+      }
+    },
+    [activateSelected, closePicker, currentListLength, isFilesView]
+  );
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [handleKeyDown]);
+
+  useEffect(() => {
+    setSelectedIndex(index => Math.min(index, Math.max(currentListLength - 1, 0)));
+  }, [currentListLength]);
+
+  const onEnterRef = useRef(activeView?.onEnter);
+  onEnterRef.current = activeView?.onEnter;
+  useEffect(() => {
+    const onEnter = onEnterRef.current;
+    if (!onEnter) return;
+    let isCurrent = true;
+    setActionError(null);
+    setIsEntering(true);
+    Promise.resolve()
+      .then(() => onEnter())
+      .catch(error => {
+        console.error(`[OperationWindow] Failed to enter ${activeViewId}`, error);
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        if (isCurrent) setActionError(message);
+      })
+      .finally(() => {
+        if (isCurrent) setIsEntering(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [activeViewId]);
+
+  const setSelectedFromMouse = (index: number) => setSelectedIndex(index);
+  const renderedInput = activeView?.input;
+  let inputPlaceholder =
+    activeView?.placeholder ?? listTitle ?? t('operationWindow.searchPlaceholder');
+  if (renderedInput) inputPlaceholder = renderedInput.placeholder;
+  const inputAriaLabel = activeView?.title ?? listTitle ?? t('operationWindow.quickOpen');
+  const currentError = actionError ?? fileSearch.error ?? activeView?.error;
+  const actionButtons = viewHeaderActions.map(action => {
+    let cursor = 'pointer';
+    if (isBusy) cursor = 'default';
+    return (
+      <button
+        key={action.id ?? action.label}
+        type="button"
+        aria-label={action.label}
+        title={action.label}
+        disabled={isBusy}
+        onClick={() => {
+          const selectedItem = filteredItems[selectedIndex];
+          restoreFocusRef.current = false;
+          void runAction(() => action.onClick(selectedItem), true);
+        }}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minWidth: 28,
+          height: 28,
+          padding: '0 6px',
+          color: colors.foreground,
+          background: 'transparent',
+          border: 0,
+          cursor,
+        }}
+      >
+        {action.icon}
+        <span style={{ marginLeft: 4, fontSize: 12 }}>{action.label}</span>
+      </button>
+    );
+  });
+
+  const content = (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={activeView?.title ?? listTitle ?? t('operationWindow.quickOpen')}
+      aria-busy={isBusy}
+      data-keybinding-scope="quick-input"
+      data-busy={isActionBusy}
+      data-quick-input-root="true"
+      style={{
+        position: 'fixed',
+        top: 8,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 'min(600px, calc(100vw - 16px))',
+        maxHeight: 'calc(100dvh - 16px)',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        background: colors.cardBg,
+        color: colors.foreground,
+        border: `1px solid ${colors.border}`,
+        borderRadius: 4,
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.28)',
+        zIndex: 2000,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 6, minWidth: 0 }}>
+        <input
+          id={inputElementId}
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-label={inputAriaLabel}
+          aria-autocomplete="list"
+          aria-expanded="true"
+          aria-controls={listId}
+          aria-activedescendant={selectedOptionId}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={inputPlaceholder}
+          value={inputValue}
+          disabled={isActionBusy}
+          onChange={event => queryChange(event.target.value)}
+          onFocus={event => {
+            event.currentTarget.style.borderColor = colors.primary;
+            event.currentTarget.style.boxShadow = `0 0 0 1px ${colors.primary}`;
+          }}
+          onBlur={event => {
+            event.currentTarget.style.borderColor = colors.border;
+            event.currentTarget.style.boxShadow = '';
+          }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: 30,
+            boxSizing: 'border-box',
+            padding: '6px 8px',
+            color: colors.foreground,
+            background: colors.background,
+            border: `1px solid ${colors.border}`,
+            borderRadius: 2,
+            fontSize: 14,
+            outline: 'none',
+          }}
+        />
+      </div>
+
+      {(activeView?.showTitle || actionButtons.length > 0) && (
+        <div
+          style={{
+            minHeight: 28,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 6px 4px',
+            gap: 4,
+            flexWrap: 'wrap',
+          }}
+        >
+          {activeView?.showTitle && (
+            <span style={{ color: colors.mutedFg, fontSize: 12, padding: '0 4px' }}>
+              {activeView.title}
+            </span>
+          )}
+          <div style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {actionButtons}
+          </div>
+        </div>
+      )}
+
+      {currentError && (
+        <div
+          role="alert"
+          style={{
+            padding: '4px 12px',
+            color: colors.destructive,
+            fontSize: 12,
+            borderTop: `1px solid ${colors.border}`,
+          }}
+        >
+          {currentError}
+        </div>
+      )}
+
+      <OperationVirtualList
+        viewMode={viewMode}
+        filteredFiles={filteredFiles}
+        filteredItems={filteredItems}
+        selectedIndex={selectedIndex}
+        setSelectedIndex={setSelectedFromMouse}
+        handleFileSelectInOperation={file => handleFileSelect(file)}
+        ITEM_HEIGHT={22}
+        colors={colors}
+        queryTokens={queryTokens}
+        onActivateItem={activateItem}
+        loading={isBusy}
+        emptyMessage={activeView?.emptyMessage}
+        disabled={isBusy}
+        t={t}
+        listId={listId}
+        rootPath={rootPath}
+        listRef={listRef}
+      />
+
+      {activeView?.footer && (
+        <fieldset
+          disabled={isBusy}
+          style={{ border: 0, borderTop: `1px solid ${colors.border}`, padding: 0, margin: 0 }}
+        >
+          {activeView.footer}
+        </fieldset>
+      )}
+    </div>
+  );
+
+  if (portalMount) return createPortal(content, portalMount);
+  return content;
 }

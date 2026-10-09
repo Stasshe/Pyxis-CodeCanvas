@@ -1,189 +1,116 @@
-import { Buffer } from 'buffer';
-import pako from 'pako';
 import tarStream from 'tar-stream';
+import { isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
 
-import type { ExtractedFileMap } from './types';
+export type TarEntry =
+  | { type: 'file'; path: string; content: Uint8Array }
+  | { type: 'directory'; path: string }
+  | { type: 'symlink'; path: string; target: string };
 
-function isBinaryBuffer(buf: Uint8Array): boolean {
-  for (let i = 0; i < buf.length; i++) {
-    if (buf[i] === 0) return true;
-  }
-  const len = Math.min(buf.length, 512);
-  let nonPrintable = 0;
-  for (let i = 0; i < len; i++) {
-    const c = buf[i];
-    if (c === 9 || c === 10 || c === 13) continue;
-    if (c < 32 || c > 126) nonPrintable++;
-  }
-  return nonPrintable / Math.max(1, len) > 0.3;
-}
+type EntryConsumer = (entry: TarEntry) => Promise<void>;
 
-function uint8ArrayToBase64(buf: Uint8Array): string {
-  return Buffer.from(buf).toString('base64');
+function drain(extract: tarStream.Extract): Promise<void> {
+  return new Promise((resolve, reject) => {
+    function cleanup() {
+      extract.off('drain', ready);
+      extract.off('error', failed);
+      extract.off('close', closed);
+    }
+    function ready() {
+      cleanup();
+      resolve();
+    }
+    function failed(error: Error) {
+      cleanup();
+      reject(error);
+    }
+    function closed() {
+      failed(new Error('Tar extraction stopped before draining.'));
+    }
+    if (extract.destroyed) {
+      closed();
+      return;
+    }
+    extract.once('drain', ready);
+    extract.once('error', failed);
+    extract.once('close', closed);
+  });
 }
 
 export class TarExtractor {
-  private textDecoder = new TextDecoder('utf-8', { fatal: false });
-
-  private encodeContent(buf: Uint8Array): string {
-    return isBinaryBuffer(buf) ? `base64:${uint8ArrayToBase64(buf)}` : this.textDecoder.decode(buf);
-  }
-
-  private processEntry(
-    header: any,
-    chunks: Uint8Array[],
-    packageDir: string,
-    fileEntries: Map<string, { type: string; content?: string; fullPath: string }>,
-    requiredDirs: Set<string>
-  ): void {
-    let rel = header.name;
-    if (rel.startsWith('package/')) rel = rel.substring(8);
-    if (!rel || rel.includes('..') || rel.startsWith('/')) return;
-
-    const fullPath = `${packageDir}/${rel}`;
-    if (header.type === 'file') {
-      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-      const combined = new Uint8Array(totalLen);
-      let offset = 0;
-      for (const c of chunks) {
-        combined.set(c, offset);
-        offset += c.length;
-      }
-      fileEntries.set(rel, { type: 'file', content: this.encodeContent(combined), fullPath });
-      const parts = rel.split('/');
-      for (let i = 0; i < parts.length - 1; i++) {
-        requiredDirs.add(parts.slice(0, i + 1).join('/'));
-      }
-    } else if (header.type === 'directory') {
-      fileEntries.set(rel, { type: 'directory', fullPath });
-      requiredDirs.add(rel);
-    }
-  }
-
-  private buildExtractedFiles(
-    packageDir: string,
-    fileEntries: Map<string, { type: string; content?: string; fullPath: string }>,
-    requiredDirs: Set<string>
-  ): ExtractedFileMap {
-    const sortedDirs = Array.from(requiredDirs).sort(
-      (a, b) => a.split('/').length - b.split('/').length
-    );
-    const result: ExtractedFileMap = new Map();
-    for (const d of sortedDirs) {
-      result.set(d, { isDirectory: true, fullPath: `${packageDir}/${d}` });
-    }
-    for (const [rel, entry] of fileEntries) {
-      if (entry.type === 'file') {
-        result.set(rel, { isDirectory: false, content: entry.content, fullPath: entry.fullPath });
-      }
-    }
-    return result;
-  }
-
-  async extractFromBuffer(packageDir: string, tarballData: ArrayBuffer): Promise<ExtractedFileMap> {
-    const uint8Array = new Uint8Array(tarballData);
-    let decompressed: Uint8Array;
-    try {
-      decompressed = pako.inflate(uint8Array);
-    } catch {
-      decompressed = uint8Array;
-    }
-
-    const extract = tarStream.extract();
-    const fileEntries = new Map<string, { type: string; content?: string; fullPath: string }>();
-    const requiredDirs = new Set<string>();
-
-    extract.on('entry', (header: any, stream: any, next: any) => {
-      const chunks: Uint8Array[] = [];
-      stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
-      stream.on('end', () => {
-        this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
-        next();
-      });
-      stream.resume();
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      extract.on('finish', resolve);
-      extract.on('error', reject);
-      extract.write(decompressed);
-      extract.end();
-    });
-
-    return this.buildExtractedFiles(packageDir, fileEntries, requiredDirs);
+  private entryPath(packageDir: string, header: tarStream.Headers): string | null {
+    if (header.type !== 'file' && header.type !== 'directory' && header.type !== 'symlink')
+      return null;
+    const archivePath = posixPath.normalize(header.name);
+    if (posixPath.isAbsolute(archivePath) || archivePath === '..' || archivePath.startsWith('../'))
+      return null;
+    const name = archivePath.split('/').slice(1).join('/');
+    if (!name) return null;
+    const path = resolvePath(packageDir, name);
+    if (path === packageDir || !isPathWithin(path, packageDir)) return null;
+    return path;
   }
 
   async extractFromStream(
     packageDir: string,
-    decompressedStream: ReadableStream<Uint8Array>
-  ): Promise<ExtractedFileMap> {
+    stream: ReadableStream<Uint8Array>,
+    onEntry: EntryConsumer
+  ): Promise<void> {
     const extract = tarStream.extract();
-    const fileEntries = new Map<string, { type: string; content?: string; fullPath: string }>();
-    const requiredDirs = new Set<string>();
-
-    extract.on('entry', (header: any, stream: any, next: any) => {
-      const chunks: Uint8Array[] = [];
-      stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
-      stream.on('end', () => {
-        this.processEntry(header, chunks, packageDir, fileEntries, requiredDirs);
-        next();
-      });
-      stream.resume();
-    });
-
-    const reader = decompressedStream.getReader();
+    const reader = stream.getReader();
+    let stopped = false;
     const pump = (async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          extract.write(value);
+      while (!stopped) {
+        const { done, value } = await reader.read();
+        if (done || stopped) break;
+        if (!extract.write(value)) await drain(extract);
+      }
+      if (!stopped) extract.end();
+    })();
+    const consume = (async () => {
+      for await (const entry of extract) {
+        try {
+          const path = this.entryPath(packageDir, entry.header);
+          let content: Uint8Array | null = null;
+          if (path && entry.header.type === 'file') {
+            content = new Uint8Array(entry.header.size ?? 0);
+          }
+          let offset = 0;
+          for await (const chunk of entry) {
+            if (content) {
+              content.set(chunk, offset);
+              offset += chunk.byteLength;
+            }
+          }
+          if (path && content) {
+            if (offset !== content.byteLength) throw new Error(`Truncated tar entry: ${path}`);
+            await onEntry({ type: 'file', path, content });
+          } else if (path && entry.header.type === 'directory') {
+            await onEntry({ type: 'directory', path });
+          } else if (path && entry.header.type === 'symlink') {
+            if (!entry.header.linkname) throw new Error(`Symlink has no target: ${path}`);
+            await onEntry({ type: 'symlink', path, target: entry.header.linkname });
+          }
+        } catch (error) {
+          let failure = new Error(String(error));
+          if (error instanceof Error) failure = error;
+          extract.destroy(failure);
+          throw failure;
         }
-        extract.end();
-      } catch (err) {
-        extract.destroy(err as Error);
       }
     })();
-
-    await Promise.all([
-      pump,
-      new Promise<void>((resolve, reject) => {
-        extract.on('finish', resolve);
-        extract.on('error', reject);
-      }),
-    ]);
-
-    return this.buildExtractedFiles(packageDir, fileEntries, requiredDirs);
-  }
-
-  createPakoDecompressedStream(bodyStream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
-    const reader = bodyStream.getReader();
-    const inflate = new pako.Inflate();
-
-    return new ReadableStream<Uint8Array>({
-      start(controller) {
-        function pushResult() {
-          const out = (inflate as any).result;
-          if (!out) return;
-          if (out instanceof Uint8Array) controller.enqueue(out.slice());
-          else if (typeof out === 'string') controller.enqueue(new TextEncoder().encode(out));
-        }
-        (async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              inflate.push(value, false);
-              pushResult();
-            }
-            inflate.push(new Uint8Array(), true);
-            pushResult();
-            controller.close();
-          } catch (err) {
-            controller.error(err);
-          }
-        })();
-      },
-    });
+    try {
+      await Promise.all([pump, consume]);
+    } catch (error) {
+      let failure = new Error(String(error));
+      if (error instanceof Error) failure = error;
+      stopped = true;
+      extract.destroy(failure);
+      // Preserve the extraction failure when cancelling an already errored gzip stream.
+      await reader.cancel().catch(() => {});
+      await Promise.allSettled([pump, consume]);
+      throw failure;
+    } finally {
+      reader.releaseLock();
+    }
   }
 }

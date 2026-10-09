@@ -86,7 +86,7 @@ export default function FileChangeItem({
       </div>
 
       {/* アクションボタン: 常に表示する。ハンドラが渡されていない場合は見た目を無効化し、安全に no-op とする */}
-      <div className="flex items-center gap-2 mt-2">
+      <div className="flex flex-wrap items-center gap-2 mt-2">
         {/* 確認 (レビュー) */}
         <button
           type="button"

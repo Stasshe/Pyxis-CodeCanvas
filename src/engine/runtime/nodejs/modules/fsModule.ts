@@ -1,581 +1,753 @@
-/**
- * fs モジュールのエミュレーション
- *
- * Storage concerns are delegated to runtime mounts:
- * - /tmp is backed by MemoryMount
- * - /cache is backed by RuntimeCacheMount
- * - all other paths are backed by ProjectMount
- */
-
 import { Buffer } from 'buffer';
+import type { RuntimeBridge } from '@/engine/runtime/bridge/client';
+import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
+import type { MountStat } from '@/engine/runtime/storage/types';
+import { constants } from './constantsModule';
+import { RuntimeFsDescriptors } from './fsDescriptors';
 import {
-  fsPathToAppPath,
-  normalizeDotSegments,
-  toAppPath,
-  toFSPath,
-} from '@/engine/core/pathUtils';
-import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
-import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
+  createFsDirectoryOperations,
+  type FsDirectoryEntry,
+  type FsDirectoryItems,
+  type FsDirectoryOptions,
+  type RuntimeFsDir,
+} from './fsDirectories';
+import { createDescriptorCallbacks, createDescriptorWriteSync } from './fsIo';
+import {
+  copyFile,
+  copyFileSync,
+  makeTempDirectory,
+  makeTempDirectorySync,
+  removeDirectory,
+  removeDirectorySync,
+} from './fsOperations';
+import { type FsPath, normalizeFsPath } from './fsPaths';
+import { createFsPermissionOperations, writeCreationMode } from './fsPermissions';
+import { createFsStats, type FsStats, type StatOptions } from './fsStats';
+import { createReadStream, createWriteStream, type FsStreamOptions } from './fsStreams';
+
+export type FsEncoding = BufferEncoding | 'buffer' | null;
+export interface ReadOptions {
+  encoding?: FsEncoding;
+}
+export interface WriteOptions extends ReadOptions {
+  mode?: number | string;
+}
+export interface ReaddirOptions {
+  encoding?: FsEncoding;
+  withFileTypes?: boolean;
+}
+export type OpendirOptions = FsDirectoryOptions;
+export interface MkdirOptions {
+  recursive?: boolean;
+  mode?: number | string;
+}
+export interface RmOptions {
+  recursive?: boolean;
+  force?: boolean;
+}
+export type FsDirent = FsDirectoryEntry;
+export type FsCallback<T = void> = (error: Error | null, data?: T) => void;
+type IoTracker = <T>(task: Promise<T>) => Promise<T>;
+type ReadOptionsArg = ReadOptions | FsEncoding | FsCallback<string | Buffer>;
+type WriteOptionsArg = WriteOptions | FsEncoding | FsCallback<void>;
+type DirectoryEntry = FsDirectoryItems[number];
 
 export interface FSModuleOptions {
-  projectDir: string;
-  projectId: string;
-  projectName: string;
-  mountRouter?: MountRouter;
-  getTrackIO?: () => ((p: Promise<any>) => void) | undefined;
+  filesystem: RuntimeFsMount;
+  bridge: RuntimeBridge;
+  getCwd: () => string;
+  getTrackIO?: () => IoTracker | undefined;
+  writeStdout: (data: string | Uint8Array) => void;
+  writeStderr: (data: string | Uint8Array) => void;
 }
 
-type FsCallback<T = any> = (error: Error | null, data?: T) => void;
+function isCallback<T>(value: unknown): value is FsCallback<T> {
+  return typeof value === 'function';
+}
+
+function optionEncoding(options?: ReadOptions | FsEncoding): FsEncoding | undefined {
+  if (typeof options === 'string') return options;
+  if (options === null) return null;
+  if (!options) return undefined;
+  return options?.encoding;
+}
+
+function callbackError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  return new Error(String(error));
+}
+
+function encode(value: string | Uint8Array, options?: ReadOptions | FsEncoding): Uint8Array {
+  if (typeof value !== 'string') return value;
+  const encoding = optionEncoding(options);
+  if (encoding === 'buffer') throw new TypeError('Invalid string encoding: buffer');
+  return Buffer.from(value, encoding ?? 'utf8');
+}
+
+function readResult(
+  content: string | Uint8Array,
+  options?: ReadOptions | FsEncoding
+): string | Buffer {
+  const bytes = Buffer.from(encode(content));
+  const encoding = optionEncoding(options);
+  if (encoding === undefined || encoding === null || encoding === 'buffer') return bytes;
+  return bytes.toString(encoding);
+}
+
+function fsError(
+  code: string,
+  syscall: string,
+  path: FsPath | number
+): Error & { code: string; errno: number; syscall: string; path: string } {
+  const normalizedPath = String(path);
+  const error = new Error(`${code}: ${syscall} '${normalizedPath}'`) as Error & {
+    code: string;
+    errno: number;
+    syscall: string;
+    path: string;
+  };
+  error.code = code;
+  error.errno = -1;
+  if (code === 'ENOENT') error.errno = -2;
+  error.syscall = syscall;
+  error.path = normalizedPath;
+  return error;
+}
+
+function rethrowAsFsError(error: unknown, code: string, syscall: string, path: FsPath): never {
+  if (error instanceof Error && 'code' in error && typeof error.code === 'string') throw error;
+  throw fsError(code, syscall, path);
+}
+
+function linkResult(value: string, encoding?: FsEncoding): string | Buffer {
+  if (encoding === 'buffer') return Buffer.from(value);
+  return Buffer.from(value).toString(encoding ?? 'utf8');
+}
+
+function linkEncoding(options?: ReadOptions | FsEncoding): FsEncoding | undefined {
+  return optionEncoding(options);
+}
+
+function tempDirectoryResult(path: string, options?: ReadOptions | FsEncoding): string | Buffer {
+  const encoding = optionEncoding(options);
+  if (encoding === 'buffer') return Buffer.from(path);
+  return Buffer.from(path).toString(encoding ?? 'utf8');
+}
 
 export function createFSModule(options: FSModuleOptions) {
-  const { projectDir, projectId, projectName } = options;
-  const mountRouter =
-    options.mountRouter ?? runtimeStorageRegistry.get(projectId, projectName).mountRouter;
-
-  function trackTask<T>(task: Promise<T>): Promise<T> {
-    options.getTrackIO?.()?.(task);
+  const filesystem = options.filesystem;
+  const descriptors = new RuntimeFsDescriptors(
+    filesystem,
+    data => options.writeStdout(data),
+    data => options.writeStderr(data)
+  );
+  let stdinRemainder: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+  const track = <T>(task: Promise<T>): Promise<T> => {
+    const tracker = options.getTrackIO?.();
+    if (tracker) return tracker(task);
     return task;
-  }
+  };
+  const normalize = (path: FsPath): string => normalizeFsPath(path, options.getCwd);
+  const permissionOperations = createFsPermissionOperations(filesystem, descriptors, normalize);
+  const directories = createFsDirectoryOperations(filesystem, normalize, () =>
+    options.getTrackIO?.()
+  );
 
-  function splitOptionsAndCallback(
-    options?: any,
-    callback?: FsCallback | undefined
-  ): {
-    options: any;
-    callback?: FsCallback;
-  } {
-    if (typeof options === 'function') {
-      return { options: undefined, callback: options };
+  function requestStdin(): Buffer {
+    const value = options.bridge.sync({ kind: 'stdin' });
+    if (!Array.isArray(value) || !value.every(byte => typeof byte === 'number')) {
+      throw new Error('stdin bridge returned an invalid byte value.');
     }
-
-    return { options, callback };
+    return Buffer.from(value);
   }
 
-  function isPromiseLike<T>(value: void | Promise<T>): value is Promise<T> {
-    return typeof value !== 'undefined';
+  async function readFile(
+    path: FsPath,
+    encoding?: ReadOptions | FsEncoding
+  ): Promise<string | Buffer> {
+    const normalized = normalize(path);
+    const content = await filesystem.getFile(normalized);
+    if (content === undefined) throw fsError('ENOENT', 'open', path);
+    return readResult(content, encoding);
   }
 
-  function createFsError(
-    code: string,
-    syscall: string,
-    path: string,
-    message?: string
-  ): Error & { code: string; errno: number; syscall: string; path: string } {
-    const error = new Error(
-      message ?? `${code}: no such file or directory, ${syscall} '${path}'`
-    ) as Error & {
-      code: string;
-      errno: number;
-      syscall: string;
-      path: string;
-    };
-
-    error.name = 'Error';
-    error.code = code;
-    error.errno = code === 'ENOENT' ? -2 : -1;
-    error.syscall = syscall;
-    error.path = path;
-
-    return error;
-  }
-
-  function encodeContent(content: string | Uint8Array): Uint8Array {
-    return typeof content === 'string' ? new TextEncoder().encode(content) : content;
-  }
-
-  function decodeContent(content: string | Uint8Array): string {
-    return typeof content === 'string' ? content : new TextDecoder().decode(content);
-  }
-
-  function normalizeEncoding(options?: any): string | null | undefined {
-    if (typeof options === 'string') return options;
-    return options?.encoding;
-  }
-
-  function formatReadContent(
-    path: string,
-    content: string | Uint8Array,
-    options?: any
-  ): string | Buffer {
-    const encoding = normalizeEncoding(options);
-    const buffer = Buffer.from(encodeContent(content));
-
-    if (/\.svg$/i.test(path)) {
-      return buffer.toString('utf8');
+  async function writeFile(
+    path: FsPath,
+    data: string | Uint8Array,
+    writeOptions?: WriteOptions | FsEncoding
+  ): Promise<void> {
+    const normalized = normalize(path);
+    const content = encode(data, writeOptions);
+    const mode = writeCreationMode(writeOptions);
+    try {
+      await filesystem.setFile(normalized, content, mode);
+    } catch (error) {
+      rethrowAsFsError(error, 'EIO', 'write', path);
     }
-
-    if (encoding === undefined || encoding === null || encoding === 'buffer') {
-      return buffer;
-    }
-
-    return buffer.toString(encoding as BufferEncoding);
   }
 
-  function formatDirectoryName(name: string, options?: any): string | Buffer {
-    return normalizeEncoding(options) === 'buffer' ? Buffer.from(name) : name;
+  async function appendFile(
+    path: FsPath,
+    data: string | Uint8Array,
+    writeOptions?: WriteOptions | FsEncoding
+  ): Promise<void> {
+    const normalized = normalize(path);
+    const newBytes = encode(data, writeOptions);
+    const mode = writeCreationMode(writeOptions);
+    await filesystem.writeRange(normalized, newBytes, null, true, false, mode);
   }
 
-  function makeStats(type: 'file' | 'directory', size = 0, mtime = new Date()) {
-    return {
-      size,
-      mtime,
-      ctime: mtime,
-      birthtime: mtime,
-      atime: mtime,
-      mode: type === 'directory' ? 0o40755 : 0o100644,
-      isFile: () => type === 'file',
-      isDirectory: () => type === 'directory',
-      isSymbolicLink: () => false,
-      isBlockDevice: () => false,
-      isCharacterDevice: () => false,
-      isFIFO: () => false,
-      isSocket: () => false,
-    };
+  async function readlink(
+    path: FsPath,
+    options?: ReadOptions | FsEncoding
+  ): Promise<string | Buffer> {
+    const target = await filesystem.readlink(normalize(path));
+    return linkResult(target, linkEncoding(options));
   }
 
-  function normalizeModulePath(path: string): { fullPath: string; relativePath: string } {
-    if (path.startsWith(projectDir)) {
-      const relativePath = normalizeDotSegments(fsPathToAppPath(path, projectName));
-      return {
-        fullPath: toFSPath(projectName, relativePath),
-        relativePath,
-      };
-    }
-
-    const appPath = normalizeDotSegments(toAppPath(path));
-    return {
-      fullPath: toFSPath(projectName, appPath),
-      relativePath: appPath,
-    };
+  async function resolveRealpath(
+    path: FsPath,
+    options?: ReadOptions | FsEncoding
+  ): Promise<string | Buffer> {
+    const resolved = await filesystem.realpath(normalize(path));
+    return linkResult(resolved, linkEncoding(options));
   }
 
-  async function getStats(path: string, syscall: 'stat' | 'lstat'): Promise<any> {
-    const { relativePath } = normalizeModulePath(path);
-    const stat = await mountRouter.resolve(relativePath).stat(relativePath);
-    if (!stat) {
-      throw createFsError('ENOENT', syscall, path);
-    }
-    return makeStats(stat.type, stat.size, stat.mtime);
+  function readlinkSync(path: FsPath, options?: ReadOptions | FsEncoding): string | Buffer {
+    const target = filesystem.readlinkSync(normalize(path));
+    return linkResult(target, linkEncoding(options));
   }
 
-  function getStatsSync(path: string, syscall: 'stat' | 'lstat', options?: any): any {
-    const { relativePath } = normalizeModulePath(path);
-    const mount = mountRouter.resolve(relativePath);
-    if (mount.hasDir(relativePath)) {
-      return makeStats('directory');
-    }
-
-    const content = mount.getFileSync(relativePath);
-    if (content !== undefined) {
-      return makeStats('file', encodeContent(content).length);
-    }
-
-    if (options?.throwIfNoEntry === false) {
-      return undefined;
-    }
-
-    throw createFsError('ENOENT', syscall, path);
+  function realpathSyncImpl(path: FsPath, options?: ReadOptions | FsEncoding): string | Buffer {
+    const resolved = filesystem.realpathSync(normalize(path));
+    return linkResult(resolved, linkEncoding(options));
   }
 
-  function makeDirent(name: string | Buffer, isDir: boolean) {
-    return {
-      name,
-      isDirectory: () => isDir,
-      isFile: () => !isDir,
-      isSymbolicLink: () => false,
-      isBlockDevice: () => false,
-      isCharacterDevice: () => false,
-      isFIFO: () => false,
-      isSocket: () => false,
-    };
+  const realpathSync = Object.assign(realpathSyncImpl, { native: realpathSyncImpl });
+
+  function realpathOperation(
+    path: FsPath,
+    optionsOrCallback?: ReadOptions | FsEncoding | FsCallback<string | Buffer>,
+    callback?: FsCallback<string | Buffer>
+  ): Promise<string | Buffer> | void {
+    let encodingOptions: ReadOptions | FsEncoding | undefined;
+    let done = callback;
+    if (isCallback<string | Buffer>(optionsOrCallback)) done = optionsOrCallback;
+    else encodingOptions = optionsOrCallback;
+    const task = resolveRealpath(path, encodingOptions);
+    if (!done) return track(task);
+    track(
+      task.then(
+        value => done(null, value),
+        error => done(callbackError(error))
+      )
+    );
   }
 
-  const fsModule = {
-    readFile: (
-      path: string,
-      options?: any,
-      callback?: FsCallback<string | Buffer>
-    ): Promise<string | Buffer> | void => {
-      const normalized = splitOptionsAndCallback(options, callback);
-      const readTask = trackTask(
-        (async (): Promise<string | Buffer> => {
-          try {
-            const { relativePath } = normalizeModulePath(path);
-            const mount = mountRouter.resolve(relativePath);
-            const syncContent = mount.getFileSync(relativePath);
-            const content =
-              syncContent !== undefined ? syncContent : await mount.getFile(relativePath);
+  const realpath = Object.assign(realpathOperation, { native: realpathOperation });
 
-            if (content === undefined) {
-              throw createFsError('ENOENT', 'open', path);
-            }
+  function createSymlink(target: string | Buffer, path: FsPath): Promise<void> {
+    return filesystem.symlink(target.toString(), normalize(path));
+  }
 
-            return formatReadContent(path, content, normalized.options);
-          } catch (error) {
-            if (
-              error &&
-              typeof error === 'object' &&
-              'code' in error &&
-              typeof (error as any).code === 'string'
-            ) {
-              throw error;
-            }
-            throw createFsError(
-              'EIO',
-              'open',
-              path,
-              `ファイルの読み取りに失敗しました: ${path} - ${(error as Error).message}`
-            );
-          }
-        })()
-      );
+  function createSymlinkSync(target: string | Buffer, path: FsPath): void {
+    filesystem.symlinkSync(target.toString(), normalize(path));
+  }
 
-      if (normalized.callback) {
-        readTask
-          .then(data => normalized.callback!(null, data))
-          .catch(error => normalized.callback!(error as Error));
-        return;
+  function completeWrite(task: Promise<void>, callback?: FsCallback<void>): Promise<void> | void {
+    if (!callback) return track(task);
+    track(
+      task.then(
+        () => callback(null),
+        error => callback(callbackError(error))
+      )
+    );
+  }
+
+  async function getStats(
+    path: FsPath,
+    syscall: 'stat' | 'lstat',
+    statOptions?: StatOptions
+  ): Promise<FsStats> {
+    const normalized = normalize(path);
+    let value: MountStat | null;
+    try {
+      if (syscall === 'stat') value = await filesystem.stat(normalized);
+      else value = await filesystem.lstat(normalized);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        throw fsError('ENOENT', syscall, path);
       }
+      throw error;
+    }
+    if (!value) throw fsError('ENOENT', syscall, path);
+    return createFsStats(value, statOptions?.bigint === true);
+  }
 
-      return readTask;
+  function getStatsSync(
+    path: FsPath,
+    syscall: 'stat' | 'lstat',
+    statOptions?: StatOptions
+  ): FsStats | undefined {
+    const normalized = normalize(path);
+    let value: MountStat | null;
+    if (syscall === 'stat') value = filesystem.statSync(normalized);
+    else value = filesystem.lstatSync(normalized);
+    if (value) return createFsStats(value, statOptions?.bigint === true);
+    if (statOptions?.throwIfNoEntry === false) return undefined;
+    throw fsError('ENOENT', syscall, path);
+  }
+
+  function readFileCallback(
+    path: FsPath,
+    encoding?: ReadOptions | FsEncoding,
+    callback?: FsCallback<string | Buffer>
+  ): Promise<string | Buffer> | void {
+    const result = readFile(path, encoding);
+    if (callback) {
+      track(
+        result.then(
+          value => callback(null, value),
+          error => callback(callbackError(error))
+        )
+      );
+      return;
+    }
+    return track(result);
+  }
+
+  function readDescriptor(descriptor: number): Buffer {
+    const chunks: Buffer[] = [];
+    const chunk = Buffer.alloc(64 * 1024);
+    let count = descriptors.readSync(descriptor, chunk, 0, chunk.byteLength);
+    while (count > 0) {
+      chunks.push(Buffer.from(chunk.subarray(0, count)));
+      count = descriptors.readSync(descriptor, chunk, 0, chunk.byteLength);
+    }
+    return Buffer.concat(chunks);
+  }
+
+  function readStdin(): Buffer {
+    const chunks: Buffer[] = [];
+    if (stdinRemainder.length > 0) chunks.push(stdinRemainder);
+    stdinRemainder = Buffer.alloc(0);
+    let input = requestStdin();
+    while (input.length > 0) {
+      chunks.push(input);
+      input = requestStdin();
+    }
+    return Buffer.concat(chunks);
+  }
+
+  function readDescriptorSync(
+    descriptor: number,
+    target: Uint8Array,
+    offset: number,
+    length: number,
+    position: number | null
+  ): number {
+    if (descriptor !== 0) return descriptors.readSync(descriptor, target, offset, length, position);
+    if (length === 0) return 0;
+    let input = stdinRemainder;
+    if (input.length === 0) input = requestStdin();
+    const count = Math.min(length, input.byteLength);
+    target.set(input.subarray(0, count), offset);
+    stdinRemainder = input.subarray(count);
+    return count;
+  }
+
+  function completeCall<T>(task: Promise<T>, callback?: FsCallback<T>): Promise<T> | void {
+    if (!callback) return track(task);
+    track(
+      task.then(
+        value => callback(null, value),
+        error => callback(callbackError(error))
+      )
+    );
+  }
+
+  function makeDirectory(path: FsPath, options: MkdirOptions = {}): Promise<void> {
+    const mode = writeCreationMode(options);
+    return filesystem.mkdir(normalize(path), options.recursive === true, mode);
+  }
+
+  function renamePath(oldPath: FsPath, newPath: FsPath): Promise<void> {
+    return filesystem.rename(normalize(oldPath), normalize(newPath));
+  }
+
+  async function unlinkPath(path: FsPath): Promise<void> {
+    const normalized = normalize(path);
+    const value = await filesystem.lstat(normalized);
+    if (!value) throw fsError('ENOENT', 'unlink', path);
+    if (value.type === 'directory') throw fsError('EISDIR', 'unlink', path);
+    await filesystem.deleteFile(normalized);
+  }
+
+  async function removePath(path: FsPath, options: RmOptions = {}): Promise<void> {
+    const normalized = normalize(path);
+    const value = await filesystem.lstat(normalized);
+    if (!value && options.force) return;
+    if (!value) throw fsError('ENOENT', 'rm', path);
+    if (value.type === 'directory') await filesystem.rmdir(normalized, options.recursive === true);
+    else await filesystem.deleteFile(normalized);
+  }
+
+  function requiredCallback<T>(callback: FsCallback<T> | undefined): FsCallback<T> {
+    if (typeof callback === 'function') return callback;
+    throw Object.assign(
+      new TypeError(
+        `The "callback" argument must be of type function. Received ${String(callback)}`
+      ),
+      { code: 'ERR_INVALID_ARG_TYPE' }
+    );
+  }
+
+  function statOperation(
+    path: FsPath,
+    syscall: 'stat' | 'lstat',
+    optionsOrCallback?: StatOptions | FsCallback<FsStats>,
+    callback?: FsCallback<FsStats>
+  ): Promise<FsStats> | void {
+    let statOptions: StatOptions | undefined;
+    let done = callback;
+    if (isCallback<FsStats>(optionsOrCallback)) done = optionsOrCallback;
+    else statOptions = optionsOrCallback;
+    return completeCall(getStats(path, syscall, statOptions), done);
+  }
+
+  const writeSync = createDescriptorWriteSync(descriptors);
+
+  const descriptorCallbacks = createDescriptorCallbacks(
+    descriptors,
+    normalize,
+    readDescriptorSync,
+    track
+  );
+
+  const operations = {
+    createReadStream: (path: FsPath, streamOptions?: FsStreamOptions) =>
+      createReadStream(filesystem, normalize(path), streamOptions, options.getTrackIO?.()),
+    createWriteStream: (path: FsPath, streamOptions?: FsStreamOptions) =>
+      createWriteStream(filesystem, normalize(path), streamOptions, options.getTrackIO?.()),
+    openSync: (path: FsPath, flags: string | number, mode?: number | string): number =>
+      descriptors.openSync(normalize(path), flags, writeCreationMode({ mode })),
+    closeSync: (descriptor: number): void => descriptors.closeSync(descriptor),
+    ...descriptorCallbacks,
+    fstatSync: (descriptor: number, statOptions?: StatOptions): FsStats => {
+      const value = descriptors.statSync(descriptor);
+      if (!value) throw fsError('ENOENT', 'fstat', descriptor);
+      return createFsStats(value, statOptions?.bigint === true);
     },
-
-    writeFile: (
-      path: string,
-      data: string | Uint8Array,
-      options?: any,
+    writeSync,
+    copyFile: (
+      source: FsPath,
+      destination: FsPath,
+      flagsOrCallback?: number | FsCallback<void>,
       callback?: FsCallback<void>
     ): Promise<void> | void => {
-      const normalized = splitOptionsAndCallback(options, callback);
-      const writeTask = trackTask(
-        (async (): Promise<void> => {
-          try {
-            const { relativePath } = normalizeModulePath(path);
-            await mountRouter.resolve(relativePath).setFile(relativePath, data);
-          } catch (error) {
-            console.warn('[fsModule.ts] caught non-fatal error', error);
-            throw createFsError('EIO', 'write', path, `ファイルの書き込みに失敗しました: ${path}`);
-          }
-        })()
+      let flags = 0;
+      let done = callback;
+      if (isCallback<void>(flagsOrCallback)) done = flagsOrCallback;
+      else if (flagsOrCallback !== undefined) flags = flagsOrCallback;
+      return completeCall(
+        copyFile(filesystem, normalize(source), normalize(destination), flags),
+        done
       );
-
-      if (normalized.callback) {
-        writeTask
-          .then(() => normalized.callback!(null))
-          .catch(error => normalized.callback!(error as Error));
-        return;
-      }
-
-      return writeTask;
     },
-
-    readFileSync: (path: string, options?: any): string | Buffer => {
-      const { relativePath } = normalizeModulePath(path);
-      const content = mountRouter.resolve(relativePath).getFileSync(relativePath);
-      if (content === undefined) {
-        throw createFsError('ENOENT', 'open', path);
-      }
-      return formatReadContent(path, content, options);
+    copyFileSync: (source: FsPath, destination: FsPath, flags = 0): void =>
+      copyFileSync(filesystem, normalize(source), normalize(destination), flags),
+    opendir: (
+      path: FsPath,
+      optionsOrCallback?: OpendirOptions | FsCallback<RuntimeFsDir>,
+      callback?: FsCallback<RuntimeFsDir>
+    ): void => {
+      let directoryOptions: OpendirOptions | undefined;
+      let done = callback;
+      if (isCallback<RuntimeFsDir>(optionsOrCallback)) done = optionsOrCallback;
+      else directoryOptions = optionsOrCallback;
+      const validCallback = requiredCallback(done);
+      completeCall(directories.opendir(path, directoryOptions), validCallback);
     },
-
-    writeFileSync: (path: string, data: string | Uint8Array, options?: any): void => {
-      const writeTask = fsModule.writeFile(path, data, options);
-      if (isPromiseLike(writeTask)) {
-        writeTask.catch((err: unknown) => console.error(err));
-      }
+    opendirSync: (path: FsPath, directoryOptions?: OpendirOptions): RuntimeFsDir =>
+      directories.opendirSync(path, directoryOptions),
+    rmdir: (path: FsPath, callback?: FsCallback<void>): Promise<void> | void =>
+      completeCall(removeDirectory(filesystem, normalize(path)), callback),
+    rmdirSync: (path: FsPath): void => removeDirectorySync(filesystem, normalize(path)),
+    mkdtemp: (
+      prefix: FsPath,
+      optionsOrCallback?: ReadOptions | FsCallback<string | Buffer>,
+      callback?: FsCallback<string | Buffer>
+    ): Promise<string | Buffer> | void => {
+      let readOptions: ReadOptions | undefined;
+      let done = callback;
+      if (isCallback<string | Buffer>(optionsOrCallback)) done = optionsOrCallback;
+      else readOptions = optionsOrCallback;
+      const task = makeTempDirectory(filesystem, normalize(prefix)).then(path =>
+        tempDirectoryResult(path, readOptions)
+      );
+      return completeCall(task, done);
     },
-
-    existsSync: (path: string): boolean => {
-      const { relativePath } = normalizeModulePath(path);
-      const mount = mountRouter.resolve(relativePath);
-      return mount.hasFile(relativePath) || mount.hasDir(relativePath);
+    mkdtempSync: (prefix: FsPath, readOptions?: ReadOptions | FsEncoding): string | Buffer =>
+      tempDirectoryResult(makeTempDirectorySync(filesystem, normalize(prefix)), readOptions),
+    readFile: (
+      path: FsPath,
+      encodingOrCallback?: ReadOptionsArg,
+      callback?: FsCallback<string | Buffer>
+    ): Promise<string | Buffer> | void => {
+      if (isCallback<string | Buffer>(encodingOrCallback))
+        return readFileCallback(path, undefined, encodingOrCallback);
+      return readFileCallback(path, encodingOrCallback, callback);
     },
-
-    accessSync: (path: string): void => {
-      if (!fsModule.existsSync(path)) {
-        throw createFsError('ENOENT', 'access', path);
-      }
-    },
-
-    preloadFiles: async (extensions: string[] = ['.json', '.txt', '.md']): Promise<void> => {
-      const projectMount = mountRouter.resolve('/') as {
-        preload?: (extensions: string[]) => Promise<number>;
-      };
-
-      if (!projectMount.preload) return;
-
-      try {
-        const count = await projectMount.preload(extensions);
-        console.log(`[fsModule] Preloaded ${count} files into memory cache.`);
-      } catch (error) {
-        console.error('[fsModule] Failed to preload files:', error);
-      }
-    },
-
-    asyncWriteFile: async (
-      path: string,
+    writeFile: (
+      path: FsPath,
       data: string | Uint8Array,
-      options?: any
-    ): Promise<void> => {
-      await fsModule.writeFile(path, data, options);
+      optionsOrCallback?: WriteOptionsArg,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      if (isCallback<void>(optionsOrCallback)) {
+        return completeWrite(writeFile(path, data), optionsOrCallback);
+      }
+      return completeWrite(writeFile(path, data, optionsOrCallback), callback);
     },
-
-    asyncReadFile: async (path: string, options?: any): Promise<string | Buffer> => {
-      const readTask = fsModule.readFile(path, options);
-      if (!isPromiseLike(readTask)) {
-        throw new Error(`fsModule.readFile returned void without a callback: ${path}`);
+    readFileSync: (path: FsPath | number, encoding?: ReadOptions | FsEncoding): string | Buffer => {
+      if (typeof path === 'number') {
+        if (path === 0) return readResult(readStdin(), encoding);
+        return readResult(readDescriptor(path), encoding);
       }
-      return await readTask;
+      const normalized = normalize(path);
+      if (normalized === '/dev/stdin') return readResult(readStdin(), encoding);
+      const content = filesystem.getFileSync(normalized);
+      if (content === undefined) throw fsError('ENOENT', 'open', path);
+      return readResult(content, encoding);
     },
-
-    asyncRemoveFile: async (path: string): Promise<void> => {
-      await fsModule.unlink(path);
+    writeFileSync: (
+      path: FsPath,
+      data: string | Uint8Array,
+      writeOptions?: WriteOptions | FsEncoding
+    ): void => {
+      const normalized = normalize(path);
+      const mode = writeCreationMode(writeOptions);
+      filesystem.setFileSync(normalized, encode(data, writeOptions), mode);
     },
-
-    mkdir: (path: string, options?: any): Promise<void> =>
-      trackTask(
-        (async (): Promise<void> => {
-          const { relativePath } = normalizeModulePath(path);
-          await mountRouter.resolve(relativePath).mkdir(relativePath, options?.recursive || false);
-        })()
-      ),
-
-    readdir: (path: string, options?: any, callback?: any): any => {
-      let cb: FsCallback<any[]> | undefined;
-      let opts: any = {};
-      if (typeof options === 'function') {
-        cb = options;
-      } else if (typeof callback === 'function') {
-        cb = callback;
-        opts = options ?? {};
-      } else {
-        opts = options ?? {};
-      }
-
-      const withFileTypes = opts?.withFileTypes === true;
-
-      const doReaddir = (): Promise<any[]> =>
-        trackTask(
-          (async (): Promise<any[]> => {
-            const { relativePath } = normalizeModulePath(path);
-            const mount = mountRouter.resolve(relativePath);
-            const names = await mount.listDir(relativePath);
-
-            if (!withFileTypes) return names.map(name => formatDirectoryName(name, opts));
-
-            return Promise.all(
-              names.map(async name => {
-                const childPath =
-                  relativePath === '/' ? `/${name}` : `${relativePath.replace(/\/$/, '')}/${name}`;
-                const stat = await mount.stat(childPath);
-                return makeDirent(formatDirectoryName(name, opts), stat?.type === 'directory');
-              })
-            );
-          })()
-        );
-
-      if (cb) {
-        doReaddir()
-          .then(result => cb!(null, result))
-          .catch(err => cb!(err, []));
-        return;
-      }
-      return doReaddir();
+    readSync: (
+      fd: number,
+      target: Uint8Array,
+      offset = 0,
+      length = target.byteLength - offset,
+      position: number | null = null
+    ): number => readDescriptorSync(fd, target, offset, length, position),
+    chmod: (path: FsPath, mode: number | string, callback: FsCallback<void>): void => {
+      const done = requiredCallback(callback);
+      completeWrite(permissionOperations.chmodPath(path, mode), done);
     },
-
-    readdirSync: (path: string, options?: any): any[] => {
-      const withFileTypes = options?.withFileTypes === true;
-      const { relativePath } = normalizeModulePath(path);
-      const dirPath = relativePath.endsWith('/') ? relativePath : `${relativePath}/`;
-      const mount = mountRouter.resolve(relativePath);
-      const knownFiles = new Set<string>();
-      const names = new Set<string>();
-
-      // VirtualMount intentionally exposes synchronous file lookup only; sync readdir
-      // relies on mounted hot caches populated by writes or preloadFiles().
-      const maybeCache = mount as unknown as { files?: Map<string, unknown>; dirs?: Set<string> };
-      for (const key of maybeCache.files?.keys?.() ?? []) {
-        knownFiles.add(key);
-      }
-      for (const key of maybeCache.dirs?.values?.() ?? []) {
-        knownFiles.add(key);
-      }
-      for (const key of knownFiles) {
-        if (key.startsWith(dirPath) && key !== dirPath) {
-          names.add(key.slice(dirPath.length).split('/')[0]);
-        }
-      }
-
-      const result = [...names].filter(Boolean);
-      if (!withFileTypes) return result.map(name => formatDirectoryName(name, options));
-
-      return result.map(name => {
-        const childPath = dirPath + name;
-        return makeDirent(formatDirectoryName(name, options), mount.hasDir(childPath));
-      });
+    chmodSync: permissionOperations.chmodPathSync,
+    fchmod: (descriptor: number, mode: number | string, callback: FsCallback<void>): void => {
+      const done = requiredCallback(callback);
+      completeWrite(permissionOperations.chmodDescriptorAsync(descriptor, mode), done);
     },
-
-    unlink: (path: string): Promise<void> =>
-      trackTask(
-        (async (): Promise<void> => {
-          const { relativePath } = normalizeModulePath(path);
-          const deleted = await mountRouter.resolve(relativePath).deleteFile(relativePath);
-          if (!deleted) {
-            throw createFsError('ENOENT', 'unlink', path);
-          }
-        })()
-      ),
-
-    appendFile: (path: string, data: string, options?: any): Promise<void> =>
-      trackTask(
-        (async (): Promise<void> => {
-          try {
-            const { relativePath } = normalizeModulePath(path);
-            const mount = mountRouter.resolve(relativePath);
-            const content = (await mount.getFile(relativePath)) ?? '';
-            await fsModule.writeFile(path, decodeContent(content) + data, options);
-          } catch (error) {
-            console.warn('[fsModule.ts] caught non-fatal error', error);
-            throw new Error(`ファイルへの追記に失敗しました: ${path}`);
-          }
-        })()
-      ),
-
-    stat: (path: string, callback?: any): any => {
-      const doStat = () =>
-        trackTask(
-          (async () => {
-            try {
-              return await getStats(path, 'stat');
-            } catch (error) {
-              if (
-                error &&
-                typeof error === 'object' &&
-                'code' in error &&
-                typeof (error as any).code === 'string'
-              ) {
-                throw error;
-              }
-              throw createFsError('EIO', 'stat', path, `ファイル情報の取得に失敗しました: ${path}`);
-            }
-          })()
-        );
-      if (typeof callback === 'function') {
-        doStat()
-          .then(s => callback(null, s))
-          .catch(e => callback(e));
-        return;
-      }
-      return doStat();
+    fchmodSync: permissionOperations.chmodDescriptor,
+    access: (
+      path: FsPath,
+      modeOrCallback?: number | FsCallback<void>,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      let mode: number = constants.F_OK;
+      let done = callback;
+      if (isCallback<void>(modeOrCallback)) done = modeOrCallback;
+      else if (modeOrCallback !== undefined) mode = modeOrCallback;
+      return completeCall(permissionOperations.accessPath(path, mode), done);
     },
-
-    lstat: (path: string, callback?: any): any => {
-      const doLstat = () =>
-        trackTask(
-          (async () => {
-            try {
-              return await getStats(path, 'lstat');
-            } catch (error) {
-              if (
-                error &&
-                typeof error === 'object' &&
-                'code' in error &&
-                typeof (error as any).code === 'string'
-              ) {
-                throw error;
-              }
-              throw createFsError(
-                'EIO',
-                'lstat',
-                path,
-                `ファイル情報の取得に失敗しました: ${path}`
-              );
-            }
-          })()
-        );
-      if (typeof callback === 'function') {
-        doLstat()
-          .then(s => callback(null, s))
-          .catch(e => callback(e));
-        return;
-      }
-      return doLstat();
+    accessSync: (path: FsPath, mode: number = constants.F_OK): void => {
+      permissionOperations.checkAccess(path, mode);
     },
-
-    statSync: (path: string, options?: any): any => getStatsSync(path, 'stat', options),
-    lstatSync: (path: string, options?: any): any => getStatsSync(path, 'lstat', options),
-
-    mkdirSync: (path: string, options?: any): void => {
-      const mkdirTask = fsModule.mkdir(path, options);
-      if (isPromiseLike(mkdirTask)) {
-        mkdirTask.catch((err: unknown) => console.error(err));
-      }
+    exists: (path: FsPath, callback: (exists: boolean) => void): void => {
+      const task = filesystem.stat(normalize(path)).then(
+        value => value !== null,
+        () => false
+      );
+      track(task.then(callback));
     },
-
-    unlinkSync: (path: string): void => {
-      const { relativePath } = normalizeModulePath(path);
-      const mount = mountRouter.resolve(relativePath);
-      if (!mount.hasFile(relativePath)) {
-        throw createFsError('ENOENT', 'unlink', path);
-      }
-      const unlinkTask = fsModule.unlink(path);
-      if (isPromiseLike(unlinkTask)) {
-        unlinkTask.catch((err: unknown) => console.error(err));
-      }
+    existsSync: (path: FsPath): boolean => filesystem.statSync(normalize(path)) !== null,
+    mkdir: (
+      path: FsPath,
+      optionsOrCallback?: MkdirOptions | FsCallback<void>,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      let mkdirOptions: MkdirOptions | undefined;
+      let done = callback;
+      if (isCallback<void>(optionsOrCallback)) done = optionsOrCallback;
+      else mkdirOptions = optionsOrCallback;
+      return completeCall(makeDirectory(path, mkdirOptions), done);
     },
-
-    rmSync: (path: string, options?: any): void => {
-      const { relativePath } = normalizeModulePath(path);
-      const mount = mountRouter.resolve(relativePath);
-      if (mount.hasFile(relativePath)) {
-        const deleteTask = mount.deleteFile(relativePath);
-        deleteTask.catch((err: unknown) => console.error(err));
-        return;
-      }
-
-      if (mount.hasDir(relativePath)) {
-        const deleteTask = mount.rmdir(relativePath, options?.recursive || false);
-        deleteTask.catch((err: unknown) => console.error(err));
-        return;
-      }
-
-      if (!options?.force) {
-        throw createFsError('ENOENT', 'rm', path);
-      }
+    mkdirSync: (path: FsPath, mkdirOptions: MkdirOptions = {}): void => {
+      const mode = writeCreationMode(mkdirOptions);
+      filesystem.mkdirSync(normalize(path), mkdirOptions.recursive === true, mode);
     },
-
-    constants: {
-      F_OK: 0,
-      R_OK: 4,
-      W_OK: 2,
-      X_OK: 1,
+    readdir: (
+      path: FsPath,
+      optionsOrCallback?: ReaddirOptions | FsCallback<DirectoryEntry[]>,
+      callback?: FsCallback<DirectoryEntry[]>
+    ): Promise<DirectoryEntry[]> | void => {
+      const readdirOptions = isCallback<DirectoryEntry[]>(optionsOrCallback)
+        ? undefined
+        : optionsOrCallback;
+      let done = callback;
+      if (isCallback<DirectoryEntry[]>(optionsOrCallback)) done = optionsOrCallback;
+      const task = directories.readDirectory(path, readdirOptions);
+      if (!done) return track(task);
+      track(
+        task.then(
+          names => done(null, names),
+          error => done(callbackError(error))
+        )
+      );
     },
+    readdirSync: (path: FsPath, readdirOptions?: ReaddirOptions): DirectoryEntry[] =>
+      directories.readDirectorySync(path, readdirOptions),
+    unlink: (path: FsPath, callback?: FsCallback<void>): Promise<void> | void =>
+      completeCall(unlinkPath(path), callback),
+    unlinkSync: (path: FsPath): void => {
+      const normalized = normalize(path);
+      const value = filesystem.lstatSync(normalized);
+      if (!value) throw fsError('ENOENT', 'unlink', path);
+      if (value.type === 'directory') throw fsError('EISDIR', 'unlink', path);
+      filesystem.deleteFileSync(normalized);
+    },
+    appendFile: (
+      path: FsPath,
+      data: string | Uint8Array,
+      optionsOrCallback?: WriteOptionsArg,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      if (isCallback<void>(optionsOrCallback)) {
+        return completeWrite(appendFile(path, data), optionsOrCallback);
+      }
+      return completeWrite(appendFile(path, data, optionsOrCallback), callback);
+    },
+    appendFileSync: (
+      path: FsPath,
+      data: string | Uint8Array,
+      writeOptions?: WriteOptions | FsEncoding
+    ): void => {
+      const normalized = normalize(path);
+      const newBytes = encode(data, writeOptions);
+      const mode = writeCreationMode(writeOptions);
+      filesystem.writeRangeSync(normalized, newBytes, null, true, false, mode);
+    },
+    rename: (oldPath: FsPath, newPath: FsPath, callback?: FsCallback<void>): Promise<void> | void =>
+      completeCall(renamePath(oldPath, newPath), callback),
+    renameSync: (oldPath: FsPath, newPath: FsPath): void => {
+      const oldNormalized = normalize(oldPath);
+      const newNormalized = normalize(newPath);
+      filesystem.renameSync(oldNormalized, newNormalized);
+    },
+    stat: (
+      path: FsPath,
+      optionsOrCallback?: StatOptions | FsCallback<FsStats>,
+      callback?: FsCallback<FsStats>
+    ): Promise<FsStats> | void => statOperation(path, 'stat', optionsOrCallback, callback),
+    lstat: (
+      path: FsPath,
+      optionsOrCallback?: StatOptions | FsCallback<FsStats>,
+      callback?: FsCallback<FsStats>
+    ): Promise<FsStats> | void => statOperation(path, 'lstat', optionsOrCallback, callback),
+    statSync: (path: FsPath, statOptions?: StatOptions): FsStats | undefined =>
+      getStatsSync(path, 'stat', statOptions),
+    lstatSync: (path: FsPath, statOptions?: StatOptions): FsStats | undefined =>
+      getStatsSync(path, 'lstat', statOptions),
+    readlink: (
+      path: FsPath,
+      optionsOrCallback?: ReadOptions | FsEncoding | FsCallback<string | Buffer>,
+      callback?: FsCallback<string | Buffer>
+    ): Promise<string | Buffer> | void => {
+      let encodingOptions: ReadOptions | FsEncoding | undefined;
+      let done = callback;
+      if (isCallback<string | Buffer>(optionsOrCallback)) done = optionsOrCallback;
+      else encodingOptions = optionsOrCallback;
+      const task = readlink(path, encodingOptions);
+      if (!done) return track(task);
+      track(
+        task.then(
+          value => done(null, value),
+          error => done(callbackError(error))
+        )
+      );
+    },
+    readlinkSync,
+    realpath,
+    realpathSync,
+    symlink: (
+      target: string,
+      path: FsPath,
+      typeOrCallback?: string | FsCallback<void>,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      let done = callback;
+      if (isCallback<void>(typeOrCallback)) done = typeOrCallback;
+      const task = createSymlink(target, path);
+      return completeWrite(task, done);
+    },
+    symlinkSync: createSymlinkSync,
+    rm: (
+      path: FsPath,
+      optionsOrCallback?: RmOptions | FsCallback<void>,
+      callback?: FsCallback<void>
+    ): Promise<void> | void => {
+      let rmOptions: RmOptions | undefined;
+      let done = callback;
+      if (isCallback<void>(optionsOrCallback)) done = optionsOrCallback;
+      else rmOptions = optionsOrCallback;
+      return completeCall(removePath(path, rmOptions), done);
+    },
+    rmSync: (path: FsPath, rmOptions: RmOptions = {}): void => {
+      const normalized = normalize(path);
+      const mount = filesystem;
+      const value = mount.lstatSync(normalized);
+      if (!value && rmOptions.force) return;
+      if (!value) throw fsError('ENOENT', 'rm', path);
+      if (value.type === 'directory') mount.rmdirSync(normalized, rmOptions.recursive === true);
+      else mount.deleteFileSync(normalized);
+    },
+    constants,
   };
 
-  (fsModule as any).promises = {
-    readFile: (path: string, options?: any) => fsModule.readFile(path, options),
-    writeFile: (path: string, data: string | Uint8Array, options?: any) =>
-      fsModule.writeFile(path, data, options),
-    stat: (path: string) => fsModule.stat(path),
-    lstat: (path: string) => fsModule.lstat(path),
-    readdir: (path: string, options?: any) => fsModule.readdir(path, options),
-    mkdir: (path: string, options?: any) => fsModule.mkdir(path, options),
-    unlink: (path: string) => fsModule.unlink(path),
-    rm: async (path: string, options?: any) => {
-      const { relativePath } = normalizeModulePath(path);
-      const mount = mountRouter.resolve(relativePath);
-      if (mount.hasFile(relativePath)) {
-        const deleted = await mount.deleteFile(relativePath);
-        if (!deleted && !options?.force) throw createFsError('ENOENT', 'rm', path);
-        return;
-      }
-      if (mount.hasDir(relativePath)) {
-        await mount.rmdir(relativePath, options?.recursive || false);
-        return;
-      }
-      if (!options?.force) throw createFsError('ENOENT', 'rm', path);
-    },
+  const promises = {
+    readFile: (path: FsPath, encoding?: ReadOptions | FsEncoding) =>
+      track(readFile(path, encoding)),
+    writeFile: (path: FsPath, data: string | Uint8Array, writeOptions?: ReadOptions | FsEncoding) =>
+      track(writeFile(path, data, writeOptions)),
+    readdir: (path: FsPath, readdirOptions?: ReaddirOptions) =>
+      track(directories.readDirectory(path, readdirOptions)),
+    opendir: (path: FsPath, directoryOptions?: OpendirOptions) =>
+      track(directories.opendir(path, directoryOptions)),
+    stat: (path: FsPath, statOptions?: StatOptions) => track(getStats(path, 'stat', statOptions)),
+    lstat: (path: FsPath, statOptions?: StatOptions) => track(getStats(path, 'lstat', statOptions)),
+    access: (path: FsPath, mode?: number) => track(permissionOperations.accessPath(path, mode)),
+    chmod: (path: FsPath, mode: number | string) =>
+      track(permissionOperations.chmodPathPromise(path, mode)),
+    readlink: (path: FsPath, encoding?: ReadOptions | FsEncoding) =>
+      track(readlink(path, encoding)),
+    realpath: (path: FsPath, encoding?: ReadOptions | FsEncoding) =>
+      track(resolveRealpath(path, encoding)),
+    symlink: (target: string | Buffer, path: FsPath) => track(createSymlink(target, path)),
+    mkdir: (path: FsPath, options?: MkdirOptions) => track(makeDirectory(path, options)),
+    unlink: (path: FsPath) => track(unlinkPath(path)),
+    appendFile: (
+      path: FsPath,
+      data: string | Uint8Array,
+      writeOptions?: ReadOptions | FsEncoding
+    ) => track(appendFile(path, data, writeOptions)),
+    rename: (oldPath: FsPath, newPath: FsPath) => track(renamePath(oldPath, newPath)),
+    rm: (path: FsPath, options?: RmOptions) => track(removePath(path, options)),
+    copyFile: (source: FsPath, destination: FsPath, flags = 0) =>
+      track(copyFile(filesystem, normalize(source), normalize(destination), flags)),
+    rmdir: (path: FsPath) => track(removeDirectory(filesystem, normalize(path))),
+    mkdtemp: (prefix: FsPath, readOptions?: ReadOptions | FsEncoding) =>
+      track(
+        makeTempDirectory(filesystem, normalize(prefix)).then(path =>
+          tempDirectoryResult(path, readOptions)
+        )
+      ),
   };
-
-  return fsModule;
+  return { ...operations, promises };
 }

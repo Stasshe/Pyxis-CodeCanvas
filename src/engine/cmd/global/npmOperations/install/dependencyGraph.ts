@@ -1,68 +1,44 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { resolvePath } from '@/engine/core/fs';
+import type { FsApi } from '@/engine/core/fs/types';
 
 type DependencyGraph = Map<string, { dependencies: string[]; dependents: string[] }>;
 
-export async function analyzeDependencies(
-  projectId: string,
-  snapshotFiles?: Array<any>
-): Promise<DependencyGraph> {
+export async function analyzeDependencies(fs: FsApi, rootPath: string): Promise<DependencyGraph> {
   const graph: DependencyGraph = new Map();
-  try {
-    const files =
-      snapshotFiles ?? (await fileRepository.getFilesByPrefix(projectId, '/node_modules/'));
-    const pkgFiles = files.filter(
-      (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
-    );
-    for (const f of pkgFiles) {
-      try {
-        const pj = JSON.parse(f.content);
-        if (pj.name) graph.set(pj.name, { dependencies: [], dependents: [] });
-      } catch (err) {
-        console.warn(`[dependencyGraph] parse error in ${f.path}:`, err);
-      }
+  const modulesPath = resolvePath(rootPath, 'node_modules');
+  if (!(await fs.exists(modulesPath))) return graph;
+  const prefix = `${modulesPath}/`;
+  const files = (await fs.walk(modulesPath)).filter(
+    file =>
+      file.type === 'file' && file.path.startsWith(prefix) && file.path.endsWith('/package.json')
+  );
+  const packages = new Map<string, PackageJson>();
+  for (const file of files) {
+    try {
+      const content = await fs.readText(file.path);
+      const packageJson = JSON.parse(content) as PackageJson;
+      if (packageJson.name) packages.set(packageJson.name, packageJson);
+    } catch (error) {
+      console.warn(`[dependencyGraph] parse error in ${file.path}:`, error);
     }
-    for (const f of pkgFiles) {
-      try {
-        const pj = JSON.parse(f.content);
-        const deps = Object.keys(pj.dependencies || {});
-        const info = graph.get(pj.name);
-        if (info) {
-          info.dependencies = deps;
-          for (const dep of deps) {
-            graph.get(dep)?.dependents.push(pj.name);
-          }
-        }
-      } catch (err) {
-        console.warn(`[dependencyGraph] deps resolution error in ${f.path}:`, err);
-      }
-    }
-  } catch (error) {
-    console.warn('[dependencyGraph] analyzeDependencies error:', error);
+  }
+  for (const [name, packageJson] of packages) {
+    graph.set(name, { dependencies: Object.keys(packageJson.dependencies ?? {}), dependents: [] });
+  }
+  for (const [name, info] of graph) {
+    for (const dependency of info.dependencies) graph.get(dependency)?.dependents.push(name);
   }
   return graph;
 }
 
-export async function getRootDependencies(
-  projectId: string,
-  snapshotFiles?: Array<any>
-): Promise<Set<string>> {
-  const rootDeps = new Set<string>();
-  try {
-    const pkgFile = snapshotFiles
-      ? snapshotFiles.find((f: any) => f.path === '/package.json')
-      : await fileRepository.getFileByPath(projectId, '/package.json');
-    if (!pkgFile) return rootDeps;
-    const pj = JSON.parse(pkgFile.content);
-    for (const dep of [
-      ...Object.keys(pj.dependencies || {}),
-      ...Object.keys(pj.devDependencies || {}),
-    ]) {
-      rootDeps.add(dep);
-    }
-  } catch (error) {
-    console.warn('[dependencyGraph] getRootDependencies error:', error);
-  }
-  return rootDeps;
+export async function getRootDependencies(fs: FsApi, rootPath: string): Promise<Set<string>> {
+  const path = resolvePath(rootPath, 'package.json');
+  if (!(await fs.exists(path))) return new Set<string>();
+  const packageJson = JSON.parse(await fs.readText(path)) as PackageJson;
+  return new Set([
+    ...Object.keys(packageJson.dependencies ?? {}),
+    ...Object.keys(packageJson.devDependencies ?? {}),
+  ]);
 }
 
 export function findOrphanedPackages(
@@ -73,26 +49,28 @@ export function findOrphanedPackages(
   const toRemove = new Set<string>([packageToRemove]);
   const processed = new Set<string>();
   const queue = [packageToRemove];
-
   while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (processed.has(current)) continue;
+    const current = queue.shift();
+    if (!current || processed.has(current)) continue;
     processed.add(current);
-
     const info = graph.get(current);
     if (!info) continue;
-
-    for (const dep of info.dependencies) {
-      if (rootDependencies.has(dep) || toRemove.has(dep)) continue;
-      const depInfo = graph.get(dep);
-      if (!depInfo) continue;
-      const otherDependents = depInfo.dependents.filter(d => !toRemove.has(d) && graph.has(d));
-      if (otherDependents.length === 0) {
-        toRemove.add(dep);
-        queue.push(dep);
+    for (const dependency of info.dependencies) {
+      if (rootDependencies.has(dependency) || toRemove.has(dependency)) continue;
+      const dependencyInfo = graph.get(dependency);
+      if (!dependencyInfo) continue;
+      const remaining = dependencyInfo.dependents.filter(name => !toRemove.has(name));
+      if (remaining.length === 0) {
+        toRemove.add(dependency);
+        queue.push(dependency);
       }
     }
   }
+  return Array.from(toRemove).filter(name => name !== packageToRemove);
+}
 
-  return Array.from(toRemove).filter(p => p !== packageToRemove);
+interface PackageJson {
+  name?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
 }

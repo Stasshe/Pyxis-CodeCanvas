@@ -10,7 +10,7 @@
   [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/your-username/pyxis)
   [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Web%20%7C%20iPad%20%7C%20Mobile-orange.svg)](README.md)
-  [![Languages](https://img.shields.io/badge/languages-18-blue.svg)](#)
+  [![Languages](https://img.shields.io/badge/languages-20-blue.svg)](#)
   [![Tauri](https://img.shields.io/badge/Tauri-Desktop-blueviolet?logo=tauri)](https://tauri.app/)
   [![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite)](https://vite.dev/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
@@ -29,7 +29,7 @@
 - **Pyxisは、iPad向けに設計された1秒で起動する高機動なブラウザIDEです。**
 - **静的サイトなので、サーバー起動が必要なく、また課金も一切発生しません。**
 
-### 🌍 **世界18ヶ国語対応 - グローバルなコーディング体験**
+### 🌍 **世界20ヶ国語対応 - グローバルなコーディング体験**
 
 **Pyxisはあなたの言語で動作します。** 
 
@@ -56,7 +56,7 @@
 StackblitzやWebContainerはWeb開発に特化した高度なIDEですが、Pyxisは**「VSCodeのようなエディタ・便利なファイルシステム・実行環境をWeb/iPadで実現する」**ことを目的としています。
 
 - **Stackblitzとの違い**: PyxisはWeb開発専用ではなく、ドキュメント作成やメモ、アルゴリズム学習など幅広い用途を想定。目的自体が異なります。
-- **WebContainerとの違い**: PyxisはWeb Workerの並列多用を避け、IndexedDBへの積極的なキャッシュでメモリ消費を大幅に抑制。WebContainerのような仮想化ではなく、軽量・高速な独自ランタイムを採用しています。
+- **WebContainerとの違い**: Pyxisは常駐Workerを最小限に抑え、OPFSを唯一のファイル保存先として使う独自ランタイムを採用しています。
 - **エディタ体験重視**: VSCodeのような操作性・ファイルシステム・実行体験を重視し、iPadやモバイルでも快適に動作。
 
 > 💡 **パソコンのような操作性とiPadの機動性を両立！**
@@ -101,7 +101,7 @@ flowchart TD
 </div>
 
 **HTML/CSS/JSのみ対応** - ブラウザでしかテストできないが、環境整備は面倒。そんな時に、とても便利。
-- ファイル保存時に即座にブラウザへ反映（Liveリロード）
+- HTMLと参照中のCSS・JS・画像の保存をプレビューへ反映（Liveリロード）
 - 簡易的なWeb開発に最適
 - セットアップ不要でサッと使える
 
@@ -113,13 +113,16 @@ flowchart TD
 ### **Gitバージョン管理・GitHub連携**
 
 **主要なGit機能をブラウザ上で実現。** ブランチ、マージ、コミット、リセット、.git込みエクスポートなどに加え、**GitHubへのpush（PAT認証）にも対応**しています。
+
+clone・fetch・pullは公開repositoryのみ対応します。公開CORS proxyへ認証情報を渡さないため、認証付きclone・fetchは未対応です。詳細は[GitとGitHub](docs/domain/git.md)を参照してください。
+TerminalのGit操作は現在directoryから最寄りのrepositoryを探します。`git init`とclone先の相対pathも現在directoryが基準です。`git pull --rebase`は未対応として通信前にエラーを返します。
 - **ビジュアル差分** - コード変更を美しく可視化
 - **ブランチ操作** - 安全に実験、いつでも戻せる
 - **.git込みでダウンロード** - 設定から.gitを含めて丸ごとエクスポート可能
-- **GitHubリモート連携** - PAT認証によるpush/pullが可能
+- **GitHubリモート連携** - PAT認証によるpushと、公開repositoryのpullに対応
 - **安全な学習環境** - 何を壊しても大丈夫！初心者のGit練習にも最適
 
-> **注意**: GitHub連携はPersonal Access Token（PAT）認証で実現しています。リモートリポジトリへのpush/pullが可能です。
+> **注意**: pushにはPersonal Access Token（PAT）を使用します。clone・fetch・pullは公開repositoryが対象です。
 
 ---
 
@@ -128,6 +131,7 @@ flowchart TD
   <img src="readme-assets/IMG_0035.png" alt="AIアシスタントによるgit diff採用画面" width="80%" />
 </div>
 PyxisではAIアシスタントがコード差分の提案・採用をサポート。より直感的なDiff操作・レビュー体験が可能です。
+レビューtabでの適用・巻き戻しはチャット側の状態にも反映します。巻き戻しは既存fileを復元し、AIが作成したfileを削除します。適用後に編集されたfileがあれば、その内容を守るため巻き戻しを中止します。
 
 ---
 
@@ -137,42 +141,45 @@ PyxisではAIアシスタントがコード差分の提案・採用をサポー�
   <img src="readme-assets/IMG_1469.png" alt="Node.js 実行画面" width="80%" />
 </div>
 
-**WASMを使わない独自実装**で、Node.jsだけでなく**TypeScriptの実行にも対応**。TypeScriptはBabel Standaloneと独自の正規化システムで高速に変換・実行されます。
-- **瞬時に実行** - コンパイル不要、待ち時間ゼロ
-- **ファイル操作** - `fs`, `readline`, `userinterface` など主要モジュールがそのまま使える
-- **TypeScript/Babel対応** - Babel Standaloneと複雑な正規化システムでTypeScriptも即時実行
+Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再利用します。sloppy scriptのglobal代入と裸の識別子参照をNodeと同じにするため、program globalはWorkerの実際のglobal objectへ置きます。runtime所有の一時descriptorは実行終了時に復元します。正常終了時は実行状態を破棄して待機Workerへ戻し、停止や異常終了時はWorkerを破棄します。Runtime WorkerはOPFSを直接操作せず、FS Workerを通じて必要なfileを読みます。FS Workerは直近の成功path lookupのdirectory handle chainを保持して共通ancestorを再利用しますが、file handleやfile内容はcacheしません。変換済みmoduleの永続cacheはFS Workerが所有し、CommonJS moduleは各実行内で一度だけロードします。`require.resolve(..., { paths })`でpackageの検索rootを指定できます。Nodeの`path`はPOSIXを既定にし、`path.win32`と`path/win32`でWindows pathも扱えます。JavaScript・TypeScriptのmodule解決はNodeのpackage type、`exports` / `imports`条件、拡張子に沿って行います。symlinkはFS WorkerがOPFS上のreserved recordで表し、module cacheとNode metadataはrealpathを基準にします。npmの`.bin`はsymlinkとして作られ、Terminalと`npx`から解決できます。Terminalでは`node -e` / `node --eval`でCommonJS inline scriptを実行できます。`node:constants`はfsと共有する定数を公開し、`node:zlib`はgzip/deflate系の同期・callback APIとstream変換を提供します。`node:string_decoder`にはNode-maintained実装を使い、`node:querystring`はNode互換のparse/stringifyを提供し、`node:diagnostics_channel`は汎用channelと同期・Promise・callback tracing、`node:stream/promises`は`finished`と`pipeline`、`node:stream/web`はnative WHATWG streamとtext/compression APIを提供します。`stream.Readable.fromWeb()` / `toWeb()`はNodeとWHATWGのReadable streamを相互変換します。`process.arch`は`os.arch()`と同じ値を返します。詳細は[Node.js Runtime](docs/domain/node-runtime.md)を参照してください。
+`fs.chmod()`はmode metadataを更新し、`stat()`と`access()`へ反映します。`util.styleText()`はterminal color設定に沿ってANSI styleを生成します。`assert`はcallableで`assert/strict`も使えます。`util`はNode由来の`inspect`・`format`・`formatWithOptions`、`isDeepStrictEqual`、`promisify.custom`に対応します。runtimeの`process.env`は実行元shellの環境を引き継ぎ、`process.chdir()`は仮想filesystem内で動きます。`crypto`はhash・HMAC・PBKDF2・random bytes/integers、IV付きcipher、sign/verify、ECDH/DH、公開鍵/秘密鍵encrypt/decrypt、`scrypt`/`scryptSync`を提供します。key generationは未対応です。legacy `url` moduleは`fileURLToPath`と`pathToFileURL`を提供します。
+Express 5.2.1とKoa 2.16.4のroute/responseはin-memory HTTP request/responseで確認済みです。Axiosのfetch adapterも動作します。`http.createServer`、socket、AxiosのNode TLS adapterは提供しません。
+仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npmはinstall中に依存metadataを共有し、npm registryのabbreviated packumentを`~/.npm/registry`へ保存します。HTTP freshnessに従い、期限切れmetadataはETagで再検証します。tarball archiveはURLのSHA-256で識別し、registryまたはlockfileにintegrity値があれば展開前に検証します。tarball cacheは展開成功後に`~/.npm`へ保存します。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
+- **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
+- **分離した実行環境** - 実行ごとにmodule cacheやtimerなどの状態を作り直し、Workerは正常終了時に再利用
+- **ファイル操作** - `fs`, `path`, `readline`, `userinterface` の対応APIを提供
+- **TypeScript対応** - 拡張機能のトランスパイル設定でTypeScriptを実行
 - **気軽にコード実行** - アルゴリズムテスト、学習、インタラクティブなコンソールアプリもOK
 
 JavaScriptでは不可能なファイルオペレーションやインタラクティブな入出力（readline, userinterface）もエミュレートし、本格的なNode.js/TypeScript学習環境を提供。
 
 
-> **制限事項**: WASMを使用していないため、ネイティブモジュールやchild_processなど一部機能は未対応です。基本的なNode.js/TypeScript学習や簡易スクリプト実行には十分です。
+> **制限事項**: ネイティブNode.jsアドオン、socket、HTTP server APIは利用できません。`child_process` はPyxisのシェル機能を通じて実行します。
 
 ---
 
-### **Advanced Shell System - Full POSIX Shell Support**
+### **Advanced Shell System - POSIX Shell Subset**
 <div align="center">
   <img src="readme-assets/IMG_0126.png" alt="Advanced Shell System" width="80%" />
 </div>
 
-**ブラウザ上で本格的なPOSIX準拠シェルスクリプト実行環境を実現！** Pyxis独自のStreamShellアーキテクチャにより、パイプライン、リダイレクション、制御構文、変数展開など、実Unixシェルのほとんどの機能をサポートします。
+**ブラウザ上で実用的なシェルスクリプトを実行できます。** Pyxis独自のStreamShellは、パイプライン、リダイレクション、制御構文、変数展開など、POSIX shell構文の一部をサポートします。
 
 #### 主な機能
 - **パイプライン処理** - `cmd1 | cmd2 | cmd3` によるストリーム接続
-- **リダイレクション** - `cmd > file`、`cmd >> file`、`cmd < file`、`cmd 2>&1` など完全対応
-- **制御構文** - `if/then/else`、`for/while` ループ、`break/continue`
-- **変数展開** - `$VAR`、`$(command)` コマンド置換、`((算術))` 算術展開
+- **リダイレクション** - `cmd > file`、`cmd >> file`、`cmd < file`、`cmd 2>&1` など
+- **制御構文** - `if/then/else`、`for/while`、関数、`ERR`/`EXIT` trap、`set -e/-u/-o pipefail`
+- **変数展開** - `$VAR`、parameter expansion、`$(command)` コマンド置換、`$((算術))` 算術展開
 - **論理演算子** - `&&`、`||` による条件実行
 - **バックグラウンド実行** - `cmd &` 非同期処理
-- **ファイル操作** - `ls`、`cat`、`grep`、`head`、`tail` などUnixコマンド
-- **スクリプト実行** - `.sh` ファイルの直接実行
+- **ファイル操作** - `ls`、`cat`、`grep`、`head`、`tail`、`tr`、`awk` などUnixコマンド
+- **スクリプト実行** - 現在の作業ディレクトリから解決した `.sh` ファイルを実行し、終了コードを返す
 
 #### 技術的特徴
 - **ストリーミングアーキテクチャ** - Node.js Stream APIによる真のストリーミング処理
 - **バックプレッシャー対応** - メモリ効率の高いデータフロー制御
 - **プロセス抽象化** - ブラウザ環境での仮想プロセス管理
-- **fd管理** - ファイルディスクリプタの完全エミュレーション
-- **タイムアウト保護** - 無限ループ防止のための自動タイムアウト
+- **fd管理** - ファイルディスクリプタのマッピングと複製
 
 **シェルスクリプトの例：**
 ```bash
@@ -196,15 +203,13 @@ COUNT=$((COUNT + 1))
 echo "Current count: $COUNT"
 ```
 
-**ブラウザで本物のシェル体験！** 複雑なスクリプトも、データ処理も、すべてPyxisのターミナルで実行可能です。
-
-> **StreamShellアーキテクチャにより、メモリ効率が高く、大規模データ処理も快適に動作します。**
+コマンド置換は親Terminalの作業ディレクトリを変更しません。shell構文とコマンドには未対応のものがあります。詳細は[Shell](docs/domain/shell.md)を参照してください。
 
 
 > Note: 一部のシステムコマンドやバグ、機能はまだ完全には対応していません。今後のアップデートでさらに強化予定です。
 issueで要望をお寄せください。
 
-詳細は [Shell System Documentation](/docs/SHELL-SYSTEM.md) を参照。
+詳細は [Shell documentation](docs/domain/shell.md) を参照。
 
 ---
 
@@ -217,19 +222,20 @@ issueで要望をお寄せください。
   <img src="readme-assets/IMG_0117.png" alt="Template CLI Screenshot" width="80%" />
 </div>
 
-Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npmライブラリ完全対応・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張など、あらゆる機能をTypeScript/TSXで自由に追加できます。
+Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCodeライクなUI拡張・npm registry packageのinstall・Terminalコマンド拡張・多言語パック・トランスパイラ・サービス拡張などをTypeScript/TSXで追加できます。
 
 #### 主なポイント
 - **CLIテンプレート生成**：`pnpm run create-extension`で対話式テンプレート自動生成。初心者でも即拡張開発可能。
-- **npmライブラリ完全対応**：外部ライブラリを自由に利用。
+- **npm registry package対応**：package-lock.json v3を使った依存固定、複数packageの一括install、必須peer dependency、自動nested配置に対応。npm alias（`alias@npm:target@range`、scoped targetを含む）もCLIから指定できます。互換lock entryを優先し、新しいrangeでは条件を満たす`latest`を選びます。
 - **Terminalコマンド拡張**：独自コマンドをAPIで追加し、PyxisターミナルUIから実行可能。
 - **VSCodeライクなUI拡張**：カスタムタブ・サイドバーパネルをAPIで追加。React/TSXで直感的にUI構築。
 - **多言語パック・サービス拡張**：言語パックや独自サービスも拡張機能として追加。
-- **安全なサンドボックス設計**：各拡張は独立・安全に動作。IndexedDBで永続化・キャッシュ。
+- **拡張機能の管理UI**：操作・検索・確認・失敗表示を20言語で表示します。拡張の名前と説明は配布元のmanifestに従います。
+- **拡張機能の永続化**：登録情報と取得済みコードをブラウザ内に保存し、有効な拡張を次回起動時に復元します。
 
 「VSCode級のUI拡張がWeb/iPadで動く」「Terminalコマンドも拡張可能」「公式テンプレートで即開発」など、他にない柔軟性と拡張性を持っています。
 
-詳細は [Extension Readme](/extensions/README.md) や、より詳細な[EXTENSION-SYSTEM](/docs/EXTENSION-SYSTEM.md)を参照。
+詳細は [Extension Readme](/extensions/README.md) や、より詳細な[拡張機能システム](docs/domain/extensions.md)と[作り方](docs/domain/extension-authoring.md)を参照。
 
 ---
 
@@ -272,14 +278,14 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 
 ### **AIサポート - シームレスな開発支援**
 - **Ask & Edit機能** - 通常のブラウザでは何度もコピペが必要な作業を解決
-- **コンテキスト保持** - ファイルを開いたまま、AIに質問・編集依頼
+- **コンテキスト保持** - 添付ファイルは保存・移動・削除に追従。未送信入力は同じページ内でAsk/Edit・workspaceを切り替えても保持
 - **統合された体験** - VSCodeを開くほどではないが、AIの力は欲しい時に最適
 
 ### **ユニバーサル互換性**
 - **どこでも動く** - Web、iPad、モバイル、全てのモダンブラウザ
 - **マルチペーン対応** で複雑なプロジェクトも楽々
-- **バッファコンテンツ対応** - zip解凍、PDF、画像、動画表示
-- **🌍 20ヶ国語対応** - 日本語、英語、中国語、韓国語、スペイン語、フランス語、ドイツ語、イタリア語、ポルトガル語、ロシア語、オランダ語、トルコ語、アラビア語、ヒンディー語、タイ語、ベトナム語、インドネシア語、スウェーデン語、ポーランド語に対応
+- **バイナリ表示** - ZIP解凍、PDF/画像/動画のプレビュー
+- **🌍 20ヶ国語対応** - 日本語、英語、中国語、繁体字中国語、韓国語、スペイン語、フランス語、ドイツ語、イタリア語、ポルトガル語、ロシア語、オランダ語、トルコ語、アラビア語、ヒンディー語、タイ語、ベトナム語、インドネシア語、スウェーデン語、ポーランド語に対応
 - **拡張機能システム** - 言語パック、トランスパイラ、カスタム機能を動的に追加
 
 --- 
@@ -295,7 +301,7 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 - **こだわりのMD** - Markdown/Mermaid/LaTeX、ドキュメント・ブログ執筆に最適
 - **AIサポート** - Ask/Edit機能で効率化
 - **ライブリロード対応** - HTML/CSS/JS簡易サイト開発
-- **バッファ対応** - ZIP解凍、PDF/画像/動画ビューワー
+- **バイナリ対応** - file bytesをOPFS、Git、runtime、upload/download、ZIP解凍まで保持。文字列へのdecodeはtext読込・明示したNode encoding・`.mjs` transpile・terminal表示時に限る
 - **効率的編集** - キーボードショートカットで大量テキストも快適
 - **マルチペーン** - 複数ウィンドウで同時作業
 - **拡張機能アーキテクチャ** - 動的ロード、依存関係管理、永続化でモジュラーな設計
@@ -339,17 +345,29 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 ### **エディターとターミナル**
 - **Monaco Editor** - VS Codeと同じエンジンを使用
 - **xterm.js** - フル機能ターミナル体験
-- **Lightning FS** - 超高速ファイルシステム
+- **OPFS** - プロジェクトファイルとGit履歴を保存するブラウザ内ファイルシステム
 
 ### **ランタイムイノベーション**
 - **node-stdlib-browser** - Node.js API互換性
 - **fs module** - 気合いのエミュレーター全書き
 - **isomorphic-git** - 純粋JavaScriptのGit実装
 
-### **Pyxisのデータベース・ファイルシステム設計に興味がある方へ**
-- Pyxisの内部アーキテクチャやデータベース設計、ファイルシステムの詳細な仕様\n
-- **非常に高度な内容**をまとめた[Development/DATABASE.md](Development/DATABASE.md)をご覧ください。
-データフローやIndexedDBの構造、仮想ファイルシステムの仕組みなど、開発者・研究者向けの深い技術情報を掲載しています。
+### **ファイルシステム設計**
+OPFSを唯一のファイル保存先とし、IndexedDBにはフォルダー一覧やタブ、チャット、AIレビューなどのメタデータを保存します。詳細は[保存境界とpathモデル](docs/arch/storage.md)と[処理の流れ](docs/arch/data-flow.md)、文書全体は[docs/README.md](docs/README.md)をご覧ください。
+
+エディタの保存・復元失敗は画面とOutputへ表示します。保存失敗時は未保存の編集を保持し、復元失敗時は空のエディタを開かず、タブを閉じて再度開くことで読み直せます。
+
+fileを開く途中でworkspaceを切り替えた場合、古い読込結果は新しいタブsessionへ反映しません。
+
+Explorerの「Open」と「Open in CodeMirror」は、開いているfileでも未保存内容を保持してeditorを切り替えます。
+
+folderの削除・移動が途中で失敗した場合も、実際に消えた項目と残ったコピーを一覧へ反映します。復元するsymlink／FIFO recordは物理parentが残るものに限ります。詳細は[filesystem](docs/domain/filesystem.md)を参照してください。
+
+Git checkoutやfolder移動などが途中で失敗した場合、操作前の完全な状態へ戻す保証はありません。途中までの変更による不整合を許容し、完全復元処理は追加しない方針です。
+
+Explorerの展開状態はfolderごとに復元します。ZIP exportはFIFO／deviceやそれらへのlinkをpath付きerrorで拒否し、読込待ちや一部entryの欠落を防ぎます。WebPreviewはHTMLの実要素・属性を解析し、script内の文字列と`data-*`を保ったままlocal assetsを埋め込みます。Git mergeのref保存失敗は元worktreeへ復元し、merge commit後のcleanup失敗は作成済みSHAを通知して再試行の重複commitを防ぎます。
+
+幅640px以下ではExplorer・editor・AI panelを縦に並べ、両sidebarを開いても画面内で操作できます。desktopへ戻ると保存済みのsidebar幅を使います。詳細は[editorの画面構成](docs/domain/editor.md)をご覧ください。
 
 ### **作れるもの**
 
@@ -387,7 +405,6 @@ rl.question('お名前は？ ', (name) => {
 3. pnpm install で依存を導入
 4. pnpm exec tauri dev でデスクトップアプリを起動
 5. Web版と同じPyxis体験をデスクトップで！
-* [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
 ### **2. 初めてのPyxisプロジェクト**
 
@@ -440,11 +457,13 @@ $$E = mc^2$$
 
 | ブラウザ | サポート | 備考 |
 |---------|---------|-------|
-| 🟢 **Chrome/Edge** | 完璧 | 最高の体験にお勧め |
-| 🟢 **Safari (iPad)** | 優秀 | iPadに特別最適化 |
-| 🟡 **Firefox** | 良好 | 全機能動作 |
+| 🟢 **Chrome/Edge** | Chromeで確認済み | Edgeは未計測 |
+| 🟢 **Safari (iPad)** | Safari 26+ | 実機未計測 |
+| 🟡 **Firefox** | 未計測 | 対応状況は未確認 |
 | 🟡 **モバイル** | 良好 | タッチ最適化インターフェース |
 | 🟢 Tauri (Desktop) | 完璧 | Windows/Mac/Linuxで動作 |
+
+永続fileのrenameにはOPFSの`FileSystemFileHandle.move()`が必要です。ChromeのOPFSでは確認済みです。Safariは26以降を対象としますが、SafariとFirefoxでの動作は未計測です。
 
 **システム要件：** モダンブラウザと2GB+のRAMでスムーズな体験。
 
@@ -477,7 +496,6 @@ npm run preview
 ```
 
 or, if you use tauri, use "tauri" branch.
-* check this guide! [Tauri Setup Guide](./Development/Tauri-Setup.md)
 
 ```
 npm i

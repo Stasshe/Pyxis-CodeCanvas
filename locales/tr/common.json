@@ -135,9 +135,61 @@
     "loadingFile": "Dosya içeriği geri yükleniyor...",
     "selectFile": "Lütfen bir dosya seçin"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Kullanılabilir tüm uzantılara sahipsiniz",
+    "allInstalled": "Tüm uzantılar yüklü",
+    "available": "Mevcut ({count})",
+    "browseAvailable": "Başlamak için kullanılabilir eklentilere göz atın",
+    "confirmUninstall": "\"{name}\" uygulamasını kaldırmak istediğinizden emin misiniz?",
+    "disable": "Devre dışı bırakmak",
+    "disableUnavailable": "Uzantı devre dışı bırakılamadı.",
+    "enable": "Etkinleştir",
+    "enableUnavailable": "Uzantı etkinleştirilemedi.",
+    "importFailed": "ZIP içe aktarılamadı: {error}",
+    "importZip": "Eklenti paketini içe aktar (.zip)",
+    "install": "Yükle",
+    "installed": "Yüklendi ({count})",
+    "installFailed": "{name} yüklenemedi: {error}",
+    "installUnavailable": "Uzantı yüklenemedi veya etkinleştirilemedi.",
+    "loadFailed": "Uzantılar yüklenemedi: {error}",
+    "loading": "Uzantılar yükleniyor...",
+    "manifestUrlMissing": "Bildirim URL'si kayıt defterinde bulunamadı",
+    "noMatches": "Eşleşen eklenti bulunamadı",
+    "noneInstalled": "Hiçbir uzantı yüklü değil",
+    "packCount": "Eklentiler: {count}",
+    "reload": "Uzantıları yeniden yükle",
+    "search": "Uzantıları ara...",
+    "title": "Eklentiler",
+    "toggleFailed": "Uzantı durumu değiştirilemedi: {error}",
+    "tryDifferentSearch": "Başka bir arama terimi deneyin",
+    "types": {
+      "builtinModule": "Dahili Modül",
+      "languageRuntime": "Dil Çalışma Zamanı",
+      "service": "Hizmet",
+      "tool": "Alet",
+      "transpiler": "Aktarıcı",
+      "ui": "kullanıcı arayüzü"
+    },
+    "uninstall": "Kaldır",
+    "uninstallFailed": "Uzantı kaldırılamadı: {error}",
+    "uninstallTitle": "Uzantıyı Kaldır",
+    "uninstallUnavailable": "Uzantı kaldırılamadı.",
+    "update": "Güncelle",
+    "updateFailed": "{name} güncellenemedi: {error}",
+    "updateUnavailable": "Yeni uzantı paketi etkinleştirilemedi.",
+    "viewDetails": "Uzantı ayrıntılarını görüntülemek için tıklayın"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Dosya oluştur",
+      "createFolder": "Klasör oluştur",
+      "import": "İçe aktar",
+      "move": "Taşı"
+    },
     "alert": {
-      "renameFailed": "Yeniden adlandırma başarısız: {error}"
+      "destinationExists": "Hedef zaten mevcut: {path}",
+      "operationFailed": "{action} başarısız: {error}",
+      "workspaceChanged": "Çalışma alanı değişti; kalan dosyalar atlandı."
     },
     "menu": {
       "createFile": "Dosya oluştur",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Yeni dosya oluştur",
-    "createFolder": "Yeni klasör oluştur"
+    "createFolder": "Yeni klasör oluştur",
+    "newFilePrompt": "Yeni dosya adını girin:",
+    "newFolderPrompt": "Yeni klasör adını girin:"
   },
   "markdownPreview": {
     "downloadSvg": "SVG indir",

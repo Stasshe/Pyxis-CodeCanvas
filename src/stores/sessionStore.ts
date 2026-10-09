@@ -12,6 +12,17 @@ import { STORES, storageService } from '@/engine/storage';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
 
+type SessionTab = Tab & {
+  bufferContent?: ArrayBuffer;
+  content?: string;
+  needsContentRestore?: boolean;
+};
+
+function withoutRestoreFlag(tab: SessionTab): Tab {
+  const { needsContentRestore, ...rest } = tab;
+  return rest as Tab;
+}
+
 /**
  * Pyxisセッションの型定義
  */
@@ -60,8 +71,11 @@ export const DEFAULT_SESSION: PyxisSession = {
   },
 };
 
-const SESSION_KEY = 'current-session';
 const UI_STATE_KEY = 'ui-state'; // UI状態専用キー
+
+function sessionKey(rootPath: string): string {
+  return `tabState:${rootPath}`;
+}
 
 /**
  * セッションストレージ管理クラス
@@ -70,7 +84,7 @@ class SessionStoreManager {
   /**
    * セッションを保存
    */
-  async save(session: PyxisSession): Promise<void> {
+  async save(rootPath: string, session: PyxisSession): Promise<void> {
     try {
       const sessionToSave: PyxisSession = {
         ...session,
@@ -80,7 +94,7 @@ class SessionStoreManager {
       // contentやbufferContentを除外して保存
       const cleanedSession = this.cleanSessionForStorage(sessionToSave);
 
-      await storageService.set(STORES.USER_PREFERENCES, SESSION_KEY, cleanedSession);
+      await storageService.set(STORES.TAB_STATE, sessionKey(rootPath), cleanedSession);
       console.log('[SessionStore] Session saved successfully');
     } catch (error) {
       console.error('[SessionStore] Failed to save session:', error);
@@ -91,24 +105,19 @@ class SessionStoreManager {
   /**
    * セッションを読み込み
    */
-  async load(): Promise<PyxisSession> {
-    try {
-      const session = await storageService.get<PyxisSession>(STORES.USER_PREFERENCES, SESSION_KEY);
+  async load(rootPath: string): Promise<PyxisSession> {
+    const session = await storageService.get<PyxisSession>(STORES.TAB_STATE, sessionKey(rootPath));
 
-      if (!session) {
-        console.log('[SessionStore] No saved session found, using default');
-        return DEFAULT_SESSION;
-      }
-
-      // 復元後にneedsContentRestoreフラグを設定
-      const restoredSession = this.prepareSessionForRestore(session);
-
-      console.log('[SessionStore] Session loaded successfully');
-      return restoredSession;
-    } catch (error) {
-      console.error('[SessionStore] Failed to load session:', error);
-      return DEFAULT_SESSION;
+    if (!session) {
+      console.log('[SessionStore] No saved session found, using default');
+      return structuredClone(DEFAULT_SESSION);
     }
+
+    // 復元後にneedsContentRestoreフラグを設定
+    const restoredSession = this.prepareSessionForRestore(session);
+
+    console.log('[SessionStore] Session loaded successfully');
+    return restoredSession;
   }
 
   /**
@@ -151,9 +160,9 @@ class SessionStoreManager {
   /**
    * セッションをクリア
    */
-  async clear(): Promise<void> {
+  async clear(rootPath: string): Promise<void> {
     try {
-      await storageService.delete(STORES.USER_PREFERENCES, SESSION_KEY);
+      await storageService.delete(STORES.TAB_STATE, sessionKey(rootPath));
       console.log('[SessionStore] Session cleared');
     } catch (error) {
       console.error('[SessionStore] Failed to clear session:', error);
@@ -177,23 +186,18 @@ class SessionStoreManager {
           // タブタイプが serializeForSession を実装している場合はそれを使用
           if (tabDef?.serializeForSession) {
             const serialized = tabDef.serializeForSession(tab);
-            // needsContentRestore は除外
-            const { needsContentRestore, ...rest } = serialized as Tab & {
-              needsContentRestore?: boolean;
-            };
-            return rest;
+            return withoutRestoreFlag(serialized as SessionTab);
           }
 
           // 拡張機能タブの場合：タブタイプが登録されていなくてもすべてのデータを保持
           // needsContentRestore のみ除外
           if (tab.kind.startsWith('extension:')) {
-            const { needsContentRestore, ...rest } = tab as any;
-            return rest;
+            return withoutRestoreFlag(tab as SessionTab);
           }
 
           // デフォルト動作: content, bufferContent, needsContentRestore を除外
-          const { content, bufferContent, needsContentRestore, ...tabRest } = tab as any;
-          return tabRest;
+          const { content, bufferContent, ...storedTab } = tab as SessionTab;
+          return withoutRestoreFlag(storedTab as SessionTab);
         }),
         children: pane.children ? cleanPanes(pane.children) : undefined,
       }));
@@ -230,7 +234,7 @@ class SessionStoreManager {
           return {
             ...tab,
             needsContentRestore: true,
-          } as any;
+          } as SessionTab;
         }),
         children: pane.children ? markPanesForRestore(pane.children) : undefined,
       }));

@@ -2,9 +2,7 @@ import type { Binding } from './keybindingUtils';
 export const DEFAULT_BINDINGS: Binding[] = [
   // File operations
   { id: 'saveFile', name: 'Save File', combo: 'Ctrl+S', category: 'file' },
-  { id: 'saveFileAs', name: 'Save File As', combo: 'Ctrl+Shift+S', category: 'file' },
   { id: 'quickOpen', name: 'Quick Open', combo: 'Ctrl+P', category: 'file' },
-  { id: 'newFile', name: 'New File', combo: 'Ctrl+N', category: 'file' },
 
   // Search
   { id: 'globalSearch', name: 'Global Search', combo: 'Ctrl+Shift+F', category: 'search' },
@@ -34,7 +32,6 @@ export const DEFAULT_BINDINGS: Binding[] = [
   // Execution
   { id: 'runFile', name: 'Open Run Panel', combo: 'Ctrl+Shift+R', category: 'execution' },
   { id: 'openTerminal', name: 'Open Terminal', combo: 'Ctrl+@', category: 'execution' },
-  { id: 'runSelection', name: 'Run Selection', combo: 'Ctrl+Alt+R', category: 'execution' },
 
   // Additional Pyxis-specific / useful editor shortcuts
   // { id: 'togglePreview', name: 'Toggle Preview', combo: 'Ctrl+K O', category: 'view' },
@@ -58,5 +55,6 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { id: 'focusPrevPane', name: 'Focus Previous Pane', combo: 'Ctrl+K J', category: 'pane' },
 
   // Project
-  { id: 'openProject', name: 'Open Project', combo: 'Ctrl+Shift+O', category: 'project' },
+  { id: 'openProject', name: 'Open Folder', combo: 'Ctrl+K Ctrl+O', category: 'project' },
+  { id: 'openRecent', name: 'Open Recent', combo: 'Ctrl+R', category: 'project' },
 ];

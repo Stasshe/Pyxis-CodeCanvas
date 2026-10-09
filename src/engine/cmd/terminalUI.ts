@@ -1,3 +1,4 @@
+import stringWidth from 'string-width';
 import type TerminalOutputManager from './terminalOutputManager';
 
 export type WriteCallback = (text: string) => Promise<void> | void;
@@ -86,6 +87,24 @@ export const SPINNERS = {
 
 export type SpinnerType = keyof typeof SPINNERS;
 
+function fitToWidth(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return '';
+  if (stringWidth(text) <= maxWidth) return text;
+
+  const ellipsis = '…';
+  const ellipsisWidth = stringWidth(ellipsis);
+  const segmenter = new Intl.Segmenter();
+  let fitted = '';
+  let width = 0;
+  for (const { segment } of segmenter.segment(text)) {
+    const segmentWidth = stringWidth(segment);
+    if (width + segmentWidth + ellipsisWidth > maxWidth) break;
+    fitted += segment;
+    width += segmentWidth;
+  }
+  return `${fitted}${ellipsis}`;
+}
+
 export class SpinnerController {
   private frames: string[];
   private frameIndex = 0;
@@ -109,8 +128,19 @@ export class SpinnerController {
   }
 
   private renderFrame(): string {
-    const frame = `${this.color}${this.frames[this.frameIndex % this.frames.length]}${ANSI.RESET}`;
-    return this.message ? `${frame} ${this.message}` : frame;
+    const maxWidth = Math.max(0, this.outputManager.columns - 1);
+    const rawFrame = this.frames[this.frameIndex % this.frames.length];
+    const fittedFrame = fitToWidth(rawFrame, maxWidth);
+    const frame = `${this.color}${fittedFrame}${ANSI.RESET}`;
+    const frameWidth = stringWidth(fittedFrame);
+    if (!this.message || frameWidth >= maxWidth) return frame;
+
+    const messageWidth = maxWidth - frameWidth - 1;
+    if (messageWidth <= 0) return frame;
+    const singleLineMessage = this.message.replace(/[\r\n\t]/g, ' ');
+    const message = fitToWidth(singleLineMessage, messageWidth);
+    if (!message) return frame;
+    return `${frame} ${message}`;
   }
 
   async start(message = ''): Promise<void> {
@@ -138,7 +168,7 @@ export class SpinnerController {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    const suffix = finalMessage ? `${finalMessage}\n` : '';
+    const suffix = finalMessage ? `${finalMessage}\r\n` : '';
     await this.outputManager.writeRaw(`${ANSI.CLEAR_LINE}${suffix}${ANSI.CURSOR_SHOW}`);
   }
 
@@ -179,13 +209,13 @@ export class ProgressBar {
 
   constructor(outputManager: TerminalOutputManager, width = 30, filledChar = '█', emptyChar = '░') {
     this.outputManager = outputManager;
-    this.width = width;
+    this.width = Number.isFinite(width) ? Math.max(0, width) : 0;
     this.filledChar = filledChar;
     this.emptyChar = emptyChar;
   }
 
   async start(total = 100, message = ''): Promise<void> {
-    this.total = total;
+    this.total = Number.isFinite(total) ? Math.max(1, total) : 1;
     this.current = 0;
     this.message = message;
     this.isActive = true;
@@ -195,7 +225,7 @@ export class ProgressBar {
 
   async update(current: number, message?: string): Promise<void> {
     if (!this.isActive) return;
-    this.current = Math.min(current, this.total);
+    if (Number.isFinite(current)) this.current = Math.max(0, Math.min(current, this.total));
     if (message !== undefined) this.message = message;
     await this.render();
   }
@@ -206,12 +236,30 @@ export class ProgressBar {
 
   private async render(): Promise<void> {
     const ratio = this.current / this.total;
-    const filled = Math.round(ratio * this.width);
+    const maxWidth = Math.max(0, this.outputManager.columns - 1);
+    const percent = `${Math.round(ratio * 100)}%`.padStart(4);
+    const percentWidth = stringWidth(percent);
+    if (maxWidth < percentWidth) {
+      await this.outputManager.writeRaw(ANSI.CLEAR_LINE + fitToWidth(percent, maxWidth));
+      return;
+    }
+    const messageLimit = Math.max(0, maxWidth - percentWidth - 2);
+    const message = fitToWidth(this.message.replace(/[\r\n\t]/g, ' '), messageLimit);
+    const width = Math.min(
+      this.width,
+      Math.max(0, maxWidth - percentWidth - (message ? stringWidth(message) + 2 : 1))
+    );
+    const filledWidth = Math.round(ratio * width);
+    const filledCharWidth = stringWidth(this.filledChar);
+    const emptyCharWidth = stringWidth(this.emptyChar);
+    const filled = filledCharWidth > 0 ? Math.floor(filledWidth / filledCharWidth) : 0;
+    const emptyWidth = width - filledWidth;
+    const empty = emptyCharWidth > 0 ? Math.floor(emptyWidth / emptyCharWidth) : 0;
     const bar =
       `${ANSI.FG.GREEN}${this.filledChar.repeat(filled)}` +
-      `${ANSI.FG.GRAY}${this.emptyChar.repeat(this.width - filled)}${ANSI.RESET}`;
-    const percent = `${Math.round(ratio * 100)}%`.padStart(4);
-    const display = this.message ? `${bar} ${percent} ${this.message}` : `${bar} ${percent}`;
+      `${ANSI.FG.GRAY}${this.emptyChar.repeat(empty)}${ANSI.RESET}`;
+    let display = `${bar} ${percent}`;
+    if (message) display += ` ${message}`;
     await this.outputManager.writeRaw(ANSI.CLEAR_LINE + display);
   }
 
@@ -265,6 +313,10 @@ export class TerminalUI {
     this.spinner = new SpinnerController(outputManager, spinnerType);
     this.progress = new ProgressBar(outputManager);
     this.status = new StatusLine(outputManager);
+  }
+
+  async dispose(): Promise<void> {
+    await this.spinner.stop();
   }
 
   async print(text: string): Promise<void> {

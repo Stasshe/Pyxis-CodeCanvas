@@ -1,72 +1,62 @@
-/**
- * Built-in Node.js モジュールのエミュレーション（統合エントリーポイント）
- *
- * ## 主な変更点
- * - fileRepositoryを直接使用してIndexedDBに保存
- * - GitFileSystemへの同期は自動的に実行される
- * - プロジェクト情報（projectId, projectName）を必須パラメータとして追加
- * - 後方互換性は無視（破壊的変更）
- *
- * ## 使用方法
- * ```typescript
- * import { createBuiltInModules } from '@/engine/node/builtInModule_new';
- *
- * const modules = createBuiltInModules({
- *   projectDir: '/projects/my-project',
- *   projectId: 'project-123',
- *   projectName: 'my-project',
- * });
- *
- * // fsモジュールを使用
- * await modules.fs.writeFile('/test.txt', 'Hello World');
- *
- * // httpモジュールを使用
- * modules.http.get('http://example.com', (res) => {
- *   res.on('data', (chunk) => console.log(chunk));
- * });
- * ```
- */
+/** Creates the built-in modules exposed to one Node runtime worker. */
 
-import * as stream from 'node:stream';
+import stream from 'node:stream';
 import * as buffer from 'buffer';
-import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
-import type { MountRouter } from '@/engine/runtime/storage/MountRouter';
+import { HOME_DIR } from '@/engine/core/pathUtils';
+import type { RuntimeBridge } from '@/engine/runtime/bridge/client';
+import type { RuntimeStdin } from '@/engine/runtime/nodejs/workerStdin';
+import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
 import { createAssertModule } from './modules/assertModule';
-import { createChildProcessModule } from './modules/childProcessModule';
+import {
+  type ChildProcessModuleOptions,
+  createChildProcessModule,
+} from './modules/childProcessModule';
+import { createConstantsModule } from './modules/constantsModule';
 import { createCryptoModule } from './modules/cryptoModule';
+import { createDiagnosticsChannelModule } from './modules/diagnosticsChannel';
 import { createEventsModule } from './modules/eventsModule';
 import { createFSModule, type FSModuleOptions } from './modules/fsModule';
 import { createHTTPModule, createHTTPSModule } from './modules/httpModule';
 import { createModuleModule } from './modules/moduleModule';
+import * as netModule from './modules/netModule';
 import { createOSModule } from './modules/osModule';
 import { createPathModule } from './modules/pathModule';
-import { createReadlineModule } from './modules/readlineModule';
+import * as querystringModule from './modules/querystringModule';
+import { createRuntimeStreamModule } from './modules/readableWebAdapters';
+import { createReadlineModule, createReadlinePromisesModule } from './modules/readlineModule';
+import * as stringDecoderModule from './modules/stringDecoderModule';
 import { createTTYModule } from './modules/ttyModule';
 import * as urlModule from './modules/urlModule';
+import { createUrlModule } from './modules/urlModule';
 import { createUtilModule } from './modules/utilModule';
 import { createV8Module } from './modules/v8Module';
+import { createWebStreamsModule } from './modules/webStreamsModule';
+import { createWorkerThreadsModule } from './modules/workerThreadsModule';
+import { createZlibModule } from './modules/zlibModule';
 
 export interface BuiltInModulesOptions {
-  projectDir: string;
-  projectId: string;
-  projectName: string;
-  processStdin?: ProcessStdin;
-  getTrackIO?: () => ((p: Promise<void>) => void) | undefined;
-  requireFactory?: (filename: string) => (id: string) => unknown;
+  rootPath: string;
+  bridge: RuntimeBridge;
+  processStdin?: RuntimeStdin;
+  getTrackIO?: () => (<T>(p: Promise<T>) => Promise<T>) | undefined;
+  requireFactory: (filename: string) => (id: string) => unknown;
+  scheduleNextTick: (callback: () => void) => void;
   getCwd?: () => string;
   getEnv?: () => Record<string, string>;
-  runShell?: (
-    command: string,
-    options?: { cwd?: string; env?: Record<string, string> }
-  ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
-  mountRouter: MountRouter;
+  runShell?: ChildProcessModuleOptions['runShell'];
+  filesystem: RuntimeFsMount;
+  writeStdout: (data: string | Uint8Array) => void;
+  writeStderr: (data: string | Uint8Array) => void;
   terminalColumns?: number;
   terminalRows?: number;
+  stdoutIsTTY?: boolean;
 }
 
 export interface BuiltInModules {
-  url: typeof urlModule;
+  url: ReturnType<typeof createUrlModule>;
   stream: typeof stream;
+  webStreams: ReturnType<typeof createWebStreamsModule>;
+  worker_threads: ReturnType<typeof createWorkerThreadsModule>;
   fs: ReturnType<typeof createFSModule>;
   path: ReturnType<typeof createPathModule>;
   os: ReturnType<typeof createOSModule>;
@@ -76,74 +66,127 @@ export interface BuiltInModules {
   events: ReturnType<typeof createEventsModule>;
   buffer: typeof buffer;
   readline: ReturnType<typeof createReadlineModule>;
+  readlinePromises: ReturnType<typeof createReadlinePromisesModule>;
+  string_decoder: typeof stringDecoderModule;
+  querystring: typeof querystringModule;
   tty: ReturnType<typeof createTTYModule>;
   assert: ReturnType<typeof createAssertModule>;
   module: ReturnType<typeof createModuleModule>;
+  net: typeof netModule;
   v8: ReturnType<typeof createV8Module>;
   crypto: ReturnType<typeof createCryptoModule>;
+  diagnostics_channel: ReturnType<typeof createDiagnosticsChannelModule>;
   child_process: ReturnType<typeof createChildProcessModule>;
+  constants: ReturnType<typeof createConstantsModule>;
+  zlib: ReturnType<typeof createZlibModule>;
 }
 
-/**
- * すべてのビルトインモジュールを作成
- *
- * @param options - プロジェクト情報
- * @returns すべてのビルトインモジュール
- */
+/** Creates the built-in modules for one runtime worker. */
 export function createBuiltInModules(options: BuiltInModulesOptions): BuiltInModules {
   const {
-    projectDir,
-    projectId,
-    projectName,
+    rootPath,
+    bridge,
     processStdin,
     getTrackIO,
     requireFactory,
+    scheduleNextTick,
     getCwd,
     getEnv,
     runShell,
-    mountRouter,
+    filesystem,
+    writeStdout,
+    writeStderr,
     terminalColumns,
     terminalRows,
+    stdoutIsTTY,
   } = options;
+  const runtimeStream = createRuntimeStreamModule();
 
   return {
-    fs: createFSModule({ projectDir, projectId, projectName, mountRouter, getTrackIO }),
-    path: createPathModule(getCwd ?? (() => projectDir)),
-    os: createOSModule(),
-    util: createUtilModule(),
-    http: createHTTPModule(),
-    https: createHTTPSModule(),
+    fs: createFSModule({
+      filesystem,
+      bridge,
+      getTrackIO,
+      getCwd: getCwd ?? (() => rootPath),
+      writeStdout,
+      writeStderr,
+    }),
+    path: createPathModule(getCwd ?? (() => rootPath)),
+    os: createOSModule(HOME_DIR),
+    util: createUtilModule({
+      getEnv,
+      isStream: value => value instanceof runtimeStream.Stream,
+      stdoutIsTTY,
+    }),
+    http: createHTTPModule(getTrackIO),
+    https: createHTTPSModule(getTrackIO),
     events: createEventsModule(),
     buffer,
     readline: createReadlineModule(processStdin, getTrackIO),
-    tty: createTTYModule(terminalColumns, terminalRows),
+    readlinePromises: createReadlinePromisesModule(processStdin, getTrackIO),
+    querystring: querystringModule,
+    string_decoder: stringDecoderModule,
+    tty: createTTYModule(terminalColumns, terminalRows, enabled =>
+      processStdin?.setRawMode(enabled)
+    ),
     assert: createAssertModule(),
     module: createModuleModule(requireFactory),
-    url: urlModule,
-    stream: stream,
+    net: netModule,
+    url: createUrlModule(getCwd ?? (() => rootPath)),
+    stream: runtimeStream,
+    webStreams: createWebStreamsModule(),
+    worker_threads: createWorkerThreadsModule(),
     v8: createV8Module(),
-    crypto: createCryptoModule(),
+    crypto: createCryptoModule(getTrackIO),
+    diagnostics_channel: createDiagnosticsChannelModule(scheduleNextTick),
     child_process: createChildProcessModule({
       runShell,
+      writeStdout,
+      writeStderr,
+      runShellSync: (command, shellOptions) => {
+        const value = bridge.sync({
+          kind: 'shell',
+          command,
+          cwd: shellOptions?.cwd ?? (getCwd ?? (() => rootPath))(),
+          env: shellOptions?.env ?? getEnv?.(),
+        });
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+          throw new Error('Synchronous shell bridge returned invalid data.');
+        }
+        if (!('stdout' in value) || !('stderr' in value) || !('exitCode' in value)) {
+          throw new Error('Synchronous shell bridge returned invalid data.');
+        }
+        const isOutput = (output: unknown): output is string | Uint8Array | number[] =>
+          typeof output === 'string' ||
+          output instanceof Uint8Array ||
+          (Array.isArray(output) && output.every(byte => typeof byte === 'number'));
+        if (
+          !isOutput(value.stdout) ||
+          !isOutput(value.stderr) ||
+          typeof value.exitCode !== 'number'
+        ) {
+          throw new Error('Synchronous shell bridge returned invalid data.');
+        }
+        return { stdout: value.stdout, stderr: value.stderr, exitCode: value.exitCode };
+      },
       getCwd,
       getEnv,
       getTrackIO,
       maxParallel: 2,
     }),
+    constants: createConstantsModule(),
+    zlib: createZlibModule(getTrackIO),
   };
 }
 
-/**
- * 型定義のエクスポート
- */
+/** Export the built-in module options type. */
 export type { FSModuleOptions };
-/**
- * 個別のモジュールを作成（必要に応じて使用）
- */
+/** Export module constructors for focused runtime use. */
 export {
   buffer,
   createAssertModule,
   createChildProcessModule,
+  createConstantsModule,
   createEventsModule,
   createFSModule,
   createHTTPModule,
@@ -154,6 +197,7 @@ export {
   createReadlineModule,
   createTTYModule,
   createUtilModule,
+  createZlibModule,
   stream,
   urlModule,
 };

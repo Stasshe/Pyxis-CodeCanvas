@@ -1,6 +1,46 @@
-import expandBraces from './braceExpand';
+import { resolvePath } from '@/engine/core/pathUtils';
+import type { ShellRunResult } from './executor';
 import type { Process } from './process';
-import type { StreamShell } from './streamShell';
+import { readVariables } from './read';
+import {
+  assignArray,
+  enterFunctionArguments,
+  registerTrap,
+  type ScriptControlState,
+} from './scriptControls';
+import { splitStatements } from './syntax';
+import type { CompoundCommand, ShellExecutionOptions } from './types';
+
+export interface ScriptShell {
+  run(
+    line: string,
+    callbacks?: { stdout?: (data: string) => void; stderr?: (data: string) => void },
+    execution?: ShellExecutionOptions
+  ): Promise<ShellRunResult>;
+  getEnvironment(): Readonly<Record<string, string>>;
+  expandWords(
+    source: string,
+    callbacks?: { stdout?: (data: string) => void; stderr?: (data: string) => void }
+  ): Promise<string[]>;
+  setEnv(key: string, value: string): void;
+  unsetEnv(key: string): void;
+  getScriptState(): ScriptControlState;
+  getEnv(key: string): string | undefined;
+  getErrexit(): boolean;
+  setErrexit(enabled: boolean): void;
+  getErrtrace(): boolean;
+  setErrtrace(enabled: boolean): void;
+  getNounset(): boolean;
+  finalizeInteractiveExit(proc: Process, status: number): Promise<number>;
+  requestExit(code: number): void;
+  getRequestedExit(): number | undefined;
+  clearRequestedExit(): void;
+  requestReturn(code: number): void;
+  getRequestedReturn(): number | undefined;
+  clearRequestedReturn(): void;
+  setPipefail(enabled: boolean): void;
+  setNounset(enabled: boolean): void;
+}
 
 /**
  * ScriptRunner - Executes shell scripts with control flow support
@@ -8,670 +48,150 @@ import type { StreamShell } from './streamShell';
  */
 
 const MAX_LOOP = 10000;
+export const SHELL_CONTROL_COMMANDS = [
+  'exit',
+  'export',
+  'return',
+  'trap',
+  'set',
+  'unset',
+  'break',
+  'continue',
+  'read',
+] as const;
 
-/**
- * Split the script into physical lines while respecting quotes, backticks and $(...)
- */
-function splitPhysicalLines(src: string): string[] {
-  const out: string[] = [];
-  let cur = '';
-  let inS = false;
-  let inD = false;
-  let inBT = false;
-  let parenDepth = 0; // for $(...)
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (ch === '\\') {
-      // copy escape and next char if present
-      cur += ch;
-      if (i + 1 < src.length) cur += src[++i];
-      continue;
-    }
-    if (ch === '`' && !inS && !inD) {
-      inBT = !inBT;
-      cur += ch;
-      continue;
-    }
-    if (ch === '"' && !inS && !inBT) {
-      inD = !inD;
-      cur += ch;
-      continue;
-    }
-    if (ch === "'" && !inD && !inBT) {
-      inS = !inS;
-      cur += ch;
-      continue;
-    }
-    if (!inS && !inD && !inBT) {
-      if (ch === '$' && src[i + 1] === '(') {
-        parenDepth++;
-        cur += ch;
-        continue;
-      }
-      if (ch === '(' && parenDepth > 0) {
-        cur += ch;
-        continue;
-      }
-      if (ch === ')') {
-        if (parenDepth > 0) parenDepth--;
-        cur += ch;
-        continue;
-      }
-      if (ch === '\n' && parenDepth === 0) {
-        out.push(cur);
-        cur = '';
-        continue;
-      }
-    }
-    cur += ch;
-  }
-  if (cur !== '') out.push(cur);
-  return out;
+interface ScriptOptions {
+  errexit: boolean;
+  nounset: boolean;
+  execution: ScriptExecutionOptions;
 }
 
-/**
- * Split a line at top-level semicolons (not inside quotes, backticks, or $(...))
- */
-function splitTopLevelSemicolons(s: string): string[] {
-  const out: string[] = [];
-  let cur = '';
-  let inS = false;
-  let inD = false;
-  let inBT = false; // backtick
-  let parenDepth = 0; // for $( ... )
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    // handle escapes
-    if (ch === '\\') {
-      cur += ch;
-      if (i + 1 < s.length) cur += s[++i];
-      continue;
-    }
-    if (ch === '`' && !inS && !inD) {
-      inBT = !inBT;
-      cur += ch;
-      continue;
-    }
-    if (ch === "'" && !inD && !inBT) {
-      inS = !inS;
-      cur += ch;
-      continue;
-    }
-    if (ch === '"' && !inS && !inBT) {
-      inD = !inD;
-      cur += ch;
-      continue;
-    }
-    if (!inS && !inD && !inBT) {
-      if (ch === '$' && s[i + 1] === '(') {
-        parenDepth++;
-        cur += ch;
-        continue;
-      }
-      if (ch === '(' && parenDepth > 0) {
-        cur += ch;
-        continue;
-      }
-      if (ch === ')') {
-        if (parenDepth > 0) parenDepth--;
-        cur += ch;
-        continue;
-      }
-      if (ch === ';' && parenDepth === 0) {
-        out.push(cur);
-        cur = '';
-        continue;
-      }
-    }
-    cur += ch;
-  }
-  if (cur !== '') out.push(cur);
-  return out;
+export interface ScriptExecutionOptions {
+  initializeArguments?: boolean;
+  finalizesShell?: boolean;
+  errexitIgnored?: boolean;
+  inFunction?: boolean;
+  initialStatus?: number;
 }
 
-/**
- * Evaluate simple arithmetic $(( ... ))
- */
-function evalArithmeticInString(s: string, localVars: Record<string, string>): string {
-  return s.replace(/\$\(\((.*?)\)\)/g, (_, expr) => {
-    // replace variable names with numeric values from localVars
-    const safe = expr.replace(/\b([A-Za-z_][A-Za-z0-9_]*)\b/g, (m: string) => {
-      if (/^\d+$/.test(m)) return m;
-      const v = localVars[m];
-      return String(Number(v || 0));
-    });
-    // allow only digits, spaces and arithmetic operators
-    if (!/^[0-9+\-*/()%\s]+$/.test(safe)) return '0';
-    try {
-      const val = Function(`return (${safe})`)();
-      return String(Number(val));
-    } catch (e) {
-      console.error('Arithmetic evaluation error:', e);
-      return '0';
+function updateOptions(args: string[], options: ScriptOptions, shell: ScriptShell): void {
+  const words = args.slice(1);
+  let enabled = true;
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index];
+    if (word === undefined || word.length < 2) continue;
+    const prefix = word[0];
+    if (prefix !== '-' && prefix !== '+') continue;
+    enabled = prefix === '-';
+    if (word === '-o' || word === '+o') {
+      const option = words[index + 1];
+      setNamedOption(option, enabled, options, shell);
+      index += 1;
+      continue;
     }
-  });
-}
-
-/**
- * Evaluate command-substitutions in a string (supports $(...) and `...`)
- */
-async function evalCommandSubstitutions(
-  s: string,
-  localVars: Record<string, string>,
-  shell: StreamShell
-): Promise<string> {
-  // handle backticks first (non-nested simple support)
-  let out = s;
-  // backticks: `...` (non nested)
-  while (true) {
-    const bt = out.indexOf('`');
-    if (bt === -1) break;
-    let j = bt + 1;
-    let buf = '';
-    while (j < out.length && out[j] !== '`') {
-      buf += out[j++];
-    }
-    if (j >= out.length) break; // unterminated - leave as-is
-    const inner = buf;
-    const res = await shell.run(inner);
-    const replacement = String(res.stdout || '');
-    out = out.slice(0, bt) + replacement + out.slice(j + 1);
-  }
-
-  // handle $(...) with nesting
-  const findMatching = (str: string, start: number) => {
-    let depth = 0;
-    for (let k = start; k < str.length; k++) {
-      if (str[k] === '(') depth++;
-      if (str[k] === ')') {
-        depth--;
-        if (depth === 0) return k;
+    for (const flag of word.slice(1)) {
+      if (flag === 'e') {
+        options.errexit = enabled;
+        shell.setErrexit(enabled);
+      }
+      if (flag === 'E') shell.setErrtrace(enabled);
+      if (flag === 'u') {
+        options.nounset = enabled;
+        shell.setNounset(enabled);
+      }
+      if (flag === 'o') {
+        const option = words[index + 1];
+        setNamedOption(option, enabled, options, shell);
+        index += 1;
       }
     }
-    return -1;
-  };
-
-  while (true) {
-    const idx = out.indexOf('$(');
-    if (idx === -1) break;
-    const openPos = idx + 1; // position of '('
-    const end = findMatching(out, openPos);
-    if (end === -1) break; // unterminated - stop
-    const inner = out.slice(openPos + 1, end);
-    // recursively evaluate inner substitutions first
-    const innerEval = await evalCommandSubstitutions(inner, localVars, shell);
-    const res = await shell.run(innerEval);
-    const replacement = String(res.stdout || '');
-    out = out.slice(0, idx) + replacement + out.slice(end + 1);
-  }
-
-  // After command-substitutions, also perform arithmetic expansion
-  try {
-    out = evalArithmeticInString(out, localVars);
-  } catch (_e) {
-    // if arithmetic expansion fails, leave the string as-is
-  }
-
-  return out;
-}
-
-/**
- * Interpolate variables in a line
- */
-function interpolate(line: string, localVars: Record<string, string>, args: string[]): string {
-  // Supports $0 (script name), $1..$9, $@ (all args), and local vars $VAR or ${VAR}
-  let out = line;
-  // Replace $@ with context-sensitive expansion
-  const replaceAt = (s: string) => {
-    let res = '';
-    let i = 0;
-    while (i < s.length) {
-      const idx = s.indexOf('$@', i);
-      if (idx === -1) {
-        res += s.slice(i);
-        break;
-      }
-      res += s.slice(i, idx);
-      // determine quote context at idx
-      let inS = false;
-      let inD = false;
-      for (let j = 0; j < idx; j++) {
-        const ch = s[j];
-        if (ch === "'" && !inD) inS = !inS;
-        if (ch === '"' && !inS) inD = !inD;
-      }
-      if (inS) {
-        // no expansion inside single quotes
-        res += '$@';
-      } else if (inD) {
-        // join args and escape backslashes first, then double quotes
-        const joined = (args && args.length > 1 ? args.slice(1) : [])
-          .map(a => String(a).replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
-          .join(' ');
-        res += joined;
-      } else {
-        // unquoted: expand to individually single-quoted args
-        const parts = (args && args.length > 1 ? args.slice(1) : []).map(a => {
-          const s = String(a);
-          // escape single quotes by closing, inserting \"'\", and reopening
-          const esc = s.replace(/'/g, "'\\''");
-          return `'${esc}'`;
-        });
-        res += parts.join(' ');
-      }
-      i = idx + 2;
-    }
-    return res;
-  };
-  out = replaceAt(out);
-  // $0 -> script name (args[0])
-  out = out.replace(/\$0\b/g, args[0] || '');
-  // positional $1..$9 -> args[1]..args[9]
-  for (let i = 1; i <= 9; i++) {
-    const val = args[i] || '';
-    out = out.replace(new RegExp(`\\$${i}\\b`, 'g'), val);
-  }
-  // ${VAR} style
-  out = out.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, name) => {
-    if (name in localVars) return localVars[name];
-    return '';
-  });
-  // $VAR style (word boundary)
-  for (const k of Object.keys(localVars)) {
-    out = out.replace(new RegExp(`\\$${k}\\b`, 'g'), localVars[k]);
-  }
-  return out;
-}
-
-/**
- * Unified evaluation pipeline for a script fragment
- */
-async function evaluateLine(
-  lineStr: string,
-  localVars: Record<string, string>,
-  args: string[],
-  shell: StreamShell
-): Promise<string> {
-  // first do variable/positional interpolation
-  const afterInterp = interpolate(lineStr, localVars, args);
-  // then expand command substitutions and nested arithmetic
-  const afterCmdSub = await evalCommandSubstitutions(afterInterp, localVars, shell);
-  // finally arithmetic expansion
-  try {
-    return evalArithmeticInString(afterCmdSub, localVars);
-  } catch (_e) {
-    return afterCmdSub;
   }
 }
 
-/**
- * Evaluate a condition used in if/elif/while
- */
-async function runCondition(
-  condExpr: string,
-  localVars: Record<string, string>,
-  args: string[],
-  shell: StreamShell
-): Promise<{ stdout: string; stderr: string; code: number }> {
-  if (!condExpr) return { stdout: '', stderr: '', code: 1 };
-  // count leading ! operators
-  let s = condExpr.trimStart();
-  let neg = 0;
-  while (s.startsWith('!')) {
-    neg++;
-    s = s.slice(1).trimStart();
+function setNamedOption(
+  name: string | undefined,
+  enabled: boolean,
+  options: ScriptOptions,
+  shell: ScriptShell
+): void {
+  if (name === 'pipefail') shell.setPipefail(enabled);
+  if (name === 'errtrace') shell.setErrtrace(enabled);
+  if (name === 'errexit') {
+    options.errexit = enabled;
+    shell.setErrexit(enabled);
   }
-  if (!s) return { stdout: '', stderr: '', code: neg % 2 === 1 ? 0 : 1 };
-  // evaluate expansions then run
-  const evaled = await evaluateLine(s, localVars, args, shell);
-  const res = await shell.run(evaled);
-  const codeNum = typeof res.code === 'number' ? res.code : 0;
-  const finalCode = neg % 2 === 1 ? (codeNum === 0 ? 1 : 0) : codeNum;
-  return { stdout: res.stdout, stderr: res.stderr, code: finalCode };
+  if (name === 'nounset') {
+    options.nounset = enabled;
+    shell.setNounset(enabled);
+  }
 }
 
-export type RunRangeResult = 'ok' | 'break' | 'continue' | { exit: number };
+export type RunRangeResult = number | { exit: number } | { returned: number };
 
-/**
- * Run a range [start, end) of lines; supports break/continue signaling
- */
 async function runRange(
   lines: string[],
   start: number,
   end: number,
-  localVars: Record<string, string>,
-  args: string[],
   proc: Process,
-  shell: StreamShell
+  shell: ScriptShell,
+  options: ScriptOptions,
+  initialStatus = 0
 ): Promise<RunRangeResult> {
-  for (let i = start; i < end; i++) {
-    const raw = lines[i] ?? '';
-    const trimmed = raw.trim();
+  let lastStatus = initialStatus;
+  for (let index = start; index < end; index++) {
+    shell.setEnv('?', String(lastStatus));
+    const trimmed = lines[index].trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-    // Skip structural tokens that may appear as separate statements after splitting
-    if (
-      trimmed === 'then' ||
-      trimmed === 'fi' ||
-      trimmed === 'do' ||
-      trimmed === 'done' ||
-      trimmed === 'else' ||
-      trimmed.startsWith('elif ')
-    ) {
+    if (await assignArray(trimmed, shell)) {
+      lastStatus = 0;
       continue;
     }
 
-    // IF block
-    if (/^if\b/.test(trimmed)) {
-      // extract conditional expression between 'if' and 'then' (may be on same statement)
-      let condLine = trimmed.replace(/^if\s+/, '').trim();
-      let thenIdx = -1;
-      // if this statement contains 'then'
-      const thenMatch = condLine.match(/\bthen\b(.*)$/);
-      if (thenMatch) {
-        condLine = condLine.slice(0, thenMatch.index).trim();
-        const trailing = thenMatch[1] ? thenMatch[1].trim() : '';
-        if (trailing) {
-          lines.splice(i + 1, 0, trailing);
-        }
-        thenIdx = i;
-      } else {
-        // search for a 'then' statement in subsequent statements
-        for (let j = i + 1; j < lines.length; j++) {
-          const t = (lines[j] || '').trim();
-          if (/^then\b/.test(t)) {
-            thenIdx = j;
-            const trailing = t.replace(/^then\b/, '').trim();
-            if (trailing) lines.splice(j + 1, 0, trailing);
-            break;
-          }
-        }
-      }
-
-      // find matching fi, and collect top-level elif/else positions
-      let depth = 1;
-      let fiIdx = -1;
-      const elifs: number[] = [];
-      let elseIdx = -1;
-      for (let j = thenIdx === -1 ? i + 1 : thenIdx + 1; j < lines.length; j++) {
-        const t = (lines[j] || '').trim();
-        if (/^if\b/.test(t)) {
-          depth++;
-        }
-        if (/^fi\b/.test(t)) {
-          depth--;
-          if (depth === 0) {
-            fiIdx = j;
-            break;
-          }
-        }
-        if (depth === 1) {
-          if (/^elif\b/.test(t)) elifs.push(j);
-          if (/^else\b/.test(t) && elseIdx === -1) elseIdx = j;
-        }
-      }
-      if (fiIdx === -1) {
-        fiIdx = lines.length - 1;
-      }
-
-      // evaluate condition
-      const condEval = await runCondition(condLine, localVars, args, shell);
-
-      // forward any output from condition evaluation to the script process
-      if (condEval.stdout) proc.writeStdout(condEval.stdout);
-      if (condEval.stderr) proc.writeStderr(condEval.stderr);
-      if (condEval.code === 0) {
-        const thenStart = thenIdx === -1 ? i + 1 : thenIdx + 1;
-        const thenEnd = elifs.length > 0 ? elifs[0] : elseIdx !== -1 ? elseIdx : fiIdx;
-        const r = await runRange(lines, thenStart, thenEnd, localVars, args, proc, shell);
-        if (r !== 'ok') return r;
-      } else {
-        // check elifs in order
-        let matched = false;
-        for (let k = 0; k < elifs.length; k++) {
-          const eIdx = elifs[k];
-          const eLine = (lines[eIdx] || '').trim();
-          let eCond = eLine.replace(/^elif\s+/, '').trim();
-          const m = eCond.match(/\bthen\b(.*)$/);
-          if (m) {
-            eCond = eCond.slice(0, m.index).trim();
-            const trailing = m[1] ? m[1].trim() : '';
-            if (trailing) {
-              // insert the trailing inline statements right after this elif
-              lines.splice(eIdx + 1, 0, trailing);
-              // Adjust stored indices because we've mutated `lines`.
-              // Subsequent `elifs` indices (those after the current one) must be incremented.
-              for (let t = k + 1; t < elifs.length; t++) {
-                elifs[t] = elifs[t] + 1;
-              }
-              // If else/fi were recorded and come after this insert point, shift them too.
-              if (elseIdx !== -1 && elseIdx > eIdx) elseIdx += 1;
-              if (fiIdx !== -1 && fiIdx > eIdx) fiIdx += 1;
-            }
-          }
-          const eRes = await runCondition(eCond, localVars, args, shell);
-
-          if (eRes.stdout) proc.writeStdout(eRes.stdout);
-          if (eRes.stderr) proc.writeStderr(eRes.stderr);
-          if (eRes.code === 0) {
-            const eThenStart = eIdx + 1;
-            const eThenEnd = k + 1 < elifs.length ? elifs[k + 1] : elseIdx !== -1 ? elseIdx : fiIdx;
-            const r = await runRange(lines, eThenStart, eThenEnd, localVars, args, proc, shell);
-            if (r !== 'ok') return r;
-            matched = true;
-            break;
-          }
-        }
-        if (!matched && elseIdx !== -1) {
-          const r = await runRange(lines, elseIdx + 1, fiIdx, { ...localVars }, args, proc, shell);
-          if (r !== 'ok') return r;
-        }
-      }
-      // advance i to fiIdx
-      i = fiIdx;
-      continue;
-    }
-
-    // FOR block
-    if (/^for\b/.test(trimmed)) {
-      const m = trimmed.match(/^for\s+(\w+)\s+in\s*(.*)$/);
-      if (!m) {
-        continue;
-      }
-      const varName = m[1];
-      let itemsStr = m[2] ? m[2].trim() : '';
-      // if itemsStr contains 'do' (inline), split
-      if (/\bdo\b/.test(itemsStr)) {
-        const parts = itemsStr.split(/\bdo\b/);
-        itemsStr = parts[0].trim();
-        const trailing = parts.slice(1).join('do').trim();
-        if (trailing) lines.splice(i + 1, 0, trailing);
-      }
-      // find 'do' for this for-header first
-      let doIdx = -1;
-      let doneIdx = -1;
-      for (let j = i + 1; j < lines.length; j++) {
-        const t = (lines[j] || '').trim();
-        if (/^do\b/.test(t)) {
-          const trailing = t.replace(/^do\b/, '').trim();
-          if (trailing) lines.splice(j + 1, 0, trailing);
-          doIdx = j;
-          break;
-        }
-      }
-
-      if (doIdx === -1) {
-        // no 'do' found: skip to end or next 'done'
-        for (let j = i + 1; j < lines.length; j++) {
-          if (/^done\b/.test((lines[j] || '').trim())) {
-            doneIdx = j;
-            break;
-          }
-        }
-      } else {
-        // find matching 'done' from doIdx+1, tracking nested loop/while/until/select depth
-        let depth = 1;
-        for (let j = doIdx + 1; j < lines.length; j++) {
-          const t = (lines[j] || '').trim();
-          if (/^(for|while|until|select)\b/.test(t)) {
-            depth++;
-            continue;
-          }
-          if (/^done\b/.test(t)) {
-            depth--;
-            if (depth === 0) {
-              doneIdx = j;
-              break;
-            }
-          }
-        }
-      }
-      if (doIdx === -1 || doneIdx === -1) {
-        i = doneIdx === -1 ? lines.length - 1 : doneIdx;
-        continue;
-      }
-      const bodyStart = doIdx + 1;
-      const bodyEnd = doneIdx;
-      const interpItems = await evaluateLine(itemsStr, localVars, args, shell);
-      // split items and support simple brace expansion
-      const rawItems = interpItems.split(/\s+/).filter(Boolean);
-      const items: string[] = [];
-      for (const it of rawItems) {
-        const expanded = expandBraces(it);
-        if (expanded.length > 1 || expanded[0] !== it) items.push(...expanded);
-        else items.push(it);
-      }
-      let iter = 0;
-      for (const it of items) {
-        if (++iter > MAX_LOOP) break;
-        // set loop variable in localVars
-        localVars[varName] = it;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
-        if (r === 'break') break;
-        if (r === 'continue') continue;
-        if (typeof r === 'object' && r && 'exit' in r) return r;
-      }
-      i = doneIdx;
-      continue;
-    }
-
-    // WHILE block
-    if (/^while\b/.test(trimmed)) {
-      let condLine = trimmed.replace(/^while\s+/, '').trim();
-      // handle inline do
-      if (/\bdo\b/.test(condLine)) {
-        const parts = condLine.split(/\bdo\b/);
-        condLine = parts[0].trim();
-        const trailing = parts.slice(1).join('do').trim();
-        if (trailing) lines.splice(i + 1, 0, trailing);
-      }
-      let doIdx = -1;
-      let doneIdx = -1;
-      for (let j = i + 1; j < lines.length; j++) {
-        const t = (lines[j] || '').trim();
-        if (/^do\b/.test(t) && doIdx === -1) {
-          const trailing = t.replace(/^do\b/, '').trim();
-          if (trailing) lines.splice(j + 1, 0, trailing);
-          doIdx = j;
-        }
-        if (/^done\b/.test(t)) {
-          doneIdx = j;
-          break;
-        }
-      }
-      if (doIdx === -1 || doneIdx === -1) {
-        i = doneIdx === -1 ? lines.length - 1 : doneIdx;
-        continue;
-      }
-      const bodyStart = doIdx + 1;
-      const bodyEnd = doneIdx;
-      let count = 0;
-      while (true) {
-        if (++count > MAX_LOOP) break;
-        const cres = await runCondition(condLine, localVars, args, shell);
-        if (cres.stdout) proc.writeStdout(cres.stdout);
-        if (cres.stderr) proc.writeStderr(cres.stderr);
-        if (cres.code !== 0) break;
-        const r = await runRange(lines, bodyStart, bodyEnd, localVars, args, proc, shell);
-        if (r === 'break') break;
-        if (r === 'continue') continue;
-        if (typeof r === 'object' && r && 'exit' in r) return r;
-      }
-      i = doneIdx;
-      continue;
-    }
-
-    // break / continue
-    if (trimmed === 'break') return 'break';
-    if (trimmed === 'continue') return 'continue';
-
-    // exit builtin (POSIX): exit [n]
-    if (/^exit\b/.test(trimmed)) {
-      const parts = trimmed.split(/\s+/).slice(1);
-      // Too many args -> error, do not exit script (behave like interactive shells)
-      if (parts.length > 1) {
-        proc.writeStderr('exit: too many arguments\n');
-        continue;
-      }
-      let code = 0;
-      if (parts.length === 1) {
-        const a = parts[0];
-        if (!/^-?\d+$/.test(a)) {
-          proc.writeStderr('exit: numeric argument required\n');
-          return { exit: 2 };
-        }
-        code = Number(a) & 0xff;
-      }
-      return { exit: code };
-    }
-
-    // regular command or assignment: interpolate and execute
-    let execLine = interpolate(trimmed, localVars, args);
-
-    // handle `set ...` as a noop for now
-    if (execLine.startsWith('set ')) {
-      continue;
-    }
-
-    // assignment-only: VAR=VALUE (no command)
-    const assignMatch = execLine.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s);
-    if (assignMatch) {
-      const name = assignMatch[1];
-      let rhs = assignMatch[2] ?? '';
-      rhs = rhs.trim();
-      if (
-        (rhs.startsWith("'") && rhs.endsWith("'")) ||
-        (rhs.startsWith('"') && rhs.endsWith('"'))
-      ) {
-        rhs = rhs.slice(1, -1);
-      }
-      rhs = evalArithmeticInString(rhs, localVars);
-      try {
-        const evaluated = await evalCommandSubstitutions(rhs, localVars, shell);
-        localVars[name] = evaluated;
-      } catch (_e) {
-        localVars[name] = rhs;
-      }
-      continue;
-    }
-    // For non-assignment commands, perform full evaluation pipeline
-    try {
-      execLine = await evaluateLine(execLine, localVars, args, shell);
-    } catch (_e) {
-      // ignore evaluation errors and use original execLine
-    }
     // Pass real-time output callbacks to enable streaming output
-    const _res = await shell.run(execLine, {
-      stdout: (data: string) => {
-        proc.writeStdout(data);
+    const commandExecution: ShellExecutionOptions = {
+      errexitIgnored: options.execution.errexitIgnored,
+      inFunction: options.execution.inFunction,
+      stdoutIsTTY: proc.stdoutIsTTY,
+      stderrIsTTY: proc.stderrIsTTY,
+    };
+    if (proc.stdinRedirected || proc.stdinIsTTY) {
+      commandExecution.stdin = proc.stdinStream;
+      commandExecution.stdinDestination = proc.stdinDestination;
+      commandExecution.stdinIsTTY = proc.stdinIsTTY && !proc.stdinRedirected;
+    }
+    const res = await shell.run(
+      trimmed,
+      {
+        stdout: (data: string) => {
+          proc.writeStdout(data);
+        },
+        stderr: (data: string) => {
+          proc.writeStderr(data);
+        },
       },
-      stderr: (data: string) => {
-        proc.writeStderr(data);
-      },
-    });
-    // Note: output is already written via callbacks, no need to write again
-    // continue even on non-zero exit
+      commandExecution
+    );
+    lastStatus = res.code ?? 0;
+    if (res.interrupted) return { exit: lastStatus };
+    if (res.fatalError) return { exit: lastStatus };
+    if (shell.getScriptState().loopControl) return lastStatus;
+    const requestedExit = shell.getRequestedExit();
+    if (requestedExit !== undefined) return { exit: requestedExit };
+    const requestedReturn = shell.getRequestedReturn();
+    if (requestedReturn !== undefined) return { returned: requestedReturn };
+    const eligible =
+      lastStatus !== 0 && res.errexitEligible !== false && !options.execution.errexitIgnored;
+    if (eligible && (!options.execution.inFunction || shell.getErrtrace())) {
+      const trapResult = await runTrap('ERR', lastStatus, proc, shell, options);
+      if (trapResult !== undefined) return trapResult;
+    }
+    options.errexit = shell.getErrexit();
+    options.nounset = shell.getNounset();
+    if (options.errexit && eligible) {
+      return { exit: lastStatus };
+    }
   }
-  return 'ok';
+  return lastStatus;
 }
 
 /**
@@ -681,29 +201,303 @@ async function runRange(
  * @param proc - Process to write output to
  * @param shell - StreamShell instance for running commands
  */
+export interface ControlResult {
+  kind: 'status' | 'exit' | 'return';
+  code: number;
+}
+
+export async function executeControlWords(
+  words: string[],
+  proc: Process,
+  shell: ScriptShell,
+  inFunction = false,
+  previousStatus = Number(shell.getEnv('?') ?? '0')
+): Promise<ControlResult | undefined> {
+  const command = words[0];
+  const parts = words.slice(1);
+  if (command === 'read') return { kind: 'status', code: await readVariables(parts, proc, shell) };
+  if (command === 'break' || command === 'continue') {
+    const state = shell.getScriptState();
+    const level = parts[0] ?? '1';
+    if (parts.length > 1 || !/^\d+$/.test(level) || Number(level) < 1) {
+      proc.writeStderr(`${command}: positive loop count required\n`);
+      if (state.loopDepth > 0) state.loopControl = { kind: 'break', levels: state.loopDepth };
+      return { kind: 'status', code: 1 };
+    }
+    if (state.loopDepth === 0) {
+      proc.writeStderr(`${command}: only meaningful in a loop\n`);
+      return { kind: 'status', code: 0 };
+    }
+    state.loopControl = { kind: command, levels: Math.min(Number(level), state.loopDepth) };
+    return { kind: 'status', code: 0 };
+  }
+  if (command === 'exit' || command === 'return') {
+    if (command === 'return' && !inFunction) {
+      proc.writeStderr('return: can only return from a function\n');
+      return { kind: 'status', code: 1 };
+    }
+    if (parts.length > 1) {
+      proc.writeStderr(`${command}: too many arguments\n`);
+      return { kind: 'status', code: 1 };
+    }
+    let code = previousStatus;
+    if (parts.length === 1) {
+      const argument = parts[0] ?? '';
+      if (!/^[+-]?\d+$/.test(argument)) {
+        proc.writeStderr(`${command}: numeric argument required\n`);
+        code = 2;
+      } else code = Number(argument) & 0xff;
+    }
+    if (command === 'return') {
+      shell.requestReturn(code);
+      return { kind: 'return', code };
+    }
+    const exitCode = await shell.finalizeInteractiveExit(proc, code);
+    shell.requestExit(exitCode);
+    return { kind: 'exit', code: exitCode };
+  }
+  if (command === 'trap') {
+    const result = registerTrap(words, shell.getScriptState());
+    if (result.stderr) proc.writeStderr(result.stderr);
+    return { kind: 'status', code: result.code };
+  }
+  if (command === 'set') {
+    const positional = parts.indexOf('--');
+    if (positional >= 0) enterFunctionArguments(shell, parts.slice(positional + 1));
+    let optionWords = words;
+    if (positional >= 0) optionWords = words.slice(0, positional + 1);
+    updateOptions(
+      optionWords,
+      { errexit: shell.getErrexit(), nounset: shell.getNounset(), execution: {} },
+      shell
+    );
+    return { kind: 'status', code: 0 };
+  }
+  if (command === 'unset') {
+    if (parts.length === 0) {
+      proc.writeStderr('unset: missing variable name\n');
+      return { kind: 'status', code: 1 };
+    }
+    for (const name of parts) shell.unsetEnv(name);
+    return { kind: 'status', code: 0 };
+  }
+  if (command === 'export') {
+    let code = 0;
+    for (const assignment of parts) {
+      const match = /^([A-Za-z_][A-Za-z0-9_]*)(?:=(.*))?$/s.exec(assignment);
+      if (!match) {
+        proc.writeStderr(`export: ${assignment}: not a valid identifier\n`);
+        code = 1;
+        continue;
+      }
+      if (match[2] !== undefined) shell.setEnv(match[1], match[2]);
+    }
+    return { kind: 'status', code };
+  }
+  return undefined;
+}
+
+async function runTrap(
+  signal: string,
+  status: number,
+  proc: Process,
+  shell: ScriptShell,
+  options: ScriptOptions
+): Promise<RunRangeResult | undefined> {
+  const state = shell.getScriptState();
+  const handler = state.traps.get(signal);
+  if (!handler || state.runningTraps.has(signal)) return undefined;
+  state.runningTraps.add(signal);
+  try {
+    const lines = splitStatements(handler);
+    const result = await runRange(lines, 0, lines.length, proc, shell, options, status);
+    if (typeof result === 'object') return result;
+    shell.setEnv('?', String(status));
+    return undefined;
+  } finally {
+    state.runningTraps.delete(signal);
+  }
+}
+
+export async function runInteractiveExitTrap(
+  status: number,
+  proc: Process,
+  shell: ScriptShell,
+  insideScript: boolean
+): Promise<number> {
+  if (insideScript) return status;
+  const result = await runTrap('EXIT', status, proc, shell, {
+    errexit: shell.getErrexit(),
+    nounset: shell.getNounset(),
+    execution: {},
+  });
+  if (typeof result === 'object' && 'exit' in result) return result.exit;
+  return status;
+}
+
 export async function runScript(
   text: string,
   args: string[],
   proc: Process,
-  shell: StreamShell
-): Promise<void> {
-  const rawLines = splitPhysicalLines(text);
-  // Build statement list by splitting each physical line at top-level semicolons
-  const lines: string[] = [];
-  for (const rl of rawLines) {
-    const parts = splitTopLevelSemicolons(rl);
-    for (const p of parts) {
-      lines.push(p);
+  shell: ScriptShell,
+  execution: ScriptExecutionOptions = {}
+): Promise<number> {
+  const lines = splitStatements(text);
+  const options: ScriptOptions = {
+    errexit: shell.getErrexit(),
+    nounset: shell.getNounset(),
+    execution,
+  };
+  const initializeArguments = execution.initializeArguments !== false;
+  let initialStatus = execution.initialStatus;
+  if (initialStatus === undefined) initialStatus = Number(shell.getEnv('?') ?? '0');
+  if (initializeArguments) {
+    const currentDirectory = shell.getEnvironment().PWD;
+    if (!currentDirectory) throw new Error('PWD is required to run a shell script');
+    initialStatus = 0;
+    if (args[0]) {
+      const scriptPath = resolvePath(currentDirectory, args[0]);
+      shell.setEnv('0', scriptPath);
+      shell.setEnv('BASH_SOURCE', scriptPath);
+      shell.setEnv('BASH_SOURCE[0]', scriptPath);
     }
+    enterFunctionArguments(shell, args.slice(1));
   }
+  const result = await runRange(lines, 0, lines.length, proc, shell, options, initialStatus);
+  let status = 0;
+  if (typeof result === 'number') status = result;
+  else if (typeof result === 'object') {
+    if ('exit' in result) status = result.exit;
+    else status = result.returned;
+  }
+  let finalizesShell = execution.finalizesShell;
+  if (finalizesShell === undefined) finalizesShell = initializeArguments;
+  if (finalizesShell) {
+    const requestedExit = shell.getRequestedExit();
+    shell.clearRequestedExit();
+    const trapResult = await runTrap('EXIT', status, proc, shell, options);
+    if (typeof trapResult === 'object' && 'exit' in trapResult) status = trapResult.exit;
+    if (requestedExit !== undefined && shell.getRequestedExit() === undefined)
+      shell.requestExit(status);
+  }
+  shell.setEnv('?', String(status));
+  return status;
+}
 
-  const result = await runRange(lines, 0, lines.length, {}, args, proc, shell);
-
-  // If an exit object was returned, terminate the script process
-  if (typeof result === 'object' && result && 'exit' in result) {
-    try {
-      proc.exit(result.exit);
-    } catch (_e) {}
-    return;
+/** Execute control nodes through the same process routing as groups and simple commands. */
+export async function runCompound(
+  compound: CompoundCommand,
+  proc: Process,
+  shell: ScriptShell,
+  execution: ScriptExecutionOptions = {}
+): Promise<number> {
+  const options: ScriptOptions = {
+    errexit: shell.getErrexit(),
+    nounset: shell.getNounset(),
+    execution,
+  };
+  const body = async (source: string): Promise<RunRangeResult> => {
+    const statements = splitStatements(source);
+    return runRange(
+      statements,
+      0,
+      statements.length,
+      proc,
+      shell,
+      options,
+      Number(shell.getEnv('?') ?? '0')
+    );
+  };
+  const condition = async (source: string) => {
+    const commandExecution: ShellExecutionOptions = {
+      stdoutIsTTY: proc.stdoutIsTTY,
+      stderrIsTTY: proc.stderrIsTTY,
+      errexitIgnored: true,
+      inFunction: execution.inFunction,
+    };
+    if (proc.stdinRedirected || proc.stdinIsTTY) {
+      commandExecution.stdin = proc.stdinStream;
+      commandExecution.stdinDestination = proc.stdinDestination;
+      commandExecution.stdinIsTTY = proc.stdinIsTTY && !proc.stdinRedirected;
+    }
+    const result = await shell.run(
+      source,
+      {
+        stdout: data => proc.writeStdout(data),
+        stderr: data => proc.writeStderr(data),
+      },
+      commandExecution
+    );
+    const code = result.code ?? 0;
+    if (result.fatalError || result.interrupted) shell.requestExit(code);
+    return code;
+  };
+  const status = (result: RunRangeResult) => {
+    if (typeof result === 'number') return result;
+    if ('exit' in result) return result.exit;
+    return result.returned;
+  };
+  if (compound.kind === 'group' || compound.kind === 'subshell')
+    return status(await body(compound.source));
+  if (compound.kind === 'if') {
+    for (const branch of compound.branches) {
+      const code = await condition(branch.condition);
+      if (
+        shell.getRequestedExit() !== undefined ||
+        shell.getRequestedReturn() !== undefined ||
+        shell.getScriptState().loopControl
+      )
+        return code;
+      if (code === 0) return status(await body(branch.body));
+    }
+    if (compound.otherwise !== undefined) return status(await body(compound.otherwise));
+    return 0;
+  }
+  const state = shell.getScriptState();
+  state.loopDepth++;
+  let lastStatus = 0;
+  try {
+    let items: string[] = [];
+    if (compound.kind === 'for') {
+      if (compound.items !== undefined) items = await shell.expandWords(compound.items);
+      else {
+        const count = Number(shell.getEnv('#') ?? '0');
+        for (let index = 1; index <= count; index++) items.push(shell.getEnv(String(index)) ?? '');
+      }
+    }
+    for (let iteration = 0; iteration < MAX_LOOP; iteration++) {
+      if (compound.kind === 'for') {
+        if (iteration >= items.length) break;
+        shell.setEnv(compound.variable, items[iteration]);
+      } else {
+        const code = await condition(compound.condition);
+        if (shell.getRequestedExit() !== undefined || shell.getRequestedReturn() !== undefined)
+          return code;
+        const control = state.loopControl;
+        if (control) {
+          control.levels--;
+          lastStatus = code;
+          if (control.levels > 0) break;
+          state.loopControl = undefined;
+          if (control.kind === 'break') break;
+          continue;
+        }
+        if (code !== 0) break;
+      }
+      if (shell.getRequestedExit() !== undefined || shell.getRequestedReturn() !== undefined) break;
+      const result = await body(compound.body);
+      lastStatus = status(result);
+      if (typeof result !== 'number') break;
+      const control = state.loopControl;
+      if (control) {
+        control.levels--;
+        if (control.levels > 0) break;
+        state.loopControl = undefined;
+        if (control.kind === 'break') break;
+      }
+    }
+    return lastStatus;
+  } finally {
+    state.loopDepth--;
   }
 }

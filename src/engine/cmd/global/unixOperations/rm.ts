@@ -1,6 +1,7 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { FSError } from '@/engine/core/fs';
+import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 /**
  * rm - ファイル/ディレクトリを削除
@@ -15,21 +16,25 @@ import { UnixCommandBase } from './base';
  *   -v, --verbose        詳細な情報を表示
  *
  * 動作:
- *   - ワイルドカード対応（*, ?）
+ *   - Paths are expanded by the shell before this command runs.
  *   - 再帰的削除対応
  *   - エラーが発生しても他のファイルの削除を継続
- *   - デフォルトで削除結果を表示（-v なしでも）
+ *   - -v を指定した場合のみ削除結果を表示
  */
 export class RmCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
-    const optstring = 'rRfi v h'.replace(/\s+/g, '');
+    const optstring = 'rRifvh';
     const longopts = ['recursive', 'force', 'interactive', 'verbose', 'help'];
     const { flags, positional, errors: parseErrors } = parseWithGetOpt(args, optstring, longopts);
     if (parseErrors.length) throw new Error(parseErrors.join('; '));
     const options = flags;
 
     if (options.has('--help') || options.has('-h')) {
-      return 'Usage: rm [OPTION]... FILE...\n\nOptions:\n  -r, -R, --recursive\tremove directories and their contents recursively\n  -f, --force\t\tignore nonexistent files and arguments, never prompt\n  -i, --interactive\tprompt before every removal\n  -v, --verbose\t\texplain what is being done';
+      return 'Usage: rm [OPTION]... FILE...\n\nOptions:\n  -r, -R, --recursive\tremove directories and their contents recursively\n  -f, --force\t\tignore nonexistent files and arguments, never prompt\n  -i, --interactive\tunsupported; fails before removing\n  -v, --verbose\t\texplain what is being done';
+    }
+
+    if (options.has('-i') || options.has('--interactive')) {
+      throw new UnixCommandFailure('rm: interactive confirmation is not supported', 1);
     }
 
     if (positional.length === 0) {
@@ -38,87 +43,27 @@ export class RmCommand extends UnixCommandBase {
 
     const recursive = options.has('-r') || options.has('-R') || options.has('--recursive');
     const force = options.has('-f') || options.has('--force');
-    const interactive = options.has('-i') || options.has('--interactive');
     const verbose = options.has('-v') || options.has('--verbose');
 
     const deletedPaths: string[] = [];
     const errors: string[] = [];
 
-    // ワイルドカード展開
-    // シェル経由なら既に展開済み（ワイルドカードがないので即座にリターン）
-    // 直接API呼び出しなら内部で展開
-    const targetsToDelete: Array<{ path: string; file: any }> = [];
+    const targetsToDelete: Array<{ path: string; file: ProjectFile }> = [];
 
     for (const arg of positional) {
-      try {
-        const expanded = await this.expandPathPattern(arg);
-
-        if (expanded.length === 0) {
-          if (!force) {
-            errors.push(`rm: cannot remove '${arg}': No such file or directory`);
-          }
-          continue;
-        }
-
-        // 展開された各パスを処理
-        for (const expandedPath of expanded) {
-          const normalizedPath = this.normalizePath(expandedPath);
-          const relativePath = this.getRelativePathFromProject(normalizedPath);
-
-          try {
-            const file = await this.cachedGetFile(relativePath);
-
-            if (!file) {
-              // ファイルが見つからない場合
-              if (!force) {
-                errors.push(`rm: cannot remove '${expandedPath}': No such file or directory`);
-              }
-              continue;
-            }
-
-            const isDir = file.type === 'folder';
-
-            // ディレクトリだが -r なしの場合
-            if (isDir && !recursive) {
-              errors.push(`rm: cannot remove '${expandedPath}': Is a directory`);
-              continue;
-            }
-
-            // 削除対象としてリストに追加
-            targetsToDelete.push({
-              path: normalizedPath,
-              file: file,
-            });
-          } catch (error) {
-            if (!force) {
-              errors.push(`rm: cannot remove '${expandedPath}': ${(error as Error).message}`);
-            }
-          }
-        }
-      } catch (error) {
-        // ワイルドカード展開エラー
-        if (!force) {
-          errors.push(`rm: ${(error as Error).message}`);
-        }
+      const path = this.resolvePath(arg);
+      const file = await this.getLinkAwareFile(path);
+      if (!file) {
+        if (!force) errors.push(`rm: cannot remove '${arg}': No such file or directory`);
+        continue;
       }
-    }
 
-    // 削除対象がない場合は早期リターン
-    if (targetsToDelete.length === 0) {
-      if (errors.length > 0) {
-        if (!force) {
-          throw new Error(errors.join('\n'));
-        }
-        return errors.join('\n');
+      const isDir = file.type === 'folder';
+      if (isDir && !recursive) {
+        errors.push(`rm: cannot remove '${arg}': Is a directory`);
+        continue;
       }
-      return '';
-    }
-
-    // インタラクティブモードの確認（未実装）
-    if (interactive) {
-      // 実装する場合は、ユーザー入力を受け取る仕組みが必要
-      // 今は警告のみ
-      console.warn('[rm] Interactive mode (-i) is not yet implemented');
+      targetsToDelete.push({ path, file });
     }
 
     // 実際に削除を実行
@@ -126,50 +71,34 @@ export class RmCommand extends UnixCommandBase {
       try {
         const isDir = target.file.type === 'folder';
 
-        // 削除実行（fileRepository.deleteFile は自動的に子ファイルも削除）
-        await fileRepository.deleteFile(target.file.id);
+        // Remove folders recursively through the FS client.
+        await this.fs.rm(target.path, { recursive: isDir, force: force });
 
-        // 削除成功を記録
         if (verbose) {
           deletedPaths.push(
             isDir ? `removed directory '${target.path}'` : `removed '${target.path}'`
           );
-        } else {
-          // -v なしでも削除したパスを記録（簡潔に）
-          deletedPaths.push(target.path);
         }
       } catch (error) {
-        // 削除失敗
-        if (!force) {
+        if (!force || !(error instanceof FSError && error.code === 'ENOENT')) {
           errors.push(`rm: cannot remove '${target.path}': ${(error as Error).message}`);
         }
       }
     }
 
-    // 結果を構築
-    const output: string[] = [];
-
-    // 削除成功のメッセージ
-    if (deletedPaths.length > 0) {
-      if (verbose) {
-        // -v の場合は詳細メッセージ
-        output.push(deletedPaths.join('\n'));
-      } else {
-        // デフォルトは簡潔に「削除しました: N個のファイル」
-        output.push(`Deleted ${deletedPaths.length} item(s)`);
-      }
-    }
-
-    // エラーメッセージ
     if (errors.length > 0) {
-      output.push(errors.join('\n'));
+      throw new UnixCommandFailure(errors.join('\n'), 1, verbose ? deletedPaths.join('\n') : '');
     }
 
-    // 完全失敗の場合のみ例外を投げる
-    if (errors.length > 0 && deletedPaths.length === 0 && !force) {
-      throw new Error(output.join('\n'));
-    }
+    return verbose ? deletedPaths.join('\n') : '';
+  }
 
-    return output.join('\n');
+  private async getLinkAwareFile(path: string): Promise<ProjectFile | undefined> {
+    try {
+      return await this.fs.lstat(path);
+    } catch (error) {
+      if (error instanceof FSError && error.code === 'ENOENT') return undefined;
+      throw error;
+    }
   }
 }

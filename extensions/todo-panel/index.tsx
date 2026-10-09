@@ -3,80 +3,70 @@
  * Pyxis内のファイルから TODO: コメントを検索して一覧表示
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { CircleCheck, ListTodo, RefreshCw, Search } from 'lucide-react';
 
-import type { ExtensionContext, ExtensionActivation } from '../_shared/types';
-
-interface TodoItem {
-  id: string;
-  text: string;
-  filePath: string;
-  line: number;
-  projectId: string;
-  projectName: string;
-  file: any; // ファイルオブジェクト
-}
+import type { ExtensionActivation, ExtensionContext } from '../_shared/types';
+import { scanTodos as scanTodoFiles, type TodoItem } from './todoScanner';
 
 // サイドバーパネルコンポーネント
 function createTodoSidebarPanel(context: ExtensionContext) {
-  return function TodoSidebarPanel({ extensionId, panelId, isActive, state }: any) {
+  return function TodoSidebarPanel({ isActive }: { isActive: boolean }) {
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState('');
+    const [rootPath, setRootPath] = useState<string | null>(null);
+    const scanGeneration = useRef(0);
+
+    useEffect(() => {
+      let unsubscribe: (() => void) | undefined;
+      let active = true;
+      void context.getSystemModule('workspace').then(workspace => {
+        if (!active) return;
+        setRootPath(workspace.getRootPath());
+        unsubscribe = workspace.subscribe(setRootPath);
+      });
+      return () => {
+        active = false;
+        if (unsubscribe) unsubscribe();
+      };
+    }, []);
 
     // TODO検索関数
-    const scanTodos = async () => {
-      if (!context?.getSystemModule) return;
-      
+    const scanTodos = useCallback(async () => {
+      const generation = scanGeneration.current + 1;
+      scanGeneration.current = generation;
+      if (!rootPath) {
+        setTodos([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const fileRepository = await context.getSystemModule('fileRepository');
-        
-        // 全プロジェクトを取得
-        const projects = await fileRepository.getProjects();
-        const allTodos: TodoItem[] = [];
-
-        for (const project of projects) {
-          // プロジェクト配下を効率的に走査（プレフィックス検索）
-          // root 配下全体をスキャンする場合は prefix = '/' を渡す
-          const files = await fileRepository.getFilesByPrefix(project.id, '/');
-
-          for (const file of files) {
-            if (file.type !== 'file' || file.isBufferArray) continue;
-
-            // ファイル内容からTODOを検索
-            const lines = (file.content || '').split('\n');
-            lines.forEach((line: string, index: number) => {
-              const todoMatch = line.match(/(?:TODO|FIXME)\s*[:：]\s*(.+)/i);
-              if (todoMatch) {
-                allTodos.push({
-                  id: `${project.id}-${file.path}-${index}`,
-                  text: todoMatch[1].trim(),
-                  filePath: file.path,
-                  line: index + 1,
-                  projectId: project.id,
-                  projectName: project.name,
-                  file: file,
-                });
-              }
-            });
-          }
-        }
-
-        setTodos(allTodos);
+        const fsClient = await context.getSystemModule('fsClient');
+        const allTodos = await scanTodoFiles(
+          fsClient,
+          rootPath,
+          () => generation === scanGeneration.current
+        );
+        if (allTodos !== null && generation === scanGeneration.current) setTodos(allTodos);
       } catch (error) {
         console.error('Failed to scan TODOs:', error);
       } finally {
-        setLoading(false);
+        if (generation === scanGeneration.current) setLoading(false);
       }
-    };
+    }, [rootPath]);
 
     // 初回ロード
     useEffect(() => {
       if (isActive) {
         scanTodos();
       }
-    }, [isActive]);
+      return () => {
+        scanGeneration.current += 1;
+      };
+    }, [isActive, scanTodos]);
 
     // TODOをクリックしたときにファイルを開く
     const handleTodoClick = (todo: TodoItem) => {
@@ -92,7 +82,7 @@ function createTodoSidebarPanel(context: ExtensionContext) {
           jumpToLine: todo.line,
           activateAfterOpen: true,
         });
-        
+
         context.logger.info(`Opened file: ${todo.filePath} at line ${todo.line}`);
       } catch (error) {
         context.logger.error('Failed to open file:', error);
@@ -100,11 +90,12 @@ function createTodoSidebarPanel(context: ExtensionContext) {
     };
 
     // フィルタリング
-    const filteredTodos = todos.filter(todo =>
-      filter === '' ||
-      todo.text.toLowerCase().includes(filter.toLowerCase()) ||
-      todo.filePath.toLowerCase().includes(filter.toLowerCase()) ||
-      todo.projectName.toLowerCase().includes(filter.toLowerCase())
+    const filteredTodos = todos.filter(
+      todo =>
+        filter === '' ||
+        todo.text.toLowerCase().includes(filter.toLowerCase()) ||
+        todo.filePath.toLowerCase().includes(filter.toLowerCase()) ||
+        todo.projectName.toLowerCase().includes(filter.toLowerCase())
     );
 
     return (
@@ -129,11 +120,9 @@ function createTodoSidebarPanel(context: ExtensionContext) {
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>
-              📋 TODO
-            </h3>
+            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><ListTodo size={14} /> TODO</h3>
             <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#888' }}>
-              {loading ? '🔍 Scanning...' : `${todos.length} found • ${filteredTodos.length} shown`}
+              {loading ? <><Search size={12} /> Scanning...</> : `${todos.length} found • ${filteredTodos.length} shown`}
             </p>
           </div>
           <button
@@ -150,7 +139,7 @@ function createTodoSidebarPanel(context: ExtensionContext) {
               fontWeight: 'bold',
             }}
           >
-            {loading ? '...' : '🔄'}
+            {loading ? '...' : <RefreshCw size={13} />}
           </button>
         </div>
 
@@ -164,7 +153,7 @@ function createTodoSidebarPanel(context: ExtensionContext) {
           <input
             type="text"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={e => setFilter(e.target.value)}
             placeholder="Filter..."
             style={{
               width: '100%',
@@ -189,12 +178,12 @@ function createTodoSidebarPanel(context: ExtensionContext) {
         >
           {loading ? (
             <p style={{ color: '#888', textAlign: 'center', marginTop: '32px', fontSize: '12px' }}>
-              🔍 Scanning...
+              <><Search size={12} /> Scanning...</>
             </p>
           ) : filteredTodos.length === 0 ? (
             <div style={{ textAlign: 'center', marginTop: '32px' }}>
               <p style={{ color: '#888', fontSize: '12px' }}>
-                {filter ? '🔍 No matches' : '✅ No TODOs found'}
+                {filter ? <><Search size={12} /> No matches</> : <><CircleCheck size={12} /> No TODOs found</>}
               </p>
               {!filter && todos.length === 0 && (
                 <p style={{ color: '#666', fontSize: '11px', marginTop: '8px', padding: '0 12px' }}>
@@ -216,22 +205,40 @@ function createTodoSidebarPanel(context: ExtensionContext) {
                     cursor: 'pointer',
                     transition: 'all 0.2s',
                   }}
-                  onMouseEnter={(e) => {
+                  onMouseEnter={e => {
                     e.currentTarget.style.background = '#3d3d3d';
                     e.currentTarget.style.borderLeftColor = '#1e7bbe';
                   }}
-                  onMouseLeave={(e) => {
+                  onMouseLeave={e => {
                     e.currentTarget.style.background = '#2d2d2d';
                     e.currentTarget.style.borderLeftColor = '#0e639c';
                   }}
                 >
-                  <div style={{ fontSize: '12px', color: '#d4d4d4', marginBottom: '4px', fontWeight: '500' }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: '#d4d4d4',
+                      marginBottom: '4px',
+                      fontWeight: '500',
+                    }}
+                  >
                     {todo.text}
                   </div>
-                  <div style={{ fontSize: '10px', color: '#888', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      fontSize: '10px',
+                      color: '#888',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
                     <span style={{ color: '#7cb342' }}>{todo.projectName}</span>
                     <span style={{ color: '#555' }}>•</span>
-                    <span style={{ fontFamily: 'monospace', color: '#64b5f6' }}>{todo.filePath}</span>
+                    <span style={{ fontFamily: 'monospace', color: '#64b5f6' }}>
+                      {todo.filePath}
+                    </span>
                     <span style={{ color: '#555' }}>•</span>
                     <span style={{ fontFamily: 'monospace' }}>L{todo.line}</span>
                   </div>
@@ -266,7 +273,7 @@ export async function activate(context: ExtensionContext): Promise<ExtensionActi
   });
 
   context.logger.info('TODO sidebar panel registered');
-  
+
   // UI拡張機能なので、services/commandsは不要
   return {};
 }

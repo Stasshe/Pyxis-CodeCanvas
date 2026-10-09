@@ -135,9 +135,61 @@
     "loadingFile": "Restaurando conteúdo do arquivo...",
     "selectFile": "Por favor selecione um arquivo"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Você tem todas as extensões disponíveis",
+    "allInstalled": "Todas as extensões instaladas",
+    "available": "Disponível ({count})",
+    "browseAvailable": "Procure extensões disponíveis para começar",
+    "confirmUninstall": "Tem certeza de que deseja desinstalar \"{name}\"?",
+    "disable": "Desativar",
+    "disableUnavailable": "Não foi possível desativar a extensão.",
+    "enable": "Habilitar",
+    "enableUnavailable": "Não foi possível ativar a extensão.",
+    "importFailed": "Falha ao importar ZIP: {error}",
+    "importZip": "Importar pacote de extensão (.zip)",
+    "install": "Instalar",
+    "installed": "Instalado ({count})",
+    "installFailed": "Falha ao instalar {name}: {error}",
+    "installUnavailable": "A extensão não pôde ser instalada ou ativada.",
+    "loadFailed": "Falha ao carregar extensões: {error}",
+    "loading": "Carregando extensões...",
+    "manifestUrlMissing": "URL do manifesto não encontrado no registro",
+    "noMatches": "Nenhuma extensão correspondente encontrada",
+    "noneInstalled": "Nenhuma extensão instalada",
+    "packCount": "Extensões: {count}",
+    "reload": "Recarregar extensões",
+    "search": "Extensões de pesquisa...",
+    "title": "Extensões",
+    "toggleFailed": "Falha ao alterar o estado da extensão: {error}",
+    "tryDifferentSearch": "Experimente um termo de pesquisa diferente",
+    "types": {
+      "builtinModule": "Módulo Integrado",
+      "languageRuntime": "Tempo de execução do idioma",
+      "service": "Serviço",
+      "tool": "Ferramenta",
+      "transpiler": "Transpilador",
+      "ui": "IU"
+    },
+    "uninstall": "Desinstalar",
+    "uninstallFailed": "Falha ao desinstalar a extensão: {error}",
+    "uninstallTitle": "Desinstalar extensão",
+    "uninstallUnavailable": "A extensão não pôde ser desinstalada.",
+    "update": "Atualizar",
+    "updateFailed": "Falha ao atualizar {name}: {error}",
+    "updateUnavailable": "O novo pacote de extensão não pôde ser ativado.",
+    "viewDetails": "Clique para ver detalhes da extensão"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Criar arquivo",
+      "createFolder": "Criar pasta",
+      "import": "Importar",
+      "move": "Mover"
+    },
     "alert": {
-      "renameFailed": "Falha ao renomear: {error}"
+      "destinationExists": "O destino já existe: {path}",
+      "operationFailed": "Falha ao {action}: {error}",
+      "workspaceChanged": "O espaço de trabalho mudou; os arquivos restantes foram ignorados."
     },
     "menu": {
       "createFile": "Criar arquivo",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Criar novo arquivo",
-    "createFolder": "Criar nova pasta"
+    "createFolder": "Criar nova pasta",
+    "newFilePrompt": "Digite o nome do novo arquivo:",
+    "newFolderPrompt": "Digite o nome da nova pasta:"
   },
   "markdownPreview": {
     "downloadSvg": "Baixar SVG",

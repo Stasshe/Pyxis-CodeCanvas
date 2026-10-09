@@ -1,388 +1,413 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../_helpers/testProject';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isBuiltInModule } from '@/engine/runtime/module/builtinModules';
+import { ModuleFileSystem } from '@/engine/runtime/module/moduleFileSystem';
 import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
-
-/**
- * ModuleResolver のテスト
- * fileRepository を使って node_modules のモジュール解決をテスト
- *
- * gitFileSystem / syncManager のモックは setup.ts でグローバル定義済み
- * fileRepository のモックは不要（Node 環境では自動的に InMemory に切り替わる）
- */
+import { createNodeRuntimeFixture } from '../../_helpers/nodeRuntime';
 
 describe('ModuleResolver', () => {
-  let projectId: string;
-  let projectName: string;
-  let repo: typeof fileRepository;
+  const fixtures: Awaited<ReturnType<typeof createNodeRuntimeFixture>>[] = [];
 
-  beforeEach(async () => {
-    const ctx = await setupTestProject();
-    repo = ctx.repo;
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
+  afterEach(async () => {
+    for (const fixture of fixtures.splice(0)) await fixture.close();
   });
 
-  describe('パッケージ解決の基盤テスト', () => {
-    it('node_modules 内の package.json を読み取れる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/lodash/package.json',
-        JSON.stringify({
-          name: 'lodash',
-          version: '4.17.21',
-          main: 'lodash.js',
-        }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/lodash/lodash.js',
-        'module.exports = { VERSION: "4.17.21" }',
-        'file'
-      );
+  it('recognizes official built-ins independently of runtime support', () => {
+    expect(isBuiltInModule('node:assert')).toBe(true);
+    expect(isBuiltInModule('node:worker_threads')).toBe(true);
+    expect(isBuiltInModule('worker_threads')).toBe(true);
+    expect(isBuiltInModule('node:path/posix')).toBe(true);
+    expect(isBuiltInModule('node:path/win32')).toBe(true);
+    expect(isBuiltInModule('util/types')).toBe(true);
+    expect(isBuiltInModule('node:test')).toBe(true);
+    expect(isBuiltInModule('test')).toBe(false);
+    expect(isBuiltInModule('node:missing')).toBe(false);
+  });
 
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/lodash/package.json'
-      );
-      expect(pkgFile).not.toBeNull();
-      expect(pkgFile?.content).toContain('lodash');
+  async function createResolver() {
+    const rootPath = '/tmp/module-resolver';
+    const fixture = await createNodeRuntimeFixture(rootPath);
+    fixtures.push(fixture);
+    const resolver = new ModuleResolver(rootPath, new ModuleFileSystem(fixture.bridge));
+    return { fixture, resolver, rootPath };
+  }
 
-      const pkg = JSON.parse(pkgFile!.content);
-      expect(pkg.name).toBe('lodash');
-      expect(pkg.main).toBe('lodash.js');
-    });
-
-    it('スコープ付きパッケージを解決できる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/@babel/core/package.json',
-        JSON.stringify({
-          name: '@babel/core',
-          version: '7.0.0',
-          main: 'lib/index.js',
-        }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/@babel/core/lib/index.js',
-        'module.exports = {}',
-        'file'
-      );
-
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/@babel/core/package.json'
-      );
-      expect(pkgFile).not.toBeNull();
-
-      const pkg = JSON.parse(pkgFile!.content);
-      expect(pkg.name).toBe('@babel/core');
-    });
-
-    it('package.json の module フィールドを読む', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/my-lib/package.json',
-        JSON.stringify({
-          name: 'my-lib',
-          main: 'dist/cjs/index.js',
-          module: 'dist/esm/index.js',
-        }),
-        'file'
-      );
-
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/my-lib/package.json'
-      );
-      const pkg = JSON.parse(pkgFile!.content);
-
-      expect(pkg.module).toBe('dist/esm/index.js');
-      expect(pkg.main).toBe('dist/cjs/index.js');
-    });
-
-    it('exports フィールドの条件付きエクスポート', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/modern-pkg/package.json',
-        JSON.stringify({
-          name: 'modern-pkg',
-          exports: {
-            '.': {
-              import: './dist/esm/index.js',
-              require: './dist/cjs/index.js',
-            },
-            './utils': {
-              import: './dist/esm/utils.js',
-              require: './dist/cjs/utils.js',
-            },
-          },
-        }),
-        'file'
-      );
-
-      const pkgFile = await repo.getFileByPath(
-        projectId,
-        '/node_modules/modern-pkg/package.json'
-      );
-      const pkg = JSON.parse(pkgFile!.content);
-
-      expect(pkg.exports['.']).toBeDefined();
-      expect(pkg.exports['.'].import).toBe('./dist/esm/index.js');
-      expect(pkg.exports['.'].require).toBe('./dist/cjs/index.js');
-      expect(pkg.exports['./utils']).toBeDefined();
-    });
-
-    it('getFilesByPrefix で node_modules 配下を列挙できる', async () => {
-      await repo.createFile(projectId, '/node_modules/pkg-a/index.js', 'a', 'file');
-      await repo.createFile(projectId, '/node_modules/pkg-b/index.js', 'b', 'file');
-
-      const files = await repo.getFilesByPrefix(projectId, '/node_modules');
-      const paths = files.map(f => f.path);
-
-      expect(paths.some(p => p.includes('pkg-a'))).toBe(true);
-      expect(paths.some(p => p.includes('pkg-b'))).toBe(true);
+  it('resolves built-ins without searching same-named installed packages', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/worker_threads/index.js`,
+      'module.exports = 1'
+    );
+    const parent = `${rootPath}/main.js`;
+    expect(resolver.resolveSync('worker_threads', parent)).toMatchObject({ isBuiltIn: true });
+    await expect(resolver.resolve('node:worker_threads', parent, 'import')).resolves.toMatchObject({
+      isBuiltIn: true,
     });
   });
 
-  describe('初期ファイルとの共存', () => {
-    it('initialFileContents が事前ロードされている', async () => {
-      const files = await repo.getProjectFiles(projectId);
-      const paths = files.map(f => f.path);
+  it('uses registered extension order for require files and directory entries', async () => {
+    const { fixture, rootPath } = await createResolver();
+    const extensions = ['.js', '.json', '.node'];
+    const resolver = new ModuleResolver(
+      rootPath,
+      new ModuleFileSystem(fixture.bridge),
+      () => extensions
+    );
+    const parent = `${rootPath}/main.js`;
+    await fixture.writeFile(`${rootPath}/custom.txt`, 'custom');
+    await fixture.writeFile(`${rootPath}/directory/index.txt`, 'custom');
+    expect(resolver.resolveSync('./custom', parent)).toBeNull();
+    extensions.push('.txt');
+    expect(resolver.resolveSync('./custom', parent)?.path).toBe(`${rootPath}/custom.txt`);
+    expect(resolver.resolveSync('./directory', parent)?.path).toBe(
+      `${rootPath}/directory/index.txt`
+    );
+    expect(resolver.resolveSync('./custom', parent, 'import')).toBeNull();
+  });
 
-      expect(paths).toContain('/.gitignore');
-      expect(paths).toContain('/README.md');
-      expect(paths).toContain('/src/index.js');
-      expect(paths).toContain('/src/math.js');
-    });
+  it('resolves a package entry from its main field', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/sample/package.json`,
+      JSON.stringify({ main: 'lib/index.js' })
+    );
+    await fixture.writeFile(`${rootPath}/node_modules/sample/lib/index.js`, 'module.exports = 1');
 
-    it('既存ファイルの内容が読み取れる', async () => {
-      const mathFile = await repo.getFileByPath(projectId, '/src/math.js');
-      expect(mathFile).not.toBeNull();
-      expect(mathFile?.content).toContain('export function add');
-    });
+    const result = await resolver.resolve('sample', `${rootPath}/src/main.js`);
 
-    it('node_modules を追加しても初期ファイルに影響しない', async () => {
-      const beforeCount = (await repo.getProjectFiles(projectId)).length;
+    expect(result?.path).toBe(`${rootPath}/node_modules/sample/lib/index.js`);
+  });
 
-      await repo.createFile(
-        projectId,
-        '/node_modules/test-pkg/index.js',
-        'module.exports = {}',
-        'file'
-      );
+  it('resolves scoped packages and conditional require exports synchronously', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/@scope/tool/package.json`,
+      JSON.stringify({ exports: { '.': { import: './esm.js', require: './cjs.js' } } })
+    );
+    await fixture.writeFile(`${rootPath}/node_modules/@scope/tool/cjs.js`, 'module.exports = 1');
 
-      const afterCount = (await repo.getProjectFiles(projectId)).length;
-      expect(afterCount).toBeGreaterThan(beforeCount);
+    const result = resolver.resolveSync('@scope/tool', `${rootPath}/src/main.js`);
 
-      const mathFile = await repo.getFileByPath(projectId, '/src/math.js');
-      expect(mathFile?.content).toContain('export function add');
+    expect(result?.path).toBe(`${rootPath}/node_modules/@scope/tool/cjs.js`);
+  });
+
+  it('resolves wildcard exports in sync and async resolution', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/wildcard-package/package.json`,
+      JSON.stringify({ exports: { './features/*': './dist/*.js' } })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/wildcard-package/dist/one.js`,
+      'module.exports = 1'
+    );
+    const currentFilePath = `${rootPath}/src/main.js`;
+
+    expect(resolver.resolveSync('wildcard-package/features/one', currentFilePath)?.path).toBe(
+      `${rootPath}/node_modules/wildcard-package/dist/one.js`
+    );
+    await expect(
+      resolver.resolve('wildcard-package/features/one', currentFilePath)
+    ).resolves.toMatchObject({
+      path: `${rootPath}/node_modules/wildcard-package/dist/one.js`,
     });
   });
 
-  describe('ファイル拡張子解決', () => {
-    it('拡張子なしで .js を探す', async () => {
-      const exact = await repo.getFileByPath(projectId, '/src/index');
-      const withExt = await repo.getFileByPath(projectId, '/src/index.js');
+  it('blocks package subpaths excluded by exports', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/private-package/package.json`,
+      JSON.stringify({ exports: { '.': './index.js' } })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/private-package/index.js`,
+      'module.exports = 1'
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/private-package/secret.js`,
+      'module.exports = 2'
+    );
+    const currentFilePath = `${rootPath}/src/main.js`;
 
-      expect(exact).toBeNull();
-      expect(withExt).not.toBeNull();
-    });
+    expect(resolver.resolveSync('private-package/secret', currentFilePath)).toBeNull();
+    await expect(resolver.resolve('private-package/secret', currentFilePath)).resolves.toBeNull();
+  });
 
-    it('index.js をフォールバックとして探す', async () => {
-      await repo.createFile(projectId, '/src/components/index.js', 'export default {}', 'file');
+  it('searches parent node_modules directories for nested dependencies', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/parent/node_modules/nested/package.json`,
+      JSON.stringify({ main: 'entry' })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/parent/node_modules/nested/entry.js`,
+      'module.exports = 1'
+    );
 
-      const indexFile = await repo.getFileByPath(projectId, '/src/components/index.js');
-      expect(indexFile).not.toBeNull();
-    });
+    const result = resolver.resolveSync('nested', `${rootPath}/node_modules/parent/lib/index.js`);
 
-    it('file URL のクエリ付き dynamic import をプロジェクトファイルに解決する', async () => {
-      await repo.createFile(projectId, '/eslint.config.js', 'export default [];', 'file');
-      const resolver = new ModuleResolver(projectId, projectName);
-      const result = await resolver.resolve(
-        `file:///projects/${projectName}/eslint.config.js?mtime=123#hash`,
-        `/projects/${projectName}/node_modules/eslint/lib/config/config-loader.js`
+    expect(result?.path).toBe(`${rootPath}/node_modules/parent/node_modules/nested/entry.js`);
+  });
+
+  it('resolves extensionless files and directory indexes synchronously', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/src/math.js`, 'module.exports = 1');
+    await fixture.writeFile(`${rootPath}/src/widgets/index.js`, 'module.exports = 2');
+
+    expect(resolver.resolveSync('./math', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/math.js`
+    );
+    expect(resolver.resolveSync('./widgets', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/widgets/index.js`
+    );
+  });
+
+  it('does not cache a missing path before it is created', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    expect(resolver.resolveSync('./created-later', `${rootPath}/src/main.js`)).toBeNull();
+    await fixture.writeFile(`${rootPath}/src/created-later.js`, 'module.exports = true');
+
+    expect(resolver.resolveSync('./created-later', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/created-later.js`
+    );
+  });
+
+  it('reuses an asynchronously prepared resolution without synchronous filesystem calls', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/src/cached.js`, 'module.exports = 1');
+    const currentFilePath = `${rootPath}/src/main.js`;
+    await resolver.resolve('./cached', currentFilePath);
+    vi.mocked(fixture.bridge.sync).mockClear();
+
+    expect(resolver.resolveSync('./cached', currentFilePath)?.path).toBe(
+      `${rootPath}/src/cached.js`
+    );
+    expect(fixture.bridge.sync).not.toHaveBeenCalled();
+  });
+
+  it('does not guess mjs, cjs or TypeScript extensions for require', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    for (const extension of ['mjs', 'cjs', 'ts']) {
+      await fixture.writeFile(
+        `${rootPath}/src/only-${extension}.${extension}`,
+        'module.exports = 1'
       );
+      expect(resolver.resolveSync(`./only-${extension}`, `${rootPath}/src/main.js`)).toBeNull();
+      await expect(
+        resolver.resolve(`./only-${extension}`, `${rootPath}/src/main.js`)
+      ).resolves.toBeNull();
+    }
+  });
 
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/eslint.config.js`);
+  it('requires exact relative import paths and does not load directory indexes', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/src/file.js`, 'module.exports = 1');
+    await fixture.writeFile(`${rootPath}/src/folder/index.js`, 'module.exports = 1');
+    const parent = `${rootPath}/src/main.mjs`;
+    expect(resolver.resolveSync('./file', parent, 'import')).toBeNull();
+    expect(resolver.resolveSync('./folder', parent, 'import')).toBeNull();
+    await expect(resolver.resolve('./file.js', parent, 'import')).resolves.toMatchObject({
+      path: `${rootPath}/src/file.js`,
     });
   });
 
-  describe('npm バイナリ解決', () => {
-    it('.bin ディレクトリからバイナリを解決できる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/.bin/cowsay',
-        '#!/usr/bin/env node\nrequire("../cowsay/cli.js")',
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/cowsay/cli.js',
-        'console.log("moo")',
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/cowsay/package.json',
-        JSON.stringify({ name: 'cowsay', version: '1.0.0', bin: { cowsay: 'cli.js' } }),
-        'file'
-      );
-
-      const binFile = await repo.getFileByPath(projectId, '/node_modules/.bin/cowsay');
-      expect(binFile).not.toBeNull();
-      expect(binFile?.content).toContain('cowsay/cli.js');
-
-      const cliFile = await repo.getFileByPath(projectId, '/node_modules/cowsay/cli.js');
-      expect(cliFile).not.toBeNull();
+  it('resolves a required directory main field before index files', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/src/folder/package.json`,
+      JSON.stringify({ main: './entry' })
+    );
+    await fixture.writeFile(`${rootPath}/src/folder/entry.js`, 'module.exports = 1');
+    await fixture.writeFile(`${rootPath}/src/folder/index.js`, 'module.exports = 2');
+    expect(resolver.resolveSync('./folder', `${rootPath}/src/main.js`)?.path).toBe(
+      `${rootPath}/src/folder/entry.js`
+    );
+    await expect(resolver.resolve('./folder', `${rootPath}/src/main.js`)).resolves.toMatchObject({
+      path: `${rootPath}/src/folder/entry.js`,
     });
   });
 
-  describe('依存関係ツリー', () => {
-    it('ネストされた依存関係を解決できる', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/package.json',
-        JSON.stringify({ name: 'uvu', version: '0.5.6', main: 'index.js' }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/index.js',
-        "const kleur = require('kleur');\nmodule.exports = { test: () => {} };",
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/kleur/package.json',
-        JSON.stringify({ name: 'kleur', version: '4.1.5', main: 'index.js' }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/kleur/index.js',
-        'module.exports = { red: (s) => s };',
-        'file'
-      );
-
-      const uvuPkg = await repo.getFileByPath(projectId, '/node_modules/uvu/package.json');
-      expect(uvuPkg).not.toBeNull();
-
-      const kleurPkg = await repo.getFileByPath(projectId, '/node_modules/kleur/package.json');
-      expect(kleurPkg).not.toBeNull();
-
-      const uvuIndex = await repo.getFileByPath(projectId, '/node_modules/uvu/index.js');
-      expect(uvuIndex?.content).toContain("require('kleur')");
+  it('honors condition insertion order and ignores inactive conditions', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/ordered/package.json`,
+      JSON.stringify({
+        exports: {
+          browser: './browser.js',
+          node: { import: './import.mjs' },
+          default: './default.js',
+          require: './require.js',
+        },
+      })
+    );
+    for (const name of ['browser.js', 'import.mjs', 'default.js', 'require.js'])
+      await fixture.writeFile(`${rootPath}/node_modules/ordered/${name}`, 'module.exports = 1');
+    const parent = `${rootPath}/src/main.js`;
+    expect(resolver.resolveSync('ordered', parent)?.path).toBe(
+      `${rootPath}/node_modules/ordered/default.js`
+    );
+    await expect(resolver.resolve('ordered', parent, 'import')).resolves.toMatchObject({
+      path: `${rootPath}/node_modules/ordered/import.mjs`,
     });
   });
 
-  // ==================== ModuleResolver.resolve() の直接テスト ====================
+  it('keeps import and require resolution caches separate', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/dual/package.json`,
+      JSON.stringify({ exports: { import: './module.mjs', require: './common.cjs' } })
+    );
+    await fixture.writeFile(`${rootPath}/node_modules/dual/module.mjs`, 'export default 1');
+    await fixture.writeFile(`${rootPath}/node_modules/dual/common.cjs`, 'module.exports = 1');
+    const parent = `${rootPath}/src/main.js`;
+    await resolver.resolve('dual', parent, 'import');
+    expect(resolver.resolveSync('dual', parent)?.path).toBe(
+      `${rootPath}/node_modules/dual/common.cjs`
+    );
+    expect(resolver.resolveSync('dual', parent, 'import')?.path).toBe(
+      `${rootPath}/node_modules/dual/module.mjs`
+    );
+  });
 
-  describe('ModuleResolver.resolve() — 相対パスの拡張子解決', () => {
-    let resolver: ModuleResolver;
-
-    beforeEach(() => {
-      resolver = new ModuleResolver(projectId, projectName);
+  it('resolves root package imports, wildcard trailers, external targets and self references', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/package.json`,
+      JSON.stringify({
+        name: 'self',
+        exports: './source/self.js',
+        imports: { '#local/*.js': './source/*.js', '#external': 'dependency' },
+      })
+    );
+    await fixture.writeFile(`${rootPath}/source/self.js`, 'module.exports = 1');
+    await fixture.writeFile(`${rootPath}/source/one.js`, 'module.exports = 2');
+    await fixture.writeFile(`${rootPath}/node_modules/dependency/index.js`, 'module.exports = 3');
+    const parent = `${rootPath}/source/main.js`;
+    await expect(resolver.resolve('#local/one.js', parent)).resolves.toMatchObject({
+      path: `${rootPath}/source/one.js`,
     });
+    expect(resolver.resolveSync('#external', parent)?.path).toBe(
+      `${rootPath}/node_modules/dependency/index.js`
+    );
+    expect(resolver.resolveSync('self', parent)?.path).toBe(`${rootPath}/source/self.js`);
+  });
 
-    it("require('./package') が package.json に解決される", async () => {
-      // uvu/bin.js が require('./package') するパターンを再現
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/package.json',
-        JSON.stringify({ name: 'uvu', version: '0.5.6', main: 'index.js' }),
-        'file'
+  it('chooses the most specific export pattern and preserves null blockers', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/pattern/package.json`,
+      JSON.stringify({
+        exports: {
+          './*': './generic/*.js',
+          './feature/*': './specific/*.js',
+          './feature/private/*': null,
+        },
+      })
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/pattern/specific/one.js`,
+      'module.exports = 1'
+    );
+    await fixture.writeFile(
+      `${rootPath}/node_modules/pattern/generic/feature/private/one.js`,
+      'module.exports = 2'
+    );
+    const parent = `${rootPath}/src/main.js`;
+    expect(resolver.resolveSync('pattern/feature/one', parent)?.path).toBe(
+      `${rootPath}/node_modules/pattern/specific/one.js`
+    );
+    await expect(resolver.resolve('pattern/feature/private/one', parent)).resolves.toBeNull();
+  });
+
+  it('does not extend export targets or fall back to package main', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/exact/package.json`,
+      JSON.stringify({ exports: './entry', main: './entry.js' })
+    );
+    await fixture.writeFile(`${rootPath}/node_modules/exact/entry.js`, 'module.exports = 1');
+    const parent = `${rootPath}/src/main.js`;
+    expect(resolver.resolveSync('exact', parent)).toBeNull();
+    await expect(resolver.resolve('exact', parent)).resolves.toBeNull();
+  });
+
+  it('rejects exports that escape the package directory', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(
+      `${rootPath}/node_modules/invalid/package.json`,
+      JSON.stringify({ exports: './%2e%2e/private.js' })
+    );
+    expect(() => resolver.resolveSync('invalid', `${rootPath}/src/main.js`)).toThrow(
+      'Invalid package target segment'
+    );
+    await expect(resolver.resolve('invalid', `${rootPath}/src/main.js`)).rejects.toThrow(
+      'Invalid package target segment'
+    );
+  });
+
+  it('finds nearest type scopes for scoped packages and stops at node_modules', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/package.json`, JSON.stringify({ type: 'module' }));
+    await fixture.writeFile(
+      `${rootPath}/node_modules/@scope/tool/package.json`,
+      JSON.stringify({ type: 'commonjs' })
+    );
+    expect(await resolver.packageType(`${rootPath}/node_modules/@scope/tool/src/main.js`)).toBe(
+      'commonjs'
+    );
+    expect(resolver.packageTypeSync(`${rootPath}/node_modules/untyped/main.js`)).toBeUndefined();
+    expect(await resolver.packageType(`${rootPath}/source/main.js`)).toBe('module');
+  });
+
+  it('does not retain absent type scopes when a package file is created later', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    expect(await resolver.packageType(`${rootPath}/source/main.js`)).toBeUndefined();
+    await fixture.writeFile(`${rootPath}/package.json`, JSON.stringify({ type: 'module' }));
+    expect(resolver.packageTypeSync(`${rootPath}/source/main.js`)).toBe('module');
+  });
+
+  it('rejects invalid primitive targets, numeric conditions and empty target segments', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    const targets = [42, { '0': './entry.js', default: './entry.js' }, './folder//entry.js'];
+    for (const [index, exports] of targets.entries()) {
+      await fixture.writeFile(
+        `${rootPath}/node_modules/invalid-${index}/package.json`,
+        JSON.stringify({ exports })
       );
-      await repo.createFile(
-        projectId,
-        '/node_modules/uvu/bin.js',
-        "const pkg = require('./package');\nmodule.exports = pkg;",
-        'file'
-      );
+      expect(() =>
+        resolver.resolveSync(`invalid-${index}`, `${rootPath}/source/main.js`)
+      ).toThrow();
+      await expect(
+        resolver.resolve(`invalid-${index}`, `${rootPath}/source/main.js`)
+      ).rejects.toThrow();
+    }
+  });
 
-      const currentFile = `/projects/${projectName}/node_modules/uvu/bin.js`;
-      const result = await resolver.resolve('./package', currentFile);
+  it('canonicalizes linked files before determining their package type', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/package.json`, '{"type":"commonjs"}');
+    await fixture.writeFile(`${rootPath}/target/package.json`, '{"type":"module"}');
+    const target = `${rootPath}/target/file.js`;
+    await fixture.writeFile(target, 'export const value = 1;');
+    await fixture.fs.symlink('./target/file.js', `${rootPath}/linked.js`);
+    const asynchronous = await resolver.resolve('./linked.js', `${rootPath}/entry.js`);
+    expect(asynchronous?.path).toBe(target);
+    expect(await resolver.packageType(asynchronous!.path)).toBe('module');
+    const linked = resolver.resolveSync('../linked.js', `${rootPath}/other/entry.js`);
+    expect(linked?.path).toBe(target);
+    expect(resolver.packageTypeSync(linked!.path)).toBe('module');
+  });
 
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/node_modules/uvu/package.json`);
-    });
-
-    it("require('./lib/utils') が ./lib/utils.js に解決される", async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/test-pkg/lib/utils.js',
-        'module.exports = {}',
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
-      const result = await resolver.resolve('./lib/utils', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/node_modules/test-pkg/lib/utils.js`);
-    });
-
-    it("require('./data') が ./data.json に解決される", async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/test-pkg/data.json',
-        JSON.stringify({ key: 'value' }),
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
-      const result = await resolver.resolve('./data', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(`/projects/${projectName}/node_modules/test-pkg/data.json`);
-    });
-
-    it('存在しない相対モジュールは null を返す', async () => {
-      const currentFile = `/projects/${projectName}/node_modules/test-pkg/index.js`;
-      const result = await resolver.resolve('./nonexistent', currentFile);
-
-      expect(result).toBeNull();
-    });
-
-    it('nested require/default exports を CJS entry に解決する', async () => {
-      await repo.createFile(
-        projectId,
-        '/node_modules/minimatch/package.json',
-        JSON.stringify({
-          name: 'minimatch',
-          exports: {
-            '.': {
-              import: {
-                types: './dist/mjs/index.d.ts',
-                default: './dist/mjs/index.js',
-              },
-              require: {
-                types: './dist/cjs/index.d.ts',
-                default: './dist/cjs/index-cjs.js',
-              },
-            },
-          },
-        }),
-        'file'
-      );
-      await repo.createFile(
-        projectId,
-        '/node_modules/minimatch/dist/cjs/index-cjs.js',
-        'module.exports = {}',
-        'file'
-      );
-
-      const currentFile = `/projects/${projectName}/src/index.js`;
-      const result = await resolver.resolve('minimatch', currentFile);
-
-      expect(result).not.toBeNull();
-      expect(result!.path).toBe(
-        `/projects/${projectName}/node_modules/minimatch/dist/cjs/index-cjs.js`
-      );
-    });
+  it('rejects encoded file URL separators before resolving filesystem paths', async () => {
+    const { fixture, resolver, rootPath } = await createResolver();
+    await fixture.writeFile(`${rootPath}/source/file.js`, 'module.exports = 1');
+    for (const separator of ['%2f', '%5C']) {
+      await expect(
+        resolver.resolve(
+          `file://${rootPath}/source${separator}file.js`,
+          `${rootPath}/main.js`,
+          'import'
+        )
+      ).rejects.toThrow('Invalid encoded separator');
+    }
   });
 });

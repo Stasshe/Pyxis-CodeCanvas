@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestProject } from '../../../_helpers/testProject';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
+import { setupTestProject } from '../../../_helpers/testProject';
 
 /**
  * 環境変数とパラメータ展開のe2eテスト
@@ -15,29 +14,35 @@ import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
  */
 
 describe('e2e — 環境変数とパラメータ展開実行テスト', () => {
-  let projectId: string;
-  let projectName: string;
+  let rootPath: string;
+  let testFs: Awaited<ReturnType<typeof setupTestProject>>['repo'];
   let shell: Awaited<ReturnType<typeof terminalCommandRegistry.getShell>>;
 
   beforeEach(async () => {
     await terminalCommandRegistry.clearAll();
     const ctx = await setupTestProject('EnvVarE2ETest');
-    projectId = ctx.projectId;
-    projectName = ctx.projectName;
-    shell = await terminalCommandRegistry.getShell(projectName, projectId, { fileRepository });
+    rootPath = ctx.rootPath;
+    testFs = ctx.repo;
+    shell = await terminalCommandRegistry.getShell(rootPath);
   });
 
-  async function executeScript(scriptContent: string, scriptName = 'test-script.sh'): Promise<{
+  async function executeScript(
+    scriptContent: string,
+    scriptName = 'test-script.sh'
+  ): Promise<{
     output: string[];
     errors: string[];
     executionError: Error | null;
   }> {
-    await fileRepository.createFile(projectId, `/${scriptName}`, scriptContent, 'file');
+    await testFs.writeFile(`${rootPath}/${scriptName}`, scriptContent);
     const result = await shell!.run(`bash ${scriptName}`);
     return {
       output: result.stdout.split('\n').filter(Boolean),
       errors: result.stderr.split('\n').filter(Boolean),
-      executionError: result.code !== 0 ? new Error(`Script exited with code ${result.code}\n${result.stderr}`) : null,
+      executionError:
+        result.code !== 0
+          ? new Error(`Script exited with code ${result.code}\n${result.stderr}`)
+          : null,
     };
   }
 

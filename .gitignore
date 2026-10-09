@@ -77,3 +77,5 @@ test-workspaces/
 .gle/
 
 lint-report/
+
+scripts/bench/npm-install/results

@@ -1,0 +1,4048 @@
+{
+  "benchmark": "npm-install",
+  "instrumented": true,
+  "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36",
+  "cachePolicy": "Cold clears OPFS ~/.npm; warm reuses it. Browser fetch uses cache:no-store.",
+  "setupMs": 8241.199999999255,
+  "results": {
+    "small": {
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/small-cold",
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/small-warm",
+      "lockedRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/small-locked",
+      "manifest": {
+        "name": "pyxis-bench-small",
+        "version": "1.0.0",
+        "dependencies": {
+          "is-odd": "3.0.1"
+        },
+        "devDependencies": {}
+      },
+      "cold": {
+        "wallMs": 107,
+        "output": "added 2 packages, and audited 1 packages in 0.1s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-small",
+          "version": "1.0.0",
+          "dependencies": {
+            "is-odd": "3.0.1"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 107.09999999776483,
+          "phases": {
+            "fs.exists": {
+              "calls": 38,
+              "failures": 0,
+              "serviceMs": 10.900000002235174,
+              "wallMs": 8.800000008195639,
+              "maxParallel": 2
+            },
+            "fs.stat": {
+              "calls": 72,
+              "failures": 31,
+              "serviceMs": 24.69999999552965,
+              "wallMs": 19.30000000447035,
+              "maxParallel": 2
+            },
+            "fs.directory": {
+              "calls": 98,
+              "failures": 8,
+              "serviceMs": 10.700000010430813,
+              "wallMs": 9.900000009685755,
+              "maxParallel": 2
+            },
+            "opfs.directoryLookup": {
+              "calls": 107,
+              "failures": 8,
+              "serviceMs": 14.100000005215406,
+              "wallMs": 12.400000013411045,
+              "maxParallel": 2
+            },
+            "opfs.fileLookup": {
+              "calls": 84,
+              "failures": 51,
+              "serviceMs": 14.00000000372529,
+              "wallMs": 11.700000006705523,
+              "maxParallel": 2
+            },
+            "opfs.metadata": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 2.6999999918043613,
+              "wallMs": 2.2999999932944775,
+              "maxParallel": 2
+            },
+            "fs.readText": {
+              "calls": 6,
+              "failures": 3,
+              "serviceMs": 4.099999997764826,
+              "wallMs": 3.399999998509884,
+              "maxParallel": 2
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.9000000022351742,
+              "wallMs": 0.9000000022351742,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 17,
+              "failures": 0,
+              "serviceMs": 6.800000004470348,
+              "wallMs": 5.100000005215406,
+              "maxParallel": 2
+            },
+            "opfs.getSize": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 17,
+              "failures": 0,
+              "serviceMs": 1.9000000096857548,
+              "wallMs": 1.9000000096857548,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 104.60000000149012,
+              "wallMs": 104.60000000149012,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.1000000014901161,
+              "wallMs": 1.1000000014901161,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 14,
+              "failures": 0,
+              "serviceMs": 1.3999999910593033,
+              "wallMs": 1.3999999910593033,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 14,
+              "failures": 0,
+              "serviceMs": 0.20000000298023224,
+              "wallMs": 0.20000000298023224,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 14,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 61,
+              "wallMs": 61,
+              "maxParallel": 1
+            },
+            "crypto.digest.sha256": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 2
+            },
+            "network.registry": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 48.69999999925494,
+              "wallMs": 48.69999999925494,
+              "maxParallel": 1
+            },
+            "network.registry.headers": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 40.399999998509884,
+              "wallMs": 40.399999998509884,
+              "maxParallel": 1
+            },
+            "network.registry.body": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 8.100000001490116,
+              "wallMs": 8.100000001490116,
+              "maxParallel": 1
+            },
+            "fs.mkdir": {
+              "calls": 11,
+              "failures": 0,
+              "serviceMs": 16,
+              "wallMs": 8.699999995529652,
+              "maxParallel": 4
+            },
+            "fs.write.cache": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 5.599999997764826,
+              "wallMs": 4.599999997764826,
+              "maxParallel": 2
+            },
+            "fs.read.packages": {
+              "calls": 4,
+              "failures": 2,
+              "serviceMs": 3.099999997764826,
+              "wallMs": 2.399999998509884,
+              "maxParallel": 2
+            },
+            "install.package": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 72.49999999627471,
+              "wallMs": 36.29999999701977,
+              "maxParallel": 2
+            },
+            "install.tarball": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 40,
+              "wallMs": 21.5,
+              "maxParallel": 2
+            },
+            "network.tarball": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 40,
+              "wallMs": 21.5,
+              "maxParallel": 2
+            },
+            "network.tarball.headers": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 39.600000001490116,
+              "wallMs": 21.300000000745058,
+              "maxParallel": 2
+            },
+            "network.tarball.body": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            },
+            "crypto.digest.sha512": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 25.400000002235174,
+              "wallMs": 14,
+              "maxParallel": 2
+            },
+            "install.gunzipRead": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 1.6000000014901161,
+              "wallMs": 1.6000000014901161,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 0.09999999776482582,
+              "wallMs": 0.09999999776482582,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 22.49999999627471,
+              "wallMs": 12.399999998509884,
+              "maxParallel": 2
+            },
+            "fs.write.packages": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 15.800000000745058,
+              "wallMs": 8.5,
+              "maxParallel": 2
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.5999999977648258,
+              "wallMs": 1.5999999977648258,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 6248,
+            "workspace": 78,
+            "cache": 11295,
+            "packages": 15470,
+            "lockfile": 863
+          },
+          "requests": {
+            "https://registry.npmjs.org/is-odd": 1,
+            "https://registry.npmjs.org/is-number": 1,
+            "https://registry.npmjs.org/is-odd/-/is-odd-3.0.1.tgz": 1,
+            "https://registry.npmjs.org/is-number/-/is-number-6.0.0.tgz": 1
+          },
+          "pending": []
+        },
+        "fileCount": 8,
+        "manifestCount": 2,
+        "bytes": 15470
+      },
+      "warm": {
+        "wallMs": 25.100000001490116,
+        "output": "added 2 packages, and audited 1 packages in 0.0s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-small",
+          "version": "1.0.0",
+          "dependencies": {
+            "is-odd": "3.0.1"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 25.199999999254942,
+          "phases": {
+            "fs.exists": {
+              "calls": 27,
+              "failures": 0,
+              "serviceMs": 9,
+              "wallMs": 6.100000001490116,
+              "maxParallel": 2
+            },
+            "fs.stat": {
+              "calls": 50,
+              "failures": 20,
+              "serviceMs": 15.900000002235174,
+              "wallMs": 10.899999998509884,
+              "maxParallel": 2
+            },
+            "fs.directory": {
+              "calls": 74,
+              "failures": 6,
+              "serviceMs": 9.800000008195639,
+              "wallMs": 7.300000004470348,
+              "maxParallel": 2
+            },
+            "opfs.fileLookup": {
+              "calls": 64,
+              "failures": 31,
+              "serviceMs": 7.199999999254942,
+              "wallMs": 5.5,
+              "maxParallel": 2
+            },
+            "opfs.metadata": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 3.1000000089406967,
+              "wallMs": 2.6000000052154064,
+              "maxParallel": 2
+            },
+            "fs.readText": {
+              "calls": 8,
+              "failures": 3,
+              "serviceMs": 5.299999997019768,
+              "wallMs": 4.799999997019768,
+              "maxParallel": 2
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.6999999992549419,
+              "wallMs": 0.6999999992549419,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 17,
+              "failures": 0,
+              "serviceMs": 5.899999998509884,
+              "wallMs": 4.900000002235174,
+              "maxParallel": 2
+            },
+            "opfs.getSize": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 17,
+              "failures": 0,
+              "serviceMs": 1.4999999962747097,
+              "wallMs": 1.4999999962747097,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 23.699999999254942,
+              "wallMs": 23.699999999254942,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1,
+              "wallMs": 1,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 1.1000000052154064,
+              "wallMs": 1.1000000052154064,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 4.299999997019768,
+              "wallMs": 4.299999997019768,
+              "maxParallel": 1
+            },
+            "crypto.digest.sha256": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 2
+            },
+            "opfs.directoryLookup": {
+              "calls": 77,
+              "failures": 6,
+              "serviceMs": 10.699999995529652,
+              "wallMs": 8.099999997764826,
+              "maxParallel": 2
+            },
+            "fs.read.cacheMetadata": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 1.0999999977648258,
+              "wallMs": 1.0999999977648258,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 4,
+              "failures": 2,
+              "serviceMs": 3.5,
+              "wallMs": 3,
+              "maxParallel": 2
+            },
+            "install.package": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 26.5,
+              "wallMs": 13.399999998509884,
+              "maxParallel": 2
+            },
+            "fs.read.cacheTarball": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 2.800000000745058,
+              "wallMs": 2.300000000745058,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha512": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 20.300000000745058,
+              "wallMs": 11,
+              "maxParallel": 2
+            },
+            "install.gunzipRead": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 1,
+              "wallMs": 1,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 18.00000000372529,
+              "wallMs": 9.800000000745058,
+              "maxParallel": 2
+            },
+            "fs.mkdir": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 8.399999994784594,
+              "wallMs": 3.600000001490116,
+              "maxParallel": 4
+            },
+            "fs.write.packages": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 10.200000002980232,
+              "wallMs": 5.800000000745058,
+              "maxParallel": 2
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.199999999254942,
+              "wallMs": 1.199999999254942,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 15470,
+            "lockfile": 863
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 8,
+        "manifestCount": 2,
+        "bytes": 15470
+      },
+      "locked": {
+        "wallMs": 20.5,
+        "output": "added 2 packages, and audited 1 packages in 0.0s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-small",
+          "version": "1.0.0",
+          "dependencies": {
+            "is-odd": "3.0.1"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 20.5,
+          "phases": {
+            "fs.exists": {
+              "calls": 24,
+              "failures": 0,
+              "serviceMs": 7.0999999940395355,
+              "wallMs": 4.799999997019768,
+              "maxParallel": 2
+            },
+            "fs.stat": {
+              "calls": 46,
+              "failures": 18,
+              "serviceMs": 14.299999997019768,
+              "wallMs": 9.699999999254942,
+              "maxParallel": 2
+            },
+            "fs.directory": {
+              "calls": 68,
+              "failures": 6,
+              "serviceMs": 6.999999985098839,
+              "wallMs": 5.099999990314245,
+              "maxParallel": 2
+            },
+            "opfs.fileLookup": {
+              "calls": 58,
+              "failures": 29,
+              "serviceMs": 6.199999995529652,
+              "wallMs": 4.699999988079071,
+              "maxParallel": 2
+            },
+            "opfs.metadata": {
+              "calls": 14,
+              "failures": 0,
+              "serviceMs": 2.5000000037252903,
+              "wallMs": 2.100000001490116,
+              "maxParallel": 2
+            },
+            "fs.readText": {
+              "calls": 7,
+              "failures": 3,
+              "serviceMs": 2.7000000029802322,
+              "wallMs": 2.2000000029802322,
+              "maxParallel": 2
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.7000000029802322,
+              "wallMs": 0.7000000029802322,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 15,
+              "failures": 0,
+              "serviceMs": 6.699999995529652,
+              "wallMs": 5.5999999940395355,
+              "maxParallel": 2
+            },
+            "opfs.getSize": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 15,
+              "failures": 0,
+              "serviceMs": 1.6000000014901161,
+              "wallMs": 1.6000000014901161,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 19.100000001490116,
+              "wallMs": 19.100000001490116,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1,
+              "wallMs": 1,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 9,
+              "failures": 0,
+              "serviceMs": 0.8999999985098839,
+              "wallMs": 0.8999999985098839,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 9,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 9,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 4,
+              "failures": 2,
+              "serviceMs": 1.5,
+              "wallMs": 1,
+              "maxParallel": 2
+            },
+            "opfs.directoryLookup": {
+              "calls": 69,
+              "failures": 6,
+              "serviceMs": 9.099999986588955,
+              "wallMs": 6.299999989569187,
+              "maxParallel": 2
+            },
+            "install.package": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 28.800000000745058,
+              "wallMs": 14.5,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha256": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 0.20000000298023224,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 2
+            },
+            "fs.read.cacheTarball": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 3.5,
+              "wallMs": 3,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha512": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 21.799999997019768,
+              "wallMs": 11.899999998509884,
+              "maxParallel": 2
+            },
+            "install.gunzipRead": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 1.0000000037252903,
+              "wallMs": 1.0000000037252903,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 19.300000000745058,
+              "wallMs": 10.399999998509884,
+              "maxParallel": 2
+            },
+            "fs.mkdir": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 8.600000005215406,
+              "wallMs": 3.300000000745058,
+              "maxParallel": 4
+            },
+            "fs.write.packages": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 11.700000002980232,
+              "wallMs": 6.399999998509884,
+              "maxParallel": 2
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 15470
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 8,
+        "manifestCount": 2,
+        "bytes": 15470
+      },
+      "noop": {
+        "wallMs": 6.199999999254942,
+        "output": "up to date, audited 1 packages in 0.0s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-small",
+          "version": "1.0.0",
+          "dependencies": {
+            "is-odd": "3.0.1"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 6.299999997019768,
+          "phases": {
+            "fs.exists": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.7000000029802322,
+              "wallMs": 0.7000000029802322,
+              "maxParallel": 1
+            },
+            "fs.stat": {
+              "calls": 4,
+              "failures": 1,
+              "serviceMs": 0.8000000007450581,
+              "wallMs": 0.8000000007450581,
+              "maxParallel": 1
+            },
+            "fs.directory": {
+              "calls": 9,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            },
+            "opfs.fileLookup": {
+              "calls": 9,
+              "failures": 1,
+              "serviceMs": 1.300000000745058,
+              "wallMs": 1.300000000745058,
+              "maxParallel": 1
+            },
+            "opfs.metadata": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.19999999925494194,
+              "wallMs": 0.19999999925494194,
+              "maxParallel": 1
+            },
+            "fs.readText": {
+              "calls": 5,
+              "failures": 0,
+              "serviceMs": 3.1999999955296516,
+              "wallMs": 3.1999999955296516,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 1.0999999977648258,
+              "wallMs": 1.0999999977648258,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 5,
+              "failures": 0,
+              "serviceMs": 1.4000000022351742,
+              "wallMs": 1.4000000022351742,
+              "maxParallel": 1
+            },
+            "opfs.getSize": {
+              "calls": 5,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 5,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 5,
+              "failures": 0,
+              "serviceMs": 0.5999999977648258,
+              "wallMs": 0.5999999977648258,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 4.800000000745058,
+              "wallMs": 4.800000000745058,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.4000000022351742,
+              "wallMs": 0.4000000022351742,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 1.5999999977648258,
+              "wallMs": 1.5999999977648258,
+              "maxParallel": 1
+            },
+            "opfs.directoryLookup": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 8,
+        "manifestCount": 2,
+        "bytes": 15470
+      }
+    },
+    "medium-express": {
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/medium-express-cold",
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/medium-express-warm",
+      "lockedRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/medium-express-locked",
+      "manifest": {
+        "name": "pyxis-bench-medium-express",
+        "version": "1.0.0",
+        "dependencies": {
+          "express": "5.1.0"
+        },
+        "devDependencies": {}
+      },
+      "cold": {
+        "wallMs": 1320.1000000014901,
+        "output": "added 71 packages, and audited 1 packages in 1.3s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-express",
+          "version": "1.0.0",
+          "dependencies": {
+            "express": "5.1.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 1320.199999999255,
+          "phases": {
+            "fs.exists": {
+              "calls": 1433,
+              "failures": 0,
+              "serviceMs": 420.1000000163913,
+              "wallMs": 324.99999998137355,
+              "maxParallel": 4
+            },
+            "fs.stat": {
+              "calls": 2799,
+              "failures": 1159,
+              "serviceMs": 1059.2999999560416,
+              "wallMs": 660.3999999724329,
+              "maxParallel": 4
+            },
+            "fs.directory": {
+              "calls": 3877,
+              "failures": 90,
+              "serviceMs": 509.7000000141561,
+              "wallMs": 394.7999999821186,
+              "maxParallel": 4
+            },
+            "opfs.directoryLookup": {
+              "calls": 4603,
+              "failures": 90,
+              "serviceMs": 638.899999987334,
+              "wallMs": 466.8999999575317,
+              "maxParallel": 4
+            },
+            "opfs.fileLookup": {
+              "calls": 3640,
+              "failures": 1991,
+              "serviceMs": 618.900000102818,
+              "wallMs": 473.9000000394881,
+              "maxParallel": 4
+            },
+            "opfs.metadata": {
+              "calls": 790,
+              "failures": 0,
+              "serviceMs": 125.19999989494681,
+              "wallMs": 112.8999999128282,
+              "maxParallel": 4
+            },
+            "fs.readText": {
+              "calls": 144,
+              "failures": 72,
+              "serviceMs": 81.30000000074506,
+              "wallMs": 80.20000000298023,
+              "maxParallel": 2
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.9000000022351742,
+              "wallMs": 0.9000000022351742,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 859,
+              "failures": 0,
+              "serviceMs": 314.9999999962747,
+              "wallMs": 266.7999999411404,
+              "maxParallel": 4
+            },
+            "opfs.getSize": {
+              "calls": 72,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 72,
+              "failures": 0,
+              "serviceMs": 0.30000000447034836,
+              "wallMs": 0.30000000447034836,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 859,
+              "failures": 0,
+              "serviceMs": 81.00000001117587,
+              "wallMs": 81.00000001117587,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1317.800000000745,
+              "wallMs": 1317.800000000745,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.1000000014901161,
+              "wallMs": 1.1000000014901161,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 787,
+              "failures": 0,
+              "serviceMs": 74.39999996125698,
+              "wallMs": 74.39999996125698,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 787,
+              "failures": 0,
+              "serviceMs": 4.800000011920929,
+              "wallMs": 4.800000011920929,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 787,
+              "failures": 0,
+              "serviceMs": 0.6999999918043613,
+              "wallMs": 0.6999999918043613,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 86,
+              "failures": 0,
+              "serviceMs": 1646.8000000044703,
+              "wallMs": 451.19999999925494,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha256": {
+              "calls": 139,
+              "failures": 0,
+              "serviceMs": 2.5,
+              "wallMs": 2.199999999254942,
+              "maxParallel": 4
+            },
+            "network.registry": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 1411.5,
+              "wallMs": 440.0000000037253,
+              "maxParallel": 4
+            },
+            "network.registry.headers": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 1344.300000011921,
+              "wallMs": 430.6000000014901,
+              "maxParallel": 4
+            },
+            "network.registry.body": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 65.7999999858439,
+              "wallMs": 64.7999999858439,
+              "maxParallel": 2
+            },
+            "fs.mkdir": {
+              "calls": 357,
+              "failures": 0,
+              "serviceMs": 388.39999997615814,
+              "wallMs": 299.9999999701977,
+              "maxParallel": 8
+            },
+            "fs.write.cache": {
+              "calls": 139,
+              "failures": 0,
+              "serviceMs": 224.1999999806285,
+              "wallMs": 186.899999987334,
+              "maxParallel": 3
+            },
+            "fs.read.packages": {
+              "calls": 142,
+              "failures": 71,
+              "serviceMs": 79.30000000447035,
+              "wallMs": 78.20000000670552,
+              "maxParallel": 2
+            },
+            "install.package": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 3191.399999987334,
+              "wallMs": 827.7999999970198,
+              "maxParallel": 4
+            },
+            "install.tarball": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1453.7000000178814,
+              "wallMs": 639.7000000067055,
+              "maxParallel": 4
+            },
+            "network.tarball": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1452.6000000163913,
+              "wallMs": 639.5000000037253,
+              "maxParallel": 4
+            },
+            "network.tarball.headers": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1394.8999999985099,
+              "wallMs": 622.9999999962747,
+              "maxParallel": 4
+            },
+            "network.tarball.body": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 56.700000021606684,
+              "wallMs": 52.3000000230968,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha512": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 2.2999999970197678,
+              "wallMs": 2.2999999970197678,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1490.9999999925494,
+              "wallMs": 678.6000000052154,
+              "maxParallel": 4
+            },
+            "install.gunzipRead": {
+              "calls": 159,
+              "failures": 0,
+              "serviceMs": 10.80000001564622,
+              "wallMs": 10.80000001564622,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 646,
+              "failures": 0,
+              "serviceMs": 5.3000000193715096,
+              "wallMs": 5.3000000193715096,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 646,
+              "failures": 0,
+              "serviceMs": 1447.099999986589,
+              "wallMs": 669.7999999970198,
+              "maxParallel": 4
+            },
+            "fs.write.packages": {
+              "calls": 646,
+              "failures": 0,
+              "serviceMs": 1157.8999999947846,
+              "wallMs": 606.7999999970198,
+              "maxParallel": 4
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.199999999254942,
+              "wallMs": 1.199999999254942,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 757324,
+            "workspace": 78,
+            "cache": 1297020,
+            "packages": 2366763,
+            "lockfile": 24288
+          },
+          "requests": {
+            "https://registry.npmjs.org/express": 1,
+            "https://registry.npmjs.org/qs": 1,
+            "https://registry.npmjs.org/etag": 1,
+            "https://registry.npmjs.org/once": 1,
+            "https://registry.npmjs.org/send": 1,
+            "https://registry.npmjs.org/vary": 1,
+            "https://registry.npmjs.org/debug": 1,
+            "https://registry.npmjs.org/fresh": 1,
+            "https://registry.npmjs.org/cookie": 1,
+            "https://registry.npmjs.org/router": 1,
+            "https://registry.npmjs.org/accepts": 1,
+            "https://registry.npmjs.org/type-is": 1,
+            "https://registry.npmjs.org/parseurl": 1,
+            "https://registry.npmjs.org/statuses": 1,
+            "https://registry.npmjs.org/encodeurl": 1,
+            "https://registry.npmjs.org/mime-types": 1,
+            "https://registry.npmjs.org/proxy-addr": 1,
+            "https://registry.npmjs.org/body-parser": 1,
+            "https://registry.npmjs.org/escape-html": 1,
+            "https://registry.npmjs.org/http-errors": 1,
+            "https://registry.npmjs.org/on-finished": 1,
+            "https://registry.npmjs.org/content-type": 1,
+            "https://registry.npmjs.org/finalhandler": 1,
+            "https://registry.npmjs.org/range-parser": 1,
+            "https://registry.npmjs.org/serve-static": 1,
+            "https://registry.npmjs.org/cookie-signature": 1,
+            "https://registry.npmjs.org/merge-descriptors": 1,
+            "https://registry.npmjs.org/content-disposition": 1,
+            "https://registry.npmjs.org/wrappy": 1,
+            "https://registry.npmjs.org/ms": 1,
+            "https://registry.npmjs.org/side-channel": 1,
+            "https://registry.npmjs.org/es-define-property": 1,
+            "https://registry.npmjs.org/depd": 1,
+            "https://registry.npmjs.org/is-promise": 1,
+            "https://registry.npmjs.org/path-to-regexp": 1,
+            "https://registry.npmjs.org/negotiator": 1,
+            "https://registry.npmjs.org/media-typer": 1,
+            "https://registry.npmjs.org/forwarded": 1,
+            "https://registry.npmjs.org/ipaddr.js": 1,
+            "https://registry.npmjs.org/mime-db": 1,
+            "https://registry.npmjs.org/bytes": 1,
+            "https://registry.npmjs.org/raw-body": 1,
+            "https://registry.npmjs.org/iconv-lite": 1,
+            "https://registry.npmjs.org/inherits": 1,
+            "https://registry.npmjs.org/setprototypeof": 1,
+            "https://registry.npmjs.org/toidentifier": 1,
+            "https://registry.npmjs.org/ee-first": 1,
+            "https://registry.npmjs.org/es-errors": 1,
+            "https://registry.npmjs.org/object-inspect": 1,
+            "https://registry.npmjs.org/side-channel-list": 1,
+            "https://registry.npmjs.org/side-channel-map": 1,
+            "https://registry.npmjs.org/side-channel-weakmap": 1,
+            "https://registry.npmjs.org/unpipe": 1,
+            "https://registry.npmjs.org/safer-buffer": 1,
+            "https://registry.npmjs.org/call-bound": 1,
+            "https://registry.npmjs.org/get-intrinsic": 1,
+            "https://registry.npmjs.org/call-bind-apply-helpers": 1,
+            "https://registry.npmjs.org/gopd": 1,
+            "https://registry.npmjs.org/hasown": 1,
+            "https://registry.npmjs.org/get-proto": 1,
+            "https://registry.npmjs.org/has-symbols": 1,
+            "https://registry.npmjs.org/function-bind": 1,
+            "https://registry.npmjs.org/async-function": 1,
+            "https://registry.npmjs.org/es-object-atoms": 1,
+            "https://registry.npmjs.org/math-intrinsics": 1,
+            "https://registry.npmjs.org/generator-function": 1,
+            "https://registry.npmjs.org/async-generator-function": 1,
+            "https://registry.npmjs.org/dunder-proto": 1,
+            "https://registry.npmjs.org/express/-/express-5.1.0.tgz": 1,
+            "https://registry.npmjs.org/qs/-/qs-6.16.0.tgz": 1,
+            "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz": 1,
+            "https://registry.npmjs.org/once/-/once-1.4.0.tgz": 1,
+            "https://registry.npmjs.org/send/-/send-1.2.1.tgz": 1,
+            "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz": 1,
+            "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz": 1,
+            "https://registry.npmjs.org/fresh/-/fresh-2.0.0.tgz": 1,
+            "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz": 1,
+            "https://registry.npmjs.org/router/-/router-2.2.0.tgz": 1,
+            "https://registry.npmjs.org/accepts/-/accepts-2.0.0.tgz": 1,
+            "https://registry.npmjs.org/type-is/-/type-is-2.1.0.tgz": 1,
+            "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz": 1,
+            "https://registry.npmjs.org/statuses/-/statuses-2.0.2.tgz": 1,
+            "https://registry.npmjs.org/encodeurl/-/encodeurl-2.0.0.tgz": 1,
+            "https://registry.npmjs.org/mime-types/-/mime-types-3.0.2.tgz": 1,
+            "https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.8.tgz": 1,
+            "https://registry.npmjs.org/body-parser/-/body-parser-2.3.0.tgz": 1,
+            "https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz": 1,
+            "https://registry.npmjs.org/http-errors/-/http-errors-2.0.1.tgz": 1,
+            "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz": 1,
+            "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz": 1,
+            "https://registry.npmjs.org/finalhandler/-/finalhandler-2.1.1.tgz": 1,
+            "https://registry.npmjs.org/range-parser/-/range-parser-1.3.0.tgz": 1,
+            "https://registry.npmjs.org/serve-static/-/serve-static-2.2.1.tgz": 1,
+            "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.2.2.tgz": 1,
+            "https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-2.0.0.tgz": 1,
+            "https://registry.npmjs.org/content-disposition/-/content-disposition-1.1.0.tgz": 1,
+            "https://registry.npmjs.org/side-channel/-/side-channel-1.1.1.tgz": 1,
+            "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz": 1,
+            "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz": 1,
+            "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz": 1,
+            "https://registry.npmjs.org/is-promise/-/is-promise-4.0.0.tgz": 1,
+            "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-8.4.2.tgz": 1,
+            "https://registry.npmjs.org/negotiator/-/negotiator-1.1.0.tgz": 1,
+            "https://registry.npmjs.org/media-typer/-/media-typer-1.1.1.tgz": 1,
+            "https://registry.npmjs.org/mime-db/-/mime-db-1.54.0.tgz": 1,
+            "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz": 1,
+            "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz": 1,
+            "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz": 1,
+            "https://registry.npmjs.org/raw-body/-/raw-body-3.0.2.tgz": 1,
+            "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.3.tgz": 1,
+            "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz": 1,
+            "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz": 1,
+            "https://registry.npmjs.org/toidentifier/-/toidentifier-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz": 1,
+            "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz": 1,
+            "https://registry.npmjs.org/object-inspect/-/object-inspect-1.13.4.tgz": 1,
+            "https://registry.npmjs.org/side-channel-list/-/side-channel-list-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/side-channel-map/-/side-channel-map-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/side-channel-weakmap/-/side-channel-weakmap-1.0.2.tgz": 1,
+            "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz": 1,
+            "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz": 1,
+            "https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz": 1,
+            "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.1.tgz": 1,
+            "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz": 1,
+            "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz": 1,
+            "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz": 1,
+            "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz": 1,
+            "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz": 1,
+            "https://registry.npmjs.org/async-function/-/async-function-1.0.0.tgz": 1,
+            "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz": 1,
+            "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz": 1,
+            "https://registry.npmjs.org/generator-function/-/generator-function-2.0.1.tgz": 1,
+            "https://registry.npmjs.org/async-generator-function/-/async-generator-function-1.0.0.tgz": 1,
+            "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/content-type/-/content-type-2.1.0.tgz": 3
+          },
+          "pending": []
+        },
+        "fileCount": 646,
+        "manifestCount": 71,
+        "bytes": 2366763
+      },
+      "warm": {
+        "wallMs": 512.8999999985099,
+        "output": "added 71 packages, and audited 1 packages in 0.5s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-express",
+          "version": "1.0.0",
+          "dependencies": {
+            "express": "5.1.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 513.1000000014901,
+          "phases": {
+            "fs.exists": {
+              "calls": 1153,
+              "failures": 0,
+              "serviceMs": 410.1000000461936,
+              "wallMs": 276.6000000424683,
+              "maxParallel": 4
+            },
+            "fs.stat": {
+              "calls": 2239,
+              "failures": 880,
+              "serviceMs": 921.5000000186265,
+              "wallMs": 420.49999997764826,
+              "maxParallel": 4
+            },
+            "fs.directory": {
+              "calls": 3316,
+              "failures": 88,
+              "serviceMs": 549.5999999716878,
+              "wallMs": 348.19999996572733,
+              "maxParallel": 4
+            },
+            "opfs.fileLookup": {
+              "calls": 3082,
+              "failures": 1434,
+              "serviceMs": 509.7000000551343,
+              "wallMs": 329.600000038743,
+              "maxParallel": 4
+            },
+            "opfs.metadata": {
+              "calls": 789,
+              "failures": 0,
+              "serviceMs": 131.0999999269843,
+              "wallMs": 107.49999993294477,
+              "maxParallel": 4
+            },
+            "fs.readText": {
+              "calls": 212,
+              "failures": 72,
+              "serviceMs": 146.79999997839332,
+              "wallMs": 107.39999997243285,
+              "maxParallel": 4
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.6000000014901161,
+              "wallMs": 0.6000000014901161,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 859,
+              "failures": 0,
+              "serviceMs": 317.70000002905726,
+              "wallMs": 225.30000001192093,
+              "maxParallel": 4
+            },
+            "opfs.getSize": {
+              "calls": 211,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 211,
+              "failures": 0,
+              "serviceMs": 1.0000000037252903,
+              "wallMs": 1.0000000037252903,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 859,
+              "failures": 0,
+              "serviceMs": 75.30000001937151,
+              "wallMs": 75.30000001937151,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 511.5999999977648,
+              "wallMs": 511.5999999977648,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.8999999985098839,
+              "wallMs": 0.8999999985098839,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 648,
+              "failures": 0,
+              "serviceMs": 53.69999994710088,
+              "wallMs": 53.69999994710088,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 648,
+              "failures": 0,
+              "serviceMs": 2.7000000067055225,
+              "wallMs": 2.7000000067055225,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 648,
+              "failures": 0,
+              "serviceMs": 0.4000000022351742,
+              "wallMs": 0.4000000022351742,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 86,
+              "failures": 0,
+              "serviceMs": 108.19999999925494,
+              "wallMs": 29,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha256": {
+              "calls": 139,
+              "failures": 0,
+              "serviceMs": 0.7999999970197678,
+              "wallMs": 0.7999999970197678,
+              "maxParallel": 4
+            },
+            "opfs.directoryLookup": {
+              "calls": 4534,
+              "failures": 88,
+              "serviceMs": 656.0000000670552,
+              "wallMs": 379.7999999858439,
+              "maxParallel": 4
+            },
+            "fs.read.cacheMetadata": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 59.599999997764826,
+              "wallMs": 22.399999994784594,
+              "maxParallel": 4
+            },
+            "fs.read.packages": {
+              "calls": 142,
+              "failures": 71,
+              "serviceMs": 85.59999997541308,
+              "wallMs": 83.5999999716878,
+              "maxParallel": 3
+            },
+            "install.package": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1709,
+              "wallMs": 445.6000000014901,
+              "maxParallel": 4
+            },
+            "fs.read.cacheTarball": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 56.60000002011657,
+              "wallMs": 48.00000001862645,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha512": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1.999999988824129,
+              "wallMs": 1.999999988824129,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 1502.9999999776483,
+              "wallMs": 441.19999999925494,
+              "maxParallel": 4
+            },
+            "install.gunzipRead": {
+              "calls": 159,
+              "failures": 0,
+              "serviceMs": 7.2999999932944775,
+              "wallMs": 7.2999999932944775,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 646,
+              "failures": 0,
+              "serviceMs": 3.5000000074505806,
+              "wallMs": 3.5000000074505806,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 646,
+              "failures": 0,
+              "serviceMs": 1468.699999988079,
+              "wallMs": 439.20000000298023,
+              "maxParallel": 4
+            },
+            "fs.mkdir": {
+              "calls": 217,
+              "failures": 0,
+              "serviceMs": 294.0000000335276,
+              "wallMs": 208.00000002235174,
+              "maxParallel": 8
+            },
+            "fs.write.packages": {
+              "calls": 646,
+              "failures": 0,
+              "serviceMs": 1200.8999999649823,
+              "wallMs": 426.09999999403954,
+              "maxParallel": 4
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.0999999977648258,
+              "wallMs": 1.0999999977648258,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 2366763,
+            "lockfile": 24288
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 646,
+        "manifestCount": 71,
+        "bytes": 2366763
+      },
+      "locked": {
+        "wallMs": 426.5,
+        "output": "added 68 packages, and audited 1 packages in 0.4s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-express",
+          "version": "1.0.0",
+          "dependencies": {
+            "express": "5.1.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 426.6000000014901,
+          "phases": {
+            "fs.exists": {
+              "calls": 1017,
+              "failures": 0,
+              "serviceMs": 336.8999999836087,
+              "wallMs": 226.09999996051192,
+              "maxParallel": 4
+            },
+            "fs.stat": {
+              "calls": 2035,
+              "failures": 823,
+              "serviceMs": 827.0999999158084,
+              "wallMs": 369.6999999843538,
+              "maxParallel": 4
+            },
+            "fs.directory": {
+              "calls": 2981,
+              "failures": 85,
+              "serviceMs": 494.00000002607703,
+              "wallMs": 299.2000000178814,
+              "maxParallel": 4
+            },
+            "opfs.fileLookup": {
+              "calls": 2759,
+              "failures": 1346,
+              "serviceMs": 430.0999999381602,
+              "wallMs": 275.19999996572733,
+              "maxParallel": 4
+            },
+            "opfs.metadata": {
+              "calls": 673,
+              "failures": 0,
+              "serviceMs": 113.99999995529652,
+              "wallMs": 90.39999995753169,
+              "maxParallel": 4
+            },
+            "fs.readText": {
+              "calls": 139,
+              "failures": 69,
+              "serviceMs": 63.69999999552965,
+              "wallMs": 56.99999999254942,
+              "maxParallel": 3
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.6999999992549419,
+              "wallMs": 0.6999999992549419,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 740,
+              "failures": 0,
+              "serviceMs": 263.4000000245869,
+              "wallMs": 190.1000000424683,
+              "maxParallel": 4
+            },
+            "opfs.getSize": {
+              "calls": 137,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 137,
+              "failures": 0,
+              "serviceMs": 0.6999999992549419,
+              "wallMs": 0.6999999992549419,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 740,
+              "failures": 0,
+              "serviceMs": 62.40000007301569,
+              "wallMs": 62.40000007301569,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 425.1000000014901,
+              "wallMs": 425.1000000014901,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.300000000745058,
+              "wallMs": 1.300000000745058,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 603,
+              "failures": 0,
+              "serviceMs": 44.39999996870756,
+              "wallMs": 44.39999996870756,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 603,
+              "failures": 0,
+              "serviceMs": 2.1000000052154064,
+              "wallMs": 2.1000000052154064,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 603,
+              "failures": 0,
+              "serviceMs": 0.5999999977648258,
+              "wallMs": 0.5999999977648258,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 136,
+              "failures": 68,
+              "serviceMs": 61,
+              "wallMs": 54.399999998509884,
+              "maxParallel": 3
+            },
+            "opfs.directoryLookup": {
+              "calls": 4091,
+              "failures": 85,
+              "serviceMs": 586.300000037998,
+              "wallMs": 330.3000000193715,
+              "maxParallel": 4
+            },
+            "install.package": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 1605.5999999903142,
+              "wallMs": 407.8999999985099,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha256": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 0.6999999992549419,
+              "wallMs": 0.6999999992549419,
+              "maxParallel": 4
+            },
+            "fs.read.cacheTarball": {
+              "calls": 67,
+              "failures": 0,
+              "serviceMs": 51.10000001639128,
+              "wallMs": 40.20000001043081,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha512": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 1.5000000037252903,
+              "wallMs": 1.5000000037252903,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 1391.4999999813735,
+              "wallMs": 403.30000000074506,
+              "maxParallel": 4
+            },
+            "install.gunzipRead": {
+              "calls": 153,
+              "failures": 0,
+              "serviceMs": 7.199999984353781,
+              "wallMs": 7.199999984353781,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 601,
+              "failures": 0,
+              "serviceMs": 4.899999983608723,
+              "wallMs": 4.899999983608723,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 601,
+              "failures": 0,
+              "serviceMs": 1357.600000038743,
+              "wallMs": 401.9000000022352,
+              "maxParallel": 4
+            },
+            "fs.mkdir": {
+              "calls": 206,
+              "failures": 0,
+              "serviceMs": 271.7000000104308,
+              "wallMs": 187.30000000819564,
+              "maxParallel": 8
+            },
+            "fs.write.packages": {
+              "calls": 601,
+              "failures": 0,
+              "serviceMs": 1099.000000026077,
+              "wallMs": 388.4000000022352,
+              "maxParallel": 4
+            },
+            "install.tarball": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 23.399999998509884,
+              "wallMs": 23.399999998509884,
+              "maxParallel": 1
+            },
+            "network.tarball": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 23.199999999254942,
+              "wallMs": 23.199999999254942,
+              "maxParallel": 1
+            },
+            "network.tarball.headers": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 22.399999998509884,
+              "wallMs": 22.399999998509884,
+              "maxParallel": 1
+            },
+            "network.tarball.body": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "fs.write.cache": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.300000000745058,
+              "wallMs": 1.300000000745058,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 13800,
+            "workspace": 78,
+            "packages": 2335974,
+            "cache": 13800
+          },
+          "requests": {
+            "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz": 1
+          },
+          "pending": []
+        },
+        "fileCount": 601,
+        "manifestCount": 68,
+        "bytes": 2335974
+      },
+      "noop": {
+        "wallMs": 51.19999999925494,
+        "output": "up to date, audited 1 packages in 0.1s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-express",
+          "version": "1.0.0",
+          "dependencies": {
+            "express": "5.1.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 51.400000002235174,
+          "phases": {
+            "fs.exists": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.7999999932944775,
+              "wallMs": 0.7999999932944775,
+              "maxParallel": 1
+            },
+            "fs.stat": {
+              "calls": 7,
+              "failures": 4,
+              "serviceMs": 1.9999999962747097,
+              "wallMs": 1.9999999962747097,
+              "maxParallel": 1
+            },
+            "fs.directory": {
+              "calls": 78,
+              "failures": 0,
+              "serviceMs": 8.299999982118607,
+              "wallMs": 8.299999982118607,
+              "maxParallel": 1
+            },
+            "opfs.fileLookup": {
+              "calls": 78,
+              "failures": 4,
+              "serviceMs": 8.399999998509884,
+              "wallMs": 8.399999998509884,
+              "maxParallel": 1
+            },
+            "opfs.metadata": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            },
+            "fs.readText": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 43.400000009685755,
+              "wallMs": 43.400000009685755,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 1.2000000029802322,
+              "wallMs": 1.2000000029802322,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 17.50000000372529,
+              "wallMs": 17.50000000372529,
+              "maxParallel": 1
+            },
+            "opfs.getSize": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 0.30000000447034836,
+              "wallMs": 0.30000000447034836,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 0.30000000074505806,
+              "wallMs": 0.30000000074505806,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 71,
+              "failures": 0,
+              "serviceMs": 8.300000008195639,
+              "wallMs": 8.300000008195639,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 49.600000001490116,
+              "wallMs": 49.600000001490116,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 68,
+              "failures": 0,
+              "serviceMs": 41.30000000447035,
+              "wallMs": 41.30000000447035,
+              "maxParallel": 1
+            },
+            "opfs.directoryLookup": {
+              "calls": 78,
+              "failures": 0,
+              "serviceMs": 7.999999977648258,
+              "wallMs": 7.999999977648258,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 601,
+        "manifestCount": 68,
+        "bytes": 2335974
+      }
+    },
+    "medium-react": {
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/medium-react-cold",
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/medium-react-warm",
+      "lockedRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/medium-react-locked",
+      "manifest": {
+        "name": "pyxis-bench-medium-react",
+        "version": "1.0.0",
+        "dependencies": {
+          "react": "19.2.0",
+          "react-dom": "19.2.0"
+        },
+        "devDependencies": {}
+      },
+      "cold": {
+        "wallMs": 413,
+        "output": "added 3 packages, and audited 2 packages in 0.4s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-react",
+          "version": "1.0.0",
+          "dependencies": {
+            "react": "19.2.0",
+            "react-dom": "19.2.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 413,
+          "phases": {
+            "fs.exists": {
+              "calls": 130,
+              "failures": 0,
+              "serviceMs": 35.400000002235174,
+              "wallMs": 28.899999998509884,
+              "maxParallel": 3
+            },
+            "fs.stat": {
+              "calls": 255,
+              "failures": 117,
+              "serviceMs": 112.99999999254942,
+              "wallMs": 79.19999998062849,
+              "maxParallel": 3
+            },
+            "fs.directory": {
+              "calls": 366,
+              "failures": 10,
+              "serviceMs": 57.099999990314245,
+              "wallMs": 51.99999999254942,
+              "maxParallel": 3
+            },
+            "opfs.directoryLookup": {
+              "calls": 338,
+              "failures": 10,
+              "serviceMs": 65.09999997541308,
+              "wallMs": 58.799999974668026,
+              "maxParallel": 3
+            },
+            "opfs.fileLookup": {
+              "calls": 346,
+              "failures": 154,
+              "serviceMs": 66.80000001564622,
+              "wallMs": 57.10000001266599,
+              "maxParallel": 3
+            },
+            "opfs.metadata": {
+              "calls": 95,
+              "failures": 0,
+              "serviceMs": 12.799999993294477,
+              "wallMs": 11.49999999254942,
+              "maxParallel": 3
+            },
+            "fs.readText": {
+              "calls": 8,
+              "failures": 4,
+              "serviceMs": 5.699999991804361,
+              "wallMs": 5.699999991804361,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.8999999947845936,
+              "wallMs": 0.8999999947845936,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 97,
+              "failures": 0,
+              "serviceMs": 31.200000014156103,
+              "wallMs": 27.50000000745058,
+              "maxParallel": 3
+            },
+            "opfs.getSize": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 97,
+              "failures": 0,
+              "serviceMs": 10.099999986588955,
+              "wallMs": 10.099999986588955,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 409.9000000022352,
+              "wallMs": 409.9000000022352,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.0999999977648258,
+              "wallMs": 1.0999999977648258,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 93,
+              "failures": 0,
+              "serviceMs": 11.999999985098839,
+              "wallMs": 11.999999985098839,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 93,
+              "failures": 0,
+              "serviceMs": 0.19999999925494194,
+              "wallMs": 0.19999999925494194,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 93,
+              "failures": 0,
+              "serviceMs": 0.09999999776482582,
+              "wallMs": 0.09999999776482582,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 428.0999999977648,
+              "wallMs": 280.30000000074506,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha256": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 3
+            },
+            "network.registry": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 386.6000000052154,
+              "wallMs": 253.70000000298023,
+              "maxParallel": 2
+            },
+            "network.registry.headers": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 239.90000000223517,
+              "wallMs": 166.10000000149012,
+              "maxParallel": 2
+            },
+            "network.registry.body": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 146.40000000223517,
+              "wallMs": 135.60000000149012,
+              "maxParallel": 2
+            },
+            "fs.mkdir": {
+              "calls": 18,
+              "failures": 0,
+              "serviceMs": 26.5,
+              "wallMs": 18.799999997019768,
+              "maxParallel": 4
+            },
+            "fs.write.cache": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 21.699999999254942,
+              "wallMs": 21.699999999254942,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 6,
+              "failures": 3,
+              "serviceMs": 4.699999999254942,
+              "wallMs": 4.699999999254942,
+              "maxParallel": 1
+            },
+            "install.package": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 291.80000000447035,
+              "wallMs": 122.20000000298023,
+              "maxParallel": 3
+            },
+            "install.tarball": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 84.19999999925494,
+              "wallMs": 44.600000001490116,
+              "maxParallel": 3
+            },
+            "network.tarball": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 84.09999999776483,
+              "wallMs": 44.5,
+              "maxParallel": 3
+            },
+            "network.tarball.headers": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 59.79999999701977,
+              "wallMs": 21.599999997764826,
+              "maxParallel": 3
+            },
+            "network.tarball.body": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 24.100000001490116,
+              "wallMs": 24,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha512": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 2.600000001490116,
+              "wallMs": 2.600000001490116,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 194.09999999776483,
+              "wallMs": 100.69999999925494,
+              "maxParallel": 3
+            },
+            "install.gunzipRead": {
+              "calls": 121,
+              "failures": 0,
+              "serviceMs": 10.00000000372529,
+              "wallMs": 10.00000000372529,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 0.9000000022351742,
+              "wallMs": 0.9000000022351742,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 172.70000000670552,
+              "wallMs": 96.49999999254942,
+              "maxParallel": 3
+            },
+            "fs.write.packages": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 157.50000001490116,
+              "wallMs": 91.19999999552965,
+              "maxParallel": 3
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.4000000022351742,
+              "wallMs": 1.4000000022351742,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 1311203,
+            "workspace": 78,
+            "cache": 3890286,
+            "packages": 7573682,
+            "lockfile": 1174
+          },
+          "requests": {
+            "https://registry.npmjs.org/react": 1,
+            "https://registry.npmjs.org/react-dom": 1,
+            "https://registry.npmjs.org/scheduler": 1,
+            "https://registry.npmjs.org/react/-/react-19.2.0.tgz": 1,
+            "https://registry.npmjs.org/react-dom/-/react-dom-19.2.0.tgz": 1,
+            "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz": 1
+          },
+          "pending": []
+        },
+        "fileCount": 85,
+        "manifestCount": 3,
+        "bytes": 7573682
+      },
+      "warm": {
+        "wallMs": 103.10000000149012,
+        "output": "added 3 packages, and audited 2 packages in 0.1s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-react",
+          "version": "1.0.0",
+          "dependencies": {
+            "react": "19.2.0",
+            "react-dom": "19.2.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 103.10000000149012,
+          "phases": {
+            "fs.exists": {
+              "calls": 117,
+              "failures": 0,
+              "serviceMs": 25.19999999180436,
+              "wallMs": 19.99999998509884,
+              "maxParallel": 3
+            },
+            "fs.stat": {
+              "calls": 229,
+              "failures": 104,
+              "serviceMs": 91.19999998807907,
+              "wallMs": 62.49999998509884,
+              "maxParallel": 3
+            },
+            "fs.directory": {
+              "calls": 339,
+              "failures": 9,
+              "serviceMs": 60.69999999180436,
+              "wallMs": 46.79999999701977,
+              "maxParallel": 3
+            },
+            "opfs.fileLookup": {
+              "calls": 321,
+              "failures": 129,
+              "serviceMs": 45.099999990314245,
+              "wallMs": 35.100000001490116,
+              "maxParallel": 3
+            },
+            "opfs.metadata": {
+              "calls": 95,
+              "failures": 0,
+              "serviceMs": 13.000000022351742,
+              "wallMs": 11.000000018626451,
+              "maxParallel": 3
+            },
+            "fs.readText": {
+              "calls": 11,
+              "failures": 4,
+              "serviceMs": 9.099999994039536,
+              "wallMs": 8.299999997019768,
+              "maxParallel": 2
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.6000000014901161,
+              "wallMs": 0.6000000014901161,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 97,
+              "failures": 0,
+              "serviceMs": 46.599999979138374,
+              "wallMs": 40.599999979138374,
+              "maxParallel": 3
+            },
+            "opfs.getSize": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 1.7000000029802322,
+              "wallMs": 1.7000000029802322,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 97,
+              "failures": 0,
+              "serviceMs": 9.299999997019768,
+              "wallMs": 9.299999997019768,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 101.60000000149012,
+              "wallMs": 101.60000000149012,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1,
+              "wallMs": 1,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 87,
+              "failures": 0,
+              "serviceMs": 8.30000003427267,
+              "wallMs": 8.30000003427267,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 87,
+              "failures": 0,
+              "serviceMs": 0.30000000074505806,
+              "wallMs": 0.30000000074505806,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 87,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 15,
+              "wallMs": 11.800000000745058,
+              "maxParallel": 2
+            },
+            "crypto.digest.sha256": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 3
+            },
+            "opfs.directoryLookup": {
+              "calls": 346,
+              "failures": 9,
+              "serviceMs": 64.10000000149012,
+              "wallMs": 47.80000000447035,
+              "maxParallel": 3
+            },
+            "fs.read.cacheMetadata": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 5.100000001490116,
+              "wallMs": 4.400000002235174,
+              "maxParallel": 2
+            },
+            "fs.read.packages": {
+              "calls": 6,
+              "failures": 3,
+              "serviceMs": 3.099999997764826,
+              "wallMs": 3.099999997764826,
+              "maxParallel": 1
+            },
+            "install.package": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 206.09999999776483,
+              "wallMs": 84.69999999925494,
+              "maxParallel": 3
+            },
+            "fs.read.cacheTarball": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 18.799999997019768,
+              "wallMs": 15.099999997764826,
+              "maxParallel": 3
+            },
+            "crypto.digest.sha512": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 2.400000002235174,
+              "wallMs": 2.400000002235174,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 180.60000000149012,
+              "wallMs": 82.69999999925494,
+              "maxParallel": 3
+            },
+            "install.gunzipRead": {
+              "calls": 121,
+              "failures": 0,
+              "serviceMs": 9.899999998509884,
+              "wallMs": 9.899999998509884,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 0.8999999947845936,
+              "wallMs": 0.8999999947845936,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 162.0000000037253,
+              "wallMs": 80.69999999925494,
+              "maxParallel": 3
+            },
+            "fs.mkdir": {
+              "calls": 12,
+              "failures": 0,
+              "serviceMs": 15.399999998509884,
+              "wallMs": 7.399999998509884,
+              "maxParallel": 6
+            },
+            "fs.write.packages": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 127.20000000670552,
+              "wallMs": 61.899999998509884,
+              "maxParallel": 3
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.1000000014901161,
+              "wallMs": 1.1000000014901161,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 7573682,
+            "lockfile": 1174
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 85,
+        "manifestCount": 3,
+        "bytes": 7573682
+      },
+      "locked": {
+        "wallMs": 94.39999999850988,
+        "output": "added 3 packages, and audited 2 packages in 0.1s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-react",
+          "version": "1.0.0",
+          "dependencies": {
+            "react": "19.2.0",
+            "react-dom": "19.2.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 94.5,
+          "phases": {
+            "fs.exists": {
+              "calls": 113,
+              "failures": 0,
+              "serviceMs": 33.200000021606684,
+              "wallMs": 24.50000001117587,
+              "maxParallel": 3
+            },
+            "fs.stat": {
+              "calls": 224,
+              "failures": 102,
+              "serviceMs": 95.00000002980232,
+              "wallMs": 63.00000001117587,
+              "maxParallel": 3
+            },
+            "fs.directory": {
+              "calls": 331,
+              "failures": 9,
+              "serviceMs": 56.39999998733401,
+              "wallMs": 45.899999998509884,
+              "maxParallel": 3
+            },
+            "opfs.fileLookup": {
+              "calls": 313,
+              "failures": 127,
+              "serviceMs": 52.90000005438924,
+              "wallMs": 40.50000002980232,
+              "maxParallel": 3
+            },
+            "opfs.metadata": {
+              "calls": 92,
+              "failures": 0,
+              "serviceMs": 13.800000000745058,
+              "wallMs": 11.800000008195639,
+              "maxParallel": 3
+            },
+            "fs.readText": {
+              "calls": 9,
+              "failures": 4,
+              "serviceMs": 3.100000001490116,
+              "wallMs": 3.100000001490116,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 94,
+              "failures": 0,
+              "serviceMs": 43.399999994784594,
+              "wallMs": 37.099999990314245,
+              "maxParallel": 3
+            },
+            "opfs.getSize": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 8,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 94,
+              "failures": 0,
+              "serviceMs": 8.999999985098839,
+              "wallMs": 8.999999985098839,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 93.09999999776483,
+              "wallMs": 93.09999999776483,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1,
+              "wallMs": 1,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 86,
+              "failures": 0,
+              "serviceMs": 8.80000001564622,
+              "wallMs": 8.80000001564622,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 86,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 86,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 6,
+              "failures": 3,
+              "serviceMs": 2.2000000029802322,
+              "wallMs": 2.2000000029802322,
+              "maxParallel": 1
+            },
+            "opfs.directoryLookup": {
+              "calls": 331,
+              "failures": 9,
+              "serviceMs": 60.299999974668026,
+              "wallMs": 47.8999999910593,
+              "maxParallel": 3
+            },
+            "install.package": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 214.90000000596046,
+              "wallMs": 89.10000000149012,
+              "maxParallel": 3
+            },
+            "crypto.digest.sha256": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 3
+            },
+            "fs.read.cacheTarball": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 16.199999999254942,
+              "wallMs": 12.699999999254942,
+              "maxParallel": 3
+            },
+            "crypto.digest.sha512": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 2.300000000745058,
+              "wallMs": 2.300000000745058,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 189.9999999962747,
+              "wallMs": 86.29999999701977,
+              "maxParallel": 3
+            },
+            "install.gunzipRead": {
+              "calls": 121,
+              "failures": 0,
+              "serviceMs": 7.499999992549419,
+              "wallMs": 7.499999992549419,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 0.6999999918043613,
+              "wallMs": 0.6999999918043613,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 172.40000002086163,
+              "wallMs": 84.30000000074506,
+              "maxParallel": 3
+            },
+            "fs.mkdir": {
+              "calls": 12,
+              "failures": 0,
+              "serviceMs": 16.800000000745058,
+              "wallMs": 9.300000000745058,
+              "maxParallel": 6
+            },
+            "fs.write.packages": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 145.60000002756715,
+              "wallMs": 70.20000000298023,
+              "maxParallel": 3
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 7573682
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 85,
+        "manifestCount": 3,
+        "bytes": 7573682
+      },
+      "noop": {
+        "wallMs": 6.699999999254942,
+        "output": "up to date, audited 2 packages in 0.0s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-medium-react",
+          "version": "1.0.0",
+          "dependencies": {
+            "react": "19.2.0",
+            "react-dom": "19.2.0"
+          },
+          "devDependencies": {}
+        },
+        "metrics": {
+          "wallMs": 6.699999999254942,
+          "phases": {
+            "fs.exists": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.5999999977648258,
+              "wallMs": 0.5999999977648258,
+              "maxParallel": 1
+            },
+            "fs.stat": {
+              "calls": 4,
+              "failures": 1,
+              "serviceMs": 0.6999999955296516,
+              "wallMs": 0.6999999955296516,
+              "maxParallel": 1
+            },
+            "fs.directory": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "opfs.fileLookup": {
+              "calls": 10,
+              "failures": 1,
+              "serviceMs": 0.8000000044703484,
+              "wallMs": 0.8000000044703484,
+              "maxParallel": 1
+            },
+            "opfs.metadata": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 0.29999999701976776,
+              "wallMs": 0.29999999701976776,
+              "maxParallel": 1
+            },
+            "fs.readText": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 3.3000000044703484,
+              "wallMs": 3.3000000044703484,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 0.8000000007450581,
+              "wallMs": 0.8000000007450581,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 1.5,
+              "wallMs": 1.5,
+              "maxParallel": 1
+            },
+            "opfs.getSize": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 0.4000000022351742,
+              "wallMs": 0.4000000022351742,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 5.399999998509884,
+              "wallMs": 5.399999998509884,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.4000000022351742,
+              "wallMs": 0.4000000022351742,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 3,
+              "failures": 0,
+              "serviceMs": 2,
+              "wallMs": 2,
+              "maxParallel": 1
+            },
+            "opfs.directoryLookup": {
+              "calls": 4,
+              "failures": 0,
+              "serviceMs": 0.3999999985098839,
+              "wallMs": 0.3999999985098839,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 85,
+        "manifestCount": 3,
+        "bytes": 7573682
+      }
+    },
+    "large-dev": {
+      "coldRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/large-dev-cold",
+      "warmRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/large-dev-warm",
+      "lockedRoot": "/home/pyxis/.bench/npm-install/run-1791468584580-1/large-dev-locked",
+      "manifest": {
+        "name": "pyxis-bench-large-dev",
+        "version": "1.0.0",
+        "dependencies": {},
+        "devDependencies": {
+          "vite": "8.2.1",
+          "typescript": "6.0.3",
+          "esbuild": "0.28.2",
+          "prettier": "3.9.9"
+        }
+      },
+      "cold": {
+        "wallMs": 1381.1000000014901,
+        "output": "added 16 packages, and audited 4 packages in 1.4s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-large-dev",
+          "version": "1.0.0",
+          "dependencies": {},
+          "devDependencies": {
+            "vite": "8.2.1",
+            "typescript": "6.0.3",
+            "esbuild": "0.28.2",
+            "prettier": "3.9.9"
+          }
+        },
+        "metrics": {
+          "wallMs": 1381.1000000014901,
+          "phases": {
+            "fs.exists": {
+              "calls": 874,
+              "failures": 0,
+              "serviceMs": 319.29999996349216,
+              "wallMs": 251.09999997913837,
+              "maxParallel": 4
+            },
+            "fs.stat": {
+              "calls": 1677,
+              "failures": 728,
+              "serviceMs": 808.2999999895692,
+              "wallMs": 481.00000001490116,
+              "maxParallel": 4
+            },
+            "fs.directory": {
+              "calls": 2332,
+              "failures": 37,
+              "serviceMs": 416.80000003799796,
+              "wallMs": 283.1000000014901,
+              "maxParallel": 4
+            },
+            "opfs.directoryLookup": {
+              "calls": 2682,
+              "failures": 37,
+              "serviceMs": 488.29999999701977,
+              "wallMs": 322.4999999552965,
+              "maxParallel": 4
+            },
+            "opfs.fileLookup": {
+              "calls": 2229,
+              "failures": 1106,
+              "serviceMs": 449.3999999910593,
+              "wallMs": 354.8000000603497,
+              "maxParallel": 4
+            },
+            "opfs.metadata": {
+              "calls": 551,
+              "failures": 0,
+              "serviceMs": 85.19999998807907,
+              "wallMs": 78.39999998360872,
+              "maxParallel": 3
+            },
+            "fs.readText": {
+              "calls": 40,
+              "failures": 17,
+              "serviceMs": 25.00000000372529,
+              "wallMs": 24.600000005215406,
+              "maxParallel": 2
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.7000000029802322,
+              "wallMs": 0.7000000029802322,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 572,
+              "failures": 0,
+              "serviceMs": 194.90000009536743,
+              "wallMs": 167.2000000588596,
+              "maxParallel": 3
+            },
+            "opfs.getSize": {
+              "calls": 23,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 23,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 572,
+              "failures": 0,
+              "serviceMs": 54.10000006854534,
+              "wallMs": 54.10000006854534,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1379.0999999977648,
+              "wallMs": 1379.0999999977648,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.199999999254942,
+              "wallMs": 1.199999999254942,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 549,
+              "failures": 0,
+              "serviceMs": 66.39999993517995,
+              "wallMs": 66.39999993517995,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 549,
+              "failures": 0,
+              "serviceMs": 3.300000000745058,
+              "wallMs": 3.300000000745058,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 549,
+              "failures": 0,
+              "serviceMs": 0.4000000059604645,
+              "wallMs": 0.4000000059604645,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 70,
+              "failures": 0,
+              "serviceMs": 3161.7999999932945,
+              "wallMs": 804.3999999985099,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha256": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 1.4000000059604645,
+              "wallMs": 1.4000000059604645,
+              "maxParallel": 4
+            },
+            "network.registry": {
+              "calls": 69,
+              "failures": 0,
+              "serviceMs": 2870.899999987334,
+              "wallMs": 789.5999999977648,
+              "maxParallel": 4
+            },
+            "network.registry.headers": {
+              "calls": 69,
+              "failures": 0,
+              "serviceMs": 2584.0999999828637,
+              "wallMs": 785.1999999992549,
+              "maxParallel": 4
+            },
+            "network.registry.body": {
+              "calls": 69,
+              "failures": 0,
+              "serviceMs": 285.0999999977648,
+              "wallMs": 242.60000000149012,
+              "maxParallel": 3
+            },
+            "fs.mkdir": {
+              "calls": 171,
+              "failures": 0,
+              "serviceMs": 248.899999987334,
+              "wallMs": 189.19999998807907,
+              "maxParallel": 6
+            },
+            "fs.write.cache": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 187.20000000298023,
+              "wallMs": 141.00000001117587,
+              "maxParallel": 4
+            },
+            "fs.read.packages": {
+              "calls": 38,
+              "failures": 16,
+              "serviceMs": 23.99999999627471,
+              "wallMs": 23.599999997764826,
+              "maxParallel": 2
+            },
+            "install.package": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 2064.2999999970198,
+              "wallMs": 545.8000000007451,
+              "maxParallel": 4
+            },
+            "install.tarball": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 826.5000000111759,
+              "wallMs": 375.30000000447035,
+              "maxParallel": 4
+            },
+            "network.tarball": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 826.2000000067055,
+              "wallMs": 375.1000000014901,
+              "maxParallel": 4
+            },
+            "network.tarball.headers": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 381.9999999962747,
+              "wallMs": 256,
+              "maxParallel": 4
+            },
+            "network.tarball.body": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 444.0000000074506,
+              "wallMs": 234.0000000037253,
+              "maxParallel": 3
+            },
+            "crypto.digest.sha512": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 14.300000000745058,
+              "wallMs": 14.300000000745058,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 1159.4999999962747,
+              "wallMs": 495.0999999977648,
+              "maxParallel": 4
+            },
+            "install.gunzipRead": {
+              "calls": 624,
+              "failures": 0,
+              "serviceMs": 55.100000001490116,
+              "wallMs": 55.100000001490116,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 4.499999992549419,
+              "wallMs": 4.499999992549419,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 1065.0000000298023,
+              "wallMs": 455.20000000298023,
+              "maxParallel": 4
+            },
+            "fs.write.packages": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 851.5000000149012,
+              "wallMs": 398,
+              "maxParallel": 4
+            },
+            "install.bins": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 13.800000000745058,
+              "wallMs": 13.800000000745058,
+              "maxParallel": 1
+            },
+            "fs.write.bins": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 6.400000002235174,
+              "wallMs": 6.400000002235174,
+              "maxParallel": 1
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.199999999254942,
+              "wallMs": 1.199999999254942,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 8377514,
+            "workspace": 78,
+            "cache": 14081907,
+            "packages": 38863939,
+            "bins": 1865,
+            "lockfile": 8522
+          },
+          "requests": {
+            "https://registry.npmjs.org/vite": 1,
+            "https://registry.npmjs.org/typescript": 1,
+            "https://registry.npmjs.org/esbuild": 1,
+            "https://registry.npmjs.org/prettier": 1,
+            "https://registry.npmjs.org/@esbuild/aix-ppc64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-arm": 1,
+            "https://registry.npmjs.org/@esbuild/linux-x64": 1,
+            "https://registry.npmjs.org/@esbuild/sunos-x64": 1,
+            "https://registry.npmjs.org/@esbuild/win32-x64": 1,
+            "https://registry.npmjs.org/@esbuild/darwin-x64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-ia32": 1,
+            "https://registry.npmjs.org/@esbuild/netbsd-x64": 1,
+            "https://registry.npmjs.org/@esbuild/win32-ia32": 1,
+            "https://registry.npmjs.org/@esbuild/android-arm": 1,
+            "https://registry.npmjs.org/@esbuild/android-x64": 1,
+            "https://registry.npmjs.org/@esbuild/freebsd-x64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-ppc64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-s390x": 1,
+            "https://registry.npmjs.org/@esbuild/openbsd-x64": 1,
+            "https://registry.npmjs.org/@esbuild/win32-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/darwin-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/netbsd-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/android-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/freebsd-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-loong64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-riscv64": 1,
+            "https://registry.npmjs.org/@esbuild/openbsd-arm64": 1,
+            "https://registry.npmjs.org/@esbuild/linux-mips64el": 1,
+            "https://registry.npmjs.org/@esbuild/openharmony-arm64": 1,
+            "https://registry.npmjs.org/postcss": 1,
+            "https://registry.npmjs.org/rolldown": 1,
+            "https://registry.npmjs.org/picomatch": 1,
+            "https://registry.npmjs.org/tinyglobby": 1,
+            "https://registry.npmjs.org/lightningcss": 1,
+            "https://registry.npmjs.org/fsevents": 1,
+            "https://registry.npmjs.org/nanoid": 1,
+            "https://registry.npmjs.org/picocolors": 1,
+            "https://registry.npmjs.org/source-map-js": 1,
+            "https://registry.npmjs.org/fdir": 1,
+            "https://registry.npmjs.org/@oxc-project/types": 1,
+            "https://registry.npmjs.org/@rolldown/pluginutils": 1,
+            "https://registry.npmjs.org/@rolldown/binding-darwin-x64": 1,
+            "https://registry.npmjs.org/@rolldown/binding-freebsd-x64": 1,
+            "https://registry.npmjs.org/@rolldown/binding-darwin-arm64": 1,
+            "https://registry.npmjs.org/@rolldown/binding-android-arm64": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl": 1,
+            "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-ppc64-gnu": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-s390x-gnu": 1,
+            "https://registry.npmjs.org/@rolldown/binding-android-arm-eabi": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl": 1,
+            "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc": 1,
+            "https://registry.npmjs.org/@rolldown/binding-openharmony-arm64": 1,
+            "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf": 1,
+            "https://registry.npmjs.org/detect-libc": 1,
+            "https://registry.npmjs.org/lightningcss-darwin-x64": 1,
+            "https://registry.npmjs.org/lightningcss-linux-x64-gnu": 1,
+            "https://registry.npmjs.org/lightningcss-win32-x64-msvc": 1,
+            "https://registry.npmjs.org/lightningcss-win32-arm64-msvc": 1,
+            "https://registry.npmjs.org/lightningcss-darwin-arm64": 1,
+            "https://registry.npmjs.org/lightningcss-linux-arm64-gnu": 1,
+            "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf": 1,
+            "https://registry.npmjs.org/lightningcss-linux-arm64-musl": 1,
+            "https://registry.npmjs.org/lightningcss-linux-x64-musl": 1,
+            "https://registry.npmjs.org/lightningcss-freebsd-x64": 1,
+            "https://registry.npmjs.org/lightningcss-android-arm64": 1,
+            "https://registry.npmjs.org/vite/-/vite-8.2.1.tgz": 1,
+            "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz": 1,
+            "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz": 1,
+            "https://registry.npmjs.org/prettier/-/prettier-3.9.9.tgz": 1,
+            "https://registry.npmjs.org/postcss/-/postcss-8.5.29.tgz": 1,
+            "https://registry.npmjs.org/rolldown/-/rolldown-1.2.13.tgz": 1,
+            "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz": 1,
+            "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz": 1,
+            "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz": 1,
+            "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz": 1,
+            "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz": 1,
+            "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz": 1,
+            "https://registry.npmjs.org/@oxc-project/types/-/types-0.153.0.tgz": 1,
+            "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz": 1,
+            "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz": 1,
+            "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz": 1
+          },
+          "pending": []
+        },
+        "fileCount": 462,
+        "manifestCount": 19,
+        "bytes": 38865804
+      },
+      "warm": {
+        "wallMs": 456.6000000014901,
+        "output": "added 16 packages, and audited 4 packages in 0.5s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-large-dev",
+          "version": "1.0.0",
+          "dependencies": {},
+          "devDependencies": {
+            "vite": "8.2.1",
+            "typescript": "6.0.3",
+            "esbuild": "0.28.2",
+            "prettier": "3.9.9"
+          }
+        },
+        "metrics": {
+          "wallMs": 456.6000000014901,
+          "phases": {
+            "fs.exists": {
+              "calls": 705,
+              "failures": 0,
+              "serviceMs": 335.3000000528991,
+              "wallMs": 209.5000000335276,
+              "maxParallel": 4
+            },
+            "fs.stat": {
+              "calls": 1339,
+              "failures": 559,
+              "serviceMs": 781.7000000029802,
+              "wallMs": 371.90000004693866,
+              "maxParallel": 4
+            },
+            "fs.directory": {
+              "calls": 1994,
+              "failures": 39,
+              "serviceMs": 492.50000001117587,
+              "wallMs": 298.49999997764826,
+              "maxParallel": 4
+            },
+            "opfs.fileLookup": {
+              "calls": 1889,
+              "failures": 766,
+              "serviceMs": 391.4999999664724,
+              "wallMs": 258.29999999701977,
+              "maxParallel": 4
+            },
+            "opfs.metadata": {
+              "calls": 551,
+              "failures": 0,
+              "serviceMs": 91.69999995827675,
+              "wallMs": 76.59999998286366,
+              "maxParallel": 4
+            },
+            "fs.readText": {
+              "calls": 109,
+              "failures": 17,
+              "serviceMs": 120.80000001937151,
+              "wallMs": 60.70000000670552,
+              "maxParallel": 4
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.5,
+              "wallMs": 0.5,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 572,
+              "failures": 0,
+              "serviceMs": 347.29999999701977,
+              "wallMs": 217.90000000596046,
+              "maxParallel": 4
+            },
+            "opfs.getSize": {
+              "calls": 108,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 108,
+              "failures": 0,
+              "serviceMs": 5.300000004470348,
+              "wallMs": 5.300000004470348,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 572,
+              "failures": 0,
+              "serviceMs": 53.00000003352761,
+              "wallMs": 53.00000003352761,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 455.19999999925494,
+              "wallMs": 455.19999999925494,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.300000000745058,
+              "wallMs": 1.300000000745058,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 464,
+              "failures": 0,
+              "serviceMs": 47.80000001192093,
+              "wallMs": 47.80000001192093,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 464,
+              "failures": 0,
+              "serviceMs": 1.7999999858438969,
+              "wallMs": 1.7999999858438969,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 464,
+              "failures": 0,
+              "serviceMs": 0.4999999925494194,
+              "wallMs": 0.4999999925494194,
+              "maxParallel": 1
+            },
+            "install.resolve": {
+              "calls": 70,
+              "failures": 0,
+              "serviceMs": 194.00000001117587,
+              "wallMs": 49.80000000074506,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha256": {
+              "calls": 85,
+              "failures": 0,
+              "serviceMs": 0.6999999955296516,
+              "wallMs": 0.6999999955296516,
+              "maxParallel": 4
+            },
+            "opfs.directoryLookup": {
+              "calls": 2869,
+              "failures": 39,
+              "serviceMs": 537.3000000119209,
+              "wallMs": 309.49999998137355,
+              "maxParallel": 4
+            },
+            "fs.read.cacheMetadata": {
+              "calls": 69,
+              "failures": 0,
+              "serviceMs": 97.30000000819564,
+              "wallMs": 38.399999998509884,
+              "maxParallel": 4
+            },
+            "fs.read.packages": {
+              "calls": 38,
+              "failures": 16,
+              "serviceMs": 21.400000002235174,
+              "wallMs": 21.400000002235174,
+              "maxParallel": 1
+            },
+            "install.package": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 1412.1000000014901,
+              "wallMs": 381.20000000298023,
+              "maxParallel": 4
+            },
+            "fs.read.cacheTarball": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 108.69999999552965,
+              "wallMs": 54.80000000074506,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha512": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 13.699999999254942,
+              "wallMs": 13.699999999254942,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 1257.3000000044703,
+              "wallMs": 377.5,
+              "maxParallel": 4
+            },
+            "install.gunzipRead": {
+              "calls": 624,
+              "failures": 0,
+              "serviceMs": 50.50000001490116,
+              "wallMs": 50.50000001490116,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 4.200000014156103,
+              "wallMs": 4.200000014156103,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 1174.2999999895692,
+              "wallMs": 370.80000000819564,
+              "maxParallel": 4
+            },
+            "fs.mkdir": {
+              "calls": 87,
+              "failures": 0,
+              "serviceMs": 163.59999998286366,
+              "wallMs": 114.69999999552965,
+              "maxParallel": 12
+            },
+            "fs.write.packages": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 933.499999973923,
+              "wallMs": 307.90000000596046,
+              "maxParallel": 4
+            },
+            "install.bins": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 13.100000001490116,
+              "wallMs": 13.100000001490116,
+              "maxParallel": 1
+            },
+            "fs.write.bins": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 6.50000000372529,
+              "wallMs": 6.50000000372529,
+              "maxParallel": 1
+            },
+            "fs.write.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.7999999970197678,
+              "wallMs": 0.7999999970197678,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 38863939,
+            "bins": 1865,
+            "lockfile": 8522
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 462,
+        "manifestCount": 19,
+        "bytes": 38865804
+      },
+      "locked": {
+        "wallMs": 469,
+        "output": "added 16 packages, and audited 4 packages in 0.5s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-large-dev",
+          "version": "1.0.0",
+          "dependencies": {},
+          "devDependencies": {
+            "vite": "8.2.1",
+            "typescript": "6.0.3",
+            "esbuild": "0.28.2",
+            "prettier": "3.9.9"
+          }
+        },
+        "metrics": {
+          "wallMs": 469.0999999977648,
+          "phases": {
+            "fs.exists": {
+              "calls": 637,
+              "failures": 0,
+              "serviceMs": 224.100000012666,
+              "wallMs": 160.59999999031425,
+              "maxParallel": 4
+            },
+            "fs.stat": {
+              "calls": 1325,
+              "failures": 612,
+              "serviceMs": 665.6000000424683,
+              "wallMs": 346.19999996200204,
+              "maxParallel": 4
+            },
+            "fs.directory": {
+              "calls": 1912,
+              "failures": 90,
+              "serviceMs": 408.7999999932945,
+              "wallMs": 276.60000002384186,
+              "maxParallel": 4
+            },
+            "opfs.fileLookup": {
+              "calls": 1755,
+              "failures": 770,
+              "serviceMs": 309.10000002384186,
+              "wallMs": 231.30000001192093,
+              "maxParallel": 4
+            },
+            "opfs.metadata": {
+              "calls": 482,
+              "failures": 0,
+              "serviceMs": 164.70000002905726,
+              "wallMs": 120.70000000670552,
+              "maxParallel": 4
+            },
+            "fs.readText": {
+              "calls": 41,
+              "failures": 17,
+              "serviceMs": 19,
+              "wallMs": 19,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 1,
+              "serviceMs": 0.6000000014901161,
+              "wallMs": 0.6000000014901161,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 503,
+              "failures": 0,
+              "serviceMs": 200.49999998509884,
+              "wallMs": 165.09999997541308,
+              "maxParallel": 4
+            },
+            "opfs.getSize": {
+              "calls": 40,
+              "failures": 0,
+              "serviceMs": 0.09999999776482582,
+              "wallMs": 0.09999999776482582,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 40,
+              "failures": 0,
+              "serviceMs": 1.9000000022351742,
+              "wallMs": 1.9000000022351742,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 503,
+              "failures": 0,
+              "serviceMs": 46.50000002235174,
+              "wallMs": 46.50000002235174,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 467.69999999925494,
+              "wallMs": 467.69999999925494,
+              "maxParallel": 1
+            },
+            "fs.write.workspace": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 1.2999999970197678,
+              "wallMs": 1.2999999970197678,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 463,
+              "failures": 0,
+              "serviceMs": 48.50000001117587,
+              "wallMs": 48.50000001117587,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 463,
+              "failures": 0,
+              "serviceMs": 1.899999987334013,
+              "wallMs": 1.899999987334013,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 463,
+              "failures": 0,
+              "serviceMs": 0.7999999932944775,
+              "wallMs": 0.7999999932944775,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.5999999977648258,
+              "wallMs": 0.5999999977648258,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 38,
+              "failures": 16,
+              "serviceMs": 17.49999999627471,
+              "wallMs": 17.49999999627471,
+              "maxParallel": 1
+            },
+            "opfs.directoryLookup": {
+              "calls": 2428,
+              "failures": 90,
+              "serviceMs": 455.9999999590218,
+              "wallMs": 297.7000000067055,
+              "maxParallel": 4
+            },
+            "install.package": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 1344.5000000037253,
+              "wallMs": 439.69999999925494,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha256": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 0.10000000149011612,
+              "wallMs": 0.10000000149011612,
+              "maxParallel": 4
+            },
+            "fs.read.cacheTarball": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 18.19999998807907,
+              "wallMs": 13.099999994039536,
+              "maxParallel": 4
+            },
+            "crypto.digest.sha512": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 14.399999994784594,
+              "wallMs": 14.399999994784594,
+              "maxParallel": 1
+            },
+            "install.gunzipTar": {
+              "calls": 16,
+              "failures": 0,
+              "serviceMs": 1281.6000000163913,
+              "wallMs": 437.80000000074506,
+              "maxParallel": 4
+            },
+            "install.gunzipRead": {
+              "calls": 624,
+              "failures": 0,
+              "serviceMs": 52.200000021606684,
+              "wallMs": 52.200000021606684,
+              "maxParallel": 1
+            },
+            "install.tarEntry": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 3.599999986588955,
+              "wallMs": 3.599999986588955,
+              "maxParallel": 1
+            },
+            "install.entryWrite": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 1194.400000013411,
+              "wallMs": 432.5000000074506,
+              "maxParallel": 4
+            },
+            "fs.mkdir": {
+              "calls": 88,
+              "failures": 0,
+              "serviceMs": 166.69999998435378,
+              "wallMs": 112.89999998360872,
+              "maxParallel": 11
+            },
+            "fs.write.packages": {
+              "calls": 455,
+              "failures": 0,
+              "serviceMs": 1058.800000037998,
+              "wallMs": 425.7000000141561,
+              "maxParallel": 4
+            },
+            "install.bins": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 14.600000001490116,
+              "wallMs": 14.600000001490116,
+              "maxParallel": 1
+            },
+            "fs.write.bins": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 7.49999999627471,
+              "wallMs": 7.49999999627471,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "workspace": 78,
+            "packages": 38863939,
+            "bins": 1865
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 462,
+        "manifestCount": 19,
+        "bytes": 38865804
+      },
+      "noop": {
+        "wallMs": 36.400000002235174,
+        "output": "up to date, audited 4 packages in 0.0s\n\nfound 0 vulnerabilities",
+        "succeeded": true,
+        "manifest": {
+          "name": "pyxis-bench-large-dev",
+          "version": "1.0.0",
+          "dependencies": {},
+          "devDependencies": {
+            "vite": "8.2.1",
+            "typescript": "6.0.3",
+            "esbuild": "0.28.2",
+            "prettier": "3.9.9"
+          }
+        },
+        "metrics": {
+          "wallMs": 36.400000002235174,
+          "phases": {
+            "fs.exists": {
+              "calls": 17,
+              "failures": 0,
+              "serviceMs": 3.5999999940395355,
+              "wallMs": 3.5999999940395355,
+              "maxParallel": 1
+            },
+            "fs.stat": {
+              "calls": 85,
+              "failures": 61,
+              "serviceMs": 11.300000004470348,
+              "wallMs": 11.300000004470348,
+              "maxParallel": 1
+            },
+            "fs.directory": {
+              "calls": 119,
+              "failures": 26,
+              "serviceMs": 6.700000002980232,
+              "wallMs": 6.700000002980232,
+              "maxParallel": 1
+            },
+            "opfs.fileLookup": {
+              "calls": 91,
+              "failures": 49,
+              "serviceMs": 8.799999997019768,
+              "wallMs": 8.799999997019768,
+              "maxParallel": 1
+            },
+            "opfs.metadata": {
+              "calls": 10,
+              "failures": 0,
+              "serviceMs": 1.1000000089406967,
+              "wallMs": 1.1000000089406967,
+              "maxParallel": 1
+            },
+            "fs.readText": {
+              "calls": 25,
+              "failures": 0,
+              "serviceMs": 15.200000002980232,
+              "wallMs": 15.200000002980232,
+              "maxParallel": 1
+            },
+            "fs.read.workspace": {
+              "calls": 2,
+              "failures": 0,
+              "serviceMs": 1.300000000745058,
+              "wallMs": 1.300000000745058,
+              "maxParallel": 1
+            },
+            "opfs.open": {
+              "calls": 32,
+              "failures": 0,
+              "serviceMs": 7.800000004470348,
+              "wallMs": 7.800000004470348,
+              "maxParallel": 1
+            },
+            "opfs.getSize": {
+              "calls": 25,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.read": {
+              "calls": 25,
+              "failures": 0,
+              "serviceMs": 0.09999999776482582,
+              "wallMs": 0.09999999776482582,
+              "maxParallel": 1
+            },
+            "opfs.close": {
+              "calls": 32,
+              "failures": 0,
+              "serviceMs": 3.300000000745058,
+              "wallMs": 3.300000000745058,
+              "maxParallel": 1
+            },
+            "install.total": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 34.80000000074506,
+              "wallMs": 34.80000000074506,
+              "maxParallel": 1
+            },
+            "fs.read.lockfile": {
+              "calls": 1,
+              "failures": 0,
+              "serviceMs": 0.4000000022351742,
+              "wallMs": 0.4000000022351742,
+              "maxParallel": 1
+            },
+            "fs.read.packages": {
+              "calls": 22,
+              "failures": 0,
+              "serviceMs": 12.900000005960464,
+              "wallMs": 12.900000005960464,
+              "maxParallel": 1
+            },
+            "opfs.directoryLookup": {
+              "calls": 81,
+              "failures": 26,
+              "serviceMs": 7.300000008195639,
+              "wallMs": 7.300000008195639,
+              "maxParallel": 1
+            },
+            "install.bins": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 14.599999997764826,
+              "wallMs": 14.599999997764826,
+              "maxParallel": 1
+            },
+            "fs.mkdir": {
+              "calls": 6,
+              "failures": 0,
+              "serviceMs": 2.6000000052154064,
+              "wallMs": 2.6000000052154064,
+              "maxParallel": 1
+            },
+            "fs.write.bins": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 7.199999995529652,
+              "wallMs": 7.199999995529652,
+              "maxParallel": 1
+            },
+            "opfs.write": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 0.4000000022351742,
+              "wallMs": 0.4000000022351742,
+              "maxParallel": 1
+            },
+            "opfs.truncate": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            },
+            "opfs.flush": {
+              "calls": 7,
+              "failures": 0,
+              "serviceMs": 0,
+              "wallMs": 0,
+              "maxParallel": 1
+            }
+          },
+          "bytes": {
+            "registry": 0,
+            "tarball": 0,
+            "bins": 1865
+          },
+          "requests": {},
+          "pending": []
+        },
+        "fileCount": 462,
+        "manifestCount": 19,
+        "bytes": 38865804
+      }
+    }
+  },
+  "validForFinalComparison": true
+}

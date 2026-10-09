@@ -4,7 +4,7 @@
  */
 
 import type React from 'react';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import {
   type GitCommitAuthor,
@@ -29,24 +29,28 @@ export function GitHubUserProvider({ children }: { children: React.ReactNode }) 
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestGeneration = useRef(0);
 
   /**
    * GitHub APIからユーザー情報を取得（githubUserManager経由）
    */
   const fetchUser = useCallback(async () => {
+    const request = requestGeneration.current + 1;
+    requestGeneration.current = request;
     setIsLoading(true);
     setError(null);
 
     try {
       const userData = await githubUserManager.getUser();
-      setUser(userData);
+      if (request === requestGeneration.current) setUser(userData);
     } catch (err) {
+      if (request !== requestGeneration.current) return;
       const errorMessage = (err as Error).message;
       console.error('[GitHubUserContext] Failed to fetch user:', errorMessage);
       setError(errorMessage);
       setUser(null);
     } finally {
-      setIsLoading(false);
+      if (request === requestGeneration.current) setIsLoading(false);
     }
   }, []);
 
@@ -54,8 +58,11 @@ export function GitHubUserProvider({ children }: { children: React.ReactNode }) 
    * ユーザー情報をクリア
    */
   const clearUser = useCallback(() => {
+    requestGeneration.current += 1;
+    githubUserManager.clearCache();
     setUser(null);
     setError(null);
+    setIsLoading(false);
   }, []);
 
   /**

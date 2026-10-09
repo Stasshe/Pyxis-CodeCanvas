@@ -114,4 +114,4 @@ node build-extensions.js
 
 ## 📚 参考
 
-詳細は `/docs/EXTENSION-NPM-LIBRARIES.md` を参照してください。
+詳細は `/docs/domain/extension-authoring.md` を参照してください。

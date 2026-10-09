@@ -1,0 +1,13 @@
+{
+  "name": "medium-react-no-lock",
+  "manifestText": "{\n  \"name\": \"pyxis-bench-medium-react\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {\n    \"react\": \"19.2.0\",\n    \"react-dom\": \"19.2.0\"\n  },\n  \"devDependencies\": {}\n}\n",
+  "lockfileText": null,
+  "expectedAddedPackages": 3,
+  "nativeExpectedAddedPackages": 3,
+  "pyxisExpectedCheckedPackages": 4,
+  "nativeExpectedAuditedPackages": 4,
+  "command": "npm install",
+  "expectedPyxisPlacedPackages": 3,
+  "expectedNativePlacedPackages": 3,
+  "expectedLockPackages": 0
+}

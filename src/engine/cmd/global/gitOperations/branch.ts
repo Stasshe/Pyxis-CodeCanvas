@@ -1,15 +1,14 @@
-// src/engine/cmd/global/gitOperations/branch.ts
 import git from 'isomorphic-git';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 import { listAllRemoteRefs } from './remoteUtils';
 
 export async function branch(
-  fs: any,
+  fs: FS,
   dir: string,
   branchName?: string,
   options: { delete?: boolean; remote?: boolean; all?: boolean } = {}
 ): Promise<string> {
   try {
-    // Gitリポジトリが初期化されているかチェック
     try {
       await fs.promises.stat(`${dir}/.git`);
     } catch {
@@ -20,41 +19,23 @@ export async function branch(
 
     if (!branchName) {
       const currentBranch = await git.currentBranch({ fs, dir });
-      let result = '';
-
-      if (remote || all) {
-        const remoteBranches = await listAllRemoteRefs(fs, dir);
-
-        if (all && !remote) {
-          const localBranches = await git.listBranches({ fs, dir });
-          for (let i = 0; i < localBranches.length; i++) {
-            const b = localBranches[i];
-            result +=
-              (b === currentBranch ? `* ${b}` : `  ${b}`) +
-              (i === localBranches.length - 1 ? '' : '\n');
-          }
-          if (localBranches.length > 0 && remoteBranches.length > 0) {
-            result += '\n';
-          }
-        }
-
-        if (remoteBranches.length > 0) {
-          for (let i = 0; i < remoteBranches.length; i++) {
-            result += `  ${remoteBranches[i]}${i === remoteBranches.length - 1 ? '' : '\n'}`;
-          }
-        } else if (!all) {
-          return 'No remote branches found. Use "git fetch" first.';
-        }
-      } else {
-        const branches = await git.listBranches({ fs, dir });
-        for (let i = 0; i < branches.length; i++) {
-          const b = branches[i];
-          result +=
-            (b === currentBranch ? `* ${b}` : `  ${b}`) + (i === branches.length - 1 ? '' : '\n');
+      const lines: string[] = [];
+      if (!remote || all) {
+        const local = await git.listBranches({ fs, dir });
+        for (const name of local) {
+          let prefix = '  ';
+          if (name === currentBranch) prefix = '* ';
+          lines.push(prefix + name);
         }
       }
-
-      return result || 'No branches found.';
+      if (remote || all) {
+        const remotes = await listAllRemoteRefs(fs, dir);
+        if (remotes.length === 0 && !all) {
+          return 'No remote branches found. Use "git fetch" first.';
+        }
+        for (const name of remotes) lines.push(`  ${name}`);
+      }
+      return lines.join('\n') || 'No branches found.';
     }
 
     if (deleteFlag) {

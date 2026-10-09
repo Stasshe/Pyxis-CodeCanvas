@@ -135,9 +135,61 @@
     "loadingFile": "Dateiinhalt wird wiederhergestellt...",
     "selectFile": "Bitte wählen Sie eine Datei"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Sie haben alle verfügbaren Erweiterungen",
+    "allInstalled": "Alle Erweiterungen installiert",
+    "available": "Verfügbar ({count})",
+    "browseAvailable": "Durchsuchen Sie die verfügbaren Erweiterungen, um loszulegen",
+    "confirmUninstall": "Sind Sie sicher, dass Sie „{name}“ deinstallieren möchten?",
+    "disable": "Deaktivieren",
+    "disableUnavailable": "Die Erweiterung konnte nicht deaktiviert werden.",
+    "enable": "Aktivieren",
+    "enableUnavailable": "Die Erweiterung konnte nicht aktiviert werden.",
+    "importFailed": "Der Import der ZIP-Datei {error} ist fehlgeschlagen",
+    "importZip": "Erweiterung importieren (.zip)",
+    "install": "Installieren",
+    "installed": "Installiert ({count})",
+    "installFailed": "Fehler bei der Installation von {name}: {error}",
+    "installUnavailable": "Die Erweiterung konnte nicht installiert oder aktiviert werden.",
+    "loadFailed": "Die Erweiterungen konnten nicht geladen werden: {error}",
+    "loading": "Erweiterungen werden geladen...",
+    "manifestUrlMissing": "Manifest-URL nicht in der Registrierung gefunden",
+    "noMatches": "Keine passenden Erweiterungen gefunden",
+    "noneInstalled": "Keine Erweiterungen installiert",
+    "packCount": "Erweiterungen: {count}",
+    "reload": "Erweiterungen neu laden",
+    "search": "Sucherweiterungen...",
+    "title": "Erweiterungen",
+    "toggleFailed": "Erweiterungsstatus konnte nicht geändert werden: {error}",
+    "tryDifferentSearch": "Versuchen Sie es mit einem anderen Suchbegriff",
+    "types": {
+      "builtinModule": "Integriertes Modul",
+      "languageRuntime": "Sprachlaufzeit",
+      "service": "Service",
+      "tool": "Werkzeug",
+      "transpiler": "Transpiler",
+      "ui": "Benutzeroberfläche"
+    },
+    "uninstall": "Deinstallieren",
+    "uninstallFailed": "Erweiterung konnte nicht deinstalliert werden: {error}",
+    "uninstallTitle": "Erweiterung deinstallieren",
+    "uninstallUnavailable": "Die Erweiterung konnte nicht deinstalliert werden.",
+    "update": "Aktualisieren",
+    "updateFailed": "Fehler beim Aktualisieren von {name}: {error}",
+    "updateUnavailable": "Das neue Erweiterungspaket konnte nicht aktiviert werden.",
+    "viewDetails": "Klicken Sie hier, um die Erweiterungsdetails anzuzeigen"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Datei erstellen",
+      "createFolder": "Ordner erstellen",
+      "import": "Importieren",
+      "move": "Verschieben"
+    },
     "alert": {
-      "renameFailed": "Umbenennen fehlgeschlagen: {error}"
+      "destinationExists": "Ziel ist bereits vorhanden: {path}",
+      "operationFailed": "{action} fehlgeschlagen: {error}",
+      "workspaceChanged": "Der Arbeitsbereich wurde gewechselt. Weitere Dateien wurden übersprungen."
     },
     "menu": {
       "createFile": "Datei erstellen",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Neue Datei erstellen",
-    "createFolder": "Neuen Ordner erstellen"
+    "createFolder": "Neuen Ordner erstellen",
+    "newFilePrompt": "Neuen Dateinamen eingeben:",
+    "newFolderPrompt": "Neuen Ordnernamen eingeben:"
   },
   "markdownPreview": {
     "downloadSvg": "SVG herunterladen",

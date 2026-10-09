@@ -1,3 +1,4 @@
+import { posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import { FNM_CASEFOLD, fnmatch, parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
@@ -25,7 +26,7 @@ export class TreeCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<string> {
     // オプションパース
     const optstring = 'adfL:I:P:';
-    const longopts = ['noreport'];
+    const longopts = ['noreport', 'help'];
     const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
     if (errors.length) throw new Error(errors.join('; '));
 
@@ -39,7 +40,16 @@ export class TreeCommand extends UnixCommandBase {
     const fullPath = flags.has('-f');
     const noReport = flags.has('--noreport');
 
-    const maxDepth = values.has('-L') ? Number.parseInt(values.get('-L')!, 10) || 999 : 999;
+    let maxDepth = Number.MAX_SAFE_INTEGER;
+    if (values.has('-L')) {
+      const parsedDepth = Number(values.get('-L'));
+      if (!Number.isInteger(parsedDepth) || parsedDepth < 0) {
+        throw new Error(
+          `tree: invalid level, must be a non-negative integer: '${values.get('-L')}'`
+        );
+      }
+      maxDepth = parsedDepth;
+    }
 
     // -I: 除外パターン（パイプ区切り対応）
     const ignorePatterns: string[] = [];
@@ -55,8 +65,7 @@ export class TreeCommand extends UnixCommandBase {
     }
 
     const targetDir = positional.length > 0 ? positional[0] : '.';
-    const resolvedPath = this.resolvePath(targetDir);
-    const normalizedPath = this.normalizePath(resolvedPath);
+    const normalizedPath = this.resolvePath(targetDir);
 
     const exists = await this.exists(normalizedPath);
     if (!exists) {
@@ -72,25 +81,19 @@ export class TreeCommand extends UnixCommandBase {
     let fileCount = 0;
 
     const buildTree = async (dirPath: string, prefix = '', depth = 0): Promise<string> => {
-      if (depth > maxDepth) return '';
+      if (depth >= maxDepth) return '';
 
-      const relativePath = this.getRelativePathFromProject(dirPath);
-      const dirPrefix = relativePath === '/' ? '' : `${relativePath}/`;
-      const files: ProjectFile[] = await this.cachedGetFilesByPrefix(dirPrefix);
+      const files: ProjectFile[] = await this.getDescendants(dirPath);
 
       // ディレクトリ直下のファイル/フォルダを取得
       let entries = files.filter((f: ProjectFile) => {
-        if (relativePath === '/') {
-          return f.path.split('/').filter((p: string) => p).length === 1;
-        }
-        const childPath = f.path.replace(dirPrefix, '');
-        return f.path.startsWith(dirPrefix) && !childPath.includes('/');
+        return posixPath.dirname(f.path) === dirPath;
       });
 
       // フィルタリング: 隠しファイル
       if (!showAll) {
         entries = entries.filter(f => {
-          const name = f.path.split('/').pop() || '';
+          const name = posixPath.basename(f.path);
           return !name.startsWith('.') && name !== '.git';
         });
       }
@@ -103,7 +106,7 @@ export class TreeCommand extends UnixCommandBase {
       // フィルタリング: -I 除外パターン（fnmatch使用）
       if (ignorePatterns.length > 0) {
         entries = entries.filter(f => {
-          const name = f.path.split('/').pop() || '';
+          const name = posixPath.basename(f.path);
           return !ignorePatterns.some(pat => fnmatch(pat, name) === 0);
         });
       }
@@ -111,7 +114,7 @@ export class TreeCommand extends UnixCommandBase {
       // フィルタリング: -P 表示パターン
       if (includePattern) {
         entries = entries.filter(f => {
-          const name = f.path.split('/').pop() || '';
+          const name = posixPath.basename(f.path);
           // ディレクトリは常に表示（中身を見るため）
           if (f.type === 'folder') return true;
           return fnmatch(includePattern!, name) === 0;
@@ -120,8 +123,8 @@ export class TreeCommand extends UnixCommandBase {
 
       // ソート: 名前順（POSIX準拠、ディレクトリ/ファイルを区別せずアルファベット順）
       entries.sort((a, b) => {
-        const nameA = a.path.split('/').pop() || '';
-        const nameB = b.path.split('/').pop() || '';
+        const nameA = posixPath.basename(a.path);
+        const nameB = posixPath.basename(b.path);
         // default locale with 'variant' sensitivity approximates POSIX collation: case-sensitive and accent-aware
         return nameA.localeCompare(nameB, undefined, { sensitivity: 'variant' });
       });
@@ -132,14 +135,14 @@ export class TreeCommand extends UnixCommandBase {
         const isLast = i === entries.length - 1;
         const connector = isLast ? '└── ' : '├── ';
         const newPrefix = prefix + (isLast ? '    ' : '│   ');
-        const name = entry.path.split('/').pop() || '';
+        const name = posixPath.basename(entry.path);
 
-        const displayName = fullPath ? `${dirPath}/${name}` : name;
+        const displayName = fullPath ? posixPath.join(dirPath, name) : name;
         result += `${prefix}${connector}${displayName}${entry.type === 'folder' ? '/' : ''}\n`;
 
         if (entry.type === 'folder') {
           dirCount++;
-          const childPath = `${dirPath}/${name}`;
+          const childPath = posixPath.join(dirPath, name);
           result += await buildTree(childPath, newPrefix, depth + 1);
         } else {
           fileCount++;

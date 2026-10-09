@@ -1,38 +1,73 @@
-/**
- * Node.js Runtime Emulator
- *
- * ## 設計原則
- * 1. IndexedDB (fileRepository) を唯一の真実の源として使用
- * 2. ModuleLoaderによる高度なモジュール解決
- * 3. npm installされたパッケージはIndexedDBから読み取り
- * 4. ES Modulesとcommonjsの両方をサポート
- * 5. トランスパイルキャッシュによる高速化
- * 6. require()は非同期化（await __require__()に変換）
- */
+/** Node.js runtime execution and process lifecycle. */
 
-import type { ProcessStdin } from '@/engine/cmd/terminalProcessBridge';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, getParentPath, resolvePath, toAppPath } from '@/engine/core/pathUtils';
-import type { RuntimeCacheMount } from '@/engine/runtime/storage/RuntimeCacheMount';
-import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
-import { runtimeError, runtimeInfo, runtimeWarn } from '../core/runtimeLogger';
+import type { Readable } from 'node:stream';
+import { getParentPath, HOME_DIR, resolvePath } from '@/engine/core/pathUtils';
+import type { RuntimeBridge } from '@/engine/runtime/bridge/client';
+import type { RuntimeFsMount } from '@/engine/runtime/storage/RuntimeFsMount';
+import { runtimeError, runtimeInfo } from '../core/runtimeLogger';
+import { createRuntimeFunction } from '../module/dynamicFunction';
 import { ModuleLoader } from '../module/moduleLoader';
 import { type BuiltInModules, createBuiltInModules } from './builtInModule';
-import { createModuleNotFoundError, formatNodeError } from './nodeErrors';
+import { formatNodeError } from './nodeErrors';
 import {
   createProcessExitSignal,
   isProcessExitSignal,
   normalizeProcessExitCode,
+  validateProcessExitCode,
 } from './processExit';
+import { RuntimeBuiltinResolver } from './runtimeBuiltinResolver';
+import { createRuntimeConsole } from './runtimeConsole';
+import {
+  nativeClearInterval,
+  nativeClearTimeout,
+  nativeQueueMicrotask,
+  nativeSetInterval,
+  nativeSetTimeout,
+  RuntimeGlobals,
+} from './runtimeGlobals';
+import { RuntimeTaskScheduler } from './runtimeTaskScheduler';
+import type {
+  ProcessListener,
+  ProcessObject,
+  RuntimeConsole,
+  RuntimeTimer,
+  RuntimeTimerModule,
+} from './runtimeTypes';
+import { wrapRuntimeCode } from './runtimeWrapper';
+import { createRuntimeWritable } from './runtimeWritable';
+import type { RuntimeStdin } from './workerStdin';
+
+const retiredPromises = new WeakSet<Promise<unknown>>();
+const NativeFunction = Function;
+
+export function isRetiredRuntimePromise(promise: Promise<unknown>): boolean {
+  return retiredPromises.has(promise);
+}
 
 /**
- * 実行オプション
+ * Runtime execution options.
  */
 export interface ExecutionOptions {
-  projectId: string;
-  projectName: string;
+  rootPath: string;
   filePath: string;
   cwd?: string;
+  env?: Record<string, string>;
+  bridge: RuntimeBridge;
+  filesystem: RuntimeFsMount;
+  runShell: (
+    command: string,
+    options?: {
+      cwd?: string;
+      env?: Record<string, string>;
+      signal?: AbortSignal;
+      stdin?: Readable;
+      onStdout?: (data: string) => void;
+      onStderr?: (data: string) => void;
+    }
+  ) => Promise<{ stdout: string; stderr: string; code: number | null }>;
+  onExit?: (code: number) => void;
+  onStdout?: (data: string | Uint8Array) => void;
+  onStderr?: (data: string | Uint8Array) => void;
   debugConsole?: {
     log: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
@@ -40,7 +75,9 @@ export interface ExecutionOptions {
     clear: () => void;
   };
   /** Stdin stream for interactive input */
-  processStdin?: ProcessStdin;
+  processStdin: RuntimeStdin;
+  stdoutIsTTY?: boolean;
+  stderrIsTTY?: boolean;
   /** Terminal columns (width). If not provided, defaults to 80. */
   terminalColumns?: number;
   /** Terminal rows (height). If not provided, defaults to 24. */
@@ -51,29 +88,50 @@ export interface ExecutionOptions {
  * Node.js Runtime Emulator
  */
 export class NodeRuntime {
-  private projectId: string;
-  private projectName: string;
+  private rootPath: string;
   private debugConsole: ExecutionOptions['debugConsole'];
-  private processStdin?: ProcessStdin;
+  private processStdin: RuntimeStdin;
+  private stdoutIsTTY: boolean;
+  private stderrIsTTY: boolean;
   private builtInModules: BuiltInModules;
+  private builtInResolver: RuntimeBuiltinResolver;
   private moduleLoader: ModuleLoader;
-  private cacheMount: RuntimeCacheMount;
-  private projectDir: string;
+  private taskScheduler: RuntimeTaskScheduler;
+  private bridge: RuntimeBridge;
+  private filesystem: RuntimeFsMount;
+  private runShell: ExecutionOptions['runShell'];
+  private onExit: ExecutionOptions['onExit'];
+  private onStdout: (data: string | Uint8Array) => void;
+  private onStderr: (data: string | Uint8Array) => void;
   private cwd: string;
+  private env: Record<string, string>;
   private terminalColumns: number;
   private terminalRows: number;
-  private currentProcess: Record<string, any> | null = null;
+  private currentProcess: ProcessObject | null = null;
+  private currentConsole: RuntimeConsole | null = null;
+  private readonly globals = new RuntimeGlobals();
   private exitCode = 0;
   private didExit = false;
-  private syncExitBoundaryDepth = 0;
+  private emittingExitListeners = false;
+  private exitEventEmitted = false;
+  private exitNotified = false;
+  private disposed = false;
+  private resolveProcessExit!: (code: number) => void;
+  private readonly processExit = new Promise<number>(resolve => {
+    this.resolveProcessExit = resolve;
+  });
 
-  // イベントループ追跡
-  private activeTimers: Set<any> = new Set();
-  private pendingIO: Set<Promise<any>> = new Set();
+  // Event loop tracking.
+  private activeTimers: Set<object> = new Set();
+  private timerCancels = new Map<object, () => void>();
+  private pendingIO: Set<Promise<unknown>> = new Set();
+  private pendingMicrotasks = 0;
   private eventLoopResolve: (() => void) | null = null;
+  private processListeners: Record<string, ProcessListener[]> = {};
 
   private isPromiseLike(value: unknown): value is Promise<unknown> {
-    return !!value && typeof (value as { then?: unknown }).then === 'function';
+    if (typeof value !== 'object' || value === null || !('then' in value)) return false;
+    return typeof value.then === 'function';
   }
 
   private getExecutionPromise(moduleExports: unknown): Promise<unknown> | null {
@@ -81,149 +139,165 @@ export class NodeRuntime {
       return moduleExports;
     }
 
-    if (
-      moduleExports &&
-      typeof moduleExports === 'object' &&
-      this.isPromiseLike((moduleExports as { __promise?: unknown }).__promise)
-    ) {
-      return (moduleExports as { __promise: Promise<unknown> }).__promise;
+    if (moduleExports && typeof moduleExports === 'object' && '__promise' in moduleExports) {
+      const promise = moduleExports.__promise;
+      if (this.isPromiseLike(promise)) return promise;
     }
 
     return null;
   }
 
   constructor(options: ExecutionOptions) {
-    this.projectId = options.projectId;
-    this.projectName = options.projectName;
+    this.rootPath = options.rootPath;
     this.debugConsole = options.debugConsole;
     this.processStdin = options.processStdin;
-    this.projectDir = `/projects/${this.projectName}`;
-    this.cwd = options.cwd ?? this.projectDir;
+    this.stdoutIsTTY = options.stdoutIsTTY === true;
+    this.stderrIsTTY = options.stderrIsTTY === true;
+    this.filesystem = options.filesystem;
+    this.bridge = options.bridge;
+    this.runShell = options.runShell;
+    this.onExit = options.onExit;
+    this.onStdout = options.onStdout ?? (data => this.debugConsole?.log(this.formatOutput(data)));
+    this.onStderr = options.onStderr ?? (data => this.debugConsole?.error(this.formatOutput(data)));
+    this.cwd = options.cwd ?? this.rootPath;
+    this.env = options.env ?? {};
     this.terminalColumns = options.terminalColumns ?? 80;
     this.terminalRows = options.terminalRows ?? 24;
-
-    const runtimeStorage = runtimeStorageRegistry.get(this.projectId, this.projectName);
-    this.cacheMount = runtimeStorage.cacheMount;
+    this.currentConsole = this.createRuntimeConsole();
 
     this.builtInModules = createBuiltInModules({
-      projectDir: this.projectDir,
-      projectId: this.projectId,
-      projectName: this.projectName,
+      rootPath: this.rootPath,
       processStdin: this.processStdin,
       getTrackIO: () => this.trackIO.bind(this),
       requireFactory: (filename: string) => this.createRequire(filename),
+      scheduleNextTick: callback => this.taskScheduler.scheduleNextTick(callback),
       getCwd: () => this.cwd,
       getEnv: () => ({ ...(this.currentProcess?.env ?? {}) }),
-      runShell: (command, options) => this.runChildProcessShell(command, options),
-      mountRouter: runtimeStorage.mountRouter,
+      writeStdout: this.onStdout,
+      writeStderr: this.onStderr,
+      runShell: this.runShell,
+      filesystem: this.filesystem,
+      bridge: this.bridge,
       terminalColumns: this.terminalColumns,
       terminalRows: this.terminalRows,
+      stdoutIsTTY: this.stdoutIsTTY,
+    });
+    this.builtInResolver = new RuntimeBuiltinResolver({
+      modules: this.builtInModules,
+      getProcess: () => this.currentProcess ?? this.createProcessObject(),
+      createConsole: () => this.currentConsole ?? this.createRuntimeConsole(),
+      createTimerModule: () => this.createTimerModule(),
+    });
+    this.taskScheduler = new RuntimeTaskScheduler({
+      activeTasks: this.activeTimers,
+      cancelTasks: this.timerCancels,
+      canRun: () => !this.disposed && (!this.didExit || this.emittingExitListeners),
+      onMicrotaskChange: change => {
+        this.pendingMicrotasks += change;
+      },
+      checkEventLoop: () => this.checkEventLoop(),
+      finalizeProcessExit: code => this.finalizeProcessExit(code),
     });
 
-    // ModuleLoaderの初期化
+    // Initialize the module loader.
     this.moduleLoader = new ModuleLoader({
-      projectId: this.projectId,
-      projectName: this.projectName,
+      rootPath: this.rootPath,
+      bridge: this.bridge,
       debugConsole: this.debugConsole,
-      builtinResolver: this.resolveBuiltInModule.bind(this),
-      cacheMount: this.cacheMount,
+      trackIO: promise => this.trackIO(promise),
+      builtinResolver: this.builtInResolver.resolve.bind(this.builtInResolver),
     });
 
     runtimeInfo('🚀 NodeRuntime initialized', {
-      projectId: this.projectId,
-      projectName: this.projectName,
-      projectDir: this.projectDir,
+      rootPath: this.rootPath,
       cwd: this.cwd,
     });
   }
   /**
-   * ファイルを実行
+   * Execute a file.
    */
-  /**
-   * ファイルを実行
-   */
-  async execute(filePath: string, argv: string[] = []): Promise<void> {
+  async execute(
+    filePath: string,
+    argv: string[] = [],
+    source?: string,
+    execArgv: string[] = []
+  ): Promise<void> {
     this.exitCode = 0;
     this.didExit = false;
+    this.exitNotified = false;
+    this.exitEventEmitted = false;
+    this.processListeners = {};
 
     try {
       runtimeInfo('▶️ Executing file:', filePath);
+      const invocationPath = filePath;
+      if (source === undefined) filePath = await this.moduleLoader.realpath(filePath);
 
-      await this.cacheMount.init();
-
-      // [NEW] Preload files for synchronous fs access (e.g. for yargs)
-      // This is required because fs.readFileSync must be synchronous, but IndexedDB is async.
-      if (this.builtInModules.fs.preloadFiles) {
-        runtimeInfo('📂 Pre-loading files into memory cache...');
-        // Preload ALL files to support fs.readFileSync for any file type (e.g. .cow, .yml, .js)
-        // Since we can't do synchronous IO against IndexedDB on demand, we must cache everything.
-        await this.builtInModules.fs.preloadFiles([]);
-        runtimeInfo('✅ Files pre-loaded');
-      }
-
-      // ModuleLoaderを初期化
-      await this.moduleLoader.init();
-
-      // グローバルオブジェクトを準備（process, Buffer, timersなど）
-      // これらをModuleLoaderに注入して、依存関係の実行時にも使えるようにする
-      const globals = this.createGlobals(filePath, argv);
-      this.moduleLoader.setGlobals(globals);
+      // Install shared globals before entry and dependency evaluation.
+      const importModule = (specifier: string | URL) =>
+        this.moduleLoader.asyncLoad(specifier, filePath);
+      this.createGlobals(
+        invocationPath,
+        argv,
+        createRuntimeFunction(importModule),
+        source !== undefined,
+        execArgv
+      );
 
       // Pre-load dependencies ONLY (do not execute the entry file yet)
       runtimeInfo('📦 Pre-loading dependencies...');
-      this.syncExitBoundaryDepth++;
-      try {
-        await this.moduleLoader.preloadDependencies(filePath, filePath);
-        runtimeInfo('✅ All dependencies pre-loaded');
+      const code = await this.moduleLoader.preloadDependencies(filePath, filePath, source);
+      runtimeInfo('✅ All dependencies pre-loaded');
 
-        // サンドボックス環境を構築（require関数を含む）
-        // globalsを再利用する
+      let executionPromise = this.getExecutionPromise(undefined);
+      if (this.moduleLoader.isEsmEntry(filePath)) {
+        executionPromise = this.moduleLoader.executeEsmEntry(filePath);
+      } else {
+        // Build the execution sandbox with the shared globals.
         const requireFn = this.createRequire(filePath);
+        const mainModule = this.moduleLoader.createMainModule(filePath);
+        let filename = filePath;
+        let dirname = getParentPath(filePath);
+        if (source !== undefined) {
+          filename = '[eval]';
+          dirname = '.';
+        }
         const sandbox = {
-          ...globals,
           require: requireFn,
-          __pyxisImport: (s: string) => this.moduleLoader.asyncLoad(s, filePath),
-          module: { exports: {} },
-          exports: {},
-          __filename: filePath,
-          __dirname: getParentPath(filePath),
+          __pyxisImport: importModule,
+          __pyxisRequireCommonJs: requireFn,
+          __pyxisRequireImport: (specifier: string) =>
+            this.moduleLoader.requireSync(specifier, filePath, 'import'),
+          module: mainModule,
+          exports: mainModule.exports,
+          __filename: filename,
+          __dirname: dirname,
         };
 
-        // module.exportsへの参照を維持
-        (sandbox as any).exports = (sandbox as any).module.exports;
-
-        // ファイルを読み込み
-        const fileContent = await this.readFile(filePath);
-        if (fileContent === null) {
-          const err = new Error(`ENOENT: no such file or directory, open '${filePath}'`);
-          err.name = 'Error [ERR_FS_ENOENT]';
-          throw err;
-        }
-
-        // トランスパイル済みコードを取得（依存関係は既にロード済みなので、コードのみ必要）
-        const { code } = await this.moduleLoader.getTranspiledCodeWithDeps(filePath, fileContent);
-
-        // コードをラップして同期実行
-        const wrappedCode = this.wrapCode(code, filePath);
-        const executeFunc = new Function(...Object.keys(sandbox), wrappedCode);
+        // Wrap and execute the code synchronously.
+        const wrappedCode = wrapRuntimeCode(code, source === undefined);
+        const executeFunc = new NativeFunction(...Object.keys(sandbox), wrappedCode);
 
         runtimeInfo('✅ Code compiled successfully');
-        const executionResult = executeFunc(...Object.values(sandbox));
-        const executionPromise = this.getExecutionPromise(executionResult);
-        if (executionPromise) {
-          this.trackIO(executionPromise);
-          await executionPromise;
-        }
-        runtimeInfo('✅ Execution completed');
-      } finally {
-        this.syncExitBoundaryDepth = Math.max(0, this.syncExitBoundaryDepth - 1);
+        executeFunc(...Object.values(sandbox));
+        this.moduleLoader.completeMainModule(filePath);
+        executionPromise = this.getExecutionPromise(mainModule.exports);
       }
+      if (executionPromise) {
+        await Promise.race([
+          this.trackIO(executionPromise).then(() => undefined),
+          this.processExit.then(() => undefined),
+        ]);
+      }
+      if (this.didExit) return;
+      runtimeInfo('✅ Execution completed');
     } catch (error) {
       if (isProcessExitSignal(error)) {
         this.finalizeProcessExit(error.code);
         runtimeInfo('✅ Process exited via process.exit()', { code: error.code });
         return;
       }
+      if (this.handleUncaughtException(error)) return;
 
       // Format error in Node.js style
       const formattedError = formatNodeError(error, { filePath });
@@ -233,67 +307,92 @@ export class NodeRuntime {
   }
 
   /**
-   * インタラクティブIO（readline等）の完了を追跡する
-   * waitForEventLoop がこのPromiseが解決されるまで待機する
+   * Track interactive I/O such as readline until its promise settles.
    */
-  trackIO(p: Promise<any>): void {
-    this.pendingIO.add(p);
-    p.catch(() => undefined).finally(() => {
-      this.pendingIO.delete(p);
+  trackIO<T>(p: Promise<T>): Promise<T> {
+    if (this.disposed) {
+      retiredPromises.add(p);
+      void p.catch(() => {});
+      return p;
+    }
+    const tracked = p.finally(() => {
+      this.pendingIO.delete(tracked);
       this.checkEventLoop();
     });
+    this.pendingIO.add(tracked);
+    return tracked;
+  }
+
+  waitForProcessExit(): Promise<number> {
+    return this.processExit;
   }
 
   /**
-   * イベントループが空になるまで待つ（本物のNode.jsと同じ挙動）
+   * Wait until the event loop has no active timers or I/O.
    */
   async waitForEventLoop(): Promise<void> {
-    if (this.didExit) {
-      runtimeInfo('✅ Event loop wait skipped after process exit');
-      return;
+    while (!this.didExit) {
+      if (this.hasActiveWork()) {
+        runtimeInfo('⏳ Waiting for event loop to complete...', {
+          activeTimers: this.activeTimers.size,
+          pendingIO: this.pendingIO.size,
+        });
+        await new Promise<void>(resolve => {
+          this.eventLoopResolve = resolve;
+        });
+        continue;
+      }
+
+      // Let the current task's microtask checkpoint queue rejection notifications before checking exit.
+      await new Promise<void>(resolve => nativeSetTimeout(resolve, 0));
+      await new Promise<void>((resolve, reject) => {
+        nativeSetTimeout(() => {
+          try {
+            if (!this.didExit && !this.hasActiveWork()) {
+              this.completeNaturalProcessExit();
+            }
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        }, 0);
+      });
+      if (this.didExit) return;
     }
 
-    // アクティブなタイマーとIOがなければすぐに完了
-    if (this.activeTimers.size === 0 && this.pendingIO.size === 0) {
-      runtimeInfo('✅ Event loop is already empty');
-      return;
-    }
-
-    runtimeInfo('⏳ Waiting for event loop to complete...', {
-      activeTimers: this.activeTimers.size,
-      pendingIO: this.pendingIO.size,
-    });
-
-    // イベントループが空になるまで待機
-    return new Promise<void>(resolve => {
-      this.eventLoopResolve = resolve;
-      // タイムアウト: 最大30秒待つ（無限ループ防止）
-      setTimeout(() => {
-        if (this.eventLoopResolve) {
-          runtimeInfo('⚠️ Event loop timeout after 30s');
-          this.eventLoopResolve();
-          this.eventLoopResolve = null;
-        }
-      }, 30000);
-    });
+    runtimeInfo('✅ Event loop wait skipped after process exit');
   }
 
   private checkEventLoop() {
-    if (this.activeTimers.size === 0 && this.pendingIO.size === 0 && this.eventLoopResolve) {
+    if (this.disposed) return;
+    if (!this.hasActiveWork() && this.eventLoopResolve) {
       runtimeInfo('✅ Event loop is now empty');
       this.eventLoopResolve();
       this.eventLoopResolve = null;
     }
   }
 
+  private hasActiveWork(): boolean {
+    return this.activeTimers.size > 0 || this.pendingIO.size > 0 || this.pendingMicrotasks > 0;
+  }
+
   private createTrackedTimer(
     kind: 'timeout' | 'interval',
-    handler: TimerHandler,
+    handler: (...args: unknown[]) => void,
     timeout?: number,
     args: unknown[] = []
-  ): any {
-    let nativeId: any;
-    const timerRef: any = {
+  ): RuntimeTimer {
+    if (this.disposed || this.didExit) {
+      const timer: RuntimeTimer = {
+        ref: () => timer,
+        unref: () => timer,
+        hasRef: () => false,
+        [Symbol.toPrimitive]: () => 0,
+      };
+      return timer;
+    }
+    let nativeId: ReturnType<typeof setTimeout>;
+    const timerRef: RuntimeTimer = {
       ref: () => {
         this.activeTimers.add(timerRef);
         return timerRef;
@@ -304,22 +403,22 @@ export class NodeRuntime {
         return timerRef;
       },
       hasRef: () => this.activeTimers.has(timerRef),
-      [Symbol.toPrimitive]: () => nativeId,
+      [Symbol.toPrimitive]: () => Number(nativeId),
     };
 
     const invoke = () => {
+      if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
       if (kind === 'timeout') {
         this.activeTimers.delete(timerRef);
+        this.timerCancels.delete(timerRef);
       }
 
       try {
-        if (typeof handler === 'function') {
-          handler(...args);
-        }
+        handler(...args);
       } catch (error) {
         if (isProcessExitSignal(error)) {
           this.finalizeProcessExit(error.code);
-          if (kind === 'interval') clearInterval(nativeId);
+          if (kind === 'interval') nativeClearInterval(nativeId);
           return;
         }
         throw error;
@@ -328,9 +427,52 @@ export class NodeRuntime {
       }
     };
 
-    nativeId = kind === 'timeout' ? setTimeout(invoke, timeout) : setInterval(invoke, timeout);
+    if (kind === 'timeout') {
+      nativeId = nativeSetTimeout(invoke, timeout);
+      this.timerCancels.set(timerRef, () => nativeClearTimeout(nativeId));
+    } else {
+      nativeId = nativeSetInterval(invoke, timeout);
+      this.timerCancels.set(timerRef, () => nativeClearInterval(nativeId));
+    }
     this.activeTimers.add(timerRef);
     return timerRef;
+  }
+
+  private clearTrackedTimer(timer: unknown): void {
+    if (typeof timer !== 'object' || timer === null) return;
+    const cancel = this.timerCancels.get(timer);
+    if (!cancel) return;
+    cancel();
+    this.timerCancels.delete(timer);
+    this.activeTimers.delete(timer);
+    this.checkEventLoop();
+  }
+
+  private createRuntimeConsole(): RuntimeConsole {
+    return createRuntimeConsole(
+      this.debugConsole,
+      () => !this.disposed && (!this.didExit || this.emittingExitListeners),
+      () => this.debugConsole?.clear()
+    );
+  }
+
+  private formatOutput(data: string | Uint8Array): string {
+    if (typeof data === 'string') return data;
+    return new TextDecoder().decode(data);
+  }
+
+  private createTimerModule(): RuntimeTimerModule {
+    return {
+      setTimeout: (handler: ProcessListener, delay?: number, ...args: unknown[]) =>
+        this.createTrackedTimer('timeout', handler, delay, args),
+      clearTimeout: (timer?: unknown) => this.clearTrackedTimer(timer),
+      setInterval: (handler: ProcessListener, delay?: number, ...args: unknown[]) =>
+        this.createTrackedTimer('interval', handler, delay, args),
+      clearInterval: (timer?: unknown) => this.clearTrackedTimer(timer),
+      setImmediate: (handler: ProcessListener, ...args: unknown[]) =>
+        this.taskScheduler.createImmediate(handler, args),
+      clearImmediate: (timer?: unknown) => this.clearTrackedTimer(timer),
+    };
   }
 
   getExitCode(): number {
@@ -340,97 +482,172 @@ export class NodeRuntime {
   private finalizeProcessExit(code: number): void {
     this.exitCode = normalizeProcessExitCode(code);
     this.didExit = true;
+    this.resolveProcessExit(this.exitCode);
+    for (const cancel of this.timerCancels.values()) cancel();
+    this.timerCancels.clear();
     this.activeTimers.clear();
-    this.pendingIO.clear();
-
     if (this.eventLoopResolve) {
       this.eventLoopResolve();
       this.eventLoopResolve = null;
     }
-  }
-
-  /**
-   * コードをラップ（同期実行）
-   */
-  private wrapCode(code: string, filePath: string): string {
-    // Shebangを削除 (#!/usr/bin/env node など)
-    // eval/new Function は Shebang をサポートしていないため
-    if (code.startsWith('#!')) {
-      code = `//${code}`; // コメントアウトして行数を維持
+    if (!this.exitNotified && this.onExit) {
+      this.exitNotified = true;
+      nativeQueueMicrotask(() => this.onExit?.(this.exitCode));
     }
+  }
 
-    return `
-      return (() => {
-        'use strict';
-        const module = { exports: {} };
-        const exports = module.exports;
-        const __filename = ${JSON.stringify(filePath)};
-        const __dirname = ${JSON.stringify(getParentPath(filePath))};
-        
-        ${code}
-        
-        return module.exports;
-      })();
-    `;
+  private completeNaturalProcessExit(): void {
+    const process = this.currentProcess;
+    if (!process || this.didExit || this.hasActiveWork()) return;
+    process.emit('beforeExit', process.exitCode ?? 0);
+    if (this.didExit || this.hasActiveWork()) return;
+    this.finalizeProcessExit(this.exitCode);
+    this.emitExitEvent(process);
+  }
+
+  private emitExitEvent(process: ProcessObject): void {
+    if (this.exitEventEmitted) return;
+    this.exitEventEmitted = true;
+    this.emittingExitListeners = true;
+    try {
+      process.emit('exit', process.exitCode ?? 0);
+    } finally {
+      this.emittingExitListeners = false;
+    }
+  }
+
+  interrupt(): boolean {
+    if (!this.currentProcess) return false;
+    try {
+      return this.currentProcess.emit('SIGINT');
+    } catch (error) {
+      if (!isProcessExitSignal(error)) throw error;
+      this.finalizeProcessExit(error.code);
+      return true;
+    }
+  }
+
+  handleUncaughtException(error: unknown): boolean {
+    return this.currentProcess?.emit('uncaughtException', error) ?? false;
+  }
+
+  handleUnhandledRejection(reason: unknown, promise: Promise<unknown>): boolean {
+    return this.currentProcess?.emit('unhandledRejection', reason, promise) ?? false;
   }
 
   /**
-   * processオブジェクトを作成
-   * @param currentFilePath 現在のファイルパス（argvに使用）
-   * @param argv コマンドライン引数
+   * Create the process object.
+   * @param currentFilePath Entry path used in argv.
+   * @param argv Command-line arguments.
    */
-  private createProcessObject(currentFilePath?: string, argv: string[] = []): Record<string, any> {
+  private createProcessObject(
+    currentFilePath?: string,
+    argv: string[] = [],
+    evalMode = false,
+    execArgv: string[] = []
+  ): ProcessObject {
     // EventEmitter-like listener store for process events (exit, uncaughtException, etc.)
-    const listeners: Record<string, Function[]> = {};
+    const listeners = this.processListeners;
     const startedAt = performance.now();
-    const hrtime = (time?: [number, number]): [number, number] => {
-      const elapsedNs = BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
-      if (!time) {
-        return [Number(elapsedNs / 1_000_000_000n), Number(elapsedNs % 1_000_000_000n)];
-      }
-      const baseNs = BigInt(time[0]) * 1_000_000_000n + BigInt(time[1]);
-      const diffNs = elapsedNs - baseNs;
-      return [Number(diffNs / 1_000_000_000n), Number(diffNs % 1_000_000_000n)];
-    };
-    hrtime.bigint = () => BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
+    const runtime = this;
+    let guestExitCode: number | undefined;
+    const hrtime = Object.assign(
+      (time?: [number, number]): [number, number] => {
+        const elapsedNs = BigInt(Math.floor((performance.now() - startedAt) * 1_000_000));
+        if (!time) {
+          return [Number(elapsedNs / 1_000_000_000n), Number(elapsedNs % 1_000_000_000n)];
+        }
+        const baseNs = BigInt(time[0]) * 1_000_000_000n + BigInt(time[1]);
+        const diffNs = elapsedNs - baseNs;
+        return [Number(diffNs / 1_000_000_000n), Number(diffNs % 1_000_000_000n)];
+      },
+      { bigint: () => BigInt(Math.floor((performance.now() - startedAt) * 1_000_000)) }
+    );
+    const createOutputStream = (fd: number, write: (data: Uint8Array) => void, isTTY: boolean) =>
+      Object.assign(
+        createRuntimeWritable(data => {
+          if (this.disposed || (this.didExit && !this.emittingExitListeners)) return;
+          write(data);
+        }),
+        {
+          fd,
+          isTTY,
+          columns: this.terminalColumns,
+          rows: this.terminalRows,
+          getColorDepth: () => 24,
+          hasColors: (count?: number) => count === undefined || count <= 16777216,
+        }
+      );
 
-    const processObj: Record<string, any> = {
+    let processArgv = ['node', currentFilePath || '/'];
+    if (evalMode) processArgv = ['node'];
+    processArgv = processArgv.concat(argv);
+
+    const processObj: ProcessObject = {
       env: {
+        HOME: HOME_DIR,
         LANG: 'en',
         // chalk, colors, etc. color libraries check these environment variables
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
         FORCE_COLOR: '3', // Force color level 3 (truecolor)
+        ...this.env,
       },
-      argv: ['node', currentFilePath || '/'].concat(argv),
+      argv: processArgv,
+      execArgv,
+      execPath: 'node',
       cwd: () => this.cwd,
+      chdir: (directory: string) => {
+        const nextCwd = resolvePath(this.cwd, directory);
+        const stat = this.filesystem.statSync(nextCwd);
+        if (stat === null) {
+          const error = new Error(`ENOENT: no such file or directory, chdir '${nextCwd}'`);
+          Object.assign(error, { code: 'ENOENT' });
+          throw error;
+        }
+        if (stat.type !== 'directory') {
+          const error = new Error(`ENOTDIR: not a directory, chdir '${nextCwd}'`);
+          Object.assign(error, { code: 'ENOTDIR' });
+          throw error;
+        }
+        this.cwd = this.filesystem.realpathSync(nextCwd);
+      },
+      emitWarning: (
+        warning: string | Error,
+        warningOptions?: { type?: string; code?: string; detail?: string }
+      ) => {
+        const error = typeof warning === 'string' ? new Error(warning) : warning;
+        if (warningOptions?.type) error.name = warningOptions.type;
+        if (warningOptions?.code) Object.assign(error, { code: warningOptions.code });
+        processObj.emit('warning', error);
+        let output = error.stack ?? `${error.name}: ${error.message}`;
+        if (warningOptions?.detail) output = `${output}\n${warningOptions.detail}`;
+        this.onStderr(`${output}\n`);
+      },
       platform: 'browser',
+      arch: this.builtInModules.os.arch(),
       version: 'v18.0.0',
       versions: {
         node: '18.0.0',
         v8: '10.0.0',
       },
       hrtime,
-      uptime: () => (performance.now() - startedAt) / 1000,
-      memoryUsage: () => ({
-        rss: 0,
-        heapTotal: 0,
-        heapUsed: 0,
-        external: 0,
-        arrayBuffers: 0,
-      }),
-      resourceUsage: () => ({}),
-      exit: (code?: number) => {
-        const resolvedCode =
-          code === undefined ? normalizeProcessExitCode(processObj.exitCode) : code;
-        this.finalizeProcessExit(normalizeProcessExitCode(resolvedCode));
-        processObj.emit('exit', this.exitCode);
-        if (this.syncExitBoundaryDepth > 0) {
-          throw createProcessExitSignal(this.exitCode);
-        }
+      get exitCode() {
+        return guestExitCode;
       },
-      nextTick: (fn: Function, ...args: unknown[]) =>
-        setTimeout(() => {
+      set exitCode(value: number | string | undefined) {
+        guestExitCode = validateProcessExitCode(value);
+        runtime.exitCode = normalizeProcessExitCode(guestExitCode);
+      },
+      uptime: () => (performance.now() - startedAt) / 1000,
+      exit: (code?: number | string) => {
+        if (code !== undefined) processObj.exitCode = code;
+        this.finalizeProcessExit(this.exitCode);
+        this.emitExitEvent(processObj);
+        throw createProcessExitSignal(this.exitCode);
+      },
+      nextTick: (fn: (...args: unknown[]) => void, ...args: unknown[]) => {
+        this.taskScheduler.scheduleNextTick(() => {
           try {
             fn(...args);
           } catch (error) {
@@ -440,34 +657,37 @@ export class NodeRuntime {
             }
             throw error;
           }
-        }, 0),
+        });
+      },
       // EventEmitter methods — many npm packages call process.on('exit', ...)
-      on: (event: string, cb: Function) => {
+      on: (event: string, cb: ProcessListener) => {
+        if (this.disposed || this.didExit) return processObj;
         if (!listeners[event]) listeners[event] = [];
         listeners[event].push(cb);
         return processObj;
       },
-      once: (event: string, cb: Function) => {
+      once: (event: string, cb: ProcessListener) => {
         const wrapped = (...args: unknown[]) => {
           processObj.removeListener(event, wrapped);
           cb(...args);
         };
         return processObj.on(event, wrapped);
       },
-      off: (event: string, cb: Function) => {
+      off: (event: string, cb: ProcessListener) => {
         return processObj.removeListener(event, cb);
       },
-      removeListener: (event: string, cb: Function) => {
+      removeListener: (event: string, cb: ProcessListener) => {
         if (listeners[event]) {
           listeners[event] = listeners[event].filter(fn => fn !== cb);
         }
         return processObj;
       },
-      addListener: (event: string, cb: Function) => {
+      addListener: (event: string, cb: ProcessListener) => {
         return processObj.on(event, cb);
       },
       emit: (event: string, ...args: unknown[]) => {
-        if (listeners[event]) {
+        if (this.disposed || (this.didExit && !this.emittingExitListeners)) return false;
+        if (listeners[event]?.length) {
           for (const fn of [...listeners[event]]) {
             fn(...args);
           }
@@ -476,7 +696,9 @@ export class NodeRuntime {
         return false;
       },
       listeners: (event: string) => {
-        return listeners[event] ? [...listeners[event]] : [];
+        const eventListeners = listeners[event];
+        if (!eventListeners) return [];
+        return [...eventListeners];
       },
       removeAllListeners: (event?: string) => {
         if (event) {
@@ -486,493 +708,81 @@ export class NodeRuntime {
         }
         return processObj;
       },
-      stdin: this.processStdin ?? {
-        on: () => {},
-        once: () => {},
-        removeListener: () => {},
-        setRawMode: () => {},
-        pause: () => {},
-        resume: () => {},
-        isTTY: true,
-      },
-      stdout: (() => {
-        // \r (carriage return) を正しく処理するラインバッファ
-        // prettier等は \r で同一行を上書きするが、debugConsole.log は行単位なのでバッファが必要
-        let lineBuf = '';
-        const emitLine = (line: string) => {
-          if (this.debugConsole?.log) this.debugConsole.log(line);
-          else runtimeInfo(line);
-        };
-        return {
-          write: (data: string) => {
-            lineBuf += data;
-            let cur = '';
-            for (let i = 0; i < lineBuf.length; i++) {
-              const ch = lineBuf[i];
-              if (ch === '\r') {
-                cur = ''; // キャリッジリターン: 現在行をクリア（上書き予定）
-              } else if (ch === '\n') {
-                emitLine(cur);
-                cur = '';
-              } else {
-                cur += ch;
-              }
-            }
-            lineBuf = cur; // 未完了行をバッファに残す
-            return true;
-          },
-          isTTY: true,
-          columns: this.terminalColumns,
-          rows: this.terminalRows,
-          getColorDepth: () => 24,
-          hasColors: (count?: number) => count === undefined || count <= 16777216,
-        };
-      })(),
-      stderr: {
-        write: (data: string) => {
-          if (this.debugConsole?.error) {
-            this.debugConsole.error(data);
-          } else {
-            runtimeError(data);
-          }
-          return true;
-        },
-        isTTY: true,
-        columns: this.terminalColumns,
-        rows: this.terminalRows,
-        getColorDepth: () => 24,
-        hasColors: (count?: number) => count === undefined || count <= 16777216,
-      },
+      stdin: this.processStdin,
+      stdout: createOutputStream(1, data => this.onStdout(data), this.stdoutIsTTY),
+      stderr: createOutputStream(2, data => this.onStderr(data), this.stderrIsTTY),
     };
-
-    Object.defineProperty(processObj, 'exitCode', {
-      configurable: true,
-      enumerable: true,
-      get: () => this.exitCode,
-      set: (value: unknown) => {
-        this.exitCode = normalizeProcessExitCode(value);
-      },
-    });
 
     return processObj;
   }
 
   /**
-   * グローバルオブジェクトを作成
+   * Create the runtime globals.
    */
-  private createGlobals(currentFilePath: string, argv: string[] = []): Record<string, any> {
-    const process = this.createProcessObject(currentFilePath, argv);
+  private createGlobals(
+    currentFilePath: string,
+    argv: string[],
+    runtimeFunction: FunctionConstructor,
+    evalMode = false,
+    execArgv: string[] = []
+  ) {
+    const process = this.createProcessObject(currentFilePath, argv, evalMode, execArgv);
     this.currentProcess = process;
     const Buffer = this.builtInModules.buffer.Buffer;
-    const runtimeGlobal: Record<string, any> = {
-      ...globalThis,
-      navigator: {
-        ...(globalThis.navigator || {}),
-        userAgent: 'Mozilla/5.0 Chrome/120.0.0.0',
-        userAgentData: {
-          brands: [{ brand: 'Chromium', version: '120' }],
-        },
-      },
-      process,
-      Buffer,
-    };
-    runtimeGlobal.global = runtimeGlobal;
-    runtimeGlobal.globalThis = runtimeGlobal;
-
-    return {
-      // グローバルオブジェクト
-      console: {
-        log: (...args: unknown[]) => {
-          if (this.debugConsole?.log) {
-            this.debugConsole.log(...args);
-          } else {
-            runtimeInfo(...args);
-          }
-        },
-        error: (...args: unknown[]) => {
-          if (this.debugConsole?.error) {
-            this.debugConsole.error(...args);
-          } else {
-            runtimeError(...args);
-          }
-        },
-        warn: (...args: unknown[]) => {
-          if (this.debugConsole?.warn) {
-            this.debugConsole.warn(...args);
-          } else {
-            runtimeWarn(...args);
-          }
-        },
-        clear: () => this.debugConsole?.clear(),
-      },
+    const runtimeConsole = this.currentConsole ?? this.createRuntimeConsole();
+    this.currentConsole = runtimeConsole;
+    const timers = this.createTimerModule();
+    const runtimeGlobal = this.globals.global;
+    const globals = {
+      console: runtimeConsole,
       globalThis: runtimeGlobal,
-      // ラップされたsetTimeout/setInterval（イベントループ追跡用）
-      setTimeout: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
-        this.createTrackedTimer('timeout', handler, timeout, args),
-      setInterval: (handler: TimerHandler, timeout?: number, ...args: unknown[]): any =>
-        this.createTrackedTimer('interval', handler, timeout, args),
-      clearTimeout: (id?: any) => {
-        if (id !== undefined) {
-          clearTimeout(Number(id));
-          this.activeTimers.delete(id);
-          this.checkEventLoop();
-        }
-      },
-      clearInterval: (id?: any) => {
-        if (id !== undefined) {
-          clearInterval(Number(id));
-          this.activeTimers.delete(id);
-          this.checkEventLoop();
-        }
-      },
-      Promise,
-      Array,
-      Object,
-      String,
-      Number,
-      Boolean,
-      Date,
-      Math,
-      JSON,
-      Error,
-      RegExp,
-      Map,
-      Set,
-      WeakMap,
-      WeakSet,
-
-      // Node.js グローバル
-      // Create a custom global with spoofed navigator for color support detection
-      // supports-color browser.js checks navigator.userAgent for Chromium
-      // Without this, iOS Safari returns 0 (no color) because it doesn't match Chrome/Chromium
+      ...timers,
+      queueMicrotask: (callback: VoidFunction) => this.taskScheduler.scheduleMicrotask(callback),
+      Function: runtimeFunction,
       global: runtimeGlobal,
       process,
       Buffer,
     };
+    this.globals.install(globals);
   }
 
   /**
-   * require関数を作成
+   * Create the require function.
    */
   private createRequire(currentFilePath: string) {
-    return (moduleName: string) => {
-      runtimeInfo('📦 require:', moduleName);
-
-      // First check built-in modules (always synchronous)
-      const builtInModule = this.resolveBuiltInModule(moduleName);
-      if (builtInModule !== null) {
-        runtimeInfo('✅ Built-in module resolved:', moduleName);
-        return builtInModule;
-      }
-
-      // For user modules, check the execution cache (must be pre-loaded)
-      // We need to resolve the module path synchronously
-      try {
-        // Simple resolution for relative/absolute paths
-        let resolvedPath: string | null = null;
-
-        // Check moduleNameMap first (for npm packages)
-        const mappedPath = this.moduleLoader.resolveModuleName(moduleName);
-        if (mappedPath) {
-          resolvedPath = mappedPath;
-          runtimeInfo('📝 Resolved via moduleNameMap:', moduleName, '→', resolvedPath);
-        }
-        // Relative paths
-        else if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
-          const currentDir = getParentPath(currentFilePath);
-          resolvedPath = resolvePath(currentDir, moduleName);
-        }
-        // Alias (@/)
-        else if (moduleName.startsWith('@/')) {
-          resolvedPath = moduleName.replace('@/', `${this.projectDir}/src/`);
-        }
-        // Absolute path
-        else if (moduleName.startsWith('/')) {
-          resolvedPath = moduleName;
-        }
-        // node_modules (fallback if not in map)
-        else {
-          // Try to find in node_modules (simplified - assumes main entry)
-          let packageName = moduleName;
-          if (moduleName.startsWith('@')) {
-            const parts = moduleName.split('/');
-            packageName = `${parts[0]}/${parts[1]}`;
-          } else {
-            packageName = moduleName.split('/')[0];
-          }
-          resolvedPath = `${this.projectDir}/node_modules/${packageName}`;
-        }
-
-        // Check execution cache using getExports
-        if (resolvedPath) {
-          const exports = this.moduleLoader.getExports(resolvedPath);
-          if (exports) {
-            runtimeInfo('✅ Module loaded from cache:', resolvedPath);
-            return exports;
-          }
-
-          // Try with extensions if exact path failed
-          const extensions = [
-            '',
-            '.js',
-            '.cjs',
-            '.mjs',
-            '.ts',
-            '.mts',
-            '.tsx',
-            '.jsx',
-            '.json',
-            '/index.js',
-            '/index.cjs',
-            '/index.ts',
-          ];
-          for (const ext of extensions) {
-            const pathWithExt = resolvedPath + ext;
-            const exportsExt = this.moduleLoader.getExports(pathWithExt);
-            if (exportsExt) {
-              runtimeInfo('✅ Module loaded from cache (with ext):', pathWithExt);
-              return exportsExt;
-            }
-          }
-        }
-
-        // If not in cache - create Node.js style error
-        runtimeError(`Error [ERR_MODULE_NOT_FOUND]: Cannot find module '${moduleName}'`);
-        if (resolvedPath) {
-          runtimeError(`  Resolved path: ${resolvedPath}`);
-        }
-        runtimeError(`  Required from: ${currentFilePath}`);
-        throw createModuleNotFoundError(moduleName, currentFilePath);
-      } catch (error) {
-        if (isProcessExitSignal(error)) {
-          throw error;
-        }
-        if (error instanceof Error && error.name.includes('ERR_MODULE_NOT_FOUND')) {
-          throw error;
-        }
-        runtimeError(formatNodeError(error, { moduleName }));
-        throw error;
-      }
-    };
-  }
-
-  private async runChildProcessShell(
-    command: string,
-    options?: { cwd?: string; env?: Record<string, string> }
-  ): Promise<{ stdout: string; stderr: string; code: number | null }> {
-    const { ShellExecutor } = await import('@/engine/cmd/shell/executor');
-    const { terminalCommandRegistry } = await import('@/engine/cmd/terminalRegistry');
-
-    const unix = terminalCommandRegistry.getUnixCommands(this.projectName, this.projectId);
-    const savedCwd = await unix.pwd().catch(() => null);
-    const targetCwd = options?.cwd;
-
-    try {
-      if (targetCwd) {
-        await unix.cd([targetCwd]).catch(() => {});
-      }
-
-      const executor = new ShellExecutor({
-        projectName: this.projectName,
-        projectId: this.projectId,
-        unix,
-        fileRepository,
-        commandRegistry: terminalCommandRegistry,
-        terminalColumns: this.terminalColumns,
-        terminalRows: this.terminalRows,
-        env: options?.env,
-        isInteractive: false,
-      });
-
-      return await executor.run(command);
-    } finally {
-      if (savedCwd) {
-        await unix.cd([savedCwd]).catch(() => {});
-      }
-    }
+    return this.moduleLoader.createRequire(currentFilePath);
   }
 
   /**
-   * ビルトインモジュールを解決
-   * `node:` プレフィックス付きのモジュール名もサポート
-   */
-  private resolveBuiltInModule(moduleName: string): unknown | null {
-    // `node:` プレフィックスを削除して正規化
-    const normalizedName = moduleName.startsWith('node:') ? moduleName.slice(5) : moduleName;
-
-    const builtIns: Record<string, unknown> = {
-      fs: this.builtInModules.fs,
-      'fs/promises': (this.builtInModules.fs as any).promises,
-      path: this.builtInModules.path,
-      os: this.builtInModules.os,
-      util: this.builtInModules.util,
-      http: this.builtInModules.http,
-      https: this.builtInModules.https,
-      buffer: this.builtInModules.buffer,
-      readline: this.builtInModules.readline,
-      assert: this.builtInModules.assert,
-      events: this.builtInModules.events,
-      module: this.builtInModules.module,
-      url: this.builtInModules.url,
-      stream: this.builtInModules.stream,
-      tty: this.builtInModules.tty,
-      v8: this.builtInModules.v8,
-      crypto: this.builtInModules.crypto,
-      child_process: this.builtInModules.child_process,
-      'stream/consumers': {
-        text: async (s: any): Promise<string> => {
-          const chunks: Uint8Array[] = [];
-          for await (const chunk of s)
-            chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-          const all = chunks.reduce((a, b) => {
-            const c = new Uint8Array(a.length + b.length);
-            c.set(a);
-            c.set(b, a.length);
-            return c;
-          }, new Uint8Array(0));
-          return new TextDecoder().decode(all);
-        },
-        json: async (s: any): Promise<unknown> => {
-          const chunks: Uint8Array[] = [];
-          for await (const chunk of s)
-            chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-          const all = chunks.reduce((a, b) => {
-            const c = new Uint8Array(a.length + b.length);
-            c.set(a);
-            c.set(b, a.length);
-            return c;
-          }, new Uint8Array(0));
-          return JSON.parse(new TextDecoder().decode(all));
-        },
-        buffer: async (s: any): Promise<Uint8Array> => {
-          const chunks: Uint8Array[] = [];
-          for await (const chunk of s)
-            chunks.push(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-          return chunks.reduce((a, b) => {
-            const c = new Uint8Array(a.length + b.length);
-            c.set(a);
-            c.set(b, a.length);
-            return c;
-          }, new Uint8Array(0));
-        },
-      },
-      'stream/promises': {
-        pipeline: (..._args: unknown[]) => Promise.resolve(),
-        finished: (_stream: unknown, _options?: unknown) => Promise.resolve(),
-      },
-      'stream/web': {},
-      'timers/promises': {
-        setTimeout: (delay?: number) =>
-          new Promise(resolve => globalThis.setTimeout(resolve, delay)),
-        setImmediate: () => new Promise(resolve => globalThis.setTimeout(resolve, 0)),
-        setInterval: async function* (_delay?: number) {},
-      },
-      perf_hooks: {
-        performance: {
-          now: () => performance.now(),
-          mark: (_name: string) => {},
-          measure: (_name: string, _start?: string, _end?: string) => ({
-            duration: 0,
-            name: _name,
-          }),
-          getEntriesByName: () => [],
-          getEntriesByType: () => [],
-          clearMarks: () => {},
-          clearMeasures: () => {},
-        },
-        PerformanceObserver: class {
-          constructor(_callback: any) {}
-          observe(_options: any) {}
-          disconnect() {}
-        },
-        constants: {},
-      },
-      worker_threads: {
-        isMainThread: true,
-        workerData: null,
-        parentPort: null,
-        threadId: 0,
-        Worker: class {
-          constructor() {
-            throw new Error('Worker not supported');
-          }
-        },
-      },
-      // process モジュール - 実行中の process.argv/cwd/env を共有する
-      process: this.currentProcess ?? this.createProcessObject(),
-      timers: {
-        setTimeout: globalThis.setTimeout,
-        clearTimeout: globalThis.clearTimeout,
-        setInterval: globalThis.setInterval,
-        clearInterval: globalThis.clearInterval,
-        setImmediate: (fn: Function, ...args: unknown[]) => setTimeout(() => fn(...args), 0),
-        clearImmediate: (id: any) => clearTimeout(id),
-      },
-      console: globalThis.console,
-    };
-
-    return builtIns[normalizedName] ?? null;
-  }
-
-  /**
-   * ファイルを読み込み（非同期）
-   */
-  private async readFile(filePath: string): Promise<string | null> {
-    try {
-      await fileRepository.init();
-      const normalizedPath = fsPathToAppPath(filePath, this.projectName);
-
-      const file = await fileRepository.getFileByPath(this.projectId, normalizedPath);
-      if (!file) {
-        this.log('⚠️ File not found in IndexedDB:', normalizedPath);
-        return null;
-      }
-
-      if (file.isBufferArray && file.bufferContent) {
-        this.warn('⚠️ Cannot execute binary file:', normalizedPath);
-        return null;
-      }
-
-      return file.content;
-    } catch (error) {
-      this.error('❌ Failed to read file:', filePath, error);
-      return null;
-    }
-  }
-
-  /**
-   * ログ出力
-   */
-  private log(...args: unknown[]): void {
-    this.debugConsole?.log(...args);
-  }
-
-  /**
-   * エラー出力
-   */
-  private error(...args: unknown[]): void {
-    this.debugConsole?.error(...args);
-  }
-
-  /**
-   * 警告出力
-   */
-  private warn(...args: unknown[]): void {
-    this.debugConsole?.warn(...args);
-  }
-
-  /**
-   * キャッシュをクリア
+   * Clear the module cache.
    */
   clearCache(): void {
     this.moduleLoader.clearCache();
   }
-}
 
-/**
- * Node.jsファイルを実行
- */
-export async function executeNodeFile(options: ExecutionOptions): Promise<void> {
-  const runtime = new NodeRuntime(options);
-  await runtime.execute(options.filePath);
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const cancel of this.timerCancels.values()) cancel();
+    this.timerCancels.clear();
+    this.activeTimers.clear();
+    for (const event of Object.keys(this.processListeners)) delete this.processListeners[event];
+    for (const promise of this.pendingIO) {
+      retiredPromises.add(promise);
+      void promise.catch(() => {});
+    }
+    this.pendingIO.clear();
+    this.eventLoopResolve?.();
+    this.eventLoopResolve = null;
+    this.moduleLoader.clearCache();
+    this.currentProcess?.stdout.destroy();
+    this.currentProcess?.stderr.destroy();
+    this.globals.restore();
+    this.currentProcess = null;
+    this.currentConsole = null;
+    this.onExit = undefined;
+    this.onStdout = () => {};
+    this.onStderr = () => {};
+    this.debugConsole = undefined;
+  }
 }

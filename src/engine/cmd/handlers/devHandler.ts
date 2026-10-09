@@ -87,13 +87,11 @@ async function showHelp(context: DevCommandContext): Promise<void> {
  */
 export async function handleDevCommand(
   args: string[],
-  projectName: string,
-  projectId: string,
+  rootPath: string,
   writeOutput: (output: string) => Promise<void>
 ): Promise<void> {
   const context: DevCommandContext = {
-    projectName,
-    projectId,
+    rootPath,
     writeOutput,
   };
 

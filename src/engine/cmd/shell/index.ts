@@ -46,13 +46,13 @@
 
 export { default as expandBraces } from './braceExpand';
 export {
-  createShellExecutor,
   type OutputCallbacks,
   ShellExecutor,
   type ShellExecutorOptions,
 } from './executor';
 // Utilities
 export { expandTokens } from './expansion';
+export { createShellExecutor } from './factory';
 // Parser
 export { parseCommandLine } from './parser';
 export { runScript } from './scriptRunner';

@@ -11,12 +11,19 @@ import OperationWindow, {
 import { LOCALSTORAGE_KEY } from '@/constants/config';
 import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { buildAIFileContextList } from '@/engine/ai/contextBuilder';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { loadAIFileContext } from '@/engine/ai/contextBuilder';
+import { clearAIReviewEntry, getAIReviewEntry } from '@/engine/storage/aiStorageAdapter';
+import { applyChatEdit } from '@/hooks/ai/applyChatEdit';
+import { revertChatEdits } from '@/hooks/ai/revertChatEdits';
 import { useAI } from '@/hooks/ai/useAI';
+import { useAIFileContexts } from '@/hooks/ai/useAIFileContexts';
 import { useAIReview } from '@/hooks/ai/useAIReview';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
-import { tabActions, tabState, updateFromExternal } from '@/stores/tabState';
+import { getInputHistoryStorageKey } from '@/hooks/ai/useInputHistory';
+import { pushLogMessage } from '@/stores/loggerStore';
+import { getCurrentRootPath } from '@/stores/projectStore';
+import { tabState } from '@/stores/tabState';
+import { collectAllTabs } from '@/stores/tabState/paneUtils';
 import type { ChatSpaceMessage, FileItem, Project } from '@/types';
 import ChatContainer from './chat/ChatContainer';
 import ChatInput from './chat/ChatInput';
@@ -27,10 +34,10 @@ import ChangedFilesPanel from './review/ChangedFilesPanel';
 interface AIPanelProps {
   projectFiles: FileItem[];
   currentProject: Project | null;
-  currentProjectId?: string;
+  rootPath: string | null;
 }
 
-function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProps) {
+function AIPanel({ projectFiles, currentProject, rootPath }: AIPanelProps) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const [mode, setMode] = useState<'ask' | 'edit'>('ask');
@@ -60,6 +67,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   const {
     chatSpaces,
     currentSpace,
+    error: chatSpaceError,
     createNewSpace,
     selectSpace,
     deleteSpace,
@@ -68,8 +76,11 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
     updateSpaceName,
     updateChatMessage,
     revertToMessage,
-  } = useChatSpace(currentProject?.id || null);
+  } = useChatSpace(rootPath);
 
+  const currentSpaceRef = useRef(currentSpace);
+  currentSpaceRef.current = currentSpace;
+  const [fileContextError, setFileContextError] = useState<string | null>(null);
   // AI機能
   const {
     messages,
@@ -77,17 +88,26 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
     fileContexts,
     sendMessage,
     updateFileContexts,
+    clearFileContexts,
     toggleFileSelection,
     generatePromptText,
   } = useAI({
-    onAddMessage: async (content, type, mode, fileContext, editResponse) => {
-      return await addSpaceMessage(content, type, mode, fileContext, editResponse);
+    onAddMessage: async (content, type, mode, fileContext, editResponse, targetSpaceId) => {
+      return await addSpaceMessage(content, type, mode, fileContext, editResponse, {
+        rootPath: rootPath ?? undefined,
+        spaceId: targetSpaceId ?? currentSpace?.id,
+      });
     },
     selectedFiles: currentSpace?.selectedFiles,
     onUpdateSelectedFiles: updateSpaceSelectedFiles,
+    onSelectionError: setFileContextError,
     messages: currentSpace?.messages,
-    projectId: currentProject?.id,
+    rootPath,
+    spaceId: currentSpace?.id,
   });
+  const fileContextsRef = useRef(fileContexts);
+  fileContextsRef.current = fileContexts;
+  const loadingFilePathsRef = useRef(new Set<string>());
 
   // Prompt debug modal state
   const [showPromptDebug, setShowPromptDebug] = useState(false);
@@ -96,22 +116,33 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   // レビュー機能
   const { openAIReviewTab, closeAIReviewTab } = useAIReview();
 
-  const fileContextsRef = useRef(fileContexts);
-  const updateFileContextsRef = useRef(updateFileContexts);
-  fileContextsRef.current = fileContexts;
-  updateFileContextsRef.current = updateFileContexts;
+  const findSourceEditMessage = (filePath: string, space = currentSpace) =>
+    space?.messages
+      .slice()
+      .reverse()
+      .find(
+        message =>
+          message.mode === 'edit' &&
+          message.type === 'assistant' &&
+          message.editResponse?.changedFiles.some(file => file.path === filePath)
+      );
 
-  // プロジェクトファイルが変更されたときにコンテキストを更新
-  useEffect(() => {
-    if (projectFiles.length > 0) {
-      const selectedMap = new Map(fileContextsRef.current.map(ctx => [ctx.path, ctx.selected]));
-      const contexts = buildAIFileContextList(projectFiles).map(ctx => ({
-        ...ctx,
-        selected: selectedMap.get(ctx.path) ?? false,
-      }));
-      updateFileContextsRef.current(contexts);
-    }
-  }, [projectFiles]);
+  const latestEditMessage = currentSpace?.messages
+    .slice()
+    .reverse()
+    .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse);
+  const latestEditResponse = latestEditMessage?.editResponse;
+
+  const getFileContextRevision = useAIFileContexts({
+    rootPath,
+    projectFiles,
+    currentSpace,
+    fileContexts,
+    updateFileContexts,
+    clearFileContexts,
+    updateSelectedFiles: updateSpaceSelectedFiles,
+    setError: setFileContextError,
+  });
 
   // 履歴キャッシュ: filePath -> history entries
 
@@ -121,48 +152,92 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
   };
 
   // メッセージ送信ハンドラー
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string): Promise<boolean> => {
     if (!isApiKeySet()) {
       alert('Gemini APIキーが設定されていません。設定画面で設定してください。');
-      return;
+      return false;
     }
 
     if (!currentProject && mode === 'edit') {
       alert('プロジェクトが選択されていません。');
-      return;
+      return false;
     }
 
     try {
-      await sendMessage(content, mode);
+      const targetSpace = currentSpace ?? (await createNewSpace());
+      if (!targetSpace) return false;
+      await sendMessage(content, mode, targetSpace.id);
+      return true;
     } catch (error) {
       console.error('Failed to send message:', error);
-      alert(`エラーが発生しました: ${(error as Error).message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      pushLogMessage(message, 'error', 'AI');
+      alert(`エラーが発生しました: ${message}`);
+      return false;
     }
   };
 
   // ファイル選択
-  const handleFileSelect = (file: FileItem) => {
+  const handleFileSelect = async (file: FileItem) => {
     const existingContext = fileContexts.find(ctx => ctx.path === file.path);
-    if (!existingContext && file.type === 'file' && file.content) {
-      const newContext = {
-        path: file.path,
-        name: file.name,
-        content: file.content,
-        selected: true,
-      };
-      const newContexts = [...fileContexts, newContext];
-      updateFileContexts(newContexts);
-    } else if (existingContext) {
+    if (existingContext) {
       toggleFileSelection(file.path);
+      return;
+    }
+    if (file.type !== 'file' || loadingFilePathsRef.current.has(file.path)) return;
+
+    const selectedSpaceId = currentSpace?.id;
+    const selectedRootPath = rootPath;
+    const revision = getFileContextRevision(file.path);
+    loadingFilePathsRef.current.add(file.path);
+    try {
+      const newContext = await loadAIFileContext(file.path);
+      const activeSpace = currentSpaceRef.current;
+      if (
+        getFileContextRevision(file.path) !== revision ||
+        getCurrentRootPath() !== selectedRootPath ||
+        (selectedSpaceId !== undefined &&
+          (activeSpace?.id !== selectedSpaceId || activeSpace.rootPath !== selectedRootPath))
+      ) {
+        return;
+      }
+      const latestContexts = fileContextsRef.current;
+      const existing = latestContexts.find(context => context.path === file.path);
+      let nextContexts = [...latestContexts, newContext];
+      if (existing) {
+        nextContexts = latestContexts.map(context => ({
+          ...context,
+          selected: context.selected || context.path === file.path,
+        }));
+      }
+      fileContextsRef.current = nextContexts;
+      updateFileContexts(nextContexts);
+    } catch (error) {
+      if (
+        getFileContextRevision(file.path) !== revision ||
+        getCurrentRootPath() !== selectedRootPath ||
+        currentSpaceRef.current?.id !== selectedSpaceId
+      )
+        return;
+      const message = `Failed to load AI file context: ${error instanceof Error ? error.message : String(error)}`;
+      console.error('[AIPanel] Failed to load selected file context:', error);
+      setFileContextError(message);
+      pushLogMessage(message, 'error', 'AI');
+    } finally {
+      loadingFilePathsRef.current.delete(file.path);
     }
   };
 
   // 現在アクティブなタブのファイルを取得
-  const { globalActiveTab: globalActiveTabId, activePane: activePaneId } = useSnapshot(tabState);
+  const {
+    globalActiveTab: globalActiveTabId,
+    activePane: activePaneId,
+    panes: tabPanes,
+  } = useSnapshot(tabState);
 
   const activeTab = useMemo(() => {
     if (!globalActiveTabId) return null;
-    const allTabs = tabActions.getAllTabs();
+    const allTabs = collectAllTabs(tabPanes);
 
     // 同一ファイルが複数ペインで開かれている場合、現在アクティブなペインに属するタブを優先して返す。
     const preferred = allTabs.find(t => t.id === globalActiveTabId && t.paneId === activePaneId);
@@ -170,10 +245,10 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
 
     // フォールバック: id のみでマッチする最初のタブを返す
     return allTabs.find(t => t.id === globalActiveTabId) || null;
-  }, [globalActiveTabId, activePaneId]);
+  }, [globalActiveTabId, activePaneId, tabPanes]);
 
   // アクティブタブをコンテキストに追加/削除するユーティリティ
-  const handleToggleActiveTabContext = () => {
+  const handleToggleActiveTabContext = async () => {
     if (!activeTab || !activeTab.path) return;
 
     const already = fileContexts.find(ctx => ctx.path === activeTab.path);
@@ -183,136 +258,103 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
       return;
     }
 
-    // content は Tab のユニオン型によって存在しない場合があるため型ガード
-    const isContentTab = activeTab.kind === 'editor' || activeTab.kind === 'preview';
-    let content = '';
-    if (isContentTab && 'content' in activeTab) {
-      content = String(activeTab.content) || '';
+    if (activeTab.kind !== 'editor' && activeTab.kind !== 'preview') {
+      const error = new Error(`Cannot add non-text tab content to AI context: ${activeTab.path}`);
+      console.error('[AIPanel] Failed to add file context:', error);
+      setFileContextError(error.message);
+      pushLogMessage(error.message, 'error', 'AI');
+      return;
     }
 
-    // FileItem は必須で `id` を持つため、path を id として使う
-    const newFile: FileItem = {
+    await handleFileSelect({
       id: activeTab.path,
       path: activeTab.path,
       name: activeTab.path.split('/').pop() || activeTab.path,
       type: 'file',
-      content,
-    };
-
-    handleFileSelect(newFile);
+    });
   };
 
   // レビューを開く（ストレージから履歴を取得してタブに渡す）
-  // NOTE: NEW-ARCHITECTURE.mdに従い、aiEntryにはprojectIdを必ず含める
+  // Load persisted review history by workspace and absolute file path.
   const handleOpenReview = async (
     filePath: string,
     originalContent: string,
     suggestedContent: string
   ) => {
-    const projectId = currentProject?.id;
-
     try {
-      if (projectId) {
-        const { getAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
-        const entry = await getAIReviewEntry(projectId, filePath);
-
-        // 既存エントリがあればそれを使用、なければundefined
-        openAIReviewTab(filePath, originalContent, suggestedContent, entry ?? undefined);
-        return;
+      const sourceMessage = findSourceEditMessage(filePath);
+      const sourceSpaceId = currentSpace?.id;
+      if (!rootPath || !sourceMessage) {
+        throw new Error('The source AI edit message is no longer available.');
       }
-    } catch (e) {
-      console.warn('[AIPanel] Failed to load AI review entry:', e);
-    }
 
-    // currentProjectがない場合はprojectIdなしで開く（fallback）
-    openAIReviewTab(filePath, originalContent, suggestedContent);
+      const entry = await getAIReviewEntry(rootPath, filePath);
+      if (!entry || entry.parentMessageId !== sourceMessage.id) {
+        throw new Error('The AI review metadata is missing or belongs to another edit.');
+      }
+
+      const liveSpace = currentSpaceRef.current;
+      const liveSourceMessage = findSourceEditMessage(filePath, liveSpace);
+      if (
+        getCurrentRootPath() !== rootPath ||
+        liveSpace?.id !== sourceSpaceId ||
+        liveSourceMessage?.id !== sourceMessage.id
+      ) {
+        throw new Error('The workspace or source edit changed while loading the AI review.');
+      }
+
+      await openAIReviewTab(filePath, originalContent, suggestedContent, entry);
+    } catch (e) {
+      const message = `Failed to open AI review: ${e instanceof Error ? e.message : String(e)}`;
+      console.error('[AIPanel] Failed to open AI review:', e);
+      pushLogMessage(message, 'error', 'AI');
+      alert(message);
+    }
   };
 
   // 変更を適用（suggestedContent -> contentへコピー）
-  // NOTE: NEW-ARCHITECTURE.mdに従い、fileRepositoryを直接使用
   // 同一ファイルを開いている他タブに変更を同期
-  const handleApplyChanges = async (filePath: string, newContent: string) => {
-    const projectId = currentProject?.id;
-
-    if (!projectId) {
-      console.error('[AIPanel] No projectId available, cannot apply changes');
+  const handleApplyChanges = async (filePath: string, newContent: string): Promise<boolean> => {
+    if (!rootPath) {
+      console.error('[AIPanel] No workspace root path available, cannot apply changes');
       alert('プロジェクトが選択されていません');
-      return;
+      return false;
     }
 
-    try {
-      console.log('[AIPanel] Applying changes to:', filePath);
-
-      // fileRepositoryを直接使用してファイルを保存（NEW-ARCHITECTURE.mdに従う）
-      await fileRepository.saveFileByPath(projectId, filePath, newContent);
-
-      // 他タブに変更を通知
-      // 同一ファイルを開いている全タブに即時反映
-      updateFromExternal(filePath, newContent);
-
-      // Clear AI review metadata for this file (non-blocking)
-      try {
-        await fileRepository.clearAIReview(projectId, filePath);
-      } catch (e) {
-        console.warn('[AIPanel] clearAIReview failed (non-critical):', e);
-      }
-
-      // Mark this file as applied in the assistant editResponse (keep original content for revert)
-      try {
-        if (currentSpace && updateChatMessage) {
-          const editMsg = currentSpace.messages
-            .slice()
-            .reverse()
-            .find(m => m.type === 'assistant' && m.mode === 'edit' && m.editResponse);
-
-          if (editMsg?.editResponse) {
-            const newChangedFiles = editMsg.editResponse.changedFiles.map(f =>
-              f.path === filePath ? { ...f, applied: true } : f
-            );
-            const newEditResponse = { ...editMsg.editResponse, changedFiles: newChangedFiles };
-
-            await updateChatMessage(currentSpace.id, editMsg.id, {
-              editResponse: newEditResponse,
-              content: editMsg.content,
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('[AIPanel] Failed to update chat message after apply:', e);
-      }
-    } catch (error) {
-      console.error('[AIPanel] Failed to apply changes:', error);
-      alert(`変更の適用に失敗しました: ${(error as Error).message}`);
-    }
+    if (!updateChatMessage) return false;
+    return applyChatEdit(rootPath, currentSpace, filePath, newContent, updateChatMessage);
   };
 
   // 変更を破棄
   const handleDiscardChanges = async (filePath: string) => {
-    const projectId = currentProject?.id;
-
     try {
-      // Close the review tab immediately so UI updates.
-      closeAIReviewTab(filePath);
-      // Finally clear ai review metadata for this file
-      if (projectId) {
-        try {
-          await fileRepository.init();
-          await fileRepository.clearAIReview(projectId, filePath);
-        } catch (e) {
-          console.warn('[AIPanel] clearAIReview failed after discard:', e);
-        }
+      const sourceMessage = findSourceEditMessage(filePath);
+      const sourceSpaceId = currentSpace?.id;
+      if (
+        !rootPath ||
+        !sourceMessage ||
+        getCurrentRootPath() !== rootPath ||
+        currentSpaceRef.current?.id !== sourceSpaceId
+      ) {
+        throw new Error('The source AI edit message is no longer available.');
+      }
+
+      await clearAIReviewEntry(rootPath, filePath, sourceMessage.id);
+      const liveSpace = currentSpaceRef.current;
+      if (
+        getCurrentRootPath() === rootPath &&
+        liveSpace?.id === sourceSpaceId &&
+        findSourceEditMessage(filePath, liveSpace)?.id === sourceMessage.id
+      ) {
+        closeAIReviewTab(rootPath, filePath, sourceMessage.id);
       }
     } catch (error) {
-      console.error('Failed to discard changes:', error);
-      alert(`変更の破棄に失敗しました: ${(error as Error).message}`);
+      const message = `Failed to discard AI review: ${error instanceof Error ? error.message : String(error)}`;
+      console.error('[AIPanel] Failed to discard AI review:', error);
+      pushLogMessage(message, 'error', 'AI');
+      alert(message);
     }
   };
-
-  // 最新の編集レスポンスを取得
-  const latestEditResponse = currentSpace?.messages
-    .slice()
-    .reverse()
-    .find(msg => msg.mode === 'edit' && msg.type === 'assistant' && msg.editResponse)?.editResponse;
 
   // Convert chatSpaces to OperationListItem[]
   const spaceItems: OperationListItem[] = useMemo(() => {
@@ -332,11 +374,9 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
           setShowSpaceList(false);
         },
         onEditChange: val => setEditingSpaceName(val),
-        onEditConfirm: () => {
-          if (editingSpaceName.trim()) {
-            updateSpaceName(space.id, editingSpaceName.trim());
-          }
-          setEditingSpaceId(null);
+        onEditConfirm: async () => {
+          const name = editingSpaceName.trim();
+          if (!name || (await updateSpaceName(space.id, name))) setEditingSpaceId(null);
         },
         onEditCancel: () => {
           setEditingSpaceId(null);
@@ -391,7 +431,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
     >
       {/* ヘッダー */}
       <div
-        className="flex items-center justify-between px-3 py-2 border-b select-none"
+        className="flex min-w-0 items-center justify-between gap-1 px-3 py-2 border-b select-none"
         style={{
           borderColor: colors.border,
           background: colors.cardBg,
@@ -399,44 +439,39 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
           minWidth: 0,
         }}
       >
-        <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
-          <Bot size={16} style={{ color: colors.accent }} />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Bot size={16} className="shrink-0" style={{ color: colors.accent }} />
           <span
-            className="text-sm font-semibold select-none overflow-hidden text-ellipsis whitespace-nowrap"
-            style={{ color: colors.foreground }}
+            className="min-w-0 shrink text-sm font-semibold select-none truncate"
+            style={{ color: colors.foreground, maxWidth: '8rem' }}
           >
             AI Assistant
           </span>
 
           {/* スペース切り替え */}
-          <div className="relative" style={{ minWidth: 0 }}>
+          <div className="relative min-w-0 flex-1">
             <button
               type="button"
-              className="flex items-center gap-2 px-2 py-1 rounded-md hover:opacity-80 transition-all text-xs"
+              className="flex min-w-0 max-w-full items-center gap-2 px-2 py-1 rounded-md hover:opacity-80 transition-all text-xs"
               style={{
                 background: colors.mutedBg,
                 color: colors.foreground,
                 border: `1px solid ${colors.border}`,
-                maxWidth: '220px',
+                width: '100%',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 overflowWrap: 'anywhere',
-                display: 'inline-flex',
-                alignItems: 'center',
               }}
               ref={spaceButtonRef}
               onClick={() => {
                 setShowSpaceList(prev => !prev);
               }}
             >
-              <span
-                className="truncate"
-                style={{ maxWidth: '160px', display: 'inline-block', overflowWrap: 'anywhere' }}
-              >
-                {currentSpace?.name || 'スペース'}
+              <span className="min-w-0 flex-1 truncate" style={{ overflowWrap: 'anywhere' }}>
+                {currentSpace?.name || t('chatSpaceList.title')}
               </span>
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className="shrink-0" />
             </button>
           </div>
         </div>
@@ -444,7 +479,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
         {/* Debug button to show internal prompt */}
         <button
           type="button"
-          className="p-1 rounded hover:opacity-80 transition-all"
+          className="shrink-0 p-1 rounded hover:opacity-80 transition-all"
           style={{
             color: colors.mutedFg,
             background: 'transparent',
@@ -476,7 +511,13 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
               icon: <Plus size={12} />,
               label: t('chatSpaceList.create') || 'New Space',
               onClick: async () => {
-                await createNewSpace();
+                try {
+                  await createNewSpace();
+                } catch (error) {
+                  const message = `Failed to create chat space: ${error instanceof Error ? error.message : String(error)}`;
+                  pushLogMessage(message, 'error', 'AI');
+                  alert(message);
+                }
               },
             },
           ]}
@@ -489,7 +530,7 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
       <ChatContainer
         messages={messages}
         isProcessing={isProcessing}
-        emptyMessage={mode === 'ask' ? t('AI.mode.ask') : t('AI.mode.edit')}
+        emptyMessage={mode === 'ask' ? t('ai.mode.ask') : t('ai.mode.edit')}
         onRevert={async (message: ChatSpaceMessage) => {
           // Show confirmation dialog instead of executing immediately
           setRevertConfirmation({ open: true, message });
@@ -567,9 +608,23 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
         <ModeSelector mode={mode} onChange={setMode} disabled={isProcessing} />
       </div>
 
+      {fileContextError && (
+        <div role="alert" className="px-2 pb-1 text-xs text-red-500">
+          {fileContextError}
+        </div>
+      )}
+      {chatSpaceError && (
+        <div role="alert" className="px-2 pb-1 text-xs text-red-500">
+          {chatSpaceError}
+        </div>
+      )}
+
       {/* 入力エリア */}
       <ChatInput
+        key={rootPath ?? 'no-workspace'}
         mode={mode}
+        rootPath={rootPath ?? 'no-workspace'}
+        historyStorageKey={getInputHistoryStorageKey(rootPath ?? 'no-workspace', mode)}
         onSubmit={handleSendMessage}
         isProcessing={isProcessing}
         selectedFiles={fileContexts.filter(ctx => ctx.selected).map(ctx => ctx.path)}
@@ -698,87 +753,20 @@ function AIPanel({ projectFiles, currentProject, currentProjectId }: AIPanelProp
           const message = revertConfirmation.message;
           setRevertConfirmation({ open: false, message: null });
 
-          if (!message) return;
-
-          const projectId = currentProject?.id;
-          try {
-            if (!projectId) return;
-            if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse)
-              return;
-
-            const { clearAIReviewEntry } = await import('@/engine/storage/aiStorageAdapter');
-
-            // 1. このメッセージ以降の全メッセージを削除（このメッセージ含む）
-            const deletedMessages = await revertToMessage(message.id);
-
-            // 2. 削除されたメッセージの中から、editResponseを持つものを全て処理
-            //    editResponse内のoriginalContentを使ってファイルを復元
-            //    逆順で処理することで、最新の変更から順に元に戻す
-            const reversedMessages = [...deletedMessages].reverse();
-
-            for (const deletedMsg of reversedMessages) {
-              if (
-                deletedMsg.type === 'assistant' &&
-                deletedMsg.mode === 'edit' &&
-                deletedMsg.editResponse
-              ) {
-                const files = deletedMsg.editResponse.changedFiles || [];
-                // Only revert files that were applied (default to false if undefined)
-                const appliedFiles = files.filter(f => f.applied === true);
-
-                for (const f of appliedFiles) {
-                  try {
-                    if (f.isNewFile) {
-                      // This was a new file created by AI - delete it on revert
-                      const fileToDelete = await fileRepository.getFileByPath(projectId, f.path);
-                      if (fileToDelete) {
-                        await fileRepository.deleteFile(fileToDelete.id);
-                        console.log('[AIPanel] Deleted new file on revert:', f.path);
-                      }
-                    } else {
-                      // Existing file - restore originalContent
-                      await fileRepository.saveFileByPath(projectId, f.path, f.originalContent);
-                      console.log('[AIPanel] Reverted file:', f.path);
-                    }
-
-                    // Clear AI review entry
-                    try {
-                      await clearAIReviewEntry(projectId, f.path);
-                    } catch (e) {
-                      console.warn('[AIPanel] clearAIReviewEntry failed', e);
-                    }
-                  } catch (e) {
-                    console.warn('[AIPanel] revert file failed for', f.path, e);
-                  }
-                }
-              }
-            }
-
-            console.log(
-              '[AIPanel] Reverted to before message:',
-              message.id,
-              'deleted messages:',
-              deletedMessages.length
-            );
-          } catch (e) {
-            console.error('[AIPanel] handleRevertMessage failed', e);
-          }
+          if (!message || !rootPath || !updateChatMessage) return;
+          if (message.type !== 'assistant' || message.mode !== 'edit' || !message.editResponse)
+            return;
+          await revertChatEdits({
+            rootPath,
+            space: currentSpace,
+            messageId: message.id,
+            updateChatMessage,
+            revertToMessage,
+          });
         }}
       />
     </div>
   );
 }
 
-// Memoize AIPanel to prevent unnecessary re-renders
-// Note: projectFiles changes are handled by useEffect internally, so we don't need to
-// trigger re-renders based on projectFiles. Only re-render when project changes.
-export default memo(AIPanel, (prevProps, nextProps) => {
-  // プロジェクトIDが変わった場合のみ再レンダリング
-  // projectFilesの変更はuseEffect内で処理されるため、ここでは検出不要
-  if (prevProps.currentProject?.id !== nextProps.currentProject?.id) {
-    return false;
-  }
-
-  // その他の場合は再レンダリングしない（パフォーマンス最適化）
-  return true;
-});
+export default memo(AIPanel);

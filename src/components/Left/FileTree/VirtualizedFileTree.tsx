@@ -1,9 +1,9 @@
 import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useTranslation } from '@/context/I18nContext';
 import { useTheme } from '@/context/ThemeContext';
-import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { fileRepository } from '@/engine/core/fileRepository';
+import { basename, fsClient, resolvePath } from '@/engine/core/fs';
 import { type GitIgnoreRule, isPathIgnored, parseGitignore } from '@/engine/core/gitignore';
 import { importSingleFile } from '@/engine/in-ex/importSingleFile';
 import { tabActions } from '@/stores/tabState';
@@ -11,6 +11,7 @@ import type { FileItem } from '@/types';
 
 import FileTreeContextMenu from './FileTreeContextMenu';
 import FileTreeItem from './FileTreeItem';
+import { fileTreeErrorMessage, reportFileTreeError } from './fileTreeErrors';
 import type { ContextMenuState, FileTreeProps, FlattenedTreeItem } from './types';
 
 const ITEM_HEIGHT = 24;
@@ -23,6 +24,7 @@ function flattenTree(
   items: FileItem[],
   expandedFolders: Set<string>,
   gitignoreRules: GitIgnoreRule[] | null,
+  rootPath: string,
   level = 0,
   parentPath = ''
 ): FlattenedTreeItem[] {
@@ -32,7 +34,11 @@ function flattenTree(
     const isExpanded = item.type === 'folder' && expandedFolders.has(item.id);
     const isIgnored =
       gitignoreRules && gitignoreRules.length > 0
-        ? isPathIgnored(gitignoreRules, item.path.replace(/^\/+/, ''), item.type === 'folder')
+        ? isPathIgnored(
+            gitignoreRules,
+            item.path.slice(rootPath.length).replace(/^\/+/, ''),
+            item.type === 'folder'
+          )
         : false;
 
     result.push({
@@ -46,7 +52,14 @@ function flattenTree(
     // Recursively add children if folder is expanded
     if (isExpanded && item.children) {
       result.push(
-        ...flattenTree(item.children, expandedFolders, gitignoreRules, level + 1, item.path)
+        ...flattenTree(
+          item.children,
+          expandedFolders,
+          gitignoreRules,
+          rootPath,
+          level + 1,
+          item.path
+        )
       );
     }
   }
@@ -56,21 +69,30 @@ function flattenTree(
 
 export default function VirtualizedFileTree({
   items,
-  currentProjectName,
-  currentProjectId,
+  rootPath,
   onRefresh,
   isFileSelectModal,
   onInternalFileDrop,
 }: FileTreeProps) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { openTab } = tabActions;
   const parentRef = useRef<HTMLDivElement>(null);
+  const rootPathRef = useRef(rootPath);
+  rootPathRef.current = rootPath;
 
   // State
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [isExpandedFoldersRestored, setIsExpandedFoldersRestored] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [gitignoreRules, setGitignoreRules] = useState<GitIgnoreRule[] | null>(null);
+  const contextMenuRootPath = useRef(rootPath);
+
+  useEffect(() => {
+    if (contextMenuRootPath.current === rootPath) return;
+    contextMenuRootPath.current = rootPath;
+    setContextMenu(null);
+  }, [rootPath]);
 
   // Touch long-press handling
   const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -81,19 +103,15 @@ export default function VirtualizedFileTree({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const check = () => {
-      setIsTouchDevice(
-        'ontouchstart' in window ||
-          navigator.maxTouchPoints > 0 ||
-          ('msMaxTouchPoints' in navigator && (navigator as any).msMaxTouchPoints > 0)
-      );
+      setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
     };
     check();
   }, []);
 
   // Flatten tree for virtualization
   const flattenedItems = useMemo(
-    () => flattenTree(items, expandedFolders, gitignoreRules),
-    [items, expandedFolders, gitignoreRules]
+    () => flattenTree(items, expandedFolders, gitignoreRules, rootPath),
+    [items, expandedFolders, gitignoreRules, rootPath]
   );
 
   // Initialize virtualizer with fixed size for smoother scrolling
@@ -107,13 +125,13 @@ export default function VirtualizedFileTree({
   // Load expanded folders from localStorage
   useEffect(() => {
     if (items.length > 0 && !isExpandedFoldersRestored) {
-      const saved = window.localStorage.getItem(`pyxis-expandedFolders-${currentProjectName}`);
+      const saved = window.localStorage.getItem(`pyxis-expandedFolders-${rootPath}`);
       if (saved) {
         try {
           const arr = JSON.parse(saved);
           if (Array.isArray(arr)) {
             const validIds = arr.filter((id: string) =>
-              flattenTree(items, new Set(arr), null).some(f => f.item.id === id)
+              flattenTree(items, new Set(arr), null, rootPath).some(f => f.item.id === id)
             );
             setExpandedFolders(new Set(validIds));
             setIsExpandedFoldersRestored(true);
@@ -126,30 +144,26 @@ export default function VirtualizedFileTree({
       setExpandedFolders(new Set(rootFolders.map(f => f.id)));
       setIsExpandedFoldersRestored(true);
     }
-  }, [items, currentProjectName, isExpandedFoldersRestored]);
+  }, [items, rootPath, isExpandedFoldersRestored]);
 
   // Save expanded folders to localStorage
   useEffect(() => {
     if (isExpandedFoldersRestored) {
       window.localStorage.setItem(
-        `pyxis-expandedFolders-${currentProjectName}`,
+        `pyxis-expandedFolders-${rootPath}`,
         JSON.stringify(Array.from(expandedFolders))
       );
     }
-  }, [expandedFolders, currentProjectName, isExpandedFoldersRestored]);
+  }, [expandedFolders, rootPath, isExpandedFoldersRestored]);
 
   // Load .gitignore rules
   useEffect(() => {
     let mounted = true;
     const loadGitignore = async () => {
-      if (!currentProjectId) {
-        setGitignoreRules(null);
-        return;
-      }
       try {
-        const gitignoreFile = await fileRepository.getFileByPath(currentProjectId, '/.gitignore');
-        if (gitignoreFile?.content) {
-          const parsed = parseGitignore(gitignoreFile.content);
+        const gitignorePath = resolvePath(rootPath, '.gitignore');
+        if (await fsClient.exists(gitignorePath)) {
+          const parsed = parseGitignore(await fsClient.readText(gitignorePath));
           if (mounted) setGitignoreRules(parsed);
         } else {
           if (mounted) setGitignoreRules([]);
@@ -163,7 +177,7 @@ export default function VirtualizedFileTree({
     return () => {
       mounted = false;
     };
-  }, [currentProjectId]);
+  }, [rootPath]);
 
   // Toggle folder expansion
   const toggleFolder = useCallback((folderId: string) => {
@@ -240,16 +254,43 @@ export default function VirtualizedFileTree({
       const files = e.dataTransfer.files;
       if (!files || files.length === 0) return;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const importPath = targetPath ? `${targetPath}/${file.name}` : `/${file.name}`;
-        const absolutePath = `/projects/${currentProjectName}${importPath}`;
-        await importSingleFile(file, absolutePath, currentProjectName, currentProjectId);
+      const dropRootPath = rootPath;
+      try {
+        const destinationDirectory = targetPath ?? dropRootPath;
+        if (!isPathWithinRoot(destinationDirectory, dropRootPath)) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        for (const file of Array.from(files)) {
+          if (rootPathRef.current !== dropRootPath) {
+            throw new Error(t('fileTree.alert.workspaceChanged'));
+          }
+          const absolutePath = resolvePath(destinationDirectory, file.name);
+          if (rootPathRef.current !== dropRootPath) {
+            throw new Error(t('fileTree.alert.workspaceChanged'));
+          }
+          await importSingleFile(
+            file,
+            absolutePath,
+            t('fileTree.alert.destinationExists', { params: { path: absolutePath } }),
+            () => rootPathRef.current === dropRootPath,
+            t('fileTree.alert.workspaceChanged')
+          );
+        }
+        if (onRefresh) setTimeout(onRefresh, 100);
+      } catch (error) {
+        reportFileTreeError(
+          t('fileTree.alert.operationFailed', {
+            params: {
+              action: t('fileTree.action.import'),
+              error: fileTreeErrorMessage(error, path =>
+                t('fileTree.alert.destinationExists', { params: { path } })
+              ),
+            },
+          })
+        );
       }
-
-      if (onRefresh) setTimeout(onRefresh, 100);
     },
-    [currentProjectName, currentProjectId, onRefresh]
+    [rootPath, onRefresh, t]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -263,21 +304,45 @@ export default function VirtualizedFileTree({
   // Internal file drop handler (drag-and-drop between items)
   const internalDropHandler = useCallback(
     async (draggedItem: FileItem, targetFolderPath: string) => {
-      if (!currentProjectId || !currentProjectName) return;
+      const operationRootPath = rootPath;
       if (draggedItem.path === targetFolderPath) return;
       if (targetFolderPath.startsWith(`${draggedItem.path}/`)) return;
 
       try {
-        const unix = terminalCommandRegistry.getUnixCommands(currentProjectName, currentProjectId);
-        const oldPath = `/projects/${currentProjectName}${draggedItem.path}`;
-        const newPath = `/projects/${currentProjectName}${targetFolderPath}/`;
-        await unix.mv([oldPath, newPath]);
+        if (
+          rootPathRef.current !== operationRootPath ||
+          !isPathWithinRoot(draggedItem.path, operationRootPath) ||
+          !isPathWithinRoot(targetFolderPath, operationRootPath)
+        ) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        const newPath = resolvePath(targetFolderPath, basename(draggedItem.path));
+        if (await fsClient.exists(newPath)) {
+          throw new Error(t('fileTree.alert.destinationExists', { params: { path: newPath } }));
+        }
+        if (
+          rootPathRef.current !== operationRootPath ||
+          !isPathWithinRoot(draggedItem.path, operationRootPath) ||
+          !isPathWithinRoot(targetFolderPath, operationRootPath)
+        ) {
+          throw new Error(t('fileTree.alert.workspaceChanged'));
+        }
+        await fsClient.rename(draggedItem.path, newPath, { overwrite: false });
         if (onRefresh) setTimeout(onRefresh, 100);
-      } catch (error: any) {
-        console.error('[FileTree] Failed to move file:', error);
+      } catch (error) {
+        reportFileTreeError(
+          t('fileTree.alert.operationFailed', {
+            params: {
+              action: t('fileTree.action.move'),
+              error: fileTreeErrorMessage(error, path =>
+                t('fileTree.alert.destinationExists', { params: { path } })
+              ),
+            },
+          })
+        );
       }
     },
-    [currentProjectId, currentProjectName, onRefresh]
+    [onRefresh, rootPath, t]
   );
 
   const virtualItems = virtualizer.getVirtualItems();
@@ -332,8 +397,7 @@ export default function VirtualizedFileTree({
                   isExpanded={flatItem.isExpanded}
                   isIgnored={flatItem.isIgnored}
                   colors={colors}
-                  currentProjectName={currentProjectName}
-                  currentProjectId={currentProjectId}
+                  rootPath={rootPath}
                   onRefresh={onRefresh}
                   onItemClick={handleItemClick}
                   onContextMenu={handleContextMenu}
@@ -388,11 +452,14 @@ export default function VirtualizedFileTree({
         <FileTreeContextMenu
           contextMenu={contextMenu}
           setContextMenu={setContextMenu}
-          currentProjectName={currentProjectName}
-          currentProjectId={currentProjectId}
+          rootPath={rootPath}
           onRefresh={onRefresh}
         />
       )}
     </div>
   );
+}
+
+function isPathWithinRoot(path: string, rootPath: string): boolean {
+  return path === rootPath || path.startsWith(`${rootPath.replace(/\/$/, '')}/`);
 }

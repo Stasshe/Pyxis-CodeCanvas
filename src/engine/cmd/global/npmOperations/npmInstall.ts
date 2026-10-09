@@ -1,124 +1,148 @@
-import { fileRepository } from '@/engine/core/fileRepository';
+import { getParentPath, isPathWithin, posixPath, resolvePath } from '@/engine/core/fs';
+import { FSError } from '@/engine/core/fs/errors';
+import { NPM_CACHE_PATH } from '@/engine/core/fs/layout';
+import type { FsApi } from '@/engine/core/fs/types';
 import { ensureGitignoreContains } from '@/engine/core/gitignore';
-import { transformEsmToCjs } from '@/engine/runtime/transpiler/esmTransformer';
-
-import { BatchFileWriter } from './install/batchWriter';
 import {
   analyzeDependencies,
   findOrphanedPackages,
   getRootDependencies,
 } from './install/dependencyGraph';
-import { TarExtractor } from './install/tarExtractor';
-import type { ExtractedFileMap, InstallProgressCallback, PackageInfo } from './install/types';
-import { resolveVersionSpec, satisfiesVersionSpec } from './install/versionUtils';
+import { type DependencyRequest, resolveDependencyPlan } from './install/dependencyResolver';
+import { NpmFiles } from './install/fsFiles';
+import { verifyIntegrity } from './install/integrity';
+import {
+  createLockfile,
+  findLockedPackage,
+  type PackageLock,
+  parseLockfile,
+  type RootManifest,
+  replayLockedTree,
+  rootDependencyRequests,
+} from './install/lockfile';
+import { NPM_NETWORK_CONCURRENCY, npmNetwork } from './install/npmNetwork';
+import { RegistryClient, type RegistryVersion } from './install/registryClient';
+import { type TarEntry, TarExtractor } from './install/tarExtractor';
+import {
+  buildDependencyTree,
+  type PlacedDependency,
+  parseDependencySpec,
+  pruneFailedOptionalPackages,
+} from './install/tree';
+import type { InstallProgressCallback, InstallResult, PackageInfo } from './install/types';
+import { resolveVersionSpec } from './install/versionUtils';
+
+const PACKAGE_INSTALL_CONCURRENCY = 6;
 
 export type { InstallProgressCallback };
 
+interface InstalledPackage {
+  name?: string;
+  version?: string;
+  dependencies?: Record<string, string>;
+  bin?: string | Record<string, string>;
+}
+
+interface InstallMarker {
+  name: string;
+  version: string;
+  integrity?: string;
+}
+
+const INSTALL_MARKER = '.pyxis-install-complete.json';
+
 export class NpmInstall {
-  private projectId: string;
-  private writer: BatchFileWriter;
+  private rootPath: string;
+  private files: NpmFiles;
+  private registry: RegistryClient;
   private extractor = new TarExtractor();
   private onInstallProgress?: InstallProgressCallback;
-  private installedPackages: Map<string, string> = new Map();
-  private installingPackages: Set<string> = new Set();
+  private manifests = new Map<string, Promise<InstalledPackage | null>>();
+  private cacheDirectory?: Promise<void>;
 
-  constructor(projectId: string, skipLoadingInstalledPackages = false) {
-    this.projectId = projectId;
-    this.writer = new BatchFileWriter(projectId);
-    if (!skipLoadingInstalledPackages) {
-      this.loadInstalledPackages().catch(err => {
-        console.warn('[npm.constructor] Failed to load installed packages:', err.message);
-      });
-    }
+  constructor(
+    rootPath: string,
+    private readonly fs: FsApi
+  ) {
+    this.rootPath = rootPath;
+    this.files = new NpmFiles(fs);
+    this.registry = new RegistryClient(fs);
+  }
+
+  private path(path: string): string {
+    return resolvePath(this.rootPath, path);
   }
 
   setInstallProgressCallback(callback: InstallProgressCallback): void {
     this.onInstallProgress = callback;
   }
 
-  startBatchProcessing(): void {
-    this.writer.start();
-  }
-
-  async finishBatchProcessing(): Promise<void> {
-    await this.writer.finish();
-  }
-
-  private async loadInstalledPackages(snapshotFiles?: Array<any>): Promise<void> {
-    try {
-      const files =
-        snapshotFiles ?? (await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/'));
-      for (const f of files.filter(
-        (f: any) => f.path.startsWith('/node_modules/') && f.path.endsWith('package.json')
-      )) {
-        try {
-          const pj = JSON.parse(f.content);
-          if (pj.name && pj.version) this.installedPackages.set(pj.name, pj.version);
-        } catch {}
-      }
-    } catch (error) {
-      console.warn('[npm.loadInstalledPackages] Error:', error);
-    }
-  }
-
   async removeDirectory(dirPath: string): Promise<void> {
-    const normalized = dirPath.replace(/\/+$/, '');
-    const folder = await fileRepository.getFileByPath(this.projectId, normalized);
-    if (folder) await fileRepository.deleteFile(folder.id);
-
-    const remaining = await fileRepository.getFilesByPrefix(this.projectId, normalized + '/');
-    for (const file of remaining) {
-      try {
-        await fileRepository.deleteFile(file.id);
-      } catch {}
-    }
+    await this.fs.rm(dirPath, { recursive: true, force: true });
   }
 
-  async ensureBinsForPackage(packageName: string): Promise<void> {
+  async ensureBinsForPackage(
+    packageName: string,
+    packagePath = `node_modules/${packageName}`
+  ): Promise<void> {
+    const pkgFile = await this.files.getFile(this.path(`${packagePath}/package.json`));
+    if (!pkgFile) return;
+    let packageJson: InstalledPackage;
     try {
-      const pkgFile = await fileRepository.getFileByPath(
-        this.projectId,
-        `/node_modules/${packageName}/package.json`
+      packageJson = JSON.parse(pkgFile.content) as InstalledPackage;
+    } catch (error) {
+      throw new Error(`Invalid package manifest for '${packageName}': ${String(error)}`);
+    }
+    const binField = packageJson.bin;
+    let bins: Record<string, string> = {};
+    if (typeof binField === 'string' && packageJson.name)
+      bins[packageJson.name.split('/').at(-1)!] = binField;
+    if (typeof binField === 'object' && binField !== null) bins = binField;
+    if (Object.keys(bins).length === 0) return;
+
+    const modulesPath = packagePath.slice(
+      0,
+      packagePath.lastIndexOf('node_modules/') + 'node_modules'.length
+    );
+    const packageDirectory = this.path(packagePath);
+    const packageRoot = await this.fs.realpath(packageDirectory);
+    const binDirectory = this.path(`${modulesPath}/.bin`);
+    await this.fs.mkdir(binDirectory, { recursive: true });
+    for (const [name, relPath] of Object.entries(bins)) {
+      if (!name || name === '.' || name === '..' || /[/\\]/.test(name))
+        throw new Error(`Invalid bin name '${name}'`);
+      const target = resolvePath(packageDirectory, relPath);
+      const realTarget = await this.fs.realpath(target).then(
+        path => path,
+        error => {
+          if (error instanceof FSError && error.code === 'ENOENT') return undefined;
+          throw error;
+        }
       );
-      if (!pkgFile?.content) return;
-      let pj: any;
-      try {
-        pj = JSON.parse(pkgFile.content);
-      } catch {
-        return;
-      }
-
-      const binField = pj.bin;
-      let bins: Record<string, string> = {};
-      if (typeof binField === 'string' && pj.name) bins[pj.name] = binField;
-      else if (typeof binField === 'object' && binField !== null) bins = binField;
-      if (Object.keys(bins).length === 0) return;
-
-      await this.writer.execute('/node_modules/.bin', 'folder');
-      for (const [name, relPath] of Object.entries(bins)) {
-        try {
-          const rel = String(relPath).replace(/^\.\//, '').replace(/^\/+/, '');
-          const shim = [
-            '#!/usr/bin/env node',
-            `// shim for ${packageName} bin: ${name}`,
-            'try {',
-            `  require('../${packageName}/${rel}');`,
-            '} catch (e) {',
-            "  if (e && typeof e === 'object' && e.__pyxisProcessExit === true) throw e;",
-            `  console.error('Failed to run ${name}:', e?.message ?? e);`,
-            '  process.exit(1);',
-            '}',
-          ].join('\n');
-          await this.writer.execute(`/node_modules/.bin/${name}`, 'file', shim);
-        } catch {}
-      }
-    } catch {}
+      if (!realTarget) continue;
+      if (!isPathWithin(realTarget, packageRoot))
+        throw new Error(`Bin '${name}' escapes package directory`);
+      const binPath = resolvePath(binDirectory, name);
+      const linkTarget = posixPath.relative(binDirectory, target);
+      await this.fs.rm(binPath, { force: true });
+      await this.fs.symlink(linkTarget, binPath);
+    }
   }
 
   async uninstallWithDependencies(packageName: string): Promise<string[]> {
-    const snapshotFiles = await fileRepository.getProjectFiles(this.projectId);
-    const graph = await analyzeDependencies(this.projectId, snapshotFiles);
-    const rootDeps = await getRootDependencies(this.projectId, snapshotFiles);
+    const lockPath = this.path('package-lock.json');
+    if (await this.fs.exists(lockPath)) {
+      const previous = parseLockfile(await this.fs.readText(lockPath));
+      const manifest = JSON.parse(
+        await this.fs.readText(this.path('package.json'))
+      ) as RootManifest;
+      await this.installDependencies(rootDependencyRequests(manifest), 'node_modules', manifest);
+      const next = parseLockfile(await this.fs.readText(lockPath));
+      return Object.keys(previous.packages).filter(path => path && !next.packages[path]);
+    }
+    const snapshotFiles = await this.fs.walk(this.path('node_modules')).catch(() => []);
+    const graph = await analyzeDependencies(this.fs, this.rootPath);
+    const rootDeps = await getRootDependencies(this.fs, this.rootPath);
     const orphaned = findOrphanedPackages(packageName, graph, rootDeps);
 
     const toRemove = [packageName, ...orphaned];
@@ -126,117 +150,152 @@ export class NpmInstall {
 
     for (const pkg of toRemove) {
       try {
-        const prefix = `/node_modules/${pkg}/`;
+        const packagePath = this.path(`node_modules/${pkg}`);
         const exists = snapshotFiles.some(
-          (f: any) => f.path === `/node_modules/${pkg}` || f.path.startsWith(prefix)
+          file => file.path === packagePath || file.path.startsWith(`${packagePath}/`)
         );
         if (!exists) continue;
-        await this.removeDirectory(`/node_modules/${pkg}`);
-        await this.writer.execute(`/node_modules/${pkg}`, 'delete');
+        await this.removeDirectory(packagePath);
         removed.push(pkg);
       } catch (error) {
-        console.warn(`[npm.uninstall] Failed to remove ${pkg}:`, (error as Error).message);
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        console.warn(`[npm.uninstall] Failed to remove ${pkg}:`, message);
       }
     }
     return removed;
   }
 
-  private async fetchPackageInfo(packageName: string, version = 'latest'): Promise<PackageInfo> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(`https://registry.npmjs.org/${packageName}`, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(timeoutId);
+  async resolvePackageInfo(packageName: string, version = 'latest'): Promise<PackageInfo> {
+    const spec = parseDependencySpec(packageName, version);
+    packageName = spec.name;
+    version = spec.version;
+    const data = await this.registry.getPackument(packageName);
+    const latest = data['dist-tags']?.latest;
+    if (!data.name) throw new Error(`Invalid package data for '${packageName}'`);
 
-      if (!response.ok) {
-        if (response.status === 404) throw new Error(`Package '${packageName}' not found`);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    let resolvedVersion = version;
+    if (data['dist-tags']?.[version]) resolvedVersion = data['dist-tags'][version];
+    let versionData: RegistryVersion | undefined = data.versions[resolvedVersion];
+    if (!versionData) {
+      const matchedVersion = resolveVersionSpec(version, data.versions, latest);
+      if (matchedVersion) {
+        resolvedVersion = matchedVersion;
+        versionData = data.versions[matchedVersion];
       }
-
-      const data = await response.json();
-      if (!data.name || !data['dist-tags']?.latest) {
-        throw new Error(`Invalid package data for '${packageName}'`);
-      }
-
-      const rawVersion = version === 'latest' ? data['dist-tags'].latest : version;
-      let resolvedKey = rawVersion;
-      let versionData = data.versions[rawVersion];
-
-      if (!versionData) {
-        const resolved = resolveVersionSpec(rawVersion, data.versions);
-        if (resolved) {
-          resolvedKey = resolved;
-          versionData = data.versions[resolved];
-        }
-      }
-
-      if (!versionData?.dist?.tarball) {
-        throw new Error(`No download URL found for '${packageName}@${rawVersion}'`);
-      }
-
-      return {
-        name: data.name,
-        version: resolvedKey,
-        dependencies: versionData.dependencies || {},
-        optionalDependencies: versionData.optionalDependencies || {},
-        tarball: versionData.dist.tarball,
-      };
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Request timeout for package '${packageName}'`);
-      }
-      throw new Error(`Failed to fetch package info: ${(error as Error).message}`);
     }
+    if (!versionData?.dist?.tarball) {
+      throw new Error(`No download URL found for '${packageName}@${resolvedVersion}'`);
+    }
+    return {
+      name: data.name,
+      version: resolvedVersion,
+      dependencies: versionData.dependencies,
+      optionalDependencies: versionData.optionalDependencies,
+      peerDependencies: versionData.peerDependencies,
+      peerDependenciesMeta: versionData.peerDependenciesMeta,
+      os: versionData.os,
+      cpu: versionData.cpu,
+      tarball: versionData.dist.tarball,
+      integrity: versionData.dist.integrity,
+      bin: versionData.bin,
+    };
   }
 
-  private async isPackageInstalled(
-    packageName: string,
-    version: string,
-    snapshotFiles?: Array<any>
-  ): Promise<boolean> {
-    try {
-      const pkgFile = snapshotFiles
-        ? snapshotFiles.find((f: any) => f.path === `/node_modules/${packageName}/package.json`)
-        : await fileRepository.getFileByPath(
-            this.projectId,
-            `/node_modules/${packageName}/package.json`
-          );
-      if (!pkgFile) return false;
-      const pj = JSON.parse(pkgFile.content);
-      if (pj.version !== version) return false;
-      return this.areDependenciesInstalled(pj.dependencies || {}, snapshotFiles);
-    } catch {
+  async installDependencies(
+    requests: DependencyRequest[],
+    ignoreEntry = 'node_modules',
+    manifest?: RootManifest
+  ): Promise<InstallResult> {
+    await this.ensureGitignoreEntry(ignoreEntry);
+    let lock: PackageLock | undefined;
+    const lockPath = this.path('package-lock.json');
+    if (manifest && (await this.fs.exists(lockPath))) {
+      lock = parseLockfile(await this.fs.readText(lockPath));
+    }
+    let plan: PlacedDependency[] | undefined;
+    if (manifest && lock) plan = replayLockedTree(lock, manifest);
+    if (plan && manifest) {
+      const manifestRequests = rootDependencyRequests(manifest);
+      const sameRequests =
+        requests.length === manifestRequests.length &&
+        requests.every((request, index) => {
+          const candidate = manifestRequests[index];
+          return candidate?.name === request.name && candidate.version === request.version;
+        });
+      if (!sameRequests) plan = undefined;
+    }
+    const replayedLock = Boolean(plan);
+    if (!plan) {
+      const resolved = await resolveDependencyPlan(
+        requests,
+        (name, version) => {
+          const locked = findLockedPackage(lock, name, version);
+          if (locked) return Promise.resolve(locked);
+          return this.resolvePackageInfo(name, version);
+        },
+        NPM_NETWORK_CONCURRENCY,
+        (name, version, message) =>
+          console.warn(`[npm] Skipping optional dep ${name}@${version}: ${message}`)
+      );
+      plan = buildDependencyTree(resolved, requests);
+    }
+    this.registry.clearMemoryCache();
+    const changedPaths = new Set<string>();
+    for (const dependency of plan) {
+      if (!(await this.isPackageInstalled(dependency))) changedPaths.add(dependency.path);
+    }
+    const pending = plan.filter(dependency => {
+      let current = dependency.path;
+      while (current) {
+        if (changedPaths.has(current)) return true;
+        const separator = current.lastIndexOf('/node_modules/');
+        if (separator < 0) return false;
+        current = current.slice(0, separator);
+      }
       return false;
-    }
-  }
-
-  private async areDependenciesInstalled(
-    dependencies: Record<string, string>,
-    snapshotFiles?: Array<any>
-  ): Promise<boolean> {
-    for (const [depName, depSpec] of Object.entries(dependencies)) {
-      const depFile = snapshotFiles
-        ? snapshotFiles.find((f: any) => f.path === `/node_modules/${depName}/package.json`)
-        : await fileRepository.getFileByPath(
-            this.projectId,
-            `/node_modules/${depName}/package.json`
-          );
-      if (!depFile) return false;
-      try {
-        const depPackageJson = JSON.parse(depFile.content);
-        if (!satisfiesVersionSpec(depPackageJson.version, depSpec)) return false;
-      } catch {
-        return false;
+    });
+    if (lock) {
+      const nextPaths = new Set(plan.map(dependency => dependency.path));
+      for (const path of Object.keys(lock.packages)) {
+        if (path && !nextPaths.has(path))
+          await this.fs.rm(this.path(path), { recursive: true, force: true });
       }
     }
-    return true;
-  }
-
-  private isConcreteVersion(version: string): boolean {
-    return /^\d+\.\d+\.\d+(?:[-+].+)?$/.test(version);
+    for (const dependency of pending)
+      this.manifests.delete(this.path(`${dependency.path}/package.json`));
+    const failures = new Set<string>();
+    const depths = new Set(pending.map(placed => placed.path.split('node_modules/').length));
+    for (const depth of Array.from(depths).sort((left, right) => left - right)) {
+      const layer = pending.filter(placed => placed.path.split('node_modules/').length === depth);
+      for (const path of await this.installPackageJobs(layer)) failures.add(path);
+    }
+    const skipped = pruneFailedOptionalPackages(plan, failures);
+    for (const path of skipped) await this.fs.rm(this.path(path), { recursive: true, force: true });
+    plan = plan.filter(dependency => !skipped.has(dependency.path));
+    if (manifest) {
+      const modulesPaths = new Set<string>(['node_modules']);
+      for (const placed of plan)
+        modulesPaths.add(
+          placed.path.slice(0, placed.path.lastIndexOf('node_modules/') + 'node_modules'.length)
+        );
+      for (const modulesPath of modulesPaths)
+        await this.fs.rm(this.path(`${modulesPath}/.bin`), { recursive: true, force: true });
+    }
+    for (const placed of plan) {
+      if (!placed.packageInfo.bin) continue;
+      await this.ensureBinsForPackage(placed.installName ?? placed.packageInfo.name, placed.path);
+    }
+    if (manifest && !replayedLock) {
+      await this.fs.writeFile(
+        lockPath,
+        `${JSON.stringify(createLockfile(manifest, plan), null, 2)}\n`
+      );
+    }
+    return {
+      installed: pending.filter(dependency => !skipped.has(dependency.path)).length,
+      packageCount: plan.length,
+    };
   }
 
   async installWithDependencies(
@@ -244,215 +303,336 @@ export class NpmInstall {
     version = 'latest',
     options?: { ignoreEntry?: string; isDirect?: boolean }
   ): Promise<void> {
-    const packageKey = `${packageName}@${version}`;
-    const isDirect = options?.isDirect ?? true;
+    await this.installDependencies(
+      [
+        {
+          name: packageName,
+          version,
+          isDirect: options?.isDirect ?? true,
+        },
+      ],
+      options?.ignoreEntry ?? 'node_modules'
+    );
+  }
 
-    if (this.installingPackages.has(packageKey)) return;
+  private async ensureGitignoreEntry(entry: string): Promise<void> {
+    const gitignoreFile = await this.files.getFile(this.path('.gitignore'));
+    const { content, changed } = ensureGitignoreContains(gitignoreFile?.content, entry);
+    if (changed) await this.files.write(this.path('.gitignore'), content);
+  }
 
-    const nodeFiles = await fileRepository.getFilesByPrefix(this.projectId, '/node_modules/');
-    const packageFile = await fileRepository.getFileByPath(this.projectId, '/package.json');
-    const gitignoreFile = await fileRepository.getFileByPath(this.projectId, '/.gitignore');
-    const snapshotFiles = [packageFile, gitignoreFile, ...(nodeFiles || [])].filter(Boolean as any);
+  private async getManifest(path: string): Promise<InstalledPackage | null> {
+    const cached = this.manifests.get(path);
+    if (cached) return cached;
+    const request = this.readManifest(path);
+    this.manifests.set(path, request);
+    request.then(undefined, () => {
+      if (this.manifests.get(path) === request) this.manifests.delete(path);
+    });
+    return request;
+  }
 
-    // .gitignore に node_modules を追加
+  private async readManifest(path: string): Promise<InstalledPackage | null> {
+    const file = await this.files.getFile(path);
+    if (!file) return null;
     try {
-      const gitignoreEntry = snapshotFiles.find((f: any) => f?.path === '/.gitignore');
-      const entry = options?.ignoreEntry ?? 'node_modules';
-      const { content: newContent, changed } = ensureGitignoreContains(
-        gitignoreEntry?.content,
-        entry
-      );
-      if (changed) {
-        await fileRepository.createFile(this.projectId, '/.gitignore', newContent, 'file');
-      }
-    } catch {}
-
-    if (
-      this.isConcreteVersion(version) &&
-      (await this.isPackageInstalled(packageName, version, snapshotFiles))
-    ) {
-      this.installedPackages.set(packageName, version);
-      return;
+      return JSON.parse(file.content) as InstalledPackage;
+    } catch {
+      return null;
     }
+  }
 
-    try {
-      this.installingPackages.add(packageKey);
-
-      const pkgInfo = await this.fetchPackageInfo(packageName, version);
-      if (await this.isPackageInstalled(packageName, pkgInfo.version, snapshotFiles)) {
-        this.installedPackages.set(packageName, pkgInfo.version);
-        return;
+  private async isPackageInstalled(dependency: PlacedDependency): Promise<boolean> {
+    const packageDirectory = this.path(dependency.path);
+    const manifest = await this.getManifest(`${packageDirectory}/package.json`);
+    const markerFile = await this.files.getFile(`${packageDirectory}/${INSTALL_MARKER}`);
+    let marker: InstallMarker | undefined;
+    if (markerFile) {
+      try {
+        marker = JSON.parse(markerFile.content) as InstallMarker;
+      } catch {
+        marker = undefined;
       }
-
-      if (this.onInstallProgress)
-        await this.onInstallProgress(packageName, pkgInfo.version, isDirect);
-
-      const requiredDepEntries = Object.entries(pkgInfo.dependencies || {});
-      const optionalDepEntries = Object.entries(pkgInfo.optionalDependencies || {}).filter(
-        ([depName]) => !(pkgInfo.dependencies || {})[depName]
-      );
-
-      const BATCH = 3;
-      for (let i = 0; i < requiredDepEntries.length; i += BATCH) {
-        await Promise.all(
-          requiredDepEntries
-            .slice(i, i + BATCH)
-            .map(([depName, depVer]) =>
-              this.installWithDependencies(depName, depVer, { isDirect: false })
-            )
-        );
-      }
-
-      for (let i = 0; i < optionalDepEntries.length; i += BATCH) {
-        await Promise.all(
-          optionalDepEntries.slice(i, i + BATCH).map(async ([depName, depVer]) => {
-            try {
-              await this.installWithDependencies(depName, depVer, { isDirect: false });
-            } catch (error) {
-              console.warn(
-                `[npm] Skipping optional dep ${depName}@${depVer}:`,
-                (error as Error).message
-              );
-            }
-          })
-        );
-      }
-
-      await this.downloadAndInstallPackage(packageName, pkgInfo.version, pkgInfo.tarball);
-      this.installedPackages.set(packageName, pkgInfo.version);
-    } catch (error) {
-      console.error(`[npm] Failed to install ${packageKey}:`, error);
-      throw error;
-    } finally {
-      this.installingPackages.delete(packageKey);
     }
+    return (
+      manifest?.name === dependency.packageInfo.name &&
+      manifest?.version === dependency.packageInfo.version &&
+      marker?.name === dependency.packageInfo.name &&
+      marker.version === dependency.packageInfo.version &&
+      marker.integrity === dependency.packageInfo.integrity
+    );
+  }
+
+  private async installPackageJobs(packages: PlacedDependency[]): Promise<Set<string>> {
+    const queue = packages.slice();
+    let failure: Error | undefined;
+    const failedOptionalNames = new Set<string>();
+    const runJob = async (): Promise<void> => {
+      while (queue.length > 0 && !failure) {
+        const dependency = queue.shift();
+        if (!dependency) continue;
+        const manifestPath = this.path(`${dependency.path}/package.json`);
+        this.manifests.delete(manifestPath);
+        try {
+          if (this.onInstallProgress) {
+            await this.onInstallProgress(
+              dependency.packageInfo.name,
+              dependency.packageInfo.version,
+              dependency.isDirect
+            );
+          }
+          await this.downloadAndInstallPackage(
+            dependency.packageInfo.name,
+            dependency.packageInfo.version,
+            dependency.packageInfo.tarball,
+            dependency.path,
+            dependency.packageInfo.integrity
+          );
+        } catch (error) {
+          if (dependency.isOptional) {
+            failedOptionalNames.add(dependency.path);
+            let message = String(error);
+            if (error instanceof Error) message = error.message;
+            console.warn(
+              `[npm] Skipping optional dep ${dependency.packageInfo.name}@${dependency.packageInfo.version}: ${message}`
+            );
+            continue;
+          }
+          if (error instanceof Error) failure = error;
+          else failure = new Error(String(error));
+        }
+      }
+    };
+    const workerCount = Math.min(PACKAGE_INSTALL_CONCURRENCY, queue.length);
+    const workers: Promise<void>[] = [];
+    for (let index = 0; index < workerCount; index += 1) workers.push(runJob());
+    await Promise.all(workers);
+    if (failure) throw failure;
+    return failedOptionalNames;
   }
 
   async downloadAndInstallPackage(
     packageName: string,
-    version = 'latest',
-    tarballUrl?: string
+    version: string,
+    tarballUrl: string,
+    destination = `node_modules/${packageName}`,
+    integrity?: string
   ): Promise<void> {
     try {
-      const tgzUrl =
-        tarballUrl ?? `https://registry.npmjs.org/${packageName}/-/${packageName}-${version}.tgz`;
-
-      let tarballResponse: Response;
+      const cachePath = await this.getTarballCachePath(tarballUrl);
+      const cached = await this.fs.exists(cachePath);
+      let tarballData: Uint8Array<ArrayBuffer>;
+      if (cached) {
+        tarballData = toArrayBufferBytes(await this.fs.readFile(cachePath));
+      } else {
+        tarballData = await this.downloadTarball(tarballUrl, packageName, version);
+      }
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-        tarballResponse = await fetch(tgzUrl, {
-          signal: controller.signal,
-          headers: { Accept: 'application/octet-stream' },
+        await verifyIntegrity(tarballData, integrity);
+      } catch (error) {
+        if (cached) await this.fs.rm(cachePath, { force: true });
+        throw error;
+      }
+      const packageDir = this.path(destination);
+      const compressedStream = new ReadableStream<Uint8Array<ArrayBuffer>>({
+        start(controller) {
+          controller.enqueue(tarballData);
+          controller.close();
+        },
+      });
+      if (typeof DecompressionStream === 'undefined') {
+        throw new Error('Gzip decompression is unavailable in this browser');
+      }
+      let decompressedStream: ReadableStream<Uint8Array>;
+      try {
+        decompressedStream = compressedStream.pipeThrough(new DecompressionStream('gzip'));
+      } catch (error) {
+        throw new Error(`Failed to decompress ${packageName}@${version}: ${String(error)}`);
+      }
+      let touchedPackage = false;
+      let filesystemFailure = false;
+      let packageRoot = '';
+      const createdDirectories = new Set<string>();
+      try {
+        await this.extractor.extractFromStream(packageDir, decompressedStream, async entry => {
+          try {
+            if (entry.path === `${packageDir}/${INSTALL_MARKER}`)
+              throw new Error('Package archive contains a reserved install marker');
+            if (!touchedPackage) {
+              await this.fs.rm(packageDir, { recursive: true, force: true });
+              touchedPackage = true;
+              await this.fs.mkdir(packageDir, { recursive: true });
+              createdDirectories.add(packageDir);
+              packageRoot = await this.fs.realpath(packageDir);
+            }
+            await this.writeTarEntry(entry, packageDir, packageRoot, createdDirectories);
+          } catch (error) {
+            filesystemFailure = true;
+            throw error;
+          }
         });
-        clearTimeout(timeoutId);
-        if (!tarballResponse.ok) {
-          if (tarballResponse.status === 404)
-            throw new Error(`Package '${packageName}@${version}' not found`);
-          throw new Error(`HTTP ${tarballResponse.status}: ${tarballResponse.statusText}`);
+        const packageJsonPath = `${packageDir}/package.json`;
+        if (!touchedPackage || !packageRoot) {
+          throw new Error(`Package archive has no package.json: ${packageName}@${version}`);
         }
+        await this.assertPackagePath(packageJsonPath, packageRoot);
+        if (!(await this.files.getFile(packageJsonPath))) {
+          throw new Error(`Package archive has no package.json: ${packageName}@${version}`);
+        }
+        await this.fs.writeFile(
+          `${packageDir}/${INSTALL_MARKER}`,
+          `${JSON.stringify({ name: packageName, version, integrity } satisfies InstallMarker)}\n`
+        );
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error(`Download timeout for ${packageName}@${version}`);
-        }
-        throw new Error(`Failed to download: ${(error as Error).message}`);
+        if (touchedPackage) await this.fs.rm(packageDir, { recursive: true, force: true });
+        if (cached && !filesystemFailure) await this.fs.rm(cachePath, { force: true });
+        let message = String(error);
+        if (error instanceof Error) message = error.message;
+        throw new Error(`Failed to extract package: ${message}`);
       }
-
-      const packageDir = `/node_modules/${packageName}`;
-      let extractedFiles: ExtractedFileMap;
-      try {
-        if (tarballResponse.body && typeof ReadableStream !== 'undefined') {
-          let decompressedStream: ReadableStream<Uint8Array>;
-          if ((globalThis as any).DecompressionStream) {
-            try {
-              decompressedStream = tarballResponse.body.pipeThrough(
-                new (globalThis as any).DecompressionStream('gzip')
-              );
-            } catch {
-              decompressedStream = this.extractor.createPakoDecompressedStream(
-                tarballResponse.body
-              );
-            }
-          } else {
-            decompressedStream = this.extractor.createPakoDecompressedStream(tarballResponse.body);
-          }
-          extractedFiles = await this.extractor.extractFromStream(packageDir, decompressedStream);
-        } else {
-          extractedFiles = await this.extractor.extractFromBuffer(
-            packageDir,
-            await tarballResponse.arrayBuffer()
-          );
-        }
-      } catch (error) {
-        try {
-          await this.removeDirectory(packageDir);
-        } catch {}
-        throw new Error(`Failed to extract package: ${(error as Error).message}`);
-      }
-
-      try {
-        await this.writer.execute(packageDir, 'folder');
-
-        const foldersToCreate: string[] = [];
-        const filesToCreate: Array<{
-          projectId: string;
-          path: string;
-          content: string;
-          type: string;
-        }> = [];
-
-        for (const [relPath, fileInfo] of extractedFiles) {
-          const fullPath = `${packageDir}/${relPath}`;
-          if (fileInfo.isDirectory) {
-            foldersToCreate.push(fullPath);
-          } else {
-            let content = fileInfo.content || '';
-            if (fullPath.endsWith('.mjs') && content) {
-              content = await transformEsmToCjs(content, fullPath);
-            }
-            filesToCreate.push({
-              projectId: this.projectId,
-              path: fullPath,
-              content,
-              type: 'file',
-            });
-          }
-        }
-
-        if (this.writer.isBatchActive) {
-          await Promise.all(foldersToCreate.map(p => this.writer.execute(p, 'folder')));
-          for (const f of filesToCreate) this.writer.enqueueFile(f.path, f.content);
-        } else {
-          await Promise.all(
-            foldersToCreate.map(p =>
-              fileRepository.createFile(this.projectId, p, '', 'folder').catch(err => {
-                console.warn(`[npm] Failed to create folder ${p}:`, err);
-              })
-            )
-          );
-          const BATCH_SIZE = 500;
-          for (let i = 0; i < filesToCreate.length; i += BATCH_SIZE) {
-            const batch = filesToCreate.slice(i, i + BATCH_SIZE);
-            try {
-              await fileRepository.createFilesBulk(this.projectId, batch as any, true);
-            } catch {
-              await Promise.all(
-                batch.map(b =>
-                  fileRepository
-                    .createFile(this.projectId, b.path, b.content, 'file')
-                    .catch(() => {})
-                )
-              );
-            }
-          }
-        }
-      } catch (error) {
-        console.warn(`[npm] Failed to sync to IndexedDB:`, (error as Error).message);
+      if (!cached) {
+        await this.ensureTarballCacheDirectory();
+        await this.fs.writeFile(cachePath, tarballData);
       }
     } catch (error) {
-      throw new Error(
-        `Installation failed for ${packageName}@${version}: ${(error as Error).message}`
-      );
+      let message = String(error);
+      if (error instanceof Error) message = error.message;
+      throw new Error(`Installation failed for ${packageName}@${version}: ${message}`);
     }
   }
+
+  private async writeTarEntry(
+    entry: TarEntry,
+    packageDir: string,
+    packageRoot: string,
+    createdDirectories: Set<string>
+  ): Promise<void> {
+    if (entry.type === 'directory') {
+      await this.ensurePackageDirectory(entry.path, packageDir, packageRoot, createdDirectories);
+      await this.assertPackagePath(entry.path, packageRoot);
+      return;
+    }
+    await this.ensurePackageDirectory(
+      getParentPath(entry.path),
+      packageDir,
+      packageRoot,
+      createdDirectories
+    );
+    await this.assertPackagePath(getParentPath(entry.path), packageRoot);
+    if (entry.type === 'symlink') {
+      await this.fs.symlink(entry.target, entry.path);
+      return;
+    }
+    const exists = await this.fs.lstat(entry.path).then(
+      () => true,
+      error => {
+        if (error instanceof FSError && error.code === 'ENOENT') return false;
+        throw error;
+      }
+    );
+    if (exists) await this.assertPackagePath(entry.path, packageRoot);
+    await this.fs.writeFile(entry.path, entry.content);
+  }
+
+  private async assertPackagePath(path: string, packageRoot: string): Promise<void> {
+    const realPath = await this.fs.realpath(path);
+    if (!isPathWithin(realPath, packageRoot))
+      throw new Error(`Archive path escapes package: ${path}`);
+  }
+
+  private async ensurePackageDirectory(
+    path: string,
+    packageDir: string,
+    packageRoot: string,
+    createdDirectories: Set<string>
+  ): Promise<void> {
+    if (createdDirectories.has(path)) return;
+    const createdPaths: string[] = [];
+    let current = path;
+    while (current !== packageDir && !createdDirectories.has(current)) {
+      createdPaths.push(current);
+      current = getParentPath(current);
+    }
+    for (const createdPath of createdPaths.reverse()) {
+      await this.assertPackagePath(getParentPath(createdPath), packageRoot);
+      const exists = await this.fs.lstat(createdPath).then(
+        () => true,
+        error => {
+          if (error instanceof FSError && error.code === 'ENOENT') return false;
+          throw error;
+        }
+      );
+      if (exists) {
+        await this.assertPackagePath(createdPath, packageRoot);
+        if ((await this.fs.stat(createdPath)).type !== 'folder')
+          throw new Error(`Archive directory conflicts with existing file: ${createdPath}`);
+      } else {
+        await this.fs.mkdir(createdPath);
+        await this.assertPackagePath(createdPath, packageRoot);
+      }
+      createdDirectories.add(createdPath);
+    }
+  }
+
+  private async downloadTarball(
+    url: string,
+    packageName: string,
+    version: string
+  ): Promise<Uint8Array<ArrayBuffer>> {
+    try {
+      return await npmNetwork.run(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: 'application/octet-stream' },
+          });
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new Error(`Package '${packageName}@${version}' not found`);
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          return new Uint8Array(await response.arrayBuffer());
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Download timeout for ${packageName}@${version}`);
+      }
+      let message = String(error);
+      if (error instanceof Error) message = error.message;
+      throw new Error(`Failed to download: ${message}`);
+    }
+  }
+
+  private ensureTarballCacheDirectory(): Promise<void> {
+    if (this.cacheDirectory) return this.cacheDirectory;
+    const request = this.fs.mkdir(NPM_CACHE_PATH, { recursive: true });
+    this.cacheDirectory = request;
+    request.then(undefined, () => {
+      if (this.cacheDirectory === request) this.cacheDirectory = undefined;
+    });
+    return request;
+  }
+
+  private async getTarballCachePath(url: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
+    const key = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(
+      ''
+    );
+    return resolvePath(NPM_CACHE_PATH, `${key}.tgz`);
+  }
+}
+
+function toArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  if (bytes.buffer instanceof ArrayBuffer) {
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  const copy = new Uint8Array(new ArrayBuffer(bytes.byteLength));
+  copy.set(bytes);
+  return copy;
 }

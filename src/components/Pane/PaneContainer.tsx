@@ -1,41 +1,20 @@
 // src/components/PaneContainer.tsx
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDrop } from 'react-dnd';
 import { useSnapshot } from 'valtio';
 import PaneResizer from '@/components/Pane/PaneResizer';
 import { Breadcrumb } from '@/components/Tab/Breadcrumb';
 import TabBar from '@/components/Tab/TabBar';
-import {
-  DND_FILE_TREE_ITEM,
-  DND_TAB,
-  isFileTreeDragItem,
-  isTabDragItem,
-} from '@/constants/dndTypes';
+import { DND_FILE_TREE_ITEM, DND_TAB, type DragItem } from '@/constants/dndTypes';
 import { useTheme } from '@/context/ThemeContext';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import { triggerGitRefresh } from '@/stores/gitRefreshStore';
 import { tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane, FileItem } from '@/types';
 
 interface PaneContainerProps {
   pane: Readonly<EditorPane>;
 }
-
-// Git連携のためのContext
-interface GitContextValue {
-  setGitRefreshTrigger: (fn: (prev: number) => number) => void;
-}
-
-const GitContext = createContext<GitContextValue | null>(null);
-
-export const useGitContext = () => {
-  const context = useContext(GitContext);
-  if (!context) {
-    throw new Error('useGitContext must be used within PaneContainer');
-  }
-  return context;
-};
 
 // ペインをフラット化してリーフペインの数をカウント
 function flattenPanes(paneList: readonly EditorPane[]): readonly EditorPane[] {
@@ -50,18 +29,7 @@ function flattenPanes(paneList: readonly EditorPane[]): readonly EditorPane[] {
   return result;
 }
 
-/**
- * PaneContainer: 自律的かつ機能完全なペインコンポーネント
- * - TabContextを通じた自律的なタブ操作
- * - TabRegistryによる動的なタブコンポーネントレンダリング
- * - 即時反映、保存、Git連携などの全機能を保持
- */
-const notifyGitRefresh = () => {
-  triggerGitRefresh();
-};
-
-const gitContextValue: GitContextValue = { setGitRefreshTrigger: notifyGitRefresh };
-
+/** Renders a pane with its tab controls and active tab component. */
 export default function PaneContainer({ pane }: PaneContainerProps) {
   const { colors } = useTheme();
   const { globalActiveTab, activePane, panes: allPanes } = useSnapshot(tabState);
@@ -96,17 +64,15 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
   );
 
   // このペイン自体をドロップターゲットとして扱う（TABとFILE_TREE_ITEM両方受け付け）
-  const [{ isOver }, drop] = useDrop(
+  const [{ isOver }, drop] = useDrop<DragItem, unknown, { isOver: boolean }>(
     () => ({
       accept: [DND_TAB, DND_FILE_TREE_ITEM],
-      drop: (item: any, monitor) => {
+      drop: (item, monitor) => {
         const currentDropZone = dropZoneRef.current;
-        console.log('[PaneContainer] drop called', { item, currentDropZone });
 
         // FILE_TREE_ITEMの場合
-        if (isFileTreeDragItem(item)) {
-          const fileItem = item.item as FileItem;
-          console.log('[PaneContainer] File dropped from tree:', { fileItem, currentDropZone });
+        if (item.type === DND_FILE_TREE_ITEM) {
+          const fileItem = item.item;
 
           // ファイルのみ処理（フォルダは無視）
           if (fileItem.type === 'file') {
@@ -122,13 +88,7 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
               const position =
                 currentDropZone === 'top' || currentDropZone === 'left' ? 'before' : 'after';
 
-              // splitPaneAndOpenFileがあればそれを使用、なければ手動で処理
-              if (splitPaneAndOpenFile) {
-                splitPaneAndOpenFile(pane.id, direction, fileItem, position);
-              } else {
-                // フォールバック：単純にファイルを開く
-                openFileInPane(fileItem);
-              }
+              splitPaneAndOpenFile(pane.id, direction, fileItem, position);
             }
           }
           setDropZone(null);
@@ -136,7 +96,7 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
         }
 
         // TABの場合は既存のタブ移動ロジック
-        if (isTabDragItem(item)) {
+        if (item.type === DND_TAB) {
           if (!currentDropZone || currentDropZone === 'center' || currentDropZone === 'tabbar') {
             if (item.fromPaneId === pane.id) return; // 同じペインなら無視
             moveTab(item.fromPaneId, pane.id, item.tabId);
@@ -307,12 +267,7 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
   // React の `ref` に渡すときの型不整合を避けるため、コールバック ref を用いる
   const dropRef = (node: HTMLDivElement | null) => {
     elementRef.current = node;
-    try {
-      (drop as any)(node);
-    } catch (err) {
-      console.warn('[PaneContainer.tsx] caught non-fatal error', err);
-      // 安全のためエラーは無視
-    }
+    drop(node);
   };
 
   // ドロップゾーンオーバーレイのスタイルを計算
@@ -375,71 +330,69 @@ export default function PaneContainer({ pane }: PaneContainerProps) {
   const showActiveBorder = leafPaneCount > 1 && isActivePane;
 
   return (
-    <GitContext.Provider value={gitContextValue}>
-      <div
-        ref={dropRef}
-        className="flex flex-col overflow-hidden relative"
-        style={{
-          width: '100%',
-          height: '100%',
-          background: colors.background,
-          border: showActiveBorder ? `1px solid ${colors.green}` : `1px solid ${colors.border}`,
-          boxShadow: showActiveBorder
-            ? `0 0 16px ${colors.green}40, 0 0 32px ${colors.green}20`
-            : 'none',
-        }}
-      >
-        {/* ドロップゾーンのオーバーレイ */}
-        {overlayStyle && <div style={overlayStyle} />}
+    <div
+      ref={dropRef}
+      className="flex flex-col overflow-hidden relative"
+      style={{
+        width: '100%',
+        height: '100%',
+        background: colors.background,
+        border: showActiveBorder ? `1px solid ${colors.green}` : `1px solid ${colors.border}`,
+        boxShadow: showActiveBorder
+          ? `0 0 16px ${colors.green}40, 0 0 32px ${colors.green}20`
+          : 'none',
+      }}
+    >
+      {/* ドロップゾーンのオーバーレイ */}
+      {overlayStyle && <div style={overlayStyle} />}
 
-        {/* タブバー */}
-        <TabBar paneId={pane.id} />
+      {/* タブバー */}
+      <TabBar paneId={pane.id} />
 
-        {/* ブレッドクラム */}
-        <Breadcrumb paneId={pane.id} />
+      {/* ブレッドクラム */}
+      <Breadcrumb paneId={pane.id} />
 
-        {/* エディタコンテンツ - TabRegistryで動的レンダリング */}
-        <div className="flex-1 overflow-hidden">
-          {activeTab && TabComponent ? (
-            <TabComponent key={activeTab.id} tab={activeTab} isActive={isGloballyActive} />
-          ) : activeTab && activeTab.kind.startsWith('extension:') ? (
-            // 拡張機能タブがまだ登録されていない場合のローディング表示
-            <div
-              className="flex flex-col h-full gap-2 select-none"
-              style={{
-                color: colors.mutedFg,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                height: '100%',
-              }}
-            >
-              <span style={{ fontWeight: 500, fontSize: '1.1em' }}>Loading extension...</span>
-              <span style={{ fontSize: '0.95em', opacity: 0.8 }}>
-                The extension is being initialized. Please wait a moment.
-              </span>
-            </div>
-          ) : (
-            <div
-              className="flex flex-col h-full gap-2 select-none"
-              style={{
-                color: colors.mutedFg,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                height: '100%',
-              }}
-            >
-              <span style={{ fontWeight: 500, fontSize: '1.1em' }}>No active tab</span>
-              <span style={{ fontSize: '0.95em', opacity: 0.8 }}>
-                Please select a tab from above or create a new one to start editing.
-              </span>
-            </div>
-          )}
-        </div>
+      {/* エディタコンテンツ - TabRegistryで動的レンダリング */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab && TabComponent ? (
+          <TabComponent key={activeTab.id} tab={activeTab} isActive={isGloballyActive} />
+        ) : activeTab && activeTab.kind.startsWith('extension:') ? (
+          // 拡張機能タブがまだ登録されていない場合のローディング表示
+          <div
+            className="flex flex-col h-full gap-2 select-none"
+            style={{
+              color: colors.mutedFg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              height: '100%',
+            }}
+          >
+            <span style={{ fontWeight: 500, fontSize: '1.1em' }}>Loading extension...</span>
+            <span style={{ fontSize: '0.95em', opacity: 0.8 }}>
+              The extension is being initialized. Please wait a moment.
+            </span>
+          </div>
+        ) : (
+          <div
+            className="flex flex-col h-full gap-2 select-none"
+            style={{
+              color: colors.mutedFg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              height: '100%',
+            }}
+          >
+            <span style={{ fontWeight: 500, fontSize: '1.1em' }}>No active tab</span>
+            <span style={{ fontSize: '0.95em', opacity: 0.8 }}>
+              Please select a tab from above or create a new one to start editing.
+            </span>
+          </div>
+        )}
       </div>
-    </GitContext.Provider>
+    </div>
   );
 }

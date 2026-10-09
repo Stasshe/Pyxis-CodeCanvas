@@ -135,9 +135,61 @@
     "loadingFile": "Mengembalikan isi file...",
     "selectFile": "Silakan pilih file"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "Anda memiliki semua ekstensi yang tersedia",
+    "allInstalled": "Semua ekstensi terpasang",
+    "available": "Tersedia ({count})",
+    "browseAvailable": "Telusuri ekstensi yang tersedia untuk memulai",
+    "confirmUninstall": "Apakah Anda yakin ingin menghapus instalasi \"{name}\"?",
+    "disable": "Nonaktifkan",
+    "disableUnavailable": "Tidak dapat menonaktifkan ekstensi.",
+    "enable": "Aktifkan",
+    "enableUnavailable": "Tidak dapat mengaktifkan ekstensi.",
+    "importFailed": "Gagal mengimpor ZIP: {error}",
+    "importZip": "Impor ekstensi (.zip)",
+    "install": "Instal",
+    "installed": "Terpasang ({count})",
+    "installFailed": "Gagal menginstal {name}: {error}",
+    "installUnavailable": "Ekstensi tidak dapat dipasang atau diaktifkan.",
+    "loadFailed": "Gagal memuat ekstensi: {error}",
+    "loading": "Memuat ekstensi...",
+    "manifestUrlMissing": "URL manifes tidak ditemukan di registri",
+    "noMatches": "Tidak ditemukan ekstensi yang cocok",
+    "noneInstalled": "Tidak ada ekstensi yang dipasang",
+    "packCount": "Ekstensi: {count}",
+    "reload": "Muat ulang ekstensi",
+    "search": "Ekstensi penelusuran...",
+    "title": "Ekstensi",
+    "toggleFailed": "Gagal mengubah status ekstensi: {error}",
+    "tryDifferentSearch": "Coba istilah pencarian lain",
+    "types": {
+      "builtinModule": "Modul Bawaan",
+      "languageRuntime": "Waktu Proses Bahasa",
+      "service": "Melayani",
+      "tool": "Alat",
+      "transpiler": "transpiler",
+      "ui": "UI"
+    },
+    "uninstall": "Copot pemasangan",
+    "uninstallFailed": "Gagal mencopot pemasangan ekstensi: {error}",
+    "uninstallTitle": "Copot Pemasangan Ekstensi",
+    "uninstallUnavailable": "Ekstensi tidak dapat dicopot pemasangannya.",
+    "update": "Perbarui",
+    "updateFailed": "Gagal memperbarui {name}: {error}",
+    "updateUnavailable": "Paket ekstensi baru tidak dapat diaktifkan.",
+    "viewDetails": "Klik untuk melihat detail ekstensi"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "Buat file",
+      "createFolder": "Buat folder",
+      "import": "Impor",
+      "move": "Pindahkan"
+    },
     "alert": {
-      "renameFailed": "Ganti nama gagal: {error}"
+      "destinationExists": "Tujuan sudah ada: {path}",
+      "operationFailed": "{action} gagal: {error}",
+      "workspaceChanged": "Workspace berubah; file lainnya dilewati."
     },
     "menu": {
       "createFile": "Buat file",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "Buat file baru",
-    "createFolder": "Buat folder baru"
+    "createFolder": "Buat folder baru",
+    "newFilePrompt": "Masukkan nama file baru:",
+    "newFolderPrompt": "Masukkan nama folder baru:"
   },
   "markdownPreview": {
     "downloadSvg": "Unduh SVG",

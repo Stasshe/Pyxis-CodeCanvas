@@ -135,9 +135,61 @@
     "loadingFile": "正在还原文件内容...",
     "selectFile": "请选择文件"
   },
+  "extensionsPanel": {
+    "allAvailableInstalled": "您拥有所有可用的扩展",
+    "allInstalled": "已安装所有扩展",
+    "available": "可用（{count}）",
+    "browseAvailable": "浏览可用的扩展程序",
+    "confirmUninstall": "您确定要卸载“{name}”吗？",
+    "disable": "禁用",
+    "disableUnavailable": "无法禁用扩展。",
+    "enable": "启用",
+    "enableUnavailable": "无法启用扩展。",
+    "importFailed": "导入 ZIP 失败：{error}",
+    "importZip": "导入扩展程序 (.zip)",
+    "install": "安装",
+    "installed": "已安装（{count}）",
+    "installFailed": "安装{name}失败：{error}",
+    "installUnavailable": "无法安装或启用扩展。",
+    "loadFailed": "无法加载扩展：{error}",
+    "loading": "正在加载扩展...",
+    "manifestUrlMissing": "在注册表中找不到清单 URL",
+    "noMatches": "未找到匹配的扩展程序",
+    "noneInstalled": "没有安装扩展",
+    "packCount": "扩展程序：{count}",
+    "reload": "重新加载扩展",
+    "search": "搜索扩展...",
+    "title": "扩展程序",
+    "toggleFailed": "更改分机状态失败：{error}",
+    "tryDifferentSearch": "请尝试其他搜索词",
+    "types": {
+      "builtinModule": "内置模块",
+      "languageRuntime": "语言运行时",
+      "service": "服务",
+      "tool": "工具",
+      "transpiler": "转译器",
+      "ui": "用户界面"
+    },
+    "uninstall": "卸载",
+    "uninstallFailed": "卸载扩展失败：{error}",
+    "uninstallTitle": "卸载扩展",
+    "uninstallUnavailable": "无法卸载该扩展。",
+    "update": "更新",
+    "updateFailed": "更新{name}失败：{error}",
+    "updateUnavailable": "无法激活新的扩展包。",
+    "viewDetails": "点击查看扩展详细信息"
+  },
   "fileTree": {
+    "action": {
+      "createFile": "创建文件",
+      "createFolder": "创建文件夹",
+      "import": "导入",
+      "move": "移动"
+    },
     "alert": {
-      "renameFailed": "重命名失败：{error}"
+      "destinationExists": "目标已存在：{path}",
+      "operationFailed": "{action}失败：{error}",
+      "workspaceChanged": "工作区已切换，剩余文件已跳过。"
     },
     "menu": {
       "createFile": "创建文件",
@@ -221,7 +273,9 @@
   },
   "leftSidebar": {
     "createFile": "创建新文件",
-    "createFolder": "创建新文件夹"
+    "createFolder": "创建新文件夹",
+    "newFilePrompt": "输入新文件名：",
+    "newFolderPrompt": "输入新文件夹名："
   },
   "markdownPreview": {
     "downloadSvg": "下载 SVG",

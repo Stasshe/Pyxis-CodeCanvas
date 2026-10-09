@@ -28,7 +28,14 @@ export interface BaseTab {
   path: string;
   paneId: string; // どのペインに属するか
   isDirty?: boolean;
+  needsContentRestore?: boolean;
   icon?: string; // アイコン名（lucide-react等）
+}
+
+export interface ExtensionTab extends BaseTab {
+  kind: `extension:${string}`;
+  closable?: boolean;
+  data?: Record<string, unknown>;
 }
 
 /**
@@ -59,7 +66,6 @@ export interface PreviewTab extends BaseTab {
 export interface WebPreviewTab extends BaseTab {
   kind: 'webPreview';
   url?: string;
-  projectName?: string; // プロジェクト名を保存
 }
 
 /**
@@ -70,7 +76,7 @@ export interface AIReviewTab extends BaseTab {
   originalContent: string;
   suggestedContent: string;
   filePath: string;
-  /** AIレビューエントリ (projectIdやoriginalSnapshotなどを含む) */
+  /** AIレビュー metadata and original snapshot. */
   aiEntry?: AIReviewEntry;
   /** 履歴 */
   history?: readonly AIReviewHistoryEntry[];
@@ -114,9 +120,11 @@ export interface WelcomeTab extends BaseTab {
  * バイナリタブ
  */
 export interface BinaryTab extends BaseTab {
+  isSnapshot?: boolean;
   kind: 'binary';
   content: string;
   bufferContent?: ArrayBuffer;
+  mimeType?: string;
   type?: string;
 }
 
@@ -133,6 +141,13 @@ export interface ExtensionInfoTab extends BaseTab {
  * Merge conflict file entry
  */
 export interface MergeConflictFileEntry {
+  /** Exact versions for an opaque binary conflict; null represents deletion. */
+  binary?: {
+    base: Uint8Array | null;
+    ours: Uint8Array | null;
+    theirs: Uint8Array | null;
+    resolved: Uint8Array | null;
+  };
   /** File path */
   filePath: string;
   /** Base (common ancestor) content */
@@ -158,10 +173,8 @@ export interface MergeConflictTab extends BaseTab {
   oursBranch: string;
   /** THEIRS branch name/commit ID */
   theirsBranch: string;
-  /** Project ID */
-  projectId: string;
-  /** Project name */
-  projectName: string;
+  /** Absolute workspace root path */
+  rootPath: string;
 }
 
 /**
@@ -177,7 +190,8 @@ export type Tab =
   | WelcomeTab
   | BinaryTab
   | ExtensionInfoTab
-  | MergeConflictTab;
+  | MergeConflictTab
+  | ExtensionTab;
 
 /**
  * タブを開くときのオプション
@@ -188,6 +202,7 @@ export interface OpenTabOptions {
   makeActive?: boolean; // デフォルトtrue
   jumpToLine?: number;
   jumpToColumn?: number;
+  editorMode?: 'monaco' | 'codemirror';
   // shouldReuseTabで全てのペインを検索するかどうか
   // ボトムパネルからの操作時にtrue（paneIndexが小さいペインを優先）
   searchAllPanesForReuse?: boolean;
@@ -224,12 +239,17 @@ export interface TabComponentProps {
 export interface TabFileInfo {
   id?: string;
   name?: string;
+  title?: string;
   path?: string;
+  icon?: string;
+  closable?: boolean;
+  data?: Record<string, unknown>;
   content?: string;
   kind?: TabKind;
   isCodeMirror?: boolean;
   isBufferArray?: boolean;
   bufferContent?: ArrayBuffer;
+  mimeType?: string;
   /** 拡張プロパティ - 各タブタイプ固有の追加データ */
   [key: string]: unknown;
 }
@@ -239,15 +259,15 @@ export interface TabFileInfo {
  * restoreContent で利用可能な情報
  */
 export interface SessionRestoreContext {
-  /** 現在のプロジェクトID */
-  projectId?: string;
+  /** Open workspace root path. */
+  rootPath: string;
   /**
    * ファイルをパスで取得する関数
-   * fileRepository.getFileByPath のラッパー
+   * Reads file content through the filesystem client.
    */
   getFileByPath: (
     path: string
-  ) => Promise<{ content?: string; bufferContent?: ArrayBuffer } | null>;
+  ) => Promise<{ content?: string; bufferContent?: ArrayBuffer; mimeType?: string } | null>;
 }
 
 /**
@@ -261,6 +281,11 @@ export interface TabTypeDefinition {
   canPreview: boolean;
   component: React.ComponentType<TabComponentProps>;
   createTab: (file: TabFileInfo, options?: OpenTabOptions) => Tab;
+  onClose?: (tab: Tab) => void | Promise<void>;
+  /** Whether this tab has metadata or draft changes that must be persisted before closing. */
+  hasPendingChanges?: (tab: Tab) => boolean;
+  /** Persist pending metadata or draft changes before a destructive workspace operation. */
+  flushPendingChanges?: (tab: Tab) => Promise<void>;
   shouldReuseTab?: (existingTab: Tab, newFile: TabFileInfo, options?: OpenTabOptions) => boolean;
   /**
    * コンテンツ更新メソッド - タブのコンテンツを更新して新しいタブオブジェクトを返す
@@ -289,11 +314,11 @@ export interface TabTypeDefinition {
   serializeForSession?: (tab: Tab) => Tab;
   /**
    * セッション復元時にタブのコンテンツを復元する
-   * - ファイルベースのタブはfileRepositoryから復元
+   * - File tabs are restored from the filesystem client.
    * - 自己完結型タブ（diff, ai等）はシリアライズされたデータから復元
    * - 未実装かつneedsContentRestore=trueの場合、デフォルトでファイルから復元を試みる
    * @param tab 復元対象のタブ
-   * @param context 復元コンテキスト（projectFiles, fileRepository等）
+   * @param context Restore context with absolute filesystem paths.
    * @returns 復元されたタブ（needsContentRestore=falseに設定される）
    */
   restoreContent?: (tab: Tab, context: SessionRestoreContext) => Promise<Tab>;
@@ -328,21 +353,4 @@ export interface EditorPane {
  */
 export function hasContent(tab: Tab): tab is EditorTab | PreviewTab {
   return tab.kind === 'editor' || tab.kind === 'preview';
-}
-
-/**
- * 型ガード: bufferContentプロパティを持つタブ
- */
-export function hasBufferContent(tab: Tab): tab is EditorTab | BinaryTab {
-  return (
-    (tab.kind === 'editor' && 'bufferContent' in tab) ||
-    (tab.kind === 'binary' && 'bufferContent' in tab)
-  );
-}
-
-/**
- * 型ガード: jumpToLineプロパティを持つタブ
- */
-export function hasJumpToLine(tab: Tab): tab is EditorTab {
-  return tab.kind === 'editor';
 }

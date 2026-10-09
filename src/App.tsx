@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { useSnapshot } from 'valtio';
@@ -10,28 +10,30 @@ import LeftSidebar from '@/components/Left/LeftSidebar';
 import MenuBar from '@/components/MenuBar';
 import PaneNavigator from '@/components/Pane/PaneNavigator';
 import RootPaneArea from '@/components/Pane/RootPaneArea';
-import ProjectModal from '@/components/ProjectModal';
 import RightSidebar from '@/components/Right/RightSidebar';
 import OperationWindow from '@/components/Top/OperationWindow/OperationWindow';
+import { useFolderOperationView } from '@/components/Top/OperationWindow/useFolderOperationView';
 import TopBar from '@/components/Top/TopBar';
-import { useFileSelector } from '@/context/FileSelectorContext';
+import { type OperationViewId, useFileSelector } from '@/context/FileSelectorContext';
 import { useProject } from '@/engine/core/project';
 import {
   useBottomPanelResize,
   useLeftSidebarResize,
   useRightSidebarResize,
 } from '@/engine/helper/resize';
+import { saveRecentFolder } from '@/engine/storage/recentFolderStorageAdapter';
 import type { EditorPane } from '@/engine/tabs/types';
 import { useKeyBinding } from '@/hooks/keybindings/useKeyBindings';
 import { useFileDeleteTabSync } from '@/hooks/state/useFileDeleteTabSync';
+import { useGitFilesystemRefresh } from '@/hooks/state/useGitFilesystemRefresh';
 import { useProjectWelcome } from '@/hooks/state/useProjectWelcome';
 import useGlobalScrollLock from '@/hooks/ui/useGlobalScrollLock';
 import { useOptimizedUIStateSave } from '@/hooks/ui/useOptimizedUIStateSave';
 import { useTabContentRestore } from '@/hooks/ui/useTabContentRestore';
 import { triggerGitRefresh } from '@/stores/gitRefreshStore';
-import { setCurrentProject } from '@/stores/projectStore';
+import { getCurrentRootPath, setCurrentProject } from '@/stores/projectStore';
 import { sessionStore } from '@/stores/sessionStore';
-import { tabActions, tabState } from '@/stores/tabState';
+import { flushDirtyTabFiles, tabActions, tabState } from '@/stores/tabState';
 import type { MenuTab, Project } from '@/types';
 import { useTheme } from './context/ThemeContext';
 
@@ -52,19 +54,28 @@ export default function Home() {
   >('terminal');
   const [isLeftSidebarVisible, setIsLeftSidebarVisible] = useState(true);
   const [isBottomPanelVisible, setIsBottomPanelVisible] = useState(true);
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isPaneNavigatorOpen, setIsPaneNavigatorOpen] = useState(false);
+  const [paneMutationError, setPaneMutationError] = useState<string | null>(null);
   const [gitChangesCount, setGitChangesCount] = useState(0);
-  const [nodeRuntimeOperationInProgress] = useState(false);
+  const requestedInitialFolderPalette = useRef(false);
 
   const { colors } = useTheme();
   const snap = useSnapshot(tabState);
-  const { panes, isLoading: isTabsLoading, isRestored, isContentRestored, activePane } = snap;
+  const {
+    panes,
+    isLoading: isTabsLoading,
+    isRestored,
+    isContentRestored,
+    activePane,
+    sessionError,
+  } = snap;
   const { openTab, setPanes, setActivePane, splitPane, removePane, moveTab, activateTab } =
     tabActions;
   const {
     isOpen: isOperationWindowVisible,
     targetPaneId: operationWindowTargetPaneId,
+    initialViewId: operationWindowInitialViewId,
+    openFileSelector,
     closeFileSelector,
   } = useFileSelector();
 
@@ -86,8 +97,35 @@ export default function Home() {
   }, []);
 
   // プロジェクト管理
-  const { currentProject, projectFiles, loadProject, createProject, refreshProjectFiles } =
-    useProject();
+  const {
+    currentProject,
+    projectFiles,
+    loadProject,
+    createProject,
+    refreshProjectFiles,
+    startupError,
+    isReady,
+  } = useProject();
+
+  const folderPalettePaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
+  const openOperationView = useCallback(
+    (viewId: OperationViewId) => {
+      if (folderPalettePaneId) openFileSelector(folderPalettePaneId, viewId);
+    },
+    [folderPalettePaneId, openFileSelector]
+  );
+  const openFolderPalette = useCallback(() => openOperationView('folders'), [openOperationView]);
+  const openRecentPalette = useCallback(() => openOperationView('recent'), [openOperationView]);
+
+  useEffect(() => {
+    if (currentProject && !startupError) {
+      requestedInitialFolderPalette.current = false;
+      return;
+    }
+    if (!isReady || requestedInitialFolderPalette.current || !folderPalettePaneId) return;
+    requestedInitialFolderPalette.current = true;
+    openFolderPalette();
+  }, [currentProject, folderPalettePaneId, isReady, openFolderPalette, startupError]);
 
   // グローバルプロジェクトストアを同期
   useEffect(() => {
@@ -99,6 +137,7 @@ export default function Home() {
 
   // ファイル削除時のタブ同期
   useFileDeleteTabSync();
+  useGitFilesystemRefresh(currentProject?.rootPath ?? null);
 
   // プロジェクト読み込み時のWelcomeタブ
   useProjectWelcome(currentProject);
@@ -111,20 +150,11 @@ export default function Home() {
   // グローバルスクロールロック
   useGlobalScrollLock();
 
-  // Stable callbacks for refresh handlers to avoid passing new function refs each render
-  const handleGitRefresh = useCallback(() => {
-    if (currentProject && loadProject) {
-      loadProject(currentProject);
-    }
-  }, [currentProject, loadProject]);
-
   const handleFilesRefresh = useCallback(() => {
     if (refreshProjectFiles) {
       refreshProjectFiles().then(() => triggerGitRefresh());
     }
   }, [refreshProjectFiles]);
-
-  // FileWatcher bridge removed: components now subscribe directly to fileRepository
 
   // UI状態の復元（sessionStorage統合）
   useEffect(() => {
@@ -202,7 +232,6 @@ export default function Home() {
   const toggleRightSidebar = () => setIsRightSidebarVisible(!isRightSidebarVisible);
 
   // OperationWindowのトグル用（QuickOpen用）
-  const { openFileSelector } = useFileSelector();
   const toggleOperationWindow = () => {
     if (isOperationWindowVisible) {
       closeFileSelector();
@@ -210,31 +239,59 @@ export default function Home() {
       // アクティブなペインを使用（tabStoreのactivePaneを優先）
       const targetPaneId = activePane || panes.find(p => p.activeTabId)?.id || panes[0]?.id;
       if (targetPaneId) {
-        openFileSelector(targetPaneId);
+        openFileSelector(targetPaneId, 'files');
       }
     }
   };
 
+  const openQuickOpen = useCallback(() => openOperationView('files'), [openOperationView]);
+
   // プロジェクト選択
-  const handleProjectSelect = async (project: Project) => {
-    // タブを全てクリア
-    setPanes([{ id: 'pane-1', tabs: [], activeTabId: '' }]);
-    setIsLeftSidebarVisible(true);
-    await loadProject(project);
-  };
+  const handleProjectSelect = useCallback(
+    async (project: Project) => {
+      const oldRootPath = getCurrentRootPath();
+      if (oldRootPath === project.rootPath && !startupError) {
+        await saveRecentFolder(project);
+        closeFileSelector();
+        return;
+      }
+      await loadProject(project, async () => {
+        await tabActions.saveSession(oldRootPath);
+        await flushDirtyTabFiles();
+      });
+      await tabActions.loadSession(project.rootPath);
+      setIsLeftSidebarVisible(true);
+      closeFileSelector();
+    },
+    [closeFileSelector, loadProject, startupError]
+  );
 
   // プロジェクト作成
-  const handleProjectCreate = async (name: string, description?: string) => {
-    if (createProject) {
-      // タブを全てクリア
-      setPanes([{ id: 'pane-1', tabs: [], activeTabId: '' }]);
+  const handleProjectCreate = useCallback(
+    async (name: string) => {
+      const oldRootPath = getCurrentRootPath();
+      const project = await createProject(name, async () => {
+        await tabActions.saveSession(oldRootPath);
+        await flushDirtyTabFiles();
+      });
+      await tabActions.loadSession(project.rootPath);
       setIsLeftSidebarVisible(true);
-      await createProject(name, description);
-    }
-  };
+      closeFileSelector();
+    },
+    [closeFileSelector, createProject]
+  );
+
+  const { folderView, recentView } = useFolderOperationView({
+    onOpenFolder: handleProjectSelect,
+    onCreateFolder: handleProjectCreate,
+    initialError: startupError,
+    currentRootPath: getCurrentRootPath(),
+    onOpenRecent: openRecentPalette,
+    onOpenFolderView: openFolderPalette,
+  });
 
   // ショートカットキーの登録
-  useKeyBinding('quickOpen', toggleOperationWindow, [panes, activePane]);
+  useKeyBinding('quickOpen', openQuickOpen, [openQuickOpen]);
   useKeyBinding('toggleLeftSidebar', () => setIsLeftSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleRightSidebar', () => setIsRightSidebarVisible(prev => !prev), []);
   useKeyBinding('toggleBottomPanel', () => setIsBottomPanelVisible(prev => !prev), []);
@@ -261,7 +318,8 @@ export default function Home() {
     setIsLeftSidebarVisible(true);
   }, []);
   useKeyBinding('openTerminal', () => setIsBottomPanelVisible(true), []);
-  useKeyBinding('openProject', () => setIsProjectModalOpen(true), []);
+  useKeyBinding('openProject', openFolderPalette, [openFolderPalette]);
+  useKeyBinding('openRecent', openRecentPalette, [openRecentPalette]);
   useKeyBinding('globalSearch', () => {
     setActiveMenuTab('search');
     setIsLeftSidebarVisible(true);
@@ -290,19 +348,28 @@ export default function Home() {
     }
   }, [panes, activePane, flattenPanes, splitPane]);
 
-  useKeyBinding('closePane', () => {
+  useKeyBinding('closePane', async () => {
     const flatPanes = flattenPanes(panes);
     if (flatPanes.length <= 1) return; // Don't close the last pane
     const currentPane = flatPanes.find(p => p.id === activePane) || flatPanes[0];
     if (currentPane) {
-      removePane(currentPane.id);
-      // Focus the first remaining pane
-      const remaining = flatPanes.filter(p => p.id !== currentPane.id);
-      if (remaining.length > 0) {
-        setActivePane(remaining[0].id);
-        if (remaining[0].activeTabId) {
-          activateTab(remaining[0].id, remaining[0].activeTabId);
+      setPaneMutationError(null);
+      try {
+        await flushDirtyTabFiles();
+        if (!removePane(currentPane.id)) {
+          throw new Error('Could not close the pane while changes remain unsaved.');
         }
+        // Focus the first remaining pane
+        const remaining = flatPanes.filter(p => p.id !== currentPane.id);
+        if (remaining.length > 0) {
+          setActivePane(remaining[0].id);
+          if (remaining[0].activeTabId) {
+            activateTab(remaining[0].id, remaining[0].activeTabId);
+          }
+        }
+      } catch (error) {
+        console.error('[App] Failed to save before closing pane:', error);
+        setPaneMutationError(error instanceof Error ? error.message : String(error));
       }
     }
   }, [panes, activePane, flattenPanes, removePane, setActivePane, activateTab]);
@@ -366,6 +433,25 @@ export default function Home() {
           flexDirection: 'column',
         }}
       >
+        {startupError && !isReady && (
+          <div
+            role="alert"
+            className="absolute inset-0 z-[100] flex items-center justify-center bg-background p-8"
+          >
+            <div className="max-w-xl text-sm">
+              <h1 className="mb-2 text-lg font-semibold">Pyxis could not start</h1>
+              <p>{startupError}</p>
+            </div>
+          </div>
+        )}
+        {(paneMutationError || sessionError) && (
+          <div
+            role="alert"
+            className="absolute right-3 top-3 z-[110] max-w-[min(80vw,36rem)] truncate rounded border bg-card px-3 py-2 text-xs text-red-500 shadow"
+          >
+            {paneMutationError || sessionError}
+          </div>
+        )}
         <TopBar
           isOperationWindowVisible={isOperationWindowVisible}
           toggleOperationWindow={toggleOperationWindow}
@@ -401,68 +487,68 @@ export default function Home() {
           <MenuBar
             activeMenuTab={activeMenuTab}
             onMenuTabClick={handleMenuTabClick}
-            onProjectClick={() => setIsProjectModalOpen(true)}
+            onProjectClick={openFolderPalette}
             gitChangesCount={gitChangesCount}
           />
 
-          {isLeftSidebarVisible && currentProject && (
-            <LeftSidebar
-              activeMenuTab={activeMenuTab}
-              leftSidebarWidth={leftSidebarWidth}
-              files={projectFiles}
-              currentProject={currentProject}
-              onResize={handleLeftResize}
-              onGitRefresh={handleGitRefresh}
-              onGitStatusChange={setGitChangesCount}
-              onRefresh={handleFilesRefresh}
-            />
-          )}
+          <div data-workspace-panels className="flex min-w-0 min-h-0 flex-1 overflow-hidden">
+            {isLeftSidebarVisible && currentProject && (
+              <LeftSidebar
+                activeMenuTab={activeMenuTab}
+                leftSidebarWidth={leftSidebarWidth}
+                files={projectFiles}
+                currentProject={currentProject}
+                onResize={handleLeftResize}
+                onGitStatusChange={setGitChangesCount}
+                onRefresh={handleFilesRefresh}
+              />
+            )}
 
-          <div
-            className="flex-1 flex flex-row overflow-hidden min-h-0"
-            style={{ position: 'relative' }}
-          >
-            {/* メインエディタエリア */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-              <RootPaneArea panes={panes} colors={colors} setPanes={setPanes} />
+            <div
+              data-work-area
+              className="flex min-w-0 min-h-0 flex-1 flex-row overflow-hidden"
+              style={{ position: 'relative' }}
+            >
+              {/* メインエディタエリア */}
+              <div
+                data-editor-column
+                className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <RootPaneArea panes={panes} colors={colors} setPanes={setPanes} />
 
-              {isBottomPanelVisible && (
-                <BottomPanel
-                  height={bottomPanelHeight}
-                  currentProject={currentProject?.name}
-                  currentProjectId={currentProject?.id || ''}
-                  onResize={handleBottomResize}
-                  activeTab={bottomPanelActiveTab}
-                  onActiveTabChange={setBottomPanelActiveTab}
+                {isBottomPanelVisible && (
+                  <BottomPanel
+                    height={bottomPanelHeight}
+                    currentProject={currentProject?.name}
+                    currentRootPath={currentProject?.rootPath || ''}
+                    onResize={handleBottomResize}
+                    activeTab={bottomPanelActiveTab}
+                    onActiveTabChange={setBottomPanelActiveTab}
+                  />
+                )}
+              </div>
+
+              {/* 右サイドバー */}
+              {isRightSidebarVisible && (
+                <RightSidebar
+                  rightSidebarWidth={rightSidebarWidth}
+                  onResize={handleRightResize}
+                  projectFiles={projectFiles}
+                  currentProject={currentProject}
+                  currentRootPath={currentProject?.rootPath ?? null}
                 />
               )}
             </div>
-
-            {/* 右サイドバー */}
-            {isRightSidebarVisible && (
-              <RightSidebar
-                rightSidebarWidth={rightSidebarWidth}
-                onResize={handleRightResize}
-                projectFiles={projectFiles}
-                currentProject={currentProject}
-                currentProjectId={currentProject?.id || ''}
-              />
-            )}
           </div>
-
-          <ProjectModal
-            isOpen={isProjectModalOpen}
-            onClose={() => setIsProjectModalOpen(false)}
-            onProjectSelect={handleProjectSelect}
-            onProjectCreate={handleProjectCreate}
-            currentProject={currentProject}
-          />
 
           {isOperationWindowVisible && (
             <OperationWindow
+              key={operationWindowInitialViewId ?? 'files'}
               onClose={closeFileSelector}
               projectFiles={projectFiles}
               targetPaneId={operationWindowTargetPaneId}
+              views={[folderView, recentView]}
+              initialViewId={operationWindowInitialViewId ?? 'files'}
             />
           )}
 
@@ -476,7 +562,6 @@ export default function Home() {
           height={22}
           currentProjectName={currentProject?.name}
           gitChangesCount={gitChangesCount}
-          nodeRuntimeBusy={nodeRuntimeOperationInProgress}
           colors={colors}
         />
       </div>

@@ -9,6 +9,7 @@
 
 import { extensionManager } from './extensionManager';
 import { fetchRegistry } from './extensionRegistry';
+import { loadAutoInstallProgress, saveAutoInstallProgress } from './storage-adapter';
 
 /**
  * ブラウザの言語を検出
@@ -16,17 +17,10 @@ import { fetchRegistry } from './extensionRegistry';
 function detectBrowserLocale(): string {
   if (typeof window === 'undefined') return 'en';
 
-  const lang = navigator.language || (navigator as any).userLanguage || 'en';
+  const lang = navigator.language || 'en';
 
   // 'ja-JP' -> 'ja', 'en-US' -> 'en' のように変換
   return lang.split('-')[0].toLowerCase();
-}
-
-/**
- * 言語コードをロケールIDに変換
- */
-function localeToExtensionId(locale: string): string {
-  return `pyxis.lang.${locale}`;
 }
 
 /**
@@ -46,38 +40,63 @@ export async function autoInstallExtensions(): Promise<void> {
     // ブラウザ言語を検出
     const detectedLocale = detectBrowserLocale();
     console.log(`[ExtensionAutoInstaller] Detected locale: ${detectedLocale}`);
-
-    // デフォルト有効化された拡張機能をインストール
-    const defaultExtensions = registry.extensions.filter(e => e.defaultEnabled);
-    for (const ext of defaultExtensions) {
-      try {
-        console.log(`[ExtensionAutoInstaller] Installing default extension: ${ext.manifestUrl}`);
-        await extensionManager.installExtension(ext.manifestUrl);
-        // manifestUrlから拡張機能IDを取得 (extension idで有効化)
-        await extensionManager.enableExtension(ext.id);
-      } catch (error) {
-        console.error(`[ExtensionAutoInstaller] Failed to install ${ext.manifestUrl}:`, error);
-      }
-    }
-
-    // 検出された言語に対応する言語パックをインストール
-    const langPackId = localeToExtensionId(detectedLocale);
+    const selected = registry.extensions.filter(entry => entry.defaultEnabled);
     const langPackEntry = registry.extensions.find(e =>
       e.manifestUrl.includes(`lang-packs/${detectedLocale}/`)
     );
-
-    if (langPackEntry) {
-      try {
-        console.log(`[ExtensionAutoInstaller] Installing language pack for: ${detectedLocale}`);
-        await extensionManager.installExtension(langPackEntry.manifestUrl);
-        await extensionManager.enableExtension(langPackId);
-      } catch (error) {
-        console.error('[ExtensionAutoInstaller] Failed to install language pack:', error);
-      }
-    } else {
-      console.log(`[ExtensionAutoInstaller] No language pack found for: ${detectedLocale}`);
+    if (langPackEntry && !selected.some(entry => entry.id === langPackEntry.id)) {
+      selected.push(langPackEntry);
     }
 
+    const progress = (await loadAutoInstallProgress()) ?? {
+      started: false,
+      completed: false,
+      completedExtensionIds: [],
+    };
+    progress.started = true;
+    progress.completed = false;
+    await saveAutoInstallProgress(progress);
+    const completedIds = new Set(progress.completedExtensionIds);
+    const installed = await extensionManager.getInstalledExtensions();
+    const installedById = new Map(installed.map(extension => [extension.manifest.id, extension]));
+
+    for (const extension of selected) {
+      if (completedIds.has(extension.id)) continue;
+
+      try {
+        let installedExtension = installedById.get(extension.id);
+        const wasInstalled = Boolean(installedExtension);
+        if (!installedExtension) {
+          console.log(`[ExtensionAutoInstaller] Installing extension: ${extension.manifestUrl}`);
+          const result = await extensionManager.installExtension(extension.manifestUrl);
+          if (!result) throw new Error('Extension installation failed');
+          installedExtension = (await extensionManager.getInstalledExtensions()).find(
+            item => item.manifest.id === extension.id
+          );
+        }
+        if (!installedExtension) throw new Error('Extension was not saved after installation');
+        if (wasInstalled && !installedExtension.enabled) {
+          const enabled = await extensionManager.enableExtension(extension.id);
+          if (!enabled) throw new Error('Extension activation failed');
+          installedExtension = (await extensionManager.getInstalledExtensions()).find(
+            item => item.manifest.id === extension.id
+          );
+        }
+        if (!installedExtension?.enabled) throw new Error('Extension activation failed');
+        completedIds.add(extension.id);
+        progress.completedExtensionIds = Array.from(completedIds);
+        await saveAutoInstallProgress(progress);
+      } catch (error) {
+        console.error(
+          `[ExtensionAutoInstaller] Failed to install ${extension.manifestUrl}:`,
+          error
+        );
+      }
+    }
+
+    progress.completed = selected.every(entry => completedIds.has(entry.id));
+    progress.completedExtensionIds = Array.from(completedIds);
+    await saveAutoInstallProgress(progress);
     console.log('[ExtensionAutoInstaller] Auto-installation completed');
   } catch (error) {
     console.error('[ExtensionAutoInstaller] Auto-installation failed:', error);
@@ -89,7 +108,9 @@ export async function autoInstallExtensions(): Promise<void> {
  */
 export async function isFirstRun(): Promise<boolean> {
   const installed = await extensionManager.getInstalledExtensions();
-  return installed.length === 0;
+  const progress = await loadAutoInstallProgress();
+  if (progress?.completed) return false;
+  return installed.length === 0 || progress?.started === true;
 }
 
 /**

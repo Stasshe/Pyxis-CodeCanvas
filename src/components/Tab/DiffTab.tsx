@@ -23,7 +23,6 @@ interface SingleFileDiff {
 interface DiffTabProps {
   diffs: ReadonlyArray<SingleFileDiff>;
   editable?: boolean; // 編集可能かどうか（true: 編集可能, false: 読み取り専用）
-  onContentChange?: (content: string) => void; // 編集内容の保存用（デバウンス後）
   // 即時反映用ハンドラ: 編集が発生したら即座に呼ばれる（isDirty フラグ立てに使用）
   onImmediateContentChange?: (content: string) => void;
   // 折り返し設定（CodeEditorと同じくユーザー設定から取得）
@@ -33,7 +32,6 @@ interface DiffTabProps {
 const DiffTab: React.FC<DiffTabProps> = ({
   diffs,
   editable = false,
-  onContentChange,
   onImmediateContentChange,
   wordWrapConfig = 'off',
 }) => {
@@ -41,8 +39,7 @@ const DiffTab: React.FC<DiffTabProps> = ({
   // 各diff領域へのref
   const diffRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // DiffEditorインスタンスとモデルを管理
-  const editorsRef = useRef<Map<number, monacoEditor.editor.IStandaloneDiffEditor>>(new Map());
+  // DiffEditor owns each editor; this component owns the models and listeners.
   const modelsRef = useRef<
     Map<
       number,
@@ -50,42 +47,20 @@ const DiffTab: React.FC<DiffTabProps> = ({
     >
   >(new Map());
 
-  // デバウンス保存用のタイマー
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   // クリーンアップ処理
   useEffect(() => {
     return () => {
-      // デバウンスタイマーをクリア
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
-      // エディタをリセットしてからモデルを破棄
-      editorsRef.current.forEach((editor, idx) => {
+      // リスナ破棄
+      listenersRef.current.forEach((l, idx) => {
         try {
-          // まずエディタのモデルをnullに設定
-          const diffModel = editor.getModel();
-          if (diffModel) {
-            editor.setModel(null);
-          }
+          if (l) l.dispose();
         } catch (e) {
-          console.warn(`[DiffTab] Failed to reset editor ${idx}:`, e);
+          console.warn('[DiffTab.tsx] caught non-fatal error', e);
+          /* ignore */
         }
       });
+      listenersRef.current.clear();
 
-      // エディタを破棄
-      editorsRef.current.forEach((editor, idx) => {
-        try {
-          if (editor) {
-            editor.dispose();
-          }
-        } catch (e) {
-          console.warn(`[DiffTab] Failed to dispose editor ${idx}:`, e);
-        }
-      });
-
-      // 最後にモデルを破棄
       modelsRef.current.forEach((models, idx) => {
         try {
           if (models.original && !models.original.isDisposed()) {
@@ -98,39 +73,12 @@ const DiffTab: React.FC<DiffTabProps> = ({
           console.warn(`[DiffTab] Failed to dispose models ${idx}:`, e);
         }
       });
-
-      // リスナ破棄
-      listenersRef.current.forEach((l, idx) => {
-        try {
-          if (l) l.dispose();
-        } catch (e) {
-          console.warn('[DiffTab.tsx] caught non-fatal error', e);
-          /* ignore */
-        }
-      });
-      listenersRef.current.clear();
-
-      editorsRef.current.clear();
       modelsRef.current.clear();
     };
   }, []);
 
-  // デバウンス付き保存関数
-  const debouncedSave = (content: string) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      console.log('[DiffTab] Debounced save triggered');
-      if (onContentChange) {
-        onContentChange(content);
-      }
-    }, 5000); // CodeEditorと同じく5秒
-  };
-
   // 編集リスナの参照を保持（cleanupのため）
-  const listenersRef = useRef<Map<number, any>>(new Map());
+  const listenersRef = useRef<Map<number, { dispose: () => void }>>(new Map());
 
   // DiffEditorマウント時のハンドラ
   const handleDiffEditorMount = (
@@ -138,8 +86,6 @@ const DiffTab: React.FC<DiffTabProps> = ({
     monaco: Monaco,
     idx: number
   ) => {
-    editorsRef.current.set(idx, editor);
-
     // テーマ定義と適用
     try {
       defineAndSetMonacoThemes(monaco, colors, themeName);
@@ -165,17 +111,13 @@ const DiffTab: React.FC<DiffTabProps> = ({
         }
       }
 
-      // 編集可能で単一ファイルのとき、modifiedモデルの変更を監視して
-      // 即時ハンドラ(onImmediateContentChange)を呼び、デバウンス保存を走らせる
+      // Editable single-file diffs write through the shared tab content store.
       const isEditableSingle = editable && diffs.length === 1;
       if (isEditableSingle && diffModel.modified) {
         const listener = diffModel.modified.onDidChangeContent(() => {
           try {
             const current = diffModel.modified.getValue();
-            // 即時反映ハンドラ（タブ全体の isDirty を立てる用途）
             onImmediateContentChange?.(current);
-            // デバウンス保存
-            debouncedSave(current);
           } catch (e) {
             console.error('[DiffTab] immediate change handler failed', e);
           }
@@ -324,6 +266,8 @@ const DiffTab: React.FC<DiffTabProps> = ({
                 <DiffEditor
                   width="100%"
                   height="100%"
+                  keepCurrentOriginalModel
+                  keepCurrentModifiedModel
                   language={getLanguage(diff.latterFullPath || diff.formerFullPath)}
                   original={diff.formerContent}
                   modified={diff.latterContent}

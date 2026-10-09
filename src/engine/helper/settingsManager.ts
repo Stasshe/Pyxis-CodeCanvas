@@ -1,188 +1,122 @@
-/**
- * SettingsManager - .pyxis/settings.json の読み書きを管理
- */
+/** SettingsManager - workspace `.pyxis/settings.json` persistence. */
 
-import { fileRepository } from '@/engine/core/fileRepository';
+import { fsClient, resolvePath } from '@/engine/core/fs';
 import { DEFAULT_PYXIS_SETTINGS, type PyxisSettings } from '@/types/settings';
 
-const SETTINGS_PATH = '/.pyxis/settings.json';
+const SETTINGS_PATH = '.pyxis/settings.json';
+
+const mergeSettings = (base: PyxisSettings, updates: Partial<PyxisSettings>): PyxisSettings => {
+  const theme = { ...base.theme, ...updates.theme };
+  if (updates.theme?.customColors) {
+    theme.customColors = { ...base.theme.customColors, ...updates.theme.customColors };
+  }
+
+  return {
+    editor: { ...base.editor, ...updates.editor },
+    theme,
+    search: { ...base.search, ...updates.search },
+    files: { ...base.files, ...updates.files },
+    markdown: {
+      ...base.markdown,
+      ...updates.markdown,
+      math: { ...base.markdown.math, ...updates.markdown?.math },
+    },
+  };
+};
 
 export class SettingsManager {
   private static instance: SettingsManager | null = null;
-  private cache: Map<string, PyxisSettings> = new Map();
-  private listeners: Map<string, Set<(settings: PyxisSettings) => void>> = new Map();
-  private isUpdating: Map<string, boolean> = new Map(); // 循環参照防止フラグ
+  private listeners = new Map<string, Set<(settings: PyxisSettings) => void>>();
+  private updating = new Set<string>();
+  private pendingUpdates = new Map<string, Promise<void>>();
 
   private constructor() {
-    // ファイル変更イベントを監視
-    fileRepository.addChangeListener(event => {
-      if (event.file.path === SETTINGS_PATH && event.type === 'update') {
-        // 自分自身の更新でない場合のみリスナーに通知
-        if (!this.isUpdating.get(event.projectId)) {
-          this.loadSettings(event.projectId).then(settings => {
-            this.notifyListeners(event.projectId, settings);
-          });
-        }
+    fsClient.addChangeListener(event => {
+      for (const rootPath of this.listeners.keys()) {
+        const settingsPath = resolvePath(rootPath, SETTINGS_PATH);
+        if (event.path !== settingsPath || this.updating.has(rootPath)) continue;
+        void this.loadSettings(rootPath)
+          .then(settings => this.notifyListeners(rootPath, settings))
+          .catch(error => console.error('[SettingsManager] Failed to reload settings:', error));
       }
     });
   }
 
   static getInstance(): SettingsManager {
-    if (!SettingsManager.instance) {
-      SettingsManager.instance = new SettingsManager();
-    }
+    if (!SettingsManager.instance) SettingsManager.instance = new SettingsManager();
     return SettingsManager.instance;
   }
 
-  /**
-   * 設定変更リスナーを追加
-   */
-  addListener(projectId: string, listener: (settings: PyxisSettings) => void): () => void {
-    if (!this.listeners.has(projectId)) {
-      this.listeners.set(projectId, new Set());
-    }
-    this.listeners.get(projectId)?.add(listener);
-
-    // アンサブスクライブ関数を返す
+  addListener(rootPath: string, listener: (settings: PyxisSettings) => void): () => void {
+    if (!this.listeners.has(rootPath)) this.listeners.set(rootPath, new Set());
+    this.listeners.get(rootPath)?.add(listener);
     return () => {
-      const listeners = this.listeners.get(projectId);
-      if (listeners) {
-        listeners.delete(listener);
-        if (listeners.size === 0) {
-          this.listeners.delete(projectId);
-        }
-      }
+      const listeners = this.listeners.get(rootPath);
+      if (!listeners) return;
+      listeners.delete(listener);
+      if (listeners.size === 0) this.listeners.delete(rootPath);
     };
   }
 
-  /**
-   * リスナーに通知
-   */
-  private notifyListeners(projectId: string, settings: PyxisSettings): void {
-    const listeners = this.listeners.get(projectId);
-    if (listeners) {
-      listeners.forEach(listener => {
-        try {
-          listener(settings);
-        } catch (error) {
-          console.error('[SettingsManager] Listener error:', error);
-        }
-      });
-    }
+  private notifyListeners(rootPath: string, settings: PyxisSettings): void {
+    this.listeners.get(rootPath)?.forEach(listener => {
+      listener(settings);
+    });
   }
 
-  /**
-   * 設定を読み込む
-   */
-  async loadSettings(projectId: string): Promise<PyxisSettings> {
-    try {
-      // Use path-based lookup to avoid reading the entire project file list
-      const settingsFile = await fileRepository.getFileByPath(projectId, SETTINGS_PATH);
-
-      if (!settingsFile || !settingsFile.content) {
-        // 設定ファイルがない場合はデフォルトを作成
-        const defaultSettings = { ...DEFAULT_PYXIS_SETTINGS };
-        await this.saveSettings(projectId, defaultSettings);
-        this.cache.set(projectId, defaultSettings);
-        return defaultSettings;
-      }
-
-      const settings = JSON.parse(settingsFile.content) as PyxisSettings;
-
-      // デフォルト値とマージ（新しいプロパティが追加された場合に対応）
-      const mergedSettings = this.mergeWithDefaults(settings);
-
-      this.cache.set(projectId, mergedSettings);
-      return mergedSettings;
-    } catch (error) {
-      console.error('[SettingsManager] Failed to load settings:', error);
+  async loadSettings(rootPath: string): Promise<PyxisSettings> {
+    const settingsPath = resolvePath(rootPath, SETTINGS_PATH);
+    await fsClient.init();
+    if (!(await fsClient.exists(settingsPath))) {
       return DEFAULT_PYXIS_SETTINGS;
     }
+
+    const stored = JSON.parse(await fsClient.readText(settingsPath)) as Partial<PyxisSettings>;
+    const settings = mergeSettings(DEFAULT_PYXIS_SETTINGS, stored);
+    return settings;
   }
 
-  /**
-   * 設定を保存
-   */
-  async saveSettings(projectId: string, settings: PyxisSettings): Promise<void> {
+  async saveSettings(rootPath: string, settings: PyxisSettings): Promise<void> {
+    this.updating.add(rootPath);
     try {
-      // 循環参照防止フラグを立てる
-      this.isUpdating.set(projectId, true);
-
-      const content = JSON.stringify(settings, null, 2);
-
-      // .pyxisフォルダを作成（存在しない場合）
-      const pyxisFolder = await fileRepository.getFileByPath(projectId, '/.pyxis');
-      if (!pyxisFolder) {
-        await fileRepository.createFile(projectId, '/.pyxis', '', 'folder');
-      }
-
-      // settings.jsonを作成または更新
-      await fileRepository.createFile(projectId, SETTINGS_PATH, content, 'file');
-
-      // キャッシュを更新
-      this.cache.set(projectId, settings);
-
-      // リスナーに通知
-      this.notifyListeners(projectId, settings);
-    } catch (error) {
-      console.error('[SettingsManager] Failed to save settings:', error);
-      throw error;
+      const directory = resolvePath(rootPath, '.pyxis');
+      await fsClient.mkdir(directory, { recursive: true });
+      await fsClient.writeFile(
+        resolvePath(rootPath, SETTINGS_PATH),
+        JSON.stringify(settings, null, 2)
+      );
+      this.notifyListeners(rootPath, settings);
     } finally {
-      // フラグを下ろす
-      setTimeout(() => {
-        this.isUpdating.set(projectId, false);
-      }, 100);
+      this.updating.delete(rootPath);
     }
   }
 
-  /**
-   * 設定を部分更新
-   */
   async updateSettings(
-    projectId: string,
+    rootPath: string,
     updates: Partial<PyxisSettings> | ((current: PyxisSettings) => Partial<PyxisSettings>)
   ): Promise<void> {
-    const currentSettings = await this.loadSettings(projectId);
+    const previousUpdate = this.pendingUpdates.get(rootPath) ?? Promise.resolve();
+    const update = previousUpdate
+      .catch(() => undefined)
+      .then(async () => {
+        const current = await this.loadSettings(rootPath);
+        let changes: Partial<PyxisSettings>;
+        if (typeof updates === 'function') {
+          changes = updates(current);
+        } else {
+          changes = updates;
+        }
+        await this.saveSettings(rootPath, mergeSettings(current, changes));
+      });
+    this.pendingUpdates.set(rootPath, update);
 
-    const updateObj = typeof updates === 'function' ? updates(currentSettings) : updates;
-
-    const newSettings = this.deepMerge(currentSettings, updateObj);
-    await this.saveSettings(projectId, newSettings);
-  }
-
-  /**
-   * キャッシュをクリア
-   */
-  clearCache(projectId?: string): void {
-    if (projectId) {
-      this.cache.delete(projectId);
-    } else {
-      this.cache.clear();
-    }
-  }
-
-  /**
-   * デフォルト値とマージ
-   */
-  private mergeWithDefaults(settings: Partial<PyxisSettings>): PyxisSettings {
-    return this.deepMerge(DEFAULT_PYXIS_SETTINGS, settings) as PyxisSettings;
-  }
-
-  /**
-   * ディープマージ
-   */
-  private deepMerge(target: any, source: any): any {
-    const result = { ...target };
-
-    for (const key in source) {
-      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = this.deepMerge(result[key] || {}, source[key]);
-      } else {
-        result[key] = source[key];
+    try {
+      await update;
+    } finally {
+      if (this.pendingUpdates.get(rootPath) === update) {
+        this.pendingUpdates.delete(rootPath);
       }
     }
-
-    return result;
   }
 }
 

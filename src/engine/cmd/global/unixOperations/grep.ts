@@ -1,6 +1,7 @@
+import { posixPath } from '@/engine/core/fs';
 import type { ProjectFile } from '@/types';
 import { parseWithGetOpt } from '../../lib';
-import { UnixCommandBase } from './base';
+import { UnixCommandBase, UnixCommandFailure } from './base';
 
 /**
  * grep - ファイル内のパターンを検索 (POSIX/GNU準拠)
@@ -38,7 +39,10 @@ export class GrepCommand extends UnixCommandBase {
     args: string[],
     stdin: NodeJS.ReadableStream | string | null = null
   ): Promise<string> {
-    const optstring = 'ivnrRlLcHhoxwqFEA:B:C:e:f:';
+    const patternOptions = await collectPatternOptions(args, path =>
+      this.readText(this.resolvePath(path))
+    );
+    const optstring = 'ivnrRlLscHhoxwqFEA:B:C:e:f:';
     const longopts = [
       'ignore-case',
       'invert-match',
@@ -59,45 +63,81 @@ export class GrepCommand extends UnixCommandBase {
       'extended-regexp',
       'include=',
       'exclude=',
+      'help',
     ];
-    const { flags, values, positional, errors } = parseWithGetOpt(args, optstring, longopts);
+    const { flags, values, orderedOptions, positional, errors } = parseWithGetOpt(
+      patternOptions.args,
+      optstring,
+      longopts
+    );
     if (errors.length) throw new Error(errors.join('; '));
+
+    const hasFixedStrings = orderedOptions.some(
+      option => option.option === 'F' || option.option === 'fixed-strings'
+    );
+    const hasExtendedRegexp = orderedOptions.some(
+      option => option.option === 'E' || option.option === 'extended-regexp'
+    );
+    if (hasFixedStrings && hasExtendedRegexp) {
+      throw new Error('grep: conflicting matchers specified');
+    }
 
     // --help only (we don't override -h behavior)
     if (flags.has('--help')) {
       return 'Usage: grep [OPTION]... PATTERN [FILE]...\nSearch for PATTERN in each FILE or standard input.\n\nCommon options:\n  -i, --ignore-case\t\tignore case distinctions\n  -v, --invert-match\t\tselect non-matching lines\n  -n, --line-number\t\tprint line number with output lines\n  -r, --recursive\t\tread all files under each directory, recursively\n  -H, --with-filename\t\tprint filename with matches\n  -h, --no-filename\t\tdo not print filename';
     }
 
-    if (positional.length === 0) {
+    if (!patternOptions.hasPatternOption && positional.length === 0) {
       throw new Error('grep: no pattern specified\nUsage: grep [OPTION]... PATTERN [FILE]...');
     }
 
-    const pattern = positional[0];
-    let files = positional.slice(1);
+    const patterns = patternOptions.hasPatternOption ? patternOptions.patterns : [positional[0]];
+    let files = patternOptions.hasPatternOption ? positional : positional.slice(1);
 
     // オプション解析
     const ignoreCase = flags.has('-i') || flags.has('--ignore-case');
     const invertMatch = flags.has('-v') || flags.has('--invert-match');
     const showLineNumber = flags.has('-n') || flags.has('--line-number');
     const recursive = flags.has('-r') || flags.has('-R') || flags.has('--recursive');
-    const filesWithMatches = flags.has('-l') || flags.has('--files-with-matches');
-    const filesWithoutMatch = flags.has('-L') || flags.has('--files-without-match');
+    let filesWithMatches = false;
+    let filesWithoutMatch = false;
     const countOnly = flags.has('-c') || flags.has('--count');
-    const fixedStrings = flags.has('-F') || flags.has('--fixed-strings');
+    const fixedStrings = hasFixedStrings;
+    const extendedRegexp = hasExtendedRegexp;
     const wordRegexp = flags.has('-w') || flags.has('--word-regexp');
     const lineRegexp = flags.has('-x') || flags.has('--line-regexp');
     const onlyMatching = flags.has('-o') || flags.has('--only-matching');
     const quiet = flags.has('-q') || flags.has('--quiet') || flags.has('--silent');
     const noMessages = flags.has('-s') || flags.has('--no-messages');
-    const forceFilename = flags.has('-H') || flags.has('--with-filename');
-    const noFilename = flags.has('-h') || flags.has('--no-filename');
+    let forceFilename = false;
+    let noFilename = false;
+    for (const option of orderedOptions) {
+      if (option.option === 'l' || option.option === 'files-with-matches') {
+        filesWithMatches = true;
+        filesWithoutMatch = false;
+      }
+      if (option.option === 'L' || option.option === 'files-without-match') {
+        filesWithMatches = false;
+        filesWithoutMatch = true;
+      }
+      if (option.option === 'H' || option.option === 'with-filename') {
+        forceFilename = true;
+        noFilename = false;
+      }
+      if (option.option === 'h' || option.option === 'no-filename') {
+        forceFilename = false;
+        noFilename = true;
+      }
+    }
 
     // コンテキスト行
-    const afterContext = Number.parseInt(values.get('-A') || '0', 10);
-    const beforeContext = Number.parseInt(values.get('-B') || '0', 10);
-    const context = Number.parseInt(values.get('-C') || '0', 10);
-    const showAfter = context || afterContext;
-    const showBefore = context || beforeContext;
+    const afterContext = parseContextCount(values.get('-A'));
+    const beforeContext = parseContextCount(values.get('-B'));
+    const context = parseContextCount(values.get('-C'));
+    let showAfter = context;
+    let showBefore = context;
+    if (values.has('-A')) showAfter = afterContext;
+    if (values.has('-B')) showBefore = beforeContext;
 
     // include/exclude パターン
     const includePattern = values.get('--include') || null;
@@ -106,21 +146,21 @@ export class GrepCommand extends UnixCommandBase {
     // 正規表現を構築
     let regex: RegExp;
     try {
-      let pat = pattern;
-      if (fixedStrings) {
-        pat = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      }
-      if (wordRegexp) {
-        pat = `\\b${pat}\\b`;
-      }
-      if (lineRegexp) {
-        pat = `^${pat}$`;
-      }
-      // gフラグは-oオプションでのみ使用（複数マッチ取得）
-      // test()での状態問題を避けるため、通常は使用しない
-      regex = new RegExp(pat, ignoreCase ? 'i' : '');
-    } catch (e) {
-      throw new Error(`grep: invalid regular expression: ${(e as Error).message}`);
+      const sourcePatterns = patterns.map(pattern => {
+        let source = fixedStrings
+          ? escapeRegularExpression(pattern)
+          : extendedRegexp
+            ? pattern
+            : convertBasicRegex(pattern);
+        if (wordRegexp) source = `\\b${source}\\b`;
+        if (lineRegexp) source = `^${source}$`;
+        return `(?:${source})`;
+      });
+      const pat = sourcePatterns.length === 0 ? '(?!)' : sourcePatterns.join('|');
+      regex = new RegExp(pat, onlyMatching ? (ignoreCase ? 'ig' : 'g') : ignoreCase ? 'i' : '');
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`grep: invalid regular expression: ${detail}`);
     }
 
     // -r で検索ファイルが指定されていない場合、カレントディレクトリ
@@ -128,68 +168,52 @@ export class GrepCommand extends UnixCommandBase {
       files = ['.'];
     }
 
-    // ファイルなしでstdinがある場合
-    if (files.length === 0 && stdin !== null) {
-      const content = await this.readStdin(stdin);
-      const result = this.grepContent(
-        content,
-        regex,
-        invertMatch,
-        showLineNumber,
-        onlyMatching,
-        showAfter,
-        showBefore,
-        ''
-      );
-      if (quiet) return result.matchCount > 0 ? '' : '';
-      if (countOnly) return String(result.matchCount);
-      return result.lines.join('\n');
-    }
-
-    const results: string[] = [];
-    let anyMatch = false;
     const multipleFiles = files.length > 1 || recursive;
     const showFilename = forceFilename || (multipleFiles && !noFilename);
 
+    // ファイルなしでstdinがある場合
+    if (files.length === 0 && stdin !== null) {
+      const content = await this.readStdin(stdin);
+      const result = await this.grepFile(
+        null,
+        '(standard input)',
+        regex,
+        invertMatch,
+        showLineNumber,
+        filesWithMatches,
+        filesWithoutMatch,
+        countOnly,
+        onlyMatching,
+        showFilename,
+        showAfter,
+        showBefore,
+        content
+      );
+      if (quiet && result.matchCount > 0) return '';
+      if (quiet) throw new UnixCommandFailure('', 1);
+      if (result.matchCount === 0) {
+        throw new UnixCommandFailure('', 1, result.output ?? '');
+      }
+      return result.output ?? '';
+    }
+
+    const results: string[] = [];
+    const failures: string[] = [];
+    let hadFileError = false;
+    let anyMatch = false;
+    let stdinRead = false;
     for (const fileArg of files) {
-      const expanded = await this.expandPathPattern(fileArg);
-
-      for (const path of expanded) {
-        try {
-          const normalizedPath = this.normalizePath(path);
-          const isDir = await this.isDirectory(normalizedPath);
-
-          if (isDir) {
-            if (recursive) {
-              const dirResults = await this.grepDirectory(
-                normalizedPath,
-                regex,
-                invertMatch,
-                showLineNumber,
-                filesWithMatches,
-                filesWithoutMatch,
-                countOnly,
-                onlyMatching,
-                showFilename,
-                showAfter,
-                showBefore,
-                quiet,
-                includePattern,
-                excludePattern
-              );
-              if (dirResults.anyMatch) anyMatch = true;
-              results.push(...dirResults.lines);
-            } else if (!noMessages) {
-              results.push(`grep: ${path}: Is a directory`);
-            }
-          } else {
-            // include/exclude チェック
-            const basename = path.split('/').pop() || '';
-            if (includePattern && !this.matchGlob(includePattern, basename)) continue;
-            if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
-
-            const fileResult = await this.grepFile(
-              normalizedPath,
+      const isStdin = fileArg === '-';
+      let path: string | null = null;
+      let displayPath = fileArg;
+      if (!isStdin) path = this.resolvePath(fileArg);
+      else displayPath = '(standard input)';
+      try {
+        if (path !== null && (await this.isDirectory(path))) {
+          if (recursive) {
+            const dirResults = await this.grepDirectory(
+              path,
+              fileArg,
               regex,
               invertMatch,
               showLineNumber,
@@ -199,38 +223,88 @@ export class GrepCommand extends UnixCommandBase {
               onlyMatching,
               showFilename,
               showAfter,
-              showBefore
+              showBefore,
+              quiet,
+              noMessages,
+              includePattern,
+              excludePattern
             );
-            if (fileResult.matchCount > 0) anyMatch = true;
-            if (fileResult.output) results.push(fileResult.output);
+            if (dirResults.anyMatch) anyMatch = true;
+            results.push(...dirResults.lines);
+            failures.push(...dirResults.errors);
+            if (dirResults.hadError) hadFileError = true;
+          } else if (!noMessages) {
+            hadFileError = true;
+            failures.push(`grep: ${fileArg}: Is a directory`);
+          } else {
+            hadFileError = true;
           }
-        } catch (error) {
-          if (!noMessages) {
-            results.push(`grep: ${path}: ${(error as Error).message}`);
+        } else {
+          // include/exclude チェック
+          const basename = path === null ? '' : posixPath.basename(path);
+          if (includePattern && !this.matchGlob(includePattern, basename)) continue;
+          if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
+
+          let stdinContent: string | undefined;
+          if (isStdin) {
+            stdinContent = '';
+            if (!stdinRead) stdinContent = await this.readStdin(stdin);
+            stdinRead = true;
           }
+          const fileResult = await this.grepFile(
+            path,
+            displayPath,
+            regex,
+            invertMatch,
+            showLineNumber,
+            filesWithMatches,
+            filesWithoutMatch,
+            countOnly,
+            onlyMatching,
+            showFilename,
+            showAfter,
+            showBefore,
+            stdinContent
+          );
+          if (fileResult.matchCount > 0) anyMatch = true;
+          if (fileResult.output !== null) results.push(fileResult.output);
+        }
+      } catch (error) {
+        hadFileError = true;
+        if (!noMessages) {
+          const detail = error instanceof Error ? error.message : String(error);
+          failures.push(`grep: ${fileArg}: ${detail}`);
         }
       }
     }
 
-    if (quiet) {
-      // 終了コードで示す（ここでは空文字を返す）
-      return anyMatch ? '' : '';
-    }
-
-    return results.join('\n');
+    if (quiet && anyMatch) return '';
+    if (hadFileError)
+      throw new UnixCommandFailure(failures.join('\n'), 2, quiet ? '' : results.join(''));
+    if (!anyMatch) throw new UnixCommandFailure('', 1, quiet ? '' : results.join(''));
+    if (quiet) return '';
+    return results.join('');
   }
 
   /**
    * stdinを読み取り
    */
-  private async readStdin(stdin: NodeJS.ReadableStream | string): Promise<string> {
+  private async readStdin(stdin: NodeJS.ReadableStream | string | null): Promise<string> {
+    if (stdin === null) return '';
     if (typeof stdin === 'string') return stdin;
     return new Promise<string>(resolve => {
-      let buf = '';
-      stdin.on('data', (c: any) => (buf += String(c)));
-      stdin.on('end', () => resolve(buf));
-      stdin.on('close', () => resolve(buf));
-      setTimeout(() => resolve(buf), 50);
+      const decoder = new TextDecoder();
+      let content = '';
+      const finish = () => {
+        content += decoder.decode();
+        resolve(content);
+      };
+      stdin.on('data', (chunk: unknown) => {
+        if (typeof chunk === 'string') content += chunk;
+        else if (chunk instanceof Uint8Array) content += decoder.decode(chunk, { stream: true });
+      });
+      stdin.on('end', finish);
+      stdin.on('close', finish);
     });
   }
 
@@ -248,6 +322,8 @@ export class GrepCommand extends UnixCommandBase {
     prefix: string
   ): { lines: string[]; matchCount: number } {
     const lines = content.split('\n');
+    if (content.endsWith('\n')) lines.pop();
+    if (content.length === 0) lines.length = 0;
     const output: string[] = [];
     let matchCount = 0;
     const matchedLineIndices = new Set<number>();
@@ -284,6 +360,7 @@ export class GrepCommand extends UnixCommandBase {
 
       const line = lines[i];
       const isMatch = matchedLineIndices.has(i);
+      if (onlyMatching && !isMatch) continue;
       let result = '';
 
       if (prefix) result += prefix;
@@ -296,7 +373,8 @@ export class GrepCommand extends UnixCommandBase {
         const matches = line.match(regex);
         if (matches) {
           for (const m of matches) {
-            output.push(prefix + m);
+            const linePrefix = showLineNumber ? `${i + 1}:` : '';
+            output.push(`${prefix}${linePrefix}${m}`);
           }
         }
         continue;
@@ -313,7 +391,8 @@ export class GrepCommand extends UnixCommandBase {
    * ファイル内を検索
    */
   private async grepFile(
-    path: string,
+    path: string | null,
+    displayPath: string,
     regex: RegExp,
     invertMatch: boolean,
     showLineNumber: boolean,
@@ -323,20 +402,18 @@ export class GrepCommand extends UnixCommandBase {
     onlyMatching: boolean,
     showFilename: boolean,
     afterContext: number,
-    beforeContext: number
+    beforeContext: number,
+    stdinContent?: string
   ): Promise<{ output: string | null; matchCount: number }> {
-    const relative = this.getRelativePathFromProject(path);
-    const file = await this.getFileFromDB(relative);
-    if (!file) throw new Error('No such file or directory');
-
-    let content = '';
-    if (file.isBufferArray && file.bufferContent) {
-      content = new TextDecoder('utf-8').decode(file.bufferContent as ArrayBuffer);
-    } else if (typeof file.content === 'string') {
-      content = file.content;
+    let content = stdinContent ?? '';
+    if (stdinContent === undefined) {
+      if (path === null) throw new Error('Missing input path');
+      const file = await this.getFile(path);
+      if (!file) throw new Error('No such file or directory');
+      content = await this.readText(path);
     }
 
-    const prefix = showFilename ? `${path}:` : '';
+    const prefix = showFilename ? `${displayPath}:` : '';
     const result = this.grepContent(
       content,
       regex,
@@ -349,21 +426,27 @@ export class GrepCommand extends UnixCommandBase {
     );
 
     if (filesWithMatches) {
-      return { output: result.matchCount > 0 ? path : null, matchCount: result.matchCount };
+      let output: string | null = null;
+      if (result.matchCount > 0) output = `${displayPath}\n`;
+      return { output, matchCount: result.matchCount };
     }
     if (filesWithoutMatch) {
-      return { output: result.matchCount === 0 ? path : null, matchCount: result.matchCount };
+      let output: string | null = null;
+      if (result.matchCount === 0) output = `${displayPath}\n`;
+      return { output, matchCount: result.matchCount };
     }
     if (countOnly) {
       return {
-        output: showFilename ? `${path}:${result.matchCount}` : String(result.matchCount),
+        output: formatLineOutput([
+          showFilename ? `${displayPath}:${result.matchCount}` : String(result.matchCount),
+        ]),
         matchCount: result.matchCount,
       };
     }
     if (result.matchCount === 0) {
       return { output: null, matchCount: 0 };
     }
-    return { output: result.lines.join('\n'), matchCount: result.matchCount };
+    return { output: formatLineOutput(result.lines), matchCount: result.matchCount };
   }
 
   /**
@@ -371,6 +454,7 @@ export class GrepCommand extends UnixCommandBase {
    */
   private async grepDirectory(
     dirPath: string,
+    displayRoot: string,
     regex: RegExp,
     invertMatch: boolean,
     showLineNumber: boolean,
@@ -382,27 +466,31 @@ export class GrepCommand extends UnixCommandBase {
     afterContext: number,
     beforeContext: number,
     quiet: boolean,
+    noMessages: boolean,
     includePattern: string | null,
     excludePattern: string | null
-  ): Promise<{ lines: string[]; anyMatch: boolean }> {
-    const relativePath = this.getRelativePathFromProject(dirPath);
-    const prefix = relativePath === '/' ? '' : `${relativePath}/`;
-    const files: ProjectFile[] = await this.cachedGetFilesByPrefix(prefix);
+  ): Promise<{ lines: string[]; errors: string[]; anyMatch: boolean; hadError: boolean }> {
+    const files: ProjectFile[] = await this.getDescendants(dirPath);
     const results: string[] = [];
+    const errors: string[] = [];
     let anyMatch = false;
+    let hadError = false;
 
     for (const file of files) {
       if (file.type !== 'file') continue;
 
-      const basename = file.name || file.path.split('/').pop() || '';
+      const basename = posixPath.basename(file.path);
       if (includePattern && !this.matchGlob(includePattern, basename)) continue;
       if (excludePattern && this.matchGlob(excludePattern, basename)) continue;
 
-      const fullPath = `${this.getProjectRoot()}${file.path}`;
+      const fullPath = file.path;
+      const relativePath = fullPath.slice(dirPath.length).replace(/^\/+/, '');
+      const displayPath = formatDisplayPath(displayRoot, relativePath);
 
       try {
         const result = await this.grepFile(
           fullPath,
+          displayPath,
           regex,
           invertMatch,
           showLineNumber,
@@ -415,13 +503,17 @@ export class GrepCommand extends UnixCommandBase {
           beforeContext
         );
         if (result.matchCount > 0) anyMatch = true;
-        if (result.output && !quiet) results.push(result.output);
-      } catch {
-        // スキップ
+        if (result.output !== null && !quiet) results.push(result.output);
+      } catch (error) {
+        hadError = true;
+        if (!noMessages) {
+          const detail = error instanceof Error ? error.message : String(error);
+          errors.push(`grep: ${displayPath}: ${detail}`);
+        }
       }
     }
 
-    return { lines: results, anyMatch };
+    return { lines: results, errors, anyMatch, hadError };
   }
 
   /**
@@ -434,4 +526,140 @@ export class GrepCommand extends UnixCommandBase {
       .replace(/\?/g, '.');
     return new RegExp(`^${regex}$`).test(str);
   }
+}
+
+async function collectPatternOptions(
+  args: string[],
+  readPatternFile: (path: string) => Promise<string>
+): Promise<{ args: string[]; patterns: string[]; hasPatternOption: boolean }> {
+  const cleanArgs: string[] = [];
+  const patterns: string[] = [];
+  let hasPatternOption = false;
+  let optionsEnded = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (optionsEnded) {
+      cleanArgs.push(argument);
+      continue;
+    }
+    if (argument === '--') {
+      optionsEnded = true;
+      cleanArgs.push(argument);
+      continue;
+    }
+    if (argument === '--regexp' || argument === '--file') {
+      const value = args[index + 1];
+      if (value === undefined) throw new Error(`grep: option '${argument}' requires an argument`);
+      index += 1;
+      hasPatternOption = true;
+      if (argument === '--regexp') patterns.push(value);
+      else patterns.push(...readPatternLines(await readPatternFile(value)));
+      continue;
+    }
+    if (argument === '--include' || argument === '--exclude') {
+      cleanArgs.push(argument);
+      if (index + 1 < args.length) {
+        index += 1;
+        cleanArgs.push(args[index]);
+      }
+      continue;
+    }
+    if (argument.startsWith('--regexp=') || argument.startsWith('--file=')) {
+      hasPatternOption = true;
+      const value = argument.slice(argument.indexOf('=') + 1);
+      if (argument.startsWith('--regexp=')) patterns.push(value);
+      else patterns.push(...readPatternLines(await readPatternFile(value)));
+      continue;
+    }
+    if (argument.startsWith('-') && !argument.startsWith('--') && argument.length > 1) {
+      let retained = '';
+      let collectedPattern = false;
+      let consumedContextArgument = false;
+      for (let optionIndex = 1; optionIndex < argument.length; optionIndex += 1) {
+        const option = argument[optionIndex];
+        if (option === 'A' || option === 'B' || option === 'C') {
+          if (optionIndex + 1 === argument.length && index + 1 < args.length) {
+            index += 1;
+            consumedContextArgument = true;
+          }
+          break;
+        }
+        if (option !== 'e' && option !== 'f') {
+          retained += option;
+          continue;
+        }
+        let value = argument.slice(optionIndex + 1);
+        if (value === '') {
+          value = args[index + 1] ?? '';
+          if (index + 1 >= args.length)
+            throw new Error(`grep: option '-${option}' requires an argument`);
+          index += 1;
+        }
+        if (option === 'e') patterns.push(value);
+        else patterns.push(...readPatternLines(await readPatternFile(value)));
+        hasPatternOption = true;
+        collectedPattern = true;
+        break;
+      }
+      if (collectedPattern && retained) cleanArgs.push(`-${retained}`);
+      if (!collectedPattern) {
+        cleanArgs.push(argument);
+        if (consumedContextArgument) cleanArgs.push(args[index]);
+      }
+      continue;
+    }
+    cleanArgs.push(argument);
+  }
+  return { args: cleanArgs, patterns, hasPatternOption };
+}
+
+function readPatternLines(content: string): string[] {
+  if (content === '') return [];
+  const lines = content.split('\n');
+  if (content.endsWith('\n')) lines.pop();
+  return lines;
+}
+
+function parseContextCount(value: string | undefined): number {
+  if (value === undefined) return 0;
+  if (!/^\d+$/.test(value)) {
+    throw new UnixCommandFailure(`grep: invalid context length argument: '${value}'`, 2);
+  }
+  return Number(value);
+}
+
+function formatDisplayPath(root: string, relativePath: string): string {
+  if (root === '.') return `./${relativePath}`;
+  if (root === '/') return `/${relativePath}`;
+  return `${root.replace(/\/$/, '')}/${relativePath}`;
+}
+
+function formatLineOutput(lines: string[]): string {
+  if (lines.length === 0) return '';
+  return `${lines.join('\n')}\n`;
+}
+
+function escapeRegularExpression(pattern: string): string {
+  return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function convertBasicRegex(pattern: string): string {
+  let converted = '';
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (character === '\\' && index + 1 < pattern.length) {
+      const next = pattern[index + 1];
+      if ('(){}+?|'.includes(next)) {
+        converted += next;
+        index += 1;
+      } else {
+        converted += `\\${next}`;
+        index += 1;
+      }
+      continue;
+    }
+    if ('(){}+?|'.includes(character)) converted += `\\${character}`;
+    else converted += character;
+  }
+  return converted;
 }

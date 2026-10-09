@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { type ThemeColors, useTheme } from '@/context/ThemeContext';
 import type { EditorPane } from '@/engine/tabs/types';
-import { tabActions, tabState } from '@/stores/tabState';
+import { flushDirtyTabFiles, tabActions, tabState } from '@/stores/tabState';
 
 interface PaneNavigatorProps {
   isOpen: boolean;
@@ -195,6 +195,7 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
   const activePane = useSnapshot(tabState).activePane;
   const { setActivePane, splitPane, removePane } = tabActions;
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Flatten panes for navigation
   const flattenedPanes = useMemo(() => {
@@ -259,12 +260,21 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
     [selectedPaneId, flattenedPanes]
   );
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!selectedPaneId || flattenedPanes.length <= 1) return;
     const idx = flattenedPanes.findIndex(p => p.id === selectedPaneId);
     const nextId = flattenedPanes[idx > 0 ? idx - 1 : 1]?.id || null;
-    removePane(selectedPaneId);
-    requestAnimationFrame(() => setSelectedPaneId(nextId));
+    setDeleteError(null);
+    try {
+      await flushDirtyTabFiles();
+      if (!removePane(selectedPaneId)) {
+        throw new Error('Could not remove the pane while changes remain unsaved.');
+      }
+      setSelectedPaneId(nextId);
+    } catch (error) {
+      console.error('[PaneNavigator] Failed to save before removing pane:', error);
+      setDeleteError(error instanceof Error ? error.message : String(error));
+    }
   }, [selectedPaneId, flattenedPanes]);
 
   // Keyboard handler with number keys
@@ -356,6 +366,15 @@ export default function PaneNavigator({ isOpen, onClose }: PaneNavigatorProps) {
           </div>
         ))}
       </div>
+      {deleteError && (
+        <div
+          role="alert"
+          className="max-w-[min(80vw,32rem)] truncate rounded bg-card px-2 py-1 text-xs"
+          style={{ color: colors.red }}
+        >
+          {deleteError}
+        </div>
+      )}
       {/* Hint - positioned below with gap */}
       <div
         className="text-[11px] px-3 py-1 rounded-full"

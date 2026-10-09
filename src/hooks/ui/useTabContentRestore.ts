@@ -1,28 +1,25 @@
-// src/hooks/useTabContentRestore.ts
 /**
- * タブのコンテンツを復元するカスタムフック
+ * Restores content for tabs in each loaded project session.
  *
- * 責務:
- * - ページリロード時のセッション復帰によるコンテンツ復元
- * - 各タブタイプの restoreContent メソッドを使用
- * - ファイルベースのタブは fileRepository から復元
- *
- * 注意:
- * - ファイル変更・リアルタイム同期は tabState (Valtio) が担当
+ * Uses each tab type's restoreContent method when available. File-backed tabs
+ * are restored through the filesystem client. Live file synchronization is
+ * owned by tabState.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
 import { snapshot, useSnapshot } from 'valtio';
 
-import { fileRepository, toAppPath } from '@/engine/core/fileRepository';
+import { readFileContent } from '@/engine/core/fileContent';
+import { fsClient } from '@/engine/core/fs';
 import { tabRegistry } from '@/engine/tabs/TabRegistry';
 import type { SessionRestoreContext, Tab } from '@/engine/tabs/types';
-import { projectState } from '@/stores/projectStore';
-import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
+import { pushLogMessage } from '@/stores/loggerStore';
+import { getCurrentRootPath, projectState } from '@/stores/projectStore';
+import { isTabDirty, setBufferContent, setTabContent } from '@/stores/tabContentStore';
 import { initTabSaveSync, tabActions, tabState } from '@/stores/tabState';
 import type { EditorPane } from '@/types';
 
-// ペインをフラット化する関数（再帰的に全てのリーフペインを収集）
+// Collect leaf panes recursively.
 function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   const result: EditorPane[] = [];
   function traverse(panes: readonly EditorPane[]) {
@@ -38,109 +35,148 @@ function flattenPanes(panes: readonly EditorPane[]): EditorPane[] {
   return result;
 }
 
-// タブパスからファイルパスを抽出して正規化する関数
-// - kind プレフィックス（例: "editor:"）を除去
-// - サフィックス（例: "-preview", "-diff", "-ai"）を除去
-// - 先頭スラッシュを追加
+// File-backed tabs store their canonical filesystem path directly.
 function extractFilePathFromTab(p?: string): string {
   if (!p) return '';
-  const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-  const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+  return p.startsWith('/') ? p : `/${p}`;
+}
+
+function reportRestoreFailure(path: string, error: unknown): void {
+  const reason = error instanceof Error ? error.message : String(error);
+  pushLogMessage(`Failed to restore ${path}: ${reason}`, 'error', 'Tab Session');
 }
 
 /**
- * デフォルトのファイルベース復元
- * タブタイプが restoreContent を実装していない場合に使用
+ * Restore file-backed tab content when the tab type has no restoreContent handler.
  */
 async function defaultFileRestore(
   tab: Tab & { needsContentRestore?: boolean },
   context: SessionRestoreContext
 ): Promise<Tab> {
+  if (tab.kind !== 'editor' && tab.kind !== 'preview' && tab.kind !== 'binary') {
+    return { ...tab, needsContentRestore: false };
+  }
   const filePath = extractFilePathFromTab(tab.path);
   if (!filePath) {
-    console.warn('[useTabContentRestore] No path for tab:', tab.name);
-    return { ...tab, needsContentRestore: false } as any;
+    reportRestoreFailure(tab.name, new Error('Tab has no file path'));
+    return { ...tab, needsContentRestore: true };
   }
 
   const file = await context.getFileByPath(filePath);
 
   if (!file) {
-    console.warn('[useTabContentRestore] File not found for tab:', filePath);
-    return { ...tab, needsContentRestore: false } as any;
+    reportRestoreFailure(filePath, new Error('File does not exist'));
+    return { ...tab, needsContentRestore: true };
+  }
+
+  if (file.bufferContent !== undefined) {
+    return {
+      ...tab,
+      kind: 'binary',
+      content: '',
+      bufferContent: file.bufferContent,
+      mimeType: file.mimeType,
+      needsContentRestore: false,
+    };
   }
 
   console.log('[useTabContentRestore] ✓ Restored (default):', filePath);
 
+  if (tab.kind === 'preview') {
+    return { ...tab, kind: 'preview', content: file.content ?? '', needsContentRestore: false };
+  }
   return {
     ...tab,
-    content: file.content || '',
-    bufferContent: (tab as any).isBufferArray ? file.bufferContent : undefined,
+    kind: 'editor',
+    content: file.content ?? '',
     isDirty: false,
     needsContentRestore: false,
-  } as any;
+  };
 }
 
-/**
- * タブのコンテンツを復元するカスタムフック
- *
- * ページリロード時のセッション復帰によるコンテンツ復元専用。
- * 各タブタイプの restoreContent を使用し、未実装の場合は fileRepository から復元。
- * ファイル変更・リアルタイム同期は tabState (initTabSaveSync) が担当する。
- */
 export function useTabContentRestore(isRestored: boolean) {
-  const { panes } = useSnapshot(tabState);
-  const { currentProjectId } = useSnapshot(projectState);
-  const restorationCompleted = useRef(false);
-  const restorationInProgress = useRef(false);
+  const { panes, isLoading, sessionGeneration, sessionRootPath } = useSnapshot(tabState);
+  const { currentRootPath } = useSnapshot(projectState);
+  const restoreSession = useRef<{
+    generation: number;
+    completed: boolean;
+    inProgress: boolean;
+  } | null>(null);
 
-  // コンテンツ復元を実行する関数（1回だけ確実に実行）
+  // Restore each loaded session once.
   const performContentRestoration = useCallback(async () => {
-    if (restorationCompleted.current || restorationInProgress.current) {
+    if (restoreSession.current?.generation !== sessionGeneration) {
+      restoreSession.current = {
+        generation: sessionGeneration,
+        completed: false,
+        inProgress: false,
+      };
+    }
+    const activeRestoreSession = restoreSession.current;
+    if (
+      !activeRestoreSession ||
+      activeRestoreSession.completed ||
+      activeRestoreSession.inProgress
+    ) {
       return;
     }
 
-    if (!isRestored || panes.length === 0 || !currentProjectId) {
+    if (
+      !isRestored ||
+      isLoading ||
+      sessionRootPath !== currentRootPath ||
+      panes.length === 0 ||
+      !currentRootPath
+    ) {
       return;
     }
+
+    const generation = sessionGeneration;
+    const rootPath = currentRootPath;
+    const isCurrentRestore = () =>
+      tabState.sessionGeneration === generation &&
+      tabState.sessionRootPath === rootPath &&
+      getCurrentRootPath() === rootPath;
 
     const flatPanes = flattenPanes(panes);
     const tabsNeedingRestore = flatPanes.flatMap(pane =>
-      pane.tabs.filter((tab: any) => tab.needsContentRestore)
+      pane.tabs.filter(tab => tab.needsContentRestore)
     );
 
-    // 復元が不要な場合も完了イベントを発火
+    // Mark sessions without pending tabs as restored.
     if (tabsNeedingRestore.length === 0) {
-      restorationCompleted.current = true;
+      activeRestoreSession.completed = true;
+      tabActions.setIsContentRestored(true);
       console.log('[useTabContentRestore] No tabs need restoration, marking as completed');
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
-      }, 100);
       return;
     }
 
-    restorationInProgress.current = true;
+    activeRestoreSession.inProgress = true;
     console.log(
       '[useTabContentRestore] Starting content restoration for',
       tabsNeedingRestore.length,
       'tabs'
     );
 
-    // 復元を非同期で実行（Monaco内部状態の同期を確実にするため）
+    // Restore asynchronously so editor state can synchronize after session loading.
     requestAnimationFrame(async () => {
       try {
         await initTabSaveSync();
+        if (!isCurrentRestore()) return;
 
-        // 復元コンテキストを準備
+        // Prepare the restore context.
         const context: SessionRestoreContext = {
-          projectId: currentProjectId,
+          rootPath,
           getFileByPath: async (path: string) => {
-            const normalizedPath = toAppPath(path);
-            return await fileRepository.getFileByPath(currentProjectId, normalizedPath);
+            if (!(await fsClient.exists(path))) return null;
+            const file = await readFileContent(path);
+            if (file.kind === 'binary')
+              return { bufferContent: file.bufferContent, mimeType: file.mimeType };
+            return { content: file.content };
           },
         };
 
-        // 全タブを復元（非同期）
+        // Restore all tabs asynchronously.
         const currentPanes = snapshot(tabState).panes;
 
         const restoreTabAsync = async (
@@ -151,7 +187,7 @@ export function useTabContentRestore(isRestored: boolean) {
           const tabDef = tabRegistry.get(tab.kind);
 
           try {
-            // タブタイプが restoreContent を実装している場合はそれを使用
+            // Use the tab type's restoreContent handler when available.
             if (tabDef?.restoreContent) {
               const restored = await tabDef.restoreContent(tab, context);
               console.log(
@@ -159,25 +195,24 @@ export function useTabContentRestore(isRestored: boolean) {
                 tab.kind,
                 tab.path || tab.name
               );
-              return { ...restored, needsContentRestore: false } as any;
+              return { ...restored, needsContentRestore: false };
             }
 
-            // needsSessionRestore === false のタブはそのまま返す
+            // Preserve tab types that do not require session restoration.
             if (tabDef?.needsSessionRestore === false) {
-              return { ...tab, needsContentRestore: false } as any;
+              return { ...tab, needsContentRestore: false };
             }
 
-            // 拡張機能タブ（まだ登録されていない可能性がある）はそのまま返す
-            // 拡張機能タブのデータは既にシリアライズされているため復元不要
+            // Extension tab data is already serialized, even if its type is not registered yet.
             if (tab.kind.startsWith('extension:') && !tabDef) {
               console.log(
                 '[useTabContentRestore] Extension tab type not registered yet, preserving data:',
                 tab.kind
               );
-              return { ...tab, needsContentRestore: false } as any;
+              return { ...tab, needsContentRestore: false };
             }
 
-            // デフォルト: fileRepository からファイルを復元
+            // Default: restore file content through the filesystem client.
             return await defaultFileRestore(tab, context);
           } catch (error) {
             console.error(
@@ -186,7 +221,8 @@ export function useTabContentRestore(isRestored: boolean) {
               tab.path,
               error
             );
-            return { ...tab, needsContentRestore: false } as any;
+            reportRestoreFailure(tab.path || tab.name, error);
+            return { ...tab, needsContentRestore: true };
           }
         };
 
@@ -217,51 +253,72 @@ export function useTabContentRestore(isRestored: boolean) {
           return results;
         };
 
-        const restoredPanes = await updatePaneRecursive(currentPanes);
+        const loadedPanes = await updatePaneRecursive(currentPanes);
+        if (!isCurrentRestore()) return;
+        const restoredById = new Map(
+          flattenPanes(loadedPanes)
+            .flatMap(pane => pane.tabs)
+            .map(tab => [tab.id, tab])
+        );
+        const mergeCurrentPanes = (current: readonly EditorPane[]): EditorPane[] =>
+          current.map(pane => {
+            if (pane.children) return { ...pane, children: mergeCurrentPanes(pane.children) };
+            return {
+              ...pane,
+              tabs: pane.tabs.map(tab => {
+                if (tab.isDirty || isTabDirty(tab.id)) return tab;
+                return restoredById.get(tab.id) ?? tab;
+              }),
+            };
+          });
+        const restoredPanes = mergeCurrentPanes(snapshot(tabState).panes);
         tabActions.setPanes(restoredPanes);
 
         // Populate tabContentStore from restored tab.content so components
         // don't need tab.content as a fallback
         for (const pane of flattenPanes(restoredPanes)) {
           for (const tab of pane.tabs) {
-            const t = tab as any;
-            if (typeof t.content === 'string') {
-              setTabContent(tab.id, t.content, t.isDirty ?? false);
+            if (tab.needsContentRestore || isTabDirty(tab.id)) continue;
+            if ('content' in tab && typeof tab.content === 'string') {
+              setTabContent(tab.id, tab.content, tab.isDirty ?? false);
             }
-            if (t.isBufferArray && t.bufferContent instanceof ArrayBuffer) {
-              setBufferContent(tab.id, t.bufferContent);
+            if (
+              'bufferContent' in tab &&
+              tab.kind === 'binary' &&
+              tab.bufferContent instanceof ArrayBuffer
+            ) {
+              setBufferContent(tab.id, tab.bufferContent);
             }
           }
         }
 
-        // 復元完了をマーク
-        restorationCompleted.current = true;
-        restorationInProgress.current = false;
+        // Mark the session restored.
+        activeRestoreSession.completed = true;
+        activeRestoreSession.inProgress = false;
+        tabActions.setIsContentRestored(true);
         console.log('[useTabContentRestore] Content restoration completed successfully');
 
-        // Monaco強制再描画イベントを発火（100ms後）
+        // Refresh Monaco after its restored content has rendered.
         setTimeout(() => {
+          if (!isCurrentRestore()) return;
           window.dispatchEvent(new CustomEvent('pyxis-force-monaco-refresh'));
-          // コンテンツ復元完了イベントも発火
-          window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
         }, 100);
       } catch (error) {
+        if (!isCurrentRestore()) return;
         console.error('[useTabContentRestore] Restoration failed:', error);
-        restorationInProgress.current = false;
-        // 失敗してもフラグは立てる（無限ループ防止）
-        restorationCompleted.current = true;
-        // エラー時も完了イベントを発火してUIローディングを解除
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('pyxis-content-restored'));
-        }, 100);
+        reportRestoreFailure(rootPath, error);
+        activeRestoreSession.inProgress = false;
+        // Mark failed restoration complete to avoid retrying indefinitely.
+        activeRestoreSession.completed = true;
+        tabActions.setIsContentRestored(true);
       }
     });
-  }, [isRestored, panes, currentProjectId]);
+  }, [isRestored, isLoading, panes, currentRootPath, sessionGeneration, sessionRootPath]);
 
-  // IndexedDB復元完了後、コンテンツを復元（1回だけ）
+  // Restore content after the session has loaded.
   useEffect(() => {
     performContentRestoration();
   }, [performContentRestoration]);
 
-  // ファイル変更・リアルタイム同期は tabState の initTabSaveSync が担当
+  // File changes and live synchronization are handled by initTabSaveSync.
 }

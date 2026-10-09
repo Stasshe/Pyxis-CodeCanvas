@@ -22,14 +22,12 @@ interface MergeConflictResolutionTabProps {
   conflicts: ReadonlyArray<MergeConflictFileEntry>;
   oursBranch: string;
   theirsBranch: string;
-  projectId: string;
-  projectName: string;
   /** Confirm conflict resolution and save */
   onResolve: (resolvedFiles: ReadonlyArray<MergeConflictFileEntry>) => void;
   /** Cancel merge */
   onCancel: () => void;
   /** Update resolved content */
-  onUpdateResolvedContent: (filePath: string, content: string) => void;
+  onUpdateResolvedContent: (filePath: string, content: string | Uint8Array | null) => void;
   /** Toggle file resolution state */
   onToggleResolved: (filePath: string, isResolved: boolean) => void;
 }
@@ -40,8 +38,6 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
   conflicts,
   oursBranch,
   theirsBranch,
-  projectId,
-  projectName,
   onResolve,
   onCancel,
   onUpdateResolvedContent,
@@ -94,20 +90,24 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
   // Accept Ours - resolve with OURS content
   const handleAcceptOurs = useCallback(() => {
     if (selectedFile) {
-      onUpdateResolvedContent(selectedFile.filePath, selectedFile.oursContent);
+      let content: string | Uint8Array | null = selectedFile.oursContent;
+      if (selectedFile.binary) content = selectedFile.binary.ours;
+      onUpdateResolvedContent(selectedFile.filePath, content);
     }
   }, [selectedFile, onUpdateResolvedContent]);
 
   // Accept Theirs - resolve with THEIRS content
   const handleAcceptTheirs = useCallback(() => {
     if (selectedFile) {
-      onUpdateResolvedContent(selectedFile.filePath, selectedFile.theirsContent);
+      let content: string | Uint8Array | null = selectedFile.theirsContent;
+      if (selectedFile.binary) content = selectedFile.binary.theirs;
+      onUpdateResolvedContent(selectedFile.filePath, content);
     }
   }, [selectedFile, onUpdateResolvedContent]);
 
   // Accept Both - combine both
   const handleAcceptBoth = useCallback(() => {
-    if (selectedFile) {
+    if (selectedFile && !selectedFile.binary) {
       const combined = `${selectedFile.oursContent}\n${selectedFile.theirsContent}`;
       onUpdateResolvedContent(selectedFile.filePath, combined);
     }
@@ -247,6 +247,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
           <div className="flex items-center justify-between px-4 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c]">
             <div className="flex items-center gap-2">
               <select
+                disabled={Boolean(selectedFile?.binary)}
                 value={viewMode}
                 onChange={e => setViewMode(e.target.value as ViewMode)}
                 className="px-2 py-1 text-sm bg-[#3c3c3c] text-white rounded border border-[#555]"
@@ -275,6 +276,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
               </button>
               <button
                 type="button"
+                disabled={Boolean(selectedFile?.binary)}
                 onClick={handleAcceptBoth}
                 className="px-2 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded"
               >
@@ -303,7 +305,15 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
 
           {/* Editor display area */}
           <div className="flex-1 overflow-hidden">
-            {selectedFile && viewMode === 'three-way' && (
+            {selectedFile?.binary && (
+              <div className="flex gap-8 p-4 text-sm text-gray-300">
+                <BinaryVersion label="Base" bytes={selectedFile.binary.base} />
+                <BinaryVersion label={oursBranch} bytes={selectedFile.binary.ours} />
+                <BinaryVersion label={theirsBranch} bytes={selectedFile.binary.theirs} />
+                <BinaryVersion label="Resolved Result" bytes={selectedFile.binary.resolved} />
+              </div>
+            )}
+            {selectedFile && !selectedFile.binary && viewMode === 'three-way' && (
               <ThreeWayView
                 file={selectedFile}
                 oursBranch={oursBranch}
@@ -314,7 +324,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                 themeName={themeName}
               />
             )}
-            {selectedFile && viewMode === 'ours-vs-theirs' && (
+            {selectedFile && !selectedFile.binary && viewMode === 'ours-vs-theirs' && (
               <div className="h-full">
                 <DiffEditor
                   width="100%"
@@ -335,7 +345,7 @@ const MergeConflictResolutionTab: React.FC<MergeConflictResolutionTabProps> = ({
                 />
               </div>
             )}
-            {selectedFile && viewMode === 'result' && (
+            {selectedFile && !selectedFile.binary && viewMode === 'result' && (
               <div className="h-full">
                 <Editor
                   width="100%"
@@ -480,5 +490,15 @@ const ThreeWayView: React.FC<ThreeWayViewProps> = ({
     </div>
   );
 };
+
+function BinaryVersion({ label, bytes }: { label: string; bytes: Uint8Array | null }) {
+  let description = 'Deleted';
+  if (bytes) description = `${bytes.byteLength} bytes`;
+  return (
+    <div>
+      {label}: {description}
+    </div>
+  );
+}
 
 export default MergeConflictResolutionTab;

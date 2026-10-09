@@ -196,7 +196,7 @@ export default function ProblemsPanel({ height, isActive }: ProblemsPanelProps) 
       updateTab(result.paneId, result.tabId, jump);
       return;
     }
-    // Tab not open — open the file from fileRepository
+    // Tab not open — open the absolute filesystem path directly.
     const name = filePath.split('/').pop() || filePath;
     tabActions.openTab({ path: filePath, name }, { makeActive: true, ...jump }).catch(() => {});
   };

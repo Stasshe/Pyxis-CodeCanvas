@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "rootPath": "/home/pyxis/demo",
+  "files": [
+    {
+      "path": "/home/pyxis/demo/bench-small.js",
+      "content": "console.log(\"bench-small\");\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-01.js",
+      "content": "module.exports = 1;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-02.js",
+      "content": "module.exports = 2;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-03.js",
+      "content": "module.exports = 3;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-04.js",
+      "content": "module.exports = 4;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-05.js",
+      "content": "module.exports = 5;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-06.js",
+      "content": "module.exports = 6;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-07.js",
+      "content": "module.exports = 7;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-08.js",
+      "content": "module.exports = 8;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-09.js",
+      "content": "module.exports = 9;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-10.js",
+      "content": "module.exports = 10;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-11.js",
+      "content": "module.exports = 11;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-12.js",
+      "content": "module.exports = 12;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-13.js",
+      "content": "module.exports = 13;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-14.js",
+      "content": "module.exports = 14;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-15.js",
+      "content": "module.exports = 15;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-16.js",
+      "content": "module.exports = 16;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-17.js",
+      "content": "module.exports = 17;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-18.js",
+      "content": "module.exports = 18;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-19.js",
+      "content": "module.exports = 19;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-20.js",
+      "content": "module.exports = 20;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-21.js",
+      "content": "module.exports = 21;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-22.js",
+      "content": "module.exports = 22;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-23.js",
+      "content": "module.exports = 23;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-mod-24.js",
+      "content": "module.exports = 24;\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-requires.js",
+      "content": "const modules = [require('./bench-mod-01'), require('./bench-mod-02'), require('./bench-mod-03'), require('./bench-mod-04'), require('./bench-mod-05'), require('./bench-mod-06'), require('./bench-mod-07'), require('./bench-mod-08'), require('./bench-mod-09'), require('./bench-mod-10'), require('./bench-mod-11'), require('./bench-mod-12'), require('./bench-mod-13'), require('./bench-mod-14'), require('./bench-mod-15'), require('./bench-mod-16'), require('./bench-mod-17'), require('./bench-mod-18'), require('./bench-mod-19'), require('./bench-mod-20'), require('./bench-mod-21'), require('./bench-mod-22'), require('./bench-mod-23'), require('./bench-mod-24')];\nconsole.log(modules.length);\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-ts.ts",
+      "content": "type Point = { x: number; y: number };\nconst point: Point = { x: 3, y: 4 };\nconsole.log(point.x + point.y);\n"
+    },
+    {
+      "path": "/home/pyxis/demo/bench-node-modules.js",
+      "content": "console.log(require(\"bench-package\"));\n"
+    },
+    {
+      "path": "/home/pyxis/demo/node_modules/bench-package/package.json",
+      "content": "{\"name\":\"bench-package\",\"version\":\"1.0.0\",\"main\":\"index.js\"}\n"
+    },
+    {
+      "path": "/home/pyxis/demo/node_modules/bench-package/index.js",
+      "content": "module.exports = \"bench-package\";\n"
+    },
+    {
+      "path": "/home/pyxis/demo/package.json",
+      "content": "{\"name\":\"runtime-bench\",\"private\":true,\"scripts\":{\"bench\":\"node bench-small.js\"}}\n"
+    }
+  ],
+  "commands": [
+    "node bench-small.js",
+    "node bench-requires.js",
+    "node bench-ts.ts",
+    "node bench-node-modules.js",
+    "npm run bench"
+  ]
+}

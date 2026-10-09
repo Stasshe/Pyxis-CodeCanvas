@@ -1,43 +1,20 @@
-import { fileRepository } from '@/engine/core/fileRepository';
-import { isLikelyTextFile } from '@/engine/helper/isLikelyTextFile';
+import { fsClient, getParentPath } from '@/engine/core/fs';
 
-/**
- * ファイルアップロード(インポート)機能
- * fileRepository経由で自動的にGitFileSystemに同期されるため、syncFileToFileSystemは不要
- *
- * @param file File APIで受け取ったファイル
- * @param targetPath 保存先パス(例: /projects/project/foo.txt)
- * @param unix UnixCommandsインスタンス(プロジェクトごとに生成済みのものを渡す)
- */
+/** Import a browser file at its absolute filesystem path. */
 export async function importSingleFile(
   file: File,
   targetPath: string,
-  projectName: string,
-  projectId?: string
-) {
-  console.log(`[importSingleFile] ファイルアップロード開始: ${targetPath}`);
-
-  // targetPath からプロジェクト内パスを抽出
-  const match = targetPath.match(/^\/projects\/[^/]+(\/.*)$/);
-  const filePath = match ? match[1] : targetPath;
-
-  if (!projectId) {
-    console.warn('[importSingleFile] projectIdが取得できませんでした:', targetPath);
-    return;
+  destinationExistsMessage: string,
+  isCurrentWorkspace: () => boolean = () => true,
+  workspaceChangedMessage = 'Workspace changed while importing files.'
+): Promise<void> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!isCurrentWorkspace()) throw new Error(workspaceChangedMessage);
+  if (await fsClient.exists(targetPath)) {
+    throw new Error(destinationExistsMessage);
   }
-
-  const arrayBuffer = await file.arrayBuffer();
-  const content = new Uint8Array(arrayBuffer);
-  const isText = await isLikelyTextFile(file.name, content);
-
-  if (isText) {
-    // テキストファイルは直接createFileで登録（touch+echoの代替）
-    await fileRepository.createFile(projectId, filePath, new TextDecoder().decode(content), 'file');
-  } else {
-    // バイナリファイルはArrayBufferを渡して作成
-    await fileRepository.createFile(projectId, filePath, '', 'file', true, arrayBuffer);
-  }
-
-  console.log(`[importSingleFile] ファイルアップロード完了: ${targetPath}`);
-  // syncFileToFileSystemは不要 - fileRepositoryが自動的にGitFileSystemに同期
+  if (!isCurrentWorkspace()) throw new Error(workspaceChangedMessage);
+  await fsClient.mkdir(getParentPath(targetPath), { recursive: true });
+  if (!isCurrentWorkspace()) throw new Error(workspaceChangedMessage);
+  await fsClient.writeRange(targetPath, bytes, null, true, true);
 }

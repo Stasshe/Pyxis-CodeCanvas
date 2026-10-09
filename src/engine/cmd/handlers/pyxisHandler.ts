@@ -1,24 +1,46 @@
 import { LOCALSTORAGE_KEY } from '@/constants/config';
-import { tree as treeOperation } from '@/engine/cmd/global/gitOperations/tree';
 import type { UnixCommands } from '@/engine/cmd/global/unix';
 import { terminalCommandRegistry } from '@/engine/cmd/terminalRegistry';
-import { fileRepository } from '@/engine/core/fileRepository';
-import { gitFileSystem } from '@/engine/core/gitFileSystem';
+import { fsClient, HOME_DIR, NPM_CACHE_PATH, RUNTIME_CACHE_PATH, TMP_PATH } from '@/engine/core/fs';
+import { normalizePath, resolvePath } from '@/engine/core/pathUtils';
 import { clearAllTranslationCache, deleteTranslationCache } from '@/engine/i18n/storage-adapter';
+import { isSupportedLocale } from '@/engine/i18n/types';
 import { exportPage } from '@/engine/in-ex/exportPage';
-import { runtimeStorageRegistry } from '@/engine/runtime/storage/RuntimeStorageRegistry';
-import { STORES, storageService } from '@/engine/storage';
-import { clearAllTerminalHistory } from '@/stores/terminalHistoryStorage';
+import { STORES, type StoreName, storageService } from '@/engine/storage';
+import { closeRecentFolders } from '@/engine/storage/recentFolderStorageAdapter';
+
+function isStoreName(value: string): value is StoreName {
+  return Object.values(STORES).some(storeName => storeName === value);
+}
+
+async function clearDirectoryContents(directory: string): Promise<void> {
+  const mount = normalizePath(directory);
+  for (const entry of await fsClient.readdir(mount)) {
+    await fsClient.rm(entry.path, { recursive: true, force: true });
+  }
+}
+
+async function clearFilesystem(): Promise<void> {
+  for (const entry of await fsClient.readdir('/')) {
+    if (entry.mount === 'memory') {
+      await clearDirectoryContents(entry.path);
+    } else if (entry.mount !== 'devices') {
+      await fsClient.rm(entry.path, { recursive: true, force: true });
+    }
+  }
+  for (const path of [HOME_DIR, RUNTIME_CACHE_PATH, NPM_CACHE_PATH]) {
+    await fsClient.mkdir(path, { recursive: true });
+  }
+}
 
 export async function handlePyxisCommand(
   cmd: string,
   args: string[],
-  projectName: string,
-  projectId: string,
+  rootPath: string,
   writeOutput: (output: string) => Promise<void>
 ) {
   // Obtain registry instances
-  const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(projectName, projectId);
+  const unixInst: UnixCommands = terminalCommandRegistry.getUnixCommands(rootPath);
 
   try {
     switch (cmd) {
@@ -35,7 +57,7 @@ export async function handlePyxisCommand(
         }
 
         await writeOutput('⚠️  WARNING: This will DELETE ALL DATA including:');
-        await writeOutput('  - All IndexedDB databases (pyxis-global, pyxisproject, lightning-fs)');
+        await writeOutput('  - All IndexedDB databases and OPFS files');
         await writeOutput('  - localStorage (except recent projects and language settings)');
         await writeOutput('  - session-scoped preferences (terminal history)');
         await writeOutput('');
@@ -63,72 +85,33 @@ export async function handlePyxisCommand(
               console.warn('Failed to close storageService:', (e as Error).message);
             }
 
-            // Close fileRepository connection
-            try {
-              await fileRepository.close();
-              await writeOutput('  ✓ Closed PyxisProjects connection');
-            } catch (e) {
-              console.warn('Failed to close fileRepository:', (e as Error).message);
-            }
-
-            // Wait a bit for connections to fully close
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await closeRecentFolders();
+            await writeOutput('  ✓ Closed recent folders connection');
 
             // 2. Clear all IndexedDB databases IN PARALLEL
             await writeOutput('[2/5] Clearing IndexedDB databases...');
-            const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
+            const dbs = await window.indexedDB.databases();
 
             // Delete all databases in parallel for speed
-            const deletionResults = await Promise.allSettled(
+            const deletedNames = await Promise.all(
               dbs.map(async dbInfo => {
-                if (!dbInfo.name) return { name: '', success: false };
-
-                try {
-                  await new Promise<void>((resolve, reject) => {
-                    const deleteReq = window.indexedDB.deleteDatabase(dbInfo.name!);
-
-                    // Reduced timeout to 3 seconds for parallel operations
-                    const timeoutId = setTimeout(() => {
-                      console.warn(`Database ${dbInfo.name} deletion timed out`);
-                      resolve(); // Resolve to continue with reset
-                    }, 3000);
-
-                    deleteReq.onsuccess = () => {
-                      clearTimeout(timeoutId);
-                      resolve();
-                    };
-
-                    deleteReq.onerror = () => {
-                      clearTimeout(timeoutId);
-                      resolve(); // Resolve to continue with reset
-                    };
-
-                    deleteReq.onblocked = () => {
-                      console.warn(`Database ${dbInfo.name} deletion blocked`);
-                      // Let timeout handle it
-                    };
-                  });
-                  return { name: dbInfo.name, success: true };
-                } catch (_error) {
-                  return { name: dbInfo.name, success: false };
-                }
+                if (!dbInfo.name) return '';
+                await new Promise<void>((resolve, reject) => {
+                  const request = window.indexedDB.deleteDatabase(dbInfo.name!);
+                  request.onsuccess = () => resolve();
+                  request.onerror = () => reject(request.error);
+                  request.onblocked = () =>
+                    reject(new Error(`Database ${dbInfo.name} deletion is blocked`));
+                });
+                return dbInfo.name;
               })
             );
 
-            // Count successful deletions and output results
-            let deletedCount = 0;
-            for (const result of deletionResults) {
-              if (result.status === 'fulfilled' && result.value.name) {
-                if (result.value.success) {
-                  deletedCount++;
-                  await writeOutput(`  ✓ Deleted database: ${result.value.name}`);
-                } else {
-                  await writeOutput(`  ✗ Failed to delete ${result.value.name}`);
-                }
-              }
+            for (const name of deletedNames) {
+              if (name) await writeOutput(`  ✓ Deleted database: ${name}`);
             }
-
-            await writeOutput(`  Deleted ${deletedCount}/${dbs.length} database(s)`);
+            await clearFilesystem();
+            await writeOutput('  ✓ Cleared OPFS files and initialized Linux directories');
 
             // 3. Clear localStorage (except protected keys)
             await writeOutput('[3/5] Clearing localStorage...');
@@ -151,14 +134,8 @@ export async function handlePyxisCommand(
               `  ✓ Cleared localStorage (preserved ${Object.keys(savedValues).length} protected items)`
             );
 
-            // 4. Clear session-scoped data (migrated to IndexedDB user_preferences)
-            await writeOutput('[4/5] Clearing session-scoped preferences...');
-            await clearAllTerminalHistory();
-            await storageService.clear(STORES.USER_PREFERENCES);
-            await writeOutput('  ✓ Cleared session-scoped preferences');
-
-            // 5. Reload page to reinitialize
-            await writeOutput('[5/5] Reloading application...');
+            // 4. Reload page to reinitialize
+            await writeOutput('[4/4] Reloading application...');
             await writeOutput('');
             await writeOutput('✅ Complete system reset successful!');
             await writeOutput('Page will reload in 2 seconds...');
@@ -175,350 +152,22 @@ export async function handlePyxisCommand(
         break;
       }
 
-      case 'debug-db':
-        try {
-          await writeOutput('=== IndexedDB & Lightning-FS Debug Information ===\n');
-
-          const dbs = await (window.indexedDB.databases ? window.indexedDB.databases() : []);
-
-          for (const dbInfo of dbs) {
-            const dbName = dbInfo.name;
-            if (!dbName) continue;
-
-            await writeOutput(`\n--- Database: ${dbName} (v${dbInfo.version}) ---`);
-
-            try {
-              const req = window.indexedDB.open(dbName);
-              const db = await new Promise<IDBDatabase>((resolve, reject) => {
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-              });
-
-              const objectStoreNames = Array.from(db.objectStoreNames);
-              await writeOutput(`Object Stores: ${objectStoreNames.join(', ')}`);
-
-              for (const storeName of objectStoreNames) {
-                try {
-                  const tx = db.transaction(storeName, 'readonly');
-                  const store = tx.objectStore(storeName);
-                  const getAllReq = store.getAll();
-                  const items = await new Promise<unknown[]>((resolve, reject) => {
-                    getAllReq.onsuccess = () => resolve(getAllReq.result as unknown[]);
-                    getAllReq.onerror = () => reject(getAllReq.error);
-                  });
-
-                  await writeOutput(`\n  Store: ${storeName} (${items.length} items)`);
-
-                  const isLightningFS = dbName.includes('lightning') || dbName.includes('fs');
-                  if (items.length === 0) {
-                    await writeOutput('    (empty)');
-                  } else if (isLightningFS) {
-                    for (let i = 0; i < Math.min(items.length, 10); i++) {
-                      const item = items[i];
-                      let summary = '';
-                      if (typeof item === 'object' && item !== null) {
-                        const obj = item as Record<string, any>;
-                        const keys = Object.keys(obj);
-                        if (keys.includes('id')) summary += `id: ${obj.id}, `;
-                        if (keys.includes('name')) summary += `name: ${obj.name}, `;
-                        if (keys.includes('path')) summary += `path: ${obj.path}, `;
-                        if (keys.includes('type')) summary += `type: ${obj.type}, `;
-                        if (keys.includes('projectId')) summary += `repo: ${obj.projectId}, `;
-                        if (keys.includes('content')) {
-                          const contentSize =
-                            typeof obj.content === 'string'
-                              ? obj.content.length
-                              : JSON.stringify(obj.content).length;
-                          summary += `content: ${contentSize} chars, `;
-                        }
-                        summary = summary.replace(/, $/, '');
-                        if (summary === '') {
-                          summary = `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`;
-                        }
-                      } else {
-                        summary = String(item).slice(0, 100);
-                      }
-                      await writeOutput(`    [${i}] ${summary}`);
-                    }
-                    if (items.length > 10) {
-                      await writeOutput(`    ... and ${items.length - 10} more items`);
-                    }
-                  } else {
-                    for (let i = 0; i < items.length; i++) {
-                      const item = items[i];
-                      let detail = '';
-                      if (typeof item === 'object' && item !== null) {
-                        const obj = item as Record<string, any>;
-                        const keys = Object.keys(obj);
-                        detail += '{ ';
-                        for (const key of keys) {
-                          let value = obj[key];
-                          if (key === 'content' || key === 'bufferContent') {
-                            if (typeof value === 'string') {
-                              value = value.slice(0, 10) + (value.length > 10 ? '...' : '');
-                            } else if (value && typeof value === 'object') {
-                              value =
-                                JSON.stringify(value).slice(0, 10) +
-                                (JSON.stringify(value).length > 10 ? '...' : '');
-                            }
-                          }
-                          detail += `${key}: ${JSON.stringify(value)}, `;
-                        }
-                        detail = detail.replace(/, $/, '');
-                        detail += ' }';
-                      } else {
-                        detail = String(item).slice(0, 100);
-                      }
-                      await writeOutput(`    [${i}] ${detail}`);
-                    }
-                  }
-                } catch (storeError) {
-                  await writeOutput(`    Error accessing store ${storeName}: ${storeError}`);
-                }
-              }
-
-              db.close();
-            } catch (dbError) {
-              await writeOutput(`  Error opening database ${dbName}: ${dbError}`);
-            }
-          }
-
-          await writeOutput('\n--- LocalStorage (Lightning-FS/pyxis-fs related) ---');
-          const otherLightningFSKeys: string[] = [];
-          for (let i = 0; i < window.localStorage.length; i++) {
-            const key = window.localStorage.key(i);
-            if (!key) continue;
-            if (key.startsWith('fs/') || key.includes('lightning')) {
-              otherLightningFSKeys.push(key);
-            }
-          }
-
-          if (otherLightningFSKeys.length === 0) {
-            await writeOutput('No Lightning-FS related localStorage entries found.');
-          } else {
-            await writeOutput(`Lightning-FS related entries (${otherLightningFSKeys.length}):`);
-            for (const key of otherLightningFSKeys.slice(0, 10)) {
-              const value = window.localStorage.getItem(key);
-              const size = value ? value.length : 0;
-              await writeOutput(`  ${key}: ${size} chars`);
-            }
-          }
-
-          await writeOutput('\n--- File System Statistics ---');
-          try {
-            const fs = gitFileSystem.getFS();
-            if (fs) {
-              try {
-                const projectsExists = await fs.promises.stat('/projects').catch(() => null);
-                if (projectsExists) {
-                  const projectDirs = await fs.promises.readdir('/projects');
-                  await writeOutput(`Projects in filesystem: ${projectDirs.length}`);
-
-                  for (const dir of projectDirs.slice(0, 10)) {
-                    if (dir === '.' || dir === '..') continue;
-                    try {
-                      const projectPath = `/projects/${dir}`;
-                      const files = await fs.promises.readdir(projectPath);
-                      await writeOutput(`  ${dir}: ${files.length} files/dirs`);
-                    } catch {
-                      await writeOutput(`  ${dir}: (inaccessible)`);
-                    }
-                  }
-                } else {
-                  await writeOutput('No /projects directory found in filesystem');
-                }
-              } catch (fsError) {
-                await writeOutput(`Error reading filesystem: ${fsError}`);
-              }
-            } else {
-              await writeOutput('Filesystem not initialized');
-            }
-          } catch (importError) {
-            await writeOutput(`Error importing filesystem: ${importError}`);
-          }
-
-          await writeOutput('\n=== Debug Information Complete ===');
-        } catch (e) {
-          await writeOutput(`debug-db: エラー: ${(e as Error).message}`);
+      case 'debug-db': {
+        const databases = await window.indexedDB.databases();
+        await writeOutput('=== IndexedDB and OPFS ===');
+        for (const database of databases) {
+          if (database.name) await writeOutput(`${database.name} (v${database.version ?? 0})`);
         }
+        const entries = await fsClient.walk('/');
+        await writeOutput(`OPFS entries: ${entries.length}`);
+        await writeOutput(`Workspace: ${rootPath}`);
         break;
-
-      case 'memory-clean':
-        try {
-          const fs = gitFileSystem.getFS();
-          if (!fs) {
-            await writeOutput('memory-clean: ファイルシステムが初期化できませんでした');
-            break;
-          }
-
-          await fileRepository.init();
-
-          const allProjects = await fileRepository.getProjects();
-          const allDbPaths = new Map<string, Set<string>>();
-
-          for (const project of allProjects) {
-            const projectFiles = await fileRepository.getProjectFiles(project.id);
-            allDbPaths.set(project.name, new Set(projectFiles.map(f => f.path)));
-          }
-
-          async function removeFileOrDirectory(fs: any, path: string): Promise<void> {
-            try {
-              const stat = await fs.promises.stat(path);
-              if (stat.isDirectory()) {
-                const files = await fs.promises.readdir(path);
-                for (const file of files) {
-                  await removeFileOrDirectory(fs, `${path}/${file}`);
-                }
-                await fs.promises.rmdir(path);
-                console.log(`[memory-clean] Removed directory: ${path}`);
-              } else {
-                await fs.promises.unlink(path);
-                console.log(`[memory-clean] Removed file: ${path}`);
-              }
-              if (fs && typeof (fs as any).sync === 'function') {
-                await (fs as any).sync();
-              }
-            } catch (err) {
-              console.warn(`[memory-clean] Failed to remove: ${path}`, err);
-              throw err;
-            }
-          }
-
-          async function cleanProjectDirectory(
-            fs: any,
-            projectName: string,
-            dirPath: string,
-            cleaned: string[]
-          ): Promise<void> {
-            const dbPaths = allDbPaths.get(projectName);
-            if (!dbPaths) {
-              try {
-                await removeFileOrDirectory(fs, dirPath);
-                cleaned.push(`${projectName}/ (project not in DB)`);
-              } catch {}
-              return;
-            }
-
-            try {
-              const files = await fs.promises.readdir(dirPath);
-              for (const file of files) {
-                const fullPath = `${dirPath}/${file}`;
-                const relativePath = fullPath.replace(`/projects/${projectName}`, '') || '/';
-
-                if (file === '.git') {
-                  continue;
-                }
-
-                if (!dbPaths.has(relativePath)) {
-                  await removeFileOrDirectory(fs, fullPath);
-                  cleaned.push(`${projectName}${relativePath}`);
-                } else {
-                  try {
-                    const stat = await fs.promises.stat(fullPath);
-                    if (stat.isDirectory()) {
-                      await cleanProjectDirectory(fs, projectName, fullPath, cleaned);
-                    }
-                  } catch {}
-                }
-              }
-            } catch {}
-          }
-
-          const cleaned: string[] = [];
-
-          try {
-            await fs.promises.stat('/projects');
-            const projectDirs = await fs.promises.readdir('/projects');
-
-            for (const dir of projectDirs) {
-              if (dir === '.' || dir === '..') continue;
-
-              const projectPath = `/projects/${dir}`;
-              try {
-                const stat = await fs.promises.stat(projectPath);
-                if (stat.isDirectory()) {
-                  await cleanProjectDirectory(fs, dir, projectPath, cleaned);
-                }
-              } catch {}
-            }
-          } catch (_e) {}
-
-          if (cleaned.length > 0) {
-            await writeOutput(
-              `memory-clean: 以下のファイル・ディレクトリを削除しました:\n${cleaned.join('\n')}`
-            );
-          } else {
-            await writeOutput('memory-clean: 削除対象のファイルは見つかりませんでした');
-          }
-        } catch (e) {
-          await writeOutput(`memory-clean: エラー: ${(e as Error).message}`);
-        }
-        break;
-
-      case 'fs-clean':
-        try {
-          const fs = gitFileSystem.getFS();
-          if (!fs) {
-            await writeOutput('fs-clean: ファイルシステムが初期化できませんでした');
-            break;
-          }
-          async function removeAll(fs: any, dirPath: string): Promise<void> {
-            try {
-              const stat = await fs.promises.stat(dirPath);
-              if (stat.isDirectory()) {
-                const files = await fs.promises.readdir(dirPath);
-                for (const file of files) {
-                  await removeAll(fs, `${dirPath}/${file}`);
-                }
-                await fs.promises.rmdir(dirPath);
-              } else {
-                await fs.promises.unlink(dirPath);
-              }
-              if (fs && typeof (fs as any).sync === 'function') {
-                await (fs as any).sync();
-              }
-            } catch (err) {
-              console.warn(`[fs-clean] Failed to remove: ${dirPath}`, err);
-            }
-          }
-          try {
-            await removeAll(fs, '/projects');
-            await writeOutput('fs-clean: /projects配下を全て削除しました');
-          } catch (e) {
-            await writeOutput(`fs-clean: /projects削除エラー: ${(e as Error).message}`);
-          }
-          await writeOutput('fs-clean: 完了');
-        } catch (e) {
-          await writeOutput(`fs-clean: エラー: ${(e as Error).message}`);
-        }
-        break;
+      }
 
       case 'git tree':
       case 'git-tree': {
-        const allFlag = args.includes('--all') || args.includes('all') || args.includes('-a');
-
-        try {
-          const fs = gitFileSystem.getFS();
-          if (!fs) {
-            await writeOutput('git tree: filesystem not initialized');
-            break;
-          }
-
-          if (allFlag) {
-            const treeOutput = await treeOperation(fs, '/projects');
-            await writeOutput(treeOutput || 'No files found under /projects');
-          } else if (projectName) {
-            const projectPath = `/projects/${projectName}`;
-            const treeOutput = await treeOperation(fs, projectPath);
-            await writeOutput(treeOutput || `No files found under ${projectPath}`);
-          } else {
-            await writeOutput(
-              'git tree: no current project selected. Use "git tree --all" to show all projects/files or open a project first.'
-            );
-          }
-        } catch (error) {
-          await writeOutput(`git tree: ${(error as Error).message}`);
-        }
+        const git = terminalCommandRegistry.getGitCommands(args.includes('--all') ? '/' : rootPath);
+        await writeOutput(await git.tree());
         break;
       }
 
@@ -539,14 +188,8 @@ export async function handlePyxisCommand(
           localArgs.unshift('--page');
         }
         if (localArgs[0]?.toLowerCase() === '--page' && localArgs[1]) {
-          const cwd = unixInst ? await unixInst.pwd() : '';
-          const targetPath = localArgs[1].startsWith('/') ? localArgs[1] : `${cwd}/${localArgs[1]}`;
-          const normalizedPath = unixInst?.normalizePath(targetPath);
-          if (normalizedPath) {
-            await exportPage(normalizedPath, writeOutput, unixInst);
-          } else {
-            await writeOutput('無効なパスが指定されました。');
-          }
+          const cwd = await unixInst.pwd();
+          await exportPage(resolvePath(cwd, localArgs[1]), writeOutput);
         } else {
           await writeOutput('export: サポートされているのは "export --page <path>" のみです');
         }
@@ -562,8 +205,11 @@ export async function handlePyxisCommand(
           break;
         }
 
-        await runtimeStorageRegistry.clearRuntimeCache(projectId, projectName);
-        await writeOutput('runtime-cache: /cache を削除しました');
+        await fsClient.rm(`${RUNTIME_CACHE_PATH}/modules`, { recursive: true, force: true });
+        await fsClient.rm(`${RUNTIME_CACHE_PATH}/meta`, { recursive: true, force: true });
+        await fsClient.mkdir(`${RUNTIME_CACHE_PATH}/modules`, { recursive: true });
+        await fsClient.mkdir(`${RUNTIME_CACHE_PATH}/meta`, { recursive: true });
+        await writeOutput(`runtime-cache: ${RUNTIME_CACHE_PATH} を削除しました`);
         break;
       }
 
@@ -574,7 +220,7 @@ export async function handlePyxisCommand(
           break;
         }
 
-        runtimeStorageRegistry.clearTmp(projectId, projectName);
+        await clearDirectoryContents(TMP_PATH);
         await writeOutput('tmp: /tmp を削除しました');
         break;
       }
@@ -602,17 +248,23 @@ export async function handlePyxisCommand(
         try {
           if (args.length === 0) {
             await clearAllTranslationCache();
-            await writeOutput('i18n-clear: 全ての翻訳キャッシュを削除しました');
+            await writeOutput('i18n clear: 全ての翻訳キャッシュを削除しました');
           } else if (args.length >= 2) {
             const locale = args[0];
             const namespace = args[1];
-            await deleteTranslationCache(locale as any, namespace);
-            await writeOutput(`i18n-clear: ${locale}-${namespace} の翻訳キャッシュを削除しました`);
+            if (isSupportedLocale(locale)) {
+              await deleteTranslationCache(locale, namespace);
+              await writeOutput(
+                `i18n clear: ${locale}-${namespace} の翻訳キャッシュを削除しました`
+              );
+            } else {
+              await writeOutput(`i18n clear: サポートされていない言語です: ${locale}`);
+            }
           } else {
-            await writeOutput('i18n-clear: 引数不正。使い方: i18n-clear [<locale> <namespace>]');
+            await writeOutput('i18n clear: 引数不正。使い方: pyxis i18n clear [locale namespace]');
           }
         } catch (e) {
-          await writeOutput(`i18n-clear: エラー: ${(e as Error).message}`);
+          await writeOutput(`i18n clear: エラー: ${(e as Error).message}`);
         }
         break;
 
@@ -677,8 +329,8 @@ export async function handlePyxisCommand(
             const storeName = args[0];
             const validStores = Object.values(STORES);
 
-            if (validStores.includes(storeName as any)) {
-              await storageService.clear(storeName as any);
+            if (isStoreName(storeName)) {
+              await storageService.clear(storeName);
               await writeOutput(`storage-clear: ${storeName} を削除しました`);
             } else {
               await writeOutput(

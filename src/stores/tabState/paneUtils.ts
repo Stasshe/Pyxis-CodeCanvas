@@ -1,4 +1,4 @@
-import { toAppPath } from '@/engine/core/fileRepository';
+import { normalizePath } from '@/engine/core/fs';
 import type { EditorPane, Tab } from '@/engine/tabs/types';
 
 export function flattenLeafPanes(
@@ -84,13 +84,6 @@ export function validActiveTabId(tabs: readonly Tab[], activeTabId: string): str
   return tabs[0]?.id ?? '';
 }
 
-export function normalizeTabPath(p?: string): string {
-  if (!p) return '';
-  const withoutKindPrefix = p.includes(':') ? p.replace(/^[^:]+:/, '') : p;
-  const cleaned = withoutKindPrefix.replace(/(-preview|-diff|-ai)$/, '');
-  return cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
-}
-
 export function findPaneRecursive(panes: readonly EditorPane[], paneId: string): EditorPane | null {
   for (const pane of panes) {
     if (pane.id === paneId) return pane;
@@ -116,11 +109,11 @@ export function findInPanes(
   path: string,
   kind?: string
 ): { paneId: string; tab: Tab } | null {
-  const normalizedPath = toAppPath(path);
+  const normalizedPath = normalizePath(path);
 
   for (const pane of panes) {
     const tab = pane.tabs.find(t => {
-      const samePath = toAppPath(t.path || '') === normalizedPath;
+      const samePath = normalizePath(t.path || '/') === normalizedPath;
       const matchesKind = kind === undefined || t.kind === kind;
       return samePath && matchesKind;
     });

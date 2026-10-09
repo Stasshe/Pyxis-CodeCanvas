@@ -1,363 +1,580 @@
-/**
- * Shell Executor
- * POSIX-compliant shell execution engine.
- * Directly uses existing handlers (gitHandler, npmHandler, pyxisHandler, unixHandler)
- * without unnecessary provider abstraction layer.
- */
-
-import type { Buffer } from 'buffer';
 import type TerminalUI from '@/engine/cmd/terminalUI';
-import { ANSI } from '@/engine/cmd/terminalUI';
-import type { fileRepository as FileRepository } from '@/engine/core/fileRepository';
-import { fsPathToAppPath, resolvePath, toFSPath } from '@/engine/core/pathUtils';
+import { fsClient as defaultFsClient, type FsApi } from '@/engine/core/fs';
 import type { UnixCommands } from '../global/unix';
-import adaptBuiltins, { type StreamCtx } from './builtins';
-import { expandTokens } from './expansion';
+import { startBackgroundJob } from './backgroundJob';
+import adaptBuiltins from './builtins';
+import { dispatchCommand } from './commandDispatch';
+import { groupCommands } from './commandGroups';
+import { createEnvironment, unsetEnvironmentValue } from './environment';
+import { ParseError, SilentCommandError } from './errors';
+import { createForkedShell } from './forkShell';
+import { ShellJobs } from './jobs';
+import { ShellLifecycle } from './lifecycle';
+import { ShellOutputHandler } from './outputHandler';
 import { parseCommandLine } from './parser';
+import { runPipeline } from './pipeline';
 import { Process } from './process';
-import { runScript } from './scriptRunner';
-import { isDevNull, type Segment, type TokenObj } from './types';
+import { expandProcessSegmentForShell } from './processExpansion';
+import {
+  createProcessSubstitutionHandler,
+  type ProcessSubstitutionHandler,
+} from './processSubstitution';
+import {
+  assignArray,
+  cloneScriptControlState,
+  createScriptControlState,
+  enterFunctionArguments,
+  type ScriptControlState,
+} from './scriptControls';
+import {
+  executeControlWords,
+  runCompound,
+  runInteractiveExitTrap,
+  runScript,
+  type ScriptExecutionOptions,
+  SHELL_CONTROL_COMMANDS,
+} from './scriptRunner';
+import type {
+  CompoundCommand,
+  OutputCallbacks,
+  Segment,
+  ShellExecutionOptions,
+  ShellExecutorOptions,
+  ShellRunResult,
+  StreamBuiltin,
+} from './types';
+import {
+  type ExpansionResources,
+  expandTextForShell,
+  expandWordsForShell,
+  type ShellExpansionContext,
+} from './wordExpansion';
 
-/**
- * Shell Executor Options
- */
-export interface ShellExecutorOptions {
-  projectName: string;
-  projectId: string;
-  unix?: UnixCommands;
-  fileRepository?: typeof FileRepository;
-  commandRegistry?: any;
-  terminalColumns?: number;
-  terminalRows?: number;
-  terminalUI?: TerminalUI; // Optional UI instance for advanced display
-  env?: Record<string, string>;
-  isInteractive?: boolean;
-}
+export type { OutputCallbacks, ShellExecutorOptions, ShellRunResult } from './types';
 
-/**
- * Shell Run Result
- */
-export interface ShellRunResult {
-  stdout: string;
-  stderr: string;
-  code: number | null;
-}
-
-/**
- * Real-time output callbacks
- */
-export interface OutputCallbacks {
-  stdout?: (data: string) => void;
-  stderr?: (data: string) => void;
-}
-
-/**
- * Execution Context - simplified version without provider overhead
- */
 interface ExecutionContext {
-  projectName: string;
-  projectId: string;
+  rootPath: string;
+  signal?: AbortSignal;
   cwd: string;
   env: Record<string, string>;
-  aliases: Record<string, string>;
   terminalColumns: number;
   terminalRows: number;
+  pipefail: boolean;
+  nounset: boolean;
+  errexit: boolean;
+  errtrace: boolean;
+  interactive: boolean;
 }
 
-/**
- * Shell Executor
- * Executes shell commands using existing handlers directly.
- */
 export class ShellExecutor {
   private context: ExecutionContext;
+  private scriptState = createScriptControlState();
+  private requestedExit: number | null = null;
+  private requestedReturn: number | null = null;
+  private activeRuns = 0;
+  private lifecycle = new ShellLifecycle();
+  private trackDetachedProcess = this.lifecycle.trackDetachedProcess.bind(this.lifecycle);
+  private jobs = new ShellJobs();
+  private fsClient: FsApi;
+  private outputHandler: ShellOutputHandler;
   private unix: UnixCommands | null = null;
-  private fileRepository: typeof FileRepository | undefined;
-  private commandRegistry: any;
+  private commandRegistry: ShellExecutorOptions['commandRegistry'];
   private terminalUI?: TerminalUI;
   private foregroundProc: Process | null = null;
-  private builtins: Record<string, any> | null = null;
+  private foregroundProcesses = new Set<Process>();
+  private processSubstitutionHandler: ProcessSubstitutionHandler;
+  private pendingSignal: string | null = null;
+  private builtins: Record<string, StreamBuiltin> | null = null;
+  private abortSignal?: AbortSignal;
+  private abortListener?: () => void;
+  private disposed = false;
 
   constructor(options: ShellExecutorOptions) {
+    this.trackDetachedProcess = options.trackDetachedProcess ?? this.trackDetachedProcess;
     this.context = {
-      projectName: options.projectName,
-      projectId: options.projectId,
-      cwd: `/projects/${options.projectName}`,
-      env: options.env ?? {},
-      aliases: {},
+      rootPath: options.rootPath,
+      signal: options.signal,
+      cwd: options.cwd ?? options.rootPath,
+      env: createEnvironment(options.env),
       terminalColumns: options.terminalColumns ?? 80,
       terminalRows: options.terminalRows ?? 24,
+      pipefail: false,
+      nounset: false,
+      errexit: false,
+      errtrace: false,
+      interactive: options.isInteractive ?? false,
     };
+    this.context.env.PWD = this.context.cwd;
+    this.context.env['?'] = '0';
 
     this.unix = options.unix ?? null;
-    this.fileRepository = options.fileRepository;
+    this.fsClient = options.fsClient ?? defaultFsClient;
+    this.outputHandler = new ShellOutputHandler(this.fsClient, async () => {
+      const unix = await this.getUnix();
+      if (unix) return unix.pwd();
+      return this.context.cwd;
+    });
+    this.processSubstitutionHandler = createProcessSubstitutionHandler({
+      fsClient: this.fsClient,
+      fork: () => this.fork(),
+      registerParentFifoOwner: (path, ownerId) =>
+        this.outputHandler.registerFifoOwner(path, ownerId),
+      releaseParentFifoOwner: path => this.outputHandler.releaseFifoOwner(path),
+      trackChild: (child, tracked) => this.lifecycle.trackChild(child, tracked),
+      addJob: (completion, callbacks, cancel, pid) =>
+        this.jobs.add(completion, callbacks, cancel, pid),
+      setLastJob: pid => {
+        this.context.env['!'] = String(pid);
+      },
+    });
     this.commandRegistry = options.commandRegistry;
     this.terminalUI = options.terminalUI;
+    if (options.signal) {
+      this.abortSignal = options.signal;
+      this.abortListener = () => {
+        const reason = options.signal?.reason;
+        if (typeof reason === 'string') this.killForeground(reason);
+        else this.killForeground('SIGINT');
+      };
+      options.signal.addEventListener('abort', this.abortListener, { once: true });
+    }
+    if (options.signal?.aborted) this.pendingSignal = 'SIGINT';
   }
 
-  /**
-   * Get unix commands instance
-   */
   private async getUnix(): Promise<UnixCommands | null> {
     if (this.unix) return this.unix;
 
     try {
       const { terminalCommandRegistry } = await import('../terminalRegistry');
-      this.unix = terminalCommandRegistry.getUnixCommands(
-        this.context.projectName,
-        this.context.projectId
-      );
+      this.unix = terminalCommandRegistry.getUnixCommands(this.context.rootPath);
       return this.unix;
     } catch {
       return null;
     }
   }
 
-  /**
-   * Get builtins (lazy initialization)
-   */
-  private async getBuiltins(): Promise<Record<string, any>> {
+  private async getBuiltins(): Promise<Record<string, StreamBuiltin>> {
     if (this.builtins) return this.builtins;
     const unix = await this.getUnix();
+    if (!unix) throw new Error('Unix command support is unavailable');
     this.builtins = adaptBuiltins(unix);
     return this.builtins;
   }
 
-  /**
-   * Save current working directory for process isolation
-   * Returns the saved CWD or null if unable to save
-   */
-  private async saveCwd(unix: UnixCommands): Promise<string | null> {
-    try {
-      return await unix.pwd();
-    } catch (e) {
-      // Non-fatal: CWD save failed, script will run without isolation
-      console.warn('[ShellExecutor] Failed to save CWD for process isolation:', e);
-      return null;
-    }
-  }
-
-  /**
-   * Restore working directory after script execution (POSIX process isolation)
-   * Script's CWD changes are discarded, parent CWD is restored
-   */
-  private async restoreCwd(unix: UnixCommands, savedCwd: string | null): Promise<void> {
-    if (!savedCwd) return;
-    try {
-      await unix.cd([savedCwd]);
-    } catch (e) {
-      // Non-fatal: CWD restore failed, may affect subsequent commands
-      console.warn('[ShellExecutor] Failed to restore CWD after script execution:', e);
-    }
-  }
-
-  /**
-   * Update terminal size
-   */
   setTerminalSize(columns: number, rows: number): void {
     this.context.terminalColumns = columns;
     this.context.terminalRows = rows;
   }
-
   get terminalColumns(): number {
     return this.context.terminalColumns;
   }
-
   get terminalRows(): number {
     return this.context.terminalRows;
   }
 
-  /**
-   * Run a command line
-   */
-  async run(line: string, callbacks?: OutputCallbacks): Promise<ShellRunResult> {
-    // Parse command line
-    let segments: Segment[];
+  async getCommandNames(): Promise<string[]> {
+    const names = new Set(Object.keys(await this.getBuiltins()));
+    for (const name of SHELL_CONTROL_COMMANDS) names.add(name);
+    for (const name of this.commandRegistry?.getRegisteredCommands() ?? []) names.add(name);
+    return [...names].sort();
+  }
+
+  async run(
+    line: string,
+    callbacks?: OutputCallbacks,
+    execution: ShellExecutionOptions = {}
+  ): Promise<ShellRunResult> {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    let status = 0;
+    let errexitEligible = false;
+    let interrupted = false;
+    this.activeRuns++;
     try {
-      segments = parseCommandLine(line) as Segment[];
-    } catch (parseErr: any) {
-      const msg = String(parseErr?.message || parseErr);
-      return { stdout: '', stderr: `Parse error: ${msg}\n`, code: 2 };
-    }
-
-    // Empty command
-    if (!segments || segments.length === 0) {
-      return { stdout: '', stderr: '', code: 0 };
-    }
-
-    // Group segments by logical operators (&&, ||)
-    const groups = this.groupByLogicalOperators(segments);
-
-    // Execution state
-    const fdBuffers: Record<number, string[]> = { 1: [], 2: [] };
-    let lastExitCode: number | null = 0;
-    let overallLastSeg: Segment | null = null;
-
-    // Execute groups sequentially
-    for (let gi = 0; gi < groups.length; gi++) {
-      const group = groups[gi];
-
-      // Check if we should skip based on previous logical operator
-      if (gi > 0) {
-        const prevOp = groups[gi - 1].opAfter;
-        if (prevOp === '&&' && lastExitCode !== 0) {
-          lastExitCode = 1;
+      const segments = parseCommandLine(line);
+      const groups = groupCommands(segments);
+      for (let index = 0; index < groups.length; index++) {
+        const group = groups[index];
+        const previous = groups[index - 1]?.operator;
+        if (previous === '&&' && status !== 0) continue;
+        if (previous === '||' && status === 0) continue;
+        const ignored =
+          execution.errexitIgnored ||
+          group.segments[0]?.inverted ||
+          group.operator === '&&' ||
+          group.operator === '||';
+        const run = () =>
+          this.runPipelineGroup(group.segments, callbacks, execution, Boolean(ignored), true);
+        if (group.operator === '&') {
+          const identity = await startBackgroundJob(this.jobs, callbacks, async pid => {
+            const child = await this.fork();
+            return {
+              completion: child.runPipelineGroup(
+                group.segments,
+                callbacks,
+                { ...execution, processPid: pid },
+                Boolean(execution.errexitIgnored || group.segments[0]?.inverted),
+                false
+              ),
+              dispose: () => child.dispose(),
+            };
+          });
+          this.context.env['!'] = String(identity.pid);
+          status = 0;
+          this.context.env['?'] = '0';
           continue;
         }
-        if (prevOp === '||' && lastExitCode === 0) {
-          lastExitCode = 0;
-          continue;
+        const result = await run();
+        stdout.push(result.stdout);
+        stderr.push(result.stderr);
+        status = result.code ?? 0;
+        interrupted = result.interrupted === true;
+        for (const name of Object.keys(this.context.env)) {
+          if (/^PIPESTATUS\[\d+\]$/.test(name)) delete this.context.env[name];
         }
+        for (let stage = 0; stage < result.statuses.length; stage++) {
+          this.context.env[`PIPESTATUS[${stage}]`] = String(result.statuses[stage]);
+        }
+        this.context.env['?'] = String(status);
+        errexitEligible = !ignored;
+        if (
+          this.requestedExit !== null ||
+          this.requestedReturn !== null ||
+          this.scriptState.loopControl ||
+          interrupted
+        )
+          break;
+        if (this.context.errexit && errexitEligible && status !== 0) break;
       }
+      if (this.requestedExit !== null) status = this.requestedExit;
+      this.context.env['?'] = String(status);
+      return {
+        stdout: stdout.join(''),
+        stderr: stderr.join(''),
+        code: status,
+        errexitEligible,
+        exitShell: this.requestedExit !== null,
+        interrupted,
+      };
+    } catch (error) {
+      let message = String(error);
+      if (error instanceof Error) message = error.message;
+      const diagnostic = `Shell error: ${message}\n`;
+      stderr.push(diagnostic);
+      callbacks?.stderr?.(diagnostic);
+      let code = 1;
+      if (error instanceof ParseError) code = 2;
+      this.context.env['?'] = String(code);
+      return {
+        stdout: stdout.join(''),
+        stderr: stderr.join(''),
+        code,
+        errexitEligible: true,
+        fatalError: true,
+      };
+    } finally {
+      this.activeRuns--;
+      if (this.activeRuns === 0 && !this.lifecycle.insideScript) this.requestedExit = null;
+      if (this.activeRuns === 0 && this.foregroundProcesses.size === 0) this.pendingSignal = null;
+    }
+  }
 
-      // Execute all commands in this group as a pipeline
-      const procs: Process[] = [];
-
-      for (const seg of group.segs) {
-        const proc = await this.createProcessForSegment(seg, line);
-        procs.push(proc);
-      }
-
-      // Wire up pipes
-      for (let i = 0; i < procs.length - 1; i++) {
-        procs[i].stdout.pipe(procs[i + 1].stdin);
-      }
-
-      // Emit pipes-ready for all processes
-      for (const p of procs) {
+  private async runPipelineGroup(
+    segments: Segment[],
+    callbacks: OutputCallbacks | undefined,
+    execution: ShellExecutionOptions,
+    ignored: boolean,
+    foreground: boolean
+  ): Promise<ShellRunResult & { statuses: number[] }> {
+    const shells = new Map<Process, ShellExecutor>();
+    const result = await runPipeline(segments, {
+      createProcess: async segment => {
+        let shell: ShellExecutor = this;
+        if (segments.length > 1) shell = await this.fork();
         try {
-          p.emit('pipes-ready');
-        } catch {}
-      }
-
-      // Watch output from last process
-      const lastProc = procs[procs.length - 1];
-      const lastSegOfGroup = group.segs[group.segs.length - 1];
-      this.watchProcessOutput(lastProc, lastSegOfGroup, fdBuffers, callbacks);
-
-      // Set foreground process
-      if (gi === groups.length - 1 && !lastSegOfGroup.background) {
-        this.foregroundProc = lastProc;
-        lastProc.on('exit', () => {
-          if (this.foregroundProc?.pid === lastProc.pid) {
-            this.foregroundProc = null;
+          const processPid =
+            segment === segments[segments.length - 1] ? execution.processPid : undefined;
+          const process = await shell.createProcessForSegment(segment, callbacks, processPid);
+          shells.set(process, shell);
+          if (shell.disposed) {
+            process.kill('SIGTERM');
+            process.exit(null, 'SIGTERM');
           }
-        });
+          let removeSignalHandler = () => {};
+          if (shell !== this) {
+            removeSignalHandler = process.handleSignal(signal => {
+              if (shell.foregroundProcesses.size === 0) process.exit(null, signal);
+              else shell.killForeground(signal);
+            });
+          }
+          if (foreground) this.foregroundProcesses.add(process);
+          process.on('exit', () => {
+            removeSignalHandler();
+          });
+          process.once('io-complete', () => {
+            this.foregroundProcesses.delete(process);
+            if (this.foregroundProc === process) this.foregroundProc = null;
+            if (shell !== this) shell.dispose();
+          });
+          return process;
+        } catch (error) {
+          if (shell !== this) shell.dispose();
+          throw error;
+        }
+      },
+      startProcess: (process, segment) => {
+        const shell = shells.get(process) ?? this;
+        const ignoreStage = ignored || segment !== segments[segments.length - 1];
+        return shell.startSegment(process, segment, ignoreStage, execution.inFunction ?? false);
+      },
+      outputHandler: this.outputHandler,
+      pipefail: this.context.pipefail,
+      callbacks,
+      stdin: execution.stdin,
+      interactive: this.context.interactive,
+      isForeground: foreground,
+      stdinIsTTY: execution.stdinIsTTY,
+      stdinDestination: execution.stdinDestination,
+      stdoutIsTTY: execution.stdoutIsTTY,
+      stderrIsTTY: execution.stderrIsTTY,
+      foreground: process => {
+        if (!foreground) return;
+        this.foregroundProc = process;
+        if (this.pendingSignal) {
+          for (const process of this.foregroundProcesses) process.kill(this.pendingSignal);
+          this.pendingSignal = null;
+        }
+      },
+    });
+    if (segments[0]?.inverted && !result.interrupted) {
+      if (result.code === 0) result.code = 1;
+      else result.code = 0;
+    }
+    return result;
+  }
+
+  private async startSegment(
+    proc: Process,
+    segment: Segment,
+    ignored: boolean,
+    inFunction: boolean
+  ): Promise<void> {
+    try {
+      const unix = await this.getUnix();
+      if (proc.hasExited) return;
+      if (this.pendingSignal === 'SIGINT') {
+        this.pendingSignal = null;
+        proc.exit(130);
+        return;
       }
-
-      // Wait for all processes to complete
-      const exits = await Promise.all(procs.map(p => p.wait()));
-      const exitOfLast = exits[exits.length - 1]?.code ?? 0;
-      lastExitCode = exitOfLast;
-      overallLastSeg = lastSegOfGroup;
+      await this.executeSegment(proc, segment, unix, ignored, inFunction);
+    } catch (error) {
+      let message = String(error);
+      if (error instanceof Error) message = error.message;
+      proc.writeStderr(`${message}\n`);
+      proc.exit(1);
     }
+  }
 
-    // Collect output
-    const finalOut = fdBuffers[1].join('');
-    const finalErr = fdBuffers[2].join('');
+  private runScript(
+    text: string | CompoundCommand,
+    args: string[],
+    proc: Process,
+    execution?: ScriptExecutionOptions
+  ): Promise<number> {
+    return this.lifecycle.runScript(() => {
+      if (typeof text === 'string') return runScript(text, args, proc, this, execution);
+      if (text.kind === 'group' || text.kind === 'subshell')
+        return runScript(text.source, args, proc, this, execution);
+      return runCompound(text, proc, this, execution);
+    });
+  }
 
-    // Handle file redirections
-    if (overallLastSeg && this.fileRepository) {
-      await this.handleRedirections(overallLastSeg, fdBuffers, finalOut, finalErr);
+  async runInSubshell(line: string): Promise<ShellRunResult> {
+    this.activeRuns++;
+    try {
+      const child = await this.fork();
+      child.setErrexit(false);
+      return await this.lifecycle.captureSubshell(
+        child,
+        proc =>
+          child.runScript(line, [], proc, {
+            initializeArguments: false,
+            initialStatus: Number(this.context.env['?']),
+            finalizesShell: true,
+          }),
+        this.pendingSignal
+      );
+    } finally {
+      this.activeRuns--;
+      if (this.activeRuns === 0 && this.foregroundProcesses.size === 0) this.pendingSignal = null;
     }
+  }
 
-    // Determine returned output (suppress if redirected)
-    const returnedStdout = this.shouldSuppressOutput(overallLastSeg, 1) ? '' : finalOut;
-    const returnedStderr = this.shouldSuppressOutput(overallLastSeg, 2) ? '' : finalErr;
+  async expandWords(source: string, callbacks?: OutputCallbacks): Promise<string[]> {
+    return expandWordsForShell(source, this.getExpansionContext(), this, callbacks);
+  }
 
+  async expandText(source: string): Promise<string> {
+    return expandTextForShell(source, this.getExpansionContext(), this);
+  }
+
+  private getExpansionContext(cwd = this.context.cwd): ShellExpansionContext {
     return {
-      stdout: returnedStdout,
-      stderr: returnedStderr,
-      code: lastExitCode ?? 0,
+      rootPath: this.context.rootPath,
+      cwd,
+      fsClient: this.fsClient,
+      env: this.context.env,
+      nounset: this.context.nounset,
+      getWorkingDirectory: async () => {
+        const unix = await this.getUnix();
+        if (unix) return unix.pwd();
+        return this.context.cwd;
+      },
     };
   }
 
-  /**
-   * Create a process for a single command segment
-   */
-  private async createProcessForSegment(seg: Segment, originalLine: string): Promise<Process> {
-    const proc = new Process();
+  async processSubstitution(
+    command: string,
+    direction: 'input' | 'output',
+    resources?: ExpansionResources
+  ): Promise<string> {
+    if (!resources)
+      throw new Error('Process substitution requires command-owned expansion resources');
+    return this.processSubstitutionHandler(command, direction, resources);
+  }
+
+  registerFifoOwner(path: string, ownerId: string): void {
+    this.outputHandler.registerFifoOwner(path, ownerId);
+  }
+
+  releaseFifoOwner(path: string): void {
+    this.outputHandler.releaseFifoOwner(path);
+  }
+
+  async fork(): Promise<ShellExecutor> {
     const unix = await this.getUnix();
-
-    // Apply fd duplication
-    if ((seg as any).fdDup) {
-      for (const d of (seg as any).fdDup) {
-        try {
-          if (typeof d.from === 'number' && typeof d.to === 'number') {
-            proc.setFdDup(d.from, d.to);
-          }
-        } catch {}
-      }
+    const child = await createForkedShell(
+      {
+        rootPath: this.context.rootPath,
+        cwd: this.context.cwd,
+        signal: this.context.signal,
+        fsClient: this.fsClient,
+        unix: unix ?? undefined,
+        commandRegistry: this.commandRegistry,
+        terminalColumns: this.context.terminalColumns,
+        terminalRows: this.context.terminalRows,
+        terminalUI: this.terminalUI,
+        env: this.context.env,
+        pipefail: this.context.pipefail,
+        nounset: this.context.nounset,
+        trackDetachedProcess: this.trackDetachedProcess,
+      },
+      options => new ShellExecutor(options)
+    );
+    child.context.env['?'] = this.context.env['?'];
+    child.context.errexit = this.context.errexit;
+    child.context.errtrace = this.context.errtrace;
+    child.scriptState = cloneScriptControlState(this.scriptState);
+    for (const [signal, handler] of child.scriptState.traps) {
+      if (handler === '') continue;
+      if (signal === 'ERR' && this.context.errtrace) continue;
+      child.scriptState.traps.delete(signal);
     }
+    return child;
+  }
 
-    // Resolve command substitutions
-    if (seg.tokens?.length > 0) {
-      const withCmdSub: TokenObj[] = [];
-      for (const tk of seg.tokens) {
-        if (typeof tk !== 'string' && tk.cmdSub) {
-          try {
-            const subRes = await this.run(tk.cmdSub);
-            const rawOut = String(subRes.stdout || '');
-            const normalized = rawOut.replace(/\r?\n/g, ' ').replace(/\s+$/g, '');
-            withCmdSub.push({
-              text: normalized,
-              quote: tk.quote ?? null,
-            });
-          } catch {
-            withCmdSub.push({ text: '', quote: tk.quote ?? null });
-          }
-        } else if (typeof tk === 'string') {
-          withCmdSub.push({ text: tk, quote: null });
-        } else {
-          withCmdSub.push(tk as TokenObj);
-        }
-      }
-      seg.tokens = withCmdSub;
-    }
+  private async runScriptInChild(text: string, args: string[], proc: Process): Promise<number> {
+    const child = await this.fork();
+    return this.lifecycle.runChildScript(child, proc, () => child.runScript(text, args, proc));
+  }
 
-    // Expand tokens (IFS, globs, braces)
-    const finalWords = await expandTokens(seg.tokens as TokenObj[], {
-      projectId: this.context.projectId,
-      projectName: this.context.projectName,
-      fileRepository: this.fileRepository,
-      unix: unix ?? undefined,
-    });
-    (seg as any).tokens = finalWords;
+  setPipefail(enabled: boolean): void {
+    this.context.pipefail = enabled;
+  }
 
-    // Handle stdin redirection
-    if (seg.stdinFile && unix) {
-      if (isDevNull(seg.stdinFile)) {
-        proc.stdin.end();
-      } else {
-        (async () => {
-          try {
-            const content = await unix.cat([seg.stdinFile!]).catch(() => '');
-            if (content !== undefined && content !== null) {
-              proc.stdin.write(String(content));
-            }
-          } catch {}
-          proc.stdin.end();
-        })();
-      }
-    }
+  setNounset(enabled: boolean): void {
+    this.context.nounset = enabled;
+  }
 
-    // Launch command handler
-    this.executeSegment(proc, seg, originalLine, unix);
+  private async createProcessForSegment(
+    seg: Segment,
+    callbacks?: OutputCallbacks,
+    processPid?: number
+  ): Promise<Process> {
+    const proc = new Process(processPid);
+    proc.outputCallbacks = callbacks;
+    await expandProcessSegmentForShell(
+      seg,
+      proc,
+      this.getExpansionContext(this.context.env.PWD),
+      this,
+      this.fsClient,
+      this.outputHandler,
+      callbacks
+    );
+
+    proc.stdinRedirected =
+      seg.redirections?.some(redirection => redirection.kind === 'input') === true ||
+      seg.stdinText !== undefined;
 
     return proc;
   }
 
-  /**
-   * Execute a command segment
-   */
   private async executeSegment(
     proc: Process,
     seg: Segment,
-    originalLine: string,
-    unix: UnixCommands | null
+    unix: UnixCommands | null,
+    errexitIgnored: boolean,
+    inFunction: boolean
   ): Promise<void> {
-    // Yield to allow caller to attach listeners
-    await new Promise(r => setTimeout(r, 0));
-
+    if (seg.stdinText !== undefined) {
+      let text = seg.stdinText;
+      if (seg.stdinExpand) text = await this.expandText(text);
+      proc.stdin.end(text);
+    }
+    if (seg.functionDefinition) {
+      this.scriptState.functions.set(seg.functionDefinition.name, seg.functionDefinition.source);
+      proc.exit(0);
+      return;
+    }
+    if (seg.compound) {
+      let shell: ShellExecutor = this;
+      if (seg.compound.kind === 'subshell') shell = await this.fork();
+      if (proc.hasExited) {
+        if (shell !== this) shell.dispose();
+        return;
+      }
+      const forwardSignal = (signal: string) => shell.killForeground(signal);
+      let removeSignalHandler = () => {};
+      if (shell !== this) removeSignalHandler = proc.handleSignal(forwardSignal);
+      try {
+        const code = await shell.runScript(seg.compound, [], proc, {
+          initializeArguments: false,
+          errexitIgnored,
+          inFunction,
+          initialStatus: Number(shell.getEnv('?') ?? 0),
+          finalizesShell: seg.compound.kind === 'subshell',
+        });
+        proc.exit(code);
+      } finally {
+        if (shell !== this) {
+          removeSignalHandler();
+          shell.dispose();
+        }
+      }
+      return;
+    }
+    if (await assignArray(seg.raw, this)) {
+      proc.exit(0);
+      return;
+    }
+    if (seg.assignmentOnly) {
+      proc.endStdout();
+      proc.endStderr();
+      proc.exit(seg.commandSubStatus ?? 0);
+      return;
+    }
     const rawTokens = seg.tokens as string[];
     if (!rawTokens || rawTokens.length === 0) {
       proc.endStdout();
@@ -368,49 +585,60 @@ export class ShellExecutor {
 
     const cmd = String(rawTokens[0] ?? '');
     const args = rawTokens.slice(1).map(t => String(t));
-
-    // 'npx' is handled by npm handler now; let executeCommand route it
-
-    // Check for alias expansion
-    if (this.context.aliases[cmd]) {
-      const expandedLine = `${this.context.aliases[cmd]} ${args.join(' ')}`;
-      const result = await this.run(expandedLine);
-      proc.writeStdout(result.stdout);
-      proc.writeStderr(result.stderr);
-      proc.endStdout();
-      proc.endStderr();
-      proc.exit(result.code ?? 0);
+    const control = await executeControlWords([cmd, ...args], proc, this, inFunction);
+    if (control) {
+      if (control.kind === 'return') this.requestedReturn = control.code;
+      proc.exit(control.code);
       return;
     }
+    const body = this.scriptState.functions.get(cmd);
+    if (body !== undefined) {
+      const restoreArguments = enterFunctionArguments(this, args);
+      const outerReturn = this.requestedReturn;
+      this.requestedReturn = null;
+      try {
+        proc.exit(
+          await this.runScript(body, [], proc, {
+            initializeArguments: false,
+            inFunction: true,
+            errexitIgnored,
+          })
+        );
+      } finally {
+        this.requestedReturn = outerReturn;
+        restoreArguments();
+      }
+      return;
+    }
+    if (cmd === 'wait') {
+      proc.exit(await this.jobs.wait(args, proc));
+      return;
+    }
+    if (cmd === 'cd' && args.length === 0) args.push(this.context.env.HOME);
 
     try {
-      // Check for script files
-      // POSIX Process Isolation: Script execution runs in isolated context
-      // Changes to CWD inside script do NOT affect parent shell
       if (unix && (cmd.includes('/') || cmd.endsWith('.sh'))) {
         const maybeContent = await unix.cat([cmd]).catch(() => null);
         if (maybeContent !== null) {
-          const text = String(maybeContent);
+          let text = maybeContent;
+          if (typeof text !== 'string')
+            text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(text);
           const firstLine = text.split('\n', 1)[0] || '';
           if (cmd.endsWith('.sh') || firstLine.startsWith('#!')) {
-            // Detect node shebangs or JS entrypoints and execute via Node runtime
             const isNodeShebang = /node/.test(firstLine);
             const isJsFile = cmd.endsWith('.js') || /\.js$/.test(cmd);
-
-            // Save parent context CWD before script execution (POSIX isolation)
-            const savedCwd = await this.saveCwd(unix);
 
             if (isNodeShebang || isJsFile) {
               try {
                 const exitCode = await this.executeCommand('node', [cmd, ...args], proc);
-                await this.restoreCwd(unix, savedCwd);
                 proc.endStdout();
                 proc.endStderr();
-                proc.exit(typeof exitCode === 'number' ? exitCode : 0);
+                proc.exit(exitCode);
                 return;
-              } catch (e: any) {
-                proc.writeStderr(e?.message ?? String(e));
-                await this.restoreCwd(unix, savedCwd);
+              } catch (error) {
+                let message = String(error);
+                if (error instanceof Error) message = error.message;
+                proc.writeStderr(message);
                 proc.endStdout();
                 proc.endStderr();
                 proc.exit(1);
@@ -418,28 +646,16 @@ export class ShellExecutor {
               }
             }
 
-            // Otherwise treat as a shell script
             const scriptArgs = [cmd, ...args];
-            try {
-              await runScript(text, scriptArgs, proc, this as any);
-            } catch (e: any) {
-              proc.writeStderr(e?.message ?? String(e));
-            }
-
-            // Restore parent context CWD after script completes
-            await this.restoreCwd(unix, savedCwd);
-
+            const exitCode = await this.runScriptInChild(text, scriptArgs, proc);
             proc.endStdout();
             proc.endStderr();
-            proc.exit(0);
+            proc.exit(exitCode);
             return;
           }
         }
       }
 
-      // Handle sh/bash command
-      // POSIX Process Isolation: Script execution runs in isolated context
-      // Changes to CWD inside script do NOT affect parent shell
       if (cmd === 'sh' || cmd === 'bash') {
         if (args.length === 0) {
           proc.writeStderr('Usage: sh <file>\n');
@@ -447,7 +663,8 @@ export class ShellExecutor {
           proc.exit(2);
           return;
         }
-        const content = unix ? await unix.cat([args[0]]).catch(() => null) : null;
+        let content: string | Uint8Array | null = null;
+        if (unix) content = await unix.cat([args[0]]).catch(() => null);
         if (content === null) {
           proc.writeStderr(`sh: ${args[0]}: No such file\n`);
           proc.endStdout();
@@ -455,39 +672,32 @@ export class ShellExecutor {
           return;
         }
 
-        // Save parent context CWD before script execution
-        const savedCwd = unix ? await this.saveCwd(unix) : null;
-
-        // Run script in isolated context
-        await runScript(String(content), args, proc, this as any).catch(() => {});
-
-        // Restore parent context CWD after script completes
-        if (unix) {
-          await this.restoreCwd(unix, savedCwd);
-        }
+        let script = content;
+        if (typeof script !== 'string')
+          script = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(script);
+        const exitCode = await this.runScriptInChild(script, args, proc);
 
         proc.endStdout();
         proc.endStderr();
-        proc.exit(0);
+        proc.exit(exitCode);
         return;
       }
 
-      // Execute command through appropriate handler
       const exitCode = await this.executeCommand(cmd, args, proc);
       proc.endStdout();
       proc.endStderr();
       proc.exit(exitCode);
-    } catch (error: any) {
-      // Handle silent failures
-      if (error?.__silent) {
-        const code = typeof error.code === 'number' ? error.code : 1;
+    } catch (error) {
+      if (error instanceof SilentCommandError) {
+        const code = error.code;
         proc.endStdout();
         proc.endStderr();
         proc.exit(code);
         return;
       }
 
-      const msg = error?.message ?? String(error);
+      let msg = String(error);
+      if (error instanceof Error) msg = error.message;
       proc.writeStderr(`${msg}\n`);
       proc.endStdout();
       proc.endStderr();
@@ -495,484 +705,96 @@ export class ShellExecutor {
     }
   }
 
-  /**
-   * Execute a command through appropriate handler
-   */
   private async executeCommand(cmd: string, args: string[], proc: Process): Promise<number> {
-    const writeOutput = async (output: string) => {
-      proc.writeStdout(output);
-      if (!output.endsWith('\n')) {
-        proc.writeStdout('\n');
-      }
-    };
-
-    const writeError = async (output: string) => {
-      proc.writeStderr(output);
-      if (!output.endsWith('\n')) {
-        proc.writeStderr('\n');
-      }
-    };
-
-    // 1. Git command
-    if (cmd === 'git') {
-      try {
-        const { handleGitCommand } = await import('../handlers/gitHandler');
-        await handleGitCommand(args, this.context.projectName, this.context.projectId, writeOutput);
-        return 0;
-      } catch (e: any) {
-        await writeError(`git: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 2. NPM command
-    if (cmd === 'npm') {
-      try {
-        const { handleNPMCommand } = await import('../handlers/npmHandler');
-        await handleNPMCommand(
-          args,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput,
-          () => {} // setLoading - no-op in shell context
-        );
-        return 0;
-      } catch (e: any) {
-        await writeError(`npm: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 2b. NPX command - delegate to npm handler
-    if (cmd === 'npx') {
-      try {
-        const { handleNPXCommand } = await import('../handlers/npmHandler');
-        const code = await handleNPXCommand(
-          args,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput
-        );
-        return typeof code === 'number' ? code : 0;
-      } catch (e: any) {
-        await writeError(`npx: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 3. Pyxis command
-    if (cmd === 'pyxis') {
-      try {
-        const { handlePyxisCommand } = await import('../handlers/pyxisHandler');
-
-        if (args.length === 0) {
-          await writeError('pyxis: missing subcommand. Usage: pyxis <category> <action> [args]');
-          return 1;
-        }
-
-        const category = args[0];
-        const action = args[1];
-
-        if (!action && !category.startsWith('-')) {
-          await writeError('pyxis: missing action. Usage: pyxis <category> <action> [args]');
-          return 1;
-        }
-
-        let cmdToCall: string;
-        let subArgs: string[];
-
-        if (action?.startsWith('-')) {
-          cmdToCall = category;
-          subArgs = args.slice(1);
-        } else if (action) {
-          cmdToCall = `${category}-${action}`;
-          subArgs = args.slice(2);
-        } else {
-          cmdToCall = category;
-          subArgs = args.slice(1);
-        }
-
-        await handlePyxisCommand(
-          cmdToCall,
-          subArgs,
-          this.context.projectName,
-          this.context.projectId,
-          writeOutput
-        );
-        return 0;
-      } catch (e: any) {
-        await writeError(`pyxis: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 4. Dev command (development/testing utilities)
-    if (cmd === 'dev') {
-      try {
-        const { handleDevCommand } = await import('../handlers/devHandler');
-        await handleDevCommand(args, this.context.projectName, this.context.projectId, writeOutput);
-        return 0;
-      } catch (e: any) {
-        await writeError(`dev: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 5. Extension commands
-    if (this.commandRegistry?.hasCommand(cmd)) {
-      try {
-        const unix = await this.getUnix();
-        const currentDir = unix ? await unix.pwd() : this.context.cwd;
-        const result = await this.commandRegistry.executeCommand(cmd, args, {
-          projectName: this.context.projectName,
-          projectId: this.context.projectId,
-          currentDirectory: currentDir,
-        });
-        await writeOutput(result);
-        return 0;
-      } catch (e: any) {
-        await writeError(`${cmd}: ${e.message}`);
-        return 1;
-      }
-    }
-
-    // 6. Builtin commands (echo, ls, cat, grep, etc.)
-    const builtins = await this.getBuiltins();
-    if (builtins[cmd]) {
-      const ctx: StreamCtx = {
-        stdin: proc.stdinStream,
-        stdout: proc.stdoutStream,
-        stderr: proc.stderrStream,
-        onSignal: fn => proc.on('signal', fn),
-        projectName: this.context.projectName,
-        projectId: this.context.projectId,
-        terminalColumns: this.context.terminalColumns,
-        terminalRows: this.context.terminalRows,
-      };
-
-      try {
-        await builtins[cmd](ctx, args);
-        return 0;
-      } catch (e: any) {
-        if (e?.__silent) {
-          return typeof e.code === 'number' ? e.code : 1;
-        }
-        throw e;
-      }
-    }
-
-    // 7. node_modules/.bin lookup — run installed CLI binaries without npx
-    {
-      const unix = await this.getUnix();
-      const cwdFs = unix ? await unix.pwd() : this.context.cwd;
-      const cwdApp = fsPathToAppPath(cwdFs, this.context.projectName);
-
-      let absFs: string | null = null;
-
-      // Try package.json bin field first
-      const directPackageJsonApp = resolvePath(cwdApp, `node_modules/${cmd}/package.json`);
-      const directPackageJson = this.fileRepository
-        ? await this.fileRepository
-            .getFileByPath(this.context.projectId, directPackageJsonApp)
-            .catch(() => null)
-        : null;
-
-      if (directPackageJson?.content) {
-        try {
-          const pkg = JSON.parse(directPackageJson.content);
-          const binField = typeof pkg.bin === 'string' ? { [pkg.name || cmd]: pkg.bin } : pkg.bin;
-          const selectedBin =
-            (binField &&
-              typeof binField === 'object' &&
-              (binField[cmd] || Object.values(binField)[0])) ||
-            null;
-          if (typeof selectedBin === 'string' && selectedBin.trim() !== '') {
-            absFs = toFSPath(
-              this.context.projectName,
-              resolvePath(cwdApp, `node_modules/${cmd}/${selectedBin.replace(/^\.\//, '')}`)
-            );
-          }
-        } catch {}
-      }
-
-      // Fallback: .bin shim
-      if (!absFs && this.fileRepository) {
-        const dotBinApp = resolvePath(cwdApp, `node_modules/.bin/${cmd}`);
-        const dotBinFile = await this.fileRepository
-          .getFileByPath(this.context.projectId, dotBinApp)
-          .catch(() => null);
-        if (dotBinFile) {
-          absFs = toFSPath(this.context.projectName, dotBinApp);
-        }
-      }
-
-      if (absFs) {
-        const { NodeRuntime } = await import('../../runtime/nodejs/nodeRuntime');
-        const fmt = (...a: unknown[]) => proc.writeStdout(a.map(x => String(x)).join(' ') + '\n');
-        const fmtErr = (...a: unknown[]) =>
-          proc.writeStderr(a.map(x => String(x)).join(' ') + '\n');
-        const runtime = new NodeRuntime({
-          projectId: this.context.projectId,
-          projectName: this.context.projectName,
-          filePath: absFs,
-          cwd: cwdFs,
-          debugConsole: { log: fmt, error: fmtErr, warn: fmt, clear: () => {} },
-          terminalColumns: this.context.terminalColumns ?? 80,
-          terminalRows: this.context.terminalRows ?? 24,
-        });
-        try {
-          await runtime.execute(absFs, args);
-          await runtime.waitForEventLoop();
-          return runtime.getExitCode();
-        } catch (e: any) {
-          proc.writeStderr(String(e?.message ?? e) + '\n');
-          return 1;
-        }
-      }
-    }
-
-    // 8. Command not found
-    proc.writeStderr(`${cmd}: command not found\n`);
-    return 127;
+    return dispatchCommand(cmd, args, proc, {
+      ...this.context,
+      fsClient: this.fsClient,
+      commandRegistry: this.commandRegistry,
+      trackDetachedProcess: this.trackDetachedProcess,
+      getUnix: () => this.getUnix(),
+      setPwd: value => {
+        this.context.env.PWD = value;
+        this.unix?.setCurrentDir(value);
+      },
+    });
   }
 
-  /**
-   * Group segments by logical operators
-   */
-  private groupByLogicalOperators(
-    segments: Segment[]
-  ): Array<{ segs: Segment[]; opAfter?: string }> {
-    const groups: Array<{ segs: Segment[]; opAfter?: string }> = [];
-    let currentGroup: Segment[] = [];
-
-    for (const seg of segments) {
-      currentGroup.push(seg);
-      if ((seg as any).logicalOp) {
-        groups.push({ segs: currentGroup, opAfter: (seg as any).logicalOp });
-        currentGroup = [];
-      }
-    }
-
-    if (currentGroup.length > 0) {
-      groups.push({ segs: currentGroup });
-    }
-
-    return groups;
+  getScriptState(): ScriptControlState {
+    return this.scriptState;
+  }
+  setErrexit(enabled: boolean): void {
+    this.context.errexit = enabled;
+  }
+  getErrexit(): boolean {
+    return this.context.errexit;
+  }
+  setErrtrace(enabled: boolean): void {
+    this.context.errtrace = enabled;
+  }
+  getErrtrace(): boolean {
+    return this.context.errtrace;
+  }
+  getNounset(): boolean {
+    return this.context.nounset;
+  }
+  finalizeInteractiveExit(proc: Process, status: number): Promise<number> {
+    return runInteractiveExitTrap(status, proc, this, this.lifecycle.insideScript);
+  }
+  requestExit(code: number): void {
+    this.requestedExit = code;
+  }
+  getRequestedExit(): number | undefined {
+    return this.requestedExit ?? undefined;
+  }
+  clearRequestedExit(): void {
+    this.requestedExit = null;
   }
 
-  /**
-   * Watch process output streams
-   */
-  private watchProcessOutput(
-    proc: Process,
-    seg: Segment,
-    fdBuffers: Record<number, string[]>,
-    callbacks?: OutputCallbacks
-  ): void {
-    const watchFd = (fd: number) => {
-      if (!fdBuffers[fd]) fdBuffers[fd] = [];
-
-      try {
-        const stream = proc.getFdWrite(fd);
-        const fdFiles = (seg as any)?.fdFiles || {};
-        const fileInfo = fdFiles[fd];
-
-        if (fileInfo && isDevNull(fileInfo.path)) {
-          stream.on('data', () => {}); // Discard
-          return;
-        }
-
-        stream.on('data', (chunk: Buffer | string) => {
-          const sRaw = String(chunk);
-          // Store raw output for internal buffers / redirection (no ANSI)
-          fdBuffers[fd].push(sRaw);
-
-          // Real-time callbacks (provide raw output; coloring is handled in Terminal layer)
-          if (fd === 1 && callbacks?.stdout) {
-            callbacks.stdout(sRaw);
-          } else if (fd === 2 && callbacks?.stderr) {
-            callbacks.stderr(sRaw);
-          }
-        });
-      } catch {}
-    };
-
-    watchFd(1);
-    watchFd(2);
-
-    // Watch additional fds
-    if ((seg as any)?.fdFiles) {
-      for (const k of Object.keys((seg as any).fdFiles)) {
-        const fdn = Number(k);
-        if (!Number.isNaN(fdn) && fdn > 2) {
-          watchFd(fdn);
-        }
-      }
-    }
+  requestReturn(code: number): void {
+    this.requestedReturn = code;
+  }
+  getRequestedReturn(): number | undefined {
+    return this.requestedReturn ?? undefined;
+  }
+  clearRequestedReturn(): void {
+    this.requestedReturn = null;
   }
 
-  /**
-   * Handle file redirections
-   */
-  private async handleRedirections(
-    seg: Segment,
-    fdBuffers: Record<number, string[]>,
-    finalOut: string,
-    finalErr: string
-  ): Promise<void> {
-    if (!this.fileRepository) return;
-
-    const writes: Record<string, string> = {};
-    const appendMap: Record<string, boolean> = {};
-
-    // Get current working directory for resolving relative paths
-    const unix = await this.getUnix();
-    const cwd = unix ? await unix.pwd() : this.context.cwd;
-
-    // Helper to resolve path relative to CWD and convert to AppPath
-    const resolveRedirectPath = (path: string): string => {
-      if (!path || isDevNull(path)) return path;
-
-      // If absolute path (within project), use it
-      if (path.startsWith('/')) {
-        return path;
-      }
-
-      // Resolve relative path against CWD, then convert to AppPath
-      const resolvedFsPath = resolvePath(cwd, path);
-      return fsPathToAppPath(resolvedFsPath, this.context.projectName);
-    };
-
-    const add = (path: string | undefined | null, content: string, append = false) => {
-      if (!path || isDevNull(path)) return;
-      const key = resolveRedirectPath(path);
-      if (!key || isDevNull(key)) return;
-      writes[key] = (writes[key] || '') + content;
-      appendMap[key] = appendMap[key] || append;
-    };
-
-    // Handle fdFiles
-    if ((seg as any).fdFiles) {
-      for (const k of Object.keys((seg as any).fdFiles)) {
-        const fdn = Number(k);
-        if (Number.isNaN(fdn)) continue;
-        const info = (seg as any).fdFiles[fdn];
-        if (isDevNull(info.path)) continue;
-        const content = (fdBuffers[fdn] || []).join('');
-        add(info.path, content, !!info.append);
-      }
-    }
-
-    // Legacy stdout/stderr fields
-    const hasFdFiles = (seg as any).fdFiles && Object.keys((seg as any).fdFiles).length > 0;
-    if (!hasFdFiles) {
-      if (seg.stdoutFile) {
-        add(seg.stdoutFile, finalOut, !!seg.append);
-      }
-      if (seg.stderrFile) {
-        add(seg.stderrFile, finalErr, false);
-      }
-    }
-
-    // Perform writes
-    for (const pth of Object.keys(writes)) {
-      try {
-        let contentToWrite = writes[pth];
-
-        if (appendMap[pth]) {
-          const existing =
-            typeof this.fileRepository.getFileByPath === 'function'
-              ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
-              : null;
-          if (existing?.content) {
-            contentToWrite = existing.content + contentToWrite;
-          }
-        }
-
-        const existing =
-          typeof this.fileRepository.getFileByPath === 'function'
-            ? await this.fileRepository.getFileByPath(this.context.projectId, pth)
-            : null;
-
-        if (existing) {
-          await this.fileRepository.saveFile({
-            ...existing,
-            content: contentToWrite,
-            updatedAt: new Date(),
-          });
-        } else {
-          await this.fileRepository.createFile(this.context.projectId, pth, contentToWrite, 'file');
-        }
-      } catch {}
-    }
-  }
-
-  /**
-   * Check if output should be suppressed (redirected)
-   */
-  private shouldSuppressOutput(seg: Segment | null, fd: number): boolean {
-    if (!seg) return false;
-
-    const fdFiles = (seg as any)?.fdFiles;
-    const file = fdFiles?.[fd];
-    if (file) return true;
-
-    if (fd === 1) {
-      if (seg.stdoutFile || seg.stdoutToStderr) return true;
-      if (seg.stdoutFile && isDevNull(seg.stdoutFile)) return true;
-    }
-
-    if (fd === 2) {
-      if (seg.stderrFile || seg.stderrToStdout) return true;
-      if (seg.stderrFile && isDevNull(seg.stderrFile)) return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Kill the foreground process
-   */
   killForeground(signal = 'SIGINT'): void {
-    try {
-      if (this.foregroundProc) {
-        this.foregroundProc.kill(signal);
+    this.lifecycle.killForeground(
+      signal,
+      this.activeRuns > 0,
+      this.foregroundProcesses,
+      this.foregroundProc !== null,
+      pendingSignal => {
+        this.pendingSignal = pendingSignal;
       }
-    } catch {}
+    );
   }
 
-  /**
-   * Set an alias
-   */
-  setAlias(name: string, expansion: string): void {
-    this.context.aliases[name] = expansion;
-  }
-
-  /**
-   * Get an alias
-   */
-  getAlias(name: string): string | undefined {
-    return this.context.aliases[name];
-  }
-
-  /**
-   * Set an environment variable
-   */
   setEnv(key: string, value: string): void {
     this.context.env[key] = value;
   }
 
-  /**
-   * Get an environment variable
-   */
   getEnv(key: string): string | undefined {
     return this.context.env[key];
   }
-}
+  getEnvironment(): Readonly<Record<string, string>> {
+    return { ...this.context.env };
+  }
+  unsetEnv(key: string): void {
+    unsetEnvironmentValue(this.context.env, key);
+  }
 
-/**
- * Create a new shell executor
- */
-export function createShellExecutor(options: ShellExecutorOptions): ShellExecutor {
-  return new ShellExecutor(options);
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    if (this.activeRuns > 0) this.pendingSignal = 'SIGTERM';
+    this.lifecycle.dispose(
+      () => this.jobs.cancelAll(),
+      this.foregroundProcesses,
+      this.abortSignal,
+      this.abortListener
+    );
+  }
 }

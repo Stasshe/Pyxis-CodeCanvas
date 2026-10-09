@@ -1,9 +1,5 @@
-import type FS from '@isomorphic-git/lightning-fs';
+import type { GitFs as FS } from '@/engine/core/fs/git';
 
-/**
- * Return a string representation of the directory tree for a given directory in lightning-fs.
- * This will read directories recursively and format a tree similar to unix `tree` command.
- */
 export async function tree(fs: FS, dirPath: string): Promise<string> {
   const lines: string[] = [];
 
@@ -13,14 +9,11 @@ export async function tree(fs: FS, dirPath: string): Promise<string> {
       entries = await fs.promises.readdir(currentPath);
     } catch (e) {
       console.warn('[tree.ts] caught non-fatal error', e);
-      // no read permission or not exist
       return;
     }
 
-    // filter out special entries
     entries = entries.filter(e => e !== '.' && e !== '..');
 
-    // sort so output is deterministic: directories first, then files, alphabetical
     const dirs: string[] = [];
     const files: string[] = [];
     for (const entry of entries) {
@@ -38,14 +31,19 @@ export async function tree(fs: FS, dirPath: string): Promise<string> {
     for (let i = 0; i < all.length; i++) {
       const entry = all[i];
       const isLast = i === all.length - 1;
-      const connector = isLast ? '└── ' : '├── ';
+      let connector = '├── ';
+      let childPrefix = '│   ';
+      if (isLast) {
+        connector = '└── ';
+        childPrefix = '    ';
+      }
       const fullPath = `${currentPath}/${entry}`;
 
       try {
         const stat = await fs.promises.stat(fullPath);
         if (stat.isDirectory()) {
           lines.push(`${prefix}${connector}${entry}/`);
-          await traverse(fullPath, `${prefix}${isLast ? '    ' : '│   '}`);
+          await traverse(fullPath, `${prefix}${childPrefix}`);
         } else {
           lines.push(`${prefix}${connector}${entry}`);
         }
@@ -56,7 +54,6 @@ export async function tree(fs: FS, dirPath: string): Promise<string> {
     }
   };
 
-  // show root directory name
   const rootName = dirPath.replace(/\/$/, '') || '/';
   lines.push(`${rootName}/`);
   await traverse(dirPath, '');

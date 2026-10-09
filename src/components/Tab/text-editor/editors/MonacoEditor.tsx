@@ -294,7 +294,7 @@ export default function MonacoEditor({
     prevTabIdRef.current = tabId;
 
     // 内容同期 (外部変更: ファイルウォッチャー等)
-    if (isModelSafe(model) && model?.getValue() !== content) {
+    if (isModelSafe(model) && model?.getValue(undefined, true) !== content) {
       try {
         if (isEditorSafe()) {
           try {
@@ -432,7 +432,9 @@ export default function MonacoEditor({
       onMount={handleEditorDidMount}
       onChange={value => {
         if (value !== undefined) {
-          onChange(value);
+          const content = editorRef.current?.getModel()?.getValue(undefined, true);
+          if (content === undefined) return;
+          onChange(content);
           onCharCountChange(countCharsNoSpaces(value));
           onSelectionCountChange(null);
         }

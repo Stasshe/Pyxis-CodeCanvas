@@ -1,19 +1,7 @@
 import { parseWithGetOpt } from '../../lib';
 import { UnixCommandBase } from './base';
-/**
- * cd - カレントディレクトリを変更
- *
- * 使用法:
- *   cd [directory]
- *
- * オプション:
- *   なし（Linuxのcd組み込みコマンドに準拠）
- *
- * 動作:
- *   - 引数なしの場合はプロジェクトルートに移動
- *   - -はサポートしない（前のディレクトリへの移動）
- *   - プロジェクト外への移動は禁止
- */
+
+/** Resolve the shell-expanded directory and update the current working directory. */
 export class CdCommand extends UnixCommandBase {
   async execute(args: string[]): Promise<{ newDir: string; message: string }> {
     const { positional } = parseWithGetOpt(args);
@@ -21,25 +9,13 @@ export class CdCommand extends UnixCommandBase {
     let targetDir: string;
 
     if (positional.length === 0) {
-      // 引数なしの場合はプロジェクトルートへ
-      targetDir = this.getProjectRoot();
+      // The workspace root is the default home directory.
+      targetDir = this.rootPath;
     } else {
       const dir = positional[0];
-
-      // 特殊ケース: -（前のディレクトリ）は未実装
-      if (dir === '-') {
-        throw new Error('cd: OLDPWD not set');
-      }
-
-      targetDir = this.normalizePath(this.resolvePath(dir));
+      targetDir = this.resolvePath(dir);
     }
 
-    // プロジェクト外への移動を禁止
-    if (!this.isWithinProject(targetDir)) {
-      throw new Error('cd: Permission denied - Cannot navigate outside project directory');
-    }
-
-    // ディレクトリの存在確認
     const exists = await this.exists(targetDir);
     if (!exists) {
       throw new Error(`cd: ${positional[0] || '~'}: No such file or directory`);
