@@ -1,0 +1,1470 @@
+Root
+.
+├── biome.json
+├── CLAUDE.md
+├── CODE_OF_CONDUCT.md
+├── Development
+│   ├── all-flow.svg
+│   └── TODO.md
+├── docs
+│   ├── arch
+│   │   ├── data-flow.md
+│   │   ├── storage.md
+│   │   └── system-overview.md
+│   ├── domain
+│   │   ├── ai.md
+│   │   ├── editor.md
+│   │   ├── extension-authoring.md
+│   │   ├── extensions.md
+│   │   ├── filesystem.md
+│   │   ├── git.md
+│   │   ├── i18n.md
+│   │   ├── markdown-preview.md
+│   │   ├── node-runtime.md
+│   │   ├── npm.md
+│   │   ├── operation-window.md
+│   │   ├── runtime-provider.md
+│   │   ├── shell.md
+│   │   ├── terminal.md
+│   │   └── vim.md
+│   ├── knowledge
+│   │   └── incidents
+│   │       ├── 2026-05-30-async-save-edit-race.md
+│   │       ├── 2026-09-11-git-filesystem-flush.md
+│   │       ├── 2026-10-07-binary-stringified.md
+│   │       ├── 2026-10-07-fs-worker-buffer-missing.md
+│   │       ├── 2026-10-08-markdown-preview-amd-collision.md
+│   │       ├── 2026-10-08-opfs-parent-traversal.md
+│   │       ├── 2026-10-08-restore-flag-folder-switch.md
+│   │       └── 2026-10-09-npm-install-root-walk.md
+│   ├── plan
+│   │   ├── development-history.md
+│   │   ├── directory-structure.md
+│   │   ├── opfs-migration.md
+│   │   ├── runtime-storage-refactor.md
+│   │   └── STORAGE_INTENT.md
+│   └── README.md
+├── extensions
+│   ├── binary-editor
+│   │   ├── binaryUtils.ts
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   └── useBinaryEditorDocument.ts
+│   ├── calc
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── chart-extension
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── lang-packs
+│   │   ├── ar
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── de
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── en
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── es
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── fr
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── hi
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── id
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── it
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ja
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ko
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── nl
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── pl
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── pt
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── ru
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── sv
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── th
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── tr
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── vi
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   ├── zh
+│   │   │   ├── index.ts
+│   │   │   └── manifest.json
+│   │   └── zh-TW
+│   │       ├── index.ts
+│   │       └── manifest.json
+│   ├── note-tab
+│   │   ├── index.tsx
+│   │   └── manifest.json
+│   ├── python-runtime
+│   │   ├── index.ts
+│   │   ├── manifest.json
+│   │   └── package.json
+│   ├── react-preview
+│   │   ├── _build.js
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── README.md
+│   ├── registry.json
+│   ├── sample-command
+│   │   ├── index.ts
+│   │   ├── manifest.json
+│   │   └── README.md
+│   ├── _shared
+│   │   ├── README.md
+│   │   ├── systemModuleTypes.ts
+│   │   └── types.ts
+│   ├── test-multi-file
+│   │   ├── helper.ts
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   ├── package.json
+│   │   └── utils.ts
+│   ├── todo-panel
+│   │   ├── index.tsx
+│   │   ├── manifest.json
+│   │   ├── package.json
+│   │   └── todoScanner.ts
+│   └── typescript-runtime
+│       ├── index.ts
+│       ├── manifest.json
+│       └── package.json
+├── FreeAPIGenerativeAI-Model.md
+├── i18n.sh
+├── index.html
+├── initial_files
+│   ├── docs
+│   │   ├── docs_git-commands.md
+│   │   ├── getting-started.md
+│   │   └── unix-commands.md
+│   ├── README.md
+│   ├── src
+│   │   ├── code-review
+│   │   │   ├── bad.comment.ts
+│   │   │   ├── bad.ts
+│   │   │   └── good.ts
+│   │   ├── fibonacci.py
+│   │   ├── fileOperationg.js
+│   │   ├── index.js
+│   │   ├── math.js
+│   │   ├── react
+│   │   │   ├── App.css
+│   │   │   ├── App.jsx
+│   │   │   └── sample.jsx
+│   │   ├── readline_test.js
+│   │   ├── run-test.sh
+│   │   └── typescript
+│   │       ├── hello.ts
+│   │       ├── math.ts
+│   │       └── use-math.ts
+│   └── web
+│       ├── index.html
+│       ├── script.js
+│       └── style.css
+├── LICENSE
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── postcss.config.js
+├── public
+│   ├── apple-touch-icon.png
+│   ├── apple-touch-icon-precomposed.png
+│   ├── base-path-init.js
+│   ├── eruda-init.js
+│   ├── esbuild.wasm
+│   ├── extensions
+│   │   ├── binary-editor
+│   │   │   ├── binaryUtils.js
+│   │   │   ├── index.js
+│   │   │   ├── manifest.json
+│   │   │   └── useBinaryEditorDocument.js
+│   │   ├── calc
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── chart-extension
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── lang-packs
+│   │   │   ├── ar
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── de
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── en
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── es
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── fr
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── hi
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── id
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── it
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ja
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ko
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── nl
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── pl
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── pt
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── ru
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── sv
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── th
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── tr
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── vi
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   ├── zh
+│   │   │   │   ├── index.js
+│   │   │   │   └── manifest.json
+│   │   │   └── zh-TW
+│   │   │       ├── index.js
+│   │   │       └── manifest.json
+│   │   ├── note-tab
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   ├── python-runtime
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── react-preview
+│   │   │   ├── esbuild.wasm
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── registry.json
+│   │   ├── sample-command
+│   │   │   ├── index.js
+│   │   │   └── manifest.json
+│   │   ├── _shared
+│   │   │   ├── systemModuleTypes.js
+│   │   │   └── types.js
+│   │   ├── test-multi-file
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   ├── todo-panel
+│   │   │   ├── index.js
+│   │   │   ├── index.js.meta.json
+│   │   │   └── manifest.json
+│   │   └── typescript-runtime
+│   │       ├── index.js
+│   │       ├── index.js.meta.json
+│   │       └── manifest.json
+│   ├── favicon.ico
+│   ├── favicon.png
+│   ├── file.svg
+│   ├── ga-init.js
+│   ├── globe.svg
+│   ├── icon0.svg
+│   ├── icon1.png
+│   ├── manifest.json
+│   ├── sw.js
+│   ├── sw-register.js
+│   ├── web-app-manifest-192x192.png
+│   ├── web-app-manifest-512x512.png
+│   └── window.svg
+├── readme-assets
+│   ├── IMG_0033.png
+│   ├── IMG_0034.png
+│   ├── IMG_0035.png
+│   ├── IMG_0048.png
+│   ├── IMG_0113.png
+│   ├── IMG_0117.png
+│   ├── IMG_0126.png
+│   ├── IMG_1466.png
+│   ├── IMG_1467.png
+│   ├── IMG_1469.png
+│   ├── IMG_1470.png
+│   ├── IMG_1471.png
+│   └── IMG_1473.png
+├── README_en.md
+├── README.md
+├── render.yaml
+├── scripts
+│   ├── bench
+│   │   ├── node-runtime
+│   │   │   ├── results
+│   │   │   │   ├── baseline.json
+│   │   │   │   ├── post-change.json
+│   │   │   │   ├── runtime-residual.json
+│   │   │   │   └── runtime-reuse.json
+│   │   │   ├── run.mjs
+│   │   │   ├── runtime-diff-fixture.json
+│   │   │   ├── runtime-fixtures.json
+│   │   │   └── seed.mjs
+│   │   └── npm-install
+│   │       ├── bench.html
+│   │       ├── browser.mjs
+│   │       ├── clear-browser-cache.mjs
+│   │       ├── fixtures.json
+│   │       ├── native-terminal-pty.py
+│   │       ├── profile.mjs
+│   │       ├── registry-network-capture.mjs
+│   │       ├── results
+│   │       │   ├── browser-after-combined-normal.json
+│   │       │   ├── browser-after-combined-profiled.json
+│   │       │   ├── browser-after-six-jobs-normal.json
+│   │       │   ├── browser-after-six-jobs-profiled.json
+│   │       │   ├── browser-baseline-http-warm.json
+│   │       │   ├── browser-baseline-nostore.json
+│   │       │   ├── browser-baseline-profiled.json
+│   │       │   ├── browser-before-express-cold-normal.json
+│   │       │   ├── browser-before-express-cold-profiled.json
+│   │       │   ├── browser-post-normal-intermediate.json
+│   │       │   ├── browser-post-normal.json
+│   │       │   ├── browser-post-profiled-intermediate.json
+│   │       │   ├── browser-post-profiled.json
+│   │       │   ├── native-after-combined.json
+│   │       │   ├── native-after-six-jobs.json
+│   │       │   ├── native-baseline.json
+│   │       │   ├── native-before-express-cold.json
+│   │       │   ├── native-terminal-2-after-pty-cold.json
+│   │       │   ├── native-terminal-2-canonical-pty-cold.json
+│   │       │   ├── native-terminal-43-after-pty-cold.json
+│   │       │   ├── native-terminal-43-canonical-pty-cold.json
+│   │       │   ├── native-terminal-43-pty-cold.json
+│   │       │   ├── native-terminal-express-after-pty-cold.json
+│   │       │   ├── native-terminal-express-final-pty-cold.json
+│   │       │   ├── native-terminal-large-after-pty-cold.json
+│   │       │   ├── native-terminal-react-after-pty-cold.json
+│   │       │   ├── serial-experiment-default-normal.json
+│   │       │   ├── serial-experiment-default-profiled.json
+│   │       │   ├── serial-experiment-serial-normal.json
+│   │       │   ├── serial-experiment-serial-profiled.json
+│   │       │   ├── terminal-e2e-2-after-cold.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial01.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial02.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial03.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial04.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial05.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial06.json
+│   │       │   ├── terminal-e2e-2-after-cold-trial07.json
+│   │       │   ├── terminal-e2e-2-canonical-cold.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial01.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial02.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial03.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial04.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial05.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial06.json
+│   │       │   ├── terminal-e2e-2-canonical-cold-trial07.json
+│   │       │   ├── terminal-e2e-2-cold-http-trial01.json
+│   │       │   ├── terminal-e2e-2-final-cold.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial01.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial02.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial03.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial04.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial05.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial06.json
+│   │       │   ├── terminal-e2e-2-final-cold-trial07.json
+│   │       │   ├── terminal-e2e-43-after-cold.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial01.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial02.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial03.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial04.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial05.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial06.json
+│   │       │   ├── terminal-e2e-43-after-cold-trial07.json
+│   │       │   ├── terminal-e2e-43-after-profile-trial01.json
+│   │       │   ├── terminal-e2e-43-after-profile-trial02.json
+│   │       │   ├── terminal-e2e-43-canonical-cold.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial01.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial02.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial03.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial04.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial05.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial06.json
+│   │       │   ├── terminal-e2e-43-canonical-cold-trial07.json
+│   │       │   ├── terminal-e2e-43-canonical-profile-trial01.json
+│   │       │   ├── terminal-e2e-43-canonical-profile-trial02.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial01.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial02.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial03.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial04.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial05.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial06.json
+│   │       │   ├── terminal-e2e-43-cold-http-trial07.json
+│   │       │   ├── terminal-e2e-43-final-cold.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial01.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial02.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial03.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial04.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial05.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial06.json
+│   │       │   ├── terminal-e2e-43-final-cold-trial07.json
+│   │       │   ├── terminal-e2e-43-final-profile-tree-zero-walk.json
+│   │       │   ├── terminal-e2e-43-final-profile-tree-zero-walk-trial01.json
+│   │       │   ├── terminal-e2e-43-profile-trial01.json
+│   │       │   ├── terminal-e2e-43-profile-trial02.json
+│   │       │   ├── terminal-e2e-43-profile-trial04.json
+│   │       │   ├── terminal-e2e-express-after-cold.json
+│   │       │   ├── terminal-e2e-express-after-cold-trial01.json
+│   │       │   ├── terminal-e2e-express-after-cold-trial02.json
+│   │       │   ├── terminal-e2e-express-after-cold-trial03.json
+│   │       │   ├── terminal-e2e-express-after-cold-trial04.json
+│   │       │   ├── terminal-e2e-express-after-cold-trial05.json
+│   │       │   ├── terminal-e2e-express-after-profile-trial01.json
+│   │       │   ├── terminal-e2e-express-after-profile-trial02.json
+│   │       │   ├── terminal-e2e-express-final-cdp-async-diagnostic.json
+│   │       │   ├── terminal-e2e-express-final-cdp-async-diagnostic-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic2.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic2-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic3.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic3-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic4.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic4-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic5.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic5-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic6.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic6-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic.json
+│   │       │   ├── terminal-e2e-express-final-cdp-http-diagnostic-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cold.json
+│   │       │   ├── terminal-e2e-express-final-cold-trial01.json
+│   │       │   ├── terminal-e2e-express-final-cold-trial02.json
+│   │       │   ├── terminal-e2e-express-final-cold-trial03.json
+│   │       │   ├── terminal-e2e-express-final-cold-trial04.json
+│   │       │   ├── terminal-e2e-express-final-cold-trial05.json
+│   │       │   ├── terminal-e2e-express-final-profile-cdp-async.json
+│   │       │   ├── terminal-e2e-express-final-profile-cdp-async-trial01.json
+│   │       │   ├── terminal-e2e-express-final-profile-cdp-async-trial02.json
+│   │       │   ├── terminal-e2e-express-final-profile-cdp.json
+│   │       │   ├── terminal-e2e-express-final-profile-cdp-trial01.json
+│   │       │   ├── terminal-e2e-express-final-profile-cdp-trial02.json
+│   │       │   ├── terminal-e2e-large-after-cold.json
+│   │       │   ├── terminal-e2e-large-after-cold-trial01.json
+│   │       │   ├── terminal-e2e-large-after-cold-trial02.json
+│   │       │   ├── terminal-e2e-large-after-cold-trial03.json
+│   │       │   ├── terminal-e2e-large-after-cold-trial04.json
+│   │       │   ├── terminal-e2e-large-after-cold-trial05.json
+│   │       │   ├── terminal-e2e-large-final-cold.json
+│   │       │   ├── terminal-e2e-large-final-cold-trial01.json
+│   │       │   ├── terminal-e2e-large-final-cold-trial02.json
+│   │       │   ├── terminal-e2e-large-final-cold-trial03.json
+│   │       │   ├── terminal-e2e-large-final-cold-trial04.json
+│   │       │   ├── terminal-e2e-large-final-cold-trial05.json
+│   │       │   ├── terminal-e2e-react-after-cold.json
+│   │       │   ├── terminal-e2e-react-after-cold-trial01.json
+│   │       │   ├── terminal-e2e-react-after-cold-trial02.json
+│   │       │   ├── terminal-e2e-react-after-cold-trial03.json
+│   │       │   ├── terminal-e2e-react-after-cold-trial04.json
+│   │       │   ├── terminal-e2e-react-after-cold-trial05.json
+│   │       │   ├── terminal-e2e-react-final-cold.json
+│   │       │   ├── terminal-e2e-react-final-cold-trial01.json
+│   │       │   ├── terminal-e2e-react-final-cold-trial02.json
+│   │       │   ├── terminal-e2e-react-final-cold-trial03.json
+│   │       │   ├── terminal-e2e-react-final-cold-trial04.json
+│   │       │   └── terminal-e2e-react-final-cold-trial05.json
+│   │       ├── run-native.mjs
+│   │       ├── terminal-browser-cohort.mjs
+│   │       ├── terminal-capture.mjs
+│   │       ├── terminal-fixture-2.json
+│   │       ├── terminal-fixture-43.json
+│   │       ├── terminal-fixture-large-dev.json
+│   │       ├── terminal-fixture-medium-express.json
+│   │       ├── terminal-fixture-medium-react.json
+│   │       ├── terminal-profile.mjs
+│   │       ├── terminal-worker-redirect.mjs
+│   │       ├── terminal-worker-redirect-normal.mjs
+│   │       ├── vite.config.mjs
+│   │       └── worker.mjs
+│   ├── build
+│   │   ├── build-extensions.js
+│   │   ├── initial_files_to_ts.js
+│   │   └── service-worker.js
+│   ├── check-pnpm.js
+│   ├── chore
+│   │   └── update-readmes-version.js
+│   ├── extensions
+│   │   ├── create-extension-guide.md
+│   │   ├── create-extension.js
+│   │   ├── EXTENSION-PNPM-GUIDE.md
+│   │   └── samples
+│   │       ├── builtin-module-extension.template.ts
+│   │       ├── command-extension.template.ts
+│   │       ├── open-tab-button.template.tsx
+│   │       ├── README.md
+│   │       ├── service-extension.template.ts
+│   │       ├── sidebar-component.template.tsx
+│   │       ├── sidebar-registration.template.ts
+│   │       ├── tab-component.template.tsx
+│   │       ├── tab-registration.template.ts
+│   │       ├── transpiler-extension.template.ts
+│   │       └── ui-extension.template.tsx
+│   ├── i18n
+│   │   ├── add-hardcoded-translations.js
+│   │   ├── add-remaining-translations.js
+│   │   ├── apply_missing_keys.js
+│   │   ├── compare_locale_keys.sh
+│   │   ├── flatten_json_keys.pl
+│   │   ├── format_json.js
+│   │   ├── format_locales.sh
+│   │   ├── i18n-auto-add-missing.js
+│   │   ├── i18n-comprehensive-check.js
+│   │   ├── i18n-detect.sh
+│   │   ├── i18n-exclude.txt
+│   │   ├── i18n-missing-keys.sh
+│   │   ├── one_file_i18n_extract.pl
+│   │   ├── one_file_t_extract.pl
+│   │   ├── README.md
+│   │   └── remove_unused_i18n_keys.js
+│   └── tools
+│       └── analyze-metafiles.js
+├── SHORT_README.md
+├── src
+│   ├── App.tsx
+│   ├── components
+│   │   ├── AI
+│   │   │   ├── AIPanel.tsx
+│   │   │   ├── AIReview
+│   │   │   │   ├── aiReviewActions.ts
+│   │   │   │   ├── AIReviewTab.tsx
+│   │   │   │   └── diffEditorCleanup.ts
+│   │   │   ├── chat
+│   │   │   │   ├── ChatContainer.tsx
+│   │   │   │   ├── chatInputDrafts.ts
+│   │   │   │   ├── ChatInput.tsx
+│   │   │   │   ├── ChatMessage.tsx
+│   │   │   │   └── ModeSelector.tsx
+│   │   │   ├── FileSelector.tsx
+│   │   │   └── review
+│   │   │       ├── ChangedFilesPanel.tsx
+│   │   │       └── FileChangeItem.tsx
+│   │   ├── AppInitializer.tsx
+│   │   ├── Bottom
+│   │   │   ├── BottomPanel.tsx
+│   │   │   ├── BottomStatusBar.tsx
+│   │   │   ├── canonicalCommandState.ts
+│   │   │   ├── ClientTerminal.tsx
+│   │   │   ├── createTerminalInstance.ts
+│   │   │   ├── latestRenderQueue.ts
+│   │   │   ├── lineEditor.ts
+│   │   │   ├── lineRenderer.ts
+│   │   │   ├── OutputPanel.tsx
+│   │   │   ├── ProblemsPanel.tsx
+│   │   │   ├── terminalCompletionSource.ts
+│   │   │   ├── terminalCompletion.ts
+│   │   │   ├── terminalHistory.ts
+│   │   │   ├── terminalInputController.ts
+│   │   │   ├── terminalInput.ts
+│   │   │   ├── terminalInterrupt.ts
+│   │   │   ├── terminalLineEditor.ts
+│   │   │   ├── terminalLineRenderQueue.ts
+│   │   │   ├── terminalPrompt.ts
+│   │   │   ├── terminalScreenControl.ts
+│   │   │   ├── terminalShellLifecycle.ts
+│   │   │   ├── Terminal.tsx
+│   │   │   ├── terminalTypeahead.ts
+│   │   │   └── terminalViewport.ts
+│   │   ├── Confirmation.tsx
+│   │   ├── DnD
+│   │   │   └── CustomDragLayer.tsx
+│   │   ├── Left
+│   │   │   ├── ExtensionPanelRenderer.tsx
+│   │   │   ├── ExtensionsPanel.tsx
+│   │   │   ├── extensionsPanelUtils.ts
+│   │   │   ├── FileTree
+│   │   │   │   ├── FileTreeContextMenu.tsx
+│   │   │   │   ├── fileTreeErrors.ts
+│   │   │   │   ├── FileTreeItem.tsx
+│   │   │   │   ├── index.tsx
+│   │   │   │   ├── types.ts
+│   │   │   │   └── VirtualizedFileTree.tsx
+│   │   │   ├── GitHistoryLayout.ts
+│   │   │   ├── GitHistory.tsx
+│   │   │   ├── GitPanel
+│   │   │   │   ├── ChangesList.tsx
+│   │   │   │   ├── CommitBox.tsx
+│   │   │   │   ├── ErrorState.tsx
+│   │   │   │   ├── FileItem.tsx
+│   │   │   │   ├── gitUtils.ts
+│   │   │   │   ├── LoadingState.tsx
+│   │   │   │   └── useGitPanel.ts
+│   │   │   ├── GitPanel.tsx
+│   │   │   ├── LeftSidebar.tsx
+│   │   │   ├── ResultRow.tsx
+│   │   │   ├── RunPanel.tsx
+│   │   │   ├── runPanelUtils.ts
+│   │   │   ├── SearchPanel
+│   │   │   │   ├── searchPanelUtils.ts
+│   │   │   │   ├── searchRequestState.ts
+│   │   │   │   ├── SearchResults.tsx
+│   │   │   │   └── types.ts
+│   │   │   ├── SearchPanel.tsx
+│   │   │   └── SettingsPanel.tsx
+│   │   ├── MenuBar.tsx
+│   │   ├── Pane
+│   │   │   ├── PaneContainer.tsx
+│   │   │   ├── PaneNavigator.tsx
+│   │   │   ├── PaneResizer.tsx
+│   │   │   └── RootPaneArea.tsx
+│   │   ├── Right
+│   │   │   ├── PanelRightIcon.tsx
+│   │   │   └── RightSidebar.tsx
+│   │   ├── Tab
+│   │   │   ├── BinaryTabContent.tsx
+│   │   │   ├── Breadcrumb.tsx
+│   │   │   ├── CodeEditor.tsx
+│   │   │   ├── DiffTab.tsx
+│   │   │   ├── DraggableTab.tsx
+│   │   │   ├── inlineCodeHighlighter.ts
+│   │   │   ├── inlineCodePatterns.ts
+│   │   │   ├── InlineHighlightedCode.tsx
+│   │   │   ├── LocalImage.tsx
+│   │   │   ├── markdownMath.ts
+│   │   │   ├── MarkdownPreview
+│   │   │   │   ├── CodeBlock.tsx
+│   │   │   │   ├── markdownLink.ts
+│   │   │   │   ├── mermaidConfig.ts
+│   │   │   │   ├── mermaidRuntime.ts
+│   │   │   │   ├── Mermaid.tsx
+│   │   │   │   └── useIntersectionObserver.ts
+│   │   │   ├── MarkdownPreviewTab.tsx
+│   │   │   ├── markdownUtils.ts
+│   │   │   ├── MergeConflictResolutionTab.tsx
+│   │   │   ├── ShortcutKeysTab.tsx
+│   │   │   ├── TabBar.tsx
+│   │   │   ├── tabBarUtils.ts
+│   │   │   ├── TabIcon.tsx
+│   │   │   ├── TabSessionManager.tsx
+│   │   │   ├── text-editor
+│   │   │   │   ├── editors
+│   │   │   │   │   ├── CodeMirrorEditor.tsx
+│   │   │   │   │   ├── codemirror-utils.ts
+│   │   │   │   │   ├── editor-utils.ts
+│   │   │   │   │   ├── MonacoEditor.tsx
+│   │   │   │   │   ├── monaco-language-defaults.ts
+│   │   │   │   │   ├── monaco-themes.ts
+│   │   │   │   │   └── monarch-jsx-language.ts
+│   │   │   │   ├── hooks
+│   │   │   │   │   ├── useCharCount.ts
+│   │   │   │   │   └── useMonacoModels.ts
+│   │   │   │   ├── MONACO_MODEL_MANAGEMENT.md
+│   │   │   │   ├── ui
+│   │   │   │   │   ├── CharCountDisplay.tsx
+│   │   │   │   │   └── EditorPlaceholder.tsx
+│   │   │   │   └── utils
+│   │   │   │       ├── CharCountDetails.tsx
+│   │   │   │       └── monacoPathUtils.ts
+│   │   │   ├── useTabCloseConfirmation.tsx
+│   │   │   ├── WebPreviewTab.tsx
+│   │   │   └── WelcomeTab.tsx
+│   │   └── Top
+│   │       ├── OperationWindow
+│   │       │   ├── fileSearchUtils.ts
+│   │       │   ├── folderPath.ts
+│   │       │   ├── OperationFileRow.tsx
+│   │       │   ├── OperationGenericRow.tsx
+│   │       │   ├── OperationUtils.tsx
+│   │       │   ├── OperationVirtualList.tsx
+│   │       │   ├── OperationWindow.tsx
+│   │       │   ├── operationWorker.ts
+│   │       │   ├── types.ts
+│   │       │   ├── useFileSearch.ts
+│   │       │   └── useFolderOperationView.tsx
+│   │       └── TopBar.tsx
+│   ├── constants
+│   │   ├── config.ts
+│   │   ├── dndTypes.ts
+│   │   └── idb.ts
+│   ├── context
+│   │   ├── FileSelectorContext.tsx
+│   │   ├── GitHubUserContext.tsx
+│   │   ├── I18nContext.tsx
+│   │   └── ThemeContext.tsx
+│   ├── engine
+│   │   ├── ai
+│   │   │   ├── contextBuilder.ts
+│   │   │   ├── diffProcessor.ts
+│   │   │   ├── fetchAI.ts
+│   │   │   ├── patchApplier.ts
+│   │   │   ├── prompts.ts
+│   │   │   ├── responseParser.ts
+│   │   │   └── textEdits.ts
+│   │   ├── cmd
+│   │   │   ├── app
+│   │   │   │   ├── dev
+│   │   │   │   │   ├── mergeConflictScenario.ts
+│   │   │   │   │   ├── tabScenario.ts
+│   │   │   │   │   └── types.ts
+│   │   │   │   └── vim
+│   │   │   │       ├── index.ts
+│   │   │   │       ├── render.ts
+│   │   │   │       ├── text.ts
+│   │   │   │       └── VimEditor.ts
+│   │   │   ├── global
+│   │   │   │   ├── gitOperations
+│   │   │   │   │   ├── add.ts
+│   │   │   │   │   ├── branch.ts
+│   │   │   │   │   ├── checkout.ts
+│   │   │   │   │   ├── clone.ts
+│   │   │   │   │   ├── commit.ts
+│   │   │   │   │   ├── diff.ts
+│   │   │   │   │   ├── discardChanges.ts
+│   │   │   │   │   ├── fetch.ts
+│   │   │   │   │   ├── fileSystemHelper.ts
+│   │   │   │   │   ├── github
+│   │   │   │   │   │   ├── GitHubAPI.ts
+│   │   │   │   │   │   ├── TreeBuilder.ts
+│   │   │   │   │   │   └── utils.ts
+│   │   │   │   │   ├── indexModes.ts
+│   │   │   │   │   ├── log.ts
+│   │   │   │   │   ├── mergeConflictDetector.ts
+│   │   │   │   │   ├── mergeState.ts
+│   │   │   │   │   ├── merge.ts
+│   │   │   │   │   ├── pull.ts
+│   │   │   │   │   ├── push.ts
+│   │   │   │   │   ├── remoteUtils.ts
+│   │   │   │   │   ├── repositoryRoot.ts
+│   │   │   │   │   ├── reset.ts
+│   │   │   │   │   ├── revert.ts
+│   │   │   │   │   ├── service.ts
+│   │   │   │   │   ├── show.ts
+│   │   │   │   │   ├── status.ts
+│   │   │   │   │   ├── switch.ts
+│   │   │   │   │   ├── transport.ts
+│   │   │   │   │   ├── tree.ts
+│   │   │   │   │   └── worker.ts
+│   │   │   │   ├── git.ts
+│   │   │   │   ├── npmOperations
+│   │   │   │   │   ├── install
+│   │   │   │   │   │   ├── dependencyGraph.ts
+│   │   │   │   │   │   ├── dependencyResolver.ts
+│   │   │   │   │   │   ├── fsFiles.ts
+│   │   │   │   │   │   ├── integrity.ts
+│   │   │   │   │   │   ├── lockfile.ts
+│   │   │   │   │   │   ├── npmNetwork.ts
+│   │   │   │   │   │   ├── registryClient.ts
+│   │   │   │   │   │   ├── tarExtractor.ts
+│   │   │   │   │   │   ├── tree.ts
+│   │   │   │   │   │   ├── types.ts
+│   │   │   │   │   │   └── versionUtils.ts
+│   │   │   │   │   ├── npmDependencySize.ts
+│   │   │   │   │   ├── npmInstall.ts
+│   │   │   │   │   └── worker.ts
+│   │   │   │   ├── npm.ts
+│   │   │   │   ├── unixOperations
+│   │   │   │   │   ├── awk.ts
+│   │   │   │   │   ├── base.ts
+│   │   │   │   │   ├── cat.ts
+│   │   │   │   │   ├── cd.ts
+│   │   │   │   │   ├── cp.ts
+│   │   │   │   │   ├── date.ts
+│   │   │   │   │   ├── df.ts
+│   │   │   │   │   ├── dirname.ts
+│   │   │   │   │   ├── displayPath.ts
+│   │   │   │   │   ├── du.ts
+│   │   │   │   │   ├── echo.ts
+│   │   │   │   │   ├── find.ts
+│   │   │   │   │   ├── grep.ts
+│   │   │   │   │   ├── gzip.ts
+│   │   │   │   │   ├── head.ts
+│   │   │   │   │   ├── helpTexts.ts
+│   │   │   │   │   ├── help.ts
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── ls.ts
+│   │   │   │   │   ├── mkdir.ts
+│   │   │   │   │   ├── mkfifo.ts
+│   │   │   │   │   ├── mv.ts
+│   │   │   │   │   ├── printf.ts
+│   │   │   │   │   ├── pwd.ts
+│   │   │   │   │   ├── rm.ts
+│   │   │   │   │   ├── seq.ts
+│   │   │   │   │   ├── sleep.ts
+│   │   │   │   │   ├── sort.ts
+│   │   │   │   │   ├── stat.ts
+│   │   │   │   │   ├── tail.ts
+│   │   │   │   │   ├── tar.ts
+│   │   │   │   │   ├── tee.ts
+│   │   │   │   │   ├── test.ts
+│   │   │   │   │   ├── touch.ts
+│   │   │   │   │   ├── tree.ts
+│   │   │   │   │   ├── tr.ts
+│   │   │   │   │   ├── unzip.ts
+│   │   │   │   │   ├── wc.ts
+│   │   │   │   │   ├── xargs.ts
+│   │   │   │   │   └── zip.ts
+│   │   │   │   └── unix.ts
+│   │   │   ├── handlers
+│   │   │   │   ├── devHandler.ts
+│   │   │   │   ├── gitHandler.ts
+│   │   │   │   ├── npmHandler.ts
+│   │   │   │   ├── pyxisHandler.ts
+│   │   │   │   ├── unixHandler.ts
+│   │   │   │   └── vimHandler.ts
+│   │   │   ├── lib
+│   │   │   │   ├── expr.ts
+│   │   │   │   ├── fnmatch.ts
+│   │   │   │   ├── getopt.ts
+│   │   │   │   ├── GUIDELINES.md
+│   │   │   │   └── index.ts
+│   │   │   ├── shell
+│   │   │   │   ├── arithmetic.ts
+│   │   │   │   ├── backgroundJob.ts
+│   │   │   │   ├── braceExpand.ts
+│   │   │   │   ├── builtins.ts
+│   │   │   │   ├── commandDispatch.ts
+│   │   │   │   ├── commandGroups.ts
+│   │   │   │   ├── environment.ts
+│   │   │   │   ├── errors.ts
+│   │   │   │   ├── executor.ts
+│   │   │   │   ├── expansion.ts
+│   │   │   │   ├── factory.ts
+│   │   │   │   ├── forkShell.ts
+│   │   │   │   ├── grammar.ts
+│   │   │   │   ├── heredoc.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── jobs.ts
+│   │   │   │   ├── lifecycle.ts
+│   │   │   │   ├── localBinary.ts
+│   │   │   │   ├── outputHandler.ts
+│   │   │   │   ├── parameter.ts
+│   │   │   │   ├── parser.ts
+│   │   │   │   ├── pipeline.ts
+│   │   │   │   ├── processExpansion.ts
+│   │   │   │   ├── processSubstitution.ts
+│   │   │   │   ├── process.ts
+│   │   │   │   ├── read.ts
+│   │   │   │   ├── scriptControls.ts
+│   │   │   │   ├── scriptRunner.ts
+│   │   │   │   ├── streamShell.ts
+│   │   │   │   ├── syntax.ts
+│   │   │   │   ├── types.ts
+│   │   │   │   └── wordExpansion.ts
+│   │   │   ├── terminalOutputManager.ts
+│   │   │   ├── terminalProcessBridge.ts
+│   │   │   ├── terminalRegistry.ts
+│   │   │   ├── terminalUI.ts
+│   │   │   └── unicodeTerminal.ts
+│   │   ├── commitMsgAI.ts
+│   │   ├── core
+│   │   │   ├── coreLogger.ts
+│   │   │   ├── fileBytes.ts
+│   │   │   ├── fileContent.ts
+│   │   │   ├── fs
+│   │   │   │   ├── buffer.ts
+│   │   │   │   ├── client.ts
+│   │   │   │   ├── core.ts
+│   │   │   │   ├── descriptors.ts
+│   │   │   │   ├── endpoint.ts
+│   │   │   │   ├── errors.ts
+│   │   │   │   ├── fifo.ts
+│   │   │   │   ├── fileMove.ts
+│   │   │   │   ├── git.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── layout.ts
+│   │   │   │   ├── links.ts
+│   │   │   │   ├── locks.ts
+│   │   │   │   ├── pins.ts
+│   │   │   │   ├── rename.ts
+│   │   │   │   ├── scoped.ts
+│   │   │   │   ├── search.ts
+│   │   │   │   ├── sidecars.ts
+│   │   │   │   ├── types.ts
+│   │   │   │   ├── worker.ts
+│   │   │   │   ├── workspace.ts
+│   │   │   │   └── write.ts
+│   │   │   ├── gitignore.ts
+│   │   │   ├── migration
+│   │   │   │   ├── idb.ts
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── lightning.ts
+│   │   │   │   ├── metadata.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── pathUtils.ts
+│   │   │   ├── projectTree.ts
+│   │   │   └── project.ts
+│   │   ├── extensions
+│   │   │   ├── archiveLoader.ts
+│   │   │   ├── autoInstaller.ts
+│   │   │   ├── binaryUtils.ts
+│   │   │   ├── commandRegistry.ts
+│   │   │   ├── extensionContext.ts
+│   │   │   ├── extensionLoader.ts
+│   │   │   ├── extensionManager.ts
+│   │   │   ├── extensionRegistry.ts
+│   │   │   ├── extensionsLogger.ts
+│   │   │   ├── hostGlobals.ts
+│   │   │   ├── index.ts
+│   │   │   ├── storage-adapter.ts
+│   │   │   ├── system-api
+│   │   │   │   ├── ExplorerMenuAPI.ts
+│   │   │   │   ├── SidebarAPI.ts
+│   │   │   │   └── TabAPI.ts
+│   │   │   ├── systemModules.ts
+│   │   │   ├── systemModuleTypes.ts
+│   │   │   └── types.ts
+│   │   ├── helper
+│   │   │   ├── isLikelyTextFile.ts
+│   │   │   ├── resize.ts
+│   │   │   └── settingsManager.ts
+│   │   ├── i18n
+│   │   │   ├── commitLatestLoad.ts
+│   │   │   ├── englishPackFallback.ts
+│   │   │   ├── index.ts
+│   │   │   ├── loader.ts
+│   │   │   ├── storage-adapter.ts
+│   │   │   ├── translator.ts
+│   │   │   └── types.ts
+│   │   ├── in-ex
+│   │   │   ├── archiveEntries.ts
+│   │   │   ├── exportFolderZip.ts
+│   │   │   ├── exportPage.ts
+│   │   │   ├── exportPdf.ts
+│   │   │   ├── exportRepo.ts
+│   │   │   ├── exportSingleFile.ts
+│   │   │   ├── importSingleFile.ts
+│   │   │   └── inlineHtmlAssets.ts
+│   │   ├── initialFileContents.ts
+│   │   ├── runtime
+│   │   │   ├── bridge
+│   │   │   │   ├── client.ts
+│   │   │   │   ├── endpoint.ts
+│   │   │   │   ├── main.ts
+│   │   │   │   ├── protocol.ts
+│   │   │   │   └── serviceWorker.js
+│   │   │   ├── core
+│   │   │   │   ├── builtinRuntimes.ts
+│   │   │   │   ├── runtimeLogger.ts
+│   │   │   │   ├── RuntimeProvider.ts
+│   │   │   │   └── RuntimeRegistry.ts
+│   │   │   ├── module
+│   │   │   │   ├── awaitSyntax.ts
+│   │   │   │   ├── builtinModules.ts
+│   │   │   │   ├── dynamicFunction.ts
+│   │   │   │   ├── moduleCode.ts
+│   │   │   │   ├── moduleEvaluation.ts
+│   │   │   │   ├── moduleExecution.ts
+│   │   │   │   ├── moduleFileSystem.ts
+│   │   │   │   ├── moduleLoader.ts
+│   │   │   │   └── moduleResolver.ts
+│   │   │   ├── nodejs
+│   │   │   │   ├── benchmark.ts
+│   │   │   │   ├── builtInModule.ts
+│   │   │   │   ├── modules
+│   │   │   │   │   ├── assertModule.ts
+│   │   │   │   │   ├── childProcessModule.ts
+│   │   │   │   │   ├── constantsModule.ts
+│   │   │   │   │   ├── cryptoModule.ts
+│   │   │   │   │   ├── diagnosticsChannel.ts
+│   │   │   │   │   ├── eventAbortListener.ts
+│   │   │   │   │   ├── eventIterator.ts
+│   │   │   │   │   ├── eventMaxListeners.ts
+│   │   │   │   │   ├── eventsModule.ts
+│   │   │   │   │   ├── fsDescriptors.ts
+│   │   │   │   │   ├── fsIo.ts
+│   │   │   │   │   ├── fsModule.ts
+│   │   │   │   │   ├── fsOperations.ts
+│   │   │   │   │   ├── fsPaths.ts
+│   │   │   │   │   ├── fsStats.ts
+│   │   │   │   │   ├── fsStreams.ts
+│   │   │   │   │   ├── httpModule.ts
+│   │   │   │   │   ├── moduleModule.ts
+│   │   │   │   │   ├── netModule.ts
+│   │   │   │   │   ├── osModule.ts
+│   │   │   │   │   ├── pathModule.ts
+│   │   │   │   │   ├── querystringModule.ts
+│   │   │   │   │   ├── readableWebAdapters.ts
+│   │   │   │   │   ├── readlineModule.ts
+│   │   │   │   │   ├── stringDecoderModule.ts
+│   │   │   │   │   ├── ttyModule.ts
+│   │   │   │   │   ├── urlModule.ts
+│   │   │   │   │   ├── urlPort.d.ts
+│   │   │   │   │   ├── utilModule.ts
+│   │   │   │   │   ├── v8Module.ts
+│   │   │   │   │   ├── webStreamsModule.ts
+│   │   │   │   │   └── zlibModule.ts
+│   │   │   │   ├── nodeErrors.ts
+│   │   │   │   ├── NodeRuntimeProvider.ts
+│   │   │   │   ├── nodeRuntime.ts
+│   │   │   │   ├── processExit.ts
+│   │   │   │   ├── runtimeBuiltinResolver.ts
+│   │   │   │   ├── runtimeConsole.ts
+│   │   │   │   ├── runtimeGlobals.ts
+│   │   │   │   ├── runtimeTaskScheduler.ts
+│   │   │   │   ├── runtimeTypes.ts
+│   │   │   │   ├── runtimeWorkerPool.ts
+│   │   │   │   ├── runtimeWorker.ts
+│   │   │   │   ├── runtimeWrapper.ts
+│   │   │   │   ├── runtimeWritable.ts
+│   │   │   │   ├── shellHost.ts
+│   │   │   │   ├── signalConstants.ts
+│   │   │   │   ├── workerProtocol.ts
+│   │   │   │   └── workerStdin.ts
+│   │   │   ├── storage
+│   │   │   │   ├── RuntimeFsMount.ts
+│   │   │   │   └── types.ts
+│   │   │   └── transpiler
+│   │   │       ├── esmTransformer.ts
+│   │   │       ├── transpileManager.ts
+│   │   │       └── transpileWorker.ts
+│   │   ├── storage
+│   │   │   ├── aiStorageAdapter.ts
+│   │   │   ├── chatStorageAdapter.ts
+│   │   │   ├── index.ts
+│   │   │   ├── recentFileHistoryAdapter.ts
+│   │   │   └── recentFolderStorageAdapter.ts
+│   │   ├── tabs
+│   │   │   ├── builtins
+│   │   │   │   ├── aiReviewDraftState.ts
+│   │   │   │   ├── AIReviewTabType.tsx
+│   │   │   │   ├── BinaryTabType.tsx
+│   │   │   │   ├── DiffTabType.tsx
+│   │   │   │   ├── EditorTabType.tsx
+│   │   │   │   ├── ExtensionInfoTabType.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── MergeConflictTabType.tsx
+│   │   │   │   ├── PreviewTabType.tsx
+│   │   │   │   ├── SettingsTabType.tsx
+│   │   │   │   ├── WebPreviewTabType.tsx
+│   │   │   │   └── WelcomeTabType.tsx
+│   │   │   ├── monacoLoader.ts
+│   │   │   ├── registerBuiltinTabs.ts
+│   │   │   ├── TabRegistry.ts
+│   │   │   └── types.ts
+│   │   ├── user
+│   │   │   ├── authRepository.ts
+│   │   │   ├── crypto.ts
+│   │   │   └── githubUserManager.ts
+│   │   └── workers
+│   │       └── WorkerPool.ts
+│   ├── env.ts
+│   ├── hooks
+│   │   ├── ai
+│   │   │   ├── applyChatEdit.ts
+│   │   │   ├── chatSpaceChanges.ts
+│   │   │   ├── markEditResponseApplied.ts
+│   │   │   ├── requestIdentity.ts
+│   │   │   ├── revertChatEdits.ts
+│   │   │   ├── useAIFileContexts.ts
+│   │   │   ├── useAIReview.ts
+│   │   │   ├── useAI.ts
+│   │   │   ├── useChatSpace.ts
+│   │   │   └── useInputHistory.ts
+│   │   ├── keybindings
+│   │   │   ├── defaultKeybindings.ts
+│   │   │   ├── keybindingUtils.ts
+│   │   │   └── useKeyBindings.ts
+│   │   ├── state
+│   │   │   ├── useFileDeleteTabSync.ts
+│   │   │   ├── useGitFilesystemRefresh.ts
+│   │   │   ├── useProjectWelcome.ts
+│   │   │   └── useSettings.ts
+│   │   └── ui
+│   │       ├── useDiffTabHandlers.ts
+│   │       ├── useExtensionPanels.ts
+│   │       ├── useGlobalScrollLock.ts
+│   │       ├── useOptimizedUIStateSave.ts
+│   │       ├── usePaneResize.ts
+│   │       ├── useResize.ts
+│   │       └── useTabContentRestore.ts
+│   ├── lib
+│   │   └── ReactScan.tsx
+│   ├── main.tsx
+│   ├── polyfills.ts
+│   ├── stores
+│   │   ├── gitRefreshStore.ts
+│   │   ├── loggerStore.ts
+│   │   ├── projectStore.ts
+│   │   ├── sessionStore.ts
+│   │   ├── tabContentStore.ts
+│   │   ├── tabState
+│   │   │   ├── actions.ts
+│   │   │   ├── closeCallbacks.ts
+│   │   │   ├── contentSync.ts
+│   │   │   ├── diff.ts
+│   │   │   ├── fileLoading.ts
+│   │   │   ├── paneActions.ts
+│   │   │   ├── paneUtils.ts
+│   │   │   ├── sessionActions.ts
+│   │   │   └── state.ts
+│   │   ├── tabState.ts
+│   │   └── terminalHistoryStorage.ts
+│   ├── styles
+│   │   ├── globals.css
+│   │   └── markdown.css
+│   ├── types
+│   │   ├── assert-browserify.d.ts
+│   │   ├── crypto-browserify.d.ts
+│   │   ├── css.d.ts
+│   │   ├── git.ts
+│   │   ├── index.ts
+│   │   ├── path-browserify.d.ts
+│   │   ├── path-browserify-win32.d.ts
+│   │   ├── settings.ts
+│   │   ├── stringDecoder.d.ts
+│   │   ├── util-browserify.d.ts
+│   │   └── vm-browserify.d.ts
+│   └── vite-env.d.ts
+├── System-Design
+│   └── COMMAND-EXECUTION-ARCHITECTURE.md
+├── tailwind.config.ts
+├── tests
+│   ├── components
+│   │   ├── AI
+│   │   │   ├── aiReviewActions.test.ts
+│   │   │   ├── chatInputDrafts.test.ts
+│   │   │   └── diffEditorCleanup.test.ts
+│   │   ├── Bottom
+│   │   │   ├── canonicalCommandState.test.ts
+│   │   │   ├── latestRenderQueue.test.ts
+│   │   │   ├── lineEditor.test.ts
+│   │   │   ├── lineRenderer.test.ts
+│   │   │   ├── terminalCompletion.test.ts
+│   │   │   ├── terminalHistory.test.ts
+│   │   │   ├── terminalInputController.test.ts
+│   │   │   ├── terminalInput.test.ts
+│   │   │   ├── terminalInterrupt.test.ts
+│   │   │   ├── terminalLineEditor.test.ts
+│   │   │   ├── terminalPrompt.test.ts
+│   │   │   └── terminalTypeahead.test.ts
+│   │   ├── Left
+│   │   │   ├── extensionsPanelUtils.test.ts
+│   │   │   ├── GitPanel
+│   │   │   │   └── useGitPanel.test.ts
+│   │   │   ├── runPanelUtils.test.ts
+│   │   │   └── SearchPanel
+│   │   │       ├── searchPanelUtils.test.ts
+│   │   │       └── searchRequestState.test.ts
+│   │   ├── markdownLink.test.ts
+│   │   ├── markdownMath.test.ts
+│   │   ├── markdownSecurity.test.ts
+│   │   ├── mermaidConfig.test.ts
+│   │   ├── Tab
+│   │   │   ├── inlineCodeHighlighter.test.ts
+│   │   │   ├── LocalImage.test.ts
+│   │   │   ├── tabBarUtils.test.ts
+│   │   │   ├── useMonacoModels.test.ts
+│   │   │   └── WebPreviewTab.test.ts
+│   │   └── Top
+│   │       └── OperationWindow
+│   │           ├── fileSearchUtils.test.ts
+│   │           └── folderPath.test.ts
+│   ├── engine
+│   │   ├── ai
+│   │   │   ├── contextBuilder.test.ts
+│   │   │   ├── prompts.test.ts
+│   │   │   └── responseParser.test.ts
+│   │   ├── cmd
+│   │   │   ├── app
+│   │   │   │   └── vim
+│   │   │   │       ├── render-terminal.test.ts
+│   │   │   │       ├── render.test.ts
+│   │   │   │       ├── text.test.ts
+│   │   │   │       ├── VimEditor.behavior.test.ts
+│   │   │   │       ├── VimEditor.edgecases.test.ts
+│   │   │   │       └── VimEditor.test.ts
+│   │   │   ├── e2e
+│   │   │   │   ├── envExpansion.test.ts
+│   │   │   │   ├── errorHandling.test.ts
+│   │   │   │   ├── groups.test.ts
+│   │   │   │   ├── lifecycle.test.ts
+│   │   │   │   ├── pathContext.test.ts
+│   │   │   │   ├── pipeline.test.ts
+│   │   │   │   ├── printf.test.ts
+│   │   │   │   ├── scriptPath.test.ts
+│   │   │   │   ├── scriptRunner.test.ts
+│   │   │   │   ├── subshell.test.ts
+│   │   │   │   ├── textUtilities.test.ts
+│   │   │   │   ├── trap.test.ts
+│   │   │   │   ├── unixBasics.test.ts
+│   │   │   │   ├── unixFileOperations.test.ts
+│   │   │   │   └── unixPathAndInteractive.test.ts
+│   │   │   ├── global
+│   │   │   │   ├── gitOperations
+│   │   │   │   │   ├── add.test.ts
+│   │   │   │   │   ├── clone.test.ts
+│   │   │   │   │   ├── discard.test.ts
+│   │   │   │   │   ├── executableMode.test.ts
+│   │   │   │   │   ├── github
+│   │   │   │   │   │   └── utils.test.ts
+│   │   │   │   │   ├── githubErrors.test.ts
+│   │   │   │   │   ├── log.test.ts
+│   │   │   │   │   ├── mergeRevert.test.ts
+│   │   │   │   │   ├── mergeState.test.ts
+│   │   │   │   │   ├── pushHistory.test.ts
+│   │   │   │   │   ├── push.test.ts
+│   │   │   │   │   ├── readFailures.test.ts
+│   │   │   │   │   ├── regressions.test.ts
+│   │   │   │   │   ├── remoteRefs.test.ts
+│   │   │   │   │   ├── service.test.ts
+│   │   │   │   │   ├── status.test.ts
+│   │   │   │   │   ├── terminal.test.ts
+│   │   │   │   │   ├── transitions.test.ts
+│   │   │   │   │   ├── transport.test.ts
+│   │   │   │   │   ├── treeBuilder.test.ts
+│   │   │   │   │   └── treeBytes.test.ts
+│   │   │   │   └── unixOperations
+│   │   │   │       ├── sort.test.ts
+│   │   │   │       └── xargs.test.ts
+│   │   │   ├── handlers
+│   │   │   │   └── vimHandler.test.ts
+│   │   │   ├── lib
+│   │   │   │   └── getopt.test.ts
+│   │   │   ├── pyxisHandler.test.ts
+│   │   │   ├── shell
+│   │   │   │   ├── braceExpand.test.ts
+│   │   │   │   ├── expansion.test.ts
+│   │   │   │   ├── fifoLifecycle.test.ts
+│   │   │   │   ├── fnmatch.test.ts
+│   │   │   │   ├── gitCwd.test.ts
+│   │   │   │   ├── input.test.ts
+│   │   │   │   ├── jobs.test.ts
+│   │   │   │   ├── nodeBuiltin.test.ts
+│   │   │   │   ├── parameter.test.ts
+│   │   │   │   ├── parser.test.ts
+│   │   │   │   ├── routing.test.ts
+│   │   │   │   ├── runtimeBytes.test.ts
+│   │   │   │   ├── syntax.test.ts
+│   │   │   │   ├── types.test.ts
+│   │   │   │   └── wordExpansion.test.ts
+│   │   │   ├── terminalOutputManager.test.ts
+│   │   │   ├── terminalProcessBridge.test.ts
+│   │   │   ├── terminalRegistry.test.ts
+│   │   │   └── terminalUI.test.ts
+│   │   ├── core
+│   │   │   ├── fileBytes.test.ts
+│   │   │   ├── fs
+│   │   │   │   ├── core.test.ts
+│   │   │   │   ├── endpoint.test.ts
+│   │   │   │   ├── errors.test.ts
+│   │   │   │   ├── fifo.test.ts
+│   │   │   │   ├── git.test.ts
+│   │   │   │   ├── handles.test.ts
+│   │   │   │   ├── links.test.ts
+│   │   │   │   ├── locks.test.ts
+│   │   │   │   ├── range.test.ts
+│   │   │   │   ├── scoped.test.ts
+│   │   │   │   ├── search.test.ts
+│   │   │   │   └── workspace.test.ts
+│   │   │   ├── gitignore.test.ts
+│   │   │   ├── git.test.ts
+│   │   │   ├── migration
+│   │   │   │   ├── idb.test.ts
+│   │   │   │   ├── lightning.test.ts
+│   │   │   │   ├── metadata-streaming.test.ts
+│   │   │   │   ├── metadata.test.ts
+│   │   │   │   ├── storage.test.ts
+│   │   │   │   └── streaming.test.ts
+│   │   │   ├── pathUtils.test.ts
+│   │   │   ├── project.test.ts
+│   │   │   └── projectTree.test.ts
+│   │   ├── extensions
+│   │   │   ├── autoInstaller.test.ts
+│   │   │   ├── binaryAssets.test.ts
+│   │   │   ├── commandRegistry.test.ts
+│   │   │   ├── extensionLifecycle.test.ts
+│   │   │   ├── extensionLoader.test.ts
+│   │   │   ├── storageAdapterBinary.test.ts
+│   │   │   ├── tabAPI.test.ts
+│   │   │   └── todoPanelScanner.test.ts
+│   │   ├── helper
+│   │   │   ├── isLikelyTextFile.test.ts
+│   │   │   └── settingsManager.test.ts
+│   │   ├── i18n
+│   │   │   ├── commitLatestLoad.test.ts
+│   │   │   ├── context.test.ts
+│   │   │   ├── englishPackFallback.test.ts
+│   │   │   ├── loader.test.ts
+│   │   │   ├── localeKeyParity.test.ts
+│   │   │   ├── storage-adapter.test.ts
+│   │   │   └── translator.test.ts
+│   │   ├── in-ex
+│   │   │   ├── exportFolderZip.test.ts
+│   │   │   ├── exportSingleFile.test.ts
+│   │   │   ├── importSingleFile.test.ts
+│   │   │   └── inlineHtmlAssets.test.ts
+│   │   ├── npm
+│   │   │   ├── dependencyResolver.test.ts
+│   │   │   ├── e2e
+│   │   │   │   ├── prettier.test.ts
+│   │   │   │   └── uvu.test.ts
+│   │   │   ├── lockfile.test.ts
+│   │   │   ├── npmCache.test.ts
+│   │   │   ├── npmHandler.test.ts
+│   │   │   ├── npmInstall.test.ts
+│   │   │   ├── npm.test.ts
+│   │   │   ├── npx.test.ts
+│   │   │   ├── packageResolution.test.ts
+│   │   │   ├── registryClient.test.ts
+│   │   │   ├── tarExtractor.test.ts
+│   │   │   ├── tree.test.ts
+│   │   │   └── versionUtils.test.ts
+│   │   ├── runtime
+│   │   │   ├── assertUtil.test.ts
+│   │   │   ├── benchmark.test.ts
+│   │   │   ├── bridgeClient.test.ts
+│   │   │   ├── bridgeEndpoint.test.ts
+│   │   │   ├── bridge.test.ts
+│   │   │   ├── bufferBoundaries.test.ts
+│   │   │   ├── childProcessModule.test.ts
+│   │   │   ├── commonJsWrapper.test.ts
+│   │   │   ├── createRequireRuntime.test.ts
+│   │   │   ├── cryptoModule.test.ts
+│   │   │   ├── diagnosticsChannel.test.ts
+│   │   │   ├── diagnosticsRuntime.test.ts
+│   │   │   ├── dynamicFunction.test.ts
+│   │   │   ├── esmEvaluation.test.ts
+│   │   │   ├── esmTransformer.test.ts
+│   │   │   ├── eventsIterator.test.ts
+│   │   │   ├── eventsModule.test.ts
+│   │   │   ├── fifoRuntime.test.ts
+│   │   │   ├── fsModule.test.ts
+│   │   │   ├── fsStreams.test.ts
+│   │   │   ├── httpModule.test.ts
+│   │   │   ├── moduleCode.test.ts
+│   │   │   ├── moduleFormat.test.ts
+│   │   │   ├── moduleModule.test.ts
+│   │   │   ├── moduleResolver.test.ts
+│   │   │   ├── naturalProcessExit.test.ts
+│   │   │   ├── netModule.test.ts
+│   │   │   ├── nodeRuntimeProvider.test.ts
+│   │   │   ├── nodeRuntime.test.ts
+│   │   │   ├── osModule.test.ts
+│   │   │   ├── pathModule.test.ts
+│   │   │   ├── querystringModule.test.ts
+│   │   │   ├── readableWebAdapters.test.ts
+│   │   │   ├── readlineModule.test.ts
+│   │   │   ├── runtimeGlobals.test.ts
+│   │   │   ├── runtimeWorkerPool.test.ts
+│   │   │   ├── runtimeWorker.test.ts
+│   │   │   ├── shellHost.test.ts
+│   │   │   ├── streamModule.test.ts
+│   │   │   ├── streamPromises.test.ts
+│   │   │   ├── stringDecoderModule.test.ts
+│   │   │   ├── transpileCache.test.ts
+│   │   │   ├── ttyModule.test.ts
+│   │   │   ├── urlModule.test.ts
+│   │   │   ├── v8Module.test.ts
+│   │   │   ├── webStreams.test.ts
+│   │   │   ├── workerPool.test.ts
+│   │   │   ├── workerStdin.test.ts
+│   │   │   └── zlibModule.test.ts
+│   │   ├── storage
+│   │   │   ├── aiStorageAdapter.test.ts
+│   │   │   ├── chatStorageAdapter.test.ts
+│   │   │   ├── index.test.ts
+│   │   │   └── recentFileHistoryAdapter.test.ts
+│   │   ├── tabs
+│   │   │   ├── AIReviewTabType.test.ts
+│   │   │   └── monacoLoader.test.ts
+│   │   └── user
+│   │       └── githubUserManager.test.ts
+│   ├── _helpers
+│   │   ├── isolatedNodeRuntime.ts
+│   │   ├── isolatedNodeWorker.ts
+│   │   ├── memoryFs.ts
+│   │   ├── nodeRuntimeTranspilerWorker.ts
+│   │   ├── nodeRuntime.ts
+│   │   ├── npmRuntime.ts
+│   │   ├── opfs.ts
+│   │   ├── testFsFiles.ts
+│   │   ├── testFs.ts
+│   │   ├── testModuleResolver.ts
+│   │   ├── testProject.ts
+│   │   └── unicodeTerminal.ts
+│   ├── hooks
+│   │   ├── ai
+│   │   │   ├── chatSpaceChanges.test.ts
+│   │   │   ├── markEditResponseApplied.test.ts
+│   │   │   ├── requestIdentity.test.ts
+│   │   │   ├── revertChatEdits.test.ts
+│   │   │   ├── useAI.test.ts
+│   │   │   ├── useChatSpace.test.ts
+│   │   │   └── useInputHistory.test.ts
+│   │   ├── keybindings
+│   │   │   └── keybindingUtils.test.ts
+│   │   ├── state
+│   │   │   ├── useFileDeleteTabSync.test.ts
+│   │   │   └── useGitFilesystemRefresh.test.ts
+│   │   └── ui
+│   │       └── useTabContentRestore.test.ts
+│   ├── polyfills.test.ts
+│   ├── README.md
+│   ├── setup.ts
+│   ├── stores
+│   │   ├── sessionStore.test.ts
+│   │   ├── tabContentStore.test.ts
+│   │   └── tabState
+│   │       ├── contentSync.test.ts
+│   │       ├── fileLoading.test.ts
+│   │       ├── openTab.test.ts
+│   │       └── sessionActions.test.ts
+│   └── tsconfig.json
+├── tree-built-out.sh
+├── tree.sh
+├── tree.txt
+├── tsconfig.json
+├── tsconfig.tsbuildinfo
+├── types
+│   └── esbuild-cdn.d.ts
+├── vite.config.ts
+└── vitest.config.ts
+
+212 directories, 1246 files
+
+=================================
+
+src/*.ts, *.tsx の統計:
+合計行数: 88786
+合計文字数: 2941189
+合計ファイルサイズ(bytes): 3009538
+
+開発時のdev container全体のサイズ(bytes): 1.2G	.

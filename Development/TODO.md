@@ -304,14 +304,16 @@ tmp/の扱い
 - [x] `node -e` / `node --eval`はeval用source transportとsynthetic `[eval]` moduleで実行する。旧ENOENTはshellが常に`args[0]`をscript pathとして扱い、`-e`をpathにしたため。CommonJS/sloppy mode、`process.argv` / `execArgv`、`execPath`、`__filename` / `__dirname`、cwd基準のmodule解決をfocused runtime/provider suitesで確認。実Terminalでmarker、status 0、prompt復帰を確認。
 - [x] `yoctocolors`の有効な`export * as default from`をLezerが誤ったrecovery treeにした問題を修正。reserved namespace aliasのparser normalizationはsource offsetを維持し、module dependency抽出とruntime loadを検証した（focused 68/68）。
 - [x] Runtime 10で判明したexeca blocker `events.setMaxListeners` / `getMaxListeners`をRuntime 11で実装（focused events tests 8/8）。`addAbortListener`はRuntime 11の再試行で見つけて実装（focused events tests 13/13）。
-- [x] execa 10.1.0をsource / compiled Runtime Workerで確認。同期・非同期のsuccess/failure、exit status 0/9/7、日本語UTF-8 stdin往復を検証した。
+- [x] execa 10.1.0の別root cause: `StringDecoder.write(Uint8Array)`を文字列化する際のbyte corruptionと、stdinの`PassThrough`がread/write両側の完了を待たせた。decoder facadeでbyte viewを維持し、child stdinをWritable-onlyにしてbackpressure付きbyte / EOF transportをWorkerからShellExecutorへ接続。spawn eventはlistener登録後へ遅延。
+- [x] execa 10.1.0をsource / compiled Runtime Workerで確認。`execaSync` / async success/failure、exit status 0/9/7、日本語UTF-8 stdin往復を検証した。
 - [ ] fs-extra 11.4.1は`ensureDir`・`outputJson` / `readJson`・`pathExists`・`move` / 移動後read・`remove`がpass。`copy`は未対応`fs.chmod`で停止。mode metadataとchmod familyの一般契約を決めてから再確認する。
 
 ### Runtime 11
 
 - [x] `events.setMaxListeners` / `getMaxListeners`はEventEmitter互換targetとEventTargetの上限値を扱う。`addAbortListener`はnative one-shot registration、disposable解除、pre-aborted microtask callbackに対応。Focused events suite 13/13 pass。EventTarget warning diagnosticsと`stopImmediatePropagation()`への耐性は未対応。
 - [x] Source Workerとcompiled Runtime Worker `runtimeWorker-CdXGNqI4`でeval metadata / `[eval]` file不在、events (8 assertions)、execa (5)、fast-glob (8)、get-stream/fetch-blob stream APIsを確認。fs-extraはcopy以外のassertions成功、`copy`のみ`fs.chmod`不足で失敗。compiled runは同一origin documentとcompiled Workerの検証で、production UI全体ではない。
-- [x] 初回の並行全体Vitest `runtime11-full-tests.json`: 230 files / 1,995 tests、1,991成功・4失敗。child byte 1件はsnapshotで失敗したが、後続focused suiteは10/10成功（mixed-version影響の可能性、原因未確定）。残る3件は担当外FS sidecar/link 2件とVimEditor境界1件。全passのsnapshotとして扱わない。
+- [x] Runtime 11中間full Vitest snapshot: `runtime11-full-tests.json`は230 files / 1,995 tests、1,991成功・4失敗。`runtime11-final-full-tests.json`は232 files / 2,028 tests、2,015成功・13失敗（全て`nodeRuntime.test.ts`の`global.setTimeout` identity afterEach）。後続nodeRuntime + moduleFormat focused runは53/53成功、runtime code変更なし。
+- [x] 最終full recheck `runtime11-recheck-full-tests.json`: 234 files / 2,031 tests、全pass。
 - [x] Final static/build checks: `tsc --noEmit` pass、source/locales Biome 571 files pass（190 ms）、`git diff --check` pass。Buildは30 extensions / 23 TypeScript transforms、Vite 2.03秒、compiled asset `runtimeWorker-CdXGNqI4`。
 
 ### Runtime 10 検証
@@ -447,8 +449,9 @@ tmp/の扱い
 - [x] 原因は`nodeRuntime` format-precedence testのfixture共有。MJS実行でfixtureがruntimeをdisposeした後、同じdisposed runtimeでinvalid CJSを実行し、二度目のdisposeが早期returnしてguest `setTimeout`を残していた。host timer identity assertionはSIGINT testではなくこの先行testの汚染を特定した。2回目を同じMemoryFSのfresh fixtureに分け、毎test後にhost timer復元をassertする修正はseed 1009 focused 53/53 pass。production runtime変更なし。
 - [x] `nodeRuntime.test`から4 casesを`moduleFormat.test`へ抽出し、`nodeRuntime.test`789行・`moduleFormat.test`85行。case欠落なし。seed 1009 focused 53/53 pass。
 - [x] Production browser: Vim `lll jjx`保存後readback `abcd`／`x`／`wxy`、implicit stdin `grep -l`のfilename出力、`tail -v` stdin header、`wc -cm`の`1 2`を確認。`node --eval`から`child_process.spawn('cat')`へ`stdin 日本語`を渡し、EOF後のJSON stdoutとstatus 0を確認。page errorなし、fixture不在、専用browser／dev server停止。
-- [x] 最終static: `tsc --incremental false` exit 0、Biome src/tests＋new tests 755 files exit 0（既存warnings 2・infos 6）、`git diff --check` exit 0。production build exit 0（30 extensions、23 TS checks、Vite 1.95秒、`index-x63qAMBy`）。
-- [ ] Rootfresh fixed-input whole-suite run 5は実行中（live/copy全input SHA一致、実行中もfixed）。結果後に同一inputのseed 1009 shuffleを実行する。全体検証完了とはまだ扱わない。
+- [x] 最終static: `tsc --incremental false` exit 0、Biome src/tests＋new tests 759 files exit 0（既存warnings 2・infos 6）、`git diff --check` exit 0。production build exit 0（30 extensions、23 TS checks、Vite 1.95秒、`index-x63qAMBy`）。
+- [x] Rootfresh fixed-input whole-suite run 5（10:05:52開始、145.75秒）は234 files / 2,031 tests全pass。live/copy全input SHA一致、実行後も不変。
+- [ ] 同じfixed inputのFull6 seed 1009 shuffleを再実行中。全input SHAは一致し、現在のVitestはroot PID 1384624のみ。前回競合で中断した`shell7-full-6-interrupted.log`とpartial final logはpass扱いしない。結果は未確定。
 
 ## UI6追加監査・統合検証（2026-10-09）
 
