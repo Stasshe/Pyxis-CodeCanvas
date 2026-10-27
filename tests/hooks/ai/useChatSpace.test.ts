@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatSpace, ChatSpaceMessage } from '@/types';
+import type { ChatSpace, ChatSpaceMessage } from '@/types/index';
 
 const state = vi.hoisted(() => ({
   spaces: new Map<string, ChatSpace>(),
@@ -17,7 +17,7 @@ const state = vi.hoisted(() => ({
   getAllReads: 0,
 }));
 
-vi.mock('@/engine/core/fs', () => ({
+vi.mock('@/engine/core/fs/index', () => ({
   fsClient: {
     exists: async (path: string) => state.fileContents.has(path),
     writeFile: async (path: string, content: string) => {
@@ -31,7 +31,7 @@ vi.mock('@/engine/core/fs', () => ({
   },
 }));
 
-vi.mock('@/engine/ai/textEdits', () => ({
+vi.mock('@/engine/ide/ai/textEdits', () => ({
   readAIText: async (path: string) => state.fileContents.get(path) ?? '',
 }));
 
@@ -46,7 +46,7 @@ vi.mock('@/stores/tabState', () => ({
   },
 }));
 
-vi.mock('@/engine/storage', () => ({
+vi.mock('@/engine/core/metadata', () => ({
   STORES: { CHAT_SPACES: 'chat_spaces', AI_REVIEWS: 'ai_reviews' },
   storageService: {
     get: async (_store: string, key: string) => {
@@ -82,9 +82,9 @@ import {
   getChatSpaces,
   updateChatSpaceMessage,
   updateChatSpaceSelectedFiles,
-} from '@/engine/storage/chatStorageAdapter';
-import { applyChatEdit } from '@/hooks/ai/applyChatEdit';
-import { markEditResponseFileApplied } from '@/hooks/ai/markEditResponseApplied';
+} from '@/engine/core/metadata/chatStorageAdapter';
+import { applyChatEdit } from '@/engine/ide/ai/applyChatEdit';
+import { markEditResponseFileApplied } from '@/engine/ide/ai/markEditResponseApplied';
 import { useChatSpace } from '@/hooks/ai/useChatSpace';
 import { pushLogMessage } from '@/stores/loggerStore';
 

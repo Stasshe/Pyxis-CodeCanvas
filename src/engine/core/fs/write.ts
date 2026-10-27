@@ -1,5 +1,5 @@
-import type { ProjectFile } from '@/types';
-import { basename, getParentPath } from '../pathUtils';
+import type { ProjectFile } from '@/types/index';
+import { basename, getParentPath } from '../paths';
 import { FSError } from './errors';
 import type { PermissionStore } from './permissions';
 import { defaultMode, initializeMode, permissionBits, withPermissionBits } from './permissions';

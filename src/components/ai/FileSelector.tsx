@@ -1,0 +1,19 @@
+// AI用ファイル選択コンポーネント（OperationWindowの再利用）
+
+import OperationWindow from '@/components/operation-window/OperationWindow';
+import type { FileItem } from '@/types/index';
+
+interface FileSelectorProps {
+  isOpen: boolean;
+  onClose: () => void;
+  files: FileItem[];
+  onFileSelect: (file: FileItem) => void;
+}
+
+export default function FileSelector({ isOpen, onClose, files, onFileSelect }: FileSelectorProps) {
+  if (!isOpen) return null;
+
+  // OperationWindowを使用してファイル選択（AI用）
+  // AIの場合はファイルをタブで開くのではなく、コンテキストに追加するだけ
+  return <OperationWindow onClose={onClose} projectFiles={files} onFileSelect={onFileSelect} />;
+}

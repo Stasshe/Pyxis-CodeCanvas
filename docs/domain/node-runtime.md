@@ -1,6 +1,6 @@
 # Node.js Runtime
 
-Node.js互換codeをRuntime Workerで実行する。WASMのNode本体ではなく、moduleローダーと組み込みmoduleを自前実装している。実装は`src/engine/runtime/`。runtime選択と実行契約は [runtime-provider](runtime-provider.md)、Workerと同期RPCの全体像は [arch/data-flow](../arch/data-flow.md#node実行)。
+Node.js互換codeをRuntime Workerで実行する。WASMのNode本体ではなく、moduleローダーと組み込みmoduleを自前実装している。実装は`src/engine/system/runtime/`。Runtime WorkerとFS Workerの同期RPC bridgeは`src/engine/system/runtime/bridge/`、FS Worker endpointは`src/engine/system/runtime/fs/`にある。runtime選択と実行契約は [runtime-provider](runtime-provider.md)、Workerと同期RPCの全体像は [arch/data-flow](../arch/data-flow.md#node実行)。
 
 ## 対応範囲
 
@@ -222,6 +222,8 @@ Workerの起動は1回25〜32 msかかり、短いscriptでは旧main thread実�
 - Service Workerは同じcall idの重複を1回の実行にまとめる。runtime終了時の`runtime-cancel`で残りを打ち切る。
 - 同期呼出しは120 s、変換は10 sでtimeoutする。同期呼出しのtimeoutはruntime call idを通じてmain側もcancelする。stdin待ちはtimeoutしない。
 - portの再送: Service Workerがportを持っていなければ全window clientへ要求して最大30 s待つ。mainは新しいportと受領確認portを送り、10 s以内に確認が来なければ失敗する。古いportは返信待ちがなくなってから閉じる。mainは`controllerchange`でもportを送り直す。
+- 起動時の登録はbridgeに集約し、`updateViaCache: none`でscriptを確認する。同じ起動で`registration.update()`を重ねない。installing・waiting workerのactivationと現在のcontrollerを確認してからportを渡す。`ready`の無期限待ちや初回reloadはない。未制御pageはactive workerへ`runtime-claim`を送り、そのmessage eventの寿命内で`clients.claim()`する。
+- SW登録・activationは各30 s、制御取得は10 s。portの10 sにはFS Workerからのport取得時間も含め、timeout後に戻ったportは転送せず閉じる。
 
 ## Cache
 

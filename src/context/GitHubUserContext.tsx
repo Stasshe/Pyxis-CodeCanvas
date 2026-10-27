@@ -10,7 +10,7 @@ import {
   type GitCommitAuthor,
   type GitHubUser,
   githubUserManager,
-} from '@/engine/user/githubUserManager';
+} from '@/engine/ide/github/githubUserManager';
 
 export type { GitCommitAuthor, GitHubUser };
 

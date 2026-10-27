@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FsCore } from '@/engine/core/fs/core';
 import { NPM_CACHE_PATH, RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
 import type { FsChangeEvent } from '@/engine/core/fs/types';
-import { HOME_DIR } from '@/engine/core/pathUtils';
+import { HOME_DIR } from '@/engine/core/paths';
 import { directoryTree, storage } from '../../../_helpers/opfs';
 
 interface MovableFileHandle extends FileSystemFileHandle {

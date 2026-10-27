@@ -1,7 +1,13 @@
-import { fsClient, isPathWithin, normalizePath } from '@/engine/core/fs';
-import { recordRecentFilePath } from '@/engine/storage/recentFileHistoryAdapter';
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { DiffTab, EditorPane, OpenTabOptions, Tab, TabFileInfo } from '@/engine/tabs/types';
+import { fsClient, isPathWithin, normalizePath } from '@/engine/core/fs/index';
+import { recordRecentFilePath } from '@/engine/core/metadata/recentFileHistoryAdapter';
+import { tabRegistry } from '@/engine/ide/tabs/TabRegistry';
+import type {
+  DiffTab,
+  EditorPane,
+  OpenTabOptions,
+  Tab,
+  TabFileInfo,
+} from '@/engine/ide/tabs/types';
 import { getCurrentRootPath } from '@/stores/projectStore';
 import {
   clearTabContent,
@@ -33,7 +39,7 @@ import {
   toLeafPaneId as toLeafPaneIdForPanes,
   validActiveTabId,
   withTabsInPane,
-} from './paneUtils';
+} from './paneTree';
 import { loadTabSession, saveTabSession } from './sessionActions';
 import { tabState } from './state';
 
@@ -77,9 +83,6 @@ function reportDeletedDirtyPaths(paths: ReadonlySet<string>): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// tabActions（旧 useTabStore のアクション）
-// ---------------------------------------------------------------------------
 function getPane(paneId: string): EditorPane | null {
   return findPaneRecursive(tabState.panes, paneId);
 }
@@ -225,7 +228,6 @@ export const tabActions = {
     if (!from || !to) return;
     const t = from.tabs.find(x => x.id === tabId);
     if (!t) return;
-    // Remove from source WITHOUT calling closeTab (which would clearTabContent).
     // Moving a tab must preserve its content in tabContentStore.
     const newFromTabs = from.tabs.filter(x => x.id !== tabId);
     tabActions.updatePane(fromPaneId, {

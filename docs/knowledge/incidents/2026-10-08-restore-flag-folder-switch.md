@@ -26,5 +26,5 @@ workspaceを切り替えると「restoring content」の状態が終わらない
 ## 根拠
 
 - 修正コミット `8662e3c1`
-- [useTabContentRestore.ts](../../../src/hooks/ui/useTabContentRestore.ts)、[sessionActions.ts](../../../src/stores/tabState/sessionActions.ts)
-- 回帰テスト: `tests/hooks/ui/useTabContentRestore.test.ts`、`tests/stores/tabState/sessionActions.test.ts`
+- [useTabContentRestore.ts](../../../src/hooks/tabs/useTabContentRestore.ts)、[sessionActions.ts](../../../src/stores/tabState/sessionActions.ts)
+- 回帰テスト: `tests/hooks/tabs/useTabContentRestore.test.ts`、`tests/stores/tabState/sessionActions.test.ts`

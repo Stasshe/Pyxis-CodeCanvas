@@ -3,7 +3,7 @@
  */
 
 import type { FsCore } from '@/engine/core/fs/core';
-import { initialFileContents } from '@/engine/initialFileContents';
+import { initialFileContents } from '@/engine/core/workspace/initialFileContents';
 import { directoryTree } from './opfs';
 import { resetTestFs } from './testFs';
 

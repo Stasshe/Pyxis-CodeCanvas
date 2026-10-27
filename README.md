@@ -145,6 +145,9 @@ Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再�
 `fs.chmod()`はmode metadataを更新し、`stat()`と`access()`へ反映します。`util.styleText()`はterminal color設定に沿ってANSI styleを生成します。`assert`はcallableで`assert/strict`も使えます。`util`はNode由来の`inspect`・`format`・`formatWithOptions`、`isDeepStrictEqual`、`promisify.custom`に対応します。runtimeの`process.env`は実行元shellの環境を引き継ぎ、`process.chdir()`は仮想filesystem内で動きます。`crypto`はhash・HMAC・PBKDF2・random bytes/integers、IV付きcipher、sign/verify、ECDH/DH、公開鍵/秘密鍵encrypt/decrypt、`scrypt`/`scryptSync`を提供します。key generationは未対応です。legacy `url` moduleは`fileURLToPath`と`pathToFileURL`を提供します。
 Express 5.2.1とKoa 2.16.4のroute/responseはin-memory HTTP request/responseで確認済みです。Axiosのfetch adapterも動作します。`http.createServer`、socket、AxiosのNode TLS adapterは提供しません。
 仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npmはinstall中に依存metadataを共有し、npm registryのabbreviated packumentを`~/.npm/registry`へ保存します。HTTP freshnessに従い、期限切れmetadataはETagで再検証します。tarball archiveはURLのSHA-256で識別し、registryまたはlockfileにintegrity値があれば展開前に検証します。tarball cacheは展開成功後に`~/.npm`へ保存します。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
+
+Service Workerはruntime bridgeで登録し、初回も自動reloadせずに制御を取得します。詳細は[起動順序](docs/arch/system-overview.md#起動順序)を参照してください。
+
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
 - **分離した実行環境** - 実行ごとにmodule cacheやtimerなどの状態を作り直し、Workerは正常終了時に再利用
 - **ファイル操作** - `fs`, `path`, `readline`, `userinterface` の対応APIを提供

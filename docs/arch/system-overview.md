@@ -74,11 +74,14 @@ Runtime WorkerとFS Workerを分ける理由: 同期XHRで止まったWorkerは�
 
 | 層 | 場所 | 責務 |
 |---|---|---|
-| UI | `src/components/` | 画面、エディター、ターミナル表示、パネル |
-| Application | `src/stores/`、`src/hooks/`、`src/context/` | valtio store（workspace root、タブ、ログ）、画面とengineの調停 |
-| Engine | `src/engine/` | FS、shellとコマンド、runtime、拡張機能、タブ種別、AI、i18n、IndexedDB adapter |
+| UI | `src/components/` | layout、pane、editor、tabs、preview、各機能の画面 |
+| Application | `src/stores/`、`src/hooks/`、`src/context/` | valtio store（workspace root、タブ、ログ）、React hook、画面とengineの調停 |
+| Engine core | `src/engine/core/` | OPFS filesystem primitives、workspace projection、IndexedDB metadata、settings、i18n、legacy migration |
+| Engine system | `src/engine/system/` | shell、commands、terminal、Git、npm、browser runtimeとFS Worker endpoint |
+| Engine IDE | `src/engine/ide/` | AI、search、markdown、tab registry/types、extensions、GitHub、import/export |
+| Library integration | `src/lib/` | Monaco、xterm、Mermaidなど外部library adapters |
 
-UIはOPFSもIndexedDBも直接開かず、FS ClientとEngineのstorage adapterを通す。現在のworkspace rootは`projectStore`だけが持つ。
+Engine依存は`ide` → `system` → `core`の一方向とする。Engineからcomponents・hooksへの依存はなく、storesへの依存は残る。IDE固有commandの初期化は`ide/commands/initialize.ts`が担い、handlerをsystem dispatcherへ注入する。UIはOPFSもIndexedDBも直接開かず、FS ClientとEngineのmetadata adapterを通す。OPFS操作とworkspace処理は`core/fs/`・`core/workspace/`、IndexedDB metadataは`core/metadata/`が担う。React用workspace hookは`hooks/workspace/useProject.ts`にある。FS Worker entryとRPC endpointは`system/runtime/fs/`にあり、transport contractは`core/fs/protocol.ts`、workerは`core/fs/`のFS Coreを使う。現在のworkspace rootは`projectStore`だけが持つ。
 
 ## 起動順序
 
@@ -104,7 +107,8 @@ sequenceDiagram
 - FS Core初期化で`/home/pyxis`、`~/.cache/pyxis`、`~/.npm`、symlink record領域を作る。
 - 旧storage移行はseedより前に走る。移行は既存の移行先を見つけると停止するので、先にseedすると旧project `demo`が移行できなくなる。
 - `~/demo`は存在しない場合だけ生成済み`initial_files/`で作る。新規workspaceは空。
-- Service Workerが未制御なら一度だけreloadする。reload後も未制御（Shift+reload等）なら通常reloadを求めるエラーで停止する。
+- SW登録はruntime bridgeに集約する。activation後に現在のcontrollerを確認し、未制御pageにはactive SWへ`runtime-claim`を送って`clients.claim()`で制御を取得する。初回も自動reloadしない。
+- SW登録・activationは各30秒、controller・FS port取得と受領確認は各10秒でtimeoutする。
 - どの段階の失敗もReact描画前に画面へエラーを表示して止まる。
 
 ## サブシステム一覧

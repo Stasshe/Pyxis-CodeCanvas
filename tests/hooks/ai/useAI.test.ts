@@ -19,24 +19,24 @@ const hookState = vi.hoisted(() => ({
   saveAIReviewEntry: vi.fn(),
 }));
 
-vi.mock('@/engine/ai/contextBuilder', () => ({
+vi.mock('@/engine/ide/ai/contextBuilder', () => ({
   getCustomInstructions: () => '',
   getSelectedFileContexts: (
     contexts: Array<{ path: string; content: string; selected: boolean }>
   ) => contexts.filter(context => context.selected).map(({ path, content }) => ({ path, content })),
 }));
 
-vi.mock('@/engine/ai/fetchAI', () => ({
+vi.mock('@/engine/ide/ai/fetchAI', () => ({
   generateChatResponse: hookState.generateChatResponse,
   generateCodeEdit: hookState.generateCodeEdit,
 }));
 
-vi.mock('@/engine/ai/prompts', () => ({
+vi.mock('@/engine/ide/ai/prompts', () => ({
   ASK_PROMPT_TEMPLATE: hookState.askPrompt,
   EDIT_PROMPT_TEMPLATE: () => 'edit prompt',
 }));
 
-vi.mock('@/engine/ai/responseParser', () => ({
+vi.mock('@/engine/ide/ai/responseParser', () => ({
   extractFilePathsFromResponse: () => ['/workspace/file.ts'],
   parseEditResponse: () => ({
     changedFiles: [
@@ -53,9 +53,9 @@ vi.mock('@/engine/ai/responseParser', () => ({
   validateResponse: () => ({ isValid: true, warnings: [], errors: [] }),
 }));
 
-vi.mock('@/engine/ai/textEdits', () => ({ readAIText: hookState.readAIText }));
-vi.mock('@/engine/core/fs', () => ({ fsClient: { exists: hookState.exists } }));
-vi.mock('@/engine/storage/aiStorageAdapter', () => ({
+vi.mock('@/engine/ide/ai/textEdits', () => ({ readAIText: hookState.readAIText }));
+vi.mock('@/engine/core/fs/index', () => ({ fsClient: { exists: hookState.exists } }));
+vi.mock('@/engine/core/metadata/aiStorageAdapter', () => ({
   saveAIReviewEntry: hookState.saveAIReviewEntry,
 }));
 vi.mock('@/stores/loggerStore', () => ({ pushLogMessage: vi.fn() }));

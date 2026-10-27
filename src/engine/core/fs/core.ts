@@ -1,5 +1,5 @@
-import type { ProjectFile } from '@/types';
-import { basename, getParentPath, HOME_DIR, normalizePath, resolvePath } from '../pathUtils';
+import type { ProjectFile } from '@/types/index';
+import { basename, getParentPath, HOME_DIR, normalizePath, resolvePath } from '../paths';
 import { FSError, translateFsError } from './errors';
 import { FIFO_STORAGE, FifoEntries, FifoService } from './fifo';
 import type { OpfsMovableFile } from './fileMove';

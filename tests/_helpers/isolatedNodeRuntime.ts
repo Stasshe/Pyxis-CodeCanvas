@@ -1,11 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { build } from 'esbuild';
-import type { RpcValue, TranspileRequest } from '@/engine/runtime/bridge/protocol';
+import type { RpcValue, TranspileRequest } from '@/engine/system/runtime/bridge/protocol';
 import type {
   RuntimeExecutionOptions,
   RuntimeExecutionResult,
-} from '@/engine/runtime/core/RuntimeProvider';
+} from '@/engine/system/runtime/core/RuntimeProvider';
 import { NativeTranspiler } from './nodeRuntime';
 
 export interface RuntimeFile {

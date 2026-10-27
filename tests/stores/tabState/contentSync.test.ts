@@ -1,11 +1,11 @@
 import { getTestFs, resetTestFs } from '@tests/_helpers/testFs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as monacoModels from '@/components/Tab/text-editor/hooks/useMonacoModels';
-import type { FsChangeEvent } from '@/engine/core/fs';
-import { fsClient } from '@/engine/core/fs';
-import { DiffTabType } from '@/engine/tabs/builtins/DiffTabType';
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { DiffTab, EditorTab, ExtensionTab } from '@/engine/tabs/types';
+import * as monacoModels from '@/hooks/editor/useMonacoModels';
+import type { FsChangeEvent } from '@/engine/core/fs/index';
+import { fsClient } from '@/engine/core/fs/index';
+import { DiffTabType } from '@/components/tabs/builtins/DiffTabType';
+import { tabRegistry } from '@/engine/ide/tabs/TabRegistry';
+import type { DiffTab, EditorTab, ExtensionTab } from '@/engine/ide/tabs/types';
 import * as loggerStore from '@/stores/loggerStore';
 import { setCurrentProject } from '@/stores/projectStore';
 import {

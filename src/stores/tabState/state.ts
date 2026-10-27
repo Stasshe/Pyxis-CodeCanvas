@@ -1,6 +1,6 @@
 import { proxy } from 'valtio';
 
-import type { EditorPane } from '@/engine/tabs/types';
+import type { EditorPane } from '@/engine/ide/tabs/types';
 
 export const tabState = proxy({
   panes: [] as EditorPane[],

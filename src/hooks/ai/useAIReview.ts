@@ -2,9 +2,9 @@
 
 import { useCallback } from 'react';
 
-import { markAIReviewDraftDiscarded } from '@/engine/tabs/builtins/aiReviewDraftState';
+import { markAIReviewDraftDiscarded } from '@/engine/ide/ai/aiReviewDraftState';
 import { tabActions } from '@/stores/tabState';
-import type { AIReviewEntry, AIReviewTab, FileItem } from '@/types';
+import type { AIReviewEntry, AIReviewTab, FileItem } from '@/types/index';
 
 export function useAIReview() {
   const { openTab, closeTab } = tabActions;

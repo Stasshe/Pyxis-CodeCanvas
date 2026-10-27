@@ -1,9 +1,33 @@
 import { Buffer } from 'buffer';
-import type { MergeConflictFileEntry } from '@/engine/tabs/types';
-import type { ProjectFile } from '@/types';
-import { isPathWithin, normalizePath, posixPath, resolvePath } from '../pathUtils';
+import type { ProjectFile } from '@/types/index';
+import { isPathWithin, normalizePath, posixPath, resolvePath } from '../paths';
 import { FSError } from './errors';
 import type { FsApi } from './types';
+
+/**
+ * Merge conflict file entry
+ */
+export interface MergeConflictFileEntry {
+  /** Exact versions for an opaque binary conflict; null represents deletion. */
+  binary?: {
+    base: Uint8Array | null;
+    ours: Uint8Array | null;
+    theirs: Uint8Array | null;
+    resolved: Uint8Array | null;
+  };
+  /** File path */
+  filePath: string;
+  /** Base (common ancestor) content */
+  baseContent: string;
+  /** OURS (current branch) content */
+  oursContent: string;
+  /** THEIRS (branch being merged) content */
+  theirsContent: string;
+  /** Resolved content (user edited) */
+  resolvedContent: string;
+  /** Whether the conflict is resolved */
+  isResolved: boolean;
+}
 
 export interface GitCredentials {
   username: string;

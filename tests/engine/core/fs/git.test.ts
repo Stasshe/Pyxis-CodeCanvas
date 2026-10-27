@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { WorkerGitCommands } from '@/engine/cmd/global/gitOperations/worker';
 import { FsCore } from '@/engine/core/fs/core';
 import { createGitFs, repositoryPath } from '@/engine/core/fs/git';
+import { WorkerGitCommands } from '@/engine/system/git/worker';
 
 describe('Git filesystem encodings', () => {
   it('keeps null encodings raw and encodes empty files', async () => {
@@ -92,12 +92,12 @@ describe('Git filesystem encodings', () => {
 
     try {
       vi.resetModules();
-      vi.doMock('@/engine/core/fs/endpoint', () => {
+      vi.doMock('@/engine/system/runtime/fs/endpoint', () => {
         endpointLoaded = true;
         expect(globalThis.Buffer).toBeDefined();
         return {};
       });
-      await import('@/engine/core/fs/worker');
+      await import('@/engine/system/runtime/fs/worker');
       expect(endpointLoaded).toBe(true);
 
       const core = new FsCore();
@@ -111,7 +111,7 @@ describe('Git filesystem encodings', () => {
       expect(await git.status()).toContain('nothing to commit');
       expect(await git.log()).toContain('Initial commit');
     } finally {
-      vi.doUnmock('@/engine/core/fs/endpoint');
+      vi.doUnmock('@/engine/system/runtime/fs/endpoint');
       vi.stubGlobal('Buffer', nativeBuffer);
     }
   });

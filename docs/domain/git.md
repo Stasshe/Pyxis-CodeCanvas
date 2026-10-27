@@ -1,6 +1,6 @@
 # Git と GitHub
 
-ローカルGitはisomorphic-gitをFS Worker内で動かし、worktreeと`.git`を同じOPFS treeから読む。GitHubへのpushはGit transportではなくREST Git Data APIで行う。実装は`src/engine/cmd/global/gitOperations/`、`src/engine/cmd/handlers/gitHandler.ts`、`src/engine/core/fs/git.ts`、`src/components/Left/GitPanel/`。
+ローカルGitはisomorphic-gitをFS Worker内で動かし、worktreeと`.git`を同じOPFS treeから読む。GitHubへのpushはGit transportではなくREST Git Data APIで行う。Git操作は`src/engine/system/git/`、terminal commandは`src/engine/system/commands/git/`、filesystem contractは`src/engine/core/fs/git.ts`、GitHub user/auth管理は`src/engine/ide/github/`と`src/engine/core/metadata/github/`、Git UIは`src/components/git/`。
 
 ## 構成
 

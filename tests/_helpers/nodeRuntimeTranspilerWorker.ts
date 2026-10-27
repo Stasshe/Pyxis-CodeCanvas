@@ -1,9 +1,9 @@
 import { parentPort } from 'node:worker_threads';
-import type { RpcValue, TranspileRequest } from '@/engine/runtime/bridge/protocol';
+import type { RpcValue, TranspileRequest } from '@/engine/system/runtime/bridge/protocol';
 import {
   extractCjsDependencies,
   transformEsmToCjs,
-} from '@/engine/runtime/transpiler/esmTransformer';
+} from '@/engine/system/runtime/transpiler/esmTransformer';
 
 interface TranspileWorkerRequest {
   id: number;

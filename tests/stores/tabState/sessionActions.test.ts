@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fsClient } from '@/engine/core/fs';
-import type { EditorTab } from '@/engine/tabs/types';
+import { fsClient } from '@/engine/core/fs/index';
+import type { EditorTab } from '@/engine/ide/tabs/types';
 import { setCurrentProject } from '@/stores/projectStore';
 import { type PyxisSession, sessionStore } from '@/stores/sessionStore';
 import {

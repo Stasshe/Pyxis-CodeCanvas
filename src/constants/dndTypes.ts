@@ -1,6 +1,6 @@
 /** Shared drag types used by all drag-and-drop components. */
 
-import type { FileItem } from '@/types';
+import type { FileItem } from '@/types/index';
 
 // Tab drag type.
 export const DND_TAB = 'TAB';

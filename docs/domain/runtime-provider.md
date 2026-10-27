@@ -1,6 +1,6 @@
 # Runtime Provider
 
-言語runtimeとtranspilerを拡張子で選ぶ登録層。実装は`src/engine/runtime/core/`。Node.jsの実装は [node-runtime](node-runtime.md)。
+言語runtimeとtranspilerを拡張子で選ぶ登録層。実装は`src/engine/system/runtime/core/`。Node.jsの実装は [node-runtime](node-runtime.md)。
 
 ## 登録と選択
 

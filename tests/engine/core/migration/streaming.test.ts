@@ -1,13 +1,13 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FsApi } from '@/engine/core/fs';
+import type { FsApi } from '@/engine/core/fs/index';
 import type { MigrationState } from '@/engine/core/migration/types';
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types/index';
 
 vi.mock('@/engine/core/migration/metadata', () => ({ migrateMetadata: vi.fn(async () => {}) }));
 vi.mock('@/engine/core/coreLogger', () => ({ coreError: vi.fn() }));
 
-import { migrateLegacyStorage } from '@/engine/core/migration';
+import { migrateLegacyStorage } from '@/engine/core/migration/index';
 import { openExisting, openState, readValue } from '@/engine/core/migration/idb';
 import { migrateMetadata } from '@/engine/core/migration/metadata';
 

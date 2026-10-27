@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FsApi } from '@/engine/core/fs';
+import type { FsApi } from '@/engine/core/fs/index';
 import type {
   LegacyCache,
   LegacyFile,
   LegacyProject,
   MigrationState,
 } from '@/engine/core/migration/types';
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types/index';
 
 const fixture = vi.hoisted(() => ({
   projects: [] as LegacyProject[],
@@ -77,7 +77,7 @@ vi.mock('@/engine/core/migration/lightning', () => ({
   }),
 }));
 
-import { migrateLegacyStorage } from '@/engine/core/migration';
+import { migrateLegacyStorage } from '@/engine/core/migration/index';
 import { migrateMetadata } from '@/engine/core/migration/metadata';
 
 function memoryFs(): FsApi & {

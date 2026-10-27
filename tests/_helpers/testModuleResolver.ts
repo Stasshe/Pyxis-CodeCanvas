@@ -6,11 +6,11 @@ vi.mock('sync-message', () => ({
   readMessage: vi.fn(() => null),
 }));
 
-import { RuntimeBridge } from '@/engine/runtime/bridge/client';
-import { attachRuntimePort } from '@/engine/runtime/bridge/endpoint';
-import type { FsStat } from '@/engine/runtime/bridge/protocol';
-import { ModuleFileSystem } from '@/engine/runtime/module/moduleFileSystem';
-import { ModuleResolver } from '@/engine/runtime/module/moduleResolver';
+import { RuntimeBridge } from '@/engine/system/runtime/bridge/client';
+import { attachRuntimePort } from '@/engine/system/runtime/bridge/endpoint';
+import type { FsStat } from '@/engine/system/runtime/bridge/protocol';
+import { ModuleFileSystem } from '@/engine/system/runtime/module/moduleFileSystem';
+import { ModuleResolver } from '@/engine/system/runtime/module/moduleResolver';
 
 export function createTestModuleResolver(repo: FsCore, rootPath: string) {
   const channel = new MessageChannel();

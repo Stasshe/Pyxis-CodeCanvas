@@ -205,7 +205,7 @@
     }
   });
 
-  // src/engine/runtime/bridge/serviceWorker.js
+  // src/engine/system/runtime/bridge/serviceWorker.js
   var import_sync_message = __toESM(require_dist());
   var syncFetch = (0, import_sync_message.serviceWorkerFetchListener)();
   var ICON_CACHE = "pyxis-icons-v1";
@@ -238,6 +238,10 @@
   });
   self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
   self.addEventListener("message", (event) => {
+    if (event.data.type === "runtime-claim") {
+      event.waitUntil(self.clients.claim());
+      return;
+    }
     if (event.data.type === "runtime-cancel") {
       for (const [id, call] of calls) {
         if (call.runtimeId !== event.data.runtimeId) continue;

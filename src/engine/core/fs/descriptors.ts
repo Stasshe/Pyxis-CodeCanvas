@@ -1,4 +1,4 @@
-import type { ProjectFile } from '@/types';
+import type { ProjectFile } from '@/types/index';
 import { FSError } from './errors';
 import type { FifoEndpoint, FileReference } from './fifo';
 import { mountRoot } from './layout';

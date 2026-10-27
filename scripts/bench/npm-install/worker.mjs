@@ -1,5 +1,5 @@
 import '/src/engine/core/fs/buffer.ts';
-import '/src/engine/core/fs/endpoint.ts';
+import '/src/engine/system/runtime/fs/endpoint.ts';
 import { installProfileHooks, installSerialExtractionHook } from './profile.mjs';
 
 const fetch = globalThis.fetch;

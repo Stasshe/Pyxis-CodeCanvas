@@ -1,6 +1,6 @@
 # npm
 
-registry packageをOPFSの`node_modules`へ展開するinstallerと、`npm run`・`npx`。install・uninstall・list・initはFS Workerで動き、`npm run`と`npx`はmain threadで動く。実装は`src/engine/cmd/global/npmOperations/`、`src/engine/cmd/handlers/npmHandler.ts`、`src/engine/cmd/shell/localBinary.ts`。
+registry packageをOPFSの`node_modules`へ展開するinstallerと、`npm run`・`npx`。install・uninstall・list・initはFS Workerで動き、`npm run`と`npx`はmain threadで動く。installerは`src/engine/system/npm/`、terminal commandとhandlerは`src/engine/system/commands/npm/`、local binary解決は`src/engine/system/shell/localBinary.ts`。
 
 ## コマンド
 

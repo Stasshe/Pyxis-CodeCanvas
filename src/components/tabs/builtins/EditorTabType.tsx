@@ -1,0 +1,103 @@
+import type React from 'react';
+import { lazy, Suspense, useCallback, useEffect } from 'react';
+import { useSettings } from '@/hooks/settings/useSettings';
+import { useProjectSnapshot } from '@/stores/projectStore';
+import { setBufferContent, setTabContent } from '@/stores/tabContentStore';
+import { initTabSaveSync, tabActions } from '@/stores/tabState';
+import type {
+  EditorTab,
+  TabComponentProps,
+  TabTypeDefinition,
+} from '../../../engine/ide/tabs/types';
+
+const CodeEditor = lazy(() => import('@/components/tabs/CodeEditor'));
+
+/**
+ * エディタタブのコンポーネント
+ * EditorMemoryManagerを使用した統一的なメモリ管理システムに対応。
+ * - コンテンツ変更はEditorMemoryManagerを通じて行う
+ * - デバウンス保存、タブ間同期は自動的に処理される
+ * - Git state refreshes from filesystem change events
+ */
+const EditorTabComponent: React.FC<TabComponentProps> = ({ tab, isActive }) => {
+  const editorTab = tab as EditorTab;
+  // グローバルストアからプロジェクト情報を取得
+  const { currentProject } = useProjectSnapshot();
+  const { settings } = useSettings(currentProject?.rootPath);
+  const wordWrapConfig = settings?.editor?.wordWrap ? 'on' : 'off';
+
+  // Initialize save sync once on mount
+  useEffect(() => {
+    initTabSaveSync();
+  }, []);
+
+  // 即時反映ハンドラー（UIのみ、デバウンス保存をトリガー）
+  const handleImmediateContentChange = useCallback(
+    (tabId: string, content: string) => {
+      if (!editorTab.path) return;
+      // tabState へ即時反映
+      tabActions.updateTabContent(tabId, content, true);
+    },
+    [editorTab.path]
+  );
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading editor...
+        </div>
+      }
+    >
+      <CodeEditor
+        activeTab={editorTab}
+        currentProject={currentProject || undefined}
+        isCodeMirror={editorTab.isCodeMirror || false}
+        wordWrapConfig={wordWrapConfig}
+        onImmediateContentChange={handleImmediateContentChange}
+        isActive={isActive}
+      />
+    </Suspense>
+  );
+};
+
+/**
+ * エディタタブタイプの定義
+ */
+export const EditorTabType: TabTypeDefinition = {
+  kind: 'editor',
+  displayName: 'Editor',
+  icon: 'FileText',
+  canEdit: true,
+  canPreview: false,
+  component: EditorTabComponent,
+  createTab: (file, options): EditorTab => {
+    // Use unique ID to allow same file open in multiple panes independently.
+    // Content is keyed by tabId in tabContentStore, so each pane instance
+    // must have its own key to avoid content sharing / clearTabContent conflicts.
+    const basePath = String(file.path || file.name || 'editor');
+    const tabId = `${basePath}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const content = String(file.content || '');
+    const bufferContent = file.bufferContent as ArrayBuffer | undefined;
+    setTabContent(tabId, content, false);
+    if (file.isBufferArray && bufferContent) setBufferContent(tabId, bufferContent);
+    return {
+      id: tabId,
+      name: String(file.name || ''),
+      kind: 'editor',
+      path: String(file.path || ''),
+      paneId: options?.paneId || '',
+      content,
+      isDirty: false,
+      isCodeMirror: Boolean(file.isCodeMirror),
+      isBufferArray: Boolean(file.isBufferArray),
+      bufferContent,
+      jumpToLine: options?.jumpToLine,
+      jumpToColumn: options?.jumpToColumn,
+    };
+  },
+  shouldReuseTab: (existingTab, newFile, options) => {
+    return existingTab.path === newFile.path && existingTab.kind === 'editor';
+  },
+  getContentPath: tab => tab.path || undefined,
+};

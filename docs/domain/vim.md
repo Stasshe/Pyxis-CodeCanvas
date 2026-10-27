@@ -1,6 +1,6 @@
 # Terminal Vim
 
-Terminal上の軽量なvim風editor。vimscript、設定、pluginはない。実装は`src/engine/cmd/app/vim/`と`src/engine/cmd/handlers/vimHandler.ts`。
+Terminal上の軽量なvim風editor。vimscript、設定、pluginはない。実装は`src/engine/system/commands/vim/`。
 
 ## 起動と保存
 

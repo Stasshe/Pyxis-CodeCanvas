@@ -1,9 +1,9 @@
-import { updateCachedModelContent } from '@/components/Tab/text-editor/hooks/useMonacoModels';
 import type { FileContent } from '@/engine/core/fileBytes';
 import { readFileContent } from '@/engine/core/fileContent';
-import { FSError, fsClient, normalizePath } from '@/engine/core/fs';
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
-import type { EditorPane, Tab } from '@/engine/tabs/types';
+import { FSError, fsClient, normalizePath } from '@/engine/core/fs/index';
+import { tabRegistry } from '@/engine/ide/tabs/TabRegistry';
+import type { EditorPane, Tab } from '@/engine/ide/tabs/types';
+import { updateCachedModelContent } from '@/hooks/editor/useMonacoModels';
 import { pushLogMessage } from '@/stores/loggerStore';
 import { getCurrentRootPath } from '@/stores/projectStore';
 import {
@@ -12,7 +12,7 @@ import {
   setBufferContent,
   setTabContent,
 } from '@/stores/tabContentStore';
-import { collectAllTabs, findInPanes } from './paneUtils';
+import { collectAllTabs, findInPanes } from './paneTree';
 import { tabState } from './state';
 
 const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();

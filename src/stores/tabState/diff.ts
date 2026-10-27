@@ -1,4 +1,4 @@
-import type { DiffTab } from '@/engine/tabs/types';
+import type { DiffTab } from '@/engine/ide/tabs/types';
 import { isTabDirty, setTabContent } from '@/stores/tabContentStore';
 
 export function refreshDiffTab(existing: DiffTab, fresh: DiffTab): DiffTab | null {

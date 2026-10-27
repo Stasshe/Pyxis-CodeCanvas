@@ -1,5 +1,5 @@
 import { parentPort } from 'node:worker_threads';
-import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
+import type { MainMessage, WorkerMessage } from '@/engine/system/runtime/nodejs/workerProtocol';
 
 const port = parentPort;
 if (!port) throw new Error('Runtime worker requires a parent port.');
@@ -18,4 +18,4 @@ port.on('message', (data: MainMessage) => {
   events.dispatchEvent(new MessageEvent('message', { data }));
 });
 
-void import('@/engine/runtime/nodejs/runtimeWorker');
+void import('@/engine/system/runtime/nodejs/runtimeWorker');

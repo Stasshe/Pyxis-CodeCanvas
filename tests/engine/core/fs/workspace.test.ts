@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createWorkspace, ensureDemoWorkspace } from '@/engine/core/fs/workspace';
-import { HOME_DIR } from '@/engine/core/pathUtils';
-import type { InitialFileTree } from '@/engine/initialFileContents';
-import { initialFileContents } from '@/engine/initialFileContents';
-import type { ProjectFile } from '@/types';
+import { HOME_DIR } from '@/engine/core/paths';
+import type { InitialFileTree } from '@/engine/core/workspace/initialFileContents';
+import { initialFileContents } from '@/engine/core/workspace/initialFileContents';
+import type { ProjectFile } from '@/types/index';
 
 function memoryWorkspaceFs() {
   const directories = new Set(['/', '/home', HOME_DIR]);

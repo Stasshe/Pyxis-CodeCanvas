@@ -14,7 +14,7 @@
 
 import { proxy, useSnapshot } from 'valtio';
 
-import type { Project } from '@/types';
+import type { Project } from '@/types/index';
 
 /**
  * 単純化された Valtio プロジェクトストア

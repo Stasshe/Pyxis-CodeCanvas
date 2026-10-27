@@ -1,6 +1,6 @@
 import { readFileContent } from '@/engine/core/fileContent';
-import { fsClient } from '@/engine/core/fs';
-import type { TabFileInfo, TabKind } from '@/engine/tabs/types';
+import { fsClient } from '@/engine/core/fs/index';
+import type { TabFileInfo, TabKind } from '@/engine/ide/tabs/types';
 
 export async function prepareFileForTab(
   file: TabFileInfo,

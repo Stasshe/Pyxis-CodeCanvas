@@ -11,20 +11,19 @@ import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { DEFAULT_LOCALE, LOCALSTORAGE_KEY } from '@/constants/config';
-
-import { extensionManager } from '@/engine/extensions/extensionManager';
-import { commitLatestLoad } from '@/engine/i18n/commitLatestLoad';
-import { activateEnglishPackOrLoadTranslations } from '@/engine/i18n/englishPackFallback';
-import { clearAllCacheForLocale, loadTranslations } from '@/engine/i18n/loader';
-import { cleanExpiredCache } from '@/engine/i18n/storage-adapter';
-import { createTranslator, mergeTranslations } from '@/engine/i18n/translator';
+import { commitLatestLoad } from '@/engine/core/i18n/commitLatestLoad';
+import { activateEnglishPackOrLoadTranslations } from '@/engine/core/i18n/englishPackFallback';
+import { clearAllCacheForLocale, loadTranslations } from '@/engine/core/i18n/loader';
+import { cleanExpiredCache } from '@/engine/core/i18n/storage-adapter';
+import { createTranslator, mergeTranslations } from '@/engine/core/i18n/translator';
 import type {
   I18nContextValue,
   Locale,
   TranslateOptions,
   TranslationKey,
-} from '@/engine/i18n/types';
-import { isSupportedLocale } from '@/engine/i18n/types';
+} from '@/engine/core/i18n/types';
+import { isSupportedLocale } from '@/engine/core/i18n/types';
+import { extensionManager } from '@/engine/ide/extensions/extensionManager';
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 

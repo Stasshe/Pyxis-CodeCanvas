@@ -1,0 +1,177 @@
+import type React from 'react';
+import { lazy, Suspense, useCallback } from 'react';
+import { fsClient } from '@/engine/core/fs/index';
+import { saveResolvedConflict } from '@/engine/system/git/mergeConflictDetector';
+import { terminalCommandRegistry } from '@/engine/system/terminal/terminalRegistry';
+import { tabActions } from '@/stores/tabState';
+import type {
+  MergeConflictFileEntry,
+  MergeConflictTab,
+  TabComponentProps,
+  TabTypeDefinition,
+} from '../../../engine/ide/tabs/types';
+
+const MergeConflictResolutionTab = lazy(
+  () => import('@/components/tabs/MergeConflictResolutionTab')
+);
+
+/**
+ * Merge Conflict Resolution Tab Renderer
+ */
+const MergeConflictTabRenderer: React.FC<TabComponentProps> = ({ tab }) => {
+  const mergeTab = tab as MergeConflictTab;
+  const { closeTab, updateTab } = tabActions;
+
+  /**
+   * Resolve handler
+   * Saves all resolved files and completes the merge
+   */
+  const handleResolve = useCallback(
+    async (resolvedFiles: ReadonlyArray<MergeConflictFileEntry>) => {
+      try {
+        console.log('[MergeConflictTabType] Resolving merge conflicts:', resolvedFiles.length);
+
+        // Save resolved files through the filesystem client.
+        for (const file of resolvedFiles) {
+          await saveResolvedConflict(fsClient, file);
+          console.log('[MergeConflictTabType] Saved resolved file:', file.filePath);
+        }
+
+        // Get git commands instance
+        const git = terminalCommandRegistry.getGitCommands(mergeTab.rootPath);
+
+        // Stage all resolved files
+        console.log('[MergeConflictTabType] Staging resolved files...');
+        for (const file of resolvedFiles) {
+          await git.add(file.filePath);
+        }
+
+        // Create merge commit
+        console.log('[MergeConflictTabType] Creating merge commit...');
+        const commitMessage = await fsClient.readText(`${mergeTab.rootPath}/.git/MERGE_MSG`);
+        await git.commit(commitMessage);
+        console.log('[MergeConflictTabType] Merge commit created successfully');
+
+        // Close tab
+        closeTab(mergeTab.paneId, mergeTab.id);
+      } catch (error) {
+        console.error('[MergeConflictTabType] Failed to resolve conflicts:', error);
+        // TODO: Error notification
+        alert(`Failed to complete merge: ${(error as Error).message}`);
+      }
+    },
+    [mergeTab]
+  );
+
+  /**
+   * Cancel handler
+   */
+  const handleCancel = useCallback(() => {
+    closeTab(mergeTab.paneId, mergeTab.id);
+  }, [mergeTab]);
+
+  /**
+   * Update resolved content
+   */
+  const handleUpdateResolvedContent = useCallback(
+    (filePath: string, content: string | Uint8Array | null) => {
+      const updatedConflicts = mergeTab.conflicts.map(conflict => {
+        if (conflict.filePath !== filePath) return conflict;
+        if (conflict.binary) {
+          if (typeof content === 'string') throw new Error('Binary conflict requires exact bytes.');
+          return { ...conflict, binary: { ...conflict.binary, resolved: content } };
+        }
+        if (typeof content !== 'string') throw new Error('Text conflict requires text.');
+        return { ...conflict, resolvedContent: content };
+      });
+      updateTab(mergeTab.paneId, mergeTab.id, {
+        conflicts: updatedConflicts,
+      } as Partial<MergeConflictTab>);
+    },
+    [mergeTab]
+  );
+
+  /**
+   * Toggle resolved state
+   */
+  const handleToggleResolved = useCallback(
+    (filePath: string, isResolved: boolean) => {
+      const updatedConflicts = mergeTab.conflicts.map(c =>
+        c.filePath === filePath ? { ...c, isResolved } : c
+      );
+      updateTab(mergeTab.paneId, mergeTab.id, {
+        conflicts: updatedConflicts,
+      } as Partial<MergeConflictTab>);
+    },
+    [mergeTab]
+  );
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading merge conflict...
+        </div>
+      }
+    >
+      <MergeConflictResolutionTab
+        conflicts={mergeTab.conflicts}
+        oursBranch={mergeTab.oursBranch}
+        theirsBranch={mergeTab.theirsBranch}
+        onResolve={handleResolve}
+        onCancel={handleCancel}
+        onUpdateResolvedContent={handleUpdateResolvedContent}
+        onToggleResolved={handleToggleResolved}
+      />
+    </Suspense>
+  );
+};
+
+/**
+ * Merge Conflict Resolution Tab Type Definition
+ */
+export const MergeConflictTabType: TabTypeDefinition = {
+  kind: 'merge-conflict',
+  displayName: 'Merge Conflict',
+  icon: 'GitMerge',
+  canEdit: true,
+  canPreview: false,
+  component: MergeConflictTabRenderer,
+  needsSessionRestore: false, // conflicts 配列は保持されるので復元不要
+
+  createTab: (data, options): MergeConflictTab => {
+    const conflicts = (data.conflicts as MergeConflictFileEntry[]) || [];
+    const oursBranch = (data.oursBranch as string) || 'HEAD';
+    const theirsBranch = (data.theirsBranch as string) || 'MERGE_HEAD';
+    const rootPath = (data.rootPath as string) || '';
+
+    const tabId = `merge-conflict:${oursBranch}-${theirsBranch}-${Date.now()}`;
+    const tabName = `Merge: ${theirsBranch} → ${oursBranch}`;
+
+    return {
+      id: tabId,
+      name: tabName,
+      kind: 'merge-conflict',
+      path: '',
+      paneId: options?.paneId || '',
+      conflicts,
+      oursBranch,
+      theirsBranch,
+      rootPath,
+    };
+  },
+
+  shouldReuseTab: (existingTab, newFile, options) => {
+    // Reuse merge conflict tab for same branch pairs
+    const mergeTab = existingTab as MergeConflictTab;
+    const oursBranch = (newFile.oursBranch as string) || '';
+    const theirsBranch = (newFile.theirsBranch as string) || '';
+    return (
+      mergeTab.kind === 'merge-conflict' &&
+      mergeTab.oursBranch === oursBranch &&
+      mergeTab.theirsBranch === theirsBranch
+    );
+  },
+
+  // conflicts 配列はデフォルトシリアライズで保持される
+};

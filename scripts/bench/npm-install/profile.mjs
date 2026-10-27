@@ -217,12 +217,12 @@ export async function installProfileHooks() {
     { WorkerGitCommands },
   ] = await Promise.all([
     import('/src/engine/core/fs/core.ts'),
-    import('/src/engine/cmd/global/npmOperations/npmInstall.ts'),
-    import('/src/engine/cmd/global/npmOperations/install/tarExtractor.ts'),
-    import('/src/engine/cmd/global/npmOperations/install/npmNetwork.ts'),
-    import('/src/engine/cmd/global/npmOperations/install/registryClient.ts'),
-    import('/src/engine/cmd/global/npmOperations/worker.ts'),
-    import('/src/engine/cmd/global/gitOperations/worker.ts'),
+    import('/src/engine/system/npm/npmInstall.ts'),
+    import('/src/engine/system/npm/install/tarExtractor.ts'),
+    import('/src/engine/system/npm/install/npmNetwork.ts'),
+    import('/src/engine/system/npm/install/registryClient.ts'),
+    import('/src/engine/system/npm/worker.ts'),
+    import('/src/engine/system/git/worker.ts'),
   ]);
   for (const method of ['stat', 'exists', 'readText', 'mkdir', 'readdir', 'walk']) {
     wrapAsync(FsCore.prototype, method, `fs.${method}`);
@@ -344,7 +344,7 @@ export async function installProfileHooks() {
 
 export async function installSerialExtractionHook() {
   const { TarExtractor } = await import(
-    '/src/engine/cmd/global/npmOperations/install/tarExtractor.ts'
+    '/src/engine/system/npm/install/tarExtractor.ts'
   );
   const extract = TarExtractor.prototype.extractFromStream;
   let queue = Promise.resolve();

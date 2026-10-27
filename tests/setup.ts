@@ -62,15 +62,15 @@ function createTestFsClient() {
     scoped: (ownerId: string) => scopedFs(source, ownerId),
     addChangeListener: () => () => {},
     getNpm: async (rootPath: string) => {
-      const { WorkerNpmCommands } = await import('@/engine/cmd/global/npmOperations/worker');
+      const { WorkerNpmCommands } = await import('@/engine/system/npm/worker');
       return new WorkerNpmCommands(getTestFs(), rootPath);
     },
   };
 }
 
 // Production owns OPFS in a worker; test projects inject a fresh byte-backed OPFS root.
-vi.mock('@/engine/core/fs', async importOriginal => {
-  const original = await importOriginal<typeof import('@/engine/core/fs')>();
+vi.mock('@/engine/core/fs/index', async importOriginal => {
+  const original = await importOriginal<typeof import('@/engine/core/fs/index')>();
   return { ...original, fsClient: createTestFsClient() };
 });
 

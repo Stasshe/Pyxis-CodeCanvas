@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { type Transferable, Worker } from 'node:worker_threads';
 import { build } from 'esbuild';
-import type { MainMessage, WorkerMessage } from '@/engine/runtime/nodejs/workerProtocol';
+import type { MainMessage, WorkerMessage } from '@/engine/system/runtime/nodejs/workerProtocol';
 
 let bundle: string | undefined;
 

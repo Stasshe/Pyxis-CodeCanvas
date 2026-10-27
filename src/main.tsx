@@ -1,21 +1,22 @@
 import './polyfills';
 import './styles/globals.css';
 import './lib/ReactScan';
-import './engine/tabs/monacoLoader';
+import './lib/monaco/monacoLoader';
 
 import { createRoot } from 'react-dom/client';
 
 import App from './App';
-import AppInitializer from './components/AppInitializer';
-import { TabSessionManager } from './components/Tab/TabSessionManager';
+import AppInitializer from './components/layout/AppInitializer';
+import { TabSessionManager } from './components/tabs/TabSessionManager';
 import { FileSelectorProvider } from './context/FileSelectorContext';
 import { GitHubUserProvider } from './context/GitHubUserContext';
 import { I18nProvider } from './context/I18nContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { fsClient } from './engine/core/fs';
-import { migrateLegacyStorage } from './engine/core/migration';
-import { prepareProjectStore } from './engine/core/project';
-import { ensureRuntimeBridge } from './engine/runtime/bridge/main';
+import { fsClient } from './engine/core/fs/index';
+import { migrateLegacyStorage } from './engine/core/migration/index';
+import { prepareProjectStore } from './engine/core/workspace/project';
+import { initializeAppCommands } from './engine/ide/commands/initialize';
+import { ensureRuntimeBridge } from './engine/system/runtime/bridge/main';
 import { assetPath, pyxisEnv } from './env';
 
 function loadScript(src: string, onLoad?: () => void): void {
@@ -41,6 +42,7 @@ if (!root) {
 
 async function start(): Promise<void> {
   try {
+    initializeAppCommands();
     await fsClient.init();
     await migrateLegacyStorage(fsClient);
     await fsClient.ensureDemoWorkspace();

@@ -1,11 +1,11 @@
 import { getTestFs, resetTestFs } from '@tests/_helpers/testFs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fsClient } from '@/engine/core/fs';
-import { BinaryTabType } from '@/engine/tabs/builtins/BinaryTabType';
-import { DiffTabType } from '@/engine/tabs/builtins/DiffTabType';
-import { EditorTabType } from '@/engine/tabs/builtins/EditorTabType';
-import { WelcomeTabType } from '@/engine/tabs/builtins/WelcomeTabType';
-import { tabRegistry } from '@/engine/tabs/TabRegistry';
+import { fsClient } from '@/engine/core/fs/index';
+import { BinaryTabType } from '@/components/tabs/builtins/BinaryTabType';
+import { DiffTabType } from '@/components/tabs/builtins/DiffTabType';
+import { EditorTabType } from '@/components/tabs/builtins/EditorTabType';
+import { WelcomeTabType } from '@/components/tabs/builtins/WelcomeTabType';
+import { tabRegistry } from '@/engine/ide/tabs/TabRegistry';
 import { setCurrentProject } from '@/stores/projectStore';
 import {
   getTabContent,

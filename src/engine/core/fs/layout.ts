@@ -1,5 +1,5 @@
-import type { ProjectFile } from '@/types';
-import { HOME_DIR } from '../pathUtils';
+import type { ProjectFile } from '@/types/index';
+import { HOME_DIR } from '../paths';
 import { defaultMode } from './permissions';
 
 export const RUNTIME_CACHE_PATH = `${HOME_DIR}/.cache/pyxis`;
