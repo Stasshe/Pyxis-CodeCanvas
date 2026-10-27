@@ -143,6 +143,24 @@ async function responseResult(response: Response): Promise<RpcResult> {
 }
 
 describe('runtime service worker bridge', () => {
+  it('claims an uncontrolled page on request without waiting for another activation', async () => {
+    const scope = createScope();
+    const claim = vi.spyOn(scope.clients, 'claim');
+    vi.resetModules();
+    vi.stubGlobal('self', scope);
+    await import('@/engine/system/runtime/bridge/serviceWorker.js');
+    const waitUntil = vi.fn();
+    listeners.get('message')?.({
+      data: { type: 'runtime-claim' },
+      source: { id: 'owner' },
+      ports: [],
+      request: new Request('https://pyxis.test/'),
+      respondWith() {},
+      waitUntil,
+    });
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
+  });
   beforeEach(async () => {
     windowClients = [];
     await loadServiceWorker();

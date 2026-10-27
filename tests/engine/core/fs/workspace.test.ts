@@ -89,6 +89,19 @@ describe('workspace creation', () => {
     expect([...fs.files.entries()].sort()).toEqual([...expectedFiles.entries()].sort());
   });
 
+  it('reports committed demo entries with a complete template count', async () => {
+    const fs = memoryWorkspaceFs();
+    const progress: Array<{ detail: string; completed?: number; total?: number }> = [];
+    await ensureDemoWorkspace(fs, report => {
+      progress.push(report);
+    });
+    const final = progress.at(-1);
+    expect(final?.completed).toBe(final?.total);
+    expect(final?.total).toBe(fs.files.size + fs.directories.size - 4);
+    expect(progress[0].completed).toBe(0);
+    expect(progress.every(report => report.detail.startsWith(`${HOME_DIR}/demo`))).toBe(true);
+  });
+
   it('preserves edits and deletions on repeated startup without reseeding', async () => {
     const fs = memoryWorkspaceFs();
     const rootPath = await ensureDemoWorkspace(fs);

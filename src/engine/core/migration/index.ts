@@ -2,7 +2,9 @@ import { coreError } from '@/engine/core/coreLogger';
 import type { FsApi } from '@/engine/core/fs/index';
 import { RUNTIME_CACHE_PATH } from '@/engine/core/fs/layout';
 import { getParentPath, HOME_DIR, isPathWithin, normalizePath } from '@/engine/core/paths';
+import type { StartupContext } from '../startup';
 import {
+  countRecords,
   deleteDatabase,
   iterateAll,
   iterateAllKeyed,
@@ -41,9 +43,11 @@ async function assignRoots(
   fs: FsApi,
   projects: LegacyProject[],
   state: MigrationState,
-  db: IDBDatabase
+  db: IDBDatabase,
+  signal?: AbortSignal
 ): Promise<void> {
   for (const project of projects) {
+    signal?.throwIfAborted();
     if (state.mappings.some(mapping => mapping.id === project.id)) continue;
     if (
       !project.name ||
@@ -61,6 +65,7 @@ async function assignRoots(
     ) {
       throw new Error(`Legacy project destination already exists: ${rootPath}`);
     }
+    signal?.throwIfAborted();
     state.mappings.push({ ...project, rootPath });
     // Persist the destination before creating it, so retries reuse their own root.
     await writeValue(db, 'state', state);
@@ -75,20 +80,24 @@ function destination(root: string, path: string): string {
   return normalized;
 }
 
-async function copyAndVerify(fs: FsApi, entry: CopyEntry): Promise<void> {
+async function copyAndVerify(fs: FsApi, entry: CopyEntry, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   if (entry.directory) {
     await fs.mkdir(entry.path, { recursive: true });
+    signal?.throwIfAborted();
     const stat = await fs.stat(entry.path);
     if (stat.type !== 'folder') throw new Error(`Migration directory mismatch: ${entry.path}`);
     return;
   }
   if (!entry.bytes) throw new Error(`Missing migration bytes: ${entry.path}`);
   await fs.mkdir(getParentPath(entry.path), { recursive: true });
+  signal?.throwIfAborted();
   await fs.writeFile(entry.path, entry.bytes);
-  await verifyExisting(fs, entry);
+  await verifyExisting(fs, entry, signal);
 }
 
-async function verifyExisting(fs: FsApi, entry: CopyEntry): Promise<void> {
+async function verifyExisting(fs: FsApi, entry: CopyEntry, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   const expected = entry.bytes;
   if (!expected) throw new Error(`Missing migration verification bytes: ${entry.path}`);
   const actual = await fs.readFile(entry.path);
@@ -97,7 +106,13 @@ async function verifyExisting(fs: FsApi, entry: CopyEntry): Promise<void> {
   }
 }
 
-async function verifyFileCount(fs: FsApi, root: string, expected: Set<string>): Promise<void> {
+async function verifyFileCount(
+  fs: FsApi,
+  root: string,
+  expected: Set<string>,
+  signal?: AbortSignal
+): Promise<void> {
+  signal?.throwIfAborted();
   const actual = (await fs.walk(root)).filter(entry => entry.type === 'file').length;
   if (actual !== expected.size) throw new Error(`Migration file count mismatch: ${root}`);
 }
@@ -121,27 +136,42 @@ function cacheEntry(record: LegacyCache): CopyEntry {
   return { path, directory: record.isDir, bytes };
 }
 
-async function cleanup(state: MigrationState, stateDb: IDBDatabase): Promise<void> {
-  await deleteDatabase('PyxisProjects');
-  await deleteDatabase('pyxis-fs');
-  await deleteDatabase('pyxis-fs_lock');
+async function cleanup(
+  state: MigrationState,
+  stateDb: IDBDatabase,
+  context?: StartupContext
+): Promise<void> {
+  context?.signal.throwIfAborted();
+  for (const name of ['PyxisProjects', 'pyxis-fs', 'pyxis-fs_lock']) {
+    context?.signal.throwIfAborted();
+    context?.report({ detail: `Removing verified legacy database: ${name}` });
+    await deleteDatabase(name);
+  }
+  context?.signal.throwIfAborted();
   state.phase = 'complete';
   await writeValue(stateDb, 'state', state);
 }
 
 /** Temporary legacy import. Remove after the migration window ending April 2027. */
-export async function migrateLegacyStorage(fs: FsApi): Promise<void> {
+export async function migrateLegacyStorage(fs: FsApi, context?: StartupContext): Promise<void> {
+  const report = (detail: string, completed?: number, total?: number): void => {
+    context?.signal.throwIfAborted();
+    context?.report({ detail, completed, total });
+  };
+  report('Opening migration state');
   const stateDb = await openState();
   let projectsDb: IDBDatabase | null = null;
   let gitDb: IDBDatabase | null = null;
   try {
+    context?.signal.throwIfAborted();
     let state = await readValue<MigrationState>(stateDb, 'state', 'opfs-v1');
     if (state?.phase === 'complete') return;
     if (state?.phase === 'cleanup') {
-      await cleanup(state, stateDb);
+      await cleanup(state, stateDb, context);
       return;
     }
     if (!state) state = { id: 'opfs-v1', phase: 'copying', mappings: [] };
+    report('Opening legacy databases');
     projectsDb = await openExisting('PyxisProjects');
     gitDb = await openExisting('pyxis-fs');
     const projects = await readAll<LegacyProject>(projectsDb, 'projects');
@@ -152,16 +182,22 @@ export async function migrateLegacyStorage(fs: FsApi): Promise<void> {
         throw new Error(`Legacy Git history has no project: ${name}`);
       }
     }
-    await assignRoots(fs, projects, state, stateDb);
+    report('Assigning project destinations', 0, projects.length);
+    await assignRoots(fs, projects, state, stateDb, context?.signal);
+    const fileTotal = await countRecords(projectsDb, 'files');
+    let copiedFiles = 0;
+    report('Copying and verifying project files', copiedFiles, fileTotal);
     const expectedFiles = new Map<string, Set<string>>();
     const worktreePaths = new Map<string, Set<string>>();
     for (const mapping of state.mappings) {
+      context?.signal.throwIfAborted();
       expectedFiles.set(mapping.id, new Set());
       worktreePaths.set(mapping.id, new Set());
       await fs.mkdir(mapping.rootPath, { recursive: true });
     }
     const mappingById = new Map(state.mappings.map(mapping => [mapping.id, mapping]));
     for await (const { key, value: file } of iterateAllKeyed<LegacyFile>(projectsDb, 'files')) {
+      report(`Copying and verifying ${file.path}`, copiedFiles, fileTotal);
       const mapping = mappingById.get(file.projectId);
       if (!mapping) throw new Error(`Legacy file has no project: ${file.path}`);
       if (file.type !== 'file' && file.type !== 'folder') {
@@ -184,44 +220,62 @@ export async function migrateLegacyStorage(fs: FsApi): Promise<void> {
       const directory = file.type === 'folder';
       let bytes: Uint8Array | undefined;
       if (!directory) bytes = fileBytes(file);
-      await copyAndVerify(fs, {
-        path,
-        directory,
-        bytes,
-      });
+      await copyAndVerify(fs, { path, directory, bytes }, context?.signal);
       if (!directory) expectedFiles.get(mapping.id)!.add(path);
+      copiedFiles += 1;
+      report(`Verified ${path}`, copiedFiles, fileTotal);
     }
+    let verifiedProjects = 0;
     for (const mapping of state.mappings) {
+      let gitEntries = 0;
+      report(`Migrating Git history: ${mapping.name}`, gitEntries);
       if (gitNames.includes(mapping.name)) {
         for await (const entry of readGitEntries(gitDb, mapping.name)) {
+          report(`Copying Git history: ${mapping.name}${entry.path}`, gitEntries);
           const path = destination(mapping.rootPath, entry.path);
-          await copyAndVerify(fs, { ...entry, path });
+          await copyAndVerify(fs, { ...entry, path }, context?.signal);
           if (!entry.directory) expectedFiles.get(mapping.id)!.add(path);
+          gitEntries += 1;
+          report(`Verified Git history: ${mapping.name}${entry.path}`, gitEntries);
         }
       }
-      await verifyFileCount(fs, mapping.rootPath, expectedFiles.get(mapping.id)!);
+      report(
+        `Verifying project file count: ${mapping.name}`,
+        verifiedProjects,
+        state.mappings.length
+      );
+      await verifyFileCount(fs, mapping.rootPath, expectedFiles.get(mapping.id)!, context?.signal);
+      verifiedProjects += 1;
+      report(`Verified project: ${mapping.name}`, verifiedProjects, state.mappings.length);
     }
+    const cacheTotal = await countRecords(projectsDb, 'runtimeCache');
+    report('Archiving runtime cache', 0, cacheTotal);
     const cachePaths = new Set<string>();
     const cacheFiles = new Set<string>();
     for await (const record of iterateAll<LegacyCache>(projectsDb, 'runtimeCache')) {
+      report(`Archiving ${record.key}`, cachePaths.size, cacheTotal);
       const entry = cacheEntry(record);
       if (cachePaths.has(entry.path)) throw new Error('Duplicate legacy cache paths');
       cachePaths.add(entry.path);
       if ((await fs.exists(entry.path)) && !entry.directory) {
-        await verifyExisting(fs, entry);
+        await verifyExisting(fs, entry, context?.signal);
       }
-      await copyAndVerify(fs, entry);
+      await copyAndVerify(fs, entry, context?.signal);
       if (!entry.directory) cacheFiles.add(entry.path);
+      report(`Verified cache: ${record.key}`, cachePaths.size, cacheTotal);
     }
-    if (cachePaths.size > 0) await verifyFileCount(fs, `${RUNTIME_CACHE_PATH}/legacy`, cacheFiles);
-    await migrateMetadata(state.mappings, files, projectsDb);
+    if (cachePaths.size > 0)
+      await verifyFileCount(fs, `${RUNTIME_CACHE_PATH}/legacy`, cacheFiles, context?.signal);
+    report('Migrating chats, reviews and tab sessions');
+    await migrateMetadata(state.mappings, files, projectsDb, context);
+    report('Committing verified migration');
     state.phase = 'cleanup';
     await writeValue(stateDb, 'state', state);
     projectsDb?.close();
     gitDb?.close();
     projectsDb = null;
     gitDb = null;
-    await cleanup(state, stateDb);
+    await cleanup(state, stateDb, context);
   } catch (error) {
     coreError('[Storage migration] Legacy storage import failed', error);
     throw error;

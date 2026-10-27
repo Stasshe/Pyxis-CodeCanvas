@@ -151,6 +151,11 @@ class PyxisStorage {
 
     const initialization = new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
+      let blocked = false;
+      request.onblocked = () => {
+        blocked = true;
+        reject(new Error('Application metadata upgrade is blocked. Close other Pyxis tabs.'));
+      };
 
       request.onerror = () => {
         console.error('[PyxisStorage] Failed to open database:', request.error);
@@ -158,6 +163,10 @@ class PyxisStorage {
       };
 
       request.onsuccess = () => {
+        if (blocked) {
+          request.result.close();
+          return;
+        }
         this.db = request.result;
         const database = this.db;
         database.onversionchange = () => {

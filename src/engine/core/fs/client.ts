@@ -1,6 +1,7 @@
 import * as Comlink from 'comlink';
 import type { TranspilerDescriptor } from '@/engine/core/fs/types';
 import type { ProjectFile } from '@/types/index';
+import type { StartupProgress } from '../startup';
 import { FSError, registerFsErrors } from './errors';
 import type { FsWorkerApi } from './protocol';
 import { type ScopedFsApi, scopedFs } from './scoped';
@@ -27,16 +28,28 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
   private initialization: Promise<void> | null = null;
   private listeners = new Set<(event: FsChangeEvent) => void>();
   private releaseLock: (() => void) | null = null;
+  private lockRequest: AbortController | null = null;
 
   init(): Promise<void> {
-    if (!this.initialization) this.initialization = this.initialize();
+    if (!this.initialization) {
+      const pending = this.initialize();
+      let attempt: Promise<void>;
+      attempt = pending.catch(error => {
+        if (this.initialization === attempt) this.close();
+        throw error;
+      });
+      this.initialization = attempt;
+    }
     return this.initialization;
   }
 
   private async initialize(): Promise<void> {
+    const lockRequest = new AbortController();
+    this.lockRequest = lockRequest;
     await new Promise<void>((resolve, reject) => {
       navigator.locks
         .request('pyxis-fs-owner', { ifAvailable: true }, async lock => {
+          lockRequest.signal.throwIfAborted();
           if (!lock) {
             reject(
               new Error('Pyxis is already open in another tab. Close that tab before continuing.')
@@ -50,25 +63,38 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
         })
         .catch(reject);
     });
-    try {
-      this.worker = new Worker(new URL('../../system/runtime/fs/worker.ts', import.meta.url), {
-        type: 'module',
-      });
-      this.remote = Comlink.wrap<FsWorkerApi>(this.worker);
-      await this.remote.init(
-        Comlink.proxy((event: FsChangeEvent) => {
-          for (const listener of this.listeners) {
-            try {
-              listener(event);
-            } catch (error) {
-              console.error('Filesystem change listener failed', error);
-            }
+    lockRequest.signal.throwIfAborted();
+    this.worker = new Worker(new URL('../../system/runtime/fs/worker.ts', import.meta.url), {
+      type: 'module',
+    });
+    this.remote = Comlink.wrap<FsWorkerApi>(this.worker);
+    const worker = this.worker;
+    let onFailure: (event: Event) => void = () => {};
+    const failure = new Promise<never>((_resolve, reject) => {
+      onFailure = event => {
+        let message = 'Filesystem worker could not load or communicate.';
+        if (event instanceof ErrorEvent && event.message) message = event.message;
+        reject(new Error(message));
+      };
+      worker.addEventListener('error', onFailure);
+      worker.addEventListener('messageerror', onFailure);
+    });
+    const ready = this.remote.init(
+      Comlink.proxy((event: FsChangeEvent) => {
+        for (const listener of this.listeners) {
+          try {
+            listener(event);
+          } catch (error) {
+            console.error('Filesystem change listener failed', error);
           }
-        })
-      );
-    } catch (error) {
-      this.close();
-      throw error;
+        }
+      })
+    );
+    try {
+      await Promise.race([ready, failure]);
+    } finally {
+      worker.removeEventListener('error', onFailure);
+      worker.removeEventListener('messageerror', onFailure);
     }
   }
 
@@ -186,8 +212,10 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
     return (await this.api()).createWorkspace(name);
   }
 
-  async ensureDemoWorkspace(): Promise<string> {
-    return (await this.api()).ensureDemoWorkspace();
+  async ensureDemoWorkspace(report?: (progress: StartupProgress) => void): Promise<string> {
+    let onProgress: ((progress: StartupProgress) => void) | undefined;
+    if (report) onProgress = Comlink.proxy(report);
+    return (await this.api()).ensureDemoWorkspace(onProgress);
   }
 
   async configureTranspilers(descriptors: TranspilerDescriptor[]): Promise<void> {
@@ -215,12 +243,14 @@ export class FsClient implements FsApi, FsFifoApi, FsWriteApi {
   }
 
   close(): void {
+    this.lockRequest?.abort();
     this.remote?.[Comlink.releaseProxy]();
     this.worker?.terminate();
     this.releaseLock?.();
     this.remote = null;
     this.worker = null;
     this.releaseLock = null;
+    this.lockRequest = null;
     this.initialization = null;
   }
 }

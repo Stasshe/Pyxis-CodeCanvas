@@ -238,6 +238,10 @@
   });
   self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
   self.addEventListener("message", (event) => {
+    if (event.data.type === "runtime-claim") {
+      event.waitUntil(self.clients.claim());
+      return;
+    }
     if (event.data.type === "runtime-cancel") {
       for (const [id, call] of calls) {
         if (call.runtimeId !== event.data.runtimeId) continue;

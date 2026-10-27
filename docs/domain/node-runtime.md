@@ -222,6 +222,8 @@ Workerの起動は1回25〜32 msかかり、短いscriptでは旧main thread実�
 - Service Workerは同じcall idの重複を1回の実行にまとめる。runtime終了時の`runtime-cancel`で残りを打ち切る。
 - 同期呼出しは120 s、変換は10 sでtimeoutする。同期呼出しのtimeoutはruntime call idを通じてmain側もcancelする。stdin待ちはtimeoutしない。
 - portの再送: Service Workerがportを持っていなければ全window clientへ要求して最大30 s待つ。mainは新しいportと受領確認portを送り、10 s以内に確認が来なければ失敗する。古いportは返信待ちがなくなってから閉じる。mainは`controllerchange`でもportを送り直す。
+- 起動時の登録はbridgeに集約し、`updateViaCache: none`でscriptを確認する。同じ起動で`registration.update()`を重ねない。installing・waiting workerのactivationと現在のcontrollerを確認してからportを渡す。`ready`の無期限待ちや初回reloadはない。未制御pageはactive workerへ`runtime-claim`を送り、そのmessage eventの寿命内で`clients.claim()`する。
+- SW登録・activationは各30 s、制御取得は10 s。portの10 sにはFS Workerからのport取得時間も含め、timeout後に戻ったportは転送せず閉じる。登録・activation・制御取得・port接続を起動画面と`[Startup]` logで識別する。
 
 ## Cache
 

@@ -1,3 +1,4 @@
+import { runStartupStage, type StartupProgress } from '@/engine/core/startup';
 import { assetPath } from '@/env';
 import type { HostRequest, RpcCall, RpcReply, RpcValue } from './protocol';
 
@@ -23,34 +24,59 @@ export function registerRuntimeHost(id: string, handler: HostHandler): () => voi
 
 async function sendFsPort(): Promise<void> {
   const controller = navigator.serviceWorker.controller;
-  if (!controller || !createPort) throw new Error('Runtime service worker is not ready.');
-  const port = await createPort();
+  const factory = createPort;
+  if (!controller || !factory) throw new Error('Runtime service worker is not ready.');
   const acknowledgment = new MessageChannel();
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      acknowledgment.port1.close();
-      reject(
-        new Error(
-          'Runtime service worker did not accept the filesystem port. Reload this page normally.'
-        )
-      );
-    }, 10000);
-    acknowledgment.port1.onmessage = () => {
-      clearTimeout(timer);
-      acknowledgment.port1.close();
-      resolve();
-    };
-    controller.postMessage({ type: 'runtime-fs-port' }, [port, acknowledgment.port2]);
-  });
+  let finished = false;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        finished = true;
+        reject(
+          new Error(
+            'Runtime service worker did not accept the filesystem port. Reload this page normally.'
+          )
+        );
+      }, 10000);
+      acknowledgment.port1.onmessage = () => {
+        finished = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      Promise.resolve()
+        .then(() => factory())
+        .then(value => {
+          if (finished) {
+            value.close();
+            return;
+          }
+          controller.postMessage({ type: 'runtime-fs-port' }, [value, acknowledgment.port2]);
+        })
+        .catch(error => {
+          finished = true;
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
+  } finally {
+    acknowledgment.port1.close();
+    acknowledgment.port2.close();
+  }
 }
 
-export function ensureRuntimeBridge(factory: () => Promise<MessagePort>): Promise<string> {
+export function ensureRuntimeBridge(
+  factory: () => Promise<MessagePort>,
+  report?: (progress: StartupProgress) => void
+): Promise<string> {
   createPort = factory;
   if (!initialization) {
-    const pending = initialize();
+    const pending = initialize(report);
     let attempt: Promise<string>;
     attempt = pending.catch(error => {
-      if (initialization === attempt) initialization = null;
+      if (initialization === attempt) {
+        initialization = null;
+        createPort = null;
+      }
       throw error;
     });
     initialization = attempt;
@@ -80,14 +106,15 @@ async function waitForActivation(worker: ServiceWorker): Promise<void> {
   });
 }
 
-async function waitForController(worker: ServiceWorker): Promise<void> {
+async function waitForController(registration: ServiceWorkerRegistration): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       navigator.serviceWorker.removeEventListener('controllerchange', inspect);
       reject(new Error('Runtime service worker did not take control. Reload this page normally.'));
     }, 10000);
     function inspect(): void {
-      if (navigator.serviceWorker.controller !== worker) return;
+      if (!registration.active || navigator.serviceWorker.controller !== registration.active)
+        return;
       clearTimeout(timer);
       navigator.serviceWorker.removeEventListener('controllerchange', inspect);
       resolve();
@@ -97,30 +124,24 @@ async function waitForController(worker: ServiceWorker): Promise<void> {
   });
 }
 
-async function initialize(): Promise<string> {
+async function initialize(report?: (progress: StartupProgress) => void): Promise<string> {
   if (!('serviceWorker' in navigator)) throw new Error('Pyxis requires service worker support.');
-  const reloadKey = 'pyxis-sw-initial-reload';
-  let wasControlled = Boolean(navigator.serviceWorker.controller);
-  if (document.documentElement.dataset.pyxisSwControlled === 'false') wasControlled = false;
-  if (!wasControlled && sessionStorage.getItem(reloadKey)) {
-    throw new Error('Pyxis is not controlled by its service worker. Reload this page normally.');
-  }
-  const registration = await navigator.serviceWorker.register(assetPath('/sw.js'));
-  await registration.update();
+  const phase = <T>(detail: string, operation: () => Promise<T>): Promise<T> =>
+    runStartupStage(detail, operation, (_stage, progress) => report?.(progress), 30_000);
+  const registration = await phase('Registering service worker', () =>
+    navigator.serviceWorker.register(assetPath('/sw.js'), { updateViaCache: 'none' })
+  );
   const installing = registration.installing || registration.waiting;
-  if (installing) await waitForActivation(installing);
-  await navigator.serviceWorker.ready;
-  if (!wasControlled) {
-    sessionStorage.setItem(reloadKey, 'true');
-    location.reload();
-    await new Promise<void>(() => {});
-  }
-  if (!navigator.serviceWorker.controller) {
-    throw new Error('Pyxis is not controlled by its service worker. Reload this page normally.');
+  if (installing) {
+    await phase('Activating service worker', () => waitForActivation(installing));
   }
   if (!registration.active) throw new Error('Runtime service worker is not active.');
-  await waitForController(registration.active);
-  sessionStorage.setItem(reloadKey, 'true');
+  // Activation claims new pages. An already-active worker must also reclaim a
+  // page loaded with a hard refresh, without navigating away from startup.
+  if (navigator.serviceWorker.controller !== registration.active) {
+    registration.active.postMessage({ type: 'runtime-claim' });
+  }
+  await phase('Waiting for service worker control', () => waitForController(registration));
   if (!listenersRegistered) {
     navigator.serviceWorker.addEventListener(
       'message',
@@ -177,6 +198,6 @@ async function initialize(): Promise<string> {
     });
     listenersRegistered = true;
   }
-  await sendFsPort();
+  await phase('Connecting filesystem port', sendFsPort);
   return registration.scope;
 }

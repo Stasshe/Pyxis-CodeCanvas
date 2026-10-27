@@ -19,6 +19,7 @@ import type {
   RmOptions,
 } from '../../../core/fs/types';
 import { createWorkspace, ensureDemoWorkspace } from '../../../core/fs/workspace';
+import type { StartupProgress } from '../../../core/startup';
 
 registerFsErrors();
 
@@ -93,7 +94,8 @@ const api = {
   walk: (root: string) => run(() => core.walk(root)),
   exists: (path: string) => run(() => core.exists(path)),
   createWorkspace: (name: string) => run(() => createWorkspace(core, name)),
-  ensureDemoWorkspace: () => run(() => ensureDemoWorkspace(core)),
+  ensureDemoWorkspace: (report?: (progress: StartupProgress) => void) =>
+    run(() => ensureDemoWorkspace(core, report)),
   configureTranspilers(descriptors: TranspilerDescriptor[]): void {
     transpileManager.configureTranspilers(descriptors);
   },

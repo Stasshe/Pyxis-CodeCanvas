@@ -21,6 +21,11 @@ const fixture = vi.hoisted(() => ({
 }));
 
 vi.mock('@/engine/core/migration/idb', () => ({
+  countRecords: async (_db: IDBDatabase, store: string) => {
+    if (store === 'files') return fixture.files.length;
+    if (store === 'runtimeCache') return fixture.caches.length;
+    return 0;
+  },
   openState: async () => ({ close: fixture.close }),
   openExisting: async () => ({ close: fixture.close }),
   readValue: async () => structuredClone(fixture.state),
@@ -147,6 +152,42 @@ function memoryFs(): FsApi & {
 }
 
 describe('legacy storage import', () => {
+  it('does not start verification or another file operation after an aborted write returns late', async () => {
+    const fs = memoryFs();
+    const controller = new AbortController();
+    const writeFile = fs.writeFile;
+    const readFile = vi.spyOn(fs, 'readFile');
+    fs.writeFile = async (...args) => {
+      await writeFile(...args);
+      controller.abort(new Error('Startup timed out during write'));
+    };
+    await expect(
+      migrateLegacyStorage(fs, { signal: controller.signal, report: vi.fn() })
+    ).rejects.toThrow('timed out during write');
+    expect(readFile).not.toHaveBeenCalled();
+    expect(fixture.deleted).toEqual([]);
+  });
+  it('reports verified record counts and retains legacy data if startup is aborted', async () => {
+    const fs = memoryFs();
+    const controller = new AbortController();
+    const report = vi.fn(progress => {
+      if (progress.detail.startsWith('Verified /home/pyxis'))
+        controller.abort(new Error('Startup timed out'));
+    });
+    await expect(migrateLegacyStorage(fs, { signal: controller.signal, report })).rejects.toThrow(
+      'Startup timed out'
+    );
+    expect(report).toHaveBeenCalledWith({
+      detail: 'Copying and verifying project files',
+      completed: 0,
+      total: 1,
+    });
+    expect(fixture.deleted).toEqual([]);
+    expect(fixture.state?.phase).toBe('copying');
+    expect(migrateMetadata).not.toHaveBeenCalled();
+    await migrateLegacyStorage(fs);
+    expect(fixture.state?.phase).toBe('complete');
+  });
   beforeEach(() => {
     fixture.projects = [{ id: 'p1', name: 'tmp' }];
     fixture.files = [

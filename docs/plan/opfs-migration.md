@@ -138,7 +138,7 @@ file I/Oに関わる処理はmainに置かない。mainはUI・軽い処理（sh
 - npm installはregistry tarballのbytesを展開して保存する。gzip解凍はstreamで行い、各package内ではtar entryごとに書き込みをawaitする。runtime変換はinstall時に行わず、実行時に必要なfileだけ変換する
 
 ### SW
-- 必須にする。初回訪問時は1回reloadする。devでも有効にする（現在の`sw-register.js`はlocalhostでSWを解除している）
+- 必須にする。devでも有効。登録と制御取得はruntime bridgeに集約し、初回も`clients.claim()`で制御する。自動reloadと独立した`sw-register.js`は使わない（2026-10-10更新）。
 - `sync-message`を取り込むため、`public/sw.js`をバンドル対象に変える（`setup-build`でesbuildにかける）
 
 ### 保留
