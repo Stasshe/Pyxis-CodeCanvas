@@ -1,4 +1,3 @@
-import { runStartupStage, type StartupProgress } from '@/engine/core/startup';
 import { assetPath } from '@/env';
 import type { HostRequest, RpcCall, RpcReply, RpcValue } from './protocol';
 
@@ -64,13 +63,10 @@ async function sendFsPort(): Promise<void> {
   }
 }
 
-export function ensureRuntimeBridge(
-  factory: () => Promise<MessagePort>,
-  report?: (progress: StartupProgress) => void
-): Promise<string> {
+export function ensureRuntimeBridge(factory: () => Promise<MessagePort>): Promise<string> {
   createPort = factory;
   if (!initialization) {
-    const pending = initialize(report);
+    const pending = initialize();
     let attempt: Promise<string>;
     attempt = pending.catch(error => {
       if (initialization === attempt) {
@@ -124,24 +120,27 @@ async function waitForController(registration: ServiceWorkerRegistration): Promi
   });
 }
 
-async function initialize(report?: (progress: StartupProgress) => void): Promise<string> {
+async function initialize(): Promise<string> {
   if (!('serviceWorker' in navigator)) throw new Error('Pyxis requires service worker support.');
-  const phase = <T>(detail: string, operation: () => Promise<T>): Promise<T> =>
-    runStartupStage(detail, operation, (_stage, progress) => report?.(progress), 30_000);
-  const registration = await phase('Registering service worker', () =>
-    navigator.serviceWorker.register(assetPath('/sw.js'), { updateViaCache: 'none' })
-  );
+  const registration = await new Promise<ServiceWorkerRegistration>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('Registering service worker timed out.')),
+      30_000
+    );
+    navigator.serviceWorker
+      .register(assetPath('/sw.js'), { updateViaCache: 'none' })
+      .then(resolve, reject)
+      .finally(() => clearTimeout(timer));
+  });
   const installing = registration.installing || registration.waiting;
-  if (installing) {
-    await phase('Activating service worker', () => waitForActivation(installing));
-  }
+  if (installing) await waitForActivation(installing);
   if (!registration.active) throw new Error('Runtime service worker is not active.');
   // Activation claims new pages. An already-active worker must also reclaim a
   // page loaded with a hard refresh, without navigating away from startup.
   if (navigator.serviceWorker.controller !== registration.active) {
     registration.active.postMessage({ type: 'runtime-claim' });
   }
-  await phase('Waiting for service worker control', () => waitForController(registration));
+  await waitForController(registration);
   if (!listenersRegistered) {
     navigator.serviceWorker.addEventListener(
       'message',
@@ -198,6 +197,6 @@ async function initialize(report?: (progress: StartupProgress) => void): Promise
     });
     listenersRegistered = true;
   }
-  await phase('Connecting filesystem port', sendFsPort);
+  await sendFsPort();
   return registration.scope;
 }

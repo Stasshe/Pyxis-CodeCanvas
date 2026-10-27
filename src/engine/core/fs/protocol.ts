@@ -1,6 +1,5 @@
 import type { ProxyMarked } from 'comlink';
 import type { ProjectFile } from '@/types';
-import type { StartupProgress } from '../startup';
 import type { GitConflictReporter, GitCredentialProvider } from './git';
 import type { SearchRequest, SearchResult } from './search';
 import type {
@@ -139,7 +138,7 @@ export interface FsWorkerApi extends FsFifoApi {
   walk(root: string): Promise<ProjectFile[]>;
   exists(path: string): Promise<boolean>;
   createWorkspace(name: string): Promise<string>;
-  ensureDemoWorkspace(report?: (progress: StartupProgress) => void): Promise<string>;
+  ensureDemoWorkspace(): Promise<string>;
   configureTranspilers(descriptors: TranspilerDescriptor[]): void;
   search(root: string, request: SearchRequest): Promise<SearchResult[]>;
   createRuntimePort(): MessagePort;

@@ -38,12 +38,10 @@
 | 2026-10-08 | [Folder切替後にタブ内容の復元が終わらない](knowledge/incidents/2026-10-08-restore-flag-folder-switch.md) |
 | 2026-10-08 | [Markdown previewのAMD衝突](knowledge/incidents/2026-10-08-markdown-preview-amd-collision.md) |
 | 2026-10-09 | [npm install後のroot全体walkがpromptを遅らせた](knowledge/incidents/2026-10-09-npm-install-root-walk.md) |
-| 2026-10-10 | [起動時の無表示と初回SW reload](knowledge/incidents/2026-10-10-startup-blank.md) |
 
 ## plan
 
 - [STORAGE_INTENT](plan/STORAGE_INTENT.md): storage・runtime再設計の判断理由
-- [STARTUP_INTENT](plan/STARTUP_INTENT.md): 移行の進捗・待機期限とSW制御取得の判断理由
 - [OPFS移行計画](plan/opfs-migration.md)
 - [Runtime storage refactor](plan/runtime-storage-refactor.md): 実装済み構成と未計測の検証項目
 - [ディレクトリ構造案](plan/directory-structure.md)

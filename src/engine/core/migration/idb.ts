@@ -8,11 +8,7 @@ export function openExisting(name: string): Promise<IDBDatabase | null> {
         request.transaction?.abort();
       }
     };
-    let blocked = false;
-    request.onsuccess = () => {
-      if (blocked) request.result.close();
-      else resolve(request.result);
-    };
+    request.onsuccess = () => resolve(request.result);
     request.onerror = () => {
       if (absent) {
         resolve(null);
@@ -20,10 +16,7 @@ export function openExisting(name: string): Promise<IDBDatabase | null> {
       }
       reject(request.error);
     };
-    request.onblocked = () => {
-      blocked = true;
-      reject(new Error(`Legacy database is blocked: ${name}`));
-    };
+    request.onblocked = () => reject(new Error(`Legacy database is blocked: ${name}`));
   });
 }
 
@@ -98,23 +91,6 @@ export function openState(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('PyxisStorageMigration', 1);
     request.onupgradeneeded = () => request.result.createObjectStore('state', { keyPath: 'id' });
-    let blocked = false;
-    request.onsuccess = () => {
-      if (blocked) request.result.close();
-      else resolve(request.result);
-    };
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => {
-      blocked = true;
-      reject(new Error('Storage migration database upgrade is blocked. Close other Pyxis tabs.'));
-    };
-  });
-}
-
-export function countRecords(db: IDBDatabase | null, storeName: string): Promise<number> {
-  if (!db || !db.objectStoreNames.contains(storeName)) return Promise.resolve(0);
-  return new Promise((resolve, reject) => {
-    const request = db.transaction(storeName).objectStore(storeName).count();
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });

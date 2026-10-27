@@ -43,15 +43,10 @@
     <script src="%BASE_URL%base-path-init.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-7K55SSBCPF"></script>
     <script src="%BASE_URL%ga-init.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
   </head>
   <body class="antialiased h-full font-sans">
-    <div id="root">
-      <div style="padding: 16px; overflow: auto; height: 100%; overflow-wrap: anywhere; box-sizing: border-box">
-        <p id="startup-status" role="status" aria-live="polite">Loading Pyxis</p>
-        <p id="startup-detail">Loading application modules</p>
-      </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

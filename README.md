@@ -146,7 +146,7 @@ Node.jsコードはRuntime Workerで動き、起動済みの待機Workerを再�
 Express 5.2.1とKoa 2.16.4のroute/responseはin-memory HTTP request/responseで確認済みです。Axiosのfetch adapterも動作します。`http.createServer`、socket、AxiosのNode TLS adapterは提供しません。
 仮想HOMEは`/home/pyxis`、新規workspaceは空の`~/<name>`、runtime cacheは`~/.cache/pyxis`、npm cacheは`~/.npm`です。folder選択前のeditor paneは空で、file treeはmetadataのみを保持し、fileを開いた時に内容を読み込みます。OperationWindowはQuick Open、Open Folder、Open Recentを独立modeとして提供します。npmはinstall中に依存metadataを共有し、npm registryのabbreviated packumentを`~/.npm/registry`へ保存します。HTTP freshnessに従い、期限切れmetadataはETagで再検証します。tarball archiveはURLのSHA-256で識別し、registryまたはlockfileにintegrity値があれば展開前に検証します。tarball cacheは展開成功後に`~/.npm`へ保存します。`initial_files/`の内容は起動時に`~/demo`へ投入されますが、既存の`~/demo`がある場合は変更しません。既存folderを開くときも内容を追加しません。
 
-起動中はmodule読込、旧データ移行、demo生成、SW接続の進捗を表示します。進捗停止と失敗は画面とlogに出し、SWの初回登録でも自動reloadしません。詳細は[起動順序](docs/arch/system-overview.md#起動順序)を参照してください。
+Service Workerはruntime bridgeで登録し、初回も自動reloadせずに制御を取得します。詳細は[起動順序](docs/arch/system-overview.md#起動順序)を参照してください。
 
 - **停止操作** - RunPanelの停止は実行を終了し、TerminalのCtrl+CはプログラムのSIGINTハンドラーを呼び出す
 - **分離した実行環境** - 実行ごとにmodule cacheやtimerなどの状態を作り直し、Workerは正常終了時に再利用
@@ -260,7 +260,7 @@ Pyxis最大の特徴のひとつが「拡張機能システム」です。VSCode
 ## なぜPyxisを選ぶべきか？
 
 ### **超高速 - 待ち時間ゼロ**
-- **軽快な起動** - サーバー不要、初期化中は処理の進捗を表示
+- **瞬間起動** - サーバーなし、ローディング画面なし、純粋なスピード
 - **静的ホスティング** でまばたきより速く読み込み
 - **ストレスフリー、ラグなし** - 思考の速度でコーディング
 

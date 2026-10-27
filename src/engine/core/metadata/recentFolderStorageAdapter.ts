@@ -18,7 +18,6 @@ function openDatabase(): Promise<IDBDatabase> {
 
   const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    let blocked = false;
 
     request.onupgradeneeded = () => {
       const database = request.result;
@@ -28,10 +27,6 @@ function openDatabase(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const database = request.result;
-      if (blocked) {
-        database.close();
-        return;
-      }
       database.onversionchange = () => {
         database.close();
         if (databasePromise === opening) databasePromise = null;
@@ -40,10 +35,6 @@ function openDatabase(): Promise<IDBDatabase> {
     };
     request.onerror = () => {
       reject(request.error);
-    };
-    request.onblocked = () => {
-      blocked = true;
-      reject(new Error('Recent folders database upgrade is blocked. Close other Pyxis tabs.'));
     };
   });
 

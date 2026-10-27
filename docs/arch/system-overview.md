@@ -93,8 +93,6 @@ sequenceDiagram
   participant Mig as Legacy migration
   participant Proj as projectStore
   participant SW as Service Worker
-  Page->>Page: show HTML startup status
-  Page->>Page: load application modules
   Page->>Client: init
   Client->>Client: acquire Web Lock
   Client->>Worker: create and init Core
@@ -109,12 +107,9 @@ sequenceDiagram
 - FS Core初期化で`/home/pyxis`、`~/.cache/pyxis`、`~/.npm`、symlink record領域を作る。
 - 旧storage移行はseedより前に走る。移行は既存の移行先を見つけると停止するので、先にseedすると旧project `demo`が移行できなくなる。
 - `~/demo`は存在しない場合だけ生成済み`initial_files/`で作る。新規workspaceは空。
-- `main.tsx`は軽量な起動入口、`application.tsx`はReact treeとengineの組立て。大きなmodule graphを動的読込する前からHTMLにstatusを表示する。headのPyodide scriptはdeferし、bodyのparseを止めない。
-- SW登録はruntime bridgeの1か所。`skipWaiting`→`clients.claim`後の現在のcontrollerを待ち、初回も自動reloadしない。active SWが未制御pageを再取得する場合は`runtime-claim`を送る。過去のcontroller snapshot・sessionStorage reload keyは使わない。
-- 各stageの開始・完了・失敗と経過msを`[Startup]`でconsoleへ記録する。画面にはstageと処理対象、取得できる件数を表示する。進捗が60秒止まったstageは失敗し、FS WorkerとWeb Lockを解放する。移行の総所要時間には上限を置かない。SWの登録・activationは30秒、controller・port取得と確認は10秒。
-- 失敗は画面とconsoleに示して起動を止める。移行は中断signalを検査し、遅れて処理が戻っても次の工程・旧DB削除へ進めない。ブラウザの既に発行済みIDB要求そのものは取消せない。
-
-判断の背景は [STARTUP_INTENT](../plan/STARTUP_INTENT.md)、成立条件の調査は [起動時の無表示とreload](../knowledge/incidents/2026-10-10-startup-blank.md)。
+- SW登録はruntime bridgeに集約する。activation後に現在のcontrollerを確認し、未制御pageにはactive SWへ`runtime-claim`を送って`clients.claim()`で制御を取得する。初回も自動reloadしない。
+- SW登録・activationは各30秒、controller・FS port取得と受領確認は各10秒でtimeoutする。
+- どの段階の失敗もReact描画前に画面へエラーを表示して止まる。
 
 ## サブシステム一覧
 

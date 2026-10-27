@@ -127,11 +127,7 @@ stateDiagram-v2
 - 状態は`PyxisStorageMigration` DBに保存する。project→root mappingはコピー前に保存し、retryで同じ移行先を使う。
 - 未割当projectの移行先が既に存在すれば、そのprojectへの書込み前に停止し、旧データを残す。suffixを付けて避けない。
 - file payloadは旧`ArrayBuffer`/`Uint8Array`からdecodeせずにコピーし、全fileのbytesとfile数を検証してから`PyxisProjects`、`pyxis-fs`、`pyxis-fs_lock`を削除する。
-- 移行中は同一originのquotaを一時的に約2倍使う。失敗は画面とlogに出して起動を止める。
-- worktreeとruntime cacheは旧object storeの`count()`を分母として、copyとbyte検証が済んだ件数を表示する。Git履歴は処理件数、project単位のfile数検証はproject件数を表示し、metadataはchat・review・sessionの対象keyを表示する。
-- 起動は進捗のない60秒をtimeoutとする。中断signalの確認後に次の工程へ進むため、遅れて戻ったcopyやmetadata処理から旧DB削除へ進まない。完了済みのcopyとroot mappingはretryで使う。未完了copy中は旧DBを保持する。`cleanup`移行後のDB削除要求はブラウザが継続する場合があるが、この段階のcopyと検証は既に完了している。
-- migration state・application metadata・recent folders DBのupgradeがblockedなら即エラー。blocked後にopenが成功しても、その接続は閉じる。FS Workerのscript load・message decode失敗はComlink init待ちへ返し、起動の永久待ちにしない。
-- `~/demo`の生成はFS Workerから作成済みentry件数を返す。既存のdemoは再生成しない。
+- 移行中は同一originのquotaを一時的に約2倍使う。失敗はlogに出して起動を止める。
 
 ## 実装の場所
 

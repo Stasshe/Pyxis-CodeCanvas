@@ -127,7 +127,7 @@ Node.js code runs in a Runtime Worker, reusing a prewarmed idle Worker when avai
 `fs.chmod()` updates mode metadata exposed through `stat()` and `access()`. `util.styleText()` generates ANSI styles according to terminal color settings. The runtime's `assert` export is callable and includes `assert/strict`; `util` uses Node-derived `inspect`, `format`, and `formatWithOptions`, and supports `isDeepStrictEqual` and `promisify.custom`. `process.env` inherits the launching shell environment, and `process.chdir()` operates within the virtual filesystem. `crypto` provides hashes, HMAC, PBKDF2, random bytes and integers, IV-based ciphers, signing and verification, ECDH/DH, public/private key encryption and decryption, `scrypt`, and `scryptSync`. Key generation is unavailable.
 The virtual HOME is `/home/pyxis`; new workspaces at `~/<name>` start empty, the runtime module cache uses `~/.cache/pyxis`, and the npm cache uses `~/.npm`. The active editor pane is empty until a folder is selected. The file tree holds metadata only and reads file content when a file is opened. OperationWindow offers separate Quick Open, Open Folder, and Open Recent modes. npm stores compact abbreviated registry metadata under `~/.npm/registry` according to HTTP freshness and revalidates expired entries with ETag. Tarballs are keyed by the SHA-256 of the exact resolved URL, checked against available registry or lockfile integrity before extraction, and cached after successful extraction. npm v3 `package-lock.json` records registry package placements and supports nested dependency versions. At startup, generated `initial_files/` content is placed in `~/demo` only if that directory is absent. Existing folders, including an existing `~/demo`, are left intact.
 
-Startup shows module loading, legacy migration, demo seeding, and service worker connection progress. Stalled stages and failures appear on screen and in logs; first service worker registration does not automatically reload the page. See the [startup flow](docs/arch/system-overview.md#起動順序) (Japanese).
+The runtime bridge registers the service worker and acquires control without automatically reloading the page, including on the first visit. See the [startup flow](docs/arch/system-overview.md#起動順序) (Japanese).
 
 - **Stop controls** - RunPanel Stop ends the run; Terminal Ctrl+C invokes the program's SIGINT handler
 - ⚡ **Isolated execution** - Per-run module caches and timers are reset; normally completed Workers are reused
@@ -237,7 +237,7 @@ Navigate your projects with **VS Code-like efficiency**! Fast file search, an op
 ## 🎯 Why Choose Pyxis?
 
 ### **Lightning Fast - Zero Wait Time**
-- **Fast startup** - Static hosting, with progress shown during initialization
+- **Instant startup** - No servers, no loading screens, just pure speed
 - **Static hosting** means it loads faster than you can blink
 - **No stress, no lag** - Code at the speed of thought
 

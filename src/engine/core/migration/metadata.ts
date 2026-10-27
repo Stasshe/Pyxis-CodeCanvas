@@ -5,7 +5,6 @@ import { isPathWithin, normalizePath } from '@/engine/core/paths';
 import type { PyxisSession } from '@/stores/sessionStore';
 import type { AIEditResponse, AIReviewEntry, AIReviewHistoryEntry, ChatSpace } from '@/types/index';
 import type { EditorPane, Tab } from '@/types/tabs';
-import type { StartupContext } from '../startup';
 import { iterateAllKeyed, openExisting, readValue, writeValue } from './idb';
 import type { LegacyChatSpace, LegacyFile, LegacyFileReference, LegacyMapping } from './types';
 
@@ -273,15 +272,13 @@ function sessionMapping(
 async function migrateSession(
   db: IDBDatabase,
   mappings: LegacyMapping[],
-  files: LegacyFileReference[],
-  context?: StartupContext
+  files: LegacyFileReference[]
 ): Promise<void> {
   const sources = new Map<string, { store: string; key: IDBValidKey; mapping: LegacyMapping }>();
   for await (const { key, value: oldTabState } of iterateAllKeyed<StoredEntry<PyxisSession>>(
     db,
     STORES.TAB_STATE
   )) {
-    context?.report({ detail: `Reading tab session: ${String(key)}` });
     const targetAlready = mappings.some(
       mapping => oldTabState.id === `tabState:${mapping.rootPath}`
     );
@@ -306,7 +303,6 @@ async function migrateSession(
   }
 
   for (const source of sources.values()) {
-    context?.report({ detail: `Migrating tab session: ${source.mapping.name}` });
     const stored = await readValue<StoredEntry<PyxisSession>>(db, source.store, source.key);
     if (!stored)
       throw new Error(`Legacy session source disappeared: ${source.store}/${source.key}`);
@@ -351,8 +347,7 @@ type SourceValue = LegacyFile | LegacyChatSpace | StoredEntry<LegacyChatSpace | 
 async function migrateChats(
   db: IDBDatabase,
   mappings: LegacyMapping[],
-  projectsDb: IDBDatabase | null,
-  context?: StartupContext
+  projectsDb: IDBDatabase | null
 ): Promise<void> {
   const sources = new Map<string, { pointer: SourcePointer; timestamp: number }>();
   const consider = (space: LegacyChatSpace, pointer: SourcePointer): void => {
@@ -365,7 +360,6 @@ async function migrateChats(
   };
   if (projectsDb) {
     for await (const { key, value } of iterateAllKeyed<LegacyChatSpace>(projectsDb, 'chatSpaces')) {
-      context?.report({ detail: `Reading chat: ${String(key)}` });
       consider(value, { db: projectsDb, store: 'chatSpaces', key, format: 'project' });
     }
   }
@@ -373,11 +367,9 @@ async function migrateChats(
     db,
     STORES.CHAT_SPACES
   )) {
-    context?.report({ detail: `Reading chat: ${String(key)}` });
     consider(value.data, { db, store: STORES.CHAT_SPACES, key, format: 'stored' });
   }
   for (const [targetKey, source] of sources) {
-    context?.report({ detail: `Migrating chat: ${targetKey}` });
     let raw: SourceValue;
     let space: LegacyChatSpace;
     if (source.pointer.format === 'project') {
@@ -414,12 +406,10 @@ async function migrateReviews(
   db: IDBDatabase,
   mappings: LegacyMapping[],
   files: LegacyFileReference[],
-  projectsDb: IDBDatabase | null,
-  context?: StartupContext
+  projectsDb: IDBDatabase | null
 ): Promise<void> {
   const reviews = new Map<string, SourcePointer>();
   for (const file of files) {
-    context?.signal.throwIfAborted();
     if (!file.hasReview || !projectsDb) continue;
     const mapping = findMapping(mappings, file.projectId);
     reviews.set(reviewKey(mapping.rootPath, absolutePath(mapping, file.path)), {
@@ -434,7 +424,6 @@ async function migrateReviews(
     db,
     'ai_reviews'
   )) {
-    context?.report({ detail: `Reading review: ${String(key)}` });
     const mapping = mappings.find(candidate => entry.data.projectId === candidate.id);
     if (!entry.data.projectId) continue;
     if (!mapping) throw new Error(`AI review has no project mapping: ${entry.data.projectId}`);
@@ -447,7 +436,6 @@ async function migrateReviews(
   }
 
   for (const [targetKey, source] of reviews) {
-    context?.report({ detail: `Migrating review: ${targetKey}` });
     let review: AIReviewEntry;
     let historylessFile = false;
     let raw: SourceValue;
@@ -491,19 +479,17 @@ async function migrateReviews(
 export async function migrateMetadata(
   mappings: LegacyMapping[],
   files: LegacyFileReference[],
-  projectsDb: IDBDatabase | null,
-  context?: StartupContext
+  projectsDb: IDBDatabase | null
 ): Promise<void> {
   if (mappings.length === 0) return;
   await storageService.initialize();
   const db = await openExisting(IDB.GLOBAL.NAME);
   if (!db) throw new Error('Could not initialize the metadata database');
   try {
-    await migrateChats(db, mappings, projectsDb, context);
-    await migrateReviews(db, mappings, files, projectsDb, context);
-    await migrateSession(db, mappings, files, context);
+    await migrateChats(db, mappings, projectsDb);
+    await migrateReviews(db, mappings, files, projectsDb);
+    await migrateSession(db, mappings, files);
     for (const mapping of mappings) {
-      context?.report({ detail: `Saving recent folder: ${mapping.name}` });
       await saveRecentFolder({
         rootPath: mapping.rootPath,
         name: mapping.name,

@@ -1,38 +1,75 @@
+import './polyfills';
 import './styles/globals.css';
-import { runStartupStage } from './engine/core/startup';
+import './lib/ReactScan';
+import './lib/monaco/monacoLoader';
+
+import { createRoot } from 'react-dom/client';
+
+import App from './App';
+import AppInitializer from './components/layout/AppInitializer';
+import { TabSessionManager } from './components/tabs/TabSessionManager';
+import { FileSelectorProvider } from './context/FileSelectorContext';
+import { GitHubUserProvider } from './context/GitHubUserContext';
+import { I18nProvider } from './context/I18nContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { fsClient } from './engine/core/fs/index';
+import { migrateLegacyStorage } from './engine/core/migration/index';
+import { prepareProjectStore } from './engine/core/workspace/project';
+import { initializeAppCommands } from './engine/ide/commands/initialize';
+import { ensureRuntimeBridge } from './engine/system/runtime/bridge/main';
 import { assetPath, pyxisEnv } from './env';
-import { showStartup, showStartupError } from './startup';
 
 function loadScript(src: string, onLoad?: () => void): void {
   const script = document.createElement('script');
   script.src = src;
-  if (onLoad) script.addEventListener('load', onLoad, { once: true });
+  if (onLoad) {
+    script.addEventListener('load', onLoad, { once: true });
+  }
   document.head.appendChild(script);
 }
 
 if (!pyxisEnv.isProductionBuild || pyxisEnv.isDevServer) {
-  loadScript('https://cdn.jsdelivr.net/npm/eruda', () => loadScript(assetPath('/eruda-init.js')));
+  loadScript('https://cdn.jsdelivr.net/npm/eruda', () => {
+    loadScript(assetPath('/eruda-init.js'));
+  });
+}
+
+const root = document.getElementById('root');
+
+if (!root) {
+  throw new Error('Root element was not found.');
 }
 
 async function start(): Promise<void> {
-  let application: typeof import('./application') | undefined;
   try {
-    const root = document.getElementById('root');
-    if (!root) throw new Error('Root element was not found.');
-    application = await runStartupStage(
-      'Loading application modules',
-      async () => {
-        await import('./polyfills');
-        return import('./application');
-      },
-      showStartup
-    );
-    await application.startApplication(root);
+    initializeAppCommands();
+    await fsClient.init();
+    await migrateLegacyStorage(fsClient);
+    await fsClient.ensureDemoWorkspace();
+    await prepareProjectStore();
+    await ensureRuntimeBridge(() => fsClient.createRuntimePort());
   } catch (error) {
     console.error('Pyxis startup failed:', error);
-    application?.closeFilesystem();
-    showStartupError(error);
+    const message = document.createElement('p');
+    message.setAttribute('role', 'alert');
+    message.textContent = String(error);
+    root!.replaceChildren(message);
+    return;
   }
+  createRoot(root!).render(
+    <I18nProvider>
+      <ThemeProvider>
+        <GitHubUserProvider>
+          <TabSessionManager>
+            <FileSelectorProvider>
+              <App />
+              <AppInitializer />
+            </FileSelectorProvider>
+          </TabSessionManager>
+        </GitHubUserProvider>
+      </ThemeProvider>
+    </I18nProvider>
+  );
 }
 
 void start();
